@@ -59,6 +59,10 @@ frontend/test-results/
 frontend/playwright-report/
 frontend/.turbo/
 
+# Allow frontend source libraries (lib/ is ignored above for Python tooling)
+!frontend/lib/
+!frontend/lib/**
+
 # Testing
 .pytest_cache/
 .coverage
