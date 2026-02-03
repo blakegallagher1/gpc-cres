@@ -22,6 +22,7 @@ Last updated: 2026-02-03
 - Added `frontend/app/api/health` to validate all `.env` keys in Vercel, applied root `.env` vars to preview/production/development, redeployed, and verified the health endpoint returns `status: ok` with no missing keys.
 - Secured `/api/health` with token or Supabase session auth (HEALTHCHECK_TOKEN/VERCEL_ACCESS_TOKEN), trimmed token input to tolerate newline artifacts, redeployed, and verified the auth-protected health endpoint.
 - Added build metadata (commit SHA/ref/provider) to `/api/health`, restored `frontend/vercel.json`, and updated the Vercel project settings to `frontend` + Next.js with Node 22 for correct builds.
+- Unignored `frontend/lib` in `.gitignore`, committed the frontend lib sources, redeployed to Vercel, and verified `/api/health` reflects the latest GitHub SHA on `gpc-cres.vercel.app`.
 
 ## Pending / Remaining Tasks
 - Verify frontend pages render with real data in the deployed environment (Dashboard, Agents, Workflows, Runs).
