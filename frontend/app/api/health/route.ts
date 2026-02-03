@@ -102,6 +102,11 @@ export async function GET(request: NextRequest) {
     {
       status: ok ? "ok" : "degraded",
       missing,
+      build: {
+        sha: process.env.VERCEL_GIT_COMMIT_SHA || null,
+        ref: process.env.VERCEL_GIT_COMMIT_REF || null,
+        provider: process.env.VERCEL_GIT_PROVIDER || null,
+      },
       timestamp: new Date().toISOString(),
     },
     { status: ok ? 200 : 500 }
