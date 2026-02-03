@@ -48,12 +48,20 @@ class SupabaseConfig:
     """Supabase configuration"""
 
     url: str = field(default_factory=lambda: os.getenv("SUPABASE_URL", ""))
-    service_key: str = field(default_factory=lambda: os.getenv("SUPABASE_SERVICE_KEY", ""))
+    service_key: str = field(
+        default_factory=lambda: str(
+            os.getenv("SUPABASE_SERVICE_KEY")
+            or os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+            or ""
+        )
+    )
     anon_key: str = field(default_factory=lambda: os.getenv("SUPABASE_ANON_KEY", ""))
 
     def __post_init__(self):
         if not self.url or not self.service_key:
-            raise ValueError("SUPABASE_URL and SUPABASE_SERVICE_KEY are required")
+            raise ValueError(
+                "SUPABASE_URL and SUPABASE_SERVICE_KEY/SUPABASE_SERVICE_ROLE_KEY are required"
+            )
 
 
 @dataclass
