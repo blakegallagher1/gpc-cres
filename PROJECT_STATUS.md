@@ -24,6 +24,7 @@ Last updated: 2026-02-03
 - Added build metadata (commit SHA/ref/provider) to `/api/health`, restored `frontend/vercel.json`, and updated the Vercel project settings to `frontend` + Next.js with Node 22 for correct builds.
 - Unignored `frontend/lib` in `.gitignore`, committed the frontend lib sources, redeployed to Vercel, and verified `/api/health` reflects the latest GitHub SHA on `gpc-cres.vercel.app`.
 - Enabled GitHub branch protection on `main` (PR-only, required checks) and added an auto-merge workflow to merge PRs once checks pass without reviews.
+- CI now runs a frontend production build with placeholder Supabase envs in addition to lint/tests.
 
 ## Pending / Remaining Tasks
 - Verify frontend pages render with real data in the deployed environment (Dashboard, Agents, Workflows, Runs).
