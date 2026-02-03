@@ -1,0 +1,62 @@
+# Gallagher Property Company - AI Agent System
+# Docker Compose Configuration
+
+version: '3.8'
+
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENV=${APP_ENV:-development}
+      - APP_DEBUG=${APP_DEBUG:-true}
+      - APP_LOG_LEVEL=${APP_LOG_LEVEL:-INFO}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_FLAGSHIP_MODEL=${OPENAI_FLAGSHIP_MODEL:-gpt-5.2}
+      - OPENAI_STANDARD_MODEL=${OPENAI_STANDARD_MODEL:-gpt-5.1}
+      - PERPLEXITY_API_KEY=${PERPLEXITY_API_KEY}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
+      - B2_APPLICATION_KEY_ID=${B2_APPLICATION_KEY_ID}
+      - B2_APPLICATION_KEY=${B2_APPLICATION_KEY}
+      - B2_BUCKET_NAME=${B2_BUCKET_NAME:-gallagher-documents}
+      - AGENT_MAX_TURNS=${AGENT_MAX_TURNS:-50}
+      - AGENT_ENABLE_TRACING=${AGENT_ENABLE_TRACING:-true}
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Optional: Redis for caching (future enhancement)
+  # redis:
+  #   image: redis:7-alpine
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis_data:/data
+  #   restart: unless-stopped
+
+  # Optional: PostgreSQL for local development (instead of Supabase)
+  # postgres:
+  #   image: postgres:15-alpine
+  #   environment:
+  #     - POSTGRES_USER=gpc
+  #     - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-gpc_dev}
+  #     - POSTGRES_DB=gallagher_cres
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #     - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+  #   restart: unless-stopped
+
+# volumes:
+#   redis_data:
+#   postgres_data:

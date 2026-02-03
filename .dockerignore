@@ -1,0 +1,69 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv/
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+
+# Documentation
+docs/
+README.md
+*.md
+
+# Tests
+tests/
+test/
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Database (for local dev)
+*.sqlite3
+*.db
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Outputs
+outputs/
+results/
+traces/
+
+# Credentials
+*credentials*.json
+b2_credentials.json
+google_credentials.json
