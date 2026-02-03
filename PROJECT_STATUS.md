@@ -25,6 +25,7 @@ Last updated: 2026-02-03
 - Unignored `frontend/lib` in `.gitignore`, committed the frontend lib sources, redeployed to Vercel, and verified `/api/health` reflects the latest GitHub SHA on `gpc-cres.vercel.app`.
 - Enabled GitHub branch protection on `main` (PR-only, required checks) and added an auto-merge workflow to merge PRs once checks pass without reviews.
 - CI now runs a frontend production build with placeholder Supabase envs in addition to lint/tests.
+- Auto-merge workflow now targets the PR number directly to avoid failing checks.
 
 ## Pending / Remaining Tasks
 - Verify frontend pages render with real data in the deployed environment (Dashboard, Agents, Workflows, Runs).
