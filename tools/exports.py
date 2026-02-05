@@ -5,7 +5,7 @@ Packaging helpers for one-click exports.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from docx import Document as DocxDocument
 from openpyxl import Workbook
@@ -17,7 +17,7 @@ try:
 except ImportError:  # pragma: no cover - optional dependency in some envs
     PptxPresentation = None
 
-Presentation: Optional[Callable[..., Any]] = PptxPresentation
+Presentation: Optional[Any] = PptxPresentation
 
 
 def _ensure_dir(path: Path) -> None:
