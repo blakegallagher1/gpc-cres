@@ -60,7 +60,7 @@ export default function ScreeningIndexPage() {
       const params = new URLSearchParams();
       if (statusFilter !== "all") params.set("status", statusFilter);
       if (reviewFilter !== "all")
-        params.set("needs_review", reviewFilter === "review");
+        params.set("needs_review", reviewFilter === "review" ? "true" : "false");
       if (search.trim()) params.set("search", search.trim());
       if (minScore.trim()) params.set("min_score", minScore.trim());
       if (maxScore.trim()) params.set("max_score", maxScore.trim());
