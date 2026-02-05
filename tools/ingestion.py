@@ -4,15 +4,16 @@ Document ingestion helpers for Deal Room uploads.
 
 from __future__ import annotations
 
+import csv
 import shutil
 import subprocess
 import tempfile
 from pathlib import Path
 from typing import Any, Dict
 
-import pandas as pd
 import pdfplumber
 from docx import Document as DocxDocument
+from openpyxl import load_workbook
 
 
 def _read_pdf_text(file_path: Path, max_pages: int = 5) -> str:
@@ -69,16 +70,47 @@ def _read_docx_text(file_path: Path) -> str:
 
 
 def _read_tabular_preview(file_path: Path) -> Dict[str, Any]:
-    if file_path.suffix.lower() in {".csv", ".tsv"}:
-        df = pd.read_csv(file_path)
-    else:
-        df = pd.read_excel(file_path)
-    preview = df.head(10)
-    return {
-        "columns": list(preview.columns),
-        "rows": preview.to_dict(orient="records"),
-        "row_count": int(df.shape[0]),
-    }
+    suffix = file_path.suffix.lower()
+    if suffix in {".csv", ".tsv"}:
+        delimiter = "\t" if suffix == ".tsv" else ","
+        columns: list[str] = []
+        rows: list[dict[str, Any]] = []
+        row_count = 0
+        with file_path.open(newline="", encoding="utf-8", errors="ignore") as handle:
+            reader = csv.reader(handle, delimiter=delimiter)
+            for row in reader:
+                if row_count == 0:
+                    columns = [value.strip() for value in row]
+                else:
+                    if len(rows) < 10:
+                        rows.append(
+                            {columns[idx] if idx < len(columns) else f"col_{idx+1}": value
+                             for idx, value in enumerate(row)}
+                        )
+                row_count += 1
+        if row_count > 0:
+            row_count -= 1
+        return {"columns": columns, "rows": rows, "row_count": row_count}
+
+    workbook = load_workbook(file_path, read_only=True, data_only=True)
+    sheet = workbook.active
+    header_row: tuple[Any, ...] = next(
+        sheet.iter_rows(min_row=1, max_row=1, values_only=True), ()
+    )
+    columns = [str(value).strip() if value is not None else "" for value in header_row]
+    if not any(columns):
+        columns = [f"col_{idx+1}" for idx in range(len(header_row))]
+    rows = []
+    for row in sheet.iter_rows(min_row=2, max_row=11, values_only=True):
+        rows.append(
+            {
+                columns[idx] if idx < len(columns) else f"col_{idx+1}": value
+                for idx, value in enumerate(row)
+            }
+        )
+    row_count = max(sheet.max_row - 1, 0)
+    workbook.close()
+    return {"columns": columns, "rows": rows, "row_count": row_count}
 
 
 def extract_document(file_path: str, _mime_type: str | None = None) -> Dict[str, Any]:
