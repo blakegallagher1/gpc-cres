@@ -9,6 +9,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, cast
 
+from postgrest.exceptions import APIError
 from supabase import Client, create_client
 
 from config.settings import settings
@@ -35,6 +36,16 @@ class DatabaseManager:
 
     def _serialize_payload(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         return cast(Dict[str, Any], json.loads(json.dumps(payload, cls=JSONEncoder)))
+
+    def _is_missing_table_error(self, exc: Exception) -> bool:
+        if not isinstance(exc, APIError):
+            return False
+        if getattr(exc, "code", None) == "PGRST205":
+            return True
+        raw_error = getattr(exc, "_raw_error", None)
+        if isinstance(raw_error, dict):
+            return raw_error.get("code") == "PGRST205"
+        return False
 
     # ============================================
     # Project Operations
@@ -414,7 +425,12 @@ class DatabaseManager:
                 query = query.eq("status", statuses[0])
             else:
                 query = query.in_("status", statuses)
-        response = query.order("created_at", desc=True).execute()
+        try:
+            response = query.order("created_at", desc=True).execute()
+        except APIError as exc:
+            if self._is_missing_table_error(exc):
+                return []
+            raise
         return cast(List[Dict[str, Any]], response.data or [])
 
     # ============================================
@@ -455,7 +471,12 @@ class DatabaseManager:
                 query = query.eq("status", statuses[0])
             else:
                 query = query.in_("status", statuses)
-        response = query.order("created_at", desc=True).execute()
+        try:
+            response = query.order("created_at", desc=True).execute()
+        except APIError as exc:
+            if self._is_missing_table_error(exc):
+                return []
+            raise
         return cast(List[Dict[str, Any]], response.data or [])
 
     # ============================================
@@ -571,7 +592,12 @@ class DatabaseManager:
                 query = query.eq("status", statuses[0])
             else:
                 query = query.in_("status", statuses)
-        response = query.order("created_at", desc=True).execute()
+        try:
+            response = query.order("created_at", desc=True).execute()
+        except APIError as exc:
+            if self._is_missing_table_error(exc):
+                return []
+            raise
         return cast(List[Dict[str, Any]], response.data or [])
 
     async def upsert_screening_score(self, score_data: Dict[str, Any]) -> Dict[str, Any]:
