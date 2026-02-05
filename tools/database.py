@@ -3,6 +3,7 @@ Gallagher Property Company - Database Tools (Supabase)
 """
 
 import json
+import logging
 import os
 import uuid
 from datetime import date, datetime
@@ -13,6 +14,21 @@ from postgrest.exceptions import APIError
 from supabase import Client, create_client
 
 from config.settings import settings
+
+logger = logging.getLogger(__name__)
+_MISSING_TABLE_WARNED: set[str] = set()
+
+
+def _warn_missing_table_once(table: str, operation: str) -> None:
+    if table in _MISSING_TABLE_WARNED:
+        return
+    _MISSING_TABLE_WARNED.add(table)
+    logger.warning(
+        "Supabase table '%s' is missing (PGRST205). Returning empty result for %s until "
+        "migrations are applied.",
+        table,
+        operation,
+    )
 
 
 class JSONEncoder(json.JSONEncoder):
@@ -429,6 +445,7 @@ class DatabaseManager:
             response = query.order("created_at", desc=True).execute()
         except APIError as exc:
             if self._is_missing_table_error(exc):
+                _warn_missing_table_once("export_jobs", "DatabaseManager.list_export_jobs")
                 return []
             raise
         return cast(List[Dict[str, Any]], response.data or [])
@@ -475,6 +492,7 @@ class DatabaseManager:
             response = query.order("created_at", desc=True).execute()
         except APIError as exc:
             if self._is_missing_table_error(exc):
+                _warn_missing_table_once("ingestion_jobs", "DatabaseManager.list_ingestion_jobs")
                 return []
             raise
         return cast(List[Dict[str, Any]], response.data or [])
@@ -596,6 +614,7 @@ class DatabaseManager:
             response = query.order("created_at", desc=True).execute()
         except APIError as exc:
             if self._is_missing_table_error(exc):
+                _warn_missing_table_once("screening_runs", "DatabaseManager.list_screening_runs")
                 return []
             raise
         return cast(List[Dict[str, Any]], response.data or [])
