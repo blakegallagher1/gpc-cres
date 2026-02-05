@@ -2,10 +2,11 @@
 Gallagher Property Company - Legal Agent
 """
 
+import os
 from functools import partial
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, List, Optional
 
-from agents import Agent
+from agents import Agent, FileSearchTool, Tool
 from agents import function_tool as base_function_tool
 from pydantic import BaseModel
 
@@ -441,18 +442,29 @@ async def save_legal_output(project_id: str, legal_data: Dict[str, Any]) -> Dict
     return output or {"status": "saved"}
 
 
+vector_store_ids = [
+    value.strip()
+    for value in os.getenv("OPENAI_VECTOR_STORE_IDS", "").split(",")
+    if value.strip()
+]
+
+legal_tools: list[Tool] = [
+    analyze_zoning,
+    draft_document,
+    review_contract,
+    track_permits,
+    save_legal_output,
+]
+
+if vector_store_ids:
+    legal_tools.append(FileSearchTool(vector_store_ids=vector_store_ids))
+
+
 # Legal Agent definition
 legal_agent = Agent(
     name="Legal Agent",
     model=settings.openai.standard_model,  # gpt-5.1 for legal tasks
     instructions=LEGAL_PROMPT,
-    tools=[
-        analyze_zoning,
-        draft_document,
-        review_contract,
-        track_permits,
-        save_legal_output,
-        cast(Any, {"type": "file_search"}),  # For document review
-    ],
+    tools=legal_tools,
     handoffs=[],  # Will be configured after all agents defined
 )

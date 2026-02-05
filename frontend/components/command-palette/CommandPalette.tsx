@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   CommandDialog,
@@ -24,9 +24,12 @@ import {
   Moon,
   Sun,
   Keyboard,
+  Presentation,
+  Sparkles,
 } from "lucide-react";
 import { useAgents } from "@/lib/hooks/useAgents";
 import { useTheme } from "next-themes";
+import { useUIStore } from "@/stores/uiStore";
 
 interface Command {
   id: string;
@@ -38,17 +41,18 @@ interface Command {
 }
 
 export function CommandPalette() {
-  const [open, setOpen] = useState(false);
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const { agents } = useAgents();
+  const { commandPaletteOpen, setCommandPaletteOpen, toggleCopilot } =
+    useUIStore();
 
   const navigate = useCallback(
     (path: string) => {
       router.push(path);
-      setOpen(false);
+      setCommandPaletteOpen(false);
     },
-    [router]
+    [router, setCommandPaletteOpen]
   );
 
   const commands: Command[] = useMemo(
@@ -57,7 +61,7 @@ export function CommandPalette() {
       {
         id: "nav-dashboard",
         title: "Go to Dashboard",
-        shortcut: "G D",
+        shortcut: "G H",
         icon: LayoutDashboard,
         action: () => navigate("/"),
         keywords: ["home", "overview", "stats"],
@@ -77,6 +81,14 @@ export function CommandPalette() {
         icon: Workflow,
         action: () => navigate("/workflows"),
         keywords: ["workflows", "pipelines", "automation"],
+      },
+      {
+        id: "nav-deal-room",
+        title: "Go to Deal Room",
+        shortcut: "G D",
+        icon: Presentation,
+        action: () => navigate("/deal-room"),
+        keywords: ["deal", "room", "collaboration", "memo"],
       },
       {
         id: "nav-runs",
@@ -127,10 +139,21 @@ export function CommandPalette() {
         icon: FileJson,
         action: () => {
           // Trigger import dialog
-          setOpen(false);
+          setCommandPaletteOpen(false);
           document.dispatchEvent(new CustomEvent("import-workflow"));
         },
         keywords: ["import", "json", "workflow"],
+      },
+      {
+        id: "action-copilot",
+        title: "Toggle Copilot Panel",
+        shortcut: "⌘ .",
+        icon: Sparkles,
+        action: () => {
+          toggleCopilot();
+          setCommandPaletteOpen(false);
+        },
+        keywords: ["copilot", "sidekick", "assistant"],
       },
       {
         id: "action-toggle-theme",
@@ -139,7 +162,7 @@ export function CommandPalette() {
         icon: theme === "dark" ? Sun : Moon,
         action: () => {
           setTheme(theme === "dark" ? "light" : "dark");
-          setOpen(false);
+          setCommandPaletteOpen(false);
         },
         keywords: ["theme", "dark", "light", "mode"],
       },
@@ -148,13 +171,13 @@ export function CommandPalette() {
         title: "Keyboard Shortcuts",
         icon: Keyboard,
         action: () => {
-          setOpen(false);
+          setCommandPaletteOpen(false);
           document.dispatchEvent(new CustomEvent("show-shortcuts"));
         },
         keywords: ["shortcuts", "keyboard", "hotkeys"],
       },
     ],
-    [navigate, theme, setTheme, agents]
+    [navigate, theme, setTheme, agents, setCommandPaletteOpen, toggleCopilot]
   );
 
   // Keyboard shortcut listener
@@ -163,19 +186,23 @@ export function CommandPalette() {
       // Cmd/Ctrl + K to open
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
-        setOpen((open) => !open);
+        setCommandPaletteOpen(!commandPaletteOpen);
       }
 
       // Navigation shortcuts when closed
-      if (!open) {
+      if (!commandPaletteOpen) {
         const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
         const modifierKey = isMac ? e.metaKey : e.ctrlKey;
 
         if (modifierKey) {
           switch (e.key.toLowerCase()) {
-            case "d":
+            case "h":
               e.preventDefault();
               navigate("/");
+              break;
+            case "d":
+              e.preventDefault();
+              navigate("/deal-room");
               break;
             case "a":
               e.preventDefault();
@@ -201,6 +228,10 @@ export function CommandPalette() {
               e.preventDefault();
               setTheme(theme === "dark" ? "light" : "dark");
               break;
+            case ".":
+              e.preventDefault();
+              toggleCopilot();
+              break;
           }
         }
       }
@@ -208,14 +239,14 @@ export function CommandPalette() {
 
     document.addEventListener("keydown", down);
     return () => document.removeEventListener("keydown", down);
-  }, [navigate, open, theme, setTheme]);
+  }, [navigate, commandPaletteOpen, theme, setTheme, setCommandPaletteOpen, toggleCopilot]);
 
   return (
     <>
       <Button
         variant="outline"
         className="relative h-9 w-full justify-start rounded-md bg-muted/50 text-sm font-normal text-muted-foreground shadow-none hover:bg-muted sm:pr-12 md:w-40 lg:w-64"
-        onClick={() => setOpen(true)}
+        onClick={() => setCommandPaletteOpen(true)}
       >
         <Search className="mr-2 h-4 w-4" />
         Search...
@@ -224,7 +255,7 @@ export function CommandPalette() {
         </kbd>
       </Button>
 
-      <CommandDialog open={open} onOpenChange={setOpen}>
+      <CommandDialog open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen}>
         <CommandInput placeholder="Type a command or search..." />
         <CommandList>
           <CommandEmpty>No results found.</CommandEmpty>

@@ -4,7 +4,44 @@ Gallagher Property Company - Financial Calculation Utilities
 
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Dict, List, Tuple
-import numpy_financial as npf
+
+
+def _npv(rate: float, cash_flows: List[float]) -> float:
+    return sum(cf / ((1 + rate) ** idx) for idx, cf in enumerate(cash_flows))
+
+
+def _irr(cash_flows: List[float]) -> float:
+    if not cash_flows:
+        return 0.0
+    has_positive = any(cf > 0 for cf in cash_flows)
+    has_negative = any(cf < 0 for cf in cash_flows)
+    if not (has_positive and has_negative):
+        return 0.0
+
+    low = -0.9999
+    high = 10.0
+    npv_low = _npv(low, cash_flows)
+    npv_high = _npv(high, cash_flows)
+    if npv_low == 0:
+        return low
+    if npv_high == 0:
+        return high
+    if npv_low * npv_high > 0:
+        return 0.0
+
+    mid = 0.0
+    for _ in range(100):
+        mid = (low + high) / 2
+        npv_mid = _npv(mid, cash_flows)
+        if abs(npv_mid) < 1e-6:
+            return mid
+        if npv_low * npv_mid < 0:
+            high = mid
+            npv_high = npv_mid
+        else:
+            low = mid
+            npv_low = npv_mid
+    return mid
 
 
 class FinancialCalculator:
@@ -22,7 +59,7 @@ class FinancialCalculator:
             IRR as a decimal
         """
         try:
-            return float(npf.irr(cash_flows))
+            return float(_irr(cash_flows))
         except Exception:  # pylint: disable=broad-exception-caught
             return 0.0
 
@@ -38,7 +75,7 @@ class FinancialCalculator:
         Returns:
             NPV
         """
-        return float(npf.npv(rate, cash_flows))
+        return float(_npv(rate, cash_flows))
 
     @staticmethod
     def calculate_equity_multiple(

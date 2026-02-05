@@ -14,6 +14,12 @@ Use the Makefile for standard tasks:
 - `make type-check` runs `mypy` with project settings.
 - `make docker-build` / `make docker-run` build and run the container.
 Other useful targets: `make install-dev`, `make test-coverage`, `make clean`, `make docker-up`, `make docker-down`, `make docker-logs`, `make env-example`, `make requirements-freeze`, and `make health`. `make docs-serve` / `make docs-build` expect a `docs/` directory.
+Frontend (run from `frontend/`) scripts:
+- `npm run dev`, `npm run build`, `npm run start`, `npm run lint`, `npm run test`.
+Environment notes:
+- If `make` is not on PATH, use `/usr/bin/make` or run the underlying commands directly (`python -m pytest`, `python -m flake8`, `python -m pylint`, `python -m mypy`, `python -m black`, `python -m isort`).
+- If npm scripts fail with `spawn sh ENOENT`, run with `PATH=/usr/bin:/bin:$PATH NPM_CONFIG_SCRIPT_SHELL=/bin/sh`.
+- Prefer a project-local virtualenv for installs, e.g. `.venv/bin/python -m pip install -r requirements.txt`.
 
 ## Coding Style & Naming Conventions
 Follow Black/Isort formatting (line length 100); `flake8` allows up to 120, but prefer 100 for consistency. Keep modules snake_case, classes PascalCase, and constants UPPER_SNAKE_CASE. Use explicit types in new public functions and Pydantic models where practical. Keep imports ordered by isort. Avoid adding dependencies unless needed.

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/db/supabase";
+import { isEmailAllowed } from "@/lib/auth/allowedEmails";
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -19,11 +20,20 @@ export function AuthGuard({ children }: AuthGuardProps) {
   useEffect(() => {
     let isMounted = true;
 
+    const handleUnauthorized = async () => {
+      await supabase.auth.signOut();
+      router.replace("/login?error=unauthorized");
+    };
+
     const checkSession = async () => {
       const { data } = await supabase.auth.getSession();
       if (!isMounted) return;
       if (!data.session) {
         router.replace("/login");
+        return;
+      }
+      if (!isEmailAllowed(data.session.user?.email)) {
+        await handleUnauthorized();
         return;
       }
       setIsReady(true);
@@ -34,6 +44,10 @@ export function AuthGuard({ children }: AuthGuardProps) {
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!session) {
         router.replace("/login");
+        return;
+      }
+      if (!isEmailAllowed(session.user?.email)) {
+        void handleUnauthorized();
         return;
       }
       setIsReady(true);

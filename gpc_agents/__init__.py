@@ -12,11 +12,33 @@ from gpc_agents.coordinator import (
     route_to_agents,
     update_project_state,
 )
+from gpc_agents.deal_screener import (
+    deal_screener_agent,
+    ingest_listing,
+    save_screening_output,
+    score_listing,
+)
 from gpc_agents.design import (
     calculate_development_capacity,
     design_agent,
     estimate_construction_cost,
     generate_site_plan,
+)
+from gpc_agents.due_diligence import (
+    create_dd_deal,
+    due_diligence_agent,
+    flag_dd_red_flags,
+    generate_dd_checklist,
+    ingest_dd_document,
+    save_dd_summary,
+)
+from gpc_agents.entitlements import (
+    analyze_zoning_entitlements,
+    create_permit_record,
+    entitlements_agent,
+    ingest_agenda_item,
+    ingest_policy_change,
+    save_entitlements_summary,
 )
 from gpc_agents.finance import (
     build_proforma,
@@ -39,6 +61,14 @@ from gpc_agents.marketing import (
     generate_listing,
     marketing_agent,
 )
+from gpc_agents.market_intel import (
+    generate_market_snapshot,
+    ingest_absorption_data,
+    ingest_competitor_transaction,
+    ingest_economic_indicator,
+    ingest_infrastructure_project,
+    market_intel_agent,
+)
 from gpc_agents.operations import (
     create_schedule,
     evaluate_contractor,
@@ -60,6 +90,11 @@ from gpc_agents.risk import (
     estimate_insurance,
     evaluate_environmental,
     risk_agent,
+)
+from gpc_agents.tax_strategist import (
+    lookup_irc_reference,
+    search_tax_updates,
+    tax_strategist_agent,
 )
 
 
@@ -101,6 +136,26 @@ def configure_agent_handoffs():
             risk_agent,
             tool_description_override="Delegate to Risk Agent for risk assessment and insurance",
         ),
+        handoff(
+            deal_screener_agent,
+            tool_description_override="Delegate to Deal Screener for initial go/no-go scoring",
+        ),
+        handoff(
+            due_diligence_agent,
+            tool_description_override="Delegate to Due Diligence for checklist, documents, and red flags",
+        ),
+        handoff(
+            entitlements_agent,
+            tool_description_override="Delegate to Entitlements for zoning analysis and permit tracking",
+        ),
+        handoff(
+            market_intel_agent,
+            tool_description_override="Delegate to Market Intelligence for competitor and market data",
+        ),
+        handoff(
+            tax_strategist_agent,
+            tool_description_override="Delegate to Tax Strategist for IRC guidance and IRS update research",
+        ),
     ]
 
     # Research Agent handoffs
@@ -125,6 +180,54 @@ def configure_agent_handoffs():
             risk_agent,
             tool_description_override="Hand off to Risk Agent for market or financial risk assessment",
         ),
+        handoff(
+            tax_strategist_agent,
+            tool_description_override="Hand off to Tax Strategist for IRC guidance and tax implications",
+        ),
+    ]
+
+    # Deal Screener handoffs
+    deal_screener_agent.handoffs = [
+        handoff(
+            finance_agent,
+            tool_description_override="Hand off to Finance Agent for underwriting validation",
+        ),
+        handoff(
+            research_agent,
+            tool_description_override="Hand off to Research Agent for market or parcel research",
+        ),
+    ]
+
+    # Due Diligence handoffs
+    due_diligence_agent.handoffs = [
+        handoff(
+            legal_agent,
+            tool_description_override="Hand off to Legal Agent for document or compliance review",
+        ),
+        handoff(
+            research_agent,
+            tool_description_override="Hand off to Research Agent for gaps or verification",
+        ),
+    ]
+
+    # Entitlements handoffs
+    entitlements_agent.handoffs = [
+        handoff(
+            legal_agent,
+            tool_description_override="Hand off to Legal Agent for zoning interpretation",
+        ),
+    ]
+
+    # Market Intelligence handoffs
+    market_intel_agent.handoffs = [
+        handoff(
+            research_agent,
+            tool_description_override="Hand off to Research Agent for deeper market research",
+        ),
+        handoff(
+            finance_agent,
+            tool_description_override="Hand off to Finance Agent for pricing implications",
+        ),
     ]
 
     # Legal Agent handoffs
@@ -136,6 +239,10 @@ def configure_agent_handoffs():
         handoff(
             research_agent,
             tool_description_override="Hand off to Research Agent for title or ownership research",
+        ),
+        handoff(
+            tax_strategist_agent,
+            tool_description_override="Hand off to Tax Strategist for IRC guidance and tax structuring",
         ),
     ]
 
@@ -199,6 +306,18 @@ def configure_agent_handoffs():
         ),
     ]
 
+    # Tax Strategist handoffs
+    tax_strategist_agent.handoffs = [
+        handoff(
+            finance_agent,
+            tool_description_override="Hand off to Finance Agent for underwriting or modeling context",
+        ),
+        handoff(
+            legal_agent,
+            tool_description_override="Hand off to Legal Agent for structuring or compliance considerations",
+        ),
+    ]
+
 
 # Configure handoffs on module import
 configure_agent_handoffs()
@@ -211,6 +330,32 @@ __all__ = [
     "update_project_state",
     "create_task",
     "route_to_agents",
+    # Deal Screener
+    "deal_screener_agent",
+    "ingest_listing",
+    "score_listing",
+    "save_screening_output",
+    # Due Diligence
+    "due_diligence_agent",
+    "create_dd_deal",
+    "ingest_dd_document",
+    "generate_dd_checklist",
+    "flag_dd_red_flags",
+    "save_dd_summary",
+    # Entitlements
+    "entitlements_agent",
+    "create_permit_record",
+    "analyze_zoning_entitlements",
+    "ingest_agenda_item",
+    "ingest_policy_change",
+    "save_entitlements_summary",
+    # Market Intelligence
+    "market_intel_agent",
+    "ingest_competitor_transaction",
+    "ingest_economic_indicator",
+    "ingest_infrastructure_project",
+    "ingest_absorption_data",
+    "generate_market_snapshot",
     # Research
     "research_agent",
     "search_parcels",
@@ -253,4 +398,8 @@ __all__ = [
     "evaluate_environmental",
     "estimate_insurance",
     "comprehensive_risk_assessment",
+    # Tax Strategist
+    "tax_strategist_agent",
+    "lookup_irc_reference",
+    "search_tax_updates",
 ]

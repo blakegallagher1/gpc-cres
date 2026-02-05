@@ -6,7 +6,7 @@ from decimal import Decimal
 from functools import partial
 from typing import Any, Dict, List, Optional, cast
 
-from agents import Agent
+from agents import Agent, CodeInterpreterTool
 from agents import function_tool as base_function_tool
 from pydantic import BaseModel
 
@@ -525,7 +525,12 @@ design_agent = Agent(
         generate_site_plan,
         estimate_construction_cost,
         save_design_output,
-        cast(Any, {"type": "code_interpreter"}),  # For calculations
+        CodeInterpreterTool(
+            tool_config={
+                "type": "code_interpreter",
+                "container": {"type": "auto", "file_ids": []},
+            }
+        ),  # For calculations
     ],
     handoffs=[],  # Will be configured after all agents defined
 )

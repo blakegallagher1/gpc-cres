@@ -11,13 +11,18 @@ from agents.tracing import set_tracing_disabled, set_tracing_export_api_key
 
 from config.settings import settings
 from gpc_agents.coordinator import coordinator_agent
+from gpc_agents.deal_screener import deal_screener_agent
 from gpc_agents.design import design_agent
+from gpc_agents.due_diligence import due_diligence_agent
+from gpc_agents.entitlements import entitlements_agent
 from gpc_agents.finance import finance_agent
 from gpc_agents.legal import legal_agent
 from gpc_agents.marketing import marketing_agent
+from gpc_agents.market_intel import market_intel_agent
 from gpc_agents.operations import operations_agent
 from gpc_agents.research import research_agent
 from gpc_agents.risk import risk_agent
+from gpc_agents.tax_strategist import tax_strategist_agent
 from tools.database import db
 
 
@@ -62,6 +67,11 @@ class DevelopmentWorkflowRunner:
             "marketing": marketing_agent,
             "risk": risk_agent,
             "coordinator": coordinator_agent,
+            "deal_screener": deal_screener_agent,
+            "due_diligence": due_diligence_agent,
+            "entitlements": entitlements_agent,
+            "market_intel": market_intel_agent,
+            "tax": tax_strategist_agent,
         }
 
         agent = agent_map.get(agent_name.lower())
@@ -184,6 +194,11 @@ Asking Price: ${project.get('asking_price', 'N/A')}
             "finance": finance_agent,
             "legal": legal_agent,
             "design": design_agent,
+            "deal_screener": deal_screener_agent,
+            "due_diligence": due_diligence_agent,
+            "entitlements": entitlements_agent,
+            "market_intel": market_intel_agent,
+            "tax": tax_strategist_agent,
         }
 
         for analysis in analyses:

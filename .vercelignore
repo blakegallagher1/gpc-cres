@@ -1,0 +1,10 @@
+frontend/
+node_modules/
+output/
+tmp/
+__pycache__/
+.pytest_cache/
+.venv/
+.git/
+uv.lock
+requirements-dev.txt

@@ -5,9 +5,9 @@ Gallagher Property Company - Marketing Agent
 from datetime import date
 from decimal import Decimal
 from functools import partial
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, List, Optional
 
-from agents import Agent
+from agents import Agent, WebSearchTool
 from agents import function_tool as base_function_tool
 from pydantic import BaseModel
 
@@ -554,7 +554,7 @@ marketing_agent = Agent(
         analyze_prospects,
         create_offering_memo,
         save_marketing_output,
-        cast(Any, {"type": "web_search"}),  # For comp research
+        WebSearchTool(),  # For comp research
     ],
     handoffs=[],  # Will be configured after all agents defined
 )

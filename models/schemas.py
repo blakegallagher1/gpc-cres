@@ -109,6 +109,12 @@ class Task(BaseModel):
     title: str
     description: Optional[str] = None
     assigned_agent: Optional[str] = None
+    assignee_user_id: Optional[str] = None
+    sla_hours: Optional[int] = None
+    blocked_by_task_id: Optional[str] = None
+    swimlane: Optional[str] = None
+    agent_generated: Optional[bool] = None
+    source_event_id: Optional[str] = None
     status: str = "pending"
     due_date: Optional[date] = None
     created_at: Optional[datetime] = None
@@ -125,7 +131,148 @@ class Document(BaseModel):
     file_name: Optional[str] = None
     file_size: Optional[int] = None
     mime_type: Optional[str] = None
+    storage_provider: Optional[str] = None
+    storage_path: Optional[str] = None
+    storage_url: Optional[str] = None
+    extracted_text: Optional[str] = None
+    classification: Dict[str, Any] = Field(default_factory=dict)
     metadata: Dict[str, Any] = Field(default_factory=dict)
+    created_at: Optional[datetime] = None
+
+
+# ============================================
+# Deal Room Models
+# ============================================
+
+
+class DealRoom(BaseModel):
+    id: Optional[str] = None
+    project_id: str
+    name: str
+    status: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class DealRoomMember(BaseModel):
+    room_id: str
+    user_id: str
+    role: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+
+class DealRoomMessage(BaseModel):
+    id: Optional[str] = None
+    room_id: str
+    sender_type: str
+    sender_id: Optional[str] = None
+    content_md: str
+    attachments: List[Dict[str, Any]] = Field(default_factory=list)
+    created_at: Optional[datetime] = None
+
+
+class DealRoomArtifact(BaseModel):
+    id: Optional[str] = None
+    room_id: str
+    type: str
+    title: str
+    current_version_id: Optional[str] = None
+    created_by: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+
+class DealRoomArtifactVersion(BaseModel):
+    id: Optional[str] = None
+    artifact_id: str
+    content_md: Optional[str] = None
+    content_json: Dict[str, Any] = Field(default_factory=dict)
+    created_by: Optional[str] = None
+    created_at: Optional[datetime] = None
+    source_run_id: Optional[str] = None
+
+
+class DealRoomEvent(BaseModel):
+    id: Optional[str] = None
+    room_id: str
+    event_type: str
+    payload: Dict[str, Any] = Field(default_factory=dict)
+    created_at: Optional[datetime] = None
+
+
+class Citation(BaseModel):
+    id: Optional[str] = None
+    project_id: str
+    run_id: Optional[str] = None
+    source_type: str
+    title: Optional[str] = None
+    url: Optional[str] = None
+    snippet: Optional[str] = None
+    accessed_at: Optional[datetime] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class ClaimLink(BaseModel):
+    id: Optional[str] = None
+    run_id: Optional[str] = None
+    artifact_version_id: Optional[str] = None
+    claim_text: str
+    citation_ids: List[str] = Field(default_factory=list)
+    confidence: Optional[float] = None
+    created_at: Optional[datetime] = None
+
+
+class Scenario(BaseModel):
+    id: Optional[str] = None
+    project_id: str
+    base_assumptions: Dict[str, Any] = Field(default_factory=dict)
+    created_at: Optional[datetime] = None
+
+
+class ScenarioRun(BaseModel):
+    id: Optional[str] = None
+    scenario_id: str
+    delta_assumptions: Dict[str, Any] = Field(default_factory=dict)
+    results: Dict[str, Any] = Field(default_factory=dict)
+    created_at: Optional[datetime] = None
+
+
+class ExportJob(BaseModel):
+    id: Optional[str] = None
+    project_id: str
+    room_id: Optional[str] = None
+    type: str
+    status: str = "queued"
+    payload: Dict[str, Any] = Field(default_factory=dict)
+    output_files: List[Dict[str, Any]] = Field(default_factory=list)
+    errors: Optional[str] = None
+    created_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+
+
+class IngestionJob(BaseModel):
+    id: Optional[str] = None
+    project_id: str
+    document_id: Optional[str] = None
+    status: str = "queued"
+    extracted_data: Dict[str, Any] = Field(default_factory=dict)
+    errors: Optional[str] = None
+    created_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+
+
+class ToneProfile(BaseModel):
+    id: Optional[str] = None
+    name: str
+    description: Optional[str] = None
+    system_prefix: str
+    style_guidelines: Dict[str, Any] = Field(default_factory=dict)
+    created_at: Optional[datetime] = None
+
+
+class UserSettings(BaseModel):
+    user_id: str
+    default_tone_profile_id: Optional[str] = None
+    notification_prefs: Dict[str, Any] = Field(default_factory=dict)
     created_at: Optional[datetime] = None
 
 
@@ -547,6 +694,233 @@ class RiskAssessmentReport(BaseModel):
     # Recommendation
     recommendation: Recommendation
     conditions: List[str] = Field(default_factory=list)
+
+
+# ============================================
+# Deal Screener Models
+# ============================================
+
+
+class ScreeningCriteria(BaseModel):
+    """Deal screener criteria configuration"""
+
+    id: Optional[str] = None
+    name: str
+    description: Optional[str] = None
+    weights: Dict[str, float] = Field(default_factory=dict)
+    thresholds: Dict[str, Any] = Field(default_factory=dict)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class ScreenedListing(BaseModel):
+    """Listing ingested into the screener pipeline"""
+
+    id: Optional[str] = None
+    project_id: Optional[str] = None
+    source: Optional[str] = None
+    address: Optional[str] = None
+    parcel_id: Optional[str] = None
+    listing_data: Dict[str, Any] = Field(default_factory=dict)
+    status: Optional[str] = None
+    score_total: Optional[float] = None
+    score_tier: Optional[str] = None
+    score_detail: Dict[str, Any] = Field(default_factory=dict)
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class ScreeningScore(BaseModel):
+    """Scoring output for a screened listing"""
+
+    listing_id: str
+    criteria_id: Optional[str] = None
+    total_score: float
+    tier: str
+    breakdown: Dict[str, Any] = Field(default_factory=dict)
+
+
+# ============================================
+# Due Diligence Models
+# ============================================
+
+
+class DueDiligenceDeal(BaseModel):
+    """Due diligence deal record"""
+
+    id: Optional[str] = None
+    project_id: Optional[str] = None
+    name: str
+    status: str = "open"
+    key_dates: Dict[str, Any] = Field(default_factory=dict)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class DueDiligenceDocument(BaseModel):
+    """Due diligence document metadata"""
+
+    id: Optional[str] = None
+    dd_deal_id: str
+    document_type: str
+    title: Optional[str] = None
+    storage_ref: Optional[str] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    created_at: Optional[datetime] = None
+
+
+class DueDiligenceChecklistItem(BaseModel):
+    """Due diligence checklist item"""
+
+    id: Optional[str] = None
+    dd_deal_id: str
+    name: str
+    status: str = "pending"
+    phase: Optional[str] = None
+    category: Optional[str] = None
+    assigned_to: Optional[str] = None
+    due_date: Optional[date] = None
+    notes: Optional[str] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    created_at: Optional[datetime] = None
+
+
+class DueDiligenceRedFlag(BaseModel):
+    """Due diligence red flag"""
+
+    id: Optional[str] = None
+    dd_deal_id: str
+    severity: Optional[str] = None
+    description: str
+    category: Optional[str] = None
+    status: str = "open"
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    created_at: Optional[datetime] = None
+
+
+# ============================================
+# Entitlements Models
+# ============================================
+
+
+class EntitlementZoningAnalysis(BaseModel):
+    """Zoning/entitlements analysis record"""
+
+    id: Optional[str] = None
+    project_id: str
+    parcel_id: Optional[str] = None
+    proposed_use: Optional[str] = None
+    zoning_code: Optional[str] = None
+    analysis: Dict[str, Any] = Field(default_factory=dict)
+    created_at: Optional[datetime] = None
+
+
+class PermitRecord(BaseModel):
+    """Permit tracking record"""
+
+    id: Optional[str] = None
+    project_id: str
+    permit_type: str
+    permit_number: Optional[str] = None
+    issuing_authority: Optional[str] = None
+    permit_category: Optional[str] = None
+    priority: Optional[str] = None
+    status: Optional[str] = None
+    applied_date: Optional[date] = None
+    approved_date: Optional[date] = None
+    expiration_date: Optional[date] = None
+    estimated_completion: Optional[date] = None
+    notes: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class AgendaItem(BaseModel):
+    """Public agenda item"""
+
+    id: Optional[str] = None
+    body: str
+    date: Optional[date] = None
+    topic: Optional[str] = None
+    source: Optional[str] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    created_at: Optional[datetime] = None
+
+
+class PolicyChange(BaseModel):
+    """Policy change record"""
+
+    id: Optional[str] = None
+    body: str
+    effective_date: Optional[date] = None
+    source: Optional[str] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    created_at: Optional[datetime] = None
+
+
+# ============================================
+# Market Intelligence Models
+# ============================================
+
+
+class CompetitorTransaction(BaseModel):
+    """Competitor transaction record"""
+
+    id: Optional[str] = None
+    region: Optional[str] = None
+    property_type: Optional[str] = None
+    address: Optional[str] = None
+    transaction_date: Optional[date] = None
+    price: Optional[Decimal] = None
+    size: Optional[Decimal] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    created_at: Optional[datetime] = None
+
+
+class EconomicIndicator(BaseModel):
+    """Economic indicator data point"""
+
+    id: Optional[str] = None
+    region: Optional[str] = None
+    indicator_name: str
+    value: Optional[Decimal] = None
+    period: Optional[str] = None
+    source: Optional[str] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    created_at: Optional[datetime] = None
+
+
+class InfrastructureProject(BaseModel):
+    """Infrastructure project record"""
+
+    id: Optional[str] = None
+    region: Optional[str] = None
+    name: str
+    status: Optional[str] = None
+    description: Optional[str] = None
+    start_date: Optional[date] = None
+    completion_date: Optional[date] = None
+    budget: Optional[Decimal] = None
+    source: Optional[str] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    created_at: Optional[datetime] = None
+
+
+class AbsorptionMetric(BaseModel):
+    """Absorption data record"""
+
+    id: Optional[str] = None
+    region: Optional[str] = None
+    property_type: Optional[str] = None
+    period: Optional[str] = None
+    absorption_rate: Optional[Decimal] = None
+    net_absorption: Optional[Decimal] = None
+    vacancy_rate: Optional[Decimal] = None
+    data_source: Optional[str] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    created_at: Optional[datetime] = None
 
 
 # ============================================
