@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/lib/db/supabase";
+import { isEmailAllowed } from "@/lib/auth/allowedEmails";
 import { toast } from "sonner";
 
 export default function SignupPage() {
@@ -19,6 +20,12 @@ export default function SignupPage() {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setIsSubmitting(true);
+
+    if (!isEmailAllowed(email)) {
+      setIsSubmitting(false);
+      toast.error("This account is not approved for access.");
+      return;
+    }
 
     const { error } = await supabase.auth.signUp({ email, password });
     setIsSubmitting(false);

@@ -3,9 +3,9 @@ Gallagher Property Company - Research Agent
 """
 
 from functools import partial
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, List, Optional
 
-from agents import Agent
+from agents import Agent, WebSearchTool
 from agents import function_tool as base_function_tool
 from pydantic import BaseModel
 
@@ -223,7 +223,7 @@ research_agent = Agent(
         research_parcel,
         get_location_analysis,
         save_research_output,
-        cast(Any, {"type": "web_search"}),  # OpenAI built-in for quick lookups
+        WebSearchTool(),  # OpenAI built-in for quick lookups
     ],
     handoffs=[],  # Will be configured after all agents defined
 )

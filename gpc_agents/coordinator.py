@@ -3,9 +3,9 @@ Gallagher Property Company - Coordinator Agent
 """
 
 from functools import partial
-from typing import Any, Dict, Optional, cast
+from typing import Any, Dict, Optional
 
-from agents import Agent
+from agents import Agent, WebSearchTool
 from agents import function_tool as base_function_tool
 from pydantic import BaseModel
 
@@ -191,6 +191,21 @@ async def route_to_agents(query: str, context: Optional[Dict[str, Any]] = None) 
             "primary": "marketing_agent",
             "supporting": ["research_agent", "finance_agent"],
         },
+        "tax": {
+            "keywords": [
+                "tax",
+                "irc",
+                "irs",
+                "depreciation",
+                "1031",
+                "basis",
+                "recapture",
+                "capital gains",
+                "salt",
+            ],
+            "primary": "tax_strategist_agent",
+            "supporting": ["finance_agent", "legal_agent"],
+        },
         "risk": {
             "keywords": ["risk", "flood", "environmental", "insurance", "assessment"],
             "primary": "risk_agent",
@@ -236,7 +251,7 @@ coordinator_agent = Agent(
         update_project_state,
         create_task,
         route_to_agents,
-        cast(Any, {"type": "web_search"}),  # OpenAI built-in
+        WebSearchTool(),  # OpenAI built-in
     ],
     # Handoffs will be added after all agents are defined
     handoffs=[],

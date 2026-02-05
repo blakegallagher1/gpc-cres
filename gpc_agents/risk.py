@@ -7,7 +7,7 @@ from decimal import Decimal
 from functools import partial
 from typing import Any, Dict, List, Optional, cast
 
-from agents import Agent
+from agents import Agent, WebSearchTool
 from agents import function_tool as base_function_tool
 from pydantic import BaseModel
 
@@ -603,7 +603,7 @@ risk_agent = Agent(
         estimate_insurance,
         comprehensive_risk_assessment,
         save_risk_output,
-        cast(Any, {"type": "web_search"}),  # For regulatory updates
+        WebSearchTool(),  # For regulatory updates
     ],
     handoffs=[],  # Will be configured after all agents defined
 )

@@ -4,9 +4,9 @@ Gallagher Property Company - Finance Agent
 
 from decimal import Decimal
 from functools import partial
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, List, Optional
 
-from agents import Agent
+from agents import Agent, CodeInterpreterTool
 from agents import function_tool as base_function_tool
 from pydantic import BaseModel
 
@@ -402,7 +402,12 @@ finance_agent = Agent(
         size_debt,
         run_sensitivity,
         save_finance_output,
-        cast(Any, {"type": "code_interpreter"}),  # For complex calculations
+        CodeInterpreterTool(
+            tool_config={
+                "type": "code_interpreter",
+                "container": {"type": "auto", "file_ids": []},
+            }
+        ),  # For complex calculations
     ],
     handoffs=[],  # Will be configured after all agents defined
 )

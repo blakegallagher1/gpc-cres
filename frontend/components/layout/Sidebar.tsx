@@ -10,12 +10,16 @@ import {
   Rocket,
   Settings,
   Building2,
+  Presentation,
+  ClipboardCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/stores/uiStore";
 
 const navItems = [
   { id: "dashboard", href: "/", icon: LayoutDashboard, label: "Dashboard" },
+  { id: "deal-room", href: "/deal-room", icon: Presentation, label: "Deal Room" },
+  { id: "screening", href: "/screening", icon: ClipboardCheck, label: "Screening" },
   { id: "agents", href: "/agents", icon: Bot, label: "Agent Library" },
   { id: "workflows", href: "/workflows", icon: Workflow, label: "Workflows" },
   { id: "runs", href: "/runs", icon: PlayCircle, label: "Run History" },

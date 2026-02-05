@@ -11,6 +11,16 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+DEFAULT_TAX_LIBRARY_PATH = os.path.abspath(
+    os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "prompts",
+        "references",
+        "IRC_Calculation_Logic_Library_2026.md",
+    )
+)
+
 
 @dataclass
 class OpenAIConfig:
@@ -113,6 +123,15 @@ class MarketConfig:
 
 
 @dataclass
+class TaxConfig:
+    """Tax reference configuration"""
+
+    library_path: str = field(
+        default_factory=lambda: os.getenv("TAX_LIBRARY_PATH", DEFAULT_TAX_LIBRARY_PATH)
+    )
+
+
+@dataclass
 class FeatureFlags:
     """Feature flags"""
 
@@ -138,6 +157,7 @@ class Settings:
     backblaze: BackblazeConfig = field(default_factory=BackblazeConfig)
     agent: AgentConfig = field(default_factory=AgentConfig)
     market: MarketConfig = field(default_factory=MarketConfig)
+    tax: TaxConfig = field(default_factory=TaxConfig)
     features: FeatureFlags = field(default_factory=FeatureFlags)
 
     # Application settings

@@ -23,6 +23,10 @@
     "@radix-ui/react-tooltip": "^1.1.2",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.93.3",
+    "@tiptap/extension-collaboration": "^2.11.7",
+    "@tiptap/extension-collaboration-cursor": "^2.11.7",
+    "@tiptap/react": "^2.11.7",
+    "@tiptap/starter-kit": "^2.11.7",
     "@xyflow/react": "^12.3.2",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
@@ -37,6 +41,8 @@
     "swr": "^2.4.0",
     "tailwind-merge": "^2.6.1",
     "tailwindcss-animate": "^1.0.7",
+    "y-websocket": "^1.5.0",
+    "yjs": "^13.6.15",
     "zustand": "^4.5.5"
   },
   "devDependencies": {

@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Moon, Sun, Bell, Plus, Command } from "lucide-react";
+import { Search, Moon, Sun, Bell, Plus, Command, Sparkles } from "lucide-react";
 import { useTheme } from "next-themes";
+import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/stores/uiStore";
 import { Button } from "@/components/ui/button";
@@ -12,11 +13,31 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { supabase } from "@/lib/db/supabase";
+import { toast } from "sonner";
 
 export function Header() {
   const { theme, setTheme } = useTheme();
-  const { sidebarCollapsed, openCommandPalette } = useUIStore();
+  const { sidebarCollapsed, openCommandPalette, toggleCopilot } = useUIStore();
   const [searchFocused, setSearchFocused] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const router = useRouter();
+
+  const handleSignOut = async () => {
+    if (isSigningOut) return;
+    setIsSigningOut(true);
+
+    const { error } = await supabase.auth.signOut();
+    setIsSigningOut(false);
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    toast.success("Signed out");
+    router.replace("/login");
+  };
 
   return (
     <header
@@ -74,6 +95,16 @@ export function Header() {
           )}
         </Button>
 
+        {/* Copilot Toggle */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={toggleCopilot}
+          className="text-muted-foreground"
+        >
+          <Sparkles className="h-5 w-5" />
+        </Button>
+
         {/* Notifications */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -104,6 +135,16 @@ export function Header() {
         <Button className="gap-2">
           <Plus className="h-4 w-4" />
           <span>New Run</span>
+        </Button>
+
+        {/* Sign Out */}
+        <Button
+          variant="ghost"
+          onClick={handleSignOut}
+          disabled={isSigningOut}
+          className="text-muted-foreground"
+        >
+          {isSigningOut ? "Signing out..." : "Sign Out"}
         </Button>
       </div>
     </header>

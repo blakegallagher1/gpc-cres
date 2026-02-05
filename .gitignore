@@ -105,3 +105,4 @@ results/
 
 # Tracing data
 traces/
+.vercel
