@@ -1,0 +1,11 @@
+# Testing
+pytest>=8.4.2,<9.0.0
+pytest-asyncio>=0.23.8,<0.24.0
+pytest-cov>=7.0.0,<8.0.0
+
+# Development
+black>=24.10.0,<25.0.0
+isort>=5.13.2,<6.0.0
+mypy>=1.19.1
+flake8>=7.3.0,<8.0.0
+pylint>=3.0.0,<4.0.0
