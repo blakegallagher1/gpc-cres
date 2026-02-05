@@ -515,7 +515,7 @@ class DatabaseManager:
         }
         if activate:
             self.client.table("screening_playbooks").update({"is_active": False}).execute()
-        response = self.client.table("screening_playbooks").insert(payload).execute()
+        response = self.client.table("screening_playbooks").insert(cast(Any, payload)).execute()
         data = cast(List[Dict[str, Any]], response.data or [])
         return data[0] if data else {}
 

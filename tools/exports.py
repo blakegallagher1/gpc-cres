@@ -5,16 +5,19 @@ Packaging helpers for one-click exports.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Callable, Dict, List, Optional
 
 from docx import Document as DocxDocument
-try:
-    from pptx import Presentation
-except ImportError:  # pragma: no cover - optional dependency in some envs
-    Presentation = None
 from openpyxl import Workbook
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
+
+try:
+    from pptx import Presentation as PptxPresentation
+except ImportError:  # pragma: no cover - optional dependency in some envs
+    PptxPresentation = None
+
+Presentation: Optional[Callable[..., Any]] = PptxPresentation
 
 
 def _ensure_dir(path: Path) -> None:
