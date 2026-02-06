@@ -1,0 +1,13 @@
+{
+  "framework": "nextjs",
+  "crons": [
+    {
+      "path": "/api/cron/change-detection",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/parish-pack-refresh",
+      "schedule": "0 4 * * 0"
+    }
+  ]
+}

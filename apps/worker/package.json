@@ -1,0 +1,31 @@
+{
+  "name": "@entitlement-os/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch src/worker.ts",
+    "start": "node dist/worker.js",
+    "lint": "eslint src --max-warnings=0",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@temporalio/worker": "^1.11.0",
+    "@temporalio/workflow": "^1.11.0",
+    "@temporalio/activity": "^1.11.0",
+    "@temporalio/client": "^1.11.0",
+    "@entitlement-os/db": "workspace:*",
+    "@entitlement-os/shared": "workspace:*",
+    "@entitlement-os/openai": "workspace:*",
+    "@entitlement-os/evidence": "workspace:*",
+    "@entitlement-os/artifacts": "workspace:*",
+    "@supabase/supabase-js": "^2.93.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.4",
+    "eslint": "^9.20.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}
