@@ -40,7 +40,7 @@ export function Sidebar() {
     >
       {/* Logo */}
       <div className="flex h-16 items-center gap-3 border-b px-4">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-purple-600">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-stone-700 to-stone-900">
           <Building2 className="h-6 w-6 text-white" />
         </div>
         {!sidebarCollapsed && (
@@ -82,7 +82,7 @@ export function Sidebar() {
       {/* User */}
       <div className="border-t p-3">
         <div className="flex items-center gap-3 rounded-lg bg-muted px-3 py-2.5">
-          <div className="h-8 w-8 shrink-0 rounded-full bg-gradient-to-br from-green-400 to-blue-500" />
+          <div className="h-8 w-8 shrink-0 rounded-full bg-gradient-to-br from-amber-700 to-stone-800" />
           {!sidebarCollapsed && (
             <div className="min-w-0 overflow-hidden">
               <p className="truncate text-sm font-medium">Admin User</p>

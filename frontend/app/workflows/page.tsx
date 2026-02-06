@@ -241,7 +241,7 @@ export default function WorkflowsPage() {
             <Card key={workflow.id} className="transition-all hover:border-primary/50">
               <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-start gap-4">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-purple-600">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-stone-700 to-stone-900">
                     <Workflow className="h-6 w-6 text-white" />
                   </div>
                   <div className="min-w-0">
