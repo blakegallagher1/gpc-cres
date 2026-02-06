@@ -1,37 +1,78 @@
-# Repository Guidelines
+# Entitlement OS Repository Guidelines
 
-## Project Structure & Module Organization
-This repository is a Python 3.11+ multi-agent system for CRE workflows. Core code lives in `agents/`, `tools/`, `workflows/`, `models/`, and `config/`. Data and schema assets are in `database/`, while prompts and examples live in `prompts/` and `examples/`. The API entrypoint is `main.py`. Tests are in `tests/` (unit and integration). A `frontend/` directory exists for any UI assets; treat it as a separate surface when making changes.
+This repo is **Entitlement OS v1.0**: an internal, automation-first operating system for a repeatable entitlement-flip business in the Baton Rouge region.
 
-## Build, Test, and Development Commands
-Use the Makefile for standard tasks:
-- `make install` installs runtime dependencies from `requirements.txt`.
-- `make dev` runs the FastAPI app via `uvicorn` on port 8000.
-- `make test` runs unit tests (excludes integration).
-- `make test-all` runs the full test suite.
-- `make lint` runs `flake8` and `pylint` across core modules.
-- `make format` formats with `black` and `isort`.
-- `make type-check` runs `mypy` with project settings.
-- `make docker-build` / `make docker-run` build and run the container.
-Other useful targets: `make install-dev`, `make test-coverage`, `make clean`, `make docker-up`, `make docker-down`, `make docker-logs`, `make env-example`, `make requirements-freeze`, and `make health`. `make docs-serve` / `make docs-build` expect a `docs/` directory.
-Frontend (run from `frontend/`) scripts:
-- `npm run dev`, `npm run build`, `npm run start`, `npm run lint`, `npm run test`.
-Environment notes:
-- If `make` is not on PATH, use `/usr/bin/make` or run the underlying commands directly (`python -m pytest`, `python -m flake8`, `python -m pylint`, `python -m mypy`, `python -m black`, `python -m isort`).
-- If npm scripts fail with `spawn sh ENOENT`, run with `PATH=/usr/bin:/bin:$PATH NPM_CONFIG_SCRIPT_SHELL=/bin/sh`.
-- Prefer a project-local virtualenv for installs, e.g. `.venv/bin/python -m pip install -r requirements.txt`.
+The authoritative product/architecture spec lives at:
+- `docs/SPEC.md`
 
-## Coding Style & Naming Conventions
-Follow Black/Isort formatting (line length 100); `flake8` allows up to 120, but prefer 100 for consistency. Keep modules snake_case, classes PascalCase, and constants UPPER_SNAKE_CASE. Use explicit types in new public functions and Pydantic models where practical. Keep imports ordered by isort. Avoid adding dependencies unless needed.
+## Project Structure
 
-## Testing Guidelines
-Tests use `pytest` with async support. Place tests in `tests/` and name files `test_*.py`. Integration tests should be marked with `@pytest.mark.integration` and are included in `make test-all`. For coverage, use `make test-coverage` (outputs `htmlcov/`).
+This is a **pnpm workspaces** monorepo:
 
-## Commit & Pull Request Guidelines
-There is no git history in this workspace. If you create commits, prefer short, imperative summaries (e.g., "Add underwriting validation") and include scope when helpful (e.g., "tools: add flood lookup"). PRs should describe the problem, approach, and testing run; include screenshots when UI changes are involved.
+- `apps/web/` - Next.js (TypeScript) App Router (UI + API route handlers)
+- `apps/worker/` - Temporal Worker service (Node/TypeScript), long-running
+- `packages/db/` - Prisma schema, migrations, seed, Prisma client singleton
+- `packages/shared/` - Zod schemas, types/enums, validators (citations enforcement)
+- `packages/openai/` - OpenAI Responses API wrapper (strict JSON Schema outputs)
+- `packages/evidence/` - evidence fetch/snapshot/hash/extract utilities
+- `packages/artifacts/` - PPTX/PDF generators (PptxGenJS + Playwright print)
+- `infra/docker/` - local dev docker compose (Postgres + Temporal dev server + Temporal UI)
+- `legacy/python/` - deprecated Python system, preserved for reference (do not modify unless asked)
 
-## Security & Configuration
-Never commit secrets. Use `.env` populated from `.env.example` for local development. API keys are required for OpenAI, Perplexity, Supabase, Google Maps, and Backblaze B2. Validate that sensitive output is not logged.
+## Build, Test, Dev Commands
 
-## Project Status Tracking
-Maintain `PROJECT_STATUS.md` with a brief list of completed changes and remaining tasks whenever significant project updates are made.
+Run commands from the repo root:
+
+- `pnpm install`
+- `pnpm dev` (runs `apps/web` + `apps/worker` in parallel)
+- `pnpm build`
+- `pnpm lint`
+- `pnpm typecheck`
+- `pnpm test`
+
+Database (Prisma, no manual SQL changes):
+
+- `pnpm db:migrate` (development migrations)
+- `pnpm db:deploy` (production migration deploy)
+- `pnpm db:seed`
+
+Local infra (Docker):
+
+- `docker compose -f infra/docker/docker-compose.yml up -d`
+- Temporal UI: `http://localhost:8080`
+
+If `pnpm` is not available, install pnpm 9+ (repo is pinned in root `package.json`).
+
+## Coding Standards
+
+- TypeScript everywhere in `apps/*` and `packages/*`.
+- Prefer explicit types on exported functions.
+- Keep JSON schemas as **Zod** in `packages/shared` and derive JSON Schema for OpenAI Structured Outputs.
+- Enforce **citation completeness** server-side; do not accept AI output that fails validators.
+- No secrets in git. Use `.env` populated from `.env.example`.
+
+## Security Rules (Non-Negotiable)
+
+- All DB rows are scoped by `org_id`.
+- Every API route must:
+  1) authenticate Supabase session
+  2) confirm org membership
+  3) scope all queries by `org_id`
+- Supabase Storage buckets are private; access is via **signed URLs** only.
+- OpenAI API key and Supabase service role key must only be used server-side (web route handlers / worker).
+
+## Testing
+
+- Unit tests live alongside packages (Vitest).
+- Integration tests are separate and must not run by default unless explicitly invoked (see package scripts).
+- Required coverage areas:
+  - schema validation + citation enforcement
+  - evidence hashing + deterministic key generation
+  - artifact idempotency via `runs.input_hash`
+  - change detection triggers refresh
+
+## Legacy Python
+
+The previous Python system is parked under `legacy/python/` for reference only.
+Do not delete it. Avoid touching it unless the user explicitly requests legacy fixes.
+

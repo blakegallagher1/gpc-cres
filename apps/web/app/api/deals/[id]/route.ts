@@ -1,0 +1,122 @@
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@entitlement-os/db";
+
+// GET /api/deals/[id] - get a single deal with related data
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+
+    const deal = await prisma.deal.findUnique({
+      where: { id },
+      include: {
+        jurisdiction: true,
+        parcels: { orderBy: { createdAt: "asc" } },
+        tasks: { orderBy: [{ pipelineStep: "asc" }, { createdAt: "asc" }] },
+        artifacts: { orderBy: { createdAt: "desc" } },
+        runs: {
+          where: { runType: "TRIAGE" },
+          orderBy: { startedAt: "desc" },
+          take: 1,
+          select: { outputJson: true, status: true, finishedAt: true },
+        },
+      },
+    });
+
+    if (!deal) {
+      return NextResponse.json({ error: "Deal not found" }, { status: 404 });
+    }
+
+    let triageTier: string | null = null;
+    let triageOutput: Record<string, unknown> | null = null;
+    const triageRun = deal.runs[0];
+    if (triageRun?.outputJson && typeof triageRun.outputJson === "object") {
+      triageOutput = triageRun.outputJson as Record<string, unknown>;
+      triageTier = (triageOutput.tier as string) ?? null;
+    }
+
+    return NextResponse.json({
+      deal: {
+        ...deal,
+        triageTier,
+        triageOutput,
+        createdAt: deal.createdAt.toISOString(),
+        updatedAt: deal.updatedAt.toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching deal:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch deal" },
+      { status: 500 }
+    );
+  }
+}
+
+// PATCH /api/deals/[id] - update a deal
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const body = await request.json();
+
+    const allowedFields = ["name", "status", "notes", "targetCloseDate", "sku", "jurisdictionId"];
+    const data: Record<string, unknown> = {};
+    for (const field of allowedFields) {
+      if (field in body) {
+        if (field === "targetCloseDate" && body[field]) {
+          data[field] = new Date(body[field]);
+        } else {
+          data[field] = body[field];
+        }
+      }
+    }
+
+    if (Object.keys(data).length === 0) {
+      return NextResponse.json(
+        { error: "No valid fields provided" },
+        { status: 400 }
+      );
+    }
+
+    const deal = await prisma.deal.update({
+      where: { id },
+      data,
+      include: {
+        jurisdiction: { select: { id: true, name: true } },
+      },
+    });
+
+    return NextResponse.json({ deal });
+  } catch (error) {
+    console.error("Error updating deal:", error);
+    return NextResponse.json(
+      { error: "Failed to update deal" },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE /api/deals/[id] - delete a deal
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+
+    await prisma.deal.delete({ where: { id } });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting deal:", error);
+    return NextResponse.json(
+      { error: "Failed to delete deal" },
+      { status: 500 }
+    );
+  }
+}

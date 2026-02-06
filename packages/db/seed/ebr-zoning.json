@@ -1,0 +1,114 @@
+{
+  "jurisdiction": "East Baton Rouge Parish",
+  "source": "EBR Unified Development Code (UDC)",
+  "matrix": [
+    {
+      "zoningCode": "A-1",
+      "zoningName": "Agricultural District",
+      "uses": {
+        "SMALL_BAY_FLEX": "prohibited",
+        "OUTDOOR_STORAGE": "conditional",
+        "TRUCK_PARKING": "prohibited"
+      }
+    },
+    {
+      "zoningCode": "R-1",
+      "zoningName": "Single Family Residential",
+      "uses": {
+        "SMALL_BAY_FLEX": "prohibited",
+        "OUTDOOR_STORAGE": "prohibited",
+        "TRUCK_PARKING": "prohibited"
+      }
+    },
+    {
+      "zoningCode": "R-2",
+      "zoningName": "Two-Family Residential",
+      "uses": {
+        "SMALL_BAY_FLEX": "prohibited",
+        "OUTDOOR_STORAGE": "prohibited",
+        "TRUCK_PARKING": "prohibited"
+      }
+    },
+    {
+      "zoningCode": "R-3",
+      "zoningName": "Multi-Family Residential",
+      "uses": {
+        "SMALL_BAY_FLEX": "prohibited",
+        "OUTDOOR_STORAGE": "prohibited",
+        "TRUCK_PARKING": "prohibited"
+      }
+    },
+    {
+      "zoningCode": "R-4",
+      "zoningName": "High Density Residential",
+      "uses": {
+        "SMALL_BAY_FLEX": "prohibited",
+        "OUTDOOR_STORAGE": "prohibited",
+        "TRUCK_PARKING": "prohibited"
+      }
+    },
+    {
+      "zoningCode": "C-1",
+      "zoningName": "Neighborhood Commercial",
+      "uses": {
+        "SMALL_BAY_FLEX": "prohibited",
+        "OUTDOOR_STORAGE": "prohibited",
+        "TRUCK_PARKING": "prohibited"
+      }
+    },
+    {
+      "zoningCode": "C-2",
+      "zoningName": "General Commercial",
+      "uses": {
+        "SMALL_BAY_FLEX": "conditional",
+        "OUTDOOR_STORAGE": "conditional",
+        "TRUCK_PARKING": "prohibited"
+      }
+    },
+    {
+      "zoningCode": "C-3",
+      "zoningName": "Highway Commercial",
+      "uses": {
+        "SMALL_BAY_FLEX": "conditional",
+        "OUTDOOR_STORAGE": "conditional",
+        "TRUCK_PARKING": "conditional"
+      }
+    },
+    {
+      "zoningCode": "M-1",
+      "zoningName": "Light Industrial",
+      "uses": {
+        "SMALL_BAY_FLEX": "permitted",
+        "OUTDOOR_STORAGE": "permitted",
+        "TRUCK_PARKING": "permitted"
+      }
+    },
+    {
+      "zoningCode": "M-2",
+      "zoningName": "Heavy Industrial",
+      "uses": {
+        "SMALL_BAY_FLEX": "permitted",
+        "OUTDOOR_STORAGE": "permitted",
+        "TRUCK_PARKING": "permitted"
+      }
+    },
+    {
+      "zoningCode": "MX",
+      "zoningName": "Mixed Use",
+      "uses": {
+        "SMALL_BAY_FLEX": "conditional",
+        "OUTDOOR_STORAGE": "prohibited",
+        "TRUCK_PARKING": "prohibited"
+      }
+    },
+    {
+      "zoningCode": "PUD",
+      "zoningName": "Planned Unit Development",
+      "uses": {
+        "SMALL_BAY_FLEX": "permitted",
+        "OUTDOOR_STORAGE": "conditional",
+        "TRUCK_PARKING": "conditional"
+      }
+    }
+  ]
+}

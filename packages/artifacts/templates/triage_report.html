@@ -1,0 +1,42 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{TITLE}}</title>
+    <style>
+      :root {
+        --fg: #111111;
+        --muted: #666666;
+        --border: #e5e7eb;
+        --bg: #ffffff;
+      }
+      html, body { padding: 0; margin: 0; background: var(--bg); color: var(--fg); font-family: Arial, sans-serif; }
+      header { padding: 18px 18px 10px; border-bottom: 1px solid var(--border); }
+      h1 { margin: 0; font-size: 22px; }
+      .container { padding: 18px; }
+      .section { margin: 0 0 16px; padding: 0 0 16px; border-bottom: 1px solid var(--border); }
+      .section:last-child { border-bottom: none; padding-bottom: 0; }
+      h2 { margin: 0 0 8px; font-size: 16px; }
+      .md { font-size: 12px; line-height: 1.45; color: var(--fg); }
+      footer { padding: 14px 18px; border-top: 1px solid var(--border); color: var(--muted); font-size: 11px; }
+      a { color: #0b63ce; }
+      ul, ol { margin: 6px 0 0 18px; padding: 0; }
+      .muted { color: var(--muted); font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>{{TITLE}}</h1>
+      <div class="muted">Entitlement OS v1.0</div>
+    </header>
+    <div class="container">
+      {{BODY}}
+    </div>
+    <footer>
+      <div><strong>Sources</strong></div>
+      {{SOURCES}}
+    </footer>
+  </body>
+</html>
+
