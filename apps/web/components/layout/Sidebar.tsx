@@ -11,6 +11,7 @@ import {
   Building2,
   PieChart,
   Wallet,
+  Map,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/stores/uiStore";
@@ -18,6 +19,7 @@ import { useUIStore } from "@/stores/uiStore";
 const navItems = [
   { id: "chat", href: "/", icon: MessageSquare, label: "Chat" },
   { id: "deals", href: "/deals", icon: Briefcase, label: "Deals" },
+  { id: "map", href: "/map", icon: Map, label: "Map" },
   { id: "portfolio", href: "/portfolio", icon: PieChart, label: "Portfolio" },
   { id: "wealth", href: "/wealth", icon: Wallet, label: "Wealth" },
   { id: "buyers", href: "/buyers", icon: Users, label: "Buyers" },

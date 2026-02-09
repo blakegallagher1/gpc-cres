@@ -54,6 +54,12 @@ import {
   screenFull,
 } from "./propertyDbTools.js";
 
+/** Web search tool for Responses API pass-through. */
+export const webSearchPreviewTool = {
+  type: "web_search_preview" as const,
+  search_context_size: "medium" as const,
+};
+
 /** Tools available to the Coordinator agent. */
 export const coordinatorTools = [
   getDealContext,
@@ -85,6 +91,7 @@ export const researchTools = [
   getParcelDetails,
   screenFull,
   screenTraffic,
+  webSearchPreviewTool,
 ];
 
 /** Tools available to the Risk agent. */
@@ -124,6 +131,7 @@ export const screenerTools = [
   screenWetlands,
   screenEpa,
   screenFull,
+  webSearchPreviewTool,
 ];
 
 /** Tools available to the Marketing / Dispositions agent. */
@@ -168,4 +176,12 @@ export const operationsTools = [
   listTasks,
   createTask,
   updateTask,
+];
+
+/** Tools available to the Market Intel agent. */
+export const marketIntelTools = [
+  getDealContext,
+  searchParcels,
+  getParcelDetails,
+  webSearchPreviewTool,
 ];

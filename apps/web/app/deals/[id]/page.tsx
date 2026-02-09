@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { ArrowLeft, Loader2, Plus, MessageSquare, Trash2 } from "lucide-react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { Button } from "@/components/ui/button";
@@ -15,9 +16,21 @@ import { TriageIndicator } from "@/components/deals/TriageIndicator";
 import { PipelineBoard } from "@/components/deals/PipelineBoard";
 import { ParcelTable, type ParcelItem } from "@/components/deals/ParcelTable";
 import { ArtifactList, type ArtifactItem } from "@/components/deals/ArtifactList";
+import { FileUploadZone, type UploadItem } from "@/components/deals/FileUploadZone";
+import { UploadList } from "@/components/deals/UploadList";
+import { TriageResultPanel } from "@/components/deals/TriageResultPanel";
+import { RunTriageButton } from "@/components/deals/RunTriageButton";
+import { ActivityTimeline } from "@/components/deals/ActivityTimeline";
+import { TaskCreateForm } from "@/components/deals/TaskCreateForm";
+import { DealContacts } from "@/components/deals/DealContacts";
 import type { TaskItem } from "@/components/deals/TaskCard";
 import { formatDate } from "@/lib/utils";
 import { toast } from "sonner";
+
+const DealParcelMap = dynamic(
+  () => import("@/components/maps/DealParcelMap"),
+  { ssr: false }
+);
 
 interface DealDetail {
   id: string;
@@ -34,6 +47,7 @@ interface DealDetail {
   parcels: ParcelItem[];
   tasks: TaskItem[];
   artifacts: ArtifactItem[];
+  uploads: UploadItem[];
 }
 
 export default function DealDetailPage() {
@@ -42,6 +56,8 @@ export default function DealDetailPage() {
   const router = useRouter();
   const [deal, setDeal] = useState<DealDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [triageResult, setTriageResult] = useState<Record<string, unknown> | null>(null);
+  const [triageSources, setTriageSources] = useState<{ url: string; title?: string }[]>([]);
 
   // Add-parcel form state
   const [parcelAddress, setParcelAddress] = useState("");
@@ -54,6 +70,9 @@ export default function DealDetailPage() {
       if (!res.ok) throw new Error("Failed to load deal");
       const data = await res.json();
       setDeal(data.deal);
+      if (data.deal.triageOutput) {
+        setTriageResult(data.deal.triageOutput);
+      }
     } catch (error) {
       console.error("Failed to load deal:", error);
       toast.error("Failed to load deal");
@@ -66,6 +85,17 @@ export default function DealDetailPage() {
     if (id) loadDeal();
   }, [id, loadDeal]);
 
+  // Also load latest triage from dedicated endpoint
+  useEffect(() => {
+    if (!id) return;
+    fetch(`/api/deals/${id}/triage`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.triage) setTriageResult(data.triage);
+      })
+      .catch(() => {});
+  }, [id]);
+
   const handleTaskStatusChange = async (taskId: string, newStatus: string) => {
     try {
       const res = await fetch(`/api/deals/${id}/tasks`, {
@@ -74,7 +104,6 @@ export default function DealDetailPage() {
         body: JSON.stringify({ taskId, status: newStatus }),
       });
       if (!res.ok) throw new Error("Failed to update task");
-      // Update local state
       setDeal((prev) => {
         if (!prev) return prev;
         return {
@@ -84,6 +113,34 @@ export default function DealDetailPage() {
           ),
         };
       });
+    } catch (error) {
+      console.error("Failed to update task:", error);
+      toast.error("Failed to update task");
+    }
+  };
+
+  const handleTaskUpdate = async (
+    taskId: string,
+    updates: { title?: string; description?: string; status?: string; dueAt?: string | null }
+  ) => {
+    try {
+      const res = await fetch(`/api/deals/${id}/tasks`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ taskId, ...updates }),
+      });
+      if (!res.ok) throw new Error("Failed to update task");
+      const data = await res.json();
+      setDeal((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          tasks: prev.tasks.map((t) =>
+            t.id === taskId ? { ...t, ...data.task } : t
+          ),
+        };
+      });
+      toast.success("Task updated");
     } catch (error) {
       console.error("Failed to update task:", error);
       toast.error("Failed to update task");
@@ -183,6 +240,14 @@ export default function DealDetailPage() {
             </div>
           </div>
           <div className="flex gap-2">
+            <RunTriageButton
+              dealId={deal.id}
+              hasParcels={deal.parcels.length > 0}
+              onComplete={({ triage, sources }) => {
+                setTriageResult(triage);
+                setTriageSources(sources);
+              }}
+            />
             <Button variant="outline" size="sm" className="gap-1.5" asChild>
               <Link href={`/chat?dealId=${deal.id}`}>
                 <MessageSquare className="h-4 w-4" />
@@ -205,6 +270,9 @@ export default function DealDetailPage() {
         <Tabs defaultValue="overview">
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="documents">
+              Documents ({deal.uploads?.length ?? 0})
+            </TabsTrigger>
             <TabsTrigger value="parcels">
               Parcels ({deal.parcels.length})
             </TabsTrigger>
@@ -218,170 +286,238 @@ export default function DealDetailPage() {
 
           {/* Overview Tab */}
           <TabsContent value="overview">
-            <div className="grid gap-4 md:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Deal Summary</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <p className="text-xs text-muted-foreground">Status</p>
-                      <StatusBadge status={deal.status} />
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Product</p>
-                      <SkuBadge sku={deal.sku} />
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Jurisdiction</p>
-                      <p className="font-medium">
-                        {deal.jurisdiction?.name ?? "--"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Parcels</p>
-                      <p className="font-medium">{deal.parcels.length}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+            <div className="grid gap-4 lg:grid-cols-3">
+              <div className="space-y-4 lg:col-span-2">
+                {/* Summary Cards */}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Deal Summary</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Status</p>
+                          <StatusBadge status={deal.status} />
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Product</p>
+                          <SkuBadge sku={deal.sku} />
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Jurisdiction</p>
+                          <p className="font-medium">
+                            {deal.jurisdiction?.name ?? "--"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Parcels</p>
+                          <p className="font-medium">{deal.parcels.length}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Key Dates</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3 text-sm">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Created</p>
-                    <p className="font-medium">{formatDate(deal.createdAt)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Last Updated</p>
-                    <p className="font-medium">{formatDate(deal.updatedAt)}</p>
-                  </div>
-                  {deal.targetCloseDate && (
-                    <div>
-                      <p className="text-xs text-muted-foreground">Target Close</p>
-                      <p className="font-medium">{formatDate(deal.targetCloseDate)}</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Triage Score */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Triage Score</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {deal.triageTier ? (
-                    <div className="flex items-center gap-3">
-                      <TriageIndicator tier={deal.triageTier} showLabel />
-                      {deal.triageOutput?.score != null && (
-                        <span className="text-2xl font-bold">
-                          {String(deal.triageOutput.score)}
-                        </span>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Key Dates</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3 text-sm">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Created</p>
+                        <p className="font-medium">{formatDate(deal.createdAt)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Last Updated</p>
+                        <p className="font-medium">{formatDate(deal.updatedAt)}</p>
+                      </div>
+                      {deal.targetCloseDate && (
+                        <div>
+                          <p className="text-xs text-muted-foreground">Target Close</p>
+                          <p className="font-medium">{formatDate(deal.targetCloseDate)}</p>
+                        </div>
                       )}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      No triage run yet. Use the chat to run triage on this deal.
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
+                    </CardContent>
+                  </Card>
+                </div>
 
-              {/* Notes */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Notes</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {deal.notes ? (
-                    <p className="whitespace-pre-wrap text-sm">{deal.notes}</p>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">No notes added.</p>
-                  )}
-                </CardContent>
-              </Card>
+                {/* Triage Results */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Triage Assessment</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {triageResult && (triageResult as Record<string, unknown>).decision ? (
+                      <TriageResultPanel
+                        triage={triageResult as Parameters<typeof TriageResultPanel>[0]["triage"]}
+                        sources={triageSources}
+                      />
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        No triage run yet. Click "Run Triage" to analyze this deal.
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Notes */}
+                {deal.notes && !deal.notes.startsWith("---CONTACTS---") && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Notes</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="whitespace-pre-wrap text-sm">{deal.notes}</p>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+
+              {/* Right column */}
+              <div className="space-y-4">
+                <DealContacts dealId={deal.id} notes={deal.notes ?? null} />
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Activity</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ActivityTimeline dealId={deal.id} />
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           </TabsContent>
 
-          {/* Parcels Tab */}
-          <TabsContent value="parcels">
+          {/* Documents Tab */}
+          <TabsContent value="documents">
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Parcels</CardTitle>
+                <CardTitle className="text-base">Documents</CardTitle>
                 <CardDescription>
-                  Land parcels associated with this deal.
+                  Upload and manage deal documents: title reports, environmental studies, surveys, financials, and legal files.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <ParcelTable
-                  parcels={deal.parcels}
+                <FileUploadZone
                   dealId={deal.id}
-                  onParcelUpdated={(updated) => {
+                  onUploadComplete={(upload) => {
+                    setDeal((prev) =>
+                      prev
+                        ? { ...prev, uploads: [upload, ...(prev.uploads || [])] }
+                        : prev
+                    );
+                  }}
+                />
+                <UploadList
+                  dealId={deal.id}
+                  uploads={deal.uploads || []}
+                  onDelete={(uploadId) => {
                     setDeal((prev) =>
                       prev
                         ? {
                             ...prev,
-                            parcels: prev.parcels.map((p) =>
-                              p.id === updated.id ? { ...p, ...updated } : p
+                            uploads: (prev.uploads || []).filter(
+                              (u) => u.id !== uploadId
                             ),
                           }
                         : prev
                     );
                   }}
                 />
-
-                <form
-                  onSubmit={handleAddParcel}
-                  className="flex flex-wrap items-end gap-3 border-t pt-4"
-                >
-                  <div className="flex-1 min-w-[200px] space-y-1">
-                    <label className="text-xs font-medium">Address</label>
-                    <Input
-                      value={parcelAddress}
-                      onChange={(e) => setParcelAddress(e.target.value)}
-                      placeholder="Parcel address"
-                      required
-                    />
-                  </div>
-                  <div className="w-[150px] space-y-1">
-                    <label className="text-xs font-medium">APN (optional)</label>
-                    <Input
-                      value={parcelApn}
-                      onChange={(e) => setParcelApn(e.target.value)}
-                      placeholder="APN"
-                    />
-                  </div>
-                  <Button type="submit" disabled={addingParcel} className="gap-1.5">
-                    {addingParcel ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Plus className="h-4 w-4" />
-                    )}
-                    Add Parcel
-                  </Button>
-                </form>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Parcels Tab */}
+          <TabsContent value="parcels">
+            <div className="space-y-4">
+              <DealParcelMap parcels={deal.parcels} dealName={deal.name} />
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Parcels</CardTitle>
+                  <CardDescription>
+                    Land parcels associated with this deal.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <ParcelTable
+                    parcels={deal.parcels}
+                    dealId={deal.id}
+                    onParcelUpdated={(updated) => {
+                      setDeal((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              parcels: prev.parcels.map((p) =>
+                                p.id === updated.id ? { ...p, ...updated } : p
+                              ),
+                            }
+                          : prev
+                      );
+                    }}
+                  />
+
+                  <form
+                    onSubmit={handleAddParcel}
+                    className="flex flex-wrap items-end gap-3 border-t pt-4"
+                  >
+                    <div className="flex-1 min-w-[200px] space-y-1">
+                      <label className="text-xs font-medium">Address</label>
+                      <Input
+                        value={parcelAddress}
+                        onChange={(e) => setParcelAddress(e.target.value)}
+                        placeholder="Parcel address"
+                        required
+                      />
+                    </div>
+                    <div className="w-[150px] space-y-1">
+                      <label className="text-xs font-medium">APN (optional)</label>
+                      <Input
+                        value={parcelApn}
+                        onChange={(e) => setParcelApn(e.target.value)}
+                        placeholder="APN"
+                      />
+                    </div>
+                    <Button type="submit" disabled={addingParcel} className="gap-1.5">
+                      {addingParcel ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Plus className="h-4 w-4" />
+                      )}
+                      Add Parcel
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           {/* Tasks Tab */}
           <TabsContent value="tasks">
             <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Pipeline Tasks</CardTitle>
-                <CardDescription>
-                  Track progress through the 8-step entitlement pipeline. Click the status icon to cycle.
-                </CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-base">Pipeline Tasks</CardTitle>
+                  <CardDescription>
+                    Track progress through the 8-step entitlement pipeline. Click the status icon to cycle, or the pencil to edit.
+                  </CardDescription>
+                </div>
+                <TaskCreateForm
+                  dealId={deal.id}
+                  onTaskCreated={(task) => {
+                    setDeal((prev) =>
+                      prev ? { ...prev, tasks: [...prev.tasks, task] } : prev
+                    );
+                  }}
+                />
               </CardHeader>
               <CardContent>
                 <PipelineBoard
                   tasks={deal.tasks}
                   onTaskStatusChange={handleTaskStatusChange}
+                  onTaskUpdate={handleTaskUpdate}
                 />
               </CardContent>
             </Card>

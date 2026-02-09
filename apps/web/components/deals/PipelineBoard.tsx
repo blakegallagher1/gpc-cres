@@ -16,9 +16,10 @@ const PIPELINE_STEPS = [
 interface PipelineBoardProps {
   tasks: TaskItem[];
   onTaskStatusChange?: (taskId: string, newStatus: string) => void;
+  onTaskUpdate?: (taskId: string, updates: { title?: string; description?: string; status?: string; dueAt?: string | null }) => void;
 }
 
-export function PipelineBoard({ tasks, onTaskStatusChange }: PipelineBoardProps) {
+export function PipelineBoard({ tasks, onTaskStatusChange, onTaskUpdate }: PipelineBoardProps) {
   return (
     <div className="space-y-6">
       {PIPELINE_STEPS.map(({ step, label }) => {
@@ -45,6 +46,7 @@ export function PipelineBoard({ tasks, onTaskStatusChange }: PipelineBoardProps)
                     key={task.id}
                     task={task}
                     onStatusChange={onTaskStatusChange}
+                    onTaskUpdate={onTaskUpdate}
                   />
                 ))}
               </div>

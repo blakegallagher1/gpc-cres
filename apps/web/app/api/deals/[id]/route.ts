@@ -22,6 +22,7 @@ export async function GET(
         parcels: { orderBy: { createdAt: "asc" } },
         tasks: { orderBy: [{ pipelineStep: "asc" }, { createdAt: "asc" }] },
         artifacts: { orderBy: { createdAt: "desc" } },
+        uploads: { orderBy: { createdAt: "desc" } },
         runs: {
           where: { runType: "TRIAGE" },
           orderBy: { startedAt: "desc" },

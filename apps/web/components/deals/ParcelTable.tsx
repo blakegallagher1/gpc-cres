@@ -17,6 +17,8 @@ export interface ParcelItem {
   id: string;
   address: string;
   apn?: string | null;
+  lat?: string | number | null;
+  lng?: string | number | null;
   acreage?: string | number | null;
   currentZoning?: string | null;
   futureLandUse?: string | null;
