@@ -51,25 +51,22 @@ export function ActivityTimeline({ dealId }: ActivityTimelineProps) {
   }
 
   return (
-    <div className="relative pl-6">
-      <div className="absolute left-[11px] top-2 bottom-2 w-px bg-border" />
-      <div className="space-y-4">
-        {items.map((item, i) => {
-          const config = typeConfig[item.type] || typeConfig.message;
-          const Icon = config.icon;
-          return (
-            <div key={i} className="relative flex items-start gap-3">
-              <div className={`absolute left-[-13px] flex h-6 w-6 items-center justify-center rounded-full bg-background border ${config.color}`}>
-                <Icon className="h-3 w-3" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm">{item.description}</p>
-                <p className="text-xs text-muted-foreground">{timeAgo(item.timestamp)}</p>
-              </div>
+    <div className="space-y-3">
+      {items.map((item, i) => {
+        const config = typeConfig[item.type] || typeConfig.message;
+        const Icon = config.icon;
+        return (
+          <div key={i} className="flex items-start gap-3">
+            <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border bg-background ${config.color}`}>
+              <Icon className="h-3 w-3" />
             </div>
-          );
-        })}
-      </div>
+            <div className="min-w-0 flex-1 pt-0.5">
+              <p className="text-sm leading-tight">{item.description}</p>
+              <p className="text-xs text-muted-foreground">{timeAgo(item.timestamp)}</p>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
