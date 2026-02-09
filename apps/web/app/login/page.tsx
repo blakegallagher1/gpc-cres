@@ -51,7 +51,7 @@ function LoginContent() {
     }
 
     toast.success("Signed in successfully");
-    router.replace("/app");
+    router.replace("/");
   };
 
   return (

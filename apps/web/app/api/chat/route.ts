@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { prisma } from "@entitlement-os/db";
+import { createConfiguredCoordinator } from "@entitlement-os/openai";
+import { run } from "@openai/agents";
 
 function sseEvent(data: Record<string, unknown>): string {
   return `data: ${JSON.stringify(data)}\n\n`;
@@ -42,12 +44,28 @@ async function resolveAuth() {
   if (!user) return null;
 
   // Look up org membership for this user
-  const membership = await prisma.orgMembership.findFirst({
+  let membership = await prisma.orgMembership.findFirst({
     where: { userId: user.id },
     select: { orgId: true },
   });
 
-  if (!membership) return null;
+  // Auto-provision: if user has no org, assign them to the default org
+  if (!membership) {
+    const defaultOrg = await prisma.org.findFirst({ select: { id: true } });
+    if (!defaultOrg) return null;
+
+    // Upsert user record (Supabase auth user may not exist in our User table yet)
+    await prisma.user.upsert({
+      where: { id: user.id },
+      update: { email: user.email ?? "" },
+      create: { id: user.id, email: user.email ?? "" },
+    });
+
+    membership = await prisma.orgMembership.create({
+      data: { orgId: defaultOrg.id, userId: user.id, role: "member" },
+      select: { orgId: true },
+    });
+  }
 
   return { userId: user.id, orgId: membership.orgId };
 }
@@ -77,7 +95,6 @@ export async function POST(req: NextRequest) {
   // --- Get or create conversation ---
   let convId = conversationId;
   if (convId) {
-    // Verify the conversation belongs to this org
     const existing = await prisma.conversation.findFirst({
       where: { id: convId, orgId },
       select: { id: true },
@@ -128,18 +145,41 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // --- Build input for agent ---
-  const input = history.map((m) => ({
-    role: m.role as "user" | "assistant",
-    content: m.content,
-  }));
+  // --- Build input for agent SDK ---
+  // The @openai/agents SDK expects AgentInputItem[] with protocol-specific shapes.
+  // User messages: { role: "user", content: string }
+  // Assistant messages: { role: "assistant", status: "completed", content: [{ type: "output_text", text: string }] }
+  type UserItem = { role: "user"; content: string };
+  type AssistantItem = {
+    role: "assistant";
+    status: "completed";
+    content: Array<{ type: "output_text"; text: string }>;
+  };
+  type AgentInput = UserItem | AssistantItem;
 
-  if (dealContext) {
-    // Prepend deal context as a system-like message in the first user turn
-    const firstUser = input.find((m) => m.role === "user");
-    if (firstUser && input.indexOf(firstUser) === 0) {
-      firstUser.content = dealContext + "\n\n" + firstUser.content;
+  const input: AgentInput[] = history.map((m) => {
+    if (m.role === "assistant") {
+      return {
+        role: "assistant" as const,
+        status: "completed" as const,
+        content: [{ type: "output_text" as const, text: m.content }],
+      };
     }
+    return { role: "user" as const, content: m.content };
+  });
+
+  // Inject system context (orgId, userId, and optional deal) so the agent can call tools
+  const systemContext = [
+    `[System context — use these values when calling tools]`,
+    `orgId: ${orgId}`,
+    `userId: ${userId}`,
+    dealContext,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  if (input.length > 0 && input[0].role === "user") {
+    input[0] = { ...input[0], content: systemContext + "\n\n" + input[0].content };
   }
 
   // --- Stream SSE response ---
@@ -148,34 +188,77 @@ export async function POST(req: NextRequest) {
 
   const stream = new ReadableStream({
     async start(controller) {
-      try {
-        // TODO: Replace placeholder with real agent streaming once
-        // @entitlement-os/openai coordinator + run() are wired up.
-        //
-        // Real implementation will look like:
-        //   import { coordinatorAgent } from '@entitlement-os/openai/agents/coordinator';
-        //   import { run } from '@openai/agents';
-        //   const result = run(coordinatorAgent, input);
-        //   for await (const event of result) { ... }
+      let fullText = "";
+      let lastAgentName = "Coordinator";
 
+      try {
+        // Check for OpenAI API key
+        if (!process.env.OPENAI_API_KEY) {
+          controller.enqueue(
+            encoder.encode(
+              sseEvent({
+                type: "error",
+                message: "OPENAI_API_KEY is not configured on the server.",
+              }),
+            ),
+          );
+          controller.close();
+          return;
+        }
+
+        // Create coordinator with all specialist handoffs
+        const coordinator = createConfiguredCoordinator();
+
+        // Run the agent with streaming
+        const result = await run(coordinator, input, {
+          stream: true,
+          maxTurns: 15,
+        });
+
+        // Emit initial agent
         controller.enqueue(
           encoder.encode(
             sseEvent({ type: "agent_switch", agentName: "Coordinator" }),
           ),
         );
 
-        // Placeholder response — echoes back acknowledgment
-        const placeholderText =
-          "I understand your request. The agent system is being connected — " +
-          "once integrated, I will route your query to the appropriate specialist agent " +
-          "(Research, Finance, Legal, Entitlements, etc.) and stream back results in real time.";
+        // Process streaming events
+        for await (const event of result) {
+          if (event.type === "agent_updated_stream_event") {
+            // Agent handoff occurred
+            lastAgentName = event.agent.name;
+            controller.enqueue(
+              encoder.encode(
+                sseEvent({
+                  type: "agent_switch",
+                  agentName: event.agent.name,
+                }),
+              ),
+            );
+          } else if (event.type === "raw_model_stream_event") {
+            // Raw model event — check for text delta
+            const data = event.data as Record<string, unknown>;
+            if (data.type === "output_text_delta" && typeof data.delta === "string") {
+              fullText += data.delta;
+              controller.enqueue(
+                encoder.encode(
+                  sseEvent({ type: "text_delta", content: data.delta }),
+                ),
+              );
+            }
+          }
+        }
 
-        // Simulate token-by-token streaming by splitting on words
-        const words = placeholderText.split(" ");
-        for (let i = 0; i < words.length; i++) {
-          const chunk = (i > 0 ? " " : "") + words[i];
+        // If no text was streamed (e.g. the agent only did tool calls),
+        // extract finalOutput
+        if (!fullText && result.finalOutput) {
+          const output =
+            typeof result.finalOutput === "string"
+              ? result.finalOutput
+              : JSON.stringify(result.finalOutput);
+          fullText = output;
           controller.enqueue(
-            encoder.encode(sseEvent({ type: "text_delta", content: chunk })),
+            encoder.encode(sseEvent({ type: "text_delta", content: output })),
           );
         }
 
@@ -186,19 +269,37 @@ export async function POST(req: NextRequest) {
         );
 
         // Persist assistant message
-        await prisma.message.create({
-          data: {
-            conversationId: finalConvId,
-            role: "assistant",
-            content: placeholderText,
-            agentName: "Coordinator",
-          },
-        });
+        if (fullText) {
+          await prisma.message.create({
+            data: {
+              conversationId: finalConvId,
+              role: "assistant",
+              content: fullText,
+              agentName: lastAgentName,
+            },
+          });
+        }
 
         controller.close();
       } catch (error) {
         const errMsg =
           error instanceof Error ? error.message : "Internal error";
+        console.error("Chat agent error:", error);
+
+        // Still persist what we have
+        if (fullText) {
+          await prisma.message
+            .create({
+              data: {
+                conversationId: finalConvId,
+                role: "assistant",
+                content: fullText,
+                agentName: lastAgentName,
+              },
+            })
+            .catch(() => {});
+        }
+
         controller.enqueue(
           encoder.encode(sseEvent({ type: "error", message: errMsg })),
         );

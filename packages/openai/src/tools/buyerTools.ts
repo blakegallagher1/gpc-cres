@@ -8,9 +8,9 @@ export const addBuyer = tool({
   parameters: z.object({
     orgId: z.string().uuid().describe("The org ID for security scoping"),
     name: z.string().min(1).describe("Buyer's full name"),
-    company: z.string().optional().describe("Buyer's company name"),
-    email: z.string().email().optional().describe("Buyer's email address"),
-    phone: z.string().optional().describe("Buyer's phone number"),
+    company: z.string().nullable().describe("Buyer's company name"),
+    email: z.string().nullable().describe("Buyer's email address"),
+    phone: z.string().nullable().describe("Buyer's phone number"),
     buyerType: z
       .enum(["operator", "developer", "investor", "broker"])
       .describe("Type of buyer"),
@@ -20,9 +20,9 @@ export const addBuyer = tool({
       .describe("SKU types this buyer is interested in"),
     jurisdictionInterests: z
       .array(z.string().uuid())
-      .optional()
+      .nullable()
       .describe("Jurisdiction IDs this buyer is interested in"),
-    notes: z.string().optional().describe("Additional notes about the buyer"),
+    notes: z.string().nullable().describe("Additional notes about the buyer"),
   }),
   execute: async ({
     orgId,
@@ -60,27 +60,27 @@ export const searchBuyers = tool({
     orgId: z.string().uuid().describe("The org ID for security scoping"),
     sku: z
       .enum(["SMALL_BAY_FLEX", "OUTDOOR_STORAGE", "TRUCK_PARKING"])
-      .optional()
+      .nullable()
       .describe("Filter by SKU interest"),
     jurisdictionId: z
       .string()
       .uuid()
-      .optional()
+      .nullable()
       .describe("Filter by jurisdiction interest"),
     buyerType: z
       .enum(["operator", "developer", "investor", "broker"])
-      .optional()
+      .nullable()
       .describe("Filter by buyer type"),
     nameSearch: z
       .string()
-      .optional()
+      .nullable()
       .describe("Partial name or company search"),
     limit: z
       .number()
       .int()
       .min(1)
       .max(100)
-      .optional()
+      .nullable()
       .describe("Maximum results to return (default 20)"),
   }),
   execute: async ({ orgId, sku, jurisdictionId, buyerType, nameSearch, limit }) => {
@@ -124,10 +124,10 @@ export const logOutreach = tool({
     status: z
       .enum(["planned", "sent", "completed", "no_response", "not_interested"])
       .describe("Status of the outreach attempt"),
-    notes: z.string().optional().describe("Notes about the contact attempt"),
+    notes: z.string().nullable().describe("Notes about the contact attempt"),
     nextFollowupAt: z
       .string()
-      .optional()
+      .nullable()
       .describe("Next follow-up date (ISO 8601 datetime)"),
   }),
   execute: async ({

@@ -318,7 +318,22 @@ export default function DealDetailPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <ParcelTable parcels={deal.parcels} />
+                <ParcelTable
+                  parcels={deal.parcels}
+                  dealId={deal.id}
+                  onParcelUpdated={(updated) => {
+                    setDeal((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            parcels: prev.parcels.map((p) =>
+                              p.id === updated.id ? { ...p, ...updated } : p
+                            ),
+                          }
+                        : prev
+                    );
+                  }}
+                />
 
                 <form
                   onSubmit={handleAddParcel}

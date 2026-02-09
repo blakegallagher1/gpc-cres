@@ -81,3 +81,5 @@ temp/
 
 # Docs builds
 docs/_build/
+.vercel
+.env*.local

@@ -8,8 +8,8 @@ export const evidenceSnapshot = tool({
     "Capture a snapshot of a URL for evidence tracking. Returns the snapshot metadata. (Stub - full implementation pending packages/evidence)",
   parameters: z.object({
     orgId: z.string().uuid().describe("The org ID for security scoping"),
-    url: z.string().url().describe("The URL to snapshot"),
-    title: z.string().optional().describe("Optional title for the evidence source"),
+    url: z.string().min(1).describe("The URL to snapshot (e.g. https://example.com/page)"),
+    title: z.string().nullable().describe("Optional title for the evidence source"),
   }),
   execute: async ({ orgId, url, title }) => {
     // TODO: Integrate with packages/evidence when available.
@@ -52,8 +52,8 @@ export const floodZoneLookup = tool({
       .string()
       .min(1)
       .describe("The street address to check for flood zone"),
-    lat: z.number().optional().describe("Latitude for more precise lookup"),
-    lng: z.number().optional().describe("Longitude for more precise lookup"),
+    lat: z.number().nullable().describe("Latitude for more precise lookup"),
+    lng: z.number().nullable().describe("Longitude for more precise lookup"),
   }),
   execute: async ({ address, lat, lng }) => {
     // TODO: Integrate with FEMA National Flood Hazard Layer (NFHL) API

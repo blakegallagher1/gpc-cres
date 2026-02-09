@@ -186,10 +186,16 @@ model Parcel {
   lat           Decimal? @db.Decimal(10, 7)
   lng           Decimal? @db.Decimal(10, 7)
   acreage       Decimal? @db.Decimal(12, 4)
-  currentZoning String?  @map("current_zoning") @db.Text
-  futureLandUse String?  @map("future_land_use") @db.Text
-  utilitiesNotes String? @map("utilities_notes") @db.Text
-  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  currentZoning  String?  @map("current_zoning") @db.Text
+  futureLandUse  String?  @map("future_land_use") @db.Text
+  utilitiesNotes String?  @map("utilities_notes") @db.Text
+  floodZone      String?  @map("flood_zone") @db.Text
+  soilsNotes     String?  @map("soils_notes") @db.Text
+  wetlandsNotes  String?  @map("wetlands_notes") @db.Text
+  envNotes       String?  @map("env_notes") @db.Text
+  trafficNotes   String?  @map("traffic_notes") @db.Text
+  propertyDbId   String?  @map("property_db_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   org  Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
   deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)

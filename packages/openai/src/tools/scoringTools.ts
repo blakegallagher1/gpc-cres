@@ -10,31 +10,31 @@ export const parcelTriageScore = tool({
     address: z.string().min(1).describe("Parcel address"),
     currentZoning: z
       .string()
-      .optional()
+      .nullable()
       .describe("Current zoning code (e.g. M1, C2, A1)"),
-    acreage: z.number().optional().describe("Parcel acreage"),
+    acreage: z.number().nullable().describe("Parcel acreage"),
     proposedUse: z
       .enum(["SMALL_BAY_FLEX", "OUTDOOR_STORAGE", "TRUCK_PARKING"])
       .describe("The proposed SKU/use type"),
     floodZone: z
       .string()
-      .optional()
+      .nullable()
       .describe("FEMA flood zone code if known (e.g. X, AE, A)"),
     futureLandUse: z
       .string()
-      .optional()
+      .nullable()
       .describe("Future land use designation if known"),
     utilitiesAvailable: z
       .boolean()
-      .optional()
+      .nullable()
       .describe("Whether utilities (water, sewer, electric) are available"),
     frontageRoad: z
       .string()
-      .optional()
+      .nullable()
       .describe("Name or classification of frontage road"),
     adjacentUses: z
       .string()
-      .optional()
+      .nullable()
       .describe("Description of adjacent land uses"),
   }),
   execute: async ({
@@ -101,7 +101,7 @@ export const parcelTriageScore = tool({
         TRUCK_PARKING: 5,
       };
       const min = minAcreage[proposedUse] ?? 2;
-      if (acreage < min) {
+      if (acreage !== null && acreage < min) {
         disqualifiers.push({
           label: "Undersized parcel",
           detail: `${acreage} acres is below the ${min}-acre minimum for ${proposedUse}`,
@@ -178,23 +178,23 @@ export const hardFilterCheck = tool({
     address: z.string().min(1).describe("Parcel address"),
     currentZoning: z
       .string()
-      .optional()
+      .nullable()
       .describe("Current zoning code"),
-    acreage: z.number().optional().describe("Parcel acreage"),
+    acreage: z.number().nullable().describe("Parcel acreage"),
     proposedUse: z
       .enum(["SMALL_BAY_FLEX", "OUTDOOR_STORAGE", "TRUCK_PARKING"])
       .describe("Proposed use type"),
     floodZone: z
       .string()
-      .optional()
+      .nullable()
       .describe("FEMA flood zone code"),
     isWetland: z
       .boolean()
-      .optional()
+      .nullable()
       .describe("Whether the parcel contains wetlands"),
     isContaminated: z
       .boolean()
-      .optional()
+      .nullable()
       .describe("Whether the parcel has known environmental contamination"),
   }),
   execute: async ({
@@ -248,7 +248,7 @@ export const hardFilterCheck = tool({
         TRUCK_PARKING: 3,
       };
       const min = absoluteMin[proposedUse] ?? 1;
-      if (acreage < min) {
+      if (acreage !== null && acreage < min) {
         disqualifiers.push(
           `Parcel too small (${acreage} ac) for ${proposedUse} (minimum ${min} ac)`,
         );

@@ -9,7 +9,7 @@ export const createTask = tool({
     orgId: z.string().uuid().describe("The org ID for security scoping"),
     dealId: z.string().uuid().describe("The deal this task belongs to"),
     title: z.string().min(1).describe("Task title"),
-    description: z.string().optional().describe("Detailed task description"),
+    description: z.string().nullable().describe("Detailed task description"),
     pipelineStep: z
       .number()
       .int()
@@ -20,12 +20,12 @@ export const createTask = tool({
       ),
     dueAt: z
       .string()
-      .optional()
+      .nullable()
       .describe("Optional due date (ISO 8601 datetime)"),
     ownerUserId: z
       .string()
       .uuid()
-      .optional()
+      .nullable()
       .describe("Optional user ID to assign this task to"),
   }),
   execute: async ({ orgId, dealId, title, description, pipelineStep, dueAt, ownerUserId }) => {
@@ -61,29 +61,29 @@ export const updateTask = tool({
     taskId: z.string().uuid().describe("The task ID to update"),
     status: z
       .enum(["TODO", "IN_PROGRESS", "BLOCKED", "DONE", "CANCELED"])
-      .optional()
+      .nullable()
       .describe("New task status"),
-    title: z.string().min(1).optional().describe("Updated task title"),
-    description: z.string().optional().describe("Updated task description"),
+    title: z.string().min(1).nullable().describe("Updated task title"),
+    description: z.string().nullable().describe("Updated task description"),
     dueAt: z
       .string()
-      .optional()
+      .nullable()
       .describe("Updated due date (ISO 8601 datetime)"),
     ownerUserId: z
       .string()
       .uuid()
-      .optional()
+      .nullable()
       .describe("Updated owner user ID"),
   }),
   execute: async ({ orgId, taskId, status, title, description, dueAt, ownerUserId }) => {
     const result = await prisma.task.updateMany({
       where: { id: taskId, orgId },
       data: {
-        ...(status !== undefined ? { status } : {}),
-        ...(title !== undefined ? { title } : {}),
-        ...(description !== undefined ? { description } : {}),
-        ...(dueAt !== undefined ? { dueAt: new Date(dueAt) } : {}),
-        ...(ownerUserId !== undefined ? { ownerUserId } : {}),
+        ...(status != null ? { status } : {}),
+        ...(title != null ? { title } : {}),
+        ...(description != null ? { description } : {}),
+        ...(dueAt != null ? { dueAt: new Date(dueAt) } : {}),
+        ...(ownerUserId !== undefined ? { ownerUserId: ownerUserId ?? undefined } : {}),
       },
     });
     if (result.count === 0) {
@@ -104,7 +104,7 @@ export const listTasks = tool({
     dealId: z.string().uuid().describe("The deal ID to list tasks for"),
     status: z
       .enum(["TODO", "IN_PROGRESS", "BLOCKED", "DONE", "CANCELED"])
-      .optional()
+      .nullable()
       .describe("Filter by task status"),
   }),
   execute: async ({ orgId, dealId, status }) => {

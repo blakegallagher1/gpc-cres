@@ -9,15 +9,15 @@ interface AuthGuardProps {
   children: React.ReactNode;
 }
 
+const DISABLE_AUTH = process.env.NEXT_PUBLIC_DISABLE_AUTH === "true";
+
 export function AuthGuard({ children }: AuthGuardProps) {
   const router = useRouter();
-  const [isReady, setIsReady] = useState(false);
-
-  if (process.env.NEXT_PUBLIC_DISABLE_AUTH === "true") {
-    return <>{children}</>;
-  }
+  const [isReady, setIsReady] = useState(DISABLE_AUTH);
 
   useEffect(() => {
+    if (DISABLE_AUTH) return;
+
     let isMounted = true;
 
     const handleUnauthorized = async () => {

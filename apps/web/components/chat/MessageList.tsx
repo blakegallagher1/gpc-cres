@@ -8,9 +8,10 @@ import { cn } from '@/lib/utils';
 interface MessageListProps {
   messages: ChatMessage[];
   isStreaming: boolean;
+  onSuggestionClick?: (text: string) => void;
 }
 
-export function MessageList({ messages, isStreaming }: MessageListProps) {
+export function MessageList({ messages, isStreaming, onSuggestionClick }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -39,12 +40,13 @@ export function MessageList({ messages, isStreaming }: MessageListProps) {
               'Run due diligence',
               'Market comps',
             ].map((suggestion) => (
-              <span
+              <button
                 key={suggestion}
-                className="rounded-full border bg-card px-3 py-1.5 text-xs text-muted-foreground"
+                onClick={() => onSuggestionClick?.(suggestion)}
+                className="rounded-full border bg-card px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
                 {suggestion}
-              </span>
+              </button>
             ))}
           </div>
         </div>

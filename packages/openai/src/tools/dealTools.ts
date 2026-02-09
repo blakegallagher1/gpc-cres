@@ -38,10 +38,10 @@ export const createDeal = tool({
       .string()
       .uuid()
       .describe("The jurisdiction this deal falls under"),
-    notes: z.string().optional().describe("Optional notes for the deal"),
+    notes: z.string().nullable().describe("Optional notes for the deal"),
     targetCloseDate: z
       .string()
-      .optional()
+      .nullable()
       .describe("Optional target close date (ISO 8601)"),
   }),
   execute: async ({
@@ -91,7 +91,7 @@ export const updateDealStatus = tool({
         "KILLED",
       ])
       .describe("The new deal status"),
-    notes: z.string().optional().describe("Optional notes about the status change"),
+    notes: z.string().nullable().describe("Optional notes about the status change"),
   }),
   execute: async ({ orgId, dealId, status, notes }) => {
     const deal = await prisma.deal.updateMany({
@@ -130,18 +130,18 @@ export const listDeals = tool({
         "EXITED",
         "KILLED",
       ])
-      .optional()
+      .nullable()
       .describe("Filter by deal status"),
     sku: z
       .enum(["SMALL_BAY_FLEX", "OUTDOOR_STORAGE", "TRUCK_PARKING"])
-      .optional()
+      .nullable()
       .describe("Filter by SKU type"),
     limit: z
       .number()
       .int()
       .min(1)
       .max(100)
-      .optional()
+      .nullable()
       .describe("Maximum number of deals to return (default 20)"),
   }),
   execute: async ({ orgId, status, sku, limit }) => {
@@ -169,21 +169,21 @@ export const addParcelToDeal = tool({
     orgId: z.string().uuid().describe("The org ID for security scoping"),
     dealId: z.string().uuid().describe("The deal to attach the parcel to"),
     address: z.string().min(1).describe("Street address of the parcel"),
-    apn: z.string().optional().describe("Assessor parcel number"),
-    lat: z.number().optional().describe("Latitude"),
-    lng: z.number().optional().describe("Longitude"),
-    acreage: z.number().optional().describe("Acreage of the parcel"),
+    apn: z.string().nullable().describe("Assessor parcel number"),
+    lat: z.number().nullable().describe("Latitude"),
+    lng: z.number().nullable().describe("Longitude"),
+    acreage: z.number().nullable().describe("Acreage of the parcel"),
     currentZoning: z
       .string()
-      .optional()
+      .nullable()
       .describe("Current zoning code (e.g. A1, C2, M1)"),
     futureLandUse: z
       .string()
-      .optional()
+      .nullable()
       .describe("Future land use designation"),
     utilitiesNotes: z
       .string()
-      .optional()
+      .nullable()
       .describe("Notes about utility access"),
   }),
   execute: async ({
@@ -222,5 +222,107 @@ export const addParcelToDeal = tool({
       },
     });
     return JSON.stringify(parcel);
+  },
+});
+
+export const updateParcel = tool({
+  name: "update_parcel",
+  description:
+    "Update an existing parcel with enriched data (coordinates, APN, acreage, zoning, etc.). Use this after scanning the property database and getting user approval to associate the findings with the deal.",
+  parameters: z.object({
+    orgId: z.string().uuid().describe("The org ID for security scoping"),
+    parcelId: z.string().uuid().describe("The parcel ID to update"),
+    apn: z.string().nullable().describe("Assessor parcel number"),
+    lat: z.number().nullable().describe("Latitude"),
+    lng: z.number().nullable().describe("Longitude"),
+    acreage: z.number().nullable().describe("Acreage of the parcel"),
+    currentZoning: z
+      .string()
+      .nullable()
+      .describe("Current zoning code (e.g. A1, C2, M1)"),
+    futureLandUse: z
+      .string()
+      .nullable()
+      .describe("Future land use designation"),
+    utilitiesNotes: z
+      .string()
+      .nullable()
+      .describe("Notes about utility access"),
+    floodZone: z
+      .string()
+      .nullable()
+      .describe("FEMA flood zone code (e.g. X, AE, A)"),
+    soilsNotes: z
+      .string()
+      .nullable()
+      .describe("Summary of soil conditions from screening"),
+    wetlandsNotes: z
+      .string()
+      .nullable()
+      .describe("Summary of wetland status from screening"),
+    envNotes: z
+      .string()
+      .nullable()
+      .describe("Summary of environmental screening (EPA/LDEQ findings)"),
+    trafficNotes: z
+      .string()
+      .nullable()
+      .describe("Summary of traffic/access data from screening"),
+    propertyDbId: z
+      .string()
+      .uuid()
+      .nullable()
+      .describe("The parcel UUID from the Louisiana Property Database, for cross-reference"),
+  }),
+  execute: async ({
+    orgId,
+    parcelId,
+    apn,
+    lat,
+    lng,
+    acreage,
+    currentZoning,
+    futureLandUse,
+    utilitiesNotes,
+    floodZone,
+    soilsNotes,
+    wetlandsNotes,
+    envNotes,
+    trafficNotes,
+    propertyDbId,
+  }) => {
+    // Only update fields that were provided (non-null)
+    const data: Record<string, unknown> = {};
+    if (apn != null) data.apn = apn;
+    if (lat != null) data.lat = lat;
+    if (lng != null) data.lng = lng;
+    if (acreage != null) data.acreage = acreage;
+    if (currentZoning != null) data.currentZoning = currentZoning;
+    if (futureLandUse != null) data.futureLandUse = futureLandUse;
+    if (utilitiesNotes != null) data.utilitiesNotes = utilitiesNotes;
+    if (floodZone != null) data.floodZone = floodZone;
+    if (soilsNotes != null) data.soilsNotes = soilsNotes;
+    if (wetlandsNotes != null) data.wetlandsNotes = wetlandsNotes;
+    if (envNotes != null) data.envNotes = envNotes;
+    if (trafficNotes != null) data.trafficNotes = trafficNotes;
+    if (propertyDbId != null) data.propertyDbId = propertyDbId;
+
+    if (Object.keys(data).length === 0) {
+      return JSON.stringify({ error: "No fields to update" });
+    }
+
+    const result = await prisma.parcel.updateMany({
+      where: { id: parcelId, orgId },
+      data,
+    });
+
+    if (result.count === 0) {
+      return JSON.stringify({ error: "Parcel not found or access denied" });
+    }
+
+    const updated = await prisma.parcel.findFirstOrThrow({
+      where: { id: parcelId, orgId },
+    });
+    return JSON.stringify(updated);
   },
 });
