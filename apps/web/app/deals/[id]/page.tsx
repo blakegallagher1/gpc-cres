@@ -351,6 +351,26 @@ export default function DealDetailPage() {
                       <TriageResultPanel
                         triage={triageResult as Parameters<typeof TriageResultPanel>[0]["triage"]}
                         sources={triageSources}
+                        onCreateTask={async (action) => {
+                          const dueDate = new Date();
+                          dueDate.setDate(dueDate.getDate() + action.due_in_days);
+                          const res = await fetch(`/api/deals/${id}/tasks`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              title: action.title,
+                              description: action.description,
+                              pipelineStep: action.pipeline_step,
+                              dueAt: dueDate.toISOString().slice(0, 10),
+                            }),
+                          });
+                          if (!res.ok) throw new Error("Failed to create task");
+                          const data = await res.json();
+                          setDeal((prev) =>
+                            prev ? { ...prev, tasks: [...prev.tasks, data.task] } : prev
+                          );
+                          toast.success(`Task created: ${action.title}`);
+                        }}
                       />
                     ) : (
                       <p className="text-sm text-muted-foreground">

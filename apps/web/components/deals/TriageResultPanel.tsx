@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { AlertTriangle, CheckCircle2, XCircle, ExternalLink, ChevronRight } from "lucide-react";
+import { AlertTriangle, CheckCircle2, XCircle, ExternalLink, ChevronRight, Plus, Loader2, Check } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 type Decision = "ADVANCE" | "HOLD" | "KILL";
 
@@ -85,11 +87,14 @@ interface TriageResultPanelProps {
     sources_summary: string[];
   };
   sources?: WebSearchSource[];
+  onCreateTask?: (action: NextAction) => Promise<void>;
 }
 
-export function TriageResultPanel({ triage, sources }: TriageResultPanelProps) {
+export function TriageResultPanel({ triage, sources, onCreateTask }: TriageResultPanelProps) {
   const style = decisionStyles[triage.decision];
   const DecisionIcon = style.icon;
+  const [creatingIdx, setCreatingIdx] = useState<number | null>(null);
+  const [createdIdxs, setCreatedIdxs] = useState<Set<number>>(new Set());
 
   const totalRisk = Object.values(triage.risk_scores).reduce((a, b) => a + b, 0);
   const avgRisk = Math.round((totalRisk / 6) * 10);
@@ -198,21 +203,60 @@ export function TriageResultPanel({ triage, sources }: TriageResultPanelProps) {
       {/* Next Actions */}
       {triage.next_actions.length > 0 && (
         <div>
-          <h4 className="mb-2 text-sm font-medium">Next Actions</h4>
+          <div className="mb-2 flex items-center justify-between">
+            <h4 className="text-sm font-medium">Next Actions</h4>
+            {onCreateTask && (
+              <span className="text-xs text-muted-foreground">Click to create task</span>
+            )}
+          </div>
           <div className="space-y-1.5">
-            {triage.next_actions.map((action, i) => (
-              <div key={i} className="flex items-start gap-2 rounded-md border p-2.5">
-                <ChevronRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium">{action.title}</p>
-                  <p className="text-xs text-muted-foreground">{action.description}</p>
+            {triage.next_actions.map((action, i) => {
+              const created = createdIdxs.has(i);
+              const creating = creatingIdx === i;
+
+              return (
+                <div
+                  key={i}
+                  className={cn(
+                    "flex items-start gap-2 rounded-md border p-2.5 transition-colors",
+                    onCreateTask && !created && "cursor-pointer hover:border-primary/50 hover:bg-muted/50",
+                    created && "border-emerald-500/30 bg-emerald-500/5"
+                  )}
+                  onClick={async () => {
+                    if (!onCreateTask || creating || created) return;
+                    setCreatingIdx(i);
+                    try {
+                      await onCreateTask(action);
+                      setCreatedIdxs((prev) => new Set(prev).add(i));
+                    } finally {
+                      setCreatingIdx(null);
+                    }
+                  }}
+                >
+                  {created ? (
+                    <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                  ) : creating ? (
+                    <Loader2 className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin text-primary" />
+                  ) : (
+                    <ChevronRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium">{action.title}</p>
+                    <p className="text-xs text-muted-foreground">{action.description}</p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+                    <span>Step {action.pipeline_step}</span>
+                    <span>{action.due_in_days}d</span>
+                    {onCreateTask && !created && !creating && (
+                      <Plus className="h-3.5 w-3.5 text-muted-foreground/50" />
+                    )}
+                    {created && (
+                      <span className="text-emerald-600 dark:text-emerald-400">Added</span>
+                    )}
+                  </div>
                 </div>
-                <div className="flex shrink-0 gap-2 text-xs text-muted-foreground">
-                  <span>Step {action.pipeline_step}</span>
-                  <span>{action.due_in_days}d</span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
