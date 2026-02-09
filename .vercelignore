@@ -1,10 +1,10 @@
-frontend/
+legacy/
+apps/worker/
+infra/
+docs/
 node_modules/
-output/
-tmp/
+.git/
+.venv/
 __pycache__/
 .pytest_cache/
-.venv/
-.git/
-uv.lock
-requirements-dev.txt
+*.lock
