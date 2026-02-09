@@ -1,6 +1,19 @@
+import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 // import { prisma } from '@entitlement-os/db';
 // import { captureEvidence } from '@entitlement-os/evidence';
+
+function verifyCronSecret(req: Request): boolean {
+  const secret = (process.env.CRON_SECRET || '').trim();
+  if (!secret) return false;
+  const header = (req.headers.get('authorization') || '').replace('Bearer ', '').trim();
+  if (!header || header.length !== secret.length) return false;
+  try {
+    return crypto.timingSafeEqual(Buffer.from(secret), Buffer.from(header));
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Vercel Cron Job: Change Detection
@@ -11,9 +24,7 @@ import { NextResponse } from 'next/server';
  * { "crons": [{ "path": "/api/cron/change-detection", "schedule": "0 6 * * *" }] }
  */
 export async function GET(req: Request) {
-  // Vercel sets CRON_SECRET automatically for cron jobs
-  const authHeader = req.headers.get('authorization');
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!verifyCronSecret(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

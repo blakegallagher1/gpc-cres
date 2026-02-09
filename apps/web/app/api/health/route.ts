@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
@@ -68,6 +69,18 @@ function createSupabaseServerClient(request: NextRequest) {
   );
 }
 
+function timingSafeTokenMatch(a: string, b: string): boolean {
+  if (!a || !b) return false;
+  try {
+    const bufA = Buffer.from(a);
+    const bufB = Buffer.from(b);
+    if (bufA.length !== bufB.length) return false;
+    return crypto.timingSafeEqual(bufA, bufB);
+  } catch {
+    return false;
+  }
+}
+
 async function isAuthorized(request: NextRequest) {
   const expectedToken = (
     process.env.HEALTHCHECK_TOKEN || process.env.VERCEL_ACCESS_TOKEN || ""
@@ -76,7 +89,7 @@ async function isAuthorized(request: NextRequest) {
     request.headers.get("x-health-token") || getBearerToken(request) || ""
   ).trim();
 
-  if (expectedToken && headerToken && headerToken === expectedToken) {
+  if (timingSafeTokenMatch(expectedToken, headerToken)) {
     return true;
   }
 

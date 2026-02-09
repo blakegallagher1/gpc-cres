@@ -1,7 +1,20 @@
+import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 // import { prisma } from '@entitlement-os/db';
 // import { createStrictJsonResponse } from '@entitlement-os/openai';
 // import { parishPackJsonSchema } from '@entitlement-os/shared';
+
+function verifyCronSecret(req: Request): boolean {
+  const secret = (process.env.CRON_SECRET || '').trim();
+  if (!secret) return false;
+  const header = (req.headers.get('authorization') || '').replace('Bearer ', '').trim();
+  if (!header || header.length !== secret.length) return false;
+  try {
+    return crypto.timingSafeEqual(Buffer.from(secret), Buffer.from(header));
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Vercel Cron Job: Parish Pack Refresh
@@ -12,8 +25,7 @@ import { NextResponse } from 'next/server';
  * { "crons": [{ "path": "/api/cron/parish-pack-refresh", "schedule": "0 4 * * 0" }] }
  */
 export async function GET(req: Request) {
-  const authHeader = req.headers.get('authorization');
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!verifyCronSecret(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
