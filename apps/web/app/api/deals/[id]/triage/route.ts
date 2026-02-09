@@ -8,20 +8,6 @@ import {
 } from "@entitlement-os/shared";
 import type { ParcelTriage } from "@entitlement-os/shared";
 
-/** Recursively strip `format` keys from a JSON schema object (OpenAI rejects them). */
-function stripFormat(obj: unknown): unknown {
-  if (Array.isArray(obj)) return obj.map(stripFormat);
-  if (obj && typeof obj === "object") {
-    const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
-      if (k === "format") continue;
-      out[k] = stripFormat(v);
-    }
-    return out;
-  }
-  return obj;
-}
-
 // POST /api/deals/[id]/triage - run triage
 export async function POST(
   _request: NextRequest,
@@ -95,12 +81,7 @@ ${parcelDescriptions}
 
 Evaluate all risk dimensions (access, drainage, adjacency, environmental, utilities, politics) on a 0-10 scale where 10 is highest risk. Identify any hard or soft disqualifiers. Recommend KILL, HOLD, or ADVANCE with a clear rationale and next actions.`;
 
-      // Generate schema and strip format constraints
-      const rawSchema = zodToOpenAiJsonSchema("ParcelTriage", ParcelTriageSchema);
-      const cleanSchema = {
-        ...rawSchema,
-        schema: stripFormat(rawSchema.schema) as Record<string, unknown>,
-      };
+      const jsonSchema = zodToOpenAiJsonSchema("ParcelTriage", ParcelTriageSchema);
 
       const result = await createStrictJsonResponse<ParcelTriage>({
         model: process.env.OPENAI_FLAGSHIP_MODEL || "gpt-5.2",
@@ -108,7 +89,7 @@ Evaluate all risk dimensions (access, drainage, adjacency, environmental, utilit
           { role: "system" as const, content: systemPrompt },
           { role: "user" as const, content: userPrompt },
         ],
-        jsonSchema: cleanSchema,
+        jsonSchema,
         tools: [{ type: "web_search_preview" as const, search_context_size: "high" as const }],
       });
 
