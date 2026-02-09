@@ -106,6 +106,103 @@ export function TriageResultPanel({ triage, sources, onRunAction, onTaskComplete
   const style = decisionStyles[triage.decision];
   const DecisionIcon = style.icon;
   const [actionResults, setActionResults] = useState<Record<number, ActionResult>>({});
+  const runningRef = useRef<Set<number>>(new Set());
+
+  /** Run a single next action by index — creates task then streams agent. */
+  const executeAction = async (i: number) => {
+    const action = triage.next_actions[i];
+    if (!onRunAction || !dealId || !action) return;
+    if (runningRef.current.has(i)) return;
+    const currentResult = actionResults[i];
+    if (currentResult?.state === "done" || currentResult?.state === "running" || currentResult?.state === "creating") return;
+
+    runningRef.current.add(i);
+
+    // Step 1: Create task
+    setActionResults((prev) => ({ ...prev, [i]: { state: "creating" } }));
+    let taskId: string;
+    try {
+      taskId = await onRunAction(action);
+    } catch {
+      setActionResults((prev) => ({ ...prev, [i]: { state: "error", output: "Failed to create task" } }));
+      runningRef.current.delete(i);
+      return;
+    }
+
+    // Step 2: Stream agent execution
+    setActionResults((prev) => ({ ...prev, [i]: { state: "running", agentName: "Coordinator", output: "" } }));
+
+    try {
+      const res = await fetch(`/api/deals/${dealId}/tasks/${taskId}/run`, { method: "POST" });
+      if (!res.ok || !res.body) {
+        setActionResults((prev) => ({ ...prev, [i]: { state: "error", output: "Agent request failed" } }));
+        runningRef.current.delete(i);
+        return;
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let fullOutput = "";
+      let currentAgent = "Coordinator";
+
+      while (true) {
+        const { done: streamDone, value } = await reader.read();
+        if (streamDone) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const event = JSON.parse(line.slice(6));
+            if (event.type === "agent_switch") {
+              currentAgent = event.agentName;
+              setActionResults((prev) => ({ ...prev, [i]: { ...prev[i], agentName: currentAgent } }));
+            } else if (event.type === "text_delta") {
+              fullOutput += event.content;
+              setActionResults((prev) => ({ ...prev, [i]: { ...prev[i], output: fullOutput } }));
+            } else if (event.type === "done") {
+              setActionResults((prev) => ({
+                ...prev,
+                [i]: { state: "done", agentName: currentAgent, output: fullOutput, expanded: false },
+              }));
+              onTaskCompleted?.(taskId, fullOutput);
+            } else if (event.type === "error") {
+              setActionResults((prev) => ({ ...prev, [i]: { state: "error", output: event.message } }));
+            }
+          } catch {
+            // skip malformed SSE
+          }
+        }
+      }
+    } catch (err) {
+      setActionResults((prev) => ({
+        ...prev,
+        [i]: { state: "error", output: err instanceof Error ? err.message : "Stream failed" },
+      }));
+    } finally {
+      runningRef.current.delete(i);
+    }
+  };
+
+  const handleRunAll = () => {
+    triage.next_actions.forEach((_, i) => {
+      const r = actionResults[i];
+      if (!r || (r.state !== "done" && r.state !== "running" && r.state !== "creating")) {
+        executeAction(i);
+      }
+    });
+  };
+
+  const allDone = triage.next_actions.length > 0 &&
+    triage.next_actions.every((_, i) => actionResults[i]?.state === "done");
+  const anyRunning = triage.next_actions.some((_, i) => {
+    const s = actionResults[i]?.state;
+    return s === "running" || s === "creating";
+  });
 
   const totalRisk = Object.values(triage.risk_scores).reduce((a, b) => a + b, 0);
   const avgRisk = Math.round((totalRisk / 6) * 10);
@@ -216,8 +313,27 @@ export function TriageResultPanel({ triage, sources, onRunAction, onTaskComplete
         <div>
           <div className="mb-2 flex items-center justify-between">
             <h4 className="text-sm font-medium">Next Actions</h4>
-            {onRunAction && (
-              <span className="text-xs text-muted-foreground">Click to run agent</span>
+            {onRunAction && dealId && (
+              <button
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                  allDone
+                    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                    : anyRunning
+                      ? "bg-blue-500/10 text-blue-500 cursor-not-allowed"
+                      : "bg-primary/10 text-primary hover:bg-primary/20"
+                )}
+                disabled={anyRunning || allDone}
+                onClick={handleRunAll}
+              >
+                {allDone ? (
+                  <><Check className="h-3 w-3" /> All Done</>
+                ) : anyRunning ? (
+                  <><Loader2 className="h-3 w-3 animate-spin" /> Running...</>
+                ) : (
+                  <><Bot className="h-3 w-3" /> Run All</>
+                )}
+              </button>
             )}
           </div>
           <div className="space-y-1.5">
@@ -226,104 +342,6 @@ export function TriageResultPanel({ triage, sources, onRunAction, onTaskComplete
               const isActive = result.state === "creating" || result.state === "running";
               const isDone = result.state === "done";
               const isError = result.state === "error";
-
-              const handleClick = async () => {
-                if (!onRunAction || !dealId || isActive || isDone) return;
-
-                // Step 1: Create task
-                setActionResults((prev) => ({ ...prev, [i]: { state: "creating" } }));
-                let taskId: string;
-                try {
-                  taskId = await onRunAction(action);
-                } catch {
-                  setActionResults((prev) => ({
-                    ...prev,
-                    [i]: { state: "error", output: "Failed to create task" },
-                  }));
-                  return;
-                }
-
-                // Step 2: Stream agent execution
-                setActionResults((prev) => ({
-                  ...prev,
-                  [i]: { state: "running", agentName: "Coordinator", output: "" },
-                }));
-
-                try {
-                  const res = await fetch(`/api/deals/${dealId}/tasks/${taskId}/run`, {
-                    method: "POST",
-                  });
-
-                  if (!res.ok || !res.body) {
-                    setActionResults((prev) => ({
-                      ...prev,
-                      [i]: { state: "error", output: "Agent request failed" },
-                    }));
-                    return;
-                  }
-
-                  const reader = res.body.getReader();
-                  const decoder = new TextDecoder();
-                  let buffer = "";
-                  let fullOutput = "";
-                  let currentAgent = "Coordinator";
-
-                  while (true) {
-                    const { done: streamDone, value } = await reader.read();
-                    if (streamDone) break;
-
-                    buffer += decoder.decode(value, { stream: true });
-                    const lines = buffer.split("\n");
-                    buffer = lines.pop() || "";
-
-                    for (const line of lines) {
-                      if (!line.startsWith("data: ")) continue;
-                      try {
-                        const event = JSON.parse(line.slice(6));
-                        if (event.type === "agent_switch") {
-                          currentAgent = event.agentName;
-                          setActionResults((prev) => ({
-                            ...prev,
-                            [i]: { ...prev[i], agentName: currentAgent },
-                          }));
-                        } else if (event.type === "text_delta") {
-                          fullOutput += event.content;
-                          setActionResults((prev) => ({
-                            ...prev,
-                            [i]: { ...prev[i], output: fullOutput },
-                          }));
-                        } else if (event.type === "done") {
-                          setActionResults((prev) => ({
-                            ...prev,
-                            [i]: {
-                              state: "done",
-                              agentName: currentAgent,
-                              output: fullOutput,
-                              expanded: true,
-                            },
-                          }));
-                          onTaskCompleted?.(taskId, fullOutput);
-                        } else if (event.type === "error") {
-                          setActionResults((prev) => ({
-                            ...prev,
-                            [i]: { state: "error", output: event.message },
-                          }));
-                        }
-                      } catch {
-                        // skip malformed SSE
-                      }
-                    }
-                  }
-                } catch (err) {
-                  setActionResults((prev) => ({
-                    ...prev,
-                    [i]: {
-                      state: "error",
-                      output: err instanceof Error ? err.message : "Stream failed",
-                    },
-                  }));
-                }
-              };
 
               return (
                 <div key={i} className="space-y-0">
@@ -335,7 +353,7 @@ export function TriageResultPanel({ triage, sources, onRunAction, onTaskComplete
                       isActive && "border-blue-500/30 bg-blue-500/5",
                       isError && "border-red-500/30 bg-red-500/5"
                     )}
-                    onClick={handleClick}
+                    onClick={() => executeAction(i)}
                   >
                     {isDone ? (
                       <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
