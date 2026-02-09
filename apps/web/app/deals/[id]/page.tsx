@@ -351,7 +351,8 @@ export default function DealDetailPage() {
                       <TriageResultPanel
                         triage={triageResult as Parameters<typeof TriageResultPanel>[0]["triage"]}
                         sources={triageSources}
-                        onCreateTask={async (action) => {
+                        dealId={id}
+                        onRunAction={async (action) => {
                           const dueDate = new Date();
                           dueDate.setDate(dueDate.getDate() + action.due_in_days);
                           const res = await fetch(`/api/deals/${id}/tasks`, {
@@ -369,7 +370,7 @@ export default function DealDetailPage() {
                           setDeal((prev) =>
                             prev ? { ...prev, tasks: [...prev.tasks, data.task] } : prev
                           );
-                          toast.success(`Task created: ${action.title}`);
+                          return data.task.id;
                         }}
                       />
                     ) : (

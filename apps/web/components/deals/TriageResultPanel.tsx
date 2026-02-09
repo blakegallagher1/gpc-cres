@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { cn } from "@/lib/utils";
-import { AlertTriangle, CheckCircle2, XCircle, ExternalLink, ChevronRight, Plus, Loader2, Check } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { AlertTriangle, CheckCircle2, XCircle, ExternalLink, ChevronRight, Loader2, Check, Bot, ChevronDown } from "lucide-react";
 
 type Decision = "ADVANCE" | "HOLD" | "KILL";
 
@@ -75,6 +74,15 @@ interface WebSearchSource {
   title?: string;
 }
 
+type ActionState = "idle" | "creating" | "running" | "done" | "error";
+
+interface ActionResult {
+  state: ActionState;
+  agentName?: string;
+  output?: string;
+  expanded?: boolean;
+}
+
 interface TriageResultPanelProps {
   triage: {
     decision: Decision;
@@ -87,14 +95,15 @@ interface TriageResultPanelProps {
     sources_summary: string[];
   };
   sources?: WebSearchSource[];
-  onCreateTask?: (action: NextAction) => Promise<void>;
+  /** Called to create the task. Should return the new task ID. */
+  onRunAction?: (action: NextAction) => Promise<string>;
+  dealId?: string;
 }
 
-export function TriageResultPanel({ triage, sources, onCreateTask }: TriageResultPanelProps) {
+export function TriageResultPanel({ triage, sources, onRunAction, dealId }: TriageResultPanelProps) {
   const style = decisionStyles[triage.decision];
   const DecisionIcon = style.icon;
-  const [creatingIdx, setCreatingIdx] = useState<number | null>(null);
-  const [createdIdxs, setCreatedIdxs] = useState<Set<number>>(new Set());
+  const [actionResults, setActionResults] = useState<Record<number, ActionResult>>({});
 
   const totalRisk = Object.values(triage.risk_scores).reduce((a, b) => a + b, 0);
   const avgRisk = Math.round((totalRisk / 6) * 10);
@@ -205,55 +214,181 @@ export function TriageResultPanel({ triage, sources, onCreateTask }: TriageResul
         <div>
           <div className="mb-2 flex items-center justify-between">
             <h4 className="text-sm font-medium">Next Actions</h4>
-            {onCreateTask && (
-              <span className="text-xs text-muted-foreground">Click to create task</span>
+            {onRunAction && (
+              <span className="text-xs text-muted-foreground">Click to run agent</span>
             )}
           </div>
           <div className="space-y-1.5">
             {triage.next_actions.map((action, i) => {
-              const created = createdIdxs.has(i);
-              const creating = creatingIdx === i;
+              const result = actionResults[i] || { state: "idle" as ActionState };
+              const isActive = result.state === "creating" || result.state === "running";
+              const isDone = result.state === "done";
+              const isError = result.state === "error";
+
+              const handleClick = async () => {
+                if (!onRunAction || !dealId || isActive || isDone) return;
+
+                // Step 1: Create task
+                setActionResults((prev) => ({ ...prev, [i]: { state: "creating" } }));
+                let taskId: string;
+                try {
+                  taskId = await onRunAction(action);
+                } catch {
+                  setActionResults((prev) => ({
+                    ...prev,
+                    [i]: { state: "error", output: "Failed to create task" },
+                  }));
+                  return;
+                }
+
+                // Step 2: Stream agent execution
+                setActionResults((prev) => ({
+                  ...prev,
+                  [i]: { state: "running", agentName: "Coordinator", output: "" },
+                }));
+
+                try {
+                  const res = await fetch(`/api/deals/${dealId}/tasks/${taskId}/run`, {
+                    method: "POST",
+                  });
+
+                  if (!res.ok || !res.body) {
+                    setActionResults((prev) => ({
+                      ...prev,
+                      [i]: { state: "error", output: "Agent request failed" },
+                    }));
+                    return;
+                  }
+
+                  const reader = res.body.getReader();
+                  const decoder = new TextDecoder();
+                  let buffer = "";
+                  let fullOutput = "";
+                  let currentAgent = "Coordinator";
+
+                  while (true) {
+                    const { done: streamDone, value } = await reader.read();
+                    if (streamDone) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split("\n");
+                    buffer = lines.pop() || "";
+
+                    for (const line of lines) {
+                      if (!line.startsWith("data: ")) continue;
+                      try {
+                        const event = JSON.parse(line.slice(6));
+                        if (event.type === "agent_switch") {
+                          currentAgent = event.agentName;
+                          setActionResults((prev) => ({
+                            ...prev,
+                            [i]: { ...prev[i], agentName: currentAgent },
+                          }));
+                        } else if (event.type === "text_delta") {
+                          fullOutput += event.content;
+                          setActionResults((prev) => ({
+                            ...prev,
+                            [i]: { ...prev[i], output: fullOutput },
+                          }));
+                        } else if (event.type === "done") {
+                          setActionResults((prev) => ({
+                            ...prev,
+                            [i]: {
+                              state: "done",
+                              agentName: currentAgent,
+                              output: fullOutput,
+                              expanded: true,
+                            },
+                          }));
+                        } else if (event.type === "error") {
+                          setActionResults((prev) => ({
+                            ...prev,
+                            [i]: { state: "error", output: event.message },
+                          }));
+                        }
+                      } catch {
+                        // skip malformed SSE
+                      }
+                    }
+                  }
+                } catch (err) {
+                  setActionResults((prev) => ({
+                    ...prev,
+                    [i]: {
+                      state: "error",
+                      output: err instanceof Error ? err.message : "Stream failed",
+                    },
+                  }));
+                }
+              };
 
               return (
-                <div
-                  key={i}
-                  className={cn(
-                    "flex items-start gap-2 rounded-md border p-2.5 transition-colors",
-                    onCreateTask && !created && "cursor-pointer hover:border-primary/50 hover:bg-muted/50",
-                    created && "border-emerald-500/30 bg-emerald-500/5"
-                  )}
-                  onClick={async () => {
-                    if (!onCreateTask || creating || created) return;
-                    setCreatingIdx(i);
-                    try {
-                      await onCreateTask(action);
-                      setCreatedIdxs((prev) => new Set(prev).add(i));
-                    } finally {
-                      setCreatingIdx(null);
-                    }
-                  }}
-                >
-                  {created ? (
-                    <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
-                  ) : creating ? (
-                    <Loader2 className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin text-primary" />
-                  ) : (
-                    <ChevronRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium">{action.title}</p>
-                    <p className="text-xs text-muted-foreground">{action.description}</p>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
-                    <span>Step {action.pipeline_step}</span>
-                    <span>{action.due_in_days}d</span>
-                    {onCreateTask && !created && !creating && (
-                      <Plus className="h-3.5 w-3.5 text-muted-foreground/50" />
+                <div key={i} className="space-y-0">
+                  <div
+                    className={cn(
+                      "flex items-start gap-2 rounded-md border p-2.5 transition-colors",
+                      onRunAction && !isDone && !isActive && "cursor-pointer hover:border-primary/50 hover:bg-muted/50",
+                      isDone && "border-emerald-500/30 bg-emerald-500/5",
+                      isActive && "border-blue-500/30 bg-blue-500/5",
+                      isError && "border-red-500/30 bg-red-500/5"
                     )}
-                    {created && (
-                      <span className="text-emerald-600 dark:text-emerald-400">Added</span>
+                    onClick={handleClick}
+                  >
+                    {isDone ? (
+                      <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                    ) : isActive ? (
+                      <Loader2 className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin text-blue-500" />
+                    ) : isError ? (
+                      <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-500" />
+                    ) : (
+                      <ChevronRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                     )}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium">{action.title}</p>
+                      {!isActive && !isDone && (
+                        <p className="text-xs text-muted-foreground">{action.description}</p>
+                      )}
+                      {isActive && (
+                        <p className="text-xs text-blue-600 dark:text-blue-400">
+                          <Bot className="mr-1 inline h-3 w-3" />
+                          {result.state === "creating" ? "Creating task..." : `${result.agentName} researching...`}
+                        </p>
+                      )}
+                      {isDone && (
+                        <button
+                          className="mt-0.5 flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActionResults((prev) => ({
+                              ...prev,
+                              [i]: { ...prev[i], expanded: !prev[i]?.expanded },
+                            }));
+                          }}
+                        >
+                          <Bot className="h-3 w-3" />
+                          Completed by {result.agentName}
+                          <ChevronDown className={cn("h-3 w-3 transition-transform", result.expanded && "rotate-180")} />
+                        </button>
+                      )}
+                      {isError && (
+                        <p className="text-xs text-red-600 dark:text-red-400">{result.output}</p>
+                      )}
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+                      <span>Step {action.pipeline_step}</span>
+                      <span>{action.due_in_days}d</span>
+                    </div>
                   </div>
+
+                  {/* Agent output (streaming or final) */}
+                  {(isActive || (isDone && result.expanded)) && result.output && (
+                    <div className="ml-5 rounded-b-md border border-t-0 bg-muted/30 p-3">
+                      <pre className="whitespace-pre-wrap text-xs leading-relaxed text-foreground/80">
+                        {result.output}
+                        {isActive && <span className="animate-pulse">|</span>}
+                      </pre>
+                    </div>
+                  )}
                 </div>
               );
             })}
