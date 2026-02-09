@@ -97,10 +97,12 @@ interface TriageResultPanelProps {
   sources?: WebSearchSource[];
   /** Called to create the task. Should return the new task ID. */
   onRunAction?: (action: NextAction) => Promise<string>;
+  /** Called when agent finishes a task so parent can update state. */
+  onTaskCompleted?: (taskId: string, agentOutput: string) => void;
   dealId?: string;
 }
 
-export function TriageResultPanel({ triage, sources, onRunAction, dealId }: TriageResultPanelProps) {
+export function TriageResultPanel({ triage, sources, onRunAction, onTaskCompleted, dealId }: TriageResultPanelProps) {
   const style = decisionStyles[triage.decision];
   const DecisionIcon = style.icon;
   const [actionResults, setActionResults] = useState<Record<number, ActionResult>>({});
@@ -300,6 +302,7 @@ export function TriageResultPanel({ triage, sources, onRunAction, dealId }: Tria
                               expanded: true,
                             },
                           }));
+                          onTaskCompleted?.(taskId, fullOutput);
                         } else if (event.type === "error") {
                           setActionResults((prev) => ({
                             ...prev,

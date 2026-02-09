@@ -372,6 +372,19 @@ export default function DealDetailPage() {
                           );
                           return data.task.id;
                         }}
+                        onTaskCompleted={(taskId, agentOutput) => {
+                          setDeal((prev) => {
+                            if (!prev) return prev;
+                            return {
+                              ...prev,
+                              tasks: prev.tasks.map((t) =>
+                                t.id === taskId
+                                  ? { ...t, status: "DONE", description: (t.description ?? "") + "\n\n---\nAgent Findings:\n" + agentOutput }
+                                  : t
+                              ),
+                            };
+                          });
+                        }}
                       />
                     ) : (
                       <p className="text-sm text-muted-foreground">
