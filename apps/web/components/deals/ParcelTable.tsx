@@ -98,60 +98,83 @@ export function ParcelTable({ parcels, dealId, onParcelUpdated }: ParcelTablePro
   }
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Address</TableHead>
-          <TableHead>APN</TableHead>
-          <TableHead>Zoning</TableHead>
-          <TableHead>Flood Zone</TableHead>
-          <TableHead className="text-right">Acreage</TableHead>
-          <TableHead className="text-right w-[100px]">Enrich</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {parcels.map((parcel) => {
-          const isEnriched = !!parcel.propertyDbId;
-          const isEnriching = enrichingId === parcel.id;
+    <div className="space-y-3">
+      {parcels.map((parcel) => {
+        const isEnriched = !!parcel.propertyDbId;
+        const isEnriching = enrichingId === parcel.id;
 
-          return (
-            <TableRow key={parcel.id}>
-              <TableCell className="font-medium">{parcel.address}</TableCell>
-              <TableCell>{parcel.apn ?? "--"}</TableCell>
-              <TableCell>{parcel.currentZoning ?? "--"}</TableCell>
-              <TableCell>{parcel.floodZone ?? "--"}</TableCell>
-              <TableCell className="text-right">
-                {parcel.acreage != null
-                  ? Number(parcel.acreage).toFixed(2)
-                  : "--"}
-              </TableCell>
-              <TableCell className="text-right">
-                {isEnriched ? (
-                  <span className="inline-flex items-center gap-1 text-xs text-green-600">
-                    <Check className="h-3.5 w-3.5" />
-                    Done
-                  </span>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 gap-1 text-xs"
-                    disabled={isEnriching}
-                    onClick={() => handleEnrich(parcel)}
-                  >
-                    {isEnriching ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Sparkles className="h-3.5 w-3.5" />
-                    )}
-                    {isEnriching ? "Scanning..." : "Enrich"}
-                  </Button>
+        return (
+          <div key={parcel.id} className="rounded-lg border p-4 space-y-3">
+            {/* Row 1: Address + Enrich button */}
+            <div className="flex items-center justify-between gap-3">
+              <span className="font-medium text-sm truncate">{parcel.address}</span>
+              {isEnriched ? (
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700">
+                  <Check className="h-3.5 w-3.5" />
+                  Enriched
+                </span>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="default"
+                  className="shrink-0 gap-1.5"
+                  disabled={isEnriching}
+                  onClick={() => handleEnrich(parcel)}
+                >
+                  {isEnriching ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4" />
+                  )}
+                  {isEnriching ? "Scanning..." : "Enrich"}
+                </Button>
+              )}
+            </div>
+
+            {/* Row 2: Data fields grid */}
+            <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-4">
+              <div>
+                <span className="text-muted-foreground text-xs">APN</span>
+                <p className="font-mono text-xs">{parcel.apn ?? "--"}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground text-xs">Zoning</span>
+                <p className="text-xs">{parcel.currentZoning ?? "--"}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground text-xs">Flood Zone</span>
+                <p className="text-xs">{parcel.floodZone ?? "--"}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground text-xs">Acreage</span>
+                <p className="text-xs">
+                  {parcel.acreage != null
+                    ? Number(parcel.acreage).toFixed(2)
+                    : "--"}
+                </p>
+              </div>
+            </div>
+
+            {/* Row 3: Screening notes (only shown if enriched) */}
+            {isEnriched && (parcel.soilsNotes || parcel.wetlandsNotes || parcel.envNotes || parcel.trafficNotes) && (
+              <div className="grid gap-1 text-xs border-t pt-2">
+                {parcel.soilsNotes && (
+                  <p><span className="font-medium text-muted-foreground">Soils:</span> {parcel.soilsNotes}</p>
                 )}
-              </TableCell>
-            </TableRow>
-          );
-        })}
-      </TableBody>
-    </Table>
+                {parcel.wetlandsNotes && (
+                  <p><span className="font-medium text-muted-foreground">Wetlands:</span> {parcel.wetlandsNotes}</p>
+                )}
+                {parcel.envNotes && (
+                  <p className="whitespace-pre-line"><span className="font-medium text-muted-foreground">Environmental:</span> {parcel.envNotes}</p>
+                )}
+                {parcel.trafficNotes && (
+                  <p><span className="font-medium text-muted-foreground">Traffic:</span> {parcel.trafficNotes}</p>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
   );
 }
