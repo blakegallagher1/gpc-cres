@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
+import { resolveAuth } from "@/lib/auth/resolveAuth";
 
 // GET /api/deals/[id]/tasks
 export async function GET(
@@ -7,7 +8,21 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await resolveAuth();
+    if (!auth) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { id } = await params;
+
+    // Verify deal belongs to user's org
+    const deal = await prisma.deal.findFirst({
+      where: { id, orgId: auth.orgId },
+      select: { id: true },
+    });
+    if (!deal) {
+      return NextResponse.json({ error: "Deal not found" }, { status: 404 });
+    }
 
     const tasks = await prisma.task.findMany({
       where: { dealId: id },
@@ -30,6 +45,11 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await resolveAuth();
+    if (!auth) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { id } = await params;
     const body = await request.json();
 
@@ -40,18 +60,18 @@ export async function POST(
       );
     }
 
-    const deal = await prisma.deal.findUnique({
-      where: { id },
-      select: { orgId: true },
+    // Verify deal belongs to user's org
+    const deal = await prisma.deal.findFirst({
+      where: { id, orgId: auth.orgId },
+      select: { id: true },
     });
-
     if (!deal) {
       return NextResponse.json({ error: "Deal not found" }, { status: 404 });
     }
 
     const task = await prisma.task.create({
       data: {
-        orgId: deal.orgId,
+        orgId: auth.orgId,
         dealId: id,
         title: body.title,
         description: body.description ?? null,
@@ -78,7 +98,12 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await params; // consume params
+    const auth = await resolveAuth();
+    if (!auth) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id } = await params;
     const body = await request.json();
 
     if (!body.taskId) {
@@ -86,6 +111,24 @@ export async function PATCH(
         { error: "taskId is required" },
         { status: 400 }
       );
+    }
+
+    // Verify deal belongs to user's org
+    const deal = await prisma.deal.findFirst({
+      where: { id, orgId: auth.orgId },
+      select: { id: true },
+    });
+    if (!deal) {
+      return NextResponse.json({ error: "Deal not found" }, { status: 404 });
+    }
+
+    // Verify task belongs to this deal
+    const existingTask = await prisma.task.findFirst({
+      where: { id: body.taskId, dealId: id },
+      select: { id: true },
+    });
+    if (!existingTask) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
 
     const allowedFields = ["title", "description", "status", "dueAt", "ownerUserId", "pipelineStep"];

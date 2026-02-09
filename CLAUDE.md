@@ -1,112 +1,184 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
 ## Project Overview
 
-Gallagher Property Company CRES — a full-stack CRE (Commercial Real Estate) AI agent platform. Python/FastAPI backend with 12 specialized OpenAI Agents SDK agents (Research, Finance, Legal, Design, Operations, Marketing, Risk, Deal Screener, Due Diligence, Entitlements, Market Intel, Tax Strategist) orchestrated by a Coordinator. Next.js 16 / React 19 frontend dashboard with Supabase auth and real-time collaboration.
+**Entitlement OS** — Internal operating system for Gallagher Property Company, a commercial real estate investment and development firm focused on light industrial, outdoor storage, and truck parking in Louisiana. The platform combines a 13-agent AI coordinator with a deal pipeline UI, property database integration, and document generation to manufacture certainty in entitlement processes.
+
+**Live at:** gallagherpropco.com
+**Deployed on:** Vercel (frontend) — Temporal worker parked for v2
+
+## Tech Stack
+
+| Layer | Technology | Version |
+|-------|-----------|---------|
+| Frontend | Next.js (App Router) | 16.1.6 |
+| UI | React + shadcn/ui + Radix + Tailwind | 19.0.0 |
+| State | Zustand | 4.5.5 |
+| Data Fetching | SWR | 2.4.0 |
+| Agent SDK | @openai/agents (TypeScript) | 0.1.0 |
+| ORM | Prisma | 6.4.1 |
+| Database | PostgreSQL via Supabase | 16 |
+| Auth | Supabase Auth (Google OAuth + email) | 2.93.3 |
+| Collaboration | TipTap + Yjs | 2.11.7 / 13.6.15 |
+| Workflow Viz | @xyflow/react | 12.3.2 |
+| Package Manager | pnpm | 9.11.0 |
+| Node | 22 | — |
+| TypeScript | strict mode | 5.7.3 |
+| Orchestration (parked) | Temporal | 1.24.2 |
 
 ## Repository Structure
 
 ```
-apps/web/           → Next.js 16 frontend (TypeScript, React 19)
-legacy/python/      → FastAPI backend (Python 3.11+, OpenAI Agents SDK)
-infra/docker/       → Docker infrastructure config
-packages/           → Shared packages (reserved)
-.github/workflows/  → CI (ci.yml), auto-merge
+entitlement-os/
+├── apps/
+│   ├── web/                 # Next.js frontend + API routes
+│   └── worker/              # Temporal worker (parked for v2)
+├── packages/
+│   ├── db/                  # Prisma schema, client, migrations, seed
+│   ├── openai/              # 13 agents + 26 tools + retry/response utils
+│   ├── shared/              # Zod schemas, enums, JSON schema utils
+│   ├── evidence/            # URL snapshot, text extraction, hash comparison
+│   └── artifacts/           # PDF + PPTX generation via Playwright + pptxgenjs
+├── infra/
+│   ├── docker/              # docker-compose: Postgres + Temporal stack
+│   └── sql/                 # Property DB RPC function definitions
+├── legacy/python/           # Original Python agents (frozen reference, do NOT delete)
+├── docs/                    # PLAN.md + SPEC.md (architectural blueprints)
+└── .github/workflows/       # CI (ci.yml)
 ```
 
-The repo is mid-migration: files moved from `frontend/` → `apps/web/` and root Python → `legacy/python/`. CI still references `frontend/` paths for the frontend job.
+## Build Commands
 
-## Build & Dev Commands
-
-### Backend (run from `legacy/python/`)
+All commands run from repo root unless noted.
 
 ```bash
-make install          # pip install -r requirements.txt
-make dev              # uvicorn main:app --reload --port 8000
-make test             # pytest (excludes integration)
-make test-all         # pytest including @pytest.mark.integration
-make lint             # flake8 + pylint
-make format           # black + isort
-make type-check       # mypy
+# Full monorepo
+pnpm install                 # Install all workspace deps
+pnpm build                   # Build all packages + apps
+pnpm dev                     # Dev mode (all packages parallel)
+pnpm typecheck               # Type-check all packages
+pnpm lint                    # Lint all packages
+pnpm test                    # Test all packages (vitest)
+
+# Database (Prisma)
+pnpm db:migrate              # Run migrations (dev)
+pnpm db:deploy               # Deploy migrations (prod)
+pnpm db:seed                 # Seed: GPC org + 3 parishes
+
+# Single package
+pnpm --filter @entitlement-os/db generate    # Regenerate Prisma client
+pnpm --filter @entitlement-os/openai build   # Build agent package
 ```
 
-If `make` is missing from PATH, use `/usr/bin/make` or run commands directly. For reliable test runs, use a venv: `.venv/bin/python -m pytest tests/ -v --ignore=tests/integration`.
-
-### Frontend (run from `apps/web/`)
+### Frontend dev (from apps/web/)
 
 ```bash
-npm run dev           # Next.js dev server (port 3000)
-npm run build         # Production build
-npm run lint          # ESLint
-npm run test          # Jest
-npx playwright test   # E2E tests
+npm run dev                  # Next.js dev server :3000
+npm run build                # Production build
+npm run lint                 # ESLint
+npm run test                 # Jest
 ```
 
-If npm fails with `spawn sh ENOENT`, prefix with `PATH=/usr/bin:/bin:$PATH NPM_CONFIG_SCRIPT_SHELL=/bin/sh`.
+### Vercel deploy build chain (defined in apps/web/vercel.json)
 
-### Running a single test
-
-```bash
-# Python - specific test file or test function
-.venv/bin/python -m pytest tests/test_screening_scoring.py -v
-.venv/bin/python -m pytest tests/test_agents.py::test_coordinator -v
-
-# Frontend - specific test file
-cd apps/web && npm test -- --testPathPattern=auth/allowed-emails
+```
+db generate → shared build → db build → openai build → next build
 ```
 
-## Architecture
+## Agent Architecture
 
-### Agent System (`legacy/python/gpc_agents/`)
+13 agents in `packages/openai/src/agents/`, wired via `createConfiguredCoordinator()`:
 
-All agents use OpenAI Agents SDK (`openai-agents>=0.7.0`). The Coordinator agent delegates to 11 specialist agents via `handoff()`. Handoff relationships are configured in `gpc_agents/__init__.py` on module import. Agent tools are `FunctionTool` instances (not directly callable — use `on_invoke_tool` with JSON args in tests).
+| Agent | Model | Purpose |
+|-------|-------|---------|
+| Coordinator | gpt-5.2 | Routes to specialists, manages deal context |
+| Finance | gpt-5.2 | Pro formas, debt sizing, IRR/equity analysis |
+| Legal | gpt-5.2 | Zoning, entitlements, Louisiana civil law |
+| Research | gpt-5.2 | Land scouting, market analysis, comps |
+| Risk | gpt-5.1 | Flood, environmental, financial, regulatory risk |
+| Screener | gpt-5.1 | Triage scoring (KILL/HOLD/ADVANCE) |
+| Due Diligence | gpt-5.1 | Phase checklists, red flags, document tracking |
+| Entitlements | gpt-5.1 | Permit tracking, CUP/rezoning paths |
+| Design | gpt-5.1 | Site planning, density optimization |
+| Operations | gpt-5.1 | Construction scheduling, budgets |
+| Marketing | gpt-5.1 | Buyer outreach, leasing strategy |
+| Tax Strategist | gpt-5.1 | IRC 1031, depreciation, cost segregation |
+| Market Intel | gpt-5.1 | Competitor tracking, absorption trends |
 
-**Model selection**: Coordinator + Finance use GPT-5.2 (flagship); others use GPT-5.1. Configurable via `OPENAI_FLAGSHIP_MODEL` / `OPENAI_STANDARD_MODEL` env vars.
+**Tool wiring:** Module-level agent exports are tool-free. Tools are attached via `withTools()` inside `createConfiguredCoordinator()` — never on the bare exports.
 
-### Workflow Orchestration (`legacy/python/workflows/runner.py`)
+**26 tools** across 8 files in `packages/openai/src/tools/`:
+- Deal CRUD, task management, parcel updates
+- Property DB: search 560K parcels, 7 screening endpoints (flood, soils, wetlands, EPA, traffic, LDEQ, full)
+- Zoning matrix lookup (EBR UDC), parish pack lookup
+- Evidence snapshot, hash comparison
+- Triage scoring, hard filter checks
+- Buyer management + outreach logging
 
-Three patterns: Sequential (Research → Risk → Finance → Synthesis), Parallel (all agents concurrent), Iterative (initial → gap analysis → deep dive → final). Entry points: `run_development_workflow()`, `evaluate_project()`, `quick_research()`, `quick_underwrite()`.
+## Data Model (Prisma — 18 models)
 
-### Frontend Architecture (`apps/web/`)
+**Core:** Org → User → OrgMembership (multi-tenant)
+**Deals:** Deal → Parcel, Task, Artifact, Upload
+**Buyers:** Buyer → Outreach (per deal)
+**Knowledge:** Jurisdiction → JurisdictionSeedSource, ParishPackVersion
+**Evidence:** EvidenceSource → EvidenceSnapshot
+**Runs:** Run (TRIAGE, ARTIFACT_GEN, etc.)
+**Chat:** Conversation → Message
 
-- **Routing**: Next.js App Router (`app/` directory)
-- **State**: Zustand stores (`stores/agentStore.ts`, `stores/uiStore.ts`)
-- **Data fetching**: SWR hooks (`lib/hooks/use*.ts`)
-- **UI**: shadcn/ui + Radix primitives + Tailwind CSS
-- **Workflow editor**: `@xyflow/react` for visual DAG editing
-- **Collaboration**: TipTap + Yjs for real-time document editing in Deal Room
-- **Auth**: Supabase Auth (Google OAuth + email/password), allowlist enforced in `AuthGuard.tsx` and `app/auth/callback/route.ts`
+**Enums:** `sku_type` (SMALL_BAY_FLEX, OUTDOOR_STORAGE, TRUCK_PARKING), `deal_status` (11 stages INTAKE→EXITED/KILLED), `task_status`, `artifact_type`, `run_type`
 
-### Database
-
-Supabase PostgreSQL. Schema in `legacy/python/database/schema.sql`, migrations in `legacy/python/database/migrations/`. Run migrations via Supabase SQL Editor. Backend uses `tools/database.py` (DatabaseManager). Missing tables return `PGRST205` — caught and logged, won't crash startup.
-
-## Key Gotchas
-
-- Root `.gitignore` has a `lib/` pattern that ignores `apps/web/lib/` — ensure frontend lib files are force-added to git
-- Vercel project name must be lowercase (`gpc-cres`)
-- Delete `apps/web/.next/` before `vercel deploy` to avoid `FUNCTION_PAYLOAD_TOO_LARGE`
-- `vercel link` overwrites `.env.local` — restore Supabase keys after relinking
-- Backend `make test` uses system Python; use `.venv/bin/python -m pytest` for deps to resolve
-- `requirements.lock` contains macOS-only packages (`pyobjc`); CI installs from `requirements.txt`
+**Two Supabase projects:**
+- Entitlement OS DB (`yjddspdbxuseowxndrak`) — system of record, Prisma-managed
+- Louisiana Property DB (`jueyosscalcljgdorrpy`) — 560K parcels, 5 parishes, 9 RPC functions (read-only via `LA_PROPERTY_DB_URL` + `LA_PROPERTY_DB_KEY`)
 
 ## Environment Variables
 
-### Backend (`legacy/python/.env`)
-Required: `OPENAI_API_KEY`, `PERPLEXITY_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `SUPABASE_ANON_KEY`, `GOOGLE_MAPS_API_KEY`, `B2_APPLICATION_KEY_ID`, `B2_APPLICATION_KEY`, `B2_BUCKET_NAME`
+### Root `.env`
+```
+DATABASE_URL, DIRECT_DATABASE_URL, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
+NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, OPENAI_API_KEY,
+TEMPORAL_ADDRESS, TEMPORAL_NAMESPACE, TEMPORAL_TASK_QUEUE
+```
 
 ### Frontend (`apps/web/.env.local`)
-Required: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
-Optional: `NEXT_PUBLIC_BACKEND_URL`, `OPENAI_API_KEY`, `ALLOWED_LOGIN_EMAILS`
+```
+NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY,
+OPENAI_API_KEY, LA_PROPERTY_DB_URL, LA_PROPERTY_DB_KEY, ALLOWED_LOGIN_EMAILS,
+CRON_SECRET
+```
 
-## CI
+## Key Rules
 
-GitHub Actions `ci.yml` runs on push to `main` and PRs: backend (Python 3.11 lint → type-check → test), frontend (Node 22 lint → test → build). Frontend CI needs `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` as GitHub secrets.
+### Do This
+- Use `.nullable()` (not `.optional()`) for Zod tool parameters — OpenAI structured outputs requires it
+- Use plain `z.string()` — never `z.string().url()` or `z.string().email()` (OpenAI rejects `format:` constraints)
+- Force-add `apps/web/lib/` files to git — root `.gitignore` has `lib/` pattern
+- Delete `apps/web/.next/` before CLI deploys to avoid FUNCTION_PAYLOAD_TOO_LARGE
+- Use `--archive=tgz` flag for Vercel CLI deploys (>15K files)
+- Restore `.env.local` after `vercel link` (it overwrites the file)
+- Wire agent tools in `createConfiguredCoordinator()`, not on module-level exports
+- Scope all DB queries with `orgId` for multi-tenant isolation
+- Use `prisma.findFirstOrThrow({ where: { id, orgId } })` pattern for access control
+- Normalize addresses before property DB search (strip apostrophes, collapse whitespace)
+
+### Don't Do This
+- Don't delete `legacy/python/` or `apps/worker/` — parked for reference/v2
+- Don't use Chat Completions API — use OpenAI Responses API
+- Don't add Docker dependencies for v1 — deploy to Vercel, use Vercel Cron for background jobs
+- Don't commit `.env.local` or any file with secrets
+- Don't use `any` type — use `Record<string, unknown>` for dynamic objects
 
 ## Code Style
 
-- **Python**: Black (line-length 100), isort, flake8 (max 120), pylint. Type hints on public functions. `pyproject.toml` has all tool configs.
-- **TypeScript**: ESLint with `eslint-config-next`. Strict TS. Components PascalCase, hooks `use*` prefix.
-- **Commits**: Short imperative summaries with optional scope (e.g., `tools: add flood lookup`).
+- **TypeScript**: ESLint 9 + typescript-eslint. Strict mode. Components PascalCase, hooks `use*` prefix.
+- **Tools**: snake_case names (e.g., `get_deal_context`). Functions camelCase. Constants UPPER_SNAKE_CASE.
+- **Commits**: Short imperative with optional scope: `tools: add flood lookup`, `ui: rewrite ParcelTable`
+- **Error handling**: Tool execute functions return `JSON.stringify({ error: "..." })` on failure. API routes use try/catch returning `NextResponse.json({ error }, { status })`.
+
+## CI/CD
+
+GitHub Actions (`ci.yml`): push to `main` + PRs. Backend (Python 3.11) + Frontend (Node 22).
+**Known issue:** CI still references old `frontend/` paths — needs update to `apps/web/`.
+
+Vercel: Git-triggered deploys on push to `main`. Build command in `apps/web/vercel.json`.
+Cron jobs: `/api/cron/change-detection` (daily 6 AM), `/api/cron/parish-pack-refresh` (weekly Sunday 4 AM).

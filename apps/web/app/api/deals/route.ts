@@ -1,22 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
+import { resolveAuth } from "@/lib/auth/resolveAuth";
 
 // GET /api/deals - list deals for the org
 export async function GET(request: NextRequest) {
   try {
+    const auth = await resolveAuth();
+    if (!auth) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
     const sku = searchParams.get("sku");
     const jurisdictionId = searchParams.get("jurisdictionId");
     const search = searchParams.get("search");
 
-    // For now, get first org (single-tenant bootstrap).
-    const org = await prisma.org.findFirst();
-    if (!org) {
-      return NextResponse.json({ deals: [] });
-    }
-
-    const where: Record<string, unknown> = { orgId: org.id };
+    const where: Record<string, unknown> = { orgId: auth.orgId };
     if (status) where.status = status;
     if (sku) where.sku = sku;
     if (jurisdictionId) where.jurisdictionId = jurisdictionId;
@@ -71,6 +71,11 @@ export async function GET(request: NextRequest) {
 // POST /api/deals - create a new deal
 export async function POST(request: NextRequest) {
   try {
+    const auth = await resolveAuth();
+    if (!auth) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await request.json();
 
     if (!body.name || !body.sku || !body.jurisdictionId) {
@@ -89,27 +94,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get org + user (bootstrap: first org, first user)
-    const org = await prisma.org.findFirst();
-    if (!org) {
-      return NextResponse.json({ error: "No org found" }, { status: 400 });
-    }
-
-    const user = await prisma.user.findFirst();
-    if (!user) {
-      return NextResponse.json({ error: "No user found" }, { status: 400 });
-    }
-
     const deal = await prisma.deal.create({
       data: {
-        orgId: org.id,
+        orgId: auth.orgId,
         name: body.name,
         sku: body.sku,
         jurisdictionId: body.jurisdictionId,
         status: "INTAKE",
         notes: body.notes ?? null,
         targetCloseDate: body.targetCloseDate ? new Date(body.targetCloseDate) : null,
-        createdBy: user.id,
+        createdBy: auth.userId,
       },
       include: {
         jurisdiction: { select: { id: true, name: true } },
@@ -120,7 +114,7 @@ export async function POST(request: NextRequest) {
     if (body.parcelAddress) {
       await prisma.parcel.create({
         data: {
-          orgId: org.id,
+          orgId: auth.orgId,
           dealId: deal.id,
           address: body.parcelAddress,
           apn: body.apn ?? null,

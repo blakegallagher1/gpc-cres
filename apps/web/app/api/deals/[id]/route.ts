@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
+import { resolveAuth } from "@/lib/auth/resolveAuth";
 
 // GET /api/deals/[id] - get a single deal with related data
 export async function GET(
@@ -7,10 +8,15 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await resolveAuth();
+    if (!auth) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { id } = await params;
 
-    const deal = await prisma.deal.findUnique({
-      where: { id },
+    const deal = await prisma.deal.findFirst({
+      where: { id, orgId: auth.orgId },
       include: {
         jurisdiction: true,
         parcels: { orderBy: { createdAt: "asc" } },
@@ -61,7 +67,22 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await resolveAuth();
+    if (!auth) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { id } = await params;
+
+    // Verify org ownership before updating
+    const existing = await prisma.deal.findFirst({
+      where: { id, orgId: auth.orgId },
+      select: { id: true },
+    });
+    if (!existing) {
+      return NextResponse.json({ error: "Deal not found" }, { status: 404 });
+    }
+
     const body = await request.json();
 
     const allowedFields = ["name", "status", "notes", "targetCloseDate", "sku", "jurisdictionId"];
@@ -107,7 +128,21 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await resolveAuth();
+    if (!auth) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { id } = await params;
+
+    // Verify org ownership before deleting
+    const existing = await prisma.deal.findFirst({
+      where: { id, orgId: auth.orgId },
+      select: { id: true },
+    });
+    if (!existing) {
+      return NextResponse.json({ error: "Deal not found" }, { status: 404 });
+    }
 
     await prisma.deal.delete({ where: { id } });
 

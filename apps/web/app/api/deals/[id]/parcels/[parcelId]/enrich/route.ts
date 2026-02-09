@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { propertyDbRpc } from "@entitlement-os/openai";
+import { resolveAuth } from "@/lib/auth/resolveAuth";
 
 /**
  * POST /api/deals/[id]/parcels/[parcelId]/enrich
@@ -9,20 +10,24 @@ import { propertyDbRpc } from "@entitlement-os/openai";
  * then runs a full site screening (flood, soils, wetlands, EPA, traffic, LDEQ).
  *
  * Two modes:
- *   - No body or { "action": "search" }  → returns property DB matches (step 1)
- *   - { "action": "apply", "propertyDbId": "uuid" } → applies enrichment to parcel (step 2)
+ *   - No body or { "action": "search" }  -> returns property DB matches (step 1)
+ *   - { "action": "apply", "propertyDbId": "uuid" } -> applies enrichment to parcel (step 2)
  */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; parcelId: string }> }
 ) {
+  const auth = await resolveAuth();
+  if (!auth) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const { id: dealId, parcelId } = await params;
 
   try {
-    // Load parcel
+    // Load parcel and verify org ownership via the deal
     const parcel = await prisma.parcel.findFirst({
-      where: { id: parcelId, dealId },
-      include: { deal: { select: { orgId: true } } },
+      where: { id: parcelId, dealId, deal: { orgId: auth.orgId } },
     });
 
     if (!parcel) {

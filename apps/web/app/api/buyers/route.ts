@@ -1,19 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
+import { resolveAuth } from "@/lib/auth/resolveAuth";
 
 // GET /api/buyers - list buyers for the org
 export async function GET(request: NextRequest) {
   try {
+    const auth = await resolveAuth();
+    if (!auth) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search");
     const buyerType = searchParams.get("buyerType");
 
-    const org = await prisma.org.findFirst();
-    if (!org) {
-      return NextResponse.json({ buyers: [] });
-    }
-
-    const where: Record<string, unknown> = { orgId: org.id };
+    const where: Record<string, unknown> = { orgId: auth.orgId };
     if (buyerType) where.buyerType = buyerType;
     if (search) {
       where.OR = [
@@ -40,6 +41,11 @@ export async function GET(request: NextRequest) {
 // POST /api/buyers - create a new buyer
 export async function POST(request: NextRequest) {
   try {
+    const auth = await resolveAuth();
+    if (!auth) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await request.json();
 
     if (!body.name || !body.buyerType) {
@@ -49,14 +55,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const org = await prisma.org.findFirst();
-    if (!org) {
-      return NextResponse.json({ error: "No org found" }, { status: 400 });
-    }
-
     const buyer = await prisma.buyer.create({
       data: {
-        orgId: org.id,
+        orgId: auth.orgId,
         name: body.name,
         company: body.company ?? null,
         email: body.email ?? null,
