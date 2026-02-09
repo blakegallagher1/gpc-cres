@@ -3,14 +3,14 @@
 import { TaskCard, type TaskItem } from "./TaskCard";
 
 const PIPELINE_STEPS = [
-  { step: 1, label: "Intake" },
-  { step: 2, label: "Triage" },
-  { step: 3, label: "Pre-Application" },
-  { step: 4, label: "Concept Plan" },
-  { step: 5, label: "Neighbor Outreach" },
-  { step: 6, label: "Submission" },
-  { step: 7, label: "Hearing" },
-  { step: 8, label: "Approval / Exit" },
+  { step: 1, label: "Land Scouting" },
+  { step: 2, label: "Deal Screening" },
+  { step: 3, label: "Due Diligence" },
+  { step: 4, label: "Entitlements" },
+  { step: 5, label: "Design" },
+  { step: 6, label: "Finance" },
+  { step: 7, label: "Construction" },
+  { step: 8, label: "Disposition" },
 ];
 
 interface PipelineBoardProps {

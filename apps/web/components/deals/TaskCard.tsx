@@ -167,8 +167,14 @@ export function TaskCard({ task, onStatusChange, onTaskUpdate }: TaskCardProps) 
           {config.label}
         </Badge>
         {onTaskUpdate && (
-          <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => setEditing(true)}>
-            <Pencil className="h-3 w-3" />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
+            onClick={() => setEditing(true)}
+            title="Edit task"
+          >
+            <Pencil className="h-3.5 w-3.5" />
           </Button>
         )}
       </CardContent>
