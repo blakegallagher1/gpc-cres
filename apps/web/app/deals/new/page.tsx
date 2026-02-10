@@ -76,7 +76,7 @@ function NewDealForm() {
           { id: "livingston", name: "Livingston" },
         ]);
       });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   // Auto-generate deal name from address if prefilled
   useEffect(() => {
@@ -85,7 +85,7 @@ function NewDealForm() {
       const street = prefillAddress.split(",")[0]?.trim();
       if (street) setName(street);
     }
-  }, [prefillAddress]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [prefillAddress]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
