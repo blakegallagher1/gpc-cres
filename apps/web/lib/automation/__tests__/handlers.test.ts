@@ -1,6 +1,10 @@
-// Mock external deps to prevent OpenAI SDK import errors
+// Mock external deps to prevent OpenAI SDK / Playwright import errors
 jest.mock("@entitlement-os/openai", () => ({
   propertyDbRpc: jest.fn(),
+}));
+jest.mock("../artifactAutomation", () => ({
+  handleArtifactOnStatusChange: jest.fn(),
+  handleTriageArtifactNotification: jest.fn(),
 }));
 jest.mock("@entitlement-os/db", () => ({
   prisma: {
