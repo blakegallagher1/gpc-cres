@@ -50,7 +50,7 @@ jobs:
         run: pnpm --filter @entitlement-os/db generate
 
       - name: Build workspace packages
-        run: pnpm --filter @entitlement-os/shared build && pnpm --filter @entitlement-os/db build && pnpm --filter @entitlement-os/openai build
+        run: pnpm --filter @entitlement-os/shared build && pnpm --filter @entitlement-os/db build && pnpm --filter @entitlement-os/evidence build && pnpm --filter @entitlement-os/artifacts build && pnpm --filter @entitlement-os/openai build
 
       - name: Run Wave 0 automation tests
         run: pnpm --filter gpc-agent-dashboard test -- lib/automation/__tests__

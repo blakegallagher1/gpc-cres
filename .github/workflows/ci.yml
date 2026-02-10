@@ -54,7 +54,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version-file: '.node-version'
           cache: "pnpm"
 
       - name: Install dependencies
@@ -67,7 +67,7 @@ jobs:
         run: pnpm --filter @entitlement-os/db generate
 
       - name: Build packages
-        run: pnpm --filter @entitlement-os/shared build && pnpm --filter @entitlement-os/db build && pnpm --filter @entitlement-os/openai build
+        run: pnpm --filter @entitlement-os/shared build && pnpm --filter @entitlement-os/db build && pnpm --filter @entitlement-os/evidence build && pnpm --filter @entitlement-os/artifacts build && pnpm --filter @entitlement-os/openai build
 
       - name: Lint
         run: pnpm --filter gpc-agent-dashboard lint
