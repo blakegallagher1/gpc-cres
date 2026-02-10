@@ -35,6 +35,21 @@ export {
   screenFull,
 } from "./propertyDbTools.js";
 
+export {
+  calculate_proforma,
+  calculate_debt_sizing,
+  calculate_development_budget,
+  calculate_site_capacity,
+  estimate_construction_cost,
+  create_milestone_schedule,
+  estimate_project_timeline,
+  calculate_depreciation_schedule,
+  calculate_cost_segregation_estimate,
+  calculate_1031_deadlines,
+  search_comparable_sales,
+  calculate_market_metrics,
+} from "./calculationTools.js";
+
 // --- Agent-specific tool collections ---
 import { getDealContext, createDeal, updateDealStatus, listDeals, addParcelToDeal, updateParcel } from "./dealTools.js";
 import { createTask, updateTask, listTasks } from "./taskTools.js";
@@ -53,6 +68,20 @@ import {
   screenLdeq,
   screenFull,
 } from "./propertyDbTools.js";
+import {
+  calculate_proforma,
+  calculate_debt_sizing,
+  calculate_development_budget,
+  calculate_site_capacity,
+  estimate_construction_cost,
+  create_milestone_schedule,
+  estimate_project_timeline,
+  calculate_depreciation_schedule,
+  calculate_cost_segregation_estimate,
+  calculate_1031_deadlines,
+  search_comparable_sales,
+  calculate_market_metrics,
+} from "./calculationTools.js";
 
 /** Web search tool for Responses API pass-through. */
 export const webSearchPreviewTool = {
@@ -115,6 +144,9 @@ export const financeTools = [
   getDealContext,
   searchParcels,
   getParcelDetails,
+  calculate_proforma,
+  calculate_debt_sizing,
+  calculate_development_budget,
 ];
 
 /** Tools available to the Deal Screener agent. */
@@ -176,6 +208,8 @@ export const operationsTools = [
   listTasks,
   createTask,
   updateTask,
+  create_milestone_schedule,
+  estimate_project_timeline,
 ];
 
 /** Tools available to the Market Intel agent. */
@@ -184,6 +218,8 @@ export const marketIntelTools = [
   searchParcels,
   getParcelDetails,
   webSearchPreviewTool,
+  search_comparable_sales,
+  calculate_market_metrics,
 ];
 
 /** Tools available to the Design agent. (#11 Dead Agent Revival) */
@@ -194,6 +230,8 @@ export const designTools = [
   zoningMatrixLookup,
   screenFlood,
   screenSoils,
+  calculate_site_capacity,
+  estimate_construction_cost,
 ];
 
 /** Tools available to the Tax Strategist agent. (#11 Dead Agent Revival) */
@@ -202,4 +240,7 @@ export const taxTools = [
   searchParcels,
   getParcelDetails,
   webSearchPreviewTool,
+  calculate_depreciation_schedule,
+  calculate_cost_segregation_estimate,
+  calculate_1031_deadlines,
 ];

@@ -1,18 +1,10 @@
-import useSWR from "swr";
-import { Workflow } from "@/types";
-
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+import { type Workflow } from "@/types";
 
 export function useWorkflows() {
-  const { data, error, isLoading, mutate } = useSWR<{ workflows: Workflow[] }>(
-    "/api/workflows",
-    fetcher
-  );
-
   return {
-    workflows: data?.workflows ?? [],
-    isLoading,
-    isError: !!error,
-    mutate,
+    workflows: [] as Workflow[],
+    isLoading: false,
+    isError: false,
+    mutate: () => Promise.resolve(undefined),
   };
 }

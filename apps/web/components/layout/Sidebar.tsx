@@ -5,26 +5,70 @@ import { usePathname } from "next/navigation";
 import {
   MessageSquare,
   Briefcase,
+  Map,
+  PieChart,
+  Wallet,
   Users,
   MapPin,
   FileSearch,
   Building2,
-  PieChart,
-  Wallet,
-  Map,
+  Bot,
+  Play,
+  Filter,
+  GitBranch,
+  Rocket,
+  FolderKanban,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/stores/uiStore";
 
-const navItems = [
-  { id: "chat", href: "/", icon: MessageSquare, label: "Chat" },
-  { id: "deals", href: "/deals", icon: Briefcase, label: "Deals" },
-  { id: "map", href: "/map", icon: Map, label: "Map" },
-  { id: "portfolio", href: "/portfolio", icon: PieChart, label: "Portfolio" },
-  { id: "wealth", href: "/wealth", icon: Wallet, label: "Wealth" },
-  { id: "buyers", href: "/buyers", icon: Users, label: "Buyers" },
-  { id: "jurisdictions", href: "/jurisdictions", icon: MapPin, label: "Jurisdictions" },
-  { id: "evidence", href: "/evidence", icon: FileSearch, label: "Evidence" },
+interface NavItem {
+  id: string;
+  href: string;
+  icon: React.ElementType;
+  label: string;
+}
+
+interface NavGroup {
+  label: string;
+  items: NavItem[];
+}
+
+const navGroups: NavGroup[] = [
+  {
+    label: "Core",
+    items: [
+      { id: "chat", href: "/", icon: MessageSquare, label: "Chat" },
+      { id: "deals", href: "/deals", icon: Briefcase, label: "Deals" },
+      { id: "map", href: "/map", icon: Map, label: "Map" },
+    ],
+  },
+  {
+    label: "Pipeline",
+    items: [
+      { id: "screening", href: "/screening", icon: Filter, label: "Screening" },
+      { id: "portfolio", href: "/portfolio", icon: PieChart, label: "Portfolio" },
+      { id: "wealth", href: "/wealth", icon: Wallet, label: "Wealth" },
+    ],
+  },
+  {
+    label: "Intelligence",
+    items: [
+      { id: "agents", href: "/agents", icon: Bot, label: "Agents" },
+      { id: "runs", href: "/runs", icon: Play, label: "Runs" },
+      { id: "workflows", href: "/workflows", icon: GitBranch, label: "Workflows" },
+    ],
+  },
+  {
+    label: "Operations",
+    items: [
+      { id: "buyers", href: "/buyers", icon: Users, label: "Buyers" },
+      { id: "jurisdictions", href: "/jurisdictions", icon: MapPin, label: "Jurisdictions" },
+      { id: "evidence", href: "/evidence", icon: FileSearch, label: "Evidence" },
+      { id: "deploy", href: "/deploy", icon: Rocket, label: "Deploy" },
+      { id: "deal-room", href: "/deal-room", icon: FolderKanban, label: "Deal Rooms" },
+    ],
+  },
 ];
 
 export function Sidebar() {
@@ -54,31 +98,43 @@ export function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-1 p-3">
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const isActive =
-            item.href === '/'
-              ? pathname === '/'
-              : pathname === item.href || (pathname?.startsWith(`${item.href}/`) ?? false);
+      <nav className="flex-1 overflow-y-auto p-3">
+        {navGroups.map((group) => (
+          <div key={group.label} className="mb-4">
+            {!sidebarCollapsed && (
+              <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+                {group.label}
+              </p>
+            )}
+            <div className="space-y-0.5">
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                const isActive =
+                  item.href === "/"
+                    ? pathname === "/"
+                    : pathname === item.href ||
+                      (pathname?.startsWith(`${item.href}/`) ?? false);
 
-          return (
-            <Link
-              key={item.id}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              )}
-              title={sidebarCollapsed ? item.label : undefined}
-            >
-              <Icon className="h-5 w-5 shrink-0" />
-              {!sidebarCollapsed && <span>{item.label}</span>}
-            </Link>
-          );
-        })}
+                return (
+                  <Link
+                    key={item.id}
+                    href={item.href}
+                    className={cn(
+                      "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                      isActive
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    )}
+                    title={sidebarCollapsed ? item.label : undefined}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" />
+                    {!sidebarCollapsed && <span>{item.label}</span>}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
       {/* User */}

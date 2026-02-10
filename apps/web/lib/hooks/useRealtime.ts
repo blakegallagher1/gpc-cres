@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { toast } from "sonner";
 
 interface RealtimeMessage {
   type: "run_started" | "run_completed" | "run_failed" | "metric_update";
@@ -17,100 +16,12 @@ interface UseRealtimeOptions {
   enableNotifications?: boolean;
 }
 
-export function useRealtime(options: UseRealtimeOptions = {}) {
-  const {
-    onRunStarted,
-    onRunCompleted,
-    onRunFailed,
-    onMetricUpdate,
-    enableNotifications = true,
-  } = options;
-
-  const [isConnected, setIsConnected] = useState(false);
-  const [lastMessage, setLastMessage] = useState<RealtimeMessage | null>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  const connect = useCallback(() => {
-    // For demo purposes, we'll simulate WebSocket with EventSource (SSE)
-    // In production, replace with actual WebSocket connection
-    
-    // Simulate connection
-    setIsConnected(true);
-
-    // Simulate receiving messages
-    const interval = setInterval(() => {
-      const mockMessages: RealtimeMessage[] = [
-        {
-          type: "run_started",
-          data: { runId: `run_${Date.now()}`, agent: "coordinator" },
-          timestamp: new Date().toISOString(),
-        },
-        {
-          type: "metric_update",
-          data: { totalRuns24h: Math.floor(Math.random() * 5000) + 4000 },
-          timestamp: new Date().toISOString(),
-        },
-      ];
-
-      const message = mockMessages[Math.floor(Math.random() * mockMessages.length)];
-      setLastMessage(message);
-
-      switch (message.type) {
-        case "run_started":
-          onRunStarted?.(message.data);
-          if (enableNotifications) {
-            toast.info("Run started", {
-              description: `Agent: ${(message.data as { agent: string }).agent}`,
-            });
-          }
-          break;
-        case "run_completed":
-          onRunCompleted?.(message.data);
-          if (enableNotifications) {
-            toast.success("Run completed", {
-              description: `Run ${(message.data as { runId: string }).runId} finished successfully`,
-            });
-          }
-          break;
-        case "run_failed":
-          onRunFailed?.(message.data);
-          if (enableNotifications) {
-            toast.error("Run failed", {
-              description: `Run ${(message.data as { runId: string }).runId} encountered an error`,
-            });
-          }
-          break;
-        case "metric_update":
-          onMetricUpdate?.(message.data);
-          break;
-      }
-    }, 30000); // Every 30 seconds for demo
-
-    return () => {
-      clearInterval(interval);
-    };
-  }, [onRunStarted, onRunCompleted, onRunFailed, onMetricUpdate, enableNotifications]);
-
-  const disconnect = useCallback(() => {
-    setIsConnected(false);
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-    }
-  }, []);
-
-  useEffect(() => {
-    const cleanup = connect();
-    return () => {
-      cleanup?.();
-      disconnect();
-    };
-  }, [connect, disconnect]);
-
+export function useRealtime(_options: UseRealtimeOptions = {}) {
   return {
-    isConnected,
-    lastMessage,
-    connect,
-    disconnect,
+    isConnected: false,
+    lastMessage: null as RealtimeMessage | null,
+    connect: () => {},
+    disconnect: () => {},
   };
 }
 

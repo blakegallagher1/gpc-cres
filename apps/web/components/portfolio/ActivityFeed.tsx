@@ -1,7 +1,7 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { type ActivityEvent } from "@/lib/data/mockPortfolio";
+import { type ActivityEvent } from "@/lib/data/portfolioConstants";
 import { timeAgo } from "@/lib/utils";
 import { Plus, ArrowRightLeft, CheckCircle2, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";

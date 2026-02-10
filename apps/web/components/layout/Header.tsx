@@ -22,6 +22,10 @@ export function Header() {
   const [searchFocused, setSearchFocused] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const router = useRouter();
+  const [notifications, setNotifications] = useState([
+    { id: "1", message: "Financial Analyst completed", time: "2 minutes ago" },
+    { id: "2", message: "Workflow execution failed", time: "15 minutes ago" },
+  ]);
 
   const handleSignOut = async () => {
     if (isSigningOut) return;
@@ -110,29 +114,35 @@ export function Header() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="relative text-muted-foreground">
               <Bell className="h-5 w-5" />
-              <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500" />
+              {notifications.length > 0 && (
+                <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500" />
+              )}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-80">
             <div className="flex items-center justify-between px-3 py-2">
               <span className="font-semibold">Notifications</span>
-              <Button variant="ghost" size="sm" className="h-auto py-1 text-xs">
+              <Button variant="ghost" size="sm" className="h-auto py-1 text-xs" onClick={() => setNotifications([])}>
                 Mark all read
               </Button>
             </div>
-            <DropdownMenuItem className="flex flex-col items-start gap-1">
-              <span className="font-medium">Financial Analyst completed</span>
-              <span className="text-xs text-muted-foreground">2 minutes ago</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem className="flex flex-col items-start gap-1">
-              <span className="font-medium">Workflow execution failed</span>
-              <span className="text-xs text-muted-foreground">15 minutes ago</span>
-            </DropdownMenuItem>
+            {notifications.length > 0 ? (
+              notifications.map((n) => (
+                <DropdownMenuItem key={n.id} className="flex flex-col items-start gap-1">
+                  <span className="font-medium">{n.message}</span>
+                  <span className="text-xs text-muted-foreground">{n.time}</span>
+                </DropdownMenuItem>
+              ))
+            ) : (
+              <DropdownMenuItem disabled className="text-center text-sm text-muted-foreground">
+                No new notifications
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
 
         {/* New Run Button */}
-        <Button className="gap-2">
+        <Button className="gap-2" onClick={() => router.push("/")}>
           <Plus className="h-4 w-4" />
           <span>New Run</span>
         </Button>

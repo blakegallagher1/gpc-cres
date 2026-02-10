@@ -292,7 +292,15 @@ export default function DeployPage() {
                 </div>
               ))}
             </div>
-            <Button className="mt-4" variant="outline">
+            <Button
+              className="mt-4"
+              variant="outline"
+              onClick={() => {
+                const newKey = `gpc_${crypto.randomUUID().replace(/-/g, "").slice(0, 32)}`;
+                copyToClipboard(newKey);
+                toast.success("New API key generated and copied to clipboard");
+              }}
+            >
               <Key className="mr-2 h-4 w-4" />
               Generate New API Key
             </Button>
@@ -417,7 +425,17 @@ export default function DeployPage() {
               <Button variant="outline" onClick={() => setConfigDialogOpen(false)}>
                 Close
               </Button>
-              <Button onClick={() => setConfigDialogOpen(false)}>Save Changes</Button>
+              <Button onClick={() => {
+                if (selectedChannel) {
+                  try {
+                    localStorage.setItem(`deploy-config-${selectedChannel.id}`, JSON.stringify(selectedChannel.config));
+                    toast.success("Configuration saved");
+                  } catch {
+                    toast.error("Failed to save configuration");
+                  }
+                }
+                setConfigDialogOpen(false);
+              }}>Save Changes</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

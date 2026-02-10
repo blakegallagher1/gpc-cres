@@ -162,10 +162,15 @@ export default function WorkflowsPage() {
                 </DialogHeader>
                 <div className="space-y-2 py-4">
                   {workflowTemplates.map((template) => (
-                    <Link
+                    <button
                       key={template.id}
-                      href={`/workflows/new?template=${template.id}`}
-                      className="flex items-center justify-between rounded-lg border p-4 transition-colors hover:bg-muted"
+                      onClick={() => {
+                        setNewWorkflowName(template.name);
+                        setNewWorkflowDescription(template.description);
+                        setTemplateDialogOpen(false);
+                        setCreateDialogOpen(true);
+                      }}
+                      className="flex w-full items-center justify-between rounded-lg border p-4 text-left transition-colors hover:bg-muted"
                     >
                       <div>
                         <p className="font-medium">{template.name}</p>
@@ -174,7 +179,7 @@ export default function WorkflowsPage() {
                         </p>
                       </div>
                       <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                    </Link>
+                    </button>
                   ))}
                 </div>
               </DialogContent>

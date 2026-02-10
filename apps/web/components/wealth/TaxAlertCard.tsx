@@ -2,7 +2,7 @@
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { type TaxAlert } from "@/lib/data/mockWealth";
+import { type TaxAlert } from "@/lib/data/wealthTypes";
 import { formatCurrency } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { AlertTriangle, Clock, Info, DollarSign } from "lucide-react";

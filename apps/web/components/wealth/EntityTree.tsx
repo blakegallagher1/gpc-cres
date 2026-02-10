@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { type Entity } from "@/lib/data/mockWealth";
+import { type WealthEntity as Entity } from "@/lib/data/wealthTypes";
 import { cn } from "@/lib/utils";
 import { ChevronRight, ChevronDown, Building2, Landmark, Briefcase, User } from "lucide-react";
 

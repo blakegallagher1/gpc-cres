@@ -28,6 +28,7 @@ export async function POST(
     // Load parcel and verify org ownership via the deal
     const parcel = await prisma.parcel.findFirst({
       where: { id: parcelId, dealId, deal: { orgId: auth.orgId } },
+      include: { deal: { include: { jurisdiction: { select: { name: true } } } } },
     });
 
     if (!parcel) {
@@ -60,7 +61,7 @@ export async function POST(
       for (const searchText of attempts) {
         const result = await propertyDbRpc("api_search_parcels", {
           search_text: searchText,
-          parish: "East Baton Rouge",
+          parish: parcel.deal?.jurisdiction?.name ?? null,
           limit_rows: 10,
         });
         if (Array.isArray(result) && result.length > 0) {

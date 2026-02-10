@@ -1,23 +1,106 @@
 "use client";
 
 import Link from "next/link";
+import useSWR from "swr";
+import { Loader2 } from "lucide-react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { NetWorthCard } from "@/components/wealth/NetWorthCard";
 import { EntityTree } from "@/components/wealth/EntityTree";
-import { CashFlowWaterfall } from "@/components/wealth/CashFlowWaterfall";
 import { TaxAlertCard } from "@/components/wealth/TaxAlertCard";
-import {
-  mockEntities,
-  mockNetWorth,
-  mockCashFlow,
-  mockCapitalAllocation,
-  mockTaxAlerts,
-} from "@/lib/data/mockWealth";
+import { type WealthEntity } from "@/lib/data/wealthTypes";
 import { formatCurrency } from "@/lib/utils";
 
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
+
 export default function WealthPage() {
-  const totalAllocation = mockCapitalAllocation.reduce((s, a) => s + a.value, 0);
+  const { data: entitiesData, isLoading: entitiesLoading } = useSWR<{
+    entities: Array<{
+      id: string;
+      name: string;
+      entityType: string;
+      parentId: string | null;
+      ownershipPct: string;
+      state: string | null;
+      taxId: string | null;
+      deals: Array<{ deal: { id: string; name: string } }>;
+      _count: { taxEvents: number };
+    }>;
+  }>("/api/entities", fetcher);
+
+  const { data: summaryData } = useSWR<{
+    summary: {
+      entityCount: number;
+      totalDeals: number;
+      totalAcreage: number;
+      estimatedRealEstateValue: number;
+      approvedDealCount: number;
+      activeTaxAlerts: number;
+    };
+  }>("/api/wealth/summary", fetcher);
+
+  const { data: taxData } = useSWR<{
+    taxEvents: Array<{
+      id: string;
+      eventType: string;
+      title: string;
+      description: string | null;
+      severity: string;
+      deadline: string | null;
+      status: string;
+      entity: { id: string; name: string; entityType: string } | null;
+      deal: { id: string; name: string } | null;
+    }>;
+  }>("/api/wealth/tax-events", fetcher);
+
+  const isLoading = entitiesLoading;
+
+  // Map API entities to component format
+  const entities: WealthEntity[] = (entitiesData?.entities ?? []).map((e) => ({
+    id: e.id,
+    name: e.name,
+    type: e.entityType as WealthEntity["type"],
+    parentId: e.parentId,
+    ownershipPct: Number(e.ownershipPct),
+    taxId: e.taxId ?? undefined,
+    state: e.state ?? "LA",
+    associatedDealIds: e.deals.map((d) => d.deal.id),
+  }));
+
+  // Map tax events to alert format
+  const taxAlerts = (taxData?.taxEvents ?? [])
+    .filter((e) => e.status === "active")
+    .slice(0, 4)
+    .map((e) => {
+      const daysRemaining = e.deadline
+        ? Math.ceil(
+            (new Date(e.deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+          )
+        : undefined;
+      return {
+        id: e.id,
+        type: e.eventType,
+        title: e.title,
+        description: e.description ?? "",
+        severity: e.severity as "critical" | "warning" | "info",
+        deadline: e.deadline ?? undefined,
+        daysRemaining,
+        entityName: e.entity?.name ?? "Unknown",
+      };
+    });
+
+  const summary = summaryData?.summary;
+  const estimatedValue = summary?.estimatedRealEstateValue ?? 0;
+
+  if (isLoading) {
+    return (
+      <DashboardShell>
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </DashboardShell>
+    );
+  }
 
   return (
     <DashboardShell>
@@ -45,127 +128,95 @@ export default function WealthPage() {
         </div>
       </div>
 
-      {/* Net Worth Card - Full Width */}
+      {/* Net Worth Card */}
       <NetWorthCard
-        total={mockNetWorth.total}
-        realEstate={mockNetWorth.realEstate}
-        cash={mockNetWorth.cash}
-        other={mockNetWorth.other}
-        change={mockNetWorth.change}
-        changePct={mockNetWorth.changePct}
+        total={estimatedValue}
+        realEstate={estimatedValue}
+        cash={0}
+        other={0}
+        change={0}
+        changePct={0}
       />
 
-      {/* Entity Tree + Capital Allocation */}
+      {/* Entity Tree + Summary */}
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
-        <EntityTree entities={mockEntities} />
+        <EntityTree entities={entities} />
 
-        {/* Capital Allocation */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Capital Allocation</CardTitle>
+            <CardTitle className="text-base">Portfolio Summary</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-6">
-              {/* Donut Chart */}
-              <div className="relative shrink-0">
-                <svg width="140" height="140" viewBox="0 0 100 100">
-                  {(() => {
-                    const radius = 38;
-                    const circumference = 2 * Math.PI * radius;
-                    let offset = 0;
-                    return mockCapitalAllocation.map((item) => {
-                      const pct = item.value / totalAllocation;
-                      const dashLen = pct * circumference;
-                      const dashOffset = -offset * circumference;
-                      offset += pct;
-                      return (
-                        <circle
-                          key={item.label}
-                          cx="50"
-                          cy="50"
-                          r={radius}
-                          fill="none"
-                          stroke={item.color}
-                          strokeWidth="14"
-                          strokeDasharray={`${dashLen} ${circumference - dashLen}`}
-                          strokeDashoffset={dashOffset}
-                          transform="rotate(-90 50 50)"
-                        />
-                      );
-                    });
-                  })()}
-                  <text
-                    x="50"
-                    y="47"
-                    textAnchor="middle"
-                    className="fill-foreground font-bold"
-                    fontSize="12"
-                  >
-                    {formatCurrency(totalAllocation / 1_000_000).replace("$", "$").replace(".00", "")}M
-                  </text>
-                  <text
-                    x="50"
-                    y="60"
-                    textAnchor="middle"
-                    className="fill-muted-foreground"
-                    fontSize="7"
-                  >
-                    Total
-                  </text>
-                </svg>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Entities</p>
+                  <p className="text-2xl font-bold">{summary?.entityCount ?? 0}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Active Deals</p>
+                  <p className="text-2xl font-bold">{summary?.totalDeals ?? 0}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Total Acreage</p>
+                  <p className="text-2xl font-bold">{(summary?.totalAcreage ?? 0).toFixed(1)}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Est. Value</p>
+                  <p className="text-2xl font-bold">
+                    {formatCurrency(estimatedValue).replace(".00", "")}
+                  </p>
+                </div>
               </div>
-
-              {/* Legend */}
-              <div className="space-y-3 flex-1">
-                {mockCapitalAllocation.map((item) => (
-                  <div key={item.label} className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="h-3 w-3 rounded-sm"
-                          style={{ backgroundColor: item.color }}
-                        />
-                        <span className="text-sm">{item.label}</span>
-                      </div>
-                      <span className="text-sm font-semibold tabular-nums">
-                        {item.pct}%
-                      </span>
-                    </div>
-                    <div className="ml-5">
-                      <span className="text-xs text-muted-foreground">
-                        {formatCurrency(item.value).replace(".00", "")}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Approved Deals</p>
+                <p className="text-lg font-semibold">{summary?.approvedDealCount ?? 0}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Active Tax Alerts</p>
+                <p className="text-lg font-semibold">{summary?.activeTaxAlerts ?? 0}</p>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Cash Flow Waterfall */}
-      <div className="mt-6">
-        <CashFlowWaterfall items={mockCashFlow} />
-      </div>
-
       {/* Tax Strategy Alerts */}
-      <div className="mt-6">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Tax Strategy Alerts</h2>
-          <Link
-            href="/wealth/tax"
-            className="text-sm text-muted-foreground hover:text-foreground"
-          >
-            View all →
-          </Link>
+      {taxAlerts.length > 0 && (
+        <div className="mt-6">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Tax Strategy Alerts</h2>
+            <Link
+              href="/wealth/tax"
+              className="text-sm text-muted-foreground hover:text-foreground"
+            >
+              View all →
+            </Link>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            {taxAlerts.map((alert) => (
+              <TaxAlertCard key={alert.id} alert={alert} />
+            ))}
+          </div>
         </div>
-        <div className="grid gap-3 md:grid-cols-2">
-          {mockTaxAlerts.map((alert) => (
-            <TaxAlertCard key={alert.id} alert={alert} />
-          ))}
-        </div>
-      </div>
+      )}
+
+      {entities.length === 0 && taxAlerts.length === 0 && (
+        <Card className="mt-6">
+          <CardContent className="py-12 text-center">
+            <h3 className="text-lg font-semibold">Get Started</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Create your first entity to start tracking your corporate structure and tax strategy.
+            </p>
+            <Link
+              href="/wealth/entities"
+              className="mt-4 inline-block text-sm font-medium text-primary hover:underline"
+            >
+              Create Entity →
+            </Link>
+          </CardContent>
+        </Card>
+      )}
     </DashboardShell>
   );
 }

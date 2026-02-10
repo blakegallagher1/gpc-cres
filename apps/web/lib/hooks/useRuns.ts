@@ -1,7 +1,4 @@
-import useSWR from "swr";
-import { Run } from "@/types";
-
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+import { type Run } from "@/types";
 
 export interface RunsQuery {
   agentId?: string;
@@ -9,23 +6,11 @@ export interface RunsQuery {
   limit?: number;
 }
 
-export function useRuns(query: RunsQuery = {}) {
-  const params = new URLSearchParams();
-  if (query.agentId) params.set("agentId", query.agentId);
-  if (query.status) params.set("status", query.status);
-  if (query.limit) params.set("limit", query.limit.toString());
-
-  const key = `/api/runs${params.toString() ? `?${params.toString()}` : ""}`;
-
-  const { data, error, isLoading, mutate } = useSWR<{ runs: Run[] }>(
-    key,
-    fetcher
-  );
-
+export function useRuns(_query: RunsQuery = {}) {
   return {
-    runs: data?.runs ?? [],
-    isLoading,
-    isError: !!error,
-    mutate,
+    runs: [] as Run[],
+    isLoading: false,
+    isError: false,
+    mutate: () => Promise.resolve(undefined),
   };
 }

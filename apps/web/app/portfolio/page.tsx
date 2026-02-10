@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import useSWR from "swr";
 import {
   LayoutGrid,
   Map,
@@ -10,6 +11,7 @@ import {
   ArrowUpDown,
   ChevronUp,
   ChevronDown,
+  Loader2,
 } from "lucide-react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,18 +26,17 @@ import {
 } from "@/components/ui/table";
 import { MetricCard } from "@/components/portfolio/MetricCard";
 import { PipelineFunnel } from "@/components/portfolio/PipelineFunnel";
-import { ActivityFeed } from "@/components/portfolio/ActivityFeed";
 import { SkuDonut, JurisdictionBar } from "@/components/portfolio/DealVelocityChart";
 import {
-  mockDeals,
-  mockActivityEvents,
-  mockPortfolioMetrics,
+  type PortfolioDeal,
   SKU_CONFIG,
   PIPELINE_STAGES,
-  type MockDeal,
-} from "@/lib/data/mockPortfolio";
+  type SkuType,
+} from "@/lib/data/portfolioConstants";
 import { formatCurrency, timeAgo } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 type SortField = "name" | "sku" | "jurisdiction" | "status" | "triageScore" | "lastActivity";
 type SortDir = "asc" | "desc";
@@ -46,10 +47,50 @@ PIPELINE_STAGES.forEach((s, i) => {
 });
 
 export default function PortfolioPage() {
+  const { data, isLoading } = useSWR<{
+    deals: Array<{
+      id: string;
+      name: string;
+      sku: SkuType;
+      status: string;
+      jurisdiction: string;
+      acreage: number;
+      triageScore: number | null;
+      updatedAt: string;
+      createdAt: string;
+    }>;
+    metrics: {
+      totalDeals: number;
+      totalAcreage: number;
+      avgTriageScore: number | null;
+      byStatus: Record<string, number>;
+      bySku: Record<string, number>;
+      byJurisdiction: Record<string, number>;
+    };
+  }>("/api/portfolio", fetcher);
+
   const [sortField, setSortField] = useState<SortField>("lastActivity");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
-  const activeDeals = mockDeals.filter(
+  const deals: PortfolioDeal[] = useMemo(
+    () =>
+      (data?.deals ?? []).map((d) => ({
+        id: d.id,
+        name: d.name,
+        sku: d.sku,
+        jurisdiction: d.jurisdiction,
+        status: d.status as PortfolioDeal["status"],
+        triageScore: d.triageScore,
+        acreage: d.acreage,
+        updatedAt: d.updatedAt,
+        createdAt: d.createdAt,
+      })),
+    [data]
+  );
+
+  const metrics = data?.metrics;
+
+  const activeDeals = deals.filter(
     (d) => d.status !== "KILLED" && d.status !== "EXITED"
   );
 
@@ -74,8 +115,8 @@ export default function PortfolioPage() {
           break;
         case "lastActivity":
           cmp =
-            new Date(a.lastActivity).getTime() -
-            new Date(b.lastActivity).getTime();
+            new Date(a.updatedAt).getTime() -
+            new Date(b.updatedAt).getTime();
           break;
       }
       return sortDir === "asc" ? cmp : -cmp;
@@ -126,6 +167,16 @@ export default function PortfolioPage() {
     );
   }
 
+  if (isLoading) {
+    return (
+      <DashboardShell>
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </DashboardShell>
+    );
+  }
+
   return (
     <DashboardShell>
       {/* Page Header */}
@@ -148,56 +199,46 @@ export default function PortfolioPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           label="Active Deals"
-          value={String(mockPortfolioMetrics.totalDeals)}
-          change={mockPortfolioMetrics.dealsChange}
-          changeLabel="vs last month"
+          value={String(metrics?.totalDeals ?? 0)}
           icon={LayoutGrid}
         />
         <MetricCard
           label="Acreage Under Management"
-          value={`${mockPortfolioMetrics.totalAcreage.toFixed(1)} ac`}
-          change={mockPortfolioMetrics.acreageChange}
-          changeLabel="vs last month"
+          value={`${(metrics?.totalAcreage ?? 0).toFixed(1)} ac`}
           icon={Map}
         />
         <MetricCard
-          label="Pipeline Value"
-          value={formatCurrency(mockPortfolioMetrics.pipelineValue).replace(".00", "")}
-          change={mockPortfolioMetrics.pipelineChange}
-          changeLabel="vs last month"
+          label="Deal Pipeline"
+          value={`${deals.length} total`}
           icon={TrendingUp}
         />
         <MetricCard
           label="Avg Triage Score"
-          value={String(mockPortfolioMetrics.avgTriageScore)}
-          change={mockPortfolioMetrics.scoreChange}
-          changeLabel="vs last month"
+          value={metrics?.avgTriageScore ? String(metrics.avgTriageScore) : "--"}
           icon={Target}
         />
       </div>
 
       {/* Pipeline + Charts Row */}
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
-        <PipelineFunnel deals={mockDeals} />
+        <PipelineFunnel deals={deals} />
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-          <SkuDonut deals={mockDeals} />
-          <JurisdictionBar deals={mockDeals} />
+          <SkuDonut deals={deals} />
+          <JurisdictionBar deals={deals} />
         </div>
       </div>
 
-      {/* Activity Feed + Table */}
-      <div className="mt-6 grid gap-4 lg:grid-cols-3">
-        {/* Activity Feed */}
-        <div className="lg:col-span-1">
-          <ActivityFeed events={mockActivityEvents} />
-        </div>
-
-        {/* Active Deals Table */}
-        <Card className="lg:col-span-2">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Active Deals</CardTitle>
-          </CardHeader>
-          <CardContent>
+      {/* Active Deals Table */}
+      <Card className="mt-6">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Active Deals</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {sortedDeals.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              No active deals yet. Create a deal from the Chat interface to get started.
+            </p>
+          ) : (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -254,9 +295,9 @@ export default function PortfolioPage() {
                       <div className="flex items-center gap-1.5">
                         <div
                           className="h-2 w-2 rounded-full"
-                          style={{ backgroundColor: SKU_CONFIG[deal.sku].color }}
+                          style={{ backgroundColor: SKU_CONFIG[deal.sku]?.color }}
                         />
-                        <span className="text-xs">{SKU_CONFIG[deal.sku].label}</span>
+                        <span className="text-xs">{SKU_CONFIG[deal.sku]?.label ?? deal.sku}</span>
                       </div>
                     </TableCell>
                     <TableCell className="text-sm">{deal.jurisdiction}</TableCell>
@@ -276,15 +317,15 @@ export default function PortfolioPage() {
                       )}
                     </TableCell>
                     <TableCell className="text-right text-xs text-muted-foreground">
-                      {timeAgo(deal.lastActivity)}
+                      {timeAgo(deal.updatedAt)}
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
-          </CardContent>
-        </Card>
-      </div>
+          )}
+        </CardContent>
+      </Card>
     </DashboardShell>
   );
 }

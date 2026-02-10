@@ -108,7 +108,7 @@ export async function POST(
 
     try {
       // Build ArtifactSpec from deal data
-      const spec = buildArtifactSpec(aType, deal, triageOutput);
+      const spec = await buildArtifactSpec(aType, deal, triageOutput);
 
       // Render artifact
       const rendered = await renderArtifactFromSpec(spec);
@@ -262,11 +262,11 @@ function buildParcelSummary(parcels: DealWithRelations["parcels"]): string {
     .join("\n");
 }
 
-function buildArtifactSpec(
+async function buildArtifactSpec(
   artifactType: ArtifactType,
-  deal: DealWithRelations,
+  deal: DealWithRelations & { jurisdictionId?: string },
   triageOutput: Record<string, unknown> | null
-): ArtifactSpec {
+): Promise<ArtifactSpec> {
   const base = {
     schema_version: "1.0" as const,
     deal_id: deal.id,
@@ -309,17 +309,30 @@ function buildArtifactSpec(
 
     case "SUBMISSION_CHECKLIST_PDF": {
       const jurisdiction = deal.jurisdiction?.name ?? "Unknown Jurisdiction";
+      const seedSources = deal.jurisdictionId
+        ? await prisma.jurisdictionSeedSource.findMany({
+            where: { jurisdictionId: deal.jurisdictionId, active: true },
+            select: { purpose: true, url: true },
+          })
+        : [];
+      const sourcesByPurpose: Record<string, string[]> = {};
+      for (const s of seedSources) {
+        if (!sourcesByPurpose[s.purpose]) sourcesByPurpose[s.purpose] = [];
+        sourcesByPurpose[s.purpose].push(s.url);
+      }
+      const appUrl = sourcesByPurpose["applications"]?.[0] ?? sourcesByPurpose["forms"]?.[0];
+      const ordUrl = sourcesByPurpose["ordinance"]?.[0];
       return {
         ...base,
         artifact_type: "SUBMISSION_CHECKLIST_PDF",
         checklist_items: [
-          { item: "Application Form", required: true, notes: `${jurisdiction} application form`, sources: ["https://placeholder.local"] },
-          { item: "Site Plan", required: true, notes: "Prepared by licensed surveyor/engineer", sources: ["https://placeholder.local"] },
-          { item: "Legal Description", required: true, notes: "From title report or survey", sources: ["https://placeholder.local"] },
-          { item: "Ownership Documentation", required: true, notes: "Deed, purchase agreement, or authorization letter", sources: ["https://placeholder.local"] },
-          { item: "Environmental Assessment", required: false, notes: "Phase I ESA if available", sources: ["https://placeholder.local"] },
-          { item: "Traffic Impact Analysis", required: false, notes: `Required if TIA threshold is met per ${jurisdiction} standards`, sources: ["https://placeholder.local"] },
-          { item: "Stormwater Management Plan", required: true, notes: "Per parish/city drainage requirements", sources: ["https://placeholder.local"] },
+          { item: "Application Form", required: true, notes: `${jurisdiction} application form`, sources: appUrl ? [appUrl] : [] },
+          { item: "Site Plan", required: true, notes: "Prepared by licensed surveyor/engineer", sources: [] },
+          { item: "Legal Description", required: true, notes: "From title report or survey", sources: [] },
+          { item: "Ownership Documentation", required: true, notes: "Deed, purchase agreement, or authorization letter", sources: [] },
+          { item: "Environmental Assessment", required: false, notes: "Phase I ESA if available", sources: [] },
+          { item: "Traffic Impact Analysis", required: false, notes: `Required if TIA threshold is met per ${jurisdiction} standards`, sources: ordUrl ? [ordUrl] : [] },
+          { item: "Stormwater Management Plan", required: true, notes: "Per parish/city drainage requirements", sources: ordUrl ? [ordUrl] : [] },
         ],
         sections: [
           {
@@ -354,13 +367,21 @@ function buildArtifactSpec(
 
     case "EXIT_PACKAGE_PDF": {
       const triage = triageOutput!;
+      const latestTriagePdf = await prisma.artifact.findFirst({
+        where: { dealId: deal.id, artifactType: "TRIAGE_PDF" },
+        orderBy: { createdAt: "desc" },
+        select: { id: true },
+      });
+      const triageUrl = latestTriagePdf
+        ? `/api/deals/${deal.id}/artifacts/${latestTriagePdf.id}/download`
+        : null;
       return {
         ...base,
         artifact_type: "EXIT_PACKAGE_PDF",
         approval_summary: `Deal "${deal.name}" received entitlement approval. Decision from triage: ${String(triage.decision ?? "N/A")}.`,
         conditions_summary: "See approval documentation for specific conditions of approval.",
         evidence_index: [
-          { label: "Triage Assessment", url: "https://placeholder.local", notes: "Auto-generated triage report" },
+          { label: "Triage Assessment", url: triageUrl ?? "", notes: "Auto-generated triage report" },
         ],
         sections: [
           {

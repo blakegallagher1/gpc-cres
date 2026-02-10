@@ -1,7 +1,7 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { type CashFlowItem } from "@/lib/data/mockWealth";
+import { type CashFlowItem } from "@/lib/data/wealthTypes";
 import { formatCurrency } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 

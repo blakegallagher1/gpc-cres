@@ -2,13 +2,12 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  type MockDeal,
-  type DealStatus,
+  type PortfolioDeal,
   PIPELINE_STAGES,
-} from "@/lib/data/mockPortfolio";
+} from "@/lib/data/portfolioConstants";
 
 interface PipelineFunnelProps {
-  deals: MockDeal[];
+  deals: PortfolioDeal[];
 }
 
 export function PipelineFunnel({ deals }: PipelineFunnelProps) {

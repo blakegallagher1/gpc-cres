@@ -64,6 +64,14 @@ enum run_type {
   ADVANCEMENT_CHECK
 }
 
+enum entity_type {
+  LLC
+  TRUST
+  CORP
+  INDIVIDUAL
+  @@map("entity_type")
+}
+
 model Org {
   id        String   @id @default(uuid()) @db.Uuid
   name      String   @db.Text
@@ -83,6 +91,8 @@ model Org {
   artifacts         Artifact[]
   uploads           Upload[]
   conversations     Conversation[]
+  entities          Entity[]
+  taxEvents         TaxEvent[]
 
   @@map("orgs")
 }
@@ -175,6 +185,8 @@ model Deal {
   artifacts     Artifact[]
   uploads       Upload[]
   conversations Conversation[]
+  entityDeals   EntityDeal[]
+  taxEvents     TaxEvent[]
 
   @@index([orgId])
   @@index([jurisdictionId])
@@ -442,4 +454,64 @@ model Message {
 
   @@index([conversationId])
   @@map("messages")
+}
+
+model Entity {
+  id            String      @id @default(uuid()) @db.Uuid
+  orgId         String      @map("org_id") @db.Uuid
+  name          String      @db.Text
+  entityType    entity_type @map("entity_type")
+  parentId      String?     @map("parent_id") @db.Uuid
+  ownershipPct  Decimal     @default(100) @map("ownership_pct") @db.Decimal(5, 2)
+  taxId         String?     @map("tax_id") @db.Text
+  state         String?     @db.Text
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  org       Org          @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  parent    Entity?      @relation("EntityHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children  Entity[]     @relation("EntityHierarchy")
+  deals     EntityDeal[]
+  taxEvents TaxEvent[]
+
+  @@index([orgId])
+  @@index([parentId])
+  @@map("entities")
+}
+
+model EntityDeal {
+  entityId     String  @map("entity_id") @db.Uuid
+  dealId       String  @map("deal_id") @db.Uuid
+  ownershipPct Decimal @default(100) @map("ownership_pct") @db.Decimal(5, 2)
+
+  entity Entity @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@id([entityId, dealId])
+  @@map("entity_deals")
+}
+
+model TaxEvent {
+  id          String    @id @default(uuid()) @db.Uuid
+  orgId       String    @map("org_id") @db.Uuid
+  entityId    String?   @map("entity_id") @db.Uuid
+  dealId      String?   @map("deal_id") @db.Uuid
+  eventType   String    @map("event_type") @db.Text
+  title       String    @db.Text
+  description String?   @db.Text
+  severity    String    @db.Text
+  deadline    DateTime? @db.Timestamptz(6)
+  metadata    Json?
+  status      String    @default("active") @db.Text
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  org    Org     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  entity Entity? @relation(fields: [entityId], references: [id], onDelete: SetNull)
+  deal   Deal?   @relation(fields: [dealId], references: [id], onDelete: SetNull)
+
+  @@index([orgId])
+  @@index([entityId])
+  @@index([dealId])
+  @@map("tax_events")
 }

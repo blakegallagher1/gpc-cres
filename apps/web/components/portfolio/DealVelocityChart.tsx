@@ -2,14 +2,14 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  type MockDeal,
+  type PortfolioDeal,
   type SkuType,
   SKU_CONFIG,
   JURISDICTION_CONFIG,
-} from "@/lib/data/mockPortfolio";
+} from "@/lib/data/portfolioConstants";
 
 interface SkuDonutProps {
-  deals: MockDeal[];
+  deals: PortfolioDeal[];
 }
 
 export function SkuDonut({ deals }: SkuDonutProps) {
@@ -104,7 +104,7 @@ export function SkuDonut({ deals }: SkuDonutProps) {
 }
 
 interface JurisdictionBarProps {
-  deals: MockDeal[];
+  deals: PortfolioDeal[];
 }
 
 export function JurisdictionBar({ deals }: JurisdictionBarProps) {

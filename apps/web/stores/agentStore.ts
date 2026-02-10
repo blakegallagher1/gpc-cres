@@ -12,19 +12,12 @@ interface AgentStoreState {
 
 export const useAgentStore = create<AgentStoreState>((set) => ({
   isLoading: false,
-  runAgent: async (agentId, input) => {
+  runAgent: async (_agentId, _input) => {
     set({ isLoading: true });
     try {
-      const response = await fetch(`/api/agents/${agentId}/run`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ input }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error?.error || "Failed to run agent");
-      }
+      // Agent runs are now handled through the chat interface at /
+      // This store is kept for API compatibility
+      console.info("Agent runs are handled through the chat interface");
     } finally {
       set({ isLoading: false });
     }
