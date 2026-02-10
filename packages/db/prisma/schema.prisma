@@ -62,6 +62,13 @@ enum run_type {
   DOCUMENT_CLASSIFY
   BUYER_OUTREACH_DRAFT
   ADVANCEMENT_CHECK
+  OPPORTUNITY_SCAN
+}
+
+enum alert_frequency {
+  REALTIME
+  DAILY
+  WEEKLY
 }
 
 enum entity_type {
@@ -110,6 +117,7 @@ model Org {
   entities          Entity[]
   taxEvents         TaxEvent[]
   notifications     Notification[]
+  savedSearches     SavedSearch[]
 
   @@map("orgs")
 }
@@ -127,6 +135,7 @@ model User {
   conversations          Conversation[]
   notifications          Notification[]
   notificationPreferences NotificationPreference[]
+  savedSearches          SavedSearch[]
 
   @@map("users")
 }
@@ -577,4 +586,49 @@ model NotificationPreference {
 
   @@unique([userId, type])
   @@map("notification_preferences")
+}
+
+model SavedSearch {
+  id             String          @id @default(uuid()) @db.Uuid
+  orgId          String          @map("org_id") @db.Uuid
+  userId         String          @map("user_id") @db.Uuid
+  name           String          @db.Text
+  criteria       Json            @default("{}") @db.JsonB
+  alertEnabled   Boolean         @default(false) @map("alert_enabled")
+  alertFrequency alert_frequency @default(DAILY) @map("alert_frequency")
+  lastRunAt      DateTime?       @map("last_run_at") @db.Timestamptz(6)
+  matchCount     Int             @default(0) @map("match_count")
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdBy      String?         @map("created_by") @db.Uuid
+
+  org     Org                @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user    User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  matches OpportunityMatch[]
+
+  @@index([orgId])
+  @@index([userId])
+  @@index([alertEnabled])
+  @@map("saved_searches")
+}
+
+model OpportunityMatch {
+  id              String    @id @default(uuid()) @db.Uuid
+  savedSearchId   String    @map("saved_search_id") @db.Uuid
+  parcelId        String    @map("parcel_id") @db.Uuid // Property DB parcel UUID
+  matchScore      Decimal   @map("match_score") @db.Decimal(5, 2)
+  matchedCriteria Json      @default("{}") @map("matched_criteria") @db.JsonB
+  parcelData      Json      @default("{}") @map("parcel_data") @db.JsonB // Cached parcel info for display
+  seenAt          DateTime? @map("seen_at") @db.Timestamptz(6)
+  dismissedAt     DateTime? @map("dismissed_at") @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  savedSearch SavedSearch @relation(fields: [savedSearchId], references: [id], onDelete: Cascade)
+
+  @@unique([savedSearchId, parcelId])
+  @@index([savedSearchId])
+  @@index([savedSearchId, seenAt])
+  @@index([savedSearchId, dismissedAt])
+  @@map("opportunity_matches")
 }

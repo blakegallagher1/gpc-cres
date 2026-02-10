@@ -9,6 +9,10 @@
     {
       "path": "/api/cron/parish-pack-refresh",
       "schedule": "0 4 * * 0"
+    },
+    {
+      "path": "/api/cron/opportunity-scan",
+      "schedule": "0 */6 * * *"
     }
   ]
 }
