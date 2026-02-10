@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -30,30 +30,62 @@ interface JurisdictionOption {
 }
 
 export default function NewDealPage() {
+  return (
+    <Suspense fallback={<DashboardShell><div className="mx-auto max-w-2xl p-8 text-center text-muted-foreground">Loading...</div></DashboardShell>}>
+      <NewDealForm />
+    </Suspense>
+  );
+}
+
+function NewDealForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [submitting, setSubmitting] = useState(false);
   const [jurisdictions, setJurisdictions] = useState<JurisdictionOption[]>([]);
+
+  // Pre-populate from query params (e.g. from opportunity match "Create Deal" button)
+  const prefillAddress = searchParams.get("address") ?? "";
+  const prefillParish = searchParams.get("parish") ?? "";
 
   const [name, setName] = useState("");
   const [sku, setSku] = useState("");
   const [jurisdictionId, setJurisdictionId] = useState("");
-  const [parcelAddress, setParcelAddress] = useState("");
+  const [parcelAddress, setParcelAddress] = useState(prefillAddress);
   const [apn, setApn] = useState("");
   const [notes, setNotes] = useState("");
 
   useEffect(() => {
     fetch("/api/jurisdictions")
       .then((res) => res.json())
-      .then((data) => setJurisdictions(data.jurisdictions ?? []))
+      .then((data) => {
+        const juris = data.jurisdictions ?? [];
+        setJurisdictions(juris);
+        // Auto-select jurisdiction from parish query param
+        if (prefillParish && !jurisdictionId) {
+          const match = juris.find(
+            (j: JurisdictionOption) =>
+              j.name.toLowerCase().includes(prefillParish.toLowerCase())
+          );
+          if (match) setJurisdictionId(match.id);
+        }
+      })
       .catch(() => {
-        // Jurisdictions API may not exist yet; use fallback
         setJurisdictions([
           { id: "ebr", name: "East Baton Rouge" },
           { id: "ascension", name: "Ascension" },
           { id: "livingston", name: "Livingston" },
         ]);
       });
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-generate deal name from address if prefilled
+  useEffect(() => {
+    if (prefillAddress && !name) {
+      // Use the street portion of the address as the deal name
+      const street = prefillAddress.split(",")[0]?.trim();
+      if (street) setName(street);
+    }
+  }, [prefillAddress]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
