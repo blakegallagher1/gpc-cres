@@ -1,0 +1,56 @@
+name: Automation Wave 0
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'apps/web/lib/automation/**'
+      - 'packages/db/**'
+      - 'packages/shared/**'
+      - 'packages/openai/**'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/automation-wave0.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'apps/web/lib/automation/**'
+      - 'packages/db/**'
+      - 'packages/shared/**'
+      - 'packages/openai/**'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/automation-wave0.yml'
+
+jobs:
+  wave0:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.node-version'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Create .env from .env.example
+        run: cp .env.example .env
+
+      - name: Generate Prisma client
+        run: pnpm --filter @entitlement-os/db generate
+
+      - name: Build workspace packages
+        run: pnpm --filter @entitlement-os/shared build && pnpm --filter @entitlement-os/db build && pnpm --filter @entitlement-os/openai build
+
+      - name: Run Wave 0 automation tests
+        run: pnpm --filter gpc-agent-dashboard test -- lib/automation/__tests__
