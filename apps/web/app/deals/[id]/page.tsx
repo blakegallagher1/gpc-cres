@@ -24,6 +24,7 @@ import { ActivityTimeline } from "@/components/deals/ActivityTimeline";
 import { TaskCreateForm } from "@/components/deals/TaskCreateForm";
 import { DealContacts } from "@/components/deals/DealContacts";
 import type { TaskItem } from "@/components/deals/TaskCard";
+import { DeadlineBar } from "@/components/deals/DeadlineBar";
 import { formatDate } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -340,6 +341,9 @@ export default function DealDetailPage() {
                     </CardContent>
                   </Card>
                 </div>
+
+                {/* Deadline Bar */}
+                <DeadlineBar tasks={deal.tasks} />
 
                 {/* Triage Results */}
                 <Card>

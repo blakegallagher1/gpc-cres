@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { OpportunityFeed } from "@/components/opportunities/OpportunityFeed";
+import { DeadlinesWidget } from "@/components/intelligence/DeadlinesWidget";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -332,6 +333,9 @@ export default function CommandCenterPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Deadlines */}
+        <DeadlinesWidget />
 
         {/* Opportunity Matches */}
         <OpportunityFeed />
