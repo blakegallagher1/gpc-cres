@@ -32,10 +32,11 @@
 entitlement-os/
 ├── apps/
 │   ├── web/                 # Next.js frontend + API routes
+│   │   └── lib/automation/  # 12 event-driven automation handlers + 14 test suites
 │   └── worker/              # Temporal worker (parked for v2)
 ├── packages/
 │   ├── db/                  # Prisma schema, client, migrations, seed
-│   ├── openai/              # 13 agents + 26 tools + retry/response utils
+│   ├── openai/              # 13 agents + ~26 tools + retry/response utils
 │   ├── shared/              # Zod schemas, enums, JSON schema utils
 │   ├── evidence/            # URL snapshot, text extraction, hash comparison
 │   └── artifacts/           # PDF + PPTX generation via Playwright + pptxgenjs
@@ -58,7 +59,7 @@ pnpm build                   # Build all packages + apps
 pnpm dev                     # Dev mode (all packages parallel)
 pnpm typecheck               # Type-check all packages
 pnpm lint                    # Lint all packages
-pnpm test                    # Test all packages (vitest)
+pnpm test                    # Test all packages (vitest + jest in apps/web)
 
 # Database (Prisma)
 pnpm db:migrate              # Run migrations (dev)
@@ -107,13 +108,15 @@ db generate → shared build → db build → openai build → next build
 
 **Tool wiring:** Module-level agent exports are tool-free. Tools are attached via `withTools()` inside `createConfiguredCoordinator()` — never on the bare exports.
 
-**26 tools** across 8 files in `packages/openai/src/tools/`:
+**~26 unique tools** across 8 files in `packages/openai/src/tools/`, distributed into 13 agent-specific arrays:
 - Deal CRUD, task management, parcel updates
 - Property DB: search 560K parcels, 7 screening endpoints (flood, soils, wetlands, EPA, traffic, LDEQ, full)
 - Zoning matrix lookup (EBR UDC), parish pack lookup
 - Evidence snapshot, hash comparison
 - Triage scoring, hard filter checks
 - Buyer management + outreach logging
+
+All 13 agents now have tools wired (Design: 6, Tax: 4 — previously had zero).
 
 ## Data Model (Prisma — 18 models)
 
@@ -125,7 +128,10 @@ db generate → shared build → db build → openai build → next build
 **Runs:** Run (TRIAGE, ARTIFACT_GEN, etc.)
 **Chat:** Conversation → Message
 
-**Enums:** `sku_type` (SMALL_BAY_FLEX, OUTDOOR_STORAGE, TRUCK_PARKING), `deal_status` (11 stages INTAKE→EXITED/KILLED), `task_status`, `artifact_type`, `run_type`
+**Key fields added for automation:**
+- `Deal.source` — nullable `String?`, tagged `[AUTO] <source>` for auto-created deals (intake)
+
+**Enums:** `sku_type` (SMALL_BAY_FLEX, OUTDOOR_STORAGE, TRUCK_PARKING), `deal_status` (11 stages INTAKE→EXITED/KILLED), `task_status`, `artifact_type`, `run_type` (TRIAGE, ARTIFACT_GEN, BUYER_LIST_BUILD, CHANGE_DETECT, ENRICHMENT, INTAKE_PARSE, DOCUMENT_CLASSIFY, BUYER_OUTREACH_DRAFT, ADVANCEMENT_CHECK)
 
 **Two Supabase projects:**
 - Entitlement OS DB (`yjddspdbxuseowxndrak`) — system of record, Prisma-managed
@@ -172,6 +178,22 @@ See `docs/AUTOMATION-FRONTIER.md` for the full automation frontier map.
 
 **Shared automation infra** in `lib/automation/`: `config.ts` (frozen guardrails), `events.ts` (8 event types, fire-and-forget dispatch), `gates.ts` (human gate enforcement), `notifications.ts` ([AUTO] task creation), `taskAllowlist.ts` (agent-executable detection), `handlers.ts` (idempotent handler registry).
 
+**Event dispatch wired in 7 API routes:**
+
+| API Route | Event Dispatched |
+|-----------|-----------------|
+| `deals/[id]/parcels` POST | `parcel.created` |
+| `deals/[id]/route` PATCH | `deal.statusChanged` (when status field changes) |
+| `deals/[id]/tasks` POST | `task.created` |
+| `deals/[id]/tasks` PATCH | `task.completed` (when status → DONE) |
+| `deals/[id]/tasks/[taskId]/run` | `task.completed` (after agent marks DONE) |
+| `deals/[id]/triage` POST | `triage.completed` |
+| `deals/[id]/uploads` POST | `upload.created` |
+
+**Pattern:** All event dispatches use `.catch(() => {})` — fire-and-forget, never blocks the API response. Handler errors are logged but never propagated. Import `@/lib/automation/handlers` at route top to ensure handler registration.
+
+**Test coverage:** 14 test suites, 302 tests in `lib/automation/__tests__/`. Uses Jest (NOT vitest) with `jest.mock()`/`jest.requireMock()` pattern for Prisma mocking.
+
 ## Key Rules
 
 ### Do This
@@ -185,6 +207,10 @@ See `docs/AUTOMATION-FRONTIER.md` for the full automation frontier map.
 - Scope all DB queries with `orgId` for multi-tenant isolation
 - Use `prisma.findFirstOrThrow({ where: { id, orgId } })` pattern for access control
 - Normalize addresses before property DB search (strip apostrophes, collapse whitespace)
+- Dispatch automation events with `.catch(() => {})` — never let event dispatch fail an API response
+- Import `@/lib/automation/handlers` at top of any API route that dispatches events (ensures handler registration)
+- Read existing record state before update when dispatch depends on detecting a change (e.g., `select: { id: true, status: true }` before PATCH)
+- Use `AUTOMATION_CONFIG` from `lib/automation/config.ts` for all guardrail thresholds — never hardcode rate limits
 
 ### Don't Do This
 - Don't delete `legacy/python/` or `apps/worker/` — parked for reference/v2
@@ -192,6 +218,10 @@ See `docs/AUTOMATION-FRONTIER.md` for the full automation frontier map.
 - Don't add Docker dependencies for v1 — deploy to Vercel, use Vercel Cron for background jobs
 - Don't commit `.env.local` or any file with secrets
 - Don't use `any` type — use `Record<string, unknown>` for dynamic objects
+- Don't auto-advance deals past TRIAGE_DONE — all post-triage status transitions require human approval (see `gates.ts`)
+- Don't auto-send buyer outreach emails — `buyerOutreach.neverAutoSend` is `true`; handlers only create review tasks
+- Don't call `dispatchEvent()` without the `.catch(() => {})` — unhandled promise rejections crash the route
+- Don't use `orderBy: { joinedAt }` on OrgMembership — the field is `createdAt`
 
 ## Code Style
 
