@@ -20,6 +20,7 @@ const STAGE_PREREQUISITES: Record<ArtifactType, DealStatus> = {
   INVESTMENT_MEMO_PDF: "TRIAGE_DONE",
   OFFERING_MEMO_PDF: "APPROVED",
   COMP_ANALYSIS_PDF: "TRIAGE_DONE",
+  IC_DECK_PPTX: "TRIAGE_DONE",
 };
 
 function isAtOrPast(current: string, required: DealStatus): boolean {
@@ -89,6 +90,7 @@ export async function POST(
     const requiresTriage: ArtifactType[] = [
       "TRIAGE_PDF", "HEARING_DECK_PPTX", "EXIT_PACKAGE_PDF",
       "INVESTMENT_MEMO_PDF", "OFFERING_MEMO_PDF", "COMP_ANALYSIS_PDF",
+      "IC_DECK_PPTX",
     ];
     if (requiresTriage.includes(aType)) {
       const triageRun = await prisma.run.findFirst({
@@ -730,6 +732,111 @@ async function buildArtifactSpec(
         ],
       };
     }
+
+    case "IC_DECK_PPTX": {
+      const triage = triageOutput!;
+      const dealContext = buildDealContextForLLM(deal, triage);
+      const systemPrompt = "You are a senior CRE investment analyst at Gallagher Property Company preparing an Investment Committee presentation. Write concise bullet points (not paragraphs). Each bullet should be a single key fact, metric, or recommendation. Use available deal data — never fabricate numbers. Be institutional-quality and data-driven.";
+
+      const [marketBullets, financialBullets, riskBullets, planBullets, recBullets] = await Promise.all([
+        generateNarrative(
+          `Generate 4-6 bullet points for a "Market Context" IC deck slide:\n\n${dealContext}\n\nCover: local market for ${skuLabel(deal.sku)} in ${deal.jurisdiction?.name ?? "Louisiana"}, supply/demand dynamics, comparable transactions, key drivers. Return ONLY bullet points, one per line, no numbering.`,
+          systemPrompt,
+          300
+        ),
+        generateNarrative(
+          `Generate 4-6 bullet points for a "Financial Projections" IC deck slide:\n\n${dealContext}\n\nCover: acquisition basis, development costs, projected NOI, target returns (IRR, cap rate, equity multiple), key assumptions. Return ONLY bullet points, one per line, no numbering.`,
+          systemPrompt,
+          300
+        ),
+        generateNarrative(
+          `Generate 4-6 bullet points for a "Risk Assessment" IC deck slide:\n\n${dealContext}\n\nCover: key risks from triage (environmental, entitlement, market, financial), proposed mitigants. Return ONLY bullet points, one per line, no numbering.`,
+          systemPrompt,
+          300
+        ),
+        generateNarrative(
+          `Generate 4-6 bullet points for a "Development Plan" IC deck slide:\n\n${dealContext}\n\nCover: entitlement timeline, site work, construction phases, lease-up/disposition strategy. Return ONLY bullet points, one per line, no numbering.`,
+          systemPrompt,
+          300
+        ),
+        generateNarrative(
+          `Generate 3-5 bullet points for a "Recommendation & Vote" IC deck slide:\n\n${dealContext}\n\nCover: recommended action (approve/hold/decline), key conditions, capital required, expected timeline to first returns. Return ONLY bullet points, one per line, no numbering.`,
+          systemPrompt,
+          250
+        ),
+      ]);
+
+      const parseBullets = (text: string): string[] => {
+        return text
+          .split("\n")
+          .map((line) => line.replace(/^[-\u2022*]\s*/, "").trim())
+          .filter((line) => line.length > 0);
+      };
+
+      const acreage = totalAcreage(deal.parcels);
+      const zonings = [...new Set(deal.parcels.map((p) => p.currentZoning).filter(Boolean))].join(", ") || "TBD";
+
+      return {
+        ...base,
+        artifact_type: "IC_DECK_PPTX",
+        slides: [
+          {
+            slide_no: 1,
+            title: "Deal Overview",
+            bullets: [
+              `Deal: ${deal.name}`,
+              `Product: ${skuLabel(deal.sku)}`,
+              `Location: ${deal.jurisdiction?.name ?? "Louisiana"}`,
+              `Total Acreage: ${acreage} acres`,
+              `Triage: ${String(triage.decision ?? "N/A")} (${String(triage.confidence ?? "N/A")})`,
+            ],
+            speaker_notes: "Introduce the deal to the Investment Committee. Cover the basic deal parameters and triage outcome.",
+          },
+          {
+            slide_no: 2,
+            title: "Site & Property",
+            bullets: [
+              ...deal.parcels.map((p) => `${p.address}${p.apn ? ` (APN: ${p.apn})` : ""}`),
+              `Current Zoning: ${zonings}`,
+              `Flood Zone: ${[...new Set(deal.parcels.map((p) => p.floodZone).filter(Boolean))].join(", ") || "See diligence"}`,
+              `Parcels: ${deal.parcels.length}`,
+            ],
+            speaker_notes: "Walk through the site details, parcel composition, and current entitlement status.",
+          },
+          {
+            slide_no: 3,
+            title: "Market Context",
+            bullets: parseBullets(marketBullets),
+            speaker_notes: "Present the market analysis supporting this investment thesis. Reference comparable transactions and absorption data.",
+          },
+          {
+            slide_no: 4,
+            title: "Financial Projections",
+            bullets: parseBullets(financialBullets),
+            speaker_notes: "Walk through the financial model assumptions and projected returns. Highlight sensitivity to key variables.",
+          },
+          {
+            slide_no: 5,
+            title: "Risk Assessment",
+            bullets: parseBullets(riskBullets),
+            speaker_notes: "Address each key risk area and the proposed mitigation strategy. Reference triage scores.",
+          },
+          {
+            slide_no: 6,
+            title: "Development Plan",
+            bullets: parseBullets(planBullets),
+            speaker_notes: "Outline the execution plan from closing through stabilization or disposition.",
+          },
+          {
+            slide_no: 7,
+            title: "Recommendation & Vote",
+            bullets: parseBullets(recBullets),
+            speaker_notes: "Present the recommendation and call for the IC vote. Summarize key conditions of approval.",
+          },
+        ],
+        sections: [],
+      };
+    }
   }
 }
 
@@ -745,6 +852,7 @@ function artifactTypeLabel(t: ArtifactType): string {
     INVESTMENT_MEMO_PDF: "Investment Memo",
     OFFERING_MEMO_PDF: "Offering Memorandum",
     COMP_ANALYSIS_PDF: "Comparative Analysis",
+    IC_DECK_PPTX: "IC Deck",
   };
   return labels[t];
 }

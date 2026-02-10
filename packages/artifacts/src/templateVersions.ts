@@ -9,5 +9,6 @@ export const ARTIFACT_TEMPLATE_VERSIONS: Record<ArtifactType, string> = {
   INVESTMENT_MEMO_PDF: "1",
   OFFERING_MEMO_PDF: "1",
   COMP_ANALYSIS_PDF: "1",
+  IC_DECK_PPTX: "1",
 };
 

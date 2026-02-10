@@ -88,6 +88,19 @@ export const CompAnalysisPdfArtifactSpecSchema = BaseArtifactSpecSchema.extend({
   recommendation: z.string().min(1),
 });
 
+export const IcDeckPptxArtifactSpecSchema = BaseArtifactSpecSchema.extend({
+  artifact_type: z.literal("IC_DECK_PPTX"),
+  slides: z.array(
+    z.object({
+      slide_no: z.number().int().min(1).max(12),
+      title: z.string().min(1),
+      bullets: z.array(z.string().min(1)).min(1),
+      speaker_notes: z.string().min(1),
+      sources: z.array(Url).optional(),
+    }),
+  ),
+});
+
 export const ArtifactSpecSchema = z.discriminatedUnion("artifact_type", [
   TriagePdfArtifactSpecSchema,
   SubmissionChecklistPdfArtifactSpecSchema,
@@ -97,6 +110,7 @@ export const ArtifactSpecSchema = z.discriminatedUnion("artifact_type", [
   InvestmentMemoPdfArtifactSpecSchema,
   OfferingMemoPdfArtifactSpecSchema,
   CompAnalysisPdfArtifactSpecSchema,
+  IcDeckPptxArtifactSpecSchema,
 ]);
 
 export type ArtifactSpec = z.infer<typeof ArtifactSpecSchema>;
@@ -110,3 +124,4 @@ export type ExitPackagePdfArtifactSpec = z.infer<typeof ExitPackagePdfArtifactSp
 export type InvestmentMemoPdfArtifactSpec = z.infer<typeof InvestmentMemoPdfArtifactSpecSchema>;
 export type OfferingMemoPdfArtifactSpec = z.infer<typeof OfferingMemoPdfArtifactSpecSchema>;
 export type CompAnalysisPdfArtifactSpec = z.infer<typeof CompAnalysisPdfArtifactSpecSchema>;
+export type IcDeckPptxArtifactSpec = z.infer<typeof IcDeckPptxArtifactSpecSchema>;

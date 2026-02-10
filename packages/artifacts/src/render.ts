@@ -2,6 +2,7 @@ import type {
   ArtifactSpec,
   ArtifactType,
   HearingDeckPptxArtifactSpec,
+  IcDeckPptxArtifactSpec,
   SubmissionChecklistPdfArtifactSpec,
   ExitPackagePdfArtifactSpec,
   CompAnalysisPdfArtifactSpec,
@@ -11,6 +12,7 @@ import { ArtifactSpecSchema } from "@entitlement-os/shared";
 import { renderPdfFromHtml } from "./pdf.js";
 import { loadTemplateFile } from "./templates.js";
 import { buildHearingDeckPptxBytes } from "./pptx/hearingDeck.js";
+import { buildIcDeckPptxBytes } from "./pptx/icDeck.js";
 
 function escapeHtml(value: string): string {
   return value
@@ -63,6 +65,8 @@ function inferFilename(artifactType: ArtifactType): string {
       return "buyer-teaser.pdf";
     case "HEARING_DECK_PPTX":
       return "hearing-deck.pptx";
+    case "IC_DECK_PPTX":
+      return "ic-deck.pptx";
     case "INVESTMENT_MEMO_PDF":
       return "investment-memo.pdf";
     case "OFFERING_MEMO_PDF":
@@ -89,6 +93,11 @@ export async function renderArtifactFromSpec(specInput: ArtifactSpec): Promise<R
 
   if (spec.artifact_type === "HEARING_DECK_PPTX") {
     const bytes = await buildHearingDeckPptxBytes(spec as HearingDeckPptxArtifactSpec);
+    return { filename, contentType: "application/vnd.openxmlformats-officedocument.presentationml.presentation", bytes };
+  }
+
+  if (spec.artifact_type === "IC_DECK_PPTX") {
+    const bytes = await buildIcDeckPptxBytes(spec as IcDeckPptxArtifactSpec);
     return { filename, contentType: "application/vnd.openxmlformats-officedocument.presentationml.presentation", bytes };
   }
 
