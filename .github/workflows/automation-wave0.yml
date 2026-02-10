@@ -12,6 +12,8 @@ on:
       - 'pnpm-lock.yaml'
       - '.github/workflows/automation-wave0.yml'
   pull_request:
+    branches:
+      - main
     paths:
       - 'apps/web/lib/automation/**'
       - 'packages/db/**'
