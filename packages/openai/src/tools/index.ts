@@ -22,6 +22,8 @@ export { parcelTriageScore, hardFilterCheck } from "./scoringTools.js";
 
 export { addBuyer, searchBuyers, logOutreach } from "./buyerTools.js";
 
+export { generate_artifact } from "./artifactTools.js";
+
 export {
   rpc as propertyDbRpc,
   searchParcels,
@@ -57,6 +59,7 @@ import { zoningMatrixLookup, parishPackLookup } from "./zoningTools.js";
 import { evidenceSnapshot, floodZoneLookup, compareEvidenceHash } from "./evidenceTools.js";
 import { parcelTriageScore, hardFilterCheck } from "./scoringTools.js";
 import { addBuyer, searchBuyers, logOutreach } from "./buyerTools.js";
+import { generate_artifact } from "./artifactTools.js";
 import {
   searchParcels,
   getParcelDetails,
@@ -100,6 +103,7 @@ export const coordinatorTools = [
   listTasks,
   searchParcels,
   updateParcel,
+  generate_artifact,
 ];
 
 /** Tools available to the Legal / Entitlements agent. */
@@ -109,6 +113,7 @@ export const legalTools = [
   getDealContext,
   searchParcels,
   getParcelDetails,
+  generate_artifact,
 ];
 
 /** Tools available to the Research agent. */
@@ -147,6 +152,7 @@ export const financeTools = [
   calculate_proforma,
   calculate_debt_sizing,
   calculate_development_budget,
+  generate_artifact,
 ];
 
 /** Tools available to the Deal Screener agent. */
@@ -172,6 +178,7 @@ export const marketingTools = [
   addBuyer,
   logOutreach,
   getDealContext,
+  generate_artifact,
 ];
 
 /** Tools available to the Due Diligence agent. */

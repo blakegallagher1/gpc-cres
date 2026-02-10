@@ -8,7 +8,8 @@ export type AutomationNotificationType =
   | "advancement_suggestion"
   | "outreach_review"
   | "document_review"
-  | "classification_review";
+  | "classification_review"
+  | "artifact_generated";
 
 export interface CreateAutomationTaskParams {
   orgId: string;
@@ -29,6 +30,7 @@ const TYPE_MAP: Record<AutomationNotificationType, string> = {
   outreach_review: "AUTOMATION",
   document_review: "AUTOMATION",
   classification_review: "AUTOMATION",
+  artifact_generated: "AUTOMATION",
 };
 
 // Map automation types to priority
@@ -40,6 +42,7 @@ const PRIORITY_MAP: Record<AutomationNotificationType, string> = {
   outreach_review: "LOW",
   document_review: "LOW",
   classification_review: "LOW",
+  artifact_generated: "LOW",
 };
 
 /**
