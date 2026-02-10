@@ -5,10 +5,25 @@ jest.mock("@entitlement-os/openai", () => ({
 jest.mock("@entitlement-os/db", () => ({
   prisma: {
     parcel: { findFirst: jest.fn(), update: jest.fn() },
+    task: { create: jest.fn() },
   },
 }));
 
-import { normalizeAddress, scoreMatchConfidence } from "../enrichment";
+const db = jest.requireMock("@entitlement-os/db") as {
+  prisma: {
+    parcel: { findFirst: jest.Mock; update: jest.Mock };
+    task: { create: jest.Mock };
+  };
+};
+const openai = jest.requireMock("@entitlement-os/openai") as {
+  propertyDbRpc: jest.Mock;
+};
+
+import {
+  normalizeAddress,
+  scoreMatchConfidence,
+  handleParcelCreated,
+} from "../enrichment";
 
 describe("enrichment", () => {
   describe("normalizeAddress", () => {
@@ -94,6 +109,148 @@ describe("enrichment", () => {
 
     it("should return 0 for both empty", () => {
       expect(scoreMatchConfidence("", "")).toBe(0);
+    });
+  });
+
+  describe("handleParcelCreated", () => {
+    const baseEvent = {
+      type: "parcel.created" as const,
+      parcelId: "p1",
+      dealId: "d1",
+      orgId: "org1",
+    };
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it("should pass East Baton Rouge parish from jurisdiction to property DB search", async () => {
+      db.prisma.parcel.findFirst.mockResolvedValue({
+        id: "p1",
+        address: "123 Main St",
+        dealId: "d1",
+        propertyDbId: null,
+        deal: { jurisdiction: { name: "East Baton Rouge" } },
+      });
+      openai.propertyDbRpc.mockResolvedValue([
+        { id: "prop1", site_address: "123 Main St" },
+      ]);
+      db.prisma.parcel.update.mockResolvedValue({});
+
+      await handleParcelCreated(baseEvent);
+
+      expect(openai.propertyDbRpc).toHaveBeenCalledWith("api_search_parcels", {
+        search_text: "123 Main St",
+        parish: "East Baton Rouge",
+        limit_rows: 10,
+      });
+    });
+
+    it("should pass Ascension parish from jurisdiction to property DB search", async () => {
+      db.prisma.parcel.findFirst.mockResolvedValue({
+        id: "p1",
+        address: "456 Airline Hwy",
+        dealId: "d1",
+        propertyDbId: null,
+        deal: { jurisdiction: { name: "Ascension" } },
+      });
+      openai.propertyDbRpc.mockResolvedValue([
+        { id: "prop2", site_address: "456 Airline Hwy" },
+      ]);
+      db.prisma.parcel.update.mockResolvedValue({});
+
+      await handleParcelCreated(baseEvent);
+
+      expect(openai.propertyDbRpc).toHaveBeenCalledWith("api_search_parcels", {
+        search_text: "456 Airline Hwy",
+        parish: "Ascension",
+        limit_rows: 10,
+      });
+    });
+
+    it("should pass null parish when deal has no jurisdiction", async () => {
+      db.prisma.parcel.findFirst.mockResolvedValue({
+        id: "p1",
+        address: "789 Oak Ave",
+        dealId: "d1",
+        propertyDbId: null,
+        deal: { jurisdiction: null },
+      });
+      openai.propertyDbRpc.mockResolvedValue([]);
+      db.prisma.task.create.mockResolvedValue({});
+
+      await handleParcelCreated(baseEvent);
+
+      expect(openai.propertyDbRpc).toHaveBeenCalledWith("api_search_parcels", {
+        search_text: "789 Oak Ave",
+        parish: null,
+        limit_rows: 10,
+      });
+    });
+
+    it("should skip if event type is not parcel.created", async () => {
+      const event = {
+        type: "parcel.enriched" as const,
+        parcelId: "p1",
+        dealId: "d1",
+        orgId: "org1",
+      };
+
+      await handleParcelCreated(event);
+
+      expect(db.prisma.parcel.findFirst).not.toHaveBeenCalled();
+    });
+
+    it("should skip if parcel has no address", async () => {
+      db.prisma.parcel.findFirst.mockResolvedValue({
+        id: "p1",
+        address: null,
+        dealId: "d1",
+        propertyDbId: null,
+        deal: { jurisdiction: { name: "East Baton Rouge" } },
+      });
+
+      await handleParcelCreated(baseEvent);
+
+      expect(openai.propertyDbRpc).not.toHaveBeenCalled();
+    });
+
+    it("should skip if parcel is already enriched", async () => {
+      db.prisma.parcel.findFirst.mockResolvedValue({
+        id: "p1",
+        address: "123 Main St",
+        dealId: "d1",
+        propertyDbId: "existing-id",
+        deal: { jurisdiction: { name: "East Baton Rouge" } },
+      });
+
+      await handleParcelCreated(baseEvent);
+
+      expect(openai.propertyDbRpc).not.toHaveBeenCalled();
+    });
+
+    it("should create manual geocoding task when no matches found", async () => {
+      db.prisma.parcel.findFirst.mockResolvedValue({
+        id: "p1",
+        address: "999 Nowhere Rd",
+        dealId: "d1",
+        propertyDbId: null,
+        deal: { jurisdiction: { name: "East Baton Rouge" } },
+      });
+      openai.propertyDbRpc.mockResolvedValue([]);
+      db.prisma.task.create.mockResolvedValue({});
+
+      await handleParcelCreated(baseEvent);
+
+      expect(db.prisma.task.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            title: "[AUTO] Manual geocoding needed",
+            orgId: "org1",
+            dealId: "d1",
+          }),
+        })
+      );
     });
   });
 });

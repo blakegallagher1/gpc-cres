@@ -208,9 +208,10 @@ export async function handleParcelCreated(
 
   const { parcelId, dealId, orgId } = event;
 
-  // Load parcel
+  // Load parcel with deal jurisdiction for parish lookup
   const parcel = await prisma.parcel.findFirst({
     where: { id: parcelId, dealId, deal: { orgId } },
+    include: { deal: { include: { jurisdiction: { select: { name: true } } } } },
   });
   if (!parcel?.address) return;
   if (parcel.propertyDbId) return; // Already enriched
@@ -228,7 +229,7 @@ export async function handleParcelCreated(
     try {
       const result = await propertyDbRpc("api_search_parcels", {
         search_text: searchText,
-        parish: "East Baton Rouge", // TODO: derive from deal jurisdiction
+        parish: parcel.deal?.jurisdiction?.name ?? null,
         limit_rows: 10,
       });
       if (Array.isArray(result) && result.length > 0) {

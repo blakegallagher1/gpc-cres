@@ -49,83 +49,250 @@ export const parcelTriageScore = tool({
     frontageRoad,
     adjacentUses,
   }) => {
-    // TODO: Wire up packages/shared scoring engine when complete.
-    // For now, run a basic heuristic analysis.
-
     const disqualifiers: Array<{ label: string; detail: string; severity: "hard" | "soft" }> = [];
-    let score = 50; // start neutral
+    const dataGaps: string[] = [];
 
-    // Hard filter: flood zone
-    if (floodZone) {
-      const highRiskZones = ["A", "AE", "AH", "AO", "V", "VE"];
-      if (highRiskZones.includes(floodZone.toUpperCase())) {
-        disqualifiers.push({
-          label: "High-risk flood zone",
-          detail: `Parcel is in FEMA flood zone ${floodZone} - significant flood insurance cost and development risk`,
-          severity: "hard",
-        });
-        score -= 30;
+    // --- Zoning scoring (25%) ---
+    function scoreZoning(): { score: number; detail: string } {
+      if (!currentZoning) {
+        dataGaps.push("currentZoning not provided");
+        return { score: 50, detail: "Zoning unknown — needs investigation" };
       }
-    }
-
-    // Zoning compatibility
-    if (currentZoning) {
       const code = currentZoning.toUpperCase().trim();
-      const industrialZones = ["M1", "M2", "I1", "I2", "LI", "HI"];
-      const commercialZones = ["C2", "C3", "HC"];
+      const industrial = ["M1", "M2", "I1", "I2", "LI", "HI"];
+      const heavyCommercial = ["C2", "C3", "HC"];
+      const agricultural = ["A1", "A2", "A3", "A4", "A5"];
 
-      if (industrialZones.some((z) => code.startsWith(z))) {
-        score += 20; // Compatible zoning
-      } else if (commercialZones.some((z) => code.startsWith(z))) {
-        score += 5; // May need CUP
+      if (industrial.some((z) => code.startsWith(z))) {
+        return { score: 95, detail: `${code} — compatible industrial zone` };
+      }
+      if (heavyCommercial.some((z) => code.startsWith(z))) {
         disqualifiers.push({
           label: "CUP likely required",
           detail: `Zone ${code} likely requires a Conditional Use Permit for ${proposedUse}`,
           severity: "soft",
         });
-      } else if (code.startsWith("A") || code.startsWith("R")) {
-        score -= 20;
+        return { score: 65, detail: `${code} — heavy commercial, CUP likely needed` };
+      }
+      if (agricultural.some((z) => code.startsWith(z)) || code === "A") {
         disqualifiers.push({
           label: "Rezoning required",
-          detail: `Zone ${code} is not compatible with ${proposedUse}. Full rezoning would be needed.`,
-          severity: "hard",
-        });
-      }
-    }
-
-    // Acreage check
-    if (acreage !== undefined) {
-      const minAcreage: Record<string, number> = {
-        SMALL_BAY_FLEX: 2,
-        OUTDOOR_STORAGE: 3,
-        TRUCK_PARKING: 5,
-      };
-      const min = minAcreage[proposedUse] ?? 2;
-      if (acreage !== null && acreage < min) {
-        disqualifiers.push({
-          label: "Undersized parcel",
-          detail: `${acreage} acres is below the ${min}-acre minimum for ${proposedUse}`,
+          detail: `Zone ${code} requires rezoning for ${proposedUse}, but possible in rural Louisiana`,
           severity: "soft",
         });
-        score -= 10;
-      } else {
-        score += 10;
+        return { score: 35, detail: `${code} — agricultural, rezoning possible in rural LA` };
       }
+      if (code.startsWith("RU") || code === "RU") {
+        disqualifiers.push({
+          label: "Rezoning required",
+          detail: `Rural zone ${code} requires rezoning for ${proposedUse}`,
+          severity: "soft",
+        });
+        return { score: 40, detail: `${code} — rural residential, rezoning possible with effort` };
+      }
+      if (code.startsWith("R")) {
+        disqualifiers.push({
+          label: "Residential zoning — extremely difficult rezoning",
+          detail: `Zone ${code} is residential; rezoning to industrial is politically sensitive and rarely approved`,
+          severity: "hard",
+        });
+        return { score: 15, detail: `${code} — residential, very difficult rezoning` };
+      }
+      return { score: 50, detail: `${code} — unrecognized zone, needs manual review` };
     }
 
-    // Utilities
-    if (utilitiesAvailable === false) {
+    // --- Flood scoring (20%) ---
+    function scoreFlood(): { score: number; detail: string } {
+      if (!floodZone) {
+        dataGaps.push("floodZone not provided");
+        return { score: 50, detail: "Flood zone unknown — needs investigation" };
+      }
+      const fz = floodZone.toUpperCase().trim();
+      if (fz === "X" || fz === "C") {
+        return { score: 100, detail: `Zone ${fz} — minimal flood risk` };
+      }
+      if (fz === "X500" || fz === "B" || fz.includes("SHADED")) {
+        return { score: 70, detail: `Zone ${fz} — moderate flood risk (500-year)` };
+      }
+      if (fz === "AE") {
+        disqualifiers.push({
+          label: "High-risk flood zone",
+          detail: `FEMA Zone AE — high flood risk with base flood elevation data`,
+          severity: "hard",
+        });
+        return { score: 30, detail: `Zone AE — high flood risk, BFE data available` };
+      }
+      const severeZones = ["A", "AH", "AO", "V", "VE"];
+      if (severeZones.includes(fz)) {
+        disqualifiers.push({
+          label: "High-risk flood zone",
+          detail: `FEMA Zone ${fz} — severe flood risk, significant insurance cost and development constraints`,
+          severity: "hard",
+        });
+        return { score: 10, detail: `Zone ${fz} — severe flood risk` };
+      }
+      return { score: 50, detail: `Zone ${fz} — unrecognized flood zone, needs manual review` };
+    }
+
+    // --- Acreage scoring (15%) ---
+    function scoreAcreage(): { score: number; detail: string } {
+      if (acreage === null || acreage === undefined) {
+        dataGaps.push("acreage not provided");
+        return { score: 50, detail: "Acreage unknown — needs investigation" };
+      }
+      const idealRanges: Record<string, { min: number; idealLow: number; idealHigh: number }> = {
+        SMALL_BAY_FLEX: { min: 1, idealLow: 3, idealHigh: 10 },
+        OUTDOOR_STORAGE: { min: 2, idealLow: 5, idealHigh: 20 },
+        TRUCK_PARKING: { min: 3, idealLow: 8, idealHigh: 30 },
+      };
+      const range = idealRanges[proposedUse];
+      if (!range) {
+        return { score: 50, detail: `${acreage} acres — unknown SKU type` };
+      }
+
+      if (acreage < range.min) {
+        disqualifiers.push({
+          label: "Undersized parcel",
+          detail: `${acreage} acres is below the ${range.min}-acre absolute minimum for ${proposedUse}`,
+          severity: "hard",
+        });
+        return { score: 10, detail: `${acreage} ac — below ${range.min} ac minimum for ${proposedUse}` };
+      }
+      if (acreage < range.idealLow) {
+        return { score: 55, detail: `${acreage} ac — below ideal (${range.idealLow}-${range.idealHigh} ac) but above minimum` };
+      }
+      if (acreage <= range.idealHigh) {
+        return { score: 95, detail: `${acreage} ac — within ideal range for ${proposedUse}` };
+      }
+      if (acreage <= range.idealHigh * 2) {
+        return { score: 85, detail: `${acreage} ac — above ideal range but workable` };
+      }
+      return { score: 70, detail: `${acreage} ac — oversized (>${range.idealHigh * 2} ac) but workable` };
+    }
+
+    // --- Location scoring (15%) ---
+    function scoreLocation(): { score: number; detail: string } {
+      let locationScore = 50;
+      let detail = "Location data unknown";
+
+      if (frontageRoad) {
+        const road = frontageRoad.toUpperCase();
+        if (/\b(I-\d|INTERSTATE|HWY|HIGHWAY|US[\s-]?\d|US ROUTE)\b/.test(road)) {
+          locationScore = 90;
+          detail = `${frontageRoad} — highway/interstate frontage`;
+        } else if (/\b(STATE|SR[\s-]?\d|LA[\s-]?\d)\b/.test(road)) {
+          locationScore = 90;
+          detail = `${frontageRoad} — state highway frontage`;
+        } else if (/\b(BLVD|AVE|PKWY|BOULEVARD|AVENUE|PARKWAY)\b/.test(road) || /\b[4-9]\s*LANE\b/.test(road)) {
+          locationScore = 75;
+          detail = `${frontageRoad} — arterial road`;
+        } else {
+          locationScore = 60;
+          detail = `${frontageRoad} — road classification unclear`;
+        }
+      } else {
+        dataGaps.push("frontageRoad not provided");
+      }
+
+      if (adjacentUses) {
+        const adj = adjacentUses.toLowerCase();
+        if (/\b(industrial|warehouse|distribution|manufacturing|storage)\b/.test(adj)) {
+          locationScore = Math.min(100, locationScore + 10);
+          detail += "; industrial adjacency (+10)";
+        }
+        if (/\b(residential|school|church|daycare|hospital)\b/.test(adj)) {
+          locationScore = Math.max(0, locationScore - 10);
+          detail += "; sensitive adjacency (-10)";
+          disqualifiers.push({
+            label: "Sensitive adjacent uses",
+            detail: `Adjacent uses include sensitive receptors: ${adjacentUses}`,
+            severity: "soft",
+          });
+        }
+      } else {
+        dataGaps.push("adjacentUses not provided");
+      }
+
+      return { score: locationScore, detail };
+    }
+
+    // --- Utilities scoring (10%) ---
+    function scoreUtilities(): { score: number; detail: string } {
+      if (utilitiesAvailable === null || utilitiesAvailable === undefined) {
+        dataGaps.push("utilitiesAvailable not provided");
+        return { score: 50, detail: "Utilities availability unknown" };
+      }
+      if (utilitiesAvailable) {
+        return { score: 95, detail: "All utilities available" };
+      }
       disqualifiers.push({
         label: "No utilities",
-        detail: "Utilities not available - significant infrastructure cost",
+        detail: "Utilities not available — significant infrastructure cost to extend",
         severity: "soft",
       });
-      score -= 10;
-    } else if (utilitiesAvailable === true) {
-      score += 5;
+      return { score: 15, detail: "Utilities not available — infrastructure cost required" };
     }
 
-    // Determine decision
+    // --- Future Land Use scoring (15%) ---
+    function scoreFutureLandUse(): { score: number; detail: string } {
+      if (!futureLandUse) {
+        dataGaps.push("futureLandUse not provided");
+        return { score: 50, detail: "Future land use unknown — needs investigation" };
+      }
+      const flu = futureLandUse.toLowerCase();
+      if (/\b(industrial|manufacturing|warehouse|distribution|logistics)\b/.test(flu)) {
+        return { score: 95, detail: `FLU: ${futureLandUse} — aligned with industrial use` };
+      }
+      if (/\b(commercial|business|mixed)\b/.test(flu)) {
+        return { score: 70, detail: `FLU: ${futureLandUse} — commercial/mixed, compatible` };
+      }
+      if (/\b(agricultural|rural|farm)\b/.test(flu)) {
+        return { score: 45, detail: `FLU: ${futureLandUse} — agricultural, may transition` };
+      }
+      if (/\b(residential|conservation|open\s*space|park|recreation)\b/.test(flu)) {
+        return { score: 15, detail: `FLU: ${futureLandUse} — not aligned with industrial use` };
+      }
+      return { score: 50, detail: `FLU: ${futureLandUse} — unrecognized designation` };
+    }
+
+    // --- Calculate all category scores ---
+    const zoning = scoreZoning();
+    const flood = scoreFlood();
+    const acreageResult = scoreAcreage();
+    const location = scoreLocation();
+    const utilities = scoreUtilities();
+    const fluResult = scoreFutureLandUse();
+
+    const weights = {
+      zoning: 0.25,
+      flood: 0.20,
+      acreage: 0.15,
+      location: 0.15,
+      utilities: 0.10,
+      futureLandUse: 0.15,
+    };
+
+    const categoryScores = {
+      zoning: { score: zoning.score, weight: weights.zoning, weighted: Math.round(zoning.score * weights.zoning * 10) / 10, detail: zoning.detail },
+      flood: { score: flood.score, weight: weights.flood, weighted: Math.round(flood.score * weights.flood * 10) / 10, detail: flood.detail },
+      acreage: { score: acreageResult.score, weight: weights.acreage, weighted: Math.round(acreageResult.score * weights.acreage * 10) / 10, detail: acreageResult.detail },
+      location: { score: location.score, weight: weights.location, weighted: Math.round(location.score * weights.location * 10) / 10, detail: location.detail },
+      utilities: { score: utilities.score, weight: weights.utilities, weighted: Math.round(utilities.score * weights.utilities * 10) / 10, detail: utilities.detail },
+      futureLandUse: { score: fluResult.score, weight: weights.futureLandUse, weighted: Math.round(fluResult.score * weights.futureLandUse * 10) / 10, detail: fluResult.detail },
+    };
+
+    const totalScore = Math.round(
+      categoryScores.zoning.weighted +
+      categoryScores.flood.weighted +
+      categoryScores.acreage.weighted +
+      categoryScores.location.weighted +
+      categoryScores.utilities.weighted +
+      categoryScores.futureLandUse.weighted
+    );
+
+    const score = Math.max(0, Math.min(100, totalScore));
+
+    // --- Determine decision ---
     const hardDisqualifiers = disqualifiers.filter((d) => d.severity === "hard");
     let decision: "KILL" | "HOLD" | "ADVANCE";
     let tier: string;
@@ -144,28 +311,15 @@ export const parcelTriageScore = tool({
       tier = "F";
     }
 
-    // Clamp score to 0-100
-    score = Math.max(0, Math.min(100, score));
-
     return JSON.stringify({
       dealId,
       address,
       decision,
       score,
       tier,
-      breakdown: {
-        zoningCompatibility: currentZoning ?? "unknown",
-        acreage: acreage ?? "unknown",
-        floodZone: floodZone ?? "unknown",
-        utilities: utilitiesAvailable ?? "unknown",
-        frontageRoad: frontageRoad ?? "unknown",
-        adjacentUses: adjacentUses ?? "unknown",
-        futureLandUse: futureLandUse ?? "unknown",
-      },
+      categoryScores,
       disqualifiers,
-      _stub: true,
-      _note:
-        "Scoring is a basic heuristic. Full scoring engine (packages/shared) will provide calibrated risk scores.",
+      dataGaps,
     });
   },
 });
