@@ -153,13 +153,24 @@ See `docs/AUTOMATION-FRONTIER.md` for the full automation frontier map.
 
 **Core principle:** Agents advise, humans decide at capital commitment points. The 11 deal statuses represent increasingly irreversible commitments. Automation is safe pre-triage (data-only, reversible). Post-triage, every stage transition requires human approval.
 
-**12 automation loops** are defined (intake, enrichment, triage, task execution, stage advancement, document processing, change detection, parish pack refresh, artifact generation, buyer outreach, dead agent revival, ops). Each has observe/decide/act design + guardrails.
+**All 12 automation loops wired** with event-driven handlers in `apps/web/lib/automation/`. 14 test suites, 302 tests. Event dispatch from 7 API routes. See `docs/AUTOMATION-FRONTIER.md` for the full handler registry and event map.
 
-**3 dead agents** (Design, Tax, Market Intel) have zero tools wired — see frontier doc for what they need.
+| # | Loop | Handler | Event Trigger |
+|---|------|---------|---------------|
+| 1 | Deal Intake | `intake.ts` | `intake.received` |
+| 2 | Parcel Enrichment | `enrichment.ts` | `parcel.created` |
+| 3 | Auto-Triage | `triage.ts` | `parcel.enriched` |
+| 4 | Task Execution | `taskExecution.ts` | `task.created`, `task.completed` |
+| 5 | Stage Advancement | `advancement.ts` | `task.completed`, `deal.statusChanged` |
+| 6 | Document Processing | `documents.ts` | `upload.created` |
+| 7 | Change Detection | cron route | Daily 6 AM |
+| 8 | Parish Pack Refresh | cron route | Weekly Sunday 4 AM |
+| 9 | Artifact Generation | API routes | POST trigger + auto on triage |
+| 10 | Buyer Outreach | `buyerOutreach.ts` | `deal.statusChanged`, `triage.completed` |
+| 11 | Dead Agent Revival | `agents/index.ts` | Design: 6 tools, Tax: 4 tools |
+| 12 | Ops | `ops.ts` | Migration safety, health, alerting |
 
-**2 cron jobs** wired and deployed:
-- `change-detection` (daily 6 AM) — monitors jurisdiction seed sources for content changes, creates review tasks
-- `parish-pack-refresh` (weekly Sunday 4 AM) — regenerates stale parish packs via OpenAI Responses API + web search, with evidence grounding and citation validation
+**Shared automation infra** in `lib/automation/`: `config.ts` (frozen guardrails), `events.ts` (8 event types, fire-and-forget dispatch), `gates.ts` (human gate enforcement), `notifications.ts` ([AUTO] task creation), `taskAllowlist.ts` (agent-executable detection), `handlers.ts` (idempotent handler registry).
 
 ## Key Rules
 
