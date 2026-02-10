@@ -2,12 +2,22 @@ name: Automation Wave 0
 
 on:
   push:
+    branches:
+      - main
     paths:
       - 'apps/web/lib/automation/**'
+      - 'packages/db/**'
+      - 'packages/shared/**'
+      - 'packages/openai/**'
+      - 'pnpm-lock.yaml'
       - '.github/workflows/automation-wave0.yml'
   pull_request:
     paths:
       - 'apps/web/lib/automation/**'
+      - 'packages/db/**'
+      - 'packages/shared/**'
+      - 'packages/openai/**'
+      - 'pnpm-lock.yaml'
       - '.github/workflows/automation-wave0.yml'
 
 jobs:
@@ -17,18 +27,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: '9'
+          version: '9.11.0'
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.node-version'
+          cache: 'pnpm'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Generate Prisma client
+        run: pnpm --filter @entitlement-os/db generate
+
+      - name: Build workspace packages
+        run: pnpm --filter @entitlement-os/shared build && pnpm --filter @entitlement-os/db build && pnpm --filter @entitlement-os/openai build
+
       - name: Run Wave 0 automation tests
-        run: pnpm -C apps/web test -- lib/automation/__tests__
+        run: pnpm --filter gpc-agent-dashboard test -- lib/automation/__tests__
