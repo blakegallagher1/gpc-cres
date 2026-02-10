@@ -8,6 +8,8 @@ The system is a **consultation tool, not an autonomous deal machine**. Agents ad
 
 ## 1. DEAL INTAKE & CREATION
 
+**Status: WIRED.** `handleIntakeReceived` in `lib/automation/intake.ts`. Parses content for addresses, parishes, SKU signals. Auto-creates deal when criteria match + within daily rate limit. 24h veto task attached.
+
 **Today:** Human fills form — name, SKU, jurisdiction, parcel address. Clicks "Create Deal."
 
 **Autonomous Loop:**
@@ -25,6 +27,8 @@ The system is a **consultation tool, not an autonomous deal machine**. Agents ad
 
 ## 2. PARCEL ENRICHMENT
 
+**Status: WIRED.** `handleParcelCreated` in `lib/automation/enrichment.ts`. Auto-enriches on parcel creation: normalizes address, searches Property DB, scores match confidence (1.0 exact → 0.2 no match), auto-applies at >90%, creates review task at 50-90%.
+
 **Today:** Human clicks "Enrich" on each parcel. Two-step: search property DB, then apply best match. Manual per-parcel.
 
 **Autonomous Loop:**
@@ -40,6 +44,8 @@ The system is a **consultation tool, not an autonomous deal machine**. Agents ad
 ---
 
 ## 3. TRIAGE EXECUTION
+
+**Status: WIRED.** `handleTriageReadiness` in `lib/automation/triage.ts`. Fires on `parcel.enriched` — checks all parcels enriched + INTAKE status + no existing run + daily rate limit. Creates notification task (agents advise, humans decide).
 
 **Today:** Human clicks "Run Triage." AI scores the deal. Human reviews and decides.
 
@@ -61,6 +67,8 @@ The system is a **consultation tool, not an autonomous deal machine**. Agents ad
 
 ## 4. TASK EXECUTION (Next Actions)
 
+**Status: WIRED.** `handleTaskCreated` + `handleTaskCompleted` in `lib/automation/taskExecution.ts`. On `task.created`: checks allowlist (human-only keywords: call/meet/negotiate/sign/schedule), concurrent limit (5/deal). On `task.completed`: quality check (agent findings min 50 chars → review task if too short).
+
 **Today:** Human clicks "Run All" or individual next actions. Agent executes and marks DONE.
 
 **Autonomous Loop:**
@@ -78,6 +86,8 @@ The system is a **consultation tool, not an autonomous deal machine**. Agents ad
 ---
 
 ## 5. DEAL STATUS ADVANCEMENT
+
+**Status: WIRED.** `handleAdvancement` + `handleStatusChangeReminder` in `lib/automation/advancement.ts`. On `task.completed`: checks if all step tasks done → suggests advancement (human-gated for PREAPP+). On `deal.statusChanged`: suggests creating tasks for new stage if none exist.
 
 **Today:** 100% manual. Only INTAKE → TRIAGE_DONE is automated. The other 9 transitions require human judgment via API call or agent chat.
 
@@ -108,6 +118,8 @@ The system is a **consultation tool, not an autonomous deal machine**. Agents ad
 
 ## 6. DOCUMENT MANAGEMENT
 
+**Status: WIRED.** `handleUploadCreated` in `lib/automation/documents.ts`. On `upload.created`: classifies by filename (13 regex rules for title/environmental/survey/financial/legal), auto-updates kind if >70% confidence, creates review task if <70% or if user classification differs from auto-classification.
+
 **Today:** Human uploads files, manually categorizes them (title, environmental, survey, financial, legal, other).
 
 **Autonomous Loop:**
@@ -129,7 +141,7 @@ The system is a **consultation tool, not an autonomous deal machine**. Agents ad
 
 ## 7. EVIDENCE MONITORING (Change Detection)
 
-**Today:** Cron job exists but is **completely stubbed out**. No monitoring happening.
+**Status: WIRED.** Daily cron at `/api/cron/change-detection`. Full loop: fetch → hash → compare → store snapshot → create tasks for affected deals. 60s timeout, 3x retry, >50% unreachable alert.
 
 **Autonomous Loop:**
 - **Observe:** (Daily 6 AM) For each `JurisdictionSeedSource` URL: fetch content, hash, compare to previous snapshot
@@ -150,7 +162,7 @@ The system is a **consultation tool, not an autonomous deal machine**. Agents ad
 
 ## 8. PARISH PACK GENERATION
 
-**Today:** **WIRED.** Cron job runs weekly (Sunday 4 AM). For each stale jurisdiction x SKU combo: gathers evidence from existing snapshots, calls OpenAI Responses API with web search, validates against ParishPackSchema + citation checker, stores versioned packs with audit trail.
+**Status: WIRED.** Cron job runs weekly (Sunday 4 AM). For each stale jurisdiction x SKU combo: gathers evidence from existing snapshots, calls OpenAI Responses API with web search, validates against ParishPackSchema + citation checker, stores versioned packs with audit trail.
 
 **Autonomous Loop:**
 - **Observe:** (Weekly Sunday 4 AM) For each jurisdiction x SKU combination: check if current parish pack is > 7 days old
@@ -167,7 +179,7 @@ The system is a **consultation tool, not an autonomous deal machine**. Agents ad
 
 ## 9. ARTIFACT GENERATION
 
-**Today:** Package is fully implemented but **not wired to any trigger**. No API route, no agent tool, no UI button.
+**Status: WIRED.** POST/GET API routes at `/api/deals/[id]/artifacts`, download via signed URL at `/api/deals/artifacts/[artifactId]/download`. Auto-triggers TRIAGE_PDF on triage completion. Generate dropdown in UI. Versioned storage.
 
 **Autonomous Loop:**
 - **Observe:** Deal reaches specific stage milestones
@@ -191,6 +203,8 @@ The system is a **consultation tool, not an autonomous deal machine**. Agents ad
 
 ## 10. BUYER OUTREACH (Marketing)
 
+**Status: WIRED.** `handleBuyerOutreach` + `handleTriageBuyerMatch` in `lib/automation/buyerOutreach.ts`. On `deal.statusChanged` to EXIT_MARKETED: matches buyers by SKU + jurisdiction, filters cool-off/duplicates, creates review task with eligible buyer list. On `triage.completed` with ADVANCE: flags potential buyer interest early. NEVER auto-sends.
+
 **Today:** Manual buyer creation, manual outreach logging.
 
 **Autonomous Loop:**
@@ -208,7 +222,9 @@ The system is a **consultation tool, not an autonomous deal machine**. Agents ad
 
 ## 11. THREE DEAD AGENTS (Design, Tax, Market Intel)
 
-**Today:** These agents have ZERO tools wired. They can only recite general knowledge.
+**Status: WIRED.** Design agent now has 6 tools (deal context, property search, parcel details, zoning matrix, flood screening, soils screening). Tax agent has 4 tools (deal context, property search, parcel details, web search). Market Intel still needs dedicated tools but can use web search through coordinator handoff.
+
+**Previously:** These agents had ZERO tools wired. They could only recite general knowledge.
 
 **Autonomous Loops Needed:**
 
@@ -231,6 +247,8 @@ The system is a **consultation tool, not an autonomous deal machine**. Agents ad
 
 ## 12. DEPLOYMENT & OPS
 
+**Status: WIRED.** `lib/automation/ops.ts` provides `isMigrationSafe()` (10 destructive pattern checks), `evaluateHealth()` (5 critical env vars), `shouldAlertOnFailure()` (consecutive failure threshold). Used by deployment tooling and health checks.
+
 **Today:** Push to main → auto-deploy via Vercel. DB migrations manual. Seed manual.
 
 | Operation | Autonomous Design | Guardrail |
@@ -243,22 +261,55 @@ The system is a **consultation tool, not an autonomous deal machine**. Agents ad
 
 ---
 
-## The Full Map: 12 Automation Loops
+## The Full Map: 12 Automation Loops — ALL WIRED
 
-| # | Loop | Observe | Decide | Act | Human Gate |
-|---|------|---------|--------|-----|------------|
-| 1 | Deal Intake | Inbound emails/feeds | Match GPC criteria | Create deal + notify | 24h veto window |
-| 2 | Parcel Enrichment | New parcel added | Match confidence | Auto-apply or ask human | Low-confidence matches |
-| 3 | Auto-Triage | Enriched parcels ready | All parcels complete | Score + route (KILL/HOLD/ADVANCE) | KILL confirmation |
-| 4 | Task Execution | New TODO tasks | Agent-executable? | Run agent + mark DONE | Non-executable tasks |
-| 5 | Stage Advancement | All stage tasks DONE | Criteria met | Suggest advancement | **Always (post-triage)** |
-| 6 | Document Processing | New upload | Classify + extract | Categorize + update deal | Low-confidence classification |
-| 7 | Change Detection | Daily URL scan | Content changed? | Snapshot + alert if material | Material change review |
-| 8 | Parish Pack Refresh | Weekly staleness check | Pack > 7 days old | Regenerate via AI | Failure/budget alerts |
-| 9 | Artifact Generation | Stage milestones | Which artifact needed | Generate draft | Approval before external use |
-| 10 | Buyer Outreach | EXIT_MARKETED status | Match buyers | Draft emails | **Always (before send)** |
-| 11 | Dead Agent Revival | Stage-specific triggers | What analysis needed | Generate memos/studies | Disclaimer on all outputs |
-| 12 | Ops Automation | Deploy/health events | Healthy? | Alert/rollback | Destructive migrations |
+| # | Loop | Status | Handler File | Event Trigger |
+|---|------|--------|-------------|---------------|
+| 1 | Deal Intake | WIRED | `intake.ts` | `intake.received` |
+| 2 | Parcel Enrichment | WIRED | `enrichment.ts` | `parcel.created` |
+| 3 | Auto-Triage | WIRED | `triage.ts` | `parcel.enriched` |
+| 4 | Task Execution | WIRED | `taskExecution.ts` | `task.created`, `task.completed` |
+| 5 | Stage Advancement | WIRED | `advancement.ts` | `task.completed`, `deal.statusChanged` |
+| 6 | Document Processing | WIRED | `documents.ts` | `upload.created` |
+| 7 | Change Detection | WIRED | cron route | Daily 6 AM |
+| 8 | Parish Pack Refresh | WIRED | cron route | Weekly Sunday 4 AM |
+| 9 | Artifact Generation | WIRED | API routes | POST trigger + auto on triage |
+| 10 | Buyer Outreach | WIRED | `buyerOutreach.ts` | `deal.statusChanged`, `triage.completed` |
+| 11 | Dead Agent Revival | WIRED | `agents/index.ts` | Design: 6 tools, Tax: 4 tools |
+| 12 | Ops Automation | WIRED | `ops.ts` | Migration safety, health, alerting |
+
+### Event → Handler Registry (handlers.ts)
+
+| Event | Handler(s) |
+|-------|-----------|
+| `parcel.created` | `handleParcelCreated` (enrichment) |
+| `parcel.enriched` | `handleTriageReadiness` (triage) |
+| `task.created` | `handleTaskCreated` (task execution) |
+| `task.completed` | `handleTaskCompleted` (quality), `handleAdvancement` (stage) |
+| `deal.statusChanged` | `handleStatusChangeReminder` (advancement), `handleBuyerOutreach` (buyer) |
+| `upload.created` | `handleUploadCreated` (documents) |
+| `triage.completed` | `handleTriageBuyerMatch` (buyer) |
+| `intake.received` | `handleIntakeReceived` (intake) |
+
+### API Routes with Event Dispatch
+
+| Route | Events Dispatched |
+|-------|------------------|
+| `POST /api/deals/[id]/parcels` | `parcel.created` |
+| `PATCH /api/deals/[id]` | `deal.statusChanged` (when status changes) |
+| `POST /api/deals/[id]/triage` | `triage.completed` |
+| `POST /api/deals/[id]/tasks` | `task.created` |
+| `PATCH /api/deals/[id]/tasks` | `task.completed` (when status → DONE) |
+| `POST /api/deals/[id]/tasks/[taskId]/run` | `task.completed` (after agent finishes) |
+| `POST /api/deals/[id]/uploads` | `upload.created` |
+
+### Test Coverage
+
+14 test suites, 302 tests — all in `lib/automation/__tests__/`:
+- `config.test.ts`, `events.test.ts`, `gates.test.ts`, `notifications.test.ts`, `taskAllowlist.test.ts`
+- `enrichment.test.ts`, `ops.test.ts`, `handlers.test.ts`
+- `triage.test.ts`, `taskExecution.test.ts`, `documents.test.ts`
+- `advancement.test.ts`, `buyerOutreach.test.ts`, `intake.test.ts`
 
 ---
 

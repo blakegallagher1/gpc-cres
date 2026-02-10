@@ -37,6 +37,11 @@ export const RUN_TYPES = [
   "ARTIFACT_GEN",
   "BUYER_LIST_BUILD",
   "CHANGE_DETECT",
+  "ENRICHMENT",
+  "INTAKE_PARSE",
+  "DOCUMENT_CLASSIFY",
+  "BUYER_OUTREACH_DRAFT",
+  "ADVANCEMENT_CHECK",
 ] as const;
 export type RunType = (typeof RUN_TYPES)[number];
 

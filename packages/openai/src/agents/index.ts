@@ -41,6 +41,8 @@ import {
   marketingTools,
   operationsTools,
   marketIntelTools,
+  designTools,
+  taxTools,
 } from '../tools/index.js';
 
 /** All specialist agents (everything except the coordinator). */
@@ -87,10 +89,10 @@ export function createConfiguredCoordinator(): Agent {
     withTools(screenerAgent, screenerTools),
     withTools(dueDiligenceAgent, dueDiligenceTools),
     withTools(entitlementsAgent, entitlementsTools),
-    withTools(designAgent, []),
+    withTools(designAgent, designTools),
     withTools(operationsAgent, operationsTools),
     withTools(marketingAgent, marketingTools),
-    withTools(taxAgent, []),
+    withTools(taxAgent, taxTools),
     withTools(marketIntelAgent, marketIntelTools),
   ];
 

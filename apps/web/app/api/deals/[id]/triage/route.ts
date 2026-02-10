@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { createStrictJsonResponse } from "@entitlement-os/openai";
+import { dispatchEvent } from "@/lib/automation/events";
+import "@/lib/automation/handlers";
 import {
   ParcelTriageSchema,
   zodToOpenAiJsonSchema,
@@ -114,6 +116,15 @@ Evaluate all risk dimensions (access, drainage, adjacency, environmental, utilit
           data: { status: "TRIAGE_DONE" },
         });
       }
+
+      // Dispatch triage.completed event for automation handlers
+      dispatchEvent({
+        type: "triage.completed",
+        dealId: id,
+        runId: run.id,
+        decision: String((result.outputJson as Record<string, unknown>).decision ?? "UNKNOWN"),
+        orgId: auth.orgId,
+      }).catch(() => {});
 
       // Auto-generate TRIAGE_PDF (fire-and-forget — don't block the response)
       generateTriagePdf({

@@ -185,3 +185,21 @@ export const marketIntelTools = [
   getParcelDetails,
   webSearchPreviewTool,
 ];
+
+/** Tools available to the Design agent. (#11 Dead Agent Revival) */
+export const designTools = [
+  getDealContext,
+  searchParcels,
+  getParcelDetails,
+  zoningMatrixLookup,
+  screenFlood,
+  screenSoils,
+];
+
+/** Tools available to the Tax Strategist agent. (#11 Dead Agent Revival) */
+export const taxTools = [
+  getDealContext,
+  searchParcels,
+  getParcelDetails,
+  webSearchPreviewTool,
+];

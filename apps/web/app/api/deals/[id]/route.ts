@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import { dispatchEvent } from "@/lib/automation/events";
+import "@/lib/automation/handlers";
 
 // GET /api/deals/[id] - get a single deal with related data
 export async function GET(
@@ -78,7 +80,7 @@ export async function PATCH(
     // Verify org ownership before updating
     const existing = await prisma.deal.findFirst({
       where: { id, orgId: auth.orgId },
-      select: { id: true },
+      select: { id: true, status: true },
     });
     if (!existing) {
       return NextResponse.json({ error: "Deal not found" }, { status: 404 });
@@ -112,6 +114,17 @@ export async function PATCH(
         jurisdiction: { select: { id: true, name: true } },
       },
     });
+
+    // Dispatch deal.statusChanged event if status was updated
+    if (data.status && data.status !== existing.status) {
+      dispatchEvent({
+        type: "deal.statusChanged",
+        dealId: id,
+        from: existing.status as import("@entitlement-os/shared").DealStatus,
+        to: data.status as import("@entitlement-os/shared").DealStatus,
+        orgId: auth.orgId,
+      }).catch(() => {});
+    }
 
     return NextResponse.json({ deal });
   } catch (error) {

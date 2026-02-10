@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import { dispatchEvent } from "@/lib/automation/events";
+import "@/lib/automation/handlers";
 
 // GET /api/deals/[id]/tasks
 export async function GET(
@@ -82,6 +84,14 @@ export async function POST(
       },
     });
 
+    // Dispatch task.created event for automation
+    dispatchEvent({
+      type: "task.created",
+      dealId: id,
+      taskId: task.id,
+      orgId: auth.orgId,
+    }).catch(() => {});
+
     return NextResponse.json({ task }, { status: 201 });
   } catch (error) {
     console.error("Error creating task:", error);
@@ -125,7 +135,7 @@ export async function PATCH(
     // Verify task belongs to this deal
     const existingTask = await prisma.task.findFirst({
       where: { id: body.taskId, dealId: id },
-      select: { id: true },
+      select: { id: true, status: true },
     });
     if (!existingTask) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
@@ -147,6 +157,16 @@ export async function PATCH(
       where: { id: body.taskId },
       data,
     });
+
+    // Dispatch task.completed when status transitions to DONE
+    if (data.status === "DONE" && existingTask.status !== "DONE") {
+      dispatchEvent({
+        type: "task.completed",
+        dealId: id,
+        taskId: task.id,
+        orgId: auth.orgId,
+      }).catch(() => {});
+    }
 
     return NextResponse.json({ task });
   } catch (error) {

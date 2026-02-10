@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import { dispatchEvent } from "@/lib/automation/events";
+import "@/lib/automation/handlers";
 
 // GET /api/deals/[id]/parcels
 export async function GET(
@@ -83,6 +85,14 @@ export async function POST(
         lng: body.lng ? parseFloat(body.lng) : null,
       },
     });
+
+    // Fire-and-forget: dispatch parcel.created for auto-enrichment (#2)
+    dispatchEvent({
+      type: "parcel.created",
+      dealId: id,
+      parcelId: parcel.id,
+      orgId: auth.orgId,
+    }).catch(() => {});
 
     return NextResponse.json({ parcel }, { status: 201 });
   } catch (error) {

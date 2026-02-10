@@ -3,6 +3,8 @@ import { prisma } from "@entitlement-os/db";
 import { createConfiguredCoordinator } from "@entitlement-os/openai";
 import { run } from "@openai/agents";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import { dispatchEvent } from "@/lib/automation/events";
+import "@/lib/automation/handlers";
 
 function sseEvent(data: Record<string, unknown>): string {
   return `data: ${JSON.stringify(data)}\n\n`;
@@ -146,6 +148,14 @@ export async function POST(
               : undefined,
           },
         });
+
+        // Dispatch task.completed for automation
+        dispatchEvent({
+          type: "task.completed",
+          dealId,
+          taskId,
+          orgId,
+        }).catch(() => {});
 
         controller.enqueue(
           encoder.encode(sseEvent({

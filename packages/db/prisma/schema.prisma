@@ -57,6 +57,11 @@ enum run_type {
   ARTIFACT_GEN
   BUYER_LIST_BUILD
   CHANGE_DETECT
+  ENRICHMENT
+  INTAKE_PARSE
+  DOCUMENT_CLASSIFY
+  BUYER_OUTREACH_DRAFT
+  ADVANCEMENT_CHECK
 }
 
 model Org {
@@ -157,6 +162,7 @@ model Deal {
   createdBy       String      @map("created_by") @db.Uuid
   createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  source          String?     @db.Text
 
   org          Org          @relation(fields: [orgId], references: [id], onDelete: Cascade)
   jurisdiction Jurisdiction @relation(fields: [jurisdictionId], references: [id], onDelete: Restrict)

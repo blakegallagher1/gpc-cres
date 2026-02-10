@@ -4,6 +4,8 @@ import { buildUploadObjectKey } from "@entitlement-os/shared";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { supabaseAdmin } from "@/lib/db/supabase";
 import { randomUUID } from "crypto";
+import { dispatchEvent } from "@/lib/automation/events";
+import "@/lib/automation/handlers";
 
 // GET /api/deals/[id]/uploads - list uploads for a deal
 export async function GET(
@@ -119,6 +121,14 @@ export async function POST(
         uploadedBy: auth.userId,
       },
     });
+
+    // Dispatch upload.created event for auto-classification (#6)
+    dispatchEvent({
+      type: "upload.created",
+      dealId: id,
+      uploadId: upload.id,
+      orgId: auth.orgId,
+    }).catch(() => {});
 
     return NextResponse.json({ upload }, { status: 201 });
   } catch (error) {
