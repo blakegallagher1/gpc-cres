@@ -150,7 +150,7 @@ The system is a **consultation tool, not an autonomous deal machine**. Agents ad
 
 ## 8. PARISH PACK GENERATION
 
-**Today:** Cron job exists but is **completely stubbed out**. No packs being generated.
+**Today:** **WIRED.** Cron job runs weekly (Sunday 4 AM). For each stale jurisdiction x SKU combo: gathers evidence from existing snapshots, calls OpenAI Responses API with web search, validates against ParishPackSchema + citation checker, stores versioned packs with audit trail.
 
 **Autonomous Loop:**
 - **Observe:** (Weekly Sunday 4 AM) For each jurisdiction x SKU combination: check if current parish pack is > 7 days old

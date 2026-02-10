@@ -157,7 +157,9 @@ See `docs/AUTOMATION-FRONTIER.md` for the full automation frontier map.
 
 **3 dead agents** (Design, Tax, Market Intel) have zero tools wired — see frontier doc for what they need.
 
-**2 stubbed crons** (change-detection, parish-pack-refresh) — logic commented out, infrastructure ready.
+**2 cron jobs** wired and deployed:
+- `change-detection` (daily 6 AM) — monitors jurisdiction seed sources for content changes, creates review tasks
+- `parish-pack-refresh` (weekly Sunday 4 AM) — regenerates stale parish packs via OpenAI Responses API + web search, with evidence grounding and citation validation
 
 ## Key Rules
 
