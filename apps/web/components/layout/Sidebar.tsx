@@ -18,6 +18,7 @@ import {
   GitBranch,
   Rocket,
   FolderKanban,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/stores/uiStore";
@@ -54,6 +55,7 @@ const navGroups: NavGroup[] = [
   {
     label: "Intelligence",
     items: [
+      { id: "command-center", href: "/command-center", icon: Sparkles, label: "Command Center" },
       { id: "agents", href: "/agents", icon: Bot, label: "Agents" },
       { id: "runs", href: "/runs", icon: Play, label: "Runs" },
       { id: "workflows", href: "/workflows", icon: GitBranch, label: "Workflows" },
