@@ -28,5 +28,5 @@
 ## Timeline
 1. ✅ Create plan and branch.
 2. ✅ Add workflow file.
-3. ✅ Run tests (currently failing due to unresolved workspace modules in Jest).
-4. 🔄 Commit and open PR.
+3. ✅ Run tests.
+4. ✅ Commit and open PR.
