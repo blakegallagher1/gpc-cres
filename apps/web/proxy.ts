@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
-const publicRoutes = ["/", "/login", "/signup"];
+const publicRoutes = ["/login", "/signup"];
 
 export async function proxy(request: NextRequest) {
   const response = NextResponse.next();
@@ -35,7 +35,7 @@ export async function proxy(request: NextRequest) {
 
   if (publicRoutes.includes(pathname)) {
     if (session) {
-      return NextResponse.redirect(new URL("/app", request.url));
+      return NextResponse.redirect(new URL("/", request.url));
     }
     return response;
   }
