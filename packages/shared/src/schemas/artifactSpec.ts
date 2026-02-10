@@ -68,12 +68,35 @@ export const ExitPackagePdfArtifactSpecSchema = BaseArtifactSpecSchema.extend({
   ),
 });
 
+export const InvestmentMemoPdfArtifactSpecSchema = BaseArtifactSpecSchema.extend({
+  artifact_type: z.literal("INVESTMENT_MEMO_PDF"),
+});
+
+export const OfferingMemoPdfArtifactSpecSchema = BaseArtifactSpecSchema.extend({
+  artifact_type: z.literal("OFFERING_MEMO_PDF"),
+});
+
+export const CompAnalysisPdfArtifactSpecSchema = BaseArtifactSpecSchema.extend({
+  artifact_type: z.literal("COMP_ANALYSIS_PDF"),
+  comparison_items: z.array(
+    z.object({
+      label: z.string().min(1),
+      address: z.string().min(1),
+      metrics: z.record(z.string(), z.string()),
+    }),
+  ),
+  recommendation: z.string().min(1),
+});
+
 export const ArtifactSpecSchema = z.discriminatedUnion("artifact_type", [
   TriagePdfArtifactSpecSchema,
   SubmissionChecklistPdfArtifactSpecSchema,
   HearingDeckPptxArtifactSpecSchema,
   ExitPackagePdfArtifactSpecSchema,
   BuyerTeaserPdfArtifactSpecSchema,
+  InvestmentMemoPdfArtifactSpecSchema,
+  OfferingMemoPdfArtifactSpecSchema,
+  CompAnalysisPdfArtifactSpecSchema,
 ]);
 
 export type ArtifactSpec = z.infer<typeof ArtifactSpecSchema>;
@@ -84,3 +107,6 @@ export type BuyerTeaserPdfArtifactSpec = z.infer<typeof BuyerTeaserPdfArtifactSp
 export type SubmissionChecklistPdfArtifactSpec = z.infer<typeof SubmissionChecklistPdfArtifactSpecSchema>;
 export type HearingDeckPptxArtifactSpec = z.infer<typeof HearingDeckPptxArtifactSpecSchema>;
 export type ExitPackagePdfArtifactSpec = z.infer<typeof ExitPackagePdfArtifactSpecSchema>;
+export type InvestmentMemoPdfArtifactSpec = z.infer<typeof InvestmentMemoPdfArtifactSpecSchema>;
+export type OfferingMemoPdfArtifactSpec = z.infer<typeof OfferingMemoPdfArtifactSpecSchema>;
+export type CompAnalysisPdfArtifactSpec = z.infer<typeof CompAnalysisPdfArtifactSpecSchema>;

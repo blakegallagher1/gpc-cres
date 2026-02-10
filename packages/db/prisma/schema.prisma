@@ -42,6 +42,9 @@ enum artifact_type {
   HEARING_DECK_PPTX
   EXIT_PACKAGE_PDF
   BUYER_TEASER_PDF
+  INVESTMENT_MEMO_PDF
+  OFFERING_MEMO_PDF
+  COMP_ANALYSIS_PDF
 }
 
 enum evidence_type {

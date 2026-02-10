@@ -4,6 +4,7 @@ import type {
   HearingDeckPptxArtifactSpec,
   SubmissionChecklistPdfArtifactSpec,
   ExitPackagePdfArtifactSpec,
+  CompAnalysisPdfArtifactSpec,
 } from "@entitlement-os/shared";
 import { ArtifactSpecSchema } from "@entitlement-os/shared";
 
@@ -33,9 +34,15 @@ async function renderBasePdfHtml(params: {
   sources: string[];
 }): Promise<string> {
   const template = await loadTemplateFile(params.templateFilename);
+  const dateStr = new Date().toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
   return template
     .replaceAll("{{TITLE}}", escapeHtml(params.title))
     .replaceAll("{{BODY}}", params.bodyHtml)
+    .replaceAll("{{DATE}}", escapeHtml(dateStr))
     .replaceAll(
       "{{SOURCES}}",
       params.sources.length
@@ -56,6 +63,12 @@ function inferFilename(artifactType: ArtifactType): string {
       return "buyer-teaser.pdf";
     case "HEARING_DECK_PPTX":
       return "hearing-deck.pptx";
+    case "INVESTMENT_MEMO_PDF":
+      return "investment-memo.pdf";
+    case "OFFERING_MEMO_PDF":
+      return "offering-memo.pdf";
+    case "COMP_ANALYSIS_PDF":
+      return "comparative-analysis.pdf";
     default: {
       const exhaustive: never = artifactType;
       return exhaustive;
@@ -125,7 +138,44 @@ export async function renderArtifactFromSpec(specInput: ArtifactSpec): Promise<R
     bodyHtml = spec.sections
       .map((s) => `<section class="section"><h2>${escapeHtml(s.heading)}</h2>${markdownAsHtml(s.body_markdown)}</section>`)
       .join("");
+  } else if (spec.artifact_type === "INVESTMENT_MEMO_PDF") {
+    templateFilename = "investment_memo.html";
+    bodyHtml = spec.sections
+      .map((s) => `<section class="section"><h2>${escapeHtml(s.heading)}</h2>${markdownAsHtml(s.body_markdown)}</section>`)
+      .join("");
+  } else if (spec.artifact_type === "OFFERING_MEMO_PDF") {
+    templateFilename = "offering_memo.html";
+    bodyHtml = spec.sections
+      .map((s) => `<section class="section"><h2>${escapeHtml(s.heading)}</h2>${markdownAsHtml(s.body_markdown)}</section>`)
+      .join("");
+  } else if (spec.artifact_type === "COMP_ANALYSIS_PDF") {
+    templateFilename = "comp_analysis.html";
+    const compSpec = spec as CompAnalysisPdfArtifactSpec;
+    // Build comparison table
+    const items = compSpec.comparison_items;
+    const allMetricKeys = [...new Set(items.flatMap((item) => Object.keys(item.metrics)))];
+    let tableHtml = "";
+    if (items.length > 0 && allMetricKeys.length > 0) {
+      const headerCells = items.map((item) => `<th>${escapeHtml(item.label)}</th>`).join("");
+      const rows = allMetricKeys
+        .map((key) => {
+          const cells = items.map((item) => `<td>${escapeHtml(item.metrics[key] ?? "N/A")}</td>`).join("");
+          return `<tr><td class="metric-label">${escapeHtml(key)}</td>${cells}</tr>`;
+        })
+        .join("");
+      tableHtml = `<table class="comp-table"><thead><tr><th>Metric</th>${headerCells}</tr></thead><tbody>${rows}</tbody></table>`;
+    }
+    const recommendationHtml = `<div class="recommendation"><h3>AI Recommendation</h3>${markdownAsHtml(compSpec.recommendation)}</div>`;
+    bodyHtml = `
+      <section class="section">
+        <h2>Side-by-Side Comparison</h2>
+        ${tableHtml}
+      </section>
+      ${recommendationHtml}
+      ${spec.sections.map((s) => `<section class="section"><h2>${escapeHtml(s.heading)}</h2>${markdownAsHtml(s.body_markdown)}</section>`).join("")}
+    `;
   } else {
+    // TRIAGE_PDF (default)
     templateFilename = "triage_report.html";
     bodyHtml = spec.sections
       .map((s) => `<section class="section"><h2>${escapeHtml(s.heading)}</h2>${markdownAsHtml(s.body_markdown)}</section>`)
@@ -141,4 +191,3 @@ export async function renderArtifactFromSpec(specInput: ArtifactSpec): Promise<R
   const bytes = await renderPdfFromHtml(html);
   return { filename, contentType: "application/pdf", bytes };
 }
-

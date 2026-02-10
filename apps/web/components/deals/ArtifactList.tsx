@@ -20,6 +20,9 @@ const artifactTypeLabels: Record<string, string> = {
   HEARING_DECK_PPTX: "Hearing Deck",
   EXIT_PACKAGE_PDF: "Exit Package",
   BUYER_TEASER_PDF: "Buyer Teaser",
+  INVESTMENT_MEMO_PDF: "Investment Memo",
+  OFFERING_MEMO_PDF: "Offering Memorandum",
+  COMP_ANALYSIS_PDF: "Comparative Analysis",
 };
 
 // Deal statuses ordered by progression
@@ -43,6 +46,9 @@ const STAGE_PREREQUISITES: Record<string, string> = {
   HEARING_DECK_PPTX: "SUBMITTED",
   EXIT_PACKAGE_PDF: "APPROVED",
   BUYER_TEASER_PDF: "EXIT_MARKETED",
+  INVESTMENT_MEMO_PDF: "TRIAGE_DONE",
+  OFFERING_MEMO_PDF: "APPROVED",
+  COMP_ANALYSIS_PDF: "TRIAGE_DONE",
 };
 
 function isAtOrPast(current: string, required: string): boolean {

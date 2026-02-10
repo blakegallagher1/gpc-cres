@@ -25,6 +25,9 @@ export const ARTIFACT_TYPES = [
   "HEARING_DECK_PPTX",
   "EXIT_PACKAGE_PDF",
   "BUYER_TEASER_PDF",
+  "INVESTMENT_MEMO_PDF",
+  "OFFERING_MEMO_PDF",
+  "COMP_ANALYSIS_PDF",
 ] as const;
 export type ArtifactType = (typeof ARTIFACT_TYPES)[number];
 
