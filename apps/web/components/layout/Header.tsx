@@ -1,20 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Moon, Sun, Bell, Plus, Command, Sparkles } from "lucide-react";
+import { Search, Moon, Sun, Plus, Command, Sparkles } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/stores/uiStore";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { supabase } from "@/lib/db/supabase";
 import { toast } from "sonner";
+import { NotificationFeed } from "@/components/notifications/NotificationFeed";
 
 export function Header() {
   const { theme, setTheme } = useTheme();
@@ -22,10 +17,6 @@ export function Header() {
   const [searchFocused, setSearchFocused] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const router = useRouter();
-  const [notifications, setNotifications] = useState([
-    { id: "1", message: "Financial Analyst completed", time: "2 minutes ago" },
-    { id: "2", message: "Workflow execution failed", time: "15 minutes ago" },
-  ]);
 
   const handleSignOut = async () => {
     if (isSigningOut) return;
@@ -110,36 +101,7 @@ export function Header() {
         </Button>
 
         {/* Notifications */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative text-muted-foreground">
-              <Bell className="h-5 w-5" />
-              {notifications.length > 0 && (
-                <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500" />
-              )}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-80">
-            <div className="flex items-center justify-between px-3 py-2">
-              <span className="font-semibold">Notifications</span>
-              <Button variant="ghost" size="sm" className="h-auto py-1 text-xs" onClick={() => setNotifications([])}>
-                Mark all read
-              </Button>
-            </div>
-            {notifications.length > 0 ? (
-              notifications.map((n) => (
-                <DropdownMenuItem key={n.id} className="flex flex-col items-start gap-1">
-                  <span className="font-medium">{n.message}</span>
-                  <span className="text-xs text-muted-foreground">{n.time}</span>
-                </DropdownMenuItem>
-              ))
-            ) : (
-              <DropdownMenuItem disabled className="text-center text-sm text-muted-foreground">
-                No new notifications
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <NotificationFeed />
 
         {/* New Run Button */}
         <Button className="gap-2" onClick={() => router.push("/")}>

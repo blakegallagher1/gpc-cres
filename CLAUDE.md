@@ -280,3 +280,42 @@ GitHub Actions (`ci.yml`): push to `main` + PRs. Backend (Python 3.11) + Fronten
 
 Vercel: Git-triggered deploys on push to `main`. Build command in `apps/web/vercel.json`.
 Cron jobs: `/api/cron/change-detection` (daily 6 AM), `/api/cron/parish-pack-refresh` (weekly Sunday 4 AM).
+
+## Implementation Roadmap
+
+Read `IMPLEMENTATION_PLAN.md` at the repo root for the full 9-phase feature roadmap, all architectural conventions, and shared infrastructure patterns.
+
+**Currently executing: Phase 1A — Shared Infrastructure Setup + Unified Notification & Intelligence Feed**
+
+Rules:
+- Do NOT work on phases beyond the currently executing phase unless explicitly instructed
+- When making architectural decisions, check future phases in `IMPLEMENTATION_PLAN.md` to ensure compatibility
+- Follow the **Shared Infrastructure Conventions** section for all new tables, services, API routes, background jobs, and components
+- If existing codebase patterns conflict with the plan's defaults, match the codebase
+
+### Phase Tracker
+Update status after each sub-phase ships:
+
+| Sub-Phase | Status |
+|-----------|--------|
+| 1A: Shared Infra + Notifications | 🔄 Active |
+| 1B: Smart Alerts & Opportunity Surfacing | ⬜ |
+| 1C: Deadline Tracking & Escalation | ⬜ |
+| 2A: PDF Generation Engine | ⬜ |
+| 2B: Agent-Triggered Generation | ⬜ |
+| 2C: PPTX Generation | ⬜ |
+| 3A: Interactive Pro Forma Builder | ⬜ |
+| 3B: Sensitivity & Scenario Analysis | ⬜ |
+| 3C: Waterfall Distribution Modeling | ⬜ |
+| 3D: Debt Comparison Tool | ⬜ |
+| 4A: Document Processing Pipeline | ⬜ |
+| 4B: Type-Specific Extractors | ⬜ |
+| 5A: Enhanced Map Rendering | ⬜ |
+| 5B: Analytical Map Tools | ⬜ |
+| 5C: Prospecting Mode | ⬜ |
+| 6A: Portfolio Analytics Engine | ⬜ |
+| 7A: Automation Dashboard | ⬜ |
+| 7B: Approval Workflows | ⬜ |
+| 8A: Automated Market Monitoring | ⬜ |
+| 9A: Outcome Tracking | ⬜ |
+| 9B: Knowledge Base & RAG | ⬜ |

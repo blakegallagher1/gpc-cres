@@ -72,6 +72,22 @@ enum entity_type {
   @@map("entity_type")
 }
 
+enum notification_type {
+  ALERT
+  OPPORTUNITY
+  DEADLINE
+  SYSTEM
+  MARKET
+  AUTOMATION
+}
+
+enum notification_priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
 model Org {
   id        String   @id @default(uuid()) @db.Uuid
   name      String   @db.Text
@@ -93,6 +109,7 @@ model Org {
   conversations     Conversation[]
   entities          Entity[]
   taxEvents         TaxEvent[]
+  notifications     Notification[]
 
   @@map("orgs")
 }
@@ -103,11 +120,13 @@ model User {
   email     String   @db.Text
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  memberships   OrgMembership[]
-  dealsCreated  Deal[]   @relation("deal_created_by")
-  tasksOwned    Task[]   @relation("task_owner_user_id")
-  uploadsCreated Upload[] @relation("upload_uploaded_by")
-  conversations  Conversation[]
+  memberships            OrgMembership[]
+  dealsCreated           Deal[]   @relation("deal_created_by")
+  tasksOwned             Task[]   @relation("task_owner_user_id")
+  uploadsCreated         Upload[] @relation("upload_uploaded_by")
+  conversations          Conversation[]
+  notifications          Notification[]
+  notificationPreferences NotificationPreference[]
 
   @@map("users")
 }
@@ -187,6 +206,7 @@ model Deal {
   conversations Conversation[]
   entityDeals   EntityDeal[]
   taxEvents     TaxEvent[]
+  notifications Notification[]
 
   @@index([orgId])
   @@index([jurisdictionId])
@@ -514,4 +534,47 @@ model TaxEvent {
   @@index([entityId])
   @@index([dealId])
   @@map("tax_events")
+}
+
+model Notification {
+  id          String                @id @default(uuid()) @db.Uuid
+  orgId       String                @map("org_id") @db.Uuid
+  userId      String                @map("user_id") @db.Uuid
+  dealId      String?               @map("deal_id") @db.Uuid
+  type        notification_type     @default(SYSTEM)
+  title       String                @db.Text
+  body        String                @db.Text
+  metadata    Json                  @default("{}") @db.JsonB
+  priority    notification_priority @default(MEDIUM)
+  readAt      DateTime?             @map("read_at") @db.Timestamptz(6)
+  dismissedAt DateTime?             @map("dismissed_at") @db.Timestamptz(6)
+  actionUrl   String?               @map("action_url") @db.Text
+  sourceAgent String?               @map("source_agent") @db.Text
+  createdAt   DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  org  Org   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deal Deal? @relation(fields: [dealId], references: [id], onDelete: SetNull)
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([dealId])
+  @@map("notifications")
+}
+
+model NotificationPreference {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  type            notification_type
+  channel         String   @default("in_app") @db.Text // in_app|email|both
+  enabled         Boolean  @default(true)
+  thresholdConfig Json     @default("{}") @map("threshold_config") @db.JsonB
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type])
+  @@map("notification_preferences")
 }
