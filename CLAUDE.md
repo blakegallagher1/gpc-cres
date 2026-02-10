@@ -285,7 +285,7 @@ Cron jobs: `/api/cron/change-detection` (daily 6 AM), `/api/cron/parish-pack-ref
 
 Read `IMPLEMENTATION_PLAN.md` at the repo root for the full 9-phase feature roadmap, all architectural conventions, and shared infrastructure patterns.
 
-**Currently executing: Phase 1B — Smart Alerts & Opportunity Surfacing**
+**Currently executing: Phase 1C — Deadline Tracking & Escalation**
 
 Rules:
 - Do NOT work on phases beyond the currently executing phase unless explicitly instructed
@@ -299,8 +299,8 @@ Update status after each sub-phase ships:
 | Sub-Phase | Status |
 |-----------|--------|
 | 1A: Shared Infra + Notifications | ✅ Done |
-| 1B: Smart Alerts & Opportunity Surfacing | 🔄 Active |
-| 1C: Deadline Tracking & Escalation | ⬜ |
+| 1B: Smart Alerts & Opportunity Surfacing | ✅ Done |
+| 1C: Deadline Tracking & Escalation | 🔄 Active |
 | 2A: PDF Generation Engine | ⬜ |
 | 2B: Agent-Triggered Generation | ⬜ |
 | 2C: PPTX Generation | ⬜ |
