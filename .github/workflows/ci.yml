@@ -60,6 +60,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Create .env from .env.example
+        run: cp .env.example .env
+
       - name: Generate Prisma client
         run: pnpm --filter @entitlement-os/db generate
 
