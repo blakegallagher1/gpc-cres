@@ -32,7 +32,9 @@
 entitlement-os/
 ├── apps/
 │   ├── web/                 # Next.js frontend + API routes
-│   │   └── lib/automation/  # 12 event-driven automation handlers + 14 test suites
+│   │   ├── lib/automation/  # 12 event-driven automation handlers + 14 test suites
+│   │   ├── lib/server/      # Server-only modules (chatgptAppsClient, rateLimiter)
+│   │   └── app/api/external/chatgpt-apps/  # 5 proxy routes to chatgpt-apps Supabase
 │   └── worker/              # Temporal worker (parked for v2)
 ├── packages/
 │   ├── db/                  # Prisma schema, client, migrations, seed
@@ -133,9 +135,10 @@ All 13 agents now have tools wired (Design: 6, Tax: 4 — previously had zero).
 
 **Enums:** `sku_type` (SMALL_BAY_FLEX, OUTDOOR_STORAGE, TRUCK_PARKING), `deal_status` (11 stages INTAKE→EXITED/KILLED), `task_status`, `artifact_type`, `run_type` (TRIAGE, ARTIFACT_GEN, BUYER_LIST_BUILD, CHANGE_DETECT, ENRICHMENT, INTAKE_PARSE, DOCUMENT_CLASSIFY, BUYER_OUTREACH_DRAFT, ADVANCEMENT_CHECK)
 
-**Two Supabase projects:**
+**Three Supabase projects:**
 - Entitlement OS DB (`yjddspdbxuseowxndrak`) — system of record, Prisma-managed
 - Louisiana Property DB (`jueyosscalcljgdorrpy`) — 560K parcels, 5 parishes, 9 RPC functions (read-only via `LA_PROPERTY_DB_URL` + `LA_PROPERTY_DB_KEY`)
+- chatgpt-apps GIS DB (`jueyosscalcljgdorrpy`) — same Supabase project as Property DB, accessed via separate `external_reader` role with two-header auth. 6 RPC functions for geometry, dimensions, zoning, and amenities cache. See `docs/chatgpt-apps-integration.md`.
 
 ## Environment Variables
 
@@ -150,7 +153,8 @@ TEMPORAL_ADDRESS, TEMPORAL_NAMESPACE, TEMPORAL_TASK_QUEUE
 ```
 NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY,
 OPENAI_API_KEY, LA_PROPERTY_DB_URL, LA_PROPERTY_DB_KEY, ALLOWED_LOGIN_EMAILS,
-CRON_SECRET
+CRON_SECRET,
+CHATGPT_APPS_SUPABASE_URL, CHATGPT_APPS_SUPABASE_ANON_KEY, CHATGPT_APPS_SUPABASE_EXT_JWT
 ```
 
 ## Automation Philosophy
@@ -194,6 +198,41 @@ See `docs/AUTOMATION-FRONTIER.md` for the full automation frontier map.
 
 **Test coverage:** 14 test suites, 302 tests in `lib/automation/__tests__/`. Uses Jest (NOT vitest) with `jest.mock()`/`jest.requireMock()` pattern for Prisma mocking.
 
+## chatgpt-apps Integration (GIS / Zoning / Amenities)
+
+Server-only integration with chatgpt-apps Supabase for canonical GIS data. Full docs: `docs/chatgpt-apps-integration.md`.
+
+**Two-header auth pattern** (both required on every request):
+- `apikey` header = `CHATGPT_APPS_SUPABASE_ANON_KEY` (passes Kong API gateway)
+- `Authorization: Bearer` = `CHATGPT_APPS_SUPABASE_EXT_JWT` (PostgREST sets DB role to `external_reader`)
+
+**Client:** `apps/web/lib/server/chatgptAppsClient.ts` — imports `server-only`, 6 typed RPC wrappers, timeout/retry, application-level error detection.
+
+**Rate limiter:** `apps/web/lib/server/rateLimiter.ts` — in-memory token bucket, 10 burst, ~100 req/min per route.
+
+**6 RPC functions** (all `SECURITY DEFINER`, `external_reader` has EXECUTE-only, zero table access):
+
+| RPC | Wrapper | Description |
+|-----|---------|-------------|
+| `rpc_get_parcel_geometry` | `getParcelGeometry()` | bbox, centroid, GeoJSON (detail: low/medium/high) |
+| `rpc_get_parcel_dimensions` | `getParcelDimensions()` | width, depth, frontage, confidence |
+| `rpc_zoning_lookup` | `getZoningByParcel()` | Zoning codes by parcel ID |
+| `rpc_zoning_lookup_by_point` | `getZoningByPoint()` | Zoning codes by lat/lng/parish |
+| `rpc_get_amenities_cache` | `getAmenitiesCache()` | Read cached amenities |
+| `rpc_upsert_amenities_cache` | `upsertAmenitiesCache()` | Write amenities cache |
+
+**5 API proxy routes** at `/api/external/chatgpt-apps/`:
+
+| Route | Method | RPC |
+|-------|--------|-----|
+| `parcel-geometry` | POST | `rpc_get_parcel_geometry` |
+| `parcel-dimensions` | POST | `rpc_get_parcel_dimensions` |
+| `zoning-by-parcel` | POST | `rpc_zoning_lookup` |
+| `zoning-by-point` | POST | `rpc_zoning_lookup_by_point` |
+| `amenities-cache` | GET/POST | `rpc_get_amenities_cache` / `rpc_upsert_amenities_cache` |
+
+**Smoke test:** `scripts/smoke_chatgpt_apps_integration.ts` — 10 cases testing directly against Supabase (not through API routes). Run with `npx tsx scripts/smoke_chatgpt_apps_integration.ts`.
+
 ## Key Rules
 
 ### Do This
@@ -211,6 +250,8 @@ See `docs/AUTOMATION-FRONTIER.md` for the full automation frontier map.
 - Import `@/lib/automation/handlers` at top of any API route that dispatches events (ensures handler registration)
 - Read existing record state before update when dispatch depends on detecting a change (e.g., `select: { id: true, status: true }` before PATCH)
 - Use `AUTOMATION_CONFIG` from `lib/automation/config.ts` for all guardrail thresholds — never hardcode rate limits
+- Use `import "server-only"` in any module that touches chatgpt-apps keys — prevents client-side bundling
+- Use two-header auth for chatgpt-apps: `apikey` = anon key, `Authorization: Bearer` = ext JWT — using one key for both headers will fail
 
 ### Don't Do This
 - Don't delete `legacy/python/` or `apps/worker/` — parked for reference/v2
@@ -222,6 +263,8 @@ See `docs/AUTOMATION-FRONTIER.md` for the full automation frontier map.
 - Don't auto-send buyer outreach emails — `buyerOutreach.neverAutoSend` is `true`; handlers only create review tasks
 - Don't call `dispatchEvent()` without the `.catch(() => {})` — unhandled promise rejections crash the route
 - Don't use `orderBy: { joinedAt }` on OrgMembership — the field is `createdAt`
+- Don't prefix chatgpt-apps env vars with `NEXT_PUBLIC_` — they are server-only secrets
+- Don't use chatgpt-apps ext JWT as the `apikey` header — Kong will reject with 401
 
 ## Code Style
 

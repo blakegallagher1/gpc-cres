@@ -71,6 +71,27 @@ If `pnpm` is not available, install pnpm 9+ (repo is pinned in root `package.jso
   - artifact idempotency via `runs.input_hash`
   - change detection triggers refresh
 
+## External Integrations
+
+### chatgpt-apps (GIS / Zoning / Amenities)
+
+Secure server-only integration with a Supabase PostGIS database for canonical GIS, zoning, and amenities data. Full docs: `docs/chatgpt-apps-integration.md`.
+
+**Key files:**
+- `apps/web/lib/server/chatgptAppsClient.ts` — server-only RPC client (two-header auth)
+- `apps/web/lib/server/rateLimiter.ts` — in-memory token bucket rate limiter
+- `apps/web/app/api/external/chatgpt-apps/` — 5 proxy API routes
+- `scripts/smoke_chatgpt_apps_integration.ts` — 10-case smoke test (direct Supabase calls)
+
+**Auth pattern:** Two headers required — `apikey` (anon key for Kong gateway) + `Authorization: Bearer` (external_reader JWT for PostgREST). The `external_reader` DB role can only EXECUTE 6 whitelisted RPCs; it has zero table access.
+
+**Env vars (server-only, never `NEXT_PUBLIC_`):**
+- `CHATGPT_APPS_SUPABASE_URL` — project REST API URL
+- `CHATGPT_APPS_SUPABASE_ANON_KEY` — standard anon key (Kong passthrough)
+- `CHATGPT_APPS_SUPABASE_EXT_JWT` — custom JWT for `external_reader` role
+
+**6 RPCs:** `rpc_get_parcel_geometry`, `rpc_get_parcel_dimensions`, `rpc_zoning_lookup`, `rpc_zoning_lookup_by_point`, `rpc_get_amenities_cache`, `rpc_upsert_amenities_cache`
+
 ## Legacy Python
 
 The previous Python system is parked under `legacy/python/` for reference only.
