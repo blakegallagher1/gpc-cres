@@ -32,6 +32,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@entitlement-os/artifacts':
+        specifier: workspace:*
+        version: link:../../packages/artifacts
       '@entitlement-os/db':
         specifier: workspace:*
         version: link:../../packages/db

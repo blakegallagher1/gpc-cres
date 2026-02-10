@@ -567,7 +567,18 @@ export default function DealDetailPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <ArtifactList artifacts={deal.artifacts} />
+                <ArtifactList
+                  artifacts={deal.artifacts}
+                  dealId={deal.id}
+                  dealStatus={deal.status}
+                  onArtifactGenerated={(artifact) => {
+                    setDeal((prev) =>
+                      prev
+                        ? { ...prev, artifacts: [artifact, ...prev.artifacts] }
+                        : prev
+                    );
+                  }}
+                />
               </CardContent>
             </Card>
           </TabsContent>

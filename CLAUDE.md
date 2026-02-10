@@ -43,7 +43,7 @@ entitlement-os/
 │   ├── docker/              # docker-compose: Postgres + Temporal stack
 │   └── sql/                 # Property DB RPC function definitions
 ├── legacy/python/           # Original Python agents (frozen reference, do NOT delete)
-├── docs/                    # PLAN.md + SPEC.md (architectural blueprints)
+├── docs/                    # PLAN.md + SPEC.md + AUTOMATION-FRONTIER.md
 └── .github/workflows/       # CI (ci.yml)
 ```
 
@@ -146,6 +146,18 @@ NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_K
 OPENAI_API_KEY, LA_PROPERTY_DB_URL, LA_PROPERTY_DB_KEY, ALLOWED_LOGIN_EMAILS,
 CRON_SECRET
 ```
+
+## Automation Philosophy
+
+See `docs/AUTOMATION-FRONTIER.md` for the full automation frontier map.
+
+**Core principle:** Agents advise, humans decide at capital commitment points. The 11 deal statuses represent increasingly irreversible commitments. Automation is safe pre-triage (data-only, reversible). Post-triage, every stage transition requires human approval.
+
+**12 automation loops** are defined (intake, enrichment, triage, task execution, stage advancement, document processing, change detection, parish pack refresh, artifact generation, buyer outreach, dead agent revival, ops). Each has observe/decide/act design + guardrails.
+
+**3 dead agents** (Design, Tax, Market Intel) have zero tools wired — see frontier doc for what they need.
+
+**2 stubbed crons** (change-detection, parish-pack-refresh) — logic commented out, infrastructure ready.
 
 ## Key Rules
 

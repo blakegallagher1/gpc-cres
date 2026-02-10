@@ -10,6 +10,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "@entitlement-os/artifacts": "workspace:*",
     "@entitlement-os/db": "workspace:*",
     "@entitlement-os/openai": "workspace:*",
     "@entitlement-os/shared": "workspace:*",

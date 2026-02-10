@@ -1,6 +1,6 @@
 {
   "framework": "nextjs",
-  "buildCommand": "cd ../.. && pnpm --filter @entitlement-os/db generate && pnpm --filter @entitlement-os/shared build && pnpm --filter @entitlement-os/db build && pnpm --filter @entitlement-os/openai build && cd apps/web && next build",
+  "buildCommand": "cd ../.. && pnpm --filter @entitlement-os/db generate && pnpm --filter @entitlement-os/shared build && pnpm --filter @entitlement-os/db build && pnpm --filter @entitlement-os/artifacts build && pnpm --filter @entitlement-os/openai build && cd apps/web && next build",
   "crons": [
     {
       "path": "/api/cron/change-detection",

@@ -5,8 +5,11 @@ import { createStrictJsonResponse } from "@entitlement-os/openai";
 import {
   ParcelTriageSchema,
   zodToOpenAiJsonSchema,
+  buildArtifactObjectKey,
 } from "@entitlement-os/shared";
-import type { ParcelTriage } from "@entitlement-os/shared";
+import type { ParcelTriage, ArtifactSpec } from "@entitlement-os/shared";
+import { renderArtifactFromSpec } from "@entitlement-os/artifacts";
+import { supabaseAdmin } from "@/lib/db/supabase";
 
 // POST /api/deals/[id]/triage - run triage
 export async function POST(
@@ -112,6 +115,17 @@ Evaluate all risk dimensions (access, drainage, adjacency, environmental, utilit
         });
       }
 
+      // Auto-generate TRIAGE_PDF (fire-and-forget — don't block the response)
+      generateTriagePdf({
+        dealId: id,
+        dealName: deal.name,
+        sku: deal.sku,
+        status: deal.status,
+        orgId: auth.orgId,
+        triageOutput: result.outputJson as Record<string, unknown>,
+        parcels: deal.parcels,
+      }).catch((err) => console.error("Auto-generate TRIAGE_PDF failed (non-blocking):", err));
+
       return NextResponse.json({
         run: { id: run.id, status: "succeeded" },
         triage: result.outputJson,
@@ -188,5 +202,142 @@ export async function GET(
       { error: "Failed to fetch triage" },
       { status: 500 }
     );
+  }
+}
+
+// --- Auto-generate TRIAGE_PDF helper ---
+
+interface TriagePdfParams {
+  dealId: string;
+  dealName: string;
+  sku: string;
+  status: string;
+  orgId: string;
+  triageOutput: Record<string, unknown>;
+  parcels: Array<{
+    address: string;
+    apn: string | null;
+    acreage: { toString(): string } | null;
+    currentZoning: string | null;
+    floodZone: string | null;
+  }>;
+}
+
+async function generateTriagePdf(params: TriagePdfParams): Promise<void> {
+  const { dealId, dealName, sku, orgId, triageOutput, parcels } = params;
+
+  const run = await prisma.run.create({
+    data: {
+      orgId,
+      dealId,
+      runType: "ARTIFACT_GEN",
+      status: "running",
+    },
+  });
+
+  try {
+    const triage = triageOutput;
+    const parcelSummary = parcels
+      .map((p, i) => {
+        const parts = [`**Parcel ${i + 1}:** ${p.address}`];
+        if (p.apn) parts.push(`APN: ${p.apn}`);
+        if (p.acreage) parts.push(`Acreage: ${p.acreage.toString()}`);
+        if (p.currentZoning) parts.push(`Zoning: ${p.currentZoning}`);
+        if (p.floodZone) parts.push(`Flood Zone: ${p.floodZone}`);
+        return parts.join(" | ");
+      })
+      .join("\n");
+
+    // Build risk scores text
+    const riskScores = triage.risk_scores as Record<string, number> | undefined;
+    const riskText = riskScores && typeof riskScores === "object"
+      ? Object.entries(riskScores).map(([k, v]) => `**${k.replace(/_/g, " ")}:** ${v}/10`).join("\n")
+      : "No risk scores available.";
+
+    // Build disqualifiers text
+    const hard = triage.hard_disqualifiers as string[] | undefined;
+    const soft = triage.soft_disqualifiers as string[] | undefined;
+    const disqualText = [
+      hard && hard.length > 0 ? "**Hard Disqualifiers:**\n" + hard.map((d) => `- ${d}`).join("\n") : "**Hard Disqualifiers:** None",
+      soft && soft.length > 0 ? "**Soft Disqualifiers:**\n" + soft.map((d) => `- ${d}`).join("\n") : "**Soft Disqualifiers:** None",
+    ].join("\n\n");
+
+    // Build next actions text
+    const actions = triage.next_actions as Array<{ title: string; description?: string }> | undefined;
+    const actionsText = actions && actions.length > 0
+      ? actions.map((a, i) => `${i + 1}. **${a.title}**${a.description ? `: ${a.description}` : ""}`).join("\n")
+      : "No next actions specified.";
+
+    const spec: ArtifactSpec = {
+      schema_version: "1.0",
+      artifact_type: "TRIAGE_PDF",
+      deal_id: dealId,
+      title: `${dealName} - Triage Report`,
+      sections: [
+        {
+          key: "decision",
+          heading: "Triage Decision",
+          body_markdown: `**Recommendation:** ${String(triage.decision ?? "N/A")}\n**Confidence:** ${String(triage.confidence ?? "N/A")}\n\n${String(triage.rationale ?? "")}`,
+        },
+        { key: "risk_scores", heading: "Risk Assessment", body_markdown: riskText },
+        { key: "disqualifiers", heading: "Disqualifiers", body_markdown: disqualText },
+        { key: "next_actions", heading: "Next Actions", body_markdown: actionsText },
+        { key: "parcels", heading: "Parcel Summary", body_markdown: parcelSummary || "No parcels." },
+      ],
+      sources_summary: [],
+    };
+
+    const rendered = await renderArtifactFromSpec(spec);
+
+    const latestArtifact = await prisma.artifact.findFirst({
+      where: { dealId, artifactType: "TRIAGE_PDF" },
+      orderBy: { version: "desc" },
+      select: { version: true },
+    });
+    const nextVersion = (latestArtifact?.version ?? 0) + 1;
+
+    const storageObjectKey = buildArtifactObjectKey({
+      orgId,
+      dealId,
+      artifactType: "TRIAGE_PDF",
+      version: nextVersion,
+      filename: rendered.filename,
+    });
+
+    const { error: storageError } = await supabaseAdmin.storage
+      .from("deal-room-uploads")
+      .upload(storageObjectKey, Buffer.from(rendered.bytes), {
+        contentType: rendered.contentType,
+        upsert: false,
+      });
+
+    if (storageError) {
+      throw new Error(`Storage upload failed: ${storageError.message}`);
+    }
+
+    await prisma.artifact.create({
+      data: {
+        orgId,
+        dealId,
+        artifactType: "TRIAGE_PDF",
+        version: nextVersion,
+        storageObjectKey,
+        generatedByRunId: run.id,
+      },
+    });
+
+    await prisma.run.update({
+      where: { id: run.id },
+      data: { status: "succeeded", finishedAt: new Date() },
+    });
+
+    console.log(`Auto-generated TRIAGE_PDF v${nextVersion} for deal ${dealId}`);
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    await prisma.run.update({
+      where: { id: run.id },
+      data: { status: "failed", finishedAt: new Date(), error: errorMsg },
+    });
+    throw error;
   }
 }
