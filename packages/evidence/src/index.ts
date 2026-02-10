@@ -1,3 +1,4 @@
+export * from "./changeDetection.js";
 export * from "./compare.js";
 export * from "./hash.js";
 export * from "./service.js";

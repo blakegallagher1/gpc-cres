@@ -38,6 +38,9 @@ importers:
       '@entitlement-os/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@entitlement-os/evidence':
+        specifier: workspace:*
+        version: link:../../packages/evidence
       '@entitlement-os/openai':
         specifier: workspace:*
         version: link:../../packages/openai

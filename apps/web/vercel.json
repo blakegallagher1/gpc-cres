@@ -1,6 +1,6 @@
 {
   "framework": "nextjs",
-  "buildCommand": "cd ../.. && pnpm -F @entitlement-os/db generate && pnpm -F @entitlement-os/shared build && pnpm -F @entitlement-os/db build && pnpm -F @entitlement-os/artifacts build && pnpm -F @entitlement-os/openai build && cd apps/web && next build",
+  "buildCommand": "cd ../.. && bash scripts/vercel-build.sh",
   "crons": [
     {
       "path": "/api/cron/change-detection",

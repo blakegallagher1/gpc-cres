@@ -12,6 +12,7 @@
   "dependencies": {
     "@entitlement-os/artifacts": "workspace:*",
     "@entitlement-os/db": "workspace:*",
+    "@entitlement-os/evidence": "workspace:*",
     "@entitlement-os/openai": "workspace:*",
     "@entitlement-os/shared": "workspace:*",
     "@openai/agents": "^0.1.0",
