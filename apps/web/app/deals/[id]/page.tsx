@@ -18,6 +18,7 @@ import { ParcelTable, type ParcelItem } from "@/components/deals/ParcelTable";
 import { ArtifactList, type ArtifactItem } from "@/components/deals/ArtifactList";
 import { FileUploadZone, type UploadItem } from "@/components/deals/FileUploadZone";
 import { UploadList } from "@/components/deals/UploadList";
+import { DocumentExtractionReview, ExtractionPendingBadge } from "@/components/deals/DocumentExtractionReview";
 import { TriageResultPanel } from "@/components/deals/TriageResultPanel";
 import { RunTriageButton } from "@/components/deals/RunTriageButton";
 import { ActivityTimeline } from "@/components/deals/ActivityTimeline";
@@ -279,6 +280,7 @@ export default function DealDetailPage() {
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="documents">
               Documents ({deal.uploads?.length ?? 0})
+              <ExtractionPendingBadge dealId={deal.id} />
             </TabsTrigger>
             <TabsTrigger value="parcels">
               Parcels ({deal.parcels.length})
@@ -469,6 +471,18 @@ export default function DealDetailPage() {
                     );
                   }}
                 />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Extracted Data</CardTitle>
+                <CardDescription>
+                  Structured data automatically extracted from uploaded documents. Review and confirm before applying to the deal.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <DocumentExtractionReview dealId={deal.id} />
               </CardContent>
             </Card>
           </TabsContent>

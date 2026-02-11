@@ -4,6 +4,10 @@ import { supabaseAdmin } from "@/lib/db/supabase";
 import { getNotificationService } from "./notification.service";
 import { AppError } from "@/lib/errors";
 import OpenAI from "openai";
+import {
+  EXTRACTION_SCHEMAS,
+  DOC_TYPE_LABELS,
+} from "@/lib/schemas/extractionSchemas";
 
 // ---------------------------------------------------------------------------
 // Document type definitions
@@ -20,17 +24,7 @@ export type DocType =
   | "loi"
   | "other";
 
-const DOC_TYPE_LABELS: Record<DocType, string> = {
-  psa: "Purchase & Sale Agreement",
-  phase_i_esa: "Phase I ESA",
-  title_commitment: "Title Commitment",
-  survey: "Survey",
-  zoning_letter: "Zoning Letter",
-  appraisal: "Appraisal",
-  lease: "Lease",
-  loi: "Letter of Intent",
-  other: "Other",
-};
+export { DOC_TYPE_LABELS };
 
 // ---------------------------------------------------------------------------
 // Classification — enhanced regex + LLM
@@ -180,128 +174,152 @@ confidence: 0.0 to 1.0 (your confidence in the classification)`,
 // ---------------------------------------------------------------------------
 
 const EXTRACTION_PROMPTS: Record<DocType, string> = {
-  psa: `Extract from this Purchase & Sale Agreement:
+  psa: `Extract ALL of the following fields from this Purchase & Sale Agreement (PSA).
+For dollar amounts, extract as plain numbers (no commas, no "$"). For dates use YYYY-MM-DD. For lists, include every distinct item found.
+
+Required JSON schema:
 {
-  "purchase_price": number or null,
-  "earnest_money": number or null,
-  "due_diligence_period_days": number or null,
-  "dd_start_date": "YYYY-MM-DD" or null,
-  "closing_date": "YYYY-MM-DD" or null,
-  "contingencies": ["string"],
-  "seller_representations": ["string"],
-  "special_provisions": ["string"],
-  "buyer_entity": "string" or null,
-  "seller_entity": "string" or null
+  "purchase_price": number or null — the total agreed purchase price,
+  "earnest_money": number or null — earnest money / initial deposit amount,
+  "due_diligence_period_days": number or null — number of calendar days for the due diligence / inspection period,
+  "dd_start_date": "YYYY-MM-DD" or null — date the due diligence period begins (effective date if not explicit),
+  "closing_date": "YYYY-MM-DD" or null — scheduled closing date,
+  "contingencies": ["string"] — list of buyer contingencies (financing, inspection, appraisal, title, environmental, etc.),
+  "seller_representations": ["string"] — list of seller representations and warranties,
+  "special_provisions": ["string"] — any special provisions, addenda, or amendments,
+  "buyer_entity": "string" or null — full legal name of the purchasing entity,
+  "seller_entity": "string" or null — full legal name of the selling entity
 }`,
 
-  phase_i_esa: `Extract from this Phase I Environmental Site Assessment:
+  phase_i_esa: `Extract ALL of the following fields from this Phase I Environmental Site Assessment (ESA).
+Focus on environmental findings, recognized conditions, and recommendations.
+
+Required JSON schema:
 {
-  "recs": ["string"],
-  "de_minimis_conditions": ["string"],
-  "historical_uses": ["string"],
-  "adjoining_property_concerns": ["string"],
-  "recommended_phase_ii": boolean,
-  "phase_ii_scope": "string" or null,
-  "report_date": "YYYY-MM-DD" or null,
-  "consultant": "string" or null
+  "recs": ["string"] — list of Recognized Environmental Conditions (RECs) identified. Include each REC as a separate item with a brief description,
+  "de_minimis_conditions": ["string"] — list of de minimis conditions (minor issues not rising to REC level),
+  "historical_uses": ["string"] — list of historical uses of the property found in records review (e.g., "Gas station 1960-1985", "Agricultural use pre-1950"),
+  "adjoining_property_concerns": ["string"] — environmental concerns from adjacent/nearby properties,
+  "recommended_phase_ii": true/false — whether the report recommends a Phase II investigation,
+  "phase_ii_scope": "string" or null — recommended scope of Phase II if recommended (e.g., "soil sampling at former UST location"),
+  "report_date": "YYYY-MM-DD" or null — date of the ESA report,
+  "consultant": "string" or null — name of the environmental consulting firm
 }`,
 
-  title_commitment: `Extract from this Title Commitment:
+  title_commitment: `Extract ALL of the following fields from this Title Commitment / Title Report.
+Carefully distinguish between Schedule A (requirements) and Schedule B (exceptions/encumbrances).
+
+Required JSON schema:
 {
-  "commitment_date": "YYYY-MM-DD" or null,
-  "policy_amount": number or null,
-  "requirements": ["string"],
-  "exceptions": ["string"],
-  "easements": ["string"],
-  "liens": ["string"],
-  "encumbrances": ["string"],
-  "title_company": "string" or null
+  "commitment_date": "YYYY-MM-DD" or null — effective date of the commitment,
+  "policy_amount": number or null — proposed policy amount in dollars,
+  "requirements": ["string"] — Schedule A/B-I requirements that must be satisfied before policy issuance,
+  "exceptions": ["string"] — Schedule B-II exceptions to coverage (each exception as a separate string),
+  "easements": ["string"] — easements identified (extract from exceptions if embedded there),
+  "liens": ["string"] — mortgages, judgment liens, tax liens, mechanic's liens identified,
+  "encumbrances": ["string"] — other encumbrances: restrictive covenants, deed restrictions, HOA declarations,
+  "title_company": "string" or null — name of the title company / underwriter
 }`,
 
-  survey: `Extract from this Survey:
+  survey: `Extract ALL of the following fields from this Survey / ALTA / Plat / Boundary document.
+For setbacks, extract in feet. For acreage, extract the total even if composed of multiple tracts.
+
+Required JSON schema:
 {
-  "total_acreage": number or null,
-  "dimensions": "string" or null,
-  "flood_zone": "string" or null,
-  "flood_zone_panel": "string" or null,
-  "easement_locations": ["string"],
-  "utility_locations": ["string"],
-  "setbacks": { "front": number or null, "side": number or null, "rear": number or null },
-  "encroachments": ["string"],
-  "surveyor": "string" or null,
-  "survey_date": "YYYY-MM-DD" or null
+  "total_acreage": number or null — total acreage (e.g., 5.23),
+  "dimensions": "string" or null — overall lot dimensions or legal description summary (e.g., "330ft x 660ft irregular"),
+  "flood_zone": "string" or null — FEMA flood zone designation (e.g., "Zone X", "Zone AE", "Zone A"),
+  "flood_zone_panel": "string" or null — FIRM panel number (e.g., "22033C0375D"),
+  "easement_locations": ["string"] — describe each easement with location and type (e.g., "15ft utility easement along north boundary"),
+  "utility_locations": ["string"] — describe utility locations (e.g., "Water main along Main Street frontage", "Overhead power NW corner"),
+  "setbacks": { "front": number or null, "side": number or null, "rear": number or null } — required setbacks in feet,
+  "encroachments": ["string"] — any encroachments found (e.g., "Fence from adjacent parcel encroaches 2ft along east line"),
+  "surveyor": "string" or null — name of surveyor or survey firm,
+  "survey_date": "YYYY-MM-DD" or null — date of the survey
 }`,
 
-  zoning_letter: `Extract from this Zoning Letter/Verification:
+  zoning_letter: `Extract ALL of the following fields from this Zoning Letter / Zoning Verification / Zoning Compliance document.
+For dimensional standards, extract numeric values in the units used (feet for setbacks/height, percentage for lot coverage).
+
+Required JSON schema:
 {
-  "current_zoning": "string" or null,
-  "permitted_uses": ["string"],
-  "conditional_uses": ["string"],
+  "current_zoning": "string" or null — current zoning district code (e.g., "M-1", "C-2", "A-1"),
+  "permitted_uses": ["string"] — uses permitted by-right in this zoning district,
+  "conditional_uses": ["string"] — uses allowed by conditional use permit / special exception,
   "dimensional_standards": {
-    "max_height": number or null,
-    "lot_coverage": number or null,
-    "far": number or null,
-    "setbacks": { "front": number or null, "side": number or null, "rear": number or null }
+    "max_height": number or null — maximum building height in feet,
+    "lot_coverage": number or null — maximum lot coverage as percentage (e.g., 60 for 60%),
+    "far": number or null — floor area ratio (e.g., 1.5),
+    "setbacks": { "front": number or null, "side": number or null, "rear": number or null } — required setbacks in feet
   },
-  "variance_required": boolean,
-  "overlay_districts": ["string"],
-  "jurisdiction": "string" or null
+  "variance_required": true/false — whether a variance or special exception is needed for the proposed use,
+  "overlay_districts": ["string"] — any overlay districts that apply (e.g., "Historic Overlay", "Airport Noise Zone"),
+  "jurisdiction": "string" or null — name of the zoning jurisdiction / municipality
 }`,
 
-  appraisal: `Extract from this Appraisal:
+  appraisal: `Extract ALL of the following fields from this Appraisal / Valuation Report.
+For dollar amounts, extract as plain numbers. For cap rate, extract as decimal (e.g., 0.065 for 6.5%).
+
+Required JSON schema:
 {
-  "appraised_value": number or null,
-  "effective_date": "YYYY-MM-DD" or null,
-  "property_type": "string" or null,
-  "total_sf": number or null,
-  "total_acreage": number or null,
+  "appraised_value": number or null — final reconciled appraised value in dollars,
+  "effective_date": "YYYY-MM-DD" or null — effective date of the appraisal,
+  "property_type": "string" or null — property type classification (e.g., "Industrial", "Retail", "Office", "Multifamily", "Land"),
+  "total_sf": number or null — total building area in square feet,
+  "total_acreage": number or null — site/land area in acres,
   "approach_values": {
-    "sales_comparison": number or null,
-    "income": number or null,
-    "cost": number or null
+    "sales_comparison": number or null — value from sales comparison approach,
+    "income": number or null — value from income capitalization approach,
+    "cost": number or null — value from cost approach
   },
-  "cap_rate": number or null,
-  "noi": number or null,
-  "highest_best_use": "string" or null,
-  "appraiser": "string" or null
+  "cap_rate": number or null — overall capitalization rate as decimal (0.065 = 6.5%),
+  "noi": number or null — net operating income used in income approach,
+  "highest_best_use": "string" or null — highest and best use conclusion,
+  "appraiser": "string" or null — name of appraiser or appraisal firm
 }`,
 
-  lease: `Extract from this Lease:
+  lease: `Extract ALL of the following fields from this Lease / Rent Roll / Lease Abstract.
+For dollar amounts, extract as plain numbers. lease_type must be one of: "NNN", "gross", or "modified_gross".
+
+Required JSON schema:
 {
-  "tenant_name": "string" or null,
-  "lease_type": "NNN" | "gross" | "modified_gross" | null,
-  "term_years": number or null,
-  "start_date": "YYYY-MM-DD" or null,
-  "expiration_date": "YYYY-MM-DD" or null,
-  "base_rent": number or null,
-  "rent_per_sf": number or null,
-  "escalation_structure": "string" or null,
-  "renewal_options": ["string"],
-  "tenant_improvements": "string" or null,
-  "expense_stops": "string" or null,
-  "security_deposit": number or null
+  "tenant_name": "string" or null — full legal name of the tenant,
+  "lease_type": "NNN" or "gross" or "modified_gross" or null — lease structure type,
+  "term_years": number or null — lease term in years (e.g., 5, 10.5),
+  "start_date": "YYYY-MM-DD" or null — lease commencement date,
+  "expiration_date": "YYYY-MM-DD" or null — lease expiration date,
+  "base_rent": number or null — annual base rent in dollars,
+  "rent_per_sf": number or null — rent per square foot per year,
+  "escalation_structure": "string" or null — describe rent escalation (e.g., "3% annual increase", "CPI-based", "Fixed bumps: $12/SF yr1, $12.50/SF yr2"),
+  "renewal_options": ["string"] — each renewal option as a string (e.g., "Two 5-year options at fair market value"),
+  "tenant_improvements": "string" or null — TI allowance or description (e.g., "$25/SF tenant improvement allowance"),
+  "expense_stops": "string" or null — expense stop / base year provisions,
+  "security_deposit": number or null — security deposit amount in dollars
 }`,
 
-  loi: `Extract from this Letter of Intent:
+  loi: `Extract ALL of the following fields from this Letter of Intent (LOI).
+For dollar amounts, extract as plain numbers.
+
+Required JSON schema:
 {
-  "purchase_price": number or null,
-  "earnest_money": number or null,
-  "due_diligence_days": number or null,
-  "closing_timeline": "string" or null,
-  "contingencies": ["string"],
-  "buyer_entity": "string" or null,
-  "seller_entity": "string" or null,
-  "expiration_date": "YYYY-MM-DD" or null,
-  "financing_terms": "string" or null
+  "purchase_price": number or null — proposed purchase price,
+  "earnest_money": number or null — proposed earnest money / deposit,
+  "due_diligence_days": number or null — proposed due diligence period in calendar days,
+  "closing_timeline": "string" or null — proposed closing timeline (e.g., "45 days from execution", "March 15, 2026"),
+  "contingencies": ["string"] — list of contingencies or conditions precedent,
+  "buyer_entity": "string" or null — buyer entity name,
+  "seller_entity": "string" or null — seller / property owner entity name,
+  "expiration_date": "YYYY-MM-DD" or null — LOI expiration date,
+  "financing_terms": "string" or null — proposed financing terms (e.g., "Cash at closing", "70% LTV conventional")
 }`,
 
-  other: `Extract any structured information you can identify:
+  other: `Extract any structured information you can identify from this document:
 {
-  "document_title": "string" or null,
-  "document_date": "YYYY-MM-DD" or null,
-  "key_parties": ["string"],
-  "key_figures": [{ "label": "string", "value": "string" }],
-  "summary": "string" or null
+  "document_title": "string" or null — the document's title or heading,
+  "document_date": "YYYY-MM-DD" or null — the date of the document,
+  "key_parties": ["string"] — names of key parties mentioned,
+  "key_figures": [{ "label": "string", "value": "string" }] — important numerical or factual data points,
+  "summary": "string" or null — 2-3 sentence summary of the document's content and purpose
 }`,
 };
 
@@ -348,9 +366,24 @@ ${EXTRACTION_PROMPTS[docType]}`,
         : 0.5;
 
     // Remove the meta field from the extracted data
-    const { extraction_confidence: _, ...data } = parsed;
+    const { extraction_confidence: _, ...rawData } = parsed;
 
-    return { data, confidence: Math.min(confidence, 0.98) };
+    // Validate against Zod schema — use safeParse to be lenient
+    const schema = EXTRACTION_SCHEMAS[docType];
+    if (schema) {
+      const result = schema.safeParse(rawData);
+      if (result.success) {
+        return { data: result.data as Record<string, unknown>, confidence: Math.min(confidence, 0.98) };
+      }
+      // If validation fails, still return raw data but reduce confidence
+      console.warn(
+        `[doc-processing] Zod validation failed for ${docType}:`,
+        result.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join(", ")
+      );
+      return { data: rawData, confidence: Math.min(confidence * 0.7, 0.6) };
+    }
+
+    return { data: rawData, confidence: Math.min(confidence, 0.98) };
   } catch (err) {
     console.error("[doc-processing] LLM extraction failed:", err);
     return { data: {}, confidence: 0 };
@@ -492,55 +525,54 @@ export class DocumentProcessingService {
 
   /**
    * Auto-fill deal/parcel fields from high-confidence extractions.
+   * Only fills fields that are currently empty — never overwrites user data.
    */
-  private async autoFillDealFields(
+  async autoFillDealFields(
     dealId: string,
     docType: DocType,
     data: Record<string, unknown>
   ): Promise<void> {
     try {
-      // For certain doc types, update parcel fields
-      if (docType === "survey" && data.flood_zone) {
-        const parcels = await prisma.parcel.findMany({
-          where: { dealId },
-          select: { id: true, floodZone: true },
-        });
+      const parcels = await prisma.parcel.findMany({
+        where: { dealId },
+        select: { id: true, floodZone: true, acreage: true, currentZoning: true, envNotes: true, soilsNotes: true },
+      });
+
+      // Survey → flood zone, acreage
+      if (docType === "survey") {
         for (const parcel of parcels) {
-          if (!parcel.floodZone) {
-            await prisma.parcel.update({
-              where: { id: parcel.id },
-              data: { floodZone: String(data.flood_zone) },
-            });
+          const updates: Record<string, unknown> = {};
+          if (!parcel.floodZone && data.flood_zone) updates.floodZone = String(data.flood_zone);
+          if (!parcel.acreage && data.total_acreage) updates.acreage = Number(data.total_acreage);
+          if (Object.keys(updates).length > 0) {
+            await prisma.parcel.update({ where: { id: parcel.id }, data: updates });
           }
         }
       }
 
-      if (docType === "survey" && data.total_acreage) {
-        const parcels = await prisma.parcel.findMany({
-          where: { dealId },
-          select: { id: true, acreage: true },
-        });
-        for (const parcel of parcels) {
-          if (!parcel.acreage) {
-            await prisma.parcel.update({
-              where: { id: parcel.id },
-              data: { acreage: Number(data.total_acreage) },
-            });
-          }
-        }
-      }
-
+      // Zoning letter → current zoning
       if (docType === "zoning_letter" && data.current_zoning) {
-        const parcels = await prisma.parcel.findMany({
-          where: { dealId },
-          select: { id: true, currentZoning: true },
-        });
         for (const parcel of parcels) {
           if (!parcel.currentZoning) {
             await prisma.parcel.update({
               where: { id: parcel.id },
               data: { currentZoning: String(data.current_zoning) },
             });
+          }
+        }
+      }
+
+      // Phase I ESA → env notes
+      if (docType === "phase_i_esa") {
+        const recs = data.recs as string[] | undefined;
+        if (recs && recs.length > 0) {
+          for (const parcel of parcels) {
+            if (!parcel.envNotes) {
+              await prisma.parcel.update({
+                where: { id: parcel.id },
+                data: { envNotes: `RECs: ${recs.join("; ")}` },
+              });
+            }
           }
         }
       }
@@ -653,10 +685,19 @@ export class DocumentProcessingService {
       updateData.docType = updates.docType;
     }
 
-    return prisma.documentExtraction.update({
+    const updated = await prisma.documentExtraction.update({
       where: { id: extractionId },
       data: updateData,
     });
+
+    // Auto-fill deal fields with the confirmed extraction data
+    const finalData = (updates?.extractedData ?? extraction.extractedData) as Record<string, unknown>;
+    const finalDocType = (updates?.docType ?? extraction.docType) as DocType;
+    if (Object.keys(finalData).length > 0) {
+      await this.autoFillDealFields(extraction.dealId, finalDocType, finalData);
+    }
+
+    return updated;
   }
 
   /**
