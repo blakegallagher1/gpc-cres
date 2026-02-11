@@ -1,15 +1,15 @@
 {
-  "generated_at": "2026-02-11T23:23:12.628Z",
+  "generated_at": "2026-02-11T23:28:48.034Z",
   "phase": "phase1",
   "source_matrix": "docs/testing/test-matrix-starter.json",
   "test_root": "packages/openai/test/phase1",
   "totals": {
     "expected_tests": 198,
-    "implemented_tests": 153,
-    "todo_tests": 45,
+    "implemented_tests": 162,
+    "todo_tests": 36,
     "missing_tests": 0,
     "extra_tests": 0,
-    "completion_percent": 77.27
+    "completion_percent": 81.82
   },
   "missing": [],
   "todo": [
@@ -228,60 +228,6 @@
       "pack": "contract",
       "status": "todo",
       "file": "packages/openai/test/phase1/agents/tax.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:analyze_portfolio",
-      "pack": "schema",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/analyze_portfolio.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:analyze_portfolio",
-      "pack": "security",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/analyze_portfolio.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:analyze_portfolio",
-      "pack": "idempotency",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/analyze_portfolio.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:create_milestone_schedule",
-      "pack": "schema",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/create_milestone_schedule.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:create_milestone_schedule",
-      "pack": "security",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/create_milestone_schedule.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:create_milestone_schedule",
-      "pack": "idempotency",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/create_milestone_schedule.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:estimate_project_timeline",
-      "pack": "schema",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/estimate_project_timeline.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:estimate_project_timeline",
-      "pack": "security",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/estimate_project_timeline.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:estimate_project_timeline",
-      "pack": "idempotency",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/estimate_project_timeline.phase1.test.ts"
     }
   ],
   "implemented": [
@@ -340,6 +286,24 @@
       "file": "packages/openai/test/phase1/tools/addParcelToDeal.phase1.test.ts"
     },
     {
+      "matrix_id": "tool:analyze_portfolio",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/analyze_portfolio.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:analyze_portfolio",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/analyze_portfolio.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:analyze_portfolio",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/analyze_portfolio.phase1.test.ts"
+    },
+    {
       "matrix_id": "tool:assess_uncertainty",
       "pack": "schema",
       "status": "implemented",
@@ -520,6 +484,24 @@
       "file": "packages/openai/test/phase1/tools/compareEvidenceHash.phase1.test.ts"
     },
     {
+      "matrix_id": "tool:create_milestone_schedule",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/create_milestone_schedule.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:create_milestone_schedule",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/create_milestone_schedule.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:create_milestone_schedule",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/create_milestone_schedule.phase1.test.ts"
+    },
+    {
       "matrix_id": "tool:createDeal",
       "pack": "schema",
       "status": "implemented",
@@ -572,6 +554,24 @@
       "pack": "idempotency",
       "status": "implemented",
       "file": "packages/openai/test/phase1/tools/estimate_construction_cost.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:estimate_project_timeline",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/estimate_project_timeline.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:estimate_project_timeline",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/estimate_project_timeline.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:estimate_project_timeline",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/estimate_project_timeline.phase1.test.ts"
     },
     {
       "matrix_id": "tool:evidenceSnapshot",
