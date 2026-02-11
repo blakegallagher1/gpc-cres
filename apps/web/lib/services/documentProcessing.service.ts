@@ -85,9 +85,8 @@ function classifyByFilename(filename: string): { docType: DocType; confidence: n
 
 async function extractTextFromPdf(buffer: Buffer): Promise<string> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const mod: any = await import("pdf-parse");
-    const pdfParse = mod.default ?? mod;
+    const mod = await import("pdf-parse") as Record<string, unknown>;
+    const pdfParse = (mod.default ?? mod) as (buf: Buffer) => Promise<{ text: string }>;
     const result = await pdfParse(buffer);
     const text = String(result.text ?? "").trim();
     return text;
