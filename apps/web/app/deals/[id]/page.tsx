@@ -490,7 +490,7 @@ export default function DealDetailPage() {
           {/* Parcels Tab */}
           <TabsContent value="parcels">
             <div className="space-y-4">
-              <DealParcelMap parcels={deal.parcels} dealName={deal.name} />
+              <DealParcelMap parcels={deal.parcels} dealName={deal.name} dealStatus={deal.status} />
 
               <Card>
                 <CardHeader>

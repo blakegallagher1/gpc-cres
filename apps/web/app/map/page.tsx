@@ -24,6 +24,10 @@ interface ApiParcel {
   address: string;
   lat: string | number | null;
   lng: string | number | null;
+  acreage?: string | number | null;
+  floodZone?: string | null;
+  currentZoning?: string | null;
+  propertyDbId?: string | null;
   deal?: { id: string; name: string; sku: string; status: string } | null;
 }
 
@@ -47,6 +51,11 @@ export default function MapPage() {
             lng: Number(p.lng),
             dealId: p.deal?.id,
             dealName: p.deal?.name,
+            dealStatus: p.deal?.status,
+            floodZone: p.floodZone ?? null,
+            currentZoning: p.currentZoning ?? null,
+            propertyDbId: p.propertyDbId ?? null,
+            acreage: p.acreage != null ? Number(p.acreage) : null,
           }));
         setParcels(mapped);
       } catch {

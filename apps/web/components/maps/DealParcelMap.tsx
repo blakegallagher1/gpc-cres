@@ -16,9 +16,10 @@ const ParcelMap = dynamic(() => import("./ParcelMap").then((m) => m.ParcelMap), 
 interface DealParcelMapProps {
   parcels: ParcelItem[];
   dealName?: string;
+  dealStatus?: string;
 }
 
-export function DealParcelMap({ parcels, dealName }: DealParcelMapProps) {
+export function DealParcelMap({ parcels, dealName, dealStatus }: DealParcelMapProps) {
   const mappable: MapParcel[] = parcels
     .filter((p) => p.lat != null && p.lng != null)
     .map((p) => ({
@@ -27,6 +28,11 @@ export function DealParcelMap({ parcels, dealName }: DealParcelMapProps) {
       lat: Number(p.lat),
       lng: Number(p.lng),
       dealName,
+      dealStatus,
+      floodZone: p.floodZone ?? null,
+      currentZoning: p.currentZoning ?? null,
+      propertyDbId: p.propertyDbId ?? null,
+      acreage: p.acreage != null ? Number(p.acreage) : null,
     }));
 
   if (mappable.length === 0) {
