@@ -54,6 +54,8 @@ export {
 
 export { analyze_portfolio } from "./portfolioTools.js";
 
+export { query_market_data } from "./marketTools.js";
+
 // --- Agent-specific tool collections ---
 import { getDealContext, createDeal, updateDealStatus, listDeals, addParcelToDeal, updateParcel } from "./dealTools.js";
 import { createTask, updateTask, listTasks } from "./taskTools.js";
@@ -88,6 +90,7 @@ import {
   calculate_market_metrics,
 } from "./calculationTools.js";
 import { analyze_portfolio } from "./portfolioTools.js";
+import { query_market_data } from "./marketTools.js";
 
 /** Web search tool for Responses API pass-through. */
 export const webSearchPreviewTool = {
@@ -129,6 +132,7 @@ export const researchTools = [
   screenFull,
   screenTraffic,
   webSearchPreviewTool,
+  query_market_data,
 ];
 
 /** Tools available to the Risk agent. */
@@ -231,6 +235,7 @@ export const marketIntelTools = [
   webSearchPreviewTool,
   search_comparable_sales,
   calculate_market_metrics,
+  query_market_data,
 ];
 
 /** Tools available to the Design agent. (#11 Dead Agent Revival) */

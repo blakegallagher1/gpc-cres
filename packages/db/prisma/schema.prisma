@@ -677,6 +677,23 @@ model ApprovalRequest {
   @@map("approval_requests")
 }
 
+model MarketDataPoint {
+  id         String   @id @default(uuid()) @db.Uuid
+  parish     String   @db.Text
+  dataType   String   @map("data_type") @db.Text // comp_sale|listing|permit|vacancy|rent
+  source     String   @db.Text
+  data       Json     @default("{}") @db.JsonB
+  observedAt DateTime @map("observed_at") @db.Timestamptz(6)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([parish])
+  @@index([dataType])
+  @@index([observedAt(sort: Desc)])
+  @@index([parish, dataType])
+  @@map("market_data_points")
+}
+
 model AutomationEvent {
   id          String    @id @default(uuid()) @db.Uuid
   dealId      String?   @map("deal_id") @db.Uuid
