@@ -12,10 +12,13 @@ import {
   ChevronUp,
   ChevronDown,
   Loader2,
+  DollarSign,
+  BarChart3,
 } from "lucide-react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -27,12 +30,20 @@ import {
 import { MetricCard } from "@/components/portfolio/MetricCard";
 import { PipelineFunnel } from "@/components/portfolio/PipelineFunnel";
 import { SkuDonut, JurisdictionBar } from "@/components/portfolio/DealVelocityChart";
+import { ConcentrationCharts } from "@/components/portfolio/ConcentrationCharts";
+import { CapitalAllocationWidget } from "@/components/portfolio/CapitalAllocationWidget";
+import { Exchange1031Matcher } from "@/components/portfolio/Exchange1031Matcher";
+import { StressTestPanel } from "@/components/portfolio/StressTestPanel";
 import {
   type PortfolioDeal,
   SKU_CONFIG,
   PIPELINE_STAGES,
   type SkuType,
 } from "@/lib/data/portfolioConstants";
+import type {
+  PortfolioSummary,
+  ConcentrationAnalysis,
+} from "@/lib/services/portfolioAnalytics.service";
 import { formatCurrency, timeAgo } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
@@ -68,6 +79,16 @@ export default function PortfolioPage() {
       byJurisdiction: Record<string, number>;
     };
   }>("/api/portfolio", fetcher);
+
+  // Enhanced analytics
+  const { data: analytics } = useSWR<PortfolioSummary>(
+    "/api/portfolio/analytics",
+    fetcher
+  );
+  const { data: concentration } = useSWR<ConcentrationAnalysis>(
+    "/api/portfolio/concentration",
+    fetcher
+  );
 
   const [sortField, setSortField] = useState<SortField>("lastActivity");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -208,14 +229,50 @@ export default function PortfolioPage() {
           icon={Map}
         />
         <MetricCard
-          label="Deal Pipeline"
-          value={`${deals.length} total`}
+          label="Wtd Avg IRR"
+          value={
+            analytics?.weightedAvgIRR != null
+              ? `${analytics.weightedAvgIRR.toFixed(1)}%`
+              : "--"
+          }
           icon={TrendingUp}
         />
         <MetricCard
+          label="Wtd Avg Cap Rate"
+          value={
+            analytics?.weightedAvgCapRate != null
+              ? `${analytics.weightedAvgCapRate.toFixed(1)}%`
+              : "--"
+          }
+          icon={DollarSign}
+        />
+      </div>
+
+      {/* Enhanced metrics row */}
+      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard
+          label="Total Equity Deployed"
+          value={
+            analytics?.totalEquityDeployed
+              ? formatCurrency(analytics.totalEquityDeployed)
+              : "--"
+          }
+          icon={DollarSign}
+        />
+        <MetricCard
           label="Avg Triage Score"
-          value={metrics?.avgTriageScore ? String(metrics.avgTriageScore) : "--"}
+          value={analytics?.avgTriageScore ? String(analytics.avgTriageScore) : "--"}
           icon={Target}
+        />
+        <MetricCard
+          label="Deal Pipeline"
+          value={`${deals.length} total`}
+          icon={BarChart3}
+        />
+        <MetricCard
+          label="Active Pipeline"
+          value={`${activeDeals.length} deals`}
+          icon={LayoutGrid}
         />
       </div>
 
@@ -227,6 +284,38 @@ export default function PortfolioPage() {
           <JurisdictionBar deals={deals} />
         </div>
       </div>
+
+      {/* Analytics Tabs */}
+      <Tabs defaultValue="concentration" className="mt-6">
+        <TabsList>
+          <TabsTrigger value="concentration">Concentration Risk</TabsTrigger>
+          <TabsTrigger value="allocation">Capital Allocation</TabsTrigger>
+          <TabsTrigger value="1031">1031 Exchange</TabsTrigger>
+          <TabsTrigger value="stress">Stress Test</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="concentration" className="mt-4">
+          {concentration ? (
+            <ConcentrationCharts data={concentration} />
+          ) : (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="allocation" className="mt-4">
+          <CapitalAllocationWidget />
+        </TabsContent>
+
+        <TabsContent value="1031" className="mt-4">
+          <Exchange1031Matcher deals={deals} />
+        </TabsContent>
+
+        <TabsContent value="stress" className="mt-4">
+          <StressTestPanel />
+        </TabsContent>
+      </Tabs>
 
       {/* Active Deals Table */}
       <Card className="mt-6">

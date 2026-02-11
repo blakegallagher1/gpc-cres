@@ -52,6 +52,8 @@ export {
   calculate_market_metrics,
 } from "./calculationTools.js";
 
+export { analyze_portfolio } from "./portfolioTools.js";
+
 // --- Agent-specific tool collections ---
 import { getDealContext, createDeal, updateDealStatus, listDeals, addParcelToDeal, updateParcel } from "./dealTools.js";
 import { createTask, updateTask, listTasks } from "./taskTools.js";
@@ -85,6 +87,7 @@ import {
   search_comparable_sales,
   calculate_market_metrics,
 } from "./calculationTools.js";
+import { analyze_portfolio } from "./portfolioTools.js";
 
 /** Web search tool for Responses API pass-through. */
 export const webSearchPreviewTool = {
@@ -153,6 +156,7 @@ export const financeTools = [
   calculate_debt_sizing,
   calculate_development_budget,
   generate_artifact,
+  analyze_portfolio,
 ];
 
 /** Tools available to the Deal Screener agent. */
