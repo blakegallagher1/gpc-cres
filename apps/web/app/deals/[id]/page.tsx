@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { ArrowLeft, Loader2, Plus, MessageSquare, Trash2 } from "lucide-react";
+import { ArrowLeft, Loader2, Plus, MessageSquare, Calculator, Trash2 } from "lucide-react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -249,6 +249,12 @@ export default function DealDetailPage() {
                 setTriageSources(sources);
               }}
             />
+            <Button variant="outline" size="sm" className="gap-1.5" asChild>
+              <Link href={`/deals/${deal.id}/financial-model`}>
+                <Calculator className="h-4 w-4" />
+                Pro Forma
+              </Link>
+            </Button>
             <Button variant="outline" size="sm" className="gap-1.5" asChild>
               <Link href={`/chat?dealId=${deal.id}`}>
                 <MessageSquare className="h-4 w-4" />

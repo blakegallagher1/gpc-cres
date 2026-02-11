@@ -205,7 +205,8 @@ model Deal {
   createdBy       String      @map("created_by") @db.Uuid
   createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
-  source          String?     @db.Text
+  source                    String?  @db.Text
+  financialModelAssumptions Json?    @map("financial_model_assumptions") @db.JsonB
 
   org          Org          @relation(fields: [orgId], references: [id], onDelete: Cascade)
   jurisdiction Jurisdiction @relation(fields: [jurisdictionId], references: [id], onDelete: Restrict)
