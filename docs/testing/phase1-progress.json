@@ -1,15 +1,15 @@
 {
-  "generated_at": "2026-02-11T23:18:29.979Z",
+  "generated_at": "2026-02-11T23:23:12.628Z",
   "phase": "phase1",
   "source_matrix": "docs/testing/test-matrix-starter.json",
   "test_root": "packages/openai/test/phase1",
   "totals": {
     "expected_tests": 198,
-    "implemented_tests": 123,
-    "todo_tests": 75,
+    "implemented_tests": 153,
+    "todo_tests": 45,
     "missing_tests": 0,
     "extra_tests": 0,
-    "completion_percent": 62.12
+    "completion_percent": 77.27
   },
   "missing": [],
   "todo": [
@@ -230,24 +230,6 @@
       "file": "packages/openai/test/phase1/agents/tax.phase1.test.ts"
     },
     {
-      "matrix_id": "tool:addBuyer",
-      "pack": "schema",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/addBuyer.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:addBuyer",
-      "pack": "security",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/addBuyer.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:addBuyer",
-      "pack": "idempotency",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/addBuyer.phase1.test.ts"
-    },
-    {
       "matrix_id": "tool:analyze_portfolio",
       "pack": "schema",
       "status": "todo",
@@ -300,168 +282,6 @@
       "pack": "idempotency",
       "status": "todo",
       "file": "packages/openai/test/phase1/tools/estimate_project_timeline.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:listTasks",
-      "pack": "schema",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/listTasks.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:listTasks",
-      "pack": "security",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/listTasks.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:listTasks",
-      "pack": "idempotency",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/listTasks.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:logOutreach",
-      "pack": "schema",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/logOutreach.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:logOutreach",
-      "pack": "security",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/logOutreach.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:logOutreach",
-      "pack": "idempotency",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/logOutreach.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:screenEpa",
-      "pack": "schema",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/screenEpa.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:screenEpa",
-      "pack": "security",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/screenEpa.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:screenEpa",
-      "pack": "idempotency",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/screenEpa.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:screenFlood",
-      "pack": "schema",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/screenFlood.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:screenFlood",
-      "pack": "security",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/screenFlood.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:screenFlood",
-      "pack": "idempotency",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/screenFlood.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:screenLdeq",
-      "pack": "schema",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/screenLdeq.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:screenLdeq",
-      "pack": "security",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/screenLdeq.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:screenLdeq",
-      "pack": "idempotency",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/screenLdeq.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:screenSoils",
-      "pack": "schema",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/screenSoils.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:screenSoils",
-      "pack": "security",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/screenSoils.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:screenSoils",
-      "pack": "idempotency",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/screenSoils.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:screenTraffic",
-      "pack": "schema",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/screenTraffic.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:screenTraffic",
-      "pack": "security",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/screenTraffic.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:screenTraffic",
-      "pack": "idempotency",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/screenTraffic.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:screenWetlands",
-      "pack": "schema",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/screenWetlands.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:screenWetlands",
-      "pack": "security",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/screenWetlands.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:screenWetlands",
-      "pack": "idempotency",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/screenWetlands.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:searchBuyers",
-      "pack": "schema",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/searchBuyers.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:searchBuyers",
-      "pack": "security",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/searchBuyers.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:searchBuyers",
-      "pack": "idempotency",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/searchBuyers.phase1.test.ts"
     }
   ],
   "implemented": [
@@ -484,6 +304,24 @@
       "file": "packages/openai/test/phase1/agents/coordinator.phase1.test.ts"
     },
     {
+      "matrix_id": "tool:addBuyer",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/addBuyer.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:addBuyer",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/addBuyer.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:addBuyer",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/addBuyer.phase1.test.ts"
+    },
+    {
       "matrix_id": "tool:addParcelToDeal",
       "pack": "schema",
       "status": "implemented",
@@ -898,6 +736,24 @@
       "file": "packages/openai/test/phase1/tools/listDeals.phase1.test.ts"
     },
     {
+      "matrix_id": "tool:listTasks",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/listTasks.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:listTasks",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/listTasks.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:listTasks",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/listTasks.phase1.test.ts"
+    },
+    {
       "matrix_id": "tool:log_reasoning_trace",
       "pack": "schema",
       "status": "implemented",
@@ -914,6 +770,24 @@
       "pack": "idempotency",
       "status": "implemented",
       "file": "packages/openai/test/phase1/tools/log_reasoning_trace.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:logOutreach",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/logOutreach.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:logOutreach",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/logOutreach.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:logOutreach",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/logOutreach.phase1.test.ts"
     },
     {
       "matrix_id": "tool:parcelTriageScore",
@@ -1006,6 +880,42 @@
       "file": "packages/openai/test/phase1/tools/request_reanalysis.phase1.test.ts"
     },
     {
+      "matrix_id": "tool:screenEpa",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/screenEpa.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:screenEpa",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/screenEpa.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:screenEpa",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/screenEpa.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:screenFlood",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/screenFlood.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:screenFlood",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/screenFlood.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:screenFlood",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/screenFlood.phase1.test.ts"
+    },
+    {
       "matrix_id": "tool:screenFull",
       "pack": "schema",
       "status": "implemented",
@@ -1022,6 +932,78 @@
       "pack": "idempotency",
       "status": "implemented",
       "file": "packages/openai/test/phase1/tools/screenFull.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:screenLdeq",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/screenLdeq.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:screenLdeq",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/screenLdeq.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:screenLdeq",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/screenLdeq.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:screenSoils",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/screenSoils.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:screenSoils",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/screenSoils.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:screenSoils",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/screenSoils.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:screenTraffic",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/screenTraffic.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:screenTraffic",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/screenTraffic.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:screenTraffic",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/screenTraffic.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:screenWetlands",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/screenWetlands.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:screenWetlands",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/screenWetlands.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:screenWetlands",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/screenWetlands.phase1.test.ts"
     },
     {
       "matrix_id": "tool:search_comparable_sales",
@@ -1058,6 +1040,24 @@
       "pack": "idempotency",
       "status": "implemented",
       "file": "packages/openai/test/phase1/tools/search_knowledge_base.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:searchBuyers",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/searchBuyers.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:searchBuyers",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/searchBuyers.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:searchBuyers",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/searchBuyers.phase1.test.ts"
     },
     {
       "matrix_id": "tool:searchParcels",
