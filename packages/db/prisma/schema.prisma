@@ -225,9 +225,10 @@ model Deal {
   uploads              Upload[]
   documentExtractions  DocumentExtraction[]
   conversations        Conversation[]
-  entityDeals   EntityDeal[]
-  taxEvents     TaxEvent[]
-  notifications Notification[]
+  entityDeals      EntityDeal[]
+  taxEvents        TaxEvent[]
+  notifications    Notification[]
+  approvalRequests ApprovalRequest[]
 
   @@index([orgId])
   @@index([jurisdictionId])
@@ -652,6 +653,28 @@ model SavedSearch {
   @@index([userId])
   @@index([alertEnabled])
   @@map("saved_searches")
+}
+
+model ApprovalRequest {
+  id             String    @id @default(uuid()) @db.Uuid
+  dealId         String    @map("deal_id") @db.Uuid
+  requestedBy    String    @map("requested_by") @db.Uuid
+  stageFrom      String    @map("stage_from") @db.Text
+  stageTo        String    @map("stage_to") @db.Text
+  status         String    @default("pending") @db.Text // pending|approved|rejected|changes_requested
+  reviewerNotes  String?   @map("reviewer_notes") @db.Text
+  decidedBy      String?   @map("decided_by") @db.Uuid
+  decidedAt      DateTime? @map("decided_at") @db.Timestamptz(6)
+  supportingData Json      @default("{}") @map("supporting_data") @db.JsonB
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([dealId])
+  @@index([status])
+  @@index([requestedBy])
+  @@map("approval_requests")
 }
 
 model AutomationEvent {
