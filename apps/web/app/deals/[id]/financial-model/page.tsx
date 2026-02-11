@@ -6,9 +6,13 @@ import Link from "next/link";
 import { ArrowLeft, Loader2, Save, Check } from "lucide-react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { AssumptionsPanel } from "@/components/financial/AssumptionsPanel";
 import { ResultsDashboard } from "@/components/financial/ResultsDashboard";
-import { useFinancialModelStore, DEFAULT_ASSUMPTIONS } from "@/stores/financialModelStore";
+import { SensitivityTable } from "@/components/financial/SensitivityTable";
+import { TornadoChart } from "@/components/financial/TornadoChart";
+import { ScenarioManager } from "@/components/financial/ScenarioManager";
+import { useFinancialModelStore, DEFAULT_ASSUMPTIONS, type FinancialModelAssumptions } from "@/stores/financialModelStore";
 import { useProFormaCalculations } from "@/hooks/useProFormaCalculations";
 import { toast } from "sonner";
 
@@ -105,6 +109,22 @@ export default function FinancialModelPage() {
     };
   }, [dirty, loaded, handleSave]);
 
+  // Load a scenario into the assumptions panel
+  const handleLoadScenario = useCallback(
+    (scenarioAssumptions: FinancialModelAssumptions) => {
+      setAssumptions({
+        ...DEFAULT_ASSUMPTIONS,
+        ...scenarioAssumptions,
+        acquisition: { ...DEFAULT_ASSUMPTIONS.acquisition, ...scenarioAssumptions.acquisition },
+        income: { ...DEFAULT_ASSUMPTIONS.income, ...scenarioAssumptions.income },
+        expenses: { ...DEFAULT_ASSUMPTIONS.expenses, ...scenarioAssumptions.expenses },
+        financing: { ...DEFAULT_ASSUMPTIONS.financing, ...scenarioAssumptions.financing },
+        exit: { ...DEFAULT_ASSUMPTIONS.exit, ...scenarioAssumptions.exit },
+      });
+    },
+    [setAssumptions]
+  );
+
   if (!loaded) {
     return (
       <DashboardShell>
@@ -131,7 +151,7 @@ export default function FinancialModelPage() {
                 Pro Forma{dealNameRef.current ? ` — ${dealNameRef.current}` : ""}
               </h1>
               <p className="text-xs text-muted-foreground">
-                Interactive financial model with real-time calculations
+                Interactive financial model with sensitivity analysis and scenarios
               </p>
             </div>
           </div>
@@ -159,9 +179,34 @@ export default function FinancialModelPage() {
             <AssumptionsPanel />
           </div>
 
-          {/* Right: Results */}
+          {/* Right: Tabbed results */}
           <div className="flex-1 overflow-y-auto">
-            <ResultsDashboard results={results} />
+            <Tabs defaultValue="returns">
+              <TabsList className="mb-3">
+                <TabsTrigger value="returns">Returns</TabsTrigger>
+                <TabsTrigger value="sensitivity">Sensitivity</TabsTrigger>
+                <TabsTrigger value="scenarios">Scenarios</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="returns">
+                <ResultsDashboard results={results} />
+              </TabsContent>
+
+              <TabsContent value="sensitivity">
+                <div className="space-y-4">
+                  <SensitivityTable assumptions={assumptions} />
+                  <TornadoChart assumptions={assumptions} />
+                </div>
+              </TabsContent>
+
+              <TabsContent value="scenarios">
+                <ScenarioManager
+                  dealId={dealId}
+                  currentAssumptions={assumptions}
+                  onLoadScenario={handleLoadScenario}
+                />
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
       </div>
