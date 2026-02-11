@@ -58,9 +58,20 @@ export { analyze_portfolio } from "./portfolioTools.js";
 
 export { query_market_data } from "./marketTools.js";
 
-export { get_historical_accuracy } from "./outcomeTools.js";
+export { get_historical_accuracy, record_deal_outcome } from "./outcomeTools.js";
 
-export { search_knowledge_base } from "./knowledgeTools.js";
+export { search_knowledge_base, store_knowledge_entry } from "./knowledgeTools.js";
+
+export {
+  share_analysis_finding,
+  get_shared_context,
+} from "./contextTools.js";
+
+export {
+  log_reasoning_trace,
+  assess_uncertainty,
+  request_reanalysis,
+} from "./reasoningTools.js";
 
 // --- Agent-specific tool collections ---
 import { getDealContext, createDeal, updateDealStatus, listDeals, addParcelToDeal, updateParcel } from "./dealTools.js";
@@ -97,8 +108,17 @@ import {
 } from "./calculationTools.js";
 import { analyze_portfolio } from "./portfolioTools.js";
 import { query_market_data } from "./marketTools.js";
-import { get_historical_accuracy } from "./outcomeTools.js";
-import { search_knowledge_base } from "./knowledgeTools.js";
+import { get_historical_accuracy, record_deal_outcome } from "./outcomeTools.js";
+import { search_knowledge_base, store_knowledge_entry } from "./knowledgeTools.js";
+import {
+  share_analysis_finding,
+  get_shared_context,
+} from "./contextTools.js";
+import {
+  log_reasoning_trace,
+  assess_uncertainty,
+  request_reanalysis,
+} from "./reasoningTools.js";
 
 /** Web search tool for Responses API pass-through. */
 export const webSearchPreviewTool = {
@@ -119,6 +139,13 @@ export const coordinatorTools = [
   updateParcel,
   generate_artifact,
   search_knowledge_base,
+  store_knowledge_entry,
+  get_shared_context,
+  share_analysis_finding,
+  assess_uncertainty,
+  request_reanalysis,
+  record_deal_outcome,
+  log_reasoning_trace,
 ];
 
 /** Tools available to the Legal / Entitlements agent. */
@@ -130,6 +157,10 @@ export const legalTools = [
   getParcelDetails,
   generate_artifact,
   search_knowledge_base,
+  store_knowledge_entry,
+  share_analysis_finding,
+  get_shared_context,
+  log_reasoning_trace,
 ];
 
 /** Tools available to the Research agent. */
@@ -144,6 +175,10 @@ export const researchTools = [
   webSearchPreviewTool,
   query_market_data,
   search_knowledge_base,
+  store_knowledge_entry,
+  share_analysis_finding,
+  get_shared_context,
+  log_reasoning_trace,
 ];
 
 /** Tools available to the Risk agent. */
@@ -161,6 +196,11 @@ export const riskTools = [
   screenLdeq,
   screenFull,
   search_knowledge_base,
+  store_knowledge_entry,
+  share_analysis_finding,
+  get_shared_context,
+  assess_uncertainty,
+  log_reasoning_trace,
 ];
 
 /** Tools available to the Finance agent. */
@@ -174,7 +214,13 @@ export const financeTools = [
   generate_artifact,
   analyze_portfolio,
   get_historical_accuracy,
+  record_deal_outcome,
   search_knowledge_base,
+  store_knowledge_entry,
+  share_analysis_finding,
+  get_shared_context,
+  assess_uncertainty,
+  log_reasoning_trace,
 ];
 
 /** Tools available to the Deal Screener agent. */
@@ -193,6 +239,11 @@ export const screenerTools = [
   screenFull,
   webSearchPreviewTool,
   search_knowledge_base,
+  store_knowledge_entry,
+  share_analysis_finding,
+  get_shared_context,
+  assess_uncertainty,
+  log_reasoning_trace,
 ];
 
 /** Tools available to the Marketing / Dispositions agent. */
@@ -203,6 +254,10 @@ export const marketingTools = [
   getDealContext,
   generate_artifact,
   search_knowledge_base,
+  store_knowledge_entry,
+  share_analysis_finding,
+  get_shared_context,
+  log_reasoning_trace,
 ];
 
 /** Tools available to the Due Diligence agent. */
@@ -222,6 +277,10 @@ export const dueDiligenceTools = [
   screenLdeq,
   screenFull,
   search_knowledge_base,
+  store_knowledge_entry,
+  share_analysis_finding,
+  get_shared_context,
+  log_reasoning_trace,
 ];
 
 /** Tools available to the Entitlements agent. */
@@ -233,6 +292,10 @@ export const entitlementsTools = [
   getParcelDetails,
   screenFlood,
   search_knowledge_base,
+  store_knowledge_entry,
+  share_analysis_finding,
+  get_shared_context,
+  log_reasoning_trace,
 ];
 
 /** Tools available to the Operations agent. */
@@ -244,6 +307,10 @@ export const operationsTools = [
   create_milestone_schedule,
   estimate_project_timeline,
   search_knowledge_base,
+  store_knowledge_entry,
+  share_analysis_finding,
+  get_shared_context,
+  log_reasoning_trace,
 ];
 
 /** Tools available to the Market Intel agent. */
@@ -256,6 +323,10 @@ export const marketIntelTools = [
   calculate_market_metrics,
   query_market_data,
   search_knowledge_base,
+  store_knowledge_entry,
+  share_analysis_finding,
+  get_shared_context,
+  log_reasoning_trace,
 ];
 
 /** Tools available to the Design agent. (#11 Dead Agent Revival) */
@@ -269,6 +340,10 @@ export const designTools = [
   calculate_site_capacity,
   estimate_construction_cost,
   search_knowledge_base,
+  store_knowledge_entry,
+  share_analysis_finding,
+  get_shared_context,
+  log_reasoning_trace,
 ];
 
 /** Tools available to the Tax Strategist agent. (#11 Dead Agent Revival) */
@@ -281,4 +356,8 @@ export const taxTools = [
   calculate_cost_segregation_estimate,
   calculate_1031_deadlines,
   search_knowledge_base,
+  store_knowledge_entry,
+  share_analysis_finding,
+  get_shared_context,
+  log_reasoning_trace,
 ];
