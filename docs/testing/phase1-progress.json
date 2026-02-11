@@ -1,37 +1,19 @@
 {
-  "generated_at": "2026-02-11T22:49:21.698Z",
+  "generated_at": "2026-02-11T22:58:54.527Z",
   "phase": "phase1",
   "source_matrix": "docs/testing/test-matrix-starter.json",
   "test_root": "packages/openai/test/phase1",
   "totals": {
     "expected_tests": 198,
-    "implemented_tests": 0,
-    "todo_tests": 198,
+    "implemented_tests": 33,
+    "todo_tests": 165,
     "missing_tests": 0,
     "extra_tests": 0,
-    "completion_percent": 0
+    "completion_percent": 16.67
   },
   "missing": [],
   "todo": [
     {
-      "matrix_id": "agent:coordinator",
-      "pack": "handoff",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/agents/coordinator.phase1.test.ts"
-    },
-    {
-      "matrix_id": "agent:coordinator",
-      "pack": "uncertainty",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/agents/coordinator.phase1.test.ts"
-    },
-    {
-      "matrix_id": "agent:coordinator",
-      "pack": "contract",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/agents/coordinator.phase1.test.ts"
-    },
-    {
       "matrix_id": "agent:design",
       "pack": "handoff",
       "status": "todo",
@@ -266,24 +248,6 @@
       "file": "packages/openai/test/phase1/tools/addBuyer.phase1.test.ts"
     },
     {
-      "matrix_id": "tool:addParcelToDeal",
-      "pack": "schema",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/addParcelToDeal.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:addParcelToDeal",
-      "pack": "security",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/addParcelToDeal.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:addParcelToDeal",
-      "pack": "idempotency",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/addParcelToDeal.phase1.test.ts"
-    },
-    {
       "matrix_id": "tool:analyze_portfolio",
       "pack": "schema",
       "status": "todo",
@@ -464,24 +428,6 @@
       "file": "packages/openai/test/phase1/tools/calculate_site_capacity.phase1.test.ts"
     },
     {
-      "matrix_id": "tool:compareEvidenceHash",
-      "pack": "schema",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/compareEvidenceHash.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:compareEvidenceHash",
-      "pack": "security",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/compareEvidenceHash.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:compareEvidenceHash",
-      "pack": "idempotency",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/compareEvidenceHash.phase1.test.ts"
-    },
-    {
       "matrix_id": "tool:create_milestone_schedule",
       "pack": "schema",
       "status": "todo",
@@ -498,42 +444,6 @@
       "pack": "idempotency",
       "status": "todo",
       "file": "packages/openai/test/phase1/tools/create_milestone_schedule.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:createDeal",
-      "pack": "schema",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/createDeal.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:createDeal",
-      "pack": "security",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/createDeal.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:createDeal",
-      "pack": "idempotency",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/createDeal.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:createTask",
-      "pack": "schema",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/createTask.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:createTask",
-      "pack": "security",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/createTask.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:createTask",
-      "pack": "idempotency",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/createTask.phase1.test.ts"
     },
     {
       "matrix_id": "tool:estimate_construction_cost",
@@ -570,24 +480,6 @@
       "pack": "idempotency",
       "status": "todo",
       "file": "packages/openai/test/phase1/tools/estimate_project_timeline.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:evidenceSnapshot",
-      "pack": "schema",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/evidenceSnapshot.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:evidenceSnapshot",
-      "pack": "security",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/evidenceSnapshot.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:evidenceSnapshot",
-      "pack": "idempotency",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/evidenceSnapshot.phase1.test.ts"
     },
     {
       "matrix_id": "tool:floodZoneLookup",
@@ -662,24 +554,6 @@
       "file": "packages/openai/test/phase1/tools/get_shared_context.phase1.test.ts"
     },
     {
-      "matrix_id": "tool:getDealContext",
-      "pack": "schema",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/getDealContext.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:getDealContext",
-      "pack": "security",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/getDealContext.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:getDealContext",
-      "pack": "idempotency",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/getDealContext.phase1.test.ts"
-    },
-    {
       "matrix_id": "tool:getParcelDetails",
       "pack": "schema",
       "status": "todo",
@@ -714,24 +588,6 @@
       "pack": "idempotency",
       "status": "todo",
       "file": "packages/openai/test/phase1/tools/hardFilterCheck.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:listDeals",
-      "pack": "schema",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/listDeals.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:listDeals",
-      "pack": "security",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/listDeals.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:listDeals",
-      "pack": "idempotency",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/listDeals.phase1.test.ts"
     },
     {
       "matrix_id": "tool:listTasks",
@@ -1110,60 +966,6 @@
       "pack": "idempotency",
       "status": "todo",
       "file": "packages/openai/test/phase1/tools/store_knowledge_entry.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:updateDealStatus",
-      "pack": "schema",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/updateDealStatus.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:updateDealStatus",
-      "pack": "security",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/updateDealStatus.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:updateDealStatus",
-      "pack": "idempotency",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/updateDealStatus.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:updateParcel",
-      "pack": "schema",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/updateParcel.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:updateParcel",
-      "pack": "security",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/updateParcel.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:updateParcel",
-      "pack": "idempotency",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/updateParcel.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:updateTask",
-      "pack": "schema",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/updateTask.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:updateTask",
-      "pack": "security",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/updateTask.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:updateTask",
-      "pack": "idempotency",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/updateTask.phase1.test.ts"
     },
     {
       "matrix_id": "tool:webSearchPreviewTool",
@@ -1202,6 +1004,205 @@
       "file": "packages/openai/test/phase1/tools/zoningMatrixLookup.phase1.test.ts"
     }
   ],
-  "implemented": [],
+  "implemented": [
+    {
+      "matrix_id": "agent:coordinator",
+      "pack": "handoff",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/agents/coordinator.phase1.test.ts"
+    },
+    {
+      "matrix_id": "agent:coordinator",
+      "pack": "uncertainty",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/agents/coordinator.phase1.test.ts"
+    },
+    {
+      "matrix_id": "agent:coordinator",
+      "pack": "contract",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/agents/coordinator.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:addParcelToDeal",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/addParcelToDeal.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:addParcelToDeal",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/addParcelToDeal.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:addParcelToDeal",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/addParcelToDeal.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:compareEvidenceHash",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/compareEvidenceHash.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:compareEvidenceHash",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/compareEvidenceHash.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:compareEvidenceHash",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/compareEvidenceHash.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:createDeal",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/createDeal.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:createDeal",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/createDeal.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:createDeal",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/createDeal.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:createTask",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/createTask.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:createTask",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/createTask.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:createTask",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/createTask.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:evidenceSnapshot",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/evidenceSnapshot.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:evidenceSnapshot",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/evidenceSnapshot.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:evidenceSnapshot",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/evidenceSnapshot.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:getDealContext",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/getDealContext.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:getDealContext",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/getDealContext.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:getDealContext",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/getDealContext.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:listDeals",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/listDeals.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:listDeals",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/listDeals.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:listDeals",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/listDeals.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:updateDealStatus",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/updateDealStatus.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:updateDealStatus",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/updateDealStatus.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:updateDealStatus",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/updateDealStatus.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:updateParcel",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/updateParcel.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:updateParcel",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/updateParcel.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:updateParcel",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/updateParcel.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:updateTask",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/updateTask.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:updateTask",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/updateTask.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:updateTask",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/updateTask.phase1.test.ts"
+    }
+  ],
   "extra": []
 }
