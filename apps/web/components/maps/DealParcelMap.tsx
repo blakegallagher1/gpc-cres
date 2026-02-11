@@ -45,7 +45,7 @@ export function DealParcelMap({ parcels, dealName, dealStatus }: DealParcelMapPr
     );
   }
 
-  return <ParcelMap parcels={mappable} height="300px" />;
+  return <ParcelMap parcels={mappable} height="300px" showTools />;
 }
 
 export default DealParcelMap;

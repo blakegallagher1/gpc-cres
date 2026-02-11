@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useMemo } from "react";
+import { useEffect, useRef, useMemo, useState } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -22,6 +22,10 @@ import {
   getFloodColor,
   geoJsonToPositions,
 } from "./mapStyles";
+import { MeasureTool } from "./MeasureTool";
+import { CompSaleLayer } from "./CompSaleLayer";
+import { HeatmapLayer } from "./HeatmapLayer";
+import { IsochroneControl } from "./IsochroneControl";
 
 // Fix default marker icons for webpack/next.js
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
@@ -56,6 +60,8 @@ interface ParcelMapProps {
   height?: string;
   onParcelClick?: (id: string) => void;
   showLayers?: boolean;
+  /** Enable analytical tools (measure, comps, heatmap, isochrone) */
+  showTools?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -189,9 +195,23 @@ export function ParcelMap({
   height = "400px",
   onParcelClick,
   showLayers = true,
+  showTools = false,
 }: ParcelMapProps) {
   // Fetch GeoJSON polygon geometries for enriched parcels
   const { geometries } = useParcelGeometry(parcels);
+
+  // Analytical tool visibility state
+  const [showComps, setShowComps] = useState(false);
+  const [showHeatmap, setShowHeatmap] = useState(false);
+  const [showIsochrone, setShowIsochrone] = useState(false);
+
+  // Compute center from parcels for comp search
+  const parcelCenter = useMemo(() => {
+    if (parcels.length === 0) return null;
+    const avgLat = parcels.reduce((s, p) => s + p.lat, 0) / parcels.length;
+    const avgLng = parcels.reduce((s, p) => s + p.lng, 0) / parcels.length;
+    return { lat: avgLat, lng: avgLng };
+  }, [parcels]);
 
   // Read saved layer preferences (client-only, safe because component is "use client")
   const savedBase = useMemo(() => getSavedBaseLayer(), []);
@@ -418,6 +438,90 @@ export function ParcelMap({
           </LayerGroup>
         </LayersControl.Overlay>
       </LayersControl>
+
+      {/* ---- Analytical Tools ---- */}
+      {showTools && (
+        <>
+          <MeasureTool />
+          <AnalyticalToolbar
+            showComps={showComps}
+            setShowComps={setShowComps}
+            showHeatmap={showHeatmap}
+            setShowHeatmap={setShowHeatmap}
+            showIsochrone={showIsochrone}
+            setShowIsochrone={setShowIsochrone}
+          />
+          <CompSaleLayer
+            visible={showComps}
+            centerLat={parcelCenter?.lat}
+            centerLng={parcelCenter?.lng}
+          />
+          <HeatmapLayer parcels={parcels} visible={showHeatmap} />
+          <IsochroneControl parcels={parcels} visible={showIsochrone} />
+        </>
+      )}
     </MapContainer>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Analytical Toolbar (toggle buttons for tools)
+// ---------------------------------------------------------------------------
+
+function AnalyticalToolbar({
+  showComps,
+  setShowComps,
+  showHeatmap,
+  setShowHeatmap,
+  showIsochrone,
+  setShowIsochrone,
+}: {
+  showComps: boolean;
+  setShowComps: (v: boolean) => void;
+  showHeatmap: boolean;
+  setShowHeatmap: (v: boolean) => void;
+  showIsochrone: boolean;
+  setShowIsochrone: (v: boolean) => void;
+}) {
+  return (
+    <div className="leaflet-top leaflet-left" style={{ marginTop: 150 }}>
+      <div className="leaflet-control leaflet-bar flex flex-col">
+        <button
+          title="Comparable Sales"
+          onClick={() => setShowComps(!showComps)}
+          className={`flex h-8 w-8 items-center justify-center text-xs font-bold ${
+            showComps ? "bg-green-500 text-white" : "bg-white text-gray-700 hover:bg-gray-100"
+          }`}
+          style={{ borderBottom: "1px solid #ccc" }}
+        >
+          $
+        </button>
+        <button
+          title="Price Heatmap"
+          onClick={() => setShowHeatmap(!showHeatmap)}
+          className={`flex h-8 w-8 items-center justify-center ${
+            showHeatmap ? "bg-orange-500 text-white" : "bg-white text-gray-700 hover:bg-gray-100"
+          }`}
+          style={{ borderBottom: "1px solid #ccc" }}
+        >
+          <svg viewBox="0 0 16 16" className="h-4 w-4" fill="currentColor">
+            <circle cx="8" cy="8" r="6" opacity="0.6" />
+            <circle cx="8" cy="8" r="3" />
+          </svg>
+        </button>
+        <button
+          title="Drive Time Isochrone"
+          onClick={() => setShowIsochrone(!showIsochrone)}
+          className={`flex h-8 w-8 items-center justify-center ${
+            showIsochrone ? "bg-purple-500 text-white" : "bg-white text-gray-700 hover:bg-gray-100"
+          }`}
+        >
+          <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <circle cx="8" cy="8" r="6" />
+            <path d="M8 4v4l2.5 2.5" />
+          </svg>
+        </button>
+      </div>
+    </div>
   );
 }

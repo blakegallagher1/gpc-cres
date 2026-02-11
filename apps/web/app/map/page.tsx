@@ -80,6 +80,7 @@ export default function MapPage() {
           <ParcelMap
             parcels={parcels}
             height="calc(100vh - 14rem)"
+            showTools
             onParcelClick={(id) => {
               const parcel = parcels.find((p) => p.id === id);
               if (parcel?.dealId) router.push(`/deals/${parcel.dealId}`);
