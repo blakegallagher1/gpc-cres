@@ -12,6 +12,7 @@ import { ResultsDashboard } from "@/components/financial/ResultsDashboard";
 import { SensitivityTable } from "@/components/financial/SensitivityTable";
 import { TornadoChart } from "@/components/financial/TornadoChart";
 import { ScenarioManager } from "@/components/financial/ScenarioManager";
+import { WaterfallBuilder } from "@/components/financial/WaterfallBuilder";
 import { useFinancialModelStore, DEFAULT_ASSUMPTIONS, type FinancialModelAssumptions } from "@/stores/financialModelStore";
 import { useProFormaCalculations } from "@/hooks/useProFormaCalculations";
 import { toast } from "sonner";
@@ -185,6 +186,7 @@ export default function FinancialModelPage() {
               <TabsList className="mb-3">
                 <TabsTrigger value="returns">Returns</TabsTrigger>
                 <TabsTrigger value="sensitivity">Sensitivity</TabsTrigger>
+                <TabsTrigger value="waterfall">Waterfall</TabsTrigger>
                 <TabsTrigger value="scenarios">Scenarios</TabsTrigger>
               </TabsList>
 
@@ -197,6 +199,10 @@ export default function FinancialModelPage() {
                   <SensitivityTable assumptions={assumptions} />
                   <TornadoChart assumptions={assumptions} />
                 </div>
+              </TabsContent>
+
+              <TabsContent value="waterfall">
+                <WaterfallBuilder dealId={dealId} proForma={results} />
               </TabsContent>
 
               <TabsContent value="scenarios">

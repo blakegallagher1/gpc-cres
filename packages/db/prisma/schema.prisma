@@ -208,6 +208,7 @@ model Deal {
   source                    String?  @db.Text
   financialModelAssumptions Json?    @map("financial_model_assumptions") @db.JsonB
   financialModelScenarios   Json?    @map("financial_model_scenarios") @db.JsonB
+  waterfallStructures       Json?    @map("waterfall_structures") @db.JsonB
 
   org          Org          @relation(fields: [orgId], references: [id], onDelete: Cascade)
   jurisdiction Jurisdiction @relation(fields: [jurisdictionId], references: [id], onDelete: Restrict)
