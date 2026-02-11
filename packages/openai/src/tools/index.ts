@@ -56,6 +56,8 @@ export { analyze_portfolio } from "./portfolioTools.js";
 
 export { query_market_data } from "./marketTools.js";
 
+export { get_historical_accuracy } from "./outcomeTools.js";
+
 // --- Agent-specific tool collections ---
 import { getDealContext, createDeal, updateDealStatus, listDeals, addParcelToDeal, updateParcel } from "./dealTools.js";
 import { createTask, updateTask, listTasks } from "./taskTools.js";
@@ -91,6 +93,7 @@ import {
 } from "./calculationTools.js";
 import { analyze_portfolio } from "./portfolioTools.js";
 import { query_market_data } from "./marketTools.js";
+import { get_historical_accuracy } from "./outcomeTools.js";
 
 /** Web search tool for Responses API pass-through. */
 export const webSearchPreviewTool = {
@@ -161,6 +164,7 @@ export const financeTools = [
   calculate_development_budget,
   generate_artifact,
   analyze_portfolio,
+  get_historical_accuracy,
 ];
 
 /** Tools available to the Deal Screener agent. */

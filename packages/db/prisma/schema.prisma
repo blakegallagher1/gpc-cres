@@ -229,6 +229,8 @@ model Deal {
   taxEvents        TaxEvent[]
   notifications    Notification[]
   approvalRequests ApprovalRequest[]
+  outcome          DealOutcome?
+  assumptionActuals AssumptionActual[]
 
   @@index([orgId])
   @@index([jurisdictionId])
@@ -735,4 +737,46 @@ model OpportunityMatch {
   @@index([savedSearchId, seenAt])
   @@index([savedSearchId, dismissedAt])
   @@map("opportunity_matches")
+}
+
+model DealOutcome {
+  id                    String    @id @default(uuid()) @db.Uuid
+  dealId                String    @unique @map("deal_id") @db.Uuid
+  actualPurchasePrice   Decimal?  @map("actual_purchase_price") @db.Decimal(14, 2)
+  actualNoiYear1        Decimal?  @map("actual_noi_year1") @db.Decimal(14, 2)
+  actualExitPrice       Decimal?  @map("actual_exit_price") @db.Decimal(14, 2)
+  actualIrr             Decimal?  @map("actual_irr") @db.Decimal(8, 4)
+  actualEquityMultiple  Decimal?  @map("actual_equity_multiple") @db.Decimal(8, 4)
+  actualHoldPeriodMonths Int?     @map("actual_hold_period_months")
+  exitDate              DateTime? @map("exit_date") @db.Date
+  exitType              String?   @map("exit_type") @db.Text // sale|refinance|1031|other
+  killReason            String?   @map("kill_reason") @db.Text
+  killWasCorrect        Boolean?  @map("kill_was_correct")
+  notes                 String?   @db.Text
+  createdBy             String    @map("created_by") @db.Uuid
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([dealId])
+  @@map("deal_outcomes")
+}
+
+model AssumptionActual {
+  id              String    @id @default(uuid()) @db.Uuid
+  dealId          String    @map("deal_id") @db.Uuid
+  assumptionName  String    @map("assumption_name") @db.Text
+  projectedValue  Decimal   @map("projected_value") @db.Decimal(14, 4)
+  actualValue     Decimal?  @map("actual_value") @db.Decimal(14, 4)
+  variancePct     Decimal?  @map("variance_pct") @db.Decimal(8, 4)
+  recordedAt      DateTime  @default(now()) @map("recorded_at") @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([dealId])
+  @@index([assumptionName])
+  @@map("assumption_actuals")
 }

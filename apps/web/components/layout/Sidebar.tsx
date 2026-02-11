@@ -23,6 +23,7 @@ import {
   Crosshair,
   Activity,
   BarChart3,
+  Target,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/stores/uiStore";
@@ -67,6 +68,7 @@ const navGroups: NavGroup[] = [
       { id: "workflows", href: "/workflows", icon: GitBranch, label: "Workflows" },
       { id: "automation", href: "/automation", icon: Activity, label: "Automation" },
       { id: "market", href: "/market", icon: BarChart3, label: "Market Intel" },
+      { id: "outcomes", href: "/outcomes", icon: Target, label: "Outcomes" },
     ],
   },
   {
