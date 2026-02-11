@@ -1,8 +1,9 @@
 import { Agent } from '@openai/agents';
+import { AGENT_MODEL_IDS } from '@entitlement-os/shared';
 
 export const taxAgent = new Agent({
   name: 'Tax Strategist',
-  model: 'gpt-5.1',
+  model: AGENT_MODEL_IDS.tax,
   handoffDescription:
     'Provides IRC/IRS guidance for CRE transactions including 1031 exchanges, depreciation, cost segregation, and entity structuring',
   instructions: `You are the Tax Strategist Agent for Gallagher Property Company, specializing in IRC/IRS guidance for commercial real estate transactions and entity structuring.

@@ -71,11 +71,7 @@ export const specialistAgents = [
 export function createConfiguredCoordinator(): Agent {
   // Helper: clone an agent with extra tools
   const withTools = (agent: Agent, tools: readonly unknown[]): Agent =>
-    new Agent({
-      name: agent.name,
-      model: (agent as unknown as { model: string }).model ?? 'gpt-5.1',
-      instructions: agent.instructions as string,
-      handoffDescription: agent.handoffDescription,
+    agent.clone({
       tools: [...tools] as Agent['tools'],
       handoffs: [],
     });
@@ -96,11 +92,7 @@ export function createConfiguredCoordinator(): Agent {
     withTools(marketIntelAgent, marketIntelTools),
   ];
 
-  return new Agent({
-    name: coordinatorAgent.name,
-    model: 'gpt-5.2',
-    instructions: coordinatorAgent.instructions as string,
-    handoffDescription: coordinatorAgent.handoffDescription,
+  return coordinatorAgent.clone({
     tools: [...coordinatorTools] as Agent['tools'],
     handoffs: wiredSpecialists,
   });

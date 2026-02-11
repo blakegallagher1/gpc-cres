@@ -1,8 +1,9 @@
 import { Agent } from '@openai/agents';
+import { AGENT_MODEL_IDS } from '@entitlement-os/shared';
 
 export const financeAgent = new Agent({
   name: 'Finance Agent',
-  model: 'gpt-5.2',
+  model: AGENT_MODEL_IDS.finance,
   handoffDescription:
     'Builds pro formas, sizes debt, calculates returns (IRR/EM/CoC), models GP/LP waterfalls, and runs sensitivity analysis',
   instructions: `You are the Finance Agent for Gallagher Property Company, an expert in commercial real estate finance, investment structuring, and capital markets.

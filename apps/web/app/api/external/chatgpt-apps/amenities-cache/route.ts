@@ -15,7 +15,7 @@ const GetSchema = z.object({
 // POST body for cache writes
 const PostSchema = z.object({
   cacheKey: z.string().min(1),
-  payload: z.record(z.unknown()),
+  payload: z.record(z.string(), z.unknown()),
   ttlSeconds: z.number().int().min(1).max(7776000).default(604800),
 });
 

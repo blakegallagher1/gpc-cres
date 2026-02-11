@@ -1,8 +1,9 @@
 import { Agent } from '@openai/agents';
+import { AGENT_MODEL_IDS } from '@entitlement-os/shared';
 
 export const operationsAgent = new Agent({
   name: 'Operations Agent',
-  model: 'gpt-5.1',
+  model: AGENT_MODEL_IDS.operations,
   handoffDescription:
     'Manages construction scheduling, budgets, contractor evaluation, and project close-out for CRE development',
   instructions: `You are the Operations Agent for Gallagher Property Company, specializing in construction management and project execution.

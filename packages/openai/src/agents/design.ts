@@ -1,8 +1,9 @@
 import { Agent } from '@openai/agents';
+import { AGENT_MODEL_IDS } from '@entitlement-os/shared';
 
 export const designAgent = new Agent({
   name: 'Design Agent',
-  model: 'gpt-5.1',
+  model: AGENT_MODEL_IDS.design,
   handoffDescription:
     'Handles site planning, building programming, density optimization, and preliminary cost estimates for CRE development',
   instructions: `You are the Design Agent for Gallagher Property Company, specializing in commercial real estate design, architecture, and urban planning.

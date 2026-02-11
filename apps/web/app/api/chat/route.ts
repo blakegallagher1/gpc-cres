@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@entitlement-os/db";
-import { createConfiguredCoordinator } from "@entitlement-os/openai";
+import { buildAgentStreamRunOptions, createConfiguredCoordinator } from "@entitlement-os/openai";
 import { run } from "@openai/agents";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 
@@ -148,10 +148,11 @@ export async function POST(req: NextRequest) {
         const coordinator = createConfiguredCoordinator();
 
         // Run the agent with streaming
-        const result = await run(coordinator, input, {
-          stream: true,
-          maxTurns: 15,
-        });
+        const result = await run(
+          coordinator,
+          input,
+          buildAgentStreamRunOptions({ conversationId: finalConvId, maxTurns: 15 }),
+        );
 
         // Emit initial agent
         controller.enqueue(

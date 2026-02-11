@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@entitlement-os/db";
-import { createConfiguredCoordinator } from "@entitlement-os/openai";
+import { buildAgentStreamRunOptions, createConfiguredCoordinator } from "@entitlement-os/openai";
 import { run } from "@openai/agents";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { dispatchEvent } from "@/lib/automation/events";
@@ -99,12 +99,14 @@ export async function POST(
 
         const coordinator = createConfiguredCoordinator();
 
-        const result = await run(coordinator, [
-          { role: "user" as const, content: systemContext + "\n\n" + userPrompt },
-        ], {
-          stream: true,
-          maxTurns: 15,
-        });
+        const result = await run(
+          coordinator,
+          [{ role: "user" as const, content: systemContext + "\n\n" + userPrompt }],
+          buildAgentStreamRunOptions({
+            conversationId: `deal:${dealId}:task:${taskId}`,
+            maxTurns: 15,
+          }),
+        );
 
         controller.enqueue(
           encoder.encode(sseEvent({ type: "agent_switch", agentName: "Coordinator" }))

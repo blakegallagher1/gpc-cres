@@ -1,8 +1,9 @@
 import { Agent } from '@openai/agents';
+import { AGENT_MODEL_IDS } from '@entitlement-os/shared';
 
 export const dueDiligenceAgent = new Agent({
   name: 'Due Diligence',
-  model: 'gpt-5.1',
+  model: AGENT_MODEL_IDS.dueDiligence,
   handoffDescription:
     'Tracks diligence items, catalogs documents, generates checklists, flags red flags, and summarizes readiness for investment decisions',
   instructions: `You are the Due Diligence Coordinator for Gallagher Property Company. Your role is to track diligence items, capture documents, flag red flags, and summarize readiness for investment decisions.

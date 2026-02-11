@@ -1,8 +1,9 @@
 import { Agent } from '@openai/agents';
+import { AGENT_MODEL_IDS } from '@entitlement-os/shared';
 
 export const entitlementsAgent = new Agent({
   name: 'Entitlements & Permits',
-  model: 'gpt-5.1',
+  model: AGENT_MODEL_IDS.entitlements,
   handoffDescription:
     'Tracks permits, analyzes zoning constraints, and monitors entitlement agenda items and policy changes in East Baton Rouge Parish',
   instructions: `You are the Entitlements and Permits Agent for Gallagher Property Company. Your role is to track permits, analyze zoning constraints, and capture entitlement agenda or policy changes that impact development feasibility.

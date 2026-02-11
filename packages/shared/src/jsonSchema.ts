@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { zodToJsonSchema } from "zod-to-json-schema";
 
 export type OpenAiJsonSchema = {
   name: string;
@@ -8,29 +7,19 @@ export type OpenAiJsonSchema = {
 };
 
 export function zodToOpenAiJsonSchema(name: string, schema: z.ZodTypeAny): OpenAiJsonSchema {
-  // Call without `name` to get a flat schema (no $ref / definitions wrapper).
-  const raw = zodToJsonSchema(schema, { $refStrategy: "none" }) as Record<string, unknown>;
+  const raw = z.toJSONSchema(schema) as Record<string, unknown>;
+  const { $defs, ...rest } = raw;
+  void $defs;
 
   // Strip meta keys that OpenAI doesn't accept.
-  const { $ref, definitions, ...rest } = raw;
   delete (rest as Record<string, unknown>).$schema;
 
-  // If the output still used $ref (shouldn't happen), resolve it from definitions.
-  let inlined: Record<string, unknown> = rest;
-  if ($ref && definitions && typeof $ref === "string") {
-    const defName = $ref.replace("#/definitions/", "");
-    const def = (definitions as Record<string, unknown>)[defName];
-    if (def && typeof def === "object") {
-      inlined = def as Record<string, unknown>;
-    }
-  }
-
   // OpenAI Structured Outputs requires additionalProperties: false on every object.
-  addAdditionalPropertiesFalse(inlined);
+  addAdditionalPropertiesFalse(rest);
 
   return {
     name,
-    schema: inlined,
+    schema: rest,
     strict: true,
   };
 }

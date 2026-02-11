@@ -1,8 +1,9 @@
 import { Agent } from '@openai/agents';
+import { AGENT_MODEL_IDS } from '@entitlement-os/shared';
 
 export const marketingAgent = new Agent({
   name: 'Marketing Agent',
-  model: 'gpt-5.1',
+  model: AGENT_MODEL_IDS.marketing,
   handoffDescription:
     'Develops marketing strategies, offering memos, buyer outreach campaigns, and leasing plans for CRE properties',
   instructions: `You are the Marketing Agent for Gallagher Property Company, specializing in commercial real estate marketing, leasing, and sales.

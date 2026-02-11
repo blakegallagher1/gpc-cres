@@ -1,4 +1,5 @@
 import { type Agent } from "@/types";
+import { AGENT_MODEL_IDS } from "@entitlement-os/shared";
 
 const AGENT_COLORS: Record<string, string> = {
   coordinator: "#6366f1",
@@ -17,19 +18,19 @@ const AGENT_COLORS: Record<string, string> = {
 };
 
 const STATIC_AGENTS: Agent[] = [
-  { id: "coordinator", name: "Coordinator", model: "gpt-5.2", description: "Routes to specialists, manages deal context", handoffs: ["finance", "legal", "research", "risk", "screener", "due-diligence", "entitlements", "design", "operations", "marketing", "tax", "market-intel"] },
-  { id: "finance", name: "Finance", model: "gpt-5.2", description: "Pro formas, debt sizing, IRR/equity analysis", handoffs: ["coordinator"] },
-  { id: "legal", name: "Legal", model: "gpt-5.2", description: "Zoning, entitlements, Louisiana civil law", handoffs: ["coordinator"] },
-  { id: "research", name: "Research", model: "gpt-5.2", description: "Land scouting, market analysis, comps", handoffs: ["coordinator"] },
-  { id: "risk", name: "Risk", model: "gpt-5.1", description: "Flood, environmental, financial, regulatory risk", handoffs: ["coordinator"] },
-  { id: "screener", name: "Screener", model: "gpt-5.1", description: "Triage scoring (KILL/HOLD/ADVANCE)", handoffs: ["coordinator"] },
-  { id: "due-diligence", name: "Due Diligence", model: "gpt-5.1", description: "Phase checklists, red flags, document tracking", handoffs: ["coordinator"] },
-  { id: "entitlements", name: "Entitlements", model: "gpt-5.1", description: "Permit tracking, CUP/rezoning paths", handoffs: ["coordinator"] },
-  { id: "design", name: "Design", model: "gpt-5.1", description: "Site planning, density optimization", handoffs: ["coordinator"] },
-  { id: "operations", name: "Operations", model: "gpt-5.1", description: "Construction scheduling, budgets", handoffs: ["coordinator"] },
-  { id: "marketing", name: "Marketing", model: "gpt-5.1", description: "Buyer outreach, leasing strategy", handoffs: ["coordinator"] },
-  { id: "tax", name: "Tax Strategist", model: "gpt-5.1", description: "IRC 1031, depreciation, cost segregation", handoffs: ["coordinator"] },
-  { id: "market-intel", name: "Market Intel", model: "gpt-5.1", description: "Competitor tracking, absorption trends", handoffs: ["coordinator"] },
+  { id: "coordinator", name: "Coordinator", model: AGENT_MODEL_IDS.coordinator, description: "Routes to specialists, manages deal context", handoffs: ["finance", "legal", "research", "risk", "screener", "due-diligence", "entitlements", "design", "operations", "marketing", "tax", "market-intel"] },
+  { id: "finance", name: "Finance", model: AGENT_MODEL_IDS.finance, description: "Pro formas, debt sizing, IRR/equity analysis", handoffs: ["coordinator"] },
+  { id: "legal", name: "Legal", model: AGENT_MODEL_IDS.legal, description: "Zoning, entitlements, Louisiana civil law", handoffs: ["coordinator"] },
+  { id: "research", name: "Research", model: AGENT_MODEL_IDS.research, description: "Land scouting, market analysis, comps", handoffs: ["coordinator"] },
+  { id: "risk", name: "Risk", model: AGENT_MODEL_IDS.risk, description: "Flood, environmental, financial, regulatory risk", handoffs: ["coordinator"] },
+  { id: "screener", name: "Screener", model: AGENT_MODEL_IDS.screener, description: "Triage scoring (KILL/HOLD/ADVANCE)", handoffs: ["coordinator"] },
+  { id: "due-diligence", name: "Due Diligence", model: AGENT_MODEL_IDS.dueDiligence, description: "Phase checklists, red flags, document tracking", handoffs: ["coordinator"] },
+  { id: "entitlements", name: "Entitlements", model: AGENT_MODEL_IDS.entitlements, description: "Permit tracking, CUP/rezoning paths", handoffs: ["coordinator"] },
+  { id: "design", name: "Design", model: AGENT_MODEL_IDS.design, description: "Site planning, density optimization", handoffs: ["coordinator"] },
+  { id: "operations", name: "Operations", model: AGENT_MODEL_IDS.operations, description: "Construction scheduling, budgets", handoffs: ["coordinator"] },
+  { id: "marketing", name: "Marketing", model: AGENT_MODEL_IDS.marketing, description: "Buyer outreach, leasing strategy", handoffs: ["coordinator"] },
+  { id: "tax", name: "Tax Strategist", model: AGENT_MODEL_IDS.tax, description: "IRC 1031, depreciation, cost segregation", handoffs: ["coordinator"] },
+  { id: "market-intel", name: "Market Intel", model: AGENT_MODEL_IDS.marketIntel, description: "Competitor tracking, absorption trends", handoffs: ["coordinator"] },
 ].map((a) => ({
   ...a,
   tools: [],

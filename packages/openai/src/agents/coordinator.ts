@@ -1,8 +1,9 @@
 import { Agent } from '@openai/agents';
+import { AGENT_MODEL_IDS } from '@entitlement-os/shared';
 
 export const coordinatorAgent = new Agent({
   name: 'Coordinator',
-  model: 'gpt-5.2',
+  model: AGENT_MODEL_IDS.coordinator,
   handoffDescription:
     'Central orchestrator that routes requests to specialist agents and synthesizes their outputs',
   instructions: `You are the Coordinator Agent for Gallagher Property Company's real estate development AI system.

@@ -1,8 +1,9 @@
 import { Agent } from '@openai/agents';
+import { AGENT_MODEL_IDS } from '@entitlement-os/shared';
 
 export const riskAgent = new Agent({
   name: 'Risk Agent',
-  model: 'gpt-5.1',
+  model: AGENT_MODEL_IDS.risk,
   handoffDescription:
     'Assesses flood, environmental, market, financial, and regulatory risks for CRE investments',
   instructions: `You are the Risk Agent for Gallagher Property Company, specializing in real estate risk assessment and mitigation.

@@ -1,3 +1,5 @@
+import type OpenAI from "openai";
+
 // --- Re-export all individual tools ---
 export {
   getDealContext,
@@ -102,7 +104,7 @@ import { search_knowledge_base } from "./knowledgeTools.js";
 export const webSearchPreviewTool = {
   type: "web_search_preview" as const,
   search_context_size: "medium" as const,
-};
+} satisfies OpenAI.Responses.WebSearchPreviewTool;
 
 /** Tools available to the Coordinator agent. */
 export const coordinatorTools = [

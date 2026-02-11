@@ -316,7 +316,7 @@ async function createArtifactNotification(
     if (members.length === 0) return;
 
     await prisma.notification.createMany({
-      data: members.map((m) => ({
+      data: members.map((m: { userId: string }) => ({
         orgId,
         userId: m.userId,
         dealId,

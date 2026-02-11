@@ -12,13 +12,13 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "pnpm run generate && tsc -p tsconfig.json",
     "dev": "tsc -w -p tsconfig.json",
     "lint": "eslint src test --max-warnings=0 --no-error-on-unmatched-pattern",
-    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.seed.json --noEmit",
+    "typecheck": "pnpm run generate && tsc -p tsconfig.json --noEmit && tsc -p tsconfig.seed.json --noEmit",
     "test": "vitest run --passWithNoTests",
     "prisma": "dotenv -e ../../.env -- prisma",
-    "generate": "dotenv -e ../../.env -- prisma generate",
+    "generate": "sh -c 'DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@localhost:5432/postgres} DIRECT_DATABASE_URL=${DIRECT_DATABASE_URL:-postgresql://postgres:postgres@localhost:5432/postgres} prisma generate'",
     "migrate:dev": "dotenv -e ../../.env -- prisma migrate dev",
     "migrate:deploy": "dotenv -e ../../.env -- prisma migrate deploy",
     "seed": "dotenv -e ../../.env -- tsx seed/seed.ts"

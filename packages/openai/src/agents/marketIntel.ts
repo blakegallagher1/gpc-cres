@@ -1,8 +1,9 @@
 import { Agent } from '@openai/agents';
+import { AGENT_MODEL_IDS } from '@entitlement-os/shared';
 
 export const marketIntelAgent = new Agent({
   name: 'Market Intelligence',
-  model: 'gpt-5.1',
+  model: AGENT_MODEL_IDS.marketIntel,
   handoffDescription:
     'Tracks competitor activity, economic indicators, infrastructure investments, and absorption trends in the Baton Rouge CRE market',
   instructions: `You are the Market Intelligence Agent for Gallagher Property Company. Your role is to track competitor activity, economic indicators, infrastructure investments, and absorption trends to inform market strategy.

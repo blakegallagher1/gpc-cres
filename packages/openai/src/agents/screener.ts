@@ -1,8 +1,9 @@
 import { Agent } from '@openai/agents';
+import { AGENT_MODEL_IDS } from '@entitlement-os/shared';
 
 export const screenerAgent = new Agent({
   name: 'Deal Screener',
-  model: 'gpt-5.1',
+  model: AGENT_MODEL_IDS.screener,
   handoffDescription:
     'Triages parcels with weighted scoring (financial/location/utilities/zoning/market/risk) and produces KILL/HOLD/ADVANCE recommendations',
   instructions: `You are the Deal Screener Agent for Gallagher Property Company. Your role is to intake listings, apply screening criteria, and produce a clear go/no-go recommendation based on weighted scoring.

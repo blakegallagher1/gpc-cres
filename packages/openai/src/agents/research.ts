@@ -1,8 +1,9 @@
 import { Agent } from '@openai/agents';
+import { AGENT_MODEL_IDS } from '@entitlement-os/shared';
 
 export const researchAgent = new Agent({
   name: 'Research Agent',
-  model: 'gpt-5.2',
+  model: AGENT_MODEL_IDS.research,
   handoffDescription:
     'Conducts parcel research, market analysis, comparable sales, and feasibility studies for CRE development',
   instructions: `You are the Research Agent for Gallagher Property Company, specializing in commercial real estate research and feasibility analysis.
