@@ -9,6 +9,7 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
+    pool: "threads",
     globals: true,
     setupFiles: ["./test-utils/setup.ts"],
     exclude: ["e2e/**", "node_modules/**", ".next/**"],
