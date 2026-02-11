@@ -1,235 +1,18 @@
 {
-  "generated_at": "2026-02-11T23:28:48.034Z",
+  "generated_at": "2026-02-11T23:33:18.954Z",
   "phase": "phase1",
   "source_matrix": "docs/testing/test-matrix-starter.json",
   "test_root": "packages/openai/test/phase1",
   "totals": {
     "expected_tests": 198,
-    "implemented_tests": 162,
-    "todo_tests": 36,
+    "implemented_tests": 198,
+    "todo_tests": 0,
     "missing_tests": 0,
     "extra_tests": 0,
-    "completion_percent": 81.82
+    "completion_percent": 100
   },
   "missing": [],
-  "todo": [
-    {
-      "matrix_id": "agent:design",
-      "pack": "handoff",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/agents/design.phase1.test.ts"
-    },
-    {
-      "matrix_id": "agent:design",
-      "pack": "uncertainty",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/agents/design.phase1.test.ts"
-    },
-    {
-      "matrix_id": "agent:design",
-      "pack": "contract",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/agents/design.phase1.test.ts"
-    },
-    {
-      "matrix_id": "agent:dueDiligence",
-      "pack": "handoff",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/agents/dueDiligence.phase1.test.ts"
-    },
-    {
-      "matrix_id": "agent:dueDiligence",
-      "pack": "uncertainty",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/agents/dueDiligence.phase1.test.ts"
-    },
-    {
-      "matrix_id": "agent:dueDiligence",
-      "pack": "contract",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/agents/dueDiligence.phase1.test.ts"
-    },
-    {
-      "matrix_id": "agent:entitlements",
-      "pack": "handoff",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/agents/entitlements.phase1.test.ts"
-    },
-    {
-      "matrix_id": "agent:entitlements",
-      "pack": "uncertainty",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/agents/entitlements.phase1.test.ts"
-    },
-    {
-      "matrix_id": "agent:entitlements",
-      "pack": "contract",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/agents/entitlements.phase1.test.ts"
-    },
-    {
-      "matrix_id": "agent:finance",
-      "pack": "handoff",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/agents/finance.phase1.test.ts"
-    },
-    {
-      "matrix_id": "agent:finance",
-      "pack": "uncertainty",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/agents/finance.phase1.test.ts"
-    },
-    {
-      "matrix_id": "agent:finance",
-      "pack": "contract",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/agents/finance.phase1.test.ts"
-    },
-    {
-      "matrix_id": "agent:legal",
-      "pack": "handoff",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/agents/legal.phase1.test.ts"
-    },
-    {
-      "matrix_id": "agent:legal",
-      "pack": "uncertainty",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/agents/legal.phase1.test.ts"
-    },
-    {
-      "matrix_id": "agent:legal",
-      "pack": "contract",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/agents/legal.phase1.test.ts"
-    },
-    {
-      "matrix_id": "agent:marketing",
-      "pack": "handoff",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/agents/marketing.phase1.test.ts"
-    },
-    {
-      "matrix_id": "agent:marketing",
-      "pack": "uncertainty",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/agents/marketing.phase1.test.ts"
-    },
-    {
-      "matrix_id": "agent:marketing",
-      "pack": "contract",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/agents/marketing.phase1.test.ts"
-    },
-    {
-      "matrix_id": "agent:marketIntel",
-      "pack": "handoff",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/agents/marketIntel.phase1.test.ts"
-    },
-    {
-      "matrix_id": "agent:marketIntel",
-      "pack": "uncertainty",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/agents/marketIntel.phase1.test.ts"
-    },
-    {
-      "matrix_id": "agent:marketIntel",
-      "pack": "contract",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/agents/marketIntel.phase1.test.ts"
-    },
-    {
-      "matrix_id": "agent:operations",
-      "pack": "handoff",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/agents/operations.phase1.test.ts"
-    },
-    {
-      "matrix_id": "agent:operations",
-      "pack": "uncertainty",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/agents/operations.phase1.test.ts"
-    },
-    {
-      "matrix_id": "agent:operations",
-      "pack": "contract",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/agents/operations.phase1.test.ts"
-    },
-    {
-      "matrix_id": "agent:research",
-      "pack": "handoff",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/agents/research.phase1.test.ts"
-    },
-    {
-      "matrix_id": "agent:research",
-      "pack": "uncertainty",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/agents/research.phase1.test.ts"
-    },
-    {
-      "matrix_id": "agent:research",
-      "pack": "contract",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/agents/research.phase1.test.ts"
-    },
-    {
-      "matrix_id": "agent:risk",
-      "pack": "handoff",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/agents/risk.phase1.test.ts"
-    },
-    {
-      "matrix_id": "agent:risk",
-      "pack": "uncertainty",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/agents/risk.phase1.test.ts"
-    },
-    {
-      "matrix_id": "agent:risk",
-      "pack": "contract",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/agents/risk.phase1.test.ts"
-    },
-    {
-      "matrix_id": "agent:screener",
-      "pack": "handoff",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/agents/screener.phase1.test.ts"
-    },
-    {
-      "matrix_id": "agent:screener",
-      "pack": "uncertainty",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/agents/screener.phase1.test.ts"
-    },
-    {
-      "matrix_id": "agent:screener",
-      "pack": "contract",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/agents/screener.phase1.test.ts"
-    },
-    {
-      "matrix_id": "agent:tax",
-      "pack": "handoff",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/agents/tax.phase1.test.ts"
-    },
-    {
-      "matrix_id": "agent:tax",
-      "pack": "uncertainty",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/agents/tax.phase1.test.ts"
-    },
-    {
-      "matrix_id": "agent:tax",
-      "pack": "contract",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/agents/tax.phase1.test.ts"
-    }
-  ],
+  "todo": [],
   "implemented": [
     {
       "matrix_id": "agent:coordinator",
@@ -248,6 +31,222 @@
       "pack": "contract",
       "status": "implemented",
       "file": "packages/openai/test/phase1/agents/coordinator.phase1.test.ts"
+    },
+    {
+      "matrix_id": "agent:design",
+      "pack": "handoff",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/agents/design.phase1.test.ts"
+    },
+    {
+      "matrix_id": "agent:design",
+      "pack": "uncertainty",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/agents/design.phase1.test.ts"
+    },
+    {
+      "matrix_id": "agent:design",
+      "pack": "contract",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/agents/design.phase1.test.ts"
+    },
+    {
+      "matrix_id": "agent:dueDiligence",
+      "pack": "handoff",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/agents/dueDiligence.phase1.test.ts"
+    },
+    {
+      "matrix_id": "agent:dueDiligence",
+      "pack": "uncertainty",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/agents/dueDiligence.phase1.test.ts"
+    },
+    {
+      "matrix_id": "agent:dueDiligence",
+      "pack": "contract",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/agents/dueDiligence.phase1.test.ts"
+    },
+    {
+      "matrix_id": "agent:entitlements",
+      "pack": "handoff",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/agents/entitlements.phase1.test.ts"
+    },
+    {
+      "matrix_id": "agent:entitlements",
+      "pack": "uncertainty",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/agents/entitlements.phase1.test.ts"
+    },
+    {
+      "matrix_id": "agent:entitlements",
+      "pack": "contract",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/agents/entitlements.phase1.test.ts"
+    },
+    {
+      "matrix_id": "agent:finance",
+      "pack": "handoff",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/agents/finance.phase1.test.ts"
+    },
+    {
+      "matrix_id": "agent:finance",
+      "pack": "uncertainty",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/agents/finance.phase1.test.ts"
+    },
+    {
+      "matrix_id": "agent:finance",
+      "pack": "contract",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/agents/finance.phase1.test.ts"
+    },
+    {
+      "matrix_id": "agent:legal",
+      "pack": "handoff",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/agents/legal.phase1.test.ts"
+    },
+    {
+      "matrix_id": "agent:legal",
+      "pack": "uncertainty",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/agents/legal.phase1.test.ts"
+    },
+    {
+      "matrix_id": "agent:legal",
+      "pack": "contract",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/agents/legal.phase1.test.ts"
+    },
+    {
+      "matrix_id": "agent:marketing",
+      "pack": "handoff",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/agents/marketing.phase1.test.ts"
+    },
+    {
+      "matrix_id": "agent:marketing",
+      "pack": "uncertainty",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/agents/marketing.phase1.test.ts"
+    },
+    {
+      "matrix_id": "agent:marketing",
+      "pack": "contract",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/agents/marketing.phase1.test.ts"
+    },
+    {
+      "matrix_id": "agent:marketIntel",
+      "pack": "handoff",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/agents/marketIntel.phase1.test.ts"
+    },
+    {
+      "matrix_id": "agent:marketIntel",
+      "pack": "uncertainty",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/agents/marketIntel.phase1.test.ts"
+    },
+    {
+      "matrix_id": "agent:marketIntel",
+      "pack": "contract",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/agents/marketIntel.phase1.test.ts"
+    },
+    {
+      "matrix_id": "agent:operations",
+      "pack": "handoff",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/agents/operations.phase1.test.ts"
+    },
+    {
+      "matrix_id": "agent:operations",
+      "pack": "uncertainty",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/agents/operations.phase1.test.ts"
+    },
+    {
+      "matrix_id": "agent:operations",
+      "pack": "contract",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/agents/operations.phase1.test.ts"
+    },
+    {
+      "matrix_id": "agent:research",
+      "pack": "handoff",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/agents/research.phase1.test.ts"
+    },
+    {
+      "matrix_id": "agent:research",
+      "pack": "uncertainty",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/agents/research.phase1.test.ts"
+    },
+    {
+      "matrix_id": "agent:research",
+      "pack": "contract",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/agents/research.phase1.test.ts"
+    },
+    {
+      "matrix_id": "agent:risk",
+      "pack": "handoff",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/agents/risk.phase1.test.ts"
+    },
+    {
+      "matrix_id": "agent:risk",
+      "pack": "uncertainty",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/agents/risk.phase1.test.ts"
+    },
+    {
+      "matrix_id": "agent:risk",
+      "pack": "contract",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/agents/risk.phase1.test.ts"
+    },
+    {
+      "matrix_id": "agent:screener",
+      "pack": "handoff",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/agents/screener.phase1.test.ts"
+    },
+    {
+      "matrix_id": "agent:screener",
+      "pack": "uncertainty",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/agents/screener.phase1.test.ts"
+    },
+    {
+      "matrix_id": "agent:screener",
+      "pack": "contract",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/agents/screener.phase1.test.ts"
+    },
+    {
+      "matrix_id": "agent:tax",
+      "pack": "handoff",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/agents/tax.phase1.test.ts"
+    },
+    {
+      "matrix_id": "agent:tax",
+      "pack": "uncertainty",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/agents/tax.phase1.test.ts"
+    },
+    {
+      "matrix_id": "agent:tax",
+      "pack": "contract",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/agents/tax.phase1.test.ts"
     },
     {
       "matrix_id": "tool:addBuyer",
