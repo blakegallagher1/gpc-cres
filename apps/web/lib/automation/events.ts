@@ -27,19 +27,59 @@ export function registerHandler(eventType: AutomationEventType, handler: Automat
  * Fire-and-forget event dispatch.
  * Handler errors are logged but NEVER propagated to caller.
  * Unregistered events are silent no-ops.
+ * Automatically instruments all handler executions to automation_events table.
  */
 export async function dispatchEvent(event: AutomationEvent): Promise<void> {
   const eventHandlers = handlers.get(event.type);
   if (!eventHandlers || eventHandlers.length === 0) return;
 
+  // Extract dealId from event (not all events have it)
+  const dealId = "dealId" in event ? event.dealId : undefined;
+
   for (const handler of eventHandlers) {
+    const handlerName = handler.name || "anonymous";
+    let eventId: string | undefined;
+
     try {
+      // Record event start (lazy import to avoid circular deps in tests)
+      try {
+        const svc = await import("@/lib/services/automationEvent.service");
+        eventId = await svc.startEvent(
+          handlerName,
+          event.type,
+          dealId,
+          event as unknown as Record<string, unknown>
+        );
+      } catch {
+        // DB not available (e.g. in tests) — continue without instrumentation
+      }
+
       await handler(event);
+
+      // Record success
+      if (eventId) {
+        try {
+          const svc = await import("@/lib/services/automationEvent.service");
+          await svc.completeEvent(eventId);
+        } catch {
+          // Silent
+        }
+      }
     } catch (err) {
       console.error(
         `[automation] Handler error for ${event.type}:`,
         err instanceof Error ? err.message : String(err)
       );
+
+      // Record failure
+      if (eventId) {
+        try {
+          const svc = await import("@/lib/services/automationEvent.service");
+          await svc.failEvent(eventId, err);
+        } catch {
+          // Silent
+        }
+      }
     }
   }
 }

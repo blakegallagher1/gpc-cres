@@ -654,6 +654,28 @@ model SavedSearch {
   @@map("saved_searches")
 }
 
+model AutomationEvent {
+  id          String    @id @default(uuid()) @db.Uuid
+  dealId      String?   @map("deal_id") @db.Uuid
+  handlerName String    @map("handler_name") @db.Text
+  eventType   String    @map("event_type") @db.Text
+  status      String    @db.Text // pending|running|completed|failed
+  inputData   Json      @default("{}") @map("input_data") @db.JsonB
+  outputData  Json      @default("{}") @map("output_data") @db.JsonB
+  error       String?   @db.Text
+  startedAt   DateTime  @default(now()) @map("started_at") @db.Timestamptz(6)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(6)
+  durationMs  Int?      @map("duration_ms")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([dealId])
+  @@index([handlerName])
+  @@index([status])
+  @@index([startedAt(sort: Desc)])
+  @@map("automation_events")
+}
+
 model OpportunityMatch {
   id              String    @id @default(uuid()) @db.Uuid
   savedSearchId   String    @map("saved_search_id") @db.Uuid

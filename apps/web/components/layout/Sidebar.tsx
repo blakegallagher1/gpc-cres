@@ -21,6 +21,7 @@ import {
   Sparkles,
   Search,
   Crosshair,
+  Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/stores/uiStore";
@@ -63,6 +64,7 @@ const navGroups: NavGroup[] = [
       { id: "agents", href: "/agents", icon: Bot, label: "Agents" },
       { id: "runs", href: "/runs", icon: Play, label: "Runs" },
       { id: "workflows", href: "/workflows", icon: GitBranch, label: "Workflows" },
+      { id: "automation", href: "/automation", icon: Activity, label: "Automation" },
     ],
   },
   {
