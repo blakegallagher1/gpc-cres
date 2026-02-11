@@ -83,3 +83,5 @@ temp/
 docs/_build/
 .vercel
 .env*.local
+
+.pnpm-store/

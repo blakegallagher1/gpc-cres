@@ -6,14 +6,32 @@ const publicRoutes = ["/login", "/signup"];
 export async function proxy(request: NextRequest) {
   const response = NextResponse.next();
   const { pathname } = request.nextUrl;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const hasSupabaseConfig =
+    Boolean(supabaseUrl && supabaseAnonKey) &&
+    supabaseUrl !== "undefined" &&
+    supabaseUrl !== "null" &&
+    supabaseAnonKey !== "undefined" &&
+    supabaseAnonKey !== "null";
 
   if (process.env.NEXT_PUBLIC_DISABLE_AUTH === "true") {
     return response;
   }
 
+  // Avoid crashing middleware when auth env is missing; keep public routes reachable.
+  if (!hasSupabaseConfig) {
+    if (publicRoutes.includes(pathname)) {
+      return response;
+    }
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("error", "missing_supabase_config");
+    return NextResponse.redirect(loginUrl);
+  }
+
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
+    supabaseUrl!,
+    supabaseAnonKey!,
     {
       cookies: {
         get(name: string) {
