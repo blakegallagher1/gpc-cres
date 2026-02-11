@@ -1,6 +1,14 @@
-import { prisma } from "@entitlement-os/db";
+import { prisma, type Prisma } from "@entitlement-os/db";
 import { createStrictJsonResponse } from "@entitlement-os/openai";
-import type { SkuType } from "@entitlement-os/shared";
+import {
+  ParcelTriageSchema,
+  buildOpportunityScorecard,
+  buildDeterministicRerunDecision,
+  computeThroughputRouting,
+  zodToOpenAiJsonSchema,
+  type OpportunityScorecard,
+  type SkuType,
+} from "@entitlement-os/shared";
 
 const PARISH_PACK_MODEL = process.env.OPENAI_FLAGSHIP_MODEL || "o3";
 const TRIAGE_MODEL = process.env.OPENAI_STANDARD_MODEL || "gpt-4.1";
@@ -81,11 +89,100 @@ export async function runParcelTriage(params: {
   dealId: string;
   orgId: string;
   runId: string;
-}): Promise<{ triageScore: number; summary: string }> {
-  const deal = await prisma.deal.findUniqueOrThrow({
-    where: { id: params.dealId },
+}): Promise<{
+  triageScore: number;
+  summary: string;
+  scorecard: OpportunityScorecard;
+  routing: ReturnType<typeof computeThroughputRouting>;
+  rerun: { reusedPreviousRun: boolean; reason: string };
+}> {
+  const deal = await prisma.deal.findFirstOrThrow({
+    where: { id: params.dealId, orgId: params.orgId },
     include: { parcels: true },
   });
+
+  const rerunPayload = {
+    dealId: deal.id,
+    dealName: deal.name,
+    sku: deal.sku,
+    jurisdictionId: deal.jurisdictionId,
+    parcels: deal.parcels.map((parcel) => ({
+      id: parcel.id,
+      apn: parcel.apn,
+      address: parcel.address,
+      acreage: parcel.acreage?.toString() ?? null,
+      currentZoning: parcel.currentZoning,
+      floodZone: parcel.floodZone,
+      soilsNotes: parcel.soilsNotes,
+      wetlandsNotes: parcel.wetlandsNotes,
+      envNotes: parcel.envNotes,
+      utilitiesNotes: parcel.utilitiesNotes,
+      trafficNotes: parcel.trafficNotes,
+    })),
+  };
+
+  const previousSucceededRun = await prisma.run.findFirst({
+    where: {
+      orgId: params.orgId,
+      dealId: params.dealId,
+      runType: "TRIAGE",
+      status: "succeeded",
+      id: { not: params.runId },
+    },
+    orderBy: { finishedAt: "desc" },
+    select: {
+      id: true,
+      inputHash: true,
+      outputJson: true,
+    },
+  });
+
+  const rerunDecision = buildDeterministicRerunDecision({
+    runType: "TRIAGE",
+    dealId: params.dealId,
+    orgId: params.orgId,
+    payload: rerunPayload,
+    previousInputHash: previousSucceededRun?.inputHash,
+  });
+
+  if (rerunDecision.shouldReuse && previousSucceededRun?.outputJson) {
+    const cachedOutput = previousSucceededRun.outputJson as Record<string, unknown>;
+    const cachedTriageScore = Number(cachedOutput.triageScore);
+    const cachedSummary = String(cachedOutput.summary ?? "Reused previous deterministic triage run.");
+    const cachedScorecard = cachedOutput.scorecard as OpportunityScorecard | undefined;
+    const cachedRouting = cachedOutput.routing as ReturnType<typeof computeThroughputRouting> | undefined;
+
+    if (
+      Number.isFinite(cachedTriageScore) &&
+      cachedScorecard &&
+      cachedRouting
+    ) {
+      await prisma.run.update({
+        where: { id: params.runId },
+        data: {
+          status: "succeeded",
+          finishedAt: new Date(),
+          inputHash: rerunDecision.inputHash,
+          outputJson: {
+            ...cachedOutput,
+            rerun: {
+              reusedPreviousRun: true,
+              sourceRunId: previousSucceededRun.id,
+              reason: rerunDecision.reason,
+            },
+          } as Prisma.InputJsonValue,
+        },
+      });
+
+      return {
+        triageScore: cachedTriageScore,
+        summary: cachedSummary,
+        scorecard: cachedScorecard,
+        routing: cachedRouting,
+        rerun: { reusedPreviousRun: true, reason: rerunDecision.reason },
+      };
+    }
+  }
 
   const parcelDescriptions = deal.parcels
     .map(
@@ -94,44 +191,86 @@ export async function runParcelTriage(params: {
     )
     .join("\n");
 
-  const response = await createStrictJsonResponse<{
-    triageScore: number;
-    summary: string;
-  }>({
+  const response = await createStrictJsonResponse({
     model: TRIAGE_MODEL,
     input: [
       {
         role: "system",
-        content:
-          "You are a CRE deal triage analyst. Assess the following deal and parcels. Provide a triage score (0-100) and a brief summary of key risks and opportunities.",
+        content: "You are a CRE deal triage analyst. Produce a strict parcel triage object.",
       },
       {
         role: "user",
-        content: `Deal: ${deal.name}\nSKU: ${deal.sku}\nJurisdiction: ${deal.jurisdictionId}\n\nParcels:\n${parcelDescriptions}`,
+        content: [
+          `Deal: ${deal.name}`,
+          `SKU: ${deal.sku}`,
+          `Jurisdiction: ${deal.jurisdictionId}`,
+          "Provide KILL/HOLD/ADVANCE recommendation with clear rationale and stage actions.",
+          `Deal ID: ${deal.id}`,
+          `Generated at: ${new Date().toISOString()}`,
+          "",
+          "Parcels:",
+          parcelDescriptions,
+        ].join("\n"),
       },
     ],
-    jsonSchema: {
-      name: "triage_result",
-      strict: true,
-      schema: {
-        type: "object",
-        properties: {
-          triageScore: { type: "number" },
-          summary: { type: "string" },
-        },
-        required: ["triageScore", "summary"],
-        additionalProperties: false,
-      },
+    jsonSchema: zodToOpenAiJsonSchema("ParcelTriage", ParcelTriageSchema),
+  });
+
+  const triage = ParcelTriageSchema.parse({
+    ...(response.outputJson as Record<string, unknown>),
+    generated_at: (response.outputJson as Record<string, unknown>).generated_at ?? new Date().toISOString(),
+    deal_id: (response.outputJson as Record<string, unknown>).deal_id ?? deal.id,
+  });
+
+  const avgRisk =
+    Object.values(triage.risk_scores).reduce((sum, value) => sum + value, 0) /
+    Math.max(Object.keys(triage.risk_scores).length, 1);
+  const triageScore = Math.round(((10 - avgRisk) / 10) * 10000) / 100;
+  const summary = `${triage.decision}: ${triage.rationale}`;
+
+  const scorecard = buildOpportunityScorecard({
+    dealId: params.dealId,
+    triage,
+    rerunPolicy: {
+      input_hash: rerunDecision.inputHash,
+      deterministic: true,
+      rerun_reason: rerunDecision.reason,
     },
   });
 
-  // Store triage result on the run record
+  const routing = computeThroughputRouting({
+    parcelCount: deal.parcels.length,
+    avgRiskScore: avgRisk,
+    disqualifierCount: triage.disqualifiers.length,
+    confidence: scorecard.overall_confidence,
+    missingDataCount: triage.assumptions.filter((item) => item.sources == null).length,
+  });
+
+  const outputPayload = {
+    triageScore,
+    summary,
+    triage,
+    scorecard,
+    routing,
+    rerun: { reusedPreviousRun: false, reason: rerunDecision.reason },
+  };
+
   await prisma.run.update({
     where: { id: params.runId },
     data: {
-      outputJson: response.outputJson,
+      status: "succeeded",
+      finishedAt: new Date(),
+      inputHash: rerunDecision.inputHash,
+      outputJson: outputPayload,
+      openaiResponseId: response.responseId,
     },
   });
 
-  return response.outputJson;
+  return {
+    triageScore,
+    summary,
+    scorecard,
+    routing,
+    rerun: { reusedPreviousRun: false, reason: rerunDecision.reason },
+  };
 }

@@ -12,7 +12,8 @@ export function zodToOpenAiJsonSchema(name: string, schema: z.ZodTypeAny): OpenA
   const raw = zodToJsonSchema(schema, { $refStrategy: "none" }) as Record<string, unknown>;
 
   // Strip meta keys that OpenAI doesn't accept.
-  const { $schema, $ref, definitions, ...rest } = raw;
+  const { $ref, definitions, ...rest } = raw;
+  delete (rest as Record<string, unknown>).$schema;
 
   // If the output still used $ref (shouldn't happen), resolve it from definitions.
   let inlined: Record<string, unknown> = rest;
@@ -49,4 +50,3 @@ function addAdditionalPropertiesFalse(obj: unknown): void {
     }
   }
 }
-

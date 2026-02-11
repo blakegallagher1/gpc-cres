@@ -24,12 +24,18 @@ const {
  */
 export async function dealIntakeWorkflow(
   params: DealIntakeWorkflowInput,
-): Promise<{ dealId: string; taskCount: number; artifactId: string | null }> {
+): Promise<{
+  dealId: string;
+  taskCount: number;
+  artifactId: string | null;
+  queueName: string;
+  rerunReason: string;
+}> {
   // 1. Load the deal
   const deal = await loadDeal({ dealId: params.dealId });
 
   // 2. Run AI triage on the parcel
-  await runParcelTriage({
+  const triageResult = await runParcelTriage({
     dealId: params.dealId,
     orgId: params.orgId,
     runId: params.runId,
@@ -39,6 +45,7 @@ export async function dealIntakeWorkflow(
   const tasks = await createInitialTaskPlan({
     dealId: params.dealId,
     orgId: params.orgId,
+    routing: triageResult.routing,
   });
 
   // 4. Generate triage PDF
@@ -65,5 +72,7 @@ export async function dealIntakeWorkflow(
     dealId: deal.id,
     taskCount: tasks.length,
     artifactId,
+    queueName: triageResult.routing.queueName,
+    rerunReason: triageResult.rerun.reason,
   };
 }

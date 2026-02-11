@@ -1,5 +1,6 @@
 import { prisma } from "@entitlement-os/db";
-import type { RunType, RunRecordCreateInput, SkuType } from "@entitlement-os/shared";
+import { computeTaskDueAt, type ThroughputRouting } from "@entitlement-os/shared";
+import type { RunRecordCreateInput, SkuType } from "@entitlement-os/shared";
 
 /**
  * Load a deal from the database.
@@ -32,7 +33,10 @@ export async function loadDeal(params: {
 export async function createInitialTaskPlan(params: {
   dealId: string;
   orgId: string;
+  routing?: ThroughputRouting;
 }): Promise<Array<{ id: string; title: string; pipelineStep: number }>> {
+  const createdAt = new Date();
+  const slaTier = params.routing?.slaTier ?? "standard";
   const taskTemplates = [
     { title: "Site control / LOI", pipelineStep: 1 },
     { title: "Parish pack review", pipelineStep: 2 },
@@ -51,8 +55,12 @@ export async function createInitialTaskPlan(params: {
           dealId: params.dealId,
           orgId: params.orgId,
           title: t.title,
+          description: params.routing
+            ? `Queue: ${params.routing.queueName}; SLA: ${params.routing.slaTier}; Complexity: ${params.routing.complexityClass}; Confidence: ${params.routing.confidenceClass}.`
+            : "Queue: entitlement-os.standard; SLA: standard.",
           pipelineStep: t.pipelineStep,
           status: "TODO",
+          dueAt: computeTaskDueAt(createdAt, t.pipelineStep, slaTier),
         },
       }),
     ),
@@ -125,6 +133,7 @@ export async function createRunRecord(params: RunRecordCreateInput): Promise<{ i
       jurisdictionId: params.jurisdictionId ?? null,
       sku: params.sku ?? null,
       status: params.status ?? "running",
+      inputHash: params.inputHash ?? null,
     },
   });
 

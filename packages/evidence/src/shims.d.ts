@@ -4,7 +4,5 @@ declare module "html-to-text" {
 }
 
 declare module "pdf-parse" {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  export default function pdfParse(data: any, options?: Record<string, unknown>): Promise<{ text?: string }>;
+  export default function pdfParse(data: Buffer | Uint8Array, options?: Record<string, unknown>): Promise<{ text?: string }>;
 }
-

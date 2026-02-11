@@ -50,7 +50,6 @@ export async function retryWithBackoff<T>(
 ): Promise<T> {
   const cfg = { ...DEFAULT_RETRY_OPTIONS, ...(options ?? {}) };
   let attempt = 0;
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     attempt += 1;
     try {
@@ -66,4 +65,3 @@ export async function retryWithBackoff<T>(
     }
   }
 }
-

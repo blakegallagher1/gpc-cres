@@ -6,4 +6,5 @@ export * from "./crypto/sha256.js";
 export * from "./storage/keys.js";
 export * from "./temporal/types.js";
 export * from "./scoring/index.js";
-
+export * from "./decision/index.js";
+export * from "./throughput/index.js";

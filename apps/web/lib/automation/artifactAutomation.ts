@@ -42,6 +42,13 @@ export async function handleArtifactOnStatusChange(event: AutomationEvent): Prom
       select: { outputJson: true },
     });
     const triageOutput = triageRun?.outputJson as Record<string, unknown> | null;
+    const triage =
+      triageOutput &&
+      typeof triageOutput === "object" &&
+      triageOutput.triage &&
+      typeof triageOutput.triage === "object"
+        ? (triageOutput.triage as Record<string, unknown>)
+        : triageOutput;
 
     // Create run record
     const run = await prisma.run.create({
@@ -57,7 +64,7 @@ export async function handleArtifactOnStatusChange(event: AutomationEvent): Prom
       if (deal.jurisdiction) highlights.push(`Located in ${deal.jurisdiction.name}, ${deal.jurisdiction.state}`);
       highlights.push(`${skuLabel(deal.sku)} product type`);
       highlights.push("Fully entitled — all approvals in place");
-      if (triageOutput && String(triageOutput.decision) === "ADVANCE") {
+      if (triage && String(triage.decision) === "ADVANCE") {
         highlights.push("Passed triage with ADVANCE recommendation");
       }
       const zoneList = [...new Set(deal.parcels.map((p) => p.currentZoning).filter(Boolean))];

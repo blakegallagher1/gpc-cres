@@ -3,6 +3,7 @@ import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { dispatchEvent } from "@/lib/automation/events";
 import "@/lib/automation/handlers";
+import { ParcelTriageSchema } from "@entitlement-os/shared";
 
 // GET /api/deals/[id] - get a single deal with related data
 export async function GET(
@@ -42,8 +43,21 @@ export async function GET(
     let triageOutput: Record<string, unknown> | null = null;
     const triageRun = deal.runs[0];
     if (triageRun?.outputJson && typeof triageRun.outputJson === "object") {
-      triageOutput = triageRun.outputJson as Record<string, unknown>;
-      triageTier = (triageOutput.tier as string) ?? null;
+      const output = triageRun.outputJson as Record<string, unknown>;
+      const triageCandidate =
+        output.triage && typeof output.triage === "object"
+          ? (output.triage as Record<string, unknown>)
+          : output;
+      const parsed = ParcelTriageSchema.safeParse({
+        ...triageCandidate,
+        generated_at: triageCandidate.generated_at ?? new Date().toISOString(),
+        deal_id: triageCandidate.deal_id ?? id,
+      });
+
+      if (parsed.success) {
+        triageOutput = parsed.data;
+        triageTier = parsed.data.decision;
+      }
     }
 
     return NextResponse.json({

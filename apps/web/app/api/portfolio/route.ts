@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import { ParcelTriageSchema } from "@entitlement-os/shared";
 
 export async function GET() {
   const auth = await resolveAuth();
@@ -39,19 +40,44 @@ export async function GET() {
 
     // Map deals to portfolio format
     const mappedDeals = deals.map((deal) => {
-      const triage = triageByDeal.get(deal.id);
+      const triageOutput = triageByDeal.get(deal.id);
       const totalAcreage = deal.parcels.reduce(
         (sum, p) => sum + (p.acreage ? Number(p.acreage.toString()) : 0),
         0
       );
+      const triageCandidate =
+        triageOutput &&
+        typeof triageOutput === "object" &&
+        "triage" in triageOutput &&
+        triageOutput.triage &&
+        typeof triageOutput.triage === "object"
+          ? (triageOutput.triage as Record<string, unknown>)
+          : ((triageOutput as Record<string, unknown> | null) ?? null);
+      const triageParsed =
+        triageCandidate != null
+          ? ParcelTriageSchema.safeParse({
+              ...triageCandidate,
+              generated_at: triageCandidate.generated_at ?? new Date().toISOString(),
+              deal_id: triageCandidate.deal_id ?? deal.id,
+            })
+          : null;
+      const triage = triageParsed?.success ? triageParsed.data : null;
       const triageScore =
-        triage && typeof triage === "object" && "confidence" in triage
-          ? Number(triage.confidence)
+        triageOutput &&
+        typeof triageOutput === "object" &&
+        "triageScore" in triageOutput &&
+        typeof triageOutput.triageScore === "number"
+          ? Number(triageOutput.triageScore)
+          : triage
+          ? Math.round(
+              ((10 -
+                Object.values(triage.risk_scores).reduce((sum, value) => sum + value, 0) /
+                  Math.max(Object.keys(triage.risk_scores).length, 1)) /
+                10) *
+                10000,
+            ) / 100
           : null;
-      const triageTier =
-        triage && typeof triage === "object" && "decision" in triage
-          ? String(triage.decision)
-          : null;
+      const triageTier = triage?.decision ?? null;
 
       return {
         id: deal.id,

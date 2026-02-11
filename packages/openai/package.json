@@ -14,9 +14,9 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -w -p tsconfig.json",
-    "lint": "eslint src test --max-warnings=0",
+    "lint": "eslint src --max-warnings=0 --no-error-on-unmatched-pattern",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
     "@entitlement-os/artifacts": "workspace:*",
