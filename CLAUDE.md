@@ -285,7 +285,7 @@ Cron jobs: `/api/cron/change-detection` (daily 6 AM), `/api/cron/parish-pack-ref
 
 Read `IMPLEMENTATION_PLAN.md` at the repo root for the full 9-phase feature roadmap, all architectural conventions, and shared infrastructure patterns.
 
-**Currently executing: Phase 3D — Debt Comparison Tool**
+**Currently executing: Phase 4A — Document Processing Pipeline**
 
 Rules:
 - Do NOT work on phases beyond the currently executing phase unless explicitly instructed
@@ -307,8 +307,8 @@ Update status after each sub-phase ships:
 | 3A: Interactive Pro Forma Builder | ✅ Done |
 | 3B: Sensitivity & Scenario Analysis | ✅ Done |
 | 3C: Waterfall Distribution Modeling | ✅ Done |
-| 3D: Debt Comparison Tool | 🔄 Active |
-| 4A: Document Processing Pipeline | ⬜ |
+| 3D: Debt Comparison Tool | ✅ Done |
+| 4A: Document Processing Pipeline | 🔄 Active |
 | 4B: Type-Specific Extractors | ⬜ |
 | 5A: Enhanced Map Rendering | ⬜ |
 | 5B: Analytical Map Tools | ⬜ |
