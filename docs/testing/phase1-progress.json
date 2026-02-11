@@ -1,15 +1,15 @@
 {
-  "generated_at": "2026-02-11T23:04:47.755Z",
+  "generated_at": "2026-02-11T23:08:14.440Z",
   "phase": "phase1",
   "source_matrix": "docs/testing/test-matrix-starter.json",
   "test_root": "packages/openai/test/phase1",
   "totals": {
     "expected_tests": 198,
-    "implemented_tests": 63,
-    "todo_tests": 135,
+    "implemented_tests": 93,
+    "todo_tests": 105,
     "missing_tests": 0,
     "extra_tests": 0,
-    "completion_percent": 31.82
+    "completion_percent": 46.97
   },
   "missing": [],
   "todo": [
@@ -266,24 +266,6 @@
       "file": "packages/openai/test/phase1/tools/analyze_portfolio.phase1.test.ts"
     },
     {
-      "matrix_id": "tool:assess_uncertainty",
-      "pack": "schema",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/assess_uncertainty.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:assess_uncertainty",
-      "pack": "security",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/assess_uncertainty.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:assess_uncertainty",
-      "pack": "idempotency",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/assess_uncertainty.phase1.test.ts"
-    },
-    {
       "matrix_id": "tool:create_milestone_schedule",
       "pack": "schema",
       "status": "todo",
@@ -374,24 +356,6 @@
       "file": "packages/openai/test/phase1/tools/get_historical_accuracy.phase1.test.ts"
     },
     {
-      "matrix_id": "tool:get_shared_context",
-      "pack": "schema",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/get_shared_context.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:get_shared_context",
-      "pack": "security",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/get_shared_context.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:get_shared_context",
-      "pack": "idempotency",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/get_shared_context.phase1.test.ts"
-    },
-    {
       "matrix_id": "tool:getParcelDetails",
       "pack": "schema",
       "status": "todo",
@@ -408,24 +372,6 @@
       "pack": "idempotency",
       "status": "todo",
       "file": "packages/openai/test/phase1/tools/getParcelDetails.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:hardFilterCheck",
-      "pack": "schema",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/hardFilterCheck.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:hardFilterCheck",
-      "pack": "security",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/hardFilterCheck.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:hardFilterCheck",
-      "pack": "idempotency",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/hardFilterCheck.phase1.test.ts"
     },
     {
       "matrix_id": "tool:listTasks",
@@ -446,24 +392,6 @@
       "file": "packages/openai/test/phase1/tools/listTasks.phase1.test.ts"
     },
     {
-      "matrix_id": "tool:log_reasoning_trace",
-      "pack": "schema",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/log_reasoning_trace.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:log_reasoning_trace",
-      "pack": "security",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/log_reasoning_trace.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:log_reasoning_trace",
-      "pack": "idempotency",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/log_reasoning_trace.phase1.test.ts"
-    },
-    {
       "matrix_id": "tool:logOutreach",
       "pack": "schema",
       "status": "todo",
@@ -480,24 +408,6 @@
       "pack": "idempotency",
       "status": "todo",
       "file": "packages/openai/test/phase1/tools/logOutreach.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:parcelTriageScore",
-      "pack": "schema",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/parcelTriageScore.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:parcelTriageScore",
-      "pack": "security",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/parcelTriageScore.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:parcelTriageScore",
-      "pack": "idempotency",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/parcelTriageScore.phase1.test.ts"
     },
     {
       "matrix_id": "tool:parishPackLookup",
@@ -518,24 +428,6 @@
       "file": "packages/openai/test/phase1/tools/parishPackLookup.phase1.test.ts"
     },
     {
-      "matrix_id": "tool:query_market_data",
-      "pack": "schema",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/query_market_data.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:query_market_data",
-      "pack": "security",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/query_market_data.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:query_market_data",
-      "pack": "idempotency",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/query_market_data.phase1.test.ts"
-    },
-    {
       "matrix_id": "tool:record_deal_outcome",
       "pack": "schema",
       "status": "todo",
@@ -552,24 +444,6 @@
       "pack": "idempotency",
       "status": "todo",
       "file": "packages/openai/test/phase1/tools/record_deal_outcome.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:request_reanalysis",
-      "pack": "schema",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/request_reanalysis.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:request_reanalysis",
-      "pack": "security",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/request_reanalysis.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:request_reanalysis",
-      "pack": "idempotency",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/request_reanalysis.phase1.test.ts"
     },
     {
       "matrix_id": "tool:screenEpa",
@@ -606,24 +480,6 @@
       "pack": "idempotency",
       "status": "todo",
       "file": "packages/openai/test/phase1/tools/screenFlood.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:screenFull",
-      "pack": "schema",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/screenFull.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:screenFull",
-      "pack": "security",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/screenFull.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:screenFull",
-      "pack": "idempotency",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/screenFull.phase1.test.ts"
     },
     {
       "matrix_id": "tool:screenLdeq",
@@ -732,42 +588,6 @@
       "pack": "idempotency",
       "status": "todo",
       "file": "packages/openai/test/phase1/tools/searchBuyers.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:searchParcels",
-      "pack": "schema",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/searchParcels.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:searchParcels",
-      "pack": "security",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/searchParcels.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:searchParcels",
-      "pack": "idempotency",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/searchParcels.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:share_analysis_finding",
-      "pack": "schema",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/share_analysis_finding.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:share_analysis_finding",
-      "pack": "security",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/share_analysis_finding.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:share_analysis_finding",
-      "pack": "idempotency",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/share_analysis_finding.phase1.test.ts"
     },
     {
       "matrix_id": "tool:store_knowledge_entry",
@@ -862,6 +682,24 @@
       "file": "packages/openai/test/phase1/tools/addParcelToDeal.phase1.test.ts"
     },
     {
+      "matrix_id": "tool:assess_uncertainty",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/assess_uncertainty.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:assess_uncertainty",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/assess_uncertainty.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:assess_uncertainty",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/assess_uncertainty.phase1.test.ts"
+    },
+    {
       "matrix_id": "tool:calculate_1031_deadlines",
       "pack": "schema",
       "status": "implemented",
@@ -1096,6 +934,24 @@
       "file": "packages/openai/test/phase1/tools/evidenceSnapshot.phase1.test.ts"
     },
     {
+      "matrix_id": "tool:get_shared_context",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/get_shared_context.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:get_shared_context",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/get_shared_context.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:get_shared_context",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/get_shared_context.phase1.test.ts"
+    },
+    {
       "matrix_id": "tool:getDealContext",
       "pack": "schema",
       "status": "implemented",
@@ -1112,6 +968,24 @@
       "pack": "idempotency",
       "status": "implemented",
       "file": "packages/openai/test/phase1/tools/getDealContext.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:hardFilterCheck",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/hardFilterCheck.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:hardFilterCheck",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/hardFilterCheck.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:hardFilterCheck",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/hardFilterCheck.phase1.test.ts"
     },
     {
       "matrix_id": "tool:listDeals",
@@ -1132,6 +1006,96 @@
       "file": "packages/openai/test/phase1/tools/listDeals.phase1.test.ts"
     },
     {
+      "matrix_id": "tool:log_reasoning_trace",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/log_reasoning_trace.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:log_reasoning_trace",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/log_reasoning_trace.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:log_reasoning_trace",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/log_reasoning_trace.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:parcelTriageScore",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/parcelTriageScore.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:parcelTriageScore",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/parcelTriageScore.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:parcelTriageScore",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/parcelTriageScore.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:query_market_data",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/query_market_data.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:query_market_data",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/query_market_data.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:query_market_data",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/query_market_data.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:request_reanalysis",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/request_reanalysis.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:request_reanalysis",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/request_reanalysis.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:request_reanalysis",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/request_reanalysis.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:screenFull",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/screenFull.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:screenFull",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/screenFull.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:screenFull",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/screenFull.phase1.test.ts"
+    },
+    {
       "matrix_id": "tool:search_comparable_sales",
       "pack": "schema",
       "status": "implemented",
@@ -1148,6 +1112,42 @@
       "pack": "idempotency",
       "status": "implemented",
       "file": "packages/openai/test/phase1/tools/search_comparable_sales.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:searchParcels",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/searchParcels.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:searchParcels",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/searchParcels.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:searchParcels",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/searchParcels.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:share_analysis_finding",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/share_analysis_finding.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:share_analysis_finding",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/share_analysis_finding.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:share_analysis_finding",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/share_analysis_finding.phase1.test.ts"
     },
     {
       "matrix_id": "tool:updateDealStatus",
