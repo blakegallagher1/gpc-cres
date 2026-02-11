@@ -173,8 +173,18 @@ export function computeAdaptiveWeights(
   const totalRaw = Object.values(adjustedRaw).reduce((s, v) => s + v, 0);
   const normalizedWeights: Record<string, number> = {};
   const adjustments: Record<string, number> = {};
+
+  // Round all but the last dimension, then compute last as remainder to ensure exact sum
+  const lastDim = dimensions[dimensions.length - 1];
+  let runningSum = 0;
   for (const dim of dimensions) {
+    if (dim === lastDim) continue;
     normalizedWeights[dim] = Math.round((adjustedRaw[dim] / totalRaw) * 10000) / 10000;
+    runningSum += normalizedWeights[dim];
+  }
+  normalizedWeights[lastDim] = Math.round((1.0 - runningSum) * 10000) / 10000;
+
+  for (const dim of dimensions) {
     adjustments[dim] =
       Math.round((normalizedWeights[dim] - baseWeights[dim]) * 10000) / 10000;
   }

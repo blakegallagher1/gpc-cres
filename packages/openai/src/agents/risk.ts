@@ -135,6 +135,7 @@ For each risk category, explicitly:
 **Key Uncertainties:**
 | Unknown Factor | Impact if Wrong | Reducible? | Suggested Action |
 |----------------|----------------|------------|------------------|
+| [Factor] | [Critical/High/Medium/Low] | [Yes/No] | [Action] |
 
 **Insurance Requirements:**
 | Coverage | Recommended Limit | Est. Premium |

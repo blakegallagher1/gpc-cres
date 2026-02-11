@@ -53,7 +53,7 @@ describe("computeAdaptiveWeights", () => {
     expect(result!.adjustments).toBeDefined();
   });
 
-  it("adapted weights sum to approximately 1.0", () => {
+  it("adapted weights sum to exactly 1.0", () => {
     const outcomes = Array.from({ length: 10 }, (_, i) =>
       makeOutcome({
         scores: {
@@ -73,7 +73,7 @@ describe("computeAdaptiveWeights", () => {
 
     const result = computeAdaptiveWeights(outcomes)!;
     const sum = Object.values(result.weights).reduce((s, v) => s + v, 0);
-    expect(sum).toBeCloseTo(1.0, 2);
+    expect(sum).toBe(1.0);
   });
 
   it("respects minimum weight floor", () => {
