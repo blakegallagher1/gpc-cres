@@ -15,7 +15,7 @@
     "@entitlement-os/evidence": "workspace:*",
     "@entitlement-os/openai": "workspace:*",
     "@entitlement-os/shared": "workspace:*",
-    "@openai/agents": "^0.1.0",
+    "@openai/agents": "^0.4.6",
     "@radix-ui/react-checkbox": "^1.1.2",
     "@radix-ui/react-dialog": "^1.1.2",
     "@radix-ui/react-dropdown-menu": "^2.1.2",

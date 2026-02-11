@@ -22,7 +22,7 @@
     "@entitlement-os/artifacts": "workspace:*",
     "@entitlement-os/db": "workspace:*",
     "@entitlement-os/shared": "workspace:*",
-    "@openai/agents": "^0.1.0",
+    "@openai/agents": "^0.4.6",
     "@supabase/supabase-js": "^2.49.1",
     "openai": "^4.87.3",
     "zod": "^3.23.0"
