@@ -34,7 +34,7 @@ function computeIRR(
   return rate;
 }
 
-function estimateRemainingBalance(
+export function estimateRemainingBalance(
   principal: number,
   annualRate: number,
   amortYears: number,

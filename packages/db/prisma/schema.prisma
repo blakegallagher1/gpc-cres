@@ -209,6 +209,7 @@ model Deal {
   financialModelAssumptions Json?    @map("financial_model_assumptions") @db.JsonB
   financialModelScenarios   Json?    @map("financial_model_scenarios") @db.JsonB
   waterfallStructures       Json?    @map("waterfall_structures") @db.JsonB
+  debtComparisons           Json?    @map("debt_comparisons") @db.JsonB
 
   org          Org          @relation(fields: [orgId], references: [id], onDelete: Cascade)
   jurisdiction Jurisdiction @relation(fields: [jurisdictionId], references: [id], onDelete: Restrict)
