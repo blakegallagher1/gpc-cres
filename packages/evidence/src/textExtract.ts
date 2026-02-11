@@ -12,11 +12,7 @@ export async function extractTextFromHtml(html: string): Promise<string> {
 }
 
 export async function extractTextFromPdfBytes(bytes: Uint8Array): Promise<string> {
-  // pdf-parse is CJS; ESM import requires dynamic import in some environments.
-  // We keep it lazy to avoid overhead in non-PDF runs.
-  type PdfParseFn = (data: Buffer | Uint8Array, options?: Record<string, unknown>) => Promise<{ text?: string }>;
-  const mod = (await import("pdf-parse")) as unknown as { default?: PdfParseFn } | PdfParseFn;
-  const pdfParse: PdfParseFn = typeof mod === "function" ? mod : (mod.default as PdfParseFn);
-  const result = await pdfParse(Buffer.from(bytes));
+  const { extractText } = await import("unpdf");
+  const result = await extractText(bytes, { mergePages: true });
   return String(result.text ?? "").trim();
 }

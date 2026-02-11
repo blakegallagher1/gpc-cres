@@ -85,9 +85,8 @@ function classifyByFilename(filename: string): { docType: DocType; confidence: n
 
 async function extractTextFromPdf(buffer: Buffer): Promise<string> {
   try {
-    const mod = await import("pdf-parse") as Record<string, unknown>;
-    const pdfParse = (mod.default ?? mod) as (buf: Buffer) => Promise<{ text: string }>;
-    const result = await pdfParse(buffer);
+    const { extractText } = await import("unpdf");
+    const result = await extractText(new Uint8Array(buffer), { mergePages: true });
     const text = String(result.text ?? "").trim();
     return text;
   } catch (err) {
