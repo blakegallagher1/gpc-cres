@@ -1,15 +1,15 @@
 {
-  "generated_at": "2026-02-11T22:58:54.527Z",
+  "generated_at": "2026-02-11T23:04:47.755Z",
   "phase": "phase1",
   "source_matrix": "docs/testing/test-matrix-starter.json",
   "test_root": "packages/openai/test/phase1",
   "totals": {
     "expected_tests": 198,
-    "implemented_tests": 33,
-    "todo_tests": 165,
+    "implemented_tests": 63,
+    "todo_tests": 135,
     "missing_tests": 0,
     "extra_tests": 0,
-    "completion_percent": 16.67
+    "completion_percent": 31.82
   },
   "missing": [],
   "todo": [
@@ -284,150 +284,6 @@
       "file": "packages/openai/test/phase1/tools/assess_uncertainty.phase1.test.ts"
     },
     {
-      "matrix_id": "tool:calculate_1031_deadlines",
-      "pack": "schema",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/calculate_1031_deadlines.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:calculate_1031_deadlines",
-      "pack": "security",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/calculate_1031_deadlines.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:calculate_1031_deadlines",
-      "pack": "idempotency",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/calculate_1031_deadlines.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:calculate_cost_segregation_estimate",
-      "pack": "schema",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/calculate_cost_segregation_estimate.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:calculate_cost_segregation_estimate",
-      "pack": "security",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/calculate_cost_segregation_estimate.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:calculate_cost_segregation_estimate",
-      "pack": "idempotency",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/calculate_cost_segregation_estimate.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:calculate_debt_sizing",
-      "pack": "schema",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/calculate_debt_sizing.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:calculate_debt_sizing",
-      "pack": "security",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/calculate_debt_sizing.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:calculate_debt_sizing",
-      "pack": "idempotency",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/calculate_debt_sizing.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:calculate_depreciation_schedule",
-      "pack": "schema",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/calculate_depreciation_schedule.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:calculate_depreciation_schedule",
-      "pack": "security",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/calculate_depreciation_schedule.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:calculate_depreciation_schedule",
-      "pack": "idempotency",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/calculate_depreciation_schedule.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:calculate_development_budget",
-      "pack": "schema",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/calculate_development_budget.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:calculate_development_budget",
-      "pack": "security",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/calculate_development_budget.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:calculate_development_budget",
-      "pack": "idempotency",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/calculate_development_budget.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:calculate_market_metrics",
-      "pack": "schema",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/calculate_market_metrics.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:calculate_market_metrics",
-      "pack": "security",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/calculate_market_metrics.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:calculate_market_metrics",
-      "pack": "idempotency",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/calculate_market_metrics.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:calculate_proforma",
-      "pack": "schema",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/calculate_proforma.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:calculate_proforma",
-      "pack": "security",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/calculate_proforma.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:calculate_proforma",
-      "pack": "idempotency",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/calculate_proforma.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:calculate_site_capacity",
-      "pack": "schema",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/calculate_site_capacity.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:calculate_site_capacity",
-      "pack": "security",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/calculate_site_capacity.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:calculate_site_capacity",
-      "pack": "idempotency",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/calculate_site_capacity.phase1.test.ts"
-    },
-    {
       "matrix_id": "tool:create_milestone_schedule",
       "pack": "schema",
       "status": "todo",
@@ -444,24 +300,6 @@
       "pack": "idempotency",
       "status": "todo",
       "file": "packages/openai/test/phase1/tools/create_milestone_schedule.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:estimate_construction_cost",
-      "pack": "schema",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/estimate_construction_cost.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:estimate_construction_cost",
-      "pack": "security",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/estimate_construction_cost.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:estimate_construction_cost",
-      "pack": "idempotency",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/estimate_construction_cost.phase1.test.ts"
     },
     {
       "matrix_id": "tool:estimate_project_timeline",
@@ -858,24 +696,6 @@
       "pack": "idempotency",
       "status": "todo",
       "file": "packages/openai/test/phase1/tools/screenWetlands.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:search_comparable_sales",
-      "pack": "schema",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/search_comparable_sales.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:search_comparable_sales",
-      "pack": "security",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/search_comparable_sales.phase1.test.ts"
-    },
-    {
-      "matrix_id": "tool:search_comparable_sales",
-      "pack": "idempotency",
-      "status": "todo",
-      "file": "packages/openai/test/phase1/tools/search_comparable_sales.phase1.test.ts"
     },
     {
       "matrix_id": "tool:search_knowledge_base",
@@ -1042,6 +862,150 @@
       "file": "packages/openai/test/phase1/tools/addParcelToDeal.phase1.test.ts"
     },
     {
+      "matrix_id": "tool:calculate_1031_deadlines",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/calculate_1031_deadlines.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:calculate_1031_deadlines",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/calculate_1031_deadlines.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:calculate_1031_deadlines",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/calculate_1031_deadlines.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:calculate_cost_segregation_estimate",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/calculate_cost_segregation_estimate.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:calculate_cost_segregation_estimate",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/calculate_cost_segregation_estimate.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:calculate_cost_segregation_estimate",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/calculate_cost_segregation_estimate.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:calculate_debt_sizing",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/calculate_debt_sizing.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:calculate_debt_sizing",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/calculate_debt_sizing.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:calculate_debt_sizing",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/calculate_debt_sizing.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:calculate_depreciation_schedule",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/calculate_depreciation_schedule.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:calculate_depreciation_schedule",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/calculate_depreciation_schedule.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:calculate_depreciation_schedule",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/calculate_depreciation_schedule.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:calculate_development_budget",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/calculate_development_budget.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:calculate_development_budget",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/calculate_development_budget.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:calculate_development_budget",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/calculate_development_budget.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:calculate_market_metrics",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/calculate_market_metrics.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:calculate_market_metrics",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/calculate_market_metrics.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:calculate_market_metrics",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/calculate_market_metrics.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:calculate_proforma",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/calculate_proforma.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:calculate_proforma",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/calculate_proforma.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:calculate_proforma",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/calculate_proforma.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:calculate_site_capacity",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/calculate_site_capacity.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:calculate_site_capacity",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/calculate_site_capacity.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:calculate_site_capacity",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/calculate_site_capacity.phase1.test.ts"
+    },
+    {
       "matrix_id": "tool:compareEvidenceHash",
       "pack": "schema",
       "status": "implemented",
@@ -1096,6 +1060,24 @@
       "file": "packages/openai/test/phase1/tools/createTask.phase1.test.ts"
     },
     {
+      "matrix_id": "tool:estimate_construction_cost",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/estimate_construction_cost.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:estimate_construction_cost",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/estimate_construction_cost.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:estimate_construction_cost",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/estimate_construction_cost.phase1.test.ts"
+    },
+    {
       "matrix_id": "tool:evidenceSnapshot",
       "pack": "schema",
       "status": "implemented",
@@ -1148,6 +1130,24 @@
       "pack": "idempotency",
       "status": "implemented",
       "file": "packages/openai/test/phase1/tools/listDeals.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:search_comparable_sales",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/search_comparable_sales.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:search_comparable_sales",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/search_comparable_sales.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:search_comparable_sales",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/search_comparable_sales.phase1.test.ts"
     },
     {
       "matrix_id": "tool:updateDealStatus",
