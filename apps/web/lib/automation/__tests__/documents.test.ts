@@ -1,16 +1,13 @@
-jest.mock("@entitlement-os/db", () => ({
-  prisma: {
-    upload: { findFirst: jest.fn(), update: jest.fn() },
-    task: { create: jest.fn() },
+const { dbMock } = vi.hoisted(() => ({
+  dbMock: {
+    prisma: {
+      upload: { findFirst: vi.fn(), update: vi.fn() },
+      task: { create: vi.fn() },
+    },
   },
 }));
 
-const db = jest.requireMock("@entitlement-os/db") as {
-  prisma: {
-    upload: { findFirst: jest.Mock; update: jest.Mock };
-    task: { create: jest.Mock };
-  };
-};
+vi.mock("@entitlement-os/db", () => dbMock);
 
 import { classifyDocument, handleUploadCreated } from "../documents";
 
@@ -92,52 +89,52 @@ describe("classifyDocument", () => {
 // --- handleUploadCreated handler tests ---
 
 describe("handleUploadCreated", () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => vi.clearAllMocks());
 
   it("ignores non upload.created events", async () => {
     await handleUploadCreated({ type: "parcel.created", dealId: "d", parcelId: "p", orgId: "o" });
-    expect(db.prisma.upload.findFirst).not.toHaveBeenCalled();
+    expect(dbMock.prisma.upload.findFirst).not.toHaveBeenCalled();
   });
 
   it("returns if upload not found", async () => {
-    db.prisma.upload.findFirst.mockResolvedValue(null);
+    dbMock.prisma.upload.findFirst.mockResolvedValue(null);
     await handleUploadCreated({ type: "upload.created", dealId: "d", uploadId: "u", orgId: "o" });
-    expect(db.prisma.upload.update).not.toHaveBeenCalled();
-    expect(db.prisma.task.create).not.toHaveBeenCalled();
+    expect(dbMock.prisma.upload.update).not.toHaveBeenCalled();
+    expect(dbMock.prisma.task.create).not.toHaveBeenCalled();
   });
 
   it("auto-classifies 'other' upload when high confidence match found", async () => {
-    db.prisma.upload.findFirst.mockResolvedValue({
+    dbMock.prisma.upload.findFirst.mockResolvedValue({
       id: "u1", filename: "Title_Commitment.pdf", kind: "other",
     });
 
     await handleUploadCreated({ type: "upload.created", dealId: "d", uploadId: "u1", orgId: "o" });
 
-    expect(db.prisma.upload.update).toHaveBeenCalledWith({
+    expect(dbMock.prisma.upload.update).toHaveBeenCalledWith({
       where: { id: "u1" },
       data: { kind: "title" },
     });
-    expect(db.prisma.task.create).not.toHaveBeenCalled();
+    expect(dbMock.prisma.task.create).not.toHaveBeenCalled();
   });
 
   it("creates review task when user kind differs from high-confidence classification", async () => {
-    db.prisma.upload.findFirst.mockResolvedValue({
+    dbMock.prisma.upload.findFirst.mockResolvedValue({
       id: "u1", filename: "Title_Commitment.pdf", kind: "financial",
     });
-    db.prisma.task.create.mockResolvedValue({ id: "task-1" });
+    dbMock.prisma.task.create.mockResolvedValue({ id: "task-1" });
 
     await handleUploadCreated({ type: "upload.created", dealId: "d", uploadId: "u1", orgId: "o" });
 
-    expect(db.prisma.upload.update).not.toHaveBeenCalled();
-    expect(db.prisma.task.create).toHaveBeenCalledTimes(1);
-    const arg = db.prisma.task.create.mock.calls[0][0];
+    expect(dbMock.prisma.upload.update).not.toHaveBeenCalled();
+    expect(dbMock.prisma.task.create).toHaveBeenCalledTimes(1);
+    const arg = dbMock.prisma.task.create.mock.calls[0][0];
     expect(arg.data.title).toContain("[AUTO]");
     expect(arg.data.title).toContain("Review document classification");
   });
 
   it("does not create review task when user kind differs but classification is low confidence", async () => {
     // "photos.zip" would classify as "other" at 0.3 confidence — below threshold
-    db.prisma.upload.findFirst.mockResolvedValue({
+    dbMock.prisma.upload.findFirst.mockResolvedValue({
       id: "u1", filename: "photos.zip", kind: "survey",
     });
 
@@ -145,35 +142,35 @@ describe("handleUploadCreated", () => {
 
     // Classification is "other" at 0.3 < 0.7 threshold, different from "survey"
     // But since upload.kind !== "other" and classification.confidence < threshold, no action
-    expect(db.prisma.upload.update).not.toHaveBeenCalled();
-    expect(db.prisma.task.create).not.toHaveBeenCalled();
+    expect(dbMock.prisma.upload.update).not.toHaveBeenCalled();
+    expect(dbMock.prisma.task.create).not.toHaveBeenCalled();
   });
 
   it("creates review task when upload is 'other' and classification is also low confidence", async () => {
     // File that doesn't match any rule: kind=other, classification=other at 0.3
-    db.prisma.upload.findFirst.mockResolvedValue({
+    dbMock.prisma.upload.findFirst.mockResolvedValue({
       id: "u1", filename: "random_file.xyz", kind: "other",
     });
-    db.prisma.task.create.mockResolvedValue({ id: "task-1" });
+    dbMock.prisma.task.create.mockResolvedValue({ id: "task-1" });
 
     await handleUploadCreated({ type: "upload.created", dealId: "d", uploadId: "u1", orgId: "o" });
 
     // kind=other, classification=other, confidence=0.3 < 0.7 threshold → review task
-    expect(db.prisma.task.create).toHaveBeenCalledTimes(1);
-    const arg = db.prisma.task.create.mock.calls[0][0];
+    expect(dbMock.prisma.task.create).toHaveBeenCalledTimes(1);
+    const arg = dbMock.prisma.task.create.mock.calls[0][0];
     expect(arg.data.title).toContain("Classify uploaded document");
   });
 
   it("does nothing when upload kind matches classification", async () => {
     // Upload already classified as "title", our classification agrees
-    db.prisma.upload.findFirst.mockResolvedValue({
+    dbMock.prisma.upload.findFirst.mockResolvedValue({
       id: "u1", filename: "Title_Report.pdf", kind: "title",
     });
 
     await handleUploadCreated({ type: "upload.created", dealId: "d", uploadId: "u1", orgId: "o" });
 
     // kind !== "other" and classification.kind === upload.kind → no action
-    expect(db.prisma.upload.update).not.toHaveBeenCalled();
-    expect(db.prisma.task.create).not.toHaveBeenCalled();
+    expect(dbMock.prisma.upload.update).not.toHaveBeenCalled();
+    expect(dbMock.prisma.task.create).not.toHaveBeenCalled();
   });
 });

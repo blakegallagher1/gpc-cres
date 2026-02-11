@@ -119,7 +119,7 @@ describe("useUndoRedo", () => {
   });
 
   it("should call onChange callback", () => {
-    const onChange = jest.fn();
+    const onChange = vi.fn();
     const { result } = renderHook(() =>
       useUndoRedo(initialState, { onChange })
     );

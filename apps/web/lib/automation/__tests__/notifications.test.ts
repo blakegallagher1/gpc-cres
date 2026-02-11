@@ -1,18 +1,17 @@
 import { createAutomationTask } from "../notifications";
 
-jest.mock("@entitlement-os/db", () => ({
-  prisma: {
-    task: {
-      create: jest.fn(),
+const { dbMock } = vi.hoisted(() => ({
+  dbMock: {
+    prisma: {
+      task: {
+        create: vi.fn(),
+      },
     },
   },
 }));
 
-// Get reference to the mock function after jest.mock hoisting
-const db = jest.requireMock("@entitlement-os/db") as {
-  prisma: { task: { create: jest.Mock } };
-};
-const mockTaskCreate = db.prisma.task.create;
+vi.mock("@entitlement-os/db", () => dbMock);
+const mockTaskCreate = dbMock.prisma.task.create;
 
 describe("notifications", () => {
   beforeEach(() => {

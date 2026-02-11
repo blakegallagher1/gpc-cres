@@ -1,23 +1,18 @@
-// Mock external deps before any imports
-jest.mock("@entitlement-os/openai", () => ({
-  propertyDbRpc: jest.fn(),
-}));
-jest.mock("@entitlement-os/db", () => ({
-  prisma: {
-    parcel: { findFirst: jest.fn(), update: jest.fn() },
-    task: { create: jest.fn() },
+const { openaiMock, dbMock } = vi.hoisted(() => ({
+  openaiMock: {
+    propertyDbRpc: vi.fn(),
+  },
+  dbMock: {
+    prisma: {
+      parcel: { findFirst: vi.fn(), update: vi.fn() },
+      task: { create: vi.fn() },
+    },
   },
 }));
 
-const db = jest.requireMock("@entitlement-os/db") as {
-  prisma: {
-    parcel: { findFirst: jest.Mock; update: jest.Mock };
-    task: { create: jest.Mock };
-  };
-};
-const openai = jest.requireMock("@entitlement-os/openai") as {
-  propertyDbRpc: jest.Mock;
-};
+// Mock external deps before any imports
+vi.mock("@entitlement-os/openai", () => openaiMock);
+vi.mock("@entitlement-os/db", () => dbMock);
 
 import {
   normalizeAddress,
@@ -121,25 +116,25 @@ describe("enrichment", () => {
     };
 
     beforeEach(() => {
-      jest.clearAllMocks();
+      vi.clearAllMocks();
     });
 
     it("should pass East Baton Rouge parish from jurisdiction to property DB search", async () => {
-      db.prisma.parcel.findFirst.mockResolvedValue({
+      dbMock.prisma.parcel.findFirst.mockResolvedValue({
         id: "p1",
         address: "123 Main St",
         dealId: "d1",
         propertyDbId: null,
         deal: { jurisdiction: { name: "East Baton Rouge" } },
       });
-      openai.propertyDbRpc.mockResolvedValue([
+      openaiMock.propertyDbRpc.mockResolvedValue([
         { id: "prop1", site_address: "123 Main St" },
       ]);
-      db.prisma.parcel.update.mockResolvedValue({});
+      dbMock.prisma.parcel.update.mockResolvedValue({});
 
       await handleParcelCreated(baseEvent);
 
-      expect(openai.propertyDbRpc).toHaveBeenCalledWith("api_search_parcels", {
+      expect(openaiMock.propertyDbRpc).toHaveBeenCalledWith("api_search_parcels", {
         search_text: "123 Main St",
         parish: "East Baton Rouge",
         limit_rows: 10,
@@ -147,21 +142,21 @@ describe("enrichment", () => {
     });
 
     it("should pass Ascension parish from jurisdiction to property DB search", async () => {
-      db.prisma.parcel.findFirst.mockResolvedValue({
+      dbMock.prisma.parcel.findFirst.mockResolvedValue({
         id: "p1",
         address: "456 Airline Hwy",
         dealId: "d1",
         propertyDbId: null,
         deal: { jurisdiction: { name: "Ascension" } },
       });
-      openai.propertyDbRpc.mockResolvedValue([
+      openaiMock.propertyDbRpc.mockResolvedValue([
         { id: "prop2", site_address: "456 Airline Hwy" },
       ]);
-      db.prisma.parcel.update.mockResolvedValue({});
+      dbMock.prisma.parcel.update.mockResolvedValue({});
 
       await handleParcelCreated(baseEvent);
 
-      expect(openai.propertyDbRpc).toHaveBeenCalledWith("api_search_parcels", {
+      expect(openaiMock.propertyDbRpc).toHaveBeenCalledWith("api_search_parcels", {
         search_text: "456 Airline Hwy",
         parish: "Ascension",
         limit_rows: 10,
@@ -169,19 +164,19 @@ describe("enrichment", () => {
     });
 
     it("should pass null parish when deal has no jurisdiction", async () => {
-      db.prisma.parcel.findFirst.mockResolvedValue({
+      dbMock.prisma.parcel.findFirst.mockResolvedValue({
         id: "p1",
         address: "789 Oak Ave",
         dealId: "d1",
         propertyDbId: null,
         deal: { jurisdiction: null },
       });
-      openai.propertyDbRpc.mockResolvedValue([]);
-      db.prisma.task.create.mockResolvedValue({});
+      openaiMock.propertyDbRpc.mockResolvedValue([]);
+      dbMock.prisma.task.create.mockResolvedValue({});
 
       await handleParcelCreated(baseEvent);
 
-      expect(openai.propertyDbRpc).toHaveBeenCalledWith("api_search_parcels", {
+      expect(openaiMock.propertyDbRpc).toHaveBeenCalledWith("api_search_parcels", {
         search_text: "789 Oak Ave",
         parish: null,
         limit_rows: 10,
@@ -198,11 +193,11 @@ describe("enrichment", () => {
 
       await handleParcelCreated(event);
 
-      expect(db.prisma.parcel.findFirst).not.toHaveBeenCalled();
+      expect(dbMock.prisma.parcel.findFirst).not.toHaveBeenCalled();
     });
 
     it("should skip if parcel has no address", async () => {
-      db.prisma.parcel.findFirst.mockResolvedValue({
+      dbMock.prisma.parcel.findFirst.mockResolvedValue({
         id: "p1",
         address: null,
         dealId: "d1",
@@ -212,11 +207,11 @@ describe("enrichment", () => {
 
       await handleParcelCreated(baseEvent);
 
-      expect(openai.propertyDbRpc).not.toHaveBeenCalled();
+      expect(openaiMock.propertyDbRpc).not.toHaveBeenCalled();
     });
 
     it("should skip if parcel is already enriched", async () => {
-      db.prisma.parcel.findFirst.mockResolvedValue({
+      dbMock.prisma.parcel.findFirst.mockResolvedValue({
         id: "p1",
         address: "123 Main St",
         dealId: "d1",
@@ -226,23 +221,23 @@ describe("enrichment", () => {
 
       await handleParcelCreated(baseEvent);
 
-      expect(openai.propertyDbRpc).not.toHaveBeenCalled();
+      expect(openaiMock.propertyDbRpc).not.toHaveBeenCalled();
     });
 
     it("should create manual geocoding task when no matches found", async () => {
-      db.prisma.parcel.findFirst.mockResolvedValue({
+      dbMock.prisma.parcel.findFirst.mockResolvedValue({
         id: "p1",
         address: "999 Nowhere Rd",
         dealId: "d1",
         propertyDbId: null,
         deal: { jurisdiction: { name: "East Baton Rouge" } },
       });
-      openai.propertyDbRpc.mockResolvedValue([]);
-      db.prisma.task.create.mockResolvedValue({});
+      openaiMock.propertyDbRpc.mockResolvedValue([]);
+      dbMock.prisma.task.create.mockResolvedValue({});
 
       await handleParcelCreated(baseEvent);
 
-      expect(db.prisma.task.create).toHaveBeenCalledWith(
+      expect(dbMock.prisma.task.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             title: "[AUTO] Manual geocoding needed",

@@ -1,15 +1,15 @@
 // Mock external deps to prevent OpenAI SDK / Playwright import errors
-jest.mock("@entitlement-os/openai", () => ({
-  propertyDbRpc: jest.fn(),
+vi.mock("@entitlement-os/openai", () => ({
+  propertyDbRpc: vi.fn(),
 }));
-jest.mock("../artifactAutomation", () => ({
-  handleArtifactOnStatusChange: jest.fn(),
-  handleTriageArtifactNotification: jest.fn(),
+vi.mock("../artifactAutomation", () => ({
+  handleArtifactOnStatusChange: vi.fn(),
+  handleTriageArtifactNotification: vi.fn(),
 }));
-jest.mock("@entitlement-os/db", () => ({
+vi.mock("@entitlement-os/db", () => ({
   prisma: {
-    parcel: { findFirst: jest.fn(), update: jest.fn() },
-    task: { create: jest.fn() },
+    parcel: { findFirst: vi.fn(), update: vi.fn() },
+    task: { create: vi.fn() },
   },
 }));
 

@@ -12,7 +12,7 @@ describe("events", () => {
 
   describe("dispatchEvent", () => {
     it("should be fire-and-forget (handler errors do not propagate)", async () => {
-      const errorHandler = jest.fn(async () => {
+      const errorHandler = vi.fn(async () => {
         throw new Error("Handler error");
       });
 
@@ -43,7 +43,7 @@ describe("events", () => {
     });
 
     it("should pass correct event data to handler", async () => {
-      const handler = jest.fn();
+      const handler = vi.fn();
       registerHandler("parcel.enriched", handler);
 
       const event: AutomationEvent = {
@@ -60,9 +60,9 @@ describe("events", () => {
     });
 
     it("should call multiple handlers for the same event type", async () => {
-      const handler1 = jest.fn();
-      const handler2 = jest.fn();
-      const handler3 = jest.fn();
+      const handler1 = vi.fn();
+      const handler2 = vi.fn();
+      const handler3 = vi.fn();
 
       registerHandler("triage.completed", handler1);
       registerHandler("triage.completed", handler2);
@@ -84,11 +84,11 @@ describe("events", () => {
     });
 
     it("should continue executing other handlers if one throws", async () => {
-      const handler1 = jest.fn();
-      const handler2 = jest.fn(async () => {
+      const handler1 = vi.fn();
+      const handler2 = vi.fn(async () => {
         throw new Error("Handler 2 error");
       });
-      const handler3 = jest.fn();
+      const handler3 = vi.fn();
 
       registerHandler("task.created", handler1);
       registerHandler("task.created", handler2);
@@ -110,7 +110,7 @@ describe("events", () => {
     });
 
     it("should handle async handlers", async () => {
-      const asyncHandler = jest.fn(async () => {
+      const asyncHandler = vi.fn(async () => {
         await new Promise((resolve) => setTimeout(resolve, 10));
         return "done";
       });
@@ -144,7 +144,7 @@ describe("events", () => {
 
   describe("registerHandler", () => {
     it("should register handler successfully", () => {
-      const handler = jest.fn();
+      const handler = vi.fn();
 
       expect(() => {
         registerHandler("upload.created", handler);
@@ -152,8 +152,8 @@ describe("events", () => {
     });
 
     it("should allow multiple handlers for the same event type", () => {
-      const handler1 = jest.fn();
-      const handler2 = jest.fn();
+      const handler1 = vi.fn();
+      const handler2 = vi.fn();
 
       expect(() => {
         registerHandler("intake.received", handler1);
@@ -162,9 +162,9 @@ describe("events", () => {
     });
 
     it("should allow handlers for different event types", () => {
-      const parcelHandler = jest.fn();
-      const triageHandler = jest.fn();
-      const taskHandler = jest.fn();
+      const parcelHandler = vi.fn();
+      const triageHandler = vi.fn();
+      const taskHandler = vi.fn();
 
       expect(() => {
         registerHandler("parcel.created", parcelHandler);
@@ -174,7 +174,7 @@ describe("events", () => {
     });
 
     it("should allow the same handler function to be registered multiple times", () => {
-      const handler = jest.fn();
+      const handler = vi.fn();
 
       expect(() => {
         registerHandler("parcel.created", handler);
@@ -272,13 +272,13 @@ describe("events", () => {
     it("should execute handlers in registration order", async () => {
       const executionOrder: number[] = [];
 
-      const handler1 = jest.fn(async () => {
+      const handler1 = vi.fn(async () => {
         executionOrder.push(1);
       });
-      const handler2 = jest.fn(async () => {
+      const handler2 = vi.fn(async () => {
         executionOrder.push(2);
       });
-      const handler3 = jest.fn(async () => {
+      const handler3 = vi.fn(async () => {
         executionOrder.push(3);
       });
 
@@ -301,7 +301,7 @@ describe("events", () => {
 
   describe("event data validation", () => {
     it("should handle events with all required fields", async () => {
-      const handler = jest.fn();
+      const handler = vi.fn();
       registerHandler("triage.completed", handler);
 
       const event: AutomationEvent = {
@@ -318,7 +318,7 @@ describe("events", () => {
     });
 
     it("should handle intake.received with source and content", async () => {
-      const handler = jest.fn();
+      const handler = vi.fn();
       registerHandler("intake.received", handler);
 
       const event: AutomationEvent = {

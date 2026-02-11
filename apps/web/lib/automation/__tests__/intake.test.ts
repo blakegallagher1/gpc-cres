@@ -1,22 +1,16 @@
-jest.mock("@entitlement-os/db", () => ({
-  prisma: {
-    deal: { count: jest.fn(), findFirst: jest.fn(), create: jest.fn() },
-    parcel: { create: jest.fn() },
-    task: { create: jest.fn() },
-    jurisdiction: { findFirst: jest.fn() },
-    orgMembership: { findFirst: jest.fn() },
+const { dbMock } = vi.hoisted(() => ({
+  dbMock: {
+    prisma: {
+      deal: { count: vi.fn(), findFirst: vi.fn(), create: vi.fn() },
+      parcel: { create: vi.fn() },
+      task: { create: vi.fn() },
+      jurisdiction: { findFirst: vi.fn() },
+      orgMembership: { findFirst: vi.fn() },
+    },
   },
 }));
 
-const db = jest.requireMock("@entitlement-os/db") as {
-  prisma: {
-    deal: { count: jest.Mock; findFirst: jest.Mock; create: jest.Mock };
-    parcel: { create: jest.Mock };
-    task: { create: jest.Mock };
-    jurisdiction: { findFirst: jest.Mock };
-    orgMembership: { findFirst: jest.Mock };
-  };
-};
+vi.mock("@entitlement-os/db", () => dbMock);
 
 import { parseIntakeContent, matchesGpcCriteria, handleIntakeReceived } from "../intake";
 
@@ -144,33 +138,33 @@ describe("matchesGpcCriteria", () => {
 // --- Handler tests ---
 
 describe("handleIntakeReceived", () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => vi.clearAllMocks());
 
   it("ignores non intake.received events", async () => {
     await handleIntakeReceived({ type: "parcel.created", dealId: "d", parcelId: "p", orgId: "o" });
-    expect(db.prisma.deal.count).not.toHaveBeenCalled();
+    expect(dbMock.prisma.deal.count).not.toHaveBeenCalled();
   });
 
   it("returns on empty content", async () => {
     await handleIntakeReceived({ type: "intake.received", source: "email", content: "", orgId: "o" });
-    expect(db.prisma.deal.count).not.toHaveBeenCalled();
+    expect(dbMock.prisma.deal.count).not.toHaveBeenCalled();
   });
 
   it("skips intakes that do not match GPC criteria", async () => {
-    const consoleSpy = jest.spyOn(console, "log").mockImplementation();
+    const consoleSpy = vi.spyOn(console, "log").mockImplementation();
     await handleIntakeReceived({
       type: "intake.received",
       source: "email",
       content: "Random property in Orleans parish, no specific use mentioned",
       orgId: "o",
     });
-    expect(db.prisma.deal.count).not.toHaveBeenCalled();
+    expect(dbMock.prisma.deal.count).not.toHaveBeenCalled();
     expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("does not match"));
     consoleSpy.mockRestore();
   });
 
   it("skips when daily rate limit reached", async () => {
-    db.prisma.deal.count.mockResolvedValue(10); // >= max (10)
+    dbMock.prisma.deal.count.mockResolvedValue(10); // >= max (10)
 
     await handleIntakeReceived({
       type: "intake.received",
@@ -179,12 +173,12 @@ describe("handleIntakeReceived", () => {
       orgId: "o",
     });
 
-    expect(db.prisma.deal.create).not.toHaveBeenCalled();
+    expect(dbMock.prisma.deal.create).not.toHaveBeenCalled();
   });
 
   it("skips when address matches existing deal", async () => {
-    db.prisma.deal.count.mockResolvedValue(0);
-    db.prisma.deal.findFirst.mockResolvedValue({ id: "existing", name: "Existing Deal" });
+    dbMock.prisma.deal.count.mockResolvedValue(0);
+    dbMock.prisma.deal.findFirst.mockResolvedValue({ id: "existing", name: "Existing Deal" });
 
     await handleIntakeReceived({
       type: "intake.received",
@@ -193,13 +187,13 @@ describe("handleIntakeReceived", () => {
       orgId: "o",
     });
 
-    expect(db.prisma.deal.create).not.toHaveBeenCalled();
+    expect(dbMock.prisma.deal.create).not.toHaveBeenCalled();
   });
 
   it("skips when no jurisdiction found for parish", async () => {
-    db.prisma.deal.count.mockResolvedValue(0);
-    db.prisma.deal.findFirst.mockResolvedValue(null); // no existing deal
-    db.prisma.jurisdiction.findFirst.mockResolvedValue(null); // no jurisdiction
+    dbMock.prisma.deal.count.mockResolvedValue(0);
+    dbMock.prisma.deal.findFirst.mockResolvedValue(null); // no existing deal
+    dbMock.prisma.jurisdiction.findFirst.mockResolvedValue(null); // no jurisdiction
 
     await handleIntakeReceived({
       type: "intake.received",
@@ -208,17 +202,17 @@ describe("handleIntakeReceived", () => {
       orgId: "o",
     });
 
-    expect(db.prisma.deal.create).not.toHaveBeenCalled();
+    expect(dbMock.prisma.deal.create).not.toHaveBeenCalled();
   });
 
   it("auto-creates deal when all conditions met", async () => {
-    db.prisma.deal.count.mockResolvedValue(0);
-    db.prisma.deal.findFirst.mockResolvedValue(null);
-    db.prisma.jurisdiction.findFirst.mockResolvedValue({ id: "j1", name: "East Baton Rouge" });
-    db.prisma.orgMembership.findFirst.mockResolvedValue({ userId: "user-1" });
-    db.prisma.deal.create.mockResolvedValue({ id: "new-deal", name: "123 Main St" });
-    db.prisma.parcel.create.mockResolvedValue({ id: "p1" });
-    db.prisma.task.create.mockResolvedValue({ id: "t1" });
+    dbMock.prisma.deal.count.mockResolvedValue(0);
+    dbMock.prisma.deal.findFirst.mockResolvedValue(null);
+    dbMock.prisma.jurisdiction.findFirst.mockResolvedValue({ id: "j1", name: "East Baton Rouge" });
+    dbMock.prisma.orgMembership.findFirst.mockResolvedValue({ userId: "user-1" });
+    dbMock.prisma.deal.create.mockResolvedValue({ id: "new-deal", name: "123 Main St" });
+    dbMock.prisma.parcel.create.mockResolvedValue({ id: "p1" });
+    dbMock.prisma.task.create.mockResolvedValue({ id: "t1" });
 
     await handleIntakeReceived({
       type: "intake.received",
@@ -228,8 +222,8 @@ describe("handleIntakeReceived", () => {
     });
 
     // Deal created
-    expect(db.prisma.deal.create).toHaveBeenCalledTimes(1);
-    const dealArg = db.prisma.deal.create.mock.calls[0][0];
+    expect(dbMock.prisma.deal.create).toHaveBeenCalledTimes(1);
+    const dealArg = dbMock.prisma.deal.create.mock.calls[0][0];
     expect(dealArg.data.orgId).toBe("o");
     expect(dealArg.data.sku).toBe("OUTDOOR_STORAGE");
     expect(dealArg.data.jurisdictionId).toBe("j1");
@@ -237,23 +231,23 @@ describe("handleIntakeReceived", () => {
     expect(dealArg.data.source).toContain("[AUTO]");
 
     // Parcel created
-    expect(db.prisma.parcel.create).toHaveBeenCalledTimes(1);
+    expect(dbMock.prisma.parcel.create).toHaveBeenCalledTimes(1);
 
     // Veto task created
-    expect(db.prisma.task.create).toHaveBeenCalledTimes(1);
-    const taskArg = db.prisma.task.create.mock.calls[0][0];
+    expect(dbMock.prisma.task.create).toHaveBeenCalledTimes(1);
+    const taskArg = dbMock.prisma.task.create.mock.calls[0][0];
     expect(taskArg.data.title).toContain("[AUTO]");
     expect(taskArg.data.title).toContain("Review auto-created deal");
     expect(taskArg.data.dueAt).toBeDefined(); // 24h veto deadline
   });
 
   it("creates deal without parcel when no address extracted", async () => {
-    db.prisma.deal.count.mockResolvedValue(0);
+    dbMock.prisma.deal.count.mockResolvedValue(0);
     // No address → no findFirst for duplicate check
-    db.prisma.jurisdiction.findFirst.mockResolvedValue({ id: "j1", name: "Ascension" });
-    db.prisma.orgMembership.findFirst.mockResolvedValue({ userId: "user-1" });
-    db.prisma.deal.create.mockResolvedValue({ id: "new-deal", name: "email intake — Ascension" });
-    db.prisma.task.create.mockResolvedValue({ id: "t1" });
+    dbMock.prisma.jurisdiction.findFirst.mockResolvedValue({ id: "j1", name: "Ascension" });
+    dbMock.prisma.orgMembership.findFirst.mockResolvedValue({ userId: "user-1" });
+    dbMock.prisma.deal.create.mockResolvedValue({ id: "new-deal", name: "email intake — Ascension" });
+    dbMock.prisma.task.create.mockResolvedValue({ id: "t1" });
 
     await handleIntakeReceived({
       type: "intake.received",
@@ -262,7 +256,7 @@ describe("handleIntakeReceived", () => {
       orgId: "o",
     });
 
-    expect(db.prisma.deal.create).toHaveBeenCalledTimes(1);
-    expect(db.prisma.parcel.create).not.toHaveBeenCalled();
+    expect(dbMock.prisma.deal.create).toHaveBeenCalledTimes(1);
+    expect(dbMock.prisma.parcel.create).not.toHaveBeenCalled();
   });
 });

@@ -1,32 +1,34 @@
 import "@testing-library/jest-dom";
+import type { ReactNode } from "react";
+import { vi } from "vitest";
 
 // Mock next/navigation
-jest.mock("next/navigation", () => ({
+vi.mock("next/navigation", () => ({
   useRouter: () => ({
-    push: jest.fn(),
-    replace: jest.fn(),
-    refresh: jest.fn(),
-    back: jest.fn(),
-    forward: jest.fn(),
-    prefetch: jest.fn(),
+    push: vi.fn(),
+    replace: vi.fn(),
+    refresh: vi.fn(),
+    back: vi.fn(),
+    forward: vi.fn(),
+    prefetch: vi.fn(),
   }),
   usePathname: () => "/",
   useSearchParams: () => new URLSearchParams(),
 }));
 
 // Mock next-themes
-jest.mock("next-themes", () => ({
-  useTheme: () => ({ theme: "light", setTheme: jest.fn() }),
-  ThemeProvider: ({ children }: { children: React.ReactNode }) => children,
+vi.mock("next-themes", () => ({
+  useTheme: () => ({ theme: "light", setTheme: vi.fn() }),
+  ThemeProvider: ({ children }: { children: ReactNode }) => children,
 }));
 
 // Mock sonner toast
-jest.mock("sonner", () => ({
+vi.mock("sonner", () => ({
   toast: {
-    success: jest.fn(),
-    error: jest.fn(),
-    info: jest.fn(),
-    warning: jest.fn(),
+    success: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    warning: vi.fn(),
   },
   Toaster: () => null,
 }));
@@ -34,23 +36,23 @@ jest.mock("sonner", () => ({
 // Mock matchMedia
 Object.defineProperty(window, "matchMedia", {
   writable: true,
-  value: jest.fn().mockImplementation((query: string) => ({
+  value: vi.fn().mockImplementation((query: string) => ({
     matches: false,
     media: query,
     onchange: null,
-    addListener: jest.fn(),
-    removeListener: jest.fn(),
-    addEventListener: jest.fn(),
-    removeEventListener: jest.fn(),
-    dispatchEvent: jest.fn(),
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
   })),
 });
 
 // Mock IntersectionObserver
 class MockIntersectionObserver {
-  observe = jest.fn();
-  disconnect = jest.fn();
-  unobserve = jest.fn();
+  observe = vi.fn();
+  disconnect = vi.fn();
+  unobserve = vi.fn();
 }
 
 Object.defineProperty(window, "IntersectionObserver", {
@@ -60,9 +62,9 @@ Object.defineProperty(window, "IntersectionObserver", {
 
 // Mock ResizeObserver
 class MockResizeObserver {
-  observe = jest.fn();
-  disconnect = jest.fn();
-  unobserve = jest.fn();
+  observe = vi.fn();
+  disconnect = vi.fn();
+  unobserve = vi.fn();
 }
 
 Object.defineProperty(window, "ResizeObserver", {
@@ -73,6 +75,6 @@ Object.defineProperty(window, "ResizeObserver", {
 // Suppress console errors during tests
 global.console = {
   ...console,
-  error: jest.fn(),
-  warn: jest.fn(),
+  error: vi.fn(),
+  warn: vi.fn(),
 };
