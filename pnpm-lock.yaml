@@ -131,6 +131,9 @@ importers:
       openai:
         specifier: ^4.87.3
         version: 4.104.0(ws@8.19.0)(zod@3.25.76)
+      pdf-parse:
+        specifier: ^1.1.1
+        version: 1.1.4
       react:
         specifier: ^19.0.0
         version: 19.2.4
@@ -189,6 +192,9 @@ importers:
       '@types/node':
         specifier: ^22.9.0
         version: 22.19.11
+      '@types/pdf-parse':
+        specifier: ^1.1.5
+        version: 1.1.5
       '@types/react':
         specifier: ^19.0.1
         version: 19.2.13
@@ -2497,6 +2503,9 @@ packages:
 
   '@types/node@22.19.11':
     resolution: {integrity: sha512-BH7YwL6rA93ReqeQS1c4bsPpcfOmJasG+Fkr6Y59q83f9M1WcBRHR2vM+P9eOisYRcN3ujQoiZY8uk5W+1WL8w==}
+
+  '@types/pdf-parse@1.1.5':
+    resolution: {integrity: sha512-kBfrSXsloMnUJOKi25s3+hRmkycHfLK6A09eRGqF/N8BkQoPUmaCr+q8Cli5FnfohEz/rsv82zAiPz/LXtOGhA==}
 
   '@types/phoenix@1.6.7':
     resolution: {integrity: sha512-oN9ive//QSBkf19rfDv45M7eZPi0eEXylht2OLEXicu5b4KoQ1OzXIw+xDSGWxSxe1JmepRR/ZH283vsu518/Q==}
@@ -8624,6 +8633,10 @@ snapshots:
   '@types/node@22.19.11':
     dependencies:
       undici-types: 6.21.0
+
+  '@types/pdf-parse@1.1.5':
+    dependencies:
+      '@types/node': 22.19.11
 
   '@types/phoenix@1.6.7': {}
 

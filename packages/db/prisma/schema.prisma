@@ -117,8 +117,9 @@ model Org {
   evidenceSnapshots EvidenceSnapshot[]
   parishPackVersions ParishPackVersion[]
   artifacts         Artifact[]
-  uploads           Upload[]
-  conversations     Conversation[]
+  uploads              Upload[]
+  documentExtractions  DocumentExtraction[]
+  conversations        Conversation[]
   entities          Entity[]
   taxEvents         TaxEvent[]
   notifications     Notification[]
@@ -137,6 +138,7 @@ model User {
   dealsCreated           Deal[]   @relation("deal_created_by")
   tasksOwned             Task[]   @relation("task_owner_user_id")
   uploadsCreated         Upload[] @relation("upload_uploaded_by")
+  extractionsReviewed    DocumentExtraction[] @relation("extraction_reviewed_by")
   conversations          Conversation[]
   notifications          Notification[]
   notificationPreferences NotificationPreference[]
@@ -220,8 +222,9 @@ model Deal {
   outreach      Outreach[]
   runs          Run[]
   artifacts     Artifact[]
-  uploads       Upload[]
-  conversations Conversation[]
+  uploads              Upload[]
+  documentExtractions  DocumentExtraction[]
+  conversations        Conversation[]
   entityDeals   EntityDeal[]
   taxEvents     TaxEvent[]
   notifications Notification[]
@@ -453,9 +456,39 @@ model Upload {
   deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
   user User @relation("upload_uploaded_by", fields: [uploadedBy], references: [id], onDelete: Restrict)
 
+  extractions DocumentExtraction[]
+
   @@index([orgId])
   @@index([dealId])
   @@map("uploads")
+}
+
+model DocumentExtraction {
+  id            String    @id @default(uuid()) @db.Uuid
+  orgId         String    @map("org_id") @db.Uuid
+  uploadId      String    @map("upload_id") @db.Uuid
+  dealId        String    @map("deal_id") @db.Uuid
+  docType       String    @map("doc_type") @db.Text // psa, phase_i_esa, title_commitment, survey, zoning_letter, appraisal, lease, loi, other
+  extractedData Json      @default("{}") @map("extracted_data") @db.JsonB
+  rawText       String?   @map("raw_text") @db.Text
+  confidence    Decimal   @default(0) @db.Decimal(4, 3)
+  extractedAt   DateTime  @default(now()) @map("extracted_at") @db.Timestamptz(6)
+  reviewed      Boolean   @default(false)
+  reviewedBy    String?   @map("reviewed_by") @db.Uuid
+  reviewedAt    DateTime? @map("reviewed_at") @db.Timestamptz(6)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  org      Org    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  upload   Upload @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+  deal     Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  reviewer User?  @relation("extraction_reviewed_by", fields: [reviewedBy], references: [id], onDelete: SetNull)
+
+  @@unique([uploadId])
+  @@index([orgId])
+  @@index([dealId])
+  @@index([dealId, reviewed])
+  @@map("document_extractions")
 }
 
 model Conversation {

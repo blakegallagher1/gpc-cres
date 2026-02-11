@@ -127,4 +127,29 @@ export async function handleUploadCreated(
       description: `File "${upload.filename}" could not be auto-classified with sufficient confidence (${(classification.confidence * 100).toFixed(0)}%). Please review and categorize manually.`,
     });
   }
+
+  // Trigger document processing pipeline (text extraction + structured data extraction)
+  // Runs async — errors are logged but never propagated
+  triggerDocumentProcessing(uploadId, dealId, orgId);
+}
+
+/**
+ * Fire-and-forget document processing trigger.
+ * Downloads the file, extracts text, classifies with LLM, extracts structured data.
+ * Uses dynamic import to avoid pulling Supabase client into test scope.
+ */
+function triggerDocumentProcessing(
+  uploadId: string,
+  dealId: string,
+  orgId: string
+): void {
+  import("@/lib/services/documentProcessing.service").then(({ getDocumentProcessingService }) => {
+    const service = getDocumentProcessingService();
+    return service.processUpload(uploadId, dealId, orgId);
+  }).catch((err) => {
+    console.error(
+      `[automation] Document processing failed for upload ${uploadId}:`,
+      err instanceof Error ? err.message : String(err)
+    );
+  });
 }
