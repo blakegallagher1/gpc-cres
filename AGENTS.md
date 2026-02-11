@@ -92,6 +92,32 @@ Secure server-only integration with a Supabase PostGIS database for canonical GI
 
 **6 RPCs:** `rpc_get_parcel_geometry`, `rpc_get_parcel_dimensions`, `rpc_zoning_lookup`, `rpc_zoning_lookup_by_point`, `rpc_get_amenities_cache`, `rpc_upsert_amenities_cache`
 
+## SESSION MODES
+
+Agents can operate in different session modes depending on the task context and invocation profile.
+
+### IMPORTANT: Profile-Aware Behavior
+
+If running under any of the following profiles:
+- `architecture-intelligence`
+- `openai-frontier-intelligence`
+
+Then:
+
+- Operate in **ANALYSIS-ONLY MODE**.
+- Do NOT attempt file writes.
+- Do NOT generate patches.
+- Do NOT run `apply_patch`.
+- Do NOT initiate migrations.
+- Do NOT execute Golden Paths.
+- Only produce reports and structured recommendations.
+
+Explicit implementation requires:
+- Fast/Mid/Deep/Swarm brain profiles
+- Or a direct instruction to modify files
+
+This prevents advisory layers from mutating the repo.
+
 ## Legacy Python
 
 The previous Python system is parked under `legacy/python/` for reference only.
