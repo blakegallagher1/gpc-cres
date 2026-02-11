@@ -53,7 +53,7 @@ export function Header() {
           <input
             type="text"
             placeholder="Search agents, runs, workflows..."
-            className="h-10 w-full rounded-lg border-0 bg-muted pl-10 pr-20 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="h-10 w-full rounded-lg border-0 bg-muted pl-10 pr-20 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             onFocus={() => setSearchFocused(true)}
             onBlur={() => setSearchFocused(false)}
             onKeyDown={(e) => {
