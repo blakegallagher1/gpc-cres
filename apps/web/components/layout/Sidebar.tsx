@@ -20,6 +20,7 @@ import {
   FolderKanban,
   Sparkles,
   Search,
+  Crosshair,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/stores/uiStore";
@@ -49,6 +50,7 @@ const navGroups: NavGroup[] = [
     label: "Pipeline",
     items: [
       { id: "screening", href: "/screening", icon: Filter, label: "Screening" },
+      { id: "prospecting", href: "/prospecting", icon: Crosshair, label: "Prospecting" },
       { id: "portfolio", href: "/portfolio", icon: PieChart, label: "Portfolio" },
       { id: "wealth", href: "/wealth", icon: Wallet, label: "Wealth" },
     ],

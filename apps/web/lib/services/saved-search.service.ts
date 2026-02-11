@@ -31,6 +31,17 @@ export interface SearchCriteria {
   maxAcreage?: number;
   propertyTypes?: string[]; // SKU types the user is interested in
   searchText?: string; // Address/owner keyword
+  /** GeoJSON polygon geometry for prospecting area searches */
+  polygon?: {
+    type: "Polygon";
+    coordinates: number[][][];
+  };
+  /** Exclude parcels in high-risk flood zones (A, AE, V) */
+  excludeFloodZone?: boolean;
+  /** Minimum assessed value */
+  minAssessedValue?: number;
+  /** Maximum assessed value */
+  maxAssessedValue?: number;
 }
 
 export interface CreateSavedSearchInput {
