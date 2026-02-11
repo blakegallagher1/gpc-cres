@@ -17,6 +17,11 @@
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r --filter './packages/**' build && pnpm -r typecheck",
     "test": "pnpm -r test",
+    "test:matrix:generate": "node scripts/testing/generate-test-matrix.mjs",
+    "test:matrix:validate": "node scripts/testing/validate-test-matrix.mjs",
+    "test:phase1:stubs:generate": "node scripts/testing/generate-phase1-stubs.mjs",
+    "test:phase1:track": "node scripts/testing/track-phase1-coverage.mjs",
+    "test:phase1:track:complete": "node scripts/testing/track-phase1-coverage.mjs --require-complete",
     "db:migrate": "pnpm -C packages/db run migrate:dev",
     "db:deploy": "pnpm -C packages/db run migrate:deploy",
     "db:seed": "pnpm -C packages/db run seed"

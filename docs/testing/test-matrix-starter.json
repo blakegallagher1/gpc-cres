@@ -1,0 +1,2616 @@
+{
+  "metadata": {
+    "generated_at": "2026-02-11T22:45:55.477Z",
+    "generated_by": "scripts/testing/generate-test-matrix.mjs",
+    "repository_root": "/Users/gallagherpropertycompany/Documents/gallagher-cres",
+    "intent": "Starter matrix for complete component-level testing coverage.",
+    "required_test_definitions": {
+      "agent": [
+        "unit",
+        "contract",
+        "integration",
+        "resilience",
+        "regression"
+      ],
+      "tool": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "api_route": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "automation": [
+        "unit",
+        "contract",
+        "integration",
+        "resilience",
+        "regression"
+      ],
+      "feature": [
+        "unit",
+        "contract",
+        "regression"
+      ]
+    }
+  },
+  "summary": {
+    "counts": {
+      "agents": 13,
+      "tools": 53,
+      "api_routes": 64,
+      "automation_modules": 15,
+      "features": 10,
+      "total_components": 155
+    },
+    "baseline_targets": {
+      "agents": 13,
+      "tools": 52,
+      "tool_capabilities_including_pass_through": 53,
+      "api_routes": 64,
+      "automation_modules": 15
+    },
+    "notes": [
+      "Tool baseline includes webSearchPreviewTool pass-through capability.",
+      "Feature components model runtime/scoring/intelligence capabilities that are not route/agent/tool files."
+    ]
+  },
+  "components": [
+    {
+      "id": "agent:coordinator",
+      "type": "agent",
+      "name": "coordinator",
+      "path": "packages/openai/src/agents/coordinator.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "integration",
+        "resilience",
+        "regression"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "agent:design",
+      "type": "agent",
+      "name": "design",
+      "path": "packages/openai/src/agents/design.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "integration",
+        "resilience",
+        "regression"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "agent:dueDiligence",
+      "type": "agent",
+      "name": "dueDiligence",
+      "path": "packages/openai/src/agents/dueDiligence.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "integration",
+        "resilience",
+        "regression"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "agent:entitlements",
+      "type": "agent",
+      "name": "entitlements",
+      "path": "packages/openai/src/agents/entitlements.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "integration",
+        "resilience",
+        "regression"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "agent:finance",
+      "type": "agent",
+      "name": "finance",
+      "path": "packages/openai/src/agents/finance.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "integration",
+        "resilience",
+        "regression"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "agent:legal",
+      "type": "agent",
+      "name": "legal",
+      "path": "packages/openai/src/agents/legal.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "integration",
+        "resilience",
+        "regression"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "agent:marketing",
+      "type": "agent",
+      "name": "marketing",
+      "path": "packages/openai/src/agents/marketing.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "integration",
+        "resilience",
+        "regression"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "agent:marketIntel",
+      "type": "agent",
+      "name": "marketIntel",
+      "path": "packages/openai/src/agents/marketIntel.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "integration",
+        "resilience",
+        "regression"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "agent:operations",
+      "type": "agent",
+      "name": "operations",
+      "path": "packages/openai/src/agents/operations.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "integration",
+        "resilience",
+        "regression"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "agent:research",
+      "type": "agent",
+      "name": "research",
+      "path": "packages/openai/src/agents/research.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "integration",
+        "resilience",
+        "regression"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "agent:risk",
+      "type": "agent",
+      "name": "risk",
+      "path": "packages/openai/src/agents/risk.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "integration",
+        "resilience",
+        "regression"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "agent:screener",
+      "type": "agent",
+      "name": "screener",
+      "path": "packages/openai/src/agents/screener.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "integration",
+        "resilience",
+        "regression"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "agent:tax",
+      "type": "agent",
+      "name": "tax",
+      "path": "packages/openai/src/agents/tax.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "integration",
+        "resilience",
+        "regression"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:approvals",
+      "type": "api_route",
+      "name": "approvals",
+      "path": "apps/web/app/api/approvals/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:automation/events",
+      "type": "api_route",
+      "name": "automation/events",
+      "path": "apps/web/app/api/automation/events/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:buyers",
+      "type": "api_route",
+      "name": "buyers",
+      "path": "apps/web/app/api/buyers/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:chat",
+      "type": "api_route",
+      "name": "chat",
+      "path": "apps/web/app/api/chat/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:chat/conversations",
+      "type": "api_route",
+      "name": "chat/conversations",
+      "path": "apps/web/app/api/chat/conversations/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:chat/conversations/[id]",
+      "type": "api_route",
+      "name": "chat/conversations/[id]",
+      "path": "apps/web/app/api/chat/conversations/[id]/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:cron/change-detection",
+      "type": "api_route",
+      "name": "cron/change-detection",
+      "path": "apps/web/app/api/cron/change-detection/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:cron/deadline-monitor",
+      "type": "api_route",
+      "name": "cron/deadline-monitor",
+      "path": "apps/web/app/api/cron/deadline-monitor/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:cron/opportunity-scan",
+      "type": "api_route",
+      "name": "cron/opportunity-scan",
+      "path": "apps/web/app/api/cron/opportunity-scan/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:cron/parish-pack-refresh",
+      "type": "api_route",
+      "name": "cron/parish-pack-refresh",
+      "path": "apps/web/app/api/cron/parish-pack-refresh/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:deals",
+      "type": "api_route",
+      "name": "deals",
+      "path": "apps/web/app/api/deals/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:deals/[id]",
+      "type": "api_route",
+      "name": "deals/[id]",
+      "path": "apps/web/app/api/deals/[id]/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:deals/[id]/activity",
+      "type": "api_route",
+      "name": "deals/[id]/activity",
+      "path": "apps/web/app/api/deals/[id]/activity/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:deals/[id]/artifacts",
+      "type": "api_route",
+      "name": "deals/[id]/artifacts",
+      "path": "apps/web/app/api/deals/[id]/artifacts/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:deals/[id]/debt-comparison",
+      "type": "api_route",
+      "name": "deals/[id]/debt-comparison",
+      "path": "apps/web/app/api/deals/[id]/debt-comparison/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:deals/[id]/extractions",
+      "type": "api_route",
+      "name": "deals/[id]/extractions",
+      "path": "apps/web/app/api/deals/[id]/extractions/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:deals/[id]/extractions/[extractionId]",
+      "type": "api_route",
+      "name": "deals/[id]/extractions/[extractionId]",
+      "path": "apps/web/app/api/deals/[id]/extractions/[extractionId]/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:deals/[id]/financial-model",
+      "type": "api_route",
+      "name": "deals/[id]/financial-model",
+      "path": "apps/web/app/api/deals/[id]/financial-model/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:deals/[id]/parcels",
+      "type": "api_route",
+      "name": "deals/[id]/parcels",
+      "path": "apps/web/app/api/deals/[id]/parcels/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:deals/[id]/parcels/[parcelId]/enrich",
+      "type": "api_route",
+      "name": "deals/[id]/parcels/[parcelId]/enrich",
+      "path": "apps/web/app/api/deals/[id]/parcels/[parcelId]/enrich/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:deals/[id]/scenarios",
+      "type": "api_route",
+      "name": "deals/[id]/scenarios",
+      "path": "apps/web/app/api/deals/[id]/scenarios/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:deals/[id]/tasks",
+      "type": "api_route",
+      "name": "deals/[id]/tasks",
+      "path": "apps/web/app/api/deals/[id]/tasks/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:deals/[id]/tasks/[taskId]/run",
+      "type": "api_route",
+      "name": "deals/[id]/tasks/[taskId]/run",
+      "path": "apps/web/app/api/deals/[id]/tasks/[taskId]/run/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:deals/[id]/triage",
+      "type": "api_route",
+      "name": "deals/[id]/triage",
+      "path": "apps/web/app/api/deals/[id]/triage/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:deals/[id]/uploads",
+      "type": "api_route",
+      "name": "deals/[id]/uploads",
+      "path": "apps/web/app/api/deals/[id]/uploads/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:deals/[id]/uploads/[uploadId]",
+      "type": "api_route",
+      "name": "deals/[id]/uploads/[uploadId]",
+      "path": "apps/web/app/api/deals/[id]/uploads/[uploadId]/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:deals/[id]/waterfall",
+      "type": "api_route",
+      "name": "deals/[id]/waterfall",
+      "path": "apps/web/app/api/deals/[id]/waterfall/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:deals/artifacts/[artifactId]/download",
+      "type": "api_route",
+      "name": "deals/artifacts/[artifactId]/download",
+      "path": "apps/web/app/api/deals/artifacts/[artifactId]/download/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:entities",
+      "type": "api_route",
+      "name": "entities",
+      "path": "apps/web/app/api/entities/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:entities/[id]",
+      "type": "api_route",
+      "name": "entities/[id]",
+      "path": "apps/web/app/api/entities/[id]/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:evidence",
+      "type": "api_route",
+      "name": "evidence",
+      "path": "apps/web/app/api/evidence/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:external/chatgpt-apps/amenities-cache",
+      "type": "api_route",
+      "name": "external/chatgpt-apps/amenities-cache",
+      "path": "apps/web/app/api/external/chatgpt-apps/amenities-cache/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:external/chatgpt-apps/parcel-dimensions",
+      "type": "api_route",
+      "name": "external/chatgpt-apps/parcel-dimensions",
+      "path": "apps/web/app/api/external/chatgpt-apps/parcel-dimensions/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:external/chatgpt-apps/parcel-geometry",
+      "type": "api_route",
+      "name": "external/chatgpt-apps/parcel-geometry",
+      "path": "apps/web/app/api/external/chatgpt-apps/parcel-geometry/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:external/chatgpt-apps/zoning-by-parcel",
+      "type": "api_route",
+      "name": "external/chatgpt-apps/zoning-by-parcel",
+      "path": "apps/web/app/api/external/chatgpt-apps/zoning-by-parcel/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:external/chatgpt-apps/zoning-by-point",
+      "type": "api_route",
+      "name": "external/chatgpt-apps/zoning-by-point",
+      "path": "apps/web/app/api/external/chatgpt-apps/zoning-by-point/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:health",
+      "type": "api_route",
+      "name": "health",
+      "path": "apps/web/app/api/health/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:intelligence/daily-briefing",
+      "type": "api_route",
+      "name": "intelligence/daily-briefing",
+      "path": "apps/web/app/api/intelligence/daily-briefing/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:intelligence/deadlines",
+      "type": "api_route",
+      "name": "intelligence/deadlines",
+      "path": "apps/web/app/api/intelligence/deadlines/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:jurisdictions",
+      "type": "api_route",
+      "name": "jurisdictions",
+      "path": "apps/web/app/api/jurisdictions/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:knowledge",
+      "type": "api_route",
+      "name": "knowledge",
+      "path": "apps/web/app/api/knowledge/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:map/comps",
+      "type": "api_route",
+      "name": "map/comps",
+      "path": "apps/web/app/api/map/comps/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:map/isochrone",
+      "type": "api_route",
+      "name": "map/isochrone",
+      "path": "apps/web/app/api/map/isochrone/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:map/prospect",
+      "type": "api_route",
+      "name": "map/prospect",
+      "path": "apps/web/app/api/map/prospect/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:market",
+      "type": "api_route",
+      "name": "market",
+      "path": "apps/web/app/api/market/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:notifications",
+      "type": "api_route",
+      "name": "notifications",
+      "path": "apps/web/app/api/notifications/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:notifications/[id]",
+      "type": "api_route",
+      "name": "notifications/[id]",
+      "path": "apps/web/app/api/notifications/[id]/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:notifications/mark-all-read",
+      "type": "api_route",
+      "name": "notifications/mark-all-read",
+      "path": "apps/web/app/api/notifications/mark-all-read/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:notifications/unread-count",
+      "type": "api_route",
+      "name": "notifications/unread-count",
+      "path": "apps/web/app/api/notifications/unread-count/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:opportunities",
+      "type": "api_route",
+      "name": "opportunities",
+      "path": "apps/web/app/api/opportunities/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:opportunities/[id]",
+      "type": "api_route",
+      "name": "opportunities/[id]",
+      "path": "apps/web/app/api/opportunities/[id]/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:outcomes",
+      "type": "api_route",
+      "name": "outcomes",
+      "path": "apps/web/app/api/outcomes/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:parcels",
+      "type": "api_route",
+      "name": "parcels",
+      "path": "apps/web/app/api/parcels/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:portfolio",
+      "type": "api_route",
+      "name": "portfolio",
+      "path": "apps/web/app/api/portfolio/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:portfolio/1031-matches/[dealId]",
+      "type": "api_route",
+      "name": "portfolio/1031-matches/[dealId]",
+      "path": "apps/web/app/api/portfolio/1031-matches/[dealId]/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:portfolio/analytics",
+      "type": "api_route",
+      "name": "portfolio/analytics",
+      "path": "apps/web/app/api/portfolio/analytics/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:portfolio/concentration",
+      "type": "api_route",
+      "name": "portfolio/concentration",
+      "path": "apps/web/app/api/portfolio/concentration/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:portfolio/optimize",
+      "type": "api_route",
+      "name": "portfolio/optimize",
+      "path": "apps/web/app/api/portfolio/optimize/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:portfolio/stress-test",
+      "type": "api_route",
+      "name": "portfolio/stress-test",
+      "path": "apps/web/app/api/portfolio/stress-test/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:saved-searches",
+      "type": "api_route",
+      "name": "saved-searches",
+      "path": "apps/web/app/api/saved-searches/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:saved-searches/[id]",
+      "type": "api_route",
+      "name": "saved-searches/[id]",
+      "path": "apps/web/app/api/saved-searches/[id]/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:saved-searches/[id]/run",
+      "type": "api_route",
+      "name": "saved-searches/[id]/run",
+      "path": "apps/web/app/api/saved-searches/[id]/run/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:wealth/summary",
+      "type": "api_route",
+      "name": "wealth/summary",
+      "path": "apps/web/app/api/wealth/summary/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:wealth/tax-events",
+      "type": "api_route",
+      "name": "wealth/tax-events",
+      "path": "apps/web/app/api/wealth/tax-events/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "automation:advancement",
+      "type": "automation",
+      "name": "advancement",
+      "path": "apps/web/lib/automation/advancement.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "integration",
+        "resilience",
+        "regression"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "automation:artifactAutomation",
+      "type": "automation",
+      "name": "artifactAutomation",
+      "path": "apps/web/lib/automation/artifactAutomation.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "integration",
+        "resilience",
+        "regression"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "automation:buyerOutreach",
+      "type": "automation",
+      "name": "buyerOutreach",
+      "path": "apps/web/lib/automation/buyerOutreach.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "integration",
+        "resilience",
+        "regression"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "automation:config",
+      "type": "automation",
+      "name": "config",
+      "path": "apps/web/lib/automation/config.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "integration",
+        "resilience",
+        "regression"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "automation:documents",
+      "type": "automation",
+      "name": "documents",
+      "path": "apps/web/lib/automation/documents.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "integration",
+        "resilience",
+        "regression"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "automation:enrichment",
+      "type": "automation",
+      "name": "enrichment",
+      "path": "apps/web/lib/automation/enrichment.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "integration",
+        "resilience",
+        "regression"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "automation:events",
+      "type": "automation",
+      "name": "events",
+      "path": "apps/web/lib/automation/events.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "integration",
+        "resilience",
+        "regression"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "automation:gates",
+      "type": "automation",
+      "name": "gates",
+      "path": "apps/web/lib/automation/gates.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "integration",
+        "resilience",
+        "regression"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "automation:handlers",
+      "type": "automation",
+      "name": "handlers",
+      "path": "apps/web/lib/automation/handlers.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "integration",
+        "resilience",
+        "regression"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "automation:intake",
+      "type": "automation",
+      "name": "intake",
+      "path": "apps/web/lib/automation/intake.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "integration",
+        "resilience",
+        "regression"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "automation:notifications",
+      "type": "automation",
+      "name": "notifications",
+      "path": "apps/web/lib/automation/notifications.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "integration",
+        "resilience",
+        "regression"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "automation:ops",
+      "type": "automation",
+      "name": "ops",
+      "path": "apps/web/lib/automation/ops.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "integration",
+        "resilience",
+        "regression"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "automation:taskAllowlist",
+      "type": "automation",
+      "name": "taskAllowlist",
+      "path": "apps/web/lib/automation/taskAllowlist.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "integration",
+        "resilience",
+        "regression"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "automation:taskExecution",
+      "type": "automation",
+      "name": "taskExecution",
+      "path": "apps/web/lib/automation/taskExecution.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "integration",
+        "resilience",
+        "regression"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "automation:triage",
+      "type": "automation",
+      "name": "triage",
+      "path": "apps/web/lib/automation/triage.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "integration",
+        "resilience",
+        "regression"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "feature:buildAgentStreamRunOptions",
+      "type": "feature",
+      "name": "buildAgentStreamRunOptions",
+      "path": "packages/openai/src/runtime.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "regression"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "feature:buildOutcomeTrackingSummary",
+      "type": "feature",
+      "name": "buildOutcomeTrackingSummary",
+      "path": "packages/shared/src/scoring/adaptiveWeights.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "regression"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "feature:computeAdaptiveWeights",
+      "type": "feature",
+      "name": "computeAdaptiveWeights",
+      "path": "packages/shared/src/scoring/adaptiveWeights.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "regression"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "feature:computeProjectionBiases",
+      "type": "feature",
+      "name": "computeProjectionBiases",
+      "path": "packages/shared/src/scoring/adaptiveWeights.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "regression"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "feature:computeTierCalibration",
+      "type": "feature",
+      "name": "computeTierCalibration",
+      "path": "packages/shared/src/scoring/adaptiveWeights.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "regression"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "feature:createConfiguredCoordinator",
+      "type": "feature",
+      "name": "createConfiguredCoordinator",
+      "path": "packages/openai/src/agents/index.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "regression"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "feature:createStrictJsonResponse",
+      "type": "feature",
+      "name": "createStrictJsonResponse",
+      "path": "packages/openai/src/responses.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "regression"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "feature:hardFilterFramework",
+      "type": "feature",
+      "name": "hardFilterFramework",
+      "path": "packages/shared/src/scoring/hardFilters.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "regression"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "feature:triageScoringModel",
+      "type": "feature",
+      "name": "triageScoringModel",
+      "path": "packages/shared/src/scoring/triage.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "regression"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "feature:weightBandSystem",
+      "type": "feature",
+      "name": "weightBandSystem",
+      "path": "packages/shared/src/scoring/weights.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "regression"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:addBuyer",
+      "type": "tool",
+      "name": "addBuyer",
+      "path": "packages/openai/src/tools/buyerTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:addParcelToDeal",
+      "type": "tool",
+      "name": "addParcelToDeal",
+      "path": "packages/openai/src/tools/dealTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:analyze_portfolio",
+      "type": "tool",
+      "name": "analyze_portfolio",
+      "path": "packages/openai/src/tools/portfolioTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:assess_uncertainty",
+      "type": "tool",
+      "name": "assess_uncertainty",
+      "path": "packages/openai/src/tools/reasoningTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:calculate_1031_deadlines",
+      "type": "tool",
+      "name": "calculate_1031_deadlines",
+      "path": "packages/openai/src/tools/calculationTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:calculate_cost_segregation_estimate",
+      "type": "tool",
+      "name": "calculate_cost_segregation_estimate",
+      "path": "packages/openai/src/tools/calculationTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:calculate_debt_sizing",
+      "type": "tool",
+      "name": "calculate_debt_sizing",
+      "path": "packages/openai/src/tools/calculationTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:calculate_depreciation_schedule",
+      "type": "tool",
+      "name": "calculate_depreciation_schedule",
+      "path": "packages/openai/src/tools/calculationTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:calculate_development_budget",
+      "type": "tool",
+      "name": "calculate_development_budget",
+      "path": "packages/openai/src/tools/calculationTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:calculate_market_metrics",
+      "type": "tool",
+      "name": "calculate_market_metrics",
+      "path": "packages/openai/src/tools/calculationTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:calculate_proforma",
+      "type": "tool",
+      "name": "calculate_proforma",
+      "path": "packages/openai/src/tools/calculationTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:calculate_site_capacity",
+      "type": "tool",
+      "name": "calculate_site_capacity",
+      "path": "packages/openai/src/tools/calculationTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:compareEvidenceHash",
+      "type": "tool",
+      "name": "compareEvidenceHash",
+      "path": "packages/openai/src/tools/evidenceTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:create_milestone_schedule",
+      "type": "tool",
+      "name": "create_milestone_schedule",
+      "path": "packages/openai/src/tools/calculationTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:createDeal",
+      "type": "tool",
+      "name": "createDeal",
+      "path": "packages/openai/src/tools/dealTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:createTask",
+      "type": "tool",
+      "name": "createTask",
+      "path": "packages/openai/src/tools/taskTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:estimate_construction_cost",
+      "type": "tool",
+      "name": "estimate_construction_cost",
+      "path": "packages/openai/src/tools/calculationTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:estimate_project_timeline",
+      "type": "tool",
+      "name": "estimate_project_timeline",
+      "path": "packages/openai/src/tools/calculationTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:evidenceSnapshot",
+      "type": "tool",
+      "name": "evidenceSnapshot",
+      "path": "packages/openai/src/tools/evidenceTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:floodZoneLookup",
+      "type": "tool",
+      "name": "floodZoneLookup",
+      "path": "packages/openai/src/tools/evidenceTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:generate_artifact",
+      "type": "tool",
+      "name": "generate_artifact",
+      "path": "packages/openai/src/tools/artifactTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:get_historical_accuracy",
+      "type": "tool",
+      "name": "get_historical_accuracy",
+      "path": "packages/openai/src/tools/outcomeTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:get_shared_context",
+      "type": "tool",
+      "name": "get_shared_context",
+      "path": "packages/openai/src/tools/contextTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:getDealContext",
+      "type": "tool",
+      "name": "getDealContext",
+      "path": "packages/openai/src/tools/dealTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:getParcelDetails",
+      "type": "tool",
+      "name": "getParcelDetails",
+      "path": "packages/openai/src/tools/propertyDbTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:hardFilterCheck",
+      "type": "tool",
+      "name": "hardFilterCheck",
+      "path": "packages/openai/src/tools/scoringTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:listDeals",
+      "type": "tool",
+      "name": "listDeals",
+      "path": "packages/openai/src/tools/dealTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:listTasks",
+      "type": "tool",
+      "name": "listTasks",
+      "path": "packages/openai/src/tools/taskTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:log_reasoning_trace",
+      "type": "tool",
+      "name": "log_reasoning_trace",
+      "path": "packages/openai/src/tools/reasoningTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:logOutreach",
+      "type": "tool",
+      "name": "logOutreach",
+      "path": "packages/openai/src/tools/buyerTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:parcelTriageScore",
+      "type": "tool",
+      "name": "parcelTriageScore",
+      "path": "packages/openai/src/tools/scoringTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:parishPackLookup",
+      "type": "tool",
+      "name": "parishPackLookup",
+      "path": "packages/openai/src/tools/zoningTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:query_market_data",
+      "type": "tool",
+      "name": "query_market_data",
+      "path": "packages/openai/src/tools/marketTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:record_deal_outcome",
+      "type": "tool",
+      "name": "record_deal_outcome",
+      "path": "packages/openai/src/tools/outcomeTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:request_reanalysis",
+      "type": "tool",
+      "name": "request_reanalysis",
+      "path": "packages/openai/src/tools/reasoningTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:screenEpa",
+      "type": "tool",
+      "name": "screenEpa",
+      "path": "packages/openai/src/tools/propertyDbTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:screenFlood",
+      "type": "tool",
+      "name": "screenFlood",
+      "path": "packages/openai/src/tools/propertyDbTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:screenFull",
+      "type": "tool",
+      "name": "screenFull",
+      "path": "packages/openai/src/tools/propertyDbTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:screenLdeq",
+      "type": "tool",
+      "name": "screenLdeq",
+      "path": "packages/openai/src/tools/propertyDbTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:screenSoils",
+      "type": "tool",
+      "name": "screenSoils",
+      "path": "packages/openai/src/tools/propertyDbTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:screenTraffic",
+      "type": "tool",
+      "name": "screenTraffic",
+      "path": "packages/openai/src/tools/propertyDbTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:screenWetlands",
+      "type": "tool",
+      "name": "screenWetlands",
+      "path": "packages/openai/src/tools/propertyDbTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:search_comparable_sales",
+      "type": "tool",
+      "name": "search_comparable_sales",
+      "path": "packages/openai/src/tools/calculationTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:search_knowledge_base",
+      "type": "tool",
+      "name": "search_knowledge_base",
+      "path": "packages/openai/src/tools/knowledgeTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:searchBuyers",
+      "type": "tool",
+      "name": "searchBuyers",
+      "path": "packages/openai/src/tools/buyerTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:searchParcels",
+      "type": "tool",
+      "name": "searchParcels",
+      "path": "packages/openai/src/tools/propertyDbTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:share_analysis_finding",
+      "type": "tool",
+      "name": "share_analysis_finding",
+      "path": "packages/openai/src/tools/contextTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:store_knowledge_entry",
+      "type": "tool",
+      "name": "store_knowledge_entry",
+      "path": "packages/openai/src/tools/knowledgeTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:updateDealStatus",
+      "type": "tool",
+      "name": "updateDealStatus",
+      "path": "packages/openai/src/tools/dealTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:updateParcel",
+      "type": "tool",
+      "name": "updateParcel",
+      "path": "packages/openai/src/tools/dealTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:updateTask",
+      "type": "tool",
+      "name": "updateTask",
+      "path": "packages/openai/src/tools/taskTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:webSearchPreviewTool",
+      "type": "tool",
+      "name": "webSearchPreviewTool",
+      "path": "packages/openai/src/tools/index.ts",
+      "risk_tier": "P1",
+      "notes": "Pass-through capability (non tool(...) wrapper)",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ]
+    },
+    {
+      "id": "tool:zoningMatrixLookup",
+      "type": "tool",
+      "name": "zoningMatrixLookup",
+      "path": "packages/openai/src/tools/zoningTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    }
+  ]
+}
