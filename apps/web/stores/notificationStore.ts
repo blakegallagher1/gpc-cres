@@ -33,7 +33,7 @@ interface NotificationState {
   addRealtime: (notification: NotificationItem) => void;
 }
 
-export const useNotificationStore = create<NotificationState>((set) => ({
+export const useNotificationStore = create((set): NotificationState => ({
   notifications: [],
   unreadCount: 0,
   loading: false,

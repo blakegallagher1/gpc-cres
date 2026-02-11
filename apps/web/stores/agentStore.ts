@@ -10,7 +10,7 @@ interface AgentStoreState {
   runAgent: (agentId: string, input: AgentRunInput) => Promise<void>;
 }
 
-export const useAgentStore = create<AgentStoreState>((set) => ({
+export const useAgentStore = create((set): AgentStoreState => ({
   isLoading: false,
   runAgent: async (_agentId, _input) => {
     set({ isLoading: true });

@@ -12,7 +12,7 @@ interface UIState {
   setCopilotOpen: (open: boolean) => void;
 }
 
-export const useUIStore = create<UIState>((set) => ({
+export const useUIStore = create((set): UIState => ({
   sidebarCollapsed: false,
   commandPaletteOpen: false,
   copilotOpen: true,

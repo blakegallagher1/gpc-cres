@@ -108,7 +108,7 @@ interface FinancialModelState {
   markClean: () => void;
 }
 
-export const useFinancialModelStore = create<FinancialModelState>((set) => ({
+export const useFinancialModelStore = create((set): FinancialModelState => ({
   dealId: null,
   assumptions: { ...DEFAULT_ASSUMPTIONS },
   dirty: false,
