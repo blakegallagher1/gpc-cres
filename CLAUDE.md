@@ -285,7 +285,7 @@ Cron jobs: `/api/cron/change-detection` (daily 6 AM), `/api/cron/parish-pack-ref
 
 Read `IMPLEMENTATION_PLAN.md` at the repo root for the full 9-phase feature roadmap, all architectural conventions, and shared infrastructure patterns.
 
-**Currently executing: Phase 5B — Analytical Map Tools**
+**Currently executing: Phase 5C — Prospecting Mode**
 
 Rules:
 - Do NOT work on phases beyond the currently executing phase unless explicitly instructed
@@ -311,9 +311,8 @@ Update status after each sub-phase ships:
 | 4A: Document Processing Pipeline | ✅ Done |
 | 4B: Type-Specific Extractors | ✅ Done |
 | 5A: Enhanced Map Rendering | ✅ Done |
-| 5B: Analytical Map Tools | 🔄 Active |
-| 5B: Analytical Map Tools | ⬜ |
-| 5C: Prospecting Mode | ⬜ |
+| 5B: Analytical Map Tools | ✅ Done |
+| 5C: Prospecting Mode | 🔄 Active |
 | 6A: Portfolio Analytics Engine | ⬜ |
 | 7A: Automation Dashboard | ⬜ |
 | 7B: Approval Workflows | ⬜ |
