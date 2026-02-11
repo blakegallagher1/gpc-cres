@@ -58,6 +58,8 @@ export { query_market_data } from "./marketTools.js";
 
 export { get_historical_accuracy } from "./outcomeTools.js";
 
+export { search_knowledge_base } from "./knowledgeTools.js";
+
 // --- Agent-specific tool collections ---
 import { getDealContext, createDeal, updateDealStatus, listDeals, addParcelToDeal, updateParcel } from "./dealTools.js";
 import { createTask, updateTask, listTasks } from "./taskTools.js";
@@ -94,6 +96,7 @@ import {
 import { analyze_portfolio } from "./portfolioTools.js";
 import { query_market_data } from "./marketTools.js";
 import { get_historical_accuracy } from "./outcomeTools.js";
+import { search_knowledge_base } from "./knowledgeTools.js";
 
 /** Web search tool for Responses API pass-through. */
 export const webSearchPreviewTool = {
@@ -113,6 +116,7 @@ export const coordinatorTools = [
   searchParcels,
   updateParcel,
   generate_artifact,
+  search_knowledge_base,
 ];
 
 /** Tools available to the Legal / Entitlements agent. */
@@ -123,6 +127,7 @@ export const legalTools = [
   searchParcels,
   getParcelDetails,
   generate_artifact,
+  search_knowledge_base,
 ];
 
 /** Tools available to the Research agent. */
@@ -136,6 +141,7 @@ export const researchTools = [
   screenTraffic,
   webSearchPreviewTool,
   query_market_data,
+  search_knowledge_base,
 ];
 
 /** Tools available to the Risk agent. */
@@ -152,6 +158,7 @@ export const riskTools = [
   screenEpa,
   screenLdeq,
   screenFull,
+  search_knowledge_base,
 ];
 
 /** Tools available to the Finance agent. */
@@ -165,6 +172,7 @@ export const financeTools = [
   generate_artifact,
   analyze_portfolio,
   get_historical_accuracy,
+  search_knowledge_base,
 ];
 
 /** Tools available to the Deal Screener agent. */
@@ -182,6 +190,7 @@ export const screenerTools = [
   screenEpa,
   screenFull,
   webSearchPreviewTool,
+  search_knowledge_base,
 ];
 
 /** Tools available to the Marketing / Dispositions agent. */
@@ -191,6 +200,7 @@ export const marketingTools = [
   logOutreach,
   getDealContext,
   generate_artifact,
+  search_knowledge_base,
 ];
 
 /** Tools available to the Due Diligence agent. */
@@ -209,6 +219,7 @@ export const dueDiligenceTools = [
   screenTraffic,
   screenLdeq,
   screenFull,
+  search_knowledge_base,
 ];
 
 /** Tools available to the Entitlements agent. */
@@ -219,6 +230,7 @@ export const entitlementsTools = [
   searchParcels,
   getParcelDetails,
   screenFlood,
+  search_knowledge_base,
 ];
 
 /** Tools available to the Operations agent. */
@@ -229,6 +241,7 @@ export const operationsTools = [
   updateTask,
   create_milestone_schedule,
   estimate_project_timeline,
+  search_knowledge_base,
 ];
 
 /** Tools available to the Market Intel agent. */
@@ -240,6 +253,7 @@ export const marketIntelTools = [
   search_comparable_sales,
   calculate_market_metrics,
   query_market_data,
+  search_knowledge_base,
 ];
 
 /** Tools available to the Design agent. (#11 Dead Agent Revival) */
@@ -252,6 +266,7 @@ export const designTools = [
   screenSoils,
   calculate_site_capacity,
   estimate_construction_cost,
+  search_knowledge_base,
 ];
 
 /** Tools available to the Tax Strategist agent. (#11 Dead Agent Revival) */
@@ -263,4 +278,5 @@ export const taxTools = [
   calculate_depreciation_schedule,
   calculate_cost_segregation_estimate,
   calculate_1031_deadlines,
+  search_knowledge_base,
 ];

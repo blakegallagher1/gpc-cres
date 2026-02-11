@@ -739,6 +739,21 @@ model OpportunityMatch {
   @@map("opportunity_matches")
 }
 
+model KnowledgeEmbedding {
+  id          String   @id @default(uuid()) @db.Uuid
+  contentType String   @map("content_type") @db.Text // deal_memo|agent_analysis|document_extraction|market_report|user_note
+  sourceId    String   @map("source_id") @db.Text // polymorphic reference
+  contentText String   @map("content_text") @db.Text
+  embedding   Unsupported("vector(1536)")?
+  metadata    Json     @default("{}") @db.JsonB
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([contentType])
+  @@index([sourceId])
+  @@map("knowledge_embeddings")
+}
+
 model DealOutcome {
   id                    String    @id @default(uuid()) @db.Uuid
   dealId                String    @unique @map("deal_id") @db.Uuid
