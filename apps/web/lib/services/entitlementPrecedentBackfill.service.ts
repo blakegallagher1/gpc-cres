@@ -27,6 +27,26 @@ type ExternalPrecedentCandidate = {
   sku: SkuType | null;
 };
 
+type FieldPreset = {
+  id: string;
+  connector: ConnectorType;
+  urlIncludes: string[];
+  fieldMap: {
+    rowId?: string[];
+    title?: string[];
+    description?: string[];
+    decision?: string[];
+    applicationType?: string[];
+    hearingBody?: string[];
+    submittedAt?: string[];
+    decisionAt?: string[];
+    sourceUrls?: string[];
+  };
+  strategyHints?: Array<{ contains: string[]; strategyKey: string; strategyLabel: string }>;
+  decisionValueMap?: Record<string, DecisionType>;
+  confidenceBoost?: number;
+};
+
 type IngestSourceResult = {
   sourceUrl: string;
   connector: ConnectorType;
@@ -64,6 +84,88 @@ const DEFAULT_RECORDS_PER_SOURCE = 75;
 const DEFAULT_EVIDENCE_LINKS = 2;
 const EVIDENCE_BUCKET = "evidence";
 
+const BATON_ROUGE_FIELD_PRESETS: FieldPreset[] = [
+  {
+    id: "brla-socrata-zoning-cases",
+    connector: "socrata",
+    urlIncludes: ["data.brla.gov", "/resource/"],
+    fieldMap: {
+      rowId: ["case_number", "case_no", "docket_no", "id"],
+      title: ["case_name", "project_name", "title", "request"],
+      description: ["summary", "description", "staff_report", "notes"],
+      decision: ["decision", "action", "disposition", "outcome", "status", "vote_result"],
+      applicationType: ["application_type", "request_type", "case_type", "permit_type"],
+      hearingBody: ["hearing_body", "board", "commission", "committee", "decision_body"],
+      submittedAt: ["filed_date", "submitted_date", "application_date", "received_date"],
+      decisionAt: ["decision_date", "hearing_date", "vote_date", "meeting_date"],
+      sourceUrls: ["document_url", "staff_report_url", "agenda_url", "minutes_url", "packet_url"],
+    },
+    strategyHints: [
+      {
+        contains: ["conditional use", "cup"],
+        strategyKey: "conditional_use_permit",
+        strategyLabel: "Conditional Use Permit",
+      },
+      {
+        contains: ["rezoning", "zoning map amendment"],
+        strategyKey: "rezoning",
+        strategyLabel: "Rezoning",
+      },
+      {
+        contains: ["variance", "boa"],
+        strategyKey: "variance",
+        strategyLabel: "Variance",
+      },
+    ],
+    decisionValueMap: {
+      approved: "approved",
+      approve: "approved",
+      granted: "approved",
+      denied: "denied",
+      deny: "denied",
+      rejected: "denied",
+      withdrawn: "withdrawn",
+      tabled: "withdrawn",
+      continued: "withdrawn",
+      "approved with conditions": "approved_with_conditions",
+      conditional: "approved_with_conditions",
+      a: "approved",
+      d: "denied",
+      w: "withdrawn",
+      c: "approved_with_conditions",
+    },
+    confidenceBoost: 0.08,
+  },
+  {
+    id: "ebr-arcgis-zoning-cases",
+    connector: "arcgis",
+    urlIncludes: ["arcgis.com", "featureserver", "zoning"],
+    fieldMap: {
+      rowId: ["CASE_NO", "CASE_NUMBER", "DOCKET_NO", "OBJECTID", "GLOBALID"],
+      title: ["PROJECT_NAME", "CASE_NAME", "REQUEST", "TITLE"],
+      description: ["STAFF_NOTES", "DESCRIPTION", "SUMMARY", "COMMENTS"],
+      decision: ["ACTION", "DECISION", "STATUS", "DISPOSITION", "RECOMMENDATION"],
+      applicationType: ["REQUEST_TYPE", "CASE_TYPE", "APPLICATION_TYPE", "PERMIT_TYPE"],
+      hearingBody: ["HEARING_BODY", "BOARD", "COMMISSION", "DECISION_BODY"],
+      submittedAt: ["FILED_DATE", "APPLICATION_DATE", "RECEIVED_DATE", "SUBMIT_DATE"],
+      decisionAt: ["DECISION_DATE", "HEARING_DATE", "VOTE_DATE", "MEETING_DATE"],
+      sourceUrls: ["DOC_URL", "DOCUMENT_URL", "AGENDA_URL", "MINUTES_URL", "PACKET_URL"],
+    },
+    decisionValueMap: {
+      approved: "approved",
+      denied: "denied",
+      withdrawn: "withdrawn",
+      "approved w/ conditions": "approved_with_conditions",
+      "approved with conditions": "approved_with_conditions",
+      a: "approved",
+      d: "denied",
+      w: "withdrawn",
+      c: "approved_with_conditions",
+    },
+    confidenceBoost: 0.1,
+  },
+];
+
 function normalizeSpace(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
@@ -96,6 +198,14 @@ function clampConfidence(value: number): number {
   return Math.max(0.2, Math.min(0.95, Number.isFinite(value) ? value : 0.5));
 }
 
+function normalizeDecisionToken(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[_-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function parseDecision(raw: string): { decision: DecisionType | null; confidence: number } {
   const text = raw.toLowerCase();
   if (!text) return { decision: null, confidence: 0.35 };
@@ -112,6 +222,31 @@ function parseDecision(raw: string): { decision: DecisionType | null; confidence
     return { decision: "approved", confidence: 0.86 };
   }
   return { decision: null, confidence: 0.35 };
+}
+
+function parseDecisionWithPreset(
+  raw: string,
+  preset: FieldPreset | null,
+): { decision: DecisionType | null; confidence: number } {
+  const normalized = normalizeDecisionToken(raw);
+  if (preset?.decisionValueMap?.[normalized]) {
+    return {
+      decision: preset.decisionValueMap[normalized],
+      confidence: clampConfidence(0.93 + (preset.confidenceBoost ?? 0)),
+    };
+  }
+
+  if (preset?.decisionValueMap) {
+    const mapped = Object.entries(preset.decisionValueMap).find(([token]) => normalized.includes(token))?.[1];
+    if (mapped) {
+      return {
+        decision: mapped,
+        confidence: clampConfidence(0.86 + (preset.confidenceBoost ?? 0)),
+      };
+    }
+  }
+
+  return parseDecision(raw);
 }
 
 function inferStrategy(raw: string): { strategyKey: string; strategyLabel: string; confidence: number } {
@@ -132,6 +267,26 @@ function inferStrategy(raw: string): { strategyKey: string; strategyLabel: strin
     return { strategyKey: "site_plan_review", strategyLabel: "Site Plan Review", confidence: 0.75 };
   }
   return { strategyKey: "entitlement_general", strategyLabel: "General Entitlement Path", confidence: 0.45 };
+}
+
+function inferStrategyWithPreset(
+  raw: string,
+  preset: FieldPreset | null,
+): { strategyKey: string; strategyLabel: string; confidence: number } {
+  const normalized = raw.toLowerCase();
+  if (preset?.strategyHints) {
+    const matched = preset.strategyHints.find((hint) =>
+      hint.contains.some((needle) => normalized.includes(needle.toLowerCase())),
+    );
+    if (matched) {
+      return {
+        strategyKey: matched.strategyKey,
+        strategyLabel: matched.strategyLabel,
+        confidence: clampConfidence(0.9 + (preset.confidenceBoost ?? 0)),
+      };
+    }
+  }
+  return inferStrategy(raw);
 }
 
 function inferSku(raw: string): SkuType | null {
@@ -288,6 +443,34 @@ function pickField<T extends Record<string, unknown>>(row: T, includes: string[]
   return match ? safeText(match[1]) : "";
 }
 
+function rowLookup(row: Record<string, unknown>): Record<string, unknown> {
+  const lookup: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(row)) {
+    lookup[key.toLowerCase()] = value;
+  }
+  return lookup;
+}
+
+function pickExactField(row: Record<string, unknown>, keys?: string[]): string {
+  if (!keys || keys.length === 0) return "";
+  const lookup = rowLookup(row);
+  for (const key of keys) {
+    const text = safeText(lookup[key.toLowerCase()]);
+    if (text) return text;
+  }
+  return "";
+}
+
+function pickExactDateField(row: Record<string, unknown>, keys?: string[]): string | null {
+  if (!keys || keys.length === 0) return null;
+  const lookup = rowLookup(row);
+  for (const key of keys) {
+    const parsed = parseDate(lookup[key.toLowerCase()]);
+    if (parsed) return parsed;
+  }
+  return null;
+}
+
 function pickDateField<T extends Record<string, unknown>>(row: T, includes: string[]): string | null {
   for (const [key, value] of Object.entries(row)) {
     if (!includes.some((needle) => key.toLowerCase().includes(needle))) continue;
@@ -308,52 +491,100 @@ function collectCandidateUrls(row: Record<string, unknown>, sourceUrl: string): 
   return [...urls];
 }
 
+function collectCandidateUrlsWithPreset(
+  row: Record<string, unknown>,
+  sourceUrl: string,
+  sourceUrlFields?: string[],
+): string[] {
+  const urls = new Set(collectCandidateUrls(row, sourceUrl));
+  if (!sourceUrlFields || sourceUrlFields.length === 0) return [...urls];
+  const lookup = rowLookup(row);
+  for (const key of sourceUrlFields) {
+    const text = safeText(lookup[key.toLowerCase()]);
+    if (/^https?:\/\//i.test(text)) urls.add(text);
+  }
+  return [...urls];
+}
+
+function resolveFieldPreset(sourceUrl: string, connector: ConnectorType): FieldPreset | null {
+  const source = sourceUrl.toLowerCase();
+  return (
+    BATON_ROUGE_FIELD_PRESETS.find(
+      (preset) =>
+        preset.connector === connector && preset.urlIncludes.every((needle) => source.includes(needle.toLowerCase())),
+    ) ?? null
+  );
+}
+
 function buildCandidateFromRow(
   jurisdictionId: string,
   sourceUrl: string,
+  connector: ConnectorType,
   row: Record<string, unknown>,
   fallbackDecisionDate: string | null,
 ): ExternalPrecedentCandidate | null {
-  const title = pickField(row, ["title", "name", "case", "application", "project"]);
-  const applicationType = pickField(row, ["application_type", "permit_type", "request_type", "case_type"]) || null;
-  const hearingBody = pickField(row, ["hearing_body", "board", "commission", "committee"]) || null;
+  const preset = resolveFieldPreset(sourceUrl, connector);
+  const title =
+    pickExactField(row, preset?.fieldMap.title)
+    || pickField(row, ["title", "name", "case", "application", "project"]);
+  const applicationType =
+    pickExactField(row, preset?.fieldMap.applicationType)
+    || pickField(row, ["application_type", "permit_type", "request_type", "case_type"])
+    || null;
+  const hearingBody =
+    pickExactField(row, preset?.fieldMap.hearingBody)
+    || pickField(row, ["hearing_body", "board", "commission", "committee"])
+    || null;
+  const description =
+    pickExactField(row, preset?.fieldMap.description)
+    || pickField(row, ["description", "summary", "notes", "details"]);
+  const decisionField =
+    pickExactField(row, preset?.fieldMap.decision)
+    || pickField(row, ["decision", "status", "outcome", "result", "action"]);
   const body = [
     title,
     applicationType ?? "",
     hearingBody ?? "",
-    pickField(row, ["description", "summary", "notes", "details"]),
-    pickField(row, ["decision", "status", "outcome", "result", "action"]),
+    description,
+    decisionField,
   ]
     .filter(Boolean)
     .join(" ");
 
   const decisionText = body || JSON.stringify(row);
-  const parsedDecision = parseDecision(decisionText);
+  const parsedDecision = parseDecisionWithPreset(decisionField || decisionText, preset);
   if (!parsedDecision.decision) {
     return null;
   }
 
-  const strategy = inferStrategy(body);
-  const submittedAt = pickDateField(row, ["submitted", "filed", "application_date"]);
+  const strategy = inferStrategyWithPreset(body, preset);
+  const submittedAt =
+    pickExactDateField(row, preset?.fieldMap.submittedAt)
+    ?? pickDateField(row, ["submitted", "filed", "application_date"]);
   const decisionAt =
-    pickDateField(row, ["decision", "hearing", "vote", "approval_date", "meeting_date"])
+    pickExactDateField(row, preset?.fieldMap.decisionAt)
+    ?? pickDateField(row, ["decision", "hearing", "vote", "approval_date", "meeting_date"])
     ?? fallbackDecisionDate;
   const timelineDays = timelineDaysFromDates(submittedAt, decisionAt);
   const conditions = collectConditions(decisionText);
   const riskFlags = collectRiskFlags(decisionText);
   const sku = inferSku(body);
-  const sourceUrls = collectCandidateUrls(row, sourceUrl);
+  const sourceUrls = collectCandidateUrlsWithPreset(row, sourceUrl, preset?.fieldMap.sourceUrls);
   const recordFingerprint = hashJsonSha256({
     jurisdictionId,
     sourceUrl,
-    rowId: pickField(row, ["id", "case", "record", "docket", "application_no", "application"]),
+    rowId:
+      pickExactField(row, preset?.fieldMap.rowId)
+      || pickField(row, ["id", "case", "record", "docket", "application_no", "application"]),
     strategyKey: strategy.strategyKey,
     decision: parsedDecision.decision,
     decisionAt,
     title,
   });
   const precedentKey = `ext:${recordFingerprint.slice(0, 20)}`;
-  const confidence = clampConfidence((parsedDecision.confidence + strategy.confidence) / 2);
+  const confidence = clampConfidence(
+    (parsedDecision.confidence + strategy.confidence) / 2 + (preset?.confidenceBoost ?? 0),
+  );
 
   return {
     precedentKey,
@@ -454,6 +685,7 @@ async function ingestConnectorSource(params: {
       const candidate = buildCandidateFromRow(
         params.jurisdictionId,
         params.sourceUrl,
+        params.connector,
         row,
         fallbackDecisionDate,
       );
@@ -658,9 +890,13 @@ export async function backfillEntitlementOutcomePrecedents(
 }
 
 export const __testables = {
+  BATON_ROUGE_FIELD_PRESETS,
   detectConnectorType,
   parseDecision,
+  parseDecisionWithPreset,
   inferStrategy,
+  inferStrategyWithPreset,
+  resolveFieldPreset,
   buildCandidateFromRow,
   normalizeSocrataEndpoint,
   normalizeArcGisEndpoint,

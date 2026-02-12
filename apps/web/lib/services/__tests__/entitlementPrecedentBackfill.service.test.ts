@@ -27,6 +27,7 @@ describe("entitlement precedent row normalization", () => {
     const candidate = __testables.buildCandidateFromRow(
       "jurisdiction-1",
       "https://data.example.gov/resource/zoning.json",
+      "socrata",
       {
         case_id: "A-2025-100",
         application_type: "Conditional Use Permit",
@@ -53,6 +54,7 @@ describe("entitlement precedent row normalization", () => {
     const candidate = __testables.buildCandidateFromRow(
       "jurisdiction-1",
       "https://example.gov/feed.xml",
+      "rss",
       {
         title: "Agenda for next meeting",
         summary: "No case outcome in this notice.",
@@ -79,5 +81,57 @@ describe("endpoint normalization", () => {
     expect(value).toBe(
       "https://services.arcgis.com/x/ArcGIS/rest/services/zoning_cases/FeatureServer/0/query",
     );
+  });
+});
+
+describe("baton rouge connector presets", () => {
+  it("maps Socrata coded decision and strategy hints with confidence uplift", () => {
+    const candidate = __testables.buildCandidateFromRow(
+      "jurisdiction-1",
+      "https://data.brla.gov/resource/abcd-1234",
+      "socrata",
+      {
+        case_number: "A-2025-224",
+        request_type: "Conditional Use Permit",
+        status: "A",
+        hearing_body: "Planning Commission",
+        filed_date: "2025-02-01",
+        decision_date: "2025-03-10",
+        title: "Truck parking CUP request",
+        document_url: "https://data.brla.gov/documents/case-a-2025-224.pdf",
+      },
+      null,
+    );
+
+    expect(candidate).not.toBeNull();
+    expect(candidate?.decision).toBe("approved");
+    expect(candidate?.strategyKey).toBe("conditional_use_permit");
+    expect(candidate?.confidence).toBeGreaterThan(0.9);
+    expect(candidate?.sourceUrls).toContain("https://data.brla.gov/documents/case-a-2025-224.pdf");
+  });
+
+  it("maps ArcGIS uppercase fields and status shorthand", () => {
+    const candidate = __testables.buildCandidateFromRow(
+      "jurisdiction-1",
+      "https://services.arcgis.com/x/ArcGIS/rest/services/zoning_cases/FeatureServer/0/query",
+      "arcgis",
+      {
+        CASE_NO: "Z-2025-18",
+        REQUEST_TYPE: "Rezoning",
+        ACTION: "D",
+        HEARING_BODY: "Metro Council",
+        FILED_DATE: "2025-01-05",
+        DECISION_DATE: "2025-02-20",
+        PROJECT_NAME: "Industrial rezoning case",
+        DOC_URL: "https://example.org/docs/z-2025-18.pdf",
+      },
+      null,
+    );
+
+    expect(candidate).not.toBeNull();
+    expect(candidate?.decision).toBe("denied");
+    expect(candidate?.strategyKey).toBe("rezoning");
+    expect(candidate?.decisionAt).toBe("2025-02-20");
+    expect(candidate?.sourceUrls).toContain("https://example.org/docs/z-2025-18.pdf");
   });
 });
