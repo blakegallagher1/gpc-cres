@@ -226,12 +226,12 @@ export default function AgentsPage() {
                       </DialogFooter>
                     </DialogContent>
                   </Dialog>
-                  <Link href={`/agents/${agent.id}`}>
-                    <Button variant="outline">
+                  <Button asChild variant="outline">
+                    <Link href={`/agents/${agent.id}`}>
                       <Settings className="mr-2 h-4 w-4" />
                       Configure
-                    </Button>
-                  </Link>
+                    </Link>
+                  </Button>
                 </div>
               </CardContent>
             </Card>

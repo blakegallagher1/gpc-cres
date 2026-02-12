@@ -96,6 +96,7 @@ export function Header() {
           size="icon"
           onClick={toggleCopilot}
           className="text-muted-foreground"
+          aria-label="Toggle Copilot"
         >
           <Sparkles className="h-5 w-5" />
         </Button>

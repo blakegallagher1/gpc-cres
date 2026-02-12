@@ -10,9 +10,13 @@ export default defineConfig({
   webServer: {
     command: "npm run dev",
     env: {
+      NEXT_PUBLIC_E2E: "true",
       NEXT_PUBLIC_DISABLE_AUTH: "true",
     },
     port: 3000,
-    reuseExistingServer: true,
+    // Deterministic E2E env: if we reuse an already-running dev server,
+    // `NEXT_PUBLIC_*` build-time env may not match and UI state (Copilot/auth)
+    // can diverge and cause flaky navigation.
+    reuseExistingServer: false,
   },
 });

@@ -15,7 +15,8 @@ interface UIState {
 export const useUIStore = create((set): UIState => ({
   sidebarCollapsed: false,
   commandPaletteOpen: false,
-  copilotOpen: true,
+  // E2E: keep Copilot closed by default to avoid obscuring primary UI interactions.
+  copilotOpen: process.env.NEXT_PUBLIC_E2E === "true" ? false : true,
   toggleSidebar: () =>
     set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
   openCommandPalette: () => set({ commandPaletteOpen: true }),

@@ -122,7 +122,12 @@ export function CopilotPanel() {
               <p className="text-xs text-muted-foreground">Page-aware sidekick</p>
             </div>
           </div>
-          <Button variant="ghost" size="icon" onClick={toggleCopilot}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleCopilot}
+            aria-label="Close Copilot"
+          >
             <X className="h-4 w-4" />
           </Button>
         </div>
