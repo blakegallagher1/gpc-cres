@@ -80,6 +80,46 @@ export interface EntitlementGraphReadInput {
   limit?: number | null;
 }
 
+export interface EntitlementFeatureQueryInput {
+  orgId: string;
+  jurisdictionId: string;
+  dealId?: string | null;
+  sku?: SkuType | null;
+  applicationType?: string | null;
+  hearingBody?: string | null;
+  strategyKeys?: string[] | null;
+  lookbackMonths?: number | null;
+  minSampleSize?: number | null;
+  recordLimit?: number | null;
+}
+
+type FeaturePrecedentRecord = {
+  strategyKey: string;
+  strategyLabel: string;
+  decision: DecisionType;
+  timelineDays: number | null;
+  submittedAt: Date | null;
+  decisionAt: Date | null;
+  confidence: number;
+  riskFlags: string[];
+  hearingBody: string | null;
+  applicationType: string | null;
+};
+
+type FeatureNodeRecord = {
+  id: string;
+  nodeType: string;
+  nodeKey: string;
+  label: string;
+};
+
+type FeatureEdgeRecord = {
+  edgeType: string;
+  weight: number;
+  fromNodeId: string;
+  toNodeId: string;
+};
+
 function parseDate(value: string | null | undefined): Date | null {
   if (!value) return null;
   const parsed = new Date(value);
@@ -100,6 +140,251 @@ function deriveTimelineDays(
   const diffMs = decisionAt.getTime() - submittedAt.getTime();
   if (diffMs <= 0) return null;
   return Math.round(diffMs / 86_400_000);
+}
+
+function round(value: number, decimals = 4): number {
+  const factor = 10 ** decimals;
+  return Math.round(value * factor) / factor;
+}
+
+function percentile(values: number[], percentileValue: number): number | null {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const rank = Math.ceil((percentileValue / 100) * sorted.length) - 1;
+  const index = Math.min(sorted.length - 1, Math.max(0, rank));
+  return sorted[index] ?? null;
+}
+
+function normalizeGroupKey(value: string | null | undefined, fallback: string): string {
+  const text = value?.trim();
+  return text && text.length > 0 ? text : fallback;
+}
+
+function toDateIso(date: Date | null): string | null {
+  return date ? date.toISOString().slice(0, 10) : null;
+}
+
+function buildGroupedFeatureRows(
+  records: FeaturePrecedentRecord[],
+  minSampleSize: number,
+  groupBy: (record: FeaturePrecedentRecord) => { groupKey: string; groupLabel: string },
+) {
+  const grouped = new Map<string, { groupLabel: string; records: FeaturePrecedentRecord[] }>();
+  for (const record of records) {
+    const { groupKey, groupLabel } = groupBy(record);
+    const bucket = grouped.get(groupKey);
+    if (bucket) {
+      bucket.records.push(record);
+      if (!bucket.groupLabel && groupLabel) bucket.groupLabel = groupLabel;
+      continue;
+    }
+    grouped.set(groupKey, { groupLabel, records: [record] });
+  }
+
+  const rows = [...grouped.entries()]
+    .map(([groupKey, bucket]) => {
+      if (bucket.records.length < minSampleSize) return null;
+
+      let approvals = 0;
+      let approvedWithConditions = 0;
+      let denials = 0;
+      let withdrawn = 0;
+      const timelines: number[] = [];
+      const confidenceValues: number[] = [];
+      const riskCounts = new Map<string, number>();
+      let latestDecisionAt: Date | null = null;
+
+      for (const record of bucket.records) {
+        if (record.decision === "approved") approvals += 1;
+        else if (record.decision === "approved_with_conditions") approvedWithConditions += 1;
+        else if (record.decision === "denied") denials += 1;
+        else if (record.decision === "withdrawn") withdrawn += 1;
+
+        const timeline = deriveTimelineDays(record.timelineDays, record.submittedAt, record.decisionAt);
+        if (timeline && timeline > 0) timelines.push(timeline);
+        if (Number.isFinite(record.confidence)) confidenceValues.push(record.confidence);
+
+        for (const riskFlag of record.riskFlags) {
+          riskCounts.set(riskFlag, (riskCounts.get(riskFlag) ?? 0) + 1);
+        }
+
+        if (record.decisionAt && (!latestDecisionAt || record.decisionAt > latestDecisionAt)) {
+          latestDecisionAt = record.decisionAt;
+        }
+      }
+
+      const sampleSize = bucket.records.length;
+      const approvalRate = round((approvals + approvedWithConditions) / sampleSize);
+      const conditionRate = round(approvedWithConditions / sampleSize);
+      const denialRate = round(denials / sampleSize);
+      const withdrawalRate = round(withdrawn / sampleSize);
+      const avgConfidence = confidenceValues.length > 0
+        ? round(confidenceValues.reduce((sum, item) => sum + item, 0) / confidenceValues.length)
+        : null;
+      const timelineP50 = percentile(timelines, 50);
+      const timelineP75 = percentile(timelines, 75);
+      const timelineP90 = percentile(timelines, 90);
+
+      const topRiskFlags = [...riskCounts.entries()]
+        .sort((a, b) => {
+          if (b[1] !== a[1]) return b[1] - a[1];
+          return a[0].localeCompare(b[0]);
+        })
+        .slice(0, 5)
+        .map(([riskFlag, count]) => ({
+          riskFlag,
+          count,
+          rate: round(count / sampleSize),
+        }));
+
+      return {
+        groupKey,
+        groupLabel: bucket.groupLabel || groupKey,
+        sampleSize,
+        approvalRate,
+        conditionRate,
+        denialRate,
+        withdrawalRate,
+        timelineSampleSize: timelines.length,
+        timelineP50Days: timelineP50,
+        timelineP75Days: timelineP75,
+        timelineP90Days: timelineP90,
+        avgConfidence,
+        latestDecisionAt: toDateIso(latestDecisionAt),
+        topRiskFlags,
+      };
+    })
+    .filter((row): row is NonNullable<typeof row> => row !== null)
+    .sort((a, b) => {
+      if (b.sampleSize !== a.sampleSize) return b.sampleSize - a.sampleSize;
+      return a.groupKey.localeCompare(b.groupKey);
+    });
+
+  return rows;
+}
+
+function buildRiskFlagSummary(records: FeaturePrecedentRecord[]) {
+  const counts = new Map<string, number>();
+  for (const record of records) {
+    for (const riskFlag of record.riskFlags) {
+      counts.set(riskFlag, (counts.get(riskFlag) ?? 0) + 1);
+    }
+  }
+  const denominator = Math.max(1, records.length);
+  return [...counts.entries()]
+    .sort((a, b) => {
+      if (b[1] !== a[1]) return b[1] - a[1];
+      return a[0].localeCompare(b[0]);
+    })
+    .map(([riskFlag, count]) => ({
+      riskFlag,
+      count,
+      rate: round(count / denominator),
+    }));
+}
+
+function buildEdgeFeatureRows(
+  edges: FeatureEdgeRecord[],
+  nodeById: Map<string, FeatureNodeRecord>,
+) {
+  const grouped = new Map<string, {
+    weights: number[];
+    strategyKeys: Set<string>;
+    nodeTypes: Set<string>;
+  }>();
+
+  for (const edge of edges) {
+    const fromNode = nodeById.get(edge.fromNodeId);
+    const toNode = nodeById.get(edge.toNodeId);
+    const bucket = grouped.get(edge.edgeType) ?? {
+      weights: [],
+      strategyKeys: new Set<string>(),
+      nodeTypes: new Set<string>(),
+    };
+    bucket.weights.push(edge.weight);
+    if (fromNode?.nodeType) bucket.nodeTypes.add(fromNode.nodeType);
+    if (toNode?.nodeType) bucket.nodeTypes.add(toNode.nodeType);
+    if (fromNode?.nodeType === "strategy_path") bucket.strategyKeys.add(fromNode.nodeKey);
+    if (toNode?.nodeType === "strategy_path") bucket.strategyKeys.add(toNode.nodeKey);
+    grouped.set(edge.edgeType, bucket);
+  }
+
+  return [...grouped.entries()]
+    .map(([edgeType, bucket]) => {
+      const sum = bucket.weights.reduce((acc, item) => acc + item, 0);
+      return {
+        edgeType,
+        sampleSize: bucket.weights.length,
+        averageWeight: round(sum / bucket.weights.length),
+        minWeight: round(Math.min(...bucket.weights)),
+        maxWeight: round(Math.max(...bucket.weights)),
+        connectedStrategyKeys: [...bucket.strategyKeys].sort((a, b) => a.localeCompare(b)),
+        connectedNodeTypes: [...bucket.nodeTypes].sort((a, b) => a.localeCompare(b)),
+      };
+    })
+    .sort((a, b) => {
+      if (b.sampleSize !== a.sampleSize) return b.sampleSize - a.sampleSize;
+      return a.edgeType.localeCompare(b.edgeType);
+    });
+}
+
+function buildEntitlementFeaturePrimitives(params: {
+  records: FeaturePrecedentRecord[];
+  minSampleSize: number;
+  edges?: FeatureEdgeRecord[];
+  nodes?: FeatureNodeRecord[];
+}) {
+  const strategyFeatures = buildGroupedFeatureRows(
+    params.records,
+    params.minSampleSize,
+    (record) => ({
+      groupKey: record.strategyKey,
+      groupLabel: record.strategyLabel,
+    }),
+  );
+  const hearingBodyFeatures = buildGroupedFeatureRows(
+    params.records,
+    params.minSampleSize,
+    (record) => {
+      const key = normalizeGroupKey(record.hearingBody, "unknown_hearing_body");
+      return { groupKey: key, groupLabel: key };
+    },
+  );
+  const applicationTypeFeatures = buildGroupedFeatureRows(
+    params.records,
+    params.minSampleSize,
+    (record) => {
+      const key = normalizeGroupKey(record.applicationType, "unknown_application_type");
+      return { groupKey: key, groupLabel: key };
+    },
+  );
+  const riskFlagFeatures = buildRiskFlagSummary(params.records);
+
+  const nodes = params.nodes ?? [];
+  const edges = params.edges ?? [];
+  const nodeById = new Map(nodes.map((node) => [node.id, node]));
+  const edgeFeatures = buildEdgeFeatureRows(edges, nodeById);
+  const nodeTypeCounts = new Map<string, number>();
+  for (const node of nodes) {
+    nodeTypeCounts.set(node.nodeType, (nodeTypeCounts.get(node.nodeType) ?? 0) + 1);
+  }
+
+  return {
+    totalPrecedents: params.records.length,
+    strategyFeatures,
+    hearingBodyFeatures,
+    applicationTypeFeatures,
+    riskFlagFeatures,
+    edgeFeatures,
+    graphCoverage: {
+      strategyNodeCount: nodes.filter((node) => node.nodeType === "strategy_path").length,
+      connectedNodeCount: nodes.length,
+      connectedEdgeCount: edges.length,
+      nodeTypeCounts: Object.fromEntries(
+        [...nodeTypeCounts.entries()].sort((a, b) => a[0].localeCompare(b[0])),
+      ),
+    },
+  };
 }
 
 async function assertJurisdictionScope(orgId: string, jurisdictionId: string): Promise<void> {
@@ -464,6 +749,158 @@ export async function predictEntitlementStrategies(
   };
 }
 
+export async function getEntitlementFeaturePrimitives(input: EntitlementFeatureQueryInput) {
+  await assertJurisdictionScope(input.orgId, input.jurisdictionId);
+  await assertDealScope(input.orgId, input.dealId, input.jurisdictionId);
+
+  const lookbackMonths = Math.max(1, input.lookbackMonths ?? 36);
+  const minSampleSize = Math.max(1, input.minSampleSize ?? 3);
+  const recordLimit = Math.max(1, Math.min(5_000, input.recordLimit ?? 1_000));
+  const strategyKeys = [...new Set((input.strategyKeys ?? [])
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0))];
+
+  const since = new Date();
+  since.setMonth(since.getMonth() - lookbackMonths);
+
+  const precedents = await prisma.entitlementOutcomePrecedent.findMany({
+    where: {
+      orgId: input.orgId,
+      jurisdictionId: input.jurisdictionId,
+      ...(input.dealId ? { dealId: input.dealId } : {}),
+      ...(input.sku ? { sku: input.sku } : {}),
+      ...(input.applicationType ? { applicationType: input.applicationType } : {}),
+      ...(input.hearingBody ? { hearingBody: input.hearingBody } : {}),
+      ...(strategyKeys.length > 0 ? { strategyKey: { in: strategyKeys } } : {}),
+      decisionAt: { gte: since },
+    },
+    orderBy: [
+      { decisionAt: "desc" },
+      { createdAt: "desc" },
+    ],
+    take: recordLimit,
+    select: {
+      strategyKey: true,
+      strategyLabel: true,
+      decision: true,
+      timelineDays: true,
+      submittedAt: true,
+      decisionAt: true,
+      confidence: true,
+      riskFlags: true,
+      hearingBody: true,
+      applicationType: true,
+    },
+  });
+
+  const records: FeaturePrecedentRecord[] = precedents.map((precedent) => ({
+    strategyKey: precedent.strategyKey,
+    strategyLabel: precedent.strategyLabel,
+    decision: precedent.decision as DecisionType,
+    timelineDays: precedent.timelineDays,
+    submittedAt: precedent.submittedAt,
+    decisionAt: precedent.decisionAt,
+    confidence: Number(precedent.confidence),
+    riskFlags: precedent.riskFlags,
+    hearingBody: precedent.hearingBody,
+    applicationType: precedent.applicationType,
+  }));
+
+  const strategyKeysFromRecords = [...new Set(records.map((record) => record.strategyKey))];
+  const strategyNodes = strategyKeysFromRecords.length === 0
+    ? []
+    : await prisma.entitlementGraphNode.findMany({
+        where: {
+          orgId: input.orgId,
+          jurisdictionId: input.jurisdictionId,
+          nodeType: "strategy_path",
+          nodeKey: { in: strategyKeysFromRecords },
+          active: true,
+        },
+        select: {
+          id: true,
+          nodeType: true,
+          nodeKey: true,
+          label: true,
+        },
+      });
+
+  const strategyNodeIds = strategyNodes.map((node) => node.id);
+  const edges = strategyNodeIds.length === 0
+    ? []
+    : await prisma.entitlementGraphEdge.findMany({
+        where: {
+          orgId: input.orgId,
+          jurisdictionId: input.jurisdictionId,
+          OR: [
+            { fromNodeId: { in: strategyNodeIds } },
+            { toNodeId: { in: strategyNodeIds } },
+          ],
+        },
+        orderBy: [
+          { edgeType: "asc" },
+          { updatedAt: "desc" },
+        ],
+        take: Math.min(10_000, recordLimit * 5),
+        select: {
+          edgeType: true,
+          weight: true,
+          fromNodeId: true,
+          toNodeId: true,
+        },
+      });
+
+  const connectedNodeIds = new Set<string>(strategyNodeIds);
+  for (const edge of edges) {
+    connectedNodeIds.add(edge.fromNodeId);
+    connectedNodeIds.add(edge.toNodeId);
+  }
+
+  const connectedNodes = connectedNodeIds.size === 0
+    ? []
+    : await prisma.entitlementGraphNode.findMany({
+        where: {
+          orgId: input.orgId,
+          jurisdictionId: input.jurisdictionId,
+          id: { in: [...connectedNodeIds] },
+        },
+        select: {
+          id: true,
+          nodeType: true,
+          nodeKey: true,
+          label: true,
+        },
+      });
+
+  const features = buildEntitlementFeaturePrimitives({
+    records,
+    minSampleSize,
+    edges: edges.map((edge) => ({
+      edgeType: edge.edgeType,
+      weight: Number(edge.weight),
+      fromNodeId: edge.fromNodeId,
+      toNodeId: edge.toNodeId,
+    })),
+    nodes: connectedNodes,
+  });
+
+  return {
+    jurisdictionId: input.jurisdictionId,
+    filters: {
+      dealId: input.dealId ?? null,
+      sku: input.sku ?? null,
+      applicationType: input.applicationType ?? null,
+      hearingBody: input.hearingBody ?? null,
+      strategyKeys,
+      lookbackMonths,
+      minSampleSize,
+      recordLimit,
+      sinceDate: toDateIso(since),
+    },
+    ...features,
+  };
+}
+
 export async function getEntitlementGraph(input: EntitlementGraphReadInput) {
   await assertJurisdictionScope(input.orgId, input.jurisdictionId);
 
@@ -556,3 +993,8 @@ export async function getEntitlementGraph(input: EntitlementGraphReadInput) {
     })),
   };
 }
+
+export const __testables = {
+  buildEntitlementFeaturePrimitives,
+  deriveTimelineDays,
+};

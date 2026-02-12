@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import {
+  getEntitlementFeaturePrimitives,
   getEntitlementGraph,
   predictEntitlementStrategies,
   upsertEntitlementGraphEdge,
@@ -13,13 +14,16 @@ import {
 const skuSchema = z.enum(["SMALL_BAY_FLEX", "OUTDOOR_STORAGE", "TRUCK_PARKING"]);
 
 const getQuerySchema = z.object({
-  view: z.enum(["graph", "predict"]).default("predict"),
+  view: z.enum(["graph", "predict", "features"]).default("predict"),
   jurisdictionId: z.string().uuid(),
   dealId: z.string().uuid().optional(),
   sku: skuSchema.optional(),
   applicationType: z.string().min(1).optional(),
+  hearingBody: z.string().min(1).optional(),
+  strategyKeys: z.string().optional(),
   lookbackMonths: z.coerce.number().int().min(1).max(240).optional(),
   minSampleSize: z.coerce.number().int().min(1).max(100).optional(),
+  recordLimit: z.coerce.number().int().min(1).max(5000).optional(),
   includeBelowMinSample: z.coerce.boolean().optional(),
   includeInactive: z.coerce.boolean().optional(),
   nodeTypes: z.string().optional(),
@@ -102,8 +106,11 @@ export async function GET(req: NextRequest) {
     dealId: searchParams.get("dealId") ?? undefined,
     sku: searchParams.get("sku") ?? undefined,
     applicationType: searchParams.get("applicationType") ?? undefined,
+    hearingBody: searchParams.get("hearingBody") ?? undefined,
+    strategyKeys: searchParams.get("strategyKeys") ?? undefined,
     lookbackMonths: searchParams.get("lookbackMonths") ?? undefined,
     minSampleSize: searchParams.get("minSampleSize") ?? undefined,
+    recordLimit: searchParams.get("recordLimit") ?? undefined,
     includeBelowMinSample: searchParams.get("includeBelowMinSample") ?? undefined,
     includeInactive: searchParams.get("includeInactive") ?? undefined,
     nodeTypes: searchParams.get("nodeTypes") ?? undefined,
@@ -135,6 +142,29 @@ export async function GET(req: NextRequest) {
         limit: parsed.data.limit ?? 250,
       });
       return NextResponse.json(graph);
+    }
+
+    if (parsed.data.view === "features") {
+      const strategyKeys = parsed.data.strategyKeys
+        ? parsed.data.strategyKeys
+            .split(",")
+            .map((value) => value.trim())
+            .filter((value) => value.length > 0)
+        : null;
+
+      const features = await getEntitlementFeaturePrimitives({
+        orgId: auth.orgId,
+        jurisdictionId: parsed.data.jurisdictionId,
+        dealId: parsed.data.dealId ?? null,
+        sku: parsed.data.sku ?? null,
+        applicationType: parsed.data.applicationType ?? null,
+        hearingBody: parsed.data.hearingBody ?? null,
+        strategyKeys,
+        lookbackMonths: parsed.data.lookbackMonths ?? 36,
+        minSampleSize: parsed.data.minSampleSize ?? 3,
+        recordLimit: parsed.data.recordLimit ?? 1000,
+      });
+      return NextResponse.json(features);
     }
 
     const prediction = await predictEntitlementStrategies({
