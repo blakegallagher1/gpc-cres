@@ -75,6 +75,7 @@ export {
 export {
   predict_entitlement_path,
   get_entitlement_feature_primitives,
+  get_entitlement_intelligence_kpis,
 } from "./entitlementIntelligenceTools.js";
 
 // --- Agent-specific tool collections ---
@@ -126,6 +127,7 @@ import {
 import {
   predict_entitlement_path,
   get_entitlement_feature_primitives,
+  get_entitlement_intelligence_kpis,
 } from "./entitlementIntelligenceTools.js";
 
 /** Web search tool for Responses API pass-through. */
@@ -156,6 +158,7 @@ export const coordinatorTools = [
   log_reasoning_trace,
   predict_entitlement_path,
   get_entitlement_feature_primitives,
+  get_entitlement_intelligence_kpis,
 ];
 
 /** Tools available to the Legal / Entitlements agent. */
@@ -173,6 +176,7 @@ export const legalTools = [
   log_reasoning_trace,
   predict_entitlement_path,
   get_entitlement_feature_primitives,
+  get_entitlement_intelligence_kpis,
 ];
 
 /** Tools available to the Research agent. */
@@ -193,6 +197,7 @@ export const researchTools = [
   log_reasoning_trace,
   predict_entitlement_path,
   get_entitlement_feature_primitives,
+  get_entitlement_intelligence_kpis,
 ];
 
 /** Tools available to the Risk agent. */
@@ -307,6 +312,7 @@ export const entitlementsTools = [
   screenFlood,
   predict_entitlement_path,
   get_entitlement_feature_primitives,
+  get_entitlement_intelligence_kpis,
   search_knowledge_base,
   store_knowledge_entry,
   share_analysis_finding,

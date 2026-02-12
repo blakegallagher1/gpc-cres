@@ -324,5 +324,13 @@ describe("entitlement intelligence feature primitives", () => {
       approvalBrierScore: 0.065,
       medianTimelineAbsoluteErrorDays: 5,
     });
+    expect(kpis.trend).toHaveLength(3);
+    expect(kpis.trend[0]).toMatchObject({
+      month: "2025-02",
+      sampleSize: 1,
+      medianDecisionDays: 40,
+      medianTimelineAbsoluteErrorDays: 5,
+      approvalCalibrationGap: -0.2,
+    });
   });
 });

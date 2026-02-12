@@ -461,6 +461,7 @@ function buildEntitlementKpiSummary(params: {
       decision: precedent.decision,
       timelineDays,
       approved: isApprovalDecision(precedent.decision) ? 1 : 0,
+      anchorAt,
       matchedSnapshot,
       timelineErrorDays,
     };
@@ -548,9 +549,32 @@ function buildEntitlementKpiSummary(params: {
       return a.strategyKey.localeCompare(b.strategyKey);
     });
 
+  const trendByMonth = new Map<string, typeof rows>();
+  for (const row of rows) {
+    const month = row.anchorAt.toISOString().slice(0, 7);
+    const bucket = trendByMonth.get(month);
+    if (bucket) {
+      bucket.push(row);
+      continue;
+    }
+    trendByMonth.set(month, [row]);
+  }
+
+  const trend = [...trendByMonth.entries()]
+    .map(([month, monthRows]) => {
+      if (monthRows.length < params.minSampleSize) return null;
+      return {
+        month,
+        ...buildMetricSummary(monthRows),
+      };
+    })
+    .filter((row): row is NonNullable<typeof row> => row !== null)
+    .sort((a, b) => a.month.localeCompare(b.month));
+
   return {
     ...buildMetricSummary(rows),
     byStrategy,
+    trend,
   };
 }
 

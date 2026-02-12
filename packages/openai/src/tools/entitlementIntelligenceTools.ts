@@ -42,6 +42,14 @@ type FeatureEdgeRecord = {
   toNodeId: string;
 };
 
+type KpiSnapshotRecord = {
+  strategyKey: string;
+  strategyLabel: string;
+  probabilityApproval: number;
+  expectedDaysP50: number;
+  createdAt: Date;
+};
+
 function round(value: number, decimals = 4): number {
   const factor = 10 ** decimals;
   return Math.round(value * factor) / factor;
@@ -298,6 +306,171 @@ function buildCalibrationSummary(records: FeaturePrecedentRecord[], minSampleSiz
       const key = normalizeGroupKey(record.hearingBody, "unknown_hearing_body");
       return { groupKey: key, groupLabel: key };
     }),
+  };
+}
+
+function buildEntitlementKpiSummary(params: {
+  precedents: FeaturePrecedentRecord[];
+  snapshots: KpiSnapshotRecord[];
+  minSampleSize: number;
+}) {
+  const snapshotsByStrategy = new Map<string, KpiSnapshotRecord[]>();
+  for (const snapshot of params.snapshots) {
+    const bucket = snapshotsByStrategy.get(snapshot.strategyKey);
+    if (bucket) {
+      bucket.push(snapshot);
+      continue;
+    }
+    snapshotsByStrategy.set(snapshot.strategyKey, [snapshot]);
+  }
+
+  for (const bucket of snapshotsByStrategy.values()) {
+    bucket.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  }
+
+  const rows = params.precedents.map((precedent) => {
+    const strategySnapshots = snapshotsByStrategy.get(precedent.strategyKey) ?? [];
+    const anchorAt = precedent.decisionAt ?? precedent.submittedAt ?? new Date();
+    let matchedSnapshot: KpiSnapshotRecord | null = null;
+
+    for (const snapshot of strategySnapshots) {
+      if (snapshot.createdAt <= anchorAt) {
+        matchedSnapshot = snapshot;
+        continue;
+      }
+      break;
+    }
+
+    const timelineDays = deriveTimelineDays(
+      precedent.timelineDays,
+      precedent.submittedAt,
+      precedent.decisionAt,
+    );
+    const timelineErrorDays = matchedSnapshot && timelineDays
+      ? Math.abs(matchedSnapshot.expectedDaysP50 - timelineDays)
+      : null;
+
+    return {
+      strategyKey: precedent.strategyKey,
+      strategyLabel: precedent.strategyLabel,
+      decision: precedent.decision,
+      timelineDays,
+      approved: isApprovalDecision(precedent.decision) ? 1 : 0,
+      anchorAt,
+      matchedSnapshot,
+      timelineErrorDays,
+    };
+  });
+
+  function buildMetricSummary(rowsForGroup: typeof rows) {
+    const sampleSize = rowsForGroup.length;
+    const matched = rowsForGroup.filter((row) => row.matchedSnapshot);
+    const timelineValues = rowsForGroup
+      .map((row) => row.timelineDays)
+      .filter((value): value is number => typeof value === "number" && value > 0);
+    const timelineErrors = matched
+      .map((row) => row.timelineErrorDays)
+      .filter((value): value is number => typeof value === "number");
+
+    const approvalRateOverall = sampleSize === 0
+      ? null
+      : round(rowsForGroup.reduce((sum, row) => sum + row.approved, 0) / sampleSize);
+    const observedApprovalRate = matched.length === 0
+      ? null
+      : round(matched.reduce((sum, row) => sum + row.approved, 0) / matched.length);
+
+    const meanPredictedApproval = matched.length === 0
+      ? null
+      : round(
+          matched.reduce((sum, row) => sum + Number(row.matchedSnapshot?.probabilityApproval ?? 0), 0)
+          / matched.length,
+        );
+    const approvalCalibrationGap = meanPredictedApproval === null || observedApprovalRate === null
+      ? null
+      : round(meanPredictedApproval - observedApprovalRate);
+
+    const approvalBrierScore = matched.length === 0
+      ? null
+      : round(
+          matched.reduce((sum, row) => {
+            const predicted = Number(row.matchedSnapshot?.probabilityApproval ?? 0);
+            return sum + ((predicted - row.approved) ** 2);
+          }, 0) / matched.length,
+        );
+
+    const approvalDirectionAccuracy = matched.length === 0
+      ? null
+      : round(
+          matched.reduce((sum, row) => {
+            const predictedApproved = Number(row.matchedSnapshot?.probabilityApproval ?? 0) >= 0.5 ? 1 : 0;
+            return sum + (predictedApproved === row.approved ? 1 : 0);
+          }, 0) / matched.length,
+        );
+
+    return {
+      sampleSize,
+      matchedPredictionCount: matched.length,
+      predictionMatchRate: sampleSize === 0 ? 0 : round(matched.length / sampleSize),
+      approvalRateOverall,
+      observedApprovalRate,
+      meanPredictedApproval,
+      approvalCalibrationGap,
+      approvalBrierScore,
+      approvalDirectionAccuracy,
+      decisionTimelineSampleSize: timelineValues.length,
+      medianDecisionDays: percentile(timelineValues, 50),
+      timelineErrorSampleSize: timelineErrors.length,
+      medianTimelineAbsoluteErrorDays: percentile(timelineErrors, 50),
+      meanTimelineAbsoluteErrorDays: timelineErrors.length === 0
+        ? null
+        : round(timelineErrors.reduce((sum, value) => sum + value, 0) / timelineErrors.length),
+    };
+  }
+
+  const byStrategy = [...new Set(rows.map((row) => row.strategyKey))]
+    .map((strategyKey) => {
+      const bucket = rows.filter((row) => row.strategyKey === strategyKey);
+      if (bucket.length < params.minSampleSize) return null;
+      const strategyLabel = bucket[0]?.strategyLabel ?? strategyKey;
+      return {
+        strategyKey,
+        strategyLabel,
+        ...buildMetricSummary(bucket),
+      };
+    })
+    .filter((row): row is NonNullable<typeof row> => row !== null)
+    .sort((a, b) => {
+      if (b.sampleSize !== a.sampleSize) return b.sampleSize - a.sampleSize;
+      return a.strategyKey.localeCompare(b.strategyKey);
+    });
+
+  const trendByMonth = new Map<string, typeof rows>();
+  for (const row of rows) {
+    const month = row.anchorAt.toISOString().slice(0, 7);
+    const bucket = trendByMonth.get(month);
+    if (bucket) {
+      bucket.push(row);
+      continue;
+    }
+    trendByMonth.set(month, [row]);
+  }
+
+  const trend = [...trendByMonth.entries()]
+    .map(([month, monthRows]) => {
+      if (monthRows.length < params.minSampleSize) return null;
+      const metrics = buildMetricSummary(monthRows);
+      return {
+        month,
+        ...metrics,
+      };
+    })
+    .filter((row): row is NonNullable<typeof row> => row !== null)
+    .sort((a, b) => a.month.localeCompare(b.month));
+
+  return {
+    ...buildMetricSummary(rows),
+    byStrategy,
+    trend,
   };
 }
 
@@ -840,6 +1013,194 @@ export const get_entitlement_feature_primitives = tool({
         sinceDate: toDateIso(since),
       },
       ...features,
+    });
+  },
+});
+
+/**
+ * get_entitlement_intelligence_kpis — returns forecast quality KPIs for entitlement intelligence.
+ * Includes median entitlement decision time, timeline forecast MAE, approval calibration gap,
+ * and strategy/month trend breakdowns for ongoing model monitoring.
+ */
+export const get_entitlement_intelligence_kpis = tool({
+  name: "get_entitlement_intelligence_kpis",
+  description:
+    "Retrieve entitlement forecast-quality KPIs including median decision timeline, timeline " +
+    "forecast error (MAE), approval calibration gap, and strategy/month trend diagnostics.",
+  parameters: z.object({
+    orgId: z.string().uuid().describe("The org ID for security scoping."),
+    jurisdictionId: z.string().uuid().describe("Jurisdiction to analyze."),
+    dealId: z.string().uuid().nullable().describe("Optional deal scope filter."),
+    sku: skuSchema.nullable().describe("Optional SKU filter."),
+    applicationType: z
+      .string()
+      .nullable()
+      .describe("Optional application type filter (e.g., CUP, REZONING, VARIANCE)."),
+    hearingBody: z
+      .string()
+      .nullable()
+      .describe("Optional hearing body filter (e.g., Planning Commission, Metro Council)."),
+    strategyKeys: z
+      .array(z.string().min(1).max(120))
+      .max(200)
+      .nullable()
+      .describe("Optional strategy-path keys to include."),
+    lookbackMonths: z
+      .number()
+      .int()
+      .min(1)
+      .max(240)
+      .nullable()
+      .describe("How many months of precedent outcomes to include (default 36)."),
+    snapshotLookbackMonths: z
+      .number()
+      .int()
+      .min(1)
+      .max(360)
+      .nullable()
+      .describe("How many months of prediction snapshots to include (default lookback*2)."),
+    minSampleSize: z
+      .number()
+      .int()
+      .min(1)
+      .max(100)
+      .nullable()
+      .describe("Minimum records per grouped KPI row (default 1)."),
+    recordLimit: z
+      .number()
+      .int()
+      .min(1)
+      .max(5000)
+      .nullable()
+      .describe("Max precedent rows to process (default 1000)."),
+  }),
+  execute: async ({
+    orgId,
+    jurisdictionId,
+    dealId,
+    sku,
+    applicationType,
+    hearingBody,
+    strategyKeys,
+    lookbackMonths,
+    snapshotLookbackMonths,
+    minSampleSize,
+    recordLimit,
+  }) => {
+    const scopeError = await getScopeError(orgId, jurisdictionId, dealId);
+    if (scopeError) {
+      return JSON.stringify(scopeError);
+    }
+
+    const months = Math.max(1, lookbackMonths ?? 36);
+    const snapshotMonths = Math.max(months, snapshotLookbackMonths ?? months * 2);
+    const minSamples = Math.max(1, minSampleSize ?? 1);
+    const normalizedRecordLimit = Math.max(1, Math.min(5_000, recordLimit ?? 1_000));
+    const normalizedStrategyKeys = [...new Set((strategyKeys ?? [])
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0))];
+
+    const since = new Date();
+    since.setMonth(since.getMonth() - months);
+    const snapshotSince = new Date();
+    snapshotSince.setMonth(snapshotSince.getMonth() - snapshotMonths);
+
+    const precedents = await prisma.entitlementOutcomePrecedent.findMany({
+      where: {
+        orgId,
+        jurisdictionId,
+        ...(dealId ? { dealId } : {}),
+        ...(sku ? { sku } : {}),
+        ...(applicationType ? { applicationType } : {}),
+        ...(hearingBody ? { hearingBody } : {}),
+        ...(normalizedStrategyKeys.length > 0 ? { strategyKey: { in: normalizedStrategyKeys } } : {}),
+        decisionAt: { gte: since },
+      },
+      orderBy: [
+        { decisionAt: "desc" },
+        { createdAt: "desc" },
+      ],
+      take: normalizedRecordLimit,
+      select: {
+        strategyKey: true,
+        strategyLabel: true,
+        decision: true,
+        timelineDays: true,
+        submittedAt: true,
+        decisionAt: true,
+        confidence: true,
+        riskFlags: true,
+        hearingBody: true,
+        applicationType: true,
+      },
+    });
+
+    const records: FeaturePrecedentRecord[] = precedents.map((precedent) => ({
+      strategyKey: precedent.strategyKey,
+      strategyLabel: precedent.strategyLabel,
+      decision: decisionSchema.parse(precedent.decision),
+      timelineDays: precedent.timelineDays,
+      submittedAt: precedent.submittedAt,
+      decisionAt: precedent.decisionAt,
+      confidence: Number(precedent.confidence),
+      riskFlags: precedent.riskFlags,
+      hearingBody: precedent.hearingBody,
+      applicationType: precedent.applicationType,
+    }));
+
+    const strategyKeysFromRecords = [...new Set(records.map((record) => record.strategyKey))];
+    const snapshots = strategyKeysFromRecords.length === 0
+      ? []
+      : await prisma.entitlementPredictionSnapshot.findMany({
+          where: {
+            orgId,
+            jurisdictionId,
+            ...(dealId ? { dealId } : {}),
+            ...(sku ? { sku } : {}),
+            strategyKey: { in: strategyKeysFromRecords },
+            createdAt: { gte: snapshotSince },
+          },
+          orderBy: [
+            { createdAt: "asc" },
+          ],
+          take: Math.min(10_000, normalizedRecordLimit * 8),
+          select: {
+            strategyKey: true,
+            strategyLabel: true,
+            probabilityApproval: true,
+            expectedDaysP50: true,
+            createdAt: true,
+          },
+        });
+
+    const summary = buildEntitlementKpiSummary({
+      precedents: records,
+      snapshots: snapshots.map((snapshot) => ({
+        strategyKey: snapshot.strategyKey,
+        strategyLabel: snapshot.strategyLabel,
+        probabilityApproval: Number(snapshot.probabilityApproval),
+        expectedDaysP50: snapshot.expectedDaysP50,
+        createdAt: snapshot.createdAt,
+      })),
+      minSampleSize: minSamples,
+    });
+
+    return JSON.stringify({
+      jurisdictionId,
+      filters: {
+        dealId: dealId ?? null,
+        sku: sku ?? null,
+        applicationType: applicationType ?? null,
+        hearingBody: hearingBody ?? null,
+        strategyKeys: normalizedStrategyKeys,
+        lookbackMonths: months,
+        snapshotLookbackMonths: snapshotMonths,
+        minSampleSize: minSamples,
+        recordLimit: normalizedRecordLimit,
+        sinceDate: toDateIso(since),
+        snapshotSinceDate: toDateIso(snapshotSince),
+      },
+      ...summary,
     });
   },
 });
