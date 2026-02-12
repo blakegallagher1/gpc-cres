@@ -125,6 +125,22 @@ describe("AUTOMATION_CONFIG", () => {
     });
   });
 
+  describe("entitlementAutopilot configuration", () => {
+    it("should have expected strategy autopilot guardrails", () => {
+      expect(AUTOMATION_CONFIG.entitlementAutopilot.lookbackMonths).toBe(36);
+      expect(AUTOMATION_CONFIG.entitlementAutopilot.snapshotLookbackMonths).toBe(72);
+      expect(AUTOMATION_CONFIG.entitlementAutopilot.minSampleSize).toBe(12);
+      expect(AUTOMATION_CONFIG.entitlementAutopilot.minMatchedPredictions).toBe(8);
+      expect(AUTOMATION_CONFIG.entitlementAutopilot.maxMedianTimelineMaeDays).toBe(30);
+      expect(AUTOMATION_CONFIG.entitlementAutopilot.maxCalibrationGapAbs).toBe(0.12);
+      expect(AUTOMATION_CONFIG.entitlementAutopilot.minApprovalProbability).toBe(0.62);
+      expect(AUTOMATION_CONFIG.entitlementAutopilot.minStrategySampleSize).toBe(6);
+      expect(AUTOMATION_CONFIG.entitlementAutopilot.approvalWeight).toBe(0.72);
+      expect(AUTOMATION_CONFIG.entitlementAutopilot.speedWeight).toBe(0.28);
+      expect(AUTOMATION_CONFIG.entitlementAutopilot.defaultTaskDueInDays).toBe(5);
+    });
+  });
+
   describe("immutability", () => {
     it("should be frozen (immutable)", () => {
       expect(Object.isFrozen(AUTOMATION_CONFIG)).toBe(true);
@@ -139,6 +155,7 @@ describe("AUTOMATION_CONFIG", () => {
       expect(Object.isFrozen(AUTOMATION_CONFIG.buyerOutreach)).toBe(true);
       expect(Object.isFrozen(AUTOMATION_CONFIG.documents)).toBe(true);
       expect(Object.isFrozen(AUTOMATION_CONFIG.intelligenceKpi)).toBe(true);
+      expect(Object.isFrozen(AUTOMATION_CONFIG.entitlementAutopilot)).toBe(true);
     });
 
     it("should not allow modification of top-level properties", () => {

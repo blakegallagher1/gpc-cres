@@ -7,6 +7,7 @@ import { handleAdvancement, handleStatusChangeReminder } from "./advancement";
 import { handleBuyerOutreach, handleTriageBuyerMatch } from "./buyerOutreach";
 import { handleIntakeReceived } from "./intake";
 import { handleArtifactOnStatusChange, handleTriageArtifactNotification } from "./artifactAutomation";
+import { handleEntitlementStrategyAutopilot } from "./entitlementStrategy";
 
 /**
  * Register all automation event handlers.
@@ -46,6 +47,9 @@ export function ensureHandlersRegistered(): void {
   // #9 Artifact Auto-Generation: BUYER_TEASER on EXIT_MARKETED + triage notification
   registerHandler("deal.statusChanged", handleArtifactOnStatusChange);
   registerHandler("triage.completed", handleTriageArtifactNotification);
+
+  // #11 Entitlement Strategy Autopilot: PREAPP/CONCEPT recommendation materialization
+  registerHandler("deal.statusChanged", handleEntitlementStrategyAutopilot);
 }
 
 // Auto-register on import

@@ -5,6 +5,7 @@ import type { Prisma } from "@entitlement-os/db";
 
 import { backfillEntitlementOutcomePrecedents } from "@/lib/services/entitlementPrecedentBackfill.service";
 import { runEntitlementKpiDriftMonitor } from "@/lib/services/entitlementKpiMonitor.service";
+import { runEntitlementStrategyAutopilotSweep } from "@/lib/services/entitlementStrategyAutopilot.service";
 
 function verifyCronSecret(req: Request): boolean {
   const secret = (process.env.CRON_SECRET || "").trim();
@@ -82,6 +83,19 @@ export async function GET(req: Request) {
         });
       }
 
+      let autopilotSummary: Prisma.InputJsonValue | null = null;
+      try {
+        autopilotSummary = toInputJsonValue(await runEntitlementStrategyAutopilotSweep({
+          orgId: org.id,
+          jurisdictionId,
+        }));
+      } catch (autopilotError) {
+        autopilotSummary = toInputJsonValue({
+          success: false,
+          error: autopilotError instanceof Error ? autopilotError.message : String(autopilotError),
+        });
+      }
+
       await prisma.run.update({
         where: { id: run.id },
         data: {
@@ -90,6 +104,7 @@ export async function GET(req: Request) {
           outputJson: {
             ...summary,
             kpiMonitor: kpiMonitorSummary,
+            strategyAutopilot: autopilotSummary,
           },
         },
       });
@@ -99,6 +114,7 @@ export async function GET(req: Request) {
         status: "succeeded",
         ...summary,
         kpiMonitor: kpiMonitorSummary,
+        strategyAutopilot: autopilotSummary,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

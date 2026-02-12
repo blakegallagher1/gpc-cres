@@ -1,9 +1,14 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { resolveAuthMock, getEntitlementIntelligenceKpisMock } = vi.hoisted(() => ({
+const {
+  resolveAuthMock,
+  getEntitlementIntelligenceKpisMock,
+  recommendEntitlementStrategyMock,
+} = vi.hoisted(() => ({
   resolveAuthMock: vi.fn(),
   getEntitlementIntelligenceKpisMock: vi.fn(),
+  recommendEntitlementStrategyMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/resolveAuth", () => ({
@@ -20,6 +25,10 @@ vi.mock("@/lib/services/entitlementIntelligence.service", () => ({
   upsertEntitlementOutcomePrecedent: vi.fn(),
 }));
 
+vi.mock("@/lib/services/entitlementStrategyAutopilot.service", () => ({
+  recommendEntitlementStrategy: recommendEntitlementStrategyMock,
+}));
+
 import { GET } from "./route";
 
 const ORG_ID = "11111111-1111-4111-8111-111111111111";
@@ -30,6 +39,7 @@ describe("GET /api/intelligence/entitlements?view=kpi", () => {
   beforeEach(() => {
     resolveAuthMock.mockReset();
     getEntitlementIntelligenceKpisMock.mockReset();
+    recommendEntitlementStrategyMock.mockReset();
   });
 
   it("returns 401 when unauthenticated", async () => {
@@ -51,6 +61,20 @@ describe("GET /api/intelligence/entitlements?view=kpi", () => {
 
     const req = new NextRequest(
       "http://localhost/api/intelligence/entitlements?view=kpi&jurisdictionId=not-a-uuid",
+    );
+    const res = await GET(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(body.error).toBe("Invalid query parameters");
+    expect(getEntitlementIntelligenceKpisMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 for invalid boolean query values", async () => {
+    resolveAuthMock.mockResolvedValue({ userId: "user-1", orgId: ORG_ID });
+
+    const req = new NextRequest(
+      `http://localhost/api/intelligence/entitlements?view=kpi&jurisdictionId=${JURISDICTION_ID}&persistSnapshots=maybe`,
     );
     const res = await GET(req);
     const body = await res.json();
@@ -120,5 +144,65 @@ describe("GET /api/intelligence/entitlements?view=kpi", () => {
 
     expect(res.status).toBe(500);
     expect(body).toEqual({ error: "Jurisdiction not found or access denied" });
+  });
+});
+
+describe("GET /api/intelligence/entitlements?view=recommend", () => {
+  beforeEach(() => {
+    resolveAuthMock.mockReset();
+    recommendEntitlementStrategyMock.mockReset();
+  });
+
+  it("returns 400 when dealId is missing", async () => {
+    resolveAuthMock.mockResolvedValue({ userId: "user-1", orgId: ORG_ID });
+
+    const req = new NextRequest(
+      `http://localhost/api/intelligence/entitlements?view=recommend&jurisdictionId=${JURISDICTION_ID}`,
+    );
+    const res = await GET(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(body).toEqual({ error: "dealId is required for view=recommend" });
+    expect(recommendEntitlementStrategyMock).not.toHaveBeenCalled();
+  });
+
+  it("passes org-scoped params into recommendation service", async () => {
+    resolveAuthMock.mockResolvedValue({ userId: "user-1", orgId: ORG_ID });
+    recommendEntitlementStrategyMock.mockResolvedValue({
+      orgId: ORG_ID,
+      dealId: DEAL_ID,
+      jurisdictionId: JURISDICTION_ID,
+      recommendation: {
+        status: "recommended",
+        reasonCode: "recommended",
+      },
+    });
+
+    const req = new NextRequest(
+      "http://localhost/api/intelligence/entitlements" +
+      `?view=recommend&jurisdictionId=${JURISDICTION_ID}` +
+      `&dealId=${DEAL_ID}` +
+      "&lookbackMonths=30" +
+      "&snapshotLookbackMonths=60" +
+      "&recordLimit=350" +
+      "&persistSnapshots=false" +
+      "&orgId=attacker-org-id",
+    );
+    const res = await GET(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.recommendation.status).toBe("recommended");
+    expect(recommendEntitlementStrategyMock).toHaveBeenCalledTimes(1);
+    expect(recommendEntitlementStrategyMock).toHaveBeenCalledWith({
+      orgId: ORG_ID,
+      jurisdictionId: JURISDICTION_ID,
+      dealId: DEAL_ID,
+      lookbackMonths: 30,
+      snapshotLookbackMonths: 60,
+      recordLimit: 350,
+      persistSnapshots: false,
+    });
   });
 });

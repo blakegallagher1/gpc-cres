@@ -11,11 +11,22 @@ import {
   upsertEntitlementGraphNode,
   upsertEntitlementOutcomePrecedent,
 } from "@/lib/services/entitlementIntelligence.service";
+import { recommendEntitlementStrategy } from "@/lib/services/entitlementStrategyAutopilot.service";
 
 const skuSchema = z.enum(["SMALL_BAY_FLEX", "OUTDOOR_STORAGE", "TRUCK_PARKING"]);
+const optionalBooleanParam = z.preprocess((value) => {
+  if (value === undefined || value === null || value === "") return undefined;
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "true") return true;
+    if (normalized === "false") return false;
+  }
+  return value;
+}, z.boolean().optional());
 
 const getQuerySchema = z.object({
-  view: z.enum(["graph", "predict", "features", "kpi"]).default("predict"),
+  view: z.enum(["graph", "predict", "features", "kpi", "recommend"]).default("predict"),
   jurisdictionId: z.string().uuid(),
   dealId: z.string().uuid().optional(),
   sku: skuSchema.optional(),
@@ -26,11 +37,11 @@ const getQuerySchema = z.object({
   snapshotLookbackMonths: z.coerce.number().int().min(1).max(360).optional(),
   minSampleSize: z.coerce.number().int().min(1).max(100).optional(),
   recordLimit: z.coerce.number().int().min(1).max(5000).optional(),
-  includeBelowMinSample: z.coerce.boolean().optional(),
-  includeInactive: z.coerce.boolean().optional(),
+  includeBelowMinSample: optionalBooleanParam,
+  includeInactive: optionalBooleanParam,
   nodeTypes: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(500).optional(),
-  persistSnapshots: z.coerce.boolean().optional(),
+  persistSnapshots: optionalBooleanParam,
 });
 
 const postBodySchema = z.discriminatedUnion("action", [
@@ -192,6 +203,26 @@ export async function GET(req: NextRequest) {
         recordLimit: parsed.data.recordLimit ?? 1000,
       });
       return NextResponse.json(kpis);
+    }
+
+    if (parsed.data.view === "recommend") {
+      if (!parsed.data.dealId) {
+        return NextResponse.json(
+          { error: "dealId is required for view=recommend" },
+          { status: 400 },
+        );
+      }
+
+      const recommendation = await recommendEntitlementStrategy({
+        orgId: auth.orgId,
+        jurisdictionId: parsed.data.jurisdictionId,
+        dealId: parsed.data.dealId,
+        lookbackMonths: parsed.data.lookbackMonths ?? null,
+        snapshotLookbackMonths: parsed.data.snapshotLookbackMonths ?? null,
+        recordLimit: parsed.data.recordLimit ?? null,
+        persistSnapshots: parsed.data.persistSnapshots ?? true,
+      });
+      return NextResponse.json(recommendation);
     }
 
     const prediction = await predictEntitlementStrategies({

@@ -47,6 +47,19 @@ export const AUTOMATION_CONFIG = Object.freeze({
     maxCalibrationGapAbs: 0.12,
     alertCooldownHours: 24,
   }),
+  entitlementAutopilot: Object.freeze({
+    lookbackMonths: 36,
+    snapshotLookbackMonths: 72,
+    minSampleSize: 12,
+    minMatchedPredictions: 8,
+    maxMedianTimelineMaeDays: 30,
+    maxCalibrationGapAbs: 0.12,
+    minApprovalProbability: 0.62,
+    minStrategySampleSize: 6,
+    approvalWeight: 0.72,
+    speedWeight: 0.28,
+    defaultTaskDueInDays: 5,
+  }),
 });
 
 export type AutomationConfig = typeof AUTOMATION_CONFIG;
