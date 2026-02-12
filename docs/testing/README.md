@@ -20,6 +20,17 @@ This directory contains the starter matrix for component-level test coverage acr
 - Enforce Phase 1 full completion in CI (no `it.todo` remaining):
   - `pnpm test:phase1:track:complete`
 
+## E2E Stability Notes (Playwright)
+
+If Playwright flakes locally, run the suite 3 times to confirm whether it's a transient dev-server/hydration issue:
+
+```bash
+for i in 1 2 3; do echo "RUN $i" && pnpm -C apps/web exec playwright test || break; done
+```
+
+Known flake source: the Copilot side panel can intercept pointer events and block navigation clicks.
+When authoring E2E tests, prefer the shared helper `clickNavAndWaitForURL()` for navigation, and call `ensureCopilotClosed()` before clicks when needed.
+
 ## CI usage
 
 Use `pnpm test:matrix:validate` as an early CI gate to prevent orphaned components from landing without test plan coverage.
