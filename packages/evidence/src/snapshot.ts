@@ -2,7 +2,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { chromium } from "playwright";
 
 import type { PrismaClient } from "@entitlement-os/db";
-import { buildEvidenceExtractObjectKey, buildEvidenceSnapshotObjectKey, hashBytesSha256 } from "@entitlement-os/shared";
+import { buildEvidenceExtractObjectKey, buildEvidenceSnapshotObjectKey } from "@entitlement-os/shared";
+import { hashBytesSha256 } from "@entitlement-os/shared/crypto";
 
 import { extractTextFromHtml, extractTextFromPdfBytes } from "./textExtract.js";
 import { detectExtension, getHostname, looksLikeJsPlaceholder } from "./util.js";

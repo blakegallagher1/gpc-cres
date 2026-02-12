@@ -11,7 +11,7 @@ import type { SkuType } from "@entitlement-os/shared";
 import { captureEvidence } from "@entitlement-os/evidence";
 import type { CaptureEvidenceResult } from "@entitlement-os/evidence";
 import { withRetry, withTimeout } from "@entitlement-os/evidence";
-import { supabaseAdmin } from "@/lib/db/supabase";
+import { supabaseAdmin } from "@/lib/db/supabaseAdmin";
 
 const SKUS: SkuType[] = ["SMALL_BAY_FLEX", "OUTDOOR_STORAGE", "TRUCK_PARKING"];
 const STALE_DAYS = 7;

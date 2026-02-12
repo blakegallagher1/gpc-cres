@@ -1,19 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
+import { resolveAuth } from "@/lib/auth/resolveAuth";
 
 // GET /api/evidence - list evidence sources
 export async function GET(request: NextRequest) {
   try {
+    const auth = await resolveAuth();
+    if (!auth) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search");
     const officialOnly = searchParams.get("official");
 
-    const org = await prisma.org.findFirst();
-    if (!org) {
-      return NextResponse.json({ sources: [] });
-    }
-
-    const where: Record<string, unknown> = { orgId: org.id };
+    const where: Record<string, unknown> = { orgId: auth.orgId };
     if (officialOnly === "true") where.isOfficial = true;
     if (search) {
       where.OR = [

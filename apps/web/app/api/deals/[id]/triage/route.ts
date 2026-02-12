@@ -19,7 +19,7 @@ import type {
   ThroughputRouting,
 } from "@entitlement-os/shared";
 import { renderArtifactFromSpec } from "@entitlement-os/artifacts";
-import { supabaseAdmin } from "@/lib/db/supabase";
+import { supabaseAdmin } from "@/lib/db/supabaseAdmin";
 
 // POST /api/deals/[id]/triage - run triage
 export async function POST(

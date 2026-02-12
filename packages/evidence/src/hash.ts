@@ -1,4 +1,4 @@
-import { hashBytesSha256 } from "@entitlement-os/shared";
+import { hashBytesSha256 } from "@entitlement-os/shared/crypto";
 
 /**
  * Hash string or Buffer content for comparison.

@@ -2,10 +2,12 @@ import { NextResponse } from "next/server";
 import { z, ZodError } from "zod";
 import { getAmenitiesCache, upsertAmenitiesCache } from "@/lib/server/chatgptAppsClient";
 import { checkRateLimit } from "@/lib/server/rateLimiter";
+import { resolveAuth } from "@/lib/auth/resolveAuth";
 
 export const runtime = "nodejs";
 
 const ROUTE_KEY = "chatgpt-apps:amenities-cache";
+const MAX_JSON_BODY_BYTES = 300_000;
 
 // GET body comes via search params for cache reads
 const GetSchema = z.object({
@@ -22,7 +24,15 @@ const PostSchema = z.object({
 export async function GET(request: Request) {
   const requestId = crypto.randomUUID();
 
-  if (!checkRateLimit(ROUTE_KEY)) {
+  const auth = await resolveAuth();
+  if (!auth) {
+    return NextResponse.json(
+      { ok: false, request_id: requestId, error: { code: "UNAUTHORIZED", message: "Unauthorized" } },
+      { status: 401 },
+    );
+  }
+
+  if (!checkRateLimit(`${ROUTE_KEY}:${auth.orgId}`)) {
     return NextResponse.json(
       { ok: false, request_id: requestId, error: { code: "RATE_LIMITED", message: "Too many requests" } },
       { status: 429 },
@@ -61,7 +71,15 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const requestId = crypto.randomUUID();
 
-  if (!checkRateLimit(ROUTE_KEY)) {
+  const auth = await resolveAuth();
+  if (!auth) {
+    return NextResponse.json(
+      { ok: false, request_id: requestId, error: { code: "UNAUTHORIZED", message: "Unauthorized" } },
+      { status: 401 },
+    );
+  }
+
+  if (!checkRateLimit(`${ROUTE_KEY}:${auth.orgId}`)) {
     return NextResponse.json(
       { ok: false, request_id: requestId, error: { code: "RATE_LIMITED", message: "Too many requests" } },
       { status: 429 },
@@ -70,7 +88,22 @@ export async function POST(request: Request) {
 
   let body: unknown;
   try {
-    body = await request.json();
+    const contentLength = request.headers.get("content-length");
+    if (contentLength && parseInt(contentLength, 10) > MAX_JSON_BODY_BYTES) {
+      return NextResponse.json(
+        { ok: false, request_id: requestId, error: { code: "PAYLOAD_TOO_LARGE", message: "Request body too large" } },
+        { status: 413 },
+      );
+    }
+
+    const text = await request.text();
+    if (text.length > MAX_JSON_BODY_BYTES) {
+      return NextResponse.json(
+        { ok: false, request_id: requestId, error: { code: "PAYLOAD_TOO_LARGE", message: "Request body too large" } },
+        { status: 413 },
+      );
+    }
+    body = JSON.parse(text);
   } catch {
     return NextResponse.json(
       { ok: false, request_id: requestId, error: { code: "BAD_REQUEST", message: "Invalid JSON body" } },

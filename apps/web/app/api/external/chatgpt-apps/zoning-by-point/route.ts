@@ -2,10 +2,12 @@ import { NextResponse } from "next/server";
 import { z, ZodError } from "zod";
 import { getZoningByPoint } from "@/lib/server/chatgptAppsClient";
 import { checkRateLimit } from "@/lib/server/rateLimiter";
+import { resolveAuth } from "@/lib/auth/resolveAuth";
 
 export const runtime = "nodejs";
 
 const ROUTE_KEY = "chatgpt-apps:zoning-by-point";
+const MAX_JSON_BODY_BYTES = 20_000;
 
 const BodySchema = z.object({
   lat: z.number().min(-90).max(90),
@@ -16,10 +18,26 @@ const BodySchema = z.object({
 export async function POST(request: Request) {
   const requestId = crypto.randomUUID();
 
-  if (!checkRateLimit(ROUTE_KEY)) {
+  const auth = await resolveAuth();
+  if (!auth) {
+    return NextResponse.json(
+      { ok: false, request_id: requestId, error: { code: "UNAUTHORIZED", message: "Unauthorized" } },
+      { status: 401 },
+    );
+  }
+
+  if (!checkRateLimit(`${ROUTE_KEY}:${auth.orgId}`)) {
     return NextResponse.json(
       { ok: false, request_id: requestId, error: { code: "RATE_LIMITED", message: "Too many requests" } },
       { status: 429 },
+    );
+  }
+
+  const contentLength = request.headers.get("content-length");
+  if (contentLength && parseInt(contentLength, 10) > MAX_JSON_BODY_BYTES) {
+    return NextResponse.json(
+      { ok: false, request_id: requestId, error: { code: "PAYLOAD_TOO_LARGE", message: "Request body too large" } },
+      { status: 413 },
     );
   }
 

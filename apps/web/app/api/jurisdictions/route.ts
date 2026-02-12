@@ -1,16 +1,17 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
+import { resolveAuth } from "@/lib/auth/resolveAuth";
 
 // GET /api/jurisdictions - list jurisdictions for the org
 export async function GET() {
   try {
-    const org = await prisma.org.findFirst();
-    if (!org) {
-      return NextResponse.json({ jurisdictions: [] });
+    const auth = await resolveAuth();
+    if (!auth) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const jurisdictions = await prisma.jurisdiction.findMany({
-      where: { orgId: org.id },
+      where: { orgId: auth.orgId },
       include: {
         seedSources: { select: { id: true, active: true } },
         parishPackVersions: {

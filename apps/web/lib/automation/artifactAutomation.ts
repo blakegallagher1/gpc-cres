@@ -4,7 +4,7 @@ import {
 } from "@entitlement-os/shared";
 import type { ArtifactSpec, ArtifactType } from "@entitlement-os/shared";
 import { renderArtifactFromSpec } from "@entitlement-os/artifacts";
-import { supabaseAdmin } from "@/lib/db/supabase";
+import { supabaseAdmin } from "@/lib/db/supabaseAdmin";
 import { createAutomationTask } from "./notifications";
 import type { AutomationEvent } from "./events";
 

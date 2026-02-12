@@ -1,8 +1,8 @@
 import { prisma } from "@entitlement-os/db";
 import { captureEvidence } from "@entitlement-os/evidence";
-import { hashJsonSha256 } from "@entitlement-os/shared";
+import { hashJsonSha256 } from "@entitlement-os/shared/crypto";
 
-import { supabaseAdmin } from "@/lib/db/supabase";
+import { supabaseAdmin } from "@/lib/db/supabaseAdmin";
 import { upsertEntitlementOutcomePrecedent } from "@/lib/services/entitlementIntelligence.service";
 
 type ConnectorType = "rss" | "socrata" | "arcgis" | "unknown";

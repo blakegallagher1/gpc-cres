@@ -1,5 +1,24 @@
 import { type Agent } from "@/types";
-import { AGENT_MODEL_IDS } from "@entitlement-os/shared";
+
+// NOTE: This file is used by client components.
+// Avoid importing from `@entitlement-os/shared` root export here because it
+// re-exports server/Node-only utilities (e.g., sha256 via `node:crypto`) that
+// can break Next dev bundling in webpack mode.
+const AGENT_MODEL_IDS = {
+  coordinator: "gpt-5.2",
+  finance: "gpt-5.2",
+  legal: "gpt-5.2",
+  research: "gpt-5.2",
+  risk: "gpt-5.1",
+  screener: "gpt-5.1",
+  dueDiligence: "gpt-5.1",
+  entitlements: "gpt-5.1",
+  design: "gpt-5.1",
+  operations: "gpt-5.1",
+  marketing: "gpt-5.1",
+  tax: "gpt-5.1",
+  marketIntel: "gpt-5.1",
+} as const;
 
 const AGENT_COLORS: Record<string, string> = {
   coordinator: "#6366f1",

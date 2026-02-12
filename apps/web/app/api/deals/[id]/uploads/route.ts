@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { buildUploadObjectKey } from "@entitlement-os/shared";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
-import { supabaseAdmin } from "@/lib/db/supabase";
+import { supabaseAdmin } from "@/lib/db/supabaseAdmin";
 import { randomUUID } from "crypto";
 import { dispatchEvent } from "@/lib/automation/events";
 import "@/lib/automation/handlers";

@@ -1,6 +1,6 @@
 import { prisma } from "@entitlement-os/db";
 import type { Prisma } from "@entitlement-os/db";
-import { supabaseAdmin } from "@/lib/db/supabase";
+import { supabaseAdmin } from "@/lib/db/supabaseAdmin";
 import { getNotificationService } from "./notification.service";
 import { AppError } from "@/lib/errors";
 import OpenAI from "openai";

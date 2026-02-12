@@ -2,7 +2,6 @@ export * from "./enums.js";
 export * from "./schemas/index.js";
 export * from "./jsonSchema.js";
 export * from "./validators/citations.js";
-export * from "./crypto/sha256.js";
 export * from "./storage/keys.js";
 export * from "./temporal/types.js";
 export * from "./scoring/index.js";

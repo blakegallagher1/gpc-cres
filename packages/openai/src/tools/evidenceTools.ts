@@ -3,10 +3,10 @@ import { z } from "zod";
 import path from "node:path";
 import { prisma } from "@entitlement-os/db";
 import {
-  hashBytesSha256,
   buildEvidenceSnapshotObjectKey,
   buildEvidenceExtractObjectKey,
 } from "@entitlement-os/shared";
+import { hashBytesSha256 } from "@entitlement-os/shared/crypto";
 import { rpc } from "./propertyDbTools.js";
 
 function detectExtension(contentType: string | null, url: string): string {

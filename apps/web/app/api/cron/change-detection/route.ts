@@ -10,7 +10,7 @@ import {
   withRetry,
   withTimeout,
 } from "@entitlement-os/evidence";
-import { supabaseAdmin } from "@/lib/db/supabase";
+import { supabaseAdmin } from "@/lib/db/supabaseAdmin";
 
 const MAX_TIMEOUT_MS = 60_000;
 const MAX_RETRIES = 3;

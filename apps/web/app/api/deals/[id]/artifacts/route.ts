@@ -4,7 +4,7 @@ import { renderArtifactFromSpec } from "@entitlement-os/artifacts";
 import { buildArtifactObjectKey, DEAL_STATUSES, ARTIFACT_TYPES } from "@entitlement-os/shared";
 import type { ArtifactType, DealStatus, ArtifactSpec } from "@entitlement-os/shared";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
-import { supabaseAdmin } from "@/lib/db/supabase";
+import { supabaseAdmin } from "@/lib/db/supabaseAdmin";
 import OpenAI from "openai";
 
 // Stage index for prerequisite checks (higher index = later stage)

@@ -2,6 +2,10 @@ import "@testing-library/jest-dom";
 import type { ReactNode } from "react";
 import { vi } from "vitest";
 
+// Next.js "server-only" package throws at import time outside the Next bundler.
+// Mock it so server-only modules can be imported safely in unit tests.
+vi.mock("server-only", () => ({}));
+
 // Mock next/navigation
 vi.mock("next/navigation", () => ({
   useRouter: () => ({

@@ -3,8 +3,8 @@ import { z } from "zod";
 import { prisma } from "@entitlement-os/db";
 import {
   computeEntitlementPathPredictions,
-  hashJsonSha256,
 } from "@entitlement-os/shared";
+import { hashJsonSha256 } from "@entitlement-os/shared/crypto";
 
 const skuSchema = z.enum(["SMALL_BAY_FLEX", "OUTDOOR_STORAGE", "TRUCK_PARKING"]);
 const decisionSchema = z.enum([
