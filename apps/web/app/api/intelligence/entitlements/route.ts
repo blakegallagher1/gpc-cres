@@ -5,6 +5,7 @@ import { resolveAuth } from "@/lib/auth/resolveAuth";
 import {
   getEntitlementFeaturePrimitives,
   getEntitlementGraph,
+  getEntitlementIntelligenceKpis,
   predictEntitlementStrategies,
   upsertEntitlementGraphEdge,
   upsertEntitlementGraphNode,
@@ -14,7 +15,7 @@ import {
 const skuSchema = z.enum(["SMALL_BAY_FLEX", "OUTDOOR_STORAGE", "TRUCK_PARKING"]);
 
 const getQuerySchema = z.object({
-  view: z.enum(["graph", "predict", "features"]).default("predict"),
+  view: z.enum(["graph", "predict", "features", "kpi"]).default("predict"),
   jurisdictionId: z.string().uuid(),
   dealId: z.string().uuid().optional(),
   sku: skuSchema.optional(),
@@ -22,6 +23,7 @@ const getQuerySchema = z.object({
   hearingBody: z.string().min(1).optional(),
   strategyKeys: z.string().optional(),
   lookbackMonths: z.coerce.number().int().min(1).max(240).optional(),
+  snapshotLookbackMonths: z.coerce.number().int().min(1).max(360).optional(),
   minSampleSize: z.coerce.number().int().min(1).max(100).optional(),
   recordLimit: z.coerce.number().int().min(1).max(5000).optional(),
   includeBelowMinSample: z.coerce.boolean().optional(),
@@ -109,6 +111,7 @@ export async function GET(req: NextRequest) {
     hearingBody: searchParams.get("hearingBody") ?? undefined,
     strategyKeys: searchParams.get("strategyKeys") ?? undefined,
     lookbackMonths: searchParams.get("lookbackMonths") ?? undefined,
+    snapshotLookbackMonths: searchParams.get("snapshotLookbackMonths") ?? undefined,
     minSampleSize: searchParams.get("minSampleSize") ?? undefined,
     recordLimit: searchParams.get("recordLimit") ?? undefined,
     includeBelowMinSample: searchParams.get("includeBelowMinSample") ?? undefined,
@@ -165,6 +168,30 @@ export async function GET(req: NextRequest) {
         recordLimit: parsed.data.recordLimit ?? 1000,
       });
       return NextResponse.json(features);
+    }
+
+    if (parsed.data.view === "kpi") {
+      const strategyKeys = parsed.data.strategyKeys
+        ? parsed.data.strategyKeys
+            .split(",")
+            .map((value) => value.trim())
+            .filter((value) => value.length > 0)
+        : null;
+
+      const kpis = await getEntitlementIntelligenceKpis({
+        orgId: auth.orgId,
+        jurisdictionId: parsed.data.jurisdictionId,
+        dealId: parsed.data.dealId ?? null,
+        sku: parsed.data.sku ?? null,
+        applicationType: parsed.data.applicationType ?? null,
+        hearingBody: parsed.data.hearingBody ?? null,
+        strategyKeys,
+        lookbackMonths: parsed.data.lookbackMonths ?? 36,
+        snapshotLookbackMonths: parsed.data.snapshotLookbackMonths ?? null,
+        minSampleSize: parsed.data.minSampleSize ?? 1,
+        recordLimit: parsed.data.recordLimit ?? 1000,
+      });
+      return NextResponse.json(kpis);
     }
 
     const prediction = await predictEntitlementStrategies({

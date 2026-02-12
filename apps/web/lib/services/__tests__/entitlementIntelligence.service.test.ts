@@ -235,4 +235,94 @@ describe("entitlement intelligence feature primitives", () => {
     expect(calibration.byHearingBody).toHaveLength(2);
     expect(calibration.confidenceBuckets).toHaveLength(3);
   });
+
+  it("computes KPI forecast-error diagnostics from precedents and historical snapshots", () => {
+    const kpis = __testables.buildEntitlementKpiSummary({
+      minSampleSize: 1,
+      precedents: [
+        {
+          strategyKey: "rezoning",
+          strategyLabel: "Rezoning",
+          decision: "approved",
+          timelineDays: 40,
+          submittedAt: new Date("2025-01-01"),
+          decisionAt: new Date("2025-02-10"),
+          confidence: 0.8,
+          riskFlags: [],
+          hearingBody: "Planning Commission",
+          applicationType: "Rezoning",
+        },
+        {
+          strategyKey: "rezoning",
+          strategyLabel: "Rezoning",
+          decision: "denied",
+          timelineDays: 60,
+          submittedAt: new Date("2025-01-20"),
+          decisionAt: new Date("2025-03-20"),
+          confidence: 0.6,
+          riskFlags: ["traffic"],
+          hearingBody: "Planning Commission",
+          applicationType: "Rezoning",
+        },
+        {
+          strategyKey: "variance",
+          strategyLabel: "Variance",
+          decision: "approved_with_conditions",
+          timelineDays: 30,
+          submittedAt: new Date("2025-03-01"),
+          decisionAt: new Date("2025-04-01"),
+          confidence: 0.7,
+          riskFlags: ["setback"],
+          hearingBody: "Board of Adjustment",
+          applicationType: "Variance",
+        },
+      ],
+      snapshots: [
+        {
+          strategyKey: "rezoning",
+          strategyLabel: "Rezoning",
+          probabilityApproval: 0.8,
+          expectedDaysP50: 45,
+          createdAt: new Date("2025-01-15"),
+        },
+        {
+          strategyKey: "rezoning",
+          strategyLabel: "Rezoning",
+          probabilityApproval: 0.3,
+          expectedDaysP50: 55,
+          createdAt: new Date("2025-03-01"),
+        },
+        {
+          strategyKey: "variance",
+          strategyLabel: "Variance",
+          probabilityApproval: 0.65,
+          expectedDaysP50: 25,
+          createdAt: new Date("2025-03-20"),
+        },
+      ],
+    });
+
+    expect(kpis.sampleSize).toBe(3);
+    expect(kpis.matchedPredictionCount).toBe(3);
+    expect(kpis.predictionMatchRate).toBe(1);
+    expect(kpis.medianDecisionDays).toBe(40);
+    expect(kpis.medianTimelineAbsoluteErrorDays).toBe(5);
+    expect(kpis.meanTimelineAbsoluteErrorDays).toBe(5);
+    expect(kpis.meanPredictedApproval).toBe(0.5833);
+    expect(kpis.observedApprovalRate).toBe(0.6667);
+    expect(kpis.approvalCalibrationGap).toBe(-0.0834);
+    expect(kpis.approvalBrierScore).toBe(0.0842);
+    expect(kpis.approvalDirectionAccuracy).toBe(1);
+    expect(kpis.byStrategy).toHaveLength(2);
+    expect(kpis.byStrategy[0]).toMatchObject({
+      strategyKey: "rezoning",
+      sampleSize: 2,
+      matchedPredictionCount: 2,
+      meanPredictedApproval: 0.55,
+      observedApprovalRate: 0.5,
+      approvalCalibrationGap: 0.05,
+      approvalBrierScore: 0.065,
+      medianTimelineAbsoluteErrorDays: 5,
+    });
+  });
 });

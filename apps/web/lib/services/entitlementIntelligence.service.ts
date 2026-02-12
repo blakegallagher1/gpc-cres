@@ -93,6 +93,20 @@ export interface EntitlementFeatureQueryInput {
   recordLimit?: number | null;
 }
 
+export interface EntitlementKpiQueryInput {
+  orgId: string;
+  jurisdictionId: string;
+  dealId?: string | null;
+  sku?: SkuType | null;
+  applicationType?: string | null;
+  hearingBody?: string | null;
+  strategyKeys?: string[] | null;
+  lookbackMonths?: number | null;
+  snapshotLookbackMonths?: number | null;
+  minSampleSize?: number | null;
+  recordLimit?: number | null;
+}
+
 type FeaturePrecedentRecord = {
   strategyKey: string;
   strategyLabel: string;
@@ -118,6 +132,14 @@ type FeatureEdgeRecord = {
   weight: number;
   fromNodeId: string;
   toNodeId: string;
+};
+
+type KpiSnapshotRecord = {
+  strategyKey: string;
+  strategyLabel: string;
+  probabilityApproval: number;
+  expectedDaysP50: number;
+  createdAt: Date;
 };
 
 function parseDate(value: string | null | undefined): Date | null {
@@ -392,6 +414,143 @@ function buildCalibrationSummary(records: FeaturePrecedentRecord[], minSampleSiz
       const key = normalizeGroupKey(record.hearingBody, "unknown_hearing_body");
       return { groupKey: key, groupLabel: key };
     }),
+  };
+}
+
+function buildEntitlementKpiSummary(params: {
+  precedents: FeaturePrecedentRecord[];
+  snapshots: KpiSnapshotRecord[];
+  minSampleSize: number;
+}) {
+  const snapshotsByStrategy = new Map<string, KpiSnapshotRecord[]>();
+  for (const snapshot of params.snapshots) {
+    const bucket = snapshotsByStrategy.get(snapshot.strategyKey);
+    if (bucket) {
+      bucket.push(snapshot);
+      continue;
+    }
+    snapshotsByStrategy.set(snapshot.strategyKey, [snapshot]);
+  }
+  for (const bucket of snapshotsByStrategy.values()) {
+    bucket.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  }
+
+  const rows = params.precedents.map((precedent) => {
+    const strategySnapshots = snapshotsByStrategy.get(precedent.strategyKey) ?? [];
+    const anchorAt = precedent.decisionAt ?? precedent.submittedAt ?? new Date();
+    let matchedSnapshot: KpiSnapshotRecord | null = null;
+    for (const snapshot of strategySnapshots) {
+      if (snapshot.createdAt <= anchorAt) {
+        matchedSnapshot = snapshot;
+        continue;
+      }
+      break;
+    }
+    const timelineDays = deriveTimelineDays(
+      precedent.timelineDays,
+      precedent.submittedAt,
+      precedent.decisionAt,
+    );
+    const timelineErrorDays = matchedSnapshot && timelineDays
+      ? Math.abs(matchedSnapshot.expectedDaysP50 - timelineDays)
+      : null;
+
+    return {
+      strategyKey: precedent.strategyKey,
+      strategyLabel: precedent.strategyLabel,
+      decision: precedent.decision,
+      timelineDays,
+      approved: isApprovalDecision(precedent.decision) ? 1 : 0,
+      matchedSnapshot,
+      timelineErrorDays,
+    };
+  });
+
+  function buildMetricSummary(rowsForGroup: typeof rows) {
+    const sampleSize = rowsForGroup.length;
+    const matched = rowsForGroup.filter((row) => row.matchedSnapshot);
+    const timelineValues = rowsForGroup
+      .map((row) => row.timelineDays)
+      .filter((value): value is number => typeof value === "number" && value > 0);
+    const timelineErrors = matched
+      .map((row) => row.timelineErrorDays)
+      .filter((value): value is number => typeof value === "number");
+
+    const approvalRateOverall = sampleSize === 0
+      ? null
+      : round(rowsForGroup.reduce((sum, row) => sum + row.approved, 0) / sampleSize);
+    const observedApprovalRate = matched.length === 0
+      ? null
+      : round(matched.reduce((sum, row) => sum + row.approved, 0) / matched.length);
+
+    const meanPredictedApproval = matched.length === 0
+      ? null
+      : round(
+          matched.reduce((sum, row) => sum + Number(row.matchedSnapshot?.probabilityApproval ?? 0), 0)
+            / matched.length,
+        );
+    const approvalCalibrationGap = meanPredictedApproval === null || observedApprovalRate === null
+      ? null
+      : round(meanPredictedApproval - observedApprovalRate);
+
+    const brierScore = matched.length === 0
+      ? null
+      : round(
+          matched.reduce((sum, row) => {
+            const predicted = Number(row.matchedSnapshot?.probabilityApproval ?? 0);
+            return sum + ((predicted - row.approved) ** 2);
+          }, 0) / matched.length,
+        );
+
+    const directionAccuracy = matched.length === 0
+      ? null
+      : round(
+          matched.reduce((sum, row) => {
+            const predictedApproved = Number(row.matchedSnapshot?.probabilityApproval ?? 0) >= 0.5 ? 1 : 0;
+            return sum + (predictedApproved === row.approved ? 1 : 0);
+          }, 0) / matched.length,
+        );
+
+    return {
+      sampleSize,
+      matchedPredictionCount: matched.length,
+      predictionMatchRate: sampleSize === 0 ? 0 : round(matched.length / sampleSize),
+      approvalRateOverall,
+      observedApprovalRate,
+      meanPredictedApproval,
+      approvalCalibrationGap,
+      approvalBrierScore: brierScore,
+      approvalDirectionAccuracy: directionAccuracy,
+      decisionTimelineSampleSize: timelineValues.length,
+      medianDecisionDays: percentile(timelineValues, 50),
+      timelineErrorSampleSize: timelineErrors.length,
+      medianTimelineAbsoluteErrorDays: percentile(timelineErrors, 50),
+      meanTimelineAbsoluteErrorDays: timelineErrors.length === 0
+        ? null
+        : round(timelineErrors.reduce((sum, value) => sum + value, 0) / timelineErrors.length),
+    };
+  }
+
+  const byStrategy = [...new Set(rows.map((row) => row.strategyKey))]
+    .map((strategyKey) => {
+      const bucket = rows.filter((row) => row.strategyKey === strategyKey);
+      if (bucket.length < params.minSampleSize) return null;
+      const strategyLabel = bucket[0]?.strategyLabel ?? strategyKey;
+      return {
+        strategyKey,
+        strategyLabel,
+        ...buildMetricSummary(bucket),
+      };
+    })
+    .filter((row): row is NonNullable<typeof row> => row !== null)
+    .sort((a, b) => {
+      if (b.sampleSize !== a.sampleSize) return b.sampleSize - a.sampleSize;
+      return a.strategyKey.localeCompare(b.strategyKey);
+    });
+
+  return {
+    ...buildMetricSummary(rows),
+    byStrategy,
   };
 }
 
@@ -1015,6 +1174,125 @@ export async function getEntitlementFeaturePrimitives(input: EntitlementFeatureQ
   };
 }
 
+export async function getEntitlementIntelligenceKpis(input: EntitlementKpiQueryInput) {
+  await assertJurisdictionScope(input.orgId, input.jurisdictionId);
+  await assertDealScope(input.orgId, input.dealId, input.jurisdictionId);
+
+  const lookbackMonths = Math.max(1, input.lookbackMonths ?? 36);
+  const snapshotLookbackMonths = Math.max(
+    lookbackMonths,
+    input.snapshotLookbackMonths ?? lookbackMonths * 2,
+  );
+  const minSampleSize = Math.max(1, input.minSampleSize ?? 1);
+  const recordLimit = Math.max(1, Math.min(5_000, input.recordLimit ?? 1_000));
+  const strategyKeys = [...new Set((input.strategyKeys ?? [])
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0))];
+
+  const since = new Date();
+  since.setMonth(since.getMonth() - lookbackMonths);
+  const snapshotSince = new Date();
+  snapshotSince.setMonth(snapshotSince.getMonth() - snapshotLookbackMonths);
+
+  const precedents = await prisma.entitlementOutcomePrecedent.findMany({
+    where: {
+      orgId: input.orgId,
+      jurisdictionId: input.jurisdictionId,
+      ...(input.dealId ? { dealId: input.dealId } : {}),
+      ...(input.sku ? { sku: input.sku } : {}),
+      ...(input.applicationType ? { applicationType: input.applicationType } : {}),
+      ...(input.hearingBody ? { hearingBody: input.hearingBody } : {}),
+      ...(strategyKeys.length > 0 ? { strategyKey: { in: strategyKeys } } : {}),
+      decisionAt: { gte: since },
+    },
+    orderBy: [
+      { decisionAt: "desc" },
+      { createdAt: "desc" },
+    ],
+    take: recordLimit,
+    select: {
+      strategyKey: true,
+      strategyLabel: true,
+      decision: true,
+      timelineDays: true,
+      submittedAt: true,
+      decisionAt: true,
+      confidence: true,
+      riskFlags: true,
+      hearingBody: true,
+      applicationType: true,
+    },
+  });
+
+  const records: FeaturePrecedentRecord[] = precedents.map((precedent) => ({
+    strategyKey: precedent.strategyKey,
+    strategyLabel: precedent.strategyLabel,
+    decision: precedent.decision as DecisionType,
+    timelineDays: precedent.timelineDays,
+    submittedAt: precedent.submittedAt,
+    decisionAt: precedent.decisionAt,
+    confidence: Number(precedent.confidence),
+    riskFlags: precedent.riskFlags,
+    hearingBody: precedent.hearingBody,
+    applicationType: precedent.applicationType,
+  }));
+
+  const strategyKeysFromRecords = [...new Set(records.map((record) => record.strategyKey))];
+  const snapshots = strategyKeysFromRecords.length === 0
+    ? []
+    : await prisma.entitlementPredictionSnapshot.findMany({
+        where: {
+          orgId: input.orgId,
+          jurisdictionId: input.jurisdictionId,
+          ...(input.dealId ? { dealId: input.dealId } : {}),
+          ...(input.sku ? { sku: input.sku } : {}),
+          strategyKey: { in: strategyKeysFromRecords },
+          createdAt: { gte: snapshotSince },
+        },
+        orderBy: [
+          { createdAt: "asc" },
+        ],
+        take: Math.min(10_000, recordLimit * 8),
+        select: {
+          strategyKey: true,
+          strategyLabel: true,
+          probabilityApproval: true,
+          expectedDaysP50: true,
+          createdAt: true,
+        },
+      });
+
+  const summary = buildEntitlementKpiSummary({
+    precedents: records,
+    snapshots: snapshots.map((snapshot) => ({
+      strategyKey: snapshot.strategyKey,
+      strategyLabel: snapshot.strategyLabel,
+      probabilityApproval: Number(snapshot.probabilityApproval),
+      expectedDaysP50: snapshot.expectedDaysP50,
+      createdAt: snapshot.createdAt,
+    })),
+    minSampleSize,
+  });
+
+  return {
+    jurisdictionId: input.jurisdictionId,
+    filters: {
+      dealId: input.dealId ?? null,
+      sku: input.sku ?? null,
+      applicationType: input.applicationType ?? null,
+      hearingBody: input.hearingBody ?? null,
+      strategyKeys,
+      lookbackMonths,
+      snapshotLookbackMonths,
+      minSampleSize,
+      recordLimit,
+      sinceDate: toDateIso(since),
+      snapshotSinceDate: toDateIso(snapshotSince),
+    },
+    ...summary,
+  };
+}
+
 export async function getEntitlementGraph(input: EntitlementGraphReadInput) {
   await assertJurisdictionScope(input.orgId, input.jurisdictionId);
 
@@ -1111,5 +1389,6 @@ export async function getEntitlementGraph(input: EntitlementGraphReadInput) {
 export const __testables = {
   buildEntitlementFeaturePrimitives,
   buildCalibrationSummary,
+  buildEntitlementKpiSummary,
   deriveTimelineDays,
 };
