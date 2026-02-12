@@ -34,11 +34,11 @@ describe("test matrix starter", () => {
     const matrix = loadMatrix();
 
     expect(matrix.summary.counts.agents).toBe(13);
-    expect(matrix.summary.counts.tools).toBe(54);
-    expect(matrix.summary.counts.api_routes).toBe(65);
+    expect(matrix.summary.counts.tools).toBe(55);
+    expect(matrix.summary.counts.api_routes).toBe(66);
     expect(matrix.summary.counts.automation_modules).toBe(15);
     expect(matrix.summary.counts.features).toBeGreaterThanOrEqual(10);
-    expect(matrix.summary.counts.total_components).toBeGreaterThanOrEqual(157);
+    expect(matrix.summary.counts.total_components).toBeGreaterThanOrEqual(159);
   });
 
   it("contains all named specialist/coordinator agents", () => {
@@ -70,7 +70,8 @@ describe("test matrix starter", () => {
     const matrix = loadMatrix();
     const toolIds = matrix.components.filter((c) => c.type === "tool").map((c) => c.id);
 
-    expect(toolIds).toHaveLength(54);
+    expect(toolIds).toHaveLength(55);
     expect(toolIds.includes("tool:webSearchPreviewTool")).toBe(true);
+    expect(toolIds.includes("tool:get_entitlement_feature_primitives")).toBe(true);
   });
 });

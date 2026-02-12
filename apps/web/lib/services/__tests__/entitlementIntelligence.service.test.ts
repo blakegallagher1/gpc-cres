@@ -180,4 +180,59 @@ describe("entitlement intelligence feature primitives", () => {
       connectedNodeTypes: ["jurisdiction_rule", "strategy_path"],
     });
   });
+
+  it("computes calibration diagnostics from confidence and observed outcomes", () => {
+    const calibration = __testables.buildCalibrationSummary(
+      [
+        {
+          strategyKey: "rezoning",
+          strategyLabel: "Rezoning",
+          decision: "approved",
+          timelineDays: 45,
+          submittedAt: new Date("2025-01-01"),
+          decisionAt: new Date("2025-02-15"),
+          confidence: 0.8,
+          riskFlags: [],
+          hearingBody: "Planning Commission",
+          applicationType: "Rezoning",
+        },
+        {
+          strategyKey: "rezoning",
+          strategyLabel: "Rezoning",
+          decision: "denied",
+          timelineDays: 60,
+          submittedAt: new Date("2025-01-10"),
+          decisionAt: new Date("2025-03-11"),
+          confidence: 0.7,
+          riskFlags: ["traffic"],
+          hearingBody: "Planning Commission",
+          applicationType: "Rezoning",
+        },
+        {
+          strategyKey: "variance",
+          strategyLabel: "Variance",
+          decision: "approved_with_conditions",
+          timelineDays: 30,
+          submittedAt: new Date("2025-02-01"),
+          decisionAt: new Date("2025-03-03"),
+          confidence: 0.6,
+          riskFlags: ["setback"],
+          hearingBody: "Board of Adjustment",
+          applicationType: "Variance",
+        },
+      ],
+      1,
+    );
+
+    expect(calibration.overall).toEqual({
+      sampleSize: 3,
+      meanPredictedApproval: 0.7,
+      observedApprovalRate: 0.6667,
+      calibrationGap: 0.0333,
+      brierScore: 0.23,
+    });
+    expect(calibration.byStrategy).toHaveLength(2);
+    expect(calibration.byHearingBody).toHaveLength(2);
+    expect(calibration.confidenceBuckets).toHaveLength(3);
+  });
 });

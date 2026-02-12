@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "generated_at": "2026-02-12T01:10:00.106Z",
+    "generated_at": "2026-02-12T05:22:06.565Z",
     "generated_by": "scripts/testing/generate-test-matrix.mjs",
     "repository_root": "/Users/gallagherpropertycompany/Documents/gallagher-cres",
     "intent": "Starter matrix for complete component-level testing coverage.",
@@ -42,17 +42,17 @@
   "summary": {
     "counts": {
       "agents": 13,
-      "tools": 54,
-      "api_routes": 65,
+      "tools": 55,
+      "api_routes": 66,
       "automation_modules": 15,
       "features": 10,
-      "total_components": 157
+      "total_components": 159
     },
     "baseline_targets": {
       "agents": 13,
-      "tools": 53,
-      "tool_capabilities_including_pass_through": 54,
-      "api_routes": 65,
+      "tools": 54,
+      "tool_capabilities_including_pass_through": 55,
+      "api_routes": 66,
       "automation_modules": 15
     },
     "notes": [
@@ -399,6 +399,22 @@
       "type": "api_route",
       "name": "cron/deadline-monitor",
       "path": "apps/web/app/api/cron/deadline-monitor/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:cron/entitlement-precedent-backfill",
+      "type": "api_route",
+      "name": "cron/entitlement-precedent-backfill",
+      "path": "apps/web/app/api/cron/entitlement-precedent-backfill/route.ts",
       "risk_tier": "P0",
       "owner": "TBD",
       "status": "todo",
@@ -2072,6 +2088,23 @@
       "type": "tool",
       "name": "generate_artifact",
       "path": "packages/openai/src/tools/artifactTools.ts",
+      "risk_tier": "P1",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "unit",
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "tool:get_entitlement_feature_primitives",
+      "type": "tool",
+      "name": "get_entitlement_feature_primitives",
+      "path": "packages/openai/src/tools/entitlementIntelligenceTools.ts",
       "risk_tier": "P1",
       "owner": "TBD",
       "status": "todo",

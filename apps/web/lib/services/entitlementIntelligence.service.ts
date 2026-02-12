@@ -283,6 +283,118 @@ function buildRiskFlagSummary(records: FeaturePrecedentRecord[]) {
     }));
 }
 
+function isApprovalDecision(decision: DecisionType): boolean {
+  return decision === "approved" || decision === "approved_with_conditions";
+}
+
+function buildCalibrationMetrics(records: FeaturePrecedentRecord[]) {
+  if (records.length === 0) {
+    return {
+      sampleSize: 0,
+      meanPredictedApproval: null,
+      observedApprovalRate: null,
+      calibrationGap: null,
+      brierScore: null,
+    };
+  }
+
+  const normalized = records.map((record) => ({
+    predicted: Math.min(1, Math.max(0, record.confidence)),
+    observed: isApprovalDecision(record.decision) ? 1 : 0,
+  }));
+  const sampleSize = normalized.length;
+  const predictedSum = normalized.reduce((sum, item) => sum + item.predicted, 0);
+  const observedSum = normalized.reduce((sum, item) => sum + item.observed, 0);
+  const brierSum = normalized.reduce(
+    (sum, item) => sum + ((item.predicted - item.observed) ** 2),
+    0,
+  );
+  const meanPredictedApproval = predictedSum / sampleSize;
+  const observedApprovalRate = observedSum / sampleSize;
+
+  return {
+    sampleSize,
+    meanPredictedApproval: round(meanPredictedApproval),
+    observedApprovalRate: round(observedApprovalRate),
+    calibrationGap: round(meanPredictedApproval - observedApprovalRate),
+    brierScore: round(brierSum / sampleSize),
+  };
+}
+
+function buildCalibrationBuckets(records: FeaturePrecedentRecord[]) {
+  const buckets = new Map<number, FeaturePrecedentRecord[]>();
+  for (const record of records) {
+    const predicted = Math.min(1, Math.max(0, record.confidence));
+    const bucketIndex = Math.min(9, Math.floor(predicted * 10));
+    const current = buckets.get(bucketIndex);
+    if (current) {
+      current.push(record);
+      continue;
+    }
+    buckets.set(bucketIndex, [record]);
+  }
+
+  return [...buckets.entries()]
+    .map(([bucketIndex, bucketRecords]) => {
+      const metrics = buildCalibrationMetrics(bucketRecords);
+      return {
+        bucket: `${(bucketIndex / 10).toFixed(1)}-${((bucketIndex + 1) / 10).toFixed(1)}`,
+        confidenceRangeStart: round(bucketIndex / 10),
+        confidenceRangeEnd: round((bucketIndex + 1) / 10),
+        ...metrics,
+      };
+    })
+    .sort((a, b) => a.confidenceRangeStart - b.confidenceRangeStart);
+}
+
+function buildGroupedCalibrationRows(
+  records: FeaturePrecedentRecord[],
+  minSampleSize: number,
+  groupBy: (record: FeaturePrecedentRecord) => { groupKey: string; groupLabel: string },
+) {
+  const grouped = new Map<string, { groupLabel: string; records: FeaturePrecedentRecord[] }>();
+  for (const record of records) {
+    const { groupKey, groupLabel } = groupBy(record);
+    const current = grouped.get(groupKey);
+    if (current) {
+      current.records.push(record);
+      if (!current.groupLabel && groupLabel) current.groupLabel = groupLabel;
+      continue;
+    }
+    grouped.set(groupKey, { groupLabel, records: [record] });
+  }
+
+  return [...grouped.entries()]
+    .map(([groupKey, bucket]) => {
+      if (bucket.records.length < minSampleSize) return null;
+      return {
+        groupKey,
+        groupLabel: bucket.groupLabel || groupKey,
+        ...buildCalibrationMetrics(bucket.records),
+      };
+    })
+    .filter((row): row is NonNullable<typeof row> => row !== null)
+    .sort((a, b) => {
+      if (b.sampleSize !== a.sampleSize) return b.sampleSize - a.sampleSize;
+      return a.groupKey.localeCompare(b.groupKey);
+    });
+}
+
+function buildCalibrationSummary(records: FeaturePrecedentRecord[], minSampleSize: number) {
+  return {
+    overall: buildCalibrationMetrics(records),
+    confidenceBuckets: buildCalibrationBuckets(records),
+    byStrategy: buildGroupedCalibrationRows(records, minSampleSize, (record) => ({
+      groupKey: record.strategyKey,
+      groupLabel: record.strategyLabel,
+    })),
+    byHearingBody: buildGroupedCalibrationRows(records, minSampleSize, (record) => {
+      const key = normalizeGroupKey(record.hearingBody, "unknown_hearing_body");
+      return { groupKey: key, groupLabel: key };
+    }),
+  };
+}
+
 function buildEdgeFeatureRows(
   edges: FeatureEdgeRecord[],
   nodeById: Map<string, FeatureNodeRecord>,
@@ -364,6 +476,7 @@ function buildEntitlementFeaturePrimitives(params: {
   const edges = params.edges ?? [];
   const nodeById = new Map(nodes.map((node) => [node.id, node]));
   const edgeFeatures = buildEdgeFeatureRows(edges, nodeById);
+  const calibration = buildCalibrationSummary(params.records, params.minSampleSize);
   const nodeTypeCounts = new Map<string, number>();
   for (const node of nodes) {
     nodeTypeCounts.set(node.nodeType, (nodeTypeCounts.get(node.nodeType) ?? 0) + 1);
@@ -376,6 +489,7 @@ function buildEntitlementFeaturePrimitives(params: {
     applicationTypeFeatures,
     riskFlagFeatures,
     edgeFeatures,
+    calibration,
     graphCoverage: {
       strategyNodeCount: nodes.filter((node) => node.nodeType === "strategy_path").length,
       connectedNodeCount: nodes.length,
@@ -996,5 +1110,6 @@ export async function getEntitlementGraph(input: EntitlementGraphReadInput) {
 
 export const __testables = {
   buildEntitlementFeaturePrimitives,
+  buildCalibrationSummary,
   deriveTimelineDays,
 };

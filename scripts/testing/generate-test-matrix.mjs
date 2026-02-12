@@ -286,9 +286,9 @@ function main() {
       },
       baseline_targets: {
         agents: 13,
-        tools: 53,
-        tool_capabilities_including_pass_through: 54,
-        api_routes: 65,
+        tools: 54,
+        tool_capabilities_including_pass_through: 55,
+        api_routes: 66,
         automation_modules: 15,
       },
       notes: [

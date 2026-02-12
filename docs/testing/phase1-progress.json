@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-02-12T01:10:00.553Z",
+  "generated_at": "2026-02-12T05:23:53.715Z",
   "phase": "phase1",
   "source_matrix": "docs/testing/test-matrix-starter.json",
   "test_root": "packages/openai/test/phase1",
   "totals": {
-    "expected_tests": 201,
-    "implemented_tests": 201,
+    "expected_tests": 204,
+    "implemented_tests": 204,
     "todo_tests": 0,
     "missing_tests": 0,
     "extra_tests": 0,
@@ -625,6 +625,24 @@
       "pack": "idempotency",
       "status": "implemented",
       "file": "packages/openai/test/phase1/tools/generate_artifact.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:get_entitlement_feature_primitives",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/get_entitlement_feature_primitives.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:get_entitlement_feature_primitives",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/get_entitlement_feature_primitives.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:get_entitlement_feature_primitives",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/get_entitlement_feature_primitives.phase1.test.ts"
     },
     {
       "matrix_id": "tool:get_historical_accuracy",

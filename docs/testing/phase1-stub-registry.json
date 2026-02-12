@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-02-12T01:10:08.501Z",
+  "generated_at": "2026-02-12T05:21:44.880Z",
   "source_matrix": "docs/testing/test-matrix-starter.json",
   "phase": "phase1",
   "packs": {
@@ -16,9 +16,9 @@
   },
   "counts": {
     "agent_components": 13,
-    "tool_components": 54,
-    "generated_files": 67,
-    "generated_tests": 201
+    "tool_components": 55,
+    "generated_files": 68,
+    "generated_tests": 204
   },
   "files": [
     "packages/openai/test/phase1/agents/coordinator.phase1.test.ts",
@@ -57,6 +57,7 @@
     "packages/openai/test/phase1/tools/generate_artifact.phase1.test.ts",
     "packages/openai/test/phase1/tools/getDealContext.phase1.test.ts",
     "packages/openai/test/phase1/tools/getParcelDetails.phase1.test.ts",
+    "packages/openai/test/phase1/tools/get_entitlement_feature_primitives.phase1.test.ts",
     "packages/openai/test/phase1/tools/get_historical_accuracy.phase1.test.ts",
     "packages/openai/test/phase1/tools/get_shared_context.phase1.test.ts",
     "packages/openai/test/phase1/tools/hardFilterCheck.phase1.test.ts",
