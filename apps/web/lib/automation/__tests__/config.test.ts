@@ -113,6 +113,18 @@ describe("AUTOMATION_CONFIG", () => {
     });
   });
 
+  describe("intelligenceKpi configuration", () => {
+    it("should have expected entitlement KPI guardrails", () => {
+      expect(AUTOMATION_CONFIG.intelligenceKpi.lookbackMonths).toBe(36);
+      expect(AUTOMATION_CONFIG.intelligenceKpi.snapshotLookbackMonths).toBe(72);
+      expect(AUTOMATION_CONFIG.intelligenceKpi.minSampleSize).toBe(12);
+      expect(AUTOMATION_CONFIG.intelligenceKpi.minMatchedPredictions).toBe(8);
+      expect(AUTOMATION_CONFIG.intelligenceKpi.maxMedianTimelineMaeDays).toBe(30);
+      expect(AUTOMATION_CONFIG.intelligenceKpi.maxCalibrationGapAbs).toBe(0.12);
+      expect(AUTOMATION_CONFIG.intelligenceKpi.alertCooldownHours).toBe(24);
+    });
+  });
+
   describe("immutability", () => {
     it("should be frozen (immutable)", () => {
       expect(Object.isFrozen(AUTOMATION_CONFIG)).toBe(true);
@@ -126,6 +138,7 @@ describe("AUTOMATION_CONFIG", () => {
       expect(Object.isFrozen(AUTOMATION_CONFIG.advancement)).toBe(true);
       expect(Object.isFrozen(AUTOMATION_CONFIG.buyerOutreach)).toBe(true);
       expect(Object.isFrozen(AUTOMATION_CONFIG.documents)).toBe(true);
+      expect(Object.isFrozen(AUTOMATION_CONFIG.intelligenceKpi)).toBe(true);
     });
 
     it("should not allow modification of top-level properties", () => {

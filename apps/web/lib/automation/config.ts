@@ -38,6 +38,15 @@ export const AUTOMATION_CONFIG = Object.freeze({
     maxBatchSize: 10,
     classificationMinConfidence: 0.7,
   }),
+  intelligenceKpi: Object.freeze({
+    lookbackMonths: 36,
+    snapshotLookbackMonths: 72,
+    minSampleSize: 12,
+    minMatchedPredictions: 8,
+    maxMedianTimelineMaeDays: 30,
+    maxCalibrationGapAbs: 0.12,
+    alertCooldownHours: 24,
+  }),
 });
 
 export type AutomationConfig = typeof AUTOMATION_CONFIG;

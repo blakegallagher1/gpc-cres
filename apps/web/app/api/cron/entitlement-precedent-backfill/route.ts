@@ -1,8 +1,10 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
+import type { Prisma } from "@entitlement-os/db";
 
 import { backfillEntitlementOutcomePrecedents } from "@/lib/services/entitlementPrecedentBackfill.service";
+import { runEntitlementKpiDriftMonitor } from "@/lib/services/entitlementKpiMonitor.service";
 
 function verifyCronSecret(req: Request): boolean {
   const secret = (process.env.CRON_SECRET || "").trim();
@@ -14,6 +16,10 @@ function verifyCronSecret(req: Request): boolean {
   } catch {
     return false;
   }
+}
+
+function toInputJsonValue(value: unknown): Prisma.InputJsonValue {
+  return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
 }
 
 /**
@@ -63,12 +69,28 @@ export async function GET(req: Request) {
         evidenceLinksPerRecord: Number.isFinite(evidenceLinksPerRecord) ? evidenceLinksPerRecord : 2,
       });
 
+      let kpiMonitorSummary: Prisma.InputJsonValue | null = null;
+      try {
+        kpiMonitorSummary = toInputJsonValue(await runEntitlementKpiDriftMonitor({
+          orgId: org.id,
+          jurisdictionId: jurisdictionId ?? undefined,
+        }));
+      } catch (monitorError) {
+        kpiMonitorSummary = toInputJsonValue({
+          success: false,
+          error: monitorError instanceof Error ? monitorError.message : String(monitorError),
+        });
+      }
+
       await prisma.run.update({
         where: { id: run.id },
         data: {
           status: "succeeded",
           finishedAt: new Date(),
-          outputJson: summary as object,
+          outputJson: {
+            ...summary,
+            kpiMonitor: kpiMonitorSummary,
+          },
         },
       });
 
@@ -76,6 +98,7 @@ export async function GET(req: Request) {
         runId: run.id,
         status: "succeeded",
         ...summary,
+        kpiMonitor: kpiMonitorSummary,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
