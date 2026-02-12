@@ -29,7 +29,15 @@ export async function resolveAuth(): Promise<{
         cookieStore.set({ name, value, ...options });
       },
       remove(name: string, options: CookieOptions) {
-        cookieStore.set({ name, value: "", ...options });
+        // Supabase SSR expects auth cookies to be truly removed.
+        // Leaving an empty-string cookie can trigger JSON.parse("") inside the
+        // Supabase client, causing 500s on otherwise-unauthenticated requests.
+        try {
+          // Next.js cookies() supports delete(name) in modern versions.
+          cookieStore.delete(name);
+        } catch {
+          cookieStore.set({ name, value: "", ...options, maxAge: 0 });
+        }
       },
     },
   });

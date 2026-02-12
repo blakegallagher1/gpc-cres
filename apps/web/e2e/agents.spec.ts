@@ -1,9 +1,9 @@
 import { test, expect } from "@playwright/test";
-import { ensureCopilotClosed } from "./_helpers/ui";
+import { clickNavAndWaitForURL, ensureCopilotClosed } from "./_helpers/ui";
 
 test.describe("Agent Library", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/agents");
+    await page.goto("/agents", { waitUntil: "domcontentloaded" });
     await ensureCopilotClosed(page);
   });
 
@@ -39,9 +39,9 @@ test.describe("Agent Library", () => {
   });
 
   test("should navigate to agent detail page", async ({ page }) => {
-    await page.locator('a[href="/agents/coordinator"]').click();
-    // Next dev compiles routes on-demand; under parallel load this navigation can take >5s.
-    await expect(page).toHaveURL(/\/agents\/coordinator/, { timeout: 30_000 });
+    await clickNavAndWaitForURL(page, "/agents/coordinator", /\/agents\/coordinator/, {
+      timeoutMs: 30_000,
+    });
     await expect(page.getByRole("heading", { name: "Coordinator", level: 1 })).toBeVisible({
       timeout: 30_000,
     });
@@ -51,7 +51,7 @@ test.describe("Agent Library", () => {
   });
 
   test("should run agent from detail page", async ({ page }) => {
-    await page.goto("/agents/coordinator");
+    await page.goto("/agents/coordinator", { waitUntil: "domcontentloaded" });
     await ensureCopilotClosed(page);
     await page.getByRole("button", { name: /^Run Agent$/ }).first().click();
     
