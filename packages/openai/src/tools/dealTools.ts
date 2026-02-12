@@ -2,6 +2,8 @@ import { tool } from "@openai/agents";
 import { z } from "zod";
 import { prisma } from "@entitlement-os/db";
 
+const HIGH_IMPACT_STATUSES = ["APPROVED", "EXIT_MARKETED", "EXITED", "KILLED"] as const;
+
 export const getDealContext = tool({
   name: "get_deal_context",
   description:
@@ -92,8 +94,23 @@ export const updateDealStatus = tool({
       ])
       .describe("The new deal status"),
     notes: z.string().nullable().describe("Optional notes about the status change"),
+    confirmed: z
+      .boolean()
+      .nullable()
+      .describe("Required true for high-impact status transitions"),
   }),
-  execute: async ({ orgId, dealId, status, notes }) => {
+  execute: async ({ orgId, dealId, status, notes, confirmed }) => {
+    const highImpact = HIGH_IMPACT_STATUSES.includes(
+      status as (typeof HIGH_IMPACT_STATUSES)[number],
+    );
+    if (highImpact && !confirmed) {
+      return JSON.stringify({
+        error:
+          `High-impact transition to ${status} requires confirmed: true.\n` +
+          "Set confirmed=true to allow this status update.",
+      });
+    }
+
     const deal = await prisma.deal.updateMany({
       where: { id: dealId, orgId },
       data: {

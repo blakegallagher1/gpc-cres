@@ -56,6 +56,18 @@ export {
 
 export { analyze_portfolio } from "./portfolioTools.js";
 
+export {
+  get_jurisdiction_pack,
+  create_tasks,
+  attach_artifact,
+  record_outcome,
+  triage_deal,
+  generate_dd_checklist,
+  run_underwriting,
+  summarize_comps,
+  evaluate_run,
+} from "./canonicalWorkflowTools.js";
+
 export { query_market_data } from "./marketTools.js";
 
 export { get_historical_accuracy, record_deal_outcome } from "./outcomeTools.js";
@@ -113,6 +125,17 @@ import {
 } from "./calculationTools.js";
 import { analyze_portfolio } from "./portfolioTools.js";
 import { query_market_data } from "./marketTools.js";
+import {
+  get_jurisdiction_pack,
+  create_tasks,
+  attach_artifact,
+  record_outcome,
+  triage_deal,
+  generate_dd_checklist,
+  run_underwriting,
+  summarize_comps,
+  evaluate_run,
+} from "./canonicalWorkflowTools.js";
 import { get_historical_accuracy, record_deal_outcome } from "./outcomeTools.js";
 import { search_knowledge_base, store_knowledge_entry } from "./knowledgeTools.js";
 import {
@@ -159,6 +182,15 @@ export const coordinatorTools = [
   predict_entitlement_path,
   get_entitlement_feature_primitives,
   get_entitlement_intelligence_kpis,
+  get_jurisdiction_pack,
+  create_tasks,
+  attach_artifact,
+  record_outcome,
+  triage_deal,
+  generate_dd_checklist,
+  run_underwriting,
+  summarize_comps,
+  evaluate_run,
 ];
 
 /** Tools available to the Legal / Entitlements agent. */

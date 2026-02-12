@@ -19,25 +19,77 @@ const PROPERTY_DB_KEY =
   process.env.LA_PROPERTY_DB_KEY ??
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp1ZXlvc3NjYWxjbGpnZG9ycnB5Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MDM1MjU3NywiZXhwIjoyMDg1OTI4NTc3fQ.4ZsbLoYxhWGJfu20TyLtrCDLtx-VdeHcQEmaffekJVI";
 
-/** Call a Supabase RPC endpoint and return the JSON body. */
-export async function rpc(fnName: string, body: Record<string, unknown>): Promise<unknown> {
-  const res = await fetch(`${PROPERTY_DB_URL}/rest/v1/rpc/${fnName}`, {
-    method: "POST",
-    headers: {
-      apikey: PROPERTY_DB_KEY,
-      Authorization: `Bearer ${PROPERTY_DB_KEY}`,
-      "Content-Type": "application/json",
-      Prefer: "return=representation",
-    },
-    body: JSON.stringify(body),
-  });
+const MAX_RETRIES = 3;
 
-  if (!res.ok) {
-    const text = await res.text();
-    return { error: `Property DB error (${res.status}): ${text}` };
+function parseRetryMs(header: string | null): number | null {
+  if (!header) return null;
+  const trimmed = header.trim();
+
+  const numeric = Number(trimmed);
+  if (Number.isFinite(numeric) && numeric > 0) {
+    return numeric * 1000;
   }
 
-  return res.json();
+  const parsed = Date.parse(trimmed);
+  if (Number.isFinite(parsed)) {
+    const delta = parsed - Date.now();
+    return delta > 0 ? delta : null;
+  }
+
+  return null;
+}
+
+function delayMs(valueMs: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, valueMs));
+}
+
+/** Call a Supabase RPC endpoint and return the JSON body. */
+export async function rpc(fnName: string, body: Record<string, unknown>): Promise<unknown> {
+  let lastError: string | null = null;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const res = await fetch(`${PROPERTY_DB_URL}/rest/v1/rpc/${fnName}`, {
+        method: "POST",
+        headers: {
+          apikey: PROPERTY_DB_KEY,
+          Authorization: `Bearer ${PROPERTY_DB_KEY}`,
+          "Content-Type": "application/json",
+          Prefer: "return=representation",
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (res.ok) {
+        return res.json();
+      }
+
+      const text = await res.text();
+      lastError = `Property DB error (${res.status}): ${text}`;
+
+      if ((res.status === 429 || res.status >= 500) && attempt < MAX_RETRIES) {
+        const retryAfter = parseRetryMs(res.headers.get("retry-after"));
+        const backoff = Math.min(2_000 * Math.pow(2, attempt), 10_000);
+        await delayMs(retryAfter ?? backoff);
+        continue;
+      }
+
+      return { error: lastError };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      lastError = `Property DB request failed: ${message}`;
+
+      if (attempt < MAX_RETRIES) {
+        const backoff = Math.min(2_000 * Math.pow(2, attempt), 10_000);
+        await delayMs(backoff);
+        continue;
+      }
+
+      return { error: lastError };
+    }
+  }
+
+  return { error: lastError ?? "Property DB request failed." };
 }
 
 // ---------------------------------------------------------------------------

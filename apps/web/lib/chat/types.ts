@@ -3,7 +3,7 @@ export type ChatStreamEvent =
   | { type: "tool_call"; name: string; args: Record<string, unknown>; result?: string }
   | { type: "agent_switch"; agentName: string }
   | { type: "error"; message: string }
-  | { type: "done"; conversationId: string };
+  | { type: "done"; conversationId: string | null };
 
 export type ChatMessage = {
   id: string;

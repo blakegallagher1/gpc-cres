@@ -1,19 +1,35 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@entitlement-os/db";
-import { buildAgentStreamRunOptions, createConfiguredCoordinator } from "@entitlement-os/openai";
-import { run } from "@openai/agents";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { dispatchEvent } from "@/lib/automation/events";
+import { runAgentWorkflow } from "@/lib/agent/agentRunner";
 import "@/lib/automation/handlers";
+
+type TaskAgentStatus = "succeeded" | "failed" | "canceled";
 
 function sseEvent(data: Record<string, unknown>): string {
   return `data: ${JSON.stringify(data)}\n\n`;
 }
 
-// POST /api/deals/[id]/tasks/[taskId]/run — execute a task via agent
+const MAX_TASK_TURNS = 15;
+
+function buildTaskPrompt(task: { title: string; description: string | null }, dealName: string) {
+  const details = task.description ? `\n\nTask details: ${task.description}` : "";
+  return [
+    `Complete this task for deal ${dealName}.`,
+    `Task: ${task.title}`,
+    details,
+    "",
+    "Use available tools and data sources to answer as thoroughly as possible.",
+    "Include explicit sources/evidence, key risks, and a clear conclusion.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 export async function POST(
   _request: NextRequest,
-  { params }: { params: Promise<{ id: string; taskId: string }> }
+  { params }: { params: Promise<{ id: string; taskId: string }> },
 ) {
   const auth = await resolveAuth();
   if (!auth) {
@@ -23,164 +39,137 @@ export async function POST(
   const { id: dealId, taskId } = await params;
   const { orgId, userId } = auth;
 
-  // Load deal + parcels + jurisdiction
   const deal = await prisma.deal.findFirst({
     where: { id: dealId, orgId },
-    include: { parcels: true, jurisdiction: true },
+    select: { id: true, name: true },
   });
   if (!deal) {
     return Response.json({ error: "Deal not found" }, { status: 404 });
   }
 
-  // Load the task
   const task = await prisma.task.findFirst({
     where: { id: taskId, dealId },
+    select: { id: true, title: true, description: true, status: true },
   });
   if (!task) {
     return Response.json({ error: "Task not found" }, { status: 404 });
   }
 
-  // Mark task as in progress
   await prisma.task.update({
     where: { id: taskId },
     data: { status: "IN_PROGRESS" },
   });
 
-  // Build agent prompt with full deal context
-  const parcelContext = deal.parcels
-    .map((p, i) => {
-      const parts = [`Parcel ${i + 1}: ${p.address}`];
-      if (p.apn) parts.push(`APN: ${p.apn}`);
-      if (p.acreage) parts.push(`Acreage: ${p.acreage}`);
-      if (p.currentZoning) parts.push(`Zoning: ${p.currentZoning}`);
-      if (p.floodZone) parts.push(`Flood Zone: ${p.floodZone}`);
-      if (p.soilsNotes) parts.push(`Soils: ${p.soilsNotes}`);
-      if (p.wetlandsNotes) parts.push(`Wetlands: ${p.wetlandsNotes}`);
-      if (p.envNotes) parts.push(`Environmental: ${p.envNotes}`);
-      if (p.trafficNotes) parts.push(`Traffic: ${p.trafficNotes}`);
-      if (p.utilitiesNotes) parts.push(`Utilities: ${p.utilitiesNotes}`);
-      if (p.lat && p.lng) parts.push(`Coordinates: ${p.lat}, ${p.lng}`);
-      return parts.join("\n  ");
-    })
-    .join("\n\n");
-
-  const systemContext = [
-    `[System context — use these values when calling tools]`,
-    `orgId: ${orgId}`,
-    `userId: ${userId}`,
-    ``,
-    `Current deal context:`,
-    `Deal: ${deal.name} (${deal.status})`,
-    `Deal ID: ${deal.id}`,
-    `Jurisdiction: ${deal.jurisdiction?.name ?? "Unknown"}, ${deal.jurisdiction?.state ?? "LA"}`,
-    `SKU: ${deal.sku}`,
-    ``,
-    parcelContext,
-  ].join("\n");
-
-  const userPrompt = `Complete this task thoroughly and report your findings:\n\nTask: ${task.title}\n${task.description ? `\nDetails: ${task.description}` : ""}\n\nUse all available tools (property database, web search, zoning lookup, etc.) to research and complete this task. Be specific with your findings — include data, sources, and actionable conclusions. Format your response clearly with sections.`;
-
-  // Stream SSE
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
     async start(controller) {
-      let fullText = "";
+      let doneSent = false;
       let lastAgentName = "Coordinator";
+      let fullText = "";
 
       try {
-        if (!process.env.OPENAI_API_KEY) {
-          controller.enqueue(
-            encoder.encode(sseEvent({ type: "error", message: "OPENAI_API_KEY not configured" }))
-          );
-          controller.close();
-          return;
-        }
-
-        const coordinator = createConfiguredCoordinator();
-
-        const result = await run(
-          coordinator,
-          [{ role: "user" as const, content: systemContext + "\n\n" + userPrompt }],
-          buildAgentStreamRunOptions({
-            conversationId: `deal:${dealId}:task:${taskId}`,
-            maxTurns: 15,
-          }),
-        );
-
-        controller.enqueue(
-          encoder.encode(sseEvent({ type: "agent_switch", agentName: "Coordinator" }))
-        );
-
-        for await (const event of result) {
-          if (event.type === "agent_updated_stream_event") {
-            lastAgentName = event.agent.name;
-            controller.enqueue(
-              encoder.encode(sseEvent({ type: "agent_switch", agentName: event.agent.name }))
-            );
-          } else if (event.type === "raw_model_stream_event") {
-            const data = event.data as Record<string, unknown>;
-            if (data.type === "output_text_delta" && typeof data.delta === "string") {
-              fullText += data.delta;
+        const { result: workflowResult } = await runAgentWorkflow({
+          orgId,
+          userId,
+          message: buildTaskPrompt(task, deal.name),
+          dealId,
+          runType: "ENRICHMENT",
+          maxTurns: MAX_TASK_TURNS,
+          persistConversation: false,
+          onEvent: (event) => {
+            if (event.type === "agent_switch") {
+              lastAgentName = event.agentName;
               controller.enqueue(
-                encoder.encode(sseEvent({ type: "text_delta", content: data.delta }))
+                encoder.encode(
+                  sseEvent({ type: "agent_switch", agentName: event.agentName }),
+                ),
               );
+              return;
             }
-          }
-        }
 
-        if (!fullText && result.finalOutput) {
-          const output =
-            typeof result.finalOutput === "string"
-              ? result.finalOutput
-              : JSON.stringify(result.finalOutput);
-          fullText = output;
-          controller.enqueue(
-            encoder.encode(sseEvent({ type: "text_delta", content: output }))
-          );
-        }
+            if (event.type === "text_delta") {
+              fullText += event.content;
+              controller.enqueue(
+                encoder.encode(sseEvent({ type: "text_delta", content: event.content })),
+              );
+              return;
+            }
 
-        // Mark task as DONE and store findings in description
-        const updatedTask = await prisma.task.update({
-          where: { id: taskId },
-          data: {
-            status: "DONE",
-            description: fullText
-              ? `${task.description ?? ""}\n\n---\nAgent Findings (${lastAgentName}):\n${fullText}`.trim()
-              : undefined,
+            if (event.type === "error") {
+              controller.enqueue(
+                encoder.encode(sseEvent({ type: "error", message: event.message })),
+              );
+              return;
+            }
+
+            if (event.type === "agent_summary") {
+              controller.enqueue(
+                encoder.encode(sseEvent(event)),
+              );
+              return;
+            }
+
+            if (event.type === "done") {
+              doneSent = true;
+              return;
+            }
           },
         });
 
-        // Dispatch task.completed for automation
-        dispatchEvent({
-          type: "task.completed",
-          dealId,
-          taskId,
-          orgId,
-        }).catch(() => {});
+        if (workflowResult.status === "succeeded") {
+          const updatedTask = await prisma.task.update({
+            where: { id: taskId },
+            data: {
+              status: "DONE",
+              description: fullText
+                ? `${task.description ?? ""}\n\n---\nAgent Findings (${lastAgentName}):\n${fullText}`.trim()
+                : task.description,
+            },
+          });
 
-        controller.enqueue(
-          encoder.encode(sseEvent({
-            type: "done",
+          await dispatchEvent({
+            type: "task.completed",
+            dealId,
             taskId,
-            taskStatus: "DONE",
-            agentName: lastAgentName,
-          }))
-        );
-        controller.close();
-      } catch (error) {
-        const errMsg = error instanceof Error ? error.message : "Internal error";
-        console.error("Task agent error:", error);
+            orgId,
+          }).catch(() => {});
 
-        // Mark task back to TODO on failure
+          controller.enqueue(
+            encoder.encode(
+              sseEvent({
+                type: "done",
+                taskId: updatedTask.id,
+                taskStatus: "DONE",
+                agentName: lastAgentName,
+              }),
+            ),
+          );
+          return;
+        }
+
+        // Revert to TODO when task execution was interrupted or failed.
         await prisma.task.update({
           where: { id: taskId },
           data: { status: "TODO" },
-        }).catch(() => {});
-
-        controller.enqueue(
-          encoder.encode(sseEvent({ type: "error", message: errMsg }))
-        );
+        });
+      } catch (error) {
+        const errMsg = error instanceof Error ? error.message : "Task execution failed";
+        controller.enqueue(encoder.encode(sseEvent({ type: "error", message: errMsg })));
+        await prisma.task.update({ where: { id: taskId }, data: { status: "TODO" } }).catch(() => {});
+      } finally {
+        if (!doneSent) {
+          controller.enqueue(
+            encoder.encode(
+              sseEvent({
+                type: "done",
+                taskId,
+                taskStatus: "FAILED",
+                agentName: lastAgentName,
+              }),
+            ),
+          );
+        }
         controller.close();
       }
     },
