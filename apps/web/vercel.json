@@ -17,6 +17,10 @@
     {
       "path": "/api/cron/deadline-monitor",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/entitlement-precedent-backfill",
+      "schedule": "0 5 * * *"
     }
   ]
 }
