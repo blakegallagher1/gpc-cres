@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-02-11T23:33:18.954Z",
+  "generated_at": "2026-02-12T01:10:00.553Z",
   "phase": "phase1",
   "source_matrix": "docs/testing/test-matrix-starter.json",
   "test_root": "packages/openai/test/phase1",
   "totals": {
-    "expected_tests": 198,
-    "implemented_tests": 198,
+    "expected_tests": 201,
+    "implemented_tests": 201,
     "todo_tests": 0,
     "missing_tests": 0,
     "extra_tests": 0,
@@ -823,6 +823,24 @@
       "pack": "idempotency",
       "status": "implemented",
       "file": "packages/openai/test/phase1/tools/parishPackLookup.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:predict_entitlement_path",
+      "pack": "schema",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/predict_entitlement_path.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:predict_entitlement_path",
+      "pack": "security",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/predict_entitlement_path.phase1.test.ts"
+    },
+    {
+      "matrix_id": "tool:predict_entitlement_path",
+      "pack": "idempotency",
+      "status": "implemented",
+      "file": "packages/openai/test/phase1/tools/predict_entitlement_path.phase1.test.ts"
     },
     {
       "matrix_id": "tool:query_market_data",

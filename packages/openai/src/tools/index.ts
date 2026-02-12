@@ -72,6 +72,7 @@ export {
   assess_uncertainty,
   request_reanalysis,
 } from "./reasoningTools.js";
+export { predict_entitlement_path } from "./entitlementIntelligenceTools.js";
 
 // --- Agent-specific tool collections ---
 import { getDealContext, createDeal, updateDealStatus, listDeals, addParcelToDeal, updateParcel } from "./dealTools.js";
@@ -119,6 +120,7 @@ import {
   assess_uncertainty,
   request_reanalysis,
 } from "./reasoningTools.js";
+import { predict_entitlement_path } from "./entitlementIntelligenceTools.js";
 
 /** Web search tool for Responses API pass-through. */
 export const webSearchPreviewTool = {
@@ -146,6 +148,7 @@ export const coordinatorTools = [
   request_reanalysis,
   record_deal_outcome,
   log_reasoning_trace,
+  predict_entitlement_path,
 ];
 
 /** Tools available to the Legal / Entitlements agent. */
@@ -161,6 +164,7 @@ export const legalTools = [
   share_analysis_finding,
   get_shared_context,
   log_reasoning_trace,
+  predict_entitlement_path,
 ];
 
 /** Tools available to the Research agent. */
@@ -179,6 +183,7 @@ export const researchTools = [
   share_analysis_finding,
   get_shared_context,
   log_reasoning_trace,
+  predict_entitlement_path,
 ];
 
 /** Tools available to the Risk agent. */
@@ -291,6 +296,7 @@ export const entitlementsTools = [
   searchParcels,
   getParcelDetails,
   screenFlood,
+  predict_entitlement_path,
   search_knowledge_base,
   store_knowledge_entry,
   share_analysis_finding,

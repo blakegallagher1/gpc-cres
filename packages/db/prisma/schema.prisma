@@ -124,6 +124,10 @@ model Org {
   taxEvents         TaxEvent[]
   notifications     Notification[]
   savedSearches     SavedSearch[]
+  entitlementGraphNodes       EntitlementGraphNode[]
+  entitlementGraphEdges       EntitlementGraphEdge[]
+  entitlementOutcomePrecedents EntitlementOutcomePrecedent[]
+  entitlementPredictionSnapshots EntitlementPredictionSnapshot[]
 
   @@map("orgs")
 }
@@ -176,6 +180,10 @@ model Jurisdiction {
   deals       Deal[]
   parishPackVersions ParishPackVersion[]
   runs        Run[]
+  entitlementGraphNodes       EntitlementGraphNode[]
+  entitlementGraphEdges       EntitlementGraphEdge[]
+  entitlementOutcomePrecedents EntitlementOutcomePrecedent[]
+  entitlementPredictionSnapshots EntitlementPredictionSnapshot[]
 
   @@index([orgId])
   @@map("jurisdictions")
@@ -231,6 +239,9 @@ model Deal {
   approvalRequests ApprovalRequest[]
   outcome          DealOutcome?
   assumptionActuals AssumptionActual[]
+  entitlementGraphNodes       EntitlementGraphNode[]
+  entitlementOutcomePrecedents EntitlementOutcomePrecedent[]
+  entitlementPredictionSnapshots EntitlementPredictionSnapshot[]
 
   @@index([orgId])
   @@index([jurisdictionId])
@@ -752,6 +763,137 @@ model KnowledgeEmbedding {
   @@index([contentType])
   @@index([sourceId])
   @@map("knowledge_embeddings")
+}
+
+model EntitlementGraphNode {
+  id             String   @id @default(uuid()) @db.Uuid
+  orgId          String   @map("org_id") @db.Uuid
+  jurisdictionId String   @map("jurisdiction_id") @db.Uuid
+  dealId         String?  @map("deal_id") @db.Uuid
+  nodeType       String   @map("node_type") @db.Text // strategy_path|jurisdiction_rule|condition|hearing_body|timeline_distribution|precedent_case
+  nodeKey        String   @map("node_key") @db.Text
+  label          String   @db.Text
+  attributes     Json     @default("{}") @db.JsonB
+  confidence     Decimal  @default(0.5000) @db.Decimal(5, 4)
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  org          Org          @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  jurisdiction Jurisdiction @relation(fields: [jurisdictionId], references: [id], onDelete: Cascade)
+  deal         Deal?        @relation(fields: [dealId], references: [id], onDelete: SetNull)
+
+  outgoingEdges EntitlementGraphEdge[] @relation("graph_edge_from")
+  incomingEdges EntitlementGraphEdge[] @relation("graph_edge_to")
+  strategyPrecedents EntitlementOutcomePrecedent[] @relation("strategy_node_precedents")
+
+  @@unique([orgId, jurisdictionId, nodeType, nodeKey])
+  @@index([orgId])
+  @@index([jurisdictionId])
+  @@index([dealId])
+  @@index([nodeType])
+  @@index([nodeKey])
+  @@map("entitlement_graph_nodes")
+}
+
+model EntitlementGraphEdge {
+  id             String   @id @default(uuid()) @db.Uuid
+  orgId          String   @map("org_id") @db.Uuid
+  jurisdictionId String   @map("jurisdiction_id") @db.Uuid
+  fromNodeId     String   @map("from_node_id") @db.Uuid
+  toNodeId       String   @map("to_node_id") @db.Uuid
+  edgeType       String   @map("edge_type") @db.Text // requires|influences|accelerates|blocks|historical_precedent
+  weight         Decimal  @default(1) @db.Decimal(6, 4)
+  metadata       Json     @default("{}") @db.JsonB
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  org          Org          @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  jurisdiction Jurisdiction @relation(fields: [jurisdictionId], references: [id], onDelete: Cascade)
+  fromNode     EntitlementGraphNode @relation("graph_edge_from", fields: [fromNodeId], references: [id], onDelete: Cascade)
+  toNode       EntitlementGraphNode @relation("graph_edge_to", fields: [toNodeId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, jurisdictionId, fromNodeId, toNodeId, edgeType])
+  @@index([orgId])
+  @@index([jurisdictionId])
+  @@index([fromNodeId])
+  @@index([toNodeId])
+  @@index([edgeType])
+  @@map("entitlement_graph_edges")
+}
+
+model EntitlementOutcomePrecedent {
+  id               String    @id @default(uuid()) @db.Uuid
+  orgId            String    @map("org_id") @db.Uuid
+  jurisdictionId   String    @map("jurisdiction_id") @db.Uuid
+  dealId           String?   @map("deal_id") @db.Uuid
+  strategyNodeId   String?   @map("strategy_node_id") @db.Uuid
+  precedentKey     String    @map("precedent_key") @db.Text
+  strategyKey      String    @map("strategy_key") @db.Text
+  strategyLabel    String    @map("strategy_label") @db.Text
+  sku              sku_type?
+  applicationType  String?   @map("application_type") @db.Text
+  hearingBody      String?   @map("hearing_body") @db.Text
+  submittedAt      DateTime? @map("submitted_at") @db.Date
+  decisionAt       DateTime? @map("decision_at") @db.Date
+  decision         String    @db.Text // approved|approved_with_conditions|denied|withdrawn
+  timelineDays     Int?      @map("timeline_days")
+  conditions       Json      @default("[]") @db.JsonB
+  riskFlags        String[]  @default([]) @map("risk_flags")
+  sourceEvidenceIds String[] @default([]) @map("source_evidence_ids")
+  sourceSnapshotIds String[] @default([]) @map("source_snapshot_ids")
+  confidence       Decimal   @default(0.7000) @db.Decimal(5, 4)
+  notes            String?   @db.Text
+  createdBy        String?   @map("created_by") @db.Uuid
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  org          Org          @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  jurisdiction Jurisdiction @relation(fields: [jurisdictionId], references: [id], onDelete: Cascade)
+  deal         Deal?        @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  strategyNode EntitlementGraphNode? @relation("strategy_node_precedents", fields: [strategyNodeId], references: [id], onDelete: SetNull)
+
+  @@unique([orgId, jurisdictionId, precedentKey])
+  @@index([orgId])
+  @@index([jurisdictionId])
+  @@index([dealId])
+  @@index([strategyKey])
+  @@index([decision])
+  @@index([decisionAt])
+  @@map("entitlement_outcome_precedents")
+}
+
+model EntitlementPredictionSnapshot {
+  id                    String    @id @default(uuid()) @db.Uuid
+  orgId                 String    @map("org_id") @db.Uuid
+  jurisdictionId        String    @map("jurisdiction_id") @db.Uuid
+  dealId                String?   @map("deal_id") @db.Uuid
+  strategyKey           String    @map("strategy_key") @db.Text
+  strategyLabel         String    @map("strategy_label") @db.Text
+  sku                   sku_type?
+  probabilityApproval   Decimal   @map("probability_approval") @db.Decimal(6, 5)
+  probabilityLow        Decimal   @map("probability_low") @db.Decimal(6, 5)
+  probabilityHigh       Decimal   @map("probability_high") @db.Decimal(6, 5)
+  expectedDaysP50       Int       @map("expected_days_p50")
+  expectedDaysP75       Int       @map("expected_days_p75")
+  expectedDaysP90       Int       @map("expected_days_p90")
+  sampleSize            Int       @map("sample_size")
+  modelVersion          String    @map("model_version") @db.Text
+  inputHash             String    @map("input_hash") @db.Text
+  rationale             Json      @default("{}") @db.JsonB
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  org          Org          @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  jurisdiction Jurisdiction @relation(fields: [jurisdictionId], references: [id], onDelete: Cascade)
+  deal         Deal?        @relation(fields: [dealId], references: [id], onDelete: SetNull)
+
+  @@unique([orgId, jurisdictionId, strategyKey, inputHash])
+  @@index([orgId])
+  @@index([jurisdictionId])
+  @@index([dealId])
+  @@index([strategyKey])
+  @@index([createdAt(sort: Desc)])
+  @@map("entitlement_prediction_snapshots")
 }
 
 model DealOutcome {

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-02-11T22:49:21.434Z",
+  "generated_at": "2026-02-12T01:10:08.501Z",
   "source_matrix": "docs/testing/test-matrix-starter.json",
   "phase": "phase1",
   "packs": {
@@ -16,9 +16,9 @@
   },
   "counts": {
     "agent_components": 13,
-    "tool_components": 53,
-    "generated_files": 66,
-    "generated_tests": 198
+    "tool_components": 54,
+    "generated_files": 67,
+    "generated_tests": 201
   },
   "files": [
     "packages/openai/test/phase1/agents/coordinator.phase1.test.ts",
@@ -66,6 +66,7 @@
     "packages/openai/test/phase1/tools/log_reasoning_trace.phase1.test.ts",
     "packages/openai/test/phase1/tools/parcelTriageScore.phase1.test.ts",
     "packages/openai/test/phase1/tools/parishPackLookup.phase1.test.ts",
+    "packages/openai/test/phase1/tools/predict_entitlement_path.phase1.test.ts",
     "packages/openai/test/phase1/tools/query_market_data.phase1.test.ts",
     "packages/openai/test/phase1/tools/record_deal_outcome.phase1.test.ts",
     "packages/openai/test/phase1/tools/request_reanalysis.phase1.test.ts",
