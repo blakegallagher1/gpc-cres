@@ -21,6 +21,7 @@ export async function POST(req: NextRequest) {
 
   const { conversationId: requestedConversationId, dealId } = body;
   const message = (body.message ?? "").trim();
+  const correlationId = req.headers.get("x-request-id") ?? req.headers.get("idempotency-key");
 
   if (!message || message.length === 0) {
     return Response.json({ error: "message is required" }, { status: 400 });
@@ -44,9 +45,10 @@ export async function POST(req: NextRequest) {
           message,
           dealId: dealId ?? null,
           runType: "ENRICHMENT",
-          maxTurns: 15,
-          persistConversation: true,
-          onEvent: (event: AgentStreamEvent) => {
+        maxTurns: 15,
+        correlationId: correlationId ?? undefined,
+        persistConversation: true,
+        onEvent: (event: AgentStreamEvent) => {
             if (event.type === "done") {
               doneSent = true;
             }
@@ -82,4 +84,3 @@ export async function POST(req: NextRequest) {
     },
   });
 }
-

@@ -3,6 +3,16 @@ import { z } from "zod";
 import { prisma } from "@entitlement-os/db";
 
 const HIGH_IMPACT_STATUSES = ["APPROVED", "EXIT_MARKETED", "EXITED", "KILLED"] as const;
+const PACK_STALE_DAYS = 7;
+const PACK_COVERAGE_MINIMUM = 0.75;
+
+function isJsonStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+function daysSince(value: Date): number {
+  return Math.floor((Date.now() - value.getTime()) / (24 * 60 * 60 * 1000));
+}
 
 export const getDealContext = tool({
   name: "get_deal_context",
@@ -13,16 +23,100 @@ export const getDealContext = tool({
     dealId: z.string().uuid().describe("The deal ID"),
   }),
   execute: async ({ orgId, dealId }) => {
+    const dealSkuParam = await prisma.deal.findFirst({
+      where: { id: dealId, orgId },
+      select: { sku: true },
+    });
+    if (!dealSkuParam) {
+      return JSON.stringify({ error: "Deal not found or access denied" });
+    }
+
     const deal = await prisma.deal.findFirstOrThrow({
       where: { id: dealId, orgId },
       include: {
         parcels: true,
         tasks: { orderBy: { pipelineStep: "asc" } },
         artifacts: { orderBy: { version: "desc" } },
-        jurisdiction: true,
+        jurisdiction: {
+          include: {
+            parishPackVersions: {
+              where: { status: "current", sku: dealSkuParam.sku },
+              orderBy: { generatedAt: "desc" },
+              take: 1,
+              select: {
+                id: true,
+                version: true,
+                status: true,
+                generatedAt: true,
+                sourceEvidenceIds: true,
+                sourceSnapshotIds: true,
+                sourceContentHashes: true,
+                sourceUrls: true,
+                officialOnly: true,
+                packCoverageScore: true,
+                canonicalSchemaVersion: true,
+                coverageSourceCount: true,
+                inputHash: true,
+              },
+            },
+          },
+        },
       },
     });
-    return JSON.stringify(deal);
+
+    const latestPack = deal.jurisdiction?.parishPackVersions?.[0];
+    const stalenessDays = latestPack?.generatedAt
+      ? daysSince(latestPack.generatedAt)
+      : null;
+    const isStale = stalenessDays !== null && stalenessDays >= PACK_STALE_DAYS;
+    const missingEvidence: string[] = [];
+    if (!latestPack) {
+      missingEvidence.push("No current parish pack found for this jurisdiction/SKU.");
+    }
+    if (isStale) {
+      missingEvidence.push("Jurisdiction pack is stale.");
+    }
+    if (latestPack && !isJsonStringArray(latestPack.sourceEvidenceIds)) {
+      missingEvidence.push("Pack missing sourceEvidenceIds lineage.");
+    }
+    if (
+      latestPack &&
+      latestPack.packCoverageScore !== null &&
+      latestPack.packCoverageScore < PACK_COVERAGE_MINIMUM
+    ) {
+      missingEvidence.push(
+        `Pack coverage score is ${latestPack.packCoverageScore.toFixed(2)} and below target threshold.`,
+      );
+    }
+
+    const result = {
+      ...deal,
+      packContext: {
+        hasPack: !!latestPack,
+        isStale,
+        stalenessDays,
+        latestPack: latestPack
+          ? {
+              id: latestPack.id,
+              version: latestPack.version,
+              status: latestPack.status,
+              generatedAt: latestPack.generatedAt.toISOString(),
+              sourceEvidenceIds: latestPack.sourceEvidenceIds,
+              sourceSnapshotIds: latestPack.sourceSnapshotIds,
+              sourceContentHashes: latestPack.sourceContentHashes,
+              sourceUrls: latestPack.sourceUrls,
+              officialOnly: latestPack.officialOnly,
+              packCoverageScore: latestPack.packCoverageScore,
+              canonicalSchemaVersion: latestPack.canonicalSchemaVersion,
+              coverageSourceCount: latestPack.coverageSourceCount,
+              inputHash: latestPack.inputHash,
+            }
+          : null,
+        missingEvidence,
+      },
+    };
+
+    return JSON.stringify(result);
   },
 });
 

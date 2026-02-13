@@ -22,6 +22,20 @@ export interface DealOutcomeRecord {
   createdAt: string;
 }
 
+type DealOutcomePayload = {
+  actualPurchasePrice?: number | null;
+  actualNoiYear1?: number | null;
+  actualExitPrice?: number | null;
+  actualIrr?: number | null;
+  actualEquityMultiple?: number | null;
+  actualHoldPeriodMonths?: number | null;
+  exitDate?: string | null;
+  exitType?: string | null;
+  killReason?: string | null;
+  killWasCorrect?: boolean | null;
+  notes?: string | null;
+};
+
 export interface AssumptionBias {
   assumptionName: string;
   avgProjected: number;
@@ -106,6 +120,80 @@ export async function upsertDealOutcome(
   return record.id;
 }
 
+export async function upsertDealOutcomeForOrg(
+  orgId: string,
+  dealId: string,
+  createdBy: string,
+  data: DealOutcomePayload
+): Promise<DealOutcomeRecord> {
+  const deal = await prisma.deal.findFirst({
+    where: { id: dealId, orgId },
+    select: { id: true },
+  });
+  if (!deal) {
+    throw new Error("Deal not found");
+  }
+
+  const record = await prisma.dealOutcome.upsert({
+    where: { dealId },
+    create: {
+      dealId,
+      createdBy,
+      actualPurchasePrice: data.actualPurchasePrice ?? null,
+      actualNoiYear1: data.actualNoiYear1 ?? null,
+      actualExitPrice: data.actualExitPrice ?? null,
+      actualIrr: data.actualIrr ?? null,
+      actualEquityMultiple: data.actualEquityMultiple ?? null,
+      actualHoldPeriodMonths: data.actualHoldPeriodMonths ?? null,
+      exitDate: data.exitDate ? new Date(data.exitDate) : null,
+      exitType: data.exitType ?? null,
+      killReason: data.killReason ?? null,
+      killWasCorrect: data.killWasCorrect ?? null,
+      notes: data.notes ?? null,
+    },
+    update: {
+      actualPurchasePrice: data.actualPurchasePrice,
+      actualNoiYear1: data.actualNoiYear1,
+      actualExitPrice: data.actualExitPrice,
+      actualIrr: data.actualIrr,
+      actualEquityMultiple: data.actualEquityMultiple,
+      actualHoldPeriodMonths: data.actualHoldPeriodMonths,
+      exitDate: data.exitDate ? new Date(data.exitDate) : data.exitDate,
+      exitType: data.exitType,
+      killReason: data.killReason,
+      killWasCorrect: data.killWasCorrect,
+      notes: data.notes,
+    },
+    include: { deal: { select: { name: true } } },
+  });
+
+  return {
+    id: record.id,
+    dealId: record.dealId,
+    dealName: (record as unknown as { deal: { name: string } }).deal.name,
+    actualPurchasePrice: record.actualPurchasePrice
+      ? Number(record.actualPurchasePrice)
+      : null,
+    actualNoiYear1: record.actualNoiYear1
+      ? Number(record.actualNoiYear1)
+      : null,
+    actualExitPrice: record.actualExitPrice
+      ? Number(record.actualExitPrice)
+      : null,
+    actualIrr: record.actualIrr ? Number(record.actualIrr) : null,
+    actualEquityMultiple: record.actualEquityMultiple
+      ? Number(record.actualEquityMultiple)
+      : null,
+    actualHoldPeriodMonths: record.actualHoldPeriodMonths,
+    exitDate: record.exitDate ? record.exitDate.toISOString().slice(0, 10) : null,
+    exitType: record.exitType,
+    killReason: record.killReason,
+    killWasCorrect: record.killWasCorrect,
+    notes: record.notes,
+    createdAt: record.createdAt.toISOString(),
+  };
+}
+
 export async function recordAssumptionActuals(
   dealId: string,
   actuals: Array<{
@@ -166,6 +254,102 @@ export async function getDealOutcome(
     exitDate: record.exitDate
       ? record.exitDate.toISOString().slice(0, 10)
       : null,
+    exitType: record.exitType,
+    killReason: record.killReason,
+    killWasCorrect: record.killWasCorrect,
+    notes: record.notes,
+    createdAt: record.createdAt.toISOString(),
+  };
+}
+
+export async function getDealOutcomeForOrg(
+  orgId: string,
+  dealId: string
+): Promise<DealOutcomeRecord | null> {
+  const record = await prisma.dealOutcome.findFirst({
+    where: { dealId, deal: { orgId } },
+    include: { deal: { select: { name: true } } },
+  });
+
+  if (!record) return null;
+
+  return {
+    id: record.id,
+    dealId: record.dealId,
+    dealName: (record as unknown as { deal: { name: string } }).deal.name,
+    actualPurchasePrice: record.actualPurchasePrice
+      ? Number(record.actualPurchasePrice)
+      : null,
+    actualNoiYear1: record.actualNoiYear1
+      ? Number(record.actualNoiYear1)
+      : null,
+    actualExitPrice: record.actualExitPrice
+      ? Number(record.actualExitPrice)
+      : null,
+    actualIrr: record.actualIrr ? Number(record.actualIrr) : null,
+    actualEquityMultiple: record.actualEquityMultiple
+      ? Number(record.actualEquityMultiple)
+      : null,
+    actualHoldPeriodMonths: record.actualHoldPeriodMonths,
+    exitDate: record.exitDate ? record.exitDate.toISOString().slice(0, 10) : null,
+    exitType: record.exitType,
+    killReason: record.killReason,
+    killWasCorrect: record.killWasCorrect,
+    notes: record.notes,
+    createdAt: record.createdAt.toISOString(),
+  };
+}
+
+export async function updateDealOutcomeForOrg(
+  orgId: string,
+  dealId: string,
+  data: DealOutcomePayload
+): Promise<DealOutcomeRecord> {
+  const existing = await prisma.dealOutcome.findFirst({
+    where: { dealId, deal: { orgId } },
+    select: { id: true },
+  });
+  if (!existing) {
+    throw new Error("Outcome not found");
+  }
+
+  const record = await prisma.dealOutcome.update({
+    where: { dealId },
+    data: {
+      actualPurchasePrice: data.actualPurchasePrice,
+      actualNoiYear1: data.actualNoiYear1,
+      actualExitPrice: data.actualExitPrice,
+      actualIrr: data.actualIrr,
+      actualEquityMultiple: data.actualEquityMultiple,
+      actualHoldPeriodMonths: data.actualHoldPeriodMonths,
+      exitDate: data.exitDate ? new Date(data.exitDate) : data.exitDate,
+      exitType: data.exitType,
+      killReason: data.killReason,
+      killWasCorrect: data.killWasCorrect,
+      notes: data.notes,
+    },
+    include: { deal: { select: { name: true } } },
+  });
+
+  return {
+    id: record.id,
+    dealId: record.dealId,
+    dealName: (record as unknown as { deal: { name: string } }).deal.name,
+    actualPurchasePrice: record.actualPurchasePrice
+      ? Number(record.actualPurchasePrice)
+      : null,
+    actualNoiYear1: record.actualNoiYear1
+      ? Number(record.actualNoiYear1)
+      : null,
+    actualExitPrice: record.actualExitPrice
+      ? Number(record.actualExitPrice)
+      : null,
+    actualIrr: record.actualIrr ? Number(record.actualIrr) : null,
+    actualEquityMultiple: record.actualEquityMultiple
+      ? Number(record.actualEquityMultiple)
+      : null,
+    actualHoldPeriodMonths: record.actualHoldPeriodMonths,
+    exitDate: record.exitDate ? record.exitDate.toISOString().slice(0, 10) : null,
     exitType: record.exitType,
     killReason: record.killReason,
     killWasCorrect: record.killWasCorrect,

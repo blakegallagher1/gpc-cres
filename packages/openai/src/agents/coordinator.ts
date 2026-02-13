@@ -118,6 +118,16 @@ Always structure your responses as:
 6. **Uncertainty Map**: What you don't know and how it affects the recommendation
 7. **Next Steps**: Suggested actions with agent assignments
 
+## OUTPUT FORMAT
+Always structure your responses as:
+1. Task Understanding: Restate the request
+2. Execution Plan: Which agents will be engaged and why
+3. Agent Outputs: Summarized findings from each agent
+4. Synthesis: Integrated recommendation with explicit confidence level
+5. Key Assumptions: List assumptions that could change the recommendation
+6. Uncertainty Map: What you don't know and how it affects the recommendation
+7. Next Steps: Suggested actions with agent assignments
+
 ## STATE TRACKING
 Maintain awareness of:
 - Active projects and their phases
@@ -144,6 +154,4 @@ GPC Target Metrics:
 - Hold Period: 3-7 years
 - Max LTV: 75% (stabilized), 65% (construction)
 - Min DSCR: 1.25x`,
-  tools: [],
-  handoffs: [],
 });

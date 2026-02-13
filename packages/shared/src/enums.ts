@@ -41,6 +41,7 @@ export const RUN_TYPES = [
   "ARTIFACT_GEN",
   "BUYER_LIST_BUILD",
   "CHANGE_DETECT",
+  "SOURCE_INGEST",
   "ENRICHMENT",
   "INTAKE_PARSE",
   "DOCUMENT_CLASSIFY",
@@ -51,4 +52,3 @@ export type RunType = (typeof RUN_TYPES)[number];
 
 export const WORKFLOW_PATH_TYPES = ["CUP", "REZONING", "VARIANCE", "PUD", "UNKNOWN"] as const;
 export type WorkflowPathType = (typeof WORKFLOW_PATH_TYPES)[number];
-

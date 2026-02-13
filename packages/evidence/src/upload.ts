@@ -4,6 +4,32 @@ import { buildEvidenceExtractObjectKey, buildEvidenceSnapshotObjectKey } from "@
 
 import { detectExtension } from "./util.js";
 
+type BucketConfig = {
+  public: boolean;
+  upsert?: boolean;
+};
+
+async function ensureBucket(
+  supabase: SupabaseClient,
+  bucket: string,
+): Promise<void> {
+  const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+  if (listError) {
+    throw new Error(`Evidence bucket lookup failed: ${listError.message}`);
+  }
+
+  const exists = buckets?.some((item) => item.name === bucket);
+  if (exists) return;
+
+  const { error } = await supabase.storage.createBucket(bucket, {
+    public: false,
+  } as BucketConfig);
+
+  if (error) {
+    throw new Error(`Evidence bucket create failed: ${error.message}`);
+  }
+}
+
 /**
  * Upload bytes to a Supabase Storage bucket.
  * Treats "already exists" as success (deterministic keys include content hash).
@@ -15,6 +41,8 @@ async function uploadToSupabase(params: {
   bytes: Uint8Array;
   contentType: string;
 }): Promise<void> {
+  await ensureBucket(params.supabase, params.bucket);
+
   const { error } = await params.supabase.storage
     .from(params.bucket)
     .upload(params.objectKey, params.bytes, {

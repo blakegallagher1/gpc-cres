@@ -87,6 +87,7 @@ export async function POST(req: NextRequest) {
     typeof body.maxTurns === "number" && Number.isInteger(body.maxTurns)
       ? body.maxTurns
       : undefined;
+  const correlationId = req.headers.get("x-request-id") ?? req.headers.get("idempotency-key");
 
   const runInput = {
     orgId: auth.orgId,
@@ -99,6 +100,7 @@ export async function POST(req: NextRequest) {
     sku: body.sku ?? null,
     runType: body.runType,
     maxTurns,
+    correlationId: correlationId ?? undefined,
     persistConversation: body.persistConversation ?? true,
     injectSystemContext: body.injectSystemContext ?? true,
   };

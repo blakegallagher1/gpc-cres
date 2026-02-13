@@ -4,9 +4,19 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { ArrowLeft, Loader2, Plus, MessageSquare, Calculator, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Loader2,
+  Plus,
+  MessageSquare,
+  Calculator,
+  Trash2,
+  AlertTriangle,
+  RefreshCw,
+} from "lucide-react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -50,6 +60,12 @@ interface DealDetail {
   tasks: TaskItem[];
   artifacts: ArtifactItem[];
   uploads: UploadItem[];
+  packContext?: {
+    hasPack: boolean;
+    isStale: boolean;
+    stalenessDays: number | null;
+    missingEvidence: string[];
+  };
 }
 
 export default function DealDetailPage() {
@@ -233,6 +249,17 @@ export default function DealDetailPage() {
                 <SkuBadge sku={deal.sku} />
                 <StatusBadge status={deal.status} />
                 <TriageIndicator tier={deal.triageTier} showLabel />
+                {deal.packContext ? (
+                  <Badge
+                    variant={deal.packContext.isStale ? "destructive" : "secondary"}
+                    className="gap-1"
+                  >
+                    <RefreshCw className="h-3 w-3" />
+                    {deal.packContext.hasPack
+                      ? (deal.packContext.isStale ? "Parish pack stale" : "Parish pack current")
+                      : "No parish pack"}
+                  </Badge>
+                ) : null}
                 {deal.jurisdiction && (
                   <span className="text-sm text-muted-foreground">
                     {deal.jurisdiction.name}
@@ -327,11 +354,11 @@ export default function DealDetailPage() {
                     </CardContent>
                   </Card>
 
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base">Key Dates</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3 text-sm">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Key Dates</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3 text-sm">
                       <div>
                         <p className="text-xs text-muted-foreground">Created</p>
                         <p className="font-medium">{formatDate(deal.createdAt)}</p>
@@ -346,6 +373,30 @@ export default function DealDetailPage() {
                           <p className="font-medium">{formatDate(deal.targetCloseDate)}</p>
                         </div>
                       )}
+                      <div>
+                        <p className="text-xs text-muted-foreground">Pack Health</p>
+                        <div className="mt-1 space-y-1">
+                          <p className="font-medium">
+                            {deal.packContext?.hasPack
+                              ? deal.packContext.isStale
+                                ? `Stale (${deal.packContext.stalenessDays ?? "?"} day(s))`
+                                : "Current"
+                              : "No pack found"}
+                          </p>
+                          {deal.packContext?.missingEvidence?.length ? (
+                            <ul className="list-disc pl-4 text-xs text-muted-foreground">
+                              {deal.packContext.missingEvidence.map((item) => (
+                                <li key={item}>
+                                  <span className="inline-flex items-center gap-1">
+                                    <AlertTriangle className="h-3 w-3" />
+                                    {item}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : null}
+                        </div>
+                      </div>
                     </CardContent>
                   </Card>
                 </div>

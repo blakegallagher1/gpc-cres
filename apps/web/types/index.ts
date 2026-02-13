@@ -22,6 +22,34 @@ export interface Agent {
 
 export type RunStatus = "success" | "running" | "error" | "pending" | "cancelled";
 
+export interface EvidenceCitation {
+  tool?: string;
+  sourceId?: string;
+  snapshotId?: string;
+  contentHash?: string;
+  url?: string;
+  isOfficial?: boolean;
+}
+
+export interface AgentTrustEnvelope {
+  toolsInvoked: string[];
+  packVersionsUsed: string[];
+  evidenceCitations: EvidenceCitation[];
+  evidenceHash?: string | null;
+  confidence: number;
+  missingEvidence: string[];
+  verificationSteps: string[];
+  plan?: string[];
+  lastAgentName?: string;
+  errorSummary?: string | null;
+  durationMs?: number;
+}
+
+export interface RunOutputJson extends Partial<AgentTrustEnvelope> {
+  durationMs?: number;
+  errorSummary?: string | null;
+}
+
 export interface Run {
   id: string;
   agent_id: string;
@@ -34,6 +62,7 @@ export interface Run {
   started_at: string;
   completed_at?: string;
   duration_ms?: number;
+  outputJson?: RunOutputJson | null;
 }
 
 export interface Trace {

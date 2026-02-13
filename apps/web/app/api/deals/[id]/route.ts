@@ -5,6 +5,17 @@ import { dispatchEvent } from "@/lib/automation/events";
 import "@/lib/automation/handlers";
 import { ParcelTriageSchema } from "@entitlement-os/shared";
 
+const PACK_STALE_DAYS = 7;
+const PACK_COVERAGE_MINIMUM = 0.75;
+
+function isJsonStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+function daysSince(value: Date): number {
+  return Math.floor((Date.now() - value.getTime()) / (24 * 60 * 60 * 1000));
+}
+
 // GET /api/deals/[id] - get a single deal with related data
 export async function GET(
   _request: NextRequest,
@@ -21,7 +32,7 @@ export async function GET(
     const deal = await prisma.deal.findFirst({
       where: { id, orgId: auth.orgId },
       include: {
-        jurisdiction: true,
+        jurisdiction: { select: { id: true, name: true, kind: true, state: true } },
         parcels: { orderBy: { createdAt: "asc" } },
         tasks: { orderBy: [{ pipelineStep: "asc" }, { createdAt: "asc" }] },
         artifacts: { orderBy: { createdAt: "desc" } },
@@ -38,6 +49,32 @@ export async function GET(
     if (!deal) {
       return NextResponse.json({ error: "Deal not found" }, { status: 404 });
     }
+
+    const latestPack = deal.jurisdiction
+      ? await prisma.parishPackVersion.findFirst({
+          where: {
+            jurisdictionId: deal.jurisdiction.id,
+            sku: deal.sku,
+            status: "current",
+          },
+          orderBy: { generatedAt: "desc" },
+          select: {
+            id: true,
+            version: true,
+            status: true,
+            generatedAt: true,
+            sourceEvidenceIds: true,
+            sourceSnapshotIds: true,
+            sourceContentHashes: true,
+            sourceUrls: true,
+            officialOnly: true,
+            packCoverageScore: true,
+            canonicalSchemaVersion: true,
+            coverageSourceCount: true,
+            inputHash: true,
+          },
+        })
+      : null;
 
     let triageTier: string | null = null;
     let triageOutput: Record<string, unknown> | null = null;
@@ -60,11 +97,61 @@ export async function GET(
       }
     }
 
+    const stalenessDays = latestPack ? daysSince(latestPack.generatedAt) : null;
+    const packIsStale = stalenessDays === null ? false : stalenessDays >= PACK_STALE_DAYS;
+    const missingEvidence: string[] = [];
+
+    if (!latestPack) {
+      missingEvidence.push("No current jurisdiction pack found for this deal SKU.");
+    } else {
+      if (!isJsonStringArray(latestPack.sourceEvidenceIds)) {
+        missingEvidence.push("Pack lineage is missing sourceEvidenceIds.");
+      }
+      if (!isJsonStringArray(latestPack.sourceSnapshotIds)) {
+        missingEvidence.push("Pack lineage is missing sourceSnapshotIds.");
+      }
+      if (!isJsonStringArray(latestPack.sourceContentHashes)) {
+        missingEvidence.push("Pack lineage is missing sourceContentHashes.");
+      }
+      if (packIsStale) {
+        missingEvidence.push("Pack is stale and should be refreshed.");
+      }
+      if (
+        typeof latestPack.packCoverageScore === "number" &&
+        latestPack.packCoverageScore < PACK_COVERAGE_MINIMUM
+      ) {
+        missingEvidence.push("Pack coverage score is below the required threshold.");
+      }
+    }
+
     return NextResponse.json({
       deal: {
         ...deal,
         triageTier,
         triageOutput,
+        packContext: {
+          hasPack: !!latestPack,
+          isStale: packIsStale,
+          stalenessDays,
+          missingEvidence,
+          latestPack: latestPack
+            ? {
+                id: latestPack.id,
+                version: latestPack.version,
+                status: latestPack.status,
+                generatedAt: latestPack.generatedAt.toISOString(),
+                sourceEvidenceIds: latestPack.sourceEvidenceIds,
+                sourceSnapshotIds: latestPack.sourceSnapshotIds,
+                sourceContentHashes: latestPack.sourceContentHashes,
+                sourceUrls: latestPack.sourceUrls,
+                officialOnly: latestPack.officialOnly,
+                packCoverageScore: latestPack.packCoverageScore,
+                canonicalSchemaVersion: latestPack.canonicalSchemaVersion,
+                coverageSourceCount: latestPack.coverageSourceCount,
+                inputHash: latestPack.inputHash,
+              }
+            : null,
+        },
         createdAt: deal.createdAt.toISOString(),
         updatedAt: deal.updatedAt.toISOString(),
       },

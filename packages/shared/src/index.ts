@@ -7,4 +7,5 @@ export * from "./temporal/types.js";
 export * from "./scoring/index.js";
 export * from "./decision/index.js";
 export * from "./throughput/index.js";
+export * from "./evidence.js";
 export * from "./openaiModels.js";

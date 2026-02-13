@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import { DealOutcomeCreateInputSchema } from "@entitlement-os/shared";
 import {
-  upsertDealOutcome,
-  getDealOutcome,
+  upsertDealOutcomeForOrg,
+  getDealOutcomeForOrg,
   getOutcomeSummary,
   recordAssumptionActuals,
   getHistoricalAccuracy,
@@ -27,7 +28,7 @@ export async function GET(req: NextRequest) {
             { status: 400 }
           );
         }
-        const outcome = await getDealOutcome(dealId);
+        const outcome = await getDealOutcomeForOrg(auth.orgId, dealId);
         return NextResponse.json({ outcome });
       }
       case "accuracy": {
@@ -59,6 +60,37 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { action, dealId } = body;
 
+    if (typeof action === "undefined" && typeof dealId === "string") {
+      const parsed = DealOutcomeCreateInputSchema.safeParse(body);
+      if (!parsed.success) {
+        return NextResponse.json(
+          {
+            error: "Invalid outcome payload",
+            issues: parsed.error.flatten().fieldErrors,
+          },
+          { status: 400 },
+        );
+      }
+
+      try {
+        const outcome = await upsertDealOutcomeForOrg(
+          auth.orgId,
+          parsed.data.dealId,
+          auth.userId,
+          parsed.data,
+        );
+        return NextResponse.json({ outcome }, { status: 201 });
+      } catch (error) {
+        if (error instanceof Error && error.message === "Deal not found") {
+          return NextResponse.json(
+            { error: "Deal not found" },
+            { status: 404 },
+          );
+        }
+        throw error;
+      }
+    }
+
     if (!dealId) {
       return NextResponse.json(
         { error: "dealId is required" },
@@ -68,7 +100,12 @@ export async function POST(req: NextRequest) {
 
     switch (action) {
       case "record_outcome": {
-        const id = await upsertDealOutcome(dealId, auth.userId, body.data ?? {});
+        const id = await upsertDealOutcomeForOrg(
+          auth.orgId,
+          dealId,
+          auth.userId,
+          body.data ?? {},
+        );
         return NextResponse.json({ id });
       }
       case "record_actuals": {

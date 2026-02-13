@@ -28,7 +28,7 @@ function buildTaskPrompt(task: { title: string; description: string | null }, de
 }
 
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string; taskId: string }> },
 ) {
   const auth = await resolveAuth();
@@ -72,6 +72,10 @@ export async function POST(
         const { result: workflowResult } = await runAgentWorkflow({
           orgId,
           userId,
+          correlationId:
+            request.headers.get("x-request-id") ??
+            request.headers.get("idempotency-key") ??
+            undefined,
           message: buildTaskPrompt(task, deal.name),
           dealId,
           runType: "ENRICHMENT",

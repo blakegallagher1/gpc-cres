@@ -14,6 +14,30 @@ export { marketingAgent } from './marketing.js';
 export { taxAgent } from './tax.js';
 export { marketIntelAgent } from './marketIntel.js';
 
+type SpecialistAgentConfig = {
+  key: SpecialistAgentKey;
+  agent: Agent;
+  tools: readonly unknown[];
+};
+
+const withTools = (agent: Agent, tools: readonly unknown[]): Agent =>
+  agent.clone({ tools: [...tools] as Agent['tools'], handoffs: [] });
+
+const SPECIALIST_AGENT_CONFIGS: SpecialistAgentConfig[] = [
+  { key: 'legal', agent: legalAgent, tools: legalTools },
+  { key: 'research', agent: researchAgent, tools: researchTools },
+  { key: 'risk', agent: riskAgent, tools: riskTools },
+  { key: 'finance', agent: financeAgent, tools: financeTools },
+  { key: 'screener', agent: screenerAgent, tools: screenerTools },
+  { key: 'dueDiligence', agent: dueDiligenceAgent, tools: dueDiligenceTools },
+  { key: 'entitlements', agent: entitlementsAgent, tools: entitlementsTools },
+  { key: 'design', agent: designAgent, tools: designTools },
+  { key: 'operations', agent: operationsAgent, tools: operationsTools },
+  { key: 'marketing', agent: marketingAgent, tools: marketingTools },
+  { key: 'tax', agent: taxAgent, tools: taxTools },
+  { key: 'marketIntel', agent: marketIntelAgent, tools: marketIntelTools },
+];
+
 // Lazy imports to avoid circular references during handoff wiring
 import { coordinatorAgent } from './coordinator.js';
 import { legalAgent } from './legal.js';
@@ -44,22 +68,47 @@ import {
   designTools,
   taxTools,
 } from '../tools/index.js';
+import {
+  QueryIntent,
+  SpecialistAgentKey,
+  getQueryIntentProfile,
+  buildPlannerContext,
+} from '../queryRouter.js';
 
 /** All specialist agents (everything except the coordinator). */
-export const specialistAgents = [
-  legalAgent,
-  researchAgent,
-  riskAgent,
-  financeAgent,
-  screenerAgent,
-  dueDiligenceAgent,
-  entitlementsAgent,
-  designAgent,
-  operationsAgent,
-  marketingAgent,
-  taxAgent,
-  marketIntelAgent,
-] as const;
+export const specialistAgents = SPECIALIST_AGENT_CONFIGS.map((config) => config.agent);
+
+function buildSpecialistTeam(keys: SpecialistAgentKey[]): Agent[] {
+  const seen = new Set<SpecialistAgentKey>();
+  return keys
+    .filter((key) => {
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .map((key) => {
+      const config = SPECIALIST_AGENT_CONFIGS.find((entry) => entry.key === key);
+      if (!config) {
+        throw new Error(`Unknown specialist agent key: ${key}`);
+      }
+      return withTools(config.agent, config.tools);
+    });
+}
+
+export function createIntentAwareCoordinator(intent: QueryIntent): Agent {
+  const profile = getQueryIntentProfile(intent);
+  const specialists = buildSpecialistTeam(profile.specialists);
+  const plannerContext = buildPlannerContext(intent);
+  const instructions = plannerContext
+    ? `${coordinatorAgent.instructions}\n\n${plannerContext}`
+    : coordinatorAgent.instructions;
+
+  return coordinatorAgent.clone({
+    tools: [...coordinatorTools] as Agent['tools'],
+    handoffs: specialists,
+    instructions,
+  });
+}
 
 /**
  * Create a Coordinator agent with all specialist handoffs wired up.
@@ -69,31 +118,5 @@ export const specialistAgents = [
  * allowing callers to wire custom subsets if needed.
  */
 export function createConfiguredCoordinator(): Agent {
-  // Helper: clone an agent with extra tools
-  const withTools = (agent: Agent, tools: readonly unknown[]): Agent =>
-    agent.clone({
-      tools: [...tools] as Agent['tools'],
-      handoffs: [],
-    });
-
-  // Build specialists with their tools
-  const wiredSpecialists = [
-    withTools(legalAgent, legalTools),
-    withTools(researchAgent, researchTools),
-    withTools(riskAgent, riskTools),
-    withTools(financeAgent, financeTools),
-    withTools(screenerAgent, screenerTools),
-    withTools(dueDiligenceAgent, dueDiligenceTools),
-    withTools(entitlementsAgent, entitlementsTools),
-    withTools(designAgent, designTools),
-    withTools(operationsAgent, operationsTools),
-    withTools(marketingAgent, marketingTools),
-    withTools(taxAgent, taxTools),
-    withTools(marketIntelAgent, marketIntelTools),
-  ];
-
-  return coordinatorAgent.clone({
-    tools: [...coordinatorTools] as Agent['tools'],
-    handoffs: wiredSpecialists,
-  });
+  return createIntentAwareCoordinator('general');
 }

@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { AgentStatePanel } from '@/components/agent-state/AgentStatePanel';
+import { AgentTrustEnvelope } from '@/types';
 import { MessageList } from './MessageList';
 import { ChatInput } from './ChatInput';
 import { ConversationSidebar } from './ConversationSidebar';
@@ -16,6 +18,7 @@ export function ChatContainer() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [currentAgent, setCurrentAgent] = useState<string | null>(null);
+  const [agentSummary, setAgentSummary] = useState<AgentTrustEnvelope | null>(null);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
 
   const handleStop = useCallback(() => {
@@ -33,6 +36,7 @@ export function ChatContainer() {
       createdAt: new Date().toISOString(),
     };
     setMessages((prev) => [...prev, userMsg]);
+    setAgentSummary(null);
     setIsStreaming(true);
 
     const controller = new AbortController();
@@ -91,6 +95,14 @@ export function ChatContainer() {
 
           try {
             const event = JSON.parse(jsonStr);
+
+            if (event.type === 'agent_summary') {
+              setAgentSummary(event.trust ?? null);
+              if (event.trust?.lastAgentName) {
+                setCurrentAgent(event.trust.lastAgentName);
+              }
+              continue;
+            }
 
             if (event.type === 'agent_switch') {
               setCurrentAgent(event.agentName || null);
@@ -174,6 +186,22 @@ export function ChatContainer() {
 
         {/* Agent Indicator */}
         {currentAgent && <AgentIndicator agentName={currentAgent} />}
+
+        {/* Agent state summary */}
+        {agentSummary && (
+          <div className="border-b px-4 py-3">
+            <AgentStatePanel
+              lastAgentName={agentSummary.lastAgentName ?? currentAgent ?? 'Coordinator'}
+              plan={agentSummary.plan}
+              confidence={agentSummary.confidence}
+              missingEvidence={agentSummary.missingEvidence}
+              verificationSteps={agentSummary.verificationSteps}
+              evidenceCitations={agentSummary.evidenceCitations}
+              toolsInvoked={agentSummary.toolsInvoked}
+              packVersionsUsed={agentSummary.packVersionsUsed}
+            />
+          </div>
+        )}
 
         {/* Messages */}
         <div className="flex-1 overflow-hidden">

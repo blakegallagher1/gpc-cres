@@ -24,6 +24,7 @@ export async function changeDetectionWorkflow(
 ): Promise<{ changedCount: number; refreshTriggered: boolean }> {
   const sources = await fetchSeedSources({
     jurisdictionId: params.jurisdictionId,
+    officialOnly: true,
   });
 
   let changedCount = 0;
@@ -56,6 +57,7 @@ export async function changeDetectionWorkflow(
           jurisdictionId: params.jurisdictionId,
           sku: "SMALL_BAY_FLEX" as const,
           runId: refreshRun.id,
+          officialOnly: true,
         },
       ],
       workflowId: `parish-refresh-${params.jurisdictionId}-${Date.now()}`,

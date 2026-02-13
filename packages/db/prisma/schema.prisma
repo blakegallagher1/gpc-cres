@@ -61,6 +61,7 @@ enum run_type {
   ARTIFACT_GEN
   BUYER_LIST_BUILD
   CHANGE_DETECT
+  SOURCE_INGEST
   ENRICHMENT
   INTAKE_PARSE
   DOCUMENT_CLASSIFY
@@ -422,6 +423,15 @@ model ParishPackVersion {
   generatedAt     DateTime @map("generated_at") @db.Timestamptz(6)
   generatedByRunId String  @map("generated_by_run_id") @db.Uuid
   packJson        Json     @map("pack_json")
+  sourceEvidenceIds   Json     @default("[]") @map("source_evidence_ids")
+  sourceSnapshotIds   Json     @default("[]") @map("source_snapshot_ids")
+  sourceContentHashes Json     @default("[]") @map("source_content_hashes")
+  officialOnly        Boolean   @default(false) @map("official_only")
+  sourceUrls          Json     @default("[]") @map("source_urls")
+  packCoverageScore   Float?    @map("pack_coverage_score")
+  canonicalSchemaVersion String? @map("canonical_schema_version") @db.Text
+  coverageSourceCount Int?      @map("coverage_source_count")
+  inputHash          String?   @map("input_hash") @db.Text
 
   org          Org          @relation(fields: [orgId], references: [id], onDelete: Cascade)
   jurisdiction Jurisdiction @relation(fields: [jurisdictionId], references: [id], onDelete: Cascade)

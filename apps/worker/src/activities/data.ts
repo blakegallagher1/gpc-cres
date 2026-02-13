@@ -1,5 +1,9 @@
-import { prisma } from "@entitlement-os/db";
-import { computeTaskDueAt, type ThroughputRouting } from "@entitlement-os/shared";
+import { prisma, type Prisma } from "@entitlement-os/db";
+import {
+  assertParishPackSchemaAndCitations,
+  computeTaskDueAt,
+  type ThroughputRouting,
+} from "@entitlement-os/shared";
 import type { RunRecordCreateInput, SkuType } from "@entitlement-os/shared";
 
 /**
@@ -66,7 +70,11 @@ export async function createInitialTaskPlan(params: {
     ),
   );
 
-  return tasks.map((t) => ({
+  return tasks.map((t: {
+    id: string;
+    title: string;
+    pipelineStep: number;
+  }) => ({
     id: t.id,
     title: t.title,
     pipelineStep: t.pipelineStep,
@@ -82,7 +90,29 @@ export async function validateAndStorePack(params: {
   orgId: string;
   packJson: Record<string, unknown>;
   runId: string;
+  sourceEvidenceIds: string[];
+  sourceSnapshotIds: string[];
+  sourceContentHashes: string[];
+  sourceUrls: string[];
+  officialOnly: boolean;
+  inputHash?: string;
 }): Promise<{ id: string; version: number }> {
+  const jurisdiction = await prisma.jurisdiction.findUnique({
+    where: { id: params.jurisdictionId },
+    select: { officialDomains: true },
+  });
+
+  const officialDomains = jurisdiction?.officialDomains ?? [];
+
+  const validatedPack = assertParishPackSchemaAndCitations(params.packJson, officialDomains);
+
+  const canonicalSchemaVersion = validatedPack.schema_version;
+  const coverageSourceCount = new Set(validatedPack.sources_summary).size;
+  const packCoverageScore =
+    params.sourceUrls.length > 0
+      ? coverageSourceCount / params.sourceUrls.length
+      : 0;
+
   // Find the latest version number for this jurisdiction+sku
   const latest = await prisma.parishPackVersion.findFirst({
     where: {
@@ -101,10 +131,19 @@ export async function validateAndStorePack(params: {
       sku: params.sku,
       orgId: params.orgId,
       version: nextVersion,
-      packJson: params.packJson as unknown as Record<string, string>,
+      packJson: params.packJson as Prisma.InputJsonValue,
       status: "current",
       generatedAt: new Date(),
       generatedByRunId: params.runId,
+      sourceEvidenceIds: [...new Set(params.sourceEvidenceIds)],
+      sourceSnapshotIds: [...new Set(params.sourceSnapshotIds)],
+      sourceContentHashes: [...new Set(params.sourceContentHashes)],
+      sourceUrls: [...new Set(params.sourceUrls)],
+      officialOnly: params.officialOnly,
+      packCoverageScore,
+      canonicalSchemaVersion,
+      coverageSourceCount,
+      inputHash: params.inputHash,
     },
   });
 

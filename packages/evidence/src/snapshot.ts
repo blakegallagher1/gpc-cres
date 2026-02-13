@@ -16,6 +16,29 @@ type FetchBytesResult = {
   usedPlaywright: boolean;
 };
 
+type BucketConfig = {
+  public: boolean;
+};
+
+async function ensureBucket(
+  supabase: SupabaseClient,
+  bucket: string,
+): Promise<void> {
+  const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+  if (listError) {
+    throw new Error(`Evidence bucket lookup failed: ${listError.message}`);
+  }
+
+  if (buckets?.some((item) => item.name === bucket)) return;
+
+  const { error } = await supabase.storage.createBucket(bucket, {
+    public: false,
+  } as BucketConfig);
+  if (error) {
+    throw new Error(`Evidence bucket create failed: ${error.message}`);
+  }
+}
+
 async function fetchBytesViaHttp(url: string): Promise<FetchBytesResult> {
   const res = await fetch(url, {
     redirect: "follow",
@@ -60,6 +83,8 @@ async function uploadBytesToSupabase(params: {
   bytes: Uint8Array;
   contentType: string;
 }): Promise<void> {
+  await ensureBucket(params.supabase, params.bucket);
+
   const { error } = await params.supabase.storage.from(params.bucket).upload(params.objectKey, params.bytes, {
     contentType: params.contentType,
     upsert: false,

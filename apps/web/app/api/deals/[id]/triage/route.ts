@@ -1,27 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
-import { createStrictJsonResponse } from "@entitlement-os/openai";
 import { dispatchEvent } from "@/lib/automation/events";
 import "@/lib/automation/handlers";
+import { getTemporalClient } from "@/lib/workflowClient";
+import { renderArtifactFromSpec } from "@entitlement-os/artifacts";
 import {
   ParcelTriageSchema,
-  zodToOpenAiJsonSchema,
   buildArtifactObjectKey,
-  buildOpportunityScorecard,
-  buildDeterministicRerunDecision,
-  computeThroughputRouting,
+  ArtifactSpec,
+  type TriageWorkflowResult,
 } from "@entitlement-os/shared";
 import type {
   ParcelTriage,
-  ArtifactSpec,
   OpportunityScorecard,
   ThroughputRouting,
 } from "@entitlement-os/shared";
-import { renderArtifactFromSpec } from "@entitlement-os/artifacts";
 import { supabaseAdmin } from "@/lib/db/supabaseAdmin";
 
-// POST /api/deals/[id]/triage - run triage
+// POST /api/deals/[id]/triage - run triage via Temporal
+const TEMPORAL_TASK_QUEUE = process.env.TEMPORAL_TASK_QUEUE || "entitlement-os";
+
 export async function POST(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -53,283 +52,57 @@ export async function POST(
       );
     }
 
-    // Create run record
-    const run = await prisma.run.create({
-      data: {
-        orgId: auth.orgId,
-        dealId: id,
-        runType: "TRIAGE",
-        status: "running",
-      },
+    const client = await getTemporalClient();
+    const workflowId = `triage-${deal.id}-${Date.now()}`;
+    const handle = await client.workflow.start("triageWorkflow", {
+      taskQueue: TEMPORAL_TASK_QUEUE,
+      workflowId,
+      args: [
+        {
+          orgId: auth.orgId,
+          dealId: deal.id,
+        },
+      ],
     });
 
-    try {
-      const rerunPayload = {
-        dealId: deal.id,
-        dealName: deal.name,
-        sku: deal.sku,
-        jurisdictionId: deal.jurisdictionId,
-        parcels: deal.parcels.map((parcel) => ({
-          id: parcel.id,
-          apn: parcel.apn,
-          address: parcel.address,
-          acreage: parcel.acreage?.toString() ?? null,
-          currentZoning: parcel.currentZoning,
-          floodZone: parcel.floodZone,
-          soilsNotes: parcel.soilsNotes,
-          wetlandsNotes: parcel.wetlandsNotes,
-          envNotes: parcel.envNotes,
-          utilitiesNotes: parcel.utilitiesNotes,
-          trafficNotes: parcel.trafficNotes,
-        })),
-      };
+    const result = (await handle.result()) as TriageWorkflowResult;
 
-      const previousSucceededRun = await prisma.run.findFirst({
-        where: {
-          orgId: auth.orgId,
-          dealId: id,
-          runType: "TRIAGE",
-          status: "succeeded",
-          id: { not: run.id },
-        },
-        orderBy: { finishedAt: "desc" },
-        select: {
-          id: true,
-          inputHash: true,
-          outputJson: true,
-        },
+    if (deal.status === "INTAKE") {
+      await prisma.deal.update({
+        where: { id },
+        data: { status: "TRIAGE_DONE" },
       });
-
-      const rerunDecision = buildDeterministicRerunDecision({
-        runType: "TRIAGE",
-        dealId: id,
-        orgId: auth.orgId,
-        payload: rerunPayload,
-        previousInputHash: previousSucceededRun?.inputHash,
-      });
-
-      if (rerunDecision.shouldReuse && previousSucceededRun?.outputJson) {
-        const normalized = normalizeStoredTriageOutput(
-          previousSucceededRun.outputJson as Record<string, unknown>,
-        );
-
-        if (
-          normalized.triage &&
-          normalized.scorecard &&
-          normalized.routing &&
-          typeof normalized.triageScore === "number" &&
-          typeof normalized.summary === "string"
-        ) {
-          const reusedPayload = {
-            triageScore: normalized.triageScore,
-            summary: normalized.summary,
-            triage: normalized.triage,
-            scorecard: normalized.scorecard,
-            routing: normalized.routing,
-            rerun: {
-              reusedPreviousRun: true,
-              sourceRunId: previousSucceededRun.id,
-              reason: rerunDecision.reason,
-            },
-          };
-
-          await prisma.run.update({
-            where: { id: run.id },
-            data: {
-              status: "succeeded",
-              finishedAt: new Date(),
-              inputHash: rerunDecision.inputHash,
-              outputJson: reusedPayload,
-            },
-          });
-
-          if (deal.status === "INTAKE") {
-            await prisma.deal.update({
-              where: { id },
-              data: { status: "TRIAGE_DONE" },
-            });
-          }
-
-          dispatchEvent({
-            type: "triage.completed",
-            dealId: id,
-            runId: run.id,
-            decision: normalized.triage.decision,
-            orgId: auth.orgId,
-          }).catch(() => {});
-
-          generateTriagePdf({
-            dealId: id,
-            dealName: deal.name,
-            sku: deal.sku,
-            status: deal.status,
-            orgId: auth.orgId,
-            triageOutput: normalized.triage,
-            parcels: deal.parcels,
-          }).catch((err) => console.error("Auto-generate TRIAGE_PDF failed (non-blocking):", err));
-
-          return NextResponse.json({
-            run: { id: run.id, status: "succeeded" },
-            triage: normalized.triage,
-            triageScore: normalized.triageScore,
-            summary: normalized.summary,
-            scorecard: normalized.scorecard,
-            routing: normalized.routing,
-            rerun: reusedPayload.rerun,
-            sources: [],
-          });
-        }
-      }
-
-      // Build parcel context
-      const parcelDescriptions = deal.parcels
-        .map((p, i) => {
-          const parts = [`Parcel ${i + 1}: ${p.address}`];
-          if (p.apn) parts.push(`APN: ${p.apn}`);
-          if (p.acreage) parts.push(`Acreage: ${p.acreage}`);
-          if (p.currentZoning) parts.push(`Zoning: ${p.currentZoning}`);
-          if (p.floodZone) parts.push(`Flood Zone: ${p.floodZone}`);
-          if (p.soilsNotes) parts.push(`Soils: ${p.soilsNotes}`);
-          if (p.wetlandsNotes) parts.push(`Wetlands: ${p.wetlandsNotes}`);
-          if (p.envNotes) parts.push(`Environmental: ${p.envNotes}`);
-          if (p.trafficNotes) parts.push(`Traffic: ${p.trafficNotes}`);
-          if (p.utilitiesNotes) parts.push(`Utilities: ${p.utilitiesNotes}`);
-          return parts.join("\n  ");
-        })
-        .join("\n\n");
-
-      const systemPrompt = `You are a commercial real estate deal screener for Gallagher Property Company, specializing in light industrial, outdoor storage, and truck parking in Louisiana. Evaluate the following deal and produce a structured triage assessment. Use web search to verify current conditions, recent permits, environmental issues, and market data. Be thorough but decisive.`;
-
-      const userPrompt = `Triage this deal:
-
-Deal: ${deal.name}
-SKU: ${deal.sku}
-Jurisdiction: ${deal.jurisdiction?.name ?? "Unknown"}
-Deal ID: ${deal.id}
-
-${parcelDescriptions}
-
-Evaluate all risk dimensions (access, drainage, adjacency, environmental, utilities, politics) on a 0-10 scale where 10 is highest risk. Identify any hard or soft disqualifiers. Recommend KILL, HOLD, or ADVANCE with a clear rationale and next actions.`;
-
-      const jsonSchema = zodToOpenAiJsonSchema("ParcelTriage", ParcelTriageSchema);
-
-      const result = await createStrictJsonResponse<ParcelTriage>({
-        model: process.env.OPENAI_FLAGSHIP_MODEL || "gpt-5.2",
-        input: [
-          { role: "system" as const, content: systemPrompt },
-          { role: "user" as const, content: userPrompt },
-        ],
-        jsonSchema,
-        tools: [{ type: "web_search_preview" as const, search_context_size: "high" as const }],
-      });
-
-      const triage = ParcelTriageSchema.parse({
-        ...(result.outputJson as Record<string, unknown>),
-        generated_at:
-          (result.outputJson as Record<string, unknown>).generated_at ?? new Date().toISOString(),
-        deal_id: (result.outputJson as Record<string, unknown>).deal_id ?? deal.id,
-      });
-
-      const avgRisk =
-        Object.values(triage.risk_scores).reduce((sum, value) => sum + value, 0) /
-        Math.max(Object.keys(triage.risk_scores).length, 1);
-      const triageScore = Math.round(((10 - avgRisk) / 10) * 10000) / 100;
-      const summary = `${triage.decision}: ${triage.rationale}`;
-
-      const scorecard = buildOpportunityScorecard({
-        dealId: deal.id,
-        triage,
-        rerunPolicy: {
-          input_hash: rerunDecision.inputHash,
-          deterministic: true,
-          rerun_reason: rerunDecision.reason,
-        },
-      });
-
-      const routing = computeThroughputRouting({
-        parcelCount: deal.parcels.length,
-        avgRiskScore: avgRisk,
-        disqualifierCount: triage.disqualifiers.length,
-        confidence: scorecard.overall_confidence,
-        missingDataCount: triage.assumptions.filter((item) => item.sources == null).length,
-      });
-
-      const outputPayload = {
-        triageScore,
-        summary,
-        triage,
-        scorecard,
-        routing,
-        rerun: { reusedPreviousRun: false, reason: rerunDecision.reason },
-      };
-
-      // Update run as succeeded
-      await prisma.run.update({
-        where: { id: run.id },
-        data: {
-          status: "succeeded",
-          finishedAt: new Date(),
-          inputHash: rerunDecision.inputHash,
-          outputJson: outputPayload,
-          openaiResponseId: result.responseId,
-        },
-      });
-
-      // Advance deal status if currently INTAKE
-      if (deal.status === "INTAKE") {
-        await prisma.deal.update({
-          where: { id },
-          data: { status: "TRIAGE_DONE" },
-        });
-      }
-
-      // Dispatch triage.completed event for automation handlers
-      dispatchEvent({
-        type: "triage.completed",
-        dealId: id,
-        runId: run.id,
-        decision: triage.decision,
-        orgId: auth.orgId,
-      }).catch(() => {});
-
-      // Auto-generate TRIAGE_PDF (fire-and-forget — don't block the response)
-      generateTriagePdf({
-        dealId: id,
-        dealName: deal.name,
-        sku: deal.sku,
-        status: deal.status,
-        orgId: auth.orgId,
-        triageOutput: triage,
-        parcels: deal.parcels,
-      }).catch((err) => console.error("Auto-generate TRIAGE_PDF failed (non-blocking):", err));
-
-      return NextResponse.json({
-        run: { id: run.id, status: "succeeded" },
-        triage,
-        triageScore,
-        summary,
-        scorecard,
-        routing,
-        rerun: outputPayload.rerun,
-        sources: result.toolSources.webSearchSources,
-      });
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      await prisma.run.update({
-        where: { id: run.id },
-        data: {
-          status: "failed",
-          finishedAt: new Date(),
-          error: errorMsg,
-        },
-      });
-
-      console.error("Triage failed:", error);
-      return NextResponse.json(
-        { error: "Triage failed", detail: errorMsg },
-        { status: 500 }
-      );
+      deal.status = "TRIAGE_DONE";
     }
+
+    dispatchEvent({
+      type: "triage.completed",
+      dealId: id,
+      runId: result.runId,
+      decision: result.triage.decision,
+      orgId: auth.orgId,
+    }).catch(() => {});
+
+    generateTriagePdf({
+      dealId: id,
+      dealName: deal.name,
+      sku: deal.sku,
+      status: deal.status,
+      orgId: auth.orgId,
+      triageOutput: result.triage,
+      parcels: deal.parcels,
+    }).catch((err) => console.error("Auto-generate TRIAGE_PDF failed (non-blocking):", err));
+
+    return NextResponse.json({
+      run: { id: result.runId, status: "succeeded" },
+      triage: result.triage,
+      triageScore: result.triageScore,
+      summary: result.summary,
+      scorecard: result.scorecard,
+      routing: result.routing,
+      rerun: result.rerun,
+      sources: result.sources,
+    });
   } catch (error) {
     console.error("Error running triage:", error);
     return NextResponse.json(

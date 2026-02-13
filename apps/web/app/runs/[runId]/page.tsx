@@ -24,8 +24,9 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { AgentStatePanel } from "@/components/agent-state/AgentStatePanel";
 import { formatNumber, formatCurrency, formatDuration, formatDate } from "@/lib/utils";
-import { Trace } from "@/types";
+import { Trace, RunOutputJson } from "@/types";
 import { useRun } from "@/lib/hooks/useRun";
 import { useRunTraces } from "@/lib/hooks/useRunTraces";
 import { useAgents } from "@/lib/hooks/useAgents";
@@ -154,6 +155,40 @@ function TimelineBar({
   );
 }
 
+function getRetryCountFromMetadata(metadata?: Record<string, unknown>): number {
+  if (!metadata) return 0;
+
+  const parseNumber = (value: unknown) => {
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return Math.max(0, Math.floor(value));
+    }
+    if (typeof value === "string" && !Number.isNaN(Number(value))) {
+      return Math.max(0, Math.floor(Number(value)));
+    }
+    return null;
+  };
+
+  const candidates: Array<[string, number | null]> = [
+    ["retryCount", parseNumber(metadata["retryCount"])],
+    ["retry_count", parseNumber(metadata["retry_count"])],
+    ["retryAttempts", parseNumber(metadata["retryAttempts"])],
+    ["retry_attempts", parseNumber(metadata["retry_attempts"])],
+    ["retries", parseNumber(metadata["retries"])],
+  ];
+
+  for (const [, value] of candidates) {
+    if (value !== null) {
+      return value;
+    }
+  }
+
+  if (metadata["retried"] === true || metadata["retry"] === true) {
+    return 1;
+  }
+
+  return 0;
+}
+
 export default function RunTracePage() {
   const params = useParams<{ runId: string }>();
   const runId = params?.runId ?? "";
@@ -184,6 +219,30 @@ export default function RunTracePage() {
   };
 
   const rootTraces = traces.filter((t) => !t.parent_id);
+  const failureTraces = traces.filter((trace) => {
+    const metadata = trace.metadata;
+    if (!metadata) return false;
+    return (
+      metadata.status === "error" ||
+      metadata.failed === true ||
+      typeof metadata.error === "string" ||
+      typeof metadata.message === "string"
+    );
+  });
+  const toolFailureDetails = failureTraces.map((trace) => {
+    const metadata = trace.metadata;
+    const detail =
+      typeof metadata?.error === "string"
+        ? metadata.error
+        : typeof metadata?.message === "string"
+        ? metadata.message
+        : undefined;
+    return `${trace.name}${detail ? ` — ${detail}` : ""}`;
+  });
+  const retryCount = traces.reduce(
+    (acc, trace) => acc + getRetryCountFromMetadata(trace.metadata),
+    0,
+  );
 
   // Calculate timeline
   const runStart = run ? new Date(run.started_at).getTime() : 0;
@@ -214,6 +273,8 @@ export default function RunTracePage() {
       </DashboardShell>
     );
   }
+
+  const outputJson = (run.outputJson ?? null) as RunOutputJson | null;
 
   return (
     <DashboardShell>
@@ -285,6 +346,29 @@ export default function RunTracePage() {
             </CardContent>
           </Card>
         </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Agent state & evidence
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <AgentStatePanel
+              lastAgentName={outputJson?.lastAgentName ?? agent?.name}
+              plan={outputJson?.plan}
+              confidence={outputJson?.confidence}
+              missingEvidence={outputJson?.missingEvidence}
+              verificationSteps={outputJson?.verificationSteps}
+              evidenceCitations={outputJson?.evidenceCitations}
+              toolsInvoked={outputJson?.toolsInvoked}
+              packVersionsUsed={outputJson?.packVersionsUsed}
+              errorSummary={outputJson?.errorSummary ?? null}
+              toolFailureDetails={toolFailureDetails}
+              retryCount={retryCount}
+            />
+          </CardContent>
+        </Card>
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>

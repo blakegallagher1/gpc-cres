@@ -1,4 +1,75 @@
 import type { ArtifactType, RunType, SkuType } from "../enums.js";
+import type { ParcelTriage } from "../schemas/parcelTriage.js";
+import type { OpportunityScorecard } from "../schemas/opportunityScorecard.js";
+import type { ThroughputRouting } from "../throughput/engine.js";
+
+export const AGENT_RUN_STATE_SCHEMA_VERSION = 1;
+
+export const AGENT_RUN_STATE_STATUS = {
+  RUNNING: "running",
+  SUCCEEDED: "succeeded",
+  FAILED: "failed",
+  CANCELED: "canceled",
+} as const;
+
+export type AgentRunStateStatus =
+  (typeof AGENT_RUN_STATE_STATUS)[keyof typeof AGENT_RUN_STATE_STATUS];
+
+export const AGENT_RUN_STATE_KEYS = {
+  runId: "runId",
+  status: "status",
+  partialOutput: "partialOutput",
+  lastAgentName: "lastAgentName",
+  toolsInvoked: "toolsInvoked",
+  confidence: "confidence",
+  missingEvidence: "missingEvidence",
+  runStartedAt: "runStartedAt",
+  durationMs: "durationMs",
+  runInputHash: "runInputHash",
+  lastUpdatedAt: "lastUpdatedAt",
+  leaseOwner: "leaseOwner",
+  leaseExpiresAt: "leaseExpiresAt",
+} as const;
+
+export type AgentRunState = {
+  schemaVersion?: number;
+  runId: string;
+  status: AgentRunStateStatus;
+  partialOutput: string;
+  lastAgentName?: string;
+  toolsInvoked: string[];
+  confidence: number | null;
+  missingEvidence: string[];
+  durationMs?: number;
+  lastUpdatedAt: string;
+  runStartedAt?: string;
+  runInputHash?: string | null;
+  leaseOwner?: string;
+  leaseExpiresAt?: string;
+};
+
+export type AgentRunOutputJson = {
+  runState: AgentRunState;
+  toolsInvoked?: string[];
+  packVersionsUsed?: string[];
+  evidenceCitations?: Array<{
+    tool: string;
+    sourceId?: string;
+    snapshotId?: string;
+    contentHash?: string;
+    url?: string;
+    isOfficial?: boolean;
+  }>;
+  evidenceHash?: string | null;
+  confidence?: number | null;
+  missingEvidence?: string[];
+  verificationSteps?: string[];
+  lastAgentName?: string;
+  durationMs?: number;
+  finalReport?: Record<string, unknown> | null;
+  errorSummary?: string | null;
+  finalOutput?: string;
+};
 
 export type DealIntakeWorkflowInput = {
   orgId: string;
@@ -11,6 +82,7 @@ export type JurisdictionRefreshWorkflowInput = {
   jurisdictionId: string;
   sku: SkuType;
   runId: string;
+  officialOnly?: boolean;
 };
 
 export type ArtifactGenerationWorkflowInput = {
@@ -42,3 +114,86 @@ export type RunRecordCreateInput = {
   inputHash?: string;
 };
 
+export type TriageRerunMetadata = {
+  reusedPreviousRun: boolean;
+  reason: string;
+  sourceRunId?: string;
+};
+
+export type TriageWorkflowInput = {
+  orgId: string;
+  dealId: string;
+};
+
+export type TriageToolSource = {
+  url: string;
+  title?: string;
+};
+
+export type TriageWorkflowResult = {
+  runId: string;
+  triage: ParcelTriage;
+  triageScore: number;
+  summary: string;
+  scorecard: OpportunityScorecard;
+  routing: ThroughputRouting;
+  rerun: TriageRerunMetadata;
+  sources: TriageToolSource[];
+  queueName: string;
+  artifactId: string | null;
+};
+
+export type AgentRunInputMessage =
+  | { role: "user"; content: string }
+  | {
+      role: "assistant";
+      status: "completed";
+      content: Array<{ type: "output_text"; text: string }>;
+    };
+
+export type AgentRunWorkflowInput = {
+  orgId: string;
+  userId: string;
+  conversationId: string;
+  runId?: string;
+  correlationId?: string;
+  input: AgentRunInputMessage[];
+  runType?: string;
+  maxTurns?: number;
+  dealId?: string | null;
+  jurisdictionId?: string | null;
+  sku?: string | null;
+  intentHint?: string | null;
+};
+
+export type AgentTrustSnapshot = {
+  toolsInvoked: string[];
+  packVersionsUsed: string[];
+  evidenceCitations: Array<{
+    tool?: string;
+    sourceId?: string;
+    snapshotId?: string;
+    contentHash?: string;
+    url?: string;
+    isOfficial?: boolean;
+  }>;
+  evidenceHash?: string | null;
+  confidence: number;
+  missingEvidence: string[];
+  verificationSteps: string[];
+  lastAgentName?: string;
+  errorSummary?: string | null;
+  durationMs?: number;
+};
+
+export type AgentRunWorkflowOutput = {
+  runId: string;
+  correlationId?: string;
+  status: "running" | "succeeded" | "failed" | "canceled";
+  finalOutput: string;
+  finalReport: Record<string, unknown> | null;
+  toolsInvoked: string[];
+  trust: AgentTrustSnapshot;
+  openaiResponseId: string | null;
+  inputHash: string;
+};

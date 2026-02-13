@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
+import type { Prisma } from "@entitlement-os/db";
 import { createStrictJsonResponse } from "@entitlement-os/openai";
 import {
   zodToOpenAiJsonSchema,
@@ -8,10 +9,16 @@ import {
   validateParishPackSchemaAndCitations,
 } from "@entitlement-os/shared";
 import type { SkuType } from "@entitlement-os/shared";
+import {
+  computeEvidenceHash,
+  dedupeEvidenceCitations,
+  type EvidenceCitation,
+} from "@entitlement-os/shared/evidence";
 import { captureEvidence } from "@entitlement-os/evidence";
 import type { CaptureEvidenceResult } from "@entitlement-os/evidence";
 import { withRetry, withTimeout } from "@entitlement-os/evidence";
 import { supabaseAdmin } from "@/lib/db/supabaseAdmin";
+import { hashJsonSha256 } from "@entitlement-os/shared/crypto";
 
 const SKUS: SkuType[] = ["SMALL_BAY_FLEX", "OUTDOOR_STORAGE", "TRUCK_PARKING"];
 const STALE_DAYS = 7;
@@ -19,6 +26,7 @@ const EVIDENCE_TIMEOUT_MS = 30_000;
 const EVIDENCE_RETRIES = 2;
 const EVIDENCE_BUCKET = "evidence";
 const PARISH_PACK_MODEL = process.env.OPENAI_PARISH_PACK_MODEL || "gpt-4.1";
+const OFFICIAL_ONLY = true;
 
 const parishPackJsonSchema = zodToOpenAiJsonSchema("parish_pack", ParishPackSchema);
 
@@ -67,6 +75,18 @@ SCHEMA VERSION: Always set schema_version to "1.0".
 GENERATED_AT: Use the current ISO 8601 datetime.
 
 Do NOT hallucinate URLs. Only cite URLs you have actually accessed or found via web search. If you cannot find authoritative source for a claim, omit it or flag it in warnings.`;
+}
+
+function dedupeStringValues(values: string[]): string[] {
+  const seen = new Set<string>();
+  const output: string[] = [];
+  for (const value of values) {
+    if (!seen.has(value)) {
+      seen.add(value);
+      output.push(value);
+    }
+  }
+  return output;
 }
 
 function buildUserPrompt(
@@ -119,6 +139,32 @@ function buildUserPrompt(
   return parts.join("\n");
 }
 
+function isOfficialSource(url: string, officialDomains: string[]): boolean {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return officialDomains.some((domain) => host === domain || host.endsWith(`.${domain}`));
+  } catch {
+    return false;
+  }
+}
+
+function toStringArray(values: unknown): string[] {
+  if (!Array.isArray(values)) return [];
+  const out: string[] = [];
+  for (const value of values) {
+    if (typeof value === "string" && value.trim().length > 0) {
+      out.push(value.trim());
+    }
+  }
+  return out;
+}
+
+function computePackCoverageScore(sourceUrls: string[], sourcesSummary: unknown): number {
+  if (sourceUrls.length === 0) return 0;
+  const summary = new Set(toStringArray(sourcesSummary));
+  return summary.size / sourceUrls.length;
+}
+
 /**
  * Vercel Cron Job: Parish Pack Refresh
  * Runs weekly (Sunday 4 AM) to refresh stale parish packs.
@@ -132,12 +178,24 @@ export async function GET(req: Request) {
   if (!verifyCronSecret(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const { searchParams } = new URL(req.url);
+  const requestedJurisdictionId = searchParams.get("jurisdictionId");
+  const requestedSku = searchParams.get("sku");
+
+  let skus = SKUS;
+  if (requestedSku) {
+    if (!SKUS.includes(requestedSku as SkuType)) {
+      return NextResponse.json({ error: "Invalid sku" }, { status: 400 });
+    }
+    skus = [requestedSku as SkuType];
+  }
 
   const startTime = Date.now();
 
   try {
     // 1. Fetch all jurisdictions with their seed sources
     const jurisdictions = await prisma.jurisdiction.findMany({
+      where: requestedJurisdictionId ? { id: requestedJurisdictionId } : undefined,
       include: {
         seedSources: { where: { active: true } },
       },
@@ -159,7 +217,7 @@ export async function GET(req: Request) {
 
     // 2. For each jurisdiction × SKU, check freshness and refresh if stale
     for (const jurisdiction of jurisdictions) {
-      for (const sku of SKUS) {
+      for (const sku of skus) {
         const label = `${jurisdiction.name} / ${sku}`;
 
         try {
@@ -193,24 +251,44 @@ export async function GET(req: Request) {
           });
 
           // 3. Gather evidence from seed sources (reuse existing snapshots if recent)
+          const officialDomains = jurisdiction.officialDomains.map((value) => value.toLowerCase());
+          const sourceCandidates = jurisdiction.seedSources;
+          const officialSeedSources = OFFICIAL_ONLY
+            ? sourceCandidates.filter((source) => isOfficialSource(source.url, officialDomains))
+            : sourceCandidates;
+          const selectedSources =
+            OFFICIAL_ONLY && officialSeedSources.length === 0
+              ? sourceCandidates
+              : officialSeedSources;
+
           const evidenceTexts: string[] = [];
-          const seedSourceUrls: string[] = [];
+          const sourceEvidenceIds: string[] = [];
+          const sourceSnapshotIds: string[] = [];
+          const sourceContentHashes: string[] = [];
+          const sourceUrls: string[] = [];
+          const evidenceCitations: EvidenceCitation[] = [];
 
-          for (const source of jurisdiction.seedSources) {
-            seedSourceUrls.push(source.url);
-
+          for (const source of selectedSources) {
             try {
+              const seededSourceUrl = source.url;
+              sourceUrls.push(seededSourceUrl);
+
               // Try to get the latest existing text extract for this source
               const existingSnapshot = await prisma.evidenceSnapshot.findFirst({
                 where: {
-                  evidenceSource: { url: source.url, orgId },
+                  evidenceSource: { url: seededSourceUrl, orgId },
                   textExtractObjectKey: { not: "" },
+                },
+                select: {
+                  id: true,
+                  evidenceSourceId: true,
+                  contentHash: true,
+                  textExtractObjectKey: true,
                 },
                 orderBy: { retrievedAt: "desc" },
               });
 
-              if (existingSnapshot && existingSnapshot.textExtractObjectKey) {
-                // Download the text extract from storage
+              if (existingSnapshot?.textExtractObjectKey) {
                 const { data, error } = await supabaseAdmin.storage
                   .from(EVIDENCE_BUCKET)
                   .download(existingSnapshot.textExtractObjectKey);
@@ -219,6 +297,17 @@ export async function GET(req: Request) {
                   const text = await data.text();
                   if (text.trim().length > 0) {
                     evidenceTexts.push(text);
+                    sourceEvidenceIds.push(existingSnapshot.evidenceSourceId);
+                    sourceSnapshotIds.push(existingSnapshot.id);
+                    sourceContentHashes.push(existingSnapshot.contentHash);
+                    evidenceCitations.push({
+                      tool: "evidence_snapshot",
+                      sourceId: existingSnapshot.evidenceSourceId,
+                      snapshotId: existingSnapshot.id,
+                      contentHash: existingSnapshot.contentHash,
+                      url: seededSourceUrl,
+                      isOfficial: isOfficialSource(seededSourceUrl, officialDomains),
+                    });
                     continue;
                   }
                 }
@@ -229,7 +318,7 @@ export async function GET(req: Request) {
                 () =>
                   withTimeout(
                     captureEvidence({
-                      url: source.url,
+                      url: seededSourceUrl,
                       orgId,
                       runId: run.id,
                       prisma,
@@ -239,15 +328,26 @@ export async function GET(req: Request) {
                       officialDomains: jurisdiction.officialDomains,
                     }),
                     EVIDENCE_TIMEOUT_MS,
-                    `evidence: ${source.url}`
+                    `evidence: ${seededSourceUrl}`
                   ),
                 EVIDENCE_RETRIES,
-                `evidence: ${source.url}`
+                `evidence: ${seededSourceUrl}`
               );
 
               if (captureResult.extractedText.trim().length > 0) {
                 evidenceTexts.push(captureResult.extractedText);
               }
+              sourceEvidenceIds.push(captureResult.sourceId);
+              sourceSnapshotIds.push(captureResult.snapshotId);
+              sourceContentHashes.push(captureResult.contentHash);
+              evidenceCitations.push({
+                tool: "evidence_snapshot",
+                sourceId: captureResult.sourceId,
+                snapshotId: captureResult.snapshotId,
+                contentHash: captureResult.contentHash,
+                url: seededSourceUrl,
+                isOfficial: isOfficialSource(seededSourceUrl, officialDomains),
+              });
             } catch (err) {
               // Don't fail the whole pack generation if one source fails
               const msg = err instanceof Error ? err.message : String(err);
@@ -263,18 +363,18 @@ export async function GET(req: Request) {
             sku,
           );
 
-          const userPrompt = buildUserPrompt(
-            {
-              id: jurisdiction.id,
-              name: jurisdiction.name,
-              kind: jurisdiction.kind,
-              state: jurisdiction.state,
-              timezone: jurisdiction.timezone,
-            },
-            sku,
-            evidenceTexts,
-            seedSourceUrls,
-          );
+              const userPrompt = buildUserPrompt(
+                {
+                  id: jurisdiction.id,
+                  name: jurisdiction.name,
+                  kind: jurisdiction.kind,
+                  state: jurisdiction.state,
+                  timezone: jurisdiction.timezone,
+                },
+                sku,
+                evidenceTexts,
+                sourceUrls,
+              );
 
           const response = await createStrictJsonResponse<Record<string, unknown>>({
             model: PARISH_PACK_MODEL,
@@ -291,6 +391,27 @@ export async function GET(req: Request) {
             response.outputJson,
             jurisdiction.officialDomains,
           );
+
+          const sourceSummary = toStringArray(
+            (response.outputJson as Record<string, unknown>)?.sources_summary,
+          );
+          const packCoverageScore = computePackCoverageScore(sourceUrls, sourceSummary);
+          const canonicalSchemaVersion =
+            typeof (response.outputJson as Record<string, unknown>)?.schema_version === "string"
+              ? ((response.outputJson as Record<string, unknown>).schema_version as string)
+              : "1.0";
+          const packInputHash = hashJsonSha256({
+            jurisdictionId: jurisdiction.id,
+            sku,
+            officialOnly: OFFICIAL_ONLY,
+            sourceUrls,
+            sourceEvidenceIds: dedupeStringValues(sourceEvidenceIds),
+            sourceSnapshotIds: dedupeStringValues(sourceSnapshotIds),
+            sourceContentHashes: dedupeStringValues(sourceContentHashes),
+            sourceSummary,
+          });
+          const normalizedEvidenceCitations = dedupeEvidenceCitations(evidenceCitations);
+          const evidenceHash = computeEvidenceHash(normalizedEvidenceCitations);
 
           let packStatus: string;
           if (validation.ok) {
@@ -324,7 +445,16 @@ export async function GET(req: Request) {
                 status: packStatus,
                 generatedAt: new Date(),
                 generatedByRunId: run.id,
-                packJson: response.outputJson as Record<string, string>,
+                packJson: response.outputJson as unknown as Prisma.InputJsonValue,
+                sourceEvidenceIds: dedupeStringValues(sourceEvidenceIds),
+                sourceSnapshotIds: dedupeStringValues(sourceSnapshotIds),
+                sourceContentHashes: dedupeStringValues(sourceContentHashes),
+                sourceUrls,
+                officialOnly: OFFICIAL_ONLY,
+                packCoverageScore,
+                canonicalSchemaVersion,
+                coverageSourceCount: sourceSummary.length,
+                inputHash: packInputHash,
               },
             });
 
@@ -353,6 +483,14 @@ export async function GET(req: Request) {
                 version: nextVersion,
                 status: packStatus,
                 evidenceSourcesUsed: evidenceTexts.length,
+                sourceEvidenceCount: dedupeStringValues(sourceEvidenceIds).length,
+                sourceSnapshotCount: dedupeStringValues(sourceSnapshotIds).length,
+                packCoverageScore,
+                coverageSourceCount: sourceSummary.length,
+                canonicalSchemaVersion,
+                packInputHash,
+                evidenceCitations: normalizedEvidenceCitations,
+                evidenceHash,
                 seedSourcesTotal: jurisdiction.seedSources.length,
                 webSearchSources: response.toolSources.webSearchSources.length,
                 validationErrors: validation.ok ? [] : (validation as { ok: false; errors: string[] }).errors,

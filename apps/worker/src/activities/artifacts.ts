@@ -20,7 +20,12 @@ export async function generateArtifact(params: {
   // Build a minimal ArtifactSpec for the renderer.
   const parcelSummary = deal.parcels
     .map(
-      (p) =>
+      (p: {
+        apn: string | null;
+        id: string;
+        address: string;
+        currentZoning: string | null;
+      }) =>
         `Parcel ${p.apn ?? p.id}: ${p.address}, zoning: ${p.currentZoning ?? "unknown"}`,
     )
     .join("\n");

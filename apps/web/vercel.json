@@ -11,6 +11,10 @@
       "schedule": "0 4 * * 0"
     },
     {
+      "path": "/api/cron/source-ingestion",
+      "schedule": "0 2 * * *"
+    },
+    {
       "path": "/api/cron/opportunity-scan",
       "schedule": "0 */6 * * *"
     },

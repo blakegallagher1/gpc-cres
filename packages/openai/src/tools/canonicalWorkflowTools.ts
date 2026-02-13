@@ -37,6 +37,23 @@ type ToolConfidence = {
   dataGaps: unknown[];
 };
 
+const JURISDICTION_PACK_STALE_DAYS = 7;
+
+function isJsonArray(value: unknown): value is unknown[] {
+  return Array.isArray(value);
+}
+
+function toStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter((item) => item.length > 0);
+}
+
+function daysSince(value: Date): number {
+  return Math.floor((Date.now() - value.getTime()) / (24 * 60 * 60 * 1000));
+}
+
 function safeParseJson(value: unknown): JSONObject | JSONArray | null {
   if (value == null) return null;
   if (typeof value === "string") {
@@ -156,15 +173,66 @@ export const get_jurisdiction_pack = tool({
       orderBy: { version: "desc" },
     });
 
+    const stalenessDays = pack ? daysSince(pack.generatedAt) : null;
+    const isStale = stalenessDays === null ? null : stalenessDays >= JURISDICTION_PACK_STALE_DAYS;
+
     if (!pack) {
       return JSON.stringify({
         error: "No current parish pack found",
         jurisdictionId: jurisdiction_id,
         sku,
+        hasPack: false,
+        isStale: true,
+        stalenessDays: null,
+        missingEvidence: ["No current parish pack found for this jurisdiction and SKU."],
       });
     }
 
     const packJson = pack.packJson as JSONObject;
+    const sourceUrls = toStringArray(pack.sourceUrls);
+    const sourceEvidenceIds = toStringArray(pack.sourceEvidenceIds);
+    const sourceSnapshotIds = toStringArray(pack.sourceSnapshotIds);
+    const sourceContentHashes = toStringArray(pack.sourceContentHashes);
+
+    const missingEvidence: string[] = [];
+    if (!isJsonArray(pack.sourceEvidenceIds)) {
+      missingEvidence.push("Pack lineage missing sourceEvidenceIds.");
+    }
+    if (!isJsonArray(pack.sourceSnapshotIds)) {
+      missingEvidence.push("Pack lineage missing sourceSnapshotIds.");
+    }
+    if (!isJsonArray(pack.sourceContentHashes)) {
+      missingEvidence.push("Pack lineage missing sourceContentHashes.");
+    }
+    if (!isJsonArray(pack.sourceUrls)) {
+      missingEvidence.push("Pack lineage missing sourceUrls.");
+    }
+    if (isStale) {
+      missingEvidence.push("Pack is stale and should be refreshed.");
+    }
+    if (typeof pack.packCoverageScore === "number" && pack.packCoverageScore < 0.75) {
+      missingEvidence.push("Pack coverage score is below confidence threshold.");
+    }
+
+    const sharedMeta = {
+      packVersionId: pack.id,
+      version: pack.version,
+      status: pack.status,
+      generatedAt: pack.generatedAt.toISOString(),
+      hasPack: true,
+      stalenessDays,
+      isStale,
+      sourceUrls,
+      sourceEvidenceIds,
+      sourceSnapshotIds,
+      sourceContentHashes,
+      officialOnly: pack.officialOnly,
+      packCoverageScore: pack.packCoverageScore,
+      canonicalSchemaVersion: pack.canonicalSchemaVersion,
+      coverageSourceCount: pack.coverageSourceCount,
+      inputHash: pack.inputHash,
+      missingEvidence: uniqueValues(missingEvidence),
+    };
 
     if (section) {
       if (Object.prototype.hasOwnProperty.call(packJson, section)) {
@@ -173,12 +241,7 @@ export const get_jurisdiction_pack = tool({
           sku,
           section,
           data: packJson[section],
-          packVersionId: pack.id,
-          version: pack.version,
-          _meta: {
-            generatedAt: pack.generatedAt.toISOString(),
-            status: pack.status,
-          },
+          ...sharedMeta,
         });
       }
       return JSON.stringify({
@@ -186,7 +249,7 @@ export const get_jurisdiction_pack = tool({
         jurisdictionId: jurisdiction_id,
         sku,
         availableSections: Object.keys(packJson),
-        packVersionId: pack.id,
+        ...sharedMeta,
       });
     }
 
@@ -194,12 +257,7 @@ export const get_jurisdiction_pack = tool({
       ...packJson,
       jurisdictionId: jurisdiction_id,
       sku,
-      packVersionId: pack.id,
-      version: pack.version,
-      _meta: {
-        generatedAt: pack.generatedAt.toISOString(),
-        status: pack.status,
-      },
+      ...sharedMeta,
     });
   },
 });
@@ -1048,6 +1106,10 @@ export const evaluate_run = tool({
             ? 0.68
             : 0.31,
       evidenceCount: trustEvidence.length,
+      evidenceHash:
+        typeof parsedOutput.evidenceHash === "string"
+          ? parsedOutput.evidenceHash
+          : null,
       evidenceCitations: trustEvidence,
       missingEvidence,
       recommendations,

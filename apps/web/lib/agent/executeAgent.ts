@@ -1,11 +1,28 @@
 import { assistant as assistantMessage, run, user as userMessage } from "@openai/agents";
-import { SKU_TYPES } from "@entitlement-os/shared";
+import {
+  AgentReport,
+  AgentReportSchema,
+  SKU_TYPES,
+  AGENT_RUN_STATE_KEYS,
+  AGENT_RUN_STATE_SCHEMA_VERSION,
+  type AgentRunOutputJson,
+  type AgentRunState,
+} from "@entitlement-os/shared";
+import {
+  computeEvidenceHash,
+  dedupeEvidenceCitations,
+  type EvidenceCitation,
+} from "@entitlement-os/shared/evidence";
 import { hashJsonSha256 } from "@entitlement-os/shared/crypto";
 import { prisma } from "@entitlement-os/db";
+import type { Prisma } from "@entitlement-os/db";
 import {
   buildAgentStreamRunOptions,
-  createConfiguredCoordinator,
+  createIntentAwareCoordinator,
+  evaluateProofCompliance,
+  inferQueryIntentFromText,
 } from "@entitlement-os/openai";
+import { AgentTrustEnvelope } from "@/types";
 
 export type AgentInputMessage =
   | { role: "user"; content: string }
@@ -19,6 +36,15 @@ export type AgentStreamEvent =
   | { type: "agent_switch"; agentName: string }
   | { type: "text_delta"; content: string }
   | {
+      type: "agent_progress";
+      runId: string;
+      status: "running";
+      partialOutput: string;
+      toolsInvoked?: string[];
+      lastAgentName?: string;
+      correlationId?: string;
+    }
+  | {
       type: "done";
       runId: string;
       status: "succeeded" | "failed" | "canceled";
@@ -31,26 +57,11 @@ export type AgentStreamEvent =
       trust: AgentTrustEnvelope;
     };
 
-export type AgentTrustEnvelope = {
-  toolsInvoked: string[];
-  packVersionsUsed: string[];
-  evidenceCitations: Array<{
-    tool: string;
-    sourceId?: string;
-    snapshotId?: string;
-    contentHash?: string;
-    url?: string;
-    isOfficial?: boolean;
-  }>;
-  confidence: number;
-  missingEvidence: string[];
-  verificationSteps: string[];
-};
-
 type AgentExecutionResult = {
   runId: string;
   status: "running" | "succeeded" | "failed" | "canceled";
   finalOutput: string;
+  finalReport: AgentReport | null;
   toolsInvoked: string[];
   trust: AgentTrustEnvelope;
   openaiResponseId: string | null;
@@ -59,7 +70,7 @@ type AgentExecutionResult = {
   finishedAt: Date;
 };
 
-function normalizeSku(sku: string | undefined): (typeof SKU_TYPES)[number] | null {
+function normalizeSku(sku: string | null | undefined): (typeof SKU_TYPES)[number] | null {
   if (!sku) return null;
   if ((SKU_TYPES as readonly string[]).includes(sku)) {
     return sku as (typeof SKU_TYPES)[number];
@@ -72,25 +83,20 @@ export type AgentExecutionParams = {
   userId: string;
   conversationId: string;
   input: AgentInputMessage[];
+  runId?: string;
   runType?: string;
   maxTurns?: number;
   dealId?: string;
   jurisdictionId?: string;
   sku?: string;
+  intentHint?: string;
   onEvent?: (event: AgentStreamEvent) => void;
 };
 
 type ToolEventState = {
   toolsInvoked: Set<string>;
   packVersionsUsed: Set<string>;
-  evidenceCitations: Array<{
-    tool: string;
-    sourceId?: string;
-    snapshotId?: string;
-    contentHash?: string;
-    url?: string;
-    isOfficial?: boolean;
-  }>;
+  evidenceCitations: EvidenceCitation[];
   missingEvidence: Set<string>;
   toolErrorMessages: string[];
   hadOutputText: boolean;
@@ -356,6 +362,152 @@ function sanitizeOutputText(value: unknown): string {
   }
 }
 
+type RunRecordSnapshot = {
+  id: string;
+  status: "running" | "succeeded" | "failed" | "canceled";
+  inputHash: string;
+  outputJson: Prisma.JsonValue;
+  openaiResponseId: string | null;
+  startedAt: Date;
+  finishedAt: Date | null;
+};
+
+function toArrayOfString(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
+}
+
+function parseTrustFromRunOutput(output: unknown): AgentTrustEnvelope {
+  if (!isRecord(output)) {
+    return {
+      toolsInvoked: [],
+      packVersionsUsed: [],
+      evidenceCitations: [],
+      evidenceHash: null,
+      confidence: 0,
+      missingEvidence: [],
+      verificationSteps: [],
+      lastAgentName: undefined,
+      errorSummary: null,
+    };
+  }
+
+  const evidenceCitations = Array.isArray(output.evidenceCitations)
+    ? (output.evidenceCitations as unknown[]).map((citation) => {
+        if (!isRecord(citation)) return null;
+        return {
+          tool: typeof citation.tool === "string" ? citation.tool : undefined,
+          sourceId: typeof citation.sourceId === "string" ? citation.sourceId : undefined,
+          snapshotId: typeof citation.snapshotId === "string" ? citation.snapshotId : undefined,
+          contentHash:
+            typeof citation.contentHash === "string" ? citation.contentHash : undefined,
+          url: typeof citation.url === "string" ? citation.url : undefined,
+          isOfficial: typeof citation.isOfficial === "boolean" ? citation.isOfficial : undefined,
+        };
+      }).filter(Boolean)
+    : [];
+
+  const trust: AgentTrustEnvelope = {
+    toolsInvoked: toArrayOfString(output.toolsInvoked),
+    packVersionsUsed: toArrayOfString(output.packVersionsUsed),
+    evidenceCitations: evidenceCitations as AgentTrustEnvelope["evidenceCitations"],
+    confidence:
+      typeof output.confidence === "number" && Number.isFinite(output.confidence)
+        ? Math.max(0, Math.min(1, output.confidence))
+        : 0,
+    missingEvidence: toArrayOfString(output.missingEvidence),
+    verificationSteps: toArrayOfString(output.verificationSteps),
+    lastAgentName:
+      typeof output.lastAgentName === "string" ? output.lastAgentName : undefined,
+    errorSummary: typeof output.errorSummary === "string" ? output.errorSummary : null,
+    evidenceHash:
+      typeof output.evidenceHash === "string" ? output.evidenceHash : null,
+    durationMs: typeof output.durationMs === "number" && Number.isFinite(output.durationMs)
+      ? output.durationMs
+      : undefined,
+  };
+
+  return trust;
+}
+
+function runRecordToExecutionResult(dbRun: RunRecordSnapshot): AgentExecutionResult {
+  const output = isRecord(dbRun.outputJson) ? dbRun.outputJson : {};
+  const runState = isRecord(output.runState) ? output.runState : {};
+  const finalOutput =
+    typeof output.finalOutput === "string"
+      ? output.finalOutput
+      : typeof runState[AGENT_RUN_STATE_KEYS.partialOutput] === "string"
+      ? String(runState[AGENT_RUN_STATE_KEYS.partialOutput])
+      : "";
+  const finalReport =
+    isRecord(output.finalReport) ? (output.finalReport as AgentReport) : null;
+
+  return {
+    runId: dbRun.id,
+    status: dbRun.status,
+    finalOutput,
+    finalReport,
+    toolsInvoked: toArrayOfString(output.toolsInvoked),
+    trust: parseTrustFromRunOutput(output),
+    openaiResponseId: dbRun.openaiResponseId,
+    inputHash: dbRun.inputHash,
+    startedAt: dbRun.startedAt,
+    finishedAt: dbRun.finishedAt ?? new Date(),
+  };
+}
+
+async function upsertRunRecord(params: {
+  runId: string;
+  orgId: string;
+  runType: string;
+  inputHash: string;
+  dealId?: string | null;
+  jurisdictionId?: string | null;
+  sku?: string | null;
+  status?: "running" | "succeeded" | "failed" | "canceled";
+}) {
+  const runType = (params.runType ?? "ENRICHMENT") as
+    | "TRIAGE"
+    | "PARISH_PACK_REFRESH"
+    | "ARTIFACT_GEN"
+    | "BUYER_LIST_BUILD"
+    | "CHANGE_DETECT"
+    | "ENRICHMENT"
+    | "INTAKE_PARSE"
+    | "DOCUMENT_CLASSIFY"
+    | "BUYER_OUTREACH_DRAFT"
+    | "ADVANCEMENT_CHECK"
+    | "OPPORTUNITY_SCAN"
+    | "DEADLINE_MONITOR";
+
+  return prisma.run.upsert({
+    where: { id: params.runId },
+    create: {
+      id: params.runId,
+      orgId: params.orgId,
+      runType,
+      dealId: params.dealId ?? null,
+      jurisdictionId: params.jurisdictionId ?? null,
+      sku: normalizeSku(params.sku),
+      status: params.status ?? "running",
+      inputHash: params.inputHash,
+    },
+    update: {
+      status: params.status ?? "running",
+      inputHash: params.inputHash,
+      finishedAt: null,
+    },
+    select: {
+      id: true,
+      status: true,
+      inputHash: true,
+      outputJson: true,
+      openaiResponseId: true,
+      startedAt: true,
+      finishedAt: true,
+    },
+  });
+}
+
 export async function executeAgentWorkflow(
   params: AgentExecutionParams,
 ): Promise<AgentExecutionResult> {
@@ -370,30 +522,39 @@ export async function executeAgentWorkflow(
     jurisdictionId: params.jurisdictionId ?? null,
     input: params.input,
   });
+  const firstUserInput = params.input.find((entry) => entry.role === "user")?.content;
+  const userTextForIntent = params.intentHint ?? firstUserInput;
+  const queryIntent = inferQueryIntentFromText(userTextForIntent);
+  const runId = params.runId ?? `agent-run-${hashJsonSha256({ inputHash, runType: params.runType ?? "ENRICHMENT" })}`;
 
-  const dbRun = await prisma.run.create({
-    data: {
-      orgId: params.orgId,
-      runType: (params.runType ?? "ENRICHMENT") as
-        | "TRIAGE"
-        | "PARISH_PACK_REFRESH"
-        | "ARTIFACT_GEN"
-        | "BUYER_LIST_BUILD"
-        | "CHANGE_DETECT"
-        | "ENRICHMENT"
-        | "INTAKE_PARSE"
-        | "DOCUMENT_CLASSIFY"
-        | "BUYER_OUTREACH_DRAFT"
-        | "ADVANCEMENT_CHECK"
-        | "OPPORTUNITY_SCAN"
-        | "DEADLINE_MONITOR",
-      dealId: params.dealId ?? null,
-      jurisdictionId: params.jurisdictionId ?? null,
-      sku: normalizeSku(params.sku),
-      status: "running",
-      inputHash,
-    },
-    select: { id: true },
+  if (params.runId) {
+    const existingRun = (await prisma.run.findUnique({
+      where: { id: params.runId },
+      select: {
+        id: true,
+        status: true,
+        inputHash: true,
+        outputJson: true,
+        openaiResponseId: true,
+        startedAt: true,
+        finishedAt: true,
+      },
+    })) as RunRecordSnapshot | null;
+
+    if (existingRun && existingRun.status !== "running") {
+      return runRecordToExecutionResult(existingRun);
+    }
+  }
+
+  const dbRun = await upsertRunRecord({
+    runId,
+    orgId: params.orgId,
+    runType: params.runType ?? "ENRICHMENT",
+    dealId: params.dealId ?? null,
+    jurisdictionId: params.jurisdictionId ?? null,
+    sku: params.sku ?? null,
+    inputHash,
+    status: "running",
   });
 
   const state: ToolEventState = {
@@ -406,6 +567,7 @@ export async function executeAgentWorkflow(
   };
 
   let finalText = "";
+  let finalReport: AgentReport | null = null;
   let status: AgentExecutionResult["status"] = "running";
   let lastAgentName = "Coordinator";
   let openaiResponseId: string | null = null;
@@ -421,7 +583,7 @@ export async function executeAgentWorkflow(
       throw new Error("OPENAI_API_KEY is not configured on the server.");
     }
 
-    const coordinator = createConfiguredCoordinator();
+    const coordinator = createIntentAwareCoordinator(queryIntent);
     emit({ type: "agent_switch", agentName: "Coordinator" });
 
     const result = await run(
@@ -518,7 +680,48 @@ export async function executeAgentWorkflow(
     state.missingEvidence.add(`Execution failure: ${errorMessage}`);
     emit({ type: "error", message: errorMessage });
   } finally {
+    if (status === "succeeded") {
+      const sanitizedOutput = sanitizeOutputText(finalText);
+      const parsed = safeParseJson(sanitizedOutput);
+      if (!isRecord(parsed)) {
+        const reason = "Final agent output is not a valid JSON object.";
+        errorMessage ??= reason;
+        state.toolErrorMessages.push(`final_report: ${reason}`);
+        state.missingEvidence.add("Final agent report did not parse as JSON.");
+        status = "failed";
+      } else {
+        const validation = AgentReportSchema.safeParse(parsed);
+        if (!validation.success) {
+          const reason = validation.error.issues
+            .map((issue) => {
+              const path = issue.path.length ? issue.path.join(".") : "root";
+              return `${path} ${issue.message}`;
+            })
+            .join("; ");
+          const message = `Final agent report failed schema validation: ${reason}`;
+          errorMessage ??= message;
+          state.toolErrorMessages.push(`final_report: ${reason}`);
+          state.missingEvidence.add("Final agent report failed schema validation.");
+          status = "failed";
+        } else {
+          finalReport = validation.data;
+          finalText = JSON.stringify(finalReport, null, 2);
+        }
+      }
+    }
+
+    const proofViolations = evaluateProofCompliance(queryIntent, state.toolsInvoked);
+    for (const violation of proofViolations) {
+      if (violation.missingTools.length === 0) continue;
+      state.missingEvidence.add(
+        `Proof group "${violation.group.label}" requires one of: ${violation.group.tools.join(", ")}`,
+      );
+    }
     const missingEvidence = finalizeMissingEvidence(state);
+    const normalizedEvidenceCitations = dedupeEvidenceCitations(
+      state.evidenceCitations,
+    );
+    const evidenceHash = computeEvidenceHash(normalizedEvidenceCitations);
     const confidenceCandidate =
       status === "failed"
         ? null
@@ -537,7 +740,8 @@ export async function executeAgentWorkflow(
     const trust: AgentTrustEnvelope = {
       toolsInvoked: [...state.toolsInvoked].sort(),
       packVersionsUsed: [...state.packVersionsUsed].sort(),
-      evidenceCitations: state.evidenceCitations,
+      evidenceCitations: normalizedEvidenceCitations,
+      evidenceHash,
       confidence: Math.max(0, Math.min(1, confidence)),
       missingEvidence,
       verificationSteps: buildVerificationSteps(missingEvidence),
@@ -550,23 +754,53 @@ export async function executeAgentWorkflow(
       }
     }
 
+    const evidenceCitationsJson: Prisma.JsonArray = normalizedEvidenceCitations.map((citation) => ({
+      tool: citation.tool ?? null,
+      sourceId: citation.sourceId ?? null,
+      snapshotId: citation.snapshotId ?? null,
+      contentHash: citation.contentHash ?? null,
+      url: citation.url ?? null,
+      isOfficial: citation.isOfficial ?? null,
+    }));
+
+    const runState: AgentRunState = {
+      schemaVersion: AGENT_RUN_STATE_SCHEMA_VERSION,
+      runId: dbRun.id,
+      status: status,
+      partialOutput: finalText,
+      lastAgentName,
+      toolsInvoked: trust.toolsInvoked,
+      confidence: trust.confidence,
+      missingEvidence: trust.missingEvidence,
+      durationMs: Date.now() - startedAtMs,
+      lastUpdatedAt: new Date().toISOString(),
+      runStartedAt: dbRun.startedAt?.toISOString(),
+      runInputHash: inputHash,
+    };
+
+    const outputJson: AgentRunOutputJson = {
+      runState,
+      toolsInvoked: trust.toolsInvoked,
+      packVersionsUsed: trust.packVersionsUsed,
+      evidenceCitations: evidenceCitationsJson as unknown as AgentRunOutputJson["evidenceCitations"],
+      evidenceHash: trust.evidenceHash ?? null,
+      confidence: trust.confidence,
+      missingEvidence: trust.missingEvidence,
+      verificationSteps: trust.verificationSteps,
+      lastAgentName,
+      durationMs: Date.now() - startedAtMs,
+      finalReport: finalReport ?? null,
+      errorSummary: errorMessage ?? null,
+      finalOutput: finalText,
+    };
+
     await prisma.run.update({
       where: { id: dbRun.id },
       data: {
         status,
         finishedAt: new Date(),
         openaiResponseId,
-        outputJson: {
-          toolsInvoked: trust.toolsInvoked,
-          packVersionsUsed: trust.packVersionsUsed,
-          evidenceCitations: trust.evidenceCitations,
-          confidence: trust.confidence,
-          missingEvidence: trust.missingEvidence,
-          verificationSteps: trust.verificationSteps,
-          lastAgentName,
-          durationMs: Date.now() - startedAtMs,
-          errorSummary: errorMessage ?? null,
-        },
+        outputJson: outputJson as unknown as Prisma.InputJsonValue,
       },
     });
 
@@ -589,6 +823,7 @@ export async function executeAgentWorkflow(
       runId: dbRun.id,
       status,
       finalOutput: finalText,
+      finalReport: finalReport ?? null,
       toolsInvoked: trust.toolsInvoked,
       trust,
       openaiResponseId,

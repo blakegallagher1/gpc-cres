@@ -10,6 +10,10 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
+    "./evidence": {
+      "types": "./dist/evidence.d.ts",
+      "default": "./dist/evidence.js"
+    },
     "./crypto": {
       "types": "./dist/crypto/index.d.ts",
       "default": "./dist/crypto/index.js"
