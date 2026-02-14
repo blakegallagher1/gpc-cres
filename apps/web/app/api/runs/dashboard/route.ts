@@ -42,6 +42,9 @@ type RunDashboardTotals = {
   toolFailureEvents: number;
   runsWithMissingEvidence: number;
   avgMissingEvidenceCount: number;
+  reproducibilityComparisons: number;
+  reproducibilityDrifts: number;
+  reproducibilityDriftRate: number | null;
 };
 
 type RunDashboardRetryProfile = {
@@ -54,6 +57,20 @@ type RunDashboardMissingEvidenceProfile = {
 
 type RunDashboardToolFailureProfile = {
   topToolFailureReasons: RunDashboardBucket[];
+};
+
+type RunDashboardReproducibilityAlert = {
+  runType: string;
+  fromRunId: string;
+  toRunId: string;
+  hashType: string;
+  previousHash: string;
+  currentHash: string;
+};
+
+type RunDashboardReproducibilityProfile = {
+  topDriftRunTypes: RunDashboardBucket[];
+  recentDriftAlerts: RunDashboardReproducibilityAlert[];
 };
 
 type RunDashboardRecentRun = {
@@ -83,6 +100,7 @@ type RunDashboardResponse = {
   retryProfile: RunDashboardRetryProfile;
   missingEvidenceProfile: RunDashboardMissingEvidenceProfile;
   toolFailureProfile: RunDashboardToolFailureProfile;
+  reproducibilityProfile: RunDashboardReproducibilityProfile;
   recentRuns: RunDashboardRecentRun[];
 };
 
@@ -91,6 +109,7 @@ const MAX_CONFIDENCE_BINS = 14;
 const MAX_TOOL_FAILURE_REASONS = 10;
 const MAX_MISSING_EVIDENCE_ITEMS = 10;
 const MAX_RECENT_RUNS = 20;
+const MAX_REPRODUCIBILITY_ALERTS = 8;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -138,6 +157,11 @@ type ParsedOutput = {
   fallbackLineage: string[];
   fallbackReason: string | null;
   toolFailures: string[];
+  sourceManifestHash: string | null;
+  evidenceHash: string | null;
+  runInputHash: string | null;
+  continuityHashType: string | null;
+  continuityHash: string | null;
 };
 
 function parseRunOutput(outputJson: unknown): ParsedOutput {
@@ -163,6 +187,23 @@ function parseRunOutput(outputJson: unknown): ParsedOutput {
     ? output.evidenceCitations
     : null;
   const evidenceCount = Array.isArray(evidenceCitations) ? evidenceCitations.length : 0;
+  const sourceManifestHash =
+    typeof output?.sourceManifestHash === "string" ? output.sourceManifestHash : null;
+  const evidenceHash =
+    typeof output?.evidenceHash === "string" ? output.evidenceHash : null;
+  const runInputHash =
+    typeof output?.runInputHash === "string"
+      ? output.runInputHash
+      : typeof runState?.[AGENT_RUN_STATE_KEYS.runInputHash] === "string"
+        ? String(runState[AGENT_RUN_STATE_KEYS.runInputHash])
+        : null;
+
+  const continuityHashType =
+    sourceManifestHash !== null
+      ? "sourceManifestHash"
+      : evidenceHash !== null
+        ? "evidenceHash"
+        : null;
 
   const missingEvidence = toStringArray(
     output?.[AGENT_RUN_STATE_KEYS.missingEvidence] ??
@@ -227,6 +268,11 @@ function parseRunOutput(outputJson: unknown): ParsedOutput {
     fallbackLineage,
     fallbackReason,
     toolFailures,
+    sourceManifestHash,
+    evidenceHash,
+    runInputHash,
+    continuityHashType,
+    continuityHash: sourceManifestHash ?? evidenceHash,
   };
 }
 
@@ -272,6 +318,9 @@ export async function GET(_request: NextRequest) {
       runsWithMissingEvidence: 0,
       avgMissingEvidenceCount: 0,
       totalMissingEvidenceCount: 0,
+      reproducibilityComparisons: 0,
+      reproducibilityDrifts: 0,
+      reproducibilityDriftRate: 0,
     };
 
     const confidenceBuckets = new Map<string, { confidenceSum: number; runCount: number }>();
@@ -279,7 +328,10 @@ export async function GET(_request: NextRequest) {
     const retryModeCounts = new Map<string, number>();
     const missingEvidenceCounts = new Map<string, number>();
     const toolFailureCounts = new Map<string, number>();
+    const reproducibilityDriftCounts = new Map<string, number>();
+    const reproducibilitySignals: RunDashboardReproducibilityAlert[] = [];
     const recentRuns: RunDashboardRecentRun[] = [];
+    const reproducibilityState = new Map<string, { hash: string; runId: string }>();
 
     for (const run of runs as RunRow[]) {
       totals.totalRuns += 1;
@@ -344,6 +396,34 @@ export async function GET(_request: NextRequest) {
           missingEvidenceCounts.set(item, (missingEvidenceCounts.get(item) ?? 0) + 1)
         );
       }
+      if (parsed.continuityHash) {
+        const continuityKey =
+          parsed.runInputHash !== null
+            ? `${run.runType}::${parsed.runInputHash}`
+            : `${run.runType}`;
+        const prior = reproducibilityState.get(continuityKey);
+
+        if (prior) {
+          totals.reproducibilityComparisons += 1;
+          if (prior.hash !== parsed.continuityHash) {
+            totals.reproducibilityDrifts += 1;
+            reproducibilityDriftCounts.set(run.runType, (reproducibilityDriftCounts.get(run.runType) ?? 0) + 1);
+            reproducibilitySignals.push({
+              runType: run.runType,
+              fromRunId: run.id,
+              toRunId: prior.runId,
+              hashType: parsed.continuityHashType ?? "unknown",
+              previousHash: prior.hash,
+              currentHash: parsed.continuityHash,
+            });
+          }
+        }
+
+        reproducibilityState.set(continuityKey, {
+          hash: parsed.continuityHash,
+          runId: run.id,
+        });
+      }
 
       const durationMs = run.finishedAt
         ? run.finishedAt.getTime() - run.startedAt.getTime()
@@ -377,6 +457,11 @@ export async function GET(_request: NextRequest) {
       totals.avgMissingEvidenceCount = Math.round(
         ((totals.totalMissingEvidenceCount / totals.runsWithMissingEvidence) + Number.EPSILON) * 100,
       ) / 100;
+    }
+    if (totals.reproducibilityComparisons > 0) {
+      totals.reproducibilityDriftRate = Math.round(
+        ((totals.reproducibilityDrifts / totals.reproducibilityComparisons) + Number.EPSILON) * 10000,
+      ) / 10000;
     }
 
     const confidenceTimeline: RunDashboardConfidencePoint[] = Array.from(
@@ -419,6 +504,9 @@ export async function GET(_request: NextRequest) {
         toolFailureEvents: totals.toolFailureEvents,
         runsWithMissingEvidence: totals.runsWithMissingEvidence,
         avgMissingEvidenceCount: totals.avgMissingEvidenceCount,
+        reproducibilityComparisons: totals.reproducibilityComparisons,
+        reproducibilityDrifts: totals.reproducibilityDrifts,
+        reproducibilityDriftRate: totals.reproducibilityDriftRate,
       },
       confidenceTimeline,
       runTypeDistribution: toBucketArray(runTypeCounts, MAX_DASHBOARD_RUNS),
@@ -430,6 +518,11 @@ export async function GET(_request: NextRequest) {
       },
       toolFailureProfile: {
         topToolFailureReasons: toBucketArray(toolFailureCounts, MAX_TOOL_FAILURE_REASONS),
+      },
+      reproducibilityProfile: {
+        topDriftRunTypes: toBucketArray(reproducibilityDriftCounts, MAX_TOOL_FAILURE_REASONS),
+        recentDriftAlerts: reproducibilitySignals
+          .slice(0, MAX_REPRODUCIBILITY_ALERTS),
       },
       recentRuns: recentRuns
         .slice()

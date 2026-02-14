@@ -26,6 +26,9 @@ export interface RunDashboardTotals {
   toolFailureEvents: number;
   runsWithMissingEvidence: number;
   avgMissingEvidenceCount: number;
+  reproducibilityComparisons: number;
+  reproducibilityDrifts: number;
+  reproducibilityDriftRate: number | null;
 }
 
 export interface RunDashboardRetryProfile {
@@ -38,6 +41,20 @@ export interface RunDashboardMissingEvidenceProfile {
 
 export interface RunDashboardToolFailureProfile {
   topToolFailureReasons: RunDashboardBucket[];
+}
+
+export interface RunDashboardReproducibilityAlert {
+  runType: string;
+  fromRunId: string;
+  toRunId: string;
+  hashType: string;
+  previousHash: string;
+  currentHash: string;
+}
+
+export interface RunDashboardReproducibilityProfile {
+  topDriftRunTypes: RunDashboardBucket[];
+  recentDriftAlerts: RunDashboardReproducibilityAlert[];
 }
 
 export interface RunDashboardRecentRun {
@@ -71,6 +88,7 @@ export interface RunDashboardPayload {
   retryProfile: RunDashboardRetryProfile;
   missingEvidenceProfile: RunDashboardMissingEvidenceProfile;
   toolFailureProfile: RunDashboardToolFailureProfile;
+  reproducibilityProfile: RunDashboardReproducibilityProfile;
   recentRuns: RunDashboardRecentRun[];
 }
 

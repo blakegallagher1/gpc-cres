@@ -95,7 +95,7 @@ This document maps the capabilities described in OpenAI’s in-house data agent 
 
 1. ✅ Add periodic reproducibility smoke runs in CI for source-ingestion and agent replay paths.
 2. ✅ Add explicit chaos coverage for cross-instance local-fallback lease races and stale-run recovery.
-3. Expand dashboards to surface reproducibility variance alerts when hash continuity drifts.
+3. ✅ Expand dashboards to surface reproducibility variance alerts when hash continuity drifts.
 
 ## 8) New Progress Notes (2026-02-14)
 
@@ -106,6 +106,7 @@ This document maps the capabilities described in OpenAI’s in-house data agent 
 - ✅ Added ranked source ingestion manifest pipeline in `apps/web/app/api/cron/source-ingestion/route.ts` with quality buckets, stale-ratio metrics, source manifest hashing, evidence citations, and hash continuity.
 - ✅ Wired missing-evidence retry envelope through web and worker agent finalization, and locked it in the shared + web contract tests.
 - ✅ Closed the unified citations loop by persisting stable source citations/hashes for triage outputs, parish-pack refresh outputs, and source-ingestion artifacts.
+- ✅ Added reproducibility drift surfacing to run dashboard payload and UI using continuity hash comparisons (`/api/runs/dashboard`, `/runs/dashboard`).
 
 ## 9) Verification Log
 
@@ -118,5 +119,9 @@ This document maps the capabilities described in OpenAI’s in-house data agent 
 - 2026-02-14 14:45:00 UTC: `pnpm typecheck` ✅
 - 2026-02-14 14:45:00 UTC: `pnpm test` ✅
 - 2026-02-14 14:45:00 UTC: `pnpm build` with placeholder env vars ✅
+- 2026-02-14 16:05:00 UTC: `pnpm lint` ✅
+- 2026-02-14 16:05:00 UTC: `pnpm typecheck` ✅
+- 2026-02-14 16:05:00 UTC: `pnpm test` ✅
+- 2026-02-14 16:05:00 UTC: `pnpm build` with placeholder env vars ✅
 
 Status for each upcoming step should be updated here as soon as work begins.

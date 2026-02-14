@@ -46,6 +46,34 @@ describe("GET /api/runs/dashboard", () => {
     resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
     runFindManyMock.mockResolvedValue([
       {
+        id: "run-ingest-stable",
+        runType: "SOURCE_INGEST",
+        status: "succeeded",
+        startedAt: new Date("2026-02-13T08:00:00.000Z"),
+        finishedAt: new Date("2026-02-13T08:00:03.000Z"),
+        outputJson: {
+          sourceManifestHash: "manifest-a",
+          evidenceHash: "evidence-a",
+          runState: {
+            [AGENT_RUN_STATE_KEYS.runInputHash]: "source-input-1",
+          },
+        },
+      },
+      {
+        id: "run-ingest-drift",
+        runType: "SOURCE_INGEST",
+        status: "succeeded",
+        startedAt: new Date("2026-02-13T07:00:00.000Z"),
+        finishedAt: new Date("2026-02-13T07:00:03.000Z"),
+        outputJson: {
+          sourceManifestHash: "manifest-b",
+          evidenceHash: "evidence-b",
+          runState: {
+            [AGENT_RUN_STATE_KEYS.runInputHash]: "source-input-1",
+          },
+        },
+      },
+      {
         id: "run-success",
         runType: "ENRICHMENT",
         status: "succeeded",
@@ -114,16 +142,32 @@ describe("GET /api/runs/dashboard", () => {
     const payload = await res.json();
 
     expect(res.status).toBe(200);
-    expect(payload.totals.totalRuns).toBe(2);
-    expect(payload.totals.succeededRuns).toBe(1);
+    expect(payload.totals.totalRuns).toBe(4);
+    expect(payload.totals.succeededRuns).toBe(3);
     expect(payload.totals.failedRuns).toBe(1);
     expect(payload.totals.runsWithRetry).toBe(1);
     expect(payload.totals.runsWithFallback).toBe(2);
     expect(payload.totals.runsWithToolFailures).toBe(2);
     expect(payload.totals.runsWithMissingEvidence).toBe(1);
+    expect(payload.totals.reproducibilityComparisons).toBe(1);
+    expect(payload.totals.reproducibilityDrifts).toBe(1);
+    expect(payload.totals.reproducibilityDriftRate).toBe(1);
+    expect(payload.reproducibilityProfile.topDriftRunTypes[0]).toMatchObject({
+      key: "SOURCE_INGEST",
+      count: 1,
+    });
+    expect(payload.reproducibilityProfile.recentDriftAlerts).toHaveLength(1);
+    expect(payload.reproducibilityProfile.recentDriftAlerts[0]).toMatchObject({
+      runType: "SOURCE_INGEST",
+      fromRunId: "run-ingest-drift",
+      toRunId: "run-ingest-stable",
+      hashType: "sourceManifestHash",
+      previousHash: "manifest-a",
+      currentHash: "manifest-b",
+    });
     expect(Array.isArray(payload.confidenceTimeline)).toBe(true);
-    expect(payload.runTypeDistribution[0].key).toBe("ENRICHMENT");
-    expect(payload.recentRuns.length).toBe(2);
+    expect(payload.runTypeDistribution[0].key).toBe("SOURCE_INGEST");
+    expect(payload.recentRuns.length).toBe(4);
     expect(payload.recentRuns[0].id).toBe("run-fail");
     expect(payload.recentRuns[1].id).toBe("run-success");
   });

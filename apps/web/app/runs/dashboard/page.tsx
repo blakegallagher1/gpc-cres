@@ -26,6 +26,7 @@ import { formatDate, formatDuration, formatNumber } from "@/lib/utils";
 import {
   type RunDashboardPayload,
   type RunDashboardRecentRun,
+  type RunDashboardReproducibilityAlert,
   useRunDashboard,
 } from "@/lib/hooks/useRunDashboard";
 
@@ -35,6 +36,10 @@ function percent(value: number) {
 
 function formatPercent(value: number | null | undefined) {
   return typeof value === "number" && Number.isFinite(value) ? `${Math.round(value * 100)}%` : "—";
+}
+
+function abbreviateId(value: string) {
+  return value.length > 8 ? `${value.slice(0, 8)}…` : value;
 }
 
 function statusBadgeVariant(status: string) {
@@ -252,6 +257,71 @@ function DistributionList({
   );
 }
 
+function ReproducibilityPanel({
+  alerts,
+  totalComparisons,
+  totalDrifts,
+  driftRate,
+  topRunTypes,
+}: {
+  alerts: RunDashboardReproducibilityAlert[];
+  totalComparisons: number;
+  totalDrifts: number;
+  driftRate: number | null;
+  topRunTypes: Array<{ key: string; count: number }>;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Reproducibility drift (hash continuity)</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="text-sm">
+          {totalComparisons === 0 ? (
+            <p className="text-muted-foreground">No hash continuity comparisons yet.</p>
+          ) : (
+            <p>
+              {totalDrifts} / {totalComparisons} comparisons drifted
+              <span className="text-muted-foreground"> ({formatPercent(driftRate)} rate).</span>
+            </p>
+          )}
+        </div>
+        {topRunTypes.length > 0 ? (
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Drift concentration</p>
+            {topRunTypes.map((item) => (
+              <div key={item.key} className="flex items-center justify-between text-xs">
+                <span className="font-mono">{item.key}</span>
+                <span className="text-muted-foreground">{item.count} drift(s)</span>
+              </div>
+            ))}
+          </div>
+        ) : null}
+        {alerts.length > 0 ? (
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Recent drifts</p>
+            <ul className="space-y-2 text-xs text-muted-foreground">
+              {alerts.map((alert) => (
+                <li key={`${alert.fromRunId}-${alert.toRunId}`} className="rounded border p-2">
+                  <div className="font-mono text-foreground">
+                    {abbreviateId(alert.fromRunId)} → {abbreviateId(alert.toRunId)}
+                  </div>
+                  <div>
+                    {alert.runType} / {alert.hashType}
+                  </div>
+                  <div className="font-mono break-all">
+                    {alert.previousHash.slice(0, 12)} → {alert.currentHash.slice(0, 12)}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function RunDashboardPage() {
   const { dashboard, isLoading, isError, mutate } = useRunDashboard({
     runLimit: 500,
@@ -301,6 +371,12 @@ export default function RunDashboardPage() {
         title: "Missing-evidence runs",
         value: formatNumber(totals.runsWithMissingEvidence),
         detail: `Avg missing items: ${totals.avgMissingEvidenceCount}`,
+        icon: <AlertTriangle className="h-4 w-4" />,
+      },
+      {
+        title: "Reproducibility drift",
+        value: formatNumber(totals.reproducibilityDrifts),
+        detail: `${formatPercent(totals.reproducibilityDriftRate)} drift rate`,
         icon: <AlertTriangle className="h-4 w-4" />,
       },
     ];
@@ -366,6 +442,21 @@ export default function RunDashboardPage() {
             items={dashboard.runTypeDistribution}
             total={dashboard.totals.totalRuns}
             valueLabel="run type"
+          />
+        </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <DistributionList
+            title="Reproducibility drift by run type"
+            items={dashboard.reproducibilityProfile.topDriftRunTypes}
+            total={dashboard.totals.reproducibilityDrifts || 1}
+            valueLabel="run type"
+          />
+          <ReproducibilityPanel
+            alerts={dashboard.reproducibilityProfile.recentDriftAlerts}
+            totalComparisons={dashboard.totals.reproducibilityComparisons}
+            totalDrifts={dashboard.totals.reproducibilityDrifts}
+            driftRate={dashboard.totals.reproducibilityDriftRate}
+            topRunTypes={dashboard.reproducibilityProfile.topDriftRunTypes}
           />
         </div>
 
