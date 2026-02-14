@@ -18,6 +18,7 @@ const QUALITY_LOOKBACK_DAYS = 14;
 const STALE_ALERT_DAYS = 21;
 const QUALITY_ALERT_THRESHOLD = 0.55;
 const STALE_RATIO_ALERT_THRESHOLD = 0.4;
+const STALE_OFFENDER_ALERT_LIMIT = 6;
 const SOURCE_CAPTURE_BUCKETS = {
   UNKNOWN: "never_captured",
   CRITICAL: "critical",
@@ -26,6 +27,30 @@ const SOURCE_CAPTURE_BUCKETS = {
   FRESH: "fresh",
 } as const;
 const SOURCE_PURPOSE_DISCOVERED = "discovered";
+
+type StaleOffenderPriority = "critical" | "warning";
+
+type StaleSourceOffender = {
+  url: string;
+  jurisdictionId: string;
+  jurisdictionName: string;
+  purpose: string;
+  stalenessDays: number | null;
+  qualityScore: number;
+  qualityBucket: string;
+  rankScore: number;
+  captureAttempts: number;
+  captureError: string | null;
+  isOfficial: boolean;
+  discovered: boolean;
+  evidenceSourceId: string | null;
+  evidenceSnapshotId: string | null;
+  contentHash: string | null;
+  captureSuccess: boolean;
+  alertReasons: string[];
+  priority: StaleOffenderPriority;
+  priorityWeight: number;
+};
 
 type StaleSource = {
   url: string;
@@ -93,11 +118,95 @@ interface OrgState {
     totalQuality: number;
     qualityCount: number;
     staleSources: StaleSource[];
+    staleSourceOffenders: StaleSourceOffender[];
     errors: string[];
     sourceManifest: SourceCaptureManifestEntry[];
     discoveryCount: number;
     discoveryUrls: string[];
   };
+}
+
+function buildOffenderPriority(entry: SourceCaptureManifestEntry): {
+  priority: StaleOffenderPriority;
+  priorityWeight: number;
+  alertReasons: string[];
+} {
+  const alertReasons: string[] = [];
+  let priority: StaleOffenderPriority = "warning";
+  let priorityWeight = entry.rankScore;
+
+  if (!entry.captureSuccess) {
+    priority = "critical";
+    priorityWeight += 12_000;
+    alertReasons.push("Capture failed after retries.");
+  }
+
+  if (entry.stalenessDays === null) {
+    priority = "critical";
+    priorityWeight += 9_000;
+    alertReasons.push("No successful snapshot exists yet.");
+  } else if (entry.stalenessDays >= STALE_ALERT_DAYS) {
+    priority = "critical";
+    priorityWeight += Math.min(entry.stalenessDays * 80, 8_000);
+    alertReasons.push(`Source is ${entry.stalenessDays} days stale.`);
+  }
+
+  if (entry.qualityBucket === SOURCE_CAPTURE_BUCKETS.CRITICAL) {
+    priority = "critical";
+    priorityWeight += 4_000;
+    alertReasons.push("Evidence quality is in critical bucket.");
+  } else if (
+    entry.qualityBucket === SOURCE_CAPTURE_BUCKETS.STALE &&
+    priority !== "critical"
+  ) {
+    alertReasons.push("Evidence quality is stale.");
+    priorityWeight += 1_000;
+  }
+
+  if (entry.qualityScore < QUALITY_ALERT_THRESHOLD) {
+    priority = "critical";
+    priorityWeight += 1_500;
+    alertReasons.push(`Freshness score ${entry.qualityScore.toFixed(2)} below alert threshold.`);
+  }
+
+  if (!entry.captureSuccess && entry.captureError) {
+    alertReasons.push(entry.captureError);
+  }
+
+  return {
+    priority,
+    priorityWeight,
+    alertReasons: Array.from(new Set(alertReasons)),
+  };
+}
+
+function sortByOffenderPriority(
+  a: StaleSourceOffender,
+  b: StaleSourceOffender,
+): number {
+  if (a.priority !== b.priority) {
+    return a.priority === "critical" ? -1 : 1;
+  }
+
+  return (
+    b.priorityWeight - a.priorityWeight ||
+    b.rankScore - a.rankScore ||
+    b.captureAttempts - a.captureAttempts ||
+    a.url.localeCompare(b.url)
+  );
+}
+
+function formatOffenderLine(
+  entry: StaleSourceOffender,
+): string {
+  const stalenessText = entry.stalenessDays === null
+    ? "never captured"
+    : `${entry.stalenessDays}d stale`;
+  const statusText = `${entry.priority} score ${Math.round(entry.qualityScore * 100)} (${entry.qualityBucket})`;
+  const reasons = entry.alertReasons.length > 0
+    ? ` - ${entry.alertReasons.join(", ")}`
+    : "";
+  return `${entry.url} (${entry.jurisdictionName}) [${statusText}], ${stalenessText}, rank ${entry.rankScore}${reasons}`;
 }
 
 function verifyCronSecret(req: Request): boolean {
@@ -446,6 +555,7 @@ export async function GET(req: Request) {
             },
             staleCount: 0,
             staleSources: [],
+            staleSourceOffenders: [],
             errors: [],
             sourceManifest: [],
             discoveryCount: discoveryInfo?.count ?? 0,
@@ -534,6 +644,30 @@ export async function GET(req: Request) {
           captureAttempts: captureResult.attempts,
           captureError: captureResult.captureError,
         });
+
+        const { priority, priorityWeight, alertReasons } = buildOffenderPriority(manifestEntry);
+        const staleSourceOffender: StaleSourceOffender = {
+          url: source.url,
+          jurisdictionId: jurisdiction.id,
+          jurisdictionName: entry.jurisdictionName,
+          purpose: source.purpose,
+          stalenessDays: finalStalenessDays,
+          qualityScore: finalQualityScore,
+          qualityBucket: finalQualityBucket,
+          rankScore: entry.rankScore,
+          captureAttempts: captureResult.attempts,
+          captureError: captureResult.captured ? null : captureResult.captureError,
+          isOfficial: entry.isOfficial,
+          discovered: entry.discovered,
+          evidenceSourceId: captureResult.evidenceSourceId ?? null,
+          evidenceSnapshotId: captureResult.evidenceSnapshotId ?? null,
+          contentHash: captureResult.contentHash ?? null,
+          captureSuccess: captureResult.captured,
+          alertReasons,
+          priority,
+          priorityWeight,
+        };
+        stats.staleSourceOffenders.push(staleSourceOffender);
       }
     }
 
@@ -542,6 +676,9 @@ export async function GET(req: Request) {
       runId: string;
       staleRatio: number;
       staleSources: StaleSource[];
+      staleOffenders: StaleSourceOffender[];
+      staleOffenderCount: number;
+      sourceManifestHash: string;
       totalSources: number;
       staleCount: number;
       discovery: { count: number; urls: string[] };
@@ -556,6 +693,13 @@ export async function GET(req: Request) {
         stats.qualityCount > 0 ? stats.totalQuality / stats.qualityCount : null;
       const staleRatio =
         stats.totalSources > 0 ? stats.staleCount / stats.totalSources : 0;
+      const prioritizedStaleOffenders = [...stats.staleSourceOffenders].sort(
+        sortByOffenderPriority
+      );
+      const staleOffenderPayload = prioritizedStaleOffenders.slice(
+        0,
+        STALE_OFFENDER_ALERT_LIMIT,
+      );
       const evidenceCitations = dedupeEvidenceCitations(
         stats.sourceManifest
           .filter((entry) => entry.captureSuccess)
@@ -610,6 +754,7 @@ export async function GET(req: Request) {
             staleRatioThreshold: STALE_RATIO_ALERT_THRESHOLD,
             qualityAlertThreshold: QUALITY_ALERT_THRESHOLD,
             sourceManifest: stats.sourceManifest,
+            staleSourceOffenders: staleOffenderPayload,
             sourceManifestHash,
             evidenceCitations,
             evidenceHash,
@@ -624,6 +769,9 @@ export async function GET(req: Request) {
         runId: state.runId,
         staleRatio,
         staleSources: stats.staleSources,
+        staleOffenders: staleOffenderPayload,
+        staleOffenderCount: stats.staleSourceOffenders.length,
+        sourceManifestHash,
         totalSources: stats.totalSources,
         staleCount: stats.staleCount,
         discovery: {
@@ -641,10 +789,36 @@ export async function GET(req: Request) {
       if (recipients.length === 0) continue;
 
       const highlighted = summary.staleSources.slice(0, 4);
+      const prioritizedHighlights: StaleSourceOffender[] =
+        summary.staleOffenders.length > 0
+          ? summary.staleOffenders.slice(0, 4)
+          : highlighted.map((entry) => ({
+              url: entry.url,
+              jurisdictionId: "",
+              jurisdictionName: entry.jurisdictionName,
+              purpose: entry.purpose,
+              stalenessDays: entry.stalenessDays,
+              qualityScore: entry.qualityScore,
+              qualityBucket: entry.qualityBucket,
+              rankScore: entry.rankScore,
+              captureAttempts: entry.captureAttempts,
+              captureError: entry.captureError,
+              isOfficial: false,
+              discovered: false,
+              evidenceSourceId: null,
+              evidenceSnapshotId: null,
+              contentHash: null,
+              captureSuccess: false,
+              alertReasons: ["Source flagged stale by scoring criteria."],
+              priority: "warning",
+              priorityWeight: 0,
+            }));
       const bodyLines = [
         `Source ingestion found ${summary.staleSources.length} stale/weak-confidence seeds for this org (ratio ${(summary.staleRatio * 100).toFixed(1)}%).`,
         `Stale ratio threshold is ${(STALE_RATIO_ALERT_THRESHOLD * 100).toFixed(0)}%.`,
         `Quality lookback window: ${QUALITY_LOOKBACK_DAYS} days.`,
+        `Top prioritized stale offenders (${summary.staleOffenderCount} total, ${prioritizedHighlights.length} shown):`,
+        ...prioritizedHighlights.map((entry) => `- ${formatOffenderLine(entry)}`),
         "Examples:",
         ...highlighted.map(
           (entry) =>
@@ -662,6 +836,9 @@ export async function GET(req: Request) {
         runId: summary.runId,
         staleCount: summary.staleCount,
         staleRatio: summary.staleRatio,
+        staleOffenderCount: summary.staleOffenderCount,
+        staleOffenderSamples: summary.staleOffenders,
+        sourceManifestHash: summary.sourceManifestHash,
       };
 
       await Promise.all(
@@ -694,6 +871,9 @@ export async function GET(req: Request) {
         staleRatios: orgSummaries.map((item) => ({
           orgId: item.orgId,
           staleRatio: item.staleRatio,
+          staleOffenderCount: item.staleOffenderCount,
+          sourceManifestHash: item.sourceManifestHash,
+          staleOffenders: item.staleOffenders,
         })),
       },
     };

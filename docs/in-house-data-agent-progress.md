@@ -72,7 +72,7 @@ This document maps the capabilities described in OpenAI’s in-house data agent 
 |---|---|---|---|
 | Agent-state dashboards (plan, confidence, retries) | ✅ | `apps/web/app/runs/*`, `apps/web/app/api/runs/*` | Add confidence-over-time visualizations and persisted trace events (tool calls, proof checks, retries). |
 | Evidence and run audit explorer | ✅ | `apps/web/app/evidence/page.tsx`, `apps/web/app/api/evidence/route.ts`, `apps/web/app/runs/[runId]/page.tsx` | Add evidence freshness signal rollups on run dashboard and stale-source alert cards. |
-| Source ingestion staleness alerts | ✅ | `apps/web/app/api/cron/source-ingestion/route.ts` | Add stale-ratio thresholding + top-offender alert payload with manifest-backed evidence context. |
+| Source ingestion staleness alerts | ✅ | `apps/web/app/api/cron/source-ingestion/route.ts` | Add stale-ratio thresholding + manifest-backed stale-offender prioritization and alert payload context. |
 | End-to-end reproducibility checks | ✅ | `packages/shared/src/evidence.ts`, `packages/shared/test/source-manifest-hash.test.ts`, `apps/web/lib/agent/__tests__/executeAgent.runState-contract.test.ts` | Added periodic reproducibility smoke workflow (`.github/workflows/reproducibility-smoke.yml`). |
 
 ## 6) Done List (Committed so far)
@@ -93,6 +93,8 @@ This document maps the capabilities described in OpenAI’s in-house data agent 
 - ✅ Added workflow-trace visibility for dashboard rows and retry-policy telemetry (`correlationId`, `openaiResponseId`, `retryPolicyReason`) plus dashboard-level retry-policy reason distribution.
 - ✅ Added evidence explorer snapshot drill-down (`/evidence`) and run-level evidence audit timeline (`/runs/[runId]`), with source-run linking and per-source history loading.
 - ✅ Added evidence freshness scoring and alert-level drift signals to `/evidence` source rows using latest/previous hash deltas and staleness calculations.
+- ✅ Added evidence freshness/alert rollups to `/runs/dashboard` totals and evidence profile distribution payloads, including average freshness score and source alert counts.
+- ✅ Implemented stale-source prioritization and manifest-backed stale-offender alerting in `/api/cron/source-ingestion`, including prioritized offender payloads and manifest hash in response metadata.
 
 ## 7) Next 3 Recommended Execution Steps
 
@@ -115,6 +117,8 @@ This document maps the capabilities described in OpenAI’s in-house data agent 
 - ✅ Extended run dashboard telemetry with workflow trace context and retry-policy reason visibility for explicit retry trace context.
 - ✅ Implemented `/evidence` source drill-down with snapshot timeline and run-level audit timeline tab.
 - ✅ Added per-source evidence freshness score, drift state, and alert severity to `/api/evidence` responses for operational triage.
+- ✅ Added run dashboard evidence freshness and alert rollups, including state/alert distributions and average freshness score.
+- ✅ Implemented stale-source prioritization with manifest-backed stale-offender payload and notification metadata in `/api/cron/source-ingestion`.
 
 ## 9) Verification Log
 

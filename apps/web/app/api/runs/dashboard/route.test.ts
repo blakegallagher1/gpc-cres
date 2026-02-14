@@ -1,9 +1,10 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { resolveAuthMock, runFindManyMock } = vi.hoisted(() => ({
+const { resolveAuthMock, runFindManyMock, evidenceSourceFindManyMock } = vi.hoisted(() => ({
   resolveAuthMock: vi.fn(),
   runFindManyMock: vi.fn(),
+  evidenceSourceFindManyMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/resolveAuth", () => ({
@@ -14,6 +15,9 @@ vi.mock("@entitlement-os/db", () => ({
   prisma: {
     run: {
       findMany: runFindManyMock,
+    },
+    evidenceSource: {
+      findMany: evidenceSourceFindManyMock,
     },
   },
 }));
@@ -28,6 +32,7 @@ describe("GET /api/runs/dashboard", () => {
   beforeEach(() => {
     resolveAuthMock.mockReset();
     runFindManyMock.mockReset();
+    evidenceSourceFindManyMock.mockReset();
   });
 
   it("returns 401 when unauthenticated", async () => {
@@ -43,6 +48,46 @@ describe("GET /api/runs/dashboard", () => {
   });
 
   it("builds dashboard aggregates and surfaces run-state metrics", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-02-14T12:00:00.000Z"));
+
+    evidenceSourceFindManyMock.mockResolvedValue([
+      {
+        id: "source-1",
+        evidenceSnapshots: [
+          {
+            id: "snap-source-1-latest",
+            retrievedAt: new Date("2026-02-14T11:10:00.000Z"),
+            contentHash: "hash-source-1-latest",
+            httpStatus: 200,
+          },
+          {
+            id: "snap-source-1-prior",
+            retrievedAt: new Date("2026-02-14T10:30:00.000Z"),
+            contentHash: "hash-source-1-latest",
+            httpStatus: 200,
+          },
+        ],
+      },
+      {
+        id: "source-2",
+        evidenceSnapshots: [
+          {
+            id: "snap-source-2-latest",
+            retrievedAt: new Date("2026-02-10T10:00:00.000Z"),
+            contentHash: "hash-source-2-latest",
+            httpStatus: 200,
+          },
+          {
+            id: "snap-source-2-prior",
+            retrievedAt: new Date("2026-02-09T10:00:00.000Z"),
+            contentHash: "hash-source-2-prior",
+            httpStatus: 200,
+          },
+        ],
+      },
+    ]);
+
     resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
     runFindManyMock.mockResolvedValue([
       {
@@ -113,7 +158,7 @@ describe("GET /api/runs/dashboard", () => {
             nextRetryMode: "none",
             reason: "no-continuity-change",
           },
-          evidenceCitations: [{ source: "source-1" }],
+          evidenceCitations: [{ sourceId: "source-1" }],
           confidence: 0.92,
           retryAttempts: 1,
           retryMode: "local",
@@ -163,56 +208,101 @@ describe("GET /api/runs/dashboard", () => {
             nextRetryMode: "local",
             reason: "insufficient-evidence",
           },
+          evidenceCitations: [{ sourceId: "source-2" }],
         },
       },
     ]);
 
     const req = new NextRequest("http://localhost/api/runs/dashboard");
-    const res = await GET(req);
-    const payload = await res.json();
+    try {
+      const res = await GET(req);
+      const payload = await res.json();
 
-    expect(res.status).toBe(200);
-    expect(payload.totals.totalRuns).toBe(4);
-    expect(payload.totals.succeededRuns).toBe(3);
-    expect(payload.totals.failedRuns).toBe(1);
-    expect(payload.totals.runsWithRetry).toBe(1);
-    expect(payload.totals.runsWithFallback).toBe(2);
-    expect(payload.totals.runsWithToolFailures).toBe(2);
-    expect(payload.totals.runsWithMissingEvidence).toBe(1);
-    expect(payload.totals.runsWithRetryPolicy).toBe(2);
-    expect(payload.totals.runsWithRetryPolicyTriggers).toBe(1);
-    expect(payload.totals.retryPolicyAttempts).toBe(2);
-    expect(payload.totals.maxRetryPolicyAttempts).toBe(3);
-    expect(payload.totals.averageRetryPolicyAttempts).toBe(1);
-    expect(payload.totals.reproducibilityComparisons).toBe(1);
-    expect(payload.totals.reproducibilityDrifts).toBe(1);
-    expect(payload.totals.reproducibilityDriftRate).toBe(1);
-    expect(payload.retryProfile.retryPolicyReasonDistribution[0]).toMatchObject({
-      key: "insufficient-evidence",
-      count: 1,
-    });
-    expect(payload.reproducibilityProfile.topDriftRunTypes[0]).toMatchObject({
-      key: "SOURCE_INGEST",
-      count: 1,
-    });
-    expect(payload.reproducibilityProfile.recentDriftAlerts).toHaveLength(1);
-    expect(payload.reproducibilityProfile.recentDriftAlerts[0]).toMatchObject({
-      runType: "SOURCE_INGEST",
-      fromRunId: "run-ingest-drift",
-      toRunId: "run-ingest-stable",
-      hashType: "sourceManifestHash",
-      previousHash: "manifest-a",
-      currentHash: "manifest-b",
-    });
-    expect(Array.isArray(payload.confidenceTimeline)).toBe(true);
-    expect(payload.runTypeDistribution[0].key).toBe("SOURCE_INGEST");
-    expect(payload.recentRuns.length).toBe(4);
-    expect(payload.recentRuns[0].id).toBe("run-fail");
-    expect(payload.recentRuns[1].id).toBe("run-success");
-    expect(payload.recentRuns[0].correlationId).toBe("corr-fail");
-    expect(payload.recentRuns[0].openaiResponseId).toBe("resp-fail");
-    expect(payload.recentRuns[0].retryPolicyReason).toBe("insufficient-evidence");
-    expect(payload.recentRuns[0].retryPolicyAttempts).toBe(1);
-    expect(payload.recentRuns[0].retryPolicyShouldRetry).toBe(true);
+      expect(res.status).toBe(200);
+      expect(payload.totals.totalRuns).toBe(4);
+      expect(payload.totals.succeededRuns).toBe(3);
+      expect(payload.totals.failedRuns).toBe(1);
+      expect(payload.totals.runsWithRetry).toBe(1);
+      expect(payload.totals.runsWithFallback).toBe(2);
+      expect(payload.totals.runsWithToolFailures).toBe(2);
+      expect(payload.totals.runsWithMissingEvidence).toBe(1);
+      expect(payload.totals.runsWithRetryPolicy).toBe(2);
+      expect(payload.totals.runsWithRetryPolicyTriggers).toBe(1);
+      expect(payload.totals.retryPolicyAttempts).toBe(2);
+      expect(payload.totals.maxRetryPolicyAttempts).toBe(3);
+      expect(payload.totals.averageRetryPolicyAttempts).toBe(1);
+      expect(payload.totals.reproducibilityComparisons).toBe(1);
+      expect(payload.totals.reproducibilityDrifts).toBe(1);
+      expect(payload.totals.reproducibilityDriftRate).toBe(1);
+      expect(payload.totals.evidenceCitations).toBe(2);
+      expect(payload.totals.evidenceSnapshotsCited).toBe(2);
+      expect(payload.totals.evidenceSourcesCited).toBe(2);
+      expect(payload.totals.evidenceSourcesFresh).toBe(1);
+      expect(payload.totals.evidenceSourcesAging).toBe(0);
+      expect(payload.totals.evidenceSourcesStale).toBe(1);
+      expect(payload.totals.evidenceSourcesCritical).toBe(0);
+      expect(payload.totals.evidenceSourcesUnknown).toBe(0);
+      expect(payload.totals.evidenceSourcesDrifted).toBe(1);
+      expect(payload.totals.evidenceSourcesWithAlerts).toBe(1);
+      expect(payload.totals.evidenceCriticalAlertSources).toBe(0);
+      expect(payload.totals.evidenceWarningAlertSources).toBe(1);
+      expect(payload.totals.evidenceAverageFreshnessScore).toBe(72.5);
+      expect(payload.evidenceProfile.freshnessStateDistribution).toEqual(
+        expect.arrayContaining([
+          { key: "fresh", count: 1 },
+          { key: "stale", count: 1 },
+        ]),
+      );
+      expect(payload.evidenceProfile.alertReasonDistribution).toEqual(
+        expect.arrayContaining([
+          {
+            key: "Evidence source freshness is declining.",
+            count: 1,
+          },
+          {
+            key: "Content hash drift detected from previous snapshot.",
+            count: 1,
+          },
+        ]),
+      );
+      expect(payload.retryProfile.retryPolicyReasonDistribution[0]).toMatchObject({
+        key: "insufficient-evidence",
+        count: 1,
+      });
+      expect(payload.reproducibilityProfile.topDriftRunTypes[0]).toMatchObject({
+        key: "SOURCE_INGEST",
+        count: 1,
+      });
+      expect(payload.reproducibilityProfile.recentDriftAlerts).toHaveLength(1);
+      expect(payload.reproducibilityProfile.recentDriftAlerts[0]).toMatchObject({
+        runType: "SOURCE_INGEST",
+        fromRunId: "run-ingest-drift",
+        toRunId: "run-ingest-stable",
+        hashType: "sourceManifestHash",
+        previousHash: "manifest-a",
+        currentHash: "manifest-b",
+      });
+      expect(Array.isArray(payload.confidenceTimeline)).toBe(true);
+      expect(payload.runTypeDistribution[0].key).toBe("SOURCE_INGEST");
+      expect(payload.recentRuns.length).toBe(4);
+      expect(payload.recentRuns[0].id).toBe("run-fail");
+      expect(payload.recentRuns[1].id).toBe("run-success");
+      expect(payload.recentRuns[0].correlationId).toBe("corr-fail");
+      expect(payload.recentRuns[0].openaiResponseId).toBe("resp-fail");
+      expect(payload.recentRuns[0].retryPolicyReason).toBe("insufficient-evidence");
+      expect(payload.recentRuns[0].retryPolicyAttempts).toBe(1);
+      expect(payload.recentRuns[0].retryPolicyShouldRetry).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(evidenceSourceFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: { in: ["source-1", "source-2"] },
+          orgId: ORG_ID,
+        }),
+      }),
+    );
   });
 });

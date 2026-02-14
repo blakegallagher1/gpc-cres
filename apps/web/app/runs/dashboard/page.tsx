@@ -376,6 +376,24 @@ export default function RunDashboardPage() {
         icon: <LineChart className="h-4 w-4" />,
       },
       {
+        title: "Evidence citations",
+        value: formatNumber(totals.evidenceCitations),
+        detail: `${totals.evidenceSnapshotsCited} snapshots · ${totals.evidenceSourcesCited} sources`,
+        icon: <CheckCircle2 className="h-4 w-4" />,
+      },
+      {
+        title: "Evidence freshness",
+        value: formatPercent(totals.evidenceAverageFreshnessScore),
+        detail: `${totals.evidenceSourcesWithAlerts} source(s) with active alerts`,
+        icon: <AlertTriangle className="h-4 w-4" />,
+      },
+      {
+        title: "Evidence alerts",
+        value: `${totals.evidenceCriticalAlertSources}/${totals.evidenceSourcesWithAlerts}`,
+        detail: `Critical / warning with continuity drift: ${totals.evidenceWarningAlertSources}`,
+        icon: <AlertTriangle className="h-4 w-4" />,
+      },
+      {
         title: "Retry runs",
         value: formatNumber(totals.runsWithRetry),
         detail: `Total attempts: ${totals.retryAttempts}`,
@@ -460,6 +478,21 @@ export default function RunDashboardPage() {
               />
             ))}
           </div>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <DistributionList
+            title="Evidence freshness by state"
+            items={dashboard.evidenceProfile.freshnessStateDistribution}
+            total={dashboard.totals.evidenceSourcesCited || 1}
+            valueLabel="evidence source state"
+          />
+          <DistributionList
+            title="Evidence alert reasons"
+            items={dashboard.evidenceProfile.alertReasonDistribution}
+            total={dashboard.totals.evidenceSourcesWithAlerts || 1}
+            valueLabel="alert reason"
+          />
+        </div>
 
         <div className="grid gap-4 lg:grid-cols-2">
           <ConfidenceTimeline timeline={dashboard.confidenceTimeline} />

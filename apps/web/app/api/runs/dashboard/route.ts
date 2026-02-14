@@ -13,6 +13,31 @@ type RunRow = {
   outputJson: unknown;
 };
 
+type EvidenceFreshnessState = "fresh" | "aging" | "stale" | "critical" | "unknown";
+type EvidenceDriftSignal = "stable" | "changed" | "insufficient";
+type EvidenceAlertLevel = "none" | "warning" | "critical";
+
+type EvidenceSnapshotRecord = {
+  id: string;
+  retrievedAt: Date;
+  httpStatus: number;
+  contentHash: string;
+};
+
+type EvidenceCitationRef = {
+  sourceId?: string;
+  snapshotId?: string;
+  contentHash?: string;
+};
+
+type EvidenceSourceFreshnessSignal = {
+  freshnessScore: number;
+  freshnessState: EvidenceFreshnessState;
+  driftSignal: EvidenceDriftSignal;
+  alertLevel: EvidenceAlertLevel;
+  alertReasons: string[];
+};
+
 type RunDashboardBucket = {
   key: string;
   count: number;
@@ -51,6 +76,18 @@ type RunDashboardTotals = {
   reproducibilityComparisons: number;
   reproducibilityDrifts: number;
   reproducibilityDriftRate: number | null;
+  evidenceSourcesCited: number;
+  evidenceSourcesFresh: number;
+  evidenceSourcesAging: number;
+  evidenceSourcesStale: number;
+  evidenceSourcesCritical: number;
+  evidenceSourcesUnknown: number;
+  evidenceSourcesDrifted: number;
+  evidenceSourcesWithAlerts: number;
+  evidenceCriticalAlertSources: number;
+  evidenceWarningAlertSources: number;
+  evidenceSnapshotsCited: number;
+  evidenceAverageFreshnessScore: number | null;
 };
 
 type RunDashboardRetryProfile = {
@@ -78,6 +115,11 @@ type RunDashboardReproducibilityAlert = {
 type RunDashboardReproducibilityProfile = {
   topDriftRunTypes: RunDashboardBucket[];
   recentDriftAlerts: RunDashboardReproducibilityAlert[];
+};
+
+type RunDashboardEvidenceProfile = {
+  freshnessStateDistribution: RunDashboardBucket[];
+  alertReasonDistribution: RunDashboardBucket[];
 };
 
 type RunDashboardEvidenceRetryPolicy = {
@@ -125,6 +167,7 @@ type RunDashboardResponse = {
   retryProfile: RunDashboardRetryProfile;
   missingEvidenceProfile: RunDashboardMissingEvidenceProfile;
   toolFailureProfile: RunDashboardToolFailureProfile;
+  evidenceProfile: RunDashboardEvidenceProfile;
   reproducibilityProfile: RunDashboardReproducibilityProfile;
   recentRuns: RunDashboardRecentRun[];
 };
@@ -135,6 +178,7 @@ const MAX_TOOL_FAILURE_REASONS = 10;
 const MAX_MISSING_EVIDENCE_ITEMS = 10;
 const MAX_RECENT_RUNS = 20;
 const MAX_REPRODUCIBILITY_ALERTS = 8;
+const MAX_EVIDENCE_ALERT_REASONS = 8;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -155,6 +199,113 @@ function toNumber(value: unknown): number {
     }
   }
   return NaN;
+}
+
+function freshnessStateFromHours(hoursSinceCapture: number): EvidenceFreshnessState {
+  if (Number.isNaN(hoursSinceCapture) || !Number.isFinite(hoursSinceCapture)) return "unknown";
+  if (hoursSinceCapture <= 24) return "fresh";
+  if (hoursSinceCapture <= 72) return "aging";
+  if (hoursSinceCapture <= 168) return "stale";
+  return "critical";
+}
+
+function freshnessScoreFromState(hoursSinceCapture: number, state: EvidenceFreshnessState): number {
+  if (Number.isNaN(hoursSinceCapture) || !Number.isFinite(hoursSinceCapture)) return 0;
+  if (state === "fresh") return 100;
+  if (state === "aging") return 80;
+  if (state === "stale") return 45;
+  if (state === "critical") return 20;
+  return 0;
+}
+
+function buildEvidenceFreshnessSignals(
+  latestSnapshot?: EvidenceSnapshotRecord | null,
+  previousSnapshot?: EvidenceSnapshotRecord | null,
+): EvidenceSourceFreshnessSignal {
+  if (!latestSnapshot) {
+    return {
+      freshnessScore: 0,
+      freshnessState: "unknown",
+      driftSignal: "insufficient",
+      alertLevel: "critical",
+      alertReasons: ["No evidence snapshots available for this source."],
+    };
+  }
+
+  const nowMs = Date.now();
+  const hoursSinceCapture =
+    (nowMs - latestSnapshot.retrievedAt.getTime()) / (1000 * 60 * 60);
+  const freshnessState = freshnessStateFromHours(hoursSinceCapture);
+  const alertReasons: string[] = [];
+
+  if (latestSnapshot.httpStatus >= 500) {
+    alertReasons.push("Latest capture returned a server error.");
+  } else if (latestSnapshot.httpStatus >= 400) {
+    alertReasons.push("Latest capture returned a non-successful status.");
+  }
+
+  if (freshnessState === "critical") {
+    alertReasons.push("Evidence source has become critically stale.");
+  } else if (freshnessState === "stale") {
+    alertReasons.push("Evidence source freshness is declining.");
+  }
+
+  const driftSignal: EvidenceDriftSignal =
+    previousSnapshot == null
+      ? "insufficient"
+      : latestSnapshot.contentHash === previousSnapshot.contentHash
+        ? "stable"
+        : "changed";
+
+  if (driftSignal === "changed") {
+    alertReasons.push("Content hash drift detected from previous snapshot.");
+  }
+
+  const alertLevel: EvidenceAlertLevel =
+    freshnessState === "critical" || latestSnapshot.httpStatus >= 500
+      ? "critical"
+      : alertReasons.length > 0
+        ? "warning"
+        : "none";
+
+  return {
+    freshnessScore: freshnessScoreFromState(hoursSinceCapture, freshnessState),
+    freshnessState,
+    driftSignal,
+    alertLevel,
+    alertReasons,
+  };
+}
+
+function parseEvidenceCitations(value: unknown): EvidenceCitationRef[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((entry): EvidenceCitationRef | null => {
+      if (!isRecord(entry)) {
+        return null;
+      }
+
+      const sourceId =
+        typeof entry.sourceId === "string"
+          ? entry.sourceId
+          : typeof entry.source === "string"
+            ? entry.source
+            : undefined;
+      const snapshotId =
+        typeof entry.snapshotId === "string" ? entry.snapshotId : undefined;
+      const contentHash =
+        typeof entry.contentHash === "string" ? entry.contentHash : undefined;
+
+      if (!sourceId && !snapshotId && !contentHash) {
+        return null;
+      }
+
+      return { sourceId, snapshotId, contentHash };
+    })
+    .filter((citation): citation is EvidenceCitationRef => citation !== null);
 }
 
 function parseBoolean(value: unknown): boolean | null {
@@ -243,6 +394,7 @@ type ParsedOutput = {
   evidenceRetryPolicy: RunDashboardEvidenceRetryPolicy | null;
   continuityHashType: string | null;
   continuityHash: string | null;
+  evidenceCitations: EvidenceCitationRef[];
 };
 
 function parseRunOutput(outputJson: unknown): ParsedOutput {
@@ -264,10 +416,10 @@ function parseRunOutput(outputJson: unknown): ParsedOutput {
       ? String(runState[AGENT_RUN_STATE_KEYS.status])
       : null;
 
-  const evidenceCitations = isRecord(output)
-    ? output.evidenceCitations
-    : null;
-  const evidenceCount = Array.isArray(evidenceCitations) ? evidenceCitations.length : 0;
+  const evidenceCitations = parseEvidenceCitations(
+    output?.evidenceCitations ?? null,
+  );
+  const evidenceCount = evidenceCitations.length;
   const sourceManifestHash =
     typeof output?.sourceManifestHash === "string" ? output.sourceManifestHash : null;
   const evidenceHash =
@@ -290,6 +442,7 @@ function parseRunOutput(outputJson: unknown): ParsedOutput {
     output?.[AGENT_RUN_STATE_KEYS.missingEvidence] ??
       runState?.[AGENT_RUN_STATE_KEYS.missingEvidence],
   );
+
   const proofChecks = toStringArray(
     output?.proofChecks ??
       output?.[AGENT_RUN_STATE_KEYS.proofChecks] ??
@@ -369,6 +522,7 @@ function parseRunOutput(outputJson: unknown): ParsedOutput {
     runInputHash,
     continuityHashType,
     continuityHash: sourceManifestHash ?? evidenceHash,
+    evidenceCitations,
   };
 }
 
@@ -395,13 +549,17 @@ export async function GET(_request: NextRequest) {
       },
     });
 
-    const totals = {
+    const totals: RunDashboardTotals & {
+      confidenceSum: number;
+      totalMissingEvidenceCount: number;
+    } = {
       totalRuns: 0,
       succeededRuns: 0,
       failedRuns: 0,
       runningRuns: 0,
       canceledRuns: 0,
       evidenceCitations: 0,
+      averageConfidence: null,
       confidenceSamples: 0,
       confidenceSum: 0,
       runsWithProofChecks: 0,
@@ -423,6 +581,18 @@ export async function GET(_request: NextRequest) {
       reproducibilityComparisons: 0,
       reproducibilityDrifts: 0,
       reproducibilityDriftRate: 0,
+      evidenceSourcesCited: 0,
+      evidenceSourcesFresh: 0,
+      evidenceSourcesAging: 0,
+      evidenceSourcesStale: 0,
+      evidenceSourcesCritical: 0,
+      evidenceSourcesUnknown: 0,
+      evidenceSourcesDrifted: 0,
+      evidenceSourcesWithAlerts: 0,
+      evidenceCriticalAlertSources: 0,
+      evidenceWarningAlertSources: 0,
+      evidenceSnapshotsCited: 0,
+      evidenceAverageFreshnessScore: null,
     };
 
     const confidenceBuckets = new Map<string, { confidenceSum: number; runCount: number }>();
@@ -435,8 +605,25 @@ export async function GET(_request: NextRequest) {
     const reproducibilitySignals: RunDashboardReproducibilityAlert[] = [];
     const recentRuns: RunDashboardRecentRun[] = [];
     const reproducibilityState = new Map<string, { hash: string; runId: string }>();
+    const citedEvidenceSourceIds = new Set<string>();
+    const evidenceFreshnessStateCounts = new Map<string, number>();
+    const evidenceAlertReasonCounts = new Map<string, number>();
+    let evidenceFreshnessScoreSum = 0;
 
-    for (const run of runs as RunRow[]) {
+    const parseRunsOutput = runs.map((run) => {
+      const parsed = parseRunOutput(run.outputJson);
+      parsed.evidenceCitations.forEach((citation) => {
+        if (citation.sourceId) {
+          citedEvidenceSourceIds.add(citation.sourceId);
+        }
+      });
+      totals.evidenceSnapshotsCited += parsed.evidenceCitations.length;
+      return { parsed, run };
+    });
+
+    for (const row of parseRunsOutput) {
+      const run = row.run;
+      const parsed = row.parsed;
       totals.totalRuns += 1;
 
       switch (run.status) {
@@ -454,7 +641,6 @@ export async function GET(_request: NextRequest) {
           break;
       }
 
-      const parsed = parseRunOutput(run.outputJson);
       parsed.openaiResponseId = run.openaiResponseId;
       const confidence = parsed.confidence;
       if (typeof confidence === "number") {
@@ -575,6 +761,96 @@ export async function GET(_request: NextRequest) {
       });
     }
 
+    if (citedEvidenceSourceIds.size > 0) {
+      const evidenceSourceSignals = new Map<string, EvidenceSourceFreshnessSignal>();
+      const evidenceSources = await prisma.evidenceSource.findMany({
+        where: {
+          id: { in: [...citedEvidenceSourceIds] },
+          orgId: auth.orgId,
+        },
+        include: {
+          evidenceSnapshots: {
+            orderBy: { retrievedAt: "desc" },
+            take: 2,
+            select: {
+              id: true,
+              retrievedAt: true,
+              contentHash: true,
+              httpStatus: true,
+            },
+          },
+        },
+      });
+      for (const source of evidenceSources as Array<{
+        id: string;
+        evidenceSnapshots: EvidenceSnapshotRecord[];
+      }>) {
+        const latestSnapshot = source.evidenceSnapshots[0] ?? null;
+        const previousSnapshot = source.evidenceSnapshots[1] ?? null;
+        const signal = buildEvidenceFreshnessSignals(latestSnapshot, previousSnapshot);
+        evidenceSourceSignals.set(source.id, signal);
+        evidenceFreshnessScoreSum += signal.freshnessScore;
+        evidenceFreshnessStateCounts.set(
+          signal.freshnessState,
+          (evidenceFreshnessStateCounts.get(signal.freshnessState) ?? 0) + 1,
+        );
+      }
+
+      for (const sourceId of citedEvidenceSourceIds) {
+        if (!evidenceSourceSignals.has(sourceId)) {
+          const unknownSignal = buildEvidenceFreshnessSignals(null, null);
+          evidenceSourceSignals.set(sourceId, unknownSignal);
+          evidenceFreshnessScoreSum += unknownSignal.freshnessScore;
+          evidenceFreshnessStateCounts.set(
+            unknownSignal.freshnessState,
+            (evidenceFreshnessStateCounts.get(unknownSignal.freshnessState) ?? 0) + 1,
+          );
+        }
+      }
+      for (const sourceSignal of evidenceSourceSignals.values()) {
+        totals.evidenceSourcesCited += 1;
+        totals.evidenceSourcesFresh +=
+          sourceSignal.freshnessState === "fresh" ? 1 : 0;
+        totals.evidenceSourcesAging +=
+          sourceSignal.freshnessState === "aging" ? 1 : 0;
+        totals.evidenceSourcesStale +=
+          sourceSignal.freshnessState === "stale" ? 1 : 0;
+        totals.evidenceSourcesCritical +=
+          sourceSignal.freshnessState === "critical" ? 1 : 0;
+        totals.evidenceSourcesUnknown +=
+          sourceSignal.freshnessState === "unknown" ? 1 : 0;
+        totals.evidenceSourcesDrifted += sourceSignal.driftSignal === "changed" ? 1 : 0;
+        if (sourceSignal.alertLevel === "critical") {
+          totals.evidenceCriticalAlertSources += 1;
+        }
+        if (sourceSignal.alertLevel === "warning") {
+          totals.evidenceWarningAlertSources += 1;
+        }
+        if (sourceSignal.alertLevel !== "none") {
+          totals.evidenceSourcesWithAlerts += 1;
+          sourceSignal.alertReasons.forEach((reason) =>
+            evidenceAlertReasonCounts.set(reason, (evidenceAlertReasonCounts.get(reason) ?? 0) + 1),
+          );
+        }
+      }
+    }
+
+    if (totals.evidenceSourcesCited > 0) {
+      totals.evidenceAverageFreshnessScore = Math.round(
+        (evidenceFreshnessScoreSum / totals.evidenceSourcesCited + Number.EPSILON) * 100,
+      ) / 100;
+    } else {
+      totals.evidenceAverageFreshnessScore = null;
+    }
+
+    const evidenceFreshnessStateDistribution = toBucketArray(
+      evidenceFreshnessStateCounts,
+      MAX_EVIDENCE_ALERT_REASONS,
+    );
+    const evidenceAlertReasonDistribution = toBucketArray(
+      evidenceAlertReasonCounts,
+      MAX_EVIDENCE_ALERT_REASONS,
+    );
     if (totals.runsWithRetry > 0) {
       totals.averageRetryAttempts = Math.round(
         ((totals.retryAttempts / totals.runsWithRetry) + Number.EPSILON) * 100,
@@ -638,6 +914,18 @@ export async function GET(_request: NextRequest) {
         maxRetryPolicyAttempts: totals.maxRetryPolicyAttempts,
         averageRetryPolicyAttempts: totals.averageRetryPolicyAttempts,
         runsWithFallback: totals.runsWithFallback,
+        evidenceSourcesCited: totals.evidenceSourcesCited,
+        evidenceSourcesFresh: totals.evidenceSourcesFresh,
+        evidenceSourcesAging: totals.evidenceSourcesAging,
+        evidenceSourcesStale: totals.evidenceSourcesStale,
+        evidenceSourcesCritical: totals.evidenceSourcesCritical,
+        evidenceSourcesUnknown: totals.evidenceSourcesUnknown,
+        evidenceSourcesDrifted: totals.evidenceSourcesDrifted,
+        evidenceSourcesWithAlerts: totals.evidenceSourcesWithAlerts,
+        evidenceCriticalAlertSources: totals.evidenceCriticalAlertSources,
+        evidenceWarningAlertSources: totals.evidenceWarningAlertSources,
+        evidenceSnapshotsCited: totals.evidenceSnapshotsCited,
+        evidenceAverageFreshnessScore: totals.evidenceAverageFreshnessScore,
         runsWithToolFailures: totals.runsWithToolFailures,
         toolFailureEvents: totals.toolFailureEvents,
         runsWithMissingEvidence: totals.runsWithMissingEvidence,
@@ -645,6 +933,10 @@ export async function GET(_request: NextRequest) {
         reproducibilityComparisons: totals.reproducibilityComparisons,
         reproducibilityDrifts: totals.reproducibilityDrifts,
         reproducibilityDriftRate: totals.reproducibilityDriftRate,
+      },
+      evidenceProfile: {
+        freshnessStateDistribution: evidenceFreshnessStateDistribution,
+        alertReasonDistribution: evidenceAlertReasonDistribution,
       },
       confidenceTimeline,
       runTypeDistribution: toBucketArray(runTypeCounts, MAX_DASHBOARD_RUNS),
