@@ -81,6 +81,48 @@ export interface Trace {
   metadata?: Record<string, unknown>;
 }
 
+export type WorkflowRunStatus = "running" | "succeeded" | "failed" | "canceled";
+
+export interface WorkflowRun {
+  id: string;
+  orgId: string;
+  runType: string;
+  status: WorkflowRunStatus | string;
+  startedAt: string;
+  finishedAt?: string | null;
+  durationMs?: number | null;
+  dealId?: string | null;
+  jurisdictionId?: string | null;
+  sku?: string | null;
+  error?: string | null;
+  openaiResponseId?: string | null;
+  inputHash?: string | null;
+  outputJson?: Record<string, unknown> | null;
+  summary?: {
+    lastAgentName?: string;
+    confidence?: number | null;
+    evidenceCount?: number;
+    missingEvidenceCount?: number;
+    toolCount?: number;
+  } | null;
+}
+
+export interface WorkflowTrace {
+  id: string;
+  runId: string;
+  parentId?: string | null;
+  type: "llm" | "tool" | "handoff" | "custom";
+  name: string;
+  input?: Record<string, unknown> | null;
+  output?: Record<string, unknown> | null;
+  startedAt: string;
+  durationMs?: number | null;
+  tokensInput?: number | null;
+  tokensOutput?: number | null;
+  cost?: number | null;
+  metadata?: Record<string, unknown> | null;
+}
+
 export interface WorkflowNode {
   id: string;
   type: string;

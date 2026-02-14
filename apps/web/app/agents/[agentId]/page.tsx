@@ -31,18 +31,18 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { formatNumber, formatCurrency, timeAgo } from "@/lib/utils";
+import { formatNumber, timeAgo } from "@/lib/utils";
 import { toast } from "sonner";
-import { Run } from "@/types";
+import { WorkflowRun } from "@/types";
 import { useAgents } from "@/lib/hooks/useAgents";
 import { useRuns } from "@/lib/hooks/useRuns";
 
 function StatusBadge({ status }: { status: string }) {
   const variants: Record<string, { class: string; label: string }> = {
-    success: { class: "bg-green-500/10 text-green-500", label: "Success" },
+    succeeded: { class: "bg-green-500/10 text-green-500", label: "Succeeded" },
     running: { class: "bg-blue-500/10 text-blue-500", label: "Running" },
-    error: { class: "bg-red-500/10 text-red-500", label: "Error" },
-    pending: { class: "bg-yellow-500/10 text-yellow-500", label: "Pending" },
+    failed: { class: "bg-red-500/10 text-red-500", label: "Failed" },
+    canceled: { class: "bg-yellow-500/10 text-yellow-500", label: "Canceled" },
     idle: { class: "bg-gray-500/10 text-gray-500", label: "Idle" },
   };
 
@@ -111,21 +111,25 @@ function HandoffCard({ agentId }: { agentId: string }) {
   );
 }
 
-function RunRow({ run }: { run: Run }) {
+function RunRow({ run }: { run: WorkflowRun }) {
   return (
     <div className="flex items-center gap-4 rounded-lg border p-4 transition-colors hover:bg-muted/50">
       <StatusBadge status={run.status} />
       <div className="flex-1 min-w-0">
         <p className="truncate font-medium">{run.id}</p>
-        <p className="text-sm text-muted-foreground">{timeAgo(run.started_at)}</p>
+        <p className="text-sm text-muted-foreground">{timeAgo(run.startedAt)}</p>
       </div>
       <div className="text-right">
-        <p className="text-sm">{formatNumber(run.tokens_used ?? 0)} tokens</p>
-        <p className="text-sm text-muted-foreground">{formatCurrency(run.cost ?? 0)}</p>
+        <p className="text-sm">{formatNumber(run.summary?.evidenceCount ?? 0)} sources</p>
+        <p className="text-sm text-muted-foreground">
+          {typeof run.summary?.confidence === "number"
+            ? `${Math.round(run.summary.confidence * 100)}% confidence`
+            : "—"}
+        </p>
       </div>
       <div className="text-right">
         <p className="text-sm">
-          {run.duration_ms ? `${Math.round(run.duration_ms / 1000)}s` : "—"}
+          {run.durationMs ? `${Math.round(run.durationMs / 1000)}s` : "—"}
         </p>
       </div>
       <Link href={`/runs/${run.id}`}>
@@ -148,7 +152,7 @@ export default function AgentDetailPage() {
   const [runDialogOpen, setRunDialogOpen] = useState(false);
   const [runInput, setRunInput] = useState("");
   const [isRunning, setIsRunning] = useState(false);
-  const [runResult, setRunResult] = useState<Run | null>(null);
+  const [runResult, setRunResult] = useState<WorkflowRun | null>(null);
   const [editedPrompt, setEditedPrompt] = useState(agent?.system_prompt || "");
   const [isEditingPrompt, setIsEditingPrompt] = useState(false);
 
@@ -290,12 +294,16 @@ export default function AgentDetailPage() {
                     <div className="rounded-lg border bg-muted p-4">
                       <p className="font-medium">Result:</p>
                       <pre className="mt-2 max-h-40 overflow-auto rounded bg-background p-2 text-xs">
-                        {JSON.stringify(runResult.output, null, 2)}
+                        {JSON.stringify(runResult.outputJson ?? null, null, 2)}
                       </pre>
                       <div className="mt-2 flex gap-4 text-sm text-muted-foreground">
-                        <span>{formatNumber(runResult.tokens_used ?? 0)} tokens</span>
-                        <span>{formatCurrency(runResult.cost ?? 0)}</span>
-                        <span>{Math.round((runResult.duration_ms || 0) / 1000)}s</span>
+                        <span>{formatNumber(runResult.summary?.evidenceCount ?? 0)} sources</span>
+                        <span>
+                          {typeof runResult.summary?.confidence === "number"
+                            ? `${Math.round(runResult.summary.confidence * 100)}% confidence`
+                            : "—"}
+                        </span>
+                        <span>{runResult.durationMs ? `${Math.round(runResult.durationMs / 1000)}s` : "—"}</span>
                       </div>
                     </div>
                   )}

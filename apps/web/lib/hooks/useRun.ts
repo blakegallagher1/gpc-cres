@@ -1,10 +1,10 @@
 import useSWR from "swr";
-import { Run } from "@/types";
+import { WorkflowRun } from "@/types";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export function useRun(runId?: string) {
-  const { data, error, isLoading, mutate } = useSWR<{ run: Run }>(
+  const { data, error, isLoading, mutate } = useSWR<{ run: WorkflowRun }>(
     runId ? `/api/runs/${runId}` : null,
     fetcher
   );

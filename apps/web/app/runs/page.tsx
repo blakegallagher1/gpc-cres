@@ -39,22 +39,20 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
-import { formatNumber, formatCurrency, timeAgo } from "@/lib/utils";
-import { Run } from "@/types";
+import { formatNumber, timeAgo } from "@/lib/utils";
+import { WorkflowRun } from "@/types";
 import { toast } from "sonner";
-import { useAgents } from "@/lib/hooks/useAgents";
 import { useRuns } from "@/lib/hooks/useRuns";
-
 
 function StatusBadge({ status }: { status: string }) {
   const variants: Record<string, { icon: React.ElementType; class: string; label: string }> = {
-    success: { icon: CheckCircle2, class: "bg-green-500/10 text-green-500", label: "Success" },
+    succeeded: { icon: CheckCircle2, class: "bg-green-500/10 text-green-500", label: "Succeeded" },
     running: { icon: Loader2, class: "bg-blue-500/10 text-blue-500", label: "Running" },
-    error: { icon: XCircle, class: "bg-red-500/10 text-red-500", label: "Error" },
-    pending: { icon: Clock, class: "bg-yellow-500/10 text-yellow-500", label: "Pending" },
+    failed: { icon: XCircle, class: "bg-red-500/10 text-red-500", label: "Failed" },
+    canceled: { icon: Clock, class: "bg-yellow-500/10 text-yellow-500", label: "Canceled" },
   };
 
-  const variant = variants[status] || variants.pending;
+  const variant = variants[status] || variants.running;
   const Icon = variant.icon;
 
   return (
@@ -66,27 +64,31 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default function RunsPage() {
-  const { agents } = useAgents();
   const { runs, mutate: mutateRuns } = useRuns();
   const [searchQuery, setSearchQuery] = useState("");
-  const [agentFilter, setAgentFilter] = useState<string>("all");
+  const [runTypeFilter, setRunTypeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedRuns, setSelectedRuns] = useState<Set<string>>(new Set());
-  const sortBy: keyof Run = "started_at";
+  const sortBy: keyof WorkflowRun = "startedAt";
+
+  const runTypes = Array.from(new Set(runs.map((run) => run.runType))).sort(
+    (a, b) => a.localeCompare(b),
+  );
 
   const filteredRuns = runs.filter((run) => {
-    const agent = agents.find((a) => a.id === run.agent_id);
+    const lastAgentName = run.summary?.lastAgentName;
     const matchesSearch =
       run.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      agent?.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesAgent = agentFilter === "all" || run.agent_id === agentFilter;
+      run.runType.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (lastAgentName?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
+    const matchesRunType = runTypeFilter === "all" || run.runType === runTypeFilter;
     const matchesStatus = statusFilter === "all" || run.status === statusFilter;
-    return matchesSearch && matchesAgent && matchesStatus;
+    return matchesSearch && matchesRunType && matchesStatus;
   });
 
   const sortedRuns = [...filteredRuns].sort((a, b) => {
-    const aVal = a[sortBy as keyof Run];
-    const bVal = b[sortBy as keyof Run];
+    const aVal = a[sortBy as keyof WorkflowRun];
+    const bVal = b[sortBy as keyof WorkflowRun];
     const aComparable = aVal ?? "";
     const bComparable = bVal ?? "";
     return aComparable < bComparable ? 1 : -1;
@@ -176,15 +178,15 @@ export default function RunsPage() {
               className="pl-10"
             />
           </div>
-          <Select value={agentFilter} onValueChange={setAgentFilter}>
+          <Select value={runTypeFilter} onValueChange={setRunTypeFilter}>
             <SelectTrigger className="w-[160px]">
-              <SelectValue placeholder="All Agents" />
+              <SelectValue placeholder="All Run Types" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Agents</SelectItem>
-              {agents.map((agent) => (
-                <SelectItem key={agent.id} value={agent.id}>
-                  {agent.name}
+              <SelectItem value="all">All Run Types</SelectItem>
+              {runTypes.map((runType) => (
+                <SelectItem key={runType} value={runType}>
+                  {runType}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -195,10 +197,10 @@ export default function RunsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="success">Success</SelectItem>
               <SelectItem value="running">Running</SelectItem>
-              <SelectItem value="error">Error</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="succeeded">Succeeded</SelectItem>
+              <SelectItem value="failed">Failed</SelectItem>
+              <SelectItem value="canceled">Canceled</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -218,18 +220,18 @@ export default function RunsPage() {
                     />
                   </TableHead>
                   <TableHead>Run ID</TableHead>
-                  <TableHead>Agent</TableHead>
+                  <TableHead>Type</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Last Agent</TableHead>
                   <TableHead>Duration</TableHead>
-                  <TableHead>Tokens</TableHead>
-                  <TableHead>Cost</TableHead>
+                  <TableHead>Evidence</TableHead>
+                  <TableHead>Confidence</TableHead>
                   <TableHead>Time</TableHead>
                   <TableHead className="w-12"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {sortedRuns.map((run) => {
-                  const agent = agents.find((a) => a.id === run.agent_id);
                   return (
                     <TableRow key={run.id}>
                       <TableCell>
@@ -239,19 +241,26 @@ export default function RunsPage() {
                         />
                       </TableCell>
                       <TableCell className="font-mono text-sm">{run.id}</TableCell>
-                      <TableCell>{agent?.name || "Unknown"}</TableCell>
+                      <TableCell>{run.runType}</TableCell>
                       <TableCell>
                         <StatusBadge status={run.status} />
                       </TableCell>
                       <TableCell>
-                        {run.duration_ms
-                          ? `${Math.round(run.duration_ms / 1000)}s`
+                        {run.summary?.lastAgentName ?? "—"}
+                      </TableCell>
+                      <TableCell>
+                        {run.durationMs
+                          ? `${Math.round(run.durationMs / 1000)}s`
                           : "—"}
                       </TableCell>
-                      <TableCell>{formatNumber(run.tokens_used ?? 0)}</TableCell>
-                      <TableCell>{formatCurrency(run.cost ?? 0)}</TableCell>
+                      <TableCell>{formatNumber(run.summary?.evidenceCount ?? 0)}</TableCell>
+                      <TableCell>
+                        {typeof run.summary?.confidence === "number"
+                          ? `${Math.round(run.summary.confidence * 100)}%`
+                          : "—"}
+                      </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {timeAgo(run.started_at)}
+                        {timeAgo(run.startedAt)}
                       </TableCell>
                       <TableCell>
                         <DropdownMenu>

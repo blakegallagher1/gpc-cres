@@ -26,20 +26,19 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { AgentStatePanel } from "@/components/agent-state/AgentStatePanel";
 import { formatNumber, formatCurrency, formatDuration, formatDate } from "@/lib/utils";
-import { Trace, RunOutputJson } from "@/types";
+import { WorkflowTrace, RunOutputJson } from "@/types";
 import { useRun } from "@/lib/hooks/useRun";
 import { useRunTraces } from "@/lib/hooks/useRunTraces";
-import { useAgents } from "@/lib/hooks/useAgents";
 
 function StatusBadge({ status }: { status: string }) {
   const variants: Record<string, { icon: React.ElementType; class: string; label: string }> = {
-    success: { icon: CheckCircle2, class: "bg-green-500/10 text-green-500", label: "Success" },
+    succeeded: { icon: CheckCircle2, class: "bg-green-500/10 text-green-500", label: "Succeeded" },
     running: { icon: Loader2, class: "bg-blue-500/10 text-blue-500", label: "Running" },
-    error: { icon: XCircle, class: "bg-red-500/10 text-red-500", label: "Error" },
-    pending: { icon: Clock, class: "bg-yellow-500/10 text-yellow-500", label: "Pending" },
+    failed: { icon: XCircle, class: "bg-red-500/10 text-red-500", label: "Failed" },
+    canceled: { icon: Clock, class: "bg-yellow-500/10 text-yellow-500", label: "Canceled" },
   };
 
-  const variant = variants[status] || variants.pending;
+  const variant = variants[status] || variants.running;
   const Icon = variant.icon;
 
   return (
@@ -69,14 +68,14 @@ function TraceTreeItem({
   onToggle,
   onSelect,
 }: {
-  trace: Trace;
-  traces: Trace[];
+  trace: WorkflowTrace;
+  traces: WorkflowTrace[];
   level?: number;
   expanded: Set<string>;
   onToggle: (id: string) => void;
-  onSelect: (trace: Trace) => void;
+  onSelect: (trace: WorkflowTrace) => void;
 }) {
-  const children = traces.filter((t) => t.parent_id === trace.id);
+  const children = traces.filter((t) => t.parentId === trace.id);
   const isExpanded = expanded.has(trace.id);
   const hasChildren = children.length > 0;
 
@@ -104,7 +103,7 @@ function TraceTreeItem({
         <TypeIcon type={trace.type} />
         <span className="font-medium">{trace.name}</span>
         <span className="ml-auto text-sm text-muted-foreground">
-          {formatDuration(trace.duration_ms || 0)}
+          {formatDuration(trace.durationMs || 0)}
         </span>
       </div>
       {isExpanded &&
@@ -128,12 +127,12 @@ function TimelineBar({
   totalDuration,
   startOffset,
 }: {
-  trace: Trace;
+  trace: WorkflowTrace;
   totalDuration: number;
   startOffset: number;
 }) {
   const left = (startOffset / totalDuration) * 100;
-  const width = ((trace.duration_ms || 0) / totalDuration) * 100;
+  const width = ((trace.durationMs || 0) / totalDuration) * 100;
 
   const colors: Record<string, string> = {
     llm: "bg-blue-500",
@@ -195,9 +194,8 @@ export default function RunTracePage() {
 
   const { run, isLoading: isRunLoading, isError: isRunError } = useRun(runId);
   const { traces, isLoading: isTracesLoading } = useRunTraces(runId);
-  const { agents, isLoading: isAgentsLoading } = useAgents();
   const [expandedTraces, setExpandedTraces] = useState<Set<string>>(new Set());
-  const [selectedTrace, setSelectedTrace] = useState<Trace | null>(null);
+  const [selectedTrace, setSelectedTrace] = useState<WorkflowTrace | null>(null);
   const [activeTab, setActiveTab] = useState("tree");
 
   useEffect(() => {
@@ -205,8 +203,6 @@ export default function RunTracePage() {
       setSelectedTrace(null);
     }
   }, [selectedTrace, traces]);
-
-  const agent = run ? agents.find((a) => a.id === run.agent_id) : undefined;
 
   const toggleTrace = (id: string) => {
     const newExpanded = new Set(expandedTraces);
@@ -218,7 +214,7 @@ export default function RunTracePage() {
     setExpandedTraces(newExpanded);
   };
 
-  const rootTraces = traces.filter((t) => !t.parent_id);
+  const rootTraces = traces.filter((t) => !t.parentId);
   const failureTraces = traces.filter((trace) => {
     const metadata = trace.metadata;
     if (!metadata) return false;
@@ -240,15 +236,15 @@ export default function RunTracePage() {
     return `${trace.name}${detail ? ` — ${detail}` : ""}`;
   });
   const retryCount = traces.reduce(
-    (acc, trace) => acc + getRetryCountFromMetadata(trace.metadata),
+    (acc, trace) => acc + getRetryCountFromMetadata(trace.metadata ?? undefined),
     0,
   );
 
   // Calculate timeline
-  const runStart = run ? new Date(run.started_at).getTime() : 0;
-  const totalDuration = run?.duration_ms || 1;
+  const runStart = run ? new Date(run.startedAt).getTime() : 0;
+  const totalDuration = run?.durationMs || 1;
 
-  if (isRunLoading || isTracesLoading || isAgentsLoading) {
+  if (isRunLoading || isTracesLoading) {
     return (
       <DashboardShell>
         <div className="flex min-h-[50vh] items-center justify-center text-muted-foreground">
@@ -293,7 +289,7 @@ export default function RunTracePage() {
                 <StatusBadge status={run.status} />
               </div>
               <p className="text-muted-foreground">
-                {agent?.name} • {formatDate(run.started_at)}
+                {run.runType} • {formatDate(run.startedAt)}
               </p>
             </div>
           </div>
@@ -309,30 +305,34 @@ export default function RunTracePage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {formatDuration(run.duration_ms || 0)}
+                {formatDuration(run.durationMs || 0)}
               </div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Tokens
+                Evidence
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {formatNumber(run.tokens_used ?? 0)}
+                {formatNumber(outputJson?.evidenceCitations?.length ?? 0)}
               </div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Cost
+                Confidence
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(run.cost ?? 0)}</div>
+              <div className="text-2xl font-bold">
+                {typeof outputJson?.confidence === "number"
+                  ? `${Math.round(outputJson.confidence * 100)}%`
+                  : "—"}
+              </div>
             </CardContent>
           </Card>
           <Card>
@@ -355,7 +355,7 @@ export default function RunTracePage() {
           </CardHeader>
           <CardContent>
             <AgentStatePanel
-              lastAgentName={outputJson?.lastAgentName ?? agent?.name}
+              lastAgentName={outputJson?.lastAgentName ?? run.summary?.lastAgentName ?? "Coordinator"}
               plan={outputJson?.plan}
               confidence={outputJson?.confidence}
               missingEvidence={outputJson?.missingEvidence}
@@ -434,13 +434,13 @@ export default function RunTracePage() {
                       </div>
                       <div>
                         <p className="text-sm text-muted-foreground">Duration</p>
-                        <p>{formatDuration(selectedTrace.duration_ms || 0)}</p>
+                        <p>{formatDuration(selectedTrace.durationMs || 0)}</p>
                       </div>
                       <div>
                         <p className="text-sm text-muted-foreground">Tokens</p>
                         <p>
-                          {formatNumber(selectedTrace.tokens_input ?? 0)} in /{" "}
-                          {formatNumber(selectedTrace.tokens_output ?? 0)} out
+                          {formatNumber(selectedTrace.tokensInput ?? 0)} in /{" "}
+                          {formatNumber(selectedTrace.tokensOutput ?? 0)} out
                         </p>
                       </div>
                       <div>
@@ -489,7 +489,7 @@ export default function RunTracePage() {
                   {/* Timeline bars */}
                   <div className="relative h-64 space-y-2">
                     {traces.map((trace) => {
-                      const traceStart = new Date(trace.started_at).getTime();
+                      const traceStart = new Date(trace.startedAt).getTime();
                       const startOffset = traceStart - runStart;
                       return (
                         <div
@@ -506,7 +506,7 @@ export default function RunTracePage() {
                             />
                           </div>
                           <div className="w-16 shrink-0 text-right text-xs text-muted-foreground">
-                            {formatDuration(trace.duration_ms || 0)}
+                            {formatDuration(trace.durationMs || 0)}
                           </div>
                         </div>
                       );
@@ -541,7 +541,19 @@ export default function RunTracePage() {
               </CardHeader>
               <CardContent>
                 <pre className="rounded-lg bg-muted p-4 font-mono text-sm">
-                  {JSON.stringify(run.input, null, 2)}
+                  {JSON.stringify(
+                    {
+                      runId: run.id,
+                      runType: run.runType,
+                      inputHash: run.inputHash ?? null,
+                      dealId: run.dealId ?? null,
+                      jurisdictionId: run.jurisdictionId ?? null,
+                      sku: run.sku ?? null,
+                      startedAt: run.startedAt,
+                    },
+                    null,
+                    2,
+                  )}
                 </pre>
               </CardContent>
             </Card>
@@ -555,7 +567,7 @@ export default function RunTracePage() {
               </CardHeader>
               <CardContent>
                 <pre className="rounded-lg bg-muted p-4 font-mono text-sm">
-                  {JSON.stringify(run.output, null, 2)}
+                  {JSON.stringify(run.outputJson ?? null, null, 2)}
                 </pre>
               </CardContent>
             </Card>

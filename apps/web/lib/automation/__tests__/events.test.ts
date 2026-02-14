@@ -5,9 +5,23 @@ import {
   type AutomationEvent,
 } from "../events";
 
+const startEventMock = vi.hoisted(() => vi.fn());
+const completeEventMock = vi.hoisted(() => vi.fn());
+const failEventMock = vi.hoisted(() => vi.fn());
+
+vi.mock("@/lib/services/automationEvent.service", () => ({
+  startEvent: startEventMock,
+  completeEvent: completeEventMock,
+  failEvent: failEventMock,
+}));
+
 describe("events", () => {
   beforeEach(() => {
     _resetHandlers();
+    startEventMock.mockReset();
+    completeEventMock.mockReset();
+    failEventMock.mockReset();
+    startEventMock.mockResolvedValue("event-id");
   });
 
   describe("dispatchEvent", () => {
