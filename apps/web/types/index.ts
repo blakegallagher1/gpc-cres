@@ -31,6 +31,18 @@ export interface EvidenceCitation {
   isOfficial?: boolean;
 }
 
+export interface EvidenceRetryPolicy {
+  enabled: boolean;
+  threshold: number;
+  missingEvidenceCount: number;
+  attempts: number;
+  maxAttempts: number;
+  shouldRetry: boolean;
+  nextAttempt: number;
+  nextRetryMode: string;
+  reason: string;
+}
+
 export interface AgentTrustEnvelope {
   toolsInvoked: string[];
   packVersionsUsed: string[];
@@ -44,6 +56,7 @@ export interface AgentTrustEnvelope {
   retryAttempts?: number;
   retryMaxAttempts?: number;
   retryMode?: string;
+  evidenceRetryPolicy?: EvidenceRetryPolicy;
   fallbackLineage?: string[];
   fallbackReason?: string;
   plan?: string[];

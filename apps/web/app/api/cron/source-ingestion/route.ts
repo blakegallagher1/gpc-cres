@@ -1,9 +1,14 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
-import { captureEvidence, withRetry, withTimeout } from "@entitlement-os/evidence";
+import { captureEvidence, withTimeout } from "@entitlement-os/evidence";
 import { supabaseAdmin } from "@/lib/db/supabaseAdmin";
 import { getNotificationService } from "@/lib/services/notification.service";
+import {
+  computeEvidenceHash,
+  computeSourceCaptureManifestHash,
+  dedupeEvidenceCitations,
+} from "@entitlement-os/shared/evidence";
 
 const EVIDENCE_BUCKET = "evidence";
 const MAX_CAPTURE_RETRIES = 2;
@@ -12,6 +17,14 @@ const CAPTURE_INTERVAL_DAYS = 7;
 const QUALITY_LOOKBACK_DAYS = 14;
 const STALE_ALERT_DAYS = 21;
 const QUALITY_ALERT_THRESHOLD = 0.55;
+const STALE_RATIO_ALERT_THRESHOLD = 0.4;
+const SOURCE_CAPTURE_BUCKETS = {
+  UNKNOWN: "never_captured",
+  CRITICAL: "critical",
+  STALE: "stale",
+  AGING: "aging",
+  FRESH: "fresh",
+} as const;
 const SOURCE_PURPOSE_DISCOVERED = "discovered";
 
 type StaleSource = {
@@ -20,6 +33,40 @@ type StaleSource = {
   purpose: string;
   stalenessDays: number | null;
   qualityScore: number;
+  qualityBucket: string;
+  rankScore: number;
+  captureAttempts: number;
+  captureError: string | null;
+};
+
+type SourceCaptureManifestEntry = {
+  sourceUrl: string;
+  jurisdictionId: string;
+  jurisdictionName: string;
+  purpose: string;
+  isOfficial: boolean;
+  discovered: boolean;
+  stalenessDays: number | null;
+  qualityScore: number;
+  qualityBucket: string;
+  rankScore: number;
+  needsCapture: boolean;
+  captureAttempts: number;
+  captureSuccess: boolean;
+  captureError: string | null;
+  evidenceSourceId?: string;
+  evidenceSnapshotId?: string;
+  contentHash?: string;
+};
+
+type SourceCaptureAttempt = {
+  attempts: number;
+  captured: boolean;
+  captureError: string | null;
+  evidenceSourceId?: string;
+  evidenceSnapshotId?: string;
+  contentHash?: string;
+  usedPlaywright?: boolean;
 };
 
 type OrgMembershipRecord = {
@@ -41,10 +88,13 @@ interface OrgState {
     totalSources: number;
     captureAttempts: number;
     captureSuccesses: number;
-    qualityTotal: number;
+    qualityBuckets: Record<string, number>;
+    staleCount: number;
+    totalQuality: number;
     qualityCount: number;
     staleSources: StaleSource[];
     errors: string[];
+    sourceManifest: SourceCaptureManifestEntry[];
     discoveryCount: number;
     discoveryUrls: string[];
   };
@@ -72,6 +122,105 @@ function computeQualityScore(stalenessDays: number | null): number {
   if (stalenessDays === null) return 0;
   const normalized = Math.min(stalenessDays, QUALITY_LOOKBACK_DAYS) / QUALITY_LOOKBACK_DAYS;
   return Math.max(0, 1 - normalized);
+}
+
+function computeQualityBucket(stalenessDays: number | null, qualityScore: number): string {
+  if (stalenessDays === null) return SOURCE_CAPTURE_BUCKETS.UNKNOWN;
+  if (qualityScore >= 0.8) return SOURCE_CAPTURE_BUCKETS.FRESH;
+  if (qualityScore >= 0.55) return SOURCE_CAPTURE_BUCKETS.AGING;
+  if (qualityScore >= 0.3) return SOURCE_CAPTURE_BUCKETS.STALE;
+  return SOURCE_CAPTURE_BUCKETS.CRITICAL;
+}
+
+function computeSourceRankScore(params: {
+  isOfficial: boolean;
+  discovered: boolean;
+  needsCapture: boolean;
+  stalenessDays: number | null;
+  qualityBucket: string;
+}): number {
+  const { qualityBucket } = params;
+  const officialityScore = params.isOfficial ? 120 : 20;
+  const discoveredScore = params.discovered ? 30 : 0;
+  const captureScore = params.needsCapture ? 70 : 0;
+  const staleDays = params.stalenessDays === null ? STALE_ALERT_DAYS + CAPTURE_INTERVAL_DAYS : params.stalenessDays;
+  const stalenessScore = Math.min(staleDays, QUALITY_LOOKBACK_DAYS * 2) * 1.2;
+  const bucketPenalty = {
+    [SOURCE_CAPTURE_BUCKETS.UNKNOWN]: 8,
+    [SOURCE_CAPTURE_BUCKETS.CRITICAL]: 0,
+    [SOURCE_CAPTURE_BUCKETS.STALE]: 2,
+    [SOURCE_CAPTURE_BUCKETS.AGING]: 4,
+    [SOURCE_CAPTURE_BUCKETS.FRESH]: 8,
+  }[qualityBucket] ?? 0;
+  return officialityScore + discoveredScore + captureScore + stalenessScore + bucketPenalty;
+}
+
+function isOfficialSource(url: string, officialDomains: string[]): boolean {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return officialDomains.some(
+      (domain) => host === domain || host.endsWith(`.${domain}`),
+    );
+  } catch {
+    return false;
+  }
+}
+
+function sleepMs(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function captureSourceWithRetry(params: {
+  url: string;
+  orgId: string;
+  runId: string;
+  label: string;
+  officialDomains?: string[];
+}): Promise<SourceCaptureAttempt> {
+  let attempts = 0;
+  let lastError: unknown;
+  let result;
+
+  for (let retryIndex = 1; retryIndex <= MAX_CAPTURE_RETRIES; retryIndex++) {
+    attempts = retryIndex;
+    try {
+      result = await withTimeout(
+        captureEvidence({
+          url: params.url,
+          orgId: params.orgId,
+          runId: params.runId,
+          prisma,
+          supabase: supabaseAdmin,
+          evidenceBucket: EVIDENCE_BUCKET,
+          allowPlaywrightFallback: true,
+          officialDomains: params.officialDomains ?? [],
+        }),
+        MAX_CAPTURE_TIMEOUT_MS,
+        `${params.label} (attempt ${retryIndex}/${MAX_CAPTURE_RETRIES})`,
+      );
+      return {
+        attempts,
+        captured: true,
+        captureError: null,
+        evidenceSourceId: result.sourceId,
+        evidenceSnapshotId: result.snapshotId,
+        contentHash: result.contentHash,
+        usedPlaywright: result.usedPlaywright,
+      };
+    } catch (error) {
+      lastError = error;
+      if (retryIndex < MAX_CAPTURE_RETRIES) {
+        await sleepMs(250 * 2 ** (retryIndex - 1));
+      }
+    }
+  }
+
+  const message = lastError instanceof Error ? lastError.message : String(lastError ?? "unknown");
+  return {
+    attempts,
+    captured: false,
+    captureError: message,
+  };
 }
 
 const recipientCache = new Map<string, string[]>();
@@ -204,15 +353,75 @@ export async function GET(req: Request) {
       });
     }
 
-    const orgStates = new Map<string, OrgState>();
+    const discoveredSourceLookup = new Set(
+      discoveries.map((record) => `${record.jurisdictionId}|${record.url}`),
+    );
+    const sourcePlan: Array<{
+      source: (typeof sources)[number];
+      jurisdictionName: string;
+      stalenessDays: number | null;
+      qualityScore: number;
+      qualityBucket: string;
+      isOfficial: boolean;
+      needsCapture: boolean;
+      discovered: boolean;
+      rankScore: number;
+    }> = [];
 
     for (const source of sources) {
+      if (!source.jurisdiction) continue;
+      const latestSnapshot = await prisma.evidenceSnapshot.findFirst({
+        where: {
+          evidenceSource: {
+            url: source.url,
+            orgId: source.jurisdiction.orgId,
+          },
+        },
+        orderBy: { retrievedAt: "desc" },
+        select: { retrievedAt: true },
+      });
+
+      const stalenessDays = daysSince(latestSnapshot?.retrievedAt);
+      const qualityScore = computeQualityScore(stalenessDays);
+      const qualityBucket = computeQualityBucket(stalenessDays, qualityScore);
+      const isOfficial = isOfficialSource(source.url, source.jurisdiction.officialDomains);
+      const needsCapture = !latestSnapshot || stalenessDays === null || stalenessDays >= CAPTURE_INTERVAL_DAYS;
+      const discovered = discoveredSourceLookup.has(`${source.jurisdictionId}|${source.url}`);
+      const rankScore = computeSourceRankScore({
+        isOfficial,
+        discovered,
+        needsCapture,
+        stalenessDays,
+        qualityBucket,
+      });
+
+      sourcePlan.push({
+        source,
+        jurisdictionName: source.jurisdiction.name,
+        stalenessDays,
+        qualityScore,
+        qualityBucket,
+        isOfficial,
+        needsCapture,
+        discovered,
+        rankScore,
+      });
+    }
+
+    const rankedSources = sourcePlan
+      .slice()
+      .sort((a, b) => b.rankScore - a.rankScore);
+    const orgStates = new Map<string, OrgState>();
+
+    for (const entry of rankedSources) {
+      const source = entry.source;
       const jurisdiction = source.jurisdiction;
       if (!jurisdiction) continue;
       const orgId = jurisdiction.orgId;
-      let orgState = orgStates.get(orgId);
 
+      let orgState = orgStates.get(orgId);
       if (!orgState) {
+        const discoveryInfo = discoveryByOrg.get(orgId);
         const run = await prisma.run.create({
           data: {
             orgId,
@@ -220,17 +429,25 @@ export async function GET(req: Request) {
             status: "running",
           },
         });
-        const discoveryInfo = discoveryByOrg.get(orgId);
         orgState = {
           runId: run.id,
           stats: {
             totalSources: 0,
             captureAttempts: 0,
             captureSuccesses: 0,
-            qualityTotal: 0,
             qualityCount: 0,
+            totalQuality: 0,
+            qualityBuckets: {
+              [SOURCE_CAPTURE_BUCKETS.UNKNOWN]: 0,
+              [SOURCE_CAPTURE_BUCKETS.CRITICAL]: 0,
+              [SOURCE_CAPTURE_BUCKETS.STALE]: 0,
+              [SOURCE_CAPTURE_BUCKETS.AGING]: 0,
+              [SOURCE_CAPTURE_BUCKETS.FRESH]: 0,
+            },
+            staleCount: 0,
             staleSources: [],
             errors: [],
+            sourceManifest: [],
             discoveryCount: discoveryInfo?.count ?? 0,
             discoveryUrls: discoveryInfo?.urls ?? [],
           },
@@ -240,110 +457,175 @@ export async function GET(req: Request) {
 
       const stats = orgState.stats;
       const label = `${jurisdiction.name}: ${source.url}`;
-      let latestSnapshot = await prisma.evidenceSnapshot.findFirst({
-        where: {
-          evidenceSource: {
+      let finalStalenessDays = entry.stalenessDays;
+      let finalQualityScore = entry.qualityScore;
+
+      const captureResult = entry.needsCapture
+        ? await captureSourceWithRetry({
             url: source.url,
             orgId,
-          },
-        },
-        orderBy: { retrievedAt: "desc" },
-        select: {
-          retrievedAt: true,
-        },
-      });
+            runId: orgState.runId,
+            label,
+            officialDomains: source.jurisdiction.officialDomains,
+          })
+        : {
+            attempts: 0,
+            captured: false,
+            captureError: "skipped: within freshness threshold",
+          };
 
-      let stalenessDays = daysSince(latestSnapshot?.retrievedAt);
-      let qualityScore = computeQualityScore(stalenessDays);
-
-      const needsCapture = !latestSnapshot || stalenessDays === null || stalenessDays >= CAPTURE_INTERVAL_DAYS;
-      if (needsCapture) {
-        stats.captureAttempts++;
-        try {
-          await withRetry(
-            () =>
-              withTimeout(
-                captureEvidence({
-                  url: source.url,
-                  orgId,
-                  runId: orgState.runId,
-                  prisma,
-                  supabase: supabaseAdmin,
-                  evidenceBucket: EVIDENCE_BUCKET,
-                  allowPlaywrightFallback: true,
-                  officialDomains: jurisdiction.officialDomains,
-                }),
-                MAX_CAPTURE_TIMEOUT_MS,
-                label
-              ),
-            MAX_CAPTURE_RETRIES,
-            label
-          );
-          stats.captureSuccesses++;
-          stalenessDays = 0;
-          qualityScore = 1;
-        } catch (error) {
-          const msg = error instanceof Error ? error.message : String(error);
-          stats.errors.push(`${label}: ${msg}`);
-        }
+      if (captureResult.captured) {
+        finalStalenessDays = 0;
+        finalQualityScore = 1;
+        stats.captureSuccesses += 1;
+      } else if (entry.needsCapture) {
+        const msg = captureResult.captureError ?? "Unknown capture failure";
+        stats.errors.push(`${label}: ${msg}`);
       }
 
-      stats.totalSources++;
-      stats.qualityTotal += qualityScore;
-      stats.qualityCount++;
+      const finalQualityBucket = computeQualityBucket(
+        finalStalenessDays,
+        finalQualityScore,
+      );
+      stats.captureAttempts += captureResult.attempts;
+      stats.qualityBuckets[finalQualityBucket] =
+        (stats.qualityBuckets[finalQualityBucket] ?? 0) + 1;
 
-      if (
-        stalenessDays === null
-        || stalenessDays >= STALE_ALERT_DAYS
-        || qualityScore < QUALITY_ALERT_THRESHOLD
-      ) {
+      const manifestEntry: SourceCaptureManifestEntry = {
+        sourceUrl: source.url,
+        jurisdictionId: jurisdiction.id,
+        jurisdictionName: entry.jurisdictionName,
+        purpose: source.purpose,
+        isOfficial: entry.isOfficial,
+        discovered: entry.discovered,
+        stalenessDays: finalStalenessDays,
+        qualityScore: finalQualityScore,
+        qualityBucket: finalQualityBucket,
+        rankScore: entry.rankScore,
+        needsCapture: entry.needsCapture,
+        captureAttempts: captureResult.attempts,
+        captureSuccess: captureResult.captured,
+        captureError: captureResult.captured ? null : captureResult.captureError,
+        evidenceSourceId: captureResult.evidenceSourceId,
+        evidenceSnapshotId: captureResult.evidenceSnapshotId,
+        contentHash: captureResult.contentHash,
+      };
+
+      stats.totalSources += 1;
+      stats.totalQuality += finalQualityScore;
+      stats.qualityCount += 1;
+      stats.sourceManifest.push(manifestEntry);
+
+      const isStale =
+        finalStalenessDays === null ||
+        finalStalenessDays >= STALE_ALERT_DAYS ||
+        finalQualityBucket === SOURCE_CAPTURE_BUCKETS.CRITICAL ||
+        finalQualityScore < QUALITY_ALERT_THRESHOLD;
+      if (isStale) {
+        stats.staleCount += 1;
         stats.staleSources.push({
           url: source.url,
           jurisdictionName: jurisdiction.name,
+          qualityBucket: finalQualityBucket,
+          rankScore: entry.rankScore,
           purpose: source.purpose,
-          stalenessDays,
-          qualityScore,
+          stalenessDays: finalStalenessDays,
+          qualityScore: finalQualityScore,
+          captureAttempts: captureResult.attempts,
+          captureError: captureResult.captureError,
         });
       }
     }
 
     const orgSummaries: Array<{
       orgId: string;
+      runId: string;
+      staleRatio: number;
       staleSources: StaleSource[];
+      totalSources: number;
+      staleCount: number;
       discovery: { count: number; urls: string[] };
     }> = [];
     let totalStale = 0;
     let totalDiscovery = discoveries.length;
+    let totalSources = 0;
 
     for (const [orgId, state] of orgStates) {
       const stats = state.stats;
-      const avgQuality =
-        stats.qualityCount > 0 ? stats.qualityTotal / stats.qualityCount : null;
-      const isFailed = stats.errors.length > 0;
+      const averageQualityScore =
+        stats.qualityCount > 0 ? stats.totalQuality / stats.qualityCount : null;
+      const staleRatio =
+        stats.totalSources > 0 ? stats.staleCount / stats.totalSources : 0;
+      const evidenceCitations = dedupeEvidenceCitations(
+        stats.sourceManifest
+          .filter((entry) => entry.captureSuccess)
+          .map((entry) => ({
+            tool: "evidence_snapshot",
+            sourceId: entry.evidenceSourceId,
+            snapshotId: entry.evidenceSnapshotId,
+            contentHash: entry.contentHash,
+            url: entry.sourceUrl,
+            isOfficial: entry.isOfficial,
+          })),
+      );
+      const evidenceHash = computeEvidenceHash(evidenceCitations);
+      const captureFailure = stats.errors.length > 0;
+      const status = captureFailure ? "failed" : "succeeded";
+      const sourceManifestHash = computeSourceCaptureManifestHash(stats.sourceManifest);
 
       await prisma.run.update({
         where: { id: state.runId },
         data: {
-          status: isFailed ? "failed" : "succeeded",
+          status,
           finishedAt: new Date(),
           outputJson: {
+            runState: {
+              status,
+              runId: state.runId,
+              partialOutput: JSON.stringify({
+                totalSources: stats.totalSources,
+                captureAttempts: stats.captureAttempts,
+                captureSuccesses: stats.captureSuccesses,
+                staleSources: stats.staleSources,
+                staleRatio,
+              }),
+              lastUpdatedAt: new Date().toISOString(),
+              runStartedAt: new Date().toISOString(),
+              runInputHash: null,
+              correlationId: "source-ingestion",
+              qualityBuckets: stats.qualityBuckets,
+            },
             totalSources: stats.totalSources,
             captureAttempts: stats.captureAttempts,
             captureSuccesses: stats.captureSuccesses,
-            averageQualityScore: avgQuality,
+            averageQualityScore,
+            staleRatio,
+            qualityBuckets: stats.qualityBuckets,
             staleSources: stats.staleSources,
             discoveryCount: stats.discoveryCount,
             discoveryUrls: stats.discoveryUrls,
             errors: stats.errors,
             stalenessThresholdDays: STALE_ALERT_DAYS,
+            qualityLookbackDays: QUALITY_LOOKBACK_DAYS,
+            staleRatioThreshold: STALE_RATIO_ALERT_THRESHOLD,
+            qualityAlertThreshold: QUALITY_ALERT_THRESHOLD,
+            sourceManifest: stats.sourceManifest,
+            sourceManifestHash,
+            evidenceCitations,
+            evidenceHash,
           },
         },
       });
 
+      totalSources += stats.totalSources;
       totalStale += stats.staleSources.length;
       orgSummaries.push({
         orgId,
+        runId: state.runId,
+        staleRatio,
         staleSources: stats.staleSources,
+        totalSources: stats.totalSources,
+        staleCount: stats.staleCount,
         discovery: {
           count: stats.discoveryCount,
           urls: stats.discoveryUrls,
@@ -352,28 +634,34 @@ export async function GET(req: Request) {
     }
 
     for (const summary of orgSummaries) {
-      if (summary.staleSources.length === 0) continue;
+      const shouldAlert = summary.staleRatio >= STALE_RATIO_ALERT_THRESHOLD;
+      if (!shouldAlert || summary.staleSources.length === 0) continue;
 
       const recipients = await getNotificationRecipients(summary.orgId);
       if (recipients.length === 0) continue;
 
       const highlighted = summary.staleSources.slice(0, 4);
       const bodyLines = [
-        `Source ingestion found ${summary.staleSources.length} stale seeds (threshold ${STALE_ALERT_DAYS} days).`,
+        `Source ingestion found ${summary.staleSources.length} stale/weak-confidence seeds for this org (ratio ${(summary.staleRatio * 100).toFixed(1)}%).`,
+        `Stale ratio threshold is ${(STALE_RATIO_ALERT_THRESHOLD * 100).toFixed(0)}%.`,
+        `Quality lookback window: ${QUALITY_LOOKBACK_DAYS} days.`,
         "Examples:",
         ...highlighted.map(
           (entry) =>
             `- ${entry.url} (${entry.jurisdictionName}: ${
-              entry.stalenessDays === null ? "never refreshed" : `${entry.stalenessDays}d stale`
-            }, quality ${entry.qualityScore.toFixed(2)})`
+              entry.stalenessDays === null
+                ? "never refreshed"
+                : `${entry.stalenessDays}d stale`
+            }, quality ${entry.qualityScore.toFixed(2)}, bucket ${entry.qualityBucket})`
         ),
         "",
         "Please refresh these sources or add new seed URLs so downstream packs stay grounded.",
       ];
 
       const metadata = {
-        runId: orgStates.get(summary.orgId)?.runId,
-        staleCount: summary.staleSources.length,
+        runId: summary.runId,
+        staleCount: summary.staleCount,
+        staleRatio: summary.staleRatio,
       };
 
       await Promise.all(
@@ -400,9 +688,13 @@ export async function GET(req: Request) {
       elapsedMs: Date.now() - startTime,
       stats: {
         orgsProcessed: orgStates.size,
-        totalSources: sources.length,
+        totalSources,
         staleSources: totalStale,
         discoveryCount: totalDiscovery,
+        staleRatios: orgSummaries.map((item) => ({
+          orgId: item.orgId,
+          staleRatio: item.staleRatio,
+        })),
       },
     };
 

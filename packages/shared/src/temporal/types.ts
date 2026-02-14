@@ -35,9 +35,22 @@ export const AGENT_RUN_STATE_KEYS = {
   retryAttempts: "retryAttempts",
   retryMaxAttempts: "retryMaxAttempts",
   retryMode: "retryMode",
+  evidenceRetryPolicy: "evidenceRetryPolicy",
   fallbackLineage: "fallbackLineage",
   fallbackReason: "fallbackReason",
 } as const;
+
+export type AgentEvidenceRetryPolicy = {
+  enabled: boolean;
+  threshold: number;
+  missingEvidenceCount: number;
+  attempts: number;
+  maxAttempts: number;
+  shouldRetry: boolean;
+  nextAttempt: number;
+  nextRetryMode: string;
+  reason: string;
+};
 
 export type AgentRunState = {
   schemaVersion?: number;
@@ -60,6 +73,7 @@ export type AgentRunState = {
   retryAttempts?: number;
   retryMaxAttempts?: number;
   retryMode?: string;
+  evidenceRetryPolicy?: AgentEvidenceRetryPolicy;
   fallbackLineage?: string[];
   fallbackReason?: string;
 };
@@ -74,6 +88,7 @@ export type AgentRunOutputJson = {
   retryAttempts?: number;
   retryMaxAttempts?: number;
   retryMode?: string;
+  evidenceRetryPolicy?: AgentEvidenceRetryPolicy;
   fallbackLineage?: string[];
   fallbackReason?: string;
   evidenceCitations?: Array<{
@@ -218,6 +233,7 @@ export type AgentTrustSnapshot = {
   retryAttempts?: number;
   retryMaxAttempts?: number;
   retryMode?: string;
+  evidenceRetryPolicy?: AgentEvidenceRetryPolicy;
   fallbackLineage?: string[];
   fallbackReason?: string;
 };

@@ -20,9 +20,9 @@ vi.mock("@entitlement-os/openai", () => ({
   inferQueryIntentFromText: vi.fn(() => "analysis"),
   createIntentAwareCoordinator: vi.fn(() => ({ id: "coordinator-agent" })),
   evaluateProofCompliance: vi.fn(() => []),
-    buildAgentStreamRunOptions: vi.fn(() => ({})),
-    getProofGroupsForIntent: vi.fn(() => []),
-  }));
+  buildAgentStreamRunOptions: vi.fn(() => ({})),
+  getProofGroupsForIntent: vi.fn(() => []),
+}));
 
 import {
   AGENT_RUN_STATE_KEYS,
@@ -71,6 +71,22 @@ const VALID_REPORT = {
   ],
   sources: [],
 };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function normalizePersistedOutput(output: Record<string, unknown>): Record<string, unknown> {
+  const cloned = JSON.parse(JSON.stringify(output)) as Record<string, unknown>;
+  if (isRecord(cloned.runState)) {
+    delete cloned.runState[AGENT_RUN_STATE_KEYS.lastUpdatedAt];
+    delete cloned.runState[AGENT_RUN_STATE_KEYS.durationMs];
+    delete cloned.runState[AGENT_RUN_STATE_KEYS.runStartedAt];
+    delete cloned.runState[AGENT_RUN_STATE_KEYS.leaseExpiresAt];
+  }
+  delete cloned[AGENT_RUN_STATE_KEYS.durationMs];
+  return cloned;
+}
 
 describe("executeAgentWorkflow", () => {
   beforeEach(() => {
@@ -138,6 +154,20 @@ describe("executeAgentWorkflow", () => {
     expect(typeof runState[AGENT_RUN_STATE_KEYS.retryAttempts]).toBe("number");
     expect(typeof runState[AGENT_RUN_STATE_KEYS.retryMaxAttempts]).toBe("number");
     expect(runState[AGENT_RUN_STATE_KEYS.retryMode]).toBe("local");
+    expect(runState[AGENT_RUN_STATE_KEYS.evidenceRetryPolicy]).toEqual({
+      enabled: false,
+      threshold: 3,
+      missingEvidenceCount: 0,
+      attempts: 1,
+      maxAttempts: 3,
+      shouldRetry: false,
+      nextAttempt: 1,
+      nextRetryMode: "local",
+      reason: "Policy not triggered.",
+    });
+    expect(outputJson.evidenceRetryPolicy).toEqual(
+      runState[AGENT_RUN_STATE_KEYS.evidenceRetryPolicy],
+    );
     expect(runState[AGENT_RUN_STATE_KEYS.fallbackLineage]).toBeUndefined();
     expect(runState[AGENT_RUN_STATE_KEYS.fallbackReason]).toBeUndefined();
     expect(Array.isArray(outputJson.toolFailures)).toBe(true);
@@ -147,5 +177,61 @@ describe("executeAgentWorkflow", () => {
     expect(outputJson.retryMode).toBe("local");
     expect(outputJson.fallbackLineage).toBeUndefined();
     expect(outputJson.fallbackReason).toBeUndefined();
+  });
+
+  it("replays deterministically for equivalent local reruns", async () => {
+    const { prisma } = await vi.importMock("@entitlement-os/db");
+    const openAiAgents = await vi.importMock("@openai/agents");
+    const { run } = openAiAgents as {
+      run: ReturnType<typeof vi.fn>;
+      user: ReturnType<typeof vi.fn>;
+      assistant: ReturnType<typeof vi.fn>;
+    };
+
+    const fixedTime = new Date("2026-02-14T00:00:00.000Z");
+    vi.useFakeTimers();
+    vi.setSystemTime(fixedTime);
+
+    try {
+      prisma.run.findUnique.mockResolvedValue(null);
+      prisma.run.upsert.mockResolvedValue({
+        id: "run-contract",
+        status: "running",
+        inputHash: "input-hash",
+        outputJson: null,
+        openaiResponseId: null,
+        startedAt: fixedTime,
+        finishedAt: null,
+      });
+      prisma.run.update.mockResolvedValue({ status: "succeeded" });
+      (run as ReturnType<typeof vi.fn>).mockResolvedValue({
+        finalOutput: JSON.stringify(VALID_REPORT),
+        lastResponseId: "openai-response-id",
+      });
+
+      const request = {
+        orgId: "org-test",
+        userId: "user-test",
+        conversationId: "conversation-test",
+        runId: "run-contract",
+        input: [{ role: "user", content: "Run entitlement analysis" }],
+        runType: "ENRICHMENT",
+        correlationId: "corr-local",
+      };
+
+      await executeAgentWorkflow(request);
+      await executeAgentWorkflow(request);
+
+      const firstOutput = normalizePersistedOutput(
+        prisma.run.update.mock.calls[0][0].data.outputJson as Record<string, unknown>,
+      );
+      const secondOutput = normalizePersistedOutput(
+        prisma.run.update.mock.calls[1][0].data.outputJson as Record<string, unknown>,
+      );
+
+      expect(firstOutput).toEqual(secondOutput);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -17,6 +17,7 @@ import {
   type AgentRunState,
   type AgentRunWorkflowInput,
   type AgentRunWorkflowOutput,
+  type AgentEvidenceRetryPolicy,
   type AgentTrustSnapshot,
   type OpportunityScorecard,
   type ParcelTriage,
@@ -143,6 +144,48 @@ function sanitizeOutputText(value: unknown): string {
   } catch {
     return "";
   }
+}
+
+const MISSING_EVIDENCE_RETRY_THRESHOLD = 3;
+const MISSING_EVIDENCE_RETRY_MAX_ATTEMPTS = 3;
+const MISSING_EVIDENCE_RETRY_MODE = "missing-evidence-policy";
+
+function buildMissingEvidenceRetryPolicy(
+  params: {
+    retryAttempts?: number | null;
+    retryMaxAttempts?: number | null;
+    retryMode?: string | null;
+  },
+  missingEvidenceCount: number,
+  status: AgentExecutionResult["status"],
+): AgentEvidenceRetryPolicy {
+  const attempts = Math.max(1, params.retryAttempts ?? 1);
+  const maxAttempts = Math.max(
+    attempts,
+    params.retryMaxAttempts ?? MISSING_EVIDENCE_RETRY_MAX_ATTEMPTS,
+  );
+  const shouldRetry =
+    status !== "succeeded" &&
+    missingEvidenceCount >= MISSING_EVIDENCE_RETRY_THRESHOLD &&
+    attempts < maxAttempts;
+
+  return {
+    enabled: missingEvidenceCount > 0,
+    threshold: MISSING_EVIDENCE_RETRY_THRESHOLD,
+    missingEvidenceCount,
+    attempts,
+    maxAttempts,
+    shouldRetry,
+    nextAttempt: shouldRetry ? attempts + 1 : attempts,
+    nextRetryMode: shouldRetry
+      ? MISSING_EVIDENCE_RETRY_MODE
+      : params.retryMode ?? "temporal",
+    reason: shouldRetry
+      ? `Missing evidence count (${missingEvidenceCount}) exceeded threshold ${MISSING_EVIDENCE_RETRY_THRESHOLD}.`
+      : attempts >= maxAttempts
+        ? `Missing evidence policy reached max attempts (${maxAttempts}).`
+        : "Policy not triggered.",
+  };
 }
 
 function buildFallbackOutput(status: AgentExecutionResult["status"], missingEvidence: string[]): string {
@@ -1006,6 +1049,11 @@ export async function runAgentTurn(
     }
 
     const missingEvidence = finalizeMissingEvidence(state);
+    const evidenceRetryPolicy = buildMissingEvidenceRetryPolicy(
+      params,
+      missingEvidence.length,
+      status,
+    );
     const normalizedEvidenceCitations = dedupeEvidenceCitations(state.evidenceCitations);
     const evidenceHash = computeEvidenceHash(normalizedEvidenceCitations);
     const confidenceCandidate =
@@ -1039,6 +1087,7 @@ export async function runAgentTurn(
       retryAttempts: params.retryAttempts ?? 1,
       retryMaxAttempts: params.retryMaxAttempts ?? (params.retryAttempts ?? 1),
       retryMode: params.retryMode ?? "temporal",
+      evidenceRetryPolicy,
       fallbackLineage: params.fallbackLineage ?? [],
       fallbackReason: params.fallbackReason ?? undefined,
     };
@@ -1076,6 +1125,7 @@ export async function runAgentTurn(
       retryAttempts: trust.retryAttempts,
       retryMaxAttempts: trust.retryMaxAttempts,
       retryMode: trust.retryMode,
+      evidenceRetryPolicy: trust.evidenceRetryPolicy,
       fallbackLineage: trust.fallbackLineage,
       fallbackReason: trust.fallbackReason,
       finalReport: finalReport,
@@ -1104,6 +1154,7 @@ export async function runAgentTurn(
       retryAttempts: trust.retryAttempts,
       retryMaxAttempts: trust.retryMaxAttempts,
       retryMode: trust.retryMode,
+      evidenceRetryPolicy: trust.evidenceRetryPolicy,
       fallbackLineage: trust.fallbackLineage,
       fallbackReason: trust.fallbackReason,
       correlationId: params.correlationId,

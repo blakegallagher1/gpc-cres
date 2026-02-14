@@ -28,6 +28,7 @@ describe("Agent run state contract", () => {
       leaseExpiresAt: "leaseExpiresAt",
       toolFailures: "toolFailures",
       proofChecks: "proofChecks",
+      evidenceRetryPolicy: "evidenceRetryPolicy",
       retryAttempts: "retryAttempts",
       retryMaxAttempts: "retryMaxAttempts",
       retryMode: "retryMode",
@@ -60,6 +61,17 @@ describe("Agent run state contract", () => {
       leaseExpiresAt: new Date().toISOString(),
       toolFailures: ["search_parcels: timeout"],
       proofChecks: ["sources:satisfied", "zoning:missing"],
+      evidenceRetryPolicy: {
+        enabled: true,
+        threshold: 2,
+        missingEvidenceCount: 2,
+        attempts: 1,
+        maxAttempts: 4,
+        shouldRetry: true,
+        nextAttempt: 2,
+        nextRetryMode: "missing-evidence-policy",
+        reason: "Missing evidence count (2) exceeded threshold 2.",
+      },
       retryAttempts: 1,
       retryMaxAttempts: 1,
       retryMode: "local_fallback_after_temporal_start",
@@ -83,6 +95,9 @@ describe("Agent run state contract", () => {
     expect(parsed.runState[AGENT_RUN_STATE_KEYS.correlationId]).toBe("corr-123");
     expect(parsed.runState[AGENT_RUN_STATE_KEYS.status]).toBe(AGENT_RUN_STATE_STATUS.RUNNING);
     expect(parsed.runState[AGENT_RUN_STATE_KEYS.lastAgentName]).toBe("coordinator");
+    expect(parsed.runState[AGENT_RUN_STATE_KEYS.evidenceRetryPolicy]).toEqual({
+      ...runState.evidenceRetryPolicy,
+    });
     expect(parsed.finalReport).toBeNull();
   });
 });

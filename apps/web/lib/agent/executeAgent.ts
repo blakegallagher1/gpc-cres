@@ -5,6 +5,7 @@ import {
   SKU_TYPES,
   AGENT_RUN_STATE_KEYS,
   AGENT_RUN_STATE_SCHEMA_VERSION,
+  type AgentEvidenceRetryPolicy,
   type AgentRunOutputJson,
   type AgentRunState,
 } from "@entitlement-os/shared";
@@ -102,6 +103,10 @@ export type AgentExecutionParams = {
   executionLeaseToken?: string;
 };
 
+const MISSING_EVIDENCE_RETRY_THRESHOLD = 3;
+const MISSING_EVIDENCE_RETRY_MAX_ATTEMPTS = 3;
+const MISSING_EVIDENCE_RETRY_MODE = "missing-evidence-policy";
+
 type ToolEventState = {
   toolsInvoked: Set<string>;
   packVersionsUsed: Set<string>;
@@ -155,6 +160,33 @@ function normalizeConfidence(value: unknown): number | null {
   return null;
 }
 
+function parseEvidenceRetryPolicy(
+  value: unknown,
+): AgentEvidenceRetryPolicy | undefined {
+  if (!isRecord(value)) return undefined;
+  if (typeof value.enabled !== "boolean") return undefined;
+  if (typeof value.threshold !== "number" || !Number.isFinite(value.threshold)) return undefined;
+  if (typeof value.missingEvidenceCount !== "number" || !Number.isFinite(value.missingEvidenceCount)) return undefined;
+  if (typeof value.attempts !== "number" || !Number.isFinite(value.attempts)) return undefined;
+  if (typeof value.maxAttempts !== "number" || !Number.isFinite(value.maxAttempts)) return undefined;
+  if (typeof value.shouldRetry !== "boolean") return undefined;
+  if (typeof value.nextAttempt !== "number" || !Number.isFinite(value.nextAttempt)) return undefined;
+  if (typeof value.nextRetryMode !== "string" || value.nextRetryMode.length === 0) return undefined;
+  if (typeof value.reason !== "string" || value.reason.length === 0) return undefined;
+
+  return {
+    enabled: value.enabled,
+    threshold: value.threshold,
+    missingEvidenceCount: value.missingEvidenceCount,
+    attempts: value.attempts,
+    maxAttempts: value.maxAttempts,
+    shouldRetry: value.shouldRetry,
+    nextAttempt: value.nextAttempt,
+    nextRetryMode: value.nextRetryMode,
+    reason: value.reason,
+  };
+}
+
 function parseConfidenceFromOutput(value: unknown): number | null {
   if (!isRecord(value)) return null;
   const primary = normalizeConfidence((value as Record<string, unknown>).confidence);
@@ -166,6 +198,40 @@ function parseConfidenceFromOutput(value: unknown): number | null {
   const rate = normalizeConfidence((value as Record<string, unknown>).scorecardConfidence);
   if (rate !== null) return rate;
   return null;
+}
+
+function buildMissingEvidenceRetryPolicy(
+  params: AgentExecutionParams,
+  missingEvidenceCount: number,
+  status: AgentExecutionResult["status"],
+): AgentEvidenceRetryPolicy {
+  const attempts = Math.max(1, params.retryAttempts ?? 1);
+  const maxAttempts = Math.max(
+    attempts,
+    params.retryMaxAttempts ?? MISSING_EVIDENCE_RETRY_MAX_ATTEMPTS,
+  );
+  const shouldRetry =
+    status !== "succeeded" &&
+    missingEvidenceCount >= MISSING_EVIDENCE_RETRY_THRESHOLD &&
+    attempts < maxAttempts;
+
+  return {
+    enabled: missingEvidenceCount > 0,
+    threshold: MISSING_EVIDENCE_RETRY_THRESHOLD,
+    missingEvidenceCount,
+    attempts,
+    maxAttempts,
+    shouldRetry,
+    nextAttempt: shouldRetry ? attempts + 1 : attempts,
+    nextRetryMode: shouldRetry
+      ? MISSING_EVIDENCE_RETRY_MODE
+      : params.retryMode ?? "local",
+    reason: shouldRetry
+      ? `Missing evidence count (${missingEvidenceCount}) exceeded threshold ${MISSING_EVIDENCE_RETRY_THRESHOLD}.`
+      : attempts >= maxAttempts
+        ? `Missing evidence policy reached max attempts (${maxAttempts}).`
+        : "Policy not triggered.",
+  };
 }
 
 function getToolName(payload: Record<string, unknown>): string | null {
@@ -397,6 +463,7 @@ function parseTrustFromRunOutput(output: unknown): AgentTrustEnvelope {
       verificationSteps: [],
       lastAgentName: undefined,
       errorSummary: null,
+      evidenceRetryPolicy: undefined,
       toolFailures: [],
       proofChecks: [],
       retryAttempts: undefined,
@@ -435,6 +502,7 @@ function parseTrustFromRunOutput(output: unknown): AgentTrustEnvelope {
     lastAgentName:
       typeof output.lastAgentName === "string" ? output.lastAgentName : undefined,
     errorSummary: typeof output.errorSummary === "string" ? output.errorSummary : null,
+    evidenceRetryPolicy: parseEvidenceRetryPolicy(output.evidenceRetryPolicy),
     evidenceHash:
       typeof output.evidenceHash === "string" ? output.evidenceHash : null,
     durationMs: typeof output.durationMs === "number" && Number.isFinite(output.durationMs)
@@ -818,6 +886,11 @@ export async function executeAgentWorkflow(
       state.toolErrorMessages.push(`proof_enforcement: ${proofMessage}`);
     }
     const missingEvidence = finalizeMissingEvidence(state);
+    const evidenceRetryPolicy = buildMissingEvidenceRetryPolicy(
+      params,
+      missingEvidence.length,
+      status,
+    );
     const normalizedEvidenceCitations = dedupeEvidenceCitations(
       state.evidenceCitations,
     );
@@ -853,6 +926,7 @@ export async function executeAgentWorkflow(
       retryAttempts: params.retryAttempts ?? 1,
       retryMaxAttempts: params.retryMaxAttempts ?? (params.retryAttempts ?? 1),
       retryMode: params.retryMode ?? "local",
+      evidenceRetryPolicy,
       fallbackLineage: params.fallbackLineage,
       fallbackReason: params.fallbackReason,
     };
@@ -894,6 +968,7 @@ export async function executeAgentWorkflow(
       retryAttempts: trust.retryAttempts,
       retryMaxAttempts: trust.retryMaxAttempts,
       retryMode: trust.retryMode,
+      evidenceRetryPolicy: trust.evidenceRetryPolicy,
       fallbackLineage: trust.fallbackLineage,
       fallbackReason: trust.fallbackReason,
     };
@@ -915,6 +990,7 @@ export async function executeAgentWorkflow(
       retryAttempts: trust.retryAttempts,
       retryMaxAttempts: trust.retryMaxAttempts,
       retryMode: trust.retryMode,
+      evidenceRetryPolicy: trust.evidenceRetryPolicy,
       fallbackLineage: trust.fallbackLineage,
       fallbackReason: trust.fallbackReason,
       durationMs: Date.now() - startedAtMs,

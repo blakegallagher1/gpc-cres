@@ -9,6 +9,18 @@ export type EvidenceCitation = {
   isOfficial?: boolean;
 };
 
+export type SourceCaptureManifestEntry = {
+  sourceUrl: string;
+  jurisdictionId: string;
+  evidenceSourceId?: string | null;
+  evidenceSnapshotId?: string | null;
+  contentHash?: string | null;
+  captureAttempts: number;
+  captureSuccess: boolean;
+  captureError: string | null;
+  qualityBucket: string;
+};
+
 function canonicalCitationKey(citation: EvidenceCitation): string | null {
   if (citation.snapshotId) return `snapshot:${citation.snapshotId}`;
   if (citation.sourceId) return `source:${citation.sourceId}`;
@@ -59,4 +71,28 @@ export function computeEvidenceHash(citations: EvidenceCitation[]): string | nul
     .map(normalizeCitationForHash)
     .sort((a, b) => a.localeCompare(b));
   return hashJsonSha256(normalized);
+}
+
+export function computeSourceCaptureManifestHash(
+  entries: readonly SourceCaptureManifestEntry[],
+): string {
+  const ordered = [...entries].sort((left, right) => {
+    if (left.sourceUrl === right.sourceUrl) {
+      return left.jurisdictionId.localeCompare(right.jurisdictionId);
+    }
+    return left.sourceUrl.localeCompare(right.sourceUrl);
+  });
+
+  return hashJsonSha256({
+    entries: ordered.map((entry) => ({
+      sourceUrl: entry.sourceUrl,
+      evidenceSourceId: entry.evidenceSourceId ?? null,
+      evidenceSnapshotId: entry.evidenceSnapshotId ?? null,
+      contentHash: entry.contentHash ?? null,
+      captureAttempts: entry.captureAttempts,
+      captureSuccess: entry.captureSuccess,
+      captureError: entry.captureError,
+      qualityBucket: entry.qualityBucket,
+    })),
+  });
 }
