@@ -119,6 +119,9 @@ This document maps the capabilities described in OpenAI’s in-house data agent 
 - ✅ Added per-source evidence freshness score, drift state, and alert severity to `/api/evidence` responses for operational triage.
 - ✅ Added run dashboard evidence freshness and alert rollups, including state/alert distributions and average freshness score.
 - ✅ Implemented stale-source prioritization with manifest-backed stale-offender payload and notification metadata in `/api/cron/source-ingestion`.
+- ✅ Added operational alert hardening for source-ingestion stale offenders (retry/quiet-hours/escalation + dedupe + batched retry-safe dispatch).
+- ✅ Extended source-ingestion output rollups into `/api/runs/dashboard` with source manifest continuity and stale-offender profile sampling.
+- ✅ Added dashboard UI cards for source-ingestion stale offenders and manifest continuity continuity alerts on `/runs/dashboard`.
 
 ## 9) Verification Log
 
@@ -139,5 +142,11 @@ This document maps the capabilities described in OpenAI’s in-house data agent 
 - 2026-02-14 20:51:26 UTC: `pnpm typecheck` ✅
 - 2026-02-14 20:51:26 UTC: `pnpm test` ✅
 - 2026-02-14 20:51:26 UTC: `pnpm build` ✅
+
+## 10) Next Wave Candidates
+
+- Planner/router stress tests for high-volume or adversarial payload distributions.
+- CI reproducibility-drift alerting for source-ingestion manifest continuity and enrichment outputs.
+- Source discovery quality feedback loop hardening and stale-offender confidence decay alerts.
 
 Status for each upcoming step should be updated here as soon as work begins.

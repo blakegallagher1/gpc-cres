@@ -101,6 +101,28 @@ describe("GET /api/runs/dashboard", () => {
           sourceManifestHash: "manifest-a",
           evidenceHash: "evidence-a",
           correlationId: "corr-ingest-stable",
+          staleSourceOffenders: [
+            {
+              url: "https://parish-a.example.gov/records",
+              jurisdictionName: "Sample Parish",
+              stalenessDays: 19,
+              qualityScore: 0.18,
+              qualityBucket: "critical",
+              priority: "critical",
+              alertReasons: ["Critical evidence quality", "Capture stale"],
+              captureSuccess: false,
+            },
+            {
+              url: "https://parish-b.example.gov/records",
+              jurisdictionName: "Sample Parish",
+              stalenessDays: null,
+              qualityScore: 0.0,
+              qualityBucket: "critical",
+              priority: "critical",
+              alertReasons: ["Never captured"],
+              captureSuccess: false,
+            },
+          ],
           runState: {
             [AGENT_RUN_STATE_KEYS.runInputHash]: "source-input-1",
           },
@@ -117,6 +139,18 @@ describe("GET /api/runs/dashboard", () => {
           sourceManifestHash: "manifest-b",
           evidenceHash: "evidence-b",
           correlationId: "corr-ingest-drift",
+          staleSourceOffenders: [
+            {
+              url: "https://parish-a.example.gov/records",
+              jurisdictionName: "Sample Parish",
+              stalenessDays: 3,
+              qualityScore: 0.31,
+              qualityBucket: "stale",
+              priority: "warning",
+              alertReasons: ["Quality drifting"],
+              captureSuccess: true,
+            },
+          ],
           runState: {
             [AGENT_RUN_STATE_KEYS.runInputHash]: "source-input-1",
           },
@@ -292,6 +326,20 @@ describe("GET /api/runs/dashboard", () => {
       expect(payload.recentRuns[0].retryPolicyReason).toBe("insufficient-evidence");
       expect(payload.recentRuns[0].retryPolicyAttempts).toBe(1);
       expect(payload.recentRuns[0].retryPolicyShouldRetry).toBe(true);
+      expect(payload.sourceIngestionProfile.topStaleOffenders).toHaveLength(2);
+      expect(payload.sourceIngestionProfile.topStaleOffenders[0]).toMatchObject({
+        url: "https://parish-a.example.gov/records",
+        priority: "critical",
+        runId: "run-ingest-stable",
+      });
+      expect(payload.sourceIngestionProfile.manifestContinuityComparisons).toBe(1);
+      expect(payload.sourceIngestionProfile.manifestContinuityDrifts).toBe(1);
+      expect(payload.sourceIngestionProfile.recentManifestContinuityAlerts).toHaveLength(1);
+      expect(payload.sourceIngestionProfile.recentManifestContinuityAlerts[0]).toMatchObject({
+        runType: "SOURCE_INGEST",
+        fromRunId: "run-ingest-drift",
+        toRunId: "run-ingest-stable",
+      });
     } finally {
       vi.useRealTimers();
     }

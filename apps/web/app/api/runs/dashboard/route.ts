@@ -117,6 +117,35 @@ type RunDashboardReproducibilityProfile = {
   recentDriftAlerts: RunDashboardReproducibilityAlert[];
 };
 
+type RunDashboardSourceIngestionOffender = {
+  runId: string;
+  runType: string;
+  url: string;
+  jurisdictionName: string;
+  stalenessDays: number | null;
+  qualityScore: number;
+  qualityBucket: string;
+  priority: string;
+  alertReasons: string[];
+  captureSuccess: boolean;
+};
+
+type RunDashboardManifestContinuityAlert = {
+  runType: string;
+  fromRunId: string;
+  toRunId: string;
+  previousManifestHash: string;
+  currentManifestHash: string;
+};
+
+type RunDashboardSourceIngestionProfile = {
+  topStaleOffenders: RunDashboardSourceIngestionOffender[];
+  manifestContinuityComparisons: number;
+  manifestContinuityDrifts: number;
+  manifestContinuityDriftRate: number | null;
+  recentManifestContinuityAlerts: RunDashboardManifestContinuityAlert[];
+};
+
 type RunDashboardEvidenceProfile = {
   freshnessStateDistribution: RunDashboardBucket[];
   alertReasonDistribution: RunDashboardBucket[];
@@ -169,6 +198,7 @@ type RunDashboardResponse = {
   toolFailureProfile: RunDashboardToolFailureProfile;
   evidenceProfile: RunDashboardEvidenceProfile;
   reproducibilityProfile: RunDashboardReproducibilityProfile;
+  sourceIngestionProfile: RunDashboardSourceIngestionProfile;
   recentRuns: RunDashboardRecentRun[];
 };
 
@@ -395,6 +425,7 @@ type ParsedOutput = {
   continuityHashType: string | null;
   continuityHash: string | null;
   evidenceCitations: EvidenceCitationRef[];
+  sourceIngestionOffenders: RunDashboardSourceIngestionOffender[];
 };
 
 function parseRunOutput(outputJson: unknown): ParsedOutput {
@@ -523,7 +554,51 @@ function parseRunOutput(outputJson: unknown): ParsedOutput {
     continuityHashType,
     continuityHash: sourceManifestHash ?? evidenceHash,
     evidenceCitations,
+    sourceIngestionOffenders: parseSourceIngestionOffenders(
+      output?.staleSourceOffenders,
+    ),
   };
+}
+
+function parseSourceIngestionOffenders(
+  value: unknown,
+): RunDashboardSourceIngestionOffender[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((entry): RunDashboardSourceIngestionOffender | null => {
+      if (!isRecord(entry)) {
+        return null;
+      }
+
+      const stalenessDaysValue = toNumber(entry.stalenessDays);
+      const qualityScore = toNumber(entry.qualityScore);
+
+      if (typeof entry.url !== "string" || entry.url.length === 0) {
+        return null;
+      }
+      if (typeof entry.jurisdictionName !== "string") {
+        return null;
+      }
+
+      return {
+        runId: "",
+        runType: "",
+        url: entry.url,
+        jurisdictionName: entry.jurisdictionName,
+        stalenessDays: Number.isFinite(stalenessDaysValue) ? stalenessDaysValue : null,
+        qualityScore: Number.isFinite(qualityScore) ? qualityScore : 0,
+        qualityBucket:
+          typeof entry.qualityBucket === "string" ? entry.qualityBucket : "unknown",
+        priority:
+          typeof entry.priority === "string" ? entry.priority : "warning",
+        alertReasons: toStringArray(entry.alertReasons),
+        captureSuccess: entry.captureSuccess === true,
+      };
+    })
+    .filter((offender) => offender !== null);
 }
 
 // GET /api/runs/dashboard - aggregate run state metrics for agent dashboard
@@ -605,10 +680,18 @@ export async function GET(_request: NextRequest) {
     const reproducibilitySignals: RunDashboardReproducibilityAlert[] = [];
     const recentRuns: RunDashboardRecentRun[] = [];
     const reproducibilityState = new Map<string, { hash: string; runId: string }>();
+    const sourceManifestState = new Map<string, { hash: string; runId: string }>();
     const citedEvidenceSourceIds = new Set<string>();
     const evidenceFreshnessStateCounts = new Map<string, number>();
     const evidenceAlertReasonCounts = new Map<string, number>();
     let evidenceFreshnessScoreSum = 0;
+    const sourceIngestionOffenderByUrl = new Map<string, RunDashboardSourceIngestionOffender>();
+    const manifestContinuitySignals: RunDashboardManifestContinuityAlert[] = [];
+    const sourceManifestCounts = {
+      comparisons: 0,
+      drifts: 0,
+      driftRate: 0 as number | null,
+    };
 
     const parseRunsOutput = runs.map((run) => {
       const parsed = parseRunOutput(run.outputJson);
@@ -730,6 +813,39 @@ export async function GET(_request: NextRequest) {
           hash: parsed.continuityHash,
           runId: run.id,
         });
+      }
+
+      if (run.runType === "SOURCE_INGEST") {
+        if (parsed.sourceManifestHash !== null) {
+          const existing = sourceManifestState.get("SOURCE_INGEST");
+          if (existing) {
+            sourceManifestCounts.comparisons += 1;
+            if (existing.hash !== parsed.sourceManifestHash) {
+              sourceManifestCounts.drifts += 1;
+              manifestContinuitySignals.push({
+                runType: run.runType,
+                fromRunId: run.id,
+                toRunId: existing.runId,
+                previousManifestHash: existing.hash,
+                currentManifestHash: parsed.sourceManifestHash,
+              });
+            }
+          }
+          sourceManifestState.set("SOURCE_INGEST", {
+            hash: parsed.sourceManifestHash,
+            runId: run.id,
+          });
+        }
+
+        for (const offender of parsed.sourceIngestionOffenders) {
+          if (!sourceIngestionOffenderByUrl.has(offender.url)) {
+            sourceIngestionOffenderByUrl.set(offender.url, {
+              ...offender,
+              runId: run.id,
+              runType: run.runType,
+            });
+          }
+        }
       }
 
       const durationMs = run.finishedAt
@@ -872,6 +988,13 @@ export async function GET(_request: NextRequest) {
         ((totals.reproducibilityDrifts / totals.reproducibilityComparisons) + Number.EPSILON) * 10000,
       ) / 10000;
     }
+    if (sourceManifestCounts.comparisons > 0) {
+      sourceManifestCounts.driftRate = Math.round(
+        ((sourceManifestCounts.drifts / sourceManifestCounts.comparisons) + Number.EPSILON) * 10000,
+      ) / 10000;
+    } else {
+      sourceManifestCounts.driftRate = null;
+    }
 
     const confidenceTimeline: RunDashboardConfidencePoint[] = Array.from(
       confidenceBuckets.entries(),
@@ -887,6 +1010,22 @@ export async function GET(_request: NextRequest) {
               10000
             : null,
       }));
+
+    const topStaleSourceIngestionOffenders = Array.from(
+      sourceIngestionOffenderByUrl.values(),
+    )
+      .sort((a, b) => {
+        if (a.priority !== b.priority) {
+          return a.priority === "critical" ? -1 : b.priority === "critical" ? 1 : 0;
+        }
+        if (a.stalenessDays === null) return 1;
+        if (b.stalenessDays === null) return -1;
+        if (a.stalenessDays !== b.stalenessDays) {
+          return b.stalenessDays - a.stalenessDays;
+        }
+        return b.qualityScore - a.qualityScore;
+      })
+      .slice(0, MAX_TOOL_FAILURE_REASONS);
 
     const payload: RunDashboardResponse = {
       generatedAt: new Date().toISOString(),
@@ -956,6 +1095,14 @@ export async function GET(_request: NextRequest) {
       reproducibilityProfile: {
         topDriftRunTypes: toBucketArray(reproducibilityDriftCounts, MAX_TOOL_FAILURE_REASONS),
         recentDriftAlerts: reproducibilitySignals
+          .slice(0, MAX_REPRODUCIBILITY_ALERTS),
+      },
+      sourceIngestionProfile: {
+        topStaleOffenders: topStaleSourceIngestionOffenders,
+        manifestContinuityComparisons: sourceManifestCounts.comparisons,
+        manifestContinuityDrifts: sourceManifestCounts.drifts,
+        manifestContinuityDriftRate: sourceManifestCounts.driftRate,
+        recentManifestContinuityAlerts: manifestContinuitySignals
           .slice(0, MAX_REPRODUCIBILITY_ALERTS),
       },
       recentRuns: recentRuns

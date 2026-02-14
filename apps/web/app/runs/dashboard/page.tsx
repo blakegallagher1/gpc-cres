@@ -9,6 +9,8 @@ import {
   CheckCircle2,
   AlertTriangle,
   LineChart,
+  ShieldCheck,
+  ListTodo,
 } from "lucide-react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,6 +29,8 @@ import {
   type RunDashboardPayload,
   type RunDashboardRecentRun,
   type RunDashboardReproducibilityAlert,
+  type RunDashboardSourceIngestionOffender,
+  type RunDashboardSourceIngestionProfile,
   useRunDashboard,
 } from "@/lib/hooks/useRunDashboard";
 
@@ -342,6 +346,119 @@ function ReproducibilityPanel({
   );
 }
 
+function SourceIngestionOffendersSection({
+  offenders,
+}: {
+  offenders: RunDashboardSourceIngestionOffender[];
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Source-ingest stale offender samples</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {offenders.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No stale-offender samples from recent source-ingest runs.
+          </p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>URL</TableHead>
+                <TableHead>Run</TableHead>
+                <TableHead>Priority</TableHead>
+                <TableHead>Age</TableHead>
+                <TableHead>Signals</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {offenders.map((offender) => (
+                <TableRow key={`${offender.runId}-${offender.url}`}>
+                  <TableCell className="text-sm">
+                    <div className="font-medium">{offender.url}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {offender.jurisdictionName}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    <Link href={`/runs/${offender.runId}`}>{abbreviateId(offender.runId)}</Link>
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    <Badge
+                      variant={offender.priority === "critical" ? "destructive" : "outline"}
+                    >
+                      {offender.priority}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    {offender.stalenessDays === null
+                      ? "never refreshed"
+                      : `${offender.stalenessDays}d stale`}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {offender.alertReasons.slice(0, 2).join("; ") || "No reason"}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function SourceManifestContinuitySection({
+  profile,
+}: {
+  profile: RunDashboardSourceIngestionProfile;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Source manifest continuity</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="text-sm">
+          {profile.manifestContinuityComparisons === 0 ? (
+            <p className="text-muted-foreground">No source manifest continuity comparisons yet.</p>
+          ) : (
+            <p>
+              {profile.manifestContinuityDrifts} / {profile.manifestContinuityComparisons} manifest
+              continuity comparisons drifted
+              <span className="text-muted-foreground">
+                {" "}
+                ({formatPercent(profile.manifestContinuityDriftRate)} rate).
+              </span>
+            </p>
+          )}
+        </div>
+        {profile.recentManifestContinuityAlerts.length > 0 ? (
+          <ul className="space-y-2 text-xs">
+            {profile.recentManifestContinuityAlerts.map((alert) => (
+              <li
+                key={`${alert.fromRunId}-${alert.toRunId}`}
+                className="rounded border p-2"
+              >
+                <div className="font-mono">
+                  {abbreviateId(alert.fromRunId)} → {abbreviateId(alert.toRunId)}
+                </div>
+                <div className="text-muted-foreground">
+                  {alert.runType}: {alert.previousManifestHash.slice(0, 12)} →{" "}
+                  {alert.currentManifestHash.slice(0, 12)}
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-muted-foreground">No recent manifest drift alerts.</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function RunDashboardPage() {
   const { dashboard, isLoading, isError, mutate } = useRunDashboard({
     runLimit: 500,
@@ -350,6 +467,7 @@ export default function RunDashboardPage() {
 
   const totalsCards = useMemo(() => {
     const totals = dashboard?.totals;
+    const sourceIngestionProfile = dashboard?.sourceIngestionProfile;
 
     if (!totals) {
       return [];
@@ -423,8 +541,26 @@ export default function RunDashboardPage() {
         detail: `${formatPercent(totals.reproducibilityDriftRate)} drift rate`,
         icon: <AlertTriangle className="h-4 w-4" />,
       },
+      {
+        title: "Source manifest continuity",
+        value: sourceIngestionProfile
+          ? `${sourceIngestionProfile.manifestContinuityDrifts}/${sourceIngestionProfile.manifestContinuityComparisons}`
+          : "0/0",
+        detail: sourceIngestionProfile
+          ? `Manifest drift ${formatPercent(sourceIngestionProfile.manifestContinuityDriftRate)}`
+          : "No manifest comparisons",
+        icon: <ShieldCheck className="h-4 w-4" />,
+      },
+      {
+        title: "Stale offender samples",
+        value: formatNumber(sourceIngestionProfile?.topStaleOffenders.length ?? 0),
+        detail: sourceIngestionProfile?.topStaleOffenders.length
+          ? "Tracked from recent runs"
+          : "No tracked offenders",
+        icon: <ListTodo className="h-4 w-4" />,
+      },
     ];
-  }, [dashboard?.totals]);
+  }, [dashboard?.sourceIngestionProfile, dashboard?.totals]);
 
   if (isLoading || !dashboard) {
     return (
@@ -501,6 +637,14 @@ export default function RunDashboardPage() {
             items={dashboard.runTypeDistribution}
             total={dashboard.totals.totalRuns}
             valueLabel="run type"
+          />
+        </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <SourceIngestionOffendersSection
+            offenders={dashboard.sourceIngestionProfile.topStaleOffenders}
+          />
+          <SourceManifestContinuitySection
+            profile={dashboard.sourceIngestionProfile}
           />
         </div>
         <div className="grid gap-4 lg:grid-cols-2">

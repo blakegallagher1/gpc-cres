@@ -3,7 +3,10 @@ import { NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { captureEvidence, withTimeout } from "@entitlement-os/evidence";
 import { supabaseAdmin } from "@/lib/db/supabaseAdmin";
-import { getNotificationService } from "@/lib/services/notification.service";
+import {
+  type NotificationPriority,
+  getNotificationService,
+} from "@/lib/services/notification.service";
 import {
   computeEvidenceHash,
   computeSourceCaptureManifestHash,
@@ -19,6 +22,485 @@ const STALE_ALERT_DAYS = 21;
 const QUALITY_ALERT_THRESHOLD = 0.55;
 const STALE_RATIO_ALERT_THRESHOLD = 0.4;
 const STALE_OFFENDER_ALERT_LIMIT = 6;
+const SOURCE_INGEST_ALERT_TAG = "source-ingestion-stale-offender";
+const SOURCE_INGEST_ALERT_DEFAULTS = {
+  quietStartHour: 22,
+  quietEndHour: 6,
+  retryAttempts: 3,
+  retryBaseMs: 250,
+  dedupeWindowHours: 12,
+  escalationStreak: 3,
+} as const;
+
+type SourceIngestionAlertConfig = {
+  quietStartHour: number;
+  quietEndHour: number;
+  retryAttempts: number;
+  retryBaseMs: number;
+  dedupeWindowHours: number;
+  escalationStreak: number;
+};
+
+type SourceIngestionAlertDecision = {
+  shouldSend: boolean;
+  escalationLevel: AlertEscalationLevel;
+  reason: AlertDecisionReason;
+  priorMatchCount: number;
+  staleRatio: number | null;
+  offenderSignature: string;
+};
+
+type SourceIngestionAlertCandidate = {
+  orgId: string;
+  runId: string;
+  staleRatio: number;
+  staleCount: number;
+  staleOffenderCount: number;
+  staleOffenders: StaleSourceOffender[];
+  sourceManifestHash: string;
+};
+
+type SourceIngestionAlertNotificationRecord = {
+  id: string;
+  createdAt: Date;
+  metadata: unknown;
+};
+
+function toNumber(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : NaN;
+  }
+  return NaN;
+}
+
+type SourceIngestionAlertMetadata = {
+  alertTag: string;
+  staleRatio: number;
+  staleOffenderCount: number;
+  staleSourceManifestHash: string;
+  staleOffenderSamples?: StaleSourceOffender[];
+  reason: AlertDecisionReason;
+  escalationLevel: AlertEscalationLevel;
+  priorMatchCount: number;
+  offenderSignature: string;
+  staleRatioThreshold?: number;
+};
+
+type SourceIngestionAlertNotificationMetadata = {
+  sourceIngestAlertTag?: string;
+  offenderSignature?: string;
+  staleSourceManifestHash?: string;
+  staleOffenderCount?: number;
+};
+
+type SourceIngestionAlertNotificationRecordEnvelope = {
+  id: string;
+  createdAt: Date;
+  metadata: unknown;
+};
+
+type SourceIngestionAlertDecisionInput = {
+  candidate: SourceIngestionAlertCandidate;
+  now: Date;
+  config: SourceIngestionAlertConfig;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isQuietHour(now: Date, config: SourceIngestionAlertConfig): boolean {
+  const hour = now.getUTCHours();
+  if (config.quietStartHour === config.quietEndHour) {
+    return false;
+  }
+  if (config.quietStartHour < config.quietEndHour) {
+    return hour >= config.quietStartHour && hour < config.quietEndHour;
+  }
+  return hour >= config.quietStartHour || hour < config.quietEndHour;
+}
+
+function trimSourceIngestionAlertSamples(
+  offenders: StaleSourceOffender[],
+  limit = STALE_OFFENDER_ALERT_LIMIT,
+): StaleSourceOffender[] {
+  return offenders
+    .slice()
+    .sort(sortByOffenderPriority)
+    .slice(0, limit)
+    .map((offender) => ({
+      ...offender,
+      alertReasons: offender.alertReasons.slice(0, 3),
+    }));
+}
+
+function buildSourceIngestionAlertSignature(candidate: SourceIngestionAlertCandidate): string {
+  const signaturePayload = {
+    orgId: candidate.orgId,
+    staleRatio: Math.round(candidate.staleRatio * 10_000) / 10_000,
+    staleOffenderCount: candidate.staleOffenderCount,
+    staleSourceManifestHash: candidate.sourceManifestHash,
+    staleOffenders: trimSourceIngestionAlertSamples(candidate.staleOffenders),
+  };
+  const serialized = JSON.stringify(signaturePayload);
+  return crypto.createHash("sha256").update(serialized).digest("hex");
+}
+
+function parseSourceIngestionAlertMetadata(
+  value: unknown,
+): SourceIngestionAlertMetadata | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const staleSourceManifestHash = typeof value.staleSourceManifestHash === "string"
+    ? value.staleSourceManifestHash
+    : null;
+  const offenderSignature = typeof value.offenderSignature === "string"
+    ? value.offenderSignature
+    : null;
+  const staleOffenderCount = toNumber(value.staleOffenderCount);
+  const staleRatio = toNumber(value.staleRatio);
+
+  if (staleSourceManifestHash === null || offenderSignature === null) {
+    return null;
+  }
+
+  return {
+    alertTag: typeof value.sourceIngestAlertTag === "string"
+      ? value.sourceIngestAlertTag
+      : SOURCE_INGEST_ALERT_TAG,
+    staleOffenderCount: Number.isFinite(staleOffenderCount)
+      ? staleOffenderCount
+      : 0,
+    staleSourceManifestHash,
+    staleRatio: Number.isFinite(staleRatio) ? staleRatio : 0,
+    offenderSignature,
+    reason:
+      value.reason === "not-alert" ||
+      value.reason === "quiet-hours" ||
+      value.reason === "escalation" ||
+      value.reason === "suppressed-duplicate" ||
+      value.reason === "send-now"
+        ? value.reason
+        : "not-alert",
+    escalationLevel:
+      value.escalationLevel === "critical" ? "critical" : "normal",
+    priorMatchCount: Number.isFinite(toNumber(value.priorMatchCount))
+      ? toNumber(value.priorMatchCount)
+      : 0,
+  };
+}
+
+function buildSourceIngestionAlertNotificationMetadata(
+  input: SourceIngestionAlertMetadata,
+): SourceIngestionAlertNotificationMetadata {
+  return {
+    sourceIngestAlertTag: input.alertTag,
+    offenderSignature: input.offenderSignature,
+    staleSourceManifestHash: input.staleSourceManifestHash,
+    staleOffenderCount: input.staleOffenderCount,
+  };
+}
+
+function buildSourceIngestionAlertBodyLines(params: {
+  totalStaleSources: number;
+  staleRatio: number;
+  prioritizedOffenders: StaleSourceOffender[];
+  examples: StaleSource[];
+  staleRatioThreshold: number;
+}): string[] {
+  return [
+    `Source ingestion found ${params.totalStaleSources} stale/weak-confidence seeds for this org (ratio ${(params.staleRatio * 100).toFixed(1)}%).`,
+    `Stale ratio threshold is ${(params.staleRatioThreshold * 100).toFixed(0)}%.`,
+    `Quality lookback window: ${QUALITY_LOOKBACK_DAYS} days.`,
+    `Top prioritized stale offenders (${params.totalStaleSources} total, ${params.prioritizedOffenders.length} shown):`,
+    ...params.prioritizedOffenders.map((entry) => `- ${formatOffenderLine(entry)}`),
+    "Examples:",
+    ...params.examples.map(
+      (entry) =>
+        `- ${entry.url} (${entry.jurisdictionName}: ${
+          entry.stalenessDays === null
+            ? "never refreshed"
+            : `${entry.stalenessDays}d stale`
+        }, quality ${entry.qualityScore.toFixed(2)}, bucket ${entry.qualityBucket})`,
+    ),
+    "",
+    "Please refresh these sources or add new seed URLs so downstream packs stay grounded.",
+  ];
+}
+
+function buildSourceIngestionAlertMetadataRecord(
+  candidate: SourceIngestionAlertCandidate,
+  decision: SourceIngestionAlertDecision,
+): SourceIngestionAlertMetadata {
+  return {
+    alertTag: SOURCE_INGEST_ALERT_TAG,
+    staleRatio: candidate.staleRatio,
+    staleOffenderCount: candidate.staleOffenderCount,
+    staleSourceManifestHash: candidate.sourceManifestHash,
+    staleOffenderSamples: candidate.staleOffenders,
+    reason: decision.reason,
+    escalationLevel: decision.escalationLevel,
+    priorMatchCount: decision.priorMatchCount,
+    offenderSignature: decision.offenderSignature,
+    staleRatioThreshold: STALE_RATIO_ALERT_THRESHOLD,
+  };
+}
+
+async function getRecentSourceIngestionAlertRecords(
+  orgId: string,
+  cutoff: Date,
+): Promise<SourceIngestionAlertNotificationRecordEnvelope[]> {
+  return prisma.notification.findMany({
+    where: {
+      orgId,
+      type: "ALERT",
+      sourceAgent: "source-ingestion",
+      createdAt: { gte: cutoff },
+      metadata: {
+        path: ["sourceIngestAlertTag"],
+        equals: SOURCE_INGEST_ALERT_TAG,
+      },
+    },
+    select: {
+      id: true,
+      createdAt: true,
+      metadata: true,
+    },
+    orderBy: { createdAt: "desc" },
+  }) as Promise<SourceIngestionAlertNotificationRecordEnvelope[]>;
+}
+
+async function getSourceIngestionAlertDecision(
+  input: SourceIngestionAlertDecisionInput,
+): Promise<SourceIngestionAlertDecision> {
+  const { candidate, now, config } = input;
+  const staleRatio = candidate.staleRatio;
+  const isQuiet = isQuietHour(now, config);
+  if (staleRatio < STALE_RATIO_ALERT_THRESHOLD || candidate.staleOffenderCount <= 0) {
+    return {
+      shouldSend: false,
+      escalationLevel: "normal",
+      reason: "not-alert",
+      priorMatchCount: 0,
+      staleRatio,
+      offenderSignature: "",
+    };
+  }
+
+  const offenderSignature = buildSourceIngestionAlertSignature(candidate);
+  const cutoff = new Date(
+    now.getTime() - config.dedupeWindowHours * 3_600_000,
+  );
+  const recentAlerts = await getRecentSourceIngestionAlertRecords(
+    candidate.orgId,
+    cutoff,
+  );
+  const priorMatchCount = recentAlerts.filter((record) => {
+    const metadata = parseSourceIngestionAlertMetadata(record.metadata);
+    if (!metadata) return false;
+    return (
+      metadata.offenderSignature === offenderSignature
+      || metadata.staleSourceManifestHash === candidate.sourceManifestHash
+    );
+  }).length;
+
+  const escalationThreshold = Math.max(config.escalationStreak - 1, 0);
+  if (priorMatchCount >= escalationThreshold && priorMatchCount > 0) {
+    return {
+      shouldSend: true,
+      escalationLevel: "critical",
+      reason: "escalation",
+      priorMatchCount,
+      staleRatio,
+      offenderSignature,
+    };
+  }
+
+  if (isQuiet) {
+    return {
+      shouldSend: false,
+      escalationLevel: "normal",
+      reason: "quiet-hours",
+      priorMatchCount,
+      staleRatio,
+      offenderSignature,
+    };
+  }
+
+  if (priorMatchCount > 0) {
+    return {
+      shouldSend: false,
+      escalationLevel: "normal",
+      reason: "suppressed-duplicate",
+      priorMatchCount,
+      staleRatio,
+      offenderSignature,
+    };
+  }
+
+  return {
+    shouldSend: true,
+    escalationLevel: "normal",
+    reason: "send-now",
+    priorMatchCount: 0,
+    staleRatio,
+    offenderSignature,
+  };
+}
+
+async function sendSourceIngestionAlertBatch(params: {
+  orgId: string;
+  recipients: string[];
+  summary: SourceIngestionAlertCandidate;
+  notificationMetadata: SourceIngestionAlertMetadata;
+  staleRatioThreshold: number;
+  prioritizedOffenders: StaleSourceOffender[];
+  examples: StaleSource[];
+  decision: SourceIngestionAlertDecision;
+  config: SourceIngestionAlertConfig;
+}) {
+  const {
+    orgId,
+    recipients,
+    summary,
+    notificationMetadata,
+    staleRatioThreshold,
+    prioritizedOffenders,
+    examples,
+    decision,
+    config,
+  } = params;
+
+  if (recipients.length === 0) {
+    return;
+  }
+
+  const title = decision.escalationLevel === "critical"
+    ? "Source ingestion: repeated stale-offender pattern detected"
+    : "Source ingestion: stale seed sources detected";
+  const bodyLines = buildSourceIngestionAlertBodyLines({
+    totalStaleSources: summary.staleCount,
+    staleRatio: summary.staleRatio,
+    prioritizedOffenders,
+    examples,
+    staleRatioThreshold,
+  });
+  const priority: NotificationPriority =
+    decision.escalationLevel === "critical" ? "CRITICAL" : "HIGH";
+
+  const notifications = recipients.map((userId) => ({
+    orgId,
+    userId,
+    type: "ALERT" as const,
+    title,
+    body: bodyLines.join("\n"),
+    priority,
+    actionUrl: "/jurisdictions",
+    sourceAgent: "source-ingestion",
+    metadata: buildSourceIngestionAlertNotificationMetadata(notificationMetadata),
+  }));
+
+  const operation = () =>
+    getNotificationService().createBatch(notifications);
+
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= config.retryAttempts; attempt++) {
+    try {
+      await operation();
+      return;
+    } catch (error) {
+      lastError = error;
+      if (attempt >= config.retryAttempts) {
+        break;
+      }
+      const delay = config.retryBaseMs * 2 ** (attempt - 1);
+      await sleepMs(delay);
+    }
+  }
+
+  throw lastError;
+}
+
+function parseIntEnvValue(
+  value: string | undefined,
+  fallback: number,
+  min: number,
+  max: number,
+): number {
+  const parsed = Number.parseInt(value ?? "", 10);
+  if (!Number.isFinite(parsed) || parsed < min || parsed > max) {
+    return fallback;
+  }
+  return parsed;
+}
+
+function getSourceIngestionAlertConfig(): SourceIngestionAlertConfig {
+  return {
+    quietStartHour: parseIntEnvValue(
+      process.env.SOURCE_INGEST_ALERT_QUIET_START_HOUR,
+      SOURCE_INGEST_ALERT_DEFAULTS.quietStartHour,
+      0,
+      23,
+    ),
+    quietEndHour: parseIntEnvValue(
+      process.env.SOURCE_INGEST_ALERT_QUIET_END_HOUR,
+      SOURCE_INGEST_ALERT_DEFAULTS.quietEndHour,
+      0,
+      23,
+    ),
+    retryAttempts: Math.max(
+      1,
+      parseIntEnvValue(
+        process.env.SOURCE_INGEST_STALE_ALERT_RETRY_ATTEMPTS,
+        SOURCE_INGEST_ALERT_DEFAULTS.retryAttempts,
+        1,
+        16,
+      ),
+    ),
+    retryBaseMs: Math.max(
+      25,
+      parseIntEnvValue(
+        process.env.SOURCE_INGEST_STALE_ALERT_RETRY_BASE_MS,
+        SOURCE_INGEST_ALERT_DEFAULTS.retryBaseMs,
+        25,
+        30_000,
+      ),
+    ),
+    dedupeWindowHours: Math.max(
+      1,
+      parseIntEnvValue(
+        process.env.SOURCE_INGEST_STALE_OFFENDER_DEDUPE_WINDOW_HOURS,
+        SOURCE_INGEST_ALERT_DEFAULTS.dedupeWindowHours,
+        1,
+        7 * 24,
+      ),
+    ),
+    escalationStreak: Math.max(
+      2,
+      parseIntEnvValue(
+        process.env.SOURCE_INGEST_STALE_OFFENDER_ESCALATION_STREAK,
+        SOURCE_INGEST_ALERT_DEFAULTS.escalationStreak,
+        2,
+        20,
+      ),
+    ),
+  };
+}
+
+type AlertDecisionReason =
+  | "not-alert"
+  | "quiet-hours"
+  | "escalation"
+  | "suppressed-duplicate"
+  | "send-now";
+
+type AlertEscalationLevel = "normal" | "critical";
 const SOURCE_CAPTURE_BUCKETS = {
   UNKNOWN: "never_captured",
   CRITICAL: "critical",
@@ -422,6 +904,7 @@ export async function GET(req: Request) {
 
   try {
     const notificationService = getNotificationService();
+    const alertDecisionConfig = getSourceIngestionAlertConfig();
     const initialSources = await prisma.jurisdictionSeedSource.findMany({
       where: { active: true },
       select: {
@@ -782,8 +1265,26 @@ export async function GET(req: Request) {
     }
 
     for (const summary of orgSummaries) {
-      const shouldAlert = summary.staleRatio >= STALE_RATIO_ALERT_THRESHOLD;
-      if (!shouldAlert || summary.staleSources.length === 0) continue;
+      const candidate: SourceIngestionAlertCandidate = {
+        orgId: summary.orgId,
+        runId: summary.runId,
+        staleRatio: summary.staleRatio,
+        staleCount: summary.staleCount,
+        staleOffenderCount: summary.staleOffenderCount,
+        staleOffenders: summary.staleOffenders,
+        sourceManifestHash: summary.sourceManifestHash,
+      };
+      const decision = await getSourceIngestionAlertDecision({
+        candidate,
+        now: new Date(),
+        config: alertDecisionConfig,
+      });
+      if (!decision.shouldSend) {
+        console.log(
+          `[source-ingestion] alert suppressed for ${summary.orgId}: reason=${decision.reason}, prior=${decision.priorMatchCount}, manifest=${summary.sourceManifestHash}`,
+        );
+        continue;
+      }
 
       const recipients = await getNotificationRecipients(summary.orgId);
       if (recipients.length === 0) continue;
@@ -808,54 +1309,24 @@ export async function GET(req: Request) {
               evidenceSourceId: null,
               evidenceSnapshotId: null,
               contentHash: null,
-              captureSuccess: false,
-              alertReasons: ["Source flagged stale by scoring criteria."],
-              priority: "warning",
-              priorityWeight: 0,
-            }));
-      const bodyLines = [
-        `Source ingestion found ${summary.staleSources.length} stale/weak-confidence seeds for this org (ratio ${(summary.staleRatio * 100).toFixed(1)}%).`,
-        `Stale ratio threshold is ${(STALE_RATIO_ALERT_THRESHOLD * 100).toFixed(0)}%.`,
-        `Quality lookback window: ${QUALITY_LOOKBACK_DAYS} days.`,
-        `Top prioritized stale offenders (${summary.staleOffenderCount} total, ${prioritizedHighlights.length} shown):`,
-        ...prioritizedHighlights.map((entry) => `- ${formatOffenderLine(entry)}`),
-        "Examples:",
-        ...highlighted.map(
-          (entry) =>
-            `- ${entry.url} (${entry.jurisdictionName}: ${
-              entry.stalenessDays === null
-                ? "never refreshed"
-                : `${entry.stalenessDays}d stale`
-            }, quality ${entry.qualityScore.toFixed(2)}, bucket ${entry.qualityBucket})`
-        ),
-        "",
-        "Please refresh these sources or add new seed URLs so downstream packs stay grounded.",
-      ];
+            captureSuccess: false,
+            alertReasons: ["Source flagged stale by scoring criteria."],
+            priority: "warning",
+            priorityWeight: 0,
+          }));
+      const metadataRecord = buildSourceIngestionAlertMetadataRecord(candidate, decision);
 
-      const metadata = {
-        runId: summary.runId,
-        staleCount: summary.staleCount,
-        staleRatio: summary.staleRatio,
-        staleOffenderCount: summary.staleOffenderCount,
-        staleOffenderSamples: summary.staleOffenders,
-        sourceManifestHash: summary.sourceManifestHash,
-      };
-
-      await Promise.all(
-        recipients.map((userId) =>
-          notificationService.create({
-            orgId: summary.orgId,
-            userId,
-            type: "ALERT",
-            title: "Source ingestion: stale seed sources detected",
-            body: bodyLines.join("\n"),
-            priority: "HIGH",
-            actionUrl: "/jurisdictions",
-            sourceAgent: "source-ingestion",
-            metadata,
-          })
-        )
-      );
+      await sendSourceIngestionAlertBatch({
+        orgId: summary.orgId,
+        recipients,
+        summary: candidate,
+        notificationMetadata: metadataRecord,
+        staleRatioThreshold: STALE_RATIO_ALERT_THRESHOLD,
+        prioritizedOffenders: prioritizedHighlights,
+        examples: highlighted,
+        decision,
+        config: alertDecisionConfig,
+      });
     }
 
     const summary = {

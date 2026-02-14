@@ -75,6 +75,35 @@ export interface RunDashboardReproducibilityProfile {
   recentDriftAlerts: RunDashboardReproducibilityAlert[];
 }
 
+export interface RunDashboardSourceIngestionOffender {
+  runId: string;
+  runType: string;
+  url: string;
+  jurisdictionName: string;
+  stalenessDays: number | null;
+  qualityScore: number;
+  qualityBucket: string;
+  priority: string;
+  alertReasons: string[];
+  captureSuccess: boolean;
+}
+
+export interface RunDashboardManifestContinuityAlert {
+  runType: string;
+  fromRunId: string;
+  toRunId: string;
+  previousManifestHash: string;
+  currentManifestHash: string;
+}
+
+export interface RunDashboardSourceIngestionProfile {
+  topStaleOffenders: RunDashboardSourceIngestionOffender[];
+  manifestContinuityComparisons: number;
+  manifestContinuityDrifts: number;
+  manifestContinuityDriftRate: number | null;
+  recentManifestContinuityAlerts: RunDashboardManifestContinuityAlert[];
+}
+
 export interface RunDashboardEvidenceProfile {
   freshnessStateDistribution: RunDashboardBucket[];
   alertReasonDistribution: RunDashboardBucket[];
@@ -119,6 +148,7 @@ export interface RunDashboardPayload {
   toolFailureProfile: RunDashboardToolFailureProfile;
   reproducibilityProfile: RunDashboardReproducibilityProfile;
   evidenceProfile: RunDashboardEvidenceProfile;
+  sourceIngestionProfile: RunDashboardSourceIngestionProfile;
   recentRuns: RunDashboardRecentRun[];
 }
 
