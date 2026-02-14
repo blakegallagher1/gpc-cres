@@ -62,7 +62,7 @@ This document maps the capabilities described in OpenAI’s in-house data agent 
 | Capability | Status | Implementation location | Next action |
 |---|---|---|---|
 | Agent state + confidence instrumentation | ✅ | `packages/shared/src/temporal/types.ts`, `apps/web/lib/agent/executeAgent.ts` | Add UI dashboard visualizing confidence over time per run/agent. |
-| Duplicate-safe failover policy | ✅ | `apps/web/lib/agent/agentRunner.ts` | Add chaos-recovery tests for partial DB writes and Temporal startup failures. |
+| Duplicate-safe failover policy | ✅ | `apps/web/lib/agent/agentRunner.ts` | Chaos-recovery coverage added for partial DB writes and Temporal startup failures. |
 | Missing-evidence escalation and retry policy | ✅ | `apps/web/lib/agent/executeAgent.ts`, `apps/worker/src/activities/openai.ts`, `apps/web/lib/agent/__tests__/executeAgent.runState-contract.test.ts` | Add policy threshold telemetry and persisted retry envelope in run-state and output JSON. |
 | Optional fallback with preserved lineage | ✅ | `apps/web/lib/agent/agentRunner.ts` | Add policy-level retry limits and dedupe across duplicate local fallbacks (next: dashboarding). |
 
@@ -73,7 +73,7 @@ This document maps the capabilities described in OpenAI’s in-house data agent 
 | Agent-state dashboards (plan, confidence, retries) | ✅ | `apps/web/app/runs/*`, `apps/web/app/api/runs/*` | Add confidence-over-time visualizations and persisted trace events (tool calls, proof checks, retries). |
 | Evidence and run audit explorer | ✅ | `apps/web/app/evidence/page.tsx`, `apps/web/app/api/evidence/route.ts`, `apps/web/app/runs/[runId]/page.tsx` | Expand with dedicated audit event timeline + per-source snapshot drill-down (next milestone). |
 | Source ingestion staleness alerts | ✅ | `apps/web/app/api/cron/source-ingestion/route.ts` | Add stale-ratio thresholding + top-offender alert payload with manifest-backed evidence context. |
-| End-to-end reproducibility checks | ✅ | `packages/shared/src/evidence.ts`, `packages/shared/test/source-manifest-hash.test.ts`, `apps/web/lib/agent/__tests__/executeAgent.runState-contract.test.ts` | Add CI scheduling for periodic reproducibility smoke jobs. |
+| End-to-end reproducibility checks | ✅ | `packages/shared/src/evidence.ts`, `packages/shared/test/source-manifest-hash.test.ts`, `apps/web/lib/agent/__tests__/executeAgent.runState-contract.test.ts` | Added periodic reproducibility smoke workflow (`.github/workflows/reproducibility-smoke.yml`). |
 
 ## 6) Done List (Committed so far)
 
@@ -93,8 +93,8 @@ This document maps the capabilities described in OpenAI’s in-house data agent 
 
 ## 7) Next 3 Recommended Execution Steps
 
-1. Add periodic reproducibility smoke runs in CI for source-ingestion and agent replay paths.
-2. Add explicit chaos coverage for cross-instance local-fallback lease races and stale-run recovery.
+1. ✅ Add periodic reproducibility smoke runs in CI for source-ingestion and agent replay paths.
+2. ✅ Add explicit chaos coverage for cross-instance local-fallback lease races and stale-run recovery.
 3. Expand dashboards to surface reproducibility variance alerts when hash continuity drifts.
 
 ## 8) New Progress Notes (2026-02-14)
@@ -114,5 +114,9 @@ This document maps the capabilities described in OpenAI’s in-house data agent 
 - 2026-02-14 13:29:00 UTC: `pnpm lint` ✅
 - 2026-02-14 13:29:20 UTC: `pnpm test` ✅
 - 2026-02-14 13:30:00 UTC: `pnpm build` with placeholder env vars ✅
+- 2026-02-14 14:45:00 UTC: `pnpm lint` ✅
+- 2026-02-14 14:45:00 UTC: `pnpm typecheck` ✅
+- 2026-02-14 14:45:00 UTC: `pnpm test` ✅
+- 2026-02-14 14:45:00 UTC: `pnpm build` with placeholder env vars ✅
 
 Status for each upcoming step should be updated here as soon as work begins.

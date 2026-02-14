@@ -1,0 +1,41 @@
+name: Reproducibility Smoke
+
+on:
+  schedule:
+    - cron: "15 4 * * *"
+  workflow_dispatch:
+
+jobs:
+  reproducibility:
+    runs-on: ubuntu-latest
+    env:
+      CI: "true"
+      NEXT_PUBLIC_SUPABASE_URL: "https://placeholder.supabase.co"
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "placeholder"
+      SUPABASE_SERVICE_ROLE_KEY: "placeholder"
+      OPENAI_API_KEY: "placeholder"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".node-version"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @entitlement-os/db generate
+
+      - name: Run reproducibility smoke tests (shared manifest hash)
+        run: pnpm --filter @entitlement-os/shared test -- test/source-manifest-hash.test.ts
+
+      - name: Run reproducibility smoke tests (agent replay + local fallback)
+        run: pnpm --filter gpc-agent-dashboard test -- lib/agent/__tests__/executeAgent.runState-contract.test.ts lib/agent/__tests__/agentRunner.stability.test.ts
+
