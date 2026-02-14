@@ -142,17 +142,18 @@ function RecentRunsSection({ runs }: { runs: RunDashboardRecentRun[] }) {
         ) : (
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead className="w-28">Run</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Confidence</TableHead>
-                <TableHead>Retries</TableHead>
-                <TableHead>Warnings</TableHead>
-                <TableHead>Started</TableHead>
-                <TableHead>Fallback</TableHead>
-              </TableRow>
-            </TableHeader>
+                <TableRow>
+                  <TableHead className="w-28">Run</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Confidence</TableHead>
+                  <TableHead>Retries</TableHead>
+                  <TableHead>Warnings</TableHead>
+                  <TableHead>Trace IDs</TableHead>
+                  <TableHead>Started</TableHead>
+                  <TableHead>Fallback</TableHead>
+                </TableRow>
+              </TableHeader>
             <TableBody>
               {runs.map((run) => {
                 const warningCount = [
@@ -161,6 +162,9 @@ function RecentRunsSection({ runs }: { runs: RunDashboardRecentRun[] }) {
                     ? `${run.missingEvidenceCount} missing evidence item(s)`
                     : null,
                   run.proofChecksCount > 0 ? `${run.proofChecksCount} proof checks` : null,
+                  run.retryPolicyReason
+                    ? `${run.retryPolicyReason} ${run.retryPolicyAttempts !== null ? `(${run.retryPolicyAttempts}/${run.retryPolicyMaxAttempts ?? "?"})` : ""}`
+                    : null,
                 ].filter(Boolean);
 
                 return (
@@ -189,6 +193,22 @@ function RecentRunsSection({ runs }: { runs: RunDashboardRecentRun[] }) {
                       ) : (
                         <span className="text-xs text-muted-foreground">—</span>
                       )}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      <div className="space-y-1">
+                        {run.correlationId ? (
+                          <div>corr {abbreviateId(run.correlationId)}</div>
+                        ) : null}
+                        {run.openaiResponseId ? (
+                          <div>openai {abbreviateId(run.openaiResponseId)}</div>
+                        ) : null}
+                        {run.retryPolicyShouldRetry ? (
+                          <div className="text-amber-500">retry continuation queued</div>
+                        ) : null}
+                        {run.retryPolicyReason && !run.retryPolicyShouldRetry ? (
+                          <div>policy: {run.retryPolicyReason}</div>
+                        ) : null}
+                      </div>
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {formatDate(run.startedAt)}
@@ -362,6 +382,12 @@ export default function RunDashboardPage() {
         icon: <ArrowUpRight className="h-4 w-4" />,
       },
       {
+        title: "Retry policy runs",
+        value: formatNumber(totals.runsWithRetryPolicy),
+        detail: `${totals.runsWithRetryPolicy > 0 ? `${totals.runsWithRetryPolicyTriggers} continuation triggers` : "No continuation triggers"}`,
+        icon: <AlertTriangle className="h-4 w-4" />,
+      },
+      {
         title: "Fallback runs",
         value: formatNumber(totals.runsWithFallback),
         detail: `Tool failures: ${totals.toolFailureEvents}`,
@@ -460,12 +486,18 @@ export default function RunDashboardPage() {
           />
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="grid gap-4 lg:grid-cols-4">
           <DistributionList
             title="Retry mode"
             items={dashboard.retryProfile.retryModeDistribution}
             total={dashboard.totals.runsWithRetry || 1}
             valueLabel="retry mode"
+          />
+          <DistributionList
+            title="Retry policy reasons"
+            items={dashboard.retryProfile.retryPolicyReasonDistribution}
+            total={dashboard.totals.runsWithRetryPolicy || 1}
+            valueLabel="retry policy reason"
           />
           <DistributionList
             title="Missing-evidence patterns"

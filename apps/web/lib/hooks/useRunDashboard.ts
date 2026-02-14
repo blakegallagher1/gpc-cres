@@ -18,6 +18,11 @@ export interface RunDashboardTotals {
   confidenceSamples: number;
   runsWithProofChecks: number;
   runsWithRetry: number;
+  runsWithRetryPolicy: number;
+  runsWithRetryPolicyTriggers: number;
+  retryPolicyAttempts: number;
+  maxRetryPolicyAttempts: number;
+  averageRetryPolicyAttempts: number;
   retryAttempts: number;
   maxRetryAttempts: number;
   averageRetryAttempts: number;
@@ -33,6 +38,7 @@ export interface RunDashboardTotals {
 
 export interface RunDashboardRetryProfile {
   retryModeDistribution: RunDashboardBucket[];
+  retryPolicyReasonDistribution: RunDashboardBucket[];
 }
 
 export interface RunDashboardMissingEvidenceProfile {
@@ -74,6 +80,12 @@ export interface RunDashboardRecentRun {
   fallbackTriggered: boolean;
   fallbackReason: string | null;
   toolFailureCount: number;
+  correlationId: string | null;
+  openaiResponseId: string | null;
+  retryPolicyReason: string | null;
+  retryPolicyAttempts: number | null;
+  retryPolicyMaxAttempts: number | null;
+  retryPolicyShouldRetry: boolean | null;
 }
 
 export interface RunDashboardPayload {

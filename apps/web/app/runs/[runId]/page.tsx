@@ -16,6 +16,7 @@ import {
   GitBranch,
   FileText,
   Terminal,
+  FileSearch,
 } from "lucide-react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,6 +31,15 @@ import { WorkflowTrace, RunOutputJson } from "@/types";
 import { AGENT_RUN_STATE_KEYS } from "@entitlement-os/shared";
 import { useRun } from "@/lib/hooks/useRun";
 import { useRunTraces } from "@/lib/hooks/useRunTraces";
+
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 function StatusBadge({ status }: { status: string }) {
   const variants: Record<string, { icon: React.ElementType; class: string; label: string }> = {
@@ -153,6 +163,23 @@ function TimelineBar({
       <div className={`h-full rounded ${colors[trace.type]} opacity-80`} />
     </div>
   );
+}
+
+type AuditEvent = {
+  id: string;
+  label: string;
+  detail: string;
+  type: "evidence" | "proof" | "tool-failure" | "fallback" | "retry-policy";
+};
+
+function sourceLabel(sourceId?: string, url?: string) {
+  if (typeof sourceId === "string" && sourceId.trim()) {
+    return sourceId;
+  }
+  if (typeof url === "string" && url.trim()) {
+    return url;
+  }
+  return "Unknown source";
 }
 
 function getRetryCountFromMetadata(metadata?: Record<string, unknown>): number {
@@ -324,6 +351,50 @@ export default function RunTracePage() {
       : typeof persistedRunState?.[AGENT_RUN_STATE_KEYS.fallbackReason] === "string"
         ? String(persistedRunState[AGENT_RUN_STATE_KEYS.fallbackReason])
         : undefined;
+  const evidenceCitations = Array.isArray(outputJson?.evidenceCitations)
+    ? outputJson.evidenceCitations
+    : [];
+  const evidenceCitationEvents: AuditEvent[] = evidenceCitations.map((citation, index) => ({
+    id: `evidence-${citation.snapshotId ?? citation.sourceId ?? index}`,
+    label: `Evidence captured (${sourceLabel(citation.sourceId, citation.url)})`,
+    detail: `${citation.tool ?? "tool-unknown"}${citation.contentHash ? ` • hash ${citation.contentHash.slice(0, 8)}…` : ""}`,
+    type: "evidence",
+  }));
+  const proofEvents: AuditEvent[] = proofChecks.map((check, index) => ({
+    id: `proof-${index}`,
+    label: "Proof check",
+    detail: `Passed: ${check}`,
+    type: "proof",
+  }));
+  const toolFailureEvents: AuditEvent[] = toolFailureDetails.map((detail, index) => ({
+    id: `tool-failure-${index}`,
+    label: "Tool failure",
+    detail,
+    type: "tool-failure",
+  }));
+  const fallbackEvent: AuditEvent | null = fallbackReason
+    ? {
+        id: "fallback",
+        label: "Fallback",
+        detail: fallbackReason,
+        type: "fallback",
+      }
+    : null;
+  const retryPolicyEvent: AuditEvent | null = outputJson?.evidenceRetryPolicy
+    ? {
+        id: "retry-policy",
+        label: "Retry policy",
+        detail: `${outputJson.evidenceRetryPolicy.enabled ? "enabled" : "disabled"}: ${outputJson.evidenceRetryPolicy.reason}`,
+        type: "retry-policy",
+      }
+    : null;
+  const auditEvents = [
+    ...evidenceCitationEvents,
+    ...proofEvents,
+    ...toolFailureEvents,
+    ...(fallbackEvent ? [fallbackEvent] : []),
+    ...(retryPolicyEvent ? [retryPolicyEvent] : []),
+  ];
 
   return (
     <DashboardShell>
@@ -447,6 +518,10 @@ export default function RunTracePage() {
             <TabsTrigger value="output" className="gap-2">
               <CheckCircle2 className="h-4 w-4" />
               Output
+            </TabsTrigger>
+            <TabsTrigger value="audit" className="gap-2">
+              <FileSearch className="h-4 w-4" />
+              Audit
             </TabsTrigger>
           </TabsList>
 
@@ -630,6 +705,117 @@ export default function RunTracePage() {
                 </pre>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="audit">
+            <div className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Evidence audit trail</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {evidenceCitations.length > 0 ? (
+                    <div className="overflow-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Source</TableHead>
+                            <TableHead>Source URL</TableHead>
+                            <TableHead>Snapshot</TableHead>
+                            <TableHead>Tool</TableHead>
+                            <TableHead>Hash</TableHead>
+                            <TableHead>Official</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {evidenceCitations.map((citation, index) => (
+                            <TableRow key={citation.snapshotId ?? citation.sourceId ?? index}>
+                              <TableCell>
+                                {citation.sourceId ? (
+                                  <Link
+                                    href={`/evidence?sourceId=${citation.sourceId}`}
+                                    className="text-blue-600 hover:underline"
+                                  >
+                                    {citation.sourceId}
+                                  </Link>
+                                ) : (
+                                  sourceLabel(undefined, citation.url)
+                                )}
+                              </TableCell>
+                              <TableCell className="font-mono text-xs">
+                                {citation.snapshotId ?? "—"}
+                              </TableCell>
+                              <TableCell>{citation.tool ?? "—"}</TableCell>
+                              <TableCell className="font-mono text-xs">
+                                {citation.contentHash ?? "—"}
+                              </TableCell>
+                              <TableCell>
+                                {citation.isOfficial ? (
+                                  <Badge variant="default">Official</Badge>
+                                ) : (
+                                  <span className="text-muted-foreground">No</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {citation.url ? (
+                                  <a
+                                    href={citation.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-blue-600 hover:underline"
+                                  >
+                                    open
+                                  </a>
+                                ) : (
+                                  "—"
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No evidence citations were captured.</p>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Audit timeline</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {auditEvents.length > 0 ? (
+                    <ol className="space-y-2">
+                      {auditEvents.map((event) => {
+                        const dot = event.type === "evidence"
+                          ? "bg-blue-500"
+                          : event.type === "proof"
+                            ? "bg-emerald-500"
+                            : event.type === "tool-failure"
+                            ? "bg-red-500"
+                            : event.type === "fallback"
+                            ? "bg-amber-500"
+                            : "bg-purple-500";
+
+                        return (
+                          <li key={event.id} className="flex gap-2">
+                            <span className={`mt-2 h-2.5 w-2.5 rounded-full ${dot}`} />
+                            <div>
+                              <p className="text-sm font-medium">{event.label}</p>
+                              <p className="text-xs text-muted-foreground">{event.detail}</p>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ol>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No audit timeline events were recorded.</p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </div>

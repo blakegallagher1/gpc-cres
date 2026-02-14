@@ -51,9 +51,11 @@ describe("GET /api/runs/dashboard", () => {
         status: "succeeded",
         startedAt: new Date("2026-02-13T08:00:00.000Z"),
         finishedAt: new Date("2026-02-13T08:00:03.000Z"),
+        openaiResponseId: "resp-ingest-stable",
         outputJson: {
           sourceManifestHash: "manifest-a",
           evidenceHash: "evidence-a",
+          correlationId: "corr-ingest-stable",
           runState: {
             [AGENT_RUN_STATE_KEYS.runInputHash]: "source-input-1",
           },
@@ -65,9 +67,11 @@ describe("GET /api/runs/dashboard", () => {
         status: "succeeded",
         startedAt: new Date("2026-02-13T07:00:00.000Z"),
         finishedAt: new Date("2026-02-13T07:00:03.000Z"),
+        openaiResponseId: "resp-ingest-drift",
         outputJson: {
           sourceManifestHash: "manifest-b",
           evidenceHash: "evidence-b",
+          correlationId: "corr-ingest-drift",
           runState: {
             [AGENT_RUN_STATE_KEYS.runInputHash]: "source-input-1",
           },
@@ -79,7 +83,9 @@ describe("GET /api/runs/dashboard", () => {
         status: "succeeded",
         startedAt: new Date("2026-02-13T10:00:00.000Z"),
         finishedAt: new Date("2026-02-13T10:00:08.000Z"),
+        openaiResponseId: "resp-success",
         outputJson: {
+          correlationId: "corr-success",
           runState: {
             [AGENT_RUN_STATE_KEYS.runId]: "run-success",
             [AGENT_RUN_STATE_KEYS.status]: "succeeded",
@@ -96,6 +102,17 @@ describe("GET /api/runs/dashboard", () => {
             [AGENT_RUN_STATE_KEYS.fallbackLineage]: ["local-fallback"],
             [AGENT_RUN_STATE_KEYS.fallbackReason]: "Local replay",
           },
+          evidenceRetryPolicy: {
+            enabled: true,
+            threshold: 0.5,
+            missingEvidenceCount: 1,
+            attempts: 1,
+            maxAttempts: 2,
+            shouldRetry: false,
+            nextAttempt: 0,
+            nextRetryMode: "none",
+            reason: "no-continuity-change",
+          },
           evidenceCitations: [{ source: "source-1" }],
           confidence: 0.92,
           retryAttempts: 1,
@@ -108,7 +125,9 @@ describe("GET /api/runs/dashboard", () => {
         status: "failed",
         startedAt: new Date("2026-02-13T11:00:00.000Z"),
         finishedAt: new Date("2026-02-13T11:00:06.000Z"),
+        openaiResponseId: "resp-fail",
         outputJson: {
+          correlationId: "corr-fail",
           lastAgentName: "planner",
           confidence: 0.44,
           missingEvidence: ["zoning", "tax"],
@@ -130,8 +149,19 @@ describe("GET /api/runs/dashboard", () => {
             [AGENT_RUN_STATE_KEYS.retryAttempts]: 0,
             [AGENT_RUN_STATE_KEYS.retryMaxAttempts]: 0,
             [AGENT_RUN_STATE_KEYS.retryMode]: "none",
-            [AGENT_RUN_STATE_KEYS.fallbackLineage]: [],
-            [AGENT_RUN_STATE_KEYS.fallbackReason]: "Schema validation failed",
+          [AGENT_RUN_STATE_KEYS.fallbackLineage]: [],
+          [AGENT_RUN_STATE_KEYS.fallbackReason]: "Schema validation failed",
+          },
+          evidenceRetryPolicy: {
+            enabled: true,
+            threshold: 0.35,
+            missingEvidenceCount: 2,
+            attempts: 1,
+            maxAttempts: 3,
+            shouldRetry: true,
+            nextAttempt: 2,
+            nextRetryMode: "local",
+            reason: "insufficient-evidence",
           },
         },
       },
@@ -149,9 +179,18 @@ describe("GET /api/runs/dashboard", () => {
     expect(payload.totals.runsWithFallback).toBe(2);
     expect(payload.totals.runsWithToolFailures).toBe(2);
     expect(payload.totals.runsWithMissingEvidence).toBe(1);
+    expect(payload.totals.runsWithRetryPolicy).toBe(2);
+    expect(payload.totals.runsWithRetryPolicyTriggers).toBe(1);
+    expect(payload.totals.retryPolicyAttempts).toBe(2);
+    expect(payload.totals.maxRetryPolicyAttempts).toBe(3);
+    expect(payload.totals.averageRetryPolicyAttempts).toBe(1);
     expect(payload.totals.reproducibilityComparisons).toBe(1);
     expect(payload.totals.reproducibilityDrifts).toBe(1);
     expect(payload.totals.reproducibilityDriftRate).toBe(1);
+    expect(payload.retryProfile.retryPolicyReasonDistribution[0]).toMatchObject({
+      key: "insufficient-evidence",
+      count: 1,
+    });
     expect(payload.reproducibilityProfile.topDriftRunTypes[0]).toMatchObject({
       key: "SOURCE_INGEST",
       count: 1,
@@ -170,5 +209,10 @@ describe("GET /api/runs/dashboard", () => {
     expect(payload.recentRuns.length).toBe(4);
     expect(payload.recentRuns[0].id).toBe("run-fail");
     expect(payload.recentRuns[1].id).toBe("run-success");
+    expect(payload.recentRuns[0].correlationId).toBe("corr-fail");
+    expect(payload.recentRuns[0].openaiResponseId).toBe("resp-fail");
+    expect(payload.recentRuns[0].retryPolicyReason).toBe("insufficient-evidence");
+    expect(payload.recentRuns[0].retryPolicyAttempts).toBe(1);
+    expect(payload.recentRuns[0].retryPolicyShouldRetry).toBe(true);
   });
 });

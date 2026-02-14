@@ -31,7 +31,7 @@ This document maps the capabilities described in OpenAI’s in-house data agent 
 
 | Capability | Status | Implementation location | Next action |
 |---|---|---|---|
-| Durable orchestration for agent workflows | ✅ | `apps/worker/src/activities/openai.ts`, `apps/web/lib/agent/agentRunner.ts` | Add richer workflow telemetry dashboards and explicit retry trace context. |
+| Durable orchestration for agent workflows | ✅ | `apps/worker/src/activities/openai.ts`, `apps/web/lib/agent/agentRunner.ts` | Implemented in run dashboard as explicit retry trace + correlation context with policy signal distribution. |
 | Unified structured schemas for all agent outputs | ✅ | `packages/shared/src/temporal/types.ts`, `apps/web/lib/agent/executeAgent.ts` | Expand dashboard-safe decoding in API surfaces (next phase). |
 | Strong audit trail on each reasoning step | ✅ | `apps/web/lib/agent/agentRunner.ts`, `apps/web/lib/services/automationEvent.service.ts` | Add dashboard-level trace context and evidence hashes in a follow-up. |
 | Real-time event streaming | ✅ | `apps/web/lib/agent/agentRunner.ts`, `apps/web/lib/chat/useChat.ts` | Maintain full `agent_progress` contract with `runState`, `toolsInvoked`, and latest agent name. |
@@ -71,7 +71,7 @@ This document maps the capabilities described in OpenAI’s in-house data agent 
 | Capability | Status | Implementation location | Next action |
 |---|---|---|---|
 | Agent-state dashboards (plan, confidence, retries) | ✅ | `apps/web/app/runs/*`, `apps/web/app/api/runs/*` | Add confidence-over-time visualizations and persisted trace events (tool calls, proof checks, retries). |
-| Evidence and run audit explorer | ✅ | `apps/web/app/evidence/page.tsx`, `apps/web/app/api/evidence/route.ts`, `apps/web/app/runs/[runId]/page.tsx` | Expand with dedicated audit event timeline + per-source snapshot drill-down (next milestone). |
+| Evidence and run audit explorer | ✅ | `apps/web/app/evidence/page.tsx`, `apps/web/app/api/evidence/route.ts`, `apps/web/app/runs/[runId]/page.tsx` | Add evidence freshness signal rollups on run dashboard and stale-source alert cards. |
 | Source ingestion staleness alerts | ✅ | `apps/web/app/api/cron/source-ingestion/route.ts` | Add stale-ratio thresholding + top-offender alert payload with manifest-backed evidence context. |
 | End-to-end reproducibility checks | ✅ | `packages/shared/src/evidence.ts`, `packages/shared/test/source-manifest-hash.test.ts`, `apps/web/lib/agent/__tests__/executeAgent.runState-contract.test.ts` | Added periodic reproducibility smoke workflow (`.github/workflows/reproducibility-smoke.yml`). |
 
@@ -90,12 +90,17 @@ This document maps the capabilities described in OpenAI’s in-house data agent 
 - ✅ Added `/api/runs/dashboard` and `/runs/dashboard` endpoints/pages with confidence, retry, fallback, and tool-failure intelligence surfaces.
 - ✅ Added `apps/web/lib/hooks/useRunDashboard.ts` and API aggregation contract tests for run dashboard payload.
 - ✅ Added deterministic source manifest hashing and replay-stability checks for persisted `run.outputJson` so equivalent runs produce identical stable payloads.
+- ✅ Added workflow-trace visibility for dashboard rows and retry-policy telemetry (`correlationId`, `openaiResponseId`, `retryPolicyReason`) plus dashboard-level retry-policy reason distribution.
+- ✅ Added evidence explorer snapshot drill-down (`/evidence`) and run-level evidence audit timeline (`/runs/[runId]`), with source-run linking and per-source history loading.
+- ✅ Added evidence freshness scoring and alert-level drift signals to `/evidence` source rows using latest/previous hash deltas and staleness calculations.
 
 ## 7) Next 3 Recommended Execution Steps
 
 1. ✅ Add periodic reproducibility smoke runs in CI for source-ingestion and agent replay paths.
 2. ✅ Add explicit chaos coverage for cross-instance local-fallback lease races and stale-run recovery.
 3. ✅ Expand dashboards to surface reproducibility variance alerts when hash continuity drifts.
+4. ✅ Add workflow telemetry trace context and retry-policy distribution to dashboard and run summaries.
+5. ✅ Add evidence audit explorer drill-down and per-source snapshot lineage views.
 
 ## 8) New Progress Notes (2026-02-14)
 
@@ -107,6 +112,9 @@ This document maps the capabilities described in OpenAI’s in-house data agent 
 - ✅ Wired missing-evidence retry envelope through web and worker agent finalization, and locked it in the shared + web contract tests.
 - ✅ Closed the unified citations loop by persisting stable source citations/hashes for triage outputs, parish-pack refresh outputs, and source-ingestion artifacts.
 - ✅ Added reproducibility drift surfacing to run dashboard payload and UI using continuity hash comparisons (`/api/runs/dashboard`, `/runs/dashboard`).
+- ✅ Extended run dashboard telemetry with workflow trace context and retry-policy reason visibility for explicit retry trace context.
+- ✅ Implemented `/evidence` source drill-down with snapshot timeline and run-level audit timeline tab.
+- ✅ Added per-source evidence freshness score, drift state, and alert severity to `/api/evidence` responses for operational triage.
 
 ## 9) Verification Log
 
@@ -123,5 +131,9 @@ This document maps the capabilities described in OpenAI’s in-house data agent 
 - 2026-02-14 16:05:00 UTC: `pnpm typecheck` ✅
 - 2026-02-14 16:05:00 UTC: `pnpm test` ✅
 - 2026-02-14 16:05:00 UTC: `pnpm build` with placeholder env vars ✅
+- 2026-02-14 20:51:26 UTC: `pnpm lint` ✅
+- 2026-02-14 20:51:26 UTC: `pnpm typecheck` ✅
+- 2026-02-14 20:51:26 UTC: `pnpm test` ✅
+- 2026-02-14 20:51:26 UTC: `pnpm build` ✅
 
 Status for each upcoming step should be updated here as soon as work begins.

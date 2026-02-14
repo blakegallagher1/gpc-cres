@@ -9,6 +9,7 @@ type RunRow = {
   status: string;
   startedAt: Date;
   finishedAt: Date | null;
+  openaiResponseId: string | null;
   outputJson: unknown;
 };
 
@@ -37,6 +38,11 @@ type RunDashboardTotals = {
   retryAttempts: number;
   maxRetryAttempts: number;
   averageRetryAttempts: number;
+  runsWithRetryPolicy: number;
+  runsWithRetryPolicyTriggers: number;
+  retryPolicyAttempts: number;
+  maxRetryPolicyAttempts: number;
+  averageRetryPolicyAttempts: number;
   runsWithFallback: number;
   runsWithToolFailures: number;
   toolFailureEvents: number;
@@ -49,6 +55,7 @@ type RunDashboardTotals = {
 
 type RunDashboardRetryProfile = {
   retryModeDistribution: RunDashboardBucket[];
+  retryPolicyReasonDistribution: RunDashboardBucket[];
 };
 
 type RunDashboardMissingEvidenceProfile = {
@@ -73,6 +80,18 @@ type RunDashboardReproducibilityProfile = {
   recentDriftAlerts: RunDashboardReproducibilityAlert[];
 };
 
+type RunDashboardEvidenceRetryPolicy = {
+  enabled: boolean;
+  threshold: number;
+  missingEvidenceCount: number;
+  attempts: number;
+  maxAttempts: number;
+  shouldRetry: boolean;
+  nextAttempt: number;
+  nextRetryMode: string;
+  reason: string;
+};
+
 type RunDashboardRecentRun = {
   id: string;
   runType: string;
@@ -90,6 +109,12 @@ type RunDashboardRecentRun = {
   fallbackTriggered: boolean;
   fallbackReason: string | null;
   toolFailureCount: number;
+  correlationId: string | null;
+  openaiResponseId: string | null;
+  retryPolicyReason: string | null;
+  retryPolicyAttempts: number | null;
+  retryPolicyMaxAttempts: number | null;
+  retryPolicyShouldRetry: boolean | null;
 };
 
 type RunDashboardResponse = {
@@ -132,6 +157,59 @@ function toNumber(value: unknown): number {
   return NaN;
 }
 
+function parseBoolean(value: unknown): boolean | null {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    if (value.toLowerCase() === "true") return true;
+    if (value.toLowerCase() === "false") return false;
+  }
+  return null;
+}
+
+function parseEvidenceRetryPolicy(
+  value: unknown,
+): RunDashboardEvidenceRetryPolicy | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const reason = typeof value.reason === "string" ? value.reason : "";
+
+  const hasPolicySignal =
+    value.enabled !== undefined ||
+    value.threshold !== undefined ||
+    value.missingEvidenceCount !== undefined ||
+    value.attempts !== undefined ||
+    value.maxAttempts !== undefined ||
+    value.shouldRetry !== undefined ||
+    value.nextAttempt !== undefined ||
+    value.nextRetryMode !== undefined ||
+    reason.length > 0;
+
+  if (!hasPolicySignal) {
+    return null;
+  }
+
+  const attempts = toNumber(value.attempts);
+  const maxAttempts = toNumber(value.maxAttempts);
+  const threshold = toNumber(value.threshold);
+  const missingEvidenceCount = toNumber(value.missingEvidenceCount);
+  const nextAttempt = toNumber(value.nextAttempt);
+
+  return {
+    enabled: typeof value.enabled === "boolean" ? value.enabled : false,
+    threshold: Number.isFinite(threshold) ? threshold : 0,
+    missingEvidenceCount: Number.isFinite(missingEvidenceCount) ? missingEvidenceCount : 0,
+    attempts: Number.isFinite(attempts) ? attempts : 0,
+    maxAttempts: Number.isFinite(maxAttempts) ? maxAttempts : 0,
+    shouldRetry: parseBoolean(value.shouldRetry) ?? false,
+    nextAttempt: Number.isFinite(nextAttempt) ? nextAttempt : 0,
+    nextRetryMode:
+      typeof value.nextRetryMode === "string" ? value.nextRetryMode : "none",
+    reason,
+  };
+}
+
 function sortBucketsByCountAndLabel(a: RunDashboardBucket, b: RunDashboardBucket) {
   if (b.count !== a.count) return b.count - a.count;
   return a.key.localeCompare(b.key);
@@ -148,6 +226,7 @@ type ParsedOutput = {
   status: string | null;
   confidence: number | null;
   lastAgentName: string | null;
+  openaiResponseId: string | null;
   evidenceCount: number;
   missingEvidence: string[];
   proofChecks: string[];
@@ -160,6 +239,8 @@ type ParsedOutput = {
   sourceManifestHash: string | null;
   evidenceHash: string | null;
   runInputHash: string | null;
+  correlationId: string | null;
+  evidenceRetryPolicy: RunDashboardEvidenceRetryPolicy | null;
   continuityHashType: string | null;
   continuityHash: string | null;
 };
@@ -251,14 +332,27 @@ function parseRunOutput(outputJson: unknown): ParsedOutput {
 
   const fallbackLineage = toStringArray(
     output?.fallbackLineage ??
-      output?.[AGENT_RUN_STATE_KEYS.fallbackLineage] ??
-      runState?.[AGENT_RUN_STATE_KEYS.fallbackLineage],
+    output?.[AGENT_RUN_STATE_KEYS.fallbackLineage] ??
+    runState?.[AGENT_RUN_STATE_KEYS.fallbackLineage],
+  );
+  const correlationId =
+    typeof output?.[AGENT_RUN_STATE_KEYS.correlationId] === "string"
+      ? String(output[AGENT_RUN_STATE_KEYS.correlationId])
+      : typeof runState?.[AGENT_RUN_STATE_KEYS.correlationId] === "string"
+        ? String(runState[AGENT_RUN_STATE_KEYS.correlationId])
+        : null;
+  const evidenceRetryPolicy = parseEvidenceRetryPolicy(
+    output?.evidenceRetryPolicy ??
+      (runState && typeof runState.evidenceRetryPolicy === "object"
+        ? runState.evidenceRetryPolicy
+        : undefined),
   );
 
   return {
     status,
     confidence: Number.isFinite(confidence) ? confidence : null,
     lastAgentName,
+    openaiResponseId: null,
     evidenceCount,
     missingEvidence,
     proofChecks,
@@ -268,6 +362,8 @@ function parseRunOutput(outputJson: unknown): ParsedOutput {
     fallbackLineage,
     fallbackReason,
     toolFailures,
+    correlationId,
+    evidenceRetryPolicy,
     sourceManifestHash,
     evidenceHash,
     runInputHash,
@@ -294,6 +390,7 @@ export async function GET(_request: NextRequest) {
         status: true,
         startedAt: true,
         finishedAt: true,
+        openaiResponseId: true,
         outputJson: true,
       },
     });
@@ -312,6 +409,11 @@ export async function GET(_request: NextRequest) {
       retryAttempts: 0,
       maxRetryAttempts: 0,
       averageRetryAttempts: 0,
+      runsWithRetryPolicy: 0,
+      runsWithRetryPolicyTriggers: 0,
+      retryPolicyAttempts: 0,
+      maxRetryPolicyAttempts: 0,
+      averageRetryPolicyAttempts: 0,
       runsWithFallback: 0,
       runsWithToolFailures: 0,
       toolFailureEvents: 0,
@@ -326,6 +428,7 @@ export async function GET(_request: NextRequest) {
     const confidenceBuckets = new Map<string, { confidenceSum: number; runCount: number }>();
     const runTypeCounts = new Map<string, number>();
     const retryModeCounts = new Map<string, number>();
+    const retryPolicyReasonCounts = new Map<string, number>();
     const missingEvidenceCounts = new Map<string, number>();
     const toolFailureCounts = new Map<string, number>();
     const reproducibilityDriftCounts = new Map<string, number>();
@@ -352,6 +455,7 @@ export async function GET(_request: NextRequest) {
       }
 
       const parsed = parseRunOutput(run.outputJson);
+      parsed.openaiResponseId = run.openaiResponseId;
       const confidence = parsed.confidence;
       if (typeof confidence === "number") {
         totals.confidenceSamples += 1;
@@ -381,6 +485,23 @@ export async function GET(_request: NextRequest) {
       }
       if (parsed.fallbackReason !== null || parsed.fallbackLineage.length > 0) {
         totals.runsWithFallback += 1;
+      }
+      if (parsed.evidenceRetryPolicy !== null) {
+        totals.runsWithRetryPolicy += 1;
+        totals.retryPolicyAttempts += parsed.evidenceRetryPolicy.attempts;
+        totals.maxRetryPolicyAttempts = Math.max(
+          totals.maxRetryPolicyAttempts,
+          parsed.evidenceRetryPolicy.maxAttempts,
+        );
+        if (parsed.evidenceRetryPolicy.shouldRetry) {
+          totals.runsWithRetryPolicyTriggers += 1;
+        }
+        if (parsed.evidenceRetryPolicy.reason) {
+          retryPolicyReasonCounts.set(
+            parsed.evidenceRetryPolicy.reason,
+            (retryPolicyReasonCounts.get(parsed.evidenceRetryPolicy.reason) ?? 0) + 1,
+          );
+        }
       }
       if (parsed.toolFailures.length > 0) {
         totals.runsWithToolFailures += 1;
@@ -445,12 +566,24 @@ export async function GET(_request: NextRequest) {
         fallbackTriggered: parsed.fallbackReason !== null || parsed.fallbackLineage.length > 0,
         fallbackReason: parsed.fallbackReason,
         toolFailureCount: parsed.toolFailures.length,
+        correlationId: parsed.correlationId,
+        openaiResponseId: parsed.openaiResponseId,
+        retryPolicyReason: parsed.evidenceRetryPolicy?.reason ?? null,
+        retryPolicyAttempts: parsed.evidenceRetryPolicy?.attempts ?? null,
+        retryPolicyMaxAttempts: parsed.evidenceRetryPolicy?.maxAttempts ?? null,
+        retryPolicyShouldRetry: parsed.evidenceRetryPolicy?.shouldRetry ?? null,
       });
     }
 
     if (totals.runsWithRetry > 0) {
       totals.averageRetryAttempts = Math.round(
         ((totals.retryAttempts / totals.runsWithRetry) + Number.EPSILON) * 100,
+      ) / 100;
+    }
+    if (totals.runsWithRetryPolicy > 0) {
+      totals.averageRetryPolicyAttempts = Math.round(
+        ((totals.retryPolicyAttempts / totals.runsWithRetryPolicy) + Number.EPSILON) *
+          100,
       ) / 100;
     }
     if (totals.runsWithMissingEvidence > 0) {
@@ -496,9 +629,14 @@ export async function GET(_request: NextRequest) {
         confidenceSamples: totals.confidenceSamples,
         runsWithProofChecks: totals.runsWithProofChecks,
         runsWithRetry: totals.runsWithRetry,
+        runsWithRetryPolicy: totals.runsWithRetryPolicy,
+        runsWithRetryPolicyTriggers: totals.runsWithRetryPolicyTriggers,
         retryAttempts: totals.retryAttempts,
         maxRetryAttempts: totals.maxRetryAttempts,
         averageRetryAttempts: totals.averageRetryAttempts,
+        retryPolicyAttempts: totals.retryPolicyAttempts,
+        maxRetryPolicyAttempts: totals.maxRetryPolicyAttempts,
+        averageRetryPolicyAttempts: totals.averageRetryPolicyAttempts,
         runsWithFallback: totals.runsWithFallback,
         runsWithToolFailures: totals.runsWithToolFailures,
         toolFailureEvents: totals.toolFailureEvents,
@@ -512,6 +650,10 @@ export async function GET(_request: NextRequest) {
       runTypeDistribution: toBucketArray(runTypeCounts, MAX_DASHBOARD_RUNS),
       retryProfile: {
         retryModeDistribution: toBucketArray(retryModeCounts, MAX_DASHBOARD_RUNS),
+        retryPolicyReasonDistribution: toBucketArray(
+          retryPolicyReasonCounts,
+          MAX_TOOL_FAILURE_REASONS,
+        ),
       },
       missingEvidenceProfile: {
         topMissingEvidence: toBucketArray(missingEvidenceCounts, MAX_MISSING_EVIDENCE_ITEMS),
