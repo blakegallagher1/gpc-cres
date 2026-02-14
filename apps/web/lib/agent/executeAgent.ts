@@ -21,6 +21,7 @@ import {
   createIntentAwareCoordinator,
   evaluateProofCompliance,
   inferQueryIntentFromText,
+  getProofGroupsForIntent,
 } from "@entitlement-os/openai";
 import { AgentTrustEnvelope } from "@/types";
 
@@ -42,6 +43,7 @@ export type AgentStreamEvent =
       partialOutput: string;
       toolsInvoked?: string[];
       lastAgentName?: string;
+      runState?: Record<string, unknown>;
       correlationId?: string;
     }
   | {
@@ -91,6 +93,13 @@ export type AgentExecutionParams = {
   sku?: string;
   intentHint?: string;
   onEvent?: (event: AgentStreamEvent) => void;
+  correlationId?: string;
+  retryMode?: string;
+  retryAttempts?: number;
+  retryMaxAttempts?: number;
+  fallbackLineage?: string[];
+  fallbackReason?: string;
+  executionLeaseToken?: string;
 };
 
 type ToolEventState = {
@@ -388,6 +397,13 @@ function parseTrustFromRunOutput(output: unknown): AgentTrustEnvelope {
       verificationSteps: [],
       lastAgentName: undefined,
       errorSummary: null,
+      toolFailures: [],
+      proofChecks: [],
+      retryAttempts: undefined,
+      retryMaxAttempts: undefined,
+      retryMode: undefined,
+      fallbackLineage: undefined,
+      fallbackReason: undefined,
     };
   }
 
@@ -424,6 +440,21 @@ function parseTrustFromRunOutput(output: unknown): AgentTrustEnvelope {
     durationMs: typeof output.durationMs === "number" && Number.isFinite(output.durationMs)
       ? output.durationMs
       : undefined,
+    toolFailures: toArrayOfString(output.toolFailures),
+    proofChecks: toArrayOfString(output.proofChecks),
+    retryAttempts:
+      typeof output.retryAttempts === "number" && Number.isFinite(output.retryAttempts)
+        ? output.retryAttempts
+        : undefined,
+    retryMaxAttempts:
+      typeof output.retryMaxAttempts === "number" &&
+      Number.isFinite(output.retryMaxAttempts)
+        ? output.retryMaxAttempts
+        : undefined,
+    retryMode: typeof output.retryMode === "string" ? output.retryMode : undefined,
+    fallbackLineage: toArrayOfString(output.fallbackLineage),
+    fallbackReason:
+      typeof output.fallbackReason === "string" ? output.fallbackReason : undefined,
   };
 
   return trust;
@@ -453,6 +484,57 @@ function runRecordToExecutionResult(dbRun: RunRecordSnapshot): AgentExecutionRes
     startedAt: dbRun.startedAt,
     finishedAt: dbRun.finishedAt ?? new Date(),
   };
+}
+
+async function loadRunExecutionResult(runId: string): Promise<AgentExecutionResult | null> {
+  const runRecord = await prisma.run.findUnique({
+    where: { id: runId },
+    select: {
+      id: true,
+      status: true,
+      inputHash: true,
+      outputJson: true,
+      openaiResponseId: true,
+      startedAt: true,
+      finishedAt: true,
+    },
+  });
+
+  if (!runRecord) return null;
+  return runRecordToExecutionResult(runRecord as RunRecordSnapshot);
+}
+
+async function persistFinalRunResult(params: {
+  runId: string;
+  status: AgentExecutionResult["status"];
+  openaiResponseId: string | null;
+  outputJson: Prisma.InputJsonValue;
+  executionLeaseToken?: string;
+}): Promise<boolean> {
+  if (!params.executionLeaseToken) {
+    await prisma.run.update({
+      where: { id: params.runId },
+      data: {
+        status: params.status,
+        finishedAt: new Date(),
+        openaiResponseId: params.openaiResponseId,
+        outputJson: params.outputJson,
+      },
+    });
+    return true;
+  }
+
+  const updated = await prisma.run.updateMany({
+    where: { id: params.runId, openaiResponseId: params.executionLeaseToken },
+    data: {
+      status: params.status,
+      finishedAt: new Date(),
+      openaiResponseId: params.openaiResponseId,
+      outputJson: params.outputJson,
+    },
+  });
+
+  return updated.count === 1;
 }
 
 async function upsertRunRecord(params: {
@@ -711,11 +793,29 @@ export async function executeAgentWorkflow(
     }
 
     const proofViolations = evaluateProofCompliance(queryIntent, state.toolsInvoked);
-    for (const violation of proofViolations) {
-      if (violation.missingTools.length === 0) continue;
+    const failedProofViolations = proofViolations.filter(
+      (violation) => violation.missingTools.length > 0,
+    );
+    const proofChecks = getProofGroupsForIntent(queryIntent).map((group) => {
+      const failed = failedProofViolations.some(
+        (violation) => violation.group.label === group.label,
+      );
+      return `${group.label}:${failed ? "missing" : "satisfied"}`;
+    });
+    for (const violation of failedProofViolations) {
       state.missingEvidence.add(
         `Proof group "${violation.group.label}" requires one of: ${violation.group.tools.join(", ")}`,
       );
+    }
+    if (failedProofViolations.length > 0 && status === "succeeded") {
+      status = "failed";
+      const proofMessage = failedProofViolations
+        .map((violation) =>
+          `Proof path missing required group: ${violation.group.label}`
+        )
+        .join("; ");
+      errorMessage ??= proofMessage;
+      state.toolErrorMessages.push(`proof_enforcement: ${proofMessage}`);
     }
     const missingEvidence = finalizeMissingEvidence(state);
     const normalizedEvidenceCitations = dedupeEvidenceCitations(
@@ -745,6 +845,16 @@ export async function executeAgentWorkflow(
       confidence: Math.max(0, Math.min(1, confidence)),
       missingEvidence,
       verificationSteps: buildVerificationSteps(missingEvidence),
+      lastAgentName,
+      errorSummary: errorMessage,
+      durationMs: Date.now() - startedAtMs,
+      toolFailures: state.toolErrorMessages,
+      proofChecks,
+      retryAttempts: params.retryAttempts ?? 1,
+      retryMaxAttempts: params.retryMaxAttempts ?? (params.retryAttempts ?? 1),
+      retryMode: params.retryMode ?? "local",
+      fallbackLineage: params.fallbackLineage,
+      fallbackReason: params.fallbackReason,
     };
 
     if (status !== "succeeded") {
@@ -768,6 +878,7 @@ export async function executeAgentWorkflow(
       runId: dbRun.id,
       status: status,
       partialOutput: finalText,
+      correlationId: params.correlationId,
       lastAgentName,
       toolsInvoked: trust.toolsInvoked,
       confidence: trust.confidence,
@@ -776,10 +887,20 @@ export async function executeAgentWorkflow(
       lastUpdatedAt: new Date().toISOString(),
       runStartedAt: dbRun.startedAt?.toISOString(),
       runInputHash: inputHash,
+      leaseOwner: "agent-runner",
+      leaseExpiresAt: new Date().toISOString(),
+      toolFailures: trust.toolFailures,
+      proofChecks: trust.proofChecks,
+      retryAttempts: trust.retryAttempts,
+      retryMaxAttempts: trust.retryMaxAttempts,
+      retryMode: trust.retryMode,
+      fallbackLineage: trust.fallbackLineage,
+      fallbackReason: trust.fallbackReason,
     };
 
     const outputJson: AgentRunOutputJson = {
       runState,
+      correlationId: params.correlationId,
       toolsInvoked: trust.toolsInvoked,
       packVersionsUsed: trust.packVersionsUsed,
       evidenceCitations: evidenceCitationsJson as unknown as AgentRunOutputJson["evidenceCitations"],
@@ -788,21 +909,36 @@ export async function executeAgentWorkflow(
       missingEvidence: trust.missingEvidence,
       verificationSteps: trust.verificationSteps,
       lastAgentName,
+      errorSummary: trust.errorSummary,
+      toolFailures: trust.toolFailures,
+      proofChecks: trust.proofChecks,
+      retryAttempts: trust.retryAttempts,
+      retryMaxAttempts: trust.retryMaxAttempts,
+      retryMode: trust.retryMode,
+      fallbackLineage: trust.fallbackLineage,
+      fallbackReason: trust.fallbackReason,
       durationMs: Date.now() - startedAtMs,
       finalReport: finalReport ?? null,
-      errorSummary: errorMessage ?? null,
       finalOutput: finalText,
     };
 
-    await prisma.run.update({
-      where: { id: dbRun.id },
-      data: {
-        status,
-        finishedAt: new Date(),
-        openaiResponseId,
-        outputJson: outputJson as unknown as Prisma.InputJsonValue,
-      },
+    const persisted = await persistFinalRunResult({
+      runId: dbRun.id,
+      status,
+      openaiResponseId,
+      outputJson: outputJson as unknown as Prisma.InputJsonValue,
+      executionLeaseToken: params.executionLeaseToken,
     });
+
+    if (!persisted) {
+      const replay = await loadRunExecutionResult(dbRun.id);
+      if (replay) {
+        return replay;
+      }
+      throw new Error(
+        `Could not persist run result for ${dbRun.id}: duplicate execution is still in progress`,
+      );
+    }
 
     emit({
       type: "agent_summary",

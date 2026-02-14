@@ -15,6 +15,12 @@ export interface AgentStatePanelProps {
   packVersionsUsed?: string[];
   errorSummary?: string | null;
   toolFailureDetails?: string[];
+  proofChecks?: string[];
+  retryAttempts?: number;
+  retryMaxAttempts?: number;
+  retryMode?: string;
+  fallbackLineage?: string[];
+  fallbackReason?: string;
   retryCount?: number;
 }
 
@@ -29,6 +35,12 @@ export function AgentStatePanel({
   packVersionsUsed,
   errorSummary,
   toolFailureDetails,
+  proofChecks,
+  retryAttempts,
+  retryMaxAttempts,
+  retryMode,
+  fallbackLineage,
+  fallbackReason,
   retryCount,
 }: AgentStatePanelProps) {
   const normalizedConfidence = Math.max(0, Math.min(1, confidence ?? 0));
@@ -128,6 +140,73 @@ export function AgentStatePanel({
           )}
         </div>
       </div>
+
+      <Separator />
+
+      {(proofChecks !== undefined || retryAttempts !== undefined || retryMode || fallbackLineage || fallbackReason) && (
+        <>
+          <div className="grid gap-4 md:grid-cols-2">
+            {proofChecks && proofChecks.length > 0 ? (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Proof checks
+                </p>
+                <ul className="mt-2 list-disc space-y-1 pl-4 text-xs leading-relaxed text-foreground">
+                  {proofChecks.map((check) => (
+                    <li key={check}>{check}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <div />
+            )}
+            {(retryAttempts !== undefined || retryMode || retryMaxAttempts !== undefined) && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Retry policy
+                </p>
+                <div className="mt-2 text-xs text-foreground">
+                  <div>
+                    Attempts: {typeof retryAttempts === "number" ? retryAttempts : 0}
+                    {typeof retryMaxAttempts === "number"
+                      ? ` / ${retryMaxAttempts}`
+                      : ""}
+                  </div>
+                  <div>Mode: {retryMode ?? "default"}</div>
+                </div>
+              </div>
+            )}
+          </div>
+          {(fallbackLineage || fallbackReason) && (
+            <div className="space-y-2">
+              <Separator />
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Fallback lineage
+                </p>
+                {fallbackLineage && fallbackLineage.length > 0 ? (
+                  <ul className="mt-1 space-y-1 text-xs text-foreground">
+                    {fallbackLineage.map((line) => (
+                      <li key={line}>• {line}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-1 text-xs text-muted-foreground">No fallback lineage recorded.</p>
+                )}
+              </div>
+              {fallbackReason && (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Fallback reason
+                  </p>
+                  <p className="text-xs text-foreground">{fallbackReason}</p>
+                </div>
+              )}
+            </div>
+          )}
+          <Separator />
+        </>
+      )}
 
       <Separator />
 

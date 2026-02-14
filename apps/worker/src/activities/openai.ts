@@ -12,6 +12,9 @@ import {
   ParishPackSchemaVersion,
   zodToOpenAiJsonSchema,
   SkuType,
+  AGENT_RUN_STATE_SCHEMA_VERSION,
+  AGENT_RUN_STATE_STATUS,
+  type AgentRunState,
   type AgentRunWorkflowInput,
   type AgentRunWorkflowOutput,
   type AgentTrustSnapshot,
@@ -31,6 +34,7 @@ import {
   createIntentAwareCoordinator,
   evaluateProofCompliance,
   inferQueryIntentFromText,
+  getProofGroupsForIntent,
 } from "@entitlement-os/openai";
 
 type AgentInputMessage =
@@ -228,8 +232,10 @@ async function persistRunProgress(
     finalText: string;
     lastAgentName: string;
     confidence: number | null;
+    correlationId?: string;
   },
   runStartMs: number,
+  runInputHash: string,
 ) {
   const snapshot = buildProgressSnapshot(
     dbRunId,
@@ -239,14 +245,32 @@ async function persistRunProgress(
     params.lastAgentName,
     params.confidence,
   );
+  const runState: AgentRunState = {
+    schemaVersion: AGENT_RUN_STATE_SCHEMA_VERSION,
+    runId: dbRunId,
+    status: snapshot.status,
+    partialOutput: snapshot.partialOutput,
+    lastAgentName: snapshot.lastAgentName,
+    toolsInvoked: snapshot.toolsInvoked,
+    confidence: snapshot.confidence,
+    missingEvidence: snapshot.missingEvidence,
+    durationMs: Date.now() - runStartMs,
+    lastUpdatedAt: new Date().toISOString(),
+    runStartedAt: new Date(runStartMs).toISOString(),
+    runInputHash,
+    leaseOwner: "agent-runner",
+    leaseExpiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+    correlationId: params.correlationId,
+  };
   const outputJson: Prisma.InputJsonValue = {
-    runState: snapshot,
+    runState,
     partialOutput: snapshot.partialOutput,
     confidence: snapshot.confidence,
     status: snapshot.status,
     lastAgentName: snapshot.lastAgentName,
     lastUpdatedAt: new Date().toISOString(),
     durationMs: Date.now() - runStartMs,
+    correlationId: params.correlationId,
   };
 
   await prisma.run.update({
@@ -771,9 +795,21 @@ export async function runAgentTurn(
     inputHash,
     outputJson: {
       runState: {
-        status: "running",
+        schemaVersion: AGENT_RUN_STATE_SCHEMA_VERSION,
+        status: AGENT_RUN_STATE_STATUS.RUNNING,
         partialOutput: "",
         runId,
+        lastAgentName: "Coordinator",
+        toolsInvoked: [],
+        confidence: null,
+        missingEvidence: [],
+        durationMs: 0,
+        lastUpdatedAt: new Date(startedAtMs).toISOString(),
+        runStartedAt: new Date(startedAtMs).toISOString(),
+        runInputHash: inputHash,
+        leaseOwner: "agent-runner",
+        leaseExpiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+        correlationId: params.correlationId,
       },
     },
   });
@@ -815,8 +851,10 @@ export async function runAgentTurn(
         finalText,
         lastAgentName,
         confidence: lastProgressConfidence,
+        correlationId: params.correlationId,
       },
       startedAtMs,
+      inputHash,
     );
   };
 
@@ -944,11 +982,27 @@ export async function runAgentTurn(
     }
 
     const proofViolations = evaluateProofCompliance(queryIntent, state.toolsInvoked);
-    for (const violation of proofViolations) {
-      if (violation.missingTools.length === 0) continue;
+    const failedProofViolations = proofViolations.filter(
+      (violation) => violation.missingTools.length > 0,
+    );
+    const proofChecks = getProofGroupsForIntent(queryIntent).map((group) => {
+      const failed = failedProofViolations.some(
+        (violation) => violation.group.label === group.label,
+      );
+      return `${group.label}:${failed ? "missing" : "satisfied"}`;
+    });
+    for (const violation of failedProofViolations) {
       state.missingEvidence.add(
         `Proof group "${violation.group.label}" requires one of: ${violation.group.tools.join(", ")}`,
       );
+    }
+    if (failedProofViolations.length > 0 && status === "succeeded") {
+      status = "failed";
+      const proofMessage = failedProofViolations
+        .map((violation) => `Proof path missing required group: ${violation.group.label}`)
+        .join("; ");
+      errorMessage ??= proofMessage;
+      state.toolErrorMessages.push(`proof_enforcement: ${proofMessage}`);
     }
 
     const missingEvidence = finalizeMissingEvidence(state);
@@ -980,6 +1034,13 @@ export async function runAgentTurn(
       lastAgentName,
       errorSummary: errorMessage,
       durationMs: Date.now() - startedAtMs,
+      toolFailures: state.toolErrorMessages,
+      proofChecks,
+      retryAttempts: params.retryAttempts ?? 1,
+      retryMaxAttempts: params.retryMaxAttempts ?? (params.retryAttempts ?? 1),
+      retryMode: params.retryMode ?? "temporal",
+      fallbackLineage: params.fallbackLineage ?? [],
+      fallbackReason: params.fallbackReason ?? undefined,
     };
     lastProgressConfidence = trust.confidence;
 
@@ -1010,10 +1071,43 @@ export async function runAgentTurn(
       lastAgentName: trust.lastAgentName,
       errorSummary: trust.errorSummary,
       durationMs: trust.durationMs,
+      toolFailures: trust.toolFailures,
+      proofChecks: trust.proofChecks,
+      retryAttempts: trust.retryAttempts,
+      retryMaxAttempts: trust.retryMaxAttempts,
+      retryMode: trust.retryMode,
+      fallbackLineage: trust.fallbackLineage,
+      fallbackReason: trust.fallbackReason,
       finalReport: finalReport,
+      correlationId: params.correlationId,
     };
 
     await emitProgress(true);
+
+    const finalRunState: AgentRunState = {
+      schemaVersion: AGENT_RUN_STATE_SCHEMA_VERSION,
+      runId: dbRun.id,
+      status,
+      partialOutput: finalText,
+      lastAgentName,
+      toolsInvoked: trust.toolsInvoked,
+      confidence: trust.confidence,
+      missingEvidence: trust.missingEvidence,
+      durationMs: trust.durationMs,
+      lastUpdatedAt: new Date().toISOString(),
+      runStartedAt: new Date(startedAtMs).toISOString(),
+      runInputHash: inputHash,
+      leaseOwner: "agent-runner",
+      leaseExpiresAt: new Date().toISOString(),
+      toolFailures: trust.toolFailures,
+      proofChecks: trust.proofChecks,
+      retryAttempts: trust.retryAttempts,
+      retryMaxAttempts: trust.retryMaxAttempts,
+      retryMode: trust.retryMode,
+      fallbackLineage: trust.fallbackLineage,
+      fallbackReason: trust.fallbackReason,
+      correlationId: params.correlationId,
+    };
 
     await prisma.run.update({
       where: { id: dbRun.id },
@@ -1023,15 +1117,7 @@ export async function runAgentTurn(
         openaiResponseId,
         outputJson: {
           ...outputJson,
-          runState: {
-            runId: dbRun.id,
-            status,
-            partialOutput: finalText,
-            lastAgentName,
-            toolsInvoked: trust.toolsInvoked,
-            confidence: trust.confidence,
-            missingEvidence: trust.missingEvidence,
-          },
+          runState: finalRunState,
         },
       },
     });

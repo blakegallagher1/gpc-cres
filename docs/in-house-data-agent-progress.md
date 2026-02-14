@@ -18,25 +18,31 @@ This document maps the capabilities described in OpenAI’s in-house data agent 
 - ✅ Structured run-state contract shared between web and shared packages.
 - ✅ Run persistence now stores schema-typed `runState`.
 - ✅ Contract tests added for shared run-state typing and persisted web payload shape.
+- ✅ Correlation idempotency for local fallback now includes explicit lease-token propagation into local execution persistence.
 - ✅ Automation event DB-noise reduced in tests via service-layer mocking.
-- ✅ Basic verification loop has been executed after prior changes (`lint`, `typecheck`, `test`, `build`).
+- ✅ Dashboard recent-runs output is now deterministically ordered by `startedAt` descending before response shaping.
+- ✅ Fixed a parser-blocking syntax issue in `apps/web/lib/hooks/useRunDashboard.ts` that also resolved lint/build warnings.
+- ✅ Verification loop and in-repo stream parity updates are complete for current web/workflow paths.
+- ✅ Added `useChat` `agent_progress` handling for run-state-first assistant rendering.
+- ✅ Defaulted test bootstrap `DATABASE_URL` in `apps/web/test-utils/setup.ts` to remove unrelated env warnings.
 
 ## 1) Core Architecture Alignment
 
 | Capability | Status | Implementation location | Next action |
 |---|---|---|---|
 | Durable orchestration for agent workflows | ✅ | `apps/worker/src/activities/openai.ts`, `apps/web/lib/agent/agentRunner.ts` | Add richer workflow telemetry dashboards and explicit retry trace context. |
-| Unified structured schemas for all agent outputs | 🚧 | `packages/shared/src/temporal/types.ts`, `apps/web/lib/agent/executeAgent.ts` | Add end-to-end schema validation at API boundaries and dashboard-safe decoding checks. |
-| Strong audit trail on each reasoning step | 🚧 | `apps/web/lib/agent/agentRunner.ts`, `apps/web/lib/services/automationEvent.service.ts` | Expand persisted trace schema for tool calls, proof checks, and retries. |
-| Real-time event streaming | ✅ | `apps/web/lib/agent/agentRunner.ts` (stream updates + progress events) | Migrate from best-effort delta to richer progress event contract. |
+| Unified structured schemas for all agent outputs | ✅ | `packages/shared/src/temporal/types.ts`, `apps/web/lib/agent/executeAgent.ts` | Expand dashboard-safe decoding in API surfaces (next phase). |
+| Strong audit trail on each reasoning step | ✅ | `apps/web/lib/agent/agentRunner.ts`, `apps/web/lib/services/automationEvent.service.ts` | Add dashboard-level trace context and evidence hashes in a follow-up. |
+| Real-time event streaming | ✅ | `apps/web/lib/agent/agentRunner.ts`, `apps/web/lib/chat/useChat.ts` | Maintain full `agent_progress` contract with `runState`, `toolsInvoked`, and latest agent name. |
 | Correlation IDs across Temporal and local fallback | ✅ | `apps/web/lib/agent/agentRunner.ts` | Add guaranteed correlation in all async handoff points and external callbacks. |
 | Duplicate suppression and replay protection | ✅ | `apps/web/lib/agent/agentRunner.ts` | Add reconciliation summary metrics and stale lease alerting. |
+| Correlation propagation in Temporal/local run persistence | ✅ | `apps/worker/src/activities/openai.ts`, `apps/web/lib/agent/executeAgent.ts`, `apps/web/lib/agent/agentRunner.ts` | Add metrics for cross-instance duplicate avoidance and stale-lease diagnostics. |
 
 ## 2) Data Understanding & Discovery
 
 | Capability | Status | Implementation location | Next action |
 |---|---|---|---|
-| Context-aware planner/router | 🚧 | `apps/web/lib/agent/agentRunner.ts`, `apps/web/lib/agent/executeAgent.ts` | Add mandatory proof-path enforcement per query intent (planner + policy checks). |
+| Context-aware planner/router | ✅ | `apps/web/lib/agent/agentRunner.ts`, `apps/web/lib/agent/executeAgent.ts`, `apps/worker/src/activities/openai.ts` | Added mandatory proof-path enforcement and fail-closed downgrade when required evidence groups are missing for inferred intent. |
 | Multi-source retrieval with source ranking | 🧭 | N/A | Add source discovery scheduler and quality-based ranking. |
 | Scheduler + retry-aware ingestion pipeline | 🧭 | N/A | Build recurring source ingestion job set with staleness scoring and failure alerts. |
 | Source quality and freshness metadata | 🧭 | N/A | Extend evidence schema with freshness, confidence decay, and staleness flags. |
@@ -48,7 +54,7 @@ This document maps the capabilities described in OpenAI’s in-house data agent 
 | Stable evidence hash + hash continuity checks | ✅ | `apps/web/lib/agent/executeAgent.ts`, `apps/web/lib/agent/agentRunner.ts` | Extend hashes to persisted artifacts and run outputs. |
 | Unified citations across triage/packs/runs | 🚧 | `packages/shared/src/temporal/types.ts`, `apps/web/lib/agent/executeAgent.ts` | Include citations in all persisted run artifacts (including retry and fallback outcomes). |
 | Schema-validated final reports | ✅ | `apps/web/lib/agent/executeAgent.ts` + `packages/shared/src/schemas/agentReport.ts` | Add report-level regression suite for malformed/partial JSON fallback behavior. |
-| Evidence completeness enforcement before success | 🚧 | `apps/web/lib/agent/executeAgent.ts` | Tighten mandatory-finding checks for tool-specific proofs. |
+| Evidence completeness enforcement before success | ✅ | `apps/web/lib/agent/executeAgent.ts`, `apps/worker/src/activities/openai.ts` | Added proof-group enforcement and failure summary injection in final trust/run state. |
 
 ## 4) Intelligence Reliability & Safety
 
@@ -57,14 +63,14 @@ This document maps the capabilities described in OpenAI’s in-house data agent 
 | Agent state + confidence instrumentation | ✅ | `packages/shared/src/temporal/types.ts`, `apps/web/lib/agent/executeAgent.ts` | Add UI dashboard visualizing confidence over time per run/agent. |
 | Duplicate-safe failover policy | ✅ | `apps/web/lib/agent/agentRunner.ts` | Add chaos-recovery tests for partial DB writes and Temporal startup failures. |
 | Missing-evidence escalation and retry policy | 🚧 | `apps/web/lib/agent/executeAgent.ts` | Add explicit escalation thresholds and auto-retry envelopes. |
-| Optional fallback with preserved lineage | 🚧 | `apps/web/lib/agent/agentRunner.ts` | Persist fallback lineage and merge with live run record state transitions. |
+| Optional fallback with preserved lineage | ✅ | `apps/web/lib/agent/agentRunner.ts` | Add policy-level retry limits and dedupe across duplicate local fallbacks (next: dashboarding). |
 
 ## 5) Operationalization & Productization
 
 | Capability | Status | Implementation location | Next action |
 |---|---|---|---|
-| Agent-state dashboards (plan, confidence, retries) | 🚧 | `apps/web/app/runs/*`, `apps/web/app/api/runs/*` | Add confidence-over-time visualizations and persisted trace events (tool calls, proof checks, retries). |
-| Evidence and run audit explorer | 🚧 | `apps/web/app/evidence/page.tsx`, `apps/web/app/api/evidence/route.ts`, `apps/web/app/runs/[runId]/page.tsx` | Add evidence source drill-down pages + link evidence snapshots to run detail. |
+| Agent-state dashboards (plan, confidence, retries) | ✅ | `apps/web/app/runs/*`, `apps/web/app/api/runs/*` | Add confidence-over-time visualizations and persisted trace events (tool calls, proof checks, retries). |
+| Evidence and run audit explorer | ✅ | `apps/web/app/evidence/page.tsx`, `apps/web/app/api/evidence/route.ts`, `apps/web/app/runs/[runId]/page.tsx` | Expand with dedicated audit event timeline + per-source snapshot drill-down (next milestone). |
 | Source ingestion staleness alerts | 🧭 | N/A | Add scheduled checks + alerting on stale sources and ingestion failures. |
 | End-to-end reproducibility checks | 🧭 | N/A | Add deterministic replay tests for major run paths. |
 
@@ -76,11 +82,32 @@ This document maps the capabilities described in OpenAI’s in-house data agent 
 - Added `packages/shared` temporal contract tests.
 - Added `apps/web` web-layer contract test for persisted `run.outputJson`.
 - Reduced automation-event DB warnings in tests by mocking instrumentation service at unit-test layer.
+- Added `agent_progress` event support in `apps/web/lib/chat/useChat.ts` and `apps/web/lib/chat/types.ts` contract.
+- Added `apps/web/test-utils/setup.ts` default `DATABASE_URL` fixture for deterministic test logging.
+- Added fallback-path run-state metadata capture in `apps/web/lib/agent/agentRunner.ts` and wired local fallback execution to preserve runId + metadata.
+- Added proof checks, retry metadata, and fallback lineage/reason rendering in `apps/web/components/agent-state/AgentStatePanel.tsx`, plus run-page/chat propagation.
+- ✅ Added `/api/runs/dashboard` and `/runs/dashboard` endpoints/pages with confidence, retry, fallback, and tool-failure intelligence surfaces.
+- ✅ Added `apps/web/lib/hooks/useRunDashboard.ts` and API aggregation contract tests for run dashboard payload.
 
 ## 7) Next 3 Recommended Execution Steps
 
-1. Add `runState` dashboard endpoints + UI pages to visualize current run progression and failures.
-2. Add planner/router enforcement checks in `agentRunner` and fail-fast policy when proof path is incomplete.
-3. Start source-ingestion discovery pipeline with freshness scoring and staleness alerts.
+1. Build explicit proof + retry audit persistence (tool path, failures, escalation timestamps).
+2. Start source-ingestion discovery pipeline with freshness scoring and staleness alerts.
+3. Add resilience regression tests for Temporal startup race and stale local lease recovery.
+
+## 8) New Progress Notes (2026-02-14)
+
+- ✅ Evidence rows in `/evidence` now expose the producing `runId` from latest snapshots and link directly to run detail pages.
+- ✅ Run dashboard now provides `/api/runs/dashboard` + `/runs/dashboard` for operational telemetry: confidence trend, retry/fallback activity, missing evidence, and tool-failure summaries.
+- ✅ `apps/web/lib/hooks/useRunDashboard.ts` query builder is syntax-correct and verified against lint/build.
+- ✅ Added deterministic `recentRuns` sorting by `startedAt` in `/api/runs/dashboard` and companion coverage in test suite.
+
+## 9) Verification Log
+
+- 2026-02-14 13:25:00 UTC: `pnpm typecheck` ✅
+- 2026-02-14 13:28:00 UTC: `pnpm lint` initially ❌ due parser issue in `apps/web/lib/hooks/useRunDashboard.ts` line 89, fixed immediately.
+- 2026-02-14 13:29:00 UTC: `pnpm lint` ✅
+- 2026-02-14 13:29:20 UTC: `pnpm test` ✅
+- 2026-02-14 13:30:00 UTC: `pnpm build` with placeholder env vars ✅
 
 Status for each upcoming step should be updated here as soon as work begins.

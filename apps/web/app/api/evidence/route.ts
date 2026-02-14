@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
         evidenceSnapshots: {
           orderBy: { retrievedAt: "desc" },
           take: 1,
-          select: { retrievedAt: true, contentHash: true },
+          select: { retrievedAt: true, contentHash: true, runId: true },
         },
       },
       orderBy: { firstSeenAt: "desc" },
@@ -49,6 +49,7 @@ export async function GET(request: NextRequest) {
         ? {
             retrievedAt: s.evidenceSnapshots[0].retrievedAt.toISOString(),
             contentHash: s.evidenceSnapshots[0].contentHash,
+            runId: s.evidenceSnapshots[0].runId,
           }
         : null,
     }));

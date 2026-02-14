@@ -39,30 +39,39 @@ export function useChat(options?: { dealId?: string }) {
 
         let assistantContent = "";
         let agentName = "";
+        const assistantId = crypto.randomUUID();
+        const applyAssistantContent = (content: string) => {
+          assistantContent = content;
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId ? { ...m, content } : m,
+            ),
+          );
+        };
+
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: assistantId,
+            role: "assistant",
+            content: "",
+            createdAt: new Date().toISOString(),
+          },
+        ]);
 
         for await (const event of parseSSEStream(response)) {
           switch (event.type) {
             case "text_delta":
-              assistantContent += event.content;
-              setMessages((prev) => {
-                const last = prev[prev.length - 1];
-                if (last?.role === "assistant") {
-                  return [
-                    ...prev.slice(0, -1),
-                    { ...last, content: assistantContent },
-                  ];
-                }
-                return [
-                  ...prev,
-                  {
-                    id: crypto.randomUUID(),
-                    role: "assistant" as const,
-                    content: assistantContent,
-                    agentName,
-                    createdAt: new Date().toISOString(),
-                  },
-                ];
-              });
+              applyAssistantContent(assistantContent + event.content);
+              break;
+            case "agent_progress":
+              if (event.partialOutput) {
+                applyAssistantContent(event.partialOutput);
+              }
+              if (event.lastAgentName) {
+                agentName = event.lastAgentName;
+                setCurrentAgent(event.lastAgentName);
+              }
               break;
             case "agent_switch":
               agentName = event.agentName;

@@ -19,6 +19,8 @@ const LOCAL_LEASE_GRACE_MS = 15 * 60 * 1000;
 const LOCAL_LEASE_WAIT_MS = 60_000 * 10;
 const RUN_LEASE_RETRY_MS = 700;
 const LOCAL_LEASE_PREFIX = "local-run-";
+const LOCAL_FALLBACK_RETRY_MODE = "local_fallback_after_temporal_start";
+const LOCAL_FALLBACK_MAX_ATTEMPTS = 1;
 
 export type AgentRunInput = {
   orgId: string;
@@ -77,6 +79,13 @@ type PersistedAgentSummary = {
     lastAgentName?: string;
     errorSummary?: string | null;
     durationMs?: number;
+    toolFailures?: string[];
+    proofChecks?: string[];
+    retryAttempts?: number;
+    retryMaxAttempts?: number;
+    retryMode?: string;
+    fallbackLineage?: string[];
+    fallbackReason?: string;
   };
   openaiResponseId: string | null;
   inputHash: string;
@@ -150,6 +159,38 @@ function normalizePersistedAgentSummary(raw: {
         Number.isFinite((output as Record<string, unknown>).durationMs)
           ? ((output as Record<string, unknown>).durationMs as number)
           : undefined,
+      toolFailures:
+        toStringArray((output as Record<string, unknown>).toolFailures).length > 0
+          ? toStringArray((output as Record<string, unknown>).toolFailures)
+          : toStringArray(runState[AGENT_RUN_STATE_KEYS.toolFailures]),
+      proofChecks:
+        toStringArray((output as Record<string, unknown>).proofChecks).length > 0
+          ? toStringArray((output as Record<string, unknown>).proofChecks)
+          : toStringArray(runState[AGENT_RUN_STATE_KEYS.proofChecks]),
+      retryAttempts:
+        typeof (output as Record<string, unknown>).retryAttempts === "number" &&
+        Number.isFinite((output as Record<string, unknown>).retryAttempts)
+          ? ((output as Record<string, unknown>).retryAttempts as number)
+          : undefined,
+      retryMaxAttempts:
+        typeof (output as Record<string, unknown>).retryMaxAttempts === "number" &&
+        Number.isFinite((output as Record<string, unknown>).retryMaxAttempts)
+          ? ((output as Record<string, unknown>).retryMaxAttempts as number)
+          : undefined,
+      retryMode:
+        typeof (output as Record<string, unknown>).retryMode === "string"
+          ? String((output as Record<string, unknown>).retryMode)
+          : undefined,
+      fallbackLineage:
+        toStringArray((output as Record<string, unknown>).fallbackLineage).length > 0
+          ? toStringArray((output as Record<string, unknown>).fallbackLineage)
+          : toStringArray(runState[AGENT_RUN_STATE_KEYS.fallbackLineage]),
+      fallbackReason:
+        typeof (output as Record<string, unknown>).fallbackReason === "string"
+          ? String((output as Record<string, unknown>).fallbackReason)
+          : typeof runState[AGENT_RUN_STATE_KEYS.fallbackReason] === "string"
+            ? String(runState[AGENT_RUN_STATE_KEYS.fallbackReason])
+            : undefined,
     },
     openaiResponseId: raw.openaiResponseId,
     inputHash: raw.inputHash ?? "",
@@ -161,6 +202,8 @@ async function loadCompletedRunResultById(
   onEvent?: (event: AgentStreamEvent) => void,
 ): Promise<PersistedAgentSummary | null> {
   const pollStart = Date.now();
+  let lastEmittedText = "";
+
   while (Date.now() - pollStart < LOCAL_LEASE_WAIT_MS) {
     const runRecord = await prisma.run.findUnique({
       where: { id: runId },
@@ -174,22 +217,52 @@ async function loadCompletedRunResultById(
 
     const output = runRecord.outputJson as Record<string, unknown> | null;
     const runState = output && typeof output === "object" ? output.runState : null;
+    const runStateRecord =
+      runState && typeof runState === "object" ? (runState as Record<string, unknown>) : null;
     const partialOutput =
-      runState && typeof (runState as Record<string, unknown>).partialOutput === "string"
-        ? String((runState as Record<string, unknown>).partialOutput)
+      runStateRecord && typeof runStateRecord[AGENT_RUN_STATE_KEYS.partialOutput] === "string"
+        ? String(runStateRecord[AGENT_RUN_STATE_KEYS.partialOutput])
         : "";
+
+    const toolsInvoked =
+      runStateRecord && Array.isArray(runStateRecord[AGENT_RUN_STATE_KEYS.toolsInvoked])
+        ? (runStateRecord[AGENT_RUN_STATE_KEYS.toolsInvoked] as unknown[]).filter(
+            (value): value is string => typeof value === "string",
+          )
+        : [];
+    const lastAgentName =
+      runStateRecord && typeof runStateRecord[AGENT_RUN_STATE_KEYS.lastAgentName] === "string"
+        ? String(runStateRecord[AGENT_RUN_STATE_KEYS.lastAgentName])
+        : undefined;
+
+    if (partialOutput.length > lastEmittedText.length) {
+      const delta = partialOutput.slice(lastEmittedText.length);
+      if (delta.length > 0) {
+        onEvent?.({
+          type: "text_delta",
+          content: delta,
+        });
+        lastEmittedText = partialOutput;
+      }
+    } else if (partialOutput !== lastEmittedText) {
+      lastEmittedText = partialOutput;
+    }
+
     onEvent?.({
       type: "agent_progress",
       runId,
       status: "running",
       partialOutput,
+      toolsInvoked,
+      lastAgentName,
+      runState: runStateRecord ?? undefined,
     });
     await sleepMs(RUN_LEASE_RETRY_MS);
   }
   return null;
 }
 
-async function claimLocalRunLease(runId: string): Promise<boolean> {
+async function claimLocalRunLease(runId: string): Promise<string | null> {
   const leaseToken = `${LOCAL_LEASE_PREFIX}${randomUUID()}`;
   const cleanClaim = await prisma.run.updateMany({
     where: {
@@ -201,7 +274,7 @@ async function claimLocalRunLease(runId: string): Promise<boolean> {
   });
 
   if (cleanClaim.count === 1) {
-    return true;
+    return leaseToken;
   }
 
   const activeRun = await prisma.run.findUnique({
@@ -209,13 +282,13 @@ async function claimLocalRunLease(runId: string): Promise<boolean> {
     select: { status: true, startedAt: true, openaiResponseId: true },
   });
   if (!activeRun || activeRun.status !== "running") {
-    return true;
+    return null;
   }
 
   if (activeRun.openaiResponseId !== null) {
     const isStale = Date.now() - new Date(activeRun.startedAt).getTime() > LOCAL_LEASE_GRACE_MS;
     if (!isStale) {
-      return false;
+      return null;
     }
   }
 
@@ -226,7 +299,8 @@ async function claimLocalRunLease(runId: string): Promise<boolean> {
     },
     data: { openaiResponseId: leaseToken },
   });
-  return staleLease.count === 1;
+
+  return staleLease.count === 1 ? leaseToken : null;
 }
 
 function buildRequestFingerprint(payload: {
@@ -289,6 +363,15 @@ function mapTemporalTrustForEvents(trust: AgentRunWorkflowOutput["trust"]) {
     missingEvidence: trust.missingEvidence,
     verificationSteps: trust.verificationSteps,
     lastAgentName: trust.lastAgentName,
+    errorSummary: trust.errorSummary,
+    durationMs: trust.durationMs,
+    toolFailures: trust.toolFailures,
+    proofChecks: trust.proofChecks,
+    retryAttempts: trust.retryAttempts,
+    retryMaxAttempts: trust.retryMaxAttempts,
+    retryMode: trust.retryMode,
+    fallbackLineage: trust.fallbackLineage,
+    fallbackReason: trust.fallbackReason,
   };
 }
 
@@ -372,10 +455,22 @@ async function streamTemporalRunProgress(
       if (outputObject) {
         const runState = outputObject.runState;
         if (runState && typeof runState === "object" && runState !== null) {
+          const runStateRecord = runState as Record<string, unknown>;
           const partialOutput =
-            typeof (runState as Record<string, unknown>)[AGENT_RUN_STATE_KEYS.partialOutput] === "string"
-              ? String((runState as Record<string, unknown>)[AGENT_RUN_STATE_KEYS.partialOutput])
+            typeof runStateRecord[AGENT_RUN_STATE_KEYS.partialOutput] === "string"
+              ? String(runStateRecord[AGENT_RUN_STATE_KEYS.partialOutput])
               : "";
+          const toolsInvoked =
+            Array.isArray(runStateRecord[AGENT_RUN_STATE_KEYS.toolsInvoked])
+              ? (runStateRecord[AGENT_RUN_STATE_KEYS.toolsInvoked] as unknown[]).filter(
+                  (value): value is string => typeof value === "string",
+                )
+              : [];
+          const lastAgentName =
+            typeof runStateRecord[AGENT_RUN_STATE_KEYS.lastAgentName] === "string"
+              ? String(runStateRecord[AGENT_RUN_STATE_KEYS.lastAgentName])
+              : undefined;
+
           if (partialOutput.length > lastEmittedText.length) {
             const delta = partialOutput.slice(lastEmittedText.length);
             if (delta.length > 0) {
@@ -386,14 +481,18 @@ async function streamTemporalRunProgress(
               lastEmittedText = partialOutput;
             }
           } else if (partialOutput !== lastEmittedText) {
-            onEvent?.({
-              type: "agent_progress",
-              runId,
-              status: "running",
-              partialOutput: partialOutput,
-            });
             lastEmittedText = partialOutput;
           }
+
+          onEvent?.({
+            type: "agent_progress",
+            runId,
+            status: "running",
+            partialOutput,
+            toolsInvoked,
+            lastAgentName,
+            runState: runStateRecord ?? undefined,
+          });
 
           if (runRecord.status !== "running") {
             return;
@@ -567,33 +666,48 @@ export async function runAgentWorkflow(params: AgentRunInput) {
   }
 
   if (shouldUseTemporalAgentFlow()) {
-    const correlationId = normalizeCorrelationId(
-      requestedCorrelationId ??
-        buildRequestFingerprint({
-          orgId,
-          userId,
-          conversationId: conversationId ?? null,
-          message,
-          input: hasInputOverride ? input : null,
-          dealId: dealId ?? null,
-          jurisdictionId: jurisdictionId ?? null,
-          sku: sku ?? null,
-          runType,
-          maxTurns,
-          runInputCorrelationId: requestedCorrelationId ?? null,
-        }),
-    );
-
-    const workflowId = `agent-run-${correlationId}`;
     const client = await getTemporalClient();
+    const requestFingerprint = buildRequestFingerprint({
+      orgId,
+      userId,
+      conversationId: conversationId ?? null,
+      message,
+      input: hasInputOverride ? input : null,
+      dealId: dealId ?? null,
+      jurisdictionId: jurisdictionId ?? null,
+      sku: sku ?? null,
+      runType,
+      maxTurns,
+      runInputCorrelationId: requestedCorrelationId ?? null,
+    });
+    const correlationId = normalizeCorrelationId(
+      requestedCorrelationId ?? requestFingerprint,
+    );
+    const workflowId = `agent-run-${correlationId}`;
+    let fallbackReason: string | undefined;
+    let fallbackLineage: string[] = ["local-fallback"];
+    let temporalStartFailure: string | undefined;
 
-    const resumedRun = await prisma.run.findUnique({
+    const priorRun = await prisma.run.findUnique({
       where: { id: workflowId },
       select: { status: true, outputJson: true, inputHash: true, openaiResponseId: true },
     });
 
-    if (resumedRun && resumedRun.status !== "running") {
-      const replay = normalizePersistedAgentSummary(resumedRun);
+    const priorLineage =
+      priorRun?.outputJson &&
+      typeof priorRun.outputJson === "object" &&
+      !Array.isArray(priorRun.outputJson) &&
+      typeof (priorRun.outputJson as { runState?: unknown }).runState === "object"
+        ? toStringArray(
+            ((priorRun.outputJson as { runState?: unknown }).runState as {
+              [AGENT_RUN_STATE_KEYS.fallbackLineage]?: unknown;
+            })[AGENT_RUN_STATE_KEYS.fallbackLineage],
+          )
+        : [];
+    fallbackLineage = Array.from(new Set([...fallbackLineage, ...priorLineage]));
+
+    if (priorRun && priorRun.status !== "running") {
+      const replay = normalizePersistedAgentSummary(priorRun);
       onEvent?.({
         type: "agent_summary",
         runId: workflowId,
@@ -623,7 +737,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
       };
     }
 
-    if (resumedRun?.status === "running") {
+    if (priorRun?.status === "running") {
       const replay = await loadCompletedRunResultById(workflowId, onEvent);
       if (replay && replay.status !== "running") {
         onEvent?.({
@@ -632,11 +746,11 @@ export async function runAgentWorkflow(params: AgentRunInput) {
           trust: mapTemporalTrustForEvents(replay.trust),
         });
         onEvent?.({
-        type: "done",
-        runId: workflowId,
-        status: replay.status === "succeeded" ? "succeeded" : "failed",
-        conversationId: conversationId ?? undefined,
-      });
+          type: "done",
+          runId: workflowId,
+          status: replay.status === "succeeded" ? "succeeded" : "failed",
+          conversationId: conversationId ?? undefined,
+        });
         return {
           result: {
             runId: workflowId,
@@ -679,13 +793,12 @@ export async function runAgentWorkflow(params: AgentRunInput) {
         args: [workflowInput],
         workflowIdReusePolicy: "REJECT_DUPLICATE",
       });
-    } catch {
+    } catch (error) {
+      temporalStartFailure = error instanceof Error ? error.message : "Unable to start temporal workflow";
       handle = await resolveTemporalHandleOrExisting(client, workflowId);
     }
 
-    if (!handle) {
-      // Fall back to local execution only if no Temporal handle can be resumed.
-    } else {
+    if (handle) {
       const resultPromise = handle.result() as Promise<AgentRunWorkflowOutput>;
       const progressPromise = streamTemporalRunProgress(workflowId, onEvent).catch(() => {});
       const workflowResult = await resultPromise;
@@ -697,7 +810,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
           runId: workflowResult.runId,
           status: "running",
           partialOutput: "",
-          correlationId: correlationId,
+          correlationId,
         });
       }
 
@@ -741,6 +854,8 @@ export async function runAgentWorkflow(params: AgentRunInput) {
       };
     }
 
+    fallbackReason = temporalStartFailure ?? "Temporal workflow unavailable";
+
     const replay = await loadCompletedRunResultById(workflowId, onEvent);
     if (replay && replay.status !== "running") {
       onEvent?.({
@@ -772,8 +887,8 @@ export async function runAgentWorkflow(params: AgentRunInput) {
       };
     }
 
-    const hasLease = await claimLocalRunLease(workflowId);
-    if (!hasLease) {
+    const leaseToken = await claimLocalRunLease(workflowId);
+    if (!leaseToken) {
       const replay = await loadCompletedRunResultById(workflowId, onEvent);
       if (replay && replay.status !== "running") {
         onEvent?.({
@@ -806,6 +921,44 @@ export async function runAgentWorkflow(params: AgentRunInput) {
       }
       throw new Error(`Local run lease unavailable for ${workflowId}.`);
     }
+
+    const result = await executeAgentWorkflow({
+      orgId,
+      userId,
+      conversationId: conversationId ?? "agent-run",
+      input: agentInput,
+      runId: workflowId,
+      runType,
+      maxTurns,
+      correlationId,
+      retryMode: LOCAL_FALLBACK_RETRY_MODE,
+      retryAttempts: 1,
+      retryMaxAttempts: LOCAL_FALLBACK_MAX_ATTEMPTS,
+      executionLeaseToken: leaseToken,
+      fallbackLineage,
+      fallbackReason,
+      dealId: dealId ?? undefined,
+      jurisdictionId: jurisdictionId ?? undefined,
+      sku: sku ?? undefined,
+      intentHint,
+      onEvent,
+    });
+
+    if (persistConversation && conversationId && result.finalOutput.length > 0) {
+      await prisma.message.create({
+        data: {
+          conversationId,
+          role: "assistant",
+          content: result.finalOutput,
+        },
+      });
+    }
+
+    return {
+      result,
+      conversationId,
+      agentInput,
+    };
   }
 
   const result = await executeAgentWorkflow({

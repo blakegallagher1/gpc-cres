@@ -16,6 +16,7 @@ describe("Agent run state contract", () => {
       status: "status",
       partialOutput: "partialOutput",
       lastAgentName: "lastAgentName",
+      correlationId: "correlationId",
       toolsInvoked: "toolsInvoked",
       confidence: "confidence",
       missingEvidence: "missingEvidence",
@@ -25,6 +26,13 @@ describe("Agent run state contract", () => {
       lastUpdatedAt: "lastUpdatedAt",
       leaseOwner: "leaseOwner",
       leaseExpiresAt: "leaseExpiresAt",
+      toolFailures: "toolFailures",
+      proofChecks: "proofChecks",
+      retryAttempts: "retryAttempts",
+      retryMaxAttempts: "retryMaxAttempts",
+      retryMode: "retryMode",
+      fallbackLineage: "fallbackLineage",
+      fallbackReason: "fallbackReason",
     });
 
     expect(AGENT_RUN_STATE_STATUS).toMatchObject({
@@ -50,7 +58,15 @@ describe("Agent run state contract", () => {
       runInputHash: "input-hash-1",
       leaseOwner: "agent-runner",
       leaseExpiresAt: new Date().toISOString(),
+      toolFailures: ["search_parcels: timeout"],
+      proofChecks: ["sources:satisfied", "zoning:missing"],
+      retryAttempts: 1,
+      retryMaxAttempts: 1,
+      retryMode: "local_fallback_after_temporal_start",
+      fallbackLineage: ["local-fallback", "temporal-start"],
+      fallbackReason: "Temporal workflow unavailable",
       lastAgentName: "coordinator",
+      correlationId: "corr-123",
     };
 
     const outputJson: AgentRunOutputJson = {
@@ -64,6 +80,7 @@ describe("Agent run state contract", () => {
     const parsed = JSON.parse(serialized) as AgentRunOutputJson;
 
     expect(parsed.runState).toEqual(runState);
+    expect(parsed.runState[AGENT_RUN_STATE_KEYS.correlationId]).toBe("corr-123");
     expect(parsed.runState[AGENT_RUN_STATE_KEYS.status]).toBe(AGENT_RUN_STATE_STATUS.RUNNING);
     expect(parsed.runState[AGENT_RUN_STATE_KEYS.lastAgentName]).toBe("coordinator");
     expect(parsed.finalReport).toBeNull();

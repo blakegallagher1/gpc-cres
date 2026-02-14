@@ -44,9 +44,16 @@ export function ChatContainer() {
 
     // Prepare assistant message placeholder
     const assistantId = crypto.randomUUID();
-    let fullText = '';
+  let fullText = '';
 
-    try {
+  const applyAssistantContent = (content: string) => {
+    fullText = content;
+    setMessages((prev) =>
+      prev.map((m) => (m.id === assistantId ? { ...m, content } : m))
+    );
+  };
+
+  try {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -107,12 +114,14 @@ export function ChatContainer() {
             if (event.type === 'agent_switch') {
               setCurrentAgent(event.agentName || null);
             } else if (event.type === 'text_delta') {
-              fullText += event.content;
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === assistantId ? { ...m, content: fullText } : m
-                )
-              );
+              applyAssistantContent(fullText + event.content);
+            } else if (event.type === 'agent_progress') {
+              if (event.partialOutput) {
+                applyAssistantContent(event.partialOutput);
+              }
+              if (event.lastAgentName) {
+                setCurrentAgent(event.lastAgentName);
+              }
             } else if (event.type === 'done') {
               if (event.conversationId) {
                 setConversationId(event.conversationId);
@@ -199,6 +208,14 @@ export function ChatContainer() {
               evidenceCitations={agentSummary.evidenceCitations}
               toolsInvoked={agentSummary.toolsInvoked}
               packVersionsUsed={agentSummary.packVersionsUsed}
+              proofChecks={agentSummary.proofChecks}
+              retryAttempts={agentSummary.retryAttempts}
+              retryMaxAttempts={agentSummary.retryMaxAttempts}
+              retryMode={agentSummary.retryMode}
+              fallbackLineage={agentSummary.fallbackLineage}
+              fallbackReason={agentSummary.fallbackReason}
+              toolFailureDetails={agentSummary.toolFailures}
+              errorSummary={agentSummary.errorSummary ?? null}
             />
           </div>
         )}

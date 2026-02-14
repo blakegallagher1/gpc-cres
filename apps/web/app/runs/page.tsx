@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   PlayCircle,
   Search,
+  LineChart,
   CheckCircle2,
   XCircle,
   Loader2,
@@ -153,6 +154,12 @@ export default function RunsPage() {
               Trace and inspect agent executions
             </p>
           </div>
+          <Button asChild variant="outline" size="sm">
+            <Link href="/runs/dashboard">
+              <LineChart className="mr-2 h-4 w-4" />
+              Run Dashboard
+            </Link>
+          </Button>
           {selectedRuns.size > 0 && (
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={handleBulkExport}>

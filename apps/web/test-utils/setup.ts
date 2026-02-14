@@ -82,3 +82,7 @@ global.console = {
   error: vi.fn(),
   warn: vi.fn(),
 };
+
+if (!process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = "postgresql://localhost:5432/entitlement_os_test";
+}

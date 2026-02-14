@@ -24,6 +24,7 @@ import {
   Activity,
   BarChart3,
   Target,
+  LineChart,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/stores/uiStore";
@@ -65,6 +66,7 @@ const navGroups: NavGroup[] = [
       { id: "saved-searches", href: "/saved-searches", icon: Search, label: "Saved Searches" },
       { id: "agents", href: "/agents", icon: Bot, label: "Agents" },
       { id: "runs", href: "/runs", icon: Play, label: "Runs" },
+      { id: "run-dashboard", href: "/runs/dashboard", icon: LineChart, label: "Run Dashboard" },
       { id: "workflows", href: "/workflows", icon: GitBranch, label: "Workflows" },
       { id: "automation", href: "/automation", icon: Activity, label: "Automation" },
       { id: "market", href: "/market", icon: BarChart3, label: "Market Intel" },

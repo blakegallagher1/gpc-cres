@@ -20,6 +20,7 @@ export const AGENT_RUN_STATE_KEYS = {
   status: "status",
   partialOutput: "partialOutput",
   lastAgentName: "lastAgentName",
+  correlationId: "correlationId",
   toolsInvoked: "toolsInvoked",
   confidence: "confidence",
   missingEvidence: "missingEvidence",
@@ -29,6 +30,13 @@ export const AGENT_RUN_STATE_KEYS = {
   lastUpdatedAt: "lastUpdatedAt",
   leaseOwner: "leaseOwner",
   leaseExpiresAt: "leaseExpiresAt",
+  toolFailures: "toolFailures",
+  proofChecks: "proofChecks",
+  retryAttempts: "retryAttempts",
+  retryMaxAttempts: "retryMaxAttempts",
+  retryMode: "retryMode",
+  fallbackLineage: "fallbackLineage",
+  fallbackReason: "fallbackReason",
 } as const;
 
 export type AgentRunState = {
@@ -36,6 +44,7 @@ export type AgentRunState = {
   runId: string;
   status: AgentRunStateStatus;
   partialOutput: string;
+  correlationId?: string;
   lastAgentName?: string;
   toolsInvoked: string[];
   confidence: number | null;
@@ -46,12 +55,27 @@ export type AgentRunState = {
   runInputHash?: string | null;
   leaseOwner?: string;
   leaseExpiresAt?: string;
+  toolFailures?: string[];
+  proofChecks?: string[];
+  retryAttempts?: number;
+  retryMaxAttempts?: number;
+  retryMode?: string;
+  fallbackLineage?: string[];
+  fallbackReason?: string;
 };
 
 export type AgentRunOutputJson = {
   runState: AgentRunState;
+  correlationId?: string;
   toolsInvoked?: string[];
   packVersionsUsed?: string[];
+  toolFailures?: string[];
+  proofChecks?: string[];
+  retryAttempts?: number;
+  retryMaxAttempts?: number;
+  retryMode?: string;
+  fallbackLineage?: string[];
+  fallbackReason?: string;
   evidenceCitations?: Array<{
     tool: string;
     sourceId?: string;
@@ -164,6 +188,11 @@ export type AgentRunWorkflowInput = {
   jurisdictionId?: string | null;
   sku?: string | null;
   intentHint?: string | null;
+  retryMode?: string | null;
+  retryAttempts?: number | null;
+  retryMaxAttempts?: number | null;
+  fallbackLineage?: string[] | null;
+  fallbackReason?: string | null;
 };
 
 export type AgentTrustSnapshot = {
@@ -184,6 +213,13 @@ export type AgentTrustSnapshot = {
   lastAgentName?: string;
   errorSummary?: string | null;
   durationMs?: number;
+  toolFailures?: string[];
+  proofChecks?: string[];
+  retryAttempts?: number;
+  retryMaxAttempts?: number;
+  retryMode?: string;
+  fallbackLineage?: string[];
+  fallbackReason?: string;
 };
 
 export type AgentRunWorkflowOutput = {

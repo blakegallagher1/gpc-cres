@@ -39,6 +39,13 @@ export interface AgentTrustEnvelope {
   confidence: number;
   missingEvidence: string[];
   verificationSteps: string[];
+  toolFailures?: string[];
+  proofChecks?: string[];
+  retryAttempts?: number;
+  retryMaxAttempts?: number;
+  retryMode?: string;
+  fallbackLineage?: string[];
+  fallbackReason?: string;
   plan?: string[];
   lastAgentName?: string;
   errorSummary?: string | null;
@@ -48,6 +55,7 @@ export interface AgentTrustEnvelope {
 export interface RunOutputJson extends Partial<AgentTrustEnvelope> {
   durationMs?: number;
   errorSummary?: string | null;
+  runState?: Record<string, unknown>;
 }
 
 export interface Run {

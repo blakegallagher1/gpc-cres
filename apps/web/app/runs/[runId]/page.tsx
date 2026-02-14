@@ -27,6 +27,7 @@ import { Separator } from "@/components/ui/separator";
 import { AgentStatePanel } from "@/components/agent-state/AgentStatePanel";
 import { formatNumber, formatCurrency, formatDuration, formatDate } from "@/lib/utils";
 import { WorkflowTrace, RunOutputJson } from "@/types";
+import { AGENT_RUN_STATE_KEYS } from "@entitlement-os/shared";
 import { useRun } from "@/lib/hooks/useRun";
 import { useRunTraces } from "@/lib/hooks/useRunTraces";
 
@@ -188,6 +189,22 @@ function getRetryCountFromMetadata(metadata?: Record<string, unknown>): number {
   return 0;
 }
 
+function toStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item) => typeof item === "string");
+}
+
+function toNumber(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Math.floor(Math.max(0, value));
+  }
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? Math.floor(Math.max(0, parsed)) : undefined;
+  }
+  return undefined;
+}
+
 export default function RunTracePage() {
   const params = useParams<{ runId: string }>();
   const runId = params?.runId ?? "";
@@ -271,6 +288,42 @@ export default function RunTracePage() {
   }
 
   const outputJson = (run.outputJson ?? null) as RunOutputJson | null;
+  const persistedOutput = outputJson ? (outputJson as Record<string, unknown>) : null;
+  const runState = outputJson?.runState;
+  const persistedRunState =
+    runState && typeof runState === "object" && !Array.isArray(runState)
+      ? (runState as Record<string, unknown>)
+      : null;
+  const proofChecks = toStringArray(outputJson?.proofChecks).length
+    ? toStringArray(outputJson?.proofChecks)
+    : toStringArray(persistedRunState?.[AGENT_RUN_STATE_KEYS.proofChecks]);
+  const retryAttempts =
+    toNumber(outputJson?.retryAttempts) ??
+    toNumber(persistedRunState?.[AGENT_RUN_STATE_KEYS.retryAttempts]);
+  const retryMaxAttempts =
+    toNumber(outputJson?.retryMaxAttempts) ??
+    toNumber(persistedRunState?.[AGENT_RUN_STATE_KEYS.retryMaxAttempts]);
+  const retryMode =
+    typeof outputJson?.retryMode === "string"
+      ? outputJson.retryMode
+      : typeof persistedOutput?.[AGENT_RUN_STATE_KEYS.retryMode] === "string"
+        ? String(persistedOutput[AGENT_RUN_STATE_KEYS.retryMode])
+        : undefined;
+  const fallbackLineage = toStringArray(
+    outputJson?.fallbackLineage ??
+      persistedRunState?.[AGENT_RUN_STATE_KEYS.fallbackLineage],
+  ).length
+    ? toStringArray(
+        outputJson?.fallbackLineage ??
+          persistedRunState?.[AGENT_RUN_STATE_KEYS.fallbackLineage],
+      )
+    : toStringArray(persistedRunState?.[AGENT_RUN_STATE_KEYS.fallbackLineage]);
+  const fallbackReason =
+    typeof outputJson?.fallbackReason === "string"
+      ? outputJson.fallbackReason
+      : typeof persistedRunState?.[AGENT_RUN_STATE_KEYS.fallbackReason] === "string"
+        ? String(persistedRunState[AGENT_RUN_STATE_KEYS.fallbackReason])
+        : undefined;
 
   return (
     <DashboardShell>
@@ -365,6 +418,12 @@ export default function RunTracePage() {
               packVersionsUsed={outputJson?.packVersionsUsed}
               errorSummary={outputJson?.errorSummary ?? null}
               toolFailureDetails={toolFailureDetails}
+              proofChecks={proofChecks}
+              retryAttempts={retryAttempts}
+              retryMaxAttempts={retryMaxAttempts}
+              retryMode={typeof retryMode === "string" ? retryMode : undefined}
+              fallbackLineage={fallbackLineage}
+              fallbackReason={fallbackReason}
               retryCount={retryCount}
             />
           </CardContent>

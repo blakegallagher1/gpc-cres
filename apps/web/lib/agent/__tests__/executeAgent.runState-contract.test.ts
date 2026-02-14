@@ -20,8 +20,9 @@ vi.mock("@entitlement-os/openai", () => ({
   inferQueryIntentFromText: vi.fn(() => "analysis"),
   createIntentAwareCoordinator: vi.fn(() => ({ id: "coordinator-agent" })),
   evaluateProofCompliance: vi.fn(() => []),
-  buildAgentStreamRunOptions: vi.fn(() => ({})),
-}));
+    buildAgentStreamRunOptions: vi.fn(() => ({})),
+    getProofGroupsForIntent: vi.fn(() => []),
+  }));
 
 import {
   AGENT_RUN_STATE_KEYS,
@@ -109,6 +110,7 @@ describe("executeAgentWorkflow", () => {
       runId: "run-contract",
       input: [{ role: "user", content: "Run entitlement analysis" }],
       runType: "ENRICHMENT",
+      correlationId: "corr-local",
     });
 
     expect(prisma.run.update).toHaveBeenCalledTimes(1);
@@ -122,6 +124,7 @@ describe("executeAgentWorkflow", () => {
       runId: "run-contract",
       status: AGENT_RUN_STATE_STATUS.SUCCEEDED,
     });
+    expect(runState[AGENT_RUN_STATE_KEYS.correlationId]).toBe("corr-local");
     expect(runState[AGENT_RUN_STATE_KEYS.status]).toBe("succeeded");
     expect(runState[AGENT_RUN_STATE_KEYS.runId]).toBe("run-contract");
     expect(typeof runState[AGENT_RUN_STATE_KEYS.lastUpdatedAt]).toBe("string");
@@ -129,5 +132,20 @@ describe("executeAgentWorkflow", () => {
     expect(JSON.parse(String(runState[AGENT_RUN_STATE_KEYS.partialOutput]))).toEqual(
       VALID_REPORT,
     );
+    expect(outputJson.correlationId).toBe("corr-local");
+    expect(Array.isArray(runState[AGENT_RUN_STATE_KEYS.toolFailures])).toBe(true);
+    expect(Array.isArray(runState[AGENT_RUN_STATE_KEYS.proofChecks])).toBe(true);
+    expect(typeof runState[AGENT_RUN_STATE_KEYS.retryAttempts]).toBe("number");
+    expect(typeof runState[AGENT_RUN_STATE_KEYS.retryMaxAttempts]).toBe("number");
+    expect(runState[AGENT_RUN_STATE_KEYS.retryMode]).toBe("local");
+    expect(runState[AGENT_RUN_STATE_KEYS.fallbackLineage]).toBeUndefined();
+    expect(runState[AGENT_RUN_STATE_KEYS.fallbackReason]).toBeUndefined();
+    expect(Array.isArray(outputJson.toolFailures)).toBe(true);
+    expect(Array.isArray(outputJson.proofChecks)).toBe(true);
+    expect(typeof outputJson.retryAttempts).toBe("number");
+    expect(typeof outputJson.retryMaxAttempts).toBe("number");
+    expect(outputJson.retryMode).toBe("local");
+    expect(outputJson.fallbackLineage).toBeUndefined();
+    expect(outputJson.fallbackReason).toBeUndefined();
   });
 });

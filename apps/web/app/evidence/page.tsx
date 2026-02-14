@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -28,6 +29,7 @@ interface EvidenceSourceItem {
   latestSnapshot?: {
     retrievedAt: string;
     contentHash: string;
+    runId?: string;
   } | null;
 }
 
@@ -117,6 +119,7 @@ export default function EvidencePage() {
                   <TableHead className="text-center">Official</TableHead>
                   <TableHead className="text-center">Snapshots</TableHead>
                   <TableHead>Latest Snapshot</TableHead>
+                  <TableHead>Producing Run</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -158,6 +161,18 @@ export default function EvidencePage() {
                         </div>
                       ) : (
                         <span className="text-sm text-muted-foreground">--</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {source.latestSnapshot?.runId ? (
+                        <Link
+                          href={`/runs/${source.latestSnapshot.runId}`}
+                          className="text-sm text-blue-600 hover:underline"
+                        >
+                          {source.latestSnapshot.runId}
+                        </Link>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">Unlinked</span>
                       )}
                     </TableCell>
                   </TableRow>
