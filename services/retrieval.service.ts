@@ -10,7 +10,7 @@
 import { createRequire } from "node:module";
 import { prisma } from "@entitlement-os/db";
 import { logger, recordRetrievalRun } from "../utils/logger";
-import { withSpan } from "../openTelemetry/setup.ts";
+import { withSpan } from "../openTelemetry/setup";
 
 const requireModule = createRequire(import.meta.url);
 const telemetry = loadDataAgentTelemetry();

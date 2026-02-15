@@ -19,6 +19,18 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "@entitlement-os/db": [
+        "../../packages/db/dist/index"
+      ],
+      "@entitlement-os/db/*": [
+        "../../packages/db/dist/*"
+      ],
+      "@entitlement-os/shared": [
+        "../../packages/shared/dist/index"
+      ],
+      "@entitlement-os/shared/*": [
+        "../../packages/shared/dist/*"
       ]
     },
     "types": [
