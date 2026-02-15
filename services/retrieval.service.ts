@@ -13,6 +13,7 @@ import { logger, recordRetrievalRun } from "../utils/logger";
 import { withSpan } from "../openTelemetry/setup.ts";
 
 const requireModule = createRequire(import.meta.url);
+const telemetry = loadDataAgentTelemetry();
 
 type JsonRecord = Record<string, unknown>;
 export type RetrievalSource = "semantic" | "sparse" | "graph";
@@ -63,6 +64,42 @@ export interface UnifiedRetrievalRecord {
 const OPENAI_EMBEDDING_MODEL = process.env.OPENAI_EMBEDDING_MODEL ?? "text-embedding-3-small";
 let vectorSearchSupportedCache: boolean | null = null;
 let sparseSearchSupportedCache: boolean | null = null;
+type DataAgentRetrievalMetricPayload = {
+  query: string;
+  resultCount: number;
+  sources: {
+    semantic: number;
+    sparse: number;
+    graph: number;
+  };
+  topScore: number | null;
+  hasSubjectScope: boolean;
+};
+
+function recordDataAgentRetrieval(payload: DataAgentRetrievalMetricPayload): void {
+  telemetry.recordDataAgentRetrieval?.(payload);
+}
+
+function loadDataAgentTelemetry(): {
+  recordDataAgentRetrieval?: (payload: DataAgentRetrievalMetricPayload) => void;
+} {
+  try {
+    const sharedTelemetry = requireModule("@entitlement-os/shared");
+    if (
+      sharedTelemetry &&
+      typeof sharedTelemetry.recordDataAgentRetrieval === "function"
+    ) {
+      return {
+        recordDataAgentRetrieval: sharedTelemetry.recordDataAgentRetrieval as (
+          payload: DataAgentRetrievalMetricPayload,
+        ) => void,
+      };
+    }
+  } catch {
+    // optional shared dependency fallback
+  }
+  return {};
+}
 
 /**
  * Fetches the top matches from semantic, sparse and graph sources and reranks them.
@@ -101,6 +138,17 @@ export async function unifiedRetrieval(
   const merged = rerank(semantic, sparse, graph);
   merged.sort((a, b) => b.score - a.score);
   const top = merged.slice(0, 20);
+  recordDataAgentRetrieval({
+    query: safeQuery,
+    resultCount: top.length,
+    sources: {
+      semantic: semantic.length,
+      sparse: sparse.length,
+      graph: graph.length,
+    },
+    topScore: top[0]?.score ?? null,
+    hasSubjectScope: Boolean(subjectId),
+  });
 
   recordRetrievalRun({
     query: safeQuery,

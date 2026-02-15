@@ -18,6 +18,7 @@ import {
   type AgentRunWorkflowInput,
   type AgentRunWorkflowOutput,
   type AgentEvidenceRetryPolicy,
+  type DataAgentRetrievalContext,
   type AgentTrustSnapshot,
   type OpportunityScorecard,
   type ParcelTriage,
@@ -39,6 +40,9 @@ import {
   getProofGroupsForIntent,
 } from "@entitlement-os/openai";
 import { autoFeedRun } from "../dataAgentAutoFeed.service.js";
+import { unifiedRetrieval } from "../../../services/retrieval.service";
+
+const DATA_AGENT_RETRIEVAL_LIMIT = 6;
 
 type AgentInputMessage =
   | { role: "user"; content: string }
@@ -878,6 +882,7 @@ export async function runAgentTurn(
   let openaiResponseId: string | null = null;
   let errorMessage: string | null = null;
   let agentRunResult: unknown | null = null;
+  let retrievalContext: DataAgentRetrievalContext | null = null;
   let lastProgressAt = 0;
   let lastProgressConfidence: number | null = null;
   let finalResult: AgentRunWorkflowOutput | null = null;
@@ -907,6 +912,12 @@ export async function runAgentTurn(
     if (!process.env.OPENAI_API_KEY) {
       throw new Error("OPENAI_API_KEY is not configured on the worker.");
     }
+
+    retrievalContext = await buildRetrievalContext({
+      runId: dbRun.id,
+      queryIntent,
+      firstUserInput,
+    });
 
     const coordinator = createIntentAwareCoordinator(queryIntent);
     const agentInput = buildAgentInputItems(input) as Parameters<typeof run>[1];
@@ -1131,6 +1142,7 @@ export async function runAgentTurn(
       evidenceRetryPolicy: trust.evidenceRetryPolicy,
       fallbackLineage: trust.fallbackLineage,
       fallbackReason: trust.fallbackReason,
+      retrievalContext: retrievalContext ?? undefined,
       finalReport: finalReport,
       correlationId: params.correlationId,
     };
@@ -1160,6 +1172,7 @@ export async function runAgentTurn(
       evidenceRetryPolicy: trust.evidenceRetryPolicy,
       fallbackLineage: trust.fallbackLineage,
       fallbackReason: trust.fallbackReason,
+      retrievalContext: retrievalContext ?? undefined,
       correlationId: params.correlationId,
     };
 
@@ -1198,6 +1211,8 @@ export async function runAgentTurn(
         queryIntent,
         status,
         schemaVersion: AGENT_RUN_STATE_SCHEMA_VERSION,
+        retrievalContext: retrievalContext ?? null,
+        retrievalSummary: summarizeRetrievalContext(retrievalContext),
       },
       subjectId: dbRun.id,
       autoScore: trust?.confidence,
@@ -1261,5 +1276,90 @@ function normalizeCitationForAutoFeed(
     contentHash: citation.contentHash,
     url: citation.url,
     isOfficial: citation.isOfficial,
+  };
+}
+
+async function buildRetrievalContext(params: {
+  runId: string;
+  queryIntent?: string;
+  firstUserInput?: string;
+}): Promise<DataAgentRetrievalContext | null> {
+  const query =
+    typeof params.queryIntent === "string" && params.queryIntent.trim().length > 0
+      ? params.queryIntent
+      : typeof params.firstUserInput === "string"
+        ? params.firstUserInput
+        : null;
+
+  if (!query) {
+    return null;
+  }
+
+  try {
+    const retrievalResults = await unifiedRetrieval(query, params.runId);
+    const topResults = retrievalResults.slice(0, DATA_AGENT_RETRIEVAL_LIMIT);
+    const sources = {
+      semantic: 0,
+      sparse: 0,
+      graph: 0,
+    };
+
+    return {
+      query,
+      subjectId: params.runId,
+      generatedAt: new Date().toISOString(),
+      results: topResults.map((result) => {
+        if (result.source in sources) {
+          sources[result.source] += 1;
+        }
+        return {
+          id: result.id,
+          source: result.source,
+          text: result.text,
+          score: result.score,
+          metadata: isRecord(result.metadata) ? result.metadata : { metadata: result.metadata },
+        };
+      }),
+      sources,
+    };
+  } catch (error) {
+    console.warn("Failed to compute retrieval context for temporal run", {
+      runId: params.runId,
+      error: String(error),
+    });
+    return {
+      query,
+      subjectId: params.runId,
+      generatedAt: new Date().toISOString(),
+      results: [],
+      sources: {
+        semantic: 0,
+        sparse: 0,
+        graph: 0,
+      },
+    };
+  }
+}
+
+function summarizeRetrievalContext(context: DataAgentRetrievalContext | null): Record<string, unknown> {
+  if (!context) {
+    return {
+      query: null,
+      resultCount: 0,
+      sources: {
+        semantic: 0,
+        sparse: 0,
+        graph: 0,
+      },
+      topResultCount: 0,
+    };
+  }
+
+  return {
+    query: context.query,
+    resultCount: context.results.length,
+    sources: context.sources,
+    topResultCount: Math.min(context.results.length, DATA_AGENT_RETRIEVAL_LIMIT),
+    topResultIds: context.results.map((result) => result.id),
   };
 }

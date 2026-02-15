@@ -2,6 +2,7 @@
  * Reinforcement-learning feedback API for agent memory updates.
  */
 
+import { createRequire } from "node:module";
 import { prisma } from "@entitlement-os/db";
 import { withSpan } from "../openTelemetry/setup.ts";
 
@@ -11,6 +12,40 @@ export interface RewardRecord {
   userScore: number;
   autoScore: number;
   timestamp: string;
+}
+
+const requireModule = createRequire(import.meta.url);
+const telemetry = loadDataAgentTelemetry();
+
+type RewardMetricPayload = {
+  episodeId: string;
+  userScore: number;
+  autoScore: number;
+};
+
+function recordDataAgentReward(payload: RewardMetricPayload): void {
+  telemetry.recordDataAgentReward?.(payload);
+}
+
+function loadDataAgentTelemetry(): {
+  recordDataAgentReward?: (payload: RewardMetricPayload) => void;
+} {
+  try {
+    const sharedTelemetry = requireModule("@entitlement-os/shared");
+    if (
+      sharedTelemetry &&
+      typeof sharedTelemetry.recordDataAgentReward === "function"
+    ) {
+      return {
+        recordDataAgentReward: sharedTelemetry.recordDataAgentReward as (
+          payload: RewardMetricPayload,
+        ) => void,
+      };
+    }
+  } catch {
+    // optional shared dependency fallback
+  }
+  return {};
 }
 
 /**
@@ -45,6 +80,11 @@ export async function addRewardSignal(
       data: { outcomeSignal },
     }),
   );
+  recordDataAgentReward({
+    episodeId,
+    userScore,
+    autoScore,
+  });
 
   return {
     id: reward.id,

@@ -9,9 +9,15 @@ interface MessageListProps {
   messages: ChatMessage[];
   isStreaming: boolean;
   onSuggestionClick?: (text: string) => void;
+  conversationId?: string | null;
 }
 
-export function MessageList({ messages, isStreaming, onSuggestionClick }: MessageListProps) {
+export function MessageList({
+  messages,
+  isStreaming,
+  onSuggestionClick,
+  conversationId,
+}: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -58,7 +64,7 @@ export function MessageList({ messages, isStreaming, onSuggestionClick }: Messag
     <div ref={containerRef} className="h-full overflow-y-auto">
       <div className="mx-auto max-w-3xl space-y-4 px-4 py-6">
         {messages.map((msg) => (
-          <MessageBubble key={msg.id} message={msg} />
+          <MessageBubble key={msg.id} message={msg} conversationId={conversationId} />
         ))}
 
         {/* Streaming indicator */}

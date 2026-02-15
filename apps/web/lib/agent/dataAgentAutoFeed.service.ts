@@ -6,6 +6,7 @@
  */
 
 import { prisma } from "@entitlement-os/db";
+import { logger, recordDataAgentAutoFeed } from "../../../../utils/logger";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -44,27 +45,77 @@ type TimestampedRow = { id: string };
 type EpisodeRow = { id: string };
 
 const DEFAULT_SUBJECT_PREFIX = "agent-run";
+type AutoFeedVectorMode = "embedded" | "missing-input" | "error";
 
 /**
  * Ingest a completed run into episodic memory and graph updates.
  */
 export async function autoFeedRun(input: AutoFeedInput): Promise<AutoFeedResult> {
-  const confidence = normalizeConfidence(
-    typeof input.confidence === "number" && Number.isFinite(input.confidence)
-      ? input.confidence
-      : 0.5,
-  );
+  const validationError = validateAutoFeedInput(input);
+  if (validationError) {
+    logger.warn("Data Agent auto-feed rejected malformed payload", {
+      runId: input.runId,
+      errors: [validationError],
+    });
+    recordDataAgentAutoFeed({
+      runId: input.runId,
+      episodeId: null,
+      vectorMode: "missing-input",
+      kgEventsInserted: 0,
+      temporalEdgesInserted: 0,
+      rewardScore: null,
+      status: "validation_error",
+      hasWarnings: true,
+    });
+    return {
+      summary: "Auto-feed payload validation failed",
+      reflectionSuccess: false,
+      rewardWriteSuccess: false,
+      episodeCreated: false,
+      errors: [validationError],
+    };
+  }
+
+  if (!shouldAutoFeed()) {
+    return {
+      summary: "Auto-feed disabled",
+      reflectionSuccess: false,
+      rewardWriteSuccess: false,
+      episodeCreated: false,
+      errors: ["AUTO_FEED_DISABLED"],
+    };
+  }
+
+  const confidence = normalizeConfidence(input.confidence);
   const autoScore = normalizeConfidence(
     typeof input.autoScore === "number" && Number.isFinite(input.autoScore)
       ? input.autoScore
       : confidence,
   );
+  const vectorMode: AutoFeedVectorMode =
+    (input.finalOutputText && input.finalOutputText.trim().length > 0) || input.finalReport
+      ? "embedded"
+      : "missing-input";
+
   const summary = buildEpisodeSummary(input);
   const errors: string[] = [];
   let episodeCreated = false;
   let reflectionSuccess = false;
   let rewardWriteSuccess = false;
   let episodeId: string | undefined;
+  let kgEventsInserted = 0;
+  let temporalEdgesInserted = 0;
+
+  recordDataAgentAutoFeed({
+    runId: input.runId,
+    episodeId: null,
+    vectorMode,
+    kgEventsInserted: 0,
+    temporalEdgesInserted: 0,
+    rewardScore: autoScore,
+    status: "started",
+    hasWarnings: false,
+  });
 
   try {
     const existing = await prisma.$queryRawUnsafe<EpisodeRow[]>(
@@ -75,6 +126,10 @@ export async function autoFeedRun(input: AutoFeedInput): Promise<AutoFeedResult>
 
     if (existingEpisodeId) {
       episodeId = existingEpisodeId;
+      logger.info("Data Agent auto-feed skipped episode insert (idempotent)", {
+        runId: input.runId,
+        episodeId,
+      });
     } else {
       const created = await prisma.$queryRawUnsafe<EpisodeRow[]>(
         `INSERT INTO "Episode" (
@@ -157,6 +212,7 @@ export async function autoFeedRun(input: AutoFeedInput): Promise<AutoFeedResult>
       );
       if (createdEvent[0]?.id) {
         citationEvents.push(createdEvent[0]);
+        kgEventsInserted += 1;
       }
     }
 
@@ -168,6 +224,7 @@ export async function autoFeedRun(input: AutoFeedInput): Promise<AutoFeedResult>
         citationEvents[i].id,
         `run:${input.runId}:sequence`,
       );
+      temporalEdgesInserted += 1;
     }
 
     if (!citationEvents.length) {
@@ -183,6 +240,7 @@ export async function autoFeedRun(input: AutoFeedInput): Promise<AutoFeedResult>
       if (!fallback[0]?.id) {
         throw new Error("KG fallback event write failed");
       }
+      kgEventsInserted += 1;
     }
 
     const outcome = inferOutcome(5 * autoScore);
@@ -205,6 +263,24 @@ export async function autoFeedRun(input: AutoFeedInput): Promise<AutoFeedResult>
     );
     rewardWriteSuccess = true;
 
+    logger.info("Data Agent auto-feed completed", {
+      runId: input.runId,
+      episodeId,
+      kgEventsInserted,
+      temporalEdgesInserted,
+    });
+
+    recordDataAgentAutoFeed({
+      runId: input.runId,
+      episodeId,
+      vectorMode,
+      kgEventsInserted,
+      temporalEdgesInserted,
+      rewardScore: autoScore,
+      status: "succeeded",
+      hasWarnings: false,
+    });
+
     return {
       episodeId,
       summary,
@@ -214,7 +290,25 @@ export async function autoFeedRun(input: AutoFeedInput): Promise<AutoFeedResult>
       errors,
     };
   } catch (error) {
-    errors.push(error instanceof Error ? error.message : String(error));
+    const message = error instanceof Error ? error.message : String(error);
+    errors.push(message);
+    logger.warn("Data Agent auto-feed failed", {
+      runId: input.runId,
+      episodeId,
+      error: message,
+    });
+    recordDataAgentAutoFeed({
+      runId: input.runId,
+      episodeId,
+      vectorMode:
+        errors.some((value) => value.includes("validation")) ? "missing-input" : "error",
+      kgEventsInserted,
+      temporalEdgesInserted,
+      rewardScore: autoScore,
+      status: "failed",
+      hasWarnings: true,
+    });
+
     return {
       summary,
       reflectionSuccess,
@@ -231,19 +325,54 @@ function buildEpisodeSummary(input: AutoFeedInput): string {
     input.finalReport && Object.keys(input.finalReport).length > 0
       ? JSON.stringify(input.finalReport)
       : "";
-  return [input.finalOutputText, reportText].filter(Boolean).join("\n").slice(0, 260)
-    || "Run completed";
+  return [input.finalOutputText, reportText].filter(Boolean).join("\n").slice(0, 260) ||
+    "Run completed";
 }
 
-function normalizeConfidence(value: number): number {
+function normalizeConfidence(value: number | null): number {
+  if (value === null) return 0.5;
   if (value > 1 && value <= 100) return value / 100;
   return Math.max(0, Math.min(1, value));
 }
 
-function inferOutcome(
-  userScore: number,
-): "positive_feedback" | "neutral_feedback" | "negative_feedback" {
+function inferOutcome(userScore: number): "positive_feedback" | "neutral_feedback" | "negative_feedback" {
   if (userScore >= 4) return "positive_feedback";
   if (userScore >= 2.5) return "neutral_feedback";
   return "negative_feedback";
+}
+
+function validateAutoFeedInput(input: AutoFeedInput): string | null {
+  if (!input.runId || typeof input.runId !== "string" || input.runId.trim().length === 0) {
+    return "runId is required";
+  }
+  if (!input.runType || typeof input.runType !== "string") {
+    return "runType is required";
+  }
+  if (!input.agentIntent || typeof input.agentIntent !== "string" || input.agentIntent.trim().length === 0) {
+    return "agentIntent is required";
+  }
+  if (!input.evidenceHash || typeof input.evidenceHash !== "string") {
+    return "evidenceHash is required";
+  }
+  if (!Array.isArray(input.toolsInvoked)) {
+    return "toolsInvoked must be an array";
+  }
+  if (typeof input.confidence !== "number" && input.confidence !== null) {
+    return "confidence must be a number or null";
+  }
+  if (typeof input.finalOutputText !== "string") {
+    return "finalOutputText must be a string";
+  }
+  return null;
+}
+
+function shouldAutoFeed(): boolean {
+  if (process.env.NODE_ENV === "test") {
+    return false;
+  }
+  const flag = process.env.DATA_AGENT_AUTOFED;
+  if (flag === undefined) {
+    return true;
+  }
+  return flag !== "0" && flag.toLowerCase() !== "false";
 }

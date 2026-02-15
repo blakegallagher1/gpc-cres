@@ -5,6 +5,7 @@ import {
   SKU_TYPES,
   AGENT_RUN_STATE_KEYS,
   AGENT_RUN_STATE_SCHEMA_VERSION,
+  type DataAgentRetrievalContext,
   type AgentEvidenceRetryPolicy,
   type AgentRunOutputJson,
   type AgentRunState,
@@ -27,6 +28,9 @@ import {
 import { AgentTrustEnvelope } from "@/types";
 import { autoFeedRun } from "@/lib/agent/dataAgentAutoFeed.service";
 import { logger } from "../../../../utils/logger";
+import { unifiedRetrieval } from "../../../../services/retrieval.service";
+
+const DATA_AGENT_RETRIEVAL_LIMIT = 6;
 
 export type AgentInputMessage =
   | { role: "user"; content: string }
@@ -725,6 +729,7 @@ export async function executeAgentWorkflow(
   let openaiResponseId: string | null = null;
   let errorMessage: string | null = null;
   let agentRunResult: unknown | null = null;
+  let retrievalContext: DataAgentRetrievalContext | null = null;
 
   const emit = (event: AgentStreamEvent) => {
     params.onEvent?.(event);
@@ -734,6 +739,12 @@ export async function executeAgentWorkflow(
     if (!process.env.OPENAI_API_KEY) {
       throw new Error("OPENAI_API_KEY is not configured on the server.");
     }
+
+    retrievalContext = await buildRetrievalContext({
+      runId: dbRun.id,
+      queryIntent,
+      firstUserInput,
+    });
 
     const coordinator = createIntentAwareCoordinator(queryIntent);
     emit({ type: "agent_switch", agentName: "Coordinator" });
@@ -931,6 +942,7 @@ export async function executeAgentWorkflow(
       evidenceRetryPolicy,
       fallbackLineage: params.fallbackLineage,
       fallbackReason: params.fallbackReason,
+      retrievalContext: retrievalContext ?? undefined,
     };
 
     if (status !== "succeeded") {
@@ -973,6 +985,7 @@ export async function executeAgentWorkflow(
       evidenceRetryPolicy: trust.evidenceRetryPolicy,
       fallbackLineage: trust.fallbackLineage,
       fallbackReason: trust.fallbackReason,
+      retrievalContext: retrievalContext ?? undefined,
     };
 
     const outputJson: AgentRunOutputJson = {
@@ -995,6 +1008,7 @@ export async function executeAgentWorkflow(
       evidenceRetryPolicy: trust.evidenceRetryPolicy,
       fallbackLineage: trust.fallbackLineage,
       fallbackReason: trust.fallbackReason,
+      retrievalContext: retrievalContext ?? undefined,
       durationMs: Date.now() - startedAtMs,
       finalReport: finalReport ?? null,
       finalOutput: finalText,
@@ -1070,6 +1084,8 @@ export async function executeAgentWorkflow(
         queryIntent: queryIntent ?? null,
         status,
         schemaVersion: AGENT_RUN_STATE_SCHEMA_VERSION,
+        retrievalContext: retrievalContext ?? null,
+        retrievalSummary: summarizeRetrievalContext(retrievalContext),
       },
       subjectId: dbRun.id,
       autoScore: trust.confidence,
@@ -1093,4 +1109,89 @@ export async function executeAgentWorkflow(
       finishedAt: new Date(),
     };
   }
+}
+
+async function buildRetrievalContext(params: {
+  runId: string;
+  queryIntent?: string | null;
+  firstUserInput?: string;
+}): Promise<DataAgentRetrievalContext | null> {
+  const query =
+    typeof params.queryIntent === "string" && params.queryIntent.trim().length > 0
+      ? params.queryIntent
+      : typeof params.firstUserInput === "string"
+        ? params.firstUserInput
+        : null;
+
+  if (!query) {
+    return null;
+  }
+
+  try {
+    const retrievalResults = await unifiedRetrieval(query, params.runId);
+    const topResults = retrievalResults.slice(0, DATA_AGENT_RETRIEVAL_LIMIT);
+    const sources = {
+      semantic: 0,
+      sparse: 0,
+      graph: 0,
+    };
+
+    return {
+      query,
+      subjectId: params.runId,
+      generatedAt: new Date().toISOString(),
+      results: topResults.map((result) => {
+        if (result.source in sources) {
+          sources[result.source] += 1;
+        }
+        return {
+          id: result.id,
+          source: result.source,
+          text: result.text,
+          score: result.score,
+          metadata: isRecord(result.metadata) ? result.metadata : { metadata: result.metadata },
+        };
+      }),
+      sources,
+    };
+  } catch (error) {
+    logger.warn("Failed to compute retrieval context for run", {
+      runId: params.runId,
+      error: String(error),
+    });
+    return {
+      query,
+      subjectId: params.runId,
+      generatedAt: new Date().toISOString(),
+      results: [],
+      sources: {
+        semantic: 0,
+        sparse: 0,
+        graph: 0,
+      },
+    };
+  }
+}
+
+function summarizeRetrievalContext(context: DataAgentRetrievalContext | null): Record<string, unknown> {
+  if (!context) {
+    return {
+      query: null,
+      resultCount: 0,
+      sources: {
+        semantic: 0,
+        sparse: 0,
+        graph: 0,
+      },
+      topResultCount: 0,
+    };
+  }
+
+  return {
+    query: context.query,
+    resultCount: context.results.length,
+    sources: context.sources,
+    topResultCount: Math.min(context.results.length, DATA_AGENT_RETRIEVAL_LIMIT),
+    topResultIds: context.results.map((result) => result.id),
+  };
 }

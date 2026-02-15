@@ -23,6 +23,27 @@ vi.mock("@entitlement-os/openai", () => ({
   buildAgentStreamRunOptions: vi.fn(() => ({})),
   getProofGroupsForIntent: vi.fn(() => []),
 }));
+vi.mock("../../../../services/retrieval.service", () => ({
+  unifiedRetrieval: vi.fn(async () => [
+    {
+      id: "r1",
+      source: "semantic",
+      text: "retrieval note",
+      score: 0.92,
+      confidence: 0.9,
+      sourceTimestamp: "2026-01-01T00:00:00.000Z",
+      metadata: { source: "seed" },
+      recencyScore: 0.9,
+      semanticScore: 0.92,
+      sparseScore: 0.5,
+      graphScore: 0,
+      sourceScore: 0.9,
+      timestamp: "2026-01-01T00:00:00.000Z",
+      subjectId: "run-contract",
+      objectId: "obj",
+    },
+  ]),
+}));
 
 import {
   AGENT_RUN_STATE_KEYS,
@@ -83,8 +104,15 @@ function normalizePersistedOutput(output: Record<string, unknown>): Record<strin
     delete cloned.runState[AGENT_RUN_STATE_KEYS.durationMs];
     delete cloned.runState[AGENT_RUN_STATE_KEYS.runStartedAt];
     delete cloned.runState[AGENT_RUN_STATE_KEYS.leaseExpiresAt];
+    if (isRecord(cloned.runState[AGENT_RUN_STATE_KEYS.retrievalContext])) {
+      delete (cloned.runState[AGENT_RUN_STATE_KEYS.retrievalContext] as Record<string, unknown>)
+        .generatedAt;
+    }
   }
   delete cloned[AGENT_RUN_STATE_KEYS.durationMs];
+  if (isRecord(cloned[AGENT_RUN_STATE_KEYS.retrievalContext] as Record<string, unknown>)) {
+    delete (cloned[AGENT_RUN_STATE_KEYS.retrievalContext] as Record<string, unknown>).generatedAt;
+  }
   return cloned;
 }
 
@@ -170,11 +198,21 @@ describe("executeAgentWorkflow", () => {
     );
     expect(runState[AGENT_RUN_STATE_KEYS.fallbackLineage]).toBeUndefined();
     expect(runState[AGENT_RUN_STATE_KEYS.fallbackReason]).toBeUndefined();
+    expect(runState[AGENT_RUN_STATE_KEYS.retrievalContext]).toMatchObject({
+      query: "analysis",
+      subjectId: "run-contract",
+    });
+    expect(
+      Array.isArray((runState[AGENT_RUN_STATE_KEYS.retrievalContext] as Record<string, unknown>).results),
+    ).toBe(true);
     expect(Array.isArray(outputJson.toolFailures)).toBe(true);
     expect(Array.isArray(outputJson.proofChecks)).toBe(true);
     expect(typeof outputJson.retryAttempts).toBe("number");
     expect(typeof outputJson.retryMaxAttempts).toBe("number");
     expect(outputJson.retryMode).toBe("local");
+    expect(outputJson.retrievalContext).toMatchObject({
+      query: "analysis",
+    });
     expect(outputJson.fallbackLineage).toBeUndefined();
     expect(outputJson.fallbackReason).toBeUndefined();
   });

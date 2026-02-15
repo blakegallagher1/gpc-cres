@@ -2,12 +2,27 @@
  * Structured logger and retrieval telemetry counters used across services.
  */
 
+import { createRequire } from "node:module";
+
 export type RetrievalSource = "semantic" | "sparse" | "graph";
 
 type RetrievalCounter = {
   totalQueries: number;
   totalReturned: number;
   sourceHits: Record<RetrievalSource, number>;
+};
+
+const requireModule = createRequire(import.meta.url);
+const sharedTelemetry = loadSharedTelemetry();
+type AutoFeedTelemetryPayload = {
+  runId: string;
+  episodeId: string | null;
+  vectorMode: "embedded" | "missing-input" | "error";
+  kgEventsInserted: number;
+  temporalEdgesInserted: number;
+  rewardScore: number | null;
+  status: "started" | "succeeded" | "failed" | "validation_error";
+  hasWarnings: boolean;
 };
 
 const retrievalStats: RetrievalCounter = {
@@ -84,6 +99,58 @@ export function resetRetrievalMetrics(): void {
   retrievalStats.sourceHits.semantic = 0;
   retrievalStats.sourceHits.sparse = 0;
   retrievalStats.sourceHits.graph = 0;
+}
+
+/**
+ * Emit structured auto-feed observability and forward event data to shared
+ * Data Agent counters so DA-005 coverage can be tracked centrally.
+ */
+export function recordDataAgentAutoFeed(payload: AutoFeedTelemetryPayload): void {
+  sharedTelemetry.recordDataAgentAutoFeed?.(payload);
+
+  if (payload.status === "succeeded") {
+    logger.info("Data Agent auto-feed succeeded", {
+      runId: payload.runId,
+      episodeId: payload.episodeId,
+      vectorMode: payload.vectorMode,
+      kgEventsInserted: payload.kgEventsInserted,
+      temporalEdgesInserted: payload.temporalEdgesInserted,
+      rewardScore: payload.rewardScore,
+      status: payload.status,
+    });
+    return;
+  }
+
+  logger.warn("Data Agent auto-feed issue", {
+    runId: payload.runId,
+    episodeId: payload.episodeId,
+    vectorMode: payload.vectorMode,
+    status: payload.status,
+    hasWarnings: payload.hasWarnings,
+    rewardScore: payload.rewardScore,
+  });
+}
+
+function loadSharedTelemetry(): {
+  recordDataAgentAutoFeed?: (payload: AutoFeedTelemetryPayload) => void;
+} {
+  try {
+    const sharedTelemetry = requireModule("@entitlement-os/shared");
+    if (
+      sharedTelemetry &&
+      typeof sharedTelemetry.recordDataAgentAutoFeed === "function"
+    ) {
+      return {
+        recordDataAgentAutoFeed: sharedTelemetry.recordDataAgentAutoFeed as (
+          payload: AutoFeedTelemetryPayload,
+        ) => void,
+      };
+    }
+  } catch {
+    // no-op fallback when shared workspace packages are unavailable in this runtime
+  }
+
+  return {};
 }
 
 function hashString(value: string): string {

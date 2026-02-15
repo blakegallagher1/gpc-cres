@@ -42,25 +42,30 @@ const COMMAND_LIBRARY_PRESET_IDS = new Set([
 
 type CopilotIcon = ComponentType<{ className?: string }>;
 
-const DEFAULT_ACTIONS: (CopilotCommand & { icon: CopilotIcon })[] = [
-  ...COMMAND_LIBRARY.filter((item) => COMMAND_LIBRARY_PRESET_IDS.has(item.id)).map(
-    (item) => {
-      const iconById: Record<string, CopilotIcon> = {
-        underwrite: Zap,
-        loi: FileText,
-        comps: Sparkles,
-        dd: ListChecks,
-      };
+const DEFAULT_ACTIONS: (CopilotCommand & { icon: CopilotIcon })[] = COMMAND_LIBRARY
+  .filter((item) => COMMAND_LIBRARY_PRESET_IDS.has(item.id))
+  .map((item) => {
+    const iconById: Record<string, CopilotIcon> = {
+      underwrite: Zap,
+      loi: FileText,
+      comps: Sparkles,
+      dd: ListChecks,
+    };
 
-      return {
-        ...item,
-        icon: iconById[item.id],
-      };
-    }
-  ),
-].filter((action) => typeof action.icon === "function") as (CopilotCommand & {
-  icon: CopilotIcon;
-})[];
+    return {
+      ...item,
+      icon: iconById[item.id] ?? Zap,
+    };
+  });
+
+const FALLBACK_ACTION: CopilotCommand & { icon: CopilotIcon } = {
+  id: "underwrite",
+  label: "Run Full Underwriting",
+  description: "Comprehensive underwriting analysis",
+  agent: "finance",
+  prompt: "Run a full underwriting analysis on the property.",
+  icon: Zap,
+};
 
 const COMMAND_LIBRARY_ITEMS: (CopilotCommand & { icon?: CopilotIcon })[] = COMMAND_LIBRARY.map(
   (item) => {
@@ -174,7 +179,9 @@ export function CopilotPanel() {
   const { copilotOpen, toggleCopilot } = useUIStore();
   const pathname = usePathname();
   const projectId = useMemo(() => pathname ? extractProjectId(pathname) : null, [pathname]);
-  const [selectedAction, setSelectedAction] = useState(DEFAULT_ACTIONS[0]);
+  const [selectedAction, setSelectedAction] = useState(
+    DEFAULT_ACTIONS[0] ?? FALLBACK_ACTION
+  );
   const [prompt, setPrompt] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [output, setOutput] = useState("");
@@ -253,13 +260,13 @@ export function CopilotPanel() {
   }, [normalizedFavoritePrompts]);
 
   const normalizedCurrentPrompt = useMemo(() => {
-    const basePrompt = prompt.trim() || selectedAction.prompt;
+    const basePrompt = prompt.trim() || selectedAction?.prompt || "";
     return basePrompt.trim();
-  }, [prompt, selectedAction.prompt]);
+  }, [prompt, selectedAction?.prompt]);
 
   const runnablePrompt = useMemo(
-    () => normalizedCurrentPrompt || selectedAction.prompt,
-    [normalizedCurrentPrompt, selectedAction.prompt]
+    () => normalizedCurrentPrompt || selectedAction?.prompt || "",
+    [normalizedCurrentPrompt, selectedAction?.prompt]
   );
   const isFavorite =
     normalizedCurrentPrompt.length > 0 &&
@@ -345,12 +352,13 @@ export function CopilotPanel() {
     const updatedHistory: HistoryEntry[] = [
       {
         prompt: query,
-        actionId: selectedAction.id,
-        agent: selectedAction.agent,
+        actionId: selectedAction?.id || FALLBACK_ACTION.id,
+        agent: selectedAction?.agent || FALLBACK_ACTION.agent,
         createdAt: new Date().toISOString(),
       },
       ...history.filter(
-        (entry) => entry.prompt !== query || entry.actionId !== selectedAction.id
+        (entry) =>
+          entry.prompt !== query || entry.actionId !== (selectedAction?.id || FALLBACK_ACTION.id)
       ),
     ].slice(0, MAX_HISTORY_ITEMS);
     setHistory(updatedHistory);
@@ -364,7 +372,7 @@ export function CopilotPanel() {
       await streamAgentRun({
         apiBaseUrl:
           apiBaseUrl,
-        agentName: selectedAction.agent,
+        agentName: selectedAction?.agent || FALLBACK_ACTION.agent,
         query,
         projectId,
         onChunk: (chunk) => {
@@ -512,7 +520,7 @@ export function CopilotPanel() {
           <div className="grid gap-2">
             {DEFAULT_ACTIONS.map((action) => {
               const Icon = action.icon;
-              const active = action.id === selectedAction.id;
+              const active = action.id === selectedAction?.id;
               return (
                 <Button
                   key={action.id}
@@ -538,7 +546,9 @@ export function CopilotPanel() {
             </CardHeader>
             <CardContent className="space-y-2">
               <div className="flex items-center gap-2">
-                <Badge variant="secondary">{selectedAction.agent}</Badge>
+                <Badge variant="secondary">
+                  {selectedAction?.agent || FALLBACK_ACTION.agent}
+                </Badge>
                 {projectId && (
                   <Badge variant="outline">Project {projectId.slice(0, 6)}</Badge>
                 )}

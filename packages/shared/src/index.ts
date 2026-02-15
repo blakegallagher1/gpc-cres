@@ -9,3 +9,4 @@ export * from "./decision/index.js";
 export * from "./throughput/index.js";
 export * from "./evidence.js";
 export * from "./openaiModels.js";
+export * from "./telemetry/dataAgent.js";

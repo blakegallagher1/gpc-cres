@@ -21,6 +21,7 @@ export const AGENT_RUN_STATE_KEYS = {
   partialOutput: "partialOutput",
   lastAgentName: "lastAgentName",
   correlationId: "correlationId",
+  retrievalContext: "retrievalContext",
   toolsInvoked: "toolsInvoked",
   confidence: "confidence",
   missingEvidence: "missingEvidence",
@@ -52,12 +53,35 @@ export type AgentEvidenceRetryPolicy = {
   reason: string;
 };
 
+export type DataAgentRetrievalSource = "semantic" | "sparse" | "graph";
+
+export type DataAgentRetrievalItem = {
+  id: string;
+  source: DataAgentRetrievalSource;
+  text: string;
+  score: number;
+  metadata?: Record<string, unknown>;
+};
+
+export type DataAgentRetrievalContext = {
+  query: string;
+  subjectId?: string | null;
+  generatedAt: string;
+  results: DataAgentRetrievalItem[];
+  sources: {
+    semantic: number;
+    sparse: number;
+    graph: number;
+  };
+};
+
 export type AgentRunState = {
   schemaVersion?: number;
   runId: string;
   status: AgentRunStateStatus;
   partialOutput: string;
   correlationId?: string;
+  retrievalContext?: DataAgentRetrievalContext;
   lastAgentName?: string;
   toolsInvoked: string[];
   confidence: number | null;
@@ -81,6 +105,7 @@ export type AgentRunState = {
 export type AgentRunOutputJson = {
   runState: AgentRunState;
   correlationId?: string;
+  retrievalContext?: DataAgentRetrievalContext;
   toolsInvoked?: string[];
   packVersionsUsed?: string[];
   toolFailures?: string[];
