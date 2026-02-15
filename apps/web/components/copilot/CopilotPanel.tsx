@@ -238,10 +238,11 @@ export function CopilotPanel() {
     return set;
   }, [normalizedFavoritePrompts]);
 
-  const normalizedCurrentPrompt = useMemo(
-    () => prompt.trim(),
-    [prompt]
-  );
+  const normalizedCurrentPrompt = useMemo(() => {
+    const basePrompt = prompt.trim() || selectedAction.prompt;
+    return basePrompt.trim();
+  }, [prompt, selectedAction.prompt]);
+
   const runnablePrompt = useMemo(
     () => normalizedCurrentPrompt || selectedAction.prompt,
     [normalizedCurrentPrompt, selectedAction.prompt]
