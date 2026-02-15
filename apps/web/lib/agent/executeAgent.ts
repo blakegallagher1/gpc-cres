@@ -942,7 +942,6 @@ export async function executeAgentWorkflow(
       evidenceRetryPolicy,
       fallbackLineage: params.fallbackLineage,
       fallbackReason: params.fallbackReason,
-      retrievalContext: retrievalContext ?? undefined,
     };
 
     if (status !== "succeeded") {

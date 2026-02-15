@@ -81,7 +81,7 @@ export function useChat(options?: { dealId?: string }) {
               // Could render tool call cards in the future
               break;
             case "done":
-              setConversationId(event.conversationId);
+              setConversationId(event.conversationId ?? null);
               break;
             case "error":
               console.error("Chat error:", event.message);

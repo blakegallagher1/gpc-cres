@@ -299,7 +299,7 @@ export async function autoFeedRun(input: AutoFeedInput): Promise<AutoFeedResult>
     });
     recordDataAgentAutoFeed({
       runId: input.runId,
-      episodeId,
+      episodeId: episodeId ?? null,
       vectorMode:
         errors.some((value) => value.includes("validation")) ? "missing-input" : "error",
       kgEventsInserted,
