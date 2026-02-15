@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { formatDate } from "@/lib/utils";
+import { fetchScreeningJson } from "@/lib/screeningApi";
 import { toast } from "sonner";
 
 type ScreeningDetail = {
@@ -102,7 +103,8 @@ type ScreeningDetail = {
   }>;
 };
 
-const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+const buildEndpoint = (projectId: string, path?: string) =>
+  `/screening/deals/${encodeURIComponent(projectId)}${path ? `/${path}` : ""}`;
 const isDefinedNumber = (value: number | null | undefined) =>
   value !== null && value !== undefined;
 
@@ -111,6 +113,7 @@ export default function ScreeningDetailPage() {
   const projectId = typeof params?.projectId === "string" ? params.projectId : "";
   const [detail, setDetail] = useState<ScreeningDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [fieldKey, setFieldKey] = useState("");
   const [fieldValue, setFieldValue] = useState("");
   const [fieldConfidence, setFieldConfidence] = useState("");
@@ -122,16 +125,17 @@ export default function ScreeningDetailPage() {
   const loadDetail = async () => {
     if (!projectId) return;
     setLoading(true);
+    setErrorMessage(null);
     try {
-      const response = await fetch(`${backendUrl}/screening/deals/${projectId}`);
-      if (!response.ok) {
-        throw new Error("Failed to load screening detail");
-      }
-      const payload = (await response.json()) as ScreeningDetail;
+      const endpoint = buildEndpoint(projectId);
+      const payload = await fetchScreeningJson<ScreeningDetail>(endpoint, {}, { retries: 3, retryDelayMs: 500 });
       setDetail(payload);
     } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to load screening detail";
+      setErrorMessage(message);
       console.error("Failed to load screening detail:", error);
-      toast.error("Failed to load screening detail");
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -153,7 +157,7 @@ export default function ScreeningDetailPage() {
 
   const handleRerun = async () => {
     if (!projectId) return;
-    const response = await fetch(`${backendUrl}/screening/deals/${projectId}/rerun`, {
+    const response = await fetch(buildEndpoint(projectId, "rerun"), {
       method: "POST",
     });
     if (!response.ok) {
@@ -173,7 +177,7 @@ export default function ScreeningDetailPage() {
     const isNumeric = !Number.isNaN(numericValue) && fieldValue.trim() !== "";
     const confidenceValue = fieldConfidence ? Number(fieldConfidence) : undefined;
 
-    const response = await fetch(`${backendUrl}/screening/deals/${projectId}/fields`, {
+    const response = await fetch(buildEndpoint(projectId, "fields"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -203,21 +207,18 @@ export default function ScreeningDetailPage() {
     const numericValue = Number(overrideValue);
     const isNumeric = !Number.isNaN(numericValue) && overrideValue.trim() !== "";
 
-    const response = await fetch(
-      `${backendUrl}/screening/deals/${projectId}/overrides`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          scope: overrideScope,
-          field_key: overrideKey.trim(),
-          value_number: isNumeric ? numericValue : undefined,
-          value_text: isNumeric ? undefined : overrideValue.trim(),
-          reason: overrideReason.trim() || undefined,
-          created_by: "admin",
-        }),
-      }
-    );
+    const response = await fetch(buildEndpoint(projectId, "overrides"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        scope: overrideScope,
+        field_key: overrideKey.trim(),
+        value_number: isNumeric ? numericValue : undefined,
+        value_text: isNumeric ? undefined : overrideValue.trim(),
+        reason: overrideReason.trim() || undefined,
+        created_by: "admin",
+      }),
+    });
     if (!response.ok) {
       toast.error("Failed to apply override");
       return;
@@ -240,12 +241,39 @@ export default function ScreeningDetailPage() {
     );
   }
 
-  if (loading || !detail) {
+  if (loading) {
     return (
       <DashboardShell>
         <Card>
           <CardContent className="py-10 text-center text-sm text-muted-foreground">
             Loading screening detail...
+          </CardContent>
+        </Card>
+      </DashboardShell>
+    );
+  }
+
+  if (errorMessage) {
+    return (
+      <DashboardShell>
+        <Card>
+          <CardContent className="py-10 text-center text-sm text-muted-foreground">
+            <p className="mb-2">{errorMessage}</p>
+            <Button variant="outline" size="sm" onClick={loadDetail}>
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      </DashboardShell>
+    );
+  }
+
+  if (!detail) {
+    return (
+      <DashboardShell>
+        <Card>
+          <CardContent className="py-10 text-center text-sm text-muted-foreground">
+            Deal detail unavailable.
           </CardContent>
         </Card>
       </DashboardShell>

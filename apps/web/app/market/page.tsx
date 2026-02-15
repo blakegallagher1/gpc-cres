@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import useSWR from "swr";
+import { DashboardShell } from "@/components/layout/DashboardShell";
 import {
   Card,
   CardContent,
@@ -425,68 +426,70 @@ export default function MarketPage() {
   const [feedFilter, setFeedFilter] = useState<string | undefined>(undefined);
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Market Intelligence</h1>
-          <p className="text-sm text-muted-foreground">
-            Parish-level market data, comp sales, listings, and trends
-          </p>
+    <DashboardShell>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Market Intelligence</h1>
+            <p className="text-sm text-muted-foreground">
+              Parish-level market data, comp sales, listings, and trends
+            </p>
+          </div>
         </div>
-      </div>
 
-      <Tabs defaultValue="parish" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="parish">Parish Dashboard</TabsTrigger>
-          <TabsTrigger value="feed">Recent Activity</TabsTrigger>
-        </TabsList>
+        <Tabs defaultValue="parish" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="parish">Parish Dashboard</TabsTrigger>
+            <TabsTrigger value="feed">Recent Activity</TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="parish" className="space-y-4">
-          <div className="flex items-center gap-3">
-            <Select
-              value={selectedParish}
-              onValueChange={setSelectedParish}
-            >
-              <SelectTrigger className="w-[220px]">
-                <SelectValue placeholder="Select parish" />
-              </SelectTrigger>
-              <SelectContent>
-                {PARISHES.map((p) => (
-                  <SelectItem key={p} value={p}>
-                    {p}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <ParishDashboard parish={selectedParish} />
-        </TabsContent>
-
-        <TabsContent value="feed" className="space-y-4">
-          <div className="flex items-center gap-2">
-            <Button
-              variant={feedFilter === undefined ? "default" : "outline"}
-              size="sm"
-              onClick={() => setFeedFilter(undefined)}
-            >
-              All
-            </Button>
-            {DATA_TYPES.map((dt) => (
-              <Button
-                key={dt.value}
-                variant={feedFilter === dt.value ? "default" : "outline"}
-                size="sm"
-                onClick={() => setFeedFilter(dt.value)}
+          <TabsContent value="parish" className="space-y-4">
+            <div className="flex items-center gap-3">
+              <Select
+                value={selectedParish}
+                onValueChange={setSelectedParish}
               >
-                {dt.label}
-              </Button>
-            ))}
-          </div>
+                <SelectTrigger className="w-[220px]">
+                  <SelectValue placeholder="Select parish" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PARISHES.map((p) => (
+                    <SelectItem key={p} value={p}>
+                      {p}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-          <RecentFeed dataType={feedFilter} />
-        </TabsContent>
-      </Tabs>
-    </div>
+            <ParishDashboard parish={selectedParish} />
+          </TabsContent>
+
+          <TabsContent value="feed" className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Button
+                variant={feedFilter === undefined ? "default" : "outline"}
+                size="sm"
+                onClick={() => setFeedFilter(undefined)}
+              >
+                All
+              </Button>
+              {DATA_TYPES.map((dt) => (
+                <Button
+                  key={dt.value}
+                  variant={feedFilter === dt.value ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setFeedFilter(dt.value)}
+                >
+                  {dt.label}
+                </Button>
+              ))}
+            </div>
+
+            <RecentFeed dataType={feedFilter} />
+          </TabsContent>
+        </Tabs>
+      </div>
+    </DashboardShell>
   );
 }

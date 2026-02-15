@@ -1,6 +1,7 @@
 "use client";
 
 import useSWR from "swr";
+import { DashboardShell } from "@/components/layout/DashboardShell";
 import {
   Card,
   CardContent,
@@ -84,21 +85,24 @@ export default function OutcomesPage() {
 
   if (!data) {
     return (
-      <div className="flex items-center justify-center py-24 text-muted-foreground">
-        Loading outcome data...
-      </div>
+      <DashboardShell>
+        <div className="flex items-center justify-center py-24 text-muted-foreground">
+          Loading outcome data...
+        </div>
+      </DashboardShell>
     );
   }
 
   return (
-    <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-2xl font-bold">Outcome Tracking</h1>
-        <p className="text-sm text-muted-foreground">
-          Compare projected vs. actual performance, detect systematic biases,
-          and calibrate triage scoring
-        </p>
-      </div>
+    <DashboardShell>
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold">Outcome Tracking</h1>
+          <p className="text-sm text-muted-foreground">
+            Compare projected vs. actual performance, detect systematic biases,
+            and calibrate triage scoring
+          </p>
+        </div>
 
       {/* Summary stats */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
@@ -302,5 +306,6 @@ export default function OutcomesPage() {
         </CardContent>
       </Card>
     </div>
+    </DashboardShell>
   );
 }

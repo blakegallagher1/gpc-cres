@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Plus, Search, LayoutGrid, List } from "lucide-react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { Button } from "@/components/ui/button";
@@ -56,6 +57,11 @@ export default function DealsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [skuFilter, setSkuFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const router = useRouter();
+
+  const openDeal = (dealId: string) => {
+    router.push(`/deals/${dealId}`);
+  };
 
   const loadDeals = useCallback(async () => {
     setLoading(true);
@@ -202,11 +208,24 @@ export default function DealsPage() {
               </TableHeader>
               <TableBody>
                 {deals.map((deal) => (
-                  <TableRow key={deal.id} className="cursor-pointer">
+                  <TableRow
+                    key={deal.id}
+                    className="cursor-pointer"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => openDeal(deal.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        openDeal(deal.id);
+                      }
+                    }}
+                  >
                     <TableCell>
                       <Link
                         href={`/deals/${deal.id}`}
                         className="font-medium hover:underline"
+                        onClick={(event) => event.stopPropagation()}
                       >
                         {deal.name}
                       </Link>
