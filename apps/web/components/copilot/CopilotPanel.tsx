@@ -66,6 +66,7 @@ const FALLBACK_ACTION: CopilotCommand & { icon: CopilotIcon } = {
   prompt: "Run a full underwriting analysis on the property.",
   icon: Zap,
 };
+// Keep fallback behavior intact for production safety.
 
 const COMMAND_LIBRARY_ITEMS: (CopilotCommand & { icon?: CopilotIcon })[] = COMMAND_LIBRARY.map(
   (item) => {
