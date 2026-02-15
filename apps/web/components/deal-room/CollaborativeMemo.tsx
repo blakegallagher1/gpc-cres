@@ -7,6 +7,7 @@ import Collaboration from "@tiptap/extension-collaboration";
 import CollaborationCursor from "@tiptap/extension-collaboration-cursor";
 import * as Y from "yjs";
 import { WebsocketProvider } from "y-websocket";
+import { getBackendBaseUrl } from "@/lib/backendConfig";
 
 const DEFAULT_USER_COLORS = ["#1f7aec", "#f97316", "#16a34a", "#a855f7"];
 
@@ -19,7 +20,8 @@ type CollaborativeMemoProps = {
 };
 
 function buildCollabUrl() {
-  const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+  const baseUrl = getBackendBaseUrl();
+  if (!baseUrl) return null;
   return baseUrl.replace(/^http/, "ws");
 }
 
@@ -39,18 +41,28 @@ export function CollaborativeMemo({
     };
   }, []);
 
+  const collabUrl = buildCollabUrl();
+
   const provider = useMemo(() => {
-    const collabUrl = buildCollabUrl();
+    if (!collabUrl) return null;
     const docName = `deal-room-${roomId}-${artifactId}`;
     return new WebsocketProvider(`${collabUrl}/collab`, docName, ydoc);
-  }, [roomId, artifactId, ydoc]);
+  }, [roomId, artifactId, ydoc, collabUrl]);
 
-  const editor = useEditor({
-    extensions: [
+  const editorExtensions = useMemo(() => {
+    if (!provider) {
+      return [StarterKit];
+    }
+
+    return [
       StarterKit,
       Collaboration.configure({ document: ydoc }),
       CollaborationCursor.configure({ provider, user }),
-    ],
+    ];
+  }, [provider, user, ydoc]);
+
+  const editor = useEditor({
+    extensions: editorExtensions,
     editorProps: {
       attributes: {
         class:
@@ -77,12 +89,29 @@ export function CollaborativeMemo({
   }, [editor, initialContent]);
 
   useEffect(() => {
+    return () => {
+      ydoc.destroy();
+    };
+  }, [ydoc]);
+
+  useEffect(() => {
+    if (!provider) return;
+
     provider.awareness.setLocalStateField("user", user);
     return () => {
       provider.destroy();
-      ydoc.destroy();
     };
-  }, [provider, user, ydoc]);
+  }, [provider, user]);
+
+  if (!provider) {
+    return (
+      <div className={className}>
+        <p className="rounded border border-dashed p-3 text-xs text-muted-foreground">
+          Collaboration unavailable: backend URL is not configured.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className={className}>

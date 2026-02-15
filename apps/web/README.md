@@ -42,6 +42,9 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 # OpenAI
 OPENAI_API_KEY=sk-your-key
 
+# Screening/automation backend (copilot, screening, deal-room workflows)
+NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
+
 # Optional: Perplexity for research agent
 PERPLEXITY_API_KEY=your-key
 ```
@@ -127,6 +130,7 @@ Add these in your Vercel project settings:
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `OPENAI_API_KEY`
+- `NEXT_PUBLIC_BACKEND_URL`
 
 ## Development
 

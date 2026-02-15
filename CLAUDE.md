@@ -258,6 +258,25 @@ Server-only integration with chatgpt-apps Supabase for canonical GIS data. Full 
 - Don't use Chat Completions API — use OpenAI Responses API
 - Don't add Docker dependencies for v1 — deploy to Vercel, use Vercel Cron for background jobs
 - Don't commit `.env.local` or any file with secrets
+
+---
+
+## ROADMAP-FIRST IMPLEMENTATION PROTOCOL (MANDATORY)
+
+Before implementing or changing any feature:
+
+1. Check `ROADMAP.md` first.
+2. Only work items that are actively marked (`Planned`/in-progress) in that file.
+3. When adding new ideas, require a value-analysis before planning:
+   - Problem statement and impacted user path
+   - Measurable expected outcome
+   - Evidence from logs/tests/reports that this is needed
+   - Alignment with existing architecture, security, and org-scoping rules
+   - Acceptance criteria and test plan
+4. If value is unclear or impact is low, mark as `Deferred` with reason and expected revisit date.
+5. After completion, update `ROADMAP.md` with results/evidence and status.
+
+The same protocol applies to every future agent session to avoid ad-hoc implementation drift.
 - Don't use `any` type — use `Record<string, unknown>` for dynamic objects
 - Don't auto-advance deals past TRIAGE_DONE — all post-triage status transitions require human approval (see `gates.ts`)
 - Don't auto-send buyer outreach emails — `buyerOutreach.neverAutoSend` is `true`; handlers only create review tasks

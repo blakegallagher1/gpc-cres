@@ -1,20 +1,4 @@
-function normalizeBackendUrl(rawUrl: string): string {
-  return rawUrl.trim().replace(/\/+$/, "");
-}
-
-function parseBackendUrl(): string {
-  const configuredUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
-
-  if (configuredUrl) {
-    return normalizeBackendUrl(configuredUrl);
-  }
-
-  if (process.env.NODE_ENV !== "production") {
-    return "http://localhost:8000";
-  }
-
-  return "";
-}
+import { BACKEND_URL_ERROR_MESSAGE, getBackendBaseUrl } from "@/lib/backendConfig";
 
 function isRetryableStatus(status: number | undefined): boolean {
   if (!status) return false;
@@ -74,12 +58,10 @@ export async function fetchScreeningJson<T>(
 ): Promise<T> {
   const retries = Math.max(1, options.retries ?? 1);
   const retryDelayMs = Math.max(0, options.retryDelayMs ?? 500);
-  const baseUrl = parseBackendUrl();
+  const baseUrl = getBackendBaseUrl();
 
   if (!baseUrl) {
-    throw new Error(
-      "Screening backend URL is not configured. Set NEXT_PUBLIC_BACKEND_URL for production."
-    );
+    throw new Error(BACKEND_URL_ERROR_MESSAGE);
   }
 
   const url = `${baseUrl}${sanitizeEndpoint(endpoint)}`;

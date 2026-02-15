@@ -25,6 +25,8 @@ import {
   getProofGroupsForIntent,
 } from "@entitlement-os/openai";
 import { AgentTrustEnvelope } from "@/types";
+import { autoFeedRun } from "@/lib/agent/dataAgentAutoFeed.service";
+import { logger } from "../../../../utils/logger";
 
 export type AgentInputMessage =
   | { role: "user"; content: string }
@@ -1029,6 +1031,53 @@ export async function executeAgentWorkflow(
       runId: dbRun.id,
       status: doneStatus,
       conversationId: params.conversationId,
+    });
+
+    void autoFeedRun({
+      runId: dbRun.id,
+      runType: params.runType ?? "ENRICHMENT",
+      agentIntent:
+        firstUserInput && typeof firstUserInput === "string"
+          ? firstUserInput.slice(0, 280)
+          : "agent run",
+      finalOutputText: finalText,
+      finalReport: finalReport ? (finalReport as unknown as Record<string, unknown>) : null,
+      confidence: trust.confidence,
+      evidenceHash:
+        trust.evidenceHash ??
+        computeEvidenceHash(
+          trust.evidenceCitations.map((citation) => ({
+            tool: citation.tool ?? "agent_tool",
+            sourceId: citation.sourceId,
+            snapshotId: citation.snapshotId,
+            contentHash: citation.contentHash,
+            url: citation.url,
+            isOfficial: citation.isOfficial,
+          })),
+        ) ??
+        "no-evidence-hash",
+      toolsInvoked: trust.toolsInvoked,
+      evidenceCitations: trust.evidenceCitations.map((citation) => ({
+        tool: citation.tool,
+        sourceId: citation.sourceId,
+        snapshotId: citation.snapshotId,
+        contentHash: citation.contentHash,
+        url: citation.url,
+        isOfficial: citation.isOfficial,
+      })),
+      retrievalMeta: {
+        runId: dbRun.id,
+        queryIntent: queryIntent ?? null,
+        status,
+        schemaVersion: AGENT_RUN_STATE_SCHEMA_VERSION,
+      },
+      subjectId: dbRun.id,
+      autoScore: trust.confidence,
+    }).catch((error) => {
+      logger.warn("Data Agent auto-feed failed after local run", {
+        runId: dbRun.id,
+        error: String(error),
+      });
     });
 
     return {

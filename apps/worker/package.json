@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "dev": "tsx watch src/worker.ts",
+    "dev": "tsx src/worker.ts",
+    "dev:watch": "tsx watch src/worker.ts",
     "start": "node dist/worker.js",
     "lint": "eslint src --max-warnings=0",
     "typecheck": "tsc -p tsconfig.json --noEmit"

@@ -8,8 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-
-const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+import { BACKEND_URL_ERROR_MESSAGE, getBackendBaseUrl } from "@/lib/backendConfig";
 
 export default function ScreeningPlaybookPage() {
   const router = useRouter();
@@ -19,6 +18,14 @@ export default function ScreeningPlaybookPage() {
   const [version, setVersion] = useState<number | null>(null);
 
   const loadPlaybook = async () => {
+    const backendUrl = getBackendBaseUrl();
+    if (!backendUrl) {
+      setLoading(false);
+      setSaving(false);
+      toast.error(BACKEND_URL_ERROR_MESSAGE);
+      return;
+    }
+
     setLoading(true);
     try {
       const response = await fetch(`${backendUrl}/screening/playbook`);
@@ -43,6 +50,12 @@ export default function ScreeningPlaybookPage() {
   }, []);
 
   const handleSave = async () => {
+    const backendUrl = getBackendBaseUrl();
+    if (!backendUrl) {
+      toast.error(BACKEND_URL_ERROR_MESSAGE);
+      return;
+    }
+
     try {
       setSaving(true);
       const settings = JSON.parse(settingsText);

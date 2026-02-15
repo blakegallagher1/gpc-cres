@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { CollaborativeMemo } from "@/components/deal-room/CollaborativeMemo";
 import { supabase } from "@/lib/db/supabase";
+import { BACKEND_URL_ERROR_MESSAGE, getBackendBaseUrl } from "@/lib/backendConfig";
 import { formatCurrency, timeAgo } from "@/lib/utils";
 import { streamAgentRun } from "@/lib/agentStream";
 import {
@@ -141,6 +142,16 @@ export default function DealRoomPage() {
   const [agentOutput, setAgentOutput] = useState("");
   const [baseAssumptions, setBaseAssumptions] = useState(DEFAULT_BASE_ASSUMPTIONS);
   const [sliders, setSliders] = useState(DEFAULT_SLIDERS);
+
+  const getBackendUrl = () => {
+    const backendUrl = getBackendBaseUrl();
+    if (!backendUrl) {
+      toast.error(BACKEND_URL_ERROR_MESSAGE);
+      return null;
+    }
+
+    return backendUrl;
+  };
 
   const baseResults = useMemo(
     () => computeScenario(baseAssumptions, { ...sliders, rentGrowth: 0 }),
@@ -436,10 +447,12 @@ export default function DealRoomPage() {
 
   const handleRunAgentUpdate = async () => {
     if (!room) return;
+    const backendUrl = getBackendUrl();
+    if (!backendUrl) return;
     setAgentStreaming(true);
     setAgentOutput("");
     await streamAgentRun({
-      apiBaseUrl: process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000",
+      apiBaseUrl: backendUrl,
       agentName: "finance",
       query: "Provide a deal room update with underwriting highlights and next steps.",
       projectId: room.project_id,
@@ -532,9 +545,11 @@ export default function DealRoomPage() {
 
   const handleScenarioSave = async () => {
     if (!scenario) return;
+    const backendUrl = getBackendUrl();
+    if (!backendUrl) return;
 
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000"}/scenarios/run`,
+      `${backendUrl}/scenarios/run`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -562,9 +577,11 @@ export default function DealRoomPage() {
 
   const handleExport = async (type: string) => {
     if (!room) return;
+    const backendUrl = getBackendUrl();
+    if (!backendUrl) return;
 
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000"}/exports`,
+      `${backendUrl}/exports`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -587,6 +604,8 @@ export default function DealRoomPage() {
 
   const handleUpload = async (file?: File) => {
     if (!file || !room) return;
+    const backendUrl = getBackendUrl();
+    if (!backendUrl) return;
 
     const storagePath = `${room.project_id}/${Date.now()}-${file.name}`;
     const { error: uploadError } = await supabase.storage
@@ -603,7 +622,7 @@ export default function DealRoomPage() {
       .getPublicUrl(storagePath);
 
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000"}/ingestion/upload`,
+      `${backendUrl}/ingestion/upload`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -628,7 +647,7 @@ export default function DealRoomPage() {
     const documentId = payload.document?.id;
     if (documentId) {
       await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000"}/ingestion/process/${documentId}`,
+        `${backendUrl}/ingestion/process/${documentId}`,
         { method: "POST" }
       );
       toast.success("Ingestion started");

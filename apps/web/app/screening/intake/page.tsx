@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { BACKEND_URL_ERROR_MESSAGE, getBackendBaseUrl } from "@/lib/backendConfig";
 import { supabase } from "@/lib/db/supabase";
 import { toast } from "sonner";
 
@@ -23,8 +24,6 @@ type IntakeFormState = {
   contact: string;
   notes: string;
 };
-
-const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
 export default function ScreeningIntakePage() {
   const router = useRouter();
@@ -47,15 +46,21 @@ export default function ScreeningIntakePage() {
     setFiles(nextFiles);
   };
 
-  const handleSubmit = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!form.address.trim() || !form.broker.trim() || !form.propertyType.trim()) {
-      toast.error("Address, broker, and property type are required.");
-      return;
-    }
+const handleSubmit = async (event: FormEvent) => {
+  event.preventDefault();
+  if (!form.address.trim() || !form.broker.trim() || !form.propertyType.trim()) {
+    toast.error("Address, broker, and property type are required.");
+    return;
+  }
 
-    setSubmitting(true);
-    try {
+  const backendUrl = getBackendBaseUrl();
+  if (!backendUrl) {
+    toast.error(BACKEND_URL_ERROR_MESSAGE);
+    return;
+  }
+
+  setSubmitting(true);
+  try {
       const documents = [];
       for (const file of files) {
         const storagePath = `screening/${Date.now()}-${file.name}`;

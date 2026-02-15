@@ -13,6 +13,7 @@ type EvidenceSnapshotRecord = {
   contentType: string;
   contentHash: string;
   runId: string;
+  textExtractObjectKey: string | null;
 };
 
 type EvidenceFreshnessSignals = {
@@ -161,6 +162,7 @@ export async function GET(request: NextRequest) {
             runId: true,
             httpStatus: true,
             contentType: true,
+            textExtractObjectKey: true,
           },
         },
       },
@@ -189,6 +191,7 @@ export async function GET(request: NextRequest) {
               runId: s.evidenceSnapshots[0].runId,
               httpStatus: s.evidenceSnapshots[0].httpStatus,
               contentType: s.evidenceSnapshots[0].contentType,
+              hasTextExtract: Boolean(s.evidenceSnapshots[0].textExtractObjectKey),
             }
           : null,
         snapshots: includeSnapshots
@@ -199,6 +202,7 @@ export async function GET(request: NextRequest) {
               runId: snapshot.runId,
               httpStatus: snapshot.httpStatus,
               contentType: snapshot.contentType,
+              hasTextExtract: Boolean(snapshot.textExtractObjectKey),
             }))
           : undefined,
       };

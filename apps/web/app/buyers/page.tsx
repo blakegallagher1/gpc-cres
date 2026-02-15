@@ -33,6 +33,7 @@ import {
 import { SkuBadge } from "@/components/deals/SkuBadge";
 import { Loader2, Plus, Search, Users } from "lucide-react";
 import { toast } from "sonner";
+import { GuidedOnboardingPanel } from "@/components/onboarding/GuidedOnboardingPanel";
 
 const BUYER_TYPES = [
   { value: "operator", label: "Operator" },
@@ -45,6 +46,25 @@ const SKU_OPTIONS = [
   { value: "SMALL_BAY_FLEX", label: "Small Bay Flex" },
   { value: "OUTDOOR_STORAGE", label: "Outdoor Storage" },
   { value: "TRUCK_PARKING", label: "Truck Parking" },
+];
+
+const BUYER_SAMPLE_PROFILES = [
+  {
+    name: "Avery Chen",
+    company: "Baton Rouge Industrial Holdings",
+    email: "avery@brindustrial.com",
+    phone: "(225) 555-1122",
+    buyerType: "operator",
+    skuInterests: ["SMALL_BAY_FLEX", "TRUCK_PARKING"],
+  },
+  {
+    name: "Noah Patel",
+    company: "Gulf State Logistics Partners",
+    email: "noah@gulfstate-logistics.com",
+    phone: "(225) 555-3344",
+    buyerType: "investor",
+    skuInterests: ["OUTDOOR_STORAGE", "SMALL_BAY_FLEX"],
+  },
 ];
 
 interface BuyerItem {
@@ -101,6 +121,16 @@ export default function BuyersPage() {
     setNewSkuInterests((prev) =>
       prev.includes(sku) ? prev.filter((s) => s !== sku) : [...prev, sku]
     );
+  };
+
+  const applyBuyerTemplate = (template: (typeof BUYER_SAMPLE_PROFILES)[number]) => {
+    setDialogOpen(true);
+    setNewName(template.name);
+    setNewCompany(template.company);
+    setNewEmail(template.email);
+    setNewPhone(template.phone);
+    setNewType(template.buyerType);
+    setNewSkuInterests(template.skuInterests);
   };
 
   const handleAddBuyer = async (e: React.FormEvent) => {
@@ -279,14 +309,45 @@ export default function BuyersPage() {
             </CardContent>
           </Card>
         ) : buyers.length === 0 ? (
-          <Card>
-            <CardContent className="py-16 text-center">
-              <Users className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
-              <p className="text-muted-foreground">
-                No buyers found. Add your first buyer contact.
-              </p>
-            </CardContent>
-          </Card>
+          <GuidedOnboardingPanel
+            icon={<Users className="h-4 w-4" />}
+            title="No buyers yet"
+            description="Build your buyer list to unlock smarter matching and outreach."
+            steps={[
+              {
+                title: "Add your first buyer",
+                description:
+                  "Capture name, company, and preferred SKU types so deal routing can be customized immediately.",
+              },
+              {
+                title: "Record contact preferences",
+                description:
+                  "Use the tags and notes fields to prioritize the best outreach strategy.",
+              },
+              {
+                title: "Use this data during screening",
+                description:
+                  "As you evaluate deals, match the best-fit buyers and keep your CRM workflow moving.",
+              },
+            ]}
+            primaryActions={[
+              {
+                label: "Add your first buyer",
+                icon: <Plus className="h-3.5 w-3.5" />,
+                onClick: () => setDialogOpen(true),
+              },
+            ]}
+            sampleActions={BUYER_SAMPLE_PROFILES.map((profile) => ({
+              name: profile.name,
+              description: `${profile.company} • ${profile.buyerType}`,
+              actionLabel: "Load sample profile",
+              action: {
+                label: "Load sample profile",
+                icon: <Users className="h-3.5 w-3.5" />,
+                onClick: () => applyBuyerTemplate(profile),
+              },
+            }))}
+          />
         ) : (
           <Card>
             <Table>

@@ -259,6 +259,26 @@ Durable execution must not introduce silent drift.
 
 Run from repo root:
 
+---
+
+## ROADMAP-FIRST IMPLEMENTATION PROTOCOL (MANDATORY)
+
+Before any implementation work in this repository:
+
+1. Read and follow `ROADMAP.md` as the single source of truth.
+2. Only implement items with status `Planned` (or an equivalent active status) and valid `ROADMAP item id`.
+3. Do not add new implementation items without the pre-add analysis check:
+   - Problem to solve
+   - Expected outcome + measurable success signal
+   - Evidence this is needed
+   - Alignment to existing architecture/security constraints
+   - Complexity/risk + rollback path
+   - Concrete acceptance criteria + test plan
+4. If an item is speculative or low-value, mark it as `Deferred` with explicit reason and revisit later; do not implement it silently.
+5. When you finish an item, mark it `Done` in `ROADMAP.md` with evidence references (tests, logs, migration IDs, files touched).
+
+Both Codex and CLAUDE sessions should treat `ROADMAP.md` as the planning gate and avoid implementation drift.
+
 - pnpm install
 - pnpm dev
 - pnpm build

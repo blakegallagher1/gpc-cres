@@ -2,13 +2,13 @@ import { proxyActivities } from "@temporalio/workflow";
 
 import type * as activities from "../activities/index.js";
 import type { JurisdictionRefreshWorkflowInput } from "@entitlement-os/shared";
-import { hashJsonSha256 } from "@entitlement-os/shared/crypto";
 
 const {
   fetchSeedSources,
   captureEvidenceForSource,
   generateParishPack,
   validateAndStorePack,
+  hashPackInput,
 } = proxyActivities<typeof activities>({
   startToCloseTimeout: "5 minutes",
   retry: { maximumAttempts: 3 },
@@ -81,15 +81,14 @@ export async function parishPackRefreshWorkflow(
         (item): item is string => typeof item === "string"
       ) ?? [])
     : [];
-  const dedupe = (values: string[]) => [...new Set(values)];
-  const packInputHash = hashJsonSha256({
+  const packInputHash = await hashPackInput({
     jurisdictionId: params.jurisdictionId,
     sku: params.sku,
     officialOnly,
-    sourceEvidenceIds: dedupe(sourceIds),
-    sourceSnapshotIds: dedupe(snapshotIds),
-    sourceContentHashes: dedupe(contentHashes),
-    sourceUrls: dedupe(sourceUrls),
+    sourceEvidenceIds: sourceIds,
+    sourceSnapshotIds: snapshotIds,
+    sourceContentHashes: contentHashes,
+    sourceUrls: sourceUrls,
     sourceSummary,
   });
 

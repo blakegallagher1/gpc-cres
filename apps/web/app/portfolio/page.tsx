@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import {
+  Download,
   LayoutGrid,
-  Map,
+  Map as MapIcon,
   TrendingUp,
   Target,
   ArrowUpDown,
@@ -17,8 +18,10 @@ import {
 } from "lucide-react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -46,16 +49,336 @@ import type {
 } from "@/lib/services/portfolioAnalytics.service";
 import { formatCurrency, timeAgo } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 type SortField = "name" | "sku" | "jurisdiction" | "status" | "triageScore" | "lastActivity";
 type SortDir = "asc" | "desc";
 
+interface PortfolioTrendPoint {
+  period: string;
+  dealCount: number;
+  avgTriageScore: number | null;
+}
+
+interface AgingBucket {
+  label: string;
+  minDays: number;
+  maxDays: number | null;
+  count: number;
+  averageAgeDays: number;
+  oldestDealAgeDays: number | null;
+}
+
+interface AgingSummary {
+  totalDeals: number;
+  averageAgeDays: number;
+  oldestDeal: string;
+  oldestDealAgeDays: number | null;
+  buckets: AgingBucket[];
+}
+
+const AGING_BUCKETS: Array<{ label: string; minDays: number; maxDays: number | null }> = [
+  { label: "0-3 days", minDays: 0, maxDays: 3 },
+  { label: "4-7 days", minDays: 4, maxDays: 7 },
+  { label: "8-14 days", minDays: 8, maxDays: 14 },
+  { label: "15-30 days", minDays: 15, maxDays: 30 },
+  { label: "31-60 days", minDays: 31, maxDays: 60 },
+  { label: "60+ days", minDays: 61, maxDays: null },
+];
+
 const STATUS_ORDER: Record<string, number> = {};
 PIPELINE_STAGES.forEach((s, i) => {
   STATUS_ORDER[s.key] = i;
 });
+
+function monthKey(date: Date) {
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  return `${date.getFullYear()}-${month}`;
+}
+
+function monthLabel(date: Date) {
+  return `${date.toLocaleString("en-US", {
+    month: "short",
+    year: "2-digit",
+  })}`;
+}
+
+function buildPortfolioTrend(deals: Array<PortfolioDeal & { triageScore: number | null; createdAt: string }>) {
+  const now = new Date();
+  const buckets = new Map<
+    string,
+    { period: string; dealCount: number; triageSum: number; triageCount: number }
+  >();
+
+  for (let i = 11; i >= 0; i -= 1) {
+    const target = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    buckets.set(monthKey(target), {
+      period: monthLabel(target),
+      dealCount: 0,
+      triageSum: 0,
+      triageCount: 0,
+    });
+  }
+
+  for (const deal of deals) {
+    const createdAt = new Date(deal.createdAt);
+    if (Number.isNaN(createdAt.getTime())) {
+      continue;
+    }
+    const key = monthKey(createdAt);
+    const bucket = buckets.get(key);
+    if (!bucket) {
+      continue;
+    }
+
+    bucket.dealCount += 1;
+    if (deal.triageScore !== null) {
+      bucket.triageSum += deal.triageScore;
+      bucket.triageCount += 1;
+    }
+  }
+
+  return Array.from(buckets.values()).map((bucket) => ({
+    period: bucket.period,
+    dealCount: bucket.dealCount,
+    avgTriageScore:
+      bucket.triageCount > 0 ? bucket.triageSum / bucket.triageCount : null,
+  }));
+}
+
+function buildAgingSummary(deals: PortfolioDeal[]): AgingSummary {
+  const now = Date.now();
+  const ageBuckets: AgingBucket[] = AGING_BUCKETS.map((bucket) => ({
+    label: bucket.label,
+    minDays: bucket.minDays,
+    maxDays: bucket.maxDays,
+    count: 0,
+    averageAgeDays: 0,
+    oldestDealAgeDays: null,
+  }));
+  const ageSums = new Map<string, number>();
+
+  let totalAge = 0;
+  let totalWithTimestamp = 0;
+  let oldestDeal = "--";
+  let oldestAge: number | null = null;
+
+  for (const deal of deals) {
+    const updatedAt = new Date(deal.updatedAt);
+    if (Number.isNaN(updatedAt.getTime())) {
+      continue;
+    }
+
+    const ageDays = Math.max(
+      0,
+      Math.floor((now - updatedAt.getTime()) / (1000 * 60 * 60 * 24))
+    );
+
+    totalWithTimestamp += 1;
+    totalAge += ageDays;
+
+    if (oldestAge === null || ageDays > oldestAge) {
+      oldestAge = ageDays;
+      oldestDeal = deal.name;
+    }
+
+    const bucket = ageBuckets.find((entry) =>
+      entry.maxDays === null
+        ? ageDays >= entry.minDays
+        : ageDays >= entry.minDays && ageDays <= entry.maxDays
+    );
+
+    if (!bucket) {
+      continue;
+    }
+    bucket.count += 1;
+    const ageSum = ageSums.get(bucket.label) ?? 0;
+    ageSums.set(bucket.label, ageSum + ageDays);
+    if (bucket.oldestDealAgeDays === null || ageDays > bucket.oldestDealAgeDays) {
+      bucket.oldestDealAgeDays = ageDays;
+    }
+  }
+
+  return {
+    totalDeals: deals.length,
+    averageAgeDays: totalWithTimestamp > 0 ? totalAge / totalWithTimestamp : 0,
+    oldestDeal,
+    oldestDealAgeDays: oldestAge,
+    buckets: ageBuckets.map((bucket) => ({
+      ...bucket,
+      averageAgeDays:
+        bucket.count > 0 && (ageSums.get(bucket.label) ?? 0) > 0
+          ? (ageSums.get(bucket.label) ?? 0) / bucket.count
+          : 0,
+    })),
+  };
+}
+
+function DealAgingDepthPanel({ deals }: { deals: PortfolioDeal[] }) {
+  const summary = buildAgingSummary(deals);
+  const maxCount = Math.max(...summary.buckets.map((bucket) => bucket.count), 1);
+
+  if (summary.totalDeals === 0) {
+    return (
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm">Deal aging depth</CardTitle>
+        </CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          No active deals to analyze aging.
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm">Deal aging depth</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid gap-2 sm:grid-cols-3 text-sm">
+          <div>
+            <p className="text-xs text-muted-foreground">Active deals</p>
+            <p className="font-semibold">{summary.totalDeals}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Avg days in current stage</p>
+            <p className="font-semibold">{Math.round(summary.averageAgeDays)}d</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Oldest hold</p>
+            <p className="truncate font-semibold">
+              {summary.oldestDeal}{" "}
+              {summary.oldestDealAgeDays != null
+                ? `(${summary.oldestDealAgeDays}d)`
+                : ""}
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          {summary.buckets.map((bucket) => {
+            const pct = (bucket.count / maxCount) * 100;
+            return (
+              <div key={bucket.label} className="space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span>{bucket.label}</span>
+                  <span className="text-muted-foreground">
+                    {bucket.count} deal{bucket.count === 1 ? "" : "s"}
+                  </span>
+                </div>
+                <div className="h-2 rounded-full bg-muted">
+                  <div
+                    className="h-2 rounded-full bg-primary/80 transition-all"
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+                {bucket.count > 0 ? (
+                  <p className="text-[10px] text-muted-foreground">
+                    Avg age: {Math.round(bucket.averageAgeDays)}d
+                    {bucket.oldestDealAgeDays != null ? ` · Oldest: ${bucket.oldestDealAgeDays}d` : ""}
+                  </p>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function PortfolioTrendCards({ trend }: { trend: PortfolioTrendPoint[] }) {
+  const hasDeals = trend.some((point) => point.dealCount > 0);
+  const hasTriage = trend.some((point) => point.avgTriageScore !== null);
+  const maxDealCount = Math.max(...trend.map((point) => point.dealCount), 1);
+  const maxTriage = Math.max(
+    ...trend.map((point) => point.avgTriageScore ?? 0),
+    1,
+  );
+
+  if (!hasDeals && !hasTriage) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Portfolio pipeline trend</CardTitle>
+        </CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          No trend data available for the last 12 months.
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm">Portfolio pipeline trend (12 months)</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {hasDeals && (
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground">
+              Deals introduced / month
+            </p>
+            <div className="space-y-1.5">
+              {trend.map((point) => (
+                <div key={`${point.period}-deals`} className="space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span>{point.period}</span>
+                    <span className="text-muted-foreground">{point.dealCount}</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-muted">
+                    <div
+                      className="h-2 rounded-full bg-primary transition-all"
+                      style={{ width: `${(point.dealCount / maxDealCount) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {hasTriage && (
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground">
+              Avg triage score / month
+            </p>
+            <div className="space-y-1.5">
+              {trend.map((point) => (
+                <div key={`${point.period}-triage`} className="space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span>{point.period}</span>
+                    <span className="text-muted-foreground">
+                      {point.avgTriageScore != null
+                        ? `${Math.round(point.avgTriageScore)}`
+                        : "—"}
+                    </span>
+                  </div>
+                  <div className="h-2 rounded-full bg-muted">
+                    <div
+                      className="h-2 rounded-full bg-emerald-500 transition-all"
+                      style={{
+                        width:
+                          point.avgTriageScore != null
+                            ? `${(point.avgTriageScore / maxTriage) * 100}%`
+                            : "0%",
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function PortfolioPage() {
   const { data, isLoading } = useSWR<{
@@ -92,6 +415,7 @@ export default function PortfolioPage() {
 
   const [sortField, setSortField] = useState<SortField>("lastActivity");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [isExporting, setIsExporting] = useState(false);
 
   const deals: PortfolioDeal[] = useMemo(
     () =>
@@ -144,6 +468,118 @@ export default function PortfolioPage() {
     });
   }, [activeDeals, sortField, sortDir]);
 
+  const portfolioTrend = useMemo(
+    () => buildPortfolioTrend(deals),
+    [deals],
+  );
+
+  const handleExportPortfolioReport = useCallback(() => {
+    if (isExporting || !data) return;
+
+    setIsExporting(true);
+
+    try {
+      const escapeCsvCell = (value: string) =>
+        `"${value.replace(/"/g, '""').replace(/\r?\n/g, " ")}"`;
+
+      const dealHeaders = [
+        "id",
+        "name",
+        "sku",
+        "status",
+        "jurisdiction",
+        "acreage",
+        "triageScore",
+        "updatedAt",
+        "createdAt",
+      ];
+
+      const dealRows = activeDeals.map((deal) => [
+        deal.id,
+        deal.name,
+        deal.sku,
+        deal.status,
+        deal.jurisdiction,
+        String(deal.acreage),
+        deal.triageScore === null ? "" : String(deal.triageScore),
+        deal.updatedAt,
+        deal.createdAt,
+      ]);
+
+      const keyValueRows = [
+        ["metric", "value"],
+        ["totalDeals", String(data.metrics?.totalDeals ?? 0)],
+        ["totalAcreage", String(data.metrics?.totalAcreage ?? 0)],
+        ["avgTriageScore", String(data.metrics?.avgTriageScore ?? "")],
+        ["activeDeals", String(activeDeals.length)],
+        ["pipelineDeals", String(deals.length)],
+      ];
+
+      if (analytics) {
+        keyValueRows.push(
+          ["weightedAvgIRR", String(analytics.weightedAvgIRR ?? "")],
+          ["weightedAvgCapRate", String(analytics.weightedAvgCapRate ?? "")],
+          ["analyticsAvgTriageScore", String(analytics.avgTriageScore ?? "")],
+        );
+
+        for (const [key, value] of Object.entries(analytics.byStatus)) {
+          keyValueRows.push([`byStatus.${key}`, String(value)]);
+        }
+        for (const [key, value] of Object.entries(analytics.bySku)) {
+          keyValueRows.push([`bySku.${key}`, String(value)]);
+        }
+        for (const [key, value] of Object.entries(analytics.byJurisdiction)) {
+          keyValueRows.push([`byJurisdiction.${key}`, String(value)]);
+        }
+      }
+
+      const trendRows = [
+        ["period", "dealCount", "avgTriageScore"],
+        ...portfolioTrend.map((point) => [
+          point.period,
+          String(point.dealCount),
+          point.avgTriageScore === null ? "" : String(point.avgTriageScore),
+        ]),
+      ];
+
+      const csv = [
+        "# Portfolio active deals",
+        dealHeaders.map(escapeCsvCell).join(","),
+        ...dealRows.map((row) => row.map((cell) => escapeCsvCell(cell)).join(",")),
+        "",
+        "# Portfolio metrics",
+        ...keyValueRows.map((row) => row.map((cell) => escapeCsvCell(cell)).join(",")),
+        "",
+        "# Pipeline trend",
+        ...trendRows.map((row) => row.map((cell) => escapeCsvCell(cell)).join(",")),
+      ].join("\n");
+
+      const blob = new Blob([`\uFEFF${csv}`], {
+        type: "text/csv;charset=utf-8;",
+      });
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute(
+        "download",
+        `portfolio-report-${new Date().toISOString().slice(0, 10)}.csv`
+      );
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.success(
+        `Exported portfolio report (${activeDeals.length} active deals).`
+      );
+    } catch {
+      toast.error("Failed to export portfolio report.");
+    } finally {
+      setIsExporting(false);
+    }
+  }, [activeDeals, analytics, data, isExporting, portfolioTrend]);
+
   function toggleSort(field: SortField) {
     if (sortField === field) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -191,8 +627,60 @@ export default function PortfolioPage() {
   if (isLoading) {
     return (
       <DashboardShell>
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <div className="space-y-6">
+          <div className="flex items-start justify-between">
+            <div className="space-y-2">
+              <Skeleton className="h-7 w-72" />
+              <Skeleton className="h-4 w-56" />
+            </div>
+            <Skeleton className="h-8 w-32" />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Skeleton className="h-24 rounded-xl" />
+            <Skeleton className="h-24 rounded-xl" />
+            <Skeleton className="h-24 rounded-xl" />
+            <Skeleton className="h-24 rounded-xl" />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Skeleton className="h-24 rounded-xl" />
+            <Skeleton className="h-24 rounded-xl" />
+            <Skeleton className="h-24 rounded-xl" />
+            <Skeleton className="h-24 rounded-xl" />
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Skeleton className="h-72 rounded-xl" />
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+              <Skeleton className="h-72 rounded-xl" />
+              <Skeleton className="h-72 rounded-xl" />
+            </div>
+          </div>
+
+          <Skeleton className="h-56 rounded-xl" />
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Analytics tabs loading...</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-72" />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-5 w-40" />
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <Skeleton className="h-10" />
+              <Skeleton className="h-10" />
+              <Skeleton className="h-10" />
+              <Skeleton className="h-10" />
+              <Skeleton className="h-10" />
+            </CardContent>
+          </Card>
         </div>
       </DashboardShell>
     );
@@ -208,12 +696,23 @@ export default function PortfolioPage() {
             Real-time overview of your development pipeline
           </p>
         </div>
-        <Link
-          href="/portfolio/holdings"
-          className="text-sm font-medium text-primary hover:underline"
-        >
-          View Holdings →
-        </Link>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleExportPortfolioReport}
+            disabled={isExporting || !data}
+          >
+            <Download className="mr-2 h-4 w-4" />
+            {isExporting ? "Exporting..." : "Export"}
+          </Button>
+          <Link
+            href="/portfolio/holdings"
+            className="text-sm font-medium text-primary hover:underline"
+          >
+            View Holdings →
+          </Link>
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -226,7 +725,7 @@ export default function PortfolioPage() {
         <MetricCard
           label="Acreage Under Management"
           value={`${(metrics?.totalAcreage ?? 0).toFixed(1)} ac`}
-          icon={Map}
+          icon={MapIcon}
         />
         <MetricCard
           label="Wtd Avg IRR"
@@ -283,6 +782,11 @@ export default function PortfolioPage() {
           <SkuDonut deals={deals} />
           <JurisdictionBar deals={deals} />
         </div>
+      </div>
+
+      <div className="mt-6 grid gap-4 lg:grid-cols-2">
+        <PortfolioTrendCards trend={portfolioTrend} />
+        <DealAgingDepthPanel deals={activeDeals} />
       </div>
 
       {/* Analytics Tabs */}

@@ -3,6 +3,7 @@
 import {
   type FocusEvent,
   type KeyboardEvent,
+  type ComponentType,
   useEffect,
   useMemo,
   useRef,
@@ -29,45 +30,57 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { streamAgentRun } from "@/lib/agentStream";
+import { BACKEND_URL_ERROR_MESSAGE, getBackendBaseUrl } from "@/lib/backendConfig";
+import { COMMAND_LIBRARY, type CopilotCommand } from "@/lib/copilotCommandLibrary";
 
-const DEFAULT_ACTIONS = [
-  {
-    id: "underwrite",
-    label: "Run Full Underwriting",
-    description: "NOI, DSCR, IRR, sensitivities",
-    agent: "finance",
-    prompt:
-      "Run a full underwriting summary with NOI, DSCR, IRR, debt sizing, and key risks.",
-    icon: Zap,
-  },
-  {
-    id: "loi",
-    label: "Generate LOI Draft",
-    description: "IC-ready LOI terms",
-    agent: "legal",
-    prompt:
-      "Draft a concise LOI with price, diligence timeline, closing terms, and contingencies.",
-    icon: FileText,
-  },
-  {
-    id: "comps",
-    label: "Summarize Comps",
-    description: "Closest sales + pricing context",
-    agent: "research",
-    prompt:
-      "Summarize the top comps with pricing, cap rates, and supporting rationale.",
-    icon: Sparkles,
-  },
-  {
-    id: "dd",
-    label: "Create DD Checklist",
-    description: "Phase-based checklist",
-    agent: "operations",
-    prompt:
-      "Create a due diligence checklist with owners, SLAs, and dependencies.",
-    icon: ListChecks,
-  },
-];
+const COMMAND_LIBRARY_PRESET_IDS = new Set([
+  "underwrite",
+  "loi",
+  "comps",
+  "dd",
+]);
+
+type CopilotIcon = ComponentType<{ className?: string }>;
+
+const DEFAULT_ACTIONS: (CopilotCommand & { icon: CopilotIcon })[] = [
+  ...COMMAND_LIBRARY.filter((item) => COMMAND_LIBRARY_PRESET_IDS.has(item.id)).map(
+    (item) => {
+      const iconById: Record<string, CopilotIcon> = {
+        underwrite: Zap,
+        loi: FileText,
+        comps: Sparkles,
+        dd: ListChecks,
+      };
+
+      return {
+        ...item,
+        icon: iconById[item.id],
+      };
+    }
+  ),
+].filter((action) => typeof action.icon === "function") as (CopilotCommand & {
+  icon: CopilotIcon;
+})[];
+
+const COMMAND_LIBRARY_ITEMS: (CopilotCommand & { icon?: CopilotIcon })[] = COMMAND_LIBRARY.map(
+  (item) => {
+    const iconById: Record<string, CopilotIcon> = {
+      underwrite: Zap,
+      loi: FileText,
+      comps: Sparkles,
+      dd: ListChecks,
+      "underwrite-quick": Zap,
+      "loi-qa": FileText,
+      "comps-intra": Sparkles,
+      "dd-risk": ListChecks,
+    };
+
+    return {
+      ...item,
+      icon: iconById[item.id],
+    };
+  }
+);
 
 const COMMAND_HISTORY_STORAGE_KEY = "copilot.commandHistory.v1";
 const FAVORITE_COMMANDS_STORAGE_KEY = "copilot.favoriteCommands.v1";
@@ -171,6 +184,7 @@ export function CopilotPanel() {
   const [queryForSuggestion, setQueryForSuggestion] = useState("");
   const [isPromptFocused, setIsPromptFocused] = useState(false);
   const suggestionsPanelRef = useRef<HTMLDivElement>(null);
+  const [showCommandLibrary, setShowCommandLibrary] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -253,7 +267,7 @@ export function CopilotPanel() {
 
   const suggestions = useMemo(() => {
     const searchTerm = queryForSuggestion.trim().toLowerCase();
-    const fromDefaults: SuggestionItem[] = DEFAULT_ACTIONS.map((action) => ({
+    const fromLibrary: SuggestionItem[] = COMMAND_LIBRARY_ITEMS.map((action) => ({
       id: action.id,
       prompt: action.prompt,
       agent: action.agent,
@@ -275,7 +289,7 @@ export function CopilotPanel() {
       label: `Recent: ${entry.prompt.slice(0, 40)}${entry.prompt.length > 40 ? "..." : ""}`,
     }));
 
-    const merged = [...fromFavorites, ...fromHistory, ...fromDefaults];
+    const merged = [...fromFavorites, ...fromHistory, ...fromLibrary];
     const seen = new Set<string>();
 
     return merged
@@ -291,6 +305,15 @@ export function CopilotPanel() {
       })
       .slice(0, 8);
   }, [history, normalizedFavoritePrompts, queryForSuggestion]);
+
+  const commandLibraryItems = useMemo(() => {
+    const searchTerm = queryForSuggestion.trim().toLowerCase();
+    return COMMAND_LIBRARY_ITEMS.filter((item) => {
+      if (!searchTerm) return true;
+      const haystack = `${item.label} ${item.description} ${item.prompt}`.toLowerCase();
+      return haystack.includes(searchTerm);
+    }).slice(0, 12);
+  }, [queryForSuggestion]);
 
   const applyCommand = (nextPrompt: string, actionId?: string) => {
     setPrompt(nextPrompt);
@@ -309,6 +332,12 @@ export function CopilotPanel() {
 
     const query = runnablePrompt;
     if (!query) return;
+
+    const apiBaseUrl = getBackendBaseUrl();
+    if (!apiBaseUrl) {
+      setError(BACKEND_URL_ERROR_MESSAGE);
+      return;
+    }
 
     setIsPromptFocused(false);
     setQueryForSuggestion("");
@@ -334,7 +363,7 @@ export function CopilotPanel() {
     try {
       await streamAgentRun({
         apiBaseUrl:
-          process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000",
+          apiBaseUrl,
         agentName: selectedAction.agent,
         query,
         projectId,
@@ -459,14 +488,24 @@ export function CopilotPanel() {
               <p className="text-xs text-muted-foreground">Page-aware sidekick</p>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleCopilot}
-            aria-label="Close Copilot"
-          >
-            <X className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8"
+              onClick={() => setShowCommandLibrary((next) => !next)}
+            >
+              {showCommandLibrary ? "Hide Commands" : "Show Commands"}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleCopilot}
+              aria-label="Close Copilot"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
         <div className="flex-1 space-y-4 overflow-y-auto p-4">
@@ -507,9 +546,45 @@ export function CopilotPanel() {
               <div className="min-h-[120px] whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">
                 {output || "Run a command to see streaming output."}
               </div>
-              {error && <p className="text-xs text-destructive">{error}</p>}
+                {error && <p className="text-xs text-destructive">{error}</p>}
             </CardContent>
           </Card>
+
+          {showCommandLibrary ? (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Command Library</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-xs">
+                {commandLibraryItems.length === 0 ? (
+                  <p className="text-muted-foreground">
+                    No command matches “{queryForSuggestion.trim()}”.
+                  </p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {commandLibraryItems.map((entry) => {
+                      const Icon = entry.icon || Search;
+                      return (
+                        <button
+                          type="button"
+                          key={`lib-${entry.id}`}
+                          className="flex w-full items-center justify-between rounded border border-transparent px-2 py-1.5 text-left text-muted-foreground hover:bg-muted hover:text-foreground"
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() => applyCommand(entry.prompt, entry.id)}
+                        >
+                          <span className="truncate pr-2">{entry.label}</span>
+                          <span className="inline-flex min-w-0 items-center gap-2 text-[11px]">
+                            <Icon className="h-3 w-3 shrink-0" />
+                            {entry.agent}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ) : null}
 
           <Card>
             <CardHeader className="pb-2">

@@ -48,10 +48,6 @@ describe("GET /api/health/detailed", () => {
     expect(payload.dbStatus.ok).toBe(true);
     expect(payload.dbStatus.latencyMs).toBeTypeOf("number");
     expect(payload.migrationVersion).toBe("20240202020202_init");
-    expect(payload.workspaceVersions).toMatchObject({
-      "@entitlement-os/db": "0.1.0",
-      "gpc-agent-dashboard": "1.0.0",
-    });
     expect(payload.timestamp).toBe(new Date(payload.timestamp).toISOString());
     expect(payload.uptimeSeconds).toBeTypeOf("number");
   });

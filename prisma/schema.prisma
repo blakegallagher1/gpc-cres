@@ -1,0 +1,85 @@
+/**
+ * Prisma schema for Data Agent 2.0 memory, retrieval, and reinforcement models.
+ * This schema is intentionally lean and scoped to episodic memory + knowledge graph
+ * primitives while preserving extensibility for additional domain tables.
+ */
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_DATABASE_URL")
+}
+
+model Episode {
+  id            String   @id @default(uuid()) @db.Uuid
+  runId         String   @map("run_id") @unique(map: "Episode_run_id_key")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  agentIntent   String   @map("agent_intent") @db.Text
+  evidenceHash  String   @map("evidence_hash") @db.Text
+  retrievalMeta Json     @map("retrieval_meta") @db.JsonB
+  modelOutputs  Json     @map("model_outputs") @db.JsonB
+  confidence    Float?
+  outcomeSignal String?  @map("outcome_signal") @db.Text
+  nextStateHash String?  @map("next_state_hash") @db.Text
+  summary       String?  @db.Text
+
+  @@map("Episode")
+  @@index([agentIntent], map: "idx_episode_agent_intent")
+  @@index([runId], map: "idx_episode_run_id")
+}
+
+model KGEvent {
+  id         String   @id @default(uuid()) @db.Uuid
+  subjectId  String   @map("subject_id") @db.Text
+  predicate  String   @db.Text
+  objectId   String   @map("object_id") @db.Text
+  timestamp  DateTime @default(now()) @db.Timestamptz(6)
+  confidence Float
+  sourceHash String   @map("source_hash") @db.Text
+
+  @@map("KGEvent")
+  @@index([subjectId], map: "idx_kgevent_subject_id")
+  @@index([objectId], map: "idx_kgevent_object_id")
+}
+
+model TemporalEdge {
+  id        String @id @default(uuid()) @db.Uuid
+  fromEvent String @map("from_event") @db.Uuid
+  toEvent   String @map("to_event") @db.Uuid
+  relation  String @db.Text
+
+  @@map("TemporalEdge")
+  @@index([fromEvent], map: "idx_temporal_from")
+  @@index([toEvent], map: "idx_temporal_to")
+}
+
+model RewardSignal {
+  id        String   @id @default(uuid()) @db.Uuid
+  episodeId String   @map("episode_id") @db.Uuid
+  userScore Int      @map("user_score")
+  autoScore Float    @map("auto_score")
+  timestamp DateTime @default(now()) @map("timestamp") @db.Timestamptz(6)
+
+  @@map("RewardSignal")
+  @@index([episodeId], map: "idx_reward_episode")
+}
+
+model KnowledgeEmbedding {
+  id             String                   @id @default(uuid()) @db.Uuid
+  contentType    String                   @map("content_type") @db.Text
+  sourceId       String                   @map("source_id") @db.Text
+  contentText    String                   @map("content_text") @db.Text
+  embedding      Unsupported("vector(1536)")?
+  vectorEmbedding Unsupported("vector(1536)")? @map("vector_embedding")
+  metadata       Json                     @default("{}") @db.JsonB
+  createdAt      DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("KnowledgeEmbedding")
+  @@index([contentType], map: "idx_knowledge_content_type")
+  @@index([sourceId], map: "idx_knowledge_source_id")
+}

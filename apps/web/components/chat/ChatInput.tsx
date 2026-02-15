@@ -1,6 +1,13 @@
 'use client';
 
-import { useRef, useCallback, type KeyboardEvent, type ChangeEvent } from 'react';
+import {
+  useRef,
+  useState,
+  useCallback,
+  type KeyboardEvent,
+  type ChangeEvent,
+  type FormEvent,
+} from 'react';
 import { ArrowUp, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -13,6 +20,8 @@ interface ChatInputProps {
 
 export function ChatInput({ onSend, isStreaming, onStop }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [draft, setDraft] = useState('');
+  const isComposing = useRef(false);
 
   const resize = useCallback(() => {
     const el = textareaRef.current;
@@ -24,39 +33,60 @@ export function ChatInput({ onSend, isStreaming, onStop }: ChatInputProps) {
 
   const handleChange = useCallback(
     (e: ChangeEvent<HTMLTextAreaElement>) => {
-      void e; // value read from ref on submit
+      setDraft(e.target.value);
       resize();
     },
     [resize]
   );
 
   const submit = useCallback(() => {
+    if (isStreaming) return;
+
     const el = textareaRef.current;
     if (!el) return;
-    const value = el.value.trim();
-    if (!value || isStreaming) return;
+    const value = draft.trim();
+    if (!value) return;
+
     onSend(value);
-    el.value = '';
-    resize();
+    setDraft('');
+
+    el.style.height = 'auto';
     el.focus();
-  }, [onSend, isStreaming, resize]);
+  }, [onSend, isStreaming, resize, draft]);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
+      if (
+        (e.key === 'Enter' || e.code === 'Enter') &&
+        !e.shiftKey &&
+        !isComposing.current
+      ) {
         e.preventDefault();
+        e.stopPropagation();
         submit();
       }
     },
     [submit]
   );
 
+  const handleFormSubmit = useCallback(
+    (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      submit();
+    },
+    [submit]
+  );
+
   return (
-    <div className="border-t bg-background px-4 py-3">
+    <form
+      className="border-t bg-background px-4 py-3"
+      onSubmit={handleFormSubmit}
+    >
       <div className="mx-auto flex max-w-3xl items-end gap-2">
         <div className="relative flex-1">
           <textarea
             ref={textareaRef}
+            value={draft}
             rows={1}
             placeholder="Ask about parcels, deals, zoning..."
             className={cn(
@@ -67,6 +97,12 @@ export function ChatInput({ onSend, isStreaming, onStop }: ChatInputProps) {
             )}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
+            onCompositionStart={() => {
+              isComposing.current = true;
+            }}
+            onCompositionEnd={() => {
+              isComposing.current = false;
+            }}
             disabled={isStreaming}
           />
         </div>
@@ -84,7 +120,7 @@ export function ChatInput({ onSend, isStreaming, onStop }: ChatInputProps) {
           <Button
             size="icon"
             className="h-10 w-10 shrink-0 rounded-xl"
-            onClick={submit}
+            type="submit"
           >
             <ArrowUp className="h-4 w-4" />
           </Button>
@@ -94,6 +130,6 @@ export function ChatInput({ onSend, isStreaming, onStop }: ChatInputProps) {
       <p className="mx-auto mt-1.5 max-w-3xl text-center text-[10px] text-muted-foreground/50">
         AI agents may make mistakes. Always verify critical data.
       </p>
-    </div>
+    </form>
   );
 }

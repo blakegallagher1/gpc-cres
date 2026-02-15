@@ -1,7 +1,4 @@
 import crypto from "crypto";
-import type { Dirent } from "node:fs";
-import { readdir, readFile, stat } from "node:fs/promises";
-import path from "node:path";
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { prisma } from "@entitlement-os/db";
@@ -10,8 +7,6 @@ type DbStatus = {
   ok: boolean;
   latencyMs?: number;
 };
-
-const WORKSPACE_DIRS = ["packages", "apps"] as const;
 
 function getBearerToken(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
@@ -73,71 +68,6 @@ async function isAuthorized(request: NextRequest) {
   return Boolean(session);
 }
 
-async function hasWorkspaceDirs(root: string): Promise<boolean> {
-  try {
-    const [appsStat, packagesStat] = await Promise.all([
-      stat(path.join(root, "apps")),
-      stat(path.join(root, "packages")),
-    ]);
-    return appsStat.isDirectory() && packagesStat.isDirectory();
-  } catch {
-    return false;
-  }
-}
-
-async function resolveRepoRoot(): Promise<string> {
-  const cwd = process.cwd();
-  const candidates = [
-    cwd,
-    path.resolve(cwd, ".."),
-    path.resolve(cwd, "..", ".."),
-  ];
-
-  for (const candidate of candidates) {
-    if (await hasWorkspaceDirs(candidate)) {
-      return candidate;
-    }
-  }
-
-  return cwd;
-}
-
-async function readWorkspaceVersions(): Promise<Record<string, string>> {
-  const repoRoot = await resolveRepoRoot();
-  const versions: Record<string, string> = {};
-
-  for (const workspaceDir of WORKSPACE_DIRS) {
-    const rootDir = path.join(repoRoot, workspaceDir);
-    let entries: Dirent[] = [];
-
-    try {
-      entries = await readdir(rootDir, { withFileTypes: true });
-    } catch {
-      continue;
-    }
-
-    for (const entry of entries) {
-      if (!entry.isDirectory()) {
-        continue;
-      }
-
-      const packageJsonPath = path.join(rootDir, entry.name, "package.json");
-
-      try {
-        const raw = await readFile(packageJsonPath, "utf8");
-        const parsed = JSON.parse(raw) as { name?: string; version?: string };
-        if (parsed.name && parsed.version) {
-          versions[parsed.name] = parsed.version;
-        }
-      } catch {
-        continue;
-      }
-    }
-  }
-
-  return versions;
-}
-
 async function getDbStatus(): Promise<DbStatus> {
   const start = Date.now();
 
@@ -172,17 +102,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const [dbStatus, workspaceVersions] = await Promise.all([
-    getDbStatus(),
-    readWorkspaceVersions(),
-  ]);
+  const dbStatus = await getDbStatus();
   const migrationVersion = dbStatus.ok ? await getMigrationVersion() : null;
 
   return NextResponse.json(
     {
       dbStatus,
       migrationVersion,
-      workspaceVersions,
       timestamp: new Date().toISOString(),
       uptimeSeconds: Math.floor(process.uptime()),
     },

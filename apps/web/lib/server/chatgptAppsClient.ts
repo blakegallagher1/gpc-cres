@@ -73,6 +73,7 @@ async function callRpc<T = unknown>(
     return {
       ok: false,
       error: "Integration not configured",
+      status: 503,
       requestId: rid,
       durationMs: Date.now() - start,
     };

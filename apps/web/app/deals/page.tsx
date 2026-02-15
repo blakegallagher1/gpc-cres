@@ -1,9 +1,16 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Search, LayoutGrid, List } from "lucide-react";
+import {
+  Plus,
+  Search,
+  LayoutGrid,
+  List,
+  Download,
+  Loader2,
+} from "lucide-react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -44,6 +52,23 @@ const DEAL_STATUSES = [
   "KILLED",
 ];
 
+const DEAL_STATUS_LABEL: Record<string, string> = {
+  INTAKE: "Intake",
+  TRIAGE_DONE: "Triage Done",
+  PREAPP: "Pre-App",
+  CONCEPT: "Concept",
+  NEIGHBORS: "Neighbors",
+  SUBMITTED: "Submitted",
+  HEARING: "Hearing",
+  APPROVED: "Approved",
+  EXIT_MARKETED: "Exit Marketing",
+  EXITED: "Exited",
+  KILLED: "Killed",
+};
+
+const RECENT_SEARCH_KEY = "deals-page-recent-searches";
+const MAX_RECENT_SEARCHES = 8;
+
 const SKU_OPTIONS = [
   { value: "SMALL_BAY_FLEX", label: "Small Bay Flex" },
   { value: "OUTDOOR_STORAGE", label: "Outdoor Storage" },
@@ -57,11 +82,60 @@ export default function DealsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [skuFilter, setSkuFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const [isExporting, setIsExporting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkStatus, setBulkStatus] = useState("INTAKE");
+  const [bulkAction, setBulkAction] = useState<"delete" | "status" | null>(null);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const router = useRouter();
 
-  const openDeal = (dealId: string) => {
-    router.push(`/deals/${dealId}`);
-  };
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    try {
+      const stored = window.localStorage.getItem(RECENT_SEARCH_KEY);
+      if (!stored) return;
+      const parsed = JSON.parse(stored) as unknown;
+      if (Array.isArray(parsed)) {
+        const normalized = Array.from(
+          new Set(
+            parsed
+              .filter((value): value is string => typeof value === "string")
+              .map((value) => value.trim())
+              .filter(Boolean)
+          )
+        ).slice(0, MAX_RECENT_SEARCHES);
+        setRecentSearches(normalized);
+      }
+    } catch {
+      // ignore localStorage parse issues
+    }
+  }, []);
+
+  const persistRecentSearch = useCallback((term: string) => {
+    const normalizedTerm = term.trim();
+    if (!normalizedTerm) return;
+
+    setRecentSearches((previous) => {
+      const next = [
+        normalizedTerm,
+        ...previous.filter((value) => value.toLowerCase() !== normalizedTerm.toLowerCase()),
+      ].slice(0, MAX_RECENT_SEARCHES);
+
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(RECENT_SEARCH_KEY, JSON.stringify(next));
+      }
+
+      return next;
+    });
+  }, []);
+
+  const clearRecentSearches = useCallback(() => {
+    setRecentSearches([]);
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(RECENT_SEARCH_KEY);
+    }
+  }, []);
 
   const loadDeals = useCallback(async () => {
     setLoading(true);
@@ -75,13 +149,180 @@ export default function DealsPage() {
       if (!res.ok) throw new Error("Failed to load deals");
       const data = await res.json();
       setDeals(data.deals ?? []);
+
+      if (search.trim()) {
+        persistRecentSearch(search.trim());
+      }
     } catch (error) {
       console.error("Failed to load deals:", error);
       toast.error("Failed to load deals");
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, skuFilter, search]);
+  }, [statusFilter, skuFilter, search, persistRecentSearch]);
+
+  const handleExportDeals = useCallback(() => {
+    if (isExporting || deals.length === 0) return;
+
+    setIsExporting(true);
+
+    try {
+      const escapeCsvCell = (value: string) =>
+        `"${value.replace(/"/g, '""').replace(/\r?\n/g, " ")}"`;
+
+      const headers = [
+        "id",
+        "name",
+        "sku",
+        "status",
+        "jurisdiction",
+        "triageTier",
+        "createdAt",
+      ];
+
+      const rows = deals.map((deal) => [
+        deal.id,
+        deal.name,
+        deal.sku,
+        deal.status,
+        deal.jurisdiction?.name ?? "",
+        deal.triageTier ?? "",
+        deal.createdAt,
+      ]);
+
+      const csv = [
+        headers.map(escapeCsvCell).join(","),
+        ...rows.map((row) => row.map((cell) => escapeCsvCell(String(cell))).join(",")),
+      ].join("\n");
+
+      const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", `deals-export-${new Date().toISOString().slice(0, 10)}.csv`);
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.success(`Exported ${rows.length} deals.`);
+    } catch {
+      toast.error("Failed to export deals.");
+    } finally {
+      setIsExporting(false);
+    }
+  }, [deals, isExporting]);
+
+  const handleBulkDelete = useCallback(async () => {
+    if (selectedIds.size === 0) return;
+    setBulkAction("delete");
+
+    const ids = [...selectedIds];
+
+    try {
+      const res = await fetch("/api/deals", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete", ids }),
+      });
+      const payload = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(
+          payload && typeof payload === "object" && "error" in payload
+            ? String(payload.error)
+            : "Failed to delete selected deals"
+        );
+      }
+
+      toast.success(`Deleted ${payload?.updated ?? ids.length} deals.`);
+      setSelectedIds(new Set());
+      await loadDeals();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to delete selected deals");
+    } finally {
+      setBulkAction(null);
+    }
+  }, [loadDeals, selectedIds]);
+
+  const handleBulkUpdateStatus = useCallback(async () => {
+    if (selectedIds.size === 0) return;
+    setBulkAction("status");
+
+    const ids = [...selectedIds];
+
+    try {
+      const res = await fetch("/api/deals", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "update-status", status: bulkStatus, ids }),
+      });
+      const payload = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(
+          payload && typeof payload === "object" && "error" in payload
+            ? String(payload.error)
+            : "Failed to update selected deals"
+        );
+      }
+
+      toast.success(`Updated ${payload?.updated ?? ids.length} deals to ${DEAL_STATUS_LABEL[bulkStatus] ?? bulkStatus}`);
+      setSelectedIds(new Set());
+      await loadDeals();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update selected deals");
+    } finally {
+      setBulkAction(null);
+    }
+  }, [bulkStatus, loadDeals, selectedIds]);
+
+  const toggleSelectAll = useCallback(() => {
+    if (selectedIds.size === deals.length) {
+      setSelectedIds(new Set());
+      return;
+    }
+    setSelectedIds(new Set(deals.map((deal) => deal.id)));
+  }, [deals, selectedIds.size]);
+
+  const toggleSelectOne = useCallback((id: string, checked: boolean) => {
+    setSelectedIds((previous) => {
+      const next = new Set(previous);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (view === "grid") {
+      setSelectedIds(new Set());
+    }
+  }, [view]);
+
+  useEffect(() => {
+    setSelectedIds((previous) => {
+      const activeIds = new Set(deals.map((deal) => deal.id));
+      const next = new Set([...previous].filter((id) => activeIds.has(id)));
+      if (next.size === previous.size) return previous;
+      return next;
+    });
+  }, [deals]);
+
+  const searchPreview = useMemo(
+    () =>
+      deals
+        .filter((deal) => {
+          if (!search.trim()) return false;
+          const term = search.toLowerCase();
+          return (
+            deal.name.toLowerCase().includes(term) ||
+            deal.jurisdiction?.name.toLowerCase().includes(term) ||
+            deal.status.toLowerCase().includes(term)
+          );
+        })
+        .slice(0, 4),
+    [deals, search]
+  );
 
   useEffect(() => {
     loadDeals();
@@ -136,35 +377,146 @@ export default function DealsPage() {
             </SelectContent>
           </Select>
 
-          <div className="relative flex-1 min-w-[200px]">
+          <div className="relative flex-1 min-w-[220px]">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search deals..."
+              placeholder="Search deals"
               className="pl-9"
             />
           </div>
 
-          <div className="flex rounded-md border">
-            <Button
-              variant={view === "table" ? "secondary" : "ghost"}
-              size="icon"
-              className="rounded-r-none"
-              onClick={() => setView("table")}
-            >
-              <List className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={view === "grid" ? "secondary" : "ghost"}
-              size="icon"
-              className="rounded-l-none"
-              onClick={() => setView("grid")}
-            >
-              <LayoutGrid className="h-4 w-4" />
-            </Button>
+          <div className="flex w-full items-center gap-2 lg:w-auto lg:justify-end">
+            {search.trim() === "" && recentSearches.length > 0 && (
+              <div className="mr-auto flex w-full flex-wrap items-center gap-2">
+                <span className="text-xs text-muted-foreground">Recent</span>
+                {recentSearches.map((term) => (
+                  <Button
+                    key={term}
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => setSearch(term)}
+                  >
+                    {term}
+                  </Button>
+                ))}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  onClick={clearRecentSearches}
+                >
+                  Clear
+                </Button>
+              </div>
+            )}
+
+            <div className="flex rounded-md border">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="rounded-r-none"
+                onClick={handleExportDeals}
+                disabled={isExporting || deals.length === 0}
+                aria-label="Export deals to CSV"
+              >
+                <Download className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={view === "table" ? "secondary" : "ghost"}
+                size="icon"
+                className="rounded-none"
+                onClick={() => setView("table")}
+                aria-label="Table view"
+              >
+                <List className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={view === "grid" ? "secondary" : "ghost"}
+                size="icon"
+                className="rounded-l-none"
+                onClick={() => setView("grid")}
+                aria-label="Grid view"
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
+
+        {search.trim() && searchPreview.length > 0 && (
+          <Card>
+            <CardContent className="space-y-2 pt-3">
+              <p className="text-sm font-medium">Search preview</p>
+              <div className="space-y-2">
+                {searchPreview.map((deal) => (
+                  <div
+                    key={deal.id}
+                    className="flex items-center justify-between gap-2 rounded border border-dashed px-2 py-1 text-xs text-muted-foreground"
+                  >
+                    <span className="truncate">{deal.name}</span>
+                    <span>{deal.sku}</span>
+                    <span>{deal.jurisdiction?.name ?? "Unknown"}</span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Bulk actions */}
+        {selectedIds.size > 0 && view === "table" && (
+          <Card>
+            <CardContent className="flex flex-wrap items-center gap-2 py-3">
+              <span className="text-sm text-muted-foreground">
+                {selectedIds.size} selected
+              </span>
+              <Select value={bulkStatus} onValueChange={setBulkStatus}>
+                <SelectTrigger className="w-[190px]">
+                  <SelectValue placeholder="Bulk status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {DEAL_STATUSES.map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {DEAL_STATUS_LABEL[status] ?? status.replace(/_/g, " ")}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleBulkUpdateStatus}
+                disabled={bulkAction === "status"}
+              >
+                {bulkAction === "status" ? (
+                  <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                ) : null}
+                Update status
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleBulkDelete}
+                disabled={bulkAction === "delete"}
+              >
+                {bulkAction === "delete" ? (
+                  <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                ) : null}
+                Delete selected
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedIds(new Set())}
+              >
+                Clear
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Content */}
         {loading ? (
@@ -198,6 +550,19 @@ export default function DealsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={
+                        deals.length > 0 && selectedIds.size === deals.length
+                          ? true
+                          : selectedIds.size > 0
+                            ? "indeterminate"
+                            : false
+                      }
+                      onCheckedChange={toggleSelectAll}
+                      aria-label="Select all deals"
+                    />
+                  </TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>SKU</TableHead>
                   <TableHead>Status</TableHead>
@@ -213,14 +578,24 @@ export default function DealsPage() {
                     className="cursor-pointer"
                     role="button"
                     tabIndex={0}
-                    onClick={() => openDeal(deal.id)}
+                    onClick={() => router.push(`/deals/${deal.id}`)}
                     onKeyDown={(event) => {
                       if (event.key === "Enter" || event.key === " ") {
                         event.preventDefault();
-                        openDeal(deal.id);
+                        router.push(`/deals/${deal.id}`);
                       }
                     }}
                   >
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedIds.has(deal.id)}
+                        onCheckedChange={(checked) =>
+                          toggleSelectOne(deal.id, checked === true || checked === "indeterminate")
+                        }
+                        onClick={(event) => event.stopPropagation()}
+                        aria-label={`Select ${deal.name}`}
+                      />
+                    </TableCell>
                     <TableCell>
                       <Link
                         href={`/deals/${deal.id}`}

@@ -31,6 +31,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Workflow as WorkflowType } from "@/types";
 import { useWorkflows } from "@/lib/hooks/useWorkflows";
+import { GuidedOnboardingPanel } from "@/components/onboarding/GuidedOnboardingPanel";
 
 // Workflow templates
 const workflowTemplates = [
@@ -60,6 +61,7 @@ export default function WorkflowsPage() {
   const [newWorkflowDescription, setNewWorkflowDescription] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [workflowToDelete, setWorkflowToDelete] = useState<WorkflowType | null>(null);
+  const [creatingWorkflowId, setCreatingWorkflowId] = useState<string | null>(null);
 
   const filteredWorkflows = workflows.filter(
     (wf) =>
@@ -118,6 +120,35 @@ export default function WorkflowsPage() {
       toast.success("Workflow deleted");
     } catch {
       toast.error("Failed to delete workflow");
+    }
+  };
+
+  const seedSampleWorkflow = async (template: (typeof workflowTemplates)[number]) => {
+    const workflowSeedId = `seed-${template.id}`;
+    setCreatingWorkflowId(workflowSeedId);
+    try {
+      const response = await fetch("/api/workflows", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: `${template.name} (sample)`,
+          description: template.description,
+          nodes: [],
+          edges: [],
+          config: {},
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to create workflow");
+      }
+
+      await mutateWorkflows();
+      toast.success(`Created "${template.name}" sample workflow`);
+    } catch {
+      toast.error("Failed to create sample workflow");
+    } finally {
+      setCreatingWorkflowId(null);
     }
   };
 
@@ -293,7 +324,54 @@ export default function WorkflowsPage() {
           ))}
         </div>
 
-        {filteredWorkflows.length === 0 && (
+        {workflows.length === 0 ? (
+          <GuidedOnboardingPanel
+            icon={<Workflow className="h-4 w-4" />}
+            title="No workflows configured"
+            description="Start with one workflow to automate repetitive steps across deals."
+            steps={[
+              {
+                title: "Create your first workflow",
+                description:
+                  "Use the builder to design the sequence you run today for every eligible deal.",
+              },
+              {
+                title: "Run against one deal first",
+                description:
+                  "Validate routing, approvals, and output quality before broader rollout.",
+              },
+              {
+                title: "Assign owners and monitor runs",
+                description:
+                  "Keep a clean audit trail for each step and handoff in the workflow path.",
+              },
+            ]}
+            primaryActions={[
+              {
+                label: "Create workflow",
+                icon: <Plus className="h-3.5 w-3.5" />,
+                onClick: () => setCreateDialogOpen(true),
+              },
+            ]}
+            sampleActions={workflowTemplates.map((template) => ({
+              name: template.name,
+              description: template.description,
+              actionLabel:
+                creatingWorkflowId === `seed-${template.id}`
+                  ? "Creating..."
+                  : "Load sample",
+              action: {
+                label:
+                  creatingWorkflowId === `seed-${template.id}`
+                    ? "Creating..."
+                    : "Load sample",
+                icon: <Workflow className="h-3.5 w-3.5" />,
+                disabled: creatingWorkflowId === `seed-${template.id}`,
+                onClick: () => seedSampleWorkflow(template),
+              },
+            }))}
+          />
+        ) : filteredWorkflows.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <Workflow className="h-12 w-12 text-muted-foreground" />
             <h3 className="mt-4 text-lg font-semibold">No workflows found</h3>
@@ -305,7 +383,7 @@ export default function WorkflowsPage() {
               Create Workflow
             </Button>
           </div>
-        )}
+        ) : null}
 
         {/* Delete Dialog */}
         <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

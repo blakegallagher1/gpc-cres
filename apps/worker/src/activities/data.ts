@@ -4,6 +4,7 @@ import {
   computeTaskDueAt,
   type ThroughputRouting,
 } from "@entitlement-os/shared";
+import { hashJsonSha256 } from "@entitlement-os/shared/crypto";
 import type { RunRecordCreateInput, SkuType } from "@entitlement-os/shared";
 
 /**
@@ -158,6 +159,38 @@ export async function validateAndStorePack(params: {
   });
 
   return { id: packVersion.id, version: nextVersion };
+}
+
+/**
+ * Compute a stable SHA-256 hash for parish-pack input.
+ *
+ * This is performed in activities (not workflow code) to keep workflow
+ * bundling free from Node crypto dependencies and deterministic from worker.
+ */
+export async function hashPackInput(params: {
+  jurisdictionId: string;
+  sku: SkuType;
+  officialOnly: boolean;
+  sourceEvidenceIds: string[];
+  sourceSnapshotIds: string[];
+  sourceContentHashes: string[];
+  sourceUrls: string[];
+  sourceSummary: string[];
+}): Promise<string> {
+  return hashJsonSha256({
+    jurisdictionId: params.jurisdictionId,
+    sku: params.sku,
+    officialOnly: params.officialOnly,
+    sourceEvidenceIds: dedupeAndSort(params.sourceEvidenceIds),
+    sourceSnapshotIds: dedupeAndSort(params.sourceSnapshotIds),
+    sourceContentHashes: dedupeAndSort(params.sourceContentHashes),
+    sourceUrls: dedupeAndSort(params.sourceUrls),
+    sourceSummary: dedupeAndSort(params.sourceSummary),
+  });
+}
+
+function dedupeAndSort(values: string[]): string[] {
+  return [...new Set(values)].sort();
 }
 
 /**

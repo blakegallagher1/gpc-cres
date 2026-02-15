@@ -1,6 +1,20 @@
 import { Worker, NativeConnection } from "@temporalio/worker";
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 import * as activities from "./activities/index.js";
+
+const resolveWorkflowsPath = () => {
+  const tsPath = fileURLToPath(new URL("./workflows/index.ts", import.meta.url));
+  const jsPath = fileURLToPath(new URL("./workflows/index.js", import.meta.url));
+
+  if (existsSync(jsPath)) return jsPath;
+  if (existsSync(tsPath)) return tsPath;
+
+  throw new Error(
+    `Unable to resolve workflow entrypoint. Checked: ${jsPath}, ${tsPath}`,
+  );
+};
 
 async function run() {
   const connection = await NativeConnection.connect({
@@ -11,7 +25,7 @@ async function run() {
     connection,
     namespace: process.env.TEMPORAL_NAMESPACE || "default",
     taskQueue: "entitlement-os",
-    workflowsPath: new URL("./workflows/index.js", import.meta.url).pathname,
+    workflowsPath: resolveWorkflowsPath(),
     activities,
   });
 
@@ -20,6 +34,16 @@ async function run() {
 }
 
 run().catch((err) => {
+  const isCritical =
+    process.env.TEMPORAL_REQUIRED === "true" ||
+    process.env.NODE_ENV === "production" ||
+    process.env.CI === "true";
+
   console.error("Worker failed:", err);
-  process.exit(1);
+  if (isCritical) {
+    process.exit(1);
+  }
+
+  console.error("Temporal unavailable; worker is running in degraded startup mode.");
+  return new Promise<never>(() => {});
 });

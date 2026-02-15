@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import useSWR from "swr";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import {
@@ -10,6 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -78,6 +79,123 @@ interface MarketTrend {
   transactionCount: number;
 }
 
+function MarketTrendCharts({ trends }: { trends: MarketTrend[] }) {
+  const ordered = useMemo(
+    () => trends.slice().sort((a, b) => a.period.localeCompare(b.period)),
+    [trends],
+  );
+
+  if (ordered.length === 0) {
+    return null;
+  }
+
+  const maxPrice = Math.max(
+    ...ordered.map((point) => point.avgPricePsf ?? 0),
+    1,
+  );
+  const maxCap = Math.max(
+    ...ordered.map((point) => point.avgCapRate ?? 0),
+    1,
+  );
+  const maxTx = Math.max(
+    ...ordered.map((point) => point.transactionCount),
+    1,
+  );
+
+  return (
+    <div className="grid gap-4 lg:grid-cols-3">
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm">Avg $/SF trend</CardTitle>
+          <CardDescription>12-month comp trend</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {ordered.map((point) => {
+            const width = point.avgPricePsf === null ? 0 : (point.avgPricePsf / maxPrice) * 100;
+
+            return (
+              <div key={`${point.period}-psf`} className="space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span>{point.period}</span>
+                  <span className="text-muted-foreground">
+                    {point.avgPricePsf != null
+                      ? `$${point.avgPricePsf.toFixed(2)}`
+                      : "—"}
+                  </span>
+                </div>
+                <div className="h-2 rounded-full bg-muted">
+                  <div
+                    className="h-2 rounded-full bg-primary transition-all"
+                    style={{ width: `${width}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm">Avg cap rate trend</CardTitle>
+          <CardDescription>12-month comp trend</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {ordered.map((point) => {
+            const width = point.avgCapRate === null ? 0 : (point.avgCapRate / maxCap) * 100;
+            return (
+              <div key={`${point.period}-cap`} className="space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span>{point.period}</span>
+                  <span className="text-muted-foreground">
+                    {point.avgCapRate != null
+                      ? `${point.avgCapRate.toFixed(2)}%`
+                      : "—"}
+                  </span>
+                </div>
+                <div className="h-2 rounded-full bg-muted">
+                  <div
+                    className="h-2 rounded-full bg-emerald-500 transition-all"
+                    style={{ width: `${width}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm">Transaction volume trend</CardTitle>
+          <CardDescription>Monthly comp transaction count</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {ordered.map((point) => {
+            const width = (point.transactionCount / maxTx) * 100;
+            return (
+              <div key={`${point.period}-txn`} className="space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span>{point.period}</span>
+                  <span className="text-muted-foreground">
+                    {point.transactionCount}
+                  </span>
+                </div>
+                <div className="h-2 rounded-full bg-muted">
+                  <div
+                    className="h-2 rounded-full bg-indigo-500 transition-all"
+                    style={{ width: `${width}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 function StatCard({
   label,
   value,
@@ -113,27 +231,59 @@ function StatCard({
 }
 
 function ParishDashboard({ parish }: { parish: string }) {
-  const { data: summary } = useSWR<ParishSummary>(
+  const { data: summary, isLoading: isSummaryLoading } = useSWR<ParishSummary>(
     `/api/market?view=summary&parish=${encodeURIComponent(parish)}`,
     fetcher,
     { refreshInterval: 60_000 }
   );
 
-  const { data: trendsData } = useSWR<{ trends: MarketTrend[] }>(
+  const { data: trendsData, isLoading: isTrendsLoading } = useSWR<{ trends: MarketTrend[] }>(
     `/api/market?view=trends&parish=${encodeURIComponent(parish)}&months=12`,
     fetcher,
     { refreshInterval: 300_000 }
   );
 
-  if (!summary) {
+  if (isSummaryLoading) {
     return (
-      <div className="flex items-center justify-center py-12 text-muted-foreground">
-        Loading {parish} market data...
+      <div className="space-y-6">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
+          <Skeleton className="h-20" />
+          <Skeleton className="h-20" />
+          <Skeleton className="h-20" />
+          <Skeleton className="h-20" />
+          <Skeleton className="h-20" />
+          <Skeleton className="h-20" />
+        </div>
+        <div className="grid gap-4 lg:grid-cols-3">
+          <Skeleton className="h-64" />
+          <Skeleton className="h-64" />
+          <Skeleton className="h-64" />
+        </div>
+        <Card>
+          <CardHeader className="pb-3">
+            <Skeleton className="h-5 w-52" />
+            <Skeleton className="mt-2 h-4 w-40" />
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <Skeleton className="h-12" />
+            <Skeleton className="h-12" />
+            <Skeleton className="h-12" />
+            <Skeleton className="h-12" />
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   const trends = trendsData?.trends ?? [];
+
+  if (!summary) {
+    return (
+      <p className="py-8 text-center text-sm text-muted-foreground">
+        Unable to load market summary for {parish}. Please retry.
+      </p>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -182,6 +332,17 @@ function ParishDashboard({ parish }: { parish: string }) {
           icon={Clock}
         />
       </div>
+
+      {/* Trends charts */}
+      {isTrendsLoading && trends.length === 0 ? (
+        <div className="grid gap-4 lg:grid-cols-3">
+          {[...Array(3)].map((_, index) => (
+            <Skeleton key={`trend-skeleton-${index}`} className="h-56" />
+          ))}
+        </div>
+      ) : (
+        trends.length > 0 ? <MarketTrendCharts trends={trends} /> : null
+      )}
 
       {/* Trends table */}
       {trends.length > 0 && (
@@ -350,11 +511,37 @@ function RecentFeed({
     ? `/api/market?view=recent&dataType=${dataType}&limit=50`
     : `/api/market?view=recent&limit=50`;
 
-  const { data } = useSWR<{ data: MarketDataRecord[] }>(url, fetcher, {
+  const { data, isLoading: isLoadingFeed } = useSWR<{ data: MarketDataRecord[] }>(
+    url,
+    fetcher,
+    {
     refreshInterval: 30_000,
-  });
+    }
+  );
 
   const records = data?.data ?? [];
+
+  if (isLoadingFeed) {
+    return (
+      <div className="space-y-2">
+        {[...Array(5)].map((_, index) => (
+          <div
+            key={`feed-skeleton-${index}`}
+            className="space-y-2 rounded-lg border p-3"
+          >
+            <div className="flex items-start gap-3">
+              <Skeleton className="h-8 w-8 shrink-0" />
+              <div className="min-w-0 flex-1 space-y-1">
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-3 w-1/2" />
+              </div>
+              <Skeleton className="h-4 w-20" />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   if (records.length === 0) {
     return (

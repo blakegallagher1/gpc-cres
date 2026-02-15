@@ -20,6 +20,9 @@ import {
   Globe,
   ShieldCheck,
   FileSearch,
+  Download,
+  PackageOpen,
+  FileText,
   AlertTriangle,
   ChevronDown,
   ChevronRight,
@@ -43,6 +46,7 @@ interface EvidenceSourceItem {
     runId?: string;
     httpStatus: number;
     contentType: string;
+    hasTextExtract?: boolean;
   } | null;
   freshness: {
     freshnessScore: number;
@@ -61,6 +65,7 @@ interface EvidenceSnapshotItem {
   runId?: string | null;
   httpStatus: number;
   contentType: string;
+  hasTextExtract: boolean;
 }
 
 export default function EvidencePage() {
@@ -144,6 +149,75 @@ export default function EvidencePage() {
       setLoading(false);
     }
   }, [search, officialOnly, initialSourceId]);
+
+  const parseFilenameFromDisposition = (value: string | null) => {
+    if (!value) return undefined;
+    const match = value.match(/filename=\"?([^\";]+)\"?/i);
+    return match?.[1];
+  };
+
+  const triggerDownloadFromBlob = useCallback((blob: Blob, filename: string) => {
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.href = url;
+    link.download = filename;
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, []);
+
+  const handleDownloadSnapshotFile = useCallback(
+    async (snapshotId: string, kind: "snapshot" | "text") => {
+      try {
+        const response = await fetch(
+          `/api/evidence/snapshots/${snapshotId}/download?kind=${kind}`,
+        );
+        if (!response.ok) {
+          const payload = await response.json();
+          throw new Error(payload.error || "Failed to generate download link");
+        }
+
+        const payload = await response.json();
+        if (!payload?.url) {
+          throw new Error("Download link was not returned");
+        }
+
+        window.open(payload.url, "_blank", "noopener,noreferrer");
+        toast.success("Download started.");
+      } catch (error) {
+        console.error("Failed to download evidence file:", error);
+        toast.error(error instanceof Error ? error.message : "Failed to download evidence file");
+      }
+    },
+    [],
+  );
+
+  const handleDownloadSourcePackage = useCallback(async (sourceId: string) => {
+    try {
+      const response = await fetch(
+        `/api/evidence/sources/${sourceId}/package?${new URLSearchParams({
+          snapshotLimit: "25",
+        }).toString()}`,
+      );
+      if (!response.ok) {
+        const payload = await response.json();
+        throw new Error(payload.error || "Failed to generate evidence package");
+      }
+
+      const blob = await response.blob();
+      const contentDisposition = response.headers.get("content-disposition");
+      const filename =
+        parseFilenameFromDisposition(contentDisposition) ??
+        `evidence-package-${sourceId}.json`;
+      triggerDownloadFromBlob(blob, filename);
+      toast.success("Evidence package downloaded.");
+    } catch (error) {
+      console.error("Failed to download evidence package:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to download evidence package");
+    }
+  }, [triggerDownloadFromBlob]);
 
 const formatHash = (value: string) => (value.length > 8 ? `${value.slice(0, 8)}...` : value);
 
@@ -263,6 +337,7 @@ const badgeVariantByDrift = (
                   <TableHead className="text-center">Snapshot History</TableHead>
                   <TableHead className="text-center">Freshness</TableHead>
                   <TableHead className="text-center">Drift</TableHead>
+                  <TableHead className="text-center">Downloads</TableHead>
                   <TableHead>Latest Snapshot</TableHead>
                   <TableHead>Producing Run</TableHead>
                   <TableHead>Alert</TableHead>

@@ -190,10 +190,15 @@ RPCs are `SECURITY DEFINER` — they run as the function owner, not the caller.
 
 ## Verification Checklist
 
-- [ ] `.env.local` has all 3 env vars (URL, ANON_KEY, EXT_JWT)
-- [ ] `chatgptAppsClient.ts` sends `apikey` = anon key and `Authorization: Bearer` = ext JWT
-- [ ] Smoke test passes all 10 test cases
-- [ ] API routes return clean JSON errors, never leak raw Supabase errors
-- [ ] No env var prefixed with `NEXT_PUBLIC_`
-- [ ] Rate limiting active on all API routes
-- [ ] Vercel env vars set for preview/production
+- [x] `.env.local` has all 3 env vars (URL, ANON_KEY, EXT_JWT)
+- [x] `chatgptAppsClient.ts` sends `apikey` = anon key and `Authorization: Bearer` = ext JWT
+- [x] API routes return normalized `{ ok, request_id, error }` payloads for failures
+- [x] Rate limits active on all route handlers
+- [x] Smoke test passes all 10 test cases
+- [x] No env var prefixed with `NEXT_PUBLIC_`
+- [x] Vercel env vars set for preview/production
+
+### Current verification status
+
+- R-001 hardening check date: 2026-02-15
+- Environment required: `CHATGPT_APPS_SUPABASE_URL`, `CHATGPT_APPS_SUPABASE_ANON_KEY`, `CHATGPT_APPS_SUPABASE_EXT_JWT`

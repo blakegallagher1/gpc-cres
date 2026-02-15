@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useCallback, useState } from "react";
 import {
   RefreshCw,
   ArrowUpRight,
@@ -11,11 +11,14 @@ import {
   LineChart,
   ShieldCheck,
   ListTodo,
+  Loader2,
+  Download,
 } from "lucide-react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -25,6 +28,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatDate, formatDuration, formatNumber } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import {
   type RunDashboardPayload,
   type RunDashboardRecentRun,
@@ -126,6 +131,183 @@ function ConfidenceTimeline({
             </div>
           </div>
         ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+interface RunPerformancePoint {
+  id: string;
+  label: string;
+  date: string;
+  durationMs: number;
+  status: string;
+  runType: string;
+}
+
+interface RunReliabilityPoint {
+  date: string;
+  total: number;
+  successCount: number;
+}
+
+function formatRunPerformanceLabel(dateInput: string) {
+  const date = new Date(dateInput);
+  return Number.isNaN(date.getTime())
+    ? "—"
+    : `${date.getMonth() + 1}/${date.getDate()}`;
+}
+
+function buildRunPerformanceTrend(runs: RunDashboardRecentRun[]) {
+  const points = runs
+    .filter((run) => run.durationMs !== null && run.startedAt != null)
+    .map((run) => ({
+      id: run.id,
+      label: formatRunPerformanceLabel(run.startedAt),
+      date: run.startedAt,
+      durationMs: run.durationMs ?? 0,
+      status: run.status,
+      runType: run.runType,
+    }))
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    .slice(-12);
+
+  return points;
+}
+
+function buildRunReliabilityTrend(runs: RunDashboardRecentRun[]) {
+  const now = new Date();
+  const buckets = new Map<string, { date: string; total: number; successCount: number }>();
+
+  for (let i = 6; i >= 0; i -= 1) {
+    const bucketDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+    const key = bucketDate.toLocaleDateString("en-CA");
+    buckets.set(key, {
+      date: bucketDate.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      }),
+      total: 0,
+      successCount: 0,
+    });
+  }
+
+  for (const run of runs) {
+    if (!run.startedAt) continue;
+    const started = new Date(run.startedAt);
+    if (Number.isNaN(started.getTime())) continue;
+    const key = new Date(started.getFullYear(), started.getMonth(), started.getDate()).toLocaleDateString("en-CA");
+    const bucket = buckets.get(key);
+    if (!bucket) continue;
+    bucket.total += 1;
+    if (run.status === "succeeded") {
+      bucket.successCount += 1;
+    }
+  }
+
+  return Array.from(buckets.values()).map((bucket) => ({
+    date: bucket.date,
+    total: bucket.total,
+    successCount: bucket.successCount,
+  }));
+}
+
+function RunPerformanceTimeline({
+  points,
+}: {
+  points: RunPerformancePoint[];
+}) {
+  if (points.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Run duration trend (recent runs)</CardTitle>
+        </CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          No completed runs with duration telemetry yet.
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const maxDuration = Math.max(...points.map((point) => point.durationMs), 1);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Run duration trend (recent runs)</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {points.map((point) => (
+          <div key={point.id} className="space-y-1">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-mono text-[11px] text-muted-foreground">
+                {point.label} · {point.runType}
+              </span>
+              <span className="text-muted-foreground">{formatDuration(point.durationMs)}</span>
+            </div>
+            <div className="h-2 rounded-full bg-muted">
+              <div
+                className={cn(
+                  "h-2 rounded-full transition-all",
+                  point.status === "succeeded"
+                    ? "bg-emerald-500"
+                    : point.status === "failed"
+                      ? "bg-red-500"
+                      : "bg-blue-500"
+                )}
+                style={{ width: `${(point.durationMs / maxDuration) * 100}%` }}
+              />
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+function RunReliabilityTrend({
+  points,
+}: {
+  points: RunReliabilityPoint[];
+}) {
+  if (points.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Run success trend (7 days)</CardTitle>
+        </CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          No run history available yet.
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Run success trend (7 days)</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {points.map((point) => {
+          const successRate =
+            point.total > 0 ? (point.successCount / point.total) * 100 : 0;
+          return (
+            <div key={`${point.date}-${point.successCount}`} className="space-y-1">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">{point.date}</span>
+                <span>{point.successCount}/{point.total}</span>
+              </div>
+              <div className="h-2 rounded-full bg-muted">
+                <div
+                  className="h-2 rounded-full bg-emerald-500 transition-all"
+                  style={{ width: `${successRate}%` }}
+                />
+              </div>
+            </div>
+          );
+        })}
       </CardContent>
     </Card>
   );
@@ -464,6 +646,131 @@ export default function RunDashboardPage() {
     runLimit: 500,
     refreshIntervalMs: 30000,
   });
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExportRunHistory = useCallback(() => {
+    if (isExporting || !dashboard) return;
+
+    setIsExporting(true);
+
+    try {
+      const escapeCsvCell = (value: string) =>
+        `"${value.replace(/"/g, '""').replace(/\r?\n/g, " ")}"`;
+
+      const runHeaders = [
+        "runId",
+        "runType",
+        "status",
+        "confidence",
+        "startedAt",
+        "finishedAt",
+        "durationMs",
+        "evidenceCount",
+        "missingEvidenceCount",
+        "proofChecksCount",
+        "retryAttempts",
+        "retryMode",
+        "fallbackTriggered",
+        "fallbackReason",
+        "toolFailureCount",
+        "correlationId",
+        "openaiResponseId",
+        "retryPolicyReason",
+        "retryPolicyAttempts",
+        "retryPolicyMaxAttempts",
+        "retryPolicyShouldRetry",
+        "lastAgentName",
+      ];
+
+      const runRows = dashboard.recentRuns.map((run) => [
+        run.id,
+        run.runType,
+        run.status,
+        run.confidence === null ? "" : String(run.confidence),
+        run.startedAt,
+        run.finishedAt ?? "",
+        run.durationMs === null ? "" : String(run.durationMs),
+        String(run.evidenceCount),
+        String(run.missingEvidenceCount),
+        String(run.proofChecksCount),
+        String(run.retryAttempts),
+        run.retryMode ?? "",
+        String(run.fallbackTriggered),
+        run.fallbackReason ?? "",
+        String(run.toolFailureCount),
+        run.correlationId ?? "",
+        run.openaiResponseId ?? "",
+        run.retryPolicyReason ?? "",
+        run.retryPolicyAttempts === null ? "" : String(run.retryPolicyAttempts),
+        run.retryPolicyMaxAttempts === null ? "" : String(run.retryPolicyMaxAttempts),
+        String(run.retryPolicyShouldRetry ?? ""),
+        run.lastAgentName ?? "",
+      ]);
+
+      const metricRows = [
+        ["metric", "value"],
+        ["generatedAt", dashboard.generatedAt],
+        ["totalRuns", String(dashboard.totals.totalRuns)],
+        ["succeededRuns", String(dashboard.totals.succeededRuns)],
+        ["failedRuns", String(dashboard.totals.failedRuns)],
+        ["runningRuns", String(dashboard.totals.runningRuns)],
+        ["canceledRuns", String(dashboard.totals.canceledRuns)],
+        ["averageConfidence", String(dashboard.totals.averageConfidence ?? "")],
+        ["evidenceCitations", String(dashboard.totals.evidenceCitations)],
+        ["evidenceSourcesCited", String(dashboard.totals.evidenceSourcesCited)],
+        ["evidenceSourcesWithAlerts", String(dashboard.totals.evidenceSourcesWithAlerts)],
+        ["runsWithRetry", String(dashboard.totals.runsWithRetry)],
+        ["runsWithRetryPolicy", String(dashboard.totals.runsWithRetryPolicy)],
+        ["runsWithFallback", String(dashboard.totals.runsWithFallback)],
+        ["runsWithMissingEvidence", String(dashboard.totals.runsWithMissingEvidence)],
+      ];
+
+      const confidenceRows = [
+        ["date", "runCount", "averageConfidence"],
+        ...dashboard.confidenceTimeline.map((point) => [
+          point.date,
+          String(point.runCount),
+          String(point.averageConfidence ?? ""),
+        ]),
+      ];
+
+      const csv = [
+        "# Run history",
+        runHeaders.map(escapeCsvCell).join(","),
+        ...runRows.map((row) => row.map((cell) => escapeCsvCell(cell)).join(",")),
+        "",
+        "# Run dashboard totals",
+        ...metricRows.map((row) => row.map((cell) => escapeCsvCell(cell)).join(",")),
+        "",
+        "# Confidence timeline",
+        ...confidenceRows.map((row) => row.map((cell) => escapeCsvCell(cell)).join(",")),
+      ].join("\n");
+
+      const blob = new Blob([`\uFEFF${csv}`], {
+        type: "text/csv;charset=utf-8;",
+      });
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute(
+        "download",
+        `run-dashboard-export-${new Date().toISOString().slice(0, 10)}.csv`
+      );
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.success(
+        `Exported run history (${dashboard.recentRuns.length} recent runs).`
+      );
+    } catch {
+      toast.error("Failed to export run history.");
+    } finally {
+      setIsExporting(false);
+    }
+  }, [dashboard, isExporting]);
 
   const totalsCards = useMemo(() => {
     const totals = dashboard?.totals;
@@ -562,12 +869,73 @@ export default function RunDashboardPage() {
     ];
   }, [dashboard?.sourceIngestionProfile, dashboard?.totals]);
 
+  const performanceTrend = useMemo(
+    () => (dashboard ? buildRunPerformanceTrend(dashboard.recentRuns) : []),
+    [dashboard]
+  );
+  const reliabilityTrend = useMemo(
+    () => (dashboard ? buildRunReliabilityTrend(dashboard.recentRuns) : []),
+    [dashboard]
+  );
+
   if (isLoading || !dashboard) {
     return (
       <DashboardShell>
         <div className="space-y-6">
-          <h1 className="text-2xl font-bold">Run Intelligence Dashboard</h1>
-          <p className="text-muted-foreground">Loading run intelligence metrics...</p>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span>
+              Loading run intelligence metrics (typically under 20 seconds on first render).
+            </span>
+          </div>
+          <div className="flex items-start justify-between">
+            <div className="space-y-2">
+              <Skeleton className="h-7 w-80" />
+              <Skeleton className="h-4 w-64" />
+            </div>
+            <Skeleton className="h-8 w-24" />
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {Array.from({ length: 12 }).map((_, index) => (
+              <Card key={`run-metric-skeleton-${index}`}>
+                <CardHeader className="pb-2">
+                  <Skeleton className="h-4 w-28" />
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <Skeleton className="h-8 w-20" />
+                  <Skeleton className="h-3 w-44" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card>
+              <CardHeader className="pb-3">
+                <Skeleton className="h-4 w-40" />
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <Skeleton className="h-12" />
+                <Skeleton className="h-12" />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-3">
+                <Skeleton className="h-4 w-40" />
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <Skeleton className="h-12" />
+                <Skeleton className="h-12" />
+              </CardContent>
+            </Card>
+          </div>
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-4 w-52" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-48" />
+            </CardContent>
+          </Card>
         </div>
       </DashboardShell>
     );
@@ -597,10 +965,22 @@ export default function RunDashboardPage() {
               Agent state, confidence, retries, and proof metrics across recent runs.
             </p>
           </div>
-          <Button variant="outline" size="sm" onClick={() => mutate()}>
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Refresh
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => mutate()}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Refresh
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportRunHistory}
+              disabled={isExporting}
+              aria-label="Export run history to CSV"
+            >
+              <Download className="mr-2 h-4 w-4" />
+              {isExporting ? "Exporting..." : "Export"}
+            </Button>
+          </div>
         </div>
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -616,29 +996,33 @@ export default function RunDashboardPage() {
           </div>
 
         <div className="grid gap-4 lg:grid-cols-2">
-          <DistributionList
-            title="Evidence freshness by state"
-            items={dashboard.evidenceProfile.freshnessStateDistribution}
-            total={dashboard.totals.evidenceSourcesCited || 1}
-            valueLabel="evidence source state"
-          />
-          <DistributionList
-            title="Evidence alert reasons"
-            items={dashboard.evidenceProfile.alertReasonDistribution}
-            total={dashboard.totals.evidenceSourcesWithAlerts || 1}
-            valueLabel="alert reason"
-          />
-        </div>
+            <DistributionList
+              title="Evidence freshness by state"
+              items={dashboard.evidenceProfile.freshnessStateDistribution}
+              total={dashboard.totals.evidenceSourcesCited || 1}
+              valueLabel="evidence source state"
+            />
+            <DistributionList
+              title="Evidence alert reasons"
+              items={dashboard.evidenceProfile.alertReasonDistribution}
+              total={dashboard.totals.evidenceSourcesWithAlerts || 1}
+              valueLabel="alert reason"
+            />
+          </div>
 
-        <div className="grid gap-4 lg:grid-cols-2">
-          <ConfidenceTimeline timeline={dashboard.confidenceTimeline} />
-          <DistributionList
-            title="Run types"
-            items={dashboard.runTypeDistribution}
-            total={dashboard.totals.totalRuns}
-            valueLabel="run type"
-          />
-        </div>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <ConfidenceTimeline timeline={dashboard.confidenceTimeline} />
+            <RunPerformanceTimeline points={performanceTrend} />
+          </div>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <RunReliabilityTrend points={reliabilityTrend} />
+            <DistributionList
+              title="Run types"
+              items={dashboard.runTypeDistribution}
+              total={dashboard.totals.totalRuns}
+              valueLabel="run type"
+            />
+          </div>
         <div className="grid gap-4 lg:grid-cols-2">
           <SourceIngestionOffendersSection
             offenders={dashboard.sourceIngestionProfile.topStaleOffenders}

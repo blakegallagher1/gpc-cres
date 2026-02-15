@@ -1,6 +1,6 @@
 import { prisma } from "@entitlement-os/db";
 import type { Prisma } from "@entitlement-os/db";
-import { NotFoundError } from "@/lib/errors";
+import { NotFoundError, ValidationError } from "@/lib/errors";
 
 const PROPERTY_DB_URL =
   process.env.LA_PROPERTY_DB_URL ?? "https://jueyosscalcljgdorrpy.supabase.co";
@@ -69,6 +69,34 @@ interface ParcelResult {
   acreage: number | null;
   lat: number | null;
   lng: number | null;
+}
+
+const MAX_BULK_IDS = 250;
+
+function dedupeIds(ids: string[]): string[] {
+  return [...new Set(ids.map((id) => id.trim()).filter(Boolean))];
+}
+
+interface BulkMatchUpdateResult {
+  requested: number;
+  updated: number;
+  skipped: number;
+  ids: string[];
+}
+
+interface BulkSavedSearchResult {
+  requested: number;
+  deleted: number;
+  skipped: number;
+  ids: string[];
+}
+
+interface BulkRunSearchResult {
+  requested: number;
+  executed: number;
+  skipped: number;
+  results: Array<{ savedSearchId: string; newMatches: number; totalMatches: number }>;
+  errors: Array<{ savedSearchId: string; message: string }>;
 }
 
 export class SavedSearchService {
@@ -237,6 +265,48 @@ export class SavedSearchService {
     return { opportunities, total };
   }
 
+  async markSeenBulk(matchIds: string[], orgId: string, userId: string): Promise<BulkMatchUpdateResult> {
+    const uniqueIds = dedupeIds(matchIds);
+
+    if (uniqueIds.length === 0) {
+      throw new ValidationError("At least one match ID is required");
+    }
+
+    if (uniqueIds.length > MAX_BULK_IDS) {
+      throw new ValidationError(`Too many matches. Limit is ${MAX_BULK_IDS}.`);
+    }
+
+    const matches = await prisma.opportunityMatch.findMany({
+      where: {
+        id: { in: uniqueIds },
+        savedSearch: { orgId, userId },
+      },
+      select: { id: true },
+    });
+
+    const matchedIds = matches.map((match) => match.id);
+    if (matchedIds.length === 0) {
+      return {
+        requested: uniqueIds.length,
+        updated: 0,
+        skipped: uniqueIds.length,
+        ids: [],
+      };
+    }
+
+    const result = await prisma.opportunityMatch.updateMany({
+      where: { id: { in: matchedIds } },
+      data: { seenAt: new Date() },
+    });
+
+    return {
+      requested: uniqueIds.length,
+      updated: result.count,
+      skipped: uniqueIds.length - matchedIds.length,
+      ids: matchedIds,
+    };
+  }
+
   async markSeen(matchId: string, orgId: string, userId: string) {
     const match = await prisma.opportunityMatch.findFirst({
       where: {
@@ -267,9 +337,144 @@ export class SavedSearchService {
     });
   }
 
+  async dismissMatchBulk(
+    matchIds: string[],
+    orgId: string,
+    userId: string
+  ): Promise<BulkMatchUpdateResult> {
+    const uniqueIds = dedupeIds(matchIds);
+
+    if (uniqueIds.length === 0) {
+      throw new ValidationError("At least one match ID is required");
+    }
+
+    if (uniqueIds.length > MAX_BULK_IDS) {
+      throw new ValidationError(`Too many matches. Limit is ${MAX_BULK_IDS}.`);
+    }
+
+    const matches = await prisma.opportunityMatch.findMany({
+      where: {
+        id: { in: uniqueIds },
+        savedSearch: { orgId, userId },
+      },
+      select: { id: true },
+    });
+
+    const matchedIds = matches.map((match) => match.id);
+    if (matchedIds.length === 0) {
+      return {
+        requested: uniqueIds.length,
+        updated: 0,
+        skipped: uniqueIds.length,
+        ids: [],
+      };
+    }
+
+    const result = await prisma.opportunityMatch.updateMany({
+      where: { id: { in: matchedIds } },
+      data: { dismissedAt: new Date() },
+    });
+
+    return {
+      requested: uniqueIds.length,
+      updated: result.count,
+      skipped: uniqueIds.length - matchedIds.length,
+      ids: matchedIds,
+    };
+  }
+
   // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------
+
+  async deleteMany(
+    searchIds: string[],
+    orgId: string,
+    userId: string
+  ): Promise<BulkSavedSearchResult> {
+    const uniqueIds = dedupeIds(searchIds);
+
+    if (uniqueIds.length === 0) {
+      throw new ValidationError("At least one saved search ID is required");
+    }
+
+    if (uniqueIds.length > MAX_BULK_IDS) {
+      throw new ValidationError(`Too many saved searches. Limit is ${MAX_BULK_IDS}.`);
+    }
+
+    const existing = await prisma.savedSearch.findMany({
+      where: { id: { in: uniqueIds }, orgId, userId },
+      select: { id: true },
+    });
+
+    const existingIds = existing.map((search) => search.id);
+    if (existingIds.length === 0) {
+      return {
+        requested: uniqueIds.length,
+        deleted: 0,
+        skipped: uniqueIds.length,
+        ids: [],
+      };
+    }
+
+    await prisma.savedSearch.deleteMany({
+      where: { id: { in: existingIds } },
+    });
+
+    return {
+      requested: uniqueIds.length,
+      deleted: existingIds.length,
+      skipped: uniqueIds.length - existingIds.length,
+      ids: existingIds,
+    };
+  }
+
+  async runSearches(
+    searchIds: string[],
+    orgId: string,
+    userId: string
+  ): Promise<BulkRunSearchResult> {
+    const uniqueIds = dedupeIds(searchIds);
+
+    if (uniqueIds.length === 0) {
+      throw new ValidationError("At least one saved search ID is required");
+    }
+
+    if (uniqueIds.length > MAX_BULK_IDS) {
+      throw new ValidationError(`Too many saved searches. Limit is ${MAX_BULK_IDS}.`);
+    }
+
+    const searches = await prisma.savedSearch.findMany({
+      where: { id: { in: uniqueIds }, orgId, userId },
+      select: { id: true },
+    });
+
+    const existingIds = new Set(searches.map((search) => search.id));
+    const results: Array<{ savedSearchId: string; newMatches: number; totalMatches: number }> = [];
+    const errors: Array<{ savedSearchId: string; message: string }> = [];
+
+    for (const searchId of existingIds) {
+      try {
+        const runResult = await this.runSearch(searchId, orgId, userId);
+        results.push({
+          savedSearchId: searchId,
+          newMatches: runResult.newMatches,
+          totalMatches: runResult.totalMatches,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown failure";
+        errors.push({ savedSearchId: searchId, message });
+      }
+    }
+
+    return {
+      requested: uniqueIds.length,
+      executed: results.length,
+      skipped: uniqueIds.length - results.length - errors.length,
+      results,
+      errors,
+    };
+  }
 
   private async queryPropertyDb(criteria: SearchCriteria): Promise<ParcelResult[]> {
     const allParcels: ParcelResult[] = [];

@@ -28,6 +28,7 @@ import {
 import {
   computeEvidenceHash,
   dedupeEvidenceCitations,
+  type EvidenceCitation,
 } from "@entitlement-os/shared/evidence";
 import { hashJsonSha256 } from "@entitlement-os/shared/crypto";
 import {
@@ -37,6 +38,7 @@ import {
   inferQueryIntentFromText,
   getProofGroupsForIntent,
 } from "@entitlement-os/openai";
+import { autoFeedRun } from "../dataAgentAutoFeed.service.js";
 
 type AgentInputMessage =
   | { role: "user"; content: string }
@@ -1055,7 +1057,8 @@ export async function runAgentTurn(
       status,
     );
     const normalizedEvidenceCitations = dedupeEvidenceCitations(state.evidenceCitations);
-    const evidenceHash = computeEvidenceHash(normalizedEvidenceCitations);
+    const autoFeedEvidenceCitations = normalizedEvidenceCitations.map(normalizeCitationForAutoFeed);
+    const evidenceHash = computeEvidenceHash(autoFeedEvidenceCitations);
     const confidenceCandidate =
       status === "failed"
         ? null
@@ -1160,7 +1163,7 @@ export async function runAgentTurn(
       correlationId: params.correlationId,
     };
 
-    await prisma.run.update({
+  await prisma.run.update({
       where: { id: dbRun.id },
       data: {
         status,
@@ -1171,6 +1174,38 @@ export async function runAgentTurn(
           runState: finalRunState,
         },
       },
+    });
+
+    void autoFeedRun({
+      runId: dbRun.id,
+      runType: params.runType ?? "ENRICHMENT",
+      agentIntent:
+        (params.input
+          .find((entry): entry is Extract<(typeof params.input)[number], { role: "user" }> =>
+            entry.role === "user")
+          ?.content?.slice?.(0, 280) as string | undefined) ?? "agent run",
+      finalOutputText: finalText,
+      finalReport: finalReport ? (finalReport as unknown as Record<string, unknown>) : null,
+      confidence: trust?.confidence ?? (status === "succeeded" ? 0.5 : 0.25),
+      evidenceHash:
+        trust?.evidenceHash ?? computeEvidenceHash(autoFeedEvidenceCitations) ?? "no-evidence-hash",
+      toolsInvoked: trust?.toolsInvoked ?? Array.from(state.toolsInvoked),
+      evidenceCitations: (trust?.evidenceCitations ?? autoFeedEvidenceCitations).map(
+        normalizeCitationForAutoFeed,
+      ),
+      retrievalMeta: {
+        runId: dbRun.id,
+        queryIntent,
+        status,
+        schemaVersion: AGENT_RUN_STATE_SCHEMA_VERSION,
+      },
+      subjectId: dbRun.id,
+      autoScore: trust?.confidence,
+    }).catch((error: unknown) => {
+      console.warn("Data Agent auto-feed failed after temporal run", {
+        runId: dbRun.id,
+        error: String(error),
+      });
     });
 
     finalResult = {
@@ -1206,5 +1241,25 @@ export async function runAgentTurn(
     },
     openaiResponseId,
     inputHash,
+  };
+}
+
+function normalizeCitationForAutoFeed(
+  citation: {
+    tool?: string;
+    sourceId?: string;
+    snapshotId?: string;
+    contentHash?: string;
+    url?: string;
+    isOfficial?: boolean;
+  },
+): EvidenceCitation {
+  return {
+    tool: citation.tool,
+    sourceId: citation.sourceId,
+    snapshotId: citation.snapshotId,
+    contentHash: citation.contentHash,
+    url: citation.url,
+    isOfficial: citation.isOfficial,
   };
 }

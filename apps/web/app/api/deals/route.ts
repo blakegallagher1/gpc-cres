@@ -1,6 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
+import { z } from "zod";
+import { dispatchEvent } from "@/lib/automation/events";
+import "@/lib/automation/handlers";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+
+const DealStatusSchema = z.enum([
+  "INTAKE",
+  "TRIAGE_DONE",
+  "PREAPP",
+  "CONCEPT",
+  "NEIGHBORS",
+  "SUBMITTED",
+  "HEARING",
+  "APPROVED",
+  "EXIT_MARKETED",
+  "EXITED",
+  "KILLED",
+]);
+
+const DealBulkActionSchema = z.discriminatedUnion("action", [
+  z.object({
+    action: z.literal("delete"),
+    ids: z.array(z.string().uuid()).min(1).max(250),
+  }),
+  z.object({
+    action: z.literal("update-status"),
+    ids: z.array(z.string().uuid()).min(1).max(250),
+    status: DealStatusSchema,
+  }),
+]);
 
 // GET /api/deals - list deals for the org
 export async function GET(request: NextRequest) {
@@ -127,6 +156,91 @@ export async function POST(request: NextRequest) {
     console.error("Error creating deal:", error);
     return NextResponse.json(
       { error: "Failed to create deal" },
+      { status: 500 }
+    );
+  }
+}
+
+// PATCH /api/deals — bulk actions for list of deals
+export async function PATCH(request: NextRequest) {
+  try {
+    const auth = await resolveAuth();
+    if (!auth) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const parsed = DealBulkActionSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          error: parsed.error.issues
+            .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+            .join("; "),
+        },
+        { status: 400 }
+      );
+    }
+
+    const ids = [...new Set(parsed.data.ids)];
+    if (ids.length === 0) {
+      return NextResponse.json(
+        { error: "No valid deal IDs provided" },
+        { status: 400 }
+      );
+    }
+
+    const deals = await prisma.deal.findMany({
+      where: { orgId: auth.orgId, id: { in: ids } },
+      select: { id: true, status: true },
+    });
+
+    const scopedIds = deals.map((deal) => deal.id);
+    if (scopedIds.length === 0) {
+      return NextResponse.json({ action: parsed.data.action, updated: 0, skipped: ids.length }, { status: 200 });
+    }
+
+    if (parsed.data.action === "delete") {
+      const result = await prisma.deal.deleteMany({
+        where: { id: { in: scopedIds } },
+      });
+
+      return NextResponse.json({
+        action: "delete",
+        updated: result.count,
+        skipped: ids.length - result.count,
+        ids: scopedIds,
+      });
+    }
+
+    const result = await prisma.deal.updateMany({
+      where: { id: { in: scopedIds } },
+      data: { status: parsed.data.status },
+    });
+
+    for (const deal of deals) {
+      if (deal.status !== parsed.data.status) {
+        dispatchEvent({
+          type: "deal.statusChanged",
+          dealId: deal.id,
+          from: deal.status as import("@entitlement-os/shared").DealStatus,
+          to: parsed.data.status as import("@entitlement-os/shared").DealStatus,
+          orgId: auth.orgId,
+        }).catch(() => {});
+      }
+    }
+
+    return NextResponse.json({
+      action: "update-status",
+      status: parsed.data.status,
+      updated: result.count,
+      skipped: ids.length - result.count,
+      ids: scopedIds,
+    });
+  } catch (error) {
+    console.error("Error bulk updating deals:", error);
+    return NextResponse.json(
+      { error: "Failed to bulk update deals" },
       { status: 500 }
     );
   }
