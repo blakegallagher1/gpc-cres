@@ -26,6 +26,7 @@ import { MeasureTool } from "./MeasureTool";
 import { CompSaleLayer } from "./CompSaleLayer";
 import { HeatmapLayer } from "./HeatmapLayer";
 import { IsochroneControl } from "./IsochroneControl";
+import { MapLibreParcelMap } from "./MapLibreParcelMap";
 
 // Fix default marker icons for webpack/next.js
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
@@ -197,6 +198,21 @@ export function ParcelMap({
   showLayers = true,
   showTools = false,
 }: ParcelMapProps) {
+  const mapRenderer = process.env.NEXT_PUBLIC_MAP_RENDERER;
+  if (mapRenderer === "maplibre") {
+    return (
+      <MapLibreParcelMap
+        parcels={parcels}
+        center={center}
+        zoom={zoom}
+        height={height}
+        onParcelClick={onParcelClick}
+        showLayers={showLayers}
+        showTools={showTools}
+      />
+    );
+  }
+
   // Fetch GeoJSON polygon geometries for enriched parcels
   const { geometries } = useParcelGeometry(parcels);
 
