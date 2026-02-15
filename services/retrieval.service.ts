@@ -10,7 +10,7 @@
 import { createRequire } from "node:module";
 import { prisma } from "@entitlement-os/db";
 import { logger, recordRetrievalRun } from "../utils/logger";
-import { withSpan } from "../openTelemetry/setup.ts";
+import { withSpan } from "../openTelemetry/setup";
 
 const requireModule = createRequire(import.meta.url);
 const telemetry = loadDataAgentTelemetry();
@@ -341,15 +341,18 @@ async function graphSearch(
   );
 
   const eventIds = rows.map((row) => row.id);
-  const edges = eventIds.length
-    ? await prisma.temporalEdge.findMany({
-        where: {
-          OR: [
-            { fromEvent: { in: eventIds } },
-            { toEvent: { in: eventIds } },
-          ],
-        },
-      })
+  const edges: Array<{ fromEvent: string; toEvent: string }> = eventIds.length
+    ? await prisma.$queryRawUnsafe<Array<{ fromEvent: string; toEvent: string }>>(
+        `
+        SELECT
+          "fromEvent" as "fromEvent",
+          "toEvent" as "toEvent"
+        FROM "TemporalEdge"
+        WHERE "fromEvent" = ANY($1::text[])
+          OR "toEvent" = ANY($1::text[])
+      `,
+        eventIds,
+      )
     : [];
 
   return rows.map((row) => {

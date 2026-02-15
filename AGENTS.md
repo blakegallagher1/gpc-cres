@@ -489,3 +489,70 @@ This protocol applies to ALL mutation work including but not limited to:
 - Config changes that affect build output
 
 Analysis-only tasks are exempt.
+
+---
+
+# =========================================================
+# 🔧 GITHUB OPERATIONS (FULL AUTONOMY)
+# =========================================================
+
+Codex has full `gh` CLI access via `GH_TOKEN` and is authorized to
+manage all GitHub operations for this repository autonomously.
+
+## Permissions Available
+The token has scopes: `repo`, `workflow`, `gist`, `read:org` (and broader).
+Codex may use ANY `gh` subcommand without asking for permission.
+
+## Branch Management
+- Create feature branches: `codex/<descriptive-name>`
+- Push branches to origin
+- Delete merged branches: `git push origin --delete <branch>`
+- Rebase or update branches as needed to resolve conflicts
+- Force-push ONLY to `codex/*` branches, NEVER to `main`
+
+## Pull Requests
+- Create PRs: `gh pr create`
+- Enable auto-merge: `gh pr merge --auto --squash`
+- Add labels: `gh pr edit --add-label <label>`
+- Add reviewers if configured: `gh pr edit --add-reviewer <user>`
+- Close stale PRs: `gh pr close <number>`
+- Monitor checks: `gh pr checks --watch`
+- View PR details: `gh pr view`
+- Comment on PRs: `gh pr comment`
+
+## Issues
+- Create issues: `gh issue create`
+- Close issues: `gh issue close <number>`
+- Add labels: `gh issue edit --add-label <label>`
+- Comment on issues: `gh issue comment`
+- List/search issues: `gh issue list`
+- Link PRs to issues via commit messages or PR body (`Closes #<number>`)
+
+## CI / Workflow Runs
+- List runs: `gh run list`
+- View run details: `gh run view <run-id>`
+- Read failure logs: `gh run view <run-id> --log-failed`
+- Re-run failed jobs: `gh run rerun <run-id> --failed`
+- Cancel runs: `gh run cancel <run-id>`
+- Watch runs: `gh run watch <run-id>`
+
+## Releases (when instructed)
+- Create releases: `gh release create`
+- Upload assets: `gh release upload`
+- List releases: `gh release list`
+
+## GitHub API (advanced)
+- Use `gh api` for anything not covered by dedicated subcommands
+- Example: `gh api repos/{owner}/{repo}/actions/workflows`
+- Example: `gh api repos/{owner}/{repo}/branches/main/protection`
+
+## Rules
+- NEVER force-push to `main`
+- NEVER delete `main` or any protected branch
+- NEVER modify branch protection rules
+- NEVER create or modify GitHub Actions secrets (use env vars from shell)
+- All branch operations on `codex/*` branches are fair game
+- Always clean up `codex/*` branches after merge
+- When fixing CI failures, push fixes to the SAME PR branch — do not create new PRs
+- If a PR has merge conflicts with main, rebase the branch:
+  `git fetch origin main && git rebase origin/main && git push --force-with-lease`

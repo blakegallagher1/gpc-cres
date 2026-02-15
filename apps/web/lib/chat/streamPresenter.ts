@@ -175,7 +175,7 @@ export function applyStreamingEvent(
   if (event.type === "agent_progress") {
     const content = event.partialOutput ?? state.assistantDraft;
     const nextAgentName =
-      normalizeAgentName(event.lastAgentName ?? state.lastAgentName);
+      normalizeAgentName(event.lastAgentName ?? state.lastAgentName ?? undefined) ?? undefined;
     const progressMessage: ChatMessage = {
       id: state.progressMessageId ?? generateId("chat-progress"),
       role: "system",
@@ -191,7 +191,7 @@ export function applyStreamingEvent(
       nextState: {
         ...state,
         assistantDraft: content,
-        lastAgentName: nextAgentName,
+        lastAgentName: nextAgentName ?? null,
         progressMessageId: progressMessage.id,
       },
       nextMessages: replaceMessageById(messages, progressMessage.id, progressMessage),

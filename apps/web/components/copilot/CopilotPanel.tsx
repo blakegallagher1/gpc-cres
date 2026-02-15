@@ -63,6 +63,7 @@ const FALLBACK_ACTION: CopilotCommand & { icon: CopilotIcon } = {
   label: "Run Full Underwriting",
   description: "Comprehensive underwriting analysis",
   agent: "finance",
+  category: "analytics",
   prompt: "Run a full underwriting analysis on the property.",
   icon: Zap,
 };
