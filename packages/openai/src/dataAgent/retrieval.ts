@@ -370,7 +370,7 @@ export async function buildDataAgentRetrievalContext(
     .map((item) => {
       const subjectBoost =
         subjectId &&
-        (item.metadata.subjectId === subjectId || item.text.includes(subjectId))
+        ((item.metadata?.subjectId === subjectId) || item.text.includes(subjectId))
           ? 0.08
           : 0;
       const score = computeResultScore(
