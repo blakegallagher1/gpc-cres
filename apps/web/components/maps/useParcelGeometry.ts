@@ -10,6 +10,13 @@ export interface ParcelGeometryEntry {
   area_sqft: number;
 }
 
+export interface ViewportBounds {
+  west: number;
+  south: number;
+  east: number;
+  north: number;
+}
+
 // ---------------------------------------------------------------------------
 // Hook: fetch GeoJSON geometries for enriched parcels
 // ---------------------------------------------------------------------------
@@ -18,21 +25,50 @@ export interface ParcelGeometryEntry {
  * Fetches parcel polygon geometries from the chatgpt-apps proxy.
  * Only fetches for parcels that have a `propertyDbId` (linked to LA Property DB).
  * Batches requests in groups of 5 with 200ms inter-batch delay to respect rate limits.
+ *
+ * When `viewportBounds` is provided, only parcels whose lat/lng fall within
+ * the bounds (plus a small padding buffer) are fetched. This prevents wasting
+ * bandwidth on off-screen parcels.
+ *
+ * Uses an AbortController to cancel stale fetches when bounds change.
  */
 export function useParcelGeometry(
-  parcels: Array<{ id: string; propertyDbId?: string | null }>,
-  maxFetch: number = 50
+  parcels: Array<{ id: string; lat?: number; lng?: number; propertyDbId?: string | null }>,
+  maxFetch: number = 50,
+  viewportBounds?: ViewportBounds | null
 ): { geometries: Map<string, ParcelGeometryEntry>; loading: boolean } {
   const [geometries, setGeometries] = useState<Map<string, ParcelGeometryEntry>>(
     new Map()
   );
   const [loading, setLoading] = useState(false);
   const fetchedRef = useRef(new Set<string>());
+  const abortRef = useRef<AbortController | null>(null);
 
   const fetchGeometries = useCallback(async () => {
-    const toFetch = parcels
-      .filter((p) => p.propertyDbId && !fetchedRef.current.has(p.id))
-      .slice(0, maxFetch);
+    // Abort any in-flight fetch cycle
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    let candidates = parcels.filter(
+      (p) => p.propertyDbId && !fetchedRef.current.has(p.id)
+    );
+
+    // Viewport filtering: only fetch parcels within bounds + padding
+    if (viewportBounds && candidates.length > 0) {
+      const PAD_DEG = 0.01; // ~1.1 km padding
+      const west = viewportBounds.west - PAD_DEG;
+      const east = viewportBounds.east + PAD_DEG;
+      const south = viewportBounds.south - PAD_DEG;
+      const north = viewportBounds.north + PAD_DEG;
+
+      candidates = candidates.filter((p) => {
+        if (p.lat == null || p.lng == null) return true; // fetch if no coords
+        return p.lng >= west && p.lng <= east && p.lat >= south && p.lat <= north;
+      });
+    }
+
+    const toFetch = candidates.slice(0, maxFetch);
 
     if (toFetch.length === 0) return;
 
@@ -44,6 +80,13 @@ export function useParcelGeometry(
     const BATCH_SIZE = 5;
 
     for (let i = 0; i < toFetch.length; i += BATCH_SIZE) {
+      // Check if aborted between batches
+      if (controller.signal.aborted) {
+        // Un-mark parcels so they can be re-fetched next cycle
+        for (const p of toFetch.slice(i)) fetchedRef.current.delete(p.id);
+        break;
+      }
+
       const batch = toFetch.slice(i, i + BATCH_SIZE);
 
       const results = await Promise.allSettled(
@@ -55,6 +98,7 @@ export function useParcelGeometry(
               parcelId: parcel.propertyDbId,
               detailLevel: "low",
             }),
+            signal: controller.signal,
           });
           if (!res.ok) return null;
           const json = await res.json();
@@ -97,11 +141,16 @@ export function useParcelGeometry(
       }
     }
 
-    setLoading(false);
-  }, [parcels, maxFetch]);
+    if (!controller.signal.aborted) {
+      setLoading(false);
+    }
+  }, [parcels, maxFetch, viewportBounds]);
 
   useEffect(() => {
     fetchGeometries();
+    return () => {
+      abortRef.current?.abort();
+    };
   }, [fetchGeometries]);
 
   return { geometries, loading };

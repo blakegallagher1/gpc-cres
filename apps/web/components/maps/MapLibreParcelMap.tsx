@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
-import { useParcelGeometry } from "./useParcelGeometry";
+import { useParcelGeometry, type ViewportBounds } from "./useParcelGeometry";
+import { getStreetTileUrls, getSatelliteTileUrl } from "./tileUrls";
 import {
   STATUS_COLORS,
   DEFAULT_STATUS_COLOR,
@@ -173,7 +174,6 @@ function polygonAreaSquareMeters(points: maplibregl.LngLat[]): number {
 }
 
 function isPointInPolygon(point: [number, number], polygon: [number, number][]): boolean {
-  // point = [lng, lat]
   let inside = false;
   const [px, py] = point;
 
@@ -250,6 +250,8 @@ export function MapLibreParcelMap({
   const [showIsochrone, setShowIsochrone] = useState(false);
   const [measureMode, setMeasureMode] = useState<"off" | "distance" | "area">("off");
   const [selectedParcelIds, setSelectedParcelIds] = useState<Set<string>>(new Set());
+  const [viewportBounds, setViewportBounds] = useState<ViewportBounds | null>(null);
+  const boundsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onParcelClickRef = useRef<typeof onParcelClick>(onParcelClick);
   const parcelByIdRef = useRef<Map<string, MapParcel>>(new Map());
 
@@ -268,10 +270,8 @@ export function MapLibreParcelMap({
     return { lat: avgLat, lng: avgLng };
   }, [parcels]);
 
-  const { geometries } = useParcelGeometry(parcels);
+  const { geometries } = useParcelGeometry(parcels, 200, viewportBounds);
 
-  // Intentionally initialize MapLibre once; geometry/render updates are pushed through
-  // the source-sync effect below to avoid expensive full-map re-initialization.
   useEffect(() => {
     onParcelClickRef.current = onParcelClick;
     parcelByIdRef.current = parcelById;
@@ -468,15 +468,13 @@ export function MapLibreParcelMap({
           sources: {
             streets: {
               type: "raster",
-              tiles: ["https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"],
+              tiles: getStreetTileUrls(),
               tileSize: 256,
               attribution: "OpenStreetMap",
             },
             satellite: {
               type: "raster",
-              tiles: [
-                "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-              ],
+              tiles: [getSatelliteTileUrl()],
               tileSize: 256,
               maxzoom: ZOOM_LIMIT,
               attribution: "Esri",
@@ -628,16 +626,18 @@ export function MapLibreParcelMap({
           if (!parcelId) return;
 
           const isMultiSelect = e.originalEvent?.ctrlKey || e.originalEvent?.metaKey;
-          setSelectedParcelIds((prev) => {
-            const next = new Set(prev);
-            if (isMultiSelect) {
-              if (next.has(parcelId)) next.delete(parcelId);
-              else next.add(parcelId);
-            } else {
-              next.clear();
-              next.add(parcelId);
-            }
-            return next;
+          requestAnimationFrame(() => {
+            setSelectedParcelIds((prev) => {
+              const next = new Set(prev);
+              if (isMultiSelect) {
+                if (next.has(parcelId)) next.delete(parcelId);
+                else next.add(parcelId);
+              } else {
+                next.clear();
+                next.add(parcelId);
+              }
+              return next;
+            });
           });
 
           onParcelClickRef.current?.(parcelId);
@@ -675,10 +675,20 @@ export function MapLibreParcelMap({
         map.on("mouseleave", "parcel-points", clearHoverCursor);
 
         map.on("moveend", () => {
-          // keep first render fit-bounds semantics from existing Leaflet implementation
           if (!fittedBoundsRef.current && parcels.length > 0) {
             fitBounds();
           }
+          // Debounced viewport bounds update for geometry loading
+          if (boundsTimerRef.current) clearTimeout(boundsTimerRef.current);
+          boundsTimerRef.current = setTimeout(() => {
+            const b = map.getBounds();
+            setViewportBounds({
+              west: b.getWest(),
+              south: b.getSouth(),
+              east: b.getEast(),
+              north: b.getNorth(),
+            });
+          }, 300);
         });
       });
     } catch (error) {
@@ -690,6 +700,7 @@ export function MapLibreParcelMap({
 
     return () => {
       disposed = true;
+      if (boundsTimerRef.current) clearTimeout(boundsTimerRef.current);
       if (mapRef.current) {
         popupRef.current?.remove();
         popupRef.current = null;
@@ -1307,7 +1318,6 @@ function MapLibreCompSaleLayer({
           }
         }
       } catch {
-        // silent
       } finally {
         setLoading(false);
       }
@@ -1670,7 +1680,6 @@ function MapLibreIsochroneControl({
           mapRef.current?.fitBounds(bounds, { padding: 40 });
         }
       } catch {
-        // silent
       } finally {
         setLoading(false);
       }
