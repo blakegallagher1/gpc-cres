@@ -141,6 +141,7 @@ describe("GET /api/cron/source-ingestion", () => {
     withTimeoutMock.mockReset();
     createBatchNotificationMock.mockReset();
     notificationFindManyMock.mockReset();
+    vi.useRealTimers();
   });
 
   it("returns 401 when cron secret is invalid", async () => {
@@ -155,6 +156,8 @@ describe("GET /api/cron/source-ingestion", () => {
   });
 
   it("returns prioritized stale offender summaries and manifest-backed notification metadata", async () => {
+    // Pin clock to 14:00 UTC (outside quiet hours 22-06 UTC) so alert dispatch is not suppressed
+    vi.useFakeTimers({ now: new Date("2026-02-01T14:00:00.000Z"), shouldAdvanceTime: true });
     setupSourceIngestionMocks();
 
     const req = new NextRequest("http://localhost/api/cron/source-ingestion", {
