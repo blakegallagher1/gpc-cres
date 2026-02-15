@@ -429,17 +429,54 @@ gate BEFORE reporting success or moving to the next task.
 - If you cannot fix a failure, STOP and report the exact error
   to the user with your diagnosis.
 
-## Commit Gate (AUTO-EXECUTE)
+## Commit Gate (AUTO-EXECUTE VIA PR — FULL AUTONOMY)
 
 Once all 5 verification steps pass, AUTOMATICALLY execute the
-following — do NOT stop and wait for user confirmation:
-1. Stage only the files you intentionally changed.
-2. Commit with a clear imperative message.
-3. Push to origin main.
-4. Report the commit hash, files included, and push result.
+full pipeline below — do NOT stop and wait for user confirmation
+at ANY step. The task is NOT complete until the PR is merged to main.
 
-Do NOT just report "verification passed" and stop.
-The commit and push ARE part of the task — not optional follow-up.
+### Step 1: Branch + Commit + Push
+1. Create a short-lived feature branch from main:
+   `git checkout -b codex/<short-descriptive-name>`
+2. Stage only the files you intentionally changed.
+3. Commit with a clear imperative message.
+4. Push the feature branch:
+   `git push -u origin codex/<branch-name>`
+
+### Step 2: Create PR + Enable Auto-Merge
+5. Create a pull request against main:
+   `gh pr create --title "<imperative summary>" --body "<what changed and why>"`
+6. Immediately enable auto-merge (squash) on the PR:
+   `gh pr merge --auto --squash`
+   This ensures the PR merges automatically once all required checks pass.
+
+### Step 3: Monitor Checks Until Resolution
+7. Poll check status every 30–60 seconds until all checks complete:
+   `gh pr checks --watch`
+   Or manually: `gh pr checks` in a loop.
+8. If ALL checks pass → auto-merge will fire. Confirm merge completed:
+   `gh pr view --json state,mergeCommit`
+   Report the merge commit hash and confirm main is updated.
+9. If ANY check fails:
+   a. Read the failing check logs: `gh run view <run-id> --log-failed`
+   b. Diagnose and fix the failure on the same branch.
+   c. Re-run verification (lint, typecheck, test, build) locally.
+   d. Commit the fix, push to the same branch (the PR updates automatically).
+   e. Return to step 7 — monitor checks again.
+   f. Repeat until all checks pass and PR merges.
+10. After merge, clean up the remote branch:
+    `git push origin --delete codex/<branch-name>`
+    `git checkout main && git pull origin main`
+
+### Completion Criteria
+The task is DONE only when:
+- The PR has been merged to main (state = MERGED)
+- You have reported: PR URL, merge commit hash, files included
+
+Do NOT report success after just creating the PR.
+Do NOT stop and ask the user to check on CI.
+Do NOT leave a PR open and unmonitored.
+The full cycle — commit → PR → checks pass → merge — is YOUR responsibility.
 
 ## Scope
 
