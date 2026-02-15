@@ -15,6 +15,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
 import { useParcelGeometry } from "./useParcelGeometry";
+import { getLeafletStreetTileUrl, getSatelliteTileUrl } from "./tileUrls";
 import {
   STATUS_COLORS,
   DEFAULT_STATUS_COLOR,
@@ -269,7 +270,7 @@ export function ParcelMap({
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          url={getLeafletStreetTileUrl()}
         />
         {parcels.length > 0 && <FitBounds parcels={parcels} />}
         {parcels.map((parcel) => (
@@ -310,7 +311,7 @@ export function ParcelMap({
         >
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            url={getLeafletStreetTileUrl()}
           />
         </LayersControl.BaseLayer>
 
@@ -320,7 +321,7 @@ export function ParcelMap({
         >
           <TileLayer
             attribution='&copy; <a href="https://www.esri.com">Esri</a>'
-            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+            url={getSatelliteTileUrl()}
             maxZoom={19}
           />
         </LayersControl.BaseLayer>
