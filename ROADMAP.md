@@ -408,6 +408,131 @@ Only items meeting all checks are added below as `Planned`.
     - 8 targeted chat tests passed
     - 418 total `apps/web` tests passed
 
+### MAP-001 — MapLibre Vector Rendering + Multi-Select Parcel Boundary Intelligence (Option 3)
+
+- **Priority:** P1
+- **Status:** In Progress
+- **Scope:** Geospatial visualization modernization, performance, and selection UX
+- **Problem:** The current parcel map stack is Leaflet-based with fixed marker+polygon rendering and fixed geometry fetch behavior; for large parcel sets this becomes difficult to scale and limits advanced interactions like reliable multi-select and high-density boundary highlighting.
+- **Expected Outcome (measurable):**
+  - Render parcel boundaries with a GPU-backed vector pipeline (MapLibre) and maintain stable frame rates during pan/zoom.
+  - Support deterministic single-select and multi-select parcel selection on map features.
+  - Guarantee visible boundary outlines for selected parcels, with fallback behavior for parcels without available geometry.
+  - Improve map interaction latency under load by:
+    - reducing unnecessary parcel re-renders,
+    - minimizing geometry payload size,
+    - and loading/refreshing boundary data per viewport.
+- **Evidence:** Existing map stack currently uses `react-leaflet` and renders boundaries using React components per feature (`apps/web/components/maps/ParcelMap.tsx`) plus a `useParcelGeometry` batch caller that currently fetches up to `maxFetch = 50` records in 5-item waves, which is serviceable but not optimized for modern vector performance.
+- **Alignment:** Extends current map domain model (parcel + optional geometry + overlays) while preserving org authentication boundaries and existing API contracts (`chatgpt-apps` geometry endpoint and `/api/parcels` flow).
+- **Risk/rollback:** Medium. Rendering behavior changes can affect map visuals and interactions. Rollback strategy:
+  - feature-flag the new MapLibre map component;
+  - keep Leaflet implementation in place;
+  - route back to Leaflet route if performance or selection regressions are detected.
+- **Acceptance Criteria / Tests:**
+  1. `ParcelMap` replaced with a MapLibre-backed implementation behind a new `MAP_RENDERER`/feature flag.
+  2. Single-click selects one parcel; Ctrl/Cmd+click adds/removes without clearing existing selection.
+  3. Every selected parcel displays a highlighted boundary outline and popup/side summary with at least ID/address/selection count context.
+  4. All parcels without available GeoJSON still render as marker fallback points.
+  5. Boundary hover/click targets remain accurate at zoom levels from 9–19.
+  6. Map remains interactive under 2k+ parcel markers with >95% successful click hit target resolution in QA test flow.
+  7. Accessibility basics preserved:
+     - visible loading/empty/error states,
+     - safe keyboard fallback for list-based selection sync (optional for v1),
+     - no console regressions from map event handlers.
+  8. Security invariant preserved:
+     - geometry fetches and parcels continue to use existing auth middleware and org context pathways.
+- **Files (target):**
+  - `apps/web/app/map/page.tsx`
+  - `apps/web/components/maps/ParcelMap.tsx`
+  - `apps/web/components/maps/DealParcelMap.tsx`
+  - `apps/web/components/maps/HeatmapLayer.tsx`
+  - `apps/web/components/maps/CompSaleLayer.tsx`
+  - `apps/web/components/maps/IsochroneControl.tsx`
+  - `apps/web/components/maps/mapStyles.ts`
+  - `apps/web/components/maps/useParcelGeometry.ts`
+  - `apps/web/app/api/external/chatgpt-apps/parcel-geometry/route.ts` (if batch endpoint is added)
+  - `apps/web/app/api/parcels` read/list endpoints as needed for tile/viewport batching
+  - `apps/web/package.json` (add `maplibre-gl`, optional `supercluster`)
+- **Preliminary tests (performed before adding this item):**
+  - `pnpm -C apps/web lint` ✅ (pass)
+  - `pnpm -C apps/web exec vitest run` ✅ (38 files, 418 tests)
+  - baseline finding: current map page composes parcel data from `/api/parcels?hasCoords=true` and geometry via `POST /api/external/chatgpt-apps/parcel-geometry` returning `geom_simplified`.
+- **Implementation Plan (Option 3, Advanced Vector Pipeline):**
+  1. Phase 0 — Measurement Baseline
+     - Instrument existing Leaflet map with lightweight metrics (selection latency, geometry fetch time, render blocks at 12+ layers).
+     - Define test datasets:
+       - small (<=200 parcels),
+       - medium (~2,000 parcels),
+       - heavy (>=10,000 parcels).
+     - Create benchmark script (`scripts/map-baseline-smoke.mjs` or Playwright task) to capture before/after FPS and interaction metrics.
+  2. Phase 1 — Engine Selection and Foundation
+  - Add `maplibre-gl` renderer path behind feature flag.
+     - Introduce `MAP_RENDERER` feature gate:
+       - default to current Leaflet in this phase,
+       - opt-in MapLibre path guarded by env or feature flag.
+     - Create `apps/web/components/maps/MapProvider.tsx` for map-level shared controls and tokens.
+  3. Phase 2 — Data Model Refactor
+     - Replace feature-per-component rendering with a normalized feature collection pipeline:
+       - map parcels into `FeatureCollection<Polygon|Point, ParcelFeatureProperties>`.
+       - keep `parcelId`, `dealStatus`, `address`, `hasGeometry`, and derived overlay flags.
+     - Add `parcelGeometryState` abstraction:
+       - `loaded`, `loading`, `error`, `missing`.
+       - fallback symbolization for `missing`.
+  4. Phase 3 — Viewport-Scoped Geometry Loading
+     - Add optional backend read endpoint for viewport-bounded parcel candidates (bbox + zoom + limit + cursor).
+     - Update `useParcelGeometry` to be viewport-aware:
+       - request only geometries for visible/nearby parcels,
+       - cancel stale requests,
+       - prioritize high-priority parcels (`selected`, in overlay-visible area, hover candidates).
+     - Keep current `geom_simplified` path first for broad map rendering; add optional medium detail fetch on zoom in.
+  5. Phase 4 — Rendering Layer Stack (MapLibre)
+     - Implement:
+       - base raster/vector tile source (MapTiler/OSM style strategy),
+       - boundary line and fill layers (`line`, `fill`),
+       - point fallback layer for no-geometry parcels,
+       - selected state paint expression layer with stronger halo/line weight.
+     - Add toggle controls equivalent to current overlays (Zoning, Flood, Boundaries, Tools) while reducing React re-render pressure.
+     - Ensure popup behavior on feature click uses same content data contracts as current `ParcelPopup`.
+  6. Phase 5 — Selection UX (Single + Multi)
+     - Implement selection state:
+       - `selectedParcelIds: Set<string>`
+       - click semantics:
+         - plain click = set single selection,
+         - ctrl/cmd click = toggle in/out without clear.
+       - shift selection for contiguous rectangle optional for phase 2 if map lib supports efficiently.
+     - Display selected boundary style and synchronized list indicator in map + details panel.
+     - Preserve existing `onParcelClick` callback contract with navigation path updates (e.g., to `/deals/:id`).
+  7. Phase 6 — Map-Side Performance Hardening
+     - Add geometry simplification thresholding:
+       - at low zoom, render simplified geometry and fewer vertices;
+       - at high zoom, optionally request high-detail geometry for selected parcels only.
+     - Debounce bounds updates before query triggers.
+     - Memoize GeoJSON features and layer/source inputs to prevent full re-add cycles.
+     - Add `requestAnimationFrame` batching for selection hover/tooltip updates.
+  8. Phase 7 — Feature Parity + QA
+     - Reconcile existing tools and overlays:
+       - Heatmap,
+       - CompSale,
+       - Isochrone,
+       - base layer persistence.
+     - If integration is too complex in first pass, migrate core + boundaries first and keep tool stack under Leaflet behind fallback for v1.
+     - Validate fallback behavior:
+       - `onParcelClick` navigation remains intact,
+       - no broken geometry parse errors for malformed parcel payloads.
+  9. Phase 8 — Migration and Rollout
+     - Enable flag in staging.
+     - Run acceptance checklist and baseline comparison script.
+     - Production cutover with immediate rollback path:
+       - disable feature flag + revert to Leaflet rendering.
+- **Rollout checkpoints:**
+  - Stage 1: internal staging QA, single-user selection only.
+  - Stage 2: internal QA with multi-select and heavy viewport.
+  - Stage 3: 1% production canary, then full release after zero critical regressions.
+- **Open questions before start:**
+  - Which base tile provider is preferred (MapTiler vs existing OSM/ESRI mix)?
+  - Do we need full-screen "spatial analysis tool stack" parity in phase 1 or can analysis tools be phased-in in stage 2?
+  - What is the preferred maximum payload for geometry detail at zoom-out to balance speed vs boundary fidelity?
+
 ## Not Added (did not pass value/risk gate)
 
 These are explicitly not being added now to avoid noise:
