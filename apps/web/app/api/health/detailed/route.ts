@@ -21,9 +21,17 @@ function getBearerToken(request: NextRequest) {
 }
 
 function createSupabaseServerClient(request: NextRequest) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+  const supabaseAnonKey =
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return null;
+  }
+
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || "",
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || "",
+    supabaseUrl,
+    supabaseAnonKey,
     {
       cookies: {
         get(name: string) {
@@ -61,6 +69,10 @@ async function isAuthorized(request: NextRequest) {
   }
 
   const supabase = createSupabaseServerClient(request);
+  if (!supabase) {
+    return false;
+  }
+
   const {
     data: { session },
   } = await supabase.auth.getSession();
