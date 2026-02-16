@@ -50,7 +50,7 @@ report_checkin_to_sentry() {
   local status="$1"  # "ok" or "error"
   local duration="$2"  # milliseconds
 
-  if [[ -z "$SENTRY_TOKEN" ]]; then
+  if [[ -z "${SENTRY_TOKEN:-}" ]]; then
     log_warn "SENTRY_AUTH_TOKEN not found — skipping Sentry check-in"
     return
   fi
@@ -72,7 +72,7 @@ EOF
   log_info "Sending Sentry check-in (${status})..."
   response=$(curl -sS -w '\n%{http_code}' \
     -X POST \
-    -H "Authorization: Bearer ${SENTRY_TOKEN}" \
+    -H "Authorization: Bearer ${SENTRY_TOKEN:-}" \
     -H "Content-Type: application/json" \
     --data "$payload" \
     "$check_in_url")
@@ -97,7 +97,7 @@ report_message_to_sentry() {
   local message="$1"
   local status="$2"  # "ok" or "degraded"
 
-  if [[ -z "$SENTRY_TOKEN" ]]; then
+  if [[ -z "${SENTRY_TOKEN:-}" ]]; then
     log_warn "SENTRY_AUTH_TOKEN not found — skipping Sentry message"
     return
   fi
@@ -123,7 +123,7 @@ EOF
   log_info "Sending info-level message to Sentry..."
   response=$(curl -sS -w '\n%{http_code}' \
     -X POST \
-    -H "Authorization: Bearer ${SENTRY_TOKEN}" \
+    -H "Authorization: Bearer ${SENTRY_TOKEN:-}" \
     -H "Content-Type: application/json" \
     --data "$payload" \
     "$issues_url")
