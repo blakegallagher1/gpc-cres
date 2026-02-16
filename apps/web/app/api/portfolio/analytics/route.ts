@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { getPortfolioSummary } from "@/lib/services/portfolioAnalytics.service";
+import {
+  EMPTY_PORTFOLIO_ANALYTICS_RESPONSE,
+  isSchemaDriftError,
+} from "@/lib/api/prismaSchemaFallback";
 
 export async function GET() {
   const auth = await resolveAuth();
@@ -13,6 +17,9 @@ export async function GET() {
     return NextResponse.json(summary);
   } catch (error) {
     console.error("Portfolio analytics error:", error);
+    if (isSchemaDriftError(error)) {
+      return NextResponse.json(EMPTY_PORTFOLIO_ANALYTICS_RESPONSE);
+    }
     return NextResponse.json(
       { error: "Failed to compute portfolio analytics" },
       { status: 500 }

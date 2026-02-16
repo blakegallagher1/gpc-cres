@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { ParcelTriageSchema } from "@entitlement-os/shared";
+import {
+  EMPTY_PORTFOLIO_RESPONSE,
+  isSchemaDriftError,
+} from "@/lib/api/prismaSchemaFallback";
 
 export async function GET() {
   const auth = await resolveAuth();
@@ -138,6 +142,10 @@ export async function GET() {
     });
   } catch (error) {
     console.error("Error fetching portfolio:", error);
+    if (isSchemaDriftError(error)) {
+      return NextResponse.json(EMPTY_PORTFOLIO_RESPONSE);
+    }
+
     return NextResponse.json(
       { error: "Failed to fetch portfolio" },
       { status: 500 }
