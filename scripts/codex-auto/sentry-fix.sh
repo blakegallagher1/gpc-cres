@@ -260,7 +260,6 @@ for PROJECT in "${PROJECTS[@]}"; do
   FOUND_ANY=true
   log_info "Found ${ISSUE_COUNT} unresolved issues in ${PROJECT}:"
   for i in $(seq 0 $((ISSUE_COUNT - 1))); do
-    local sid ttl
     sid=$(echo "$ISSUES_JSON" | jq -r ".[$i].shortId // \"?\"")
     ttl=$(echo "$ISSUES_JSON" | jq -r ".[$i].title // \"?\"" | head -c 80)
     log_info "  [$((i+1))] ${sid}: ${ttl}"

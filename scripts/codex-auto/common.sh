@@ -29,10 +29,10 @@ else
   RED='' GREEN='' YELLOW='' BLUE='' NC=''
 fi
 
-log_info()  { echo -e "${BLUE}[INFO]${NC}  $(date +%H:%M:%S) $*"; }
-log_ok()    { echo -e "${GREEN}[OK]${NC}    $(date +%H:%M:%S) $*"; }
-log_warn()  { echo -e "${YELLOW}[WARN]${NC}  $(date +%H:%M:%S) $*"; }
-log_error() { echo -e "${RED}[ERROR]${NC} $(date +%H:%M:%S) $*"; }
+log_info()  { echo -e "${BLUE}[INFO]${NC}  $(date +%H:%M:%S) $*" >&2; }
+log_ok()    { echo -e "${GREEN}[OK]${NC}    $(date +%H:%M:%S) $*" >&2; }
+log_warn()  { echo -e "${YELLOW}[WARN]${NC}  $(date +%H:%M:%S) $*" >&2; }
+log_error() { echo -e "${RED}[ERROR]${NC} $(date +%H:%M:%S) $*" >&2; }
 
 # Verify codex CLI is available
 require_codex() {
