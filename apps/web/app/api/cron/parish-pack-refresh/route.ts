@@ -19,6 +19,7 @@ import type { CaptureEvidenceResult } from "@entitlement-os/evidence";
 import { withRetry, withTimeout } from "@entitlement-os/evidence";
 import { supabaseAdmin } from "@/lib/db/supabaseAdmin";
 import { hashJsonSha256 } from "@entitlement-os/shared/crypto";
+import { runWithCronMonitor } from "@/lib/automation/sentry";
 
 const SKUS: SkuType[] = ["SMALL_BAY_FLEX", "OUTDOOR_STORAGE", "TRUCK_PARKING"];
 const STALE_DAYS = 7;
@@ -178,28 +179,32 @@ export async function GET(req: Request) {
   if (!verifyCronSecret(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const { searchParams } = new URL(req.url);
-  const requestedJurisdictionId = searchParams.get("jurisdictionId");
-  const requestedSku = searchParams.get("sku");
+  return runWithCronMonitor({
+    slug: "parish-pack-refresh",
+    schedule: "0 4 * * 0",
+    handler: async () => {
+      const { searchParams } = new URL(req.url);
+      const requestedJurisdictionId = searchParams.get("jurisdictionId");
+      const requestedSku = searchParams.get("sku");
 
-  let skus = SKUS;
-  if (requestedSku) {
-    if (!SKUS.includes(requestedSku as SkuType)) {
-      return NextResponse.json({ error: "Invalid sku" }, { status: 400 });
-    }
-    skus = [requestedSku as SkuType];
-  }
+      let skus = SKUS;
+      if (requestedSku) {
+        if (!SKUS.includes(requestedSku as SkuType)) {
+          return NextResponse.json({ error: "Invalid sku" }, { status: 400 });
+        }
+        skus = [requestedSku as SkuType];
+      }
 
-  const startTime = Date.now();
+      const startTime = Date.now();
 
-  try {
-    // 1. Fetch all jurisdictions with their seed sources
-    const jurisdictions = await prisma.jurisdiction.findMany({
-      where: requestedJurisdictionId ? { id: requestedJurisdictionId } : undefined,
-      include: {
-        seedSources: { where: { active: true } },
-      },
-    });
+      try {
+        // 1. Fetch all jurisdictions with their seed sources
+        const jurisdictions = await prisma.jurisdiction.findMany({
+          where: requestedJurisdictionId ? { id: requestedJurisdictionId } : undefined,
+          include: {
+            seedSources: { where: { active: true } },
+          },
+        });
 
     if (jurisdictions.length === 0) {
       return NextResponse.json({
@@ -527,13 +532,15 @@ export async function GET(req: Request) {
       errors: errors.length > 0 ? errors : undefined,
     };
 
-    console.log("[parish-pack-refresh] Complete:", JSON.stringify(summary.stats));
-    return NextResponse.json(summary);
-  } catch (error) {
-    console.error("[cron/parish-pack-refresh] Failed:", error);
-    return NextResponse.json(
-      { error: "Parish pack refresh failed", details: String(error) },
-      { status: 500 }
-    );
-  }
+        console.log("[parish-pack-refresh] Complete:", JSON.stringify(summary.stats));
+        return NextResponse.json(summary);
+      } catch (error) {
+        console.error("[cron/parish-pack-refresh] Failed:", error);
+        return NextResponse.json(
+          { error: "Parish pack refresh failed", details: String(error) },
+          { status: 500 }
+        );
+      }
+    },
+  });
 }

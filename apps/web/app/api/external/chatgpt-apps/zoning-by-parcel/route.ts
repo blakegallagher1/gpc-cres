@@ -3,6 +3,7 @@ import { z, ZodError } from "zod";
 import { getZoningByParcel } from "@/lib/server/chatgptAppsClient";
 import { checkRateLimit } from "@/lib/server/rateLimiter";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import { captureChatGptAppsError } from "@/lib/automation/sentry";
 
 export const runtime = "nodejs";
 
@@ -62,9 +63,33 @@ export async function POST(request: Request) {
     );
   }
 
-  const result = await getZoningByParcel(input.parcelId, requestId);
+  let result: Awaited<ReturnType<typeof getZoningByParcel>>;
+  try {
+    result = await getZoningByParcel(input.parcelId, requestId);
+  } catch (error) {
+    captureChatGptAppsError(error, {
+      rpc: "getZoningByParcel",
+      requestId,
+      orgId: auth.orgId,
+      route: "/api/external/chatgpt-apps/zoning-by-parcel",
+      input: { parcelId: input.parcelId },
+    });
+    return NextResponse.json(
+      { ok: false, request_id: requestId, error: { code: "UPSTREAM_ERROR", message: "Upstream request failed" } },
+      { status: 502 },
+    );
+  }
 
   if (!result.ok) {
+    captureChatGptAppsError(new Error(result.error), {
+      rpc: "getZoningByParcel",
+      requestId: result.requestId,
+      orgId: auth.orgId,
+      route: "/api/external/chatgpt-apps/zoning-by-parcel",
+      status: result.status,
+      input: { parcelId: input.parcelId },
+      details: result.error,
+    });
     const status = result.status === 429 ? 429 : result.status === 504 ? 504 : 502;
     return NextResponse.json(
       { ok: false, request_id: result.requestId, error: { code: "UPSTREAM_ERROR", message: result.error } },

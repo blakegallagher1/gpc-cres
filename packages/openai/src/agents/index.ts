@@ -158,13 +158,14 @@ const SPECIALIST_CONTEXT_LOADERS = new Map<SpecialistAgentKey, LazyContext>(
 );
 
 function withTools(config: SpecialistAgentConfig): Agent {
+  initAgentsSentry();
   const contextLoader = SPECIALIST_CONTEXT_LOADERS.get(config.key);
   if (!contextLoader) {
     throw new Error(`Missing context loader for specialist ${config.key}`);
   }
 
   return config.agent.clone({
-    tools: [...config.tools] as Agent["tools"],
+    tools: instrumentAgentTools(config.agent.name, [...config.tools]) as Agent["tools"],
     handoffs: [],
     outputGuardrails: [...(config.outputGuardrails ?? [])] as Agent["outputGuardrails"],
     instructions: async (runContext, agent) => {
@@ -219,6 +220,7 @@ import {
   getQueryIntentProfile,
   buildPlannerContext,
 } from '../queryRouter.js';
+import { initAgentsSentry, instrumentAgentTools } from "../sentry.js";
 
 /** All specialist agents (everything except the coordinator). */
 export const specialistAgents = SPECIALIST_AGENT_CONFIGS.map((config) => config.agent);
@@ -259,6 +261,7 @@ function buildSpecialistConsultTools(specialists: Agent[]): Agent["tools"] {
 }
 
 export function createIntentAwareCoordinator(intent: QueryIntent): Agent {
+  initAgentsSentry();
   const profile = getQueryIntentProfile(intent);
   const specialists = buildSpecialistTeam(profile.specialists);
   const consultTools = buildSpecialistConsultTools(specialists);
@@ -268,7 +271,10 @@ export function createIntentAwareCoordinator(intent: QueryIntent): Agent {
     : coordinatorAgent.instructions;
 
   return coordinatorAgent.clone({
-    tools: [...coordinatorTools, ...consultTools] as Agent['tools'],
+    tools: instrumentAgentTools(
+      coordinatorAgent.name,
+      [...coordinatorTools, ...consultTools],
+    ) as Agent["tools"],
     handoffs: specialists,
     instructions,
     inputGuardrails: [coordinatorInputGuardrail] as Agent["inputGuardrails"],

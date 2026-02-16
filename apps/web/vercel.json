@@ -1,6 +1,6 @@
 {
   "framework": "nextjs",
-  "buildCommand": "cd ../.. && bash scripts/vercel-build.sh",
+  "buildCommand": "cd ../.. && SENTRY_AUTH_TOKEN=$SENTRY_AUTH_TOKEN bash scripts/vercel-build.sh",
   "crons": [
     {
       "path": "/api/cron/change-detection",

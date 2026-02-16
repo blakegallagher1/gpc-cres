@@ -4,6 +4,7 @@ import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { dispatchEvent } from "@/lib/automation/events";
 import "@/lib/automation/handlers";
 import { ParcelTriageSchema } from "@entitlement-os/shared";
+import { captureAutomationDispatchError } from "@/lib/automation/sentry";
 
 const PACK_STALE_DAYS = 7;
 const PACK_COVERAGE_MINIMUM = 0.75;
@@ -224,7 +225,15 @@ export async function PATCH(
         from: existing.status as import("@entitlement-os/shared").DealStatus,
         to: data.status as import("@entitlement-os/shared").DealStatus,
         orgId: auth.orgId,
-      }).catch(() => {});
+      }).catch((error) => {
+        captureAutomationDispatchError(error, {
+          handler: "api.deals.update",
+          eventType: "deal.statusChanged",
+          dealId: id,
+          orgId: auth.orgId,
+          status: String(data.status),
+        });
+      });
     }
 
     return NextResponse.json({ deal });

@@ -11,6 +11,7 @@ import {
   withTimeout,
 } from "@entitlement-os/evidence";
 import { supabaseAdmin } from "@/lib/db/supabaseAdmin";
+import { runWithCronMonitor } from "@/lib/automation/sentry";
 
 const MAX_TIMEOUT_MS = 60_000;
 const MAX_RETRIES = 3;
@@ -40,23 +41,27 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const startTime = Date.now();
+  return runWithCronMonitor({
+    slug: "change-detection",
+    schedule: "0 6 * * *",
+    handler: async () => {
+      const startTime = Date.now();
 
-  try {
-    // 1. Fetch all active seed sources with jurisdiction details
-    const sources = await prisma.jurisdictionSeedSource.findMany({
-      where: { active: true },
-      include: {
-        jurisdiction: {
-          select: {
-            id: true,
-            name: true,
-            orgId: true,
-            officialDomains: true,
+      try {
+        // 1. Fetch all active seed sources with jurisdiction details
+        const sources = await prisma.jurisdictionSeedSource.findMany({
+          where: { active: true },
+          include: {
+            jurisdiction: {
+              select: {
+                id: true,
+                name: true,
+                orgId: true,
+                officialDomains: true,
+              },
+            },
           },
-        },
-      },
-    });
+        });
 
     if (sources.length === 0) {
       return NextResponse.json({
@@ -230,13 +235,15 @@ export async function GET(req: Request) {
       },
     };
 
-    console.log("[change-detection] Complete:", JSON.stringify(summary.stats));
-    return NextResponse.json(summary);
-  } catch (error) {
-    console.error("[cron/change-detection] Failed:", error);
-    return NextResponse.json(
-      { error: "Change detection failed", details: String(error) },
-      { status: 500 }
-    );
-  }
+        console.log("[change-detection] Complete:", JSON.stringify(summary.stats));
+        return NextResponse.json(summary);
+      } catch (error) {
+        console.error("[cron/change-detection] Failed:", error);
+        return NextResponse.json(
+          { error: "Change detection failed", details: String(error) },
+          { status: 500 }
+        );
+      }
+    },
+  });
 }

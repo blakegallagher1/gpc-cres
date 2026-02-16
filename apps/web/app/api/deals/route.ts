@@ -4,6 +4,7 @@ import { z } from "zod";
 import { dispatchEvent } from "@/lib/automation/events";
 import "@/lib/automation/handlers";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import { captureAutomationDispatchError } from "@/lib/automation/sentry";
 
 const DealStatusSchema = z.enum([
   "INTAKE",
@@ -218,15 +219,24 @@ export async function PATCH(request: NextRequest) {
       data: { status: parsed.data.status },
     });
 
+    const targetStatus = parsed.data.status;
     for (const deal of deals) {
       if (deal.status !== parsed.data.status) {
         dispatchEvent({
           type: "deal.statusChanged",
           dealId: deal.id,
           from: deal.status as import("@entitlement-os/shared").DealStatus,
-          to: parsed.data.status as import("@entitlement-os/shared").DealStatus,
+          to: targetStatus as import("@entitlement-os/shared").DealStatus,
           orgId: auth.orgId,
-        }).catch(() => {});
+        }).catch((error) => {
+          captureAutomationDispatchError(error, {
+            handler: "api.deals.bulk-update-status",
+            eventType: "deal.statusChanged",
+            dealId: deal.id,
+            orgId: auth.orgId,
+            status: targetStatus,
+          });
+        });
       }
     }
 

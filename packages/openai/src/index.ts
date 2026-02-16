@@ -8,6 +8,7 @@ export * from "./guardrails/inputGuardrails.js";
 export * from "./guardrails/outputGuardrails.js";
 export * from "./tracing/setup.js";
 export * from "./tracing/exporter.js";
+export * from "./sentry.js";
 export * from "./queryRouter.js";
 export * from "./embeddings.js";
 export * from "./dataAgent/retrieval.js";

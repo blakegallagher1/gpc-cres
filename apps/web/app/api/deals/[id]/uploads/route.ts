@@ -6,6 +6,7 @@ import { supabaseAdmin } from "@/lib/db/supabaseAdmin";
 import { randomUUID } from "crypto";
 import { dispatchEvent } from "@/lib/automation/events";
 import "@/lib/automation/handlers";
+import { captureAutomationDispatchError } from "@/lib/automation/sentry";
 
 // GET /api/deals/[id]/uploads - list uploads for a deal
 export async function GET(
@@ -128,7 +129,14 @@ export async function POST(
       dealId: id,
       uploadId: upload.id,
       orgId: auth.orgId,
-    }).catch(() => {});
+    }).catch((error) => {
+      captureAutomationDispatchError(error, {
+        handler: "api.deals.uploads.create",
+        eventType: "upload.created",
+        dealId: id,
+        orgId: auth.orgId,
+      });
+    });
 
     return NextResponse.json({ upload }, { status: 201 });
   } catch (error) {

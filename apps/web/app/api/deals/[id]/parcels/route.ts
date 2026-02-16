@@ -3,6 +3,7 @@ import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { dispatchEvent } from "@/lib/automation/events";
 import "@/lib/automation/handlers";
+import { captureAutomationDispatchError } from "@/lib/automation/sentry";
 
 // GET /api/deals/[id]/parcels
 export async function GET(
@@ -92,7 +93,14 @@ export async function POST(
       dealId: id,
       parcelId: parcel.id,
       orgId: auth.orgId,
-    }).catch(() => {});
+    }).catch((error) => {
+      captureAutomationDispatchError(error, {
+        handler: "api.deals.parcels.create",
+        eventType: "parcel.created",
+        dealId: id,
+        orgId: auth.orgId,
+      });
+    });
 
     return NextResponse.json({ parcel }, { status: 201 });
   } catch (error) {

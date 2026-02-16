@@ -3,6 +3,7 @@ import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { dispatchEvent } from "@/lib/automation/events";
 import "@/lib/automation/handlers";
+import { captureAutomationDispatchError } from "@/lib/automation/sentry";
 
 // GET /api/deals/[id]/tasks
 export async function GET(
@@ -90,7 +91,14 @@ export async function POST(
       dealId: id,
       taskId: task.id,
       orgId: auth.orgId,
-    }).catch(() => {});
+    }).catch((error) => {
+      captureAutomationDispatchError(error, {
+        handler: "api.deals.tasks.create",
+        eventType: "task.created",
+        dealId: id,
+        orgId: auth.orgId,
+      });
+    });
 
     return NextResponse.json({ task }, { status: 201 });
   } catch (error) {
@@ -165,7 +173,15 @@ export async function PATCH(
         dealId: id,
         taskId: task.id,
         orgId: auth.orgId,
-      }).catch(() => {});
+      }).catch((error) => {
+        captureAutomationDispatchError(error, {
+          handler: "api.deals.tasks.update",
+          eventType: "task.completed",
+          dealId: id,
+          orgId: auth.orgId,
+          status: "DONE",
+        });
+      });
     }
 
     return NextResponse.json({ task });

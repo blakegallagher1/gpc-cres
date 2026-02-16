@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import type { DealStatus } from "@entitlement-os/shared";
 
 // Event type definitions
@@ -35,6 +36,8 @@ export async function dispatchEvent(event: AutomationEvent): Promise<void> {
 
   // Extract dealId from event (not all events have it)
   const dealId = "dealId" in event ? event.dealId : undefined;
+  const orgId = event.orgId;
+  const status = "to" in event ? event.to : undefined;
 
   for (const handler of eventHandlers) {
     const handlerName = handler.name || "anonymous";
@@ -66,6 +69,29 @@ export async function dispatchEvent(event: AutomationEvent): Promise<void> {
         }
       }
     } catch (err) {
+      Sentry.withScope((scope) => {
+        scope.setTag("automation", true);
+        scope.setTag("handler", handlerName);
+        if (orgId) scope.setTag("org_id", orgId);
+        if (dealId) scope.setTag("deal_id", dealId);
+        if (status) scope.setTag("status", status);
+        scope.setContext("deal", {
+          dealId,
+          orgId,
+          status,
+        });
+        scope.setContext("automation", {
+          eventType: event.type,
+          eventJson: event as unknown as Record<string, unknown>,
+        });
+        Sentry.captureException(err, {
+          tags: {
+            automation: true,
+            handler: handlerName,
+          },
+        });
+      });
+
       console.error(
         `[automation] Handler error for ${event.type}:`,
         err instanceof Error ? err.message : String(err)

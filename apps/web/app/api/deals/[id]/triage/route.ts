@@ -17,6 +17,7 @@ import type {
   ThroughputRouting,
 } from "@entitlement-os/shared";
 import { supabaseAdmin } from "@/lib/db/supabaseAdmin";
+import { captureAutomationDispatchError } from "@/lib/automation/sentry";
 
 // POST /api/deals/[id]/triage - run triage via Temporal
 const TEMPORAL_TASK_QUEUE = process.env.TEMPORAL_TASK_QUEUE || "entitlement-os";
@@ -81,7 +82,15 @@ export async function POST(
       runId: result.runId,
       decision: result.triage.decision,
       orgId: auth.orgId,
-    }).catch(() => {});
+    }).catch((error) => {
+      captureAutomationDispatchError(error, {
+        handler: "api.deals.triage.complete",
+        eventType: "triage.completed",
+        dealId: id,
+        orgId: auth.orgId,
+        status: deal.status,
+      });
+    });
 
     generateTriagePdf({
       dealId: id,

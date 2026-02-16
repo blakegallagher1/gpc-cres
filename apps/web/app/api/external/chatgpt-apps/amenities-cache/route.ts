@@ -3,6 +3,7 @@ import { z, ZodError } from "zod";
 import { getAmenitiesCache, upsertAmenitiesCache } from "@/lib/server/chatgptAppsClient";
 import { checkRateLimit } from "@/lib/server/rateLimiter";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import { captureChatGptAppsError } from "@/lib/automation/sentry";
 
 export const runtime = "nodejs";
 
@@ -55,9 +56,33 @@ export async function GET(request: Request) {
     );
   }
 
-  const result = await getAmenitiesCache(input.cacheKey, requestId);
+  let result: Awaited<ReturnType<typeof getAmenitiesCache>>;
+  try {
+    result = await getAmenitiesCache(input.cacheKey, requestId);
+  } catch (error) {
+    captureChatGptAppsError(error, {
+      rpc: "getAmenitiesCache",
+      requestId,
+      orgId: auth.orgId,
+      route: "/api/external/chatgpt-apps/amenities-cache",
+      input: { cacheKey: input.cacheKey },
+    });
+    return NextResponse.json(
+      { ok: false, request_id: requestId, error: { code: "UPSTREAM_ERROR", message: "Upstream request failed" } },
+      { status: 502 },
+    );
+  }
 
   if (!result.ok) {
+    captureChatGptAppsError(new Error(result.error), {
+      rpc: "getAmenitiesCache",
+      requestId: result.requestId,
+      orgId: auth.orgId,
+      route: "/api/external/chatgpt-apps/amenities-cache",
+      status: result.status,
+      input: { cacheKey: input.cacheKey },
+      details: result.error,
+    });
     const status = result.status === 429 ? 429 : 502;
     return NextResponse.json(
       { ok: false, request_id: result.requestId, error: { code: "UPSTREAM_ERROR", message: result.error } },
@@ -124,14 +149,38 @@ export async function POST(request: Request) {
     );
   }
 
-  const result = await upsertAmenitiesCache(
-    input.cacheKey,
-    input.payload as Record<string, unknown>,
-    input.ttlSeconds,
-    requestId,
-  );
+  let result: Awaited<ReturnType<typeof upsertAmenitiesCache>>;
+  try {
+    result = await upsertAmenitiesCache(
+      input.cacheKey,
+      input.payload as Record<string, unknown>,
+      input.ttlSeconds,
+      requestId,
+    );
+  } catch (error) {
+    captureChatGptAppsError(error, {
+      rpc: "upsertAmenitiesCache",
+      requestId,
+      orgId: auth.orgId,
+      route: "/api/external/chatgpt-apps/amenities-cache",
+      input: { cacheKey: input.cacheKey, ttlSeconds: input.ttlSeconds },
+    });
+    return NextResponse.json(
+      { ok: false, request_id: requestId, error: { code: "UPSTREAM_ERROR", message: "Upstream request failed" } },
+      { status: 502 },
+    );
+  }
 
   if (!result.ok) {
+    captureChatGptAppsError(new Error(result.error), {
+      rpc: "upsertAmenitiesCache",
+      requestId: result.requestId,
+      orgId: auth.orgId,
+      route: "/api/external/chatgpt-apps/amenities-cache",
+      status: result.status,
+      input: { cacheKey: input.cacheKey, ttlSeconds: input.ttlSeconds },
+      details: result.error,
+    });
     const status = result.status === 429 ? 429 : 502;
     return NextResponse.json(
       { ok: false, request_id: result.requestId, error: { code: "UPSTREAM_ERROR", message: result.error } },

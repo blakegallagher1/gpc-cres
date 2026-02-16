@@ -4,6 +4,8 @@ import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { dispatchEvent } from "@/lib/automation/events";
 import { runAgentWorkflow } from "@/lib/agent/agentRunner";
 import "@/lib/automation/handlers";
+import * as Sentry from "@sentry/nextjs";
+import { captureAutomationDispatchError } from "@/lib/automation/sentry";
 
 type TaskAgentStatus = "succeeded" | "failed" | "canceled";
 
@@ -137,7 +139,15 @@ export async function POST(
             dealId,
             taskId,
             orgId,
-          }).catch(() => {});
+          }).catch((error) => {
+            captureAutomationDispatchError(error, {
+              handler: "api.deals.tasks.run",
+              eventType: "task.completed",
+              dealId,
+              orgId,
+              status: "DONE",
+            });
+          });
 
           controller.enqueue(
             encoder.encode(
@@ -160,7 +170,19 @@ export async function POST(
       } catch (error) {
         const errMsg = error instanceof Error ? error.message : "Task execution failed";
         controller.enqueue(encoder.encode(sseEvent({ type: "error", message: errMsg })));
-        await prisma.task.update({ where: { id: taskId }, data: { status: "TODO" } }).catch(() => {});
+        await prisma.task.update({ where: { id: taskId }, data: { status: "TODO" } }).catch((updateError) => {
+          Sentry.captureException(updateError, {
+            tags: {
+              route: "api.deals.tasks.run",
+              operation: "task-revert",
+            },
+            extra: {
+              dealId,
+              taskId,
+              orgId,
+            },
+          });
+        });
       } finally {
         if (!doneSent) {
           controller.enqueue(

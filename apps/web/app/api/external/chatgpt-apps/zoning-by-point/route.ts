@@ -3,6 +3,7 @@ import { z, ZodError } from "zod";
 import { getZoningByPoint } from "@/lib/server/chatgptAppsClient";
 import { checkRateLimit } from "@/lib/server/rateLimiter";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import { captureChatGptAppsError } from "@/lib/automation/sentry";
 
 export const runtime = "nodejs";
 
@@ -64,9 +65,33 @@ export async function POST(request: Request) {
     );
   }
 
-  const result = await getZoningByPoint(input.lat, input.lng, input.parish ?? null, requestId);
+  let result: Awaited<ReturnType<typeof getZoningByPoint>>;
+  try {
+    result = await getZoningByPoint(input.lat, input.lng, input.parish ?? null, requestId);
+  } catch (error) {
+    captureChatGptAppsError(error, {
+      rpc: "getZoningByPoint",
+      requestId,
+      orgId: auth.orgId,
+      route: "/api/external/chatgpt-apps/zoning-by-point",
+      input: { lat: input.lat, lng: input.lng, parish: input.parish ?? null },
+    });
+    return NextResponse.json(
+      { ok: false, request_id: requestId, error: { code: "UPSTREAM_ERROR", message: "Upstream request failed" } },
+      { status: 502 },
+    );
+  }
 
   if (!result.ok) {
+    captureChatGptAppsError(new Error(result.error), {
+      rpc: "getZoningByPoint",
+      requestId: result.requestId,
+      orgId: auth.orgId,
+      route: "/api/external/chatgpt-apps/zoning-by-point",
+      status: result.status,
+      input: { lat: input.lat, lng: input.lng, parish: input.parish ?? null },
+      details: result.error,
+    });
     const status = result.status === 429 ? 429 : result.status === 504 ? 504 : 502;
     return NextResponse.json(
       { ok: false, request_id: result.requestId, error: { code: "UPSTREAM_ERROR", message: result.error } },
