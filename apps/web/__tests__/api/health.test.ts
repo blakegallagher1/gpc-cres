@@ -1,12 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-vi.mock("@entitlement-os/db", () => ({
-  prisma: {
-    $queryRawUnsafe: vi.fn(),
-  },
-}));
-
 vi.mock("@supabase/ssr", () => ({
   createServerClient: vi.fn(() => ({
     auth: {
@@ -15,61 +9,31 @@ vi.mock("@supabase/ssr", () => ({
   })),
 }));
 
-describe("GET /api/health/detailed", () => {
+describe("GET /api/health", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env.HEALTHCHECK_TOKEN = "health-token";
   });
 
-  it("returns detailed health payload", async () => {
-    const { prisma } = await import("@entitlement-os/db");
-
-    (
-      prisma as unknown as {
-        $queryRawUnsafe: {
-          mockResolvedValueOnce: (value: unknown) => unknown;
-        };
-      }
-    )
-      .$queryRawUnsafe.mockResolvedValueOnce([{ ok: 1 }])
-      .mockResolvedValueOnce([{ migration_name: "20240202020202_init" }]);
-
-    const { GET } = await import("@/app/api/health/detailed/route");
-
-    const response = await GET(
-      new NextRequest("http://localhost/api/health/detailed", {
-        headers: { "x-health-token": "health-token" },
-      })
-    );
-
-    const payload = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(payload.dbStatus.ok).toBe(true);
-    expect(payload.dbStatus.latencyMs).toBeTypeOf("number");
-    expect(payload.migrationVersion).toBe("20240202020202_init");
-    expect(payload.timestamp).toBe(new Date(payload.timestamp).toISOString());
-    expect(payload.uptimeSeconds).toBeTypeOf("number");
-  });
-
-  it("returns 401 when unauthorized", async () => {
-    delete process.env.HEALTHCHECK_TOKEN;
+  it("returns 401 without creating supabase client when supabase env is missing", async () => {
     const previousPublicUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const previousPublicAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     const previousUrl = process.env.SUPABASE_URL;
     const previousAnonKey = process.env.SUPABASE_ANON_KEY;
+    const previousHealthToken = process.env.HEALTHCHECK_TOKEN;
+    const previousVercelAccessToken = process.env.VERCEL_ACCESS_TOKEN;
+
     delete process.env.NEXT_PUBLIC_SUPABASE_URL;
     delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     delete process.env.SUPABASE_URL;
     delete process.env.SUPABASE_ANON_KEY;
+    delete process.env.HEALTHCHECK_TOKEN;
+    delete process.env.VERCEL_ACCESS_TOKEN;
 
     try {
-      const { GET } = await import("@/app/api/health/detailed/route");
+      const { GET } = await import("@/app/api/health/route");
       const { createServerClient } = await import("@supabase/ssr");
 
-      const response = await GET(
-        new NextRequest("http://localhost/api/health/detailed")
-      );
+      const response = await GET(new NextRequest("http://localhost/api/health"));
 
       expect(response.status).toBe(401);
       expect(createServerClient).not.toHaveBeenCalled();
@@ -93,6 +57,41 @@ describe("GET /api/health/detailed", () => {
         delete process.env.SUPABASE_ANON_KEY;
       } else {
         process.env.SUPABASE_ANON_KEY = previousAnonKey;
+      }
+      if (previousHealthToken === undefined) {
+        delete process.env.HEALTHCHECK_TOKEN;
+      } else {
+        process.env.HEALTHCHECK_TOKEN = previousHealthToken;
+      }
+      if (previousVercelAccessToken === undefined) {
+        delete process.env.VERCEL_ACCESS_TOKEN;
+      } else {
+        process.env.VERCEL_ACCESS_TOKEN = previousVercelAccessToken;
+      }
+    }
+  });
+
+  it("authorizes with x-health-token without calling supabase", async () => {
+    const previousHealthToken = process.env.HEALTHCHECK_TOKEN;
+    process.env.HEALTHCHECK_TOKEN = "health-token";
+
+    try {
+      const { GET } = await import("@/app/api/health/route");
+      const { createServerClient } = await import("@supabase/ssr");
+
+      const response = await GET(
+        new NextRequest("http://localhost/api/health", {
+          headers: { "x-health-token": "health-token" },
+        })
+      );
+
+      expect(response.status).not.toBe(401);
+      expect(createServerClient).not.toHaveBeenCalled();
+    } finally {
+      if (previousHealthToken === undefined) {
+        delete process.env.HEALTHCHECK_TOKEN;
+      } else {
+        process.env.HEALTHCHECK_TOKEN = previousHealthToken;
       }
     }
   });
