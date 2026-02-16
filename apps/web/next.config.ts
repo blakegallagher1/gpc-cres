@@ -16,6 +16,7 @@ const sentryOptions = {
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT || "entitlement-os-web",
   authToken: process.env.SENTRY_AUTH_TOKEN,
+  sourcemaps: { deleteSourcemapsAfterUpload: true },
   widenClientFileUpload: true,
   tunnelRoute: "/monitoring",
   autoInstrumentServerFunctions: true,
