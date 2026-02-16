@@ -5,6 +5,7 @@ import { dispatchEvent } from "@/lib/automation/events";
 import "@/lib/automation/handlers";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { captureAutomationDispatchError } from "@/lib/automation/sentry";
+import * as Sentry from "@sentry/nextjs";
 
 const DealStatusSchema = z.enum([
   "INTAKE",
@@ -91,6 +92,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ deals: result });
   } catch (error) {
     console.error("Error fetching deals:", error);
+    Sentry.captureException(error, {
+      tags: { route: "api.deals", method: "GET" },
+    });
     return NextResponse.json(
       { error: "Failed to fetch deals" },
       { status: 500 }
@@ -155,6 +159,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ deal }, { status: 201 });
   } catch (error) {
     console.error("Error creating deal:", error);
+    Sentry.captureException(error, {
+      tags: { route: "api.deals", method: "POST" },
+    });
     return NextResponse.json(
       { error: "Failed to create deal" },
       { status: 500 }
@@ -249,6 +256,9 @@ export async function PATCH(request: NextRequest) {
     });
   } catch (error) {
     console.error("Error bulk updating deals:", error);
+    Sentry.captureException(error, {
+      tags: { route: "api.deals", method: "PATCH" },
+    });
     return NextResponse.json(
       { error: "Failed to bulk update deals" },
       { status: 500 }

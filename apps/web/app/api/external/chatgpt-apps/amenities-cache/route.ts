@@ -83,7 +83,10 @@ export async function GET(request: Request) {
       input: { cacheKey: input.cacheKey },
       details: result.error,
     });
-    const status = result.status === 429 ? 429 : 502;
+    const status =
+      typeof result.status === "number" && result.status >= 400 && result.status <= 599
+        ? result.status
+        : 502;
     return NextResponse.json(
       { ok: false, request_id: result.requestId, error: { code: "UPSTREAM_ERROR", message: result.error } },
       { status },
@@ -181,7 +184,10 @@ export async function POST(request: Request) {
       input: { cacheKey: input.cacheKey, ttlSeconds: input.ttlSeconds },
       details: result.error,
     });
-    const status = result.status === 429 ? 429 : 502;
+    const status =
+      typeof result.status === "number" && result.status >= 400 && result.status <= 599
+        ? result.status
+        : 502;
     return NextResponse.json(
       { ok: false, request_id: result.requestId, error: { code: "UPSTREAM_ERROR", message: result.error } },
       { status },

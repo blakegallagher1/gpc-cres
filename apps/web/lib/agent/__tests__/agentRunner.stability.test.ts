@@ -34,6 +34,7 @@ vi.mock("@entitlement-os/db", () => ({
 
 vi.mock("../executeAgent", () => ({
   executeAgentWorkflow: vi.fn(),
+  toDatabaseRunId: (runId: string) => `uuid-${runId}`,
 }));
 
 vi.mock("@/lib/workflowClient", () => ({

@@ -5,6 +5,7 @@ import { dispatchEvent } from "@/lib/automation/events";
 import "@/lib/automation/handlers";
 import { ParcelTriageSchema } from "@entitlement-os/shared";
 import { captureAutomationDispatchError } from "@/lib/automation/sentry";
+import * as Sentry from "@sentry/nextjs";
 
 const PACK_STALE_DAYS = 7;
 const PACK_COVERAGE_MINIMUM = 0.75;
@@ -159,6 +160,12 @@ export async function GET(
     });
   } catch (error) {
     console.error("Error fetching deal:", error);
+    Sentry.captureException(error, {
+      tags: { route: "/api/deals/[id]", method: "GET" },
+      fingerprint: ["smoke-test", Date.now().toString()],
+      level: "error",
+    });
+    await Sentry.flush(5000);
     return NextResponse.json(
       { error: "Failed to fetch deal" },
       { status: 500 }
@@ -239,6 +246,12 @@ export async function PATCH(
     return NextResponse.json({ deal });
   } catch (error) {
     console.error("Error updating deal:", error);
+    Sentry.captureException(error, {
+      tags: { route: "/api/deals/[id]", method: "PATCH" },
+      fingerprint: ["smoke-test", Date.now().toString()],
+      level: "error",
+    });
+    await Sentry.flush(5000);
     return NextResponse.json(
       { error: "Failed to update deal" },
       { status: 500 }
@@ -273,6 +286,12 @@ export async function DELETE(
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error deleting deal:", error);
+    Sentry.captureException(error, {
+      tags: { route: "/api/deals/[id]", method: "DELETE" },
+      fingerprint: ["smoke-test", Date.now().toString()],
+      level: "error",
+    });
+    await Sentry.flush(5000);
     return NextResponse.json(
       { error: "Failed to delete deal" },
       { status: 500 }

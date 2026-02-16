@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { setupAgentTracing } from "@entitlement-os/openai";
+import { randomUUID } from "node:crypto";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { runAgentWorkflow } from "@/lib/agent/agentRunner";
 import type { AgentStreamEvent } from "@/lib/agent/executeAgent";
@@ -96,10 +97,10 @@ export async function POST(req: NextRequest) {
       } finally {
         if (!doneSent) {
           controller.enqueue(
-            encoder.encode(
+              encoder.encode(
               sseEvent({
                 type: "done",
-                runId: "agent-run-failed",
+                runId: randomUUID(),
                 status: "failed",
                 conversationId: requestedConversationId,
               }),

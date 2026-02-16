@@ -13,15 +13,19 @@ const nextConfig: NextConfig = {
 };
 
 const sentryOptions = {
-  org: process.env.SENTRY_ORG,
-  project: process.env.SENTRY_PROJECT || "entitlement-os-web",
+  org: "gpc-ul",
+  project: "entitlement-os-web",
   authToken: process.env.SENTRY_AUTH_TOKEN,
   sourcemaps: { deleteSourcemapsAfterUpload: true },
   widenClientFileUpload: true,
   tunnelRoute: "/monitoring",
   autoInstrumentServerFunctions: true,
   silent: true,
-  hideSourceMaps: false,
+  hideSourceMaps: true,
+  disableLogger: true,
+  release: {
+    name: process.env.SENTRY_RELEASE || process.env.VERCEL_GIT_COMMIT_SHA,
+  },
 };
 
 export default withSentryConfig(nextConfig, sentryOptions);

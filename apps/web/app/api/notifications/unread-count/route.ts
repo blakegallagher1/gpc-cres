@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { NotificationService } from "@/lib/services/notification.service";
 import { isSchemaDriftError } from "@/lib/api/prismaSchemaFallback";
+import * as Sentry from "@sentry/nextjs";
 
 const service = new NotificationService();
 
@@ -20,6 +21,9 @@ export async function GET() {
     if (isSchemaDriftError(error)) {
       return NextResponse.json({ count: 0 });
     }
+    Sentry.captureException(error, {
+      tags: { route: "api.notifications.unread-count", method: "GET" },
+    });
     return NextResponse.json(
       { error: "Failed to fetch unread count" },
       { status: 500 }

@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { prisma } from "@entitlement-os/db";
 import * as Sentry from "@sentry/nextjs";
+import { headers } from "next/headers";
 
 /**
  * Resolve Supabase auth from request cookies.
@@ -27,6 +28,12 @@ export async function resolveAuth(): Promise<{
       if (!supabaseUrl || !supabaseAnonKey) return null;
 
       const cookieStore = await cookies();
+      const headersStore = await headers();
+      const authHeader = headersStore.get("authorization");
+      const tokenFromHeader = authHeader?.toLowerCase().startsWith("bearer ")
+        ? authHeader.slice("bearer ".length).trim()
+        : null;
+
       const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
         cookies: {
           get(name: string) {
@@ -48,6 +55,46 @@ export async function resolveAuth(): Promise<{
           },
         },
       });
+
+      if (tokenFromHeader) {
+        const {
+          data: { user },
+          error: tokenError,
+        } = await supabase.auth.getUser(tokenFromHeader);
+
+        if (user) {
+          const membership = await prisma.orgMembership.findFirst({
+            where: { userId: user.id },
+            select: { orgId: true },
+          });
+
+          if (membership) {
+            return { userId: user.id, orgId: membership.orgId };
+          }
+
+          const defaultOrg = await prisma.org.findFirst({ select: { id: true } });
+          if (!defaultOrg) return null;
+
+          await prisma.user.upsert({
+            where: { id: user.id },
+            update: { email: user.email ?? "" },
+            create: { id: user.id, email: user.email ?? "" },
+          });
+
+          const fallback = await prisma.orgMembership.create({
+            data: { orgId: defaultOrg.id, userId: user.id, role: "member" },
+            select: { orgId: true },
+          });
+
+          return { userId: user.id, orgId: fallback.orgId };
+        }
+
+        if (tokenError) {
+          Sentry.captureException(tokenError, {
+            tags: { route: "auth.resolve", authMode: "bearer" },
+          });
+        }
+      }
 
       const {
         data: { user },

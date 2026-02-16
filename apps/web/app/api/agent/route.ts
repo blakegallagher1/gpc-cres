@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { randomUUID } from "node:crypto";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { runAgentWorkflow } from "@/lib/agent/agentRunner";
 import type { AgentInputMessage } from "@/lib/agent/executeAgent";
@@ -132,7 +133,7 @@ export async function POST(req: NextRequest) {
             encoder.encode(
               sseEvent({
                 type: "done",
-                runId: "agent-run-failed",
+                runId: randomUUID(),
                 status: "failed",
                 conversationId: runInput.conversationId ?? null,
               }),

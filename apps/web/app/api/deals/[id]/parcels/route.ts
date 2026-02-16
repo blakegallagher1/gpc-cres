@@ -4,6 +4,7 @@ import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { dispatchEvent } from "@/lib/automation/events";
 import "@/lib/automation/handlers";
 import { captureAutomationDispatchError } from "@/lib/automation/sentry";
+import * as Sentry from "@sentry/nextjs";
 
 // GET /api/deals/[id]/parcels
 export async function GET(
@@ -35,6 +36,12 @@ export async function GET(
     return NextResponse.json({ parcels });
   } catch (error) {
     console.error("Error fetching parcels:", error);
+    Sentry.captureException(error, {
+      tags: { route: "/api/deals/[id]/parcels", method: "GET" },
+      fingerprint: ["smoke-test", Date.now().toString()],
+      level: "error",
+    });
+    await Sentry.flush(5000);
     return NextResponse.json(
       { error: "Failed to fetch parcels" },
       { status: 500 }
@@ -105,6 +112,12 @@ export async function POST(
     return NextResponse.json({ parcel }, { status: 201 });
   } catch (error) {
     console.error("Error creating parcel:", error);
+    Sentry.captureException(error, {
+      tags: { route: "/api/deals/[id]/parcels", method: "POST" },
+      fingerprint: ["smoke-test", Date.now().toString()],
+      level: "error",
+    });
+    await Sentry.flush(5000);
     return NextResponse.json(
       { error: "Failed to create parcel" },
       { status: 500 }
