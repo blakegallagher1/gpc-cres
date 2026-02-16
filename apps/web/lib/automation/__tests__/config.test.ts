@@ -113,6 +113,12 @@ describe("AUTOMATION_CONFIG", () => {
     });
   });
 
+  describe("hosted tools configuration", () => {
+    it("should have correct webSearchMaxCallsPerConversation", () => {
+      expect(AUTOMATION_CONFIG.hostedTools.webSearchMaxCallsPerConversation).toBe(10);
+    });
+  });
+
   describe("intelligenceKpi configuration", () => {
     it("should have expected entitlement KPI guardrails", () => {
       expect(AUTOMATION_CONFIG.intelligenceKpi.lookbackMonths).toBe(36);
@@ -154,6 +160,7 @@ describe("AUTOMATION_CONFIG", () => {
       expect(Object.isFrozen(AUTOMATION_CONFIG.advancement)).toBe(true);
       expect(Object.isFrozen(AUTOMATION_CONFIG.buyerOutreach)).toBe(true);
       expect(Object.isFrozen(AUTOMATION_CONFIG.documents)).toBe(true);
+      expect(Object.isFrozen(AUTOMATION_CONFIG.hostedTools)).toBe(true);
       expect(Object.isFrozen(AUTOMATION_CONFIG.intelligenceKpi)).toBe(true);
       expect(Object.isFrozen(AUTOMATION_CONFIG.entitlementAutopilot)).toBe(true);
     });

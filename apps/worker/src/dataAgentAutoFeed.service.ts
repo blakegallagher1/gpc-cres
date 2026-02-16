@@ -5,9 +5,19 @@
  * across the monorepo while preserving deterministic episode + KG + reward persistence.
  */
 
-import { logger, recordDataAgentAutoFeed } from "../../../utils/logger";
 import { prisma } from "@entitlement-os/db";
 import { type EvidenceCitation } from "@entitlement-os/shared/evidence";
+
+const logger = {
+  info: (message: string, context?: Record<string, unknown>) =>
+    console.info(message, context ?? {}),
+  warn: (message: string, context?: Record<string, unknown>) =>
+    console.warn(message, context ?? {}),
+};
+
+function recordDataAgentAutoFeed(_event: Record<string, unknown>): void {
+  // Worker-local no-op fallback to avoid cross-root import coupling.
+}
 
 export interface AutoFeedInput {
   runId: string;

@@ -3,11 +3,14 @@
 import type { ComponentType } from 'react';
 import type { ReactNode } from 'react';
 import {
+  AlertTriangle,
   ClipboardCopy,
   ClipboardList,
   ExternalLink,
   FileText,
+  GitBranch,
   RefreshCcw,
+  Wrench,
   Rocket,
   Link as LinkIcon,
 } from 'lucide-react';
@@ -16,7 +19,10 @@ import { getAgentColor, formatAgentLabel } from './AgentIndicator';
 import { ToolCallCard } from './ToolCallCard';
 import { TriageResultCard } from './TriageResultCard';
 import { ArtifactDownloadCard } from './ArtifactDownloadCard';
-import type { ChatMessage } from '@/lib/chat/types';
+import { AgentStatusChip } from './AgentStatusChip';
+import { ToolStatusChip } from './ToolStatusChip';
+import { ToolApprovalPrompt } from './ToolApprovalPrompt';
+import type { ChatMessage, ChatStreamEvent } from '@/lib/chat/types';
 
 type MessageBubbleEventMap = Record<string, ComponentType<{ className?: string }>>;
 
@@ -24,11 +30,16 @@ const eventIcons: MessageBubbleEventMap = {
   agent_progress: Rocket,
   agent_switch: RefreshCcw,
   agent_summary: ExternalLink,
+  handoff: GitBranch,
+  tool_start: Wrench,
+  tool_end: FileText,
+  tool_approval: AlertTriangle,
 };
 
 interface MessageBubbleProps {
   message: ChatMessage;
   conversationId?: string | null;
+  onToolApprovalEvents?: (events: ChatStreamEvent[]) => void;
 }
 
 function ToolResultCard({ name, result }: { name: string; result: unknown }) {
@@ -208,7 +219,11 @@ function MessageActions({
   );
 }
 
-function renderSystemContent(message: ChatMessage, conversationId?: string | null) {
+function renderSystemContent(
+  message: ChatMessage,
+  conversationId?: string | null,
+  onToolApprovalEvents?: (events: ChatStreamEvent[]) => void,
+) {
   const eventKind = message.eventKind;
   const Icon = eventKind ? eventIcons[eventKind] : null;
 
@@ -250,9 +265,76 @@ function renderSystemContent(message: ChatMessage, conversationId?: string | nul
           rightAction={Icon ? <Icon className="h-3 w-3" /> : undefined}
         />
         <div className="flex items-center gap-2 text-xs">
-          Active agent changed to <strong>{message.agentName}</strong>
+          <AgentStatusChip agentName={message.agentName} mode="active" />
+          <span>Active agent changed.</span>
         </div>
         <MessageActions conversationId={conversationId} messageId={message.id} message={message} />
+      </div>
+    );
+  }
+
+  if (eventKind === 'handoff') {
+    const handoffTarget = message.agentName ?? 'Specialist';
+    return (
+      <div className="rounded-lg border bg-indigo-50 px-3 py-2 text-sm text-indigo-950 dark:bg-indigo-950/20 dark:text-indigo-100">
+        <EventHeader
+          title="Agent Handoff"
+          agentName={message.agentName}
+          rightAction={Icon ? <Icon className="h-3 w-3" /> : undefined}
+        />
+        <div className="flex items-center gap-2 text-xs">
+          <AgentStatusChip agentName={handoffTarget} mode="handoff" />
+          <span>{message.content}</span>
+        </div>
+        <MessageActions conversationId={conversationId} messageId={message.id} message={message} />
+      </div>
+    );
+  }
+
+  if (eventKind === 'tool_start' || eventKind === 'tool_end') {
+    const toolName = message.toolCalls?.[0]?.name ?? message.agentName ?? 'tool';
+    const status = eventKind === 'tool_start' ? 'running' : 'completed';
+    return (
+      <div className="rounded-lg border bg-slate-50 px-3 py-2 text-sm text-slate-900 dark:bg-slate-900/30 dark:text-slate-100">
+        <EventHeader
+          title={eventKind === 'tool_start' ? 'Tool Started' : 'Tool Completed'}
+          rightAction={Icon ? <Icon className="h-3 w-3" /> : undefined}
+        />
+        <div className="flex items-center gap-2 text-xs">
+          <ToolStatusChip toolName={toolName} status={status} />
+          <span>{message.content}</span>
+        </div>
+        <MessageActions conversationId={conversationId} messageId={message.id} message={message} />
+      </div>
+    );
+  }
+
+  if (eventKind === 'tool_approval') {
+    const metadata = (message.metadata ?? {}) as Record<string, unknown>;
+    const runId = typeof metadata.runId === 'string' ? metadata.runId : null;
+    const toolCallId = typeof metadata.toolCallId === 'string' ? metadata.toolCallId : null;
+    const toolName =
+      message.toolCalls?.[0]?.name ??
+      (typeof metadata.toolName === 'string' ? metadata.toolName : null) ??
+      'tool';
+    const args = message.toolCalls?.[0]?.args;
+
+    return (
+      <div className="rounded-lg border bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:bg-amber-950/20 dark:text-amber-100">
+        <EventHeader
+          title="Tool Approval Required"
+          rightAction={Icon ? <Icon className="h-3 w-3" /> : undefined}
+        />
+        <p className="text-xs">{message.content}</p>
+        {runId && toolCallId ? (
+          <ToolApprovalPrompt
+            runId={runId}
+            toolCallId={toolCallId}
+            toolName={toolName}
+            args={args}
+            onEvents={onToolApprovalEvents}
+          />
+        ) : null}
       </div>
     );
   }
@@ -319,11 +401,15 @@ function renderSystemContent(message: ChatMessage, conversationId?: string | nul
   return null;
 }
 
-export function MessageBubble({ message, conversationId }: MessageBubbleProps) {
+export function MessageBubble({
+  message,
+  conversationId,
+  onToolApprovalEvents,
+}: MessageBubbleProps) {
   const isUser = message.role === 'user';
   const isSystemEvent = message.eventKind !== undefined && message.eventKind !== 'assistant';
   const hasEvent = message.eventKind !== undefined;
-  const systemContent = renderSystemContent(message, conversationId);
+  const systemContent = renderSystemContent(message, conversationId, onToolApprovalEvents);
 
   return (
     <div className={cn('flex w-full gap-3', isUser ? 'justify-end' : 'justify-start')}>

@@ -6,7 +6,7 @@
  */
 
 import { prisma } from "@entitlement-os/db";
-import { logger, recordDataAgentAutoFeed } from "../../../../utils/logger";
+import { logger, recordDataAgentAutoFeed } from "./loggerAdapter";
 
 type JsonRecord = Record<string, unknown>;
 

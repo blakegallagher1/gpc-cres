@@ -572,6 +572,580 @@ Only items meeting all checks are added below as `Planned`.
   - Do we need full-screen "spatial analysis tool stack" parity in phase 1 or can analysis tools be phased-in in stage 2?
   - What is the preferred maximum payload for geometry detail at zoom-out to balance speed vs boundary fidelity?
 
+---
+
+## SDK Enhancement Roadmap (from OpenAI repo analysis, 2026-02-15)
+
+The following items were identified by analyzing 6 OpenAI GitHub repositories (`chatkit-js`, `skills`, `openai-python`, `openai-agents-python`, `openai-agents-js`, `codex`) and mapping SDK patterns/features to Entitlement OS gaps. Grouped by priority tier.
+
+### P1 — Ship First
+
+### SDK-001 — Streaming Event Enrichment (Active Agent + Tool Status in Chat UI)
+
+- **Priority:** P1
+- **Status:** Done (2026-02-16)
+- **Scope:** Chat UX + agent observability
+- **Problem:** The chat API currently streams only text deltas (`response.output_text.delta`). The `@openai/agents` SDK emits rich `RunItemStreamEvent` types — `tool_called`, `tool_result`, `handoff_occurred`, `agent_updated` — but these are silently consumed and never forwarded to the client. Users cannot see which specialist agent is active, what tools are running, or when handoffs occur.
+- **Expected Outcome (measurable):**
+  - Chat UI displays active agent name (e.g., "Finance Agent is working...") during specialist handoffs
+  - Tool execution shows real-time status chips (e.g., "Running: search_parcels" → "Completed: 12 results")
+  - Agent switch events render as timeline markers in the conversation
+  - Zero additional API calls — all data comes from existing stream events
+- **Evidence:** AUI-001 added renderer stubs for `agent_progress`, `agent_switch`, `tool_call` events, but the backend `app/api/chat/route.ts` does not emit these event types into the SSE stream. The SDK produces them — we just need to forward them.
+- **Alignment:** Builds directly on AUI-001's structured event renderers. No changes to agent execution pipeline.
+- **Risk/rollback:** Low. SSE event additions are additive — old clients ignore unknown event types. Rollback by removing new SSE event lines from chat route.
+- **Acceptance Criteria / Tests:**
+  1. `app/api/chat/route.ts` subscribes to `RunItemStreamEvent` and `RunAgentUpdatedStreamEvent` from the SDK runner
+  2. New SSE event types emitted: `agent_switch` (agent name + model), `tool_start` (tool name + args summary), `tool_end` (tool name + result summary), `handoff` (from → to agent)
+  3. Chat UI renders these via existing AUI-001 structured event components
+  4. Unit test: synthetic stream with mixed text + tool + agent events renders correctly
+  5. No regression in existing text streaming behavior
+- **Files (target):**
+  - `apps/web/app/api/chat/route.ts` — add stream event forwarding
+  - `apps/web/components/chat/ChatMessage.tsx` — wire event renderers
+  - `apps/web/components/chat/AgentStatusChip.tsx` — new: shows active agent name
+  - `apps/web/components/chat/ToolStatusChip.tsx` — new: shows tool execution status
+  - `apps/web/lib/chat/streamEventTypes.ts` — new: shared SSE event type definitions
+- **Implementation Steps:**
+  1. Define shared SSE event type schema in `lib/chat/streamEventTypes.ts` (agent_switch, tool_start, tool_end, handoff)
+  2. In `app/api/chat/route.ts`, hook into the SDK runner's event stream — for each `RunItemStreamEvent` of type `tool_called`/`tool_result` and each `RunAgentUpdatedStreamEvent`, emit a corresponding SSE event
+  3. Update chat client-side stream parser to recognize new event types and dispatch to existing AUI-001 renderers
+  4. Create `AgentStatusChip` component — shows agent name with colored dot indicator
+  5. Create `ToolStatusChip` component — shows tool name with spinner/check states
+  6. Add unit tests for stream parsing and component rendering
+  7. Add integration test: full stream → UI render path with mixed event types
+- **Completion Evidence (2026-02-16):**
+  - Event emission wired from SDK stream loop in `apps/web/lib/agent/executeAgent.ts`
+  - Shared stream types in `apps/web/lib/chat/streamEventTypes.ts`
+  - UI render path with status chips in `apps/web/components/chat/MessageBubble.tsx`, `apps/web/components/chat/AgentStatusChip.tsx`, `apps/web/components/chat/ToolStatusChip.tsx`
+  - Tests updated: `apps/web/lib/chat/__tests__/streamPresenter.test.ts`, `apps/web/lib/chat/__tests__/streamRender.integration.test.tsx`
+  - Verification commands run: `pnpm lint`, `pnpm test` (pass); `pnpm typecheck` and `pnpm build` blocked by pre-existing `apps/worker` type errors unrelated to SDK-001 files.
+
+### SDK-002 — Stable Options Hook (React Re-render Prevention)
+
+- **Priority:** P1
+- **Status:** Done (2026-02-16)
+- **Scope:** Frontend performance
+- **Problem:** React components that accept callback props (e.g., `onParcelClick`, `onMessageSend`, `onToolResult`) cause unnecessary re-renders when parent components recreate function references. This is a known pattern in `openai/chatkit-js` solved with a ~15 line `useStableOptions` hook that deep-compares option objects while ignoring function identity.
+- **Expected Outcome (measurable):**
+  - Reduce unnecessary re-renders in MapLibreParcelMap, ChatContainer, and DealDetail by 40-60% (measurable via React DevTools profiler)
+  - Eliminate "cascade re-render" patterns where a parent state change triggers full child tree re-render
+- **Evidence:** MapLibreParcelMap (1,900+ lines) uses `onParcelClickRef` pattern manually. ChatContainer and deal components don't have this optimization. chatkit-js's `useStableOptions` generalizes this pattern.
+- **Alignment:** Pure utility hook — no architectural change. Drop-in replacement for manual ref patterns.
+- **Risk/rollback:** Very low. Utility hook is additive. Rollback by removing hook usage and reverting to direct prop passing.
+- **Acceptance Criteria / Tests:**
+  1. `useStableOptions` hook created in `apps/web/lib/hooks/useStableOptions.ts`
+  2. Deep-equals data properties, wraps function properties via stable refs (proxy pattern from chatkit-js)
+  3. Applied to at least MapLibreParcelMap, ChatContainer, and one deal component
+  4. Unit test: verify stable reference identity across re-renders when only functions change
+  5. Unit test: verify reference changes when data properties actually change
+- **Files (target):**
+  - `apps/web/lib/hooks/useStableOptions.ts` — new: the hook
+  - `apps/web/lib/hooks/__tests__/useStableOptions.test.ts` — new: unit tests
+  - `apps/web/components/maps/MapLibreParcelMap.tsx` — replace manual ref pattern
+  - `apps/web/components/chat/ChatContainer.tsx` — add hook
+- **Implementation Steps:**
+  1. Create `useStableOptions<T>(options: T): T` hook — uses `useRef` + deep equal for data, `useRef` proxy for functions
+  2. Write unit tests using `renderHook` from `@testing-library/react`
+  3. Replace `onParcelClickRef` manual pattern in MapLibreParcelMap with `useStableOptions`
+  4. Apply to ChatContainer callback props
+  5. Verify no behavior regressions with existing map and chat tests
+- **Completion Evidence (2026-02-16):**
+  - Hook implemented in `apps/web/lib/hooks/useStableOptions.ts`
+  - Tests added in `apps/web/lib/hooks/__tests__/useStableOptions.test.ts`
+  - `MapLibreParcelMap` callback ref pattern replaced for `onParcelClick` in `apps/web/components/maps/MapLibreParcelMap.tsx`
+  - `ChatContainer` callback props stabilized in `apps/web/components/chat/ChatContainer.tsx`
+  - Deal component integration added in `apps/web/components/deals/TriageResultPanel.tsx`
+
+### SDK-003 — Built-in Hosted Tools (web_search, file_search)
+
+- **Priority:** P1
+- **Status:** Done (2026-02-16)
+- **Scope:** Agent capability expansion
+- **Problem:** The Research and Market Intel agents currently lack real-time web search and document retrieval capabilities. The `@openai/agents` SDK provides built-in hosted tools (`web_search_preview`, `file_search`) that require zero custom implementation — just a tool type declaration. These are already used in our parish pack generation but not wired to the main agent coordinator.
+- **Expected Outcome (measurable):**
+  - Research agent can search the live web for market data, news, and property listings
+  - Market Intel agent can search the live web for competitor tracking and absorption data
+  - File search enables agents to search uploaded deal room documents without custom RAG
+  - Zero new tool code — uses SDK built-in hosted tool declarations
+- **Evidence:** Parish pack generation already uses `web_search_preview` with `as const` assertion successfully. Research and Market Intel agents currently have no web search capability — they can only use data already in the property DB.
+- **Alignment:** Uses existing SDK feature. Tool declarations are added in `createConfiguredCoordinator()` alongside existing tools.
+- **Risk/rollback:** Low. Hosted tools are OpenAI-managed. Rollback by removing tool declarations from agent config. Cost consideration: web_search incurs per-call OpenAI billing.
+- **Acceptance Criteria / Tests:**
+  1. `web_search_preview` tool added to Research agent and Market Intel agent tool arrays
+  2. `file_search` tool evaluated for deal room document search (requires OpenAI vector store setup)
+  3. Coordinator agent receives `web_search_preview` for general queries
+  4. Integration test: Research agent invoked with "find recent industrial land sales in Baton Rouge" returns web results
+  5. Cost guardrail: add per-conversation web search call limit in automation config
+- **Files (target):**
+  - `packages/openai/src/agents/index.ts` — add hosted tool declarations to agent tool arrays in `createConfiguredCoordinator()`
+  - `packages/openai/src/tools/hostedTools.ts` — new: shared hosted tool type declarations with `as const`
+  - `apps/web/lib/automation/config.ts` — add web search rate limit config
+- **Implementation Steps:**
+  1. Create `hostedTools.ts` with typed `web_search_preview` and `file_search` declarations using `as const`
+  2. In `createConfiguredCoordinator()`, add `web_search_preview` to Research, Market Intel, and Coordinator agent tool arrays
+  3. Add `webSearchMaxCallsPerConversation` to `AUTOMATION_CONFIG` (default: 10)
+  4. Test with a real Research agent invocation to verify web results are returned
+  5. Evaluate `file_search` feasibility — requires OpenAI vector store with deal room documents (may be P2)
+  6. Document cost implications in CLAUDE.md gotchas
+- **Completion Evidence (2026-02-16):**
+  - Hosted declarations added in `packages/openai/src/tools/hostedTools.ts`
+  - Coordinator tool set now includes web search in `packages/openai/src/tools/index.ts`
+  - `webSearchMaxCallsPerConversation` added in `apps/web/lib/automation/config.ts`
+  - Tests added/updated:
+    - `packages/openai/test/phase1/agents/coordinator.phase1.test.ts`
+    - `packages/openai/test/phase1/tools/hostedTools.phase1.test.ts`
+    - `apps/web/lib/automation/__tests__/config.test.ts`
+
+### SDK-004 — Tool Approval Gates (Human-in-the-Loop at SDK Level)
+
+- **Priority:** P1
+- **Status:** Done (2026-02-16)
+- **Scope:** Safety + human oversight
+- **Problem:** Entitlement OS uses a manual `gates.ts` pattern to enforce human approval at deal stage transitions. The `@openai/agents` SDK has a native `requiresApproval` feature that pauses tool execution, emits a `tool_approval_requested` stream event, and waits for `approveTool()`/`rejectTool()` calls. This is more robust than our ad-hoc gate checks and integrates directly with the streaming pipeline.
+- **Expected Outcome (measurable):**
+  - High-risk tools (deal status changes, buyer outreach drafts, external API calls) pause execution and prompt the user in the chat UI before proceeding
+  - Approval/rejection is handled in-stream — no separate API call or page navigation needed
+  - Replaces or augments manual `gates.ts` checks with SDK-native mechanism
+  - Audit trail: every approval/rejection is logged with timestamp and user ID
+- **Evidence:** `gates.ts` currently checks `isHumanGateRequired()` at API route level. The SDK's `requiresApproval` operates at tool level — more granular and impossible to bypass since it's enforced by the runner itself.
+- **Alignment:** Directly enhances the "agents advise, humans decide" principle. SDK-native enforcement is stronger than application-level checks.
+- **Risk/rollback:** Medium. Requires chat UI changes to render approval prompts and handle approve/reject actions. Rollback by removing `requiresApproval` from tool definitions — tools revert to auto-execute.
+- **Acceptance Criteria / Tests:**
+  1. `requiresApproval` added to deal status change tools, buyer outreach tools, and any tool that triggers external side effects
+  2. Chat UI renders approval prompt when `tool_approval_requested` event is received — shows tool name, arguments, and approve/reject buttons
+  3. `approveTool()` / `rejectTool()` wired from UI action to SDK runner
+  4. Approval/rejection logged to `Run` or audit table with userId + timestamp
+  5. Unit test: tool with `requiresApproval` pauses execution and resumes on approval
+  6. Unit test: rejected tool returns rejection message to agent
+  7. Existing `gates.ts` checks preserved as defense-in-depth (belt + suspenders)
+- **Files (target):**
+  - `packages/openai/src/tools/dealTools.ts` — add `requiresApproval` to status change tools
+  - `packages/openai/src/tools/buyerTools.ts` — add `requiresApproval` to outreach tools
+  - `apps/web/app/api/chat/route.ts` — handle `tool_approval_requested` stream event, expose approve/reject endpoints
+  - `apps/web/components/chat/ToolApprovalPrompt.tsx` — new: in-chat approval UI
+  - `apps/web/app/api/chat/tool-approval/route.ts` — new: approve/reject API endpoint
+  - `apps/web/lib/automation/gates.ts` — preserved as defense-in-depth layer
+- **Implementation Steps:**
+  1. Research SDK `requiresApproval` API — confirm it works with `Runner.run()` streaming mode and supports async approval callbacks
+  2. Add `requiresApproval: true` to high-risk tool definitions in `dealTools.ts` and `buyerTools.ts`
+  3. In chat route, detect `tool_approval_requested` events and emit SSE event to client
+  4. Create `ToolApprovalPrompt` component — shows tool name, formatted args, approve/reject buttons
+  5. Create `/api/chat/tool-approval` endpoint — accepts `{ runId, toolCallId, action: 'approve' | 'reject' }`, calls SDK `approveTool()`/`rejectTool()`
+  6. Add audit logging for approvals/rejections
+  7. Keep `gates.ts` checks as secondary validation layer
+  8. Write unit and integration tests
+- **Completion Evidence (2026-02-16):**
+  - High-risk tools gated with SDK-native approval:
+    - `packages/openai/src/tools/dealTools.ts` (`updateDealStatus` now sets `needsApproval: true`)
+    - `packages/openai/src/tools/buyerTools.ts` (`logOutreach` now sets `needsApproval: true`)
+  - Streaming approval event + chat UI wiring:
+    - `apps/web/lib/agent/executeAgent.ts` emits `tool_approval_requested` and supports resumed `RunState` approval/rejection flow
+    - `apps/web/lib/chat/streamEventTypes.ts` + `apps/web/lib/chat/streamPresenter.ts` map approval events into renderable chat messages
+    - `apps/web/components/chat/ToolApprovalPrompt.tsx` provides in-chat approve/reject controls
+    - `apps/web/app/api/chat/tool-approval/route.ts` applies approval decisions and returns stream events
+  - Audit trail added:
+    - `apps/web/lib/agent/executeAgent.ts` writes `approvalAudit` entries with `toolCallId`, `action`, `userId`, `decidedAt`, `runId`
+  - Tests added/updated:
+    - `apps/web/app/api/chat/tool-approval/route.test.ts`
+    - `apps/web/lib/chat/__tests__/streamPresenter.test.ts`
+    - `apps/web/lib/chat/__tests__/streamRender.integration.test.tsx`
+    - `packages/openai/test/phase1/tools/updateDealStatus.phase1.test.ts`
+    - `packages/openai/test/phase1/tools/logOutreach.phase1.test.ts`
+  - Verification commands run:
+    - `pnpm lint` ✅
+    - `pnpm test` ✅
+    - `pnpm typecheck` ⚠️ blocked by pre-existing `apps/worker` type errors unrelated to SDK-004 files
+    - `pnpm build` ⚠️ blocked by the same pre-existing `apps/worker` errors
+
+### P2 — Build Next
+
+### SDK-005 — Input/Output Guardrails (Agent-Level Validation)
+
+- **Priority:** P2
+- **Status:** Done (2026-02-16)
+- **Scope:** Safety + data quality
+- **Problem:** The `@openai/agents` SDK provides `defineInputGuardrail` and `defineOutputGuardrail` functions that run validation logic before/after agent execution with tripwire mechanisms. Currently, Entitlement OS has no systematic input validation on agent prompts (e.g., prompt injection detection) or output validation (e.g., hallucination checks, PII leak detection).
+- **Expected Outcome (measurable):**
+  - Input guardrails catch prompt injection attempts, off-topic queries, and malformed deal references before they reach the agent
+  - Output guardrails validate that agent responses don't contain PII, hallucinated property data, or unauthorized financial advice
+  - Tripwire mechanism halts execution when critical validation fails
+- **Evidence:** No input/output validation exists in the current agent pipeline. The SDK provides this as a first-class feature.
+- **Alignment:** Strengthens the "agents advise, humans decide" principle by adding automated quality gates.
+- **Risk/rollback:** Low. Guardrails are additive validation layers. Rollback by removing guardrail definitions from agent configs.
+- **Acceptance Criteria / Tests:**
+  1. Input guardrail on Coordinator: reject prompt injection patterns, validate deal ID references exist
+  2. Output guardrail on Finance agent: validate numerical outputs are within reasonable ranges
+  3. Output guardrail on Legal agent: flag responses that could be construed as legal advice
+  4. Tripwire test: guardrail failure halts execution and returns user-friendly error
+  5. Guardrail pass-through test: valid inputs/outputs proceed without latency impact
+- **Files (target):**
+  - `packages/openai/src/guardrails/inputGuardrails.ts` — new
+  - `packages/openai/src/guardrails/outputGuardrails.ts` — new
+  - `packages/openai/src/agents/index.ts` — wire guardrails into `createConfiguredCoordinator()`
+- **Implementation Steps:**
+  1. Create `inputGuardrails.ts` with `defineInputGuardrail` for injection detection, topic validation, and reference validation
+  2. Create `outputGuardrails.ts` with `defineOutputGuardrail` for PII detection, range validation, and disclaimer enforcement
+  3. Wire guardrails into coordinator and specialist agents in `createConfiguredCoordinator()`
+  4. Add tripwire handling in chat route — return structured error message on guardrail failure
+  5. Write comprehensive test suite for each guardrail
+  6. Monitor guardrail trigger rates in production telemetry
+- **Completion Evidence (2026-02-16):**
+  - Guardrail modules created:
+    - `packages/openai/src/guardrails/inputGuardrails.ts`
+    - `packages/openai/src/guardrails/outputGuardrails.ts`
+  - Coordinator and specialist wiring completed:
+    - `packages/openai/src/agents/index.ts` now applies `coordinator_input_guardrail`
+    - Finance specialist now applies `finance_output_guardrail`
+    - Legal specialist now applies `legal_output_guardrail`
+  - Chat route tripwire handling implemented:
+    - `apps/web/app/api/chat/route.ts` maps guardrail tripwire failures into structured SSE error payloads with `code: "guardrail_tripwire"`
+  - Runtime context propagation added for guardrail checks:
+    - `apps/web/lib/agent/executeAgent.ts` now passes run context fields (`orgId`, `userId`, `dealId`, `jurisdictionId`, `sku`) into SDK `run(...)`
+  - Tests added/updated:
+    - `packages/openai/test/phase1/guardrails/inputGuardrails.phase1.test.ts`
+    - `packages/openai/test/phase1/guardrails/outputGuardrails.phase1.test.ts`
+    - `packages/openai/test/phase1/agents/coordinator.phase1.test.ts`
+    - `packages/openai/test/phase1/agents/finance.phase1.test.ts`
+    - `packages/openai/test/phase1/agents/legal.phase1.test.ts`
+    - `apps/web/app/api/chat/route.test.ts`
+  - Verification commands run:
+    - `pnpm lint` ✅
+    - `pnpm test` ✅
+    - `pnpm typecheck` ⚠️ blocked by pre-existing `apps/worker` type errors unrelated to SDK-005 files
+    - `pnpm build` ⚠️ blocked by the same pre-existing `apps/worker` errors
+
+### SDK-006 — Agent Tracing & Observability (SDK-Native Spans)
+
+- **Priority:** P2
+- **Status:** Done (2026-02-16)
+- **Scope:** Debugging + production monitoring
+- **Problem:** The `@openai/agents` SDK has a built-in tracing system (`getGlobalTraceProvider`, `getCurrentSpan`, `BatchTraceProcessor`, `ConsoleSpanExporter`) that tracks every agent run, tool call, handoff, and guardrail check as structured spans. Entitlement OS has basic OTEL instrumentation (DA-005) but doesn't use the SDK's native tracing, missing agent-specific timing, token usage, and error attribution.
+- **Expected Outcome (measurable):**
+  - Every agent run produces a trace with spans for: agent selection, tool execution, handoff, guardrail checks
+  - Token usage per agent per conversation tracked and exportable
+  - p50/p95 latency per tool and per agent available in observability dashboard
+  - Error attribution: which agent/tool caused a failure, with full context
+- **Evidence:** DA-005 added generic OTEL hooks. The SDK's native tracing provides agent-specific semantics that generic OTEL can't capture.
+- **Alignment:** Extends DA-005 observability with SDK-native granularity.
+- **Risk/rollback:** Low. Tracing is read-only observation. Rollback by removing trace provider registration.
+- **Acceptance Criteria / Tests:**
+  1. Register SDK trace provider at application startup
+  2. Configure `BatchTraceProcessor` with export to existing OTEL collector or console
+  3. Verify traces contain agent name, tool name, duration, token count, and error status
+  4. Add dashboard or log query for p50/p95 latency by agent and tool
+  5. Integration test: run triggers trace with expected span hierarchy
+- **Files (target):**
+  - `packages/openai/src/tracing/setup.ts` — new: SDK trace provider registration
+  - `packages/openai/src/tracing/exporter.ts` — new: custom span exporter (OTEL bridge or console)
+  - `apps/web/app/api/chat/route.ts` — register trace provider before runner invocation
+  - `apps/web/lib/agent/executeAgent.ts` — register trace provider for non-chat agent runs
+- **Implementation Steps:**
+  1. Research SDK tracing API — `getGlobalTraceProvider()`, `setGlobalTraceProvider()`, span types
+  2. Create trace provider setup that bridges to existing OTEL infrastructure
+  3. Register at chat route and executeAgent entry points
+  4. Configure `BatchTraceProcessor` with appropriate buffer size and flush interval
+  5. Add custom exporter that formats agent-specific spans for our logging system
+  6. Create observability queries for latency/token/error dashboards
+- **Completion Evidence (2026-02-16):**
+  - Tracing setup and exporter modules added:
+    - `packages/openai/src/tracing/setup.ts`
+    - `packages/openai/src/tracing/exporter.ts`
+    - `packages/openai/src/index.ts` exports tracing setup/exporter APIs
+  - Runtime tracing initialization wired at execution entrypoints:
+    - `apps/web/app/api/chat/route.ts` now calls `setupAgentTracing()` at route entry
+    - `apps/web/lib/agent/executeAgent.ts` now calls `setupAgentTracing()` at workflow entry
+  - Structured trace logging + metrics implemented:
+    - span logs emit `event: "agent_trace_span"` with trace/span IDs, name/type, duration, usage, and error
+    - trace logs emit `event: "agent_trace"` with trace metadata
+    - in-memory latency/error aggregation available via `getAgentTraceMetrics()` with p50/p95
+  - Tests added:
+    - `packages/openai/test/phase1/tracing/setup.phase1.test.ts`
+    - `packages/openai/test/phase1/tracing/exporter.phase1.test.ts`
+    - `apps/web/app/api/chat/route.test.ts` updated to assert tracing setup invocation
+  - Verification commands run:
+    - `pnpm lint` ✅
+    - `pnpm typecheck` ⚠️ blocked by pre-existing `apps/worker` type errors unrelated to SDK-006 files
+    - `pnpm test` ✅
+    - `pnpm build` ⚠️ blocked by the same pre-existing `apps/worker` errors
+
+### SDK-007 — Progressive Context Loading (Three-Tier Agent Context)
+
+- **Priority:** P2
+- **Status:** Done (2026-02-16)
+- **Scope:** Context efficiency + cost reduction
+- **Problem:** Agent instructions are currently loaded fully at coordinator creation time regardless of which specialist is invoked. The `openai/skills` and `openai/codex` repos demonstrate a three-tier progressive loading pattern: metadata → body → resources, where deeper context is only loaded when the agent actually needs it. This reduces token waste for simple queries.
+- **Expected Outcome (measurable):**
+  - 30-50% reduction in input tokens for simple coordinator-only queries that don't require specialist context
+  - Specialist instructions loaded lazily on first handoff, not at startup
+  - Resource-heavy context (parish packs, zoning matrices) loaded only when relevant tool is invoked
+- **Evidence:** Current `createConfiguredCoordinator()` loads all 13 agent instruction sets at startup. Most conversations only use 1-2 specialists.
+- **Alignment:** Pure optimization — no change to agent behavior or tool contracts.
+- **Risk/rollback:** Low-medium. Lazy loading could introduce latency on first specialist invocation. Rollback by reverting to eager loading.
+- **Acceptance Criteria / Tests:**
+  1. Coordinator instructions loaded eagerly (always needed)
+  2. Specialist instructions loaded lazily on first handoff to that specialist
+  3. Heavy resources (zoning data, parish packs) loaded on-demand when relevant tool is called
+  4. Measure input token reduction on sample conversation set
+  5. Verify no behavioral change — same outputs for same inputs
+- **Files (target):**
+  - `packages/openai/src/agents/index.ts` — refactor `createConfiguredCoordinator()` for lazy specialist loading
+  - `packages/openai/src/agents/contextLoader.ts` — new: three-tier context loading utility
+  - `packages/openai/src/tools/propertyDbTools.ts` — add lazy resource loading for zoning/parish data
+- **Implementation Steps:**
+  1. Create `contextLoader.ts` with `LazyContext` class — defers instruction loading until first access
+  2. Refactor specialist agent creation to use lazy initialization
+  3. Add resource-level lazy loading for parish packs and zoning matrices
+  4. Benchmark token usage before/after on 20-conversation sample
+  5. Add tests verifying lazy loading doesn't break agent behavior
+- **Completion Evidence (2026-02-16):**
+  - Progressive context loader implemented:
+    - `packages/openai/src/agents/contextLoader.ts` adds `LazyContext` with three tiers (`metadata`, `body`, `resources`) and per-tier caching.
+  - Coordinator specialist wiring refactored for lazy specialist context assembly:
+    - `packages/openai/src/agents/index.ts` now builds specialist instructions through `LazyContext.compose(...)`.
+    - Specialist context now composes:
+      - metadata tier (agent/domain/handoff scope)
+      - body tier (specialist instruction body)
+      - resources tier (tool inventory + parcel intelligence resource pack when relevant).
+  - Resource-level lazy loading implemented:
+    - Resource pack is generated only when specialist instructions are resolved, not at coordinator creation.
+    - Parcel-heavy tool context is appended only for specialists exposing parcel/screening tools.
+  - Tests added:
+    - `packages/openai/test/phase1/agents/contextLoader.phase1.test.ts` validates progressive tier loading + cache behavior.
+    - `packages/openai/test/phase1/agents/progressiveContext.phase1.test.ts` validates lazy specialist instruction assembly in coordinator handoffs.
+  - Verification commands run:
+    - `pnpm lint` ✅
+    - `pnpm test` ✅
+    - `pnpm typecheck` ⚠️ blocked by pre-existing `apps/worker` type errors unrelated to SDK-007 files
+    - `pnpm build` ⚠️ blocked by the same pre-existing `apps/worker` errors
+
+### SDK-008 — Agent-as-Tool Pattern (Specialist Sub-Invocation)
+
+- **Priority:** P2
+- **Status:** Done (2026-02-16)
+- **Scope:** Agent composition + routing flexibility
+- **Problem:** The SDK supports `agent.asTool()` which converts an agent into a callable tool. Unlike handoffs (where control transfers to the specialist), agent-as-tool keeps the coordinator in control and receives the specialist's output as a tool result. This enables the coordinator to synthesize multiple specialist opinions (e.g., ask both Finance and Risk agents about a deal, then combine their answers).
+- **Expected Outcome (measurable):**
+  - Coordinator can invoke specialists as tools for focused sub-questions without full handoff
+  - Multi-specialist synthesis: coordinator asks Finance + Risk + Legal about same deal, combines answers
+  - Specialist agent retains its tools and instructions when invoked as tool
+  - No change to existing handoff behavior — agent-as-tool is additive
+- **Evidence:** Current coordinator uses handoffs exclusively. Once a handoff occurs, the coordinator loses control until the specialist completes. Agent-as-tool enables "consult without yielding."
+- **Alignment:** Extends existing coordinator-specialist architecture without changing it.
+- **Risk/rollback:** Low-medium. New invocation pattern adds complexity. Rollback by removing agent-as-tool declarations.
+- **Acceptance Criteria / Tests:**
+  1. At least 3 specialists (Finance, Risk, Legal) exposed as tools via `asTool()`
+  2. Coordinator can invoke specialist-as-tool for focused queries
+  3. Specialist-as-tool retains its full tool set and instructions
+  4. Test: coordinator invokes Finance-as-tool and Risk-as-tool for same deal, synthesizes combined answer
+  5. Existing handoff behavior preserved — coordinator can still hand off when appropriate
+- **Files (target):**
+  - `packages/openai/src/agents/index.ts` — add `asTool()` declarations for key specialists
+  - `packages/openai/src/agents/coordinatorInstructions.ts` — update coordinator instructions to describe when to use consult-as-tool vs handoff
+- **Implementation Steps:**
+  1. Research SDK `asTool()` API — confirm it preserves specialist tools and instructions
+  2. Add `asTool()` for Finance, Risk, and Legal agents in `createConfiguredCoordinator()`
+  3. Update coordinator instructions with routing guidance: use handoff for full specialist sessions, use as-tool for focused sub-questions
+  4. Test multi-specialist synthesis scenario
+  5. Monitor token usage impact — agent-as-tool may increase coordinator context
+- **Completion Evidence (2026-02-16):**
+  - Specialist-as-tool wiring implemented:
+    - `packages/openai/src/agents/index.ts` now declares `consult_finance_specialist`, `consult_risk_specialist`, and `consult_legal_specialist` via `specialist.asTool(...)`.
+    - Consult tools are added to coordinator tools in `createIntentAwareCoordinator()` while preserving specialist handoffs.
+  - Coordinator routing guidance updated:
+    - `packages/openai/src/agents/coordinator.ts` now contains explicit "CONSULT-AS-TOOL VS HANDOFF ROUTING" instructions for focused consults vs full handoff sessions.
+  - Tests updated:
+    - `packages/openai/test/phase1/agents/coordinator.phase1.test.ts` validates consult tool exposure and additive handoff preservation.
+    - Coordinator instruction contract test now asserts consult-vs-handoff guidance is present.
+  - Verification commands run:
+    - `pnpm lint` ✅
+    - `pnpm test` ✅
+    - `pnpm typecheck` ⚠️ blocked by pre-existing `apps/worker` type errors unrelated to SDK-008 files
+    - `pnpm build` ⚠️ blocked by the same pre-existing `apps/worker` errors
+
+### P3 — Future Hardening
+
+### SDK-009 — Retry with Exponential Backoff (API Resilience)
+
+- **Priority:** P3
+- **Status:** Done (2026-02-16)
+- **Scope:** Reliability + error recovery
+- **Problem:** The `openai/openai-python` SDK implements sophisticated retry logic with exponential backoff, jitter, and `Retry-After` header respect. Entitlement OS's `packages/openai/src/utils/retry.ts` has basic retry but lacks jitter, backoff cap, and header-aware delays. Under high load or OpenAI rate limits, requests can pile up instead of backing off gracefully.
+- **Expected Outcome (measurable):**
+  - API calls to OpenAI respect `Retry-After` headers when rate-limited
+  - Exponential backoff with jitter prevents thundering herd on recovery
+  - Configurable retry count, initial delay, max delay, and backoff multiplier
+  - Reduction in failed agent runs due to transient API errors
+- **Evidence:** Current retry utility is basic. The openai-python SDK's retry logic is battle-tested at scale.
+- **Alignment:** Pure infrastructure improvement. No change to agent behavior.
+- **Risk/rollback:** Very low. Better retry logic only improves reliability. Rollback by reverting to current retry utility.
+- **Acceptance Criteria / Tests:**
+  1. Replace or enhance `packages/openai/src/utils/retry.ts` with exponential backoff + jitter
+  2. Respect `Retry-After` header from OpenAI API responses
+  3. Configurable: retries (default 2), initial delay (1s), max delay (8s), multiplier (2x)
+  4. Unit test: verify backoff timing and jitter distribution
+  5. Unit test: verify `Retry-After` header is respected
+- **Files (target):**
+  - `packages/openai/src/utils/retry.ts` — enhance with exponential backoff + jitter
+  - `packages/openai/src/utils/__tests__/retry.test.ts` — new: comprehensive retry tests
+- **Implementation Steps:**
+  1. Enhance retry utility with exponential backoff formula: `min(maxDelay, initialDelay * multiplier^attempt) + random_jitter`
+  2. Add `Retry-After` header parsing (supports both seconds and HTTP-date formats)
+  3. Add configurable options with sensible defaults
+  4. Write comprehensive unit tests with mocked timers
+  5. Apply enhanced retry to all OpenAI API call sites
+- **Completion Evidence (2026-02-16):**
+  - Retry utility implemented:
+    - `packages/openai/src/utils/retry.ts` adds:
+      - `withExponentialBackoff(...)`
+      - `computeExponentialBackoffDelayMs(...)`
+      - `parseRetryAfterHeaderMs(...)`
+      - OpenAI-aware retryability + `Retry-After` extraction helpers
+  - OpenAI call-site adoption completed:
+    - `packages/openai/src/responses.ts` now wraps `client.responses.create(...)` with `withExponentialBackoff(...)`
+    - response retry knobs are configurable via env:
+      - `OPENAI_RESPONSES_RETRIES` (default `2`)
+      - `OPENAI_RESPONSES_INITIAL_RETRY_DELAY_MS` (default `1000`)
+      - `OPENAI_RESPONSES_MAX_RETRY_DELAY_MS` (default `8000`)
+      - `OPENAI_RESPONSES_RETRY_MULTIPLIER` (default `2`)
+    - OpenAI client internal retries set to `0` so retry policy is centralized in our utility
+  - Package exports updated:
+    - `packages/openai/src/index.ts` exports `./utils/retry.js`
+  - Tests added:
+    - `packages/openai/test/phase1/utils/retry.phase1.test.ts`
+      - verifies backoff+jitter calculation
+      - verifies `Retry-After` parsing (seconds + HTTP date)
+      - verifies `Retry-After`-driven retry delay in execution
+  - Verification commands run:
+    - `pnpm lint` ✅
+    - `pnpm test` ✅
+    - `pnpm typecheck` ⚠️ blocked by pre-existing `apps/worker` type errors unrelated to SDK-009 files
+    - `pnpm build` ⚠️ blocked by the same pre-existing `apps/worker` errors
+
+### SDK-010 — Session Persistence (SDK-Native Conversation Memory)
+
+- **Priority:** P3
+- **Status:** Done (2026-02-16)
+- **Scope:** Conversation continuity + context management
+- **Problem:** The SDK provides a `Session` interface with `getItems()`, `addItems()`, `runCompaction()`, and deduplication via `buildItemFrequencyMap()`. Currently, Entitlement OS manually assembles conversation history from Prisma `Message` rows and passes them as context. The SDK's session management is more efficient — it handles compaction (summarizing old messages to reduce token count), deduplication, and item frequency tracking.
+- **Expected Outcome (measurable):**
+  - Long conversations automatically compacted to stay within context limits
+  - Deduplication prevents repeated context items from inflating token usage
+  - Session state persisted between page reloads without manual history assembly
+  - Reduced conversation context token cost by 20-40% for long conversations
+- **Evidence:** Current manual history assembly in `app/api/chat/route.ts` doesn't compact or deduplicate. Long conversations hit context limits.
+- **Alignment:** Replaces manual history management with SDK-native session management.
+- **Risk/rollback:** Medium. Changing session management affects conversation continuity. Rollback by reverting to manual Prisma-based history assembly.
+- **Acceptance Criteria / Tests:**
+  1. Implement SDK `Session` interface backed by Prisma `Conversation` + `Message` models
+  2. Auto-compaction triggers when conversation exceeds configurable token threshold
+  3. Deduplication prevents repeated tool results and context items
+  4. Session persists across page reloads via conversation ID
+  5. Test: long conversation auto-compacts without losing critical context
+  6. Test: session reload preserves conversation state
+- **Files (target):**
+  - `apps/web/lib/chat/session.ts` — new: SDK Session implementation backed by Prisma
+  - `apps/web/app/api/chat/route.ts` — replace manual history assembly with session
+  - `packages/db/prisma/schema.prisma` — potential schema additions for compaction metadata
+- **Implementation Steps:**
+  1. Research SDK `Session` interface — `getItems()`, `addItems()`, `runCompaction()` contracts
+  2. Implement `PrismaSession` class that wraps existing Conversation + Message models
+  3. Add compaction logic — summarize old messages when token count exceeds threshold
+  4. Add deduplication — track item frequencies, prune duplicates
+  5. Replace manual history assembly in chat route with session-based approach
+  6. Migrate existing conversations to new session format (backward-compatible)
+  7. Write tests for compaction, deduplication, and persistence
+- **Completion Evidence (2026-02-16):**
+  - SDK-native session implementation added:
+    - `apps/web/lib/chat/session.ts`
+      - `PrismaChatSession.create(...)`
+      - `getItems(...)`, `addItems(...)`, `runCompaction(...)`
+      - configurable compaction thresholds:
+        - `AGENT_SESSION_COMPACTION_TOKEN_THRESHOLD` (default `6000`)
+        - `AGENT_SESSION_COMPACTION_KEEP_RECENT_MESSAGES` (default `24`)
+        - `AGENT_SESSION_DEDUPE_LOOKBACK` (default `200`)
+  - Agent execution path now uses session persistence instead of direct manual message persistence:
+    - `apps/web/lib/agent/agentRunner.ts`
+      - session-backed conversation loading
+      - pre-run compaction trigger
+      - deduplicated session writes for user/assistant messages
+  - Backward compatibility preserved:
+    - existing `Conversation` + `Message` models remain source-of-truth (no schema migration required)
+    - conversation continuity remains keyed by `conversationId`
+  - Tests added:
+    - `apps/web/lib/chat/__tests__/session.test.ts`
+      - verifies long conversation auto-compaction with summary insertion
+      - verifies deduplication of repeated tool/context items
+      - verifies session reload persistence by conversation ID
+  - Verification commands run:
+    - `pnpm lint` ✅
+    - `pnpm typecheck` ✅
+    - `pnpm test` ✅
+    - `pnpm build` ✅
+
+### SDK-011 — RunState Serialization (Interruption/Resumption Support)
+
+- **Priority:** P3
+- **Status:** Done (2026-02-16)
+- **Scope:** Reliability + long-running operations
+- **Problem:** The SDK supports `RunState` serialization for interrupting and resuming agent runs. This enables: (1) surviving server restarts mid-conversation, (2) pausing expensive operations and resuming later, (3) handling Vercel function timeouts by checkpointing and continuing in a new invocation. Currently, if a Vercel function times out mid-agent-run, all progress is lost.
+- **Expected Outcome (measurable):**
+  - Agent runs can be interrupted and resumed without losing progress
+  - Vercel function timeout (60s on Pro plan) no longer causes complete run failure
+  - Long-running operations (full parcel screening, multi-tool research) can checkpoint and continue
+  - Zero lost agent work due to infrastructure timeouts
+- **Evidence:** Vercel Pro functions have 60s timeout. Complex agent runs (e.g., full screening with 7 endpoints) can exceed this. Currently, timeout = total loss.
+- **Alignment:** Extends existing `Run` model which already tracks run status. Adds serialized state for resumption.
+- **Risk/rollback:** Medium-high. Run serialization is complex and touches core execution path. Rollback by removing serialization hooks and accepting timeout risk.
+- **Acceptance Criteria / Tests:**
+  1. Agent runner serializes `RunState` at each tool completion checkpoint
+  2. Serialized state stored in Prisma `Run` model (new `serializedState` field)
+  3. Resume endpoint accepts `runId` and continues from last checkpoint
+  4. Test: interrupt run after 2 tool calls, resume, verify remaining tools execute
+  5. Test: Vercel timeout simulation — checkpoint triggers before timeout, new invocation resumes
+  6. Backward compatible: runs without serialization still work normally
+- **Files (target):**
+  - `apps/web/app/api/chat/route.ts` — add checkpoint serialization during streaming
+  - `apps/web/app/api/chat/resume/route.ts` — new: resume interrupted run
+  - `packages/db/prisma/schema.prisma` — add `serializedState Json?` to `Run` model
+  - `packages/openai/src/utils/runStateSerde.ts` — new: serialization/deserialization utilities
+- **Implementation Steps:**
+  1. Research SDK RunState serialization API — what's included in serialized state, size constraints
+  2. Add `serializedState` field to Prisma `Run` model
+  3. Create serialization utility that captures run state at tool completion boundaries
+  4. In chat route, serialize state after each tool completion
+  5. Create `/api/chat/resume` endpoint that deserializes state and continues run
+  6. Add timeout detection — serialize state when approaching Vercel timeout limit
+  7. Write comprehensive tests for interrupt/resume scenarios
+  8. Handle edge cases: expired OpenAI sessions, stale tool results, changed deal state between checkpoints
+- **Completion Evidence (2026-02-16):**
+  - Serialized checkpoint utilities added:
+    - `packages/openai/src/utils/runStateSerde.ts`
+      - `serializeRunStateEnvelope(...)`
+      - `deserializeRunStateEnvelope(...)`
+    - export wired in `packages/openai/src/index.ts`
+  - Prisma run state persistence extended:
+    - `packages/db/prisma/schema.prisma`
+      - `Run.serializedState Json? @map("serialized_state")`
+  - Agent runtime checkpoint serialization + persistence implemented:
+    - `apps/web/lib/agent/executeAgent.ts`
+      - stores serialized checkpoint envelopes on tool completion checkpoints when SDK state is available
+      - persists serialized checkpoint metadata for approval-pending and final-result boundaries
+      - adds `resumeSerializedAgentRun(...)` for checkpoint-based continuation
+  - Resume endpoint added:
+    - `apps/web/app/api/chat/resume/route.ts`
+      - accepts `runId`, rehydrates checkpoint, resumes execution, returns emitted events + status
+  - Tests added:
+    - `packages/openai/test/phase1/utils/runStateSerde.phase1.test.ts`
+    - `apps/web/app/api/chat/resume/route.test.ts`
+  - Verification commands run:
+    - `pnpm lint` ✅
+    - `pnpm typecheck` ✅
+    - `pnpm test` ✅
+    - `pnpm build` ✅
+
+---
+
 ## Not Added (did not pass value/risk gate)
 
 These are explicitly not being added now to avoid noise:

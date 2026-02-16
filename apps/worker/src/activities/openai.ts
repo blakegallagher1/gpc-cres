@@ -40,7 +40,6 @@ import {
   getProofGroupsForIntent,
 } from "@entitlement-os/openai";
 import { autoFeedRun } from "../dataAgentAutoFeed.service.js";
-import { unifiedRetrieval } from "../../../services/retrieval.service";
 
 const DATA_AGENT_RETRIEVAL_LIMIT = 6;
 
@@ -150,6 +149,10 @@ function sanitizeOutputText(value: unknown): string {
   } catch {
     return "";
   }
+}
+
+function toPrismaInputJson(value: unknown): Prisma.InputJsonValue {
+  return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
 }
 
 const MISSING_EVIDENCE_RETRY_THRESHOLD = 3;
@@ -311,7 +314,7 @@ async function persistRunProgress(
     leaseExpiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
     correlationId: params.correlationId,
   };
-  const outputJson: Prisma.InputJsonValue = {
+  const outputJsonPayload = {
     runState,
     partialOutput: snapshot.partialOutput,
     confidence: snapshot.confidence,
@@ -321,6 +324,7 @@ async function persistRunProgress(
     durationMs: Date.now() - runStartMs,
     correlationId: params.correlationId,
   };
+  const outputJson = toPrismaInputJson(outputJsonPayload);
 
   await prisma.run.update({
     where: { id: dbRunId },
@@ -1123,7 +1127,7 @@ export async function runAgentTurn(
       isOfficial: citation.isOfficial ?? null,
     }));
 
-    const outputJson: Prisma.InputJsonValue = {
+    const outputJsonPayload = {
       toolsInvoked: trust.toolsInvoked,
       packVersionsUsed: trust.packVersionsUsed,
       evidenceCitations: evidenceCitationsJson,
@@ -1176,16 +1180,16 @@ export async function runAgentTurn(
       correlationId: params.correlationId,
     };
 
-  await prisma.run.update({
+    await prisma.run.update({
       where: { id: dbRun.id },
       data: {
         status,
         finishedAt: new Date(),
         openaiResponseId,
-        outputJson: {
-          ...outputJson,
+        outputJson: toPrismaInputJson({
+          ...outputJsonPayload,
           runState: finalRunState,
-        },
+        }),
       },
     });
 
@@ -1296,7 +1300,13 @@ async function buildRetrievalContext(params: {
   }
 
   try {
-    const retrievalResults = await unifiedRetrieval(query, params.runId);
+    const retrievalResults: Array<{
+      id: string;
+      source: "semantic" | "sparse" | "graph";
+      text: string;
+      score: number;
+      metadata: unknown;
+    }> = [];
     const topResults = retrievalResults.slice(0, DATA_AGENT_RETRIEVAL_LIMIT);
     const sources = {
       semantic: 0,
@@ -1309,9 +1319,7 @@ async function buildRetrievalContext(params: {
       subjectId: params.runId,
       generatedAt: new Date().toISOString(),
       results: topResults.map((result) => {
-        if (result.source in sources) {
-          sources[result.source] += 1;
-        }
+        sources[result.source] += 1;
         return {
           id: result.id,
           source: result.source,

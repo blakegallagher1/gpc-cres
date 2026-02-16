@@ -18,6 +18,19 @@ Primary goal for this pass: make the screening feature usable, stabilize chat su
 - [ ] Implement all additional roadmap items.
 - [x] Track ongoing roadmap progress in `docs/IMPLEMENTATION_ROADMAP_CUSTOM.md`.
 
+### 2026-02-16 - SDK-010 / SDK-011 Runtime Reliability Completed
+
+- Session persistence runtime delivered:
+  - `apps/web/lib/chat/session.ts`
+  - `apps/web/lib/chat/__tests__/session.test.ts`
+  - integrated in `apps/web/lib/agent/agentRunner.ts`
+- Run-state serialization and resume delivered:
+  - `packages/openai/src/utils/runStateSerde.ts`
+  - `apps/web/app/api/chat/resume/route.ts`
+  - `apps/web/app/api/chat/resume/route.test.ts`
+  - `apps/web/lib/agent/executeAgent.ts` checkpoint persistence + resume path
+  - `packages/db/prisma/schema.prisma` and migration adding `runs.serialized_state`
+
 ## Detailed roadmap (from user review)
 
 ### P0 / Critical

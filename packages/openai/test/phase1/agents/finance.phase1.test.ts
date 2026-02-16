@@ -31,4 +31,14 @@ describe("Phase 1 Agent Pack :: finance", () => {
     expect(instructionText.includes("### Investment Memo Summary")).toBe(true);
     expect(instructionText.includes("**Recommendation:**")).toBe(true);
   });
+
+  it("[MATRIX:agent:finance][PACK:guardrails] wires finance output guardrail", () => {
+    const configured = createConfiguredCoordinator();
+    const handoff = (configured.handoffs ?? []).find((agent) => agent.name === financeAgent.name);
+    const guardrailNames = new Set(
+      (handoff?.outputGuardrails ?? []).map((guardrail) => guardrail.name),
+    );
+
+    expect(guardrailNames.has("finance_output_guardrail")).toBe(true);
+  });
 });

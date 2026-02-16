@@ -54,26 +54,48 @@ function normalizeAgentName(name?: string): string | undefined {
   return name;
 }
 
-function normalizeToolCall(event: ChatStreamEvent): ChatToolCall | null {
-  if (event.type !== "tool_call" && event.type !== "tool_result") {
-    return null;
-  }
+type ToolEvent = Extract<
+  ChatStreamEvent,
+  { type: "tool_call" | "tool_result" | "tool_start" | "tool_end" }
+>;
 
+function normalizeToolCall(event: ToolEvent): ChatToolCall | null {
   return {
     name: event.name,
     args:
-      event.type === "tool_call" &&
+      (event.type === "tool_call" || event.type === "tool_start") &&
       typeof event.args === "object" &&
       event.args !== null
         ? event.args
         : undefined,
     result:
-      event.type === "tool_call"
+      (event.type === "tool_result" || event.type === "tool_end")
         ? event.result
-        : event.type === "tool_result"
-          ? event.result
-          : undefined,
+        : undefined,
   };
+}
+
+function mapToolStatus(eventType: ToolEvent["type"]): ChatMessage["eventKind"] {
+  if (eventType === "tool_start") return "tool_start";
+  if (eventType === "tool_end") return "tool_end";
+  if (eventType === "tool_call") return "tool";
+  return "tool_result";
+}
+
+function getToolMessageContent(
+  eventType: ToolEvent["type"],
+  toolCall: ChatToolCall,
+): string {
+  if (eventType === "tool_start" || eventType === "tool_call") {
+    return `Tool ${toolCall.name} is running`;
+  }
+
+  if (eventType === "tool_end" && toolCall.result == null) {
+    return `${toolCall.name} finished`;
+  }
+
+  if (typeof toolCall.result === "string") return String(toolCall.result);
+  return JSON.stringify(toolCall.result ?? "Tool result");
 }
 
 function createTrustSnapshot(event: ChatStreamEvent): ChatTrustSnapshot | undefined {
@@ -120,7 +142,7 @@ function eventToSummaryMessage(
 }
 
 function eventToToolMessage(
-  event: ChatStreamEvent,
+  event: ToolEvent,
   now: string,
   idGenerator: IdGenerator,
 ): ChatMessage | null {
@@ -130,15 +152,53 @@ function eventToToolMessage(
   return {
     id: idGenerator("chat-tool"),
     role: "assistant",
-    content:
-      event.type === "tool_call"
-        ? `Tool ${toolCall.name} is executing`
-        : typeof toolCall.result === "string"
-          ? toolCall.result
-          : JSON.stringify(toolCall.result ?? "Tool result"),
+    content: getToolMessageContent(event.type, toolCall),
     createdAt: now,
-    eventKind: event.type === "tool_call" ? "tool" : "tool_result",
+    eventKind: mapToolStatus(event.type),
     toolCalls: [toolCall],
+  };
+}
+
+function eventToHandoffMessage(
+  event: Extract<ChatStreamEvent, { type: "handoff" }>,
+  now: string,
+  idGenerator: IdGenerator,
+): ChatMessage {
+  const fromAgent = normalizeAgentName(event.fromAgent ?? event.from) ?? "Unknown";
+  const toAgent = normalizeAgentName(event.toAgent ?? event.to) ?? "unknown";
+
+  return {
+    id: idGenerator("chat-handoff"),
+    role: "system",
+    content: `Handoff from ${fromAgent} to ${toAgent}`,
+    createdAt: now,
+    agentName: toAgent,
+    eventKind: "handoff",
+  };
+}
+
+function eventToToolApprovalMessage(
+  event: Extract<ChatStreamEvent, { type: "tool_approval_requested" }>,
+  now: string,
+  idGenerator: IdGenerator,
+): ChatMessage {
+  return {
+    id: idGenerator("chat-tool-approval"),
+    role: "system",
+    content: `Approval required for ${event.name}`,
+    createdAt: now,
+    eventKind: "tool_approval",
+    metadata: {
+      runId: event.runId ?? null,
+      toolCallId: event.toolCallId ?? null,
+      toolName: event.name,
+    },
+    toolCalls: [
+      {
+        name: event.name,
+        args: event.args,
+      },
+    ],
   };
 }
 
@@ -175,7 +235,8 @@ export function applyStreamingEvent(
   if (event.type === "agent_progress") {
     const content = event.partialOutput ?? state.assistantDraft;
     const nextAgentName =
-      normalizeAgentName(event.lastAgentName ?? state.lastAgentName ?? undefined) ?? undefined;
+      normalizeAgentName(event.lastAgentName ?? state.lastAgentName ?? undefined) ??
+      undefined;
     const progressMessage: ChatMessage = {
       id: state.progressMessageId ?? generateId("chat-progress"),
       role: "system",
@@ -194,7 +255,11 @@ export function applyStreamingEvent(
         lastAgentName: nextAgentName ?? null,
         progressMessageId: progressMessage.id,
       },
-      nextMessages: replaceMessageById(messages, progressMessage.id, progressMessage),
+      nextMessages: replaceMessageById(
+        messages,
+        progressMessage.id,
+        progressMessage,
+      ),
     };
   }
 
@@ -218,6 +283,27 @@ export function applyStreamingEvent(
     };
   }
 
+  if (event.type === "handoff") {
+    const handoffMessage = eventToHandoffMessage(event, now, generateId);
+    return {
+      nextState: {
+        ...state,
+        lastAgentName:
+          normalizeAgentName(event.toAgent ?? event.to) ?? state.lastAgentName,
+        progressMessageId: null,
+      },
+      nextMessages: [...messages, handoffMessage],
+    };
+  }
+
+  if (event.type === "tool_approval_requested") {
+    const approvalMessage = eventToToolApprovalMessage(event, now, generateId);
+    return {
+      nextState: state,
+      nextMessages: [...messages, approvalMessage],
+    };
+  }
+
   if (event.type === "agent_summary") {
     const summaryMessage = eventToSummaryMessage(event, now, generateId);
     return {
@@ -230,7 +316,12 @@ export function applyStreamingEvent(
     };
   }
 
-  if (event.type === "tool_call" || event.type === "tool_result") {
+  if (
+    event.type === "tool_call" ||
+    event.type === "tool_result" ||
+    event.type === "tool_start" ||
+    event.type === "tool_end"
+  ) {
     const toolMessage = eventToToolMessage(event, now, generateId);
     if (!toolMessage) {
       return { nextState: state, nextMessages: messages };

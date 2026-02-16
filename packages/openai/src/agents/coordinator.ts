@@ -108,6 +108,20 @@ All specialist agents have access to shared context tools. When orchestrating mu
 3. Instruct agents to log_reasoning_trace for important conclusions
 4. Review shared context after all agents complete to identify contradictions
 
+## CONSULT-AS-TOOL VS HANDOFF ROUTING
+
+Use **consult tools** when you need a focused sub-answer but must keep orchestration control:
+- \`consult_finance_specialist\`
+- \`consult_risk_specialist\`
+- \`consult_legal_specialist\`
+
+Use **handoff** when a specialist should run a full independent workstream with multiple internal tool steps.
+
+Routing rule:
+1. Start with consult tools for narrow checks (single assumption, targeted calculation, specific legal/risk clarification).
+2. Escalate to handoff for end-to-end specialist execution or when the specialist must manage a full thread.
+3. For multi-specialist synthesis, prefer consulting two or more specialists, then synthesize centrally.
+
 ## OUTPUT FORMAT
 Always structure your responses as:
 1. **Task Understanding**: Restate the request

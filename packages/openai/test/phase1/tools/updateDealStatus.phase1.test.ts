@@ -8,6 +8,10 @@ describe("Phase 1 Tool Pack :: updateDealStatus", () => {
     expect(updateDealStatus.type).toBe("function");
     expect(updateDealStatus.name).toBe("update_deal_status");
     expect(updateDealStatus.strict).toBe(true);
+    expect(
+      updateDealStatus.needsApproval === true ||
+      typeof updateDealStatus.needsApproval === "function",
+    ).toBe(true);
 
     const required = getRequiredFields(updateDealStatus);
     expect(required.includes("orgId")).toBe(true);
@@ -29,5 +33,6 @@ describe("Phase 1 Tool Pack :: updateDealStatus", () => {
     expect(source.includes("prisma.deal.updateMany")).toBe(true);
     expect(source.includes("if (deal.count === 0)")).toBe(true);
     expect(source.includes("findFirstOrThrow")).toBe(true);
+    expect(source.includes("needsApproval: true")).toBe(true);
   });
 });

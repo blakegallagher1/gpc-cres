@@ -130,6 +130,7 @@ export const logOutreach = tool({
       .nullable()
       .describe("Next follow-up date (ISO 8601 datetime)"),
   }),
+  needsApproval: true,
   execute: async ({
     orgId,
     dealId,

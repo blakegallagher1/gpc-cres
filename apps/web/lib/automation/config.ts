@@ -38,6 +38,9 @@ export const AUTOMATION_CONFIG = Object.freeze({
     maxBatchSize: 10,
     classificationMinConfidence: 0.7,
   }),
+  hostedTools: Object.freeze({
+    webSearchMaxCallsPerConversation: 10,
+  }),
   intelligenceKpi: Object.freeze({
     lookbackMonths: 36,
     snapshotLookbackMonths: 72,

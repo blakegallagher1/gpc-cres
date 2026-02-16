@@ -37,6 +37,39 @@ describe("Phase 1 Agent Pack :: coordinator", () => {
     expect(coordinatorToolNames.has("log_reasoning_trace")).toBe(true);
   });
 
+  it("[MATRIX:agent:coordinator][PACK:hosted-tools] includes hosted web search capability", () => {
+    const hasHostedWebSearch = coordinatorTools.some(
+      (tool) =>
+        "type" in (tool as object) &&
+        (tool as { type?: string }).type === "web_search_preview",
+    );
+
+    expect(hasHostedWebSearch).toBe(true);
+  });
+
+  it("[MATRIX:agent:coordinator][PACK:agent-as-tool] exposes specialist consult tools while preserving handoffs", () => {
+    const configured = createConfiguredCoordinator();
+    const toolNames = new Set(
+      (configured.tools ?? [])
+        .map((tool) => ("name" in (tool as object) ? (tool as { name?: string }).name : undefined))
+        .filter((name): name is string => Boolean(name)),
+    );
+
+    expect(toolNames.has("consult_finance_specialist")).toBe(true);
+    expect(toolNames.has("consult_risk_specialist")).toBe(true);
+    expect(toolNames.has("consult_legal_specialist")).toBe(true);
+    expect((configured.handoffs ?? []).length).toBeGreaterThan(0);
+  });
+
+  it("[MATRIX:agent:coordinator][PACK:guardrails] wires coordinator input guardrail", () => {
+    const configured = createConfiguredCoordinator();
+    const guardrailNames = new Set(
+      (configured.inputGuardrails ?? []).map((guardrail) => guardrail.name),
+    );
+
+    expect(guardrailNames.has("coordinator_input_guardrail")).toBe(true);
+  });
+
   it("[MATRIX:agent:coordinator][PACK:contract] validates structured output schema and required evidence fields", () => {
     const instructionText = coordinatorAgent.instructions;
 
@@ -47,5 +80,9 @@ describe("Phase 1 Agent Pack :: coordinator", () => {
     expect(instructionText.includes("Key Assumptions")).toBe(true);
     expect(instructionText.includes("Uncertainty Map")).toBe(true);
     expect(instructionText.includes("Next Steps")).toBe(true);
+    expect(instructionText.includes("CONSULT-AS-TOOL VS HANDOFF ROUTING")).toBe(true);
+    expect(instructionText.includes("consult_finance_specialist")).toBe(true);
+    expect(instructionText.includes("consult_risk_specialist")).toBe(true);
+    expect(instructionText.includes("consult_legal_specialist")).toBe(true);
   });
 });

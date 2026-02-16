@@ -267,6 +267,7 @@ We will use Prisma for migrations + type generation, but the underlying schema i
 - openai_response_id text null
 - input_hash text null
 - output_json jsonb null
+- serialized_state jsonb null (SDK run-state checkpoints for interruption/resumption)
 
 #### evidence_sources (canonical URL record)
 
@@ -696,6 +697,31 @@ For parish-process outputs:
 - reject packs with missing sources
 - flag any pack where non-official sources dominate
 
+## 14.5 Chat runtime contracts (implemented)
+
+- `POST /api/chat`
+  - Starts or continues chat execution.
+  - Streams SSE events (text deltas, tool lifecycle, agent switches, summary/done).
+- `POST /api/chat/tool-approval`
+  - Accepts `{ runId, toolCallId, action }`.
+  - Resumes pending approval state and returns emitted events.
+- `POST /api/chat/resume`
+  - Accepts `{ runId }`.
+  - Rehydrates a serialized checkpoint envelope from `runs.serialized_state` (or pending approval fallback) and resumes execution.
+
+Checkpoint persistence semantics:
+
+- Tool completion checkpoints are persisted when SDK state is available.
+- Approval-pending and final-result boundaries persist serialized checkpoint envelopes.
+- Checkpoints are stored in `runs.serialized_state` as JSON envelopes containing:
+  - serialized state string
+  - checkpoint kind/time metadata
+  - run and correlation context
+
+Reference runtime contract:
+
+- `docs/chat-runtime.md` is the API/event contract source for chat runtime behavior.
+
 ## 15) Reliability and failure modes (and what we do about them)
 
 ### 15.1 OpenAI rate limits / transient failures
@@ -921,4 +947,3 @@ Acceptance:
 - Ship Parish Pack workflow + validator
 - Ship artifact generation
 - Ship change detection
-

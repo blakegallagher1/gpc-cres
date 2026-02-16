@@ -230,6 +230,11 @@ Each agent gets:
 - Streams response back via SSE (ReadableStream)
 - Stores conversation history in DB (new `conversations` + `messages` tables in Prisma)
 - If `dealId` provided, injects deal context into the Coordinator's prompt
+- Supports resume endpoints:
+  - `POST /api/chat/tool-approval`
+  - `POST /api/chat/resume`
+- Run-state resumption uses serialized checkpoint envelopes in `runs.serialized_state`.
+- Runtime API/event contract is documented in `docs/chat-runtime.md`.
 
 1c. **Chat UI (`apps/web/app/chat/`)**
 
@@ -491,7 +496,7 @@ Wire minimal tools so agents can do something useful from day one:
 | Long-running tasks block chat | Temporal for background work. Agent says "I've kicked that off" and notifies when done. |
 | Tool sprawl (too many tools per agent) | Each agent gets only its relevant tools. Coordinator has handoffs, not tools. Keep tool count per agent under 10. |
 | OpenAI rate limits during heavy use | Retry with backoff in `packages/openai/retry.ts`. Temporal activity retries for background jobs. |
-| Conversation context grows too large | Summarize older messages. Inject deal context on demand rather than full history. |
+| Conversation context grows too large | Session-backed compaction + deduplication (`apps/web/lib/chat/session.ts`) plus deal context injection. |
 
 ---
 
@@ -501,7 +506,7 @@ Wire minimal tools so agents can do something useful from day one:
 
 2. **Temporal Cloud vs. self-hosted?** Only needed for background jobs now (not primary orchestration). Self-hosted via Docker Compose might be sufficient for v1.0.
 
-3. **Conversation storage** — new Prisma tables (`conversations`, `messages`) or store in Supabase directly? Prisma keeps everything in one place.
+3. **Conversation storage** — implemented in Prisma (`conversations`, `messages`) with session runtime wrappers for compaction/deduplication.
 
 4. **Which parish to build first?** EBR has the most legacy domain knowledge. Start there.
 

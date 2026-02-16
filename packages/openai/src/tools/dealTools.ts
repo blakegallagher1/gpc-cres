@@ -193,6 +193,7 @@ export const updateDealStatus = tool({
       .nullable()
       .describe("Required true for high-impact status transitions"),
   }),
+  needsApproval: true,
   execute: async ({ orgId, dealId, status, notes, confirmed }) => {
     const highImpact = HIGH_IMPACT_STATUSES.includes(
       status as (typeof HIGH_IMPACT_STATUSES)[number],

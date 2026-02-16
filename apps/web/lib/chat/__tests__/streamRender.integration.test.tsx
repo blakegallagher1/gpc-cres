@@ -23,16 +23,31 @@ describe("chat stream rendering integration", () => {
         lastAgentName: "Coordinator",
       },
       {
-        type: "agent_switch",
-        agentName: "Researcher",
+        type: "handoff",
+        from: "Coordinator",
+        to: "Researcher",
       },
       {
-        type: "tool_result",
+        type: "tool_start",
+        name: "geo_lookup",
+      },
+      {
+        type: "tool_end",
         name: "geo_lookup",
         result: {
           status: "complete",
           records: 3,
         },
+      },
+      {
+        type: "tool_approval_requested",
+        name: "update_deal_status",
+        args: {
+          dealId: "deal-1",
+          status: "APPROVED",
+        },
+        toolCallId: "call-1",
+        runId: "run-int-1",
       },
       {
         type: "agent_summary",
@@ -62,8 +77,13 @@ describe("chat stream rendering integration", () => {
 
     expect(screen.getByText("Starting parcel review for 1234 Broadway.")).toBeTruthy();
     expect(screen.getByText("Agent Progress")).toBeTruthy();
-    expect(screen.getByText("Agent Switched")).toBeTruthy();
-    expect(screen.getByText("Tool Result")).toBeTruthy();
+    expect(screen.getByText("Agent Handoff")).toBeTruthy();
+    expect(screen.getByText("Tool Started")).toBeTruthy();
+    expect(screen.getByText("Tool Completed")).toBeTruthy();
+    expect(screen.getByText("Tool Approval Required")).toBeTruthy();
+    expect(screen.getByText("Approval required for update_deal_status")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Approve" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Reject" })).toBeTruthy();
     expect(screen.getByText("Agent Summary")).toBeTruthy();
     expect(screen.getByText(/Confidence:/)).toBeTruthy();
     expect(
@@ -71,4 +91,3 @@ describe("chat stream rendering integration", () => {
     ).toBeTruthy();
   });
 });
-

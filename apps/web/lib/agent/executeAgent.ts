@@ -1,4 +1,4 @@
-import { assistant as assistantMessage, run, user as userMessage } from "@openai/agents";
+import { assistant as assistantMessage, run, RunState, user as userMessage } from "@openai/agents";
 import {
   AgentReport,
   AgentReportSchema,
@@ -21,14 +21,17 @@ import type { Prisma } from "@entitlement-os/db";
 import {
   buildAgentStreamRunOptions,
   createIntentAwareCoordinator,
+  deserializeRunStateEnvelope,
   evaluateProofCompliance,
   inferQueryIntentFromText,
   getProofGroupsForIntent,
+  serializeRunStateEnvelope,
+  setupAgentTracing,
 } from "@entitlement-os/openai";
 import { AgentTrustEnvelope } from "@/types";
 import { autoFeedRun } from "@/lib/agent/dataAgentAutoFeed.service";
-import { logger } from "../../../../utils/logger";
-import { unifiedRetrieval } from "../../../../services/retrieval.service";
+import { logger } from "./loggerAdapter";
+import { unifiedRetrieval } from "./retrievalAdapter";
 
 const DATA_AGENT_RETRIEVAL_LIMIT = 6;
 
@@ -42,6 +45,33 @@ export type AgentInputMessage =
 
 export type AgentStreamEvent =
   | { type: "agent_switch"; agentName: string }
+  | {
+      type: "tool_approval_requested";
+      name: string;
+      args?: Record<string, unknown>;
+      toolCallId?: string | null;
+      runId?: string;
+    }
+  | {
+      type: "tool_start";
+      name: string;
+      args?: Record<string, unknown>;
+      toolCallId?: string | null;
+    }
+  | {
+      type: "tool_end";
+      name: string;
+      result?: unknown;
+      status?: "completed" | "failed";
+      toolCallId?: string | null;
+    }
+  | {
+      type: "handoff";
+      from?: string;
+      to: string;
+      fromAgent?: string;
+      toAgent?: string;
+    }
   | { type: "text_delta"; content: string }
   | {
       type: "agent_progress";
@@ -107,6 +137,11 @@ export type AgentExecutionParams = {
   fallbackLineage?: string[];
   fallbackReason?: string;
   executionLeaseToken?: string;
+  resumedRunState?: string;
+  toolApprovalDecision?: {
+    toolCallId: string;
+    action: "approve" | "reject";
+  };
 };
 
 const MISSING_EVIDENCE_RETRY_THRESHOLD = 3;
@@ -281,6 +316,131 @@ function getToolName(payload: Record<string, unknown>): string | null {
   return null;
 }
 
+function extractToolArgs(payload: Record<string, unknown>): Record<string, unknown> | undefined {
+  const toolArgs =
+    payload.toolCall &&
+    isRecord(payload.toolCall) &&
+    isRecord(payload.toolCall.args)
+      ? payload.toolCall.args
+      : payload.tool_call &&
+        isRecord(payload.tool_call) &&
+        isRecord(payload.tool_call.args)
+        ? payload.tool_call.args
+        : undefined;
+
+  const candidates: unknown[] = [
+    payload.args,
+    payload.arguments,
+    payload.input,
+    toolArgs,
+  ];
+
+  for (const candidate of candidates) {
+    if (isRecord(candidate)) {
+      return candidate;
+    }
+    if (typeof candidate === "string") {
+      const parsed = safeParseJson(candidate);
+      if (isRecord(parsed)) {
+        return parsed;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function extractToolCallId(payload: Record<string, unknown>): string | null {
+  const toolCallIdNested =
+    payload.toolCall &&
+    isRecord(payload.toolCall) &&
+    typeof payload.toolCall.id === "string"
+      ? payload.toolCall.id
+      : payload.tool_call &&
+        isRecord(payload.tool_call) &&
+        typeof payload.tool_call.id === "string"
+        ? payload.tool_call.id
+        : null;
+
+  const candidates = [
+    payload.toolCallId,
+    payload.tool_call_id,
+    payload.callId,
+    payload.call_id,
+    toolCallIdNested,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim().length > 0) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+function extractApprovalRawItem(payload: Record<string, unknown>): Record<string, unknown> | null {
+  if (isRecord(payload.rawItem)) return payload.rawItem;
+  if (isRecord(payload.raw_item)) return payload.raw_item;
+  return null;
+}
+
+function extractApprovalItemArgs(payload: Record<string, unknown>): Record<string, unknown> | undefined {
+  const rawItem = extractApprovalRawItem(payload);
+  if (rawItem) {
+    const parsedRawArgs = safeParseJson(rawItem.arguments);
+    if (isRecord(parsedRawArgs)) return parsedRawArgs;
+  }
+  const parsedArgs = safeParseJson(payload.arguments);
+  if (isRecord(parsedArgs)) return parsedArgs;
+  return extractToolArgs(payload);
+}
+
+function extractApprovalItemToolCallId(payload: Record<string, unknown>): string | null {
+  const rawItem = extractApprovalRawItem(payload);
+  if (rawItem) {
+    const idCandidate =
+      typeof rawItem.callId === "string"
+        ? rawItem.callId
+        : typeof rawItem.call_id === "string"
+          ? rawItem.call_id
+          : typeof rawItem.id === "string"
+            ? rawItem.id
+            : null;
+    if (idCandidate) return idCandidate;
+  }
+  return extractToolCallId(payload);
+}
+
+function getAgentNameFromValue(value: unknown): string | undefined {
+  if (typeof value === "string" && value.trim().length > 0) {
+    return value;
+  }
+  if (isRecord(value) && typeof value.name === "string" && value.name.trim().length > 0) {
+    return value.name;
+  }
+  return undefined;
+}
+
+function extractHandoff(payload: Record<string, unknown>): { from?: string; to?: string } | null {
+  const from = getAgentNameFromValue(payload.fromAgent) ??
+    getAgentNameFromValue(payload.from_agent) ??
+    getAgentNameFromValue(payload.from) ??
+    getAgentNameFromValue(payload.previousAgent) ??
+    getAgentNameFromValue(payload.previous_agent);
+  const to = getAgentNameFromValue(payload.toAgent) ??
+    getAgentNameFromValue(payload.to_agent) ??
+    getAgentNameFromValue(payload.to) ??
+    getAgentNameFromValue(payload.nextAgent) ??
+    getAgentNameFromValue(payload.next_agent) ??
+    getAgentNameFromValue(payload.agent);
+
+  if (!from && !to) {
+    return null;
+  }
+  return { from, to };
+}
+
 function extractToolOutput(payload: Record<string, unknown>): unknown {
   const candidates = [
     payload.output,
@@ -297,6 +457,37 @@ function extractToolOutput(payload: Record<string, unknown>): unknown {
       return candidate;
     }
   }
+  return null;
+}
+
+function extractSerializedRunStateCandidate(payload: Record<string, unknown>): string | null {
+  const candidates = [
+    payload.state,
+    payload.runState,
+    payload.run_state,
+    payload.serializedRunState,
+    payload.serialized_run_state,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.length > 0) {
+      return candidate;
+    }
+    if (
+      isRecord(candidate) &&
+      typeof (candidate as { toString?: unknown }).toString === "function"
+    ) {
+      try {
+        const serialized = (candidate as { toString: () => string }).toString();
+        if (typeof serialized === "string" && serialized.length > 0) {
+          return serialized;
+        }
+      } catch {
+        // no-op
+      }
+    }
+  }
+
   return null;
 }
 
@@ -448,6 +639,7 @@ type RunRecordSnapshot = {
   status: "running" | "succeeded" | "failed" | "canceled";
   inputHash: string;
   outputJson: Prisma.JsonValue;
+  serializedState: Prisma.JsonValue | null;
   openaiResponseId: string | null;
   startedAt: Date;
   finishedAt: Date | null;
@@ -534,6 +726,19 @@ function parseTrustFromRunOutput(output: unknown): AgentTrustEnvelope {
   return trust;
 }
 
+function readSerializedRunStateFromStoredValue(value: unknown): string | null {
+  const envelope = deserializeRunStateEnvelope(value);
+  if (envelope) {
+    return envelope.serializedRunState;
+  }
+
+  if (isRecord(value) && typeof value.serializedRunState === "string") {
+    return value.serializedRunState;
+  }
+
+  return null;
+}
+
 function runRecordToExecutionResult(dbRun: RunRecordSnapshot): AgentExecutionResult {
   const output = isRecord(dbRun.outputJson) ? dbRun.outputJson : {};
   const runState = isRecord(output.runState) ? output.runState : {};
@@ -568,6 +773,7 @@ async function loadRunExecutionResult(runId: string): Promise<AgentExecutionResu
       status: true,
       inputHash: true,
       outputJson: true,
+      serializedState: true,
       openaiResponseId: true,
       startedAt: true,
       finishedAt: true,
@@ -583,6 +789,7 @@ async function persistFinalRunResult(params: {
   status: AgentExecutionResult["status"];
   openaiResponseId: string | null;
   outputJson: Prisma.InputJsonValue;
+  serializedState?: Prisma.InputJsonValue | null;
   executionLeaseToken?: string;
 }): Promise<boolean> {
   if (!params.executionLeaseToken) {
@@ -593,6 +800,7 @@ async function persistFinalRunResult(params: {
         finishedAt: new Date(),
         openaiResponseId: params.openaiResponseId,
         outputJson: params.outputJson,
+        serializedState: params.serializedState ?? undefined,
       },
     });
     return true;
@@ -605,6 +813,7 @@ async function persistFinalRunResult(params: {
       finishedAt: new Date(),
       openaiResponseId: params.openaiResponseId,
       outputJson: params.outputJson,
+      serializedState: params.serializedState ?? undefined,
     },
   });
 
@@ -657,6 +866,7 @@ async function upsertRunRecord(params: {
       status: true,
       inputHash: true,
       outputJson: true,
+      serializedState: true,
       openaiResponseId: true,
       startedAt: true,
       finishedAt: true,
@@ -667,6 +877,8 @@ async function upsertRunRecord(params: {
 export async function executeAgentWorkflow(
   params: AgentExecutionParams,
 ): Promise<AgentExecutionResult> {
+  setupAgentTracing();
+
   const startedAt = new Date();
   const startedAtMs = startedAt.getTime();
   const inputHash = hashJsonSha256({
@@ -691,6 +903,7 @@ export async function executeAgentWorkflow(
         status: true,
         inputHash: true,
         outputJson: true,
+        serializedState: true,
         openaiResponseId: true,
         startedAt: true,
         finishedAt: true,
@@ -730,9 +943,61 @@ export async function executeAgentWorkflow(
   let errorMessage: string | null = null;
   let agentRunResult: unknown | null = null;
   let retrievalContext: DataAgentRetrievalContext | null = null;
+  let pendingApprovalState: {
+    serializedRunState: string;
+    queryIntent: string;
+    toolCallId: string | null;
+    toolName: string | null;
+  } | null = null;
+  let latestSerializedRunState: string | null =
+    readSerializedRunStateFromStoredValue(dbRun.serializedState) ?? null;
 
   const emit = (event: AgentStreamEvent) => {
     params.onEvent?.(event);
+  };
+
+  const persistCheckpoint = async (checkpoint: {
+    kind: "tool_completion" | "approval_pending" | "resume_request" | "final_result";
+    toolName?: string | null;
+    toolCallId?: string | null;
+    partialOutput?: string;
+    note?: string;
+  }) => {
+    if (!latestSerializedRunState) return;
+    const serializedState = serializeRunStateEnvelope({
+      serializedRunState: latestSerializedRunState,
+      checkpoint: {
+        kind: checkpoint.kind,
+        at: new Date().toISOString(),
+        runId: dbRun.id,
+        toolName: checkpoint.toolName ?? null,
+        toolCallId: checkpoint.toolCallId ?? null,
+        lastAgentName,
+        correlationId: params.correlationId,
+        partialOutput: checkpoint.partialOutput,
+        note: checkpoint.note,
+      },
+    }) as unknown as Prisma.InputJsonValue;
+
+    const updateResult = params.executionLeaseToken
+      ? await prisma.run.updateMany({
+          where: { id: dbRun.id, openaiResponseId: params.executionLeaseToken },
+          data: {
+            serializedState,
+          },
+        })
+      : { count: 1 };
+
+    if (!params.executionLeaseToken || updateResult.count === 1) {
+      if (!params.executionLeaseToken) {
+        await prisma.run.update({
+          where: { id: dbRun.id },
+          data: {
+            serializedState,
+          },
+        });
+      }
+    }
   };
 
   try {
@@ -749,15 +1014,92 @@ export async function executeAgentWorkflow(
     const coordinator = createIntentAwareCoordinator(queryIntent);
     emit({ type: "agent_switch", agentName: "Coordinator" });
 
-    const result = await run(
-      coordinator,
-      buildAgentInputItems(params.input),
-      buildAgentStreamRunOptions({
+    let runInput: ReturnType<typeof buildAgentInputItems> | RunState<
+      unknown,
+      ReturnType<typeof createIntentAwareCoordinator>
+    > = buildAgentInputItems(params.input);
+    if (params.resumedRunState) {
+      latestSerializedRunState = params.resumedRunState;
+      const resumedState = await RunState.fromString(
+        coordinator,
+        params.resumedRunState,
+      );
+      if (params.toolApprovalDecision) {
+        const interruptions = resumedState.getInterruptions() as Array<{
+          name?: string;
+          toolName?: string;
+          rawItem?: Record<string, unknown>;
+          raw_item?: Record<string, unknown>;
+        }>;
+        const selectedInterruption = interruptions.find((item) => {
+          const rawItem = isRecord(item.rawItem)
+            ? item.rawItem
+            : isRecord(item.raw_item)
+              ? item.raw_item
+              : null;
+          const callId =
+            rawItem && typeof rawItem.callId === "string"
+              ? rawItem.callId
+              : rawItem && typeof rawItem.call_id === "string"
+                ? rawItem.call_id
+                : rawItem && typeof rawItem.id === "string"
+                  ? rawItem.id
+                  : null;
+          return callId === params.toolApprovalDecision?.toolCallId;
+        });
+        if (!selectedInterruption) {
+          throw new Error(
+            `Pending approval item not found for call ${params.toolApprovalDecision.toolCallId}`,
+          );
+        }
+        if (params.toolApprovalDecision.action === "approve") {
+          resumedState.approve(selectedInterruption as never);
+        } else {
+          resumedState.reject(selectedInterruption as never);
+        }
+      }
+      runInput = resumedState;
+      await persistCheckpoint({
+        kind: "resume_request",
+        partialOutput: finalText,
+        note: "Run resumed from serialized checkpoint",
+      });
+    }
+
+    const runOptions = {
+      ...buildAgentStreamRunOptions({
         conversationId: params.conversationId,
         maxTurns: params.maxTurns,
       }),
+      context: {
+        orgId: params.orgId,
+        userId: params.userId,
+        dealId: params.dealId ?? null,
+        jurisdictionId: params.jurisdictionId ?? null,
+        sku: params.sku ?? null,
+      },
+    } as Parameters<typeof run>[2];
+
+    const result = await run(
+      coordinator,
+      runInput,
+      runOptions,
     );
     agentRunResult = result;
+    if (
+      isRecord(result) &&
+      isRecord(result.state) &&
+      typeof (result.state as { toString?: unknown }).toString === "function"
+    ) {
+      try {
+        const serialized = (result.state as { toString: () => string }).toString();
+        if (serialized.length > 0) {
+          latestSerializedRunState = serialized;
+        }
+      } catch {
+        // ignore serialization extraction failures
+      }
+    }
 
     if (isAsyncIterable(result)) {
       for await (const event of result) {
@@ -766,6 +1108,13 @@ export async function executeAgentWorkflow(
         const eventType = current.type;
         if (typeof eventType !== "string") continue;
 
+        const item = isRecord(current.item) ? (current.item as Record<string, unknown>) : null;
+        const itemType =
+          item && typeof item.type === "string"
+            ? item.type.toLowerCase()
+            : "";
+        const eventTypeLower = eventType.toLowerCase();
+
         if (eventType === "agent_updated_stream_event") {
           const agentName =
             isRecord(current.agent) && typeof current.agent?.["name"] === "string"
@@ -773,6 +1122,26 @@ export async function executeAgentWorkflow(
               : "Coordinator";
           lastAgentName = agentName;
           emit({ type: "agent_switch", agentName });
+          continue;
+        }
+
+        const handoff =
+          extractHandoff(current) ??
+          (item ? extractHandoff(item) : null);
+        const isHandoffEvent =
+          eventTypeLower.includes("handoff") || itemType.includes("handoff");
+        if (isHandoffEvent && handoff?.to) {
+          const fromAgent = handoff.from ?? lastAgentName;
+          const toAgent = handoff.to;
+          lastAgentName = toAgent;
+          emit({
+            type: "handoff",
+            from: fromAgent,
+            to: toAgent,
+            fromAgent,
+            toAgent,
+          });
+          emit({ type: "agent_switch", agentName: toAgent });
           continue;
         }
 
@@ -790,12 +1159,90 @@ export async function executeAgentWorkflow(
           continue;
         }
 
-        const toolName = getToolName(current);
+        if (
+          eventTypeLower === "run_item_stream_event" &&
+          typeof current.name === "string" &&
+          current.name === "tool_approval_requested"
+        ) {
+          const approvalItem = item ?? current;
+          const toolName =
+            getToolName(approvalItem) ??
+            (typeof approvalItem.toolName === "string"
+              ? approvalItem.toolName
+              : typeof approvalItem.name === "string"
+                ? approvalItem.name
+                : "tool");
+          const toolCallId = extractApprovalItemToolCallId(approvalItem);
+          const args = extractApprovalItemArgs(approvalItem);
+          emit({
+            type: "tool_approval_requested",
+            name: toolName,
+            args,
+            toolCallId,
+            runId: dbRun.id,
+          });
+          continue;
+        }
+
+        const toolPayload = item ?? current;
+        const serializedCandidate =
+          extractSerializedRunStateCandidate(current) ??
+          (item ? extractSerializedRunStateCandidate(item) : null);
+        if (serializedCandidate) {
+          latestSerializedRunState = serializedCandidate;
+        }
+        const toolName = getToolName(toolPayload) ?? getToolName(current);
         if (toolName) {
           state.toolsInvoked.add(toolName);
-          const output = extractToolOutput(current);
+          const output = extractToolOutput(toolPayload) ?? extractToolOutput(current);
+          const args = extractToolArgs(toolPayload) ?? extractToolArgs(current);
+          const toolCallId = extractToolCallId(toolPayload) ?? extractToolCallId(current);
+          const indicatesToolStart =
+            eventTypeLower.includes("tool_called") ||
+            (itemType.includes("tool_call") && !itemType.includes("output"));
+          const indicatesToolEnd =
+            eventTypeLower.includes("tool_result") ||
+            eventTypeLower.includes("tool_output") ||
+            itemType.includes("tool_result") ||
+            itemType.includes("tool_output");
+
+          if (indicatesToolStart && output === null) {
+            emit({
+              type: "tool_start",
+              name: toolName,
+              args,
+              toolCallId,
+            });
+          }
+
           if (output !== null) {
+            emit({
+              type: "tool_end",
+              name: toolName,
+              result: output,
+              status: "completed",
+              toolCallId,
+            });
             collectToolOutputSignals(toolName, output, state);
+            await persistCheckpoint({
+              kind: "tool_completion",
+              toolName,
+              toolCallId,
+              partialOutput: finalText,
+            });
+          } else if (indicatesToolEnd) {
+            emit({
+              type: "tool_end",
+              name: toolName,
+              status: "completed",
+              toolCallId,
+            });
+            await persistCheckpoint({
+              kind: "tool_completion",
+              toolName,
+              toolCallId,
+              partialOutput: finalText,
+            });
           }
           continue;
         }
@@ -836,6 +1283,35 @@ export async function executeAgentWorkflow(
       openaiResponseId = agentRunResult.lastResponseId;
     }
     status = "succeeded";
+
+    if (
+      isRecord(agentRunResult) &&
+      Array.isArray(agentRunResult.interruptions) &&
+      agentRunResult.interruptions.length > 0 &&
+      isRecord(agentRunResult.state) &&
+      typeof (agentRunResult.state as { toString?: unknown }).toString === "function"
+    ) {
+      const interruptions = agentRunResult.interruptions as Array<Record<string, unknown>>;
+      const first = interruptions[0] ?? {};
+      const toolName =
+        typeof first.name === "string"
+          ? first.name
+          : typeof first.toolName === "string"
+            ? first.toolName
+            : getToolName(first) ?? null;
+      const toolCallId = extractApprovalItemToolCallId(first);
+      const serializedRunState = (
+        agentRunResult.state as { toString: () => string }
+      ).toString();
+      pendingApprovalState = {
+        serializedRunState,
+        queryIntent,
+        toolCallId,
+        toolName,
+      };
+      latestSerializedRunState = serializedRunState;
+      status = "running";
+    }
   } catch (error) {
     status = "failed";
     errorMessage = error instanceof Error ? error.message : "Agent execution failed";
@@ -871,6 +1347,129 @@ export async function executeAgentWorkflow(
           finalText = JSON.stringify(finalReport, null, 2);
         }
       }
+    }
+
+    if (pendingApprovalState) {
+      const approvalTrust: AgentTrustEnvelope = {
+        toolsInvoked: [...state.toolsInvoked].sort(),
+        packVersionsUsed: [...state.packVersionsUsed].sort(),
+        evidenceCitations: dedupeEvidenceCitations(state.evidenceCitations),
+        evidenceHash: computeEvidenceHash(dedupeEvidenceCitations(state.evidenceCitations)),
+        confidence: 0.5,
+        missingEvidence: [],
+        verificationSteps: [
+          `Awaiting human approval for tool: ${pendingApprovalState.toolName ?? "tool"}`,
+        ],
+        lastAgentName,
+        errorSummary: null,
+        durationMs: Date.now() - startedAtMs,
+        toolFailures: [],
+        proofChecks: [],
+        retryAttempts: params.retryAttempts ?? 1,
+        retryMaxAttempts: params.retryMaxAttempts ?? (params.retryAttempts ?? 1),
+        retryMode: params.retryMode ?? "local",
+        evidenceRetryPolicy: undefined,
+        fallbackLineage: params.fallbackLineage,
+        fallbackReason: params.fallbackReason,
+      };
+
+      const runState: AgentRunState = {
+        schemaVersion: AGENT_RUN_STATE_SCHEMA_VERSION,
+        runId: dbRun.id,
+        status: "running",
+        partialOutput: "",
+        correlationId: params.correlationId,
+        lastAgentName,
+        toolsInvoked: approvalTrust.toolsInvoked,
+        confidence: approvalTrust.confidence,
+        missingEvidence: [],
+        durationMs: Date.now() - startedAtMs,
+        lastUpdatedAt: new Date().toISOString(),
+        runStartedAt: dbRun.startedAt?.toISOString(),
+        runInputHash: inputHash,
+        leaseOwner: "agent-runner",
+        leaseExpiresAt: new Date().toISOString(),
+      };
+
+      const outputJson = {
+        runState,
+        finalOutput: "",
+        finalReport: null,
+        toolsInvoked: approvalTrust.toolsInvoked,
+        packVersionsUsed: approvalTrust.packVersionsUsed,
+        evidenceCitations: [],
+        evidenceHash: approvalTrust.evidenceHash,
+        confidence: approvalTrust.confidence,
+        missingEvidence: [],
+        verificationSteps: approvalTrust.verificationSteps,
+        lastAgentName,
+        errorSummary: null,
+        toolFailures: [],
+        proofChecks: [],
+        retryAttempts: approvalTrust.retryAttempts,
+        retryMaxAttempts: approvalTrust.retryMaxAttempts,
+        retryMode: approvalTrust.retryMode,
+        durationMs: approvalTrust.durationMs,
+        correlationId: params.correlationId,
+        pendingApproval: {
+          serializedRunState: pendingApprovalState.serializedRunState,
+          queryIntent: pendingApprovalState.queryIntent,
+          toolCallId: pendingApprovalState.toolCallId,
+          toolName: pendingApprovalState.toolName,
+          conversationId: params.conversationId,
+        },
+      } as Prisma.InputJsonValue;
+
+      const persisted = await persistFinalRunResult({
+        runId: dbRun.id,
+        status: "running",
+        openaiResponseId,
+        outputJson,
+        serializedState: latestSerializedRunState
+          ? (serializeRunStateEnvelope({
+              serializedRunState: latestSerializedRunState,
+              checkpoint: {
+                kind: "approval_pending",
+                at: new Date().toISOString(),
+                runId: dbRun.id,
+                toolName: pendingApprovalState.toolName,
+                toolCallId: pendingApprovalState.toolCallId,
+                lastAgentName,
+                correlationId: params.correlationId,
+                partialOutput: finalText,
+              },
+            }) as unknown as Prisma.InputJsonValue)
+          : undefined,
+        executionLeaseToken: params.executionLeaseToken,
+      });
+
+      if (!persisted) {
+        const replay = await loadRunExecutionResult(dbRun.id);
+        if (replay) return replay;
+        throw new Error(
+          `Could not persist run result for ${dbRun.id}: duplicate execution is still in progress`,
+        );
+      }
+
+      emit({
+        type: "done",
+        runId: dbRun.id,
+        status: "canceled",
+        conversationId: params.conversationId,
+      });
+
+      return {
+        runId: dbRun.id,
+        status: "running",
+        finalOutput: "",
+        finalReport: null,
+        toolsInvoked: approvalTrust.toolsInvoked,
+        trust: approvalTrust,
+        openaiResponseId,
+        inputHash,
+        startedAt,
+        finishedAt: new Date(),
+      };
     }
 
     const proofViolations = evaluateProofCompliance(queryIntent, state.toolsInvoked);
@@ -1018,6 +1617,19 @@ export async function executeAgentWorkflow(
       status,
       openaiResponseId,
       outputJson: outputJson as unknown as Prisma.InputJsonValue,
+      serializedState: latestSerializedRunState
+        ? (serializeRunStateEnvelope({
+            serializedRunState: latestSerializedRunState,
+            checkpoint: {
+              kind: "final_result",
+              at: new Date().toISOString(),
+              runId: dbRun.id,
+              lastAgentName,
+              correlationId: params.correlationId,
+              partialOutput: finalText,
+            },
+          }) as unknown as Prisma.InputJsonValue)
+        : undefined,
       executionLeaseToken: params.executionLeaseToken,
     });
 
@@ -1108,6 +1720,167 @@ export async function executeAgentWorkflow(
       finishedAt: new Date(),
     };
   }
+}
+
+export async function resumeAgentToolApproval(params: {
+  orgId: string;
+  userId: string;
+  runId: string;
+  toolCallId: string;
+  action: "approve" | "reject";
+  onEvent?: (event: AgentStreamEvent) => void;
+}): Promise<AgentExecutionResult> {
+  const runRecord = await prisma.run.findFirst({
+    where: { id: params.runId, orgId: params.orgId },
+    select: {
+      id: true,
+      orgId: true,
+      runType: true,
+      dealId: true,
+      jurisdictionId: true,
+      sku: true,
+      outputJson: true,
+    },
+  });
+
+  if (!runRecord) {
+    throw new Error("Run not found or access denied.");
+  }
+
+  const output = isRecord(runRecord.outputJson)
+    ? (runRecord.outputJson as Record<string, unknown>)
+    : {};
+  const pendingApproval = isRecord(output.pendingApproval)
+    ? (output.pendingApproval as Record<string, unknown>)
+    : null;
+  const serializedRunState =
+    pendingApproval && typeof pendingApproval.serializedRunState === "string"
+      ? pendingApproval.serializedRunState
+      : null;
+  const queryIntent =
+    pendingApproval && typeof pendingApproval.queryIntent === "string"
+      ? pendingApproval.queryIntent
+      : undefined;
+  const conversationId =
+    pendingApproval && typeof pendingApproval.conversationId === "string"
+      ? pendingApproval.conversationId
+      : "agent-run";
+
+  if (!serializedRunState) {
+    throw new Error("No pending tool approval state found for this run.");
+  }
+
+  const existingApprovalAudit = Array.isArray(output.approvalAudit)
+    ? output.approvalAudit
+    : [];
+  const nextApprovalAudit = [
+    ...existingApprovalAudit,
+    {
+      toolCallId: params.toolCallId,
+      action: params.action,
+      userId: params.userId,
+      decidedAt: new Date().toISOString(),
+      runId: params.runId,
+    },
+  ];
+
+  await prisma.run.update({
+    where: { id: runRecord.id },
+    data: {
+      outputJson: {
+        ...output,
+        approvalAudit: nextApprovalAudit,
+      } as Prisma.InputJsonValue,
+    },
+  });
+
+  return executeAgentWorkflow({
+    orgId: params.orgId,
+    userId: params.userId,
+    conversationId,
+    input: [],
+    runId: runRecord.id,
+    runType: runRecord.runType,
+    dealId: runRecord.dealId ?? undefined,
+    jurisdictionId: runRecord.jurisdictionId ?? undefined,
+    sku: runRecord.sku ?? undefined,
+    intentHint: queryIntent,
+    resumedRunState: serializedRunState,
+    toolApprovalDecision: {
+      toolCallId: params.toolCallId,
+      action: params.action,
+    },
+    onEvent: params.onEvent,
+  });
+}
+
+export async function resumeSerializedAgentRun(params: {
+  orgId: string;
+  userId: string;
+  runId: string;
+  onEvent?: (event: AgentStreamEvent) => void;
+}): Promise<AgentExecutionResult> {
+  const runRecord = await prisma.run.findFirst({
+    where: { id: params.runId, orgId: params.orgId },
+    select: {
+      id: true,
+      orgId: true,
+      runType: true,
+      dealId: true,
+      jurisdictionId: true,
+      sku: true,
+      outputJson: true,
+      serializedState: true,
+    },
+  });
+
+  if (!runRecord) {
+    throw new Error("Run not found or access denied.");
+  }
+
+  const output = isRecord(runRecord.outputJson)
+    ? (runRecord.outputJson as Record<string, unknown>)
+    : {};
+  const pendingApproval = isRecord(output.pendingApproval)
+    ? (output.pendingApproval as Record<string, unknown>)
+    : null;
+
+  const serializedFromField = readSerializedRunStateFromStoredValue(
+    runRecord.serializedState,
+  );
+  const serializedFromPending =
+    pendingApproval && typeof pendingApproval.serializedRunState === "string"
+      ? pendingApproval.serializedRunState
+      : null;
+  const serializedRunState = serializedFromField ?? serializedFromPending;
+
+  if (!serializedRunState) {
+    throw new Error("No serialized checkpoint found for this run.");
+  }
+
+  const conversationId =
+    pendingApproval && typeof pendingApproval.conversationId === "string"
+      ? pendingApproval.conversationId
+      : "agent-run";
+  const queryIntent =
+    pendingApproval && typeof pendingApproval.queryIntent === "string"
+      ? pendingApproval.queryIntent
+      : undefined;
+
+  return executeAgentWorkflow({
+    orgId: params.orgId,
+    userId: params.userId,
+    conversationId,
+    input: [],
+    runId: runRecord.id,
+    runType: runRecord.runType,
+    dealId: runRecord.dealId ?? undefined,
+    jurisdictionId: runRecord.jurisdictionId ?? undefined,
+    sku: runRecord.sku ?? undefined,
+    intentHint: queryIntent,
+    resumedRunState: serializedRunState,
+    onEvent: params.onEvent,
+  });
 }
 
 async function buildRetrievalContext(params: {

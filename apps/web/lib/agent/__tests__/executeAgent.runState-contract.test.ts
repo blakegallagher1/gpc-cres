@@ -22,8 +22,11 @@ vi.mock("@entitlement-os/openai", () => ({
   evaluateProofCompliance: vi.fn(() => []),
   buildAgentStreamRunOptions: vi.fn(() => ({})),
   getProofGroupsForIntent: vi.fn(() => []),
+  setupAgentTracing: vi.fn(),
+  serializeRunStateEnvelope: vi.fn((input: unknown) => input),
+  deserializeRunStateEnvelope: vi.fn(() => null),
 }));
-vi.mock("../../../../services/retrieval.service", () => ({
+vi.mock("../retrievalAdapter", () => ({
   unifiedRetrieval: vi.fn(async () => [
     {
       id: "r1",
@@ -43,6 +46,14 @@ vi.mock("../../../../services/retrieval.service", () => ({
       objectId: "obj",
     },
   ]),
+}));
+vi.mock("../loggerAdapter", () => ({
+  logger: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  },
+  recordDataAgentAutoFeed: vi.fn(),
 }));
 
 import {

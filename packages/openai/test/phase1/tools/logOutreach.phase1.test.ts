@@ -6,6 +6,10 @@ import { getRequiredFields, readRepoSource } from "../_helpers/toolAssertions.js
 describe("Phase 1 Tool Pack :: logOutreach", () => {
   it("[MATRIX:tool:logOutreach][PACK:schema] validates input/output schema contract and malformed payload rejection", () => {
     expect(logOutreach.name).toBe("log_outreach");
+    expect(
+      logOutreach.needsApproval === true ||
+      typeof logOutreach.needsApproval === "function",
+    ).toBe(true);
 
     const required = getRequiredFields(logOutreach);
     expect(required.includes("orgId")).toBe(true);
@@ -31,5 +35,6 @@ describe("Phase 1 Tool Pack :: logOutreach", () => {
     expect(source.includes("prisma.outreach.create")).toBe(true);
     expect(source.includes("lastContactAt: status !== \"planned\" ? new Date() : null")).toBe(true);
     expect(source.includes("nextFollowupAt: nextFollowupAt ? new Date(nextFollowupAt) : null")).toBe(true);
+    expect(source.includes("needsApproval: true")).toBe(true);
   });
 });

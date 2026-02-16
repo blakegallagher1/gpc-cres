@@ -14,6 +14,7 @@ import {
   type AgentRunWorkflowInput,
   type AgentRunWorkflowOutput,
 } from "@entitlement-os/shared";
+import { PrismaChatSession } from "@/lib/chat/session";
 
 const LOCAL_LEASE_GRACE_MS = 15 * 60 * 1000;
 const LOCAL_LEASE_WAIT_MS = 60_000 * 10;
@@ -532,6 +533,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
   }
 
   let conversationId = requestedConversationId ?? null;
+  let chatSession: PrismaChatSession | null = null;
   let contextDeal: DealContext | null = null;
   let jurisdictionContext: JurisdictionContext | null = null;
 
@@ -572,12 +574,14 @@ export async function runAgentWorkflow(params: AgentRunInput) {
   }
 
   if (conversationId) {
-    const conversation = await prisma.conversation.findFirst({
-      where: { id: conversationId, orgId },
-      select: { id: true },
-    });
-    if (!conversation) {
-      throw new Error("Conversation not found");
+    if (!persistConversation) {
+      const conversation = await prisma.conversation.findFirst({
+        where: { id: conversationId, orgId },
+        select: { id: true },
+      });
+      if (!conversation) {
+        throw new Error("Conversation not found");
+      }
     }
   }
 
@@ -602,57 +606,53 @@ export async function runAgentWorkflow(params: AgentRunInput) {
   let agentInput: AgentInputMessage[];
 
   const hasInputOverride = input && input.length > 0;
+  const shouldCreateConversation =
+    persistConversation && !conversationId && (Boolean(dealId) || hasInputOverride || Boolean(message));
 
-    if (hasInputOverride) {
-      agentInput = [...input];
-    } else {
-      const history = await prisma.message.findMany({
-        where: conversationId ? { conversationId } : {},
-        orderBy: { createdAt: "asc" },
-        take: 50,
-      });
+  if (persistConversation) {
+    chatSession = await PrismaChatSession.create({
+      orgId,
+      userId,
+      conversationId,
+      dealId: contextDeal?.id ?? dealId ?? null,
+      title: message ? message.slice(0, 100) : "Agent run",
+      autoCreate: shouldCreateConversation,
+    });
+    conversationId = chatSession.getConversationId();
+  }
 
-      agentInput = history
-        .map((entry: { role: string; content: string }) =>
-          toAgentInputMessage({ role: entry.role, content: entry.content }),
-        )
-        .filter((entry: AgentInputMessage | null): entry is AgentInputMessage => entry !== null);
+  if (hasInputOverride) {
+    agentInput = [...input];
+  } else {
+    if (chatSession) {
+      await chatSession.runCompaction();
+    }
+    const history = chatSession
+      ? await chatSession.getItems({ limit: 50 })
+      : await prisma.message.findMany({
+          where: conversationId ? { conversationId } : {},
+          orderBy: { createdAt: "asc" },
+          take: 50,
+        });
+
+    agentInput = history
+      .map((entry: { role: string; content: string }) =>
+        toAgentInputMessage({ role: entry.role, content: entry.content }),
+      )
+      .filter((entry: AgentInputMessage | null): entry is AgentInputMessage => entry !== null);
 
     if (message) {
       agentInput.push({ role: "user", content: message });
     }
 
-    if (persistConversation && message && conversationId) {
-      await prisma.message.create({
-        data: {
-          conversationId,
+    if (persistConversation && message && chatSession) {
+      await chatSession.addItems([
+        {
           role: "user",
           content: message,
+          metadata: { kind: "chat_user_message" },
         },
-      });
-    }
-  }
-
-  if (!conversationId && persistConversation && (dealId || hasInputOverride || message)) {
-    const created = await prisma.conversation.create({
-      data: {
-        orgId,
-        userId,
-        dealId: contextDeal?.id ?? dealId ?? null,
-        title: message ? message.slice(0, 100) : "Agent run",
-      },
-      select: { id: true },
-    });
-    conversationId = created.id;
-
-    if (persistConversation && message && !hasInputOverride) {
-      await prisma.message.create({
-        data: {
-          conversationId,
-          role: "user",
-          content: message,
-        },
-      });
+      ]);
     }
   }
 
@@ -815,13 +815,26 @@ export async function runAgentWorkflow(params: AgentRunInput) {
       }
 
       if (persistConversation && conversationId && workflowResult.finalOutput.length > 0) {
-        await prisma.message.create({
-          data: {
-            conversationId,
-            role: "assistant",
-            content: workflowResult.finalOutput,
-          },
-        });
+        if (chatSession) {
+          await chatSession.addItems([
+            {
+              role: "assistant",
+              content: workflowResult.finalOutput,
+              metadata: {
+                kind: "chat_assistant_message",
+                runId: workflowResult.runId,
+              },
+            },
+          ]);
+        } else {
+          await prisma.message.create({
+            data: {
+              conversationId,
+              role: "assistant",
+              content: workflowResult.finalOutput,
+            },
+          });
+        }
       }
 
       onEvent?.({
@@ -945,13 +958,26 @@ export async function runAgentWorkflow(params: AgentRunInput) {
     });
 
     if (persistConversation && conversationId && result.finalOutput.length > 0) {
-      await prisma.message.create({
-        data: {
-          conversationId,
-          role: "assistant",
-          content: result.finalOutput,
-        },
-      });
+      if (chatSession) {
+        await chatSession.addItems([
+          {
+            role: "assistant",
+            content: result.finalOutput,
+            metadata: {
+              kind: "chat_assistant_message",
+              runId: result.runId,
+            },
+          },
+        ]);
+      } else {
+        await prisma.message.create({
+          data: {
+            conversationId,
+            role: "assistant",
+            content: result.finalOutput,
+          },
+        });
+      }
     }
 
     return {
@@ -989,13 +1015,26 @@ export async function runAgentWorkflow(params: AgentRunInput) {
   });
 
   if (persistConversation && conversationId && result.finalOutput.length > 0) {
-    await prisma.message.create({
-      data: {
-        conversationId,
-        role: "assistant",
-        content: result.finalOutput,
-      },
-    });
+    if (chatSession) {
+      await chatSession.addItems([
+        {
+          role: "assistant",
+          content: result.finalOutput,
+          metadata: {
+            kind: "chat_assistant_message",
+            runId: result.runId,
+          },
+        },
+      ]);
+    } else {
+      await prisma.message.create({
+        data: {
+          conversationId,
+          role: "assistant",
+          content: result.finalOutput,
+        },
+      });
+    }
   }
 
   return {

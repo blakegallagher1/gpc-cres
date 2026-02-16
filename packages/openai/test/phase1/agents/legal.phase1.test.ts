@@ -31,4 +31,14 @@ describe("Phase 1 Agent Pack :: legal", () => {
     expect(instructionText.includes("### Contract Review Memo")).toBe(true);
     expect(instructionText.includes("**Recommendation:**")).toBe(true);
   });
+
+  it("[MATRIX:agent:legal][PACK:guardrails] wires legal output guardrail", () => {
+    const configured = createConfiguredCoordinator();
+    const handoff = (configured.handoffs ?? []).find((agent) => agent.name === legalAgent.name);
+    const guardrailNames = new Set(
+      (handoff?.outputGuardrails ?? []).map((guardrail) => guardrail.name),
+    );
+
+    expect(guardrailNames.has("legal_output_guardrail")).toBe(true);
+  });
 });

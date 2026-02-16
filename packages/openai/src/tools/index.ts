@@ -1,4 +1,5 @@
 import type OpenAI from "openai";
+import { hostedFileSearchTool } from "./hostedTools.js";
 
 // --- Re-export all individual tools ---
 export {
@@ -85,6 +86,10 @@ export {
   request_reanalysis,
 } from "./reasoningTools.js";
 export {
+  hostedWebSearchPreviewTool,
+  hostedFileSearchTool,
+} from "./hostedTools.js";
+export {
   predict_entitlement_path,
   get_entitlement_feature_primitives,
   get_entitlement_intelligence_kpis,
@@ -161,6 +166,7 @@ export const webSearchPreviewTool = {
 
 /** Tools available to the Coordinator agent. */
 export const coordinatorTools = [
+  webSearchPreviewTool,
   getDealContext,
   listDeals,
   createDeal,
@@ -415,3 +421,9 @@ export const taxTools = [
   get_shared_context,
   log_reasoning_trace,
 ];
+
+/**
+ * Optional hosted file-search tool export for future vector-store wiring.
+ * Not yet enabled on agents until store IDs and indexing pipelines are configured.
+ */
+export const fileSearchTool = hostedFileSearchTool;

@@ -4,11 +4,13 @@ import { useEffect, useRef } from 'react';
 import { MessageCircle } from 'lucide-react';
 import { MessageBubble, type ChatMessage } from './MessageBubble';
 import { cn } from '@/lib/utils';
+import type { ChatStreamEvent } from '@/lib/chat/types';
 
 interface MessageListProps {
   messages: ChatMessage[];
   isStreaming: boolean;
   onSuggestionClick?: (text: string) => void;
+  onToolApprovalEvents?: (events: ChatStreamEvent[]) => void;
   conversationId?: string | null;
 }
 
@@ -16,6 +18,7 @@ export function MessageList({
   messages,
   isStreaming,
   onSuggestionClick,
+  onToolApprovalEvents,
   conversationId,
 }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -64,7 +67,12 @@ export function MessageList({
     <div ref={containerRef} className="h-full overflow-y-auto">
       <div className="mx-auto max-w-3xl space-y-4 px-4 py-6">
         {messages.map((msg) => (
-          <MessageBubble key={msg.id} message={msg} conversationId={conversationId} />
+          <MessageBubble
+            key={msg.id}
+            message={msg}
+            conversationId={conversationId}
+            onToolApprovalEvents={onToolApprovalEvents}
+          />
         ))}
 
         {/* Streaming indicator */}

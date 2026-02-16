@@ -357,6 +357,7 @@ model Run {
   openaiResponseId String?  @map("openai_response_id") @db.Text
   inputHash       String?   @map("input_hash") @db.Text
   outputJson      Json?     @map("output_json")
+  serializedState Json?     @map("serialized_state")
 
   org          Org           @relation(fields: [orgId], references: [id], onDelete: Cascade)
   deal         Deal?         @relation(fields: [dealId], references: [id], onDelete: Cascade)

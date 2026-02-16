@@ -37,3 +37,14 @@ Use `pnpm test:matrix:validate` as an early CI gate to prevent orphaned componen
 
 For Phase 1, use `pnpm test:phase1:track` to ensure all expected matrix-linked test IDs exist.
 Use `pnpm test:phase1:track:complete` only when you want CI to fail until all stub tests are fully implemented.
+
+## Notable chat runtime coverage (current)
+
+- Session persistence / compaction / dedupe:
+  - `apps/web/lib/chat/__tests__/session.test.ts`
+- Chat resume endpoint:
+  - `apps/web/app/api/chat/resume/route.test.ts`
+- Tool approval resume endpoint:
+  - `apps/web/app/api/chat/tool-approval/route.test.ts`
+- Run-state serialization envelope utility:
+  - `packages/openai/test/phase1/utils/runStateSerde.phase1.test.ts`

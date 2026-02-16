@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { cn } from "@/lib/utils";
+import { useStableOptions } from "@/lib/hooks/useStableOptions";
 import { AlertTriangle, CheckCircle2, XCircle, ExternalLink, ChevronRight, Loader2, Check, Bot, ChevronDown } from "lucide-react";
 
 type Decision = "ADVANCE" | "HOLD" | "KILL";
@@ -105,13 +106,17 @@ interface TriageResultPanelProps {
 export function TriageResultPanel({ triage, sources, onRunAction, onTaskCompleted, dealId }: TriageResultPanelProps) {
   const style = decisionStyles[triage.decision];
   const DecisionIcon = style.icon;
+  const stableActionCallbacks = useStableOptions({
+    onRunAction,
+    onTaskCompleted,
+  });
   const [actionResults, setActionResults] = useState<Record<number, ActionResult>>({});
   const runningRef = useRef<Set<number>>(new Set());
 
   /** Run a single next action by index — creates task then streams agent. */
   const executeAction = async (i: number) => {
     const action = triage.next_actions[i];
-    if (!onRunAction || !dealId || !action) return;
+    if (!stableActionCallbacks.onRunAction || !dealId || !action) return;
     if (runningRef.current.has(i)) return;
     const currentResult = actionResults[i];
     if (currentResult?.state === "done" || currentResult?.state === "running" || currentResult?.state === "creating") return;
@@ -122,7 +127,7 @@ export function TriageResultPanel({ triage, sources, onRunAction, onTaskComplete
     setActionResults((prev) => ({ ...prev, [i]: { state: "creating" } }));
     let taskId: string;
     try {
-      taskId = await onRunAction(action);
+      taskId = await stableActionCallbacks.onRunAction(action);
     } catch {
       setActionResults((prev) => ({ ...prev, [i]: { state: "error", output: "Failed to create task" } }));
       runningRef.current.delete(i);
@@ -169,7 +174,7 @@ export function TriageResultPanel({ triage, sources, onRunAction, onTaskComplete
                 ...prev,
                 [i]: { state: "done", agentName: currentAgent, output: fullOutput, expanded: false },
               }));
-              onTaskCompleted?.(taskId, fullOutput);
+              stableActionCallbacks.onTaskCompleted?.(taskId, fullOutput);
             } else if (event.type === "error") {
               setActionResults((prev) => ({ ...prev, [i]: { state: "error", output: event.message } }));
             }
@@ -313,7 +318,7 @@ export function TriageResultPanel({ triage, sources, onRunAction, onTaskComplete
         <div>
           <div className="mb-2 flex items-center justify-between">
             <h4 className="text-sm font-medium">Next Actions</h4>
-            {onRunAction && dealId && (
+            {stableActionCallbacks.onRunAction && dealId && (
               <button
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",

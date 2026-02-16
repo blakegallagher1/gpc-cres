@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { setupAgentTracing } from "@entitlement-os/openai";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { runAgentWorkflow } from "@/lib/agent/agentRunner";
 import type { AgentStreamEvent } from "@/lib/agent/executeAgent";
@@ -7,7 +8,31 @@ function sseEvent(data: Record<string, unknown>): string {
   return `data: ${JSON.stringify(data)}\n\n`;
 }
 
+function isGuardrailTripwireMessage(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("input guardrail triggered") ||
+    normalized.includes("output guardrail triggered") ||
+    normalized.includes("guardrail tripwire")
+  );
+}
+
+function toGuardrailErrorPayload(message: string): Record<string, unknown> {
+  if (!isGuardrailTripwireMessage(message)) {
+    return { type: "error", message };
+  }
+
+  return {
+    type: "error",
+    code: "guardrail_tripwire",
+    message:
+      "Request blocked by safety guardrails. Please revise the prompt or remove risky/unvalidated content and try again.",
+  };
+}
+
 export async function POST(req: NextRequest) {
+  setupAgentTracing();
+
   let body: { message?: string; conversationId?: string; dealId?: string };
   try {
     body = (await req.json()) as {
@@ -52,12 +77,22 @@ export async function POST(req: NextRequest) {
             if (event.type === "done") {
               doneSent = true;
             }
-            controller.enqueue(encoder.encode(sseEvent(event as Record<string, unknown>)));
+            if (event.type === "error") {
+              controller.enqueue(
+                encoder.encode(sseEvent(toGuardrailErrorPayload(event.message))),
+              );
+              return;
+            }
+            controller.enqueue(
+              encoder.encode(sseEvent(event as Record<string, unknown>)),
+            );
           },
         });
       } catch (error) {
         const errMsg = error instanceof Error ? error.message : "Agent execution failed";
-        controller.enqueue(encoder.encode(sseEvent({ type: "error", message: errMsg })));
+        controller.enqueue(
+          encoder.encode(sseEvent(toGuardrailErrorPayload(errMsg))),
+        );
       } finally {
         if (!doneSent) {
           controller.enqueue(

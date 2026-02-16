@@ -77,6 +77,14 @@ export function useChat(options?: { dealId?: string }) {
               agentName = event.agentName;
               setCurrentAgent(event.agentName);
               break;
+            case "handoff":
+              agentName = event.toAgent ?? event.to;
+              setCurrentAgent(agentName);
+              break;
+            case "tool_start":
+            case "tool_end":
+              // Stream presenter and chat container render these events.
+              break;
             case "tool_call":
               // Could render tool call cards in the future
               break;

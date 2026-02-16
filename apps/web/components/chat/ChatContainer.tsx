@@ -15,6 +15,7 @@ import { ConversationSidebar } from './ConversationSidebar';
 import { AgentIndicator } from './AgentIndicator';
 import { DealSelector } from './DealSelector';
 import { parseSSEStream } from '@/lib/chat/stream';
+import { useStableOptions } from '@/lib/hooks/useStableOptions';
 import {
   type ChatMessage,
   type ConversationSummary,
@@ -323,6 +324,8 @@ export function ChatContainer() {
 
       if (event.type === 'agent_switch') {
         setCurrentAgent(event.agentName);
+      } else if (event.type === 'handoff') {
+        setCurrentAgent(event.toAgent ?? event.to);
       } else if (event.type === 'agent_progress' && event.lastAgentName) {
         setCurrentAgent(event.lastAgentName);
       }
@@ -420,6 +423,15 @@ export function ChatContainer() {
     setCurrentAgent(null);
   }, []);
 
+  const handleToolApprovalEvents = useCallback(
+    (events: ChatStreamEvent[]) => {
+      for (const event of events) {
+        applyEvent(event);
+      }
+    },
+    [applyEvent],
+  );
+
   useEffect(() => {
     const reloadHandler = () => {
       const conversationRouteId =
@@ -438,16 +450,28 @@ export function ChatContainer() {
   }, [loadConversation]);
 
   const visibleMessages = messages;
+  const stableSidebarOptions = useStableOptions({
+    onConversationSelect: loadConversation,
+    onToggle: () => setSidebarOpen((value) => !value),
+    onRefresh: reloadConversations,
+  });
+  const stableChatInputOptions = useStableOptions({
+    onSend: handleSend,
+    onStop: handleStop,
+  });
+  const stableMessageListOptions = useStableOptions({
+    onSuggestionClick: handleSend,
+  });
 
   return (
     <div className="relative flex h-[calc(100vh-4rem)] overflow-hidden">
       <ConversationSidebar
         conversations={conversations}
         activeConversationId={conversationId}
-        onConversationSelect={loadConversation}
+        onConversationSelect={stableSidebarOptions.onConversationSelect}
         open={sidebarOpen}
-        onToggle={() => setSidebarOpen((value) => !value)}
-        onRefresh={reloadConversations}
+        onToggle={stableSidebarOptions.onToggle}
+        onRefresh={stableSidebarOptions.onRefresh}
         loading={isLoadingConversations}
         hasRecentRecents={hasRecentConversations}
         recentConversationIds={recentConversationIds}
@@ -492,11 +516,16 @@ export function ChatContainer() {
             messages={visibleMessages}
             isStreaming={isStreaming}
             conversationId={conversationId}
-            onSuggestionClick={handleSend}
+            onSuggestionClick={stableMessageListOptions.onSuggestionClick}
+            onToolApprovalEvents={handleToolApprovalEvents}
           />
         </div>
 
-        <ChatInput onSend={handleSend} isStreaming={isStreaming} onStop={handleStop} />
+        <ChatInput
+          onSend={stableChatInputOptions.onSend}
+          isStreaming={isStreaming}
+          onStop={stableChatInputOptions.onStop}
+        />
       </div>
     </div>
   );

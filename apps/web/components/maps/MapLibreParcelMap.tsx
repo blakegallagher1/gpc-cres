@@ -12,6 +12,7 @@ import {
   getZoningColor,
   getFloodColor,
 } from "./mapStyles";
+import { useStableOptions } from "@/lib/hooks/useStableOptions";
 import type { MapParcel } from "./ParcelMap";
 
 type ParcelFeatureProperties = {
@@ -252,7 +253,7 @@ export function MapLibreParcelMap({
   const [selectedParcelIds, setSelectedParcelIds] = useState<Set<string>>(new Set());
   const [viewportBounds, setViewportBounds] = useState<ViewportBounds | null>(null);
   const boundsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const onParcelClickRef = useRef<typeof onParcelClick>(onParcelClick);
+  const stableMapCallbacks = useStableOptions({ onParcelClick });
   const parcelByIdRef = useRef<Map<string, MapParcel>>(new Map());
 
   const parcelById = useMemo(() => {
@@ -273,9 +274,8 @@ export function MapLibreParcelMap({
   const { geometries } = useParcelGeometry(parcels, 200, viewportBounds);
 
   useEffect(() => {
-    onParcelClickRef.current = onParcelClick;
     parcelByIdRef.current = parcelById;
-  }, [onParcelClick, parcelById]);
+  }, [parcelById]);
 
   const mapCenter: [number, number] = [center[1], center[0]];
 
@@ -640,7 +640,7 @@ export function MapLibreParcelMap({
             });
           });
 
-          onParcelClickRef.current?.(parcelId);
+          stableMapCallbacks.onParcelClick?.(parcelId);
 
           const parcel = parcelByIdRef.current.get(parcelId);
           if (parcel && mapRef.current) {

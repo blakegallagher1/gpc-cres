@@ -3,6 +3,7 @@ import OpenAI from "openai";
 import type { OpenAiJsonSchema } from "@entitlement-os/shared";
 
 import type { OpenAiToolSources, OpenAiWebSearchSource, StrictJsonResponse } from "./types.js";
+import { withExponentialBackoff } from "./utils/retry.js";
 
 export type CreateStrictJsonResponseParams = {
   apiKey?: string;
@@ -13,8 +14,20 @@ export type CreateStrictJsonResponseParams = {
   reasoning?: OpenAI.Responses.ResponseCreateParams["reasoning"];
 };
 
-const DEFAULT_MAX_RETRIES = 5;
+const OPENAI_CLIENT_MAX_RETRIES = 0;
+const DEFAULT_RESPONSE_RETRIES = 2;
+const DEFAULT_INITIAL_RETRY_DELAY_MS = 1_000;
+const DEFAULT_MAX_RETRY_DELAY_MS = 8_000;
+const DEFAULT_RETRY_MULTIPLIER = 2;
+
 let cachedClient: OpenAI | null = null;
+
+function envNumber(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}
 
 function getClient(apiKey?: string): OpenAI {
   const key = apiKey ?? process.env.OPENAI_API_KEY;
@@ -23,11 +36,11 @@ function getClient(apiKey?: string): OpenAI {
   }
 
   if (apiKey) {
-    return new OpenAI({ apiKey: key, maxRetries: DEFAULT_MAX_RETRIES });
+    return new OpenAI({ apiKey: key, maxRetries: OPENAI_CLIENT_MAX_RETRIES });
   }
 
   if (!cachedClient) {
-    cachedClient = new OpenAI({ apiKey: key, maxRetries: DEFAULT_MAX_RETRIES });
+    cachedClient = new OpenAI({ apiKey: key, maxRetries: OPENAI_CLIENT_MAX_RETRIES });
   }
 
   return cachedClient;
@@ -100,22 +113,40 @@ export async function createStrictJsonResponse<T>(
     "file_search_call.results",
   ];
 
-  const response = await client.responses.create({
-    model: params.model,
-    input: params.input,
-    text: {
-      format: {
-        type: "json_schema",
-        name: params.jsonSchema.name,
-        schema: params.jsonSchema.schema,
-        strict: true,
-      },
+  const response = await withExponentialBackoff(
+    async () =>
+      client.responses.create({
+        model: params.model,
+        input: params.input,
+        text: {
+          format: {
+            type: "json_schema",
+            name: params.jsonSchema.name,
+            schema: params.jsonSchema.schema,
+            strict: true,
+          },
+        },
+        reasoning: params.reasoning,
+        tools: params.tools,
+        store: false,
+        include,
+      }),
+    {
+      retries: envNumber("OPENAI_RESPONSES_RETRIES", DEFAULT_RESPONSE_RETRIES),
+      initialDelayMs: envNumber(
+        "OPENAI_RESPONSES_INITIAL_RETRY_DELAY_MS",
+        DEFAULT_INITIAL_RETRY_DELAY_MS,
+      ),
+      maxDelayMs: envNumber(
+        "OPENAI_RESPONSES_MAX_RETRY_DELAY_MS",
+        DEFAULT_MAX_RETRY_DELAY_MS,
+      ),
+      multiplier: envNumber(
+        "OPENAI_RESPONSES_RETRY_MULTIPLIER",
+        DEFAULT_RETRY_MULTIPLIER,
+      ),
     },
-    reasoning: params.reasoning,
-    tools: params.tools,
-    store: false,
-    include,
-  });
+  );
 
   const outputText = getOutputText(response);
   const outputJson = parseStrictJson(outputText) as T;

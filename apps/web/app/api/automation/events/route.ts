@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import { isSchemaDriftError } from "@/lib/api/prismaSchemaFallback";
 import {
   getRecentEvents,
   getAutomationStats,
@@ -16,19 +17,6 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const view = searchParams.get("view") ?? "feed";
   const dealId = searchParams.get("dealId") ?? undefined;
-
-  const isMissingTableError = (error: unknown) => {
-    if (!error || typeof error !== "object") return false;
-
-    const typed = error as { code?: string; message?: string };
-    if (typed.code !== "P2021") return false;
-
-    const message = typed.message ?? "";
-    return (
-      typeof message === "string" &&
-      message.includes("automation_events")
-    );
-  };
 
   const emptyPayload = {
     stats: {
@@ -67,7 +55,7 @@ export async function GET(req: NextRequest) {
         );
     }
   } catch (error) {
-    if (isMissingTableError(error)) {
+    if (isSchemaDriftError(error)) {
       console.warn(
         "Automation events table missing; returning empty fallback payload",
         { view }
