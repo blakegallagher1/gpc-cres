@@ -4,6 +4,8 @@ import { prisma } from "@entitlement-os/db";
 import * as Sentry from "@sentry/nextjs";
 import { headers } from "next/headers";
 
+let hasLoggedMissingDatabaseUrl = false;
+
 /**
  * Resolve Supabase auth from request cookies.
  * Returns the authenticated user ID and their org ID, or null if unauthenticated.
@@ -24,8 +26,18 @@ export async function resolveAuth(): Promise<{
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
         process.env.SUPABASE_ANON_KEY ||
         "";
+      const databaseUrl = process.env.DATABASE_URL || "";
 
       if (!supabaseUrl || !supabaseAnonKey) return null;
+      if (!databaseUrl) {
+        if (!hasLoggedMissingDatabaseUrl) {
+          hasLoggedMissingDatabaseUrl = true;
+          console.error(
+            "[resolveAuth] Missing DATABASE_URL; skipping auth database lookup.",
+          );
+        }
+        return null;
+      }
 
       const cookieStore = await cookies();
       const headersStore = await headers();
