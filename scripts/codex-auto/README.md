@@ -11,6 +11,15 @@ chmod +x scripts/codex-auto/*.sh
 # Run any one-off prompt
 ./scripts/codex-auto/run.sh "add input validation to the deals API"
 
+# Fix unresolved Sentry issues
+./scripts/codex-auto/sentry-fix.sh              # Fix latest issue (all projects)
+./scripts/codex-auto/sentry-fix.sh web           # Fix latest issue (web only)
+./scripts/codex-auto/sentry-fix.sh SENTRY-ABC123 # Fix specific issue by ID
+./scripts/codex-auto/sentry-fix.sh --all         # Fix up to 5 unresolved issues
+
+# Run synthetic health check (reports to Sentry via check-in)
+./scripts/codex-auto/monitoring.sh --sentry
+
 # Quality sweep (type-hardening + auth audit + lint fixes)
 ./scripts/codex-auto/sweep.sh
 
@@ -37,6 +46,8 @@ chmod +x scripts/codex-auto/*.sh
 | `roadmap-next.sh` | Implement next ROADMAP item | Continuous delivery |
 | `ci-fix.sh` | Auto-fix failed CI runs | After CI failure notification |
 | `review-pr.sh` | AI code review on a PR | Before merging |
+| `sentry-fix.sh` | Auto-fix unresolved Sentry issues | After Sentry notifications or on-demand |
+| `monitoring.sh` | Synthetic health check with Sentry check-ins | Scheduled monitoring (replaces error-level events) |
 | `nightly.sh` | Orchestrates sweep + ci-fix + roadmap | Scheduled via cron/launchd |
 
 ## Sweep Modes
