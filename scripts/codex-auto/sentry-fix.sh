@@ -37,6 +37,12 @@ ORG="gpc-ul"
 API="https://sentry.io/api/0"
 AUTH_HEADER="Authorization: Bearer ${SENTRY_TOKEN}"
 
+# Sentry API sometimes returns JSON with control characters that break jq.
+# Strip them before any jq parsing.
+sanitize_json() {
+  tr -d '\000-\011\013-\037'
+}
+
 # ---------------------------------------------------------------------------
 # Determine which projects to scan
 # ---------------------------------------------------------------------------
@@ -60,7 +66,7 @@ fetch_issue_by_id() {
   local short_id="$1"
   log_info "Fetching issue ${short_id}..."
   local resp
-  resp=$(curl -sS -H "$AUTH_HEADER" "${API}/organizations/${ORG}/issues/?query=${short_id}&limit=1")
+  resp=$(curl -sS -H "$AUTH_HEADER" "${API}/organizations/${ORG}/issues/?query=${short_id}&limit=1" | sanitize_json)
   echo "$resp"
 }
 
@@ -70,10 +76,19 @@ fetch_issue_by_id() {
 fetch_unresolved() {
   local project_slug="$1"
   local limit="${2:-1}"
+  local url="${API}/projects/${ORG}/${project_slug}/issues/?query=is:unresolved&sort=date&limit=${limit}"
   log_info "Fetching up to ${limit} unresolved issues from ${project_slug}..."
-  local resp
-  resp=$(curl -sS -H "$AUTH_HEADER" \
-    "${API}/projects/${ORG}/${project_slug}/issues/?query=is:unresolved&sort=date&limit=${limit}")
+  log_info "  GET ${url}"
+  local resp http_code
+  resp=$(curl -sS -w '\n%{http_code}' -H "$AUTH_HEADER" "$url" | sanitize_json)
+  http_code=$(echo "$resp" | tail -1)
+  resp=$(echo "$resp" | sed '$d')
+  log_info "  HTTP ${http_code} — $(echo "$resp" | jq 'length' 2>/dev/null || echo '?') issues returned"
+  if [[ "$http_code" != "200" ]]; then
+    log_error "  Sentry API error: $(echo "$resp" | jq -r '.detail // .' 2>/dev/null | head -1)"
+    echo "[]"
+    return
+  fi
   echo "$resp"
 }
 
@@ -84,7 +99,7 @@ fetch_latest_event() {
   local issue_id="$1"
   log_info "Fetching latest event for issue ${issue_id}..."
   local resp
-  resp=$(curl -sS -H "$AUTH_HEADER" "${API}/issues/${issue_id}/events/latest/")
+  resp=$(curl -sS -H "$AUTH_HEADER" "${API}/issues/${issue_id}/events/latest/" | sanitize_json)
   echo "$resp"
 }
 
@@ -184,18 +199,26 @@ INSTRUCTIONS:
 
 If you cannot determine the fix, explain what you found and what you think the issue is."
 
-  run_codex_yolo "$PROMPT"
+  local codex_exit=0
+  run_codex_yolo "$PROMPT" || codex_exit=$?
 
   # Mark as resolved in Sentry after successful fix
-  local codex_exit=$?
   if [[ $codex_exit -eq 0 ]]; then
     log_info "Marking ${short_id} as resolved in Sentry..."
-    curl -sS -X PUT \
+    local resolve_resp resolve_code
+    resolve_resp=$(curl -sS -w '\n%{http_code}' -X PUT \
       -H "$AUTH_HEADER" \
       -H "Content-Type: application/json" \
       --data '{"status":"resolved"}' \
-      "${API}/issues/${issue_id}/" > /dev/null
-    log_ok "Issue ${short_id} marked as resolved"
+      "${API}/issues/${issue_id}/")
+    resolve_code=$(echo "$resolve_resp" | tail -1)
+    if [[ "$resolve_code" == "200" ]]; then
+      log_ok "Issue ${short_id} marked as resolved in Sentry (HTTP ${resolve_code})"
+    else
+      log_error "Failed to resolve ${short_id} in Sentry (HTTP ${resolve_code})"
+    fi
+  else
+    log_warn "Codex exited with code ${codex_exit} — NOT marking ${short_id} as resolved"
   fi
 }
 
@@ -235,6 +258,13 @@ for PROJECT in "${PROJECTS[@]}"; do
   fi
 
   FOUND_ANY=true
+  log_info "Found ${ISSUE_COUNT} unresolved issues in ${PROJECT}:"
+  for i in $(seq 0 $((ISSUE_COUNT - 1))); do
+    local sid ttl
+    sid=$(echo "$ISSUES_JSON" | jq -r ".[$i].shortId // \"?\"")
+    ttl=$(echo "$ISSUES_JSON" | jq -r ".[$i].title // \"?\"" | head -c 80)
+    log_info "  [$((i+1))] ${sid}: ${ttl}"
+  done
   for i in $(seq 0 $((ISSUE_COUNT - 1))); do
     ISSUE=$(echo "$ISSUES_JSON" | jq ".[$i]")
     fix_issue "$ISSUE"
