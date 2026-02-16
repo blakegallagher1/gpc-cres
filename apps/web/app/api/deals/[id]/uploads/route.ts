@@ -7,6 +7,7 @@ import { randomUUID } from "crypto";
 import { dispatchEvent } from "@/lib/automation/events";
 import "@/lib/automation/handlers";
 import { captureAutomationDispatchError } from "@/lib/automation/sentry";
+import * as Sentry from "@sentry/nextjs";
 
 // GET /api/deals/[id]/uploads - list uploads for a deal
 export async function GET(
@@ -37,6 +38,12 @@ export async function GET(
     return NextResponse.json({ uploads });
   } catch (error) {
     console.error("Error fetching uploads:", error);
+    Sentry.captureException(error, {
+      tags: { route: "/api/deals/[id]/uploads", method: "GET" },
+      fingerprint: ["smoke-test", Date.now().toString()],
+      level: "error",
+    });
+    await Sentry.flush(5000);
     return NextResponse.json(
       { error: "Failed to fetch uploads" },
       { status: 500 }
@@ -101,8 +108,60 @@ export async function POST(
         upsert: false,
       });
 
-    if (storageError) {
-      console.error("Storage upload error:", storageError);
+    if (storageError && storageError.message === "Bucket not found") {
+      const bucketCreateError = await supabaseAdmin.storage.createBucket("deal-room-uploads", {
+        public: false,
+      });
+
+      if (bucketCreateError.error) {
+        Sentry.captureException(bucketCreateError.error, {
+          tags: {
+            route: "/api/deals/[id]/uploads",
+            method: "POST",
+            stage: "bucket-create",
+          },
+        });
+        await Sentry.flush(5000);
+        console.error("Storage bucket create error:", bucketCreateError.error);
+        return NextResponse.json(
+          { error: "Failed to upload file to storage" },
+          { status: 500 }
+        );
+      }
+
+      const retry = await supabaseAdmin.storage.from("deal-room-uploads").upload(
+        storageObjectKey,
+        buffer,
+        {
+          contentType: file.type || "application/octet-stream",
+          upsert: false,
+        },
+      );
+
+      if (retry.error) {
+        Sentry.captureException(retry.error, {
+          tags: {
+            route: "/api/deals/[id]/uploads",
+            method: "POST",
+            stage: "storage-upload-retry",
+          },
+        });
+        await Sentry.flush(5000);
+        console.error("Storage upload error:", retry.error);
+        return NextResponse.json(
+          { error: "Failed to upload file to storage" },
+          { status: 500 }
+        );
+      }
+    } else if (storageError) {
+      Sentry.captureException(storageError, {
+        tags: {
+          route: "/api/deals/[id]/uploads",
+          method: "POST",
+          stage: "storage-upload",
+        },
+      });
+      await Sentry.flush(5000);
       return NextResponse.json(
         { error: "Failed to upload file to storage" },
         { status: 500 }
@@ -141,6 +200,12 @@ export async function POST(
     return NextResponse.json({ upload }, { status: 201 });
   } catch (error) {
     console.error("Error uploading file:", error);
+    Sentry.captureException(error, {
+      tags: { route: "/api/deals/[id]/uploads", method: "POST" },
+      fingerprint: ["smoke-test", Date.now().toString()],
+      level: "error",
+    });
+    await Sentry.flush(5000);
     return NextResponse.json(
       { error: "Failed to upload file" },
       { status: 500 }

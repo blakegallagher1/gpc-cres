@@ -63,6 +63,14 @@ export async function POST(
       );
     }
 
+    const pipelineStep = Number(body.pipelineStep);
+    if (!Number.isInteger(pipelineStep) || pipelineStep < 0) {
+      return NextResponse.json(
+        { error: "pipelineStep must be a non-negative integer" },
+        { status: 400 }
+      );
+    }
+
     // Verify deal belongs to user's org
     const deal = await prisma.deal.findFirst({
       where: { id, orgId: auth.orgId },
@@ -79,7 +87,7 @@ export async function POST(
         title: body.title,
         description: body.description ?? null,
         status: body.status ?? "TODO",
-        pipelineStep: body.pipelineStep,
+        pipelineStep,
         dueAt: body.dueAt ? new Date(body.dueAt) : null,
         ownerUserId: body.ownerUserId ?? null,
       },
@@ -155,6 +163,15 @@ export async function PATCH(
       if (field in body) {
         if (field === "dueAt" && body[field]) {
           data[field] = new Date(body[field]);
+        } else if (field === "pipelineStep") {
+          const pipelineStep = Number(body[field]);
+          if (!Number.isInteger(pipelineStep) || pipelineStep < 0) {
+            return NextResponse.json(
+              { error: "pipelineStep must be a non-negative integer" },
+              { status: 400 },
+            );
+          }
+          data[field] = pipelineStep;
         } else {
           data[field] = body[field];
         }

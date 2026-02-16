@@ -18,6 +18,7 @@ import {
 import { hashJsonSha256 } from "@entitlement-os/shared/crypto";
 import { prisma } from "@entitlement-os/db";
 import type { Prisma } from "@entitlement-os/db";
+import { createHash } from "node:crypto";
 import {
   buildAgentStreamRunOptions,
   createIntentAwareCoordinator,
@@ -34,6 +35,7 @@ import { logger } from "./loggerAdapter";
 import { unifiedRetrieval } from "./retrievalAdapter";
 
 const DATA_AGENT_RETRIEVAL_LIMIT = 6;
+const DB_UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export type AgentInputMessage =
   | { role: "user"; content: string }
@@ -143,6 +145,20 @@ export type AgentExecutionParams = {
     action: "approve" | "reject";
   };
 };
+
+export function toDatabaseRunId(runId: string): string {
+  const trimmedRunId = runId.trim();
+  if (DB_UUID_REGEX.test(trimmedRunId)) {
+    return trimmedRunId;
+  }
+
+  const source = trimmedRunId.length > 0 ? trimmedRunId : "agent-run";
+  const hash = createHash("sha256").update(source).digest("hex").slice(0, 32);
+  const variant = parseInt(hash[16], 16);
+  const variantCharacter = ((variant & 0x3) | 0x8).toString(16);
+
+  return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-4${hash.slice(13, 16)}-${variantCharacter}${hash.slice(17, 20)}-${hash.slice(20, 32)}`;
+}
 
 const MISSING_EVIDENCE_RETRY_THRESHOLD = 3;
 const MISSING_EVIDENCE_RETRY_MAX_ATTEMPTS = 3;
@@ -893,11 +909,14 @@ export async function executeAgentWorkflow(
   const firstUserInput = params.input.find((entry) => entry.role === "user")?.content;
   const userTextForIntent = params.intentHint ?? firstUserInput;
   const queryIntent = inferQueryIntentFromText(userTextForIntent);
-  const runId = params.runId ?? `agent-run-${hashJsonSha256({ inputHash, runType: params.runType ?? "ENRICHMENT" })}`;
+  const runId = toDatabaseRunId(
+    params.runId ??
+      `agent-run-${hashJsonSha256({ inputHash, runType: params.runType ?? "ENRICHMENT" })}`,
+  );
 
   if (params.runId) {
     const existingRun = (await prisma.run.findUnique({
-      where: { id: params.runId },
+      where: { id: runId },
       select: {
         id: true,
         status: true,

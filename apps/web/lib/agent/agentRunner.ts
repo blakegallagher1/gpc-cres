@@ -4,6 +4,7 @@ import {
   executeAgentWorkflow,
   type AgentInputMessage,
   type AgentStreamEvent,
+  toDatabaseRunId,
 } from "./executeAgent";
 import { getTemporalClient } from "@/lib/workflowClient";
 import { hashJsonSha256 } from "@entitlement-os/shared/crypto";
@@ -684,12 +685,13 @@ export async function runAgentWorkflow(params: AgentRunInput) {
       requestedCorrelationId ?? requestFingerprint,
     );
     const workflowId = `agent-run-${correlationId}`;
+    const persistedRunId = toDatabaseRunId(workflowId);
     let fallbackReason: string | undefined;
     let fallbackLineage: string[] = ["local-fallback"];
     let temporalStartFailure: string | undefined;
 
     const priorRun = await prisma.run.findUnique({
-      where: { id: workflowId },
+      where: { id: persistedRunId },
       select: { status: true, outputJson: true, inputHash: true, openaiResponseId: true },
     });
 
@@ -738,7 +740,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
     }
 
     if (priorRun?.status === "running") {
-      const replay = await loadCompletedRunResultById(workflowId, onEvent);
+      const replay = await loadCompletedRunResultById(persistedRunId, onEvent);
       if (replay && replay.status !== "running") {
         onEvent?.({
           type: "agent_summary",
@@ -800,7 +802,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
 
     if (handle) {
       const resultPromise = handle.result() as Promise<AgentRunWorkflowOutput>;
-      const progressPromise = streamTemporalRunProgress(workflowId, onEvent).catch(() => {});
+      const progressPromise = streamTemporalRunProgress(persistedRunId, onEvent).catch(() => {});
       const workflowResult = await resultPromise;
       await progressPromise;
 
@@ -869,7 +871,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
 
     fallbackReason = temporalStartFailure ?? "Temporal workflow unavailable";
 
-    const replay = await loadCompletedRunResultById(workflowId, onEvent);
+    const replay = await loadCompletedRunResultById(persistedRunId, onEvent);
     if (replay && replay.status !== "running") {
       onEvent?.({
         type: "agent_summary",
@@ -900,9 +902,9 @@ export async function runAgentWorkflow(params: AgentRunInput) {
       };
     }
 
-    const leaseToken = await claimLocalRunLease(workflowId);
+    const leaseToken = await claimLocalRunLease(persistedRunId);
     if (!leaseToken) {
-      const replay = await loadCompletedRunResultById(workflowId, onEvent);
+      const replay = await loadCompletedRunResultById(persistedRunId, onEvent);
       if (replay && replay.status !== "running") {
         onEvent?.({
           type: "agent_summary",

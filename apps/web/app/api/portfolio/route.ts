@@ -6,6 +6,7 @@ import {
   EMPTY_PORTFOLIO_RESPONSE,
   isSchemaDriftError,
 } from "@/lib/api/prismaSchemaFallback";
+import * as Sentry from "@sentry/nextjs";
 
 export async function GET() {
   const auth = await resolveAuth();
@@ -145,6 +146,9 @@ export async function GET() {
     if (isSchemaDriftError(error)) {
       return NextResponse.json(EMPTY_PORTFOLIO_RESPONSE);
     }
+    Sentry.captureException(error, {
+      tags: { route: "api.portfolio", method: "GET" },
+    });
 
     return NextResponse.json(
       { error: "Failed to fetch portfolio" },

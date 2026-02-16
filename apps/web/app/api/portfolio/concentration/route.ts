@@ -5,6 +5,7 @@ import {
   EMPTY_CONCENTRATION_RESPONSE,
   isSchemaDriftError,
 } from "@/lib/api/prismaSchemaFallback";
+import * as Sentry from "@sentry/nextjs";
 
 export async function GET() {
   const auth = await resolveAuth();
@@ -20,6 +21,9 @@ export async function GET() {
     if (isSchemaDriftError(error)) {
       return NextResponse.json(EMPTY_CONCENTRATION_RESPONSE);
     }
+    Sentry.captureException(error, {
+      tags: { route: "api.portfolio.concentration", method: "GET" },
+    });
     return NextResponse.json(
       { error: "Failed to compute concentration analysis" },
       { status: 500 }

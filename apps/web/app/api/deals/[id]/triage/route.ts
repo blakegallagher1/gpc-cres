@@ -18,9 +18,38 @@ import type {
 } from "@entitlement-os/shared";
 import { supabaseAdmin } from "@/lib/db/supabaseAdmin";
 import { captureAutomationDispatchError } from "@/lib/automation/sentry";
+import * as Sentry from "@sentry/nextjs";
 
 // POST /api/deals/[id]/triage - run triage via Temporal
 const TEMPORAL_TASK_QUEUE = process.env.TEMPORAL_TASK_QUEUE || "entitlement-os";
+const TRIAGE_RESULT_TIMEOUT_MS = Number(process.env.TRIAGE_RESULT_TIMEOUT_MS ?? "15000");
+
+type TriageWorkflowError = Error & { code?: string };
+
+function createTimeoutError(): TriageWorkflowError {
+  const error = new Error("Triage workflow did not finish within the response window") as TriageWorkflowError;
+  error.code = "TRIAGE_TIMEOUT";
+  return error;
+}
+
+function isTriageTimeout(error: unknown): error is TriageWorkflowError {
+  return error instanceof Error && error.name !== "AbortError" && (error as { code?: string }).code === "TRIAGE_TIMEOUT";
+}
+
+function withWorkflowTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    return promise;
+  }
+
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => {
+      setTimeout(() => {
+        reject(createTimeoutError());
+      }, timeoutMs);
+    }),
+  ]);
+}
 
 export async function POST(
   _request: NextRequest,
@@ -66,7 +95,32 @@ export async function POST(
       ],
     });
 
-    const result = (await handle.result()) as TriageWorkflowResult;
+    const startedAt = new Date();
+    let result: TriageWorkflowResult | null = null;
+    try {
+      result = await withWorkflowTimeout(
+        handle.result() as Promise<TriageWorkflowResult>,
+        TRIAGE_RESULT_TIMEOUT_MS,
+      );
+    } catch (error) {
+      if (!isTriageTimeout(error)) {
+        throw error;
+      }
+
+      return NextResponse.json(
+        {
+          run: {
+            id: workflowId,
+            startedAt,
+            status: "started",
+          },
+          triage: null,
+          triageStatus: "queued",
+          message: "Triage workflow running asynchronously. Poll /api/deals/[id]/triage for final status.",
+        },
+        { status: 202 },
+      );
+    }
 
     if (deal.status === "INTAKE") {
       await prisma.deal.update({
@@ -114,6 +168,12 @@ export async function POST(
     });
   } catch (error) {
     console.error("Error running triage:", error);
+    Sentry.captureException(error, {
+      tags: { route: "/api/deals/[id]/triage", method: "POST" },
+      fingerprint: ["smoke-test", Date.now().toString()],
+      level: "error",
+    });
+    await Sentry.flush(5000);
     return NextResponse.json(
       { error: "Failed to run triage" },
       { status: 500 }
@@ -169,6 +229,12 @@ export async function GET(
     });
   } catch (error) {
     console.error("Error fetching triage:", error);
+    Sentry.captureException(error, {
+      tags: { route: "/api/deals/[id]/triage", method: "GET" },
+      fingerprint: ["smoke-test", Date.now().toString()],
+      level: "error",
+    });
+    await Sentry.flush(5000);
     return NextResponse.json(
       { error: "Failed to fetch triage" },
       { status: 500 }

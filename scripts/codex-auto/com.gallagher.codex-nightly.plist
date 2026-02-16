@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Codex Nightly Automation for gallagher-cres -->
+    <!-- Install: cp this file ~/Library/LaunchAgents/ && launchctl load ~/Library/LaunchAgents/com.gallagher.codex-nightly.plist -->
+    <!-- Uninstall: launchctl unload ~/Library/LaunchAgents/com.gallagher.codex-nightly.plist -->
+
+    <key>Label</key>
+    <string>com.gallagher.codex-nightly</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/gallagherpropertycompany/Documents/gallagher-cres/scripts/codex-auto/nightly.sh</string>
+    </array>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <!-- Run at 2:00 AM every day -->
+        <key>Hour</key>
+        <integer>2</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/Users/gallagherpropertycompany/Documents/gallagher-cres/scripts/codex-auto/logs/nightly-stdout.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/gallagherpropertycompany/Documents/gallagher-cres/scripts/codex-auto/logs/nightly-stderr.log</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/Users/gallagherpropertycompany/.nvm/versions/node/v20.19.0/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+
+    <!-- Don't retry if missed -->
+    <key>StartInterval</key>
+    <integer>0</integer>
+
+    <key>RunAtLoad</key>
+    <false/>
+</dict>
+</plist>

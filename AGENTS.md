@@ -377,7 +377,113 @@ Security and org scoping always override convenience.
 ---
 
 # =========================================================
-# 🔒 MANDATORY VERIFICATION PROTOCOL (MVP)
+# 13 TEST COVERAGE MANDATE
+# =========================================================
+
+When modifying any API route handler or automation loop:
+
+1. **Existing tests must still pass** — run the relevant test suite before
+   and after your change.
+2. **New/modified handlers require tests** — if you touch a handler that has
+   no tests, write at minimum:
+   - Auth rejection (401)
+   - Org scope rejection (403)
+   - Input validation (bad payload → 400)
+   - Happy path (200)
+   - Idempotency (if applicable)
+3. **Coverage check** — after writing tests, verify they actually run:
+   ```
+   pnpm test -- --reporter=verbose 2>&1 | grep -E '(PASS|FAIL|✓|✗)'
+   ```
+4. **No test? No merge.** — the Mandatory Verification Protocol will catch
+   untested handlers during the build gate. Do not skip this.
+
+---
+
+# =========================================================
+# 14 ERROR HANDLING PATTERN
+# =========================================================
+
+All error handling in Entitlement OS follows a consistent pattern:
+
+## API Route Errors
+```typescript
+import { NextResponse } from "next/server";
+import { ZodError } from "zod";
+
+// Wrap handler logic in try/catch
+try {
+  const validated = InputSchema.parse(body);
+  // ... logic
+} catch (err) {
+  if (err instanceof ZodError) {
+    return NextResponse.json(
+      { error: "Validation failed", details: err.flatten().fieldErrors },
+      { status: 400 }
+    );
+  }
+  console.error("[route-name]", err);
+  return NextResponse.json(
+    { error: "Internal server error" },
+    { status: 500 }
+  );
+}
+```
+
+## Rules
+- Never swallow errors silently
+- Always log errors with a route/function identifier prefix
+- Zod validation errors return 400 with field-level details
+- Auth errors return 401/403 with generic messages (no info leak)
+- Unexpected errors return 500 with generic message, log full error server-side
+- Never expose stack traces or internal details to the client
+- Temporal activities: throw `ApplicationFailure` with a typed error code
+
+---
+
+# =========================================================
+# 15 MIGRATION SAFETY RULES
+# =========================================================
+
+Database migrations (Prisma) must follow these safety rules:
+
+## Before Creating a Migration
+1. **Backup awareness** — confirm the migration is reversible or document why not.
+2. **Check for data loss** — dropping columns, tables, or changing types can
+   destroy data. Always:
+   - Add new columns as nullable first
+   - Backfill data
+   - Then add NOT NULL constraint in a follow-up migration
+3. **Index impact** — adding indexes on large tables can lock the table.
+   Use `CREATE INDEX CONCURRENTLY` when possible (via raw SQL migration).
+
+## Migration Workflow
+```
+# Generate migration (do NOT apply)
+pnpm db:migrate --create-only
+
+# Review the generated SQL
+cat packages/db/prisma/migrations/<timestamp>_<name>/migration.sql
+
+# Apply after review
+pnpm db:migrate
+
+# Verify
+pnpm db:generate
+pnpm typecheck
+```
+
+## Rules
+- Never use `prisma db push` in production or against shared databases
+- Never use `prisma migrate reset` unless explicitly instructed
+- Always review generated SQL before applying
+- Two-phase migrations for destructive changes (add nullable → backfill → constrain)
+- Test migrations against seed data before pushing
+
+---
+
+# =========================================================
+# MANDATORY VERIFICATION PROTOCOL (MVP)
 # =========================================================
 
 Every MUTATION MODE task MUST complete the following verification

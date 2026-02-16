@@ -61,7 +61,7 @@ import {
   AGENT_RUN_STATE_SCHEMA_VERSION,
   AGENT_RUN_STATE_STATUS,
 } from "@entitlement-os/shared";
-import { executeAgentWorkflow } from "../executeAgent";
+import { executeAgentWorkflow, toDatabaseRunId } from "../executeAgent";
 
 const VALID_REPORT = {
   schema_version: "1.0",
@@ -104,6 +104,9 @@ const VALID_REPORT = {
   sources: [],
 };
 
+const SOURCE_RUN_ID = "run-contract";
+const NORMALIZED_RUN_ID = toDatabaseRunId(SOURCE_RUN_ID);
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -144,7 +147,7 @@ describe("executeAgentWorkflow", () => {
 
     prisma.run.findUnique.mockResolvedValue(null);
     prisma.run.upsert.mockResolvedValue({
-      id: "run-contract",
+      id: NORMALIZED_RUN_ID,
       status: "running",
       inputHash: "input-hash",
       outputJson: null,
@@ -162,7 +165,7 @@ describe("executeAgentWorkflow", () => {
       orgId: "org-test",
       userId: "user-test",
       conversationId: "conversation-test",
-      runId: "run-contract",
+      runId: SOURCE_RUN_ID,
       input: [{ role: "user", content: "Run entitlement analysis" }],
       runType: "ENRICHMENT",
       correlationId: "corr-local",
@@ -176,12 +179,12 @@ describe("executeAgentWorkflow", () => {
     expect(outputJson[AGENT_RUN_STATE_KEYS.partialOutput]).toBeUndefined();
     expect(runState).toMatchObject({
       schemaVersion: AGENT_RUN_STATE_SCHEMA_VERSION,
-      runId: "run-contract",
+      runId: NORMALIZED_RUN_ID,
       status: AGENT_RUN_STATE_STATUS.SUCCEEDED,
     });
     expect(runState[AGENT_RUN_STATE_KEYS.correlationId]).toBe("corr-local");
     expect(runState[AGENT_RUN_STATE_KEYS.status]).toBe("succeeded");
-    expect(runState[AGENT_RUN_STATE_KEYS.runId]).toBe("run-contract");
+    expect(runState[AGENT_RUN_STATE_KEYS.runId]).toBe(NORMALIZED_RUN_ID);
     expect(typeof runState[AGENT_RUN_STATE_KEYS.lastUpdatedAt]).toBe("string");
     expect(typeof runState[AGENT_RUN_STATE_KEYS.durationMs]).toBe("number");
     expect(JSON.parse(String(runState[AGENT_RUN_STATE_KEYS.partialOutput]))).toEqual(
@@ -211,7 +214,7 @@ describe("executeAgentWorkflow", () => {
     expect(runState[AGENT_RUN_STATE_KEYS.fallbackReason]).toBeUndefined();
     expect(runState[AGENT_RUN_STATE_KEYS.retrievalContext]).toMatchObject({
       query: "analysis",
-      subjectId: "run-contract",
+      subjectId: NORMALIZED_RUN_ID,
     });
     expect(
       Array.isArray((runState[AGENT_RUN_STATE_KEYS.retrievalContext] as Record<string, unknown>).results),
@@ -244,7 +247,7 @@ describe("executeAgentWorkflow", () => {
     try {
       prisma.run.findUnique.mockResolvedValue(null);
       prisma.run.upsert.mockResolvedValue({
-        id: "run-contract",
+        id: NORMALIZED_RUN_ID,
         status: "running",
         inputHash: "input-hash",
         outputJson: null,
@@ -262,7 +265,7 @@ describe("executeAgentWorkflow", () => {
         orgId: "org-test",
         userId: "user-test",
         conversationId: "conversation-test",
-        runId: "run-contract",
+        runId: SOURCE_RUN_ID,
         input: [{ role: "user", content: "Run entitlement analysis" }],
         runType: "ENRICHMENT",
         correlationId: "corr-local",

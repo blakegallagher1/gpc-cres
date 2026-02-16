@@ -92,7 +92,10 @@ export async function POST(request: Request) {
       input: { lat: input.lat, lng: input.lng, parish: input.parish ?? null },
       details: result.error,
     });
-    const status = result.status === 429 ? 429 : result.status === 504 ? 504 : 502;
+    const status =
+      typeof result.status === "number" && result.status >= 400 && result.status <= 599
+        ? result.status
+        : 502;
     return NextResponse.json(
       { ok: false, request_id: result.requestId, error: { code: "UPSTREAM_ERROR", message: result.error } },
       { status },
