@@ -17,6 +17,31 @@ export async function GET(req: NextRequest) {
   const view = searchParams.get("view") ?? "feed";
   const dealId = searchParams.get("dealId") ?? undefined;
 
+  const isMissingTableError = (error: unknown) => {
+    if (!error || typeof error !== "object") return false;
+
+    const typed = error as { code?: string; message?: string };
+    if (typed.code !== "P2021") return false;
+
+    const message = typed.message ?? "";
+    return (
+      typeof message === "string" &&
+      message.includes("automation_events")
+    );
+  };
+
+  const emptyPayload = {
+    stats: {
+      totalToday: 0,
+      successRateToday: 100,
+      avgDurationMs: null,
+      failuresRequiringAttention: 0,
+    },
+    feed: { events: [] },
+    health: { handlers: [] },
+    failures: { events: [] },
+  };
+
   try {
     switch (view) {
       case "feed": {
@@ -42,6 +67,23 @@ export async function GET(req: NextRequest) {
         );
     }
   } catch (error) {
+    if (isMissingTableError(error)) {
+      console.warn(
+        "Automation events table missing; returning empty fallback payload",
+        { view }
+      );
+      switch (view) {
+        case "feed":
+          return NextResponse.json(emptyPayload.feed);
+        case "stats":
+          return NextResponse.json(emptyPayload.stats);
+        case "health":
+          return NextResponse.json(emptyPayload.health);
+        case "failures":
+          return NextResponse.json(emptyPayload.failures);
+      }
+    }
+
     console.error("Automation events error:", error);
     return NextResponse.json(
       { error: "Failed to fetch automation events" },
