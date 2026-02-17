@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback, useRef, useState } from "react";
+import { useEffect, useCallback, useRef, useState, useMemo } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Loader2, Save, Check } from "lucide-react";
@@ -15,6 +15,7 @@ import { TornadoChart } from "@/components/financial/TornadoChart";
 import { ScenarioManager } from "@/components/financial/ScenarioManager";
 import { WaterfallBuilder } from "@/components/financial/WaterfallBuilder";
 import { DebtComparison } from "@/components/financial/DebtComparison";
+import { ExitAnalysisView } from "@/components/financial/ExitAnalysisView";
 import {
   RentRollTab,
   type TenantLeaseRecord,
@@ -25,7 +26,10 @@ import {
   type DevelopmentBudgetRecord,
 } from "@/components/financial/DevelopmentBudgetTab";
 import { useFinancialModelStore, DEFAULT_ASSUMPTIONS, type FinancialModelAssumptions } from "@/stores/financialModelStore";
-import { useProFormaCalculations } from "@/hooks/useProFormaCalculations";
+import {
+  useProFormaCalculations,
+  type ProFormaContext,
+} from "@/hooks/useProFormaCalculations";
 import { withStressScenarioBundle } from "@/lib/financial/stressTesting";
 import { toast } from "sonner";
 
@@ -116,19 +120,24 @@ export default function FinancialModelPage() {
     markClean,
   } = useFinancialModelStore();
 
-  const results = useProFormaCalculations(assumptions, {
-    tenantLeases,
-    developmentBudget: developmentBudget
-      ? {
-          lineItems: developmentBudget.lineItems,
-          contingencies: developmentBudget.contingencies,
-        }
-      : undefined,
-    capitalSources: capitalSources.map((source) => ({
-      sourceKind: source.sourceKind,
-      amount: source.amount,
-    })),
-  });
+  const proFormaContext = useMemo<ProFormaContext>(
+    () => ({
+      tenantLeases,
+      developmentBudget: developmentBudget
+        ? {
+            lineItems: developmentBudget.lineItems,
+            contingencies: developmentBudget.contingencies,
+          }
+        : undefined,
+      capitalSources: capitalSources.map((source) => ({
+        sourceKind: source.sourceKind,
+        amount: source.amount,
+      })),
+    }),
+    [tenantLeases, developmentBudget, capitalSources],
+  );
+
+  const results = useProFormaCalculations(assumptions, proFormaContext);
   const dealNameRef = useRef<string>("");
   const financingFetcher = useSWR<FinancesResponse>(
     dealId ? `/api/deals/${dealId}/financings` : null,
@@ -452,6 +461,7 @@ export default function FinancialModelPage() {
             <Tabs defaultValue="returns">
               <TabsList className="mb-3">
                 <TabsTrigger value="returns">Returns</TabsTrigger>
+                <TabsTrigger value="exit-analysis">Exit Analysis</TabsTrigger>
                 <TabsTrigger value="sensitivity">Sensitivity</TabsTrigger>
                 <TabsTrigger value="waterfall">Waterfall</TabsTrigger>
                 <TabsTrigger value="debt">Debt</TabsTrigger>
@@ -462,6 +472,13 @@ export default function FinancialModelPage() {
 
               <TabsContent value="returns">
                 <ResultsDashboard results={results} />
+              </TabsContent>
+
+              <TabsContent value="exit-analysis">
+                <ExitAnalysisView
+                  assumptions={assumptions}
+                  context={proFormaContext}
+                />
               </TabsContent>
 
               <TabsContent value="sensitivity">

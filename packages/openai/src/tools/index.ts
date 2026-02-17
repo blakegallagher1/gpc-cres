@@ -10,6 +10,7 @@ export {
   get_rent_roll,
   model_capital_stack,
   stress_test_deal,
+  model_exit_scenarios,
   addParcelToDeal,
   updateParcel,
 } from "./dealTools.js";
@@ -107,6 +108,7 @@ import {
   get_rent_roll,
   model_capital_stack,
   stress_test_deal,
+  model_exit_scenarios,
   addParcelToDeal,
   updateParcel,
 } from "./dealTools.js";
@@ -284,6 +286,7 @@ export const financeTools = [
   get_rent_roll,
   model_capital_stack,
   stress_test_deal,
+  model_exit_scenarios,
   generate_artifact,
   analyze_portfolio,
   get_historical_accuracy,

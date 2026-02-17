@@ -391,6 +391,26 @@ type StressScenarioMetrics = {
   equityMultiple: number;
 };
 
+type ExitScenarioTiming = {
+  sellYear: number;
+  refinanceYear: number | null;
+  exitYear: number;
+};
+
+type ExitScenarioPath = "sell" | "refinance_hold" | "stabilization_disposition";
+
+type ExitScenarioRow = {
+  id: string;
+  label: string;
+  path: ExitScenarioPath;
+  timing: ExitScenarioTiming;
+  exitValue: number;
+  equityProceeds: number;
+  equityMultiple: number;
+  irrPct: number | null;
+  irrMaximizingExitTiming: ExitScenarioTiming;
+};
+
 function estimateRemainingBalance(
   principal: number,
   annualRate: number,
@@ -411,6 +431,23 @@ function estimateRemainingBalance(
     principal * Math.pow(1 + monthlyRate, paymentsMade) -
     (monthlyPayment * (Math.pow(1 + monthlyRate, paymentsMade) - 1)) / monthlyRate;
   return Math.max(balance, 0);
+}
+
+function computeAnnualDebtService(
+  principal: number,
+  annualRate: number,
+  amortizationYears: number,
+): number {
+  if (principal <= 0 || annualRate <= 0 || amortizationYears <= 0) {
+    return 0;
+  }
+  const monthlyRate = annualRate / 12;
+  const numPayments = amortizationYears * 12;
+  const monthlyPayment =
+    principal *
+    ((monthlyRate * Math.pow(1 + monthlyRate, numPayments)) /
+      (Math.pow(1 + monthlyRate, numPayments) - 1));
+  return monthlyPayment * 12;
 }
 
 function computeIrr(
@@ -523,6 +560,230 @@ function computeStressScenarioMetrics(assumptions: ToolFinancialAssumptions): St
   return {
     leveredIRR,
     equityMultiple: round(equityMultiple, 4),
+  };
+}
+
+function irrScore(value: number | null): number {
+  return value === null ? Number.NEGATIVE_INFINITY : value;
+}
+
+function withHoldYear(
+  assumptions: ToolFinancialAssumptions,
+  holdYears: number,
+): ToolFinancialAssumptions {
+  return {
+    ...assumptions,
+    exit: {
+      ...assumptions.exit,
+      holdYears,
+    },
+  };
+}
+
+function toTiming(sellYear: number, refinanceYear: number | null, exitYear: number): ExitScenarioTiming {
+  return {
+    sellYear: Math.round(sellYear),
+    refinanceYear: refinanceYear === null ? null : Math.round(refinanceYear),
+    exitYear: Math.round(exitYear),
+  };
+}
+
+function computeExitScenarioAtHoldYear(
+  assumptions: ToolFinancialAssumptions,
+): {
+  exitValue: number;
+  equityProceeds: number;
+  equityMultiple: number;
+  irrPct: number | null;
+} {
+  const closingCosts = assumptions.acquisition.purchasePrice * (assumptions.acquisition.closingCostsPct / 100);
+  const basisBeforeDebt = assumptions.acquisition.purchasePrice + closingCosts;
+  const loanAmount = basisBeforeDebt * (assumptions.financing.ltvPct / 100);
+  const loanFees = loanAmount * (assumptions.financing.loanFeePct / 100);
+  const totalBasis = basisBeforeDebt + loanFees;
+  const equityRequired = totalBasis - loanAmount;
+
+  const grossPotentialRent = assumptions.buildableSf * assumptions.income.rentPerSf;
+  const effectiveGrossIncome =
+    grossPotentialRent * (1 - assumptions.income.vacancyPct / 100) + assumptions.income.otherIncome;
+  const totalOpex =
+    assumptions.buildableSf * assumptions.expenses.opexPerSf +
+    effectiveGrossIncome * (assumptions.expenses.managementFeePct / 100) +
+    assumptions.buildableSf * assumptions.expenses.capexReserves +
+    assumptions.buildableSf * assumptions.expenses.insurance +
+    assumptions.buildableSf * assumptions.expenses.taxes;
+
+  const rate = assumptions.financing.interestRate / 100;
+  const annualDebtService = computeAnnualDebtService(
+    loanAmount,
+    rate,
+    assumptions.financing.amortizationYears,
+  );
+  const ioAnnualDebtService = loanAmount * rate;
+
+  const holdYears = Math.max(1, Math.min(30, Math.floor(assumptions.exit.holdYears)));
+  const leveredCFs: number[] = [-equityRequired];
+  let cumulativeCF = 0;
+  let terminalNoi = 0;
+
+  for (let year = 1; year <= holdYears; year += 1) {
+    const growthFactor = Math.pow(1 + assumptions.income.rentGrowthPct / 100, year - 1);
+    const yearEgi =
+      grossPotentialRent * growthFactor * (1 - assumptions.income.vacancyPct / 100) +
+      assumptions.income.otherIncome * growthFactor;
+    const yearOpex = totalOpex * Math.pow(1.02, year - 1);
+    const yearNoi = yearEgi - yearOpex;
+    terminalNoi = yearNoi;
+    const yearDebtService =
+      year <= assumptions.financing.ioPeriodYears ? ioAnnualDebtService : annualDebtService;
+    const yearCashflow = yearNoi - yearDebtService;
+    cumulativeCF += yearCashflow;
+    leveredCFs.push(yearCashflow);
+  }
+
+  const exitValue =
+    assumptions.exit.exitCapRate > 0 ? terminalNoi / (assumptions.exit.exitCapRate / 100) : 0;
+  const dispositionCosts = exitValue * (assumptions.exit.dispositionCostsPct / 100);
+  const loanPayoff =
+    loanAmount > 0
+      ? estimateRemainingBalance(
+          loanAmount,
+          rate,
+          assumptions.financing.amortizationYears,
+          holdYears,
+        )
+      : 0;
+  const netProceeds = exitValue - dispositionCosts - loanPayoff;
+  leveredCFs[holdYears] += netProceeds;
+
+  const irr = computeIrr(leveredCFs);
+  const equityProceeds = cumulativeCF + netProceeds;
+  const equityMultiple = equityRequired > 0 ? equityProceeds / equityRequired : 0;
+
+  return {
+    exitValue: round(exitValue, 0),
+    equityProceeds: round(equityProceeds, 0),
+    equityMultiple: round(equityMultiple, 2),
+    irrPct: irr === null ? null : round(irr * 100, 2),
+  };
+}
+
+function computeRefinanceExitScenario(
+  assumptions: ToolFinancialAssumptions,
+  refinanceYear: number,
+  exitYear: number,
+): {
+  exitValue: number;
+  equityProceeds: number;
+  equityMultiple: number;
+  irrPct: number | null;
+} {
+  const closingCosts = assumptions.acquisition.purchasePrice * (assumptions.acquisition.closingCostsPct / 100);
+  const basisBeforeDebt = assumptions.acquisition.purchasePrice + closingCosts;
+  const initialLoanAmount = basisBeforeDebt * (assumptions.financing.ltvPct / 100);
+  const loanFees = initialLoanAmount * (assumptions.financing.loanFeePct / 100);
+  const totalBasis = basisBeforeDebt + loanFees;
+  const equityRequired = totalBasis - initialLoanAmount;
+
+  const grossPotentialRent = assumptions.buildableSf * assumptions.income.rentPerSf;
+  const effectiveGrossIncome =
+    grossPotentialRent * (1 - assumptions.income.vacancyPct / 100) + assumptions.income.otherIncome;
+  const totalOpex =
+    assumptions.buildableSf * assumptions.expenses.opexPerSf +
+    effectiveGrossIncome * (assumptions.expenses.managementFeePct / 100) +
+    assumptions.buildableSf * assumptions.expenses.capexReserves +
+    assumptions.buildableSf * assumptions.expenses.insurance +
+    assumptions.buildableSf * assumptions.expenses.taxes;
+
+  const rate = assumptions.financing.interestRate / 100;
+  const annualDebtService = computeAnnualDebtService(
+    initialLoanAmount,
+    rate,
+    assumptions.financing.amortizationYears,
+  );
+  const ioAnnualDebtService = initialLoanAmount * rate;
+
+  const yearNoi: number[] = [];
+  for (let year = 1; year <= exitYear; year += 1) {
+    const growthFactor = Math.pow(1 + assumptions.income.rentGrowthPct / 100, year - 1);
+    const yearEgi =
+      grossPotentialRent * growthFactor * (1 - assumptions.income.vacancyPct / 100) +
+      assumptions.income.otherIncome * growthFactor;
+    const yearOpex = totalOpex * Math.pow(1.02, year - 1);
+    yearNoi.push(yearEgi - yearOpex);
+  }
+
+  const refinanceNoi = yearNoi[refinanceYear - 1] ?? 0;
+  const refinanceValue =
+    assumptions.exit.exitCapRate > 0 ? refinanceNoi / (assumptions.exit.exitCapRate / 100) : 0;
+  const refinanceLoanAmount =
+    refinanceValue * (assumptions.financing.ltvPct / 100);
+  const refinanceCosts = refinanceLoanAmount * (assumptions.financing.loanFeePct / 100);
+  const oldLoanPayoff =
+    initialLoanAmount > 0
+      ? estimateRemainingBalance(
+          initialLoanAmount,
+          rate,
+          assumptions.financing.amortizationYears,
+          refinanceYear,
+        )
+      : 0;
+  const refinanceProceeds = refinanceLoanAmount - oldLoanPayoff - refinanceCosts;
+
+  const refinancedAnnualDebtService = computeAnnualDebtService(
+    refinanceLoanAmount,
+    rate,
+    assumptions.financing.amortizationYears,
+  );
+  const refinancedIoDebtService = refinanceLoanAmount * rate;
+
+  const leveredCFs: number[] = [-equityRequired];
+  let equityProceeds = 0;
+  let exitValue = 0;
+  for (let year = 1; year <= exitYear; year += 1) {
+    const debtService =
+      year <= refinanceYear
+        ? year <= assumptions.financing.ioPeriodYears
+          ? ioAnnualDebtService
+          : annualDebtService
+        : year - refinanceYear <= assumptions.financing.ioPeriodYears
+          ? refinancedIoDebtService
+          : refinancedAnnualDebtService;
+    let yearCashflow = (yearNoi[year - 1] ?? 0) - debtService;
+
+    if (year === refinanceYear) {
+      yearCashflow += refinanceProceeds;
+    }
+
+    if (year === exitYear) {
+      exitValue =
+        assumptions.exit.exitCapRate > 0
+          ? (yearNoi[year - 1] ?? 0) / (assumptions.exit.exitCapRate / 100)
+          : 0;
+      const dispositionCosts = exitValue * (assumptions.exit.dispositionCostsPct / 100);
+      const refinancedLoanPayoff =
+        refinanceLoanAmount > 0
+          ? estimateRemainingBalance(
+              refinanceLoanAmount,
+              rate,
+              assumptions.financing.amortizationYears,
+              Math.max(exitYear - refinanceYear, 0),
+            )
+          : 0;
+      yearCashflow += exitValue - dispositionCosts - refinancedLoanPayoff;
+    }
+
+    equityProceeds += yearCashflow;
+    leveredCFs.push(yearCashflow);
+  }
+
+  const irr = computeIrr(leveredCFs);
+  const equityMultiple = equityRequired > 0 ? equityProceeds / equityRequired : 0;
+  return {
+    exitValue: round(exitValue, 0),
+    equityProceeds: round(equityProceeds, 0),
+    equityMultiple: round(equityMultiple, 2),
+    irrPct: irr === null ? null : round(irr * 100, 2),
   };
 }
 
@@ -1066,6 +1327,136 @@ export const stress_test_deal = tool({
         weightedLeveredIrrPct: irrWeight > 0 ? round((weightedIrr / irrWeight) * 100, 2) : null,
         weightedEquityMultiple:
           totalWeight > 0 ? round(weightedEquityMultiple / totalWeight, 2) : null,
+      },
+    });
+  },
+});
+
+export const model_exit_scenarios = tool({
+  name: "model_exit_scenarios",
+  description:
+    "Model exit strategies for sell-year timing, refinance-then-hold paths, and disposition at stabilization. Returns scenario-level exit value, equity proceeds, equity multiple, IRR, and IRR-maximizing timing.",
+  parameters: z.object({
+    orgId: z.string().uuid().describe("The org ID for security scoping"),
+    dealId: z.string().uuid().describe("The deal ID"),
+    maxExitYear: z
+      .number()
+      .int()
+      .min(3)
+      .max(10)
+      .nullable()
+      .describe("Optional max exit year horizon (default 10)."),
+  }),
+  execute: async ({ orgId, dealId, maxExitYear }) => {
+    const deal = await prisma.deal.findFirst({
+      where: { id: dealId, orgId },
+      select: { id: true, financialModelAssumptions: true },
+    });
+    if (!deal) {
+      return JSON.stringify({ error: "Deal not found or access denied" });
+    }
+
+    const assumptions = toToolAssumptions(deal.financialModelAssumptions);
+    const horizon = maxExitYear ?? 10;
+
+    const sellScenarios: ExitScenarioRow[] = [];
+    for (let sellYear = 1; sellYear <= horizon; sellYear += 1) {
+      const metrics = computeExitScenarioAtHoldYear(withHoldYear(assumptions, sellYear));
+      sellScenarios.push({
+        id: `sell_year_${sellYear}`,
+        label: `Sell Year ${sellYear}`,
+        path: "sell",
+        timing: toTiming(sellYear, null, sellYear),
+        exitValue: metrics.exitValue,
+        equityProceeds: metrics.equityProceeds,
+        equityMultiple: metrics.equityMultiple,
+        irrPct: metrics.irrPct,
+        irrMaximizingExitTiming: toTiming(sellYear, null, sellYear),
+      });
+    }
+
+    const refinanceScenarios: ExitScenarioRow[] = [];
+    for (let refinanceYear = 1; refinanceYear < horizon; refinanceYear += 1) {
+      for (let exitYear = refinanceYear + 1; exitYear <= horizon; exitYear += 1) {
+        const metrics = computeRefinanceExitScenario(
+          assumptions,
+          refinanceYear,
+          exitYear,
+        );
+        refinanceScenarios.push({
+          id: `refi_y${refinanceYear}_exit_y${exitYear}`,
+          label: `Refi Y${refinanceYear} -> Exit Y${exitYear}`,
+          path: "refinance_hold",
+          timing: toTiming(exitYear, refinanceYear, exitYear),
+          exitValue: metrics.exitValue,
+          equityProceeds: metrics.equityProceeds,
+          equityMultiple: metrics.equityMultiple,
+          irrPct: metrics.irrPct,
+          irrMaximizingExitTiming: toTiming(exitYear, refinanceYear, exitYear),
+        });
+      }
+    }
+
+    const stabilizationYear = Math.max(
+      1,
+      Math.min(horizon, Math.min(assumptions.exit.holdYears, assumptions.financing.ioPeriodYears + 2)),
+    );
+    const stabilizationMetrics = computeExitScenarioAtHoldYear(
+      withHoldYear(assumptions, stabilizationYear),
+    );
+    const stabilizationScenario: ExitScenarioRow = {
+      id: `stabilization_year_${stabilizationYear}`,
+      label: `Disposition at Stabilization (Y${stabilizationYear})`,
+      path: "stabilization_disposition",
+      timing: toTiming(stabilizationYear, null, stabilizationYear),
+      exitValue: stabilizationMetrics.exitValue,
+      equityProceeds: stabilizationMetrics.equityProceeds,
+      equityMultiple: stabilizationMetrics.equityMultiple,
+      irrPct: stabilizationMetrics.irrPct,
+      irrMaximizingExitTiming: toTiming(stabilizationYear, null, stabilizationYear),
+    };
+
+    const bestSell = sellScenarios.reduce<ExitScenarioRow | null>(
+      (best, scenario) =>
+        !best || irrScore(scenario.irrPct) > irrScore(best.irrPct) ? scenario : best,
+      null,
+    );
+    const bestRefinance = refinanceScenarios.reduce<ExitScenarioRow | null>(
+      (best, scenario) =>
+        !best || irrScore(scenario.irrPct) > irrScore(best.irrPct) ? scenario : best,
+      null,
+    );
+
+    const sellTiming = bestSell?.timing ?? toTiming(horizon, null, horizon);
+    const refinanceTiming = bestRefinance?.timing ?? toTiming(horizon, 1, horizon);
+
+    const scenarios = [...sellScenarios, ...refinanceScenarios, stabilizationScenario];
+    for (const scenario of scenarios) {
+      if (scenario.path === "sell") {
+        scenario.irrMaximizingExitTiming = sellTiming;
+      } else if (scenario.path === "refinance_hold") {
+        scenario.irrMaximizingExitTiming = refinanceTiming;
+      } else {
+        scenario.irrMaximizingExitTiming = stabilizationScenario.timing;
+      }
+    }
+
+    const rankedScenarios = [...scenarios].sort((a, b) => {
+      const irrDelta = irrScore(b.irrPct) - irrScore(a.irrPct);
+      if (irrDelta !== 0) {
+        return irrDelta;
+      }
+      return b.equityMultiple - a.equityMultiple;
+    });
+
+    return JSON.stringify({
+      dealId,
+      scenarios: rankedScenarios,
+      summary: {
+        sellIrrMaxTiming: bestSell?.timing ?? null,
+        refinanceIrrMaxTiming: bestRefinance?.timing ?? null,
+        stabilizationTiming: stabilizationScenario.timing,
+        overallBestScenarioId: rankedScenarios[0]?.id ?? null,
       },
     });
   },
