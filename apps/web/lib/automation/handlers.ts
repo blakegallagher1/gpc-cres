@@ -8,6 +8,8 @@ import { handleBuyerOutreach, handleTriageBuyerMatch } from "./buyerOutreach";
 import { handleIntakeReceived } from "./intake";
 import { handleArtifactOnStatusChange, handleTriageArtifactNotification } from "./artifactAutomation";
 import { handleEntitlementStrategyAutopilot } from "./entitlementStrategy";
+import { handleKnowledgeCapture } from "./knowledgeCapture";
+import { handleFinancialInit } from "./financialInit";
 
 /**
  * Register all automation event handlers.
@@ -50,6 +52,12 @@ export function ensureHandlersRegistered(): void {
 
   // #11 Entitlement Strategy Autopilot: PREAPP/CONCEPT recommendation materialization
   registerHandler("deal.statusChanged", handleEntitlementStrategyAutopilot);
+
+  // #E1 Financial Model Auto-Initialization
+  registerHandler("triage.completed", handleFinancialInit);
+
+  // #E5 Automated Knowledge Capture: persist terminal deal learnings
+  registerHandler("deal.statusChanged", handleKnowledgeCapture);
 }
 
 // Auto-register on import

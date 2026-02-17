@@ -107,11 +107,27 @@ export async function renderArtifactFromSpec(specInput: ArtifactSpec): Promise<R
   if (spec.artifact_type === "SUBMISSION_CHECKLIST_PDF") {
     templateFilename = "submission_checklist.html";
     const checklistSpec = spec as SubmissionChecklistPdfArtifactSpec;
+    const statusLabel = (status: "complete" | "pending" | "not_applicable") => {
+      if (status === "complete") return "Complete";
+      if (status === "not_applicable") return "Not Applicable";
+      return "Pending";
+    };
+    const statusCheckbox = (status: "complete" | "pending" | "not_applicable") => {
+      if (status === "complete") return "☑";
+      if (status === "not_applicable") return "⊘";
+      return "☐";
+    };
     const items = checklistSpec.checklist_items
       .map((i) => {
         const requiredText = i.required ? "Required" : "Optional";
-        const src = i.sources.map((u) => `<a href="${escapeHtml(u)}">${escapeHtml(u)}</a>`).join(", ");
-        return `<li><div class="row"><span class="item">${escapeHtml(i.item)}</span><span class="pill">${requiredText}</span></div><div class="notes">${escapeHtml(i.notes)}</div><div class="sources">${src}</div></li>`;
+        const src =
+          i.sources.length > 0
+            ? i.sources
+                .map((u) => `<a href="${escapeHtml(u)}">${escapeHtml(u)}</a>`)
+                .join(", ")
+            : "No citation provided";
+        const notes = i.notes ? `<div class="notes">${escapeHtml(i.notes)}</div>` : "";
+        return `<li><div class="row"><span class="item">${statusCheckbox(i.status)} ${escapeHtml(i.item)}</span><span class="pill">${requiredText}</span></div><div class="notes">${escapeHtml(i.description)} · Status: ${statusLabel(i.status)}</div>${notes}<div class="sources">${src}</div></li>`;
       })
       .join("");
     bodyHtml = `

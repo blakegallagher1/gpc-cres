@@ -38,6 +38,31 @@ export const AUTOMATION_CONFIG = Object.freeze({
     maxBatchSize: 10,
     classificationMinConfidence: 0.7,
   }),
+  financialInit: Object.freeze({
+    defaultCoverageRatio: 0.3,
+    coverageRatioBySku: Object.freeze({
+      SMALL_BAY_FLEX: 0.35,
+      OUTDOOR_STORAGE: 0.4,
+      TRUCK_PARKING: 0.5,
+    } as const),
+    marketCapRateLookbackDays: 120,
+    defaultExitCapRatePct: 7.5,
+    defaultHoldYears: 5,
+  }),
+  deadlineMonitoring: Object.freeze({
+    escalationAgeDays: 30,
+    dedupeWindowHours: 24,
+    notificationTaskDueHours: 24,
+  }),
+  marketMonitoring: Object.freeze({
+    capRateShiftBps: 50,
+    rateEnvironmentShiftBps: 100,
+    lookbackDays: 30,
+    dedupeWindowHours: 24,
+  }),
+  knowledgeCapture: Object.freeze({
+    dedupeBeforeWrite: true as const,
+  }),
   hostedTools: Object.freeze({
     webSearchMaxCallsPerConversation: 10,
   }),

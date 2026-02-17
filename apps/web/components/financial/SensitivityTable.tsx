@@ -205,7 +205,7 @@ export function SensitivityTable({
   );
   const scenarioResults = useMemo(
     () =>
-      stressScenarioBundle.scenarios.map((scenario) => {
+      (stressScenarioBundle?.scenarios ?? []).map((scenario) => {
         const result = computeProForma(scenario.assumptions);
         return {
           scenario,

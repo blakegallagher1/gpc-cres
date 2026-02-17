@@ -6,12 +6,12 @@
     <title>{{TITLE}}</title>
     <style>
       :root { --fg: #111; --muted: #666; --border: #e5e7eb; }
-      html, body { padding: 0; margin: 0; color: var(--fg); font-family: Arial, sans-serif; }
+      html, body { padding: 0; margin: 0; color: var(--fg); font-family: "Avenir Next", Arial, sans-serif; }
       header { padding: 18px; border-bottom: 1px solid var(--border); }
       h1 { margin: 0; font-size: 22px; }
       .container { padding: 18px; }
-      .section { margin: 0 0 16px; padding: 0 0 16px; border-bottom: 1px solid var(--border); }
-      .section:last-child { border-bottom: none; padding-bottom: 0; }
+      .section { margin: 0 0 16px; padding: 0 0 16px; border-bottom: 1px solid var(--border); page-break-after: always; min-height: 8.8in; }
+      .section:last-child { border-bottom: none; padding-bottom: 0; page-break-after: auto; }
       h2 { margin: 0 0 8px; font-size: 16px; }
       .md { font-size: 12px; line-height: 1.45; }
       .evidence { font-size: 12px; }
@@ -33,4 +33,3 @@
     </footer>
   </body>
 </html>
-

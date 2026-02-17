@@ -5,23 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{{TITLE}}</title>
     <style>
-      :root { --fg: #111; --muted: #666; --border: #e5e7eb; }
-      html, body { padding: 0; margin: 0; color: var(--fg); font-family: Arial, sans-serif; }
-      header { padding: 18px; border-bottom: 1px solid var(--border); }
+      :root { --fg: #111; --muted: #666; --border: #e5e7eb; --brand: #0f2d5c; }
+      html, body { padding: 0; margin: 0; color: var(--fg); font-family: "Avenir Next", Arial, sans-serif; }
+      header { padding: 16px 18px; border-bottom: 1px solid var(--border); background: #f8fafc; }
       h1 { margin: 0; font-size: 22px; }
-      .container { padding: 18px; }
-      .section { margin: 0 0 16px; padding: 0 0 16px; border-bottom: 1px solid var(--border); }
+      .container { padding: 16px 18px; }
+      .section { margin: 0 0 14px; padding: 0 0 14px; border-bottom: 1px solid var(--border); }
       .section:last-child { border-bottom: none; padding-bottom: 0; }
-      h2 { margin: 0 0 8px; font-size: 16px; }
-      .md { font-size: 12px; line-height: 1.45; }
-      footer { padding: 14px 18px; border-top: 1px solid var(--border); color: var(--muted); font-size: 11px; }
+      h2 { margin: 0 0 8px; font-size: 15px; color: var(--brand); text-transform: uppercase; letter-spacing: 0.04em; }
+      .md { font-size: 12px; line-height: 1.4; }
+      footer { padding: 12px 18px; border-top: 1px solid var(--border); color: var(--muted); font-size: 11px; }
       a { color: #0b63ce; }
     </style>
   </head>
   <body>
     <header>
       <h1>{{TITLE}}</h1>
-      <div class="md">Buyer teaser generated for presell outreach (no auto-send in v1).</div>
+      <div class="md">Buyer teaser generated for exit marketing outreach.</div>
     </header>
     <div class="container">
       {{BODY}}
@@ -32,4 +32,3 @@
     </footer>
   </body>
 </html>
-

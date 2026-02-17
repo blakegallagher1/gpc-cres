@@ -38,6 +38,40 @@ export interface ConcentrationAnalysis {
   sku: ConcentrationBucket[];
   vintageYear: ConcentrationBucket[];
   riskTier: ConcentrationBucket[];
+  lender: ConcentrationBucket[];
+  hhi: {
+    parish: {
+      value: number;
+      band: "green" | "yellow" | "red";
+      top3: ConcentrationBucket[];
+    };
+    sku: {
+      value: number;
+      band: "green" | "yellow" | "red";
+      top3: ConcentrationBucket[];
+    };
+    lender: {
+      value: number;
+      band: "green" | "yellow" | "red";
+      top3: ConcentrationBucket[];
+    };
+    hasAlert: boolean;
+  };
+}
+
+export interface DebtMaturityQuarter {
+  quarter: string;
+  totalDebtMaturing: number;
+  dealsAffected: number;
+  refinanceRiskScore: number;
+}
+
+export interface DebtMaturityWall {
+  totalPortfolioDebt: number;
+  debtMaturing12Months: number;
+  debtMaturing12MonthsPct: number;
+  alert: boolean;
+  quarters: DebtMaturityQuarter[];
 }
 
 export interface AllocationCandidate {
@@ -232,6 +266,58 @@ async function loadRiskSourceScores(
   return latestRiskScoreByDeal;
 }
 
+function getHhiBand(hhi: number): "green" | "yellow" | "red" {
+  if (hhi > 0.5) return "red";
+  if (hhi >= 0.25) return "yellow";
+  return "green";
+}
+
+function buildExposureBuckets(
+  exposures: Map<string, { exposure: number; acreage: number; count: number }>,
+): { buckets: ConcentrationBucket[]; hhi: number } {
+  const totalExposure = [...exposures.values()].reduce(
+    (sum, value) => sum + value.exposure,
+    0,
+  );
+  if (totalExposure <= 0) {
+    return { buckets: [], hhi: 0 };
+  }
+
+  const entries = [...exposures.entries()];
+  const hhi =
+    Math.round(
+      entries.reduce((sum, [, value]) => {
+        const share = value.exposure / totalExposure;
+        return sum + share * share;
+      }, 0) * 1000,
+    ) / 1000;
+
+  const buckets = entries
+    .map(([name, value]) => ({
+      name,
+      count: value.count,
+      pct: Math.round((value.exposure / totalExposure) * 100),
+      acreage: Math.round(value.acreage * 100) / 100,
+    }))
+    .sort((a, b) => b.pct - a.pct);
+
+  return {
+    buckets,
+    hhi,
+  };
+}
+
+function addMonths(date: Date, months: number): Date {
+  const next = new Date(date);
+  next.setMonth(next.getMonth() + months);
+  return next;
+}
+
+function quarterLabel(date: Date): string {
+  const quarter = Math.floor(date.getMonth() / 3) + 1;
+  return `${date.getFullYear()}-Q${quarter}`;
+}
+
 // ---------------------------------------------------------------------------
 // Service Methods
 // ---------------------------------------------------------------------------
@@ -320,41 +406,50 @@ export async function getConcentrationAnalysis(
     (d) => d.status !== "KILLED" && d.status !== "EXITED"
   );
   const total = active.length || 1;
+  const acreageByDealId = new Map<string, number>(
+    active.map((deal) => [deal.id, getDealAcreage(deal)]),
+  );
 
   // Geographic
-  const geoMap = new Map<string, { count: number; acreage: number }>();
+  const geoMap = new Map<string, { count: number; acreage: number; exposure: number }>();
   for (const d of active) {
     const name = d.jurisdiction?.name ?? "Unknown";
-    const entry = geoMap.get(name) ?? { count: 0, acreage: 0 };
+    const entry = geoMap.get(name) ?? { count: 0, acreage: 0, exposure: 0 };
     entry.count++;
+    entry.exposure++;
     entry.acreage += getDealAcreage(d);
     geoMap.set(name, entry);
   }
-  const geographic: ConcentrationBucket[] = [...geoMap.entries()]
-    .map(([name, v]) => ({
-      name,
-      count: v.count,
-      pct: Math.round((v.count / total) * 100),
-      acreage: Math.round(v.acreage * 100) / 100,
-    }))
-    .sort((a, b) => b.count - a.count);
+  const geographicExposure = new Map<string, { exposure: number; acreage: number; count: number }>();
+  for (const [name, value] of geoMap.entries()) {
+    geographicExposure.set(name, {
+      exposure: value.exposure,
+      acreage: value.acreage,
+      count: value.count,
+    });
+  }
+  const geographicData = buildExposureBuckets(geographicExposure);
+  const geographic: ConcentrationBucket[] = geographicData.buckets;
 
   // SKU
-  const skuMap = new Map<string, { count: number; acreage: number }>();
+  const skuMap = new Map<string, { count: number; acreage: number; exposure: number }>();
   for (const d of active) {
-    const entry = skuMap.get(d.sku) ?? { count: 0, acreage: 0 };
+    const entry = skuMap.get(d.sku) ?? { count: 0, acreage: 0, exposure: 0 };
     entry.count++;
+    entry.exposure++;
     entry.acreage += getDealAcreage(d);
     skuMap.set(d.sku, entry);
   }
-  const sku: ConcentrationBucket[] = [...skuMap.entries()]
-    .map(([name, v]) => ({
-      name,
-      count: v.count,
-      pct: Math.round((v.count / total) * 100),
-      acreage: Math.round(v.acreage * 100) / 100,
-    }))
-    .sort((a, b) => b.count - a.count);
+  const skuExposure = new Map<string, { exposure: number; acreage: number; count: number }>();
+  for (const [name, value] of skuMap.entries()) {
+    skuExposure.set(name, {
+      exposure: value.exposure,
+      acreage: value.acreage,
+      count: value.count,
+    });
+  }
+  const skuData = buildExposureBuckets(skuExposure);
+  const sku: ConcentrationBucket[] = skuData.buckets;
 
   // Vintage year
   const vintageMap = new Map<string, { count: number; acreage: number }>();
@@ -403,7 +498,69 @@ export async function getConcentrationAnalysis(
     }))
     .sort((a, b) => b.count - a.count);
 
-  return { geographic, sku, vintageYear, riskTier };
+  const activeDealIds = active.map((deal) => deal.id);
+  const financings = await prisma.dealFinancing.findMany({
+    where: {
+      orgId,
+      dealId: { in: activeDealIds },
+    },
+    select: {
+      dealId: true,
+      lenderName: true,
+      loanAmount: true,
+    },
+  });
+
+  const lenderExposure = new Map<string, { exposure: number; acreage: number; count: number }>();
+  for (const financing of financings) {
+    const lender = financing.lenderName?.trim() || "Unspecified Lender";
+    const exposureRaw = financing.loanAmount
+      ? Number(financing.loanAmount.toString())
+      : 1;
+    const exposure = Number.isFinite(exposureRaw) && exposureRaw > 0 ? exposureRaw : 1;
+    const acreage = acreageByDealId.get(financing.dealId) ?? 0;
+    const entry = lenderExposure.get(lender) ?? { exposure: 0, acreage: 0, count: 0 };
+    entry.exposure += exposure;
+    entry.acreage += acreage;
+    entry.count += 1;
+    lenderExposure.set(lender, entry);
+  }
+
+  if (lenderExposure.size === 0 && active.length > 0) {
+    for (const deal of active) {
+      const lender = "Unspecified Lender";
+      const entry = lenderExposure.get(lender) ?? { exposure: 0, acreage: 0, count: 0 };
+      entry.exposure += 1;
+      entry.acreage += getDealAcreage(deal);
+      entry.count += 1;
+      lenderExposure.set(lender, entry);
+    }
+  }
+
+  const lenderData = buildExposureBuckets(lenderExposure);
+  const lender: ConcentrationBucket[] = lenderData.buckets;
+
+  const hhi = {
+    parish: {
+      value: geographicData.hhi,
+      band: getHhiBand(geographicData.hhi),
+      top3: geographic.slice(0, 3),
+    },
+    sku: {
+      value: skuData.hhi,
+      band: getHhiBand(skuData.hhi),
+      top3: sku.slice(0, 3),
+    },
+    lender: {
+      value: lenderData.hhi,
+      band: getHhiBand(lenderData.hhi),
+      top3: lender.slice(0, 3),
+    },
+    hasAlert:
+      geographicData.hhi > 0.5 || skuData.hhi > 0.5 || lenderData.hhi > 0.5,
+  };
+
+  return { geographic, sku, vintageYear, riskTier, lender, hhi };
 }
 
 export async function getCapitalAllocation(
@@ -668,5 +825,141 @@ export async function getPortfolioStressTest(
         : null,
     dealsAtRisk,
     totalDeals: active.length,
+  };
+}
+
+export async function getDebtMaturityWall(
+  orgId: string,
+): Promise<DebtMaturityWall> {
+  const now = new Date();
+  const next12Months = addMonths(now, 12);
+
+  const financings = await prisma.dealFinancing.findMany({
+    where: {
+      orgId,
+      deal: {
+        status: { notIn: ["KILLED", "EXITED"] },
+      },
+    },
+    select: {
+      dealId: true,
+      loanAmount: true,
+      commitmentDate: true,
+      fundedDate: true,
+      loanTermMonths: true,
+      dscrRequirement: true,
+      deal: {
+        select: {
+          id: true,
+          terms: {
+            select: {
+              closingDate: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  type QuarterAccumulator = {
+    totalDebtMaturing: number;
+    deals: Set<string>;
+    weightedDscrNumerator: number;
+    weightedDebt: number;
+    quarterStart: Date;
+  };
+
+  const byQuarter = new Map<string, QuarterAccumulator>();
+  let totalPortfolioDebt = 0;
+  let debtMaturing12Months = 0;
+
+  for (const financing of financings) {
+    const loanAmount = financing.loanAmount
+      ? Number(financing.loanAmount.toString())
+      : null;
+    if (loanAmount === null || !Number.isFinite(loanAmount) || loanAmount <= 0) {
+      continue;
+    }
+
+    const startDate =
+      financing.fundedDate ??
+      financing.commitmentDate ??
+      financing.deal.terms?.closingDate ??
+      null;
+    if (!startDate) continue;
+
+    const maturityDate =
+      financing.loanTermMonths && financing.loanTermMonths > 0
+        ? addMonths(startDate, financing.loanTermMonths)
+        : startDate;
+
+    const quarter = quarterLabel(maturityDate);
+    const quarterStart = new Date(
+      maturityDate.getFullYear(),
+      Math.floor(maturityDate.getMonth() / 3) * 3,
+      1,
+    );
+
+    const entry = byQuarter.get(quarter) ?? {
+      totalDebtMaturing: 0,
+      deals: new Set<string>(),
+      weightedDscrNumerator: 0,
+      weightedDebt: 0,
+      quarterStart,
+    };
+    entry.totalDebtMaturing += loanAmount;
+    entry.deals.add(financing.dealId);
+
+    const dscrRequirement = financing.dscrRequirement
+      ? Number(financing.dscrRequirement.toString())
+      : null;
+    if (dscrRequirement !== null && Number.isFinite(dscrRequirement)) {
+      entry.weightedDscrNumerator += dscrRequirement * loanAmount;
+      entry.weightedDebt += loanAmount;
+    }
+
+    byQuarter.set(quarter, entry);
+
+    totalPortfolioDebt += loanAmount;
+    if (maturityDate <= next12Months) {
+      debtMaturing12Months += loanAmount;
+    }
+  }
+
+  const sortedEntries = [...byQuarter.entries()].sort(
+    (a, b) => a[1].quarterStart.getTime() - b[1].quarterStart.getTime(),
+  );
+
+  const quarters: DebtMaturityQuarter[] = sortedEntries.map(([quarter, value]) => {
+    const debtShare =
+      totalPortfolioDebt > 0 ? value.totalDebtMaturing / totalPortfolioDebt : 0;
+    const avgDscrReq =
+      value.weightedDebt > 0 ? value.weightedDscrNumerator / value.weightedDebt : null;
+
+    let score = Math.round(debtShare * 100 * 0.8 + value.deals.size * 4);
+    if (avgDscrReq !== null && avgDscrReq >= 1.35) {
+      score += 8;
+    }
+    const refinanceRiskScore = Math.max(0, Math.min(100, score));
+
+    return {
+      quarter,
+      totalDebtMaturing: Math.round(value.totalDebtMaturing),
+      dealsAffected: value.deals.size,
+      refinanceRiskScore,
+    };
+  });
+
+  const debtMaturing12MonthsPct =
+    totalPortfolioDebt > 0 ? debtMaturing12Months / totalPortfolioDebt : 0;
+  const alert = debtMaturing12MonthsPct > 0.2;
+
+  return {
+    totalPortfolioDebt: Math.round(totalPortfolioDebt),
+    debtMaturing12Months: Math.round(debtMaturing12Months),
+    debtMaturing12MonthsPct:
+      Math.round(debtMaturing12MonthsPct * 10000) / 100,
+    alert,
+    quarters,
   };
 }

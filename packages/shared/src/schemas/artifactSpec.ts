@@ -35,9 +35,11 @@ export const SubmissionChecklistPdfArtifactSpecSchema = BaseArtifactSpecSchema.e
   checklist_items: z.array(
     z.object({
       item: z.string().min(1),
+      description: z.string().min(1),
       required: z.boolean(),
-      notes: z.string().min(1),
-      sources: z.array(Url).min(1),
+      status: z.enum(["complete", "pending", "not_applicable"]),
+      notes: z.string().min(1).optional(),
+      sources: z.array(Url).default([]),
     }),
   ),
 });

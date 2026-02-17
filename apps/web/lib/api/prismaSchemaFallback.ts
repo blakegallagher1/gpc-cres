@@ -57,4 +57,19 @@ export const EMPTY_CONCENTRATION_RESPONSE = {
   sku: [],
   vintageYear: [],
   riskTier: [],
+  lender: [],
+  hhi: {
+    parish: { value: 0, band: "green", top3: [] },
+    sku: { value: 0, band: "green", top3: [] },
+    lender: { value: 0, band: "green", top3: [] },
+    hasAlert: false,
+  },
+};
+
+export const EMPTY_DEBT_MATURITY_RESPONSE = {
+  totalPortfolioDebt: 0,
+  debtMaturing12Months: 0,
+  debtMaturing12MonthsPct: 0,
+  alert: false,
+  quarters: [],
 };

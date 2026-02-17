@@ -545,17 +545,67 @@ async function buildArtifactSpec(
       }
       const appUrl = sourcesByPurpose["applications"]?.[0] ?? sourcesByPurpose["forms"]?.[0];
       const ordUrl = sourcesByPurpose["ordinance"]?.[0];
+      const fallbackSource = "https://gallagherpropco.com/reference/submission-requirements";
       return {
         ...base,
         artifact_type: "SUBMISSION_CHECKLIST_PDF",
         checklist_items: [
-          { item: "Application Form", required: true, notes: `${jurisdiction} application form`, sources: appUrl ? [appUrl] : [] },
-          { item: "Site Plan", required: true, notes: "Prepared by licensed surveyor/engineer", sources: [] },
-          { item: "Legal Description", required: true, notes: "From title report or survey", sources: [] },
-          { item: "Ownership Documentation", required: true, notes: "Deed, purchase agreement, or authorization letter", sources: [] },
-          { item: "Environmental Assessment", required: false, notes: "Phase I ESA if available", sources: [] },
-          { item: "Traffic Impact Analysis", required: false, notes: `Required if TIA threshold is met per ${jurisdiction} standards`, sources: ordUrl ? [ordUrl] : [] },
-          { item: "Stormwater Management Plan", required: true, notes: "Per parish/city drainage requirements", sources: ordUrl ? [ordUrl] : [] },
+          {
+            item: "Application Form",
+            description: "Master entitlement application and ownership authorization forms.",
+            required: true,
+            status: "pending",
+            notes: `${jurisdiction} application form`,
+            sources: appUrl ? [appUrl] : [fallbackSource],
+          },
+          {
+            item: "Site Plan",
+            description: "Concept/site plan set prepared by licensed surveyor or engineer.",
+            required: true,
+            status: "pending",
+            notes: "Prepared by licensed surveyor/engineer",
+            sources: ordUrl ? [ordUrl] : [fallbackSource],
+          },
+          {
+            item: "Legal Description",
+            description: "Legal description and boundary survey package.",
+            required: true,
+            status: "pending",
+            notes: "From title report or survey",
+            sources: ordUrl ? [ordUrl] : [fallbackSource],
+          },
+          {
+            item: "Ownership Documentation",
+            description: "Deed, purchase agreement, or authorized control evidence.",
+            required: true,
+            status: "pending",
+            notes: "Deed, purchase agreement, or authorization letter",
+            sources: ordUrl ? [ordUrl] : [fallbackSource],
+          },
+          {
+            item: "Environmental Assessment",
+            description: "Phase I ESA and supplemental environmental reports if required.",
+            required: false,
+            status: "not_applicable",
+            notes: "Phase I ESA if available",
+            sources: ordUrl ? [ordUrl] : [fallbackSource],
+          },
+          {
+            item: "Traffic Impact Analysis",
+            description: "Traffic impact assessment where trip threshold is triggered.",
+            required: false,
+            status: "not_applicable",
+            notes: `Required if TIA threshold is met per ${jurisdiction} standards`,
+            sources: ordUrl ? [ordUrl] : [fallbackSource],
+          },
+          {
+            item: "Stormwater Management Plan",
+            description: "Drainage/stormwater plan meeting jurisdiction standards.",
+            required: true,
+            status: "pending",
+            notes: "Per parish/city drainage requirements",
+            sources: ordUrl ? [ordUrl] : [fallbackSource],
+          },
         ],
         sections: [
           {

@@ -40,6 +40,7 @@ import { MetricCard } from "@/components/portfolio/MetricCard";
 import { PipelineFunnel } from "@/components/portfolio/PipelineFunnel";
 import { SkuDonut, JurisdictionBar } from "@/components/portfolio/DealVelocityChart";
 import { ConcentrationCharts } from "@/components/portfolio/ConcentrationCharts";
+import { DebtMaturityWall } from "@/components/portfolio/DebtMaturityWall";
 import { CapitalAllocationWidget } from "@/components/portfolio/CapitalAllocationWidget";
 import { Exchange1031Matcher } from "@/components/portfolio/Exchange1031Matcher";
 import { StressTestPanel } from "@/components/portfolio/StressTestPanel";
@@ -52,6 +53,7 @@ import {
 import type {
   PortfolioSummary,
   ConcentrationAnalysis,
+  DebtMaturityWall as DebtMaturityWallData,
 } from "@/lib/services/portfolioAnalytics.service";
 import { formatCurrency, timeAgo } from "@/lib/utils";
 import { cn } from "@/lib/utils";
@@ -446,6 +448,10 @@ function PortfolioPageContent() {
   const { data: concentration } = useSWR<ConcentrationAnalysis>(
     "/api/portfolio/concentration",
     fetcher
+  );
+  const { data: debtMaturity } = useSWR<DebtMaturityWallData>(
+    "/api/portfolio/debt-maturity",
+    fetcher,
   );
 
   const [sortField, setSortField] = useState<SortField>("lastActivity");
@@ -1027,6 +1033,7 @@ function PortfolioPageContent() {
       <Tabs defaultValue="concentration" className="mt-6">
         <TabsList>
           <TabsTrigger value="concentration">Concentration Risk</TabsTrigger>
+          <TabsTrigger value="debt">Debt Maturity Wall</TabsTrigger>
           <TabsTrigger value="allocation">Capital Allocation</TabsTrigger>
           <TabsTrigger value="1031">1031 Exchange</TabsTrigger>
           <TabsTrigger value="stress">Stress Test</TabsTrigger>
@@ -1035,6 +1042,16 @@ function PortfolioPageContent() {
         <TabsContent value="concentration" className="mt-4">
           {concentration ? (
             <ConcentrationCharts data={concentration} />
+          ) : (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="debt" className="mt-4">
+          {debtMaturity ? (
+            <DebtMaturityWall data={debtMaturity} />
           ) : (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />

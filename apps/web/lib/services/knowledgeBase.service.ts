@@ -10,7 +10,9 @@ export type KnowledgeContentType =
   | "agent_analysis"
   | "document_extraction"
   | "market_report"
-  | "user_note";
+  | "user_note"
+  | "outcome_record"
+  | "reasoning_trace";
 
 export interface KnowledgeSearchResult {
   id: string;

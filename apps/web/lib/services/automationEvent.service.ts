@@ -178,6 +178,8 @@ const ALL_HANDLERS = [
   "parishPackRefresh",
   "artifactGeneration",
   "buyerOutreach",
+  "marketMonitoring",
+  "knowledgeCapture",
   "ops",
 ];
 
