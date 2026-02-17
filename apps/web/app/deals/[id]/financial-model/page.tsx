@@ -26,6 +26,7 @@ import {
 } from "@/components/financial/DevelopmentBudgetTab";
 import { useFinancialModelStore, DEFAULT_ASSUMPTIONS, type FinancialModelAssumptions } from "@/stores/financialModelStore";
 import { useProFormaCalculations } from "@/hooks/useProFormaCalculations";
+import { withStressScenarioBundle } from "@/lib/financial/stressTesting";
 import { toast } from "sonner";
 
 type DebtFinancing = {
@@ -157,7 +158,7 @@ export default function FinancialModelPage() {
 
         if (data.assumptions) {
           // Merge saved assumptions with defaults to handle any missing fields
-          setAssumptions({
+          setAssumptions(withStressScenarioBundle({
             ...DEFAULT_ASSUMPTIONS,
             ...data.assumptions,
             acquisition: { ...DEFAULT_ASSUMPTIONS.acquisition, ...data.assumptions.acquisition },
@@ -165,17 +166,17 @@ export default function FinancialModelPage() {
             expenses: { ...DEFAULT_ASSUMPTIONS.expenses, ...data.assumptions.expenses },
             financing: { ...DEFAULT_ASSUMPTIONS.financing, ...data.assumptions.financing },
             exit: { ...DEFAULT_ASSUMPTIONS.exit, ...data.assumptions.exit },
-          });
+          }));
         } else {
           // No saved assumptions — use defaults, potentially seeded with deal acreage
           const sf = data.deal?.totalAcreage
             ? Math.round(data.deal.totalAcreage * 43560 * 0.45) // 45% coverage ratio
             : DEFAULT_ASSUMPTIONS.buildableSf;
-          setAssumptions({ ...DEFAULT_ASSUMPTIONS, buildableSf: sf });
+          setAssumptions(withStressScenarioBundle({ ...DEFAULT_ASSUMPTIONS, buildableSf: sf }));
         }
       } catch {
         toast.error("Failed to load financial model");
-        setAssumptions({ ...DEFAULT_ASSUMPTIONS });
+        setAssumptions(withStressScenarioBundle({ ...DEFAULT_ASSUMPTIONS }));
         setTenants([]);
         setTenantLeases([]);
         setDevelopmentBudget(null);
@@ -191,12 +192,13 @@ export default function FinancialModelPage() {
   const handleSave = useCallback(async () => {
     if (!dealId || saving) return;
     setSaving(true);
+    const assumptionsForSave = withStressScenarioBundle(assumptions);
     try {
       const res = await fetch(`/api/deals/${dealId}/financial-model`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          assumptions,
+          assumptions: assumptionsForSave,
           developmentBudget: developmentBudget
             ? {
                 lineItems: developmentBudget.lineItems,
@@ -378,7 +380,7 @@ export default function FinancialModelPage() {
   // Load a scenario into the assumptions panel
   const handleLoadScenario = useCallback(
     (scenarioAssumptions: FinancialModelAssumptions) => {
-      setAssumptions({
+      setAssumptions(withStressScenarioBundle({
         ...DEFAULT_ASSUMPTIONS,
         ...scenarioAssumptions,
         acquisition: { ...DEFAULT_ASSUMPTIONS.acquisition, ...scenarioAssumptions.acquisition },
@@ -386,7 +388,7 @@ export default function FinancialModelPage() {
         expenses: { ...DEFAULT_ASSUMPTIONS.expenses, ...scenarioAssumptions.expenses },
         financing: { ...DEFAULT_ASSUMPTIONS.financing, ...scenarioAssumptions.financing },
         exit: { ...DEFAULT_ASSUMPTIONS.exit, ...scenarioAssumptions.exit },
-      });
+      }));
     },
     [setAssumptions]
   );

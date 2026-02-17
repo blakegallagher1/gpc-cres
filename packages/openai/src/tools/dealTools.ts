@@ -10,6 +10,16 @@ import {
 const HIGH_IMPACT_STATUSES = ["APPROVED", "EXIT_MARKETED", "EXITED", "KILLED"] as const;
 const PACK_STALE_DAYS = 7;
 const PACK_COVERAGE_MINIMUM = 0.75;
+const STRESS_SCENARIO_IDS = [
+  "base",
+  "upside",
+  "downside",
+  "rate_shock_200bps",
+  "recession",
+  "tenant_loss",
+] as const;
+
+type StressScenarioId = (typeof STRESS_SCENARIO_IDS)[number];
 
 function isJsonStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string");
@@ -71,6 +81,449 @@ function buildDevelopmentBudgetInput(
   }
 
   return { lineItems, contingencies };
+}
+
+type ToolFinancialAssumptions = {
+  acquisition: {
+    purchasePrice: number;
+    closingCostsPct: number;
+    earnestMoney: number;
+  };
+  income: {
+    rentPerSf: number;
+    vacancyPct: number;
+    rentGrowthPct: number;
+    otherIncome: number;
+  };
+  expenses: {
+    opexPerSf: number;
+    managementFeePct: number;
+    capexReserves: number;
+    insurance: number;
+    taxes: number;
+  };
+  financing: {
+    ltvPct: number;
+    interestRate: number;
+    amortizationYears: number;
+    ioPeriodYears: number;
+    loanFeePct: number;
+  };
+  exit: {
+    holdYears: number;
+    exitCapRate: number;
+    dispositionCostsPct: number;
+  };
+  buildableSf: number;
+};
+
+type StoredStressScenario = {
+  id: StressScenarioId;
+  name: string;
+  probabilityPct: number;
+  assumptions: ToolFinancialAssumptions;
+};
+
+const DEFAULT_FINANCIAL_ASSUMPTIONS: ToolFinancialAssumptions = {
+  acquisition: {
+    purchasePrice: 1_000_000,
+    closingCostsPct: 2,
+    earnestMoney: 25_000,
+  },
+  income: {
+    rentPerSf: 8,
+    vacancyPct: 5,
+    rentGrowthPct: 2,
+    otherIncome: 0,
+  },
+  expenses: {
+    opexPerSf: 2,
+    managementFeePct: 5,
+    capexReserves: 0.25,
+    insurance: 0.5,
+    taxes: 1,
+  },
+  financing: {
+    ltvPct: 65,
+    interestRate: 6.5,
+    amortizationYears: 25,
+    ioPeriodYears: 0,
+    loanFeePct: 1,
+  },
+  exit: {
+    holdYears: 5,
+    exitCapRate: 7.5,
+    dispositionCostsPct: 2,
+  },
+  buildableSf: 20_000,
+};
+
+function round(value: number, decimals: number): number {
+  const factor = Math.pow(10, decimals);
+  return Math.round(value * factor) / factor;
+}
+
+function asFiniteNumber(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function clampMin(value: number, min: number): number {
+  return Math.max(value, min);
+}
+
+function toToolAssumptions(raw: unknown): ToolFinancialAssumptions {
+  if (!isRecord(raw)) {
+    return structuredClone(DEFAULT_FINANCIAL_ASSUMPTIONS);
+  }
+
+  const acquisitionRaw = isRecord(raw.acquisition) ? raw.acquisition : {};
+  const incomeRaw = isRecord(raw.income) ? raw.income : {};
+  const expensesRaw = isRecord(raw.expenses) ? raw.expenses : {};
+  const financingRaw = isRecord(raw.financing) ? raw.financing : {};
+  const exitRaw = isRecord(raw.exit) ? raw.exit : {};
+
+  return {
+    acquisition: {
+      purchasePrice: asFiniteNumber(
+        acquisitionRaw.purchasePrice,
+        DEFAULT_FINANCIAL_ASSUMPTIONS.acquisition.purchasePrice,
+      ),
+      closingCostsPct: asFiniteNumber(
+        acquisitionRaw.closingCostsPct,
+        DEFAULT_FINANCIAL_ASSUMPTIONS.acquisition.closingCostsPct,
+      ),
+      earnestMoney: asFiniteNumber(
+        acquisitionRaw.earnestMoney,
+        DEFAULT_FINANCIAL_ASSUMPTIONS.acquisition.earnestMoney,
+      ),
+    },
+    income: {
+      rentPerSf: asFiniteNumber(incomeRaw.rentPerSf, DEFAULT_FINANCIAL_ASSUMPTIONS.income.rentPerSf),
+      vacancyPct: asFiniteNumber(incomeRaw.vacancyPct, DEFAULT_FINANCIAL_ASSUMPTIONS.income.vacancyPct),
+      rentGrowthPct: asFiniteNumber(
+        incomeRaw.rentGrowthPct,
+        DEFAULT_FINANCIAL_ASSUMPTIONS.income.rentGrowthPct,
+      ),
+      otherIncome: asFiniteNumber(incomeRaw.otherIncome, DEFAULT_FINANCIAL_ASSUMPTIONS.income.otherIncome),
+    },
+    expenses: {
+      opexPerSf: asFiniteNumber(expensesRaw.opexPerSf, DEFAULT_FINANCIAL_ASSUMPTIONS.expenses.opexPerSf),
+      managementFeePct: asFiniteNumber(
+        expensesRaw.managementFeePct,
+        DEFAULT_FINANCIAL_ASSUMPTIONS.expenses.managementFeePct,
+      ),
+      capexReserves: asFiniteNumber(
+        expensesRaw.capexReserves,
+        DEFAULT_FINANCIAL_ASSUMPTIONS.expenses.capexReserves,
+      ),
+      insurance: asFiniteNumber(expensesRaw.insurance, DEFAULT_FINANCIAL_ASSUMPTIONS.expenses.insurance),
+      taxes: asFiniteNumber(expensesRaw.taxes, DEFAULT_FINANCIAL_ASSUMPTIONS.expenses.taxes),
+    },
+    financing: {
+      ltvPct: asFiniteNumber(financingRaw.ltvPct, DEFAULT_FINANCIAL_ASSUMPTIONS.financing.ltvPct),
+      interestRate: asFiniteNumber(
+        financingRaw.interestRate,
+        DEFAULT_FINANCIAL_ASSUMPTIONS.financing.interestRate,
+      ),
+      amortizationYears: asFiniteNumber(
+        financingRaw.amortizationYears,
+        DEFAULT_FINANCIAL_ASSUMPTIONS.financing.amortizationYears,
+      ),
+      ioPeriodYears: asFiniteNumber(
+        financingRaw.ioPeriodYears,
+        DEFAULT_FINANCIAL_ASSUMPTIONS.financing.ioPeriodYears,
+      ),
+      loanFeePct: asFiniteNumber(financingRaw.loanFeePct, DEFAULT_FINANCIAL_ASSUMPTIONS.financing.loanFeePct),
+    },
+    exit: {
+      holdYears: asFiniteNumber(exitRaw.holdYears, DEFAULT_FINANCIAL_ASSUMPTIONS.exit.holdYears),
+      exitCapRate: asFiniteNumber(exitRaw.exitCapRate, DEFAULT_FINANCIAL_ASSUMPTIONS.exit.exitCapRate),
+      dispositionCostsPct: asFiniteNumber(
+        exitRaw.dispositionCostsPct,
+        DEFAULT_FINANCIAL_ASSUMPTIONS.exit.dispositionCostsPct,
+      ),
+    },
+    buildableSf: asFiniteNumber(raw.buildableSf, DEFAULT_FINANCIAL_ASSUMPTIONS.buildableSf),
+  };
+}
+
+function withScenarioAdjustments(
+  base: ToolFinancialAssumptions,
+  scenarioId: StressScenarioId,
+): ToolFinancialAssumptions {
+  const scenario = structuredClone(base);
+
+  if (scenarioId === "upside") {
+    scenario.income.rentPerSf = round(base.income.rentPerSf * 1.08, 4);
+    scenario.income.vacancyPct = round(clampMin(base.income.vacancyPct - 2, 0), 4);
+    scenario.income.rentGrowthPct = round(base.income.rentGrowthPct + 1, 4);
+    scenario.expenses.opexPerSf = round(clampMin(base.expenses.opexPerSf * 0.97, 0), 4);
+    scenario.exit.exitCapRate = round(clampMin(base.exit.exitCapRate - 0.5, 0.1), 4);
+    return scenario;
+  }
+
+  if (scenarioId === "downside") {
+    scenario.income.rentPerSf = round(clampMin(base.income.rentPerSf * 0.93, 0), 4);
+    scenario.income.vacancyPct = round(base.income.vacancyPct + 3, 4);
+    scenario.income.rentGrowthPct = round(base.income.rentGrowthPct - 1, 4);
+    scenario.expenses.opexPerSf = round(base.expenses.opexPerSf * 1.05, 4);
+    scenario.exit.exitCapRate = round(base.exit.exitCapRate + 0.5, 4);
+    return scenario;
+  }
+
+  if (scenarioId === "rate_shock_200bps") {
+    scenario.financing.interestRate = round(base.financing.interestRate + 2, 4);
+    scenario.exit.exitCapRate = round(base.exit.exitCapRate + 0.25, 4);
+    return scenario;
+  }
+
+  if (scenarioId === "recession") {
+    scenario.income.rentPerSf = round(clampMin(base.income.rentPerSf * 0.85, 0), 4);
+    scenario.income.vacancyPct = round(base.income.vacancyPct + 7, 4);
+    scenario.income.rentGrowthPct = round(base.income.rentGrowthPct - 2, 4);
+    scenario.expenses.opexPerSf = round(base.expenses.opexPerSf * 1.08, 4);
+    scenario.exit.exitCapRate = round(base.exit.exitCapRate + 1, 4);
+    return scenario;
+  }
+
+  if (scenarioId === "tenant_loss") {
+    scenario.income.rentPerSf = round(clampMin(base.income.rentPerSf * 0.9, 0), 4);
+    scenario.income.vacancyPct = round(base.income.vacancyPct + 15, 4);
+    scenario.income.otherIncome = round(clampMin(base.income.otherIncome * 0.85, 0), 4);
+    return scenario;
+  }
+
+  return scenario;
+}
+
+function getDefaultScenarioDefinitions(base: ToolFinancialAssumptions): StoredStressScenario[] {
+  return [
+    { id: "base", name: "Base", probabilityPct: 35, assumptions: withScenarioAdjustments(base, "base") },
+    {
+      id: "upside",
+      name: "Upside",
+      probabilityPct: 15,
+      assumptions: withScenarioAdjustments(base, "upside"),
+    },
+    {
+      id: "downside",
+      name: "Downside",
+      probabilityPct: 20,
+      assumptions: withScenarioAdjustments(base, "downside"),
+    },
+    {
+      id: "rate_shock_200bps",
+      name: "Rate Shock +200bps",
+      probabilityPct: 10,
+      assumptions: withScenarioAdjustments(base, "rate_shock_200bps"),
+    },
+    {
+      id: "recession",
+      name: "Recession",
+      probabilityPct: 10,
+      assumptions: withScenarioAdjustments(base, "recession"),
+    },
+    {
+      id: "tenant_loss",
+      name: "Tenant Loss",
+      probabilityPct: 10,
+      assumptions: withScenarioAdjustments(base, "tenant_loss"),
+    },
+  ];
+}
+
+function resolveScenarioBundle(assumptionsRaw: unknown): StoredStressScenario[] {
+  const base = toToolAssumptions(assumptionsRaw);
+  if (!isRecord(assumptionsRaw) || !isRecord(assumptionsRaw.stressScenarioBundle)) {
+    return getDefaultScenarioDefinitions(base);
+  }
+
+  const bundleScenarios = assumptionsRaw.stressScenarioBundle.scenarios;
+  if (!Array.isArray(bundleScenarios)) {
+    return getDefaultScenarioDefinitions(base);
+  }
+
+  const defaultScenarios = getDefaultScenarioDefinitions(base);
+  const defaultsById = new Map<StressScenarioId, StoredStressScenario>(
+    defaultScenarios.map((scenario) => [scenario.id, scenario]),
+  );
+
+  const resolved: StoredStressScenario[] = [];
+  for (const entry of bundleScenarios) {
+    if (!isRecord(entry) || typeof entry.id !== "string") {
+      continue;
+    }
+    if (!STRESS_SCENARIO_IDS.includes(entry.id as StressScenarioId)) {
+      continue;
+    }
+    const scenarioId = entry.id as StressScenarioId;
+    const defaults = defaultsById.get(scenarioId);
+    if (!defaults) {
+      continue;
+    }
+    resolved.push({
+      id: scenarioId,
+      name: typeof entry.name === "string" ? entry.name : defaults.name,
+      probabilityPct: asFiniteNumber(entry.probabilityPct, defaults.probabilityPct),
+      assumptions: toToolAssumptions(entry.assumptions),
+    });
+  }
+
+  if (resolved.length === 0) {
+    return defaultScenarios;
+  }
+
+  const foundIds = new Set(resolved.map((scenario) => scenario.id));
+  for (const defaults of defaultScenarios) {
+    if (!foundIds.has(defaults.id)) {
+      resolved.push(defaults);
+    }
+  }
+  return resolved;
+}
+
+type StressScenarioMetrics = {
+  leveredIRR: number | null;
+  equityMultiple: number;
+};
+
+function estimateRemainingBalance(
+  principal: number,
+  annualRate: number,
+  amortYears: number,
+  yearsElapsed: number,
+): number {
+  const monthlyRate = annualRate / 12;
+  const totalPayments = amortYears * 12;
+  const paymentsMade = yearsElapsed * 12;
+  if (monthlyRate === 0) {
+    return Math.max(principal - (principal / totalPayments) * paymentsMade, 0);
+  }
+  const monthlyPayment =
+    principal *
+    ((monthlyRate * Math.pow(1 + monthlyRate, totalPayments)) /
+      (Math.pow(1 + monthlyRate, totalPayments) - 1));
+  const balance =
+    principal * Math.pow(1 + monthlyRate, paymentsMade) -
+    (monthlyPayment * (Math.pow(1 + monthlyRate, paymentsMade) - 1)) / monthlyRate;
+  return Math.max(balance, 0);
+}
+
+function computeIrr(
+  cashflows: number[],
+  guess = 0.1,
+  maxIterations = 100,
+  tolerance = 0.0001,
+): number | null {
+  if (cashflows.length === 0) {
+    return null;
+  }
+  const hasPositive = cashflows.some((cf) => cf > 0);
+  const hasNegative = cashflows.some((cf) => cf < 0);
+  if (!hasPositive || !hasNegative) {
+    return null;
+  }
+
+  let rate = guess;
+  for (let i = 0; i < maxIterations; i += 1) {
+    let npv = 0;
+    let dnpv = 0;
+    for (let t = 0; t < cashflows.length; t += 1) {
+      const denom = Math.pow(1 + rate, t);
+      npv += cashflows[t] / denom;
+      dnpv -= (t * cashflows[t]) / Math.pow(1 + rate, t + 1);
+    }
+    if (Math.abs(npv) < tolerance) {
+      return rate;
+    }
+    if (dnpv === 0) {
+      break;
+    }
+    rate -= npv / dnpv;
+  }
+  return rate;
+}
+
+function computeStressScenarioMetrics(assumptions: ToolFinancialAssumptions): StressScenarioMetrics {
+  const closingCosts = assumptions.acquisition.purchasePrice * (assumptions.acquisition.closingCostsPct / 100);
+  const basisBeforeDebt = assumptions.acquisition.purchasePrice + closingCosts;
+  const loanAmount = basisBeforeDebt * (assumptions.financing.ltvPct / 100);
+  const loanFees = loanAmount * (assumptions.financing.loanFeePct / 100);
+  const totalBasis = basisBeforeDebt + loanFees;
+  const equityRequired = totalBasis - loanAmount;
+
+  const grossPotentialRent = assumptions.buildableSf * assumptions.income.rentPerSf;
+  const effectiveGrossIncome =
+    grossPotentialRent * (1 - assumptions.income.vacancyPct / 100) + assumptions.income.otherIncome;
+  const totalOpex =
+    assumptions.buildableSf * assumptions.expenses.opexPerSf +
+    effectiveGrossIncome * (assumptions.expenses.managementFeePct / 100) +
+    assumptions.buildableSf * assumptions.expenses.capexReserves +
+    assumptions.buildableSf * assumptions.expenses.insurance +
+    assumptions.buildableSf * assumptions.expenses.taxes;
+
+  const rate = assumptions.financing.interestRate / 100;
+  let annualDebtService = 0;
+  if (loanAmount > 0 && rate > 0 && assumptions.financing.amortizationYears > 0) {
+    const monthlyRate = rate / 12;
+    const numPayments = assumptions.financing.amortizationYears * 12;
+    const monthlyPayment =
+      loanAmount *
+      ((monthlyRate * Math.pow(1 + monthlyRate, numPayments)) /
+        (Math.pow(1 + monthlyRate, numPayments) - 1));
+    annualDebtService = monthlyPayment * 12;
+  }
+  const ioAnnualDebtService = loanAmount * rate;
+
+  const holdYears = Math.max(1, Math.min(30, Math.floor(assumptions.exit.holdYears)));
+  const leveredCFs: number[] = [-equityRequired];
+  let cumulativeCF = 0;
+
+  for (let year = 1; year <= holdYears; year += 1) {
+    const growthFactor = Math.pow(1 + assumptions.income.rentGrowthPct / 100, year - 1);
+    const yearEgi =
+      grossPotentialRent * growthFactor * (1 - assumptions.income.vacancyPct / 100) +
+      assumptions.income.otherIncome * growthFactor;
+    const yearOpex = totalOpex * Math.pow(1.02, year - 1);
+    const yearNoi = yearEgi - yearOpex;
+    const yearDebtService = year <= assumptions.financing.ioPeriodYears ? ioAnnualDebtService : annualDebtService;
+    const leveredCF = yearNoi - yearDebtService;
+    cumulativeCF += leveredCF;
+    leveredCFs.push(leveredCF);
+  }
+
+  const exitGrowth = Math.pow(1 + assumptions.income.rentGrowthPct / 100, holdYears);
+  const exitNoi =
+    grossPotentialRent * exitGrowth * (1 - assumptions.income.vacancyPct / 100) +
+    assumptions.income.otherIncome * exitGrowth -
+    totalOpex * Math.pow(1.02, holdYears);
+
+  const salePrice = assumptions.exit.exitCapRate > 0 ? exitNoi / (assumptions.exit.exitCapRate / 100) : 0;
+  const dispositionCosts = salePrice * (assumptions.exit.dispositionCostsPct / 100);
+  const loanPayoff =
+    loanAmount > 0
+      ? estimateRemainingBalance(
+          loanAmount,
+          rate,
+          assumptions.financing.amortizationYears,
+          holdYears,
+        )
+      : 0;
+  const netProceeds = salePrice - dispositionCosts - loanPayoff;
+  leveredCFs[holdYears] += netProceeds;
+
+  const leveredIRR = computeIrr(leveredCFs);
+  const totalLeveredReturn = cumulativeCF + netProceeds;
+  const equityMultiple = equityRequired > 0 ? totalLeveredReturn / equityRequired : 0;
+
+  return {
+    leveredIRR,
+    equityMultiple: round(equityMultiple, 4),
+  };
 }
 
 export const getDealContext = tool({
@@ -525,6 +978,94 @@ export const model_capital_stack = tool({
         lpEquity: totals.lpEquity,
         gpEquity: totals.gpEquity,
         sourcesUsesDelta: totals.totalSources - totalUses,
+      },
+    });
+  },
+});
+
+export const stress_test_deal = tool({
+  name: "stress_test_deal",
+  description:
+    "Run predefined stress scenarios for a deal and return a scenario comparison table with probability-weighted expected IRR and equity multiple.",
+  parameters: z.object({
+    orgId: z.string().uuid().describe("The org ID for security scoping"),
+    dealId: z.string().uuid().describe("The deal ID"),
+    includeScenarioIds: z
+      .array(z.enum(STRESS_SCENARIO_IDS))
+      .nullable()
+      .describe(
+        "Optional list of scenario IDs to include. Null uses all predefined scenarios.",
+      ),
+  }),
+  execute: async ({ orgId, dealId, includeScenarioIds }) => {
+    const deal = await prisma.deal.findFirst({
+      where: { id: dealId, orgId },
+      select: { id: true, financialModelAssumptions: true },
+    });
+    if (!deal) {
+      return JSON.stringify({ error: "Deal not found or access denied" });
+    }
+
+    const allScenarios = resolveScenarioBundle(deal.financialModelAssumptions);
+    const includeSet = includeScenarioIds ? new Set(includeScenarioIds) : null;
+    const selectedScenarios = includeSet
+      ? allScenarios.filter((scenario) => includeSet.has(scenario.id))
+      : allScenarios;
+
+    if (selectedScenarios.length === 0) {
+      return JSON.stringify({
+        error: "No scenarios selected for stress test",
+      });
+    }
+
+    const baseScenario =
+      allScenarios.find((scenario) => scenario.id === "base") ?? allScenarios[0];
+    const baseMetrics = computeStressScenarioMetrics(baseScenario.assumptions);
+
+    const rows = selectedScenarios.map((scenario) => {
+      const metrics = computeStressScenarioMetrics(scenario.assumptions);
+      return {
+        scenarioId: scenario.id,
+        scenarioName: scenario.name,
+        probabilityPct: round(scenario.probabilityPct, 2),
+        leveredIrrPct: metrics.leveredIRR !== null ? round(metrics.leveredIRR * 100, 2) : null,
+        equityMultiple: round(metrics.equityMultiple, 2),
+        deltaVsBaseLeveredIrrPct:
+          metrics.leveredIRR !== null && baseMetrics.leveredIRR !== null
+            ? round((metrics.leveredIRR - baseMetrics.leveredIRR) * 100, 2)
+            : null,
+        deltaVsBaseEquityMultiple: round(
+          metrics.equityMultiple - baseMetrics.equityMultiple,
+          2,
+        ),
+      };
+    });
+
+    let totalWeight = 0;
+    let weightedEquityMultiple = 0;
+    let irrWeight = 0;
+    let weightedIrr = 0;
+    for (const scenario of selectedScenarios) {
+      const weight = scenario.probabilityPct;
+      if (weight <= 0 || !Number.isFinite(weight)) {
+        continue;
+      }
+      const metrics = computeStressScenarioMetrics(scenario.assumptions);
+      totalWeight += weight;
+      weightedEquityMultiple += metrics.equityMultiple * weight;
+      if (metrics.leveredIRR !== null) {
+        irrWeight += weight;
+        weightedIrr += metrics.leveredIRR * weight;
+      }
+    }
+
+    return JSON.stringify({
+      dealId,
+      scenarios: rows,
+      expected: {
+        weightedLeveredIrrPct: irrWeight > 0 ? round((weightedIrr / irrWeight) * 100, 2) : null,
+        weightedEquityMultiple:
+          totalWeight > 0 ? round(weightedEquityMultiple / totalWeight, 2) : null,
       },
     });
   },

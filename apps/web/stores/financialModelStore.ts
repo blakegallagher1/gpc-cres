@@ -39,7 +39,7 @@ export interface ExitAssumptions {
   dispositionCostsPct: number;
 }
 
-export interface FinancialModelAssumptions {
+export interface BaseFinancialModelAssumptions {
   acquisition: AcquisitionAssumptions;
   income: IncomeAssumptions;
   expenses: ExpenseAssumptions;
@@ -47,6 +47,30 @@ export interface FinancialModelAssumptions {
   exit: ExitAssumptions;
   /** Gross buildable SF — derived from deal parcels or overridden */
   buildableSf: number;
+}
+
+export type StressScenarioId =
+  | "base"
+  | "upside"
+  | "downside"
+  | "rate_shock_200bps"
+  | "recession"
+  | "tenant_loss";
+
+export interface StressScenarioDefinition {
+  id: StressScenarioId;
+  name: string;
+  probabilityPct: number;
+  assumptions: BaseFinancialModelAssumptions;
+}
+
+export interface StressScenarioBundle {
+  version: 1;
+  scenarios: StressScenarioDefinition[];
+}
+
+export interface FinancialModelAssumptions extends BaseFinancialModelAssumptions {
+  stressScenarioBundle?: StressScenarioBundle;
 }
 
 export const DEFAULT_ASSUMPTIONS: FinancialModelAssumptions = {

@@ -414,6 +414,108 @@ describe("PUT /api/deals/[id]/financial-model", () => {
     expect(equityWaterfallDeleteManyMock).toHaveBeenCalledTimes(1);
     expect(equityWaterfallCreateManyMock).toHaveBeenCalledTimes(1);
   });
+
+  it("persists stress scenario assumptions inside financialModelAssumptions JSON", async () => {
+    resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
+    findDealUniqueMock.mockResolvedValue({ id: DEAL_ID, orgId: ORG_ID });
+
+    const req = new NextRequest(`http://localhost/api/deals/${DEAL_ID}/financial-model`, {
+      method: "PUT",
+      body: JSON.stringify({
+        assumptions: {
+          acquisition: {
+            purchasePrice: 1200000,
+            closingCostsPct: 2,
+            earnestMoney: 25000,
+          },
+          income: {
+            rentPerSf: 9,
+            vacancyPct: 5,
+            rentGrowthPct: 2,
+            otherIncome: 0,
+          },
+          expenses: {
+            opexPerSf: 2,
+            managementFeePct: 5,
+            capexReserves: 0.25,
+            insurance: 0.5,
+            taxes: 1,
+          },
+          financing: {
+            ltvPct: 65,
+            interestRate: 6.5,
+            amortizationYears: 25,
+            ioPeriodYears: 0,
+            loanFeePct: 1,
+          },
+          exit: {
+            holdYears: 5,
+            exitCapRate: 7.5,
+            dispositionCostsPct: 2,
+          },
+          buildableSf: 20000,
+          stressScenarioBundle: {
+            version: 1,
+            scenarios: [
+              {
+                id: "base",
+                name: "Base",
+                probabilityPct: 35,
+                assumptions: {
+                  acquisition: {
+                    purchasePrice: 1200000,
+                    closingCostsPct: 2,
+                    earnestMoney: 25000,
+                  },
+                  income: {
+                    rentPerSf: 9,
+                    vacancyPct: 5,
+                    rentGrowthPct: 2,
+                    otherIncome: 0,
+                  },
+                  expenses: {
+                    opexPerSf: 2,
+                    managementFeePct: 5,
+                    capexReserves: 0.25,
+                    insurance: 0.5,
+                    taxes: 1,
+                  },
+                  financing: {
+                    ltvPct: 65,
+                    interestRate: 6.5,
+                    amortizationYears: 25,
+                    ioPeriodYears: 0,
+                    loanFeePct: 1,
+                  },
+                  exit: {
+                    holdYears: 5,
+                    exitCapRate: 7.5,
+                    dispositionCostsPct: 2,
+                  },
+                  buildableSf: 20000,
+                },
+              },
+            ],
+          },
+        },
+      }),
+    });
+
+    const res = await PUT(req, { params: Promise.resolve({ id: DEAL_ID }) });
+
+    expect(res.status).toBe(200);
+    expect(updateDealMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          financialModelAssumptions: expect.objectContaining({
+            stressScenarioBundle: expect.objectContaining({
+              version: 1,
+            }),
+          }),
+        }),
+      }),
+    );
+  });
 });
 
 describe("POST /api/deals/[id]/financial-model", () => {

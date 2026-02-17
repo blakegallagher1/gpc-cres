@@ -11,6 +11,10 @@ import {
 } from "@/components/ui/select";
 import type { FinancialModelAssumptions } from "@/stores/financialModelStore";
 import { computeProForma } from "@/hooks/useProFormaCalculations";
+import {
+  computeProbabilityWeightedMetrics,
+  withStressScenarioBundle,
+} from "@/lib/financial/stressTesting";
 
 // ---------------------------------------------------------------------------
 // Assumption axis definitions — any numeric field can be an axis
@@ -195,6 +199,38 @@ export function SensitivityTable({
 
   const colBase = colAxis.baseGetter(assumptions);
   const rowBase = rowAxis.baseGetter(assumptions);
+  const stressScenarioBundle = useMemo(
+    () => withStressScenarioBundle(assumptions).stressScenarioBundle,
+    [assumptions],
+  );
+  const scenarioResults = useMemo(
+    () =>
+      stressScenarioBundle.scenarios.map((scenario) => {
+        const result = computeProForma(scenario.assumptions);
+        return {
+          scenario,
+          result,
+        };
+      }),
+    [stressScenarioBundle],
+  );
+  const weighted = useMemo(
+    () =>
+      computeProbabilityWeightedMetrics(
+        scenarioResults.map((entry) => ({
+          scenario: entry.scenario,
+          metrics: {
+            leveredIRR: entry.result.leveredIRR,
+            equityMultiple: entry.result.equityMultiple,
+          },
+        })),
+      ),
+    [scenarioResults],
+  );
+  const totalScenarioProbability = useMemo(
+    () => scenarioResults.reduce((sum, entry) => sum + entry.scenario.probabilityPct, 0),
+    [scenarioResults],
+  );
 
   return (
     <Card>
@@ -285,6 +321,60 @@ export function SensitivityTable({
             ))}
           </tbody>
         </table>
+
+        <div className="mt-4 rounded-md border">
+          <div className="border-b px-2 py-1.5 text-xs font-medium">Stress Scenario Bundle</div>
+          <table className="w-full text-xs">
+            <thead className="border-b">
+              <tr>
+                <th className="px-2 py-1.5 text-left font-medium text-muted-foreground">
+                  Scenario
+                </th>
+                <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">
+                  Probability
+                </th>
+                <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">
+                  Levered IRR
+                </th>
+                <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">
+                  Equity Multiple
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {scenarioResults.map(({ scenario, result }) => (
+                <tr key={scenario.id} className="border-b last:border-0">
+                  <td className="px-2 py-1.5">{scenario.name}</td>
+                  <td className="px-2 py-1.5 text-right tabular-nums">
+                    {scenario.probabilityPct.toFixed(1)}%
+                  </td>
+                  <td className="px-2 py-1.5 text-right tabular-nums">
+                    {result.leveredIRR !== null ? `${(result.leveredIRR * 100).toFixed(2)}%` : "N/A"}
+                  </td>
+                  <td className="px-2 py-1.5 text-right tabular-nums">
+                    {result.equityMultiple.toFixed(2)}x
+                  </td>
+                </tr>
+              ))}
+              <tr className="bg-muted/40">
+                <td className="px-2 py-1.5 font-medium">Probability-Weighted Expected</td>
+                <td className="px-2 py-1.5 text-right text-muted-foreground">
+                  {totalScenarioProbability.toFixed(1)}%
+                </td>
+                <td className="px-2 py-1.5 text-right font-medium tabular-nums">
+                  {weighted.expectedLeveredIRR !== null
+                    ? `${(weighted.expectedLeveredIRR * 100).toFixed(2)}%`
+                    : "N/A"}
+                </td>
+                <td className="px-2 py-1.5 text-right font-medium tabular-nums">
+                  {weighted.expectedEquityMultiple !== null
+                    ? `${weighted.expectedEquityMultiple.toFixed(2)}x`
+                    : "N/A"}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </CardContent>
     </Card>
   );
