@@ -129,6 +129,8 @@ model Org {
   entitlementGraphEdges       EntitlementGraphEdge[]
   entitlementOutcomePrecedents EntitlementOutcomePrecedent[]
   entitlementPredictionSnapshots EntitlementPredictionSnapshot[]
+  dealTerms                DealTerms[]
+  entitlementPaths          EntitlementPath[]
 
   @@map("orgs")
 }
@@ -239,6 +241,8 @@ model Deal {
   notifications    Notification[]
   approvalRequests ApprovalRequest[]
   outcome          DealOutcome?
+  terms            DealTerms?
+  entitlementPath  EntitlementPath?
   assumptionActuals AssumptionActual[]
   entitlementGraphNodes       EntitlementGraphNode[]
   entitlementOutcomePrecedents EntitlementOutcomePrecedent[]
@@ -929,6 +933,64 @@ model DealOutcome {
 
   @@index([dealId])
   @@map("deal_outcomes")
+}
+
+model DealTerms {
+  id                      String     @id @default(uuid()) @db.Uuid
+  dealId                  String     @unique @map("deal_id") @db.Uuid
+  orgId                   String     @map("org_id") @db.Uuid
+  offerPrice              Decimal?   @map("offer_price") @db.Decimal(14, 2)
+  earnestMoney            Decimal?   @map("earnest_money") @db.Decimal(14, 2)
+  closingDate             DateTime?  @map("closing_date") @db.Date
+  titleCompany            String?    @map("title_company") @db.Text
+  dueDiligenceDays        Int?       @map("due_diligence_days")
+  financingContingencyDays Int?       @map("financing_contingency_days")
+  loiSignedAt             DateTime?  @map("loi_signed_at") @db.Date
+  psaSignedAt             DateTime?  @map("psa_signed_at") @db.Date
+  titleReviewDue          DateTime?  @map("title_review_due") @db.Date
+  surveyDue               DateTime?  @map("survey_due") @db.Date
+  environmentalDue        DateTime?   @map("environmental_due") @db.Date
+  sellerContact          String?      @map("seller_contact") @db.Text
+  brokerContact          String?      @map("broker_contact") @db.Text
+  createdAt              DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  org   Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  deal  Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@map("deal_terms")
+}
+
+model EntitlementPath {
+  id                     String     @id @default(uuid()) @db.Uuid
+  dealId                 String     @unique @map("deal_id") @db.Uuid
+  orgId                  String     @map("org_id") @db.Uuid
+  recommendedStrategy    String?     @map("recommended_strategy") @db.Text
+  preAppMeetingDate      DateTime?  @map("pre_app_meeting_date") @db.Date
+  preAppMeetingNotes     String?    @map("pre_app_meeting_notes") @db.Text
+  applicationType        String?    @map("application_type") @db.Text
+  applicationSubmittedDate DateTime? @map("application_submitted_date") @db.Date
+  applicationNumber      String?    @map("application_number") @db.Text
+  publicNoticeDate       DateTime?  @map("public_notice_date") @db.Date
+  publicNoticePeriodDays Int?       @map("public_notice_period_days")
+  hearingScheduledDate   DateTime?  @map("hearing_scheduled_date") @db.Date
+  hearingBody            String?    @map("hearing_body") @db.Text
+  hearingNotes           String?    @map("hearing_notes") @db.Text
+  decisionDate           DateTime?  @map("decision_date") @db.Date
+  decisionType           String?    @map("decision_type") @db.Text
+  conditions             String[]   @map("conditions") @default([])
+  appealDeadline         DateTime?  @map("appeal_deadline") @db.Date
+  appealFiled            Boolean?   @map("appeal_filed")
+  conditionComplianceStatus String?  @map("condition_compliance_status") @db.Text
+  createdAt              DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  org   Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  deal  Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@map("entitlement_paths")
 }
 
 model AssumptionActual {

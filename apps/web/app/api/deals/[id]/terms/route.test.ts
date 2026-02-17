@@ -1,0 +1,198 @@
+import { NextRequest } from "next/server";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const {
+  resolveAuthMock,
+  findDealMock,
+  findTermsMock,
+  upsertTermsMock,
+} = vi.hoisted(() => ({
+  resolveAuthMock: vi.fn(),
+  findDealMock: vi.fn(),
+  findTermsMock: vi.fn(),
+  upsertTermsMock: vi.fn(),
+}));
+
+vi.mock("@/lib/auth/resolveAuth", () => ({
+  resolveAuth: resolveAuthMock,
+}));
+
+vi.mock("@entitlement-os/db", () => ({
+  prisma: {
+    deal: {
+      findUnique: findDealMock,
+    },
+    dealTerms: {
+      findUnique: findTermsMock,
+      upsert: upsertTermsMock,
+    },
+  },
+}));
+
+import { GET, PUT } from "./route";
+
+const ORG_ID = "11111111-1111-4111-8111-111111111111";
+const OTHER_ORG_ID = "22222222-2222-4222-8222-222222222222";
+const USER_ID = "99999999-9999-4999-8999-999999999999";
+const DEAL_ID = "33333333-3333-4333-8333-333333333333";
+
+const TERMS_RECORD = {
+  id: "55555555-5555-4555-8555-555555555555",
+  orgId: ORG_ID,
+  dealId: DEAL_ID,
+  offerPrice: 1250000,
+  earnestMoney: 25000,
+  closingDate: "2026-02-20T00:00:00.000Z",
+  titleCompany: "Prime Title",
+  dueDiligenceDays: 30,
+  financingContingencyDays: 14,
+  loiSignedAt: "2026-01-15T00:00:00.000Z",
+  psaSignedAt: "2026-01-18T00:00:00.000Z",
+  titleReviewDue: "2026-01-25T00:00:00.000Z",
+  surveyDue: "2026-01-28T00:00:00.000Z",
+  environmentalDue: "2026-02-01T00:00:00.000Z",
+  sellerContact: "seller@example.com",
+  brokerContact: "broker@example.com",
+  createdAt: "2026-01-01T00:00:00.000Z",
+  updatedAt: "2026-01-02T00:00:00.000Z",
+};
+
+describe("GET /api/deals/[id]/terms", () => {
+  beforeEach(() => {
+    resolveAuthMock.mockReset();
+    findDealMock.mockReset();
+    findTermsMock.mockReset();
+  });
+
+  it("returns 401 when unauthenticated", async () => {
+    resolveAuthMock.mockResolvedValue(null);
+    const req = new NextRequest(`http://localhost/api/deals/${DEAL_ID}/terms`);
+    const res = await GET(req, { params: Promise.resolve({ id: DEAL_ID }) });
+    const body = await res.json();
+
+    expect(res.status).toBe(401);
+    expect(body).toEqual({ error: "Unauthorized" });
+    expect(findDealMock).not.toHaveBeenCalled();
+    expect(findTermsMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 403 when requested deal belongs to another org", async () => {
+    resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
+    findDealMock.mockResolvedValue({ id: DEAL_ID, orgId: OTHER_ORG_ID });
+
+    const req = new NextRequest(`http://localhost/api/deals/${DEAL_ID}/terms`);
+    const res = await GET(req, { params: Promise.resolve({ id: DEAL_ID }) });
+    const body = await res.json();
+
+    expect(res.status).toBe(403);
+    expect(body).toEqual({ error: "Forbidden: deal does not belong to your org" });
+    expect(findTermsMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when deal id is invalid", async () => {
+    resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
+
+    const req = new NextRequest("http://localhost/api/deals/not-a-uuid/terms");
+    const res = await GET(req, { params: Promise.resolve({ id: "not-a-uuid" }) });
+    const body = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(body.error).toBe("Invalid deal id");
+    expect(findDealMock).not.toHaveBeenCalled();
+  });
+
+  it("returns terms when present and returns null when absent", async () => {
+    resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
+    findDealMock.mockResolvedValue({ id: DEAL_ID, orgId: ORG_ID });
+    findTermsMock.mockResolvedValue({ ...TERMS_RECORD });
+
+    const req = new NextRequest(`http://localhost/api/deals/${DEAL_ID}/terms`);
+    const res = await GET(req, { params: Promise.resolve({ id: DEAL_ID }) });
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.terms).toMatchObject({
+      id: TERMS_RECORD.id,
+      offerPrice: "1250000",
+      earnestMoney: "25000",
+      titleCompany: "Prime Title",
+      dueDiligenceDays: 30,
+      closingDate: TERMS_RECORD.closingDate,
+    });
+    expect(findTermsMock).toHaveBeenCalledWith({
+      where: { dealId: DEAL_ID },
+    });
+  });
+});
+
+describe("PUT /api/deals/[id]/terms", () => {
+  beforeEach(() => {
+    resolveAuthMock.mockReset();
+    findDealMock.mockReset();
+    upsertTermsMock.mockReset();
+  });
+
+  it("returns 401 when unauthenticated", async () => {
+    resolveAuthMock.mockResolvedValue(null);
+    const req = new NextRequest(`http://localhost/api/deals/${DEAL_ID}/terms`, {
+      method: "PUT",
+      body: JSON.stringify({ offerPrice: 1500000 }),
+    });
+
+    const res = await PUT(req, { params: Promise.resolve({ id: DEAL_ID }) });
+    const body = await res.json();
+
+    expect(res.status).toBe(401);
+    expect(body).toEqual({ error: "Unauthorized" });
+    expect(upsertTermsMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 for empty payload", async () => {
+    resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
+    findDealMock.mockResolvedValue({ id: DEAL_ID, orgId: ORG_ID });
+
+    const req = new NextRequest(`http://localhost/api/deals/${DEAL_ID}/terms`, {
+      method: "PUT",
+      body: JSON.stringify({}),
+    });
+    const res = await PUT(req, { params: Promise.resolve({ id: DEAL_ID }) });
+    const body = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(body.error).toBe("Invalid terms payload");
+    expect(upsertTermsMock).not.toHaveBeenCalled();
+  });
+
+  it("upserts terms for a scoped deal", async () => {
+    resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
+    findDealMock.mockResolvedValue({ id: DEAL_ID, orgId: ORG_ID });
+    upsertTermsMock.mockResolvedValue({ ...TERMS_RECORD, offerPrice: 1500000 });
+
+    const req = new NextRequest(`http://localhost/api/deals/${DEAL_ID}/terms`, {
+      method: "PUT",
+      body: JSON.stringify({
+        offerPrice: 1500000,
+        closingDate: "2026-02-20T00:00:00.000Z",
+      }),
+    });
+    const res = await PUT(req, { params: Promise.resolve({ id: DEAL_ID }) });
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.terms.offerPrice).toBe("1500000");
+    expect(body.terms.closingDate).toBe("2026-02-20T00:00:00.000Z");
+    expect(upsertTermsMock).toHaveBeenCalledWith({
+      where: { dealId: DEAL_ID },
+      create: expect.objectContaining({
+        dealId: DEAL_ID,
+        orgId: ORG_ID,
+        offerPrice: 1500000,
+        closingDate: new Date("2026-02-20T00:00:00.000Z"),
+      }),
+      update: expect.objectContaining({
+        offerPrice: 1500000,
+        closingDate: new Date("2026-02-20T00:00:00.000Z"),
+      }),
+    });
+  });
+});

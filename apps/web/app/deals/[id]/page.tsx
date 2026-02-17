@@ -38,7 +38,7 @@ import { DealContacts } from "@/components/deals/DealContacts";
 import { CollaborativeMemo } from "@/components/deal-room/CollaborativeMemo";
 import type { TaskItem } from "@/components/deals/TaskCard";
 import { DeadlineBar } from "@/components/deals/DeadlineBar";
-import { formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate } from "@/lib/utils";
 import { toast } from "sonner";
 
 const fetcher = (url: string) => fetch(url).then((response) => response.json());
@@ -70,6 +70,48 @@ interface DealDetail {
     stalenessDays: number | null;
     missingEvidence: string[];
   };
+}
+
+interface DealTerms {
+  id: string;
+  orgId: string;
+  dealId: string;
+  offerPrice: string | number | null;
+  earnestMoney: string | number | null;
+  closingDate: string | null;
+  titleCompany: string | null;
+  dueDiligenceDays: number | null;
+  financingContingencyDays: number | null;
+  loiSignedAt: string | null;
+  psaSignedAt: string | null;
+  titleReviewDue: string | null;
+  surveyDue: string | null;
+  environmentalDue: string | null;
+  sellerContact: string | null;
+  brokerContact: string | null;
+}
+
+interface DealEntitlementPath {
+  id: string;
+  orgId: string;
+  dealId: string;
+  recommendedStrategy: string | null;
+  preAppMeetingDate: string | null;
+  preAppMeetingNotes: string | null;
+  applicationType: string | null;
+  applicationSubmittedDate: string | null;
+  applicationNumber: string | null;
+  publicNoticeDate: string | null;
+  publicNoticePeriodDays: number | null;
+  hearingScheduledDate: string | null;
+  hearingBody: string | null;
+  hearingNotes: string | null;
+  decisionDate: string | null;
+  decisionType: string | null;
+  conditions: string[];
+  appealDeadline: string | null;
+  appealFiled: boolean | null;
+  conditionComplianceStatus: string | null;
 }
 
 interface DealBuyer {
@@ -129,6 +171,23 @@ export default function DealDetailPage() {
   const [parcelAddress, setParcelAddress] = useState("");
   const [parcelApn, setParcelApn] = useState("");
   const [addingParcel, setAddingParcel] = useState(false);
+  const termsFetcher = useSWR<{ terms: DealTerms | null }>(
+    id ? `/api/deals/${id}/terms` : null,
+    fetcher
+  );
+  const entitlementFetcher = useSWR<{ entitlementPath: DealEntitlementPath | null }>(
+    id ? `/api/deals/${id}/entitlement-path` : null,
+    fetcher
+  );
+  const terms = termsFetcher.data?.terms ?? null;
+  const entitlementPath = entitlementFetcher.data?.entitlementPath ?? null;
+
+  const formatCurrencyValue = (value: string | number | null | undefined) => {
+    if (value === null || value === undefined) return "—";
+    const numberValue = typeof value === "number" ? value : Number(value);
+    if (Number.isNaN(numberValue)) return "—";
+    return formatCurrency(numberValue);
+  };
 
   const loadDeal = useCallback(async () => {
     try {
@@ -451,46 +510,196 @@ export default function DealDetailPage() {
                     <CardTitle className="text-base">Key Dates</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3 text-sm">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Created</p>
+                      <p className="font-medium">{formatDate(deal.createdAt)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Last Updated</p>
+                      <p className="font-medium">{formatDate(deal.updatedAt)}</p>
+                    </div>
+                    {deal.targetCloseDate && (
                       <div>
-                        <p className="text-xs text-muted-foreground">Created</p>
-                        <p className="font-medium">{formatDate(deal.createdAt)}</p>
+                        <p className="text-xs text-muted-foreground">Target Close</p>
+                        <p className="font-medium">{formatDate(deal.targetCloseDate)}</p>
                       </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Last Updated</p>
-                        <p className="font-medium">{formatDate(deal.updatedAt)}</p>
+                    )}
+                    <div>
+                      <p className="text-xs text-muted-foreground">Pack Health</p>
+                      <div className="mt-1 space-y-1">
+                        <p className="font-medium">
+                          {deal.packContext?.hasPack
+                            ? deal.packContext.isStale
+                              ? `Stale (${deal.packContext.stalenessDays ?? "?"} day(s))`
+                              : "Current"
+                            : "No pack found"}
+                        </p>
+                        {deal.packContext?.missingEvidence?.length ? (
+                          <ul className="list-disc pl-4 text-xs text-muted-foreground">
+                            {deal.packContext.missingEvidence.map((item) => (
+                              <li key={item}>
+                                <span className="inline-flex items-center gap-1">
+                                  <AlertTriangle className="h-3 w-3" />
+                                  {item}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null}
                       </div>
-                      {deal.targetCloseDate && (
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Acquisition Terms</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3 text-sm">
+                    {terms ? (
+                      <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <p className="text-xs text-muted-foreground">Target Close</p>
-                          <p className="font-medium">{formatDate(deal.targetCloseDate)}</p>
+                          <p className="text-xs text-muted-foreground">Offer Price</p>
+                          <p className="font-medium">{formatCurrencyValue(terms.offerPrice)}</p>
                         </div>
-                      )}
-                      <div>
-                        <p className="text-xs text-muted-foreground">Pack Health</p>
-                        <div className="mt-1 space-y-1">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Earnest Money</p>
                           <p className="font-medium">
-                            {deal.packContext?.hasPack
-                              ? deal.packContext.isStale
-                                ? `Stale (${deal.packContext.stalenessDays ?? "?"} day(s))`
-                                : "Current"
-                              : "No pack found"}
+                            {formatCurrencyValue(terms.earnestMoney)}
                           </p>
-                          {deal.packContext?.missingEvidence?.length ? (
-                            <ul className="list-disc pl-4 text-xs text-muted-foreground">
-                              {deal.packContext.missingEvidence.map((item) => (
-                                <li key={item}>
-                                  <span className="inline-flex items-center gap-1">
-                                    <AlertTriangle className="h-3 w-3" />
-                                    {item}
-                                  </span>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Closing Date</p>
+                          <p className="font-medium">
+                            {terms.closingDate ? formatDate(terms.closingDate) : "—"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Title Review Due</p>
+                          <p className="font-medium">
+                            {terms.titleReviewDue ? formatDate(terms.titleReviewDue) : "—"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Survey Due</p>
+                          <p className="font-medium">
+                            {terms.surveyDue ? formatDate(terms.surveyDue) : "—"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Environmental Due</p>
+                          <p className="font-medium">
+                            {terms.environmentalDue ? formatDate(terms.environmentalDue) : "—"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">DD Days</p>
+                          <p className="font-medium">
+                            {terms.dueDiligenceDays === null ? "—" : terms.dueDiligenceDays}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Financing Days</p>
+                          <p className="font-medium">
+                            {terms.financingContingencyDays === null
+                              ? "—"
+                              : terms.financingContingencyDays}
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        No acquisition terms available for this deal.
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Entitlement</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3 text-sm">
+                    {entitlementPath ? (
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Recommended Strategy</p>
+                          <p className="font-medium">
+                            {entitlementPath.recommendedStrategy ?? "—"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Application Type</p>
+                          <p className="font-medium">
+                            {entitlementPath.applicationType ?? "—"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Hearing Date</p>
+                          <p className="font-medium">
+                            {entitlementPath.hearingScheduledDate
+                              ? formatDate(entitlementPath.hearingScheduledDate)
+                              : "—"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Hearing Body</p>
+                          <p className="font-medium">
+                            {entitlementPath.hearingBody ?? "—"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Decision Date</p>
+                          <p className="font-medium">
+                            {entitlementPath.decisionDate
+                              ? formatDate(entitlementPath.decisionDate)
+                              : "—"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Decision Type</p>
+                          <p className="font-medium">
+                            {entitlementPath.decisionType ?? "—"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Appeal Deadline</p>
+                          <p className="font-medium">
+                            {entitlementPath.appealDeadline
+                              ? formatDate(entitlementPath.appealDeadline)
+                              : "—"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Appeal Filed</p>
+                          <p className="font-medium">
+                            {entitlementPath.appealFiled === null
+                              ? "—"
+                              : entitlementPath.appealFiled
+                                ? "Yes"
+                                : "No"}
+                          </p>
+                        </div>
+                        {entitlementPath.conditions.length > 0 ? (
+                          <div className="col-span-2">
+                            <p className="text-xs text-muted-foreground">Conditions</p>
+                            <ul className="mt-1 list-disc pl-4">
+                              {entitlementPath.conditions.map((condition) => (
+                                <li key={condition} className="text-xs">
+                                  {condition}
                                 </li>
                               ))}
                             </ul>
-                          ) : null}
-                        </div>
+                          </div>
+                        ) : null}
                       </div>
-                    </CardContent>
-                  </Card>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        No entitlement path available for this deal.
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
                 </div>
 
                 {/* Deadline Bar */}
