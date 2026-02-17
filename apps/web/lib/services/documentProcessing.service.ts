@@ -5,26 +5,128 @@ import { getNotificationService } from "./notification.service";
 import { AppError } from "@/lib/errors";
 import OpenAI from "openai";
 import {
-  EXTRACTION_SCHEMAS,
+  DocTypeSchema,
+  type DocType,
   DOC_TYPE_LABELS,
-} from "@/lib/schemas/extractionSchemas";
-
-// ---------------------------------------------------------------------------
-// Document type definitions
-// ---------------------------------------------------------------------------
-
-export type DocType =
-  | "psa"
-  | "phase_i_esa"
-  | "title_commitment"
-  | "survey"
-  | "zoning_letter"
-  | "appraisal"
-  | "lease"
-  | "loi"
-  | "other";
+  serializeExtractionPayload,
+  validateExtractionPayload,
+} from "@/lib/validation/extractionSchemas";
 
 export { DOC_TYPE_LABELS };
+
+const MIN_TEXT_FOR_EXTRACTION = 50;
+
+type ExtractionWithOptionalUpload = {
+  id: string;
+  orgId: string;
+  uploadId: string;
+  dealId: string;
+  docType: string;
+  extractedData: unknown;
+  rawText: string | null;
+  confidence: Prisma.Decimal | number | string;
+  extractedAt: Date;
+  reviewed: boolean;
+  reviewedBy: string | null;
+  reviewedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  upload?: {
+    id: string;
+    filename: string;
+    kind: string;
+    contentType: string;
+    sizeBytes: number;
+    createdAt: Date;
+  } | null;
+};
+
+export type DocumentExtractionResponse = {
+  id: string;
+  orgId: string;
+  uploadId: string;
+  dealId: string;
+  docType: DocType;
+  extractedData: Record<string, unknown>;
+  rawText: string | null;
+  confidence: number;
+  extractedAt: Date;
+  reviewed: boolean;
+  reviewedBy: string | null;
+  reviewedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  upload?: {
+    id: string;
+    filename: string;
+    kind: string;
+    contentType: string;
+    sizeBytes: number;
+    createdAt: Date;
+  } | null;
+};
+
+export type ProcessUploadResult = {
+  created: boolean;
+  extractionId: string;
+  docType: DocType;
+  extractedData: Record<string, unknown>;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function normalizeDocType(docType: string): DocType {
+  const parsed = DocTypeSchema.safeParse(docType);
+  return parsed.success ? parsed.data : "other";
+}
+
+function toNumber(value: Prisma.Decimal | number | string): number {
+  if (typeof value === "number") return value;
+  if (typeof value === "string") return Number(value);
+  return Number(value.toString());
+}
+
+function serializeExtraction(
+  extraction: ExtractionWithOptionalUpload
+): DocumentExtractionResponse {
+  const docType = normalizeDocType(extraction.docType);
+
+  return {
+    id: extraction.id,
+    orgId: extraction.orgId,
+    uploadId: extraction.uploadId,
+    dealId: extraction.dealId,
+    docType,
+    extractedData: serializeExtractionPayload(docType, extraction.extractedData),
+    rawText: extraction.rawText,
+    confidence: toNumber(extraction.confidence),
+    extractedAt: extraction.extractedAt,
+    reviewed: extraction.reviewed,
+    reviewedBy: extraction.reviewedBy,
+    reviewedAt: extraction.reviewedAt,
+    createdAt: extraction.createdAt,
+    updatedAt: extraction.updatedAt,
+    upload: extraction.upload ?? undefined,
+  };
+}
+
+function isPrismaUniqueConstraintError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const withCode = error as Error & { code?: string };
+  return withCode.code === "P2002";
+}
+
+function hasOwnProperty(
+  value: object,
+  property: string
+): boolean {
+  return Object.prototype.hasOwnProperty.call(value, property);
+}
 
 // ---------------------------------------------------------------------------
 // Classification — enhanced regex + LLM
@@ -324,9 +426,14 @@ Required JSON schema:
 async function extractStructuredData(
   text: string,
   docType: DocType
-): Promise<{ data: Record<string, unknown>; confidence: number }> {
+): Promise<{
+  data: Record<string, unknown>;
+  confidence: number;
+  valid: boolean;
+  issues: string[];
+}> {
   if (!text || text.length < 20) {
-    return { data: {}, confidence: 0 };
+    return { data: {}, confidence: 0, valid: false, issues: [] };
   }
 
   const openai = new OpenAI();
@@ -355,36 +462,43 @@ ${EXTRACTION_PROMPTS[docType]}`,
     });
 
     const content = response.choices[0]?.message?.content;
-    if (!content) return { data: {}, confidence: 0 };
+    if (!content) return { data: {}, confidence: 0, valid: false, issues: [] };
 
-    const parsed = JSON.parse(content);
+    const parsed = JSON.parse(content) as unknown;
+    if (!isRecord(parsed)) {
+      return {
+        data: {},
+        confidence: 0,
+        valid: false,
+        issues: ["root: Extractor did not return a JSON object"],
+      };
+    }
+
     const confidence =
       typeof parsed.extraction_confidence === "number"
         ? parsed.extraction_confidence
         : 0.5;
 
-    // Remove the meta field from the extracted data
-    const { extraction_confidence: _, ...rawData } = parsed;
-
-    // Validate against Zod schema — use safeParse to be lenient
-    const schema = EXTRACTION_SCHEMAS[docType];
-    if (schema) {
-      const result = schema.safeParse(rawData);
-      if (result.success) {
-        return { data: result.data as Record<string, unknown>, confidence: Math.min(confidence, 0.98) };
-      }
-      // If validation fails, still return raw data but reduce confidence
-      console.warn(
-        `[doc-processing] Zod validation failed for ${docType}:`,
-        result.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join(", ")
-      );
-      return { data: rawData, confidence: Math.min(confidence * 0.7, 0.6) };
+    const { extraction_confidence: _unusedConfidence, ...rawData } = parsed;
+    const validated = validateExtractionPayload(docType, rawData);
+    if (!validated.success) {
+      return {
+        data: {},
+        confidence: 0,
+        valid: false,
+        issues: validated.issues,
+      };
     }
 
-    return { data: rawData, confidence: Math.min(confidence, 0.98) };
+    return {
+      data: validated.data,
+      confidence: Math.min(confidence, 0.98),
+      valid: true,
+      issues: [],
+    };
   } catch (err) {
     console.error("[doc-processing] LLM extraction failed:", err);
-    return { data: {}, confidence: 0 };
+    return { data: {}, confidence: 0, valid: false, issues: [] };
   }
 }
 
@@ -402,24 +516,33 @@ export class DocumentProcessingService {
    * 5. Store extraction results
    * 6. Auto-fill deal fields if confidence > 0.85, else create review notification
    */
-  async processUpload(uploadId: string, dealId: string, orgId: string): Promise<void> {
+  async processUpload(
+    uploadId: string,
+    dealId: string,
+    orgId: string
+  ): Promise<ProcessUploadResult> {
     // Load the upload record
     const upload = await prisma.upload.findFirst({
       where: { id: uploadId, dealId, deal: { orgId } },
     });
 
     if (!upload) {
-      console.error(`[doc-processing] Upload ${uploadId} not found`);
-      return;
+      throw new AppError("Upload not found", "NOT_FOUND", 404);
     }
 
     // Check if already extracted
-    const existing = await prisma.documentExtraction.findUnique({
-      where: { uploadId },
+    const existing = await prisma.documentExtraction.findFirst({
+      where: { uploadId, orgId },
     });
     if (existing) {
       console.log(`[doc-processing] Upload ${uploadId} already extracted, skipping`);
-      return;
+      const serialized = serializeExtraction(existing);
+      return {
+        created: false,
+        extractionId: serialized.id,
+        docType: serialized.docType,
+        extractedData: serialized.extractedData,
+      };
     }
 
     // Only process PDFs for text extraction (skip images, spreadsheets, etc.)
@@ -436,7 +559,7 @@ export class DocumentProcessingService {
 
       if (error || !data) {
         console.error(`[doc-processing] Failed to download ${upload.storageObjectKey}:`, error);
-        return;
+        throw new AppError("Failed to download upload", "DOWNLOAD_FAILED", 500);
       }
 
       const buffer = Buffer.from(await data.arrayBuffer());
@@ -459,7 +582,10 @@ export class DocumentProcessingService {
     let classificationConfidence = regexResult.confidence;
 
     // If regex is uncertain or we have extracted text, use LLM
-    if (extractedText.length > 50 && (regexResult.confidence < 0.85 || regexResult.docType === "other")) {
+    if (
+      extractedText.length > MIN_TEXT_FOR_EXTRACTION &&
+      (regexResult.confidence < 0.85 || regexResult.docType === "other")
+    ) {
       const llmResult = await classifyWithLLM(extractedText, upload.filename);
       if (llmResult.confidence > regexResult.confidence) {
         finalDocType = llmResult.docType;
@@ -470,36 +596,73 @@ export class DocumentProcessingService {
     // Step 2: Extract structured data via LLM
     let extractedData: Record<string, unknown> = {};
     let extractionConfidence = 0;
+    let payloadValidationIssues: string[] = [];
 
-    if (extractedText.length >= 50 && finalDocType !== "other") {
+    if (extractedText.length >= MIN_TEXT_FOR_EXTRACTION && finalDocType !== "other") {
       const result = await extractStructuredData(extractedText, finalDocType);
-      extractedData = result.data;
-      extractionConfidence = result.confidence;
-    } else if (finalDocType === "other" && extractedText.length >= 50) {
+      if (result.valid) {
+        extractedData = result.data;
+        extractionConfidence = result.confidence;
+      } else {
+        payloadValidationIssues = result.issues;
+      }
+    } else if (finalDocType === "other" && extractedText.length >= MIN_TEXT_FOR_EXTRACTION) {
       // Even for "other" docs, try to extract something
       const result = await extractStructuredData(extractedText, "other");
-      extractedData = result.data;
-      extractionConfidence = result.confidence;
+      if (result.valid) {
+        extractedData = result.data;
+        extractionConfidence = result.confidence;
+      } else {
+        payloadValidationIssues = result.issues;
+      }
     }
 
     // Overall confidence = min of classification and extraction
     const overallConfidence =
-      Object.keys(extractedData).length > 0
-        ? Math.min(classificationConfidence, extractionConfidence)
-        : classificationConfidence * 0.5; // Halve if no data extracted
+      payloadValidationIssues.length > 0
+        ? 0
+        : Object.keys(extractedData).length > 0
+          ? Math.min(classificationConfidence, extractionConfidence)
+          : classificationConfidence * 0.5; // Halve if no data extracted
+
+    if (payloadValidationIssues.length > 0) {
+      console.error(
+        `[doc-processing] Invalid ${finalDocType} extraction payload for upload ${uploadId}: ${payloadValidationIssues.join("; ")}`
+      );
+    }
 
     // Step 3: Store extraction
-    await prisma.documentExtraction.create({
-      data: {
-        orgId,
-        uploadId,
-        dealId,
-        docType: finalDocType,
-        extractedData: extractedData as Prisma.InputJsonValue,
-        rawText: extractedText || null,
-        confidence: overallConfidence,
-      },
-    });
+    let createdExtraction: ExtractionWithOptionalUpload;
+    try {
+      createdExtraction = await prisma.documentExtraction.create({
+        data: {
+          orgId,
+          uploadId,
+          dealId,
+          docType: finalDocType,
+          extractedData: extractedData as Prisma.InputJsonValue,
+          rawText: extractedText || null,
+          confidence: overallConfidence,
+        },
+      });
+    } catch (error) {
+      if (isPrismaUniqueConstraintError(error)) {
+        const alreadyCreated = await prisma.documentExtraction.findFirst({
+          where: { uploadId, orgId },
+        });
+        if (alreadyCreated) {
+          const serialized = serializeExtraction(alreadyCreated);
+          return {
+            created: false,
+            extractionId: serialized.id,
+            docType: serialized.docType,
+            extractedData: serialized.extractedData,
+          };
+        }
+      }
+
+      throw error;
+    }
 
     console.log(
       `[doc-processing] Extracted "${upload.filename}" as ${finalDocType} (confidence: ${(overallConfidence * 100).toFixed(0)}%)`
@@ -519,6 +682,14 @@ export class DocumentProcessingService {
         overallConfidence
       );
     }
+
+    const serialized = serializeExtraction(createdExtraction);
+    return {
+      created: true,
+      extractionId: serialized.id,
+      docType: serialized.docType,
+      extractedData: serialized.extractedData,
+    };
   }
 
   /**
@@ -661,8 +832,11 @@ export class DocumentProcessingService {
   /**
    * Get all extractions for a deal.
    */
-  async getExtractionsByDeal(dealId: string, orgId: string) {
-    return prisma.documentExtraction.findMany({
+  async getExtractionsByDeal(
+    dealId: string,
+    orgId: string
+  ): Promise<DocumentExtractionResponse[]> {
+    const rows = await prisma.documentExtraction.findMany({
       where: { dealId, orgId },
       include: {
         upload: {
@@ -671,13 +845,18 @@ export class DocumentProcessingService {
       },
       orderBy: { createdAt: "desc" },
     });
+
+    return rows.map((row) => serializeExtraction(row));
   }
 
   /**
    * Get a single extraction by ID.
    */
-  async getExtraction(extractionId: string, orgId: string) {
-    return prisma.documentExtraction.findFirst({
+  async getExtraction(
+    extractionId: string,
+    orgId: string
+  ): Promise<DocumentExtractionResponse | null> {
+    const row = await prisma.documentExtraction.findFirst({
       where: { id: extractionId, orgId },
       include: {
         upload: {
@@ -685,6 +864,8 @@ export class DocumentProcessingService {
         },
       },
     });
+
+    return row ? serializeExtraction(row) : null;
   }
 
   /**
@@ -695,12 +876,17 @@ export class DocumentProcessingService {
     orgId: string,
     userId: string,
     updates?: {
+      dealId?: string;
       extractedData?: Record<string, unknown>;
       docType?: DocType;
     }
-  ) {
+  ): Promise<DocumentExtractionResponse> {
     const extraction = await prisma.documentExtraction.findFirst({
-      where: { id: extractionId, orgId },
+      where: {
+        id: extractionId,
+        orgId,
+        ...(updates?.dealId ? { dealId: updates.dealId } : {}),
+      },
     });
 
     if (!extraction) {
@@ -713,11 +899,28 @@ export class DocumentProcessingService {
       reviewedAt: new Date(),
     };
 
-    if (updates?.extractedData) {
-      updateData.extractedData = updates.extractedData as Prisma.InputJsonValue;
+    const normalizedDocType = normalizeDocType(extraction.docType);
+    const nextDocType = updates?.docType ?? normalizedDocType;
+    const hasExtractedDataUpdate = Boolean(
+      updates && hasOwnProperty(updates, "extractedData")
+    );
+    const docTypeChanged = nextDocType !== normalizedDocType;
+
+    if (hasExtractedDataUpdate || docTypeChanged) {
+      const sourcePayload =
+        hasExtractedDataUpdate && updates?.extractedData !== undefined
+          ? updates.extractedData
+          : extraction.extractedData;
+      const validated = validateExtractionPayload(nextDocType, sourcePayload);
+      if (!validated.success) {
+        throw new AppError("Invalid extraction payload", "BAD_REQUEST", 400);
+      }
+      if (hasExtractedDataUpdate) {
+        updateData.extractedData = validated.data as Prisma.InputJsonValue;
+      }
     }
-    if (updates?.docType) {
-      updateData.docType = updates.docType;
+    if (nextDocType !== normalizedDocType) {
+      updateData.docType = nextDocType;
     }
 
     const updated = await prisma.documentExtraction.update({
@@ -726,13 +929,15 @@ export class DocumentProcessingService {
     });
 
     // Auto-fill deal fields with the confirmed extraction data
-    const finalData = (updates?.extractedData ?? extraction.extractedData) as Record<string, unknown>;
-    const finalDocType = (updates?.docType ?? extraction.docType) as DocType;
+    const finalDocType = nextDocType;
+    const finalData = updates?.extractedData
+      ? serializeExtractionPayload(finalDocType, updates.extractedData)
+      : serializeExtractionPayload(finalDocType, extraction.extractedData);
     if (Object.keys(finalData).length > 0) {
       await this.autoFillDealFields(extraction.dealId, extraction.orgId, finalDocType, finalData);
     }
 
-    return updated;
+    return serializeExtraction(updated);
   }
 
   /**

@@ -29,7 +29,11 @@ import { ParcelTable, type ParcelItem } from "@/components/deals/ParcelTable";
 import { ArtifactList, type ArtifactItem } from "@/components/deals/ArtifactList";
 import { FileUploadZone, type UploadItem } from "@/components/deals/FileUploadZone";
 import { UploadList } from "@/components/deals/UploadList";
-import { DocumentExtractionReview, ExtractionPendingBadge } from "@/components/deals/DocumentExtractionReview";
+import {
+  DocumentExtractionReview,
+  ExtractionPendingBadge,
+  ExtractionStatusSummary,
+} from "@/components/deals/DocumentExtractionReview";
 import { EnvironmentalAssessmentsPanel } from "@/components/deals/EnvironmentalAssessmentsPanel";
 import { DealFinancingPanel } from "@/components/deals/DealFinancingPanel";
 import { RiskRegisterPanel } from "@/components/deals/RiskRegisterPanel";
@@ -550,6 +554,12 @@ export default function DealDetailPage() {
                         <div>
                           <p className="text-xs text-muted-foreground">Parcels</p>
                           <p className="font-medium">{deal.parcels.length}</p>
+                        </div>
+                        <div className="col-span-2">
+                          <p className="text-xs text-muted-foreground">Extraction Review</p>
+                          <div className="mt-1">
+                            <ExtractionStatusSummary dealId={deal.id} compact />
+                          </div>
                         </div>
                       </div>
                     </CardContent>
@@ -1073,6 +1083,7 @@ export default function DealDetailPage() {
                 <CardDescription>
                   Structured data automatically extracted from uploaded documents. Review and confirm before applying to the deal.
                 </CardDescription>
+                <ExtractionStatusSummary dealId={deal.id} />
               </CardHeader>
               <CardContent>
                 <DocumentExtractionReview dealId={deal.id} />

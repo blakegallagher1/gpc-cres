@@ -14,7 +14,6 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -43,7 +42,12 @@ interface Extraction {
   dealId: string;
   docType: string;
   extractedData: Record<string, unknown>;
+  rawText: string | null;
   confidence: number;
+  sourceProvenance?: Record<string, unknown> | null;
+  fieldProvenance?: Record<string, unknown> | null;
+  flags?: string[] | null;
+  reviewFlags?: string[] | null;
   extractedAt: string;
   reviewed: boolean;
   reviewedBy: string | null;
@@ -55,16 +59,378 @@ interface Props {
   dealId: string;
 }
 
+type ExtractionStatus = "none" | "pending_review" | "review_complete";
+
+type ExtractionSummary = {
+  totalCount: number;
+  pendingCount: number;
+  reviewedCount: number;
+  status: ExtractionStatus;
+};
+
+type ExtractionCountUpdatedDetail = {
+  dealId: string;
+  totalCount: number;
+  unreviewedCount: number;
+  pendingCount: number;
+  reviewedCount: number;
+  status: ExtractionStatus;
+};
+
+export const EXTRACTION_REVIEW_COUNT_EVENT =
+  "document-extraction-review-count-updated";
+
+const EMPTY_EXTRACTION_SUMMARY: ExtractionSummary = {
+  totalCount: 0,
+  pendingCount: 0,
+  reviewedCount: 0,
+  status: "none",
+};
+
+function asCount(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  if (value < 0) return 0;
+  return Math.floor(value);
+}
+
+function deriveExtractionStatus(
+  totalCount: number,
+  pendingCount: number
+): ExtractionStatus {
+  if (totalCount === 0) return "none";
+  if (pendingCount > 0) return "pending_review";
+  return "review_complete";
+}
+
+function resolveExtractionSummary(
+  payload: unknown,
+  extractions: Extraction[]
+): ExtractionSummary {
+  const data = asRecord(payload);
+  const totalFromPayload = asCount(data.totalCount);
+  const pendingFromPayload =
+    asCount(data.pendingCount) ?? asCount(data.unreviewedCount);
+  const reviewedFromPayload = asCount(data.reviewedCount);
+
+  const fallbackTotal = extractions.length;
+  const fallbackPending = extractions.filter((extraction) => !extraction.reviewed).length;
+  const totalCount = totalFromPayload ?? fallbackTotal;
+  const pendingCount = Math.max(
+    0,
+    Math.min(pendingFromPayload ?? fallbackPending, totalCount)
+  );
+  const reviewedCount = Math.max(
+    0,
+    Math.min(
+      reviewedFromPayload ?? Math.max(0, totalCount - pendingCount),
+      totalCount
+    )
+  );
+
+  const statusFromPayload = asString(data.extractionStatus);
+  const status =
+    statusFromPayload === "none" ||
+    statusFromPayload === "pending_review" ||
+    statusFromPayload === "review_complete"
+      ? statusFromPayload
+      : deriveExtractionStatus(totalCount, pendingCount);
+
+  return { totalCount, pendingCount, reviewedCount, status };
+}
+
+function formatExtractionStatus(status: ExtractionStatus): string {
+  if (status === "pending_review") return "Pending Review";
+  if (status === "review_complete") return "Review Complete";
+  return "No Extractions";
+}
+
+function statusBadgeVariant(
+  status: ExtractionStatus
+): "secondary" | "default" | "outline" {
+  if (status === "pending_review") return "secondary";
+  if (status === "review_complete") return "default";
+  return "outline";
+}
+
+function emitExtractionCountUpdated(
+  dealId: string,
+  summary: ExtractionSummary
+): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent<ExtractionCountUpdatedDetail>(
+      EXTRACTION_REVIEW_COUNT_EVENT,
+      {
+        detail: {
+          dealId,
+          totalCount: summary.totalCount,
+          unreviewedCount: summary.pendingCount,
+          pendingCount: summary.pendingCount,
+          reviewedCount: summary.reviewedCount,
+          status: summary.status,
+        },
+      }
+    )
+  );
+}
+
+function normalizeWhitespace(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function toSearchTerms(value: unknown, terms: string[] = []): string[] {
+  if (typeof value === "string") {
+    const normalized = normalizeWhitespace(value);
+    if (normalized.length >= 3) {
+      terms.push(normalized);
+    }
+    return terms;
+  }
+
+  if (typeof value === "number" || typeof value === "boolean") {
+    terms.push(String(value));
+    return terms;
+  }
+
+  if (Array.isArray(value)) {
+    value.forEach((item) => {
+      toSearchTerms(item, terms);
+    });
+    return terms;
+  }
+
+  if (value && typeof value === "object") {
+    Object.values(value).forEach((nestedValue) => {
+      toSearchTerms(nestedValue, terms);
+    });
+  }
+
+  return terms;
+}
+
+function extractSnippet(rawText: string, index: number, matchedLength: number): string {
+  const radius = 90;
+  const start = Math.max(0, index - radius);
+  const end = Math.min(rawText.length, index + matchedLength + radius);
+  const snippet = normalizeWhitespace(rawText.slice(start, end));
+  const prefix = start > 0 ? "…" : "";
+  const suffix = end < rawText.length ? "…" : "";
+  return `${prefix}${snippet}${suffix}`;
+}
+
+function findSourceContext(
+  rawText: string | null,
+  fieldKey: string,
+  fieldLabel: string,
+  fieldValue: unknown
+): string | null {
+  if (!rawText) return null;
+
+  const labelTerms = [fieldLabel, fieldKey.replace(/_/g, " ")];
+  const terms = Array.from(
+    new Set([
+      ...toSearchTerms(fieldValue),
+      ...labelTerms,
+    ])
+  )
+    .map((term) => normalizeWhitespace(term))
+    .filter((term) => term.length >= 3)
+    .sort((a, b) => b.length - a.length);
+
+  if (terms.length === 0) return null;
+
+  const normalizedRawText = rawText.toLowerCase();
+  for (const term of terms) {
+    const index = normalizedRawText.indexOf(term.toLowerCase());
+    if (index !== -1) {
+      return extractSnippet(rawText, index, term.length);
+    }
+  }
+
+  return null;
+}
+
+function sortObjectKeys(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => sortObjectKeys(item));
+  }
+
+  if (value && typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>).sort(
+      ([a], [b]) => a.localeCompare(b)
+    );
+    const result: Record<string, unknown> = {};
+    for (const [key, nestedValue] of entries) {
+      result[key] = sortObjectKeys(nestedValue);
+    }
+    return result;
+  }
+
+  return value;
+}
+
+function stableSerialize(value: unknown): string {
+  return JSON.stringify(sortObjectKeys(value));
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+  return value as Record<string, unknown>;
+}
+
+function asString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = normalizeWhitespace(value);
+  return normalized.length > 0 ? normalized : null;
+}
+
+function asStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry) => asString(entry))
+    .filter((entry): entry is string => Boolean(entry));
+}
+
+function toConfidencePercent(confidence: number): number {
+  if (!Number.isFinite(confidence)) return 0;
+  return Math.max(0, Math.min(100, Math.round(confidence * 100)));
+}
+
+function getConfidenceLevel(pct: number): "high" | "medium" | "low" {
+  if (pct >= 85) return "high";
+  if (pct >= 50) return "medium";
+  return "low";
+}
+
+type FieldProvenance = {
+  snippet: string | null;
+  status: "matched" | "provided" | "missing";
+  sourceLabel: string | null;
+  pageLabel: string | null;
+  flags: string[];
+};
+
+function getProvenanceMap(extraction: Extraction): Record<string, unknown> {
+  return {
+    ...asRecord(extraction.sourceProvenance),
+    ...asRecord(extraction.fieldProvenance),
+  };
+}
+
+function normalizePageLabel(value: unknown): string | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return `Page ${value}`;
+  }
+  const text = asString(value);
+  if (!text) return null;
+  return /^page\s+/i.test(text) ? text : `Page ${text}`;
+}
+
+function parseProvidedProvenance(value: unknown): Omit<FieldProvenance, "status"> {
+  if (typeof value === "string") {
+    return {
+      snippet: asString(value),
+      sourceLabel: null,
+      pageLabel: null,
+      flags: [],
+    };
+  }
+
+  const record = asRecord(value);
+  const snippet =
+    asString(record.snippet) ??
+    asString(record.context) ??
+    asString(record.quote) ??
+    asString(record.text);
+  const sourceLabel =
+    asString(record.source) ??
+    asString(record.filename) ??
+    asString(record.document);
+  const pageLabel =
+    normalizePageLabel(record.page) ??
+    normalizePageLabel(record.pageNumber) ??
+    normalizePageLabel(record.page_label);
+  const flags =
+    asStringArray(record.flags).length > 0
+      ? asStringArray(record.flags)
+      : asStringArray(record.alerts);
+
+  return { snippet, sourceLabel, pageLabel, flags };
+}
+
+function getFieldProvenance(
+  extraction: Extraction,
+  fieldKey: string,
+  fieldLabel: string,
+  fieldValue: unknown
+): FieldProvenance {
+  const map = getProvenanceMap(extraction);
+  const provided = parseProvidedProvenance(map[fieldKey]);
+  if (provided.snippet) {
+    return {
+      ...provided,
+      status: "provided",
+    };
+  }
+
+  const matchedSnippet = findSourceContext(
+    extraction.rawText,
+    fieldKey,
+    fieldLabel,
+    fieldValue
+  );
+  if (matchedSnippet) {
+    return {
+      ...provided,
+      snippet: matchedSnippet,
+      status: "matched",
+    };
+  }
+
+  return {
+    ...provided,
+    snippet: null,
+    status: "missing",
+  };
+}
+
+function getExtractionFlags(
+  extraction: Extraction,
+  confidenceLevel: "high" | "medium" | "low",
+  missingProvenanceCount: number
+): string[] {
+  const baseFlags = [
+    ...asStringArray(extraction.flags),
+    ...asStringArray(extraction.reviewFlags),
+  ];
+  if (confidenceLevel === "low") {
+    baseFlags.unshift("Low confidence extraction");
+  } else if (confidenceLevel === "medium") {
+    baseFlags.unshift("Medium confidence extraction");
+  }
+  if (missingProvenanceCount > 0) {
+    baseFlags.push(
+      `${missingProvenanceCount} field${missingProvenanceCount === 1 ? "" : "s"} missing source provenance`
+    );
+  }
+  return Array.from(new Set(baseFlags));
+}
+
 // ---------------------------------------------------------------------------
 // Confidence badge
 // ---------------------------------------------------------------------------
 
 function ConfidenceBadge({ confidence }: { confidence: number }) {
-  const pct = Math.round(Number(confidence) * 100);
-  const variant = pct >= 85 ? "default" : pct >= 50 ? "secondary" : "destructive";
+  const pct = toConfidencePercent(confidence);
+  const level = getConfidenceLevel(pct);
+  const variant =
+    level === "high" ? "default" : level === "medium" ? "secondary" : "destructive";
+  const label = level === "high" ? "High" : level === "medium" ? "Medium" : "Low";
   return (
     <Badge variant={variant} className="text-xs font-mono">
-      {pct}%
+      {label} {pct}%
     </Badge>
   );
 }
@@ -173,9 +539,11 @@ function FieldEditor({
           />
         )}
         <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={save}>
+          <span className="sr-only">{`Save field ${fieldKey}`}</span>
           <Check className="h-3.5 w-3.5 text-green-600" />
         </Button>
         <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => setEditing(false)}>
+          <span className="sr-only">{`Cancel editing field ${fieldKey}`}</span>
           <X className="h-3.5 w-3.5 text-muted-foreground" />
         </Button>
       </div>
@@ -190,6 +558,7 @@ function FieldEditor({
         size="icon"
         className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
         onClick={startEditing}
+        aria-label={`Edit ${fieldKey}`}
       >
         <Pencil className="h-3 w-3 text-muted-foreground" />
       </Button>
@@ -212,13 +581,25 @@ function ExtractionCard({
 }) {
   const [expanded, setExpanded] = useState(!extraction.reviewed);
   const [editedData, setEditedData] = useState<Record<string, unknown>>(
-    extraction.extractedData as Record<string, unknown>
+    asRecord(extraction.extractedData)
+  );
+  const [persistedData, setPersistedData] = useState<Record<string, unknown>>(
+    asRecord(extraction.extractedData)
   );
   const [confirming, setConfirming] = useState(false);
+  const [savingCorrections, setSavingCorrections] = useState(false);
   const [downloading, setDownloading] = useState(false);
 
   const docLabel = DOC_TYPE_LABELS[extraction.docType] || extraction.docType;
   const fields = FIELD_LABELS[extraction.docType] || {};
+  const hasUnsavedChanges =
+    stableSerialize(editedData) !== stableSerialize(persistedData);
+
+  useEffect(() => {
+    const nextData = asRecord(extraction.extractedData);
+    setEditedData(nextData);
+    setPersistedData(nextData);
+  }, [extraction.extractedData, extraction.id]);
 
   const handleFieldChange = (key: string, newValue: unknown) => {
     setEditedData((prev) => ({ ...prev, [key]: newValue }));
@@ -253,6 +634,15 @@ function ExtractionCard({
         }
       );
       if (!res.ok) throw new Error("Failed to confirm extraction");
+      const data = await res.json();
+      const nextData = asRecord(
+        (data as { extraction?: { extractedData?: unknown } }).extraction
+          ?.extractedData
+      );
+      if (Object.keys(nextData).length > 0) {
+        setEditedData(nextData);
+        setPersistedData(nextData);
+      }
       toast.success(`Extraction for "${extraction.upload.filename}" confirmed`);
       onReviewed();
     } catch {
@@ -262,10 +652,72 @@ function ExtractionCard({
     }
   };
 
+  const handleSaveCorrections = async () => {
+    setSavingCorrections(true);
+    try {
+      const res = await fetch(
+        `/api/deals/${dealId}/extractions/${extraction.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            extractedData: editedData,
+          }),
+        }
+      );
+      if (!res.ok) throw new Error("Failed to save corrections");
+
+      const data = await res.json();
+      const nextData = asRecord(
+        (data as { extraction?: { extractedData?: unknown } }).extraction
+          ?.extractedData
+      );
+      if (Object.keys(nextData).length > 0) {
+        setEditedData(nextData);
+        setPersistedData(nextData);
+      } else {
+        setPersistedData(editedData);
+      }
+      toast.success("Corrections saved");
+      onReviewed();
+    } catch {
+      toast.error("Failed to save corrections");
+    } finally {
+      setSavingCorrections(false);
+    }
+  };
+
   // Determine which fields to show — use the schema field list, falling back to all keys
   const fieldKeys = Object.keys(fields).length > 0
     ? Object.keys(fields)
     : Object.keys(editedData);
+  const confidenceLevel = getConfidenceLevel(
+    toConfidencePercent(extraction.confidence)
+  );
+
+  const getFieldLabel = (key: string): string =>
+    fields[key] || key.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+
+  const fieldProvenance = fieldKeys.reduce<Record<string, FieldProvenance>>(
+    (acc, key) => {
+      acc[key] = getFieldProvenance(
+        extraction,
+        key,
+        getFieldLabel(key),
+        editedData[key]
+      );
+      return acc;
+    },
+    {}
+  );
+  const missingProvenanceCount = Object.values(fieldProvenance).filter(
+    (provenance) => provenance.status === "missing"
+  ).length;
+  const extractionFlags = getExtractionFlags(
+    extraction,
+    confidenceLevel,
+    missingProvenanceCount
+  );
 
   return (
     <div className="border rounded-lg">
@@ -333,10 +785,26 @@ function ExtractionCard({
             </Button>
             {!extraction.reviewed && (
               <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={handleSaveCorrections}
+                disabled={!hasUnsavedChanges || confirming || savingCorrections}
+              >
+                {savingCorrections ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Pencil className="h-3.5 w-3.5" />
+                )}
+                Save Corrections
+              </Button>
+            )}
+            {!extraction.reviewed && (
+              <Button
                 size="sm"
                 className="gap-1.5 ml-auto"
                 onClick={handleConfirm}
-                disabled={confirming}
+                disabled={confirming || savingCorrections}
               >
                 {confirming ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -347,29 +815,97 @@ function ExtractionCard({
               </Button>
             )}
           </div>
+          {extractionFlags.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              {extractionFlags.map((flag) => (
+                <Badge
+                  key={`${extraction.id}-${flag}`}
+                  variant={
+                    /low confidence|missing source provenance/i.test(flag)
+                      ? "destructive"
+                      : "outline"
+                  }
+                  className="text-[10px]"
+                >
+                  {flag}
+                </Badge>
+              ))}
+            </div>
+          )}
 
           {/* Field table */}
           <div className="rounded border divide-y">
             {fieldKeys.map((key) => {
-              const label = fields[key] || key.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+              const label = getFieldLabel(key);
               const value = editedData[key];
+              const provenance = fieldProvenance[key];
+              const provenanceBadgeVariant =
+                provenance.status === "missing" ? "destructive" : "secondary";
+              const provenanceLabel =
+                provenance.status === "provided"
+                  ? "Provided"
+                  : provenance.status === "matched"
+                    ? "Matched"
+                    : "Missing";
               return (
-                <div key={key} className="flex gap-3 px-3 py-2">
+                <div
+                  key={key}
+                  className="grid gap-3 px-3 py-2 md:grid-cols-[10rem_minmax(0,1fr)]"
+                >
                   <div className="w-40 shrink-0">
                     <span className="text-xs font-medium text-muted-foreground">
                       {label}
                     </span>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    {extraction.reviewed ? (
-                      <span className="text-sm">{renderFieldValue(value)}</span>
-                    ) : (
-                      <FieldEditor
-                        fieldKey={key}
-                        value={value}
-                        onSave={handleFieldChange}
-                      />
-                    )}
+                  <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                    <div className="min-w-0">
+                      {extraction.reviewed ? (
+                        <span className="text-sm">{renderFieldValue(value)}</span>
+                      ) : (
+                        <FieldEditor
+                          fieldKey={key}
+                          value={value}
+                          onSave={handleFieldChange}
+                        />
+                      )}
+                    </div>
+                    <div className="rounded border bg-muted/30 px-2 py-1.5">
+                      <div className="flex items-center justify-between gap-1">
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                          Source Provenance
+                        </p>
+                        <Badge
+                          variant={provenanceBadgeVariant}
+                          className="h-4 text-[10px] px-1.5"
+                        >
+                          {provenanceLabel}
+                        </Badge>
+                      </div>
+                      {(provenance.sourceLabel || provenance.pageLabel) && (
+                        <p className="text-[11px] text-muted-foreground">
+                          {[provenance.sourceLabel, provenance.pageLabel]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </p>
+                      )}
+                      <p className="text-xs text-muted-foreground">
+                        {provenance.snippet ??
+                          "No direct source match found in extracted text."}
+                      </p>
+                      {provenance.flags.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {provenance.flags.map((flag) => (
+                            <Badge
+                              key={`${key}-${flag}`}
+                              variant="outline"
+                              className="text-[10px]"
+                            >
+                              {flag}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
@@ -410,7 +946,9 @@ function ExtractionCard({
 
 export function DocumentExtractionReview({ dealId }: Props) {
   const [extractions, setExtractions] = useState<Extraction[]>([]);
-  const [unreviewedCount, setUnreviewedCount] = useState(0);
+  const [summary, setSummary] = useState<ExtractionSummary>(
+    EMPTY_EXTRACTION_SUMMARY
+  );
   const [loading, setLoading] = useState(true);
 
   const loadExtractions = useCallback(async () => {
@@ -418,8 +956,11 @@ export function DocumentExtractionReview({ dealId }: Props) {
       const res = await fetch(`/api/deals/${dealId}/extractions`);
       if (!res.ok) throw new Error("Failed to load");
       const data = await res.json();
-      setExtractions(data.extractions ?? []);
-      setUnreviewedCount(data.unreviewedCount ?? 0);
+      const nextExtractions = (data.extractions ?? []) as Extraction[];
+      const nextSummary = resolveExtractionSummary(data, nextExtractions);
+      setExtractions(nextExtractions);
+      setSummary(nextSummary);
+      emitExtractionCountUpdated(dealId, nextSummary);
     } catch {
       console.error("Failed to load extractions");
     } finally {
@@ -456,14 +997,24 @@ export function DocumentExtractionReview({ dealId }: Props) {
   return (
     <div className="space-y-4">
       {/* Summary */}
-      <div className="flex items-center gap-3 text-sm">
-        <span className="font-medium">{extractions.length} extraction{extractions.length !== 1 ? "s" : ""}</span>
-        {unreviewedCount > 0 && (
-          <Badge variant="secondary" className="gap-1">
-            <AlertTriangle className="h-3 w-3" />
-            {unreviewedCount} pending review
-          </Badge>
-        )}
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <span className="font-medium">
+          {summary.totalCount} extraction
+          {summary.totalCount !== 1 ? "s" : ""}
+        </span>
+        <Badge variant={statusBadgeVariant(summary.status)} className="text-xs">
+          {formatExtractionStatus(summary.status)}
+        </Badge>
+        <Badge variant="outline" className="text-xs">
+          {summary.reviewedCount} reviewed
+        </Badge>
+        <Badge
+          variant={summary.pendingCount > 0 ? "secondary" : "outline"}
+          className="text-xs gap-1"
+        >
+          {summary.pendingCount > 0 && <AlertTriangle className="h-3 w-3" />}
+          {summary.pendingCount} pending
+        </Badge>
       </div>
 
       {/* Pending review */}
@@ -504,18 +1055,147 @@ export function DocumentExtractionReview({ dealId }: Props) {
 }
 
 /**
+ * Compact status summary for use across multiple deal page surfaces.
+ */
+export function ExtractionStatusSummary({
+  dealId,
+  compact = false,
+}: {
+  dealId: string;
+  compact?: boolean;
+}) {
+  const [summary, setSummary] = useState<ExtractionSummary>(
+    EMPTY_EXTRACTION_SUMMARY
+  );
+  const [loading, setLoading] = useState(true);
+
+  const loadSummary = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/deals/${dealId}/extractions`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const nextSummary = resolveExtractionSummary(
+        data,
+        ((data as { extractions?: Extraction[] }).extractions ?? []) as Extraction[]
+      );
+      setSummary(nextSummary);
+    } catch {
+      // Best-effort status surface.
+    } finally {
+      setLoading(false);
+    }
+  }, [dealId]);
+
+  useEffect(() => {
+    void loadSummary();
+
+    const handleUpdatedCount = (event: Event) => {
+      const detail = (event as CustomEvent<ExtractionCountUpdatedDetail>).detail;
+      if (!detail || detail.dealId !== dealId) return;
+
+      setSummary((previous) => {
+        const pendingInput =
+          asCount(detail.pendingCount) ??
+          asCount(detail.unreviewedCount) ??
+          previous.pendingCount;
+        const totalCount =
+          asCount(detail.totalCount) ?? Math.max(previous.totalCount, pendingInput);
+        const pendingCount = Math.max(0, Math.min(pendingInput, totalCount));
+        const reviewedInput = asCount(detail.reviewedCount);
+        const reviewedCount = Math.max(
+          0,
+          Math.min(reviewedInput ?? totalCount - pendingCount, totalCount)
+        );
+        const status =
+          detail.status === "none" ||
+          detail.status === "pending_review" ||
+          detail.status === "review_complete"
+            ? detail.status
+            : deriveExtractionStatus(totalCount, pendingCount);
+
+        return {
+          totalCount,
+          pendingCount,
+          reviewedCount,
+          status,
+        };
+      });
+    };
+
+    window.addEventListener(EXTRACTION_REVIEW_COUNT_EVENT, handleUpdatedCount);
+    window.addEventListener("focus", loadSummary);
+
+    return () => {
+      window.removeEventListener(EXTRACTION_REVIEW_COUNT_EVENT, handleUpdatedCount);
+      window.removeEventListener("focus", loadSummary);
+    };
+  }, [dealId, loadSummary]);
+
+  return (
+    <div
+      className={
+        compact
+          ? "flex flex-wrap items-center gap-1.5 text-xs"
+          : "flex flex-wrap items-center gap-2 text-xs"
+      }
+      aria-label={`Extraction status ${loading ? "loading" : "loaded"}`}
+    >
+      <Badge variant={statusBadgeVariant(summary.status)} className="text-[11px]">
+        {formatExtractionStatus(summary.status)}
+      </Badge>
+      <Badge variant="outline" className="text-[11px]">
+        {summary.reviewedCount} reviewed
+      </Badge>
+      <Badge
+        variant={summary.pendingCount > 0 ? "secondary" : "outline"}
+        className="text-[11px]"
+      >
+        {summary.pendingCount} pending
+      </Badge>
+    </div>
+  );
+}
+
+/**
  * Badge component for the deal page Documents tab trigger.
  * Shows count of unreviewed extractions.
  */
 export function ExtractionPendingBadge({ dealId }: { dealId: string }) {
   const [count, setCount] = useState(0);
 
-  useEffect(() => {
-    fetch(`/api/deals/${dealId}/extractions`)
-      .then((res) => res.json())
-      .then((data) => setCount(data.unreviewedCount ?? 0))
-      .catch(() => {});
+  const loadCount = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/deals/${dealId}/extractions`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const summary = resolveExtractionSummary(
+        data,
+        ((data as { extractions?: Extraction[] }).extractions ?? []) as Extraction[]
+      );
+      setCount(summary.pendingCount);
+    } catch {
+      // Best-effort badge update only.
+    }
   }, [dealId]);
+
+  useEffect(() => {
+    void loadCount();
+
+    const handleUpdatedCount = (event: Event) => {
+      const detail = (event as CustomEvent<ExtractionCountUpdatedDetail>).detail;
+      if (!detail || detail.dealId !== dealId) return;
+      const nextCount = asCount(detail.pendingCount) ?? asCount(detail.unreviewedCount) ?? 0;
+      setCount(nextCount);
+    };
+
+    window.addEventListener(EXTRACTION_REVIEW_COUNT_EVENT, handleUpdatedCount);
+    window.addEventListener("focus", loadCount);
+
+    return () => {
+      window.removeEventListener(EXTRACTION_REVIEW_COUNT_EVENT, handleUpdatedCount);
+      window.removeEventListener("focus", loadCount);
+    };
+  }, [dealId, loadCount]);
 
   if (count === 0) return null;
 
