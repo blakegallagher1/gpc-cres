@@ -56,6 +56,51 @@ export type DevelopmentBudgetSummary = {
   totalBudget: number;
 };
 
+export type DepreciationPropertyType =
+  | "commercial_building"
+  | "land_improvements"
+  | "personal_property"
+  | "equipment";
+
+export type CostSegregationPropertyType =
+  | "SMALL_BAY_FLEX"
+  | "OUTDOOR_STORAGE"
+  | "TRUCK_PARKING";
+
+export type DepreciationScheduleEntry = {
+  year: number;
+  deduction: number;
+  accumulated: number;
+  remainingBasis: number;
+};
+
+export type DepreciationScheduleResult = {
+  schedule: DepreciationScheduleEntry[];
+  method: string;
+  recoveryPeriodYears: number;
+  totalDepreciableBasis: number;
+  typicalAnnualDeduction: number;
+};
+
+export type CostSegregationEstimate = {
+  personalPropertyPct: number;
+  landImprovementsPct: number;
+  buildingPct: number;
+  estimatedFirstYearDeduction: number;
+  withoutCostSegFirstYear: number;
+  estimatedNpvBenefit: number;
+};
+
+export type Exchange1031Deadlines = {
+  saleCloseDate: string;
+  identificationDeadline: string;
+  closingDeadline: string;
+  daysRemainingIdentification: number;
+  daysRemainingClosing: number;
+  isIdentificationExpired: boolean;
+  isClosingExpired: boolean;
+};
+
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 function round(value: number, decimals = 2): number {
@@ -97,6 +142,20 @@ function safeNumber(value: number): number {
     return 0;
   }
   return value;
+}
+
+function toUtcDateInput(value: Date | string, label: string): Date {
+  const parsed = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new Error(`Invalid ${label}`);
+  }
+  return new Date(
+    Date.UTC(parsed.getUTCFullYear(), parsed.getUTCMonth(), parsed.getUTCDate()),
+  );
+}
+
+function formatIsoDateOnly(value: Date): string {
+  return value.toISOString().split("T")[0] ?? "";
 }
 
 export function summarizeDevelopmentBudget(
@@ -241,5 +300,130 @@ export function aggregateRentRoll(input: {
     weightedAverageLeaseTermYears: totalArea > 0 ? round(weightedYears / totalArea, 2) : 0,
     annualSchedule,
     yearOneRevenue: annualSchedule[0]?.totalRevenue ?? 0,
+  };
+}
+
+export function calculateDepreciationSchedule(input: {
+  costBasis: number;
+  propertyType: DepreciationPropertyType;
+  placedInServiceYear: number;
+  projectionYears?: number;
+}): DepreciationScheduleResult {
+  const recoveryPeriods: Record<DepreciationPropertyType, number> = {
+    commercial_building: 39,
+    land_improvements: 15,
+    personal_property: 7,
+    equipment: 5,
+  };
+
+  const period = recoveryPeriods[input.propertyType] ?? 39;
+  const method =
+    period >= 15
+      ? "Straight-Line (MACRS)"
+      : "200% Declining Balance (MACRS)";
+  const costBasis = Math.max(safeNumber(input.costBasis), 0);
+  const annualDeduction =
+    period >= 15 ? costBasis / period : (costBasis * 2) / period;
+  const projectionYears = Math.max(
+    1,
+    Math.floor(safeNumber(input.projectionYears ?? 10)),
+  );
+  const placedInServiceYear = Math.max(
+    1900,
+    Math.floor(safeNumber(input.placedInServiceYear)),
+  );
+
+  const schedule: DepreciationScheduleEntry[] = [];
+  let accumulated = 0;
+  for (let y = 0; y < Math.min(period, projectionYears); y++) {
+    let deduction: number;
+    if (period >= 15) {
+      deduction = y === 0 ? costBasis / period / 2 : costBasis / period;
+    } else {
+      const remainingBasis = Math.max(costBasis - accumulated, 0);
+      deduction = Math.min(remainingBasis * (2 / period), remainingBasis);
+    }
+    accumulated += deduction;
+    schedule.push({
+      year: placedInServiceYear + y,
+      deduction: round(deduction, 0),
+      accumulated: round(accumulated, 0),
+      remainingBasis: round(Math.max(costBasis - accumulated, 0), 0),
+    });
+  }
+
+  return {
+    schedule,
+    method,
+    recoveryPeriodYears: period,
+    totalDepreciableBasis: costBasis,
+    typicalAnnualDeduction: round(annualDeduction, 0),
+  };
+}
+
+export function calculateCostSegregationEstimate(input: {
+  totalBasis: number;
+  propertyType: CostSegregationPropertyType;
+}): CostSegregationEstimate {
+  const allocations: Record<
+    CostSegregationPropertyType,
+    { personal: number; landImp: number; building: number }
+  > = {
+    SMALL_BAY_FLEX: { personal: 15, landImp: 20, building: 65 },
+    OUTDOOR_STORAGE: { personal: 5, landImp: 60, building: 35 },
+    TRUCK_PARKING: { personal: 3, landImp: 70, building: 27 },
+  };
+
+  const alloc = allocations[input.propertyType] ?? allocations.SMALL_BAY_FLEX;
+  const totalBasis = Math.max(safeNumber(input.totalBasis), 0);
+  const personalBasis = totalBasis * (alloc.personal / 100);
+  const landImpBasis = totalBasis * (alloc.landImp / 100);
+  const buildingBasis = totalBasis * (alloc.building / 100);
+
+  const bonusDepreciation = personalBasis * 0.6;
+  const landImpFirstYear = landImpBasis / 15;
+  const buildingFirstYear = buildingBasis / 39 / 2;
+  const totalFirstYear = bonusDepreciation + landImpFirstYear + buildingFirstYear;
+
+  const withoutFirstYear = totalBasis / 39 / 2;
+  const npvBenefit = (totalFirstYear - withoutFirstYear) * 0.37;
+
+  return {
+    personalPropertyPct: alloc.personal,
+    landImprovementsPct: alloc.landImp,
+    buildingPct: alloc.building,
+    estimatedFirstYearDeduction: round(totalFirstYear, 0),
+    withoutCostSegFirstYear: round(withoutFirstYear, 0),
+    estimatedNpvBenefit: round(npvBenefit, 0),
+  };
+}
+
+export function calculate1031Deadlines(input: {
+  saleCloseDate: Date | string;
+  asOfDate?: Date | string;
+}): Exchange1031Deadlines {
+  const saleDate = toUtcDateInput(input.saleCloseDate, "sale close date");
+  const asOfDate = input.asOfDate
+    ? toUtcDateInput(input.asOfDate, "as-of date")
+    : toUtcDateInput(new Date(), "as-of date");
+
+  const identificationDeadline = addDays(saleDate, 45);
+  const closingDeadline = addDays(saleDate, 180);
+
+  const daysRemainingIdentification = Math.ceil(
+    (identificationDeadline.getTime() - asOfDate.getTime()) / MS_PER_DAY,
+  );
+  const daysRemainingClosing = Math.ceil(
+    (closingDeadline.getTime() - asOfDate.getTime()) / MS_PER_DAY,
+  );
+
+  return {
+    saleCloseDate: formatIsoDateOnly(saleDate),
+    identificationDeadline: formatIsoDateOnly(identificationDeadline),
+    closingDeadline: formatIsoDateOnly(closingDeadline),
+    daysRemainingIdentification: Math.max(daysRemainingIdentification, 0),
+    daysRemainingClosing: Math.max(daysRemainingClosing, 0),
+    isIdentificationExpired: daysRemainingIdentification < 0,
+    isClosingExpired: daysRemainingClosing < 0,
   };
 }

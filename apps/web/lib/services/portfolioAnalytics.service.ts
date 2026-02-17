@@ -1,4 +1,5 @@
 import { prisma } from "@entitlement-os/db";
+import { calculate1031Deadlines } from "@entitlement-os/shared";
 import {
   computeProForma,
   type ProFormaResults,
@@ -128,6 +129,7 @@ interface DealWithRelations {
   updatedAt: Date;
   jurisdiction: { name: string } | null;
   parcels: Array<{ acreage: { toString(): string } | null }>;
+  terms: { closingDate: Date | null } | null;
   financialModelAssumptions: unknown;
 }
 
@@ -168,6 +170,7 @@ async function loadDeals(orgId: string): Promise<DealWithRelations[]> {
     include: {
       jurisdiction: { select: { name: true } },
       parcels: { select: { acreage: true } },
+      terms: { select: { closingDate: true } },
     },
     orderBy: { updatedAt: "desc" },
   }) as unknown as DealWithRelations[];
@@ -486,10 +489,9 @@ export async function get1031Matches(
   const { proForma: dispProForma } = computeDealProForma(dispositionDeal);
   const estimatedSalePrice = dispProForma.exitAnalysis.salePrice;
 
-  // 1031 deadlines from today
-  const now = new Date();
-  const idDeadline = new Date(now.getTime() + 45 * 24 * 60 * 60 * 1000);
-  const closeDeadline = new Date(now.getTime() + 180 * 24 * 60 * 60 * 1000);
+  const deadlines = calculate1031Deadlines({
+    saleCloseDate: dispositionDeal.terms?.closingDate ?? new Date(),
+  });
 
   // Find acquisition candidates: active deals not yet closed, similar or greater value
   const candidates = deals.filter(
@@ -554,8 +556,8 @@ export async function get1031Matches(
         jurisdiction: deal.jurisdiction?.name ?? "Unknown",
         acreage,
         estimatedValue: Math.round(estValue),
-        identificationDeadline: idDeadline.toISOString().split("T")[0],
-        closeDeadline: closeDeadline.toISOString().split("T")[0],
+        identificationDeadline: deadlines.identificationDeadline,
+        closeDeadline: deadlines.closingDeadline,
         matchScore,
         matchReasons,
       };
@@ -567,8 +569,8 @@ export async function get1031Matches(
     dispositionDealId,
     dispositionDealName: dispositionDeal.name,
     estimatedSalePrice: Math.round(estimatedSalePrice),
-    identificationDeadline: idDeadline.toISOString().split("T")[0],
-    closeDeadline: closeDeadline.toISOString().split("T")[0],
+    identificationDeadline: deadlines.identificationDeadline,
+    closeDeadline: deadlines.closingDeadline,
     candidates: matches,
   };
 }

@@ -381,6 +381,11 @@ export async function GET(
         sku: true,
         status: true,
         financialModelAssumptions: true,
+        terms: {
+          select: {
+            closingDate: true,
+          },
+        },
         parcels: {
           select: { acreage: true },
           orderBy: { createdAt: "asc" },
@@ -417,6 +422,7 @@ export async function GET(
         name: deal.name,
         sku: deal.sku,
         status: deal.status,
+        closingDate: deal.terms?.closingDate ? deal.terms.closingDate.toISOString() : null,
         totalAcreage: deal.parcels.reduce(
           (sum, p) => sum + (p.acreage ? parseFloat(p.acreage.toString()) : 0),
           0

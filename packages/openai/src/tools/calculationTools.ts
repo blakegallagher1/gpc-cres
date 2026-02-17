@@ -1,6 +1,11 @@
 import { tool } from "@openai/agents";
 import { z } from "zod";
-import { summarizeDevelopmentBudget } from "@entitlement-os/shared";
+import {
+  calculate1031Deadlines,
+  calculateCostSegregationEstimate,
+  calculateDepreciationSchedule,
+  summarizeDevelopmentBudget,
+} from "@entitlement-os/shared";
 
 // ==================== FINANCE TOOLS ====================
 
@@ -540,51 +545,30 @@ export const calculate_depreciation_schedule = tool({
   }),
   execute: async (params) => {
     const { cost_basis, property_type, placed_in_service_year } = params;
-
-    const recoveryPeriods: Record<string, number> = {
-      commercial_building: 39,
-      land_improvements: 15,
-      personal_property: 7,
-      equipment: 5,
-    };
-
-    const period = recoveryPeriods[property_type] ?? 39;
-    const method =
-      period >= 15
-        ? "Straight-Line (MACRS)"
-        : "200% Declining Balance (MACRS)";
-    const annualDeduction =
-      period >= 15 ? cost_basis / period : (cost_basis * 2) / period;
-
-    const schedule = [];
-    let accumulated = 0;
-
-    for (let y = 0; y < Math.min(period, 10); y++) {
-      let deduction: number;
-      if (period >= 15) {
-        deduction = y === 0 ? cost_basis / period / 2 : cost_basis / period;
-      } else {
-        const remainingBasis = cost_basis - accumulated;
-        deduction = Math.min(
-          remainingBasis * (2 / period),
-          remainingBasis,
-        );
-      }
-      accumulated += deduction;
-      schedule.push({
-        year: placed_in_service_year + y,
-        deduction: round(deduction, 0),
-        accumulated: round(accumulated, 0),
-        remaining_basis: round(cost_basis - accumulated, 0),
-      });
-    }
+    const scheduleResult = calculateDepreciationSchedule({
+      costBasis: cost_basis,
+      propertyType:
+        property_type === "commercial_building" ||
+        property_type === "land_improvements" ||
+        property_type === "personal_property" ||
+        property_type === "equipment"
+          ? property_type
+          : "commercial_building",
+      placedInServiceYear: placed_in_service_year,
+      projectionYears: 10,
+    });
 
     return JSON.stringify({
-      schedule,
-      method,
-      recovery_period_years: period,
-      total_depreciable_basis: cost_basis,
-      typical_annual_deduction: round(annualDeduction, 0),
+      schedule: scheduleResult.schedule.map((entry) => ({
+        year: entry.year,
+        deduction: entry.deduction,
+        accumulated: entry.accumulated,
+        remaining_basis: entry.remainingBasis,
+      })),
+      method: scheduleResult.method,
+      recovery_period_years: scheduleResult.recoveryPeriodYears,
+      total_depreciable_basis: scheduleResult.totalDepreciableBasis,
+      typical_annual_deduction: scheduleResult.typicalAnnualDeduction,
     });
   },
 });
@@ -605,38 +589,23 @@ export const calculate_cost_segregation_estimate = tool({
   }),
   execute: async (params) => {
     const { total_basis, property_type } = params;
-
-    const allocations: Record<
-      string,
-      { personal: number; land_imp: number; building: number }
-    > = {
-      SMALL_BAY_FLEX: { personal: 15, land_imp: 20, building: 65 },
-      OUTDOOR_STORAGE: { personal: 5, land_imp: 60, building: 35 },
-      TRUCK_PARKING: { personal: 3, land_imp: 70, building: 27 },
-    };
-
-    const alloc = allocations[property_type] ?? allocations.SMALL_BAY_FLEX;
-    const personalBasis = total_basis * (alloc.personal / 100);
-    const landImpBasis = total_basis * (alloc.land_imp / 100);
-    const buildingBasis = total_basis * (alloc.building / 100);
-
-    // First year bonus depreciation on personal property (assuming 60% bonus)
-    const bonusDepr = personalBasis * 0.6;
-    const landImpFirstYear = landImpBasis / 15;
-    const buildingFirstYear = buildingBasis / 39 / 2;
-    const totalFirstYear = bonusDepr + landImpFirstYear + buildingFirstYear;
-
-    // Without cost seg, everything at 39-year
-    const withoutFirstYear = total_basis / 39 / 2;
-    const npvBenefit = (totalFirstYear - withoutFirstYear) * 0.37; // 37% tax rate
+    const estimate = calculateCostSegregationEstimate({
+      totalBasis: total_basis,
+      propertyType:
+        property_type === "SMALL_BAY_FLEX" ||
+        property_type === "OUTDOOR_STORAGE" ||
+        property_type === "TRUCK_PARKING"
+          ? property_type
+          : "SMALL_BAY_FLEX",
+    });
 
     return JSON.stringify({
-      personal_property_pct: alloc.personal,
-      land_improvements_pct: alloc.land_imp,
-      building_pct: alloc.building,
-      estimated_first_year_deduction: round(totalFirstYear, 0),
-      without_cost_seg_first_year: round(withoutFirstYear, 0),
-      estimated_npv_benefit: round(npvBenefit, 0),
+      personal_property_pct: estimate.personalPropertyPct,
+      land_improvements_pct: estimate.landImprovementsPct,
+      building_pct: estimate.buildingPct,
+      estimated_first_year_deduction: estimate.estimatedFirstYearDeduction,
+      without_cost_seg_first_year: estimate.withoutCostSegFirstYear,
+      estimated_npv_benefit: estimate.estimatedNpvBenefit,
     });
   },
 });
@@ -652,31 +621,18 @@ export const calculate_1031_deadlines = tool({
   }),
   execute: async (params) => {
     const { sale_close_date } = params;
-
-    const saleDate = new Date(sale_close_date);
-    const idDeadline = new Date(
-      saleDate.getTime() + 45 * 24 * 60 * 60 * 1000,
-    );
-    const closeDeadline = new Date(
-      saleDate.getTime() + 180 * 24 * 60 * 60 * 1000,
-    );
-    const now = new Date();
-
-    const daysRemainingId = Math.ceil(
-      (idDeadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
-    );
-    const daysRemainingClose = Math.ceil(
-      (closeDeadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
-    );
+    const deadlines = calculate1031Deadlines({
+      saleCloseDate: sale_close_date,
+    });
 
     return JSON.stringify({
-      sale_close_date,
-      identification_deadline: idDeadline.toISOString().split("T")[0],
-      closing_deadline: closeDeadline.toISOString().split("T")[0],
-      days_remaining_identification: Math.max(daysRemainingId, 0),
-      days_remaining_closing: Math.max(daysRemainingClose, 0),
-      is_identification_expired: daysRemainingId < 0,
-      is_closing_expired: daysRemainingClose < 0,
+      sale_close_date: deadlines.saleCloseDate,
+      identification_deadline: deadlines.identificationDeadline,
+      closing_deadline: deadlines.closingDeadline,
+      days_remaining_identification: deadlines.daysRemainingIdentification,
+      days_remaining_closing: deadlines.daysRemainingClosing,
+      is_identification_expired: deadlines.isIdentificationExpired,
+      is_closing_expired: deadlines.isClosingExpired,
     });
   },
 });

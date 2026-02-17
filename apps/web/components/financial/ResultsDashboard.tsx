@@ -50,7 +50,8 @@ export function ResultsDashboard({ results }: { results: ProFormaResults }) {
     acquisitionBasis: ab,
     annualCashFlows,
     exitAnalysis: ex,
-    leveredIRR,
+    preTaxIRR,
+    afterTaxIRR,
     unleveredIRR,
     equityMultiple,
     cashOnCashYear1,
@@ -60,15 +61,22 @@ export function ResultsDashboard({ results }: { results: ProFormaResults }) {
     dscr,
     weightedAverageLeaseTermYears,
     sourcesAndUses,
+    taxImpact,
+    exchange1031,
   } = results;
 
   return (
     <div className="space-y-4 overflow-y-auto">
       {/* Metric Cards */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 xl:grid-cols-7">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 xl:grid-cols-8">
         <MetricCard
-          label="Levered IRR"
-          value={leveredIRR !== null ? fmt(leveredIRR, "percent") : "N/A"}
+          label="Pre-Tax IRR"
+          value={preTaxIRR !== null ? fmt(preTaxIRR, "percent") : "N/A"}
+        />
+        <MetricCard
+          label="After-Tax IRR"
+          value={afterTaxIRR !== null ? fmt(afterTaxIRR, "percent") : "N/A"}
+          sub={taxImpact.taxDragBps !== null ? `Tax drag: ${taxImpact.taxDragBps} bps` : undefined}
         />
         <MetricCard
           label="Unlevered IRR"
@@ -96,6 +104,80 @@ export function ResultsDashboard({ results }: { results: ProFormaResults }) {
           value={`${weightedAverageLeaseTermYears.toFixed(2)} yrs`}
         />
       </div>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Tax Impact</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableBody>
+              <TableRow>
+                <TableCell className="font-medium">Pre-Tax IRR</TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {taxImpact.preTaxIRR !== null ? fmt(taxImpact.preTaxIRR, "percent") : "N/A"}
+                </TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="font-medium">After-Tax IRR</TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {taxImpact.afterTaxIRR !== null ? fmt(taxImpact.afterTaxIRR, "percent") : "N/A"}
+                </TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="font-medium">Tax Drag</TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {taxImpact.taxDragBps !== null ? `${taxImpact.taxDragBps} bps` : "N/A"}
+                </TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="font-medium">Total Depreciation (Hold)</TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {fmt(taxImpact.totalDepreciationTaken, "currency")}
+                </TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="font-medium">Estimated Exit Tax</TableCell>
+                <TableCell className="text-right tabular-nums text-destructive">
+                  ({fmt(taxImpact.estimatedDispositionTax, "currency")})
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {exchange1031 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">1031 Exchange Deadlines</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableBody>
+                <TableRow>
+                  <TableCell className="font-medium">Sale Close Date</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {exchange1031.saleCloseDate}
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium">45-Day Identification</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {exchange1031.identificationDeadline}
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium">180-Day Closing</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {exchange1031.closingDeadline}
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Acquisition Basis */}
       <Card>

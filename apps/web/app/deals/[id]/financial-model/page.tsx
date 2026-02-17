@@ -63,6 +63,7 @@ type FinancialModelResponse = {
     name: string;
     sku: string;
     status: string;
+    closingDate: string | null;
     totalAcreage: number;
   };
   tenants: TenantRecord[];
@@ -108,6 +109,8 @@ export default function FinancialModelPage() {
   const [developmentBudget, setDevelopmentBudget] = useState<DevelopmentBudgetRecord | null>(null);
   const [capitalSources, setCapitalSources] = useState<CapitalSourceRecord[]>([]);
   const [equityWaterfalls, setEquityWaterfalls] = useState<EquityWaterfallRecord[]>([]);
+  const [dealSku, setDealSku] = useState<string | undefined>(undefined);
+  const [dealTermsClosingDate, setDealTermsClosingDate] = useState<string | null>(null);
 
   const {
     assumptions,
@@ -133,8 +136,10 @@ export default function FinancialModelPage() {
         sourceKind: source.sourceKind,
         amount: source.amount,
       })),
+      dealSku,
+      dealTermsClosingDate,
     }),
-    [tenantLeases, developmentBudget, capitalSources],
+    [tenantLeases, developmentBudget, capitalSources, dealSku, dealTermsClosingDate],
   );
 
   const results = useProFormaCalculations(assumptions, proFormaContext);
@@ -159,6 +164,8 @@ export default function FinancialModelPage() {
         if (cancelled) return;
 
         dealNameRef.current = data.deal?.name ?? "";
+        setDealSku(data.deal?.sku);
+        setDealTermsClosingDate(data.deal?.closingDate ?? null);
         setTenants(data.tenants ?? []);
         setTenantLeases(data.tenantLeases ?? []);
         setDevelopmentBudget(data.developmentBudget ?? null);
@@ -191,6 +198,8 @@ export default function FinancialModelPage() {
         setDevelopmentBudget(null);
         setCapitalSources([]);
         setEquityWaterfalls([]);
+        setDealSku(undefined);
+        setDealTermsClosingDate(null);
       }
     })();
 

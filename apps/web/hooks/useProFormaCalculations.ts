@@ -1,8 +1,13 @@
 import { useMemo } from "react";
 import {
   aggregateRentRoll,
+  calculate1031Deadlines,
+  calculateCostSegregationEstimate,
+  calculateDepreciationSchedule,
   summarizeDevelopmentBudget,
+  type CostSegregationPropertyType,
   type DevelopmentBudgetCalcInput,
+  type Exchange1031Deadlines,
   type RentRollAggregation,
   type RentRollLeaseInput,
 } from "@entitlement-os/shared";
@@ -69,6 +74,28 @@ function round(value: number, decimals: number): number {
   return Math.round(value * factor) / factor;
 }
 
+function normalizeCostSegPropertyType(
+  value: string | undefined
+): CostSegregationPropertyType {
+  if (value === "SMALL_BAY_FLEX") return value;
+  if (value === "OUTDOOR_STORAGE") return value;
+  if (value === "TRUCK_PARKING") return value;
+  return "SMALL_BAY_FLEX";
+}
+
+function resolvePlacedInServiceYear(
+  closingDate: Date | string | null | undefined
+): number {
+  if (!closingDate) {
+    return new Date().getUTCFullYear();
+  }
+  const parsed = new Date(closingDate);
+  if (Number.isNaN(parsed.getTime())) {
+    return new Date().getUTCFullYear();
+  }
+  return parsed.getUTCFullYear();
+}
+
 // ---------------------------------------------------------------------------
 // Result types
 // ---------------------------------------------------------------------------
@@ -108,6 +135,8 @@ export interface ProFormaContext {
     sourceKind: string;
     amount: number;
   }>;
+  dealSku?: string;
+  dealTermsClosingDate?: Date | string | null;
 }
 
 export interface SourcesAndUsesSummary {
@@ -119,11 +148,22 @@ export interface SourcesAndUsesSummary {
   usesDelta: number;
 }
 
+export interface TaxImpactSummary {
+  preTaxIRR: number | null;
+  afterTaxIRR: number | null;
+  taxDragBps: number | null;
+  annualDepreciationDeductions: number[];
+  totalDepreciationTaken: number;
+  estimatedDispositionTax: number;
+}
+
 export interface ProFormaResults {
   acquisitionBasis: AcquisitionBasis;
   annualCashFlows: AnnualCashFlow[];
   exitAnalysis: ExitAnalysis;
   leveredIRR: number | null;
+  preTaxIRR: number | null;
+  afterTaxIRR: number | null;
   unleveredIRR: number | null;
   equityMultiple: number;
   cashOnCashYear1: number;
@@ -135,6 +175,8 @@ export interface ProFormaResults {
   rentRoll: RentRollAggregation;
   developmentBudgetSummary: ReturnType<typeof summarizeDevelopmentBudget>;
   sourcesAndUses: SourcesAndUsesSummary;
+  taxImpact: TaxImpactSummary;
+  exchange1031: Exchange1031Deadlines | null;
 }
 
 export type ExitScenarioPath =
@@ -315,6 +357,8 @@ export function computeProForma(
   const leveredCFs: number[] = [-equityRequired];
   const unleveredCFs: number[] = [-totalBasis];
   const annualCashFlows: AnnualCashFlow[] = [];
+  const annualNoi: number[] = [];
+  const annualPreTaxLeveredCashflow: number[] = [];
   let cumulativeCF = 0;
   let finalYearNoi = baseNoi;
 
@@ -341,6 +385,8 @@ export function computeProForma(
 
     const leveredCF = yearNoi - yearDS;
     cumulativeCF += leveredCF;
+    annualNoi.push(yearNoi);
+    annualPreTaxLeveredCashflow.push(leveredCF);
 
     leveredCFs.push(leveredCF);
     unleveredCFs.push(yearNoi);
@@ -386,13 +432,117 @@ export function computeProForma(
     profit: round(netProceeds + cumulativeCF - equityRequired, 0),
   };
 
+  const ORDINARY_INCOME_TAX_RATE = 0.37;
+  const CAPITAL_GAINS_TAX_RATE = 0.2;
+  const DEPRECIATION_RECAPTURE_TAX_RATE = 0.25;
+
+  const totalDepreciableBasis = Math.max(
+    acquisition.purchasePrice + developmentBudgetSummary.totalBudget,
+    0,
+  );
+  const costSegPropertyType = normalizeCostSegPropertyType(context?.dealSku);
+  const costSegregationEstimate = calculateCostSegregationEstimate({
+    totalBasis: totalDepreciableBasis,
+    propertyType: costSegPropertyType,
+  });
+  const placedInServiceYear = resolvePlacedInServiceYear(
+    context?.dealTermsClosingDate,
+  );
+  const personalPropertyBasis =
+    totalDepreciableBasis * (costSegregationEstimate.personalPropertyPct / 100);
+  const landImprovementsBasis =
+    totalDepreciableBasis * (costSegregationEstimate.landImprovementsPct / 100);
+  const buildingBasis =
+    totalDepreciableBasis * (costSegregationEstimate.buildingPct / 100);
+
+  const schedules = [
+    calculateDepreciationSchedule({
+      costBasis: personalPropertyBasis,
+      propertyType: "personal_property",
+      placedInServiceYear,
+      projectionYears: holdYears,
+    }),
+    calculateDepreciationSchedule({
+      costBasis: landImprovementsBasis,
+      propertyType: "land_improvements",
+      placedInServiceYear,
+      projectionYears: holdYears,
+    }),
+    calculateDepreciationSchedule({
+      costBasis: buildingBasis,
+      propertyType: "commercial_building",
+      placedInServiceYear,
+      projectionYears: holdYears,
+    }),
+  ];
+
+  const annualDepreciationByYear = new Map<number, number>();
+  for (const schedule of schedules) {
+    for (const entry of schedule.schedule) {
+      const existing = annualDepreciationByYear.get(entry.year) ?? 0;
+      annualDepreciationByYear.set(entry.year, existing + entry.deduction);
+    }
+  }
+
+  const annualDepreciationDeductions: number[] = [];
+  for (let y = 0; y < holdYears; y++) {
+    const calendarYear = placedInServiceYear + y;
+    const deduction = annualDepreciationByYear.get(calendarYear) ?? 0;
+    annualDepreciationDeductions.push(round(deduction, 0));
+  }
+
+  const totalDepreciationTaken = annualDepreciationDeductions.reduce(
+    (sum, deduction) => sum + deduction,
+    0,
+  );
+  const taxBasisAtExit = Math.max(totalDepreciableBasis - totalDepreciationTaken, 0);
+  const realizedGain = Math.max(salePrice - taxBasisAtExit, 0);
+  const recaptureAmount = Math.min(realizedGain, totalDepreciationTaken);
+  const capitalGainAmount = Math.max(realizedGain - recaptureAmount, 0);
+  const estimatedDispositionTax =
+    recaptureAmount * DEPRECIATION_RECAPTURE_TAX_RATE +
+    capitalGainAmount * CAPITAL_GAINS_TAX_RATE;
+
   // Add exit proceeds to terminal year for IRR
   leveredCFs[holdYears] += netProceeds;
   unleveredCFs[holdYears] += salePrice - dispositionCosts;
 
   // --- Return Metrics ---
   const leveredIRR = computeIRR(leveredCFs);
+  const preTaxIRR = leveredIRR;
+
+  const afterTaxLeveredCFs: number[] = [-equityRequired];
+  for (let y = 1; y <= holdYears; y++) {
+    const preTaxCashflow = annualPreTaxLeveredCashflow[y - 1] ?? 0;
+    const taxableOperatingIncome = Math.max(
+      (annualNoi[y - 1] ?? 0) - (annualDepreciationDeductions[y - 1] ?? 0),
+      0,
+    );
+    const operatingTax = taxableOperatingIncome * ORDINARY_INCOME_TAX_RATE;
+    let afterTaxCashflow = preTaxCashflow - operatingTax;
+    if (y === holdYears) {
+      afterTaxCashflow += netProceeds - estimatedDispositionTax;
+    }
+    afterTaxLeveredCFs.push(afterTaxCashflow);
+  }
+
+  const afterTaxIRR = computeIRR(afterTaxLeveredCFs);
   const unleveredIRR = computeIRR(unleveredCFs);
+  const taxDragBps =
+    preTaxIRR !== null && afterTaxIRR !== null
+      ? round((preTaxIRR - afterTaxIRR) * 10_000, 0)
+      : null;
+
+  let exchange1031: Exchange1031Deadlines | null = null;
+  if (context?.dealTermsClosingDate) {
+    try {
+      exchange1031 = calculate1031Deadlines({
+        saleCloseDate: context.dealTermsClosingDate,
+      });
+    } catch {
+      exchange1031 = null;
+    }
+  }
 
   const totalLeveredReturn = cumulativeCF + netProceeds;
   const equityMultiple =
@@ -408,6 +558,8 @@ export function computeProForma(
     annualCashFlows,
     exitAnalysis,
     leveredIRR,
+    preTaxIRR,
+    afterTaxIRR,
     unleveredIRR,
     equityMultiple: round(equityMultiple, 2),
     cashOnCashYear1,
@@ -419,6 +571,15 @@ export function computeProForma(
     rentRoll,
     developmentBudgetSummary,
     sourcesAndUses,
+    taxImpact: {
+      preTaxIRR,
+      afterTaxIRR,
+      taxDragBps,
+      annualDepreciationDeductions,
+      totalDepreciationTaken: round(totalDepreciationTaken, 0),
+      estimatedDispositionTax: round(estimatedDispositionTax, 0),
+    },
+    exchange1031,
   };
 }
 

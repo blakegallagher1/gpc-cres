@@ -212,6 +212,9 @@ describe("GET /api/deals/[id]/financial-model", () => {
       name: "Industrial Deal",
       sku: "SMALL_BAY_FLEX",
       status: "INTAKE",
+      terms: {
+        closingDate: new Date("2026-03-15T00:00:00.000Z"),
+      },
       financialModelAssumptions: { buildableSf: 10000 },
       parcels: [{ acreage: { toString: () => "2.0" } }],
       tenants: [
@@ -294,6 +297,7 @@ describe("GET /api/deals/[id]/financial-model", () => {
     expect(body.developmentBudget.lineItems).toHaveLength(1);
     expect(body.capitalSources).toHaveLength(1);
     expect(body.equityWaterfalls).toHaveLength(1);
+    expect(body.deal.closingDate).toBe("2026-03-15T00:00:00.000Z");
   });
 });
 
