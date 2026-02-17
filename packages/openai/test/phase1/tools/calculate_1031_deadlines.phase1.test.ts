@@ -20,9 +20,9 @@ describe("Phase 1 Tool Pack :: calculate_1031_deadlines", () => {
 
   it("[MATRIX:tool:calculate_1031_deadlines][PACK:idempotency] validates retry safety and duplicate-write prevention behavior", () => {
     const source = readRepoSource("packages/openai/src/tools/calculationTools.ts");
-    expect(source.includes("45 * 24 * 60 * 60 * 1000")).toBe(true);
-    expect(source.includes("180 * 24 * 60 * 60 * 1000")).toBe(true);
-    expect(source.includes("Math.max(daysRemainingId, 0)")).toBe(true);
-    expect(source.includes("Math.max(daysRemainingClose, 0)")).toBe(true);
+    expect(source.includes("calculate1031Deadlines({")).toBe(true);
+    expect(source.includes("saleCloseDate: sale_close_date")).toBe(true);
+    expect(source.includes("days_remaining_identification")).toBe(true);
+    expect(source.includes("days_remaining_closing")).toBe(true);
   });
 });

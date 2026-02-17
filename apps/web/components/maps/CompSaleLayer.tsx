@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { useMap, CircleMarker, Popup } from "react-leaflet";
+import { useMap, CircleMarker, Popup, Tooltip } from "react-leaflet";
 import L from "leaflet";
 import { Search, X, Loader2 } from "lucide-react";
 
@@ -18,6 +18,7 @@ export interface CompSale {
   saleDate: string | null;
   acreage: number | null;
   pricePerAcre: number | null;
+  pricePerSf: number | null;
   useType: string | null;
 }
 
@@ -53,6 +54,16 @@ function formatCurrency(n: number): string {
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
   return `$${n.toLocaleString()}`;
+}
+
+function formatCompLabel(comp: CompSale): string {
+  if (comp.pricePerSf != null && Number.isFinite(comp.pricePerSf)) {
+    return `$${comp.pricePerSf.toFixed(2)}/SF`;
+  }
+  if (comp.salePrice != null) {
+    return formatCurrency(comp.salePrice);
+  }
+  return "";
 }
 
 // ---------------------------------------------------------------------------
@@ -215,6 +226,11 @@ export function CompSaleLayer({ centerLat, centerLng, visible }: CompSaleLayerPr
                     {formatCurrency(comp.pricePerAcre)} / acre
                   </div>
                 )}
+                {comp.pricePerSf != null && (
+                  <div style={{ fontSize: "11px" }}>
+                    ${comp.pricePerSf.toFixed(2)} / SF
+                  </div>
+                )}
                 {comp.acreage != null && (
                   <div style={{ fontSize: "11px" }}>
                     {Number(comp.acreage).toFixed(2)} acres
@@ -232,6 +248,18 @@ export function CompSaleLayer({ centerLat, centerLng, visible }: CompSaleLayerPr
                 )}
               </div>
             </Popup>
+            {formatCompLabel(comp) ? (
+              <Tooltip
+                permanent
+                direction="top"
+                offset={[0, -10]}
+                className="pointer-events-none"
+              >
+                <span className="rounded bg-white/95 px-1.5 py-0.5 text-[10px] font-semibold text-gray-800 shadow">
+                  {formatCompLabel(comp)}
+                </span>
+              </Tooltip>
+            ) : null}
           </CircleMarker>
         );
       })}

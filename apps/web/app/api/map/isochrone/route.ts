@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z, ZodError } from "zod";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+
+const IsochroneRequestSchema = z.object({
+  lat: z.coerce.number().min(-90).max(90),
+  lng: z.coerce.number().min(-180).max(180),
+  minutes: z.coerce.number().int().min(1).max(60),
+});
 
 /**
  * POST /api/map/isochrone
@@ -14,26 +21,45 @@ export async function POST(req: NextRequest) {
   if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  if (!auth.orgId) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
-  const body = await req.json();
-  const { lat, lng, minutes } = body;
-
-  if (!lat || !lng || !minutes) {
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
     return NextResponse.json(
-      { error: "lat, lng, and minutes are required" },
+      { error: "Validation failed", details: { body: ["Invalid JSON body"] } },
+      { status: 400 }
+    );
+  }
+
+  let input: z.infer<typeof IsochroneRequestSchema>;
+  try {
+    input = IsochroneRequestSchema.parse(body);
+  } catch (err) {
+    if (err instanceof ZodError) {
+      return NextResponse.json(
+        { error: "Validation failed", details: err.flatten().fieldErrors },
+        { status: 400 }
+      );
+    }
+    return NextResponse.json(
+      { error: "Validation failed" },
       { status: 400 }
     );
   }
 
   try {
     const polygon = await computeIsochrone(
-      Number(lat),
-      Number(lng),
-      Number(minutes)
+      input.lat,
+      input.lng,
+      input.minutes
     );
     return NextResponse.json({ polygon });
   } catch (error) {
-    console.error("Isochrone error:", error);
+    console.error("[map-isochrone-route]", error);
     return NextResponse.json(
       { error: "Failed to compute isochrone" },
       { status: 500 }

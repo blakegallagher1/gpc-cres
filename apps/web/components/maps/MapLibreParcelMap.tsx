@@ -37,6 +37,7 @@ type CompSale = {
   saleDate: string | null;
   acreage: number | null;
   pricePerAcre: number | null;
+  pricePerSf: number | null;
   useType: string | null;
 };
 
@@ -116,6 +117,25 @@ function formatCurrency(n: number): string {
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
   return `$${n.toLocaleString()}`;
+}
+
+function formatCompLabel(comp: CompSale): string {
+  if (comp.pricePerSf != null && Number.isFinite(comp.pricePerSf)) {
+    return `$${comp.pricePerSf.toFixed(2)}/SF`;
+  }
+  if (comp.salePrice != null) {
+    return formatCurrency(comp.salePrice);
+  }
+  return "";
+}
+
+function toFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim().length > 0) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
 }
 
 function getRecencyColor(saleDate: string | null): string {
@@ -567,7 +587,7 @@ export function MapLibreParcelMap({
               type: "circle",
               source: "parcel-point-source",
               layout: {
-                visibility: showLayers ? "visible" : "visible",
+                visibility: showLayers ? "visible" : "none",
               },
               paint: {
                 "circle-radius": 7,
@@ -620,7 +640,7 @@ export function MapLibreParcelMap({
         hideBoundaryLayerVisibility();
         fitBounds();
 
-        const handleFeatureClick = (e: any) => {
+        const handleFeatureClick = (e: maplibregl.MapLayerMouseEvent) => {
           const feature = e.features?.[0];
           const parcelId = feature?.properties?.id as string | undefined;
           if (!parcelId) return;
@@ -739,7 +759,7 @@ export function MapLibreParcelMap({
       map.setLayoutProperty("parcels-flood-layer", "visibility", showLayers && showFlood ? "visible" : "none");
       map.setLayoutProperty("base-streets", "visibility", baseLayer === "Satellite" ? "none" : "visible");
       map.setLayoutProperty("base-satellite", "visibility", baseLayer === "Satellite" ? "visible" : "none");
-      map.setLayoutProperty("parcel-points", "visibility", showLayers ? "visible" : "visible");
+      map.setLayoutProperty("parcel-points", "visibility", showLayers ? "visible" : "none");
     } catch {}
   }, [
     boundarySource,
@@ -1249,10 +1269,12 @@ type CompSaleProperties = {
   saleDate: string | null;
   acreage: number | null;
   pricePerAcre: number | null;
+  pricePerSf: number | null;
   useType: string | null;
   color: string;
   radius: number;
   opacity: number;
+  label: string;
 };
 
 function MapLibreCompSaleLayer({
@@ -1268,6 +1290,7 @@ function MapLibreCompSaleLayer({
   const popupRef = useRef<maplibregl.Popup | null>(null);
   const sourceId = "maplibre-comps-source";
   const layerId = "maplibre-comps-layer";
+  const labelLayerId = "maplibre-comps-label-layer";
 
   const mapRef = useRef(map);
   useEffect(() => {
@@ -1353,10 +1376,12 @@ function MapLibreCompSaleLayer({
             saleDate: comp.saleDate,
             acreage: comp.acreage ?? null,
             pricePerAcre: comp.pricePerAcre ?? null,
+            pricePerSf: comp.pricePerSf ?? null,
             useType: comp.useType ?? null,
             color: getRecencyColor(comp.saleDate),
             radius: comp.salePrice ? 8 : 7,
             opacity: pointOpacity,
+            label: formatCompLabel(comp),
           },
         };
       }),
@@ -1372,6 +1397,12 @@ function MapLibreCompSaleLayer({
         | { setData: (data: GeoJSON.FeatureCollection) => void }
         | undefined;
       source?.setData({ type: "FeatureCollection", features: [] });
+      if (mapInstance.getLayer(layerId)) {
+        mapInstance.setLayoutProperty(layerId, "visibility", "none");
+      }
+      if (mapInstance.getLayer(labelLayerId)) {
+        mapInstance.setLayoutProperty(labelLayerId, "visibility", "none");
+      }
       return;
     }
 
@@ -1393,6 +1424,24 @@ function MapLibreCompSaleLayer({
           "circle-stroke-opacity": 0.9,
         },
       });
+      mapInstance.addLayer({
+        id: labelLayerId,
+        type: "symbol",
+        source: sourceId,
+        layout: {
+          "text-field": ["get", "label"],
+          "text-size": 11,
+          "text-offset": [0, -1.4],
+          "text-anchor": "top",
+          "text-allow-overlap": false,
+        },
+        paint: {
+          "text-color": "#1f2937",
+          "text-halo-color": "#ffffff",
+          "text-halo-width": 1.2,
+          "text-opacity": 0.95,
+        },
+      });
 
       const onCompClick = (event: maplibregl.MapLayerMouseEvent) => {
         const feature = event.features?.[0];
@@ -1408,19 +1457,11 @@ function MapLibreCompSaleLayer({
           address: String(props.address || "Unknown"),
           lat: event.lngLat.lat,
           lng: event.lngLat.lng,
-          salePrice:
-            typeof props.salePrice === "number" && Number.isFinite(props.salePrice)
-              ? props.salePrice
-              : null,
+          salePrice: toFiniteNumber(props.salePrice),
           saleDate: typeof props.saleDate === "string" ? props.saleDate : null,
-          acreage:
-            typeof props.acreage === "number" && Number.isFinite(props.acreage)
-              ? props.acreage
-              : null,
-          pricePerAcre:
-            typeof props.pricePerAcre === "number" && Number.isFinite(props.pricePerAcre)
-              ? props.pricePerAcre
-              : null,
+          acreage: toFiniteNumber(props.acreage),
+          pricePerAcre: toFiniteNumber(props.pricePerAcre),
+          pricePerSf: toFiniteNumber(props.pricePerSf),
           useType: typeof props.useType === "string" ? props.useType : null,
         };
 
@@ -1431,6 +1472,7 @@ function MapLibreCompSaleLayer({
             <div style="font-weight:600;margin-bottom:2px;">${comp.address}</div>
             ${comp.salePrice != null ? `<div style="font-size:14px;font-weight:700;color:#1e40af;">${formatCurrency(comp.salePrice)}</div>` : ""}
             ${comp.pricePerAcre != null ? `<div style="font-size:11px;">${formatCurrency(comp.pricePerAcre)} / acre</div>` : ""}
+            ${comp.pricePerSf != null ? `<div style="font-size:11px;">$${comp.pricePerSf.toFixed(2)} / SF</div>` : ""}
             ${comp.acreage != null ? `<div style="font-size:11px;">${comp.acreage.toFixed(2)} acres</div>` : ""}
             ${comp.saleDate != null ? `<div style="font-size:11px;color:#6b7280;">Sold: ${new Date(comp.saleDate).toLocaleDateString()} (${getRecencyLabel(comp.saleDate)})</div>` : ""}
             ${comp.useType ? `<div style="font-size:11px;color:#6b7280;">Use: ${comp.useType}</div>` : ""}
@@ -1439,10 +1481,17 @@ function MapLibreCompSaleLayer({
       };
 
       mapInstance.on("click", layerId, onCompClick);
+      mapInstance.on("click", labelLayerId, onCompClick);
       mapInstance.on("mouseenter", layerId, () => {
         mapInstance.getCanvas().style.cursor = "pointer";
       });
+      mapInstance.on("mouseenter", labelLayerId, () => {
+        mapInstance.getCanvas().style.cursor = "pointer";
+      });
       mapInstance.on("mouseleave", layerId, () => {
+        mapInstance.getCanvas().style.cursor = "";
+      });
+      mapInstance.on("mouseleave", labelLayerId, () => {
         mapInstance.getCanvas().style.cursor = "";
       });
     } else {
@@ -1450,6 +1499,10 @@ function MapLibreCompSaleLayer({
         | { setData: (data: GeoJSON.FeatureCollection) => void }
         | undefined;
       source?.setData(compSource);
+    }
+    mapInstance.setLayoutProperty(layerId, "visibility", "visible");
+    if (mapInstance.getLayer(labelLayerId)) {
+      mapInstance.setLayoutProperty(labelLayerId, "visibility", "visible");
     }
 
     if (visible && centerLat != null && centerLng != null && !searched) {

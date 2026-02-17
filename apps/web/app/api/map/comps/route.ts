@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z, ZodError } from "zod";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 
 const PROPERTY_DB_URL = process.env.LA_PROPERTY_DB_URL || "";
@@ -22,6 +23,32 @@ async function propertyRpc(
   return res.json();
 }
 
+const QuerySchema = z
+  .object({
+    address: z.string().trim().min(1).optional(),
+    lat: z.coerce.number().min(-90).max(90).optional(),
+    lng: z.coerce.number().min(-180).max(180).optional(),
+    radiusMiles: z.coerce.number().min(0.1).max(25).default(3),
+  })
+  .refine(
+    (value) =>
+      Boolean(value.address) ||
+      (typeof value.lat === "number" && typeof value.lng === "number"),
+    {
+      message: "Provide address or lat/lng",
+      path: ["address"],
+    }
+  );
+
+function asNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim().length > 0) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
 /**
  * GET /api/map/comps?address=...&lat=...&lng=...&radiusMiles=3
  *
@@ -33,18 +60,28 @@ export async function GET(req: NextRequest) {
   if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-
-  const { searchParams } = req.nextUrl;
-  const address = searchParams.get("address");
-  const lat = searchParams.get("lat");
-  const lng = searchParams.get("lng");
-
-  if (!address && (!lat || !lng)) {
-    return NextResponse.json(
-      { error: "Provide address or lat/lng" },
-      { status: 400 }
-    );
+  if (!auth.orgId) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+
+  let input: z.infer<typeof QuerySchema>;
+  try {
+    input = QuerySchema.parse(
+      Object.fromEntries(req.nextUrl.searchParams.entries())
+    );
+  } catch (err) {
+    if (err instanceof ZodError) {
+      return NextResponse.json(
+        { error: "Validation failed", details: err.flatten().fieldErrors },
+        { status: 400 }
+      );
+    }
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  }
+
+  const address = input.address;
+  const lat = input.lat;
+  const lng = input.lng;
 
   try {
     // Build search text from address or reverse-geocode location
@@ -78,30 +115,38 @@ export async function GET(req: NextRequest) {
     const comps = result
       .filter((p) => {
         // Must have coordinates
-        const pLat = p.latitude ?? p.lat;
-        const pLng = p.longitude ?? p.lng;
+        const pLat = asNumber(p.latitude ?? p.lat);
+        const pLng = asNumber(p.longitude ?? p.lng);
         return pLat != null && pLng != null;
       })
       .map((p) => ({
         id: String(p.id ?? ""),
         address: String(p.site_address ?? p.address ?? "Unknown"),
-        lat: Number(p.latitude ?? p.lat),
-        lng: Number(p.longitude ?? p.lng),
-        salePrice: p.sale_price ? Number(p.sale_price) : null,
+        lat: asNumber(p.latitude ?? p.lat) ?? 0,
+        lng: asNumber(p.longitude ?? p.lng) ?? 0,
+        salePrice: asNumber(p.sale_price),
         saleDate: p.sale_date ? String(p.sale_date) : null,
-        acreage: p.acreage ? Number(p.acreage) : null,
-        pricePerAcre:
-          p.acreage && p.sale_price
-            ? Math.round(Number(p.sale_price) / Number(p.acreage))
-            : null,
+        acreage: asNumber(p.acreage),
+        pricePerAcre: (() => {
+          const acreage = asNumber(p.acreage);
+          const salePrice = asNumber(p.sale_price);
+          if (!acreage || !salePrice || acreage <= 0) return null;
+          return Math.round(salePrice / acreage);
+        })(),
+        pricePerSf: (() => {
+          const acreage = asNumber(p.acreage);
+          const salePrice = asNumber(p.sale_price);
+          if (!acreage || !salePrice || acreage <= 0) return null;
+          return Number((salePrice / (acreage * 43560)).toFixed(2));
+        })(),
         useType: p.use_code ?? p.land_use ?? null,
       }));
 
     // If lat/lng provided, filter by distance
-    if (lat && lng) {
-      const centerLat = Number(lat);
-      const centerLng = Number(lng);
-      const radiusMiles = Number(searchParams.get("radiusMiles") || "3");
+    if (typeof lat === "number" && typeof lng === "number") {
+      const centerLat = lat;
+      const centerLng = lng;
+      const radiusMiles = input.radiusMiles;
       const radiusKm = radiusMiles * 1.60934;
 
       const filtered = comps.filter((c) => {
@@ -121,7 +166,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ comps });
   } catch (error) {
-    console.error("Comps search error:", error);
+    console.error("[map-comps-route]", error);
     return NextResponse.json(
       { error: "Failed to search comparables" },
       { status: 500 }

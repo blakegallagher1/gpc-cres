@@ -22,7 +22,8 @@ describe("Phase 1 Tool Pack :: calculate_depreciation_schedule", () => {
 
   it("[MATRIX:tool:calculate_depreciation_schedule][PACK:idempotency] validates retry safety and duplicate-write prevention behavior", () => {
     const source = readRepoSource("packages/openai/src/tools/calculationTools.ts");
-    expect(source.includes("for (let y = 0; y < Math.min(period, 10); y++)")).toBe(true);
+    expect(source.includes("calculateDepreciationSchedule({")).toBe(true);
+    expect(source.includes("projectionYears: 10")).toBe(true);
     expect(source.includes("remaining_basis")).toBe(true);
     expect(source.includes("typical_annual_deduction")).toBe(true);
   });

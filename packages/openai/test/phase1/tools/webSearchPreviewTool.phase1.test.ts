@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { webSearchPreviewTool } from "../../../src/tools/index.js";
+import { hostedWebSearchPreviewTool } from "../../../src/tools/hostedTools.js";
 import { readRepoSource } from "../_helpers/toolAssertions.js";
 
 describe("Phase 1 Tool Pack :: webSearchPreviewTool", () => {
@@ -13,15 +14,15 @@ describe("Phase 1 Tool Pack :: webSearchPreviewTool", () => {
     const source = readRepoSource("packages/openai/src/tools/index.ts");
 
     // Pass-through declaration only; request security enforced in API/runtime layers.
-    expect(source.includes("export const webSearchPreviewTool = {")).toBe(true);
-    expect(source.includes('type: "web_search_preview" as const')).toBe(true);
+    expect(source.includes("export const webSearchPreviewTool = hostedWebSearchPreviewTool")).toBe(true);
+    expect(source.includes("hostedWebSearchPreviewTool")).toBe(true);
     expect(source.includes("execute:")).toBe(false);
   });
 
   it("[MATRIX:tool:webSearchPreviewTool][PACK:idempotency] validates retry safety and duplicate-write prevention behavior", () => {
-    const source = readRepoSource("packages/openai/src/tools/index.ts");
+    const source = readRepoSource("packages/openai/src/tools/hostedTools.ts");
     expect(source.includes('search_context_size: "medium" as const')).toBe(true);
     expect(source.includes("satisfies OpenAI.Responses.WebSearchPreviewTool")).toBe(true);
-    expect(source.includes("const webSearchPreviewTool")).toBe(true);
+    expect(webSearchPreviewTool).toBe(hostedWebSearchPreviewTool);
   });
 });

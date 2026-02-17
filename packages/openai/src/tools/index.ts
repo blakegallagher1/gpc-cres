@@ -1,5 +1,7 @@
-import type OpenAI from "openai";
-import { hostedFileSearchTool } from "./hostedTools.js";
+import {
+  hostedFileSearchTool,
+  hostedWebSearchPreviewTool,
+} from "./hostedTools.js";
 
 // --- Re-export all individual tools ---
 export {
@@ -174,10 +176,7 @@ import {
 } from "./entitlementIntelligenceTools.js";
 
 /** Web search tool for Responses API pass-through. */
-export const webSearchPreviewTool = {
-  type: "web_search_preview" as const,
-  search_context_size: "medium" as const,
-} satisfies OpenAI.Responses.WebSearchPreviewTool;
+export const webSearchPreviewTool = hostedWebSearchPreviewTool;
 
 /** Tools available to the Coordinator agent. */
 export const coordinatorTools = [
