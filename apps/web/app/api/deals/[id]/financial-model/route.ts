@@ -1,14 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma, type Prisma } from "@entitlement-os/db";
 import {
+  CapitalSourceCreateInputSchema,
+  CapitalSourceIdSchema,
+  CapitalSourcePatchWithIdInputSchema,
   DevelopmentBudgetCreateInputSchema,
+  EquityWaterfallTierCreateInputSchema,
+  EquityWaterfallTierIdSchema,
+  EquityWaterfallTierPatchWithIdInputSchema,
   TenantCreateInputSchema,
   TenantIdSchema,
   TenantLeaseCreateInputSchema,
   TenantLeaseIdSchema,
   TenantLeasePatchWithIdInputSchema,
   TenantPatchWithIdInputSchema,
+  type CapitalSourceCreateInput,
+  type CapitalSourcePatchWithIdInput,
   type DevelopmentBudgetInput,
+  type EquityWaterfallTierCreateInput,
+  type EquityWaterfallTierPatchWithIdInput,
   type TenantCreateInput,
   type TenantLeaseCreateInput,
   type TenantLeasePatchWithIdInput,
@@ -30,6 +40,14 @@ const createEntitySchema = z.discriminatedUnion("entity", [
     entity: z.literal("lease"),
     payload: TenantLeaseCreateInputSchema,
   }),
+  z.object({
+    entity: z.literal("capitalSource"),
+    payload: CapitalSourceCreateInputSchema,
+  }),
+  z.object({
+    entity: z.literal("equityWaterfall"),
+    payload: EquityWaterfallTierCreateInputSchema,
+  }),
 ]);
 
 const patchEntitySchema = z.discriminatedUnion("entity", [
@@ -40,6 +58,14 @@ const patchEntitySchema = z.discriminatedUnion("entity", [
   z.object({
     entity: z.literal("lease"),
     payload: TenantLeasePatchWithIdInputSchema,
+  }),
+  z.object({
+    entity: z.literal("capitalSource"),
+    payload: CapitalSourcePatchWithIdInputSchema,
+  }),
+  z.object({
+    entity: z.literal("equityWaterfall"),
+    payload: EquityWaterfallTierPatchWithIdInputSchema,
   }),
 ]);
 
@@ -52,19 +78,46 @@ const deleteEntitySchema = z.discriminatedUnion("entity", [
     entity: z.literal("lease"),
     payload: TenantLeaseIdSchema,
   }),
+  z.object({
+    entity: z.literal("capitalSource"),
+    payload: CapitalSourceIdSchema,
+  }),
+  z.object({
+    entity: z.literal("equityWaterfall"),
+    payload: EquityWaterfallTierIdSchema,
+  }),
 ]);
 
 const updateFinancialModelSchema = z
   .object({
     assumptions: z.record(z.string(), z.unknown()).optional(),
     developmentBudget: DevelopmentBudgetCreateInputSchema.nullable().optional(),
+    capitalSources: z.array(CapitalSourceCreateInputSchema).nullable().optional(),
+    equityWaterfalls: z.array(EquityWaterfallTierCreateInputSchema).nullable().optional(),
   })
   .superRefine((data, ctx) => {
-    if (data.assumptions === undefined && data.developmentBudget === undefined) {
+    if (
+      data.assumptions === undefined &&
+      data.developmentBudget === undefined &&
+      data.capitalSources === undefined &&
+      data.equityWaterfalls === undefined
+    ) {
       ctx.addIssue({
         code: "custom",
         message: "At least one financial model field is required",
       });
+    }
+    if (data.equityWaterfalls) {
+      for (const [index, tier] of data.equityWaterfalls.entries()) {
+        const total = tier.lpDistributionPct + tier.gpDistributionPct;
+        if (Math.abs(total - 100) > 0.0001) {
+          ctx.addIssue({
+            code: "custom",
+            message: "LP and GP distribution must total 100%",
+            path: ["equityWaterfalls", index],
+          });
+        }
+      }
     }
   });
 
@@ -105,6 +158,32 @@ type DevelopmentBudgetResponse = {
   orgId: string;
   lineItems: DevelopmentBudgetInput["lineItems"];
   contingencies: DevelopmentBudgetInput["contingencies"];
+  createdAt: string;
+  updatedAt: string;
+};
+
+type CapitalSourceResponseItem = {
+  id: string;
+  dealId: string;
+  orgId: string;
+  name: string;
+  sourceKind: string;
+  amount: number;
+  notes: string | null;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type EquityWaterfallResponseItem = {
+  id: string;
+  dealId: string;
+  orgId: string;
+  tierName: string;
+  hurdleIrrPct: number;
+  lpDistributionPct: number;
+  gpDistributionPct: number;
+  sortOrder: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -198,6 +277,58 @@ function serializeDevelopmentBudget(budget: {
   };
 }
 
+function serializeCapitalSource(source: {
+  id: string;
+  dealId: string;
+  orgId: string;
+  name: string;
+  sourceKind: string;
+  amount: DecimalLike | number;
+  notes: string | null;
+  sortOrder: number;
+  createdAt: Date;
+  updatedAt: Date;
+}): CapitalSourceResponseItem {
+  return {
+    id: source.id,
+    dealId: source.dealId,
+    orgId: source.orgId,
+    name: source.name,
+    sourceKind: source.sourceKind,
+    amount: toNumber(source.amount),
+    notes: source.notes,
+    sortOrder: source.sortOrder,
+    createdAt: source.createdAt.toISOString(),
+    updatedAt: source.updatedAt.toISOString(),
+  };
+}
+
+function serializeEquityWaterfallTier(tier: {
+  id: string;
+  dealId: string;
+  orgId: string;
+  tierName: string;
+  hurdleIrrPct: DecimalLike | number;
+  lpDistributionPct: DecimalLike | number;
+  gpDistributionPct: DecimalLike | number;
+  sortOrder: number;
+  createdAt: Date;
+  updatedAt: Date;
+}): EquityWaterfallResponseItem {
+  return {
+    id: tier.id,
+    dealId: tier.dealId,
+    orgId: tier.orgId,
+    tierName: tier.tierName,
+    hurdleIrrPct: toNumber(tier.hurdleIrrPct),
+    lpDistributionPct: toNumber(tier.lpDistributionPct),
+    gpDistributionPct: toNumber(tier.gpDistributionPct),
+    sortOrder: tier.sortOrder,
+    createdAt: tier.createdAt.toISOString(),
+    updatedAt: tier.updatedAt.toISOString(),
+  };
+}
+
 async function authorizeDeal(
   dealId: string,
   orgId: string,
@@ -266,6 +397,12 @@ export async function GET(
           orderBy: [{ startDate: "asc" }, { createdAt: "asc" }],
         },
         developmentBudget: true,
+        capitalSources: {
+          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+        },
+        equityWaterfalls: {
+          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+        },
       },
     });
 
@@ -290,6 +427,8 @@ export async function GET(
       developmentBudget: deal.developmentBudget
         ? serializeDevelopmentBudget(deal.developmentBudget)
         : null,
+      capitalSources: deal.capitalSources.map((source) => serializeCapitalSource(source)),
+      equityWaterfalls: deal.equityWaterfalls.map((tier) => serializeEquityWaterfallTier(tier)),
     });
   } catch (error) {
     console.error("[financial-model.GET]", error);
@@ -335,7 +474,7 @@ export async function PUT(
       );
     }
 
-    const { assumptions, developmentBudget } = parsed.data;
+    const { assumptions, developmentBudget, capitalSources, equityWaterfalls } = parsed.data;
     if (assumptions !== undefined && Array.isArray(assumptions)) {
       return NextResponse.json(
         { error: "Invalid assumptions payload" },
@@ -369,6 +508,44 @@ export async function PUT(
               lineItems: developmentBudget.lineItems,
               contingencies: developmentBudget.contingencies,
             },
+          });
+        }
+      }
+
+      if (capitalSources !== undefined) {
+        await tx.capitalSource.deleteMany({
+          where: { dealId: id, orgId: auth.orgId },
+        });
+        if (capitalSources !== null && capitalSources.length > 0) {
+          await tx.capitalSource.createMany({
+            data: capitalSources.map((source, index) => ({
+              dealId: id,
+              orgId: auth.orgId,
+              name: source.name,
+              sourceKind: source.sourceKind,
+              amount: source.amount,
+              notes: source.notes ?? null,
+              sortOrder: source.sortOrder ?? index,
+            })),
+          });
+        }
+      }
+
+      if (equityWaterfalls !== undefined) {
+        await tx.equityWaterfall.deleteMany({
+          where: { dealId: id, orgId: auth.orgId },
+        });
+        if (equityWaterfalls !== null && equityWaterfalls.length > 0) {
+          await tx.equityWaterfall.createMany({
+            data: equityWaterfalls.map((tier, index) => ({
+              dealId: id,
+              orgId: auth.orgId,
+              tierName: tier.tierName,
+              hurdleIrrPct: tier.hurdleIrrPct,
+              lpDistributionPct: tier.lpDistributionPct,
+              gpDistributionPct: tier.gpDistributionPct,
+              sortOrder: tier.sortOrder ?? index,
+            })),
           });
         }
       }
@@ -440,6 +617,46 @@ export async function POST(
       });
 
       return NextResponse.json({ tenant: serializeTenant(tenant) });
+    }
+
+    if (parsed.data.entity === "capitalSource") {
+      const sourcePayload = parsed.data.payload as CapitalSourceCreateInput;
+      const source = await prisma.capitalSource.create({
+        data: {
+          dealId: id,
+          orgId: auth.orgId,
+          name: sourcePayload.name,
+          sourceKind: sourcePayload.sourceKind,
+          amount: sourcePayload.amount,
+          notes: sourcePayload.notes ?? null,
+          sortOrder: sourcePayload.sortOrder ?? 0,
+        },
+      });
+      return NextResponse.json({ capitalSource: serializeCapitalSource(source) });
+    }
+
+    if (parsed.data.entity === "equityWaterfall") {
+      const tierPayload = parsed.data.payload as EquityWaterfallTierCreateInput;
+      const total = tierPayload.lpDistributionPct + tierPayload.gpDistributionPct;
+      if (Math.abs(total - 100) > 0.0001) {
+        return NextResponse.json(
+          { error: "LP and GP distribution must total 100%" },
+          { status: 400 },
+        );
+      }
+
+      const tier = await prisma.equityWaterfall.create({
+        data: {
+          dealId: id,
+          orgId: auth.orgId,
+          tierName: tierPayload.tierName,
+          hurdleIrrPct: tierPayload.hurdleIrrPct,
+          lpDistributionPct: tierPayload.lpDistributionPct,
+          gpDistributionPct: tierPayload.gpDistributionPct,
+          sortOrder: tierPayload.sortOrder ?? 0,
+        },
+      });
+      return NextResponse.json({ equityWaterfall: serializeEquityWaterfallTier(tier) });
     }
 
     const leasePayload = parsed.data.payload as TenantLeaseCreateInput;
@@ -542,6 +759,53 @@ export async function PATCH(
       });
 
       return NextResponse.json({ tenant: serializeTenant(tenant) });
+    }
+
+    if (parsed.data.entity === "capitalSource") {
+      const { id: sourceId, ...sourcePatch } = parsed.data.payload as CapitalSourcePatchWithIdInput;
+      const existing = await prisma.capitalSource.findFirst({
+        where: { id: sourceId, orgId: auth.orgId, dealId: id },
+        select: { id: true },
+      });
+      if (!existing) {
+        return NextResponse.json({ error: "Capital source not found" }, { status: 404 });
+      }
+
+      const source = await prisma.capitalSource.update({
+        where: { id: sourceId },
+        data: sourcePatch,
+      });
+      return NextResponse.json({ capitalSource: serializeCapitalSource(source) });
+    }
+
+    if (parsed.data.entity === "equityWaterfall") {
+      const { id: tierId, ...tierPatch } = parsed.data.payload as EquityWaterfallTierPatchWithIdInput;
+      const existing = await prisma.equityWaterfall.findFirst({
+        where: { id: tierId, orgId: auth.orgId, dealId: id },
+        select: {
+          id: true,
+          lpDistributionPct: true,
+          gpDistributionPct: true,
+        },
+      });
+      if (!existing) {
+        return NextResponse.json({ error: "Equity waterfall tier not found" }, { status: 404 });
+      }
+
+      const nextLp = tierPatch.lpDistributionPct ?? toNumber(existing.lpDistributionPct);
+      const nextGp = tierPatch.gpDistributionPct ?? toNumber(existing.gpDistributionPct);
+      if (Math.abs(nextLp + nextGp - 100) > 0.0001) {
+        return NextResponse.json(
+          { error: "LP and GP distribution must total 100%" },
+          { status: 400 },
+        );
+      }
+
+      const tier = await prisma.equityWaterfall.update({
+        where: { id: tierId },
+        data: tierPatch,
+      });
+      return NextResponse.json({ equityWaterfall: serializeEquityWaterfallTier(tier) });
     }
 
     const { id: leaseId, ...leasePatch } = parsed.data.payload as TenantLeasePatchWithIdInput;
@@ -654,6 +918,38 @@ export async function DELETE(
         where: { id: tenantId },
       });
       return NextResponse.json({ tenant: serializeTenant(tenant) });
+    }
+
+    if (parsed.data.entity === "capitalSource") {
+      const sourceId = parsed.data.payload.id;
+      const existing = await prisma.capitalSource.findFirst({
+        where: { id: sourceId, dealId: id, orgId: auth.orgId },
+        select: { id: true },
+      });
+      if (!existing) {
+        return NextResponse.json({ error: "Capital source not found" }, { status: 404 });
+      }
+
+      const source = await prisma.capitalSource.delete({
+        where: { id: sourceId },
+      });
+      return NextResponse.json({ capitalSource: serializeCapitalSource(source) });
+    }
+
+    if (parsed.data.entity === "equityWaterfall") {
+      const tierId = parsed.data.payload.id;
+      const existing = await prisma.equityWaterfall.findFirst({
+        where: { id: tierId, dealId: id, orgId: auth.orgId },
+        select: { id: true },
+      });
+      if (!existing) {
+        return NextResponse.json({ error: "Equity waterfall tier not found" }, { status: 404 });
+      }
+
+      const tier = await prisma.equityWaterfall.delete({
+        where: { id: tierId },
+      });
+      return NextResponse.json({ equityWaterfall: serializeEquityWaterfallTier(tier) });
     }
 
     const leaseId = parsed.data.payload.id;

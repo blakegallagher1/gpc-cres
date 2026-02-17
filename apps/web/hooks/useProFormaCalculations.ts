@@ -104,6 +104,19 @@ export interface ExitAnalysis {
 export interface ProFormaContext {
   tenantLeases?: RentRollLeaseInput[];
   developmentBudget?: DevelopmentBudgetCalcInput | null;
+  capitalSources?: Array<{
+    sourceKind: string;
+    amount: number;
+  }>;
+}
+
+export interface SourcesAndUsesSummary {
+  totalUses: number;
+  totalSources: number;
+  debtSources: number;
+  equitySources: number;
+  otherSources: number;
+  usesDelta: number;
 }
 
 export interface ProFormaResults {
@@ -121,6 +134,7 @@ export interface ProFormaResults {
   weightedAverageLeaseTermYears: number;
   rentRoll: RentRollAggregation;
   developmentBudgetSummary: ReturnType<typeof summarizeDevelopmentBudget>;
+  sourcesAndUses: SourcesAndUsesSummary;
 }
 
 // ---------------------------------------------------------------------------
@@ -166,6 +180,42 @@ export function computeProForma(
     totalBasis: round(totalBasis, 0),
     loanAmount: round(loanAmount, 0),
     equityRequired: round(equityRequired, 0),
+  };
+
+  const capitalSources = context?.capitalSources ?? [];
+  const hasCapitalSources = capitalSources.length > 0;
+  const debtSources = capitalSources
+    .filter((source) => source.sourceKind === "DEBT" || source.sourceKind === "MEZZ")
+    .reduce((sum, source) => sum + source.amount, 0);
+  const equitySources = capitalSources
+    .filter(
+      (source) =>
+        source.sourceKind === "LP_EQUITY" ||
+        source.sourceKind === "GP_EQUITY" ||
+        source.sourceKind === "PREF_EQUITY",
+    )
+    .reduce((sum, source) => sum + source.amount, 0);
+  const otherSources = capitalSources
+    .filter(
+      (source) =>
+        source.sourceKind !== "DEBT" &&
+        source.sourceKind !== "MEZZ" &&
+        source.sourceKind !== "LP_EQUITY" &&
+        source.sourceKind !== "GP_EQUITY" &&
+        source.sourceKind !== "PREF_EQUITY",
+    )
+    .reduce((sum, source) => sum + source.amount, 0);
+  const modeledTotalSources = loanAmount + equityRequired;
+  const capitalStackSources = debtSources + equitySources + otherSources;
+  const totalSources = hasCapitalSources ? capitalStackSources : modeledTotalSources;
+  const totalUses = totalBasis;
+  const sourcesAndUses: SourcesAndUsesSummary = {
+    totalUses: round(totalUses, 0),
+    totalSources: round(totalSources, 0),
+    debtSources: round(hasCapitalSources ? debtSources : loanAmount, 0),
+    equitySources: round(hasCapitalSources ? equitySources : equityRequired, 0),
+    otherSources: round(hasCapitalSources ? otherSources : 0, 0),
+    usesDelta: round(totalSources - totalUses, 0),
   };
 
   // --- Income & NOI ---
@@ -313,6 +363,7 @@ export function computeProForma(
     weightedAverageLeaseTermYears: rentRoll.weightedAverageLeaseTermYears,
     rentRoll,
     developmentBudgetSummary,
+    sourcesAndUses,
   };
 }
 

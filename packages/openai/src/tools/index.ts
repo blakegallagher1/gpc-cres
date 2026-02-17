@@ -8,6 +8,7 @@ export {
   updateDealStatus,
   listDeals,
   get_rent_roll,
+  model_capital_stack,
   addParcelToDeal,
   updateParcel,
 } from "./dealTools.js";
@@ -97,7 +98,16 @@ export {
 } from "./entitlementIntelligenceTools.js";
 
 // --- Agent-specific tool collections ---
-import { getDealContext, createDeal, updateDealStatus, listDeals, get_rent_roll, addParcelToDeal, updateParcel } from "./dealTools.js";
+import {
+  getDealContext,
+  createDeal,
+  updateDealStatus,
+  listDeals,
+  get_rent_roll,
+  model_capital_stack,
+  addParcelToDeal,
+  updateParcel,
+} from "./dealTools.js";
 import { createTask, updateTask, listTasks } from "./taskTools.js";
 import { zoningMatrixLookup, parishPackLookup } from "./zoningTools.js";
 import { evidenceSnapshot, floodZoneLookup, compareEvidenceHash } from "./evidenceTools.js";
@@ -270,6 +280,7 @@ export const financeTools = [
   calculate_debt_sizing,
   calculate_development_budget,
   get_rent_roll,
+  model_capital_stack,
   generate_artifact,
   analyze_portfolio,
   get_historical_accuracy,

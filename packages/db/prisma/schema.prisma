@@ -145,6 +145,8 @@ model Org {
   tenants                 Tenant[]
   tenantLeases            TenantLease[]
   developmentBudgets      DevelopmentBudget[]
+  capitalSources          CapitalSource[]
+  equityWaterfalls        EquityWaterfall[]
   financings              DealFinancing[]
   risks                   DealRisk[]
   entitlementPaths          EntitlementPath[]
@@ -269,6 +271,8 @@ model Deal {
   tenants        Tenant[]
   tenantLeases   TenantLease[]
   developmentBudget DevelopmentBudget?
+  capitalSources CapitalSource[]
+  equityWaterfalls EquityWaterfall[]
   financings       DealFinancing[]
   risks            DealRisk[]
   stakeholders     DealStakeholder[]
@@ -1149,6 +1153,48 @@ model DevelopmentBudget {
   @@index([orgId])
   @@index([dealId])
   @@map("development_budgets")
+}
+
+model CapitalSource {
+  id         String   @id @default(uuid()) @db.Uuid
+  dealId     String   @map("deal_id") @db.Uuid
+  orgId      String   @map("org_id") @db.Uuid
+  name       String   @map("name") @db.Text
+  sourceKind String   @map("source_kind") @db.Text
+  amount     Decimal  @map("amount") @db.Decimal(14, 2)
+  notes      String?  @map("notes") @db.Text
+  sortOrder  Int      @default(0) @map("sort_order")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  org  Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([dealId])
+  @@index([orgId, dealId])
+  @@map("capital_sources")
+}
+
+model EquityWaterfall {
+  id                String   @id @default(uuid()) @db.Uuid
+  dealId            String   @map("deal_id") @db.Uuid
+  orgId             String   @map("org_id") @db.Uuid
+  tierName          String   @map("tier_name") @db.Text
+  hurdleIrrPct      Decimal  @map("hurdle_irr_pct") @db.Decimal(8, 4)
+  lpDistributionPct Decimal  @map("lp_distribution_pct") @db.Decimal(8, 4)
+  gpDistributionPct Decimal  @map("gp_distribution_pct") @db.Decimal(8, 4)
+  sortOrder         Int      @default(0) @map("sort_order")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  org  Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([dealId])
+  @@index([orgId, dealId])
+  @@map("equity_waterfalls")
 }
 
 model DealFinancing {

@@ -63,6 +63,34 @@ type FinancialModelResponse = {
   tenants: TenantRecord[];
   tenantLeases: TenantLeaseRecord[];
   developmentBudget: DevelopmentBudgetRecord | null;
+  capitalSources: CapitalSourceRecord[];
+  equityWaterfalls: EquityWaterfallRecord[];
+};
+
+export type CapitalSourceRecord = {
+  id: string;
+  dealId: string;
+  orgId: string;
+  name: string;
+  sourceKind: "LP_EQUITY" | "GP_EQUITY" | "DEBT" | "MEZZ" | "PREF_EQUITY" | "GRANT" | "OTHER";
+  amount: number;
+  notes: string | null;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type EquityWaterfallRecord = {
+  id: string;
+  dealId: string;
+  orgId: string;
+  tierName: string;
+  hurdleIrrPct: number;
+  lpDistributionPct: number;
+  gpDistributionPct: number;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
 };
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
@@ -73,6 +101,8 @@ export default function FinancialModelPage() {
   const [tenants, setTenants] = useState<TenantRecord[]>([]);
   const [tenantLeases, setTenantLeases] = useState<TenantLeaseRecord[]>([]);
   const [developmentBudget, setDevelopmentBudget] = useState<DevelopmentBudgetRecord | null>(null);
+  const [capitalSources, setCapitalSources] = useState<CapitalSourceRecord[]>([]);
+  const [equityWaterfalls, setEquityWaterfalls] = useState<EquityWaterfallRecord[]>([]);
 
   const {
     assumptions,
@@ -93,6 +123,10 @@ export default function FinancialModelPage() {
           contingencies: developmentBudget.contingencies,
         }
       : undefined,
+    capitalSources: capitalSources.map((source) => ({
+      sourceKind: source.sourceKind,
+      amount: source.amount,
+    })),
   });
   const dealNameRef = useRef<string>("");
   const financingFetcher = useSWR<FinancesResponse>(
@@ -118,6 +152,8 @@ export default function FinancialModelPage() {
         setTenants(data.tenants ?? []);
         setTenantLeases(data.tenantLeases ?? []);
         setDevelopmentBudget(data.developmentBudget ?? null);
+        setCapitalSources(data.capitalSources ?? []);
+        setEquityWaterfalls(data.equityWaterfalls ?? []);
 
         if (data.assumptions) {
           // Merge saved assumptions with defaults to handle any missing fields
@@ -143,6 +179,8 @@ export default function FinancialModelPage() {
         setTenants([]);
         setTenantLeases([]);
         setDevelopmentBudget(null);
+        setCapitalSources([]);
+        setEquityWaterfalls([]);
       }
     })();
 
@@ -165,6 +203,20 @@ export default function FinancialModelPage() {
                 contingencies: developmentBudget.contingencies,
               }
             : null,
+          capitalSources: capitalSources.map((source) => ({
+            name: source.name,
+            sourceKind: source.sourceKind,
+            amount: source.amount,
+            notes: source.notes,
+            sortOrder: source.sortOrder,
+          })),
+          equityWaterfalls: equityWaterfalls.map((tier) => ({
+            tierName: tier.tierName,
+            hurdleIrrPct: tier.hurdleIrrPct,
+            lpDistributionPct: tier.lpDistributionPct,
+            gpDistributionPct: tier.gpDistributionPct,
+            sortOrder: tier.sortOrder,
+          })),
         }),
       });
       if (!res.ok) throw new Error("Failed to save");
@@ -175,7 +227,140 @@ export default function FinancialModelPage() {
     } finally {
       setSaving(false);
     }
-  }, [dealId, saving, assumptions, developmentBudget, setSaving, markClean]);
+  }, [
+    dealId,
+    saving,
+    assumptions,
+    developmentBudget,
+    capitalSources,
+    equityWaterfalls,
+    setSaving,
+    markClean,
+  ]);
+
+  const createCapitalSource = useCallback(
+    async (payload: {
+      name: string;
+      sourceKind: CapitalSourceRecord["sourceKind"];
+      amount: number;
+      notes: string | null;
+      sortOrder: number;
+    }) => {
+      const res = await fetch(`/api/deals/${dealId}/financial-model`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entity: "capitalSource", payload }),
+      });
+      if (!res.ok) throw new Error("Failed to create capital source");
+      const body = (await res.json()) as { capitalSource: CapitalSourceRecord };
+      setCapitalSources((prev) =>
+        [...prev, body.capitalSource].sort((a, b) => a.sortOrder - b.sortOrder),
+      );
+    },
+    [dealId],
+  );
+
+  const updateCapitalSource = useCallback(
+    async (
+      id: string,
+      patch: Partial<{
+        name: string;
+        sourceKind: CapitalSourceRecord["sourceKind"];
+        amount: number;
+        notes: string | null;
+        sortOrder: number;
+      }>,
+    ) => {
+      const res = await fetch(`/api/deals/${dealId}/financial-model`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entity: "capitalSource", payload: { id, ...patch } }),
+      });
+      if (!res.ok) throw new Error("Failed to update capital source");
+      const body = (await res.json()) as { capitalSource: CapitalSourceRecord };
+      setCapitalSources((prev) =>
+        prev
+          .map((source) => (source.id === body.capitalSource.id ? body.capitalSource : source))
+          .sort((a, b) => a.sortOrder - b.sortOrder),
+      );
+    },
+    [dealId],
+  );
+
+  const deleteCapitalSource = useCallback(
+    async (id: string) => {
+      const res = await fetch(`/api/deals/${dealId}/financial-model`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entity: "capitalSource", payload: { id } }),
+      });
+      if (!res.ok) throw new Error("Failed to delete capital source");
+      setCapitalSources((prev) => prev.filter((source) => source.id !== id));
+    },
+    [dealId],
+  );
+
+  const createEquityWaterfallTier = useCallback(
+    async (payload: {
+      tierName: string;
+      hurdleIrrPct: number;
+      lpDistributionPct: number;
+      gpDistributionPct: number;
+      sortOrder: number;
+    }) => {
+      const res = await fetch(`/api/deals/${dealId}/financial-model`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entity: "equityWaterfall", payload }),
+      });
+      if (!res.ok) throw new Error("Failed to create waterfall tier");
+      const body = (await res.json()) as { equityWaterfall: EquityWaterfallRecord };
+      setEquityWaterfalls((prev) =>
+        [...prev, body.equityWaterfall].sort((a, b) => a.sortOrder - b.sortOrder),
+      );
+    },
+    [dealId],
+  );
+
+  const updateEquityWaterfallTier = useCallback(
+    async (
+      id: string,
+      patch: Partial<{
+        tierName: string;
+        hurdleIrrPct: number;
+        lpDistributionPct: number;
+        gpDistributionPct: number;
+        sortOrder: number;
+      }>,
+    ) => {
+      const res = await fetch(`/api/deals/${dealId}/financial-model`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entity: "equityWaterfall", payload: { id, ...patch } }),
+      });
+      if (!res.ok) throw new Error("Failed to update waterfall tier");
+      const body = (await res.json()) as { equityWaterfall: EquityWaterfallRecord };
+      setEquityWaterfalls((prev) =>
+        prev
+          .map((tier) => (tier.id === body.equityWaterfall.id ? body.equityWaterfall : tier))
+          .sort((a, b) => a.sortOrder - b.sortOrder),
+      );
+    },
+    [dealId],
+  );
+
+  const deleteEquityWaterfallTier = useCallback(
+    async (id: string) => {
+      const res = await fetch(`/api/deals/${dealId}/financial-model`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entity: "equityWaterfall", payload: { id } }),
+      });
+      if (!res.ok) throw new Error("Failed to delete waterfall tier");
+      setEquityWaterfalls((prev) => prev.filter((tier) => tier.id !== id));
+    },
+    [dealId],
+  );
 
   // Auto-save on dirty after 2 seconds of inactivity
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -285,7 +470,18 @@ export default function FinancialModelPage() {
               </TabsContent>
 
               <TabsContent value="waterfall">
-                <WaterfallBuilder dealId={dealId} proForma={results} />
+                <WaterfallBuilder
+                  dealId={dealId}
+                  proForma={results}
+                  capitalSources={capitalSources}
+                  equityWaterfalls={equityWaterfalls}
+                  onCreateCapitalSource={createCapitalSource}
+                  onUpdateCapitalSource={updateCapitalSource}
+                  onDeleteCapitalSource={deleteCapitalSource}
+                  onCreateEquityWaterfallTier={createEquityWaterfallTier}
+                  onUpdateEquityWaterfallTier={updateEquityWaterfallTier}
+                  onDeleteEquityWaterfallTier={deleteEquityWaterfallTier}
+                />
               </TabsContent>
 
               <TabsContent value="debt">

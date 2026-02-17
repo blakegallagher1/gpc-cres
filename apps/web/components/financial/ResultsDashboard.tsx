@@ -59,6 +59,7 @@ export function ResultsDashboard({ results }: { results: ProFormaResults }) {
     annualDebtService,
     dscr,
     weightedAverageLeaseTermYears,
+    sourcesAndUses,
   } = results;
 
   return (
@@ -151,6 +152,62 @@ export function ResultsDashboard({ results }: { results: ProFormaResults }) {
           <p className="text-xs text-muted-foreground mt-2">
             Annual Debt Service: {fmt(annualDebtService, "currency")}
           </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Sources & Uses</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableBody>
+              <TableRow>
+                <TableCell className="font-medium">Total Uses</TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {fmt(sourcesAndUses.totalUses, "currency")}
+                </TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="font-medium">Debt Sources</TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {fmt(sourcesAndUses.debtSources, "currency")}
+                </TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="font-medium">Equity Sources</TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {fmt(sourcesAndUses.equitySources, "currency")}
+                </TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="font-medium">Other Sources</TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {fmt(sourcesAndUses.otherSources, "currency")}
+                </TableCell>
+              </TableRow>
+              <TableRow className="border-t-2">
+                <TableCell className="font-semibold">Total Sources</TableCell>
+                <TableCell className="text-right font-semibold tabular-nums">
+                  {fmt(sourcesAndUses.totalSources, "currency")}
+                </TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="font-medium">Sources - Uses Delta</TableCell>
+                <TableCell
+                  className={`text-right tabular-nums ${
+                    sourcesAndUses.usesDelta === 0
+                      ? "text-muted-foreground"
+                      : sourcesAndUses.usesDelta > 0
+                        ? "text-green-600"
+                        : "text-destructive"
+                  }`}
+                >
+                  {fmt(sourcesAndUses.usesDelta, "currency")}
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
 

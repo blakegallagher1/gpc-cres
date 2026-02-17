@@ -1,7 +1,11 @@
 import { tool } from "@openai/agents";
 import { z } from "zod";
 import { prisma } from "@entitlement-os/db";
-import { aggregateRentRoll } from "@entitlement-os/shared";
+import {
+  aggregateRentRoll,
+  summarizeDevelopmentBudget,
+  type DevelopmentBudgetCalcInput,
+} from "@entitlement-os/shared";
 
 const HIGH_IMPACT_STATUSES = ["APPROVED", "EXIT_MARKETED", "EXITED", "KILLED"] as const;
 const PACK_STALE_DAYS = 7;
@@ -20,6 +24,53 @@ function decimalToNumber(value: { toString(): string } | number): number {
     return value;
   }
   return Number.parseFloat(value.toString());
+}
+
+function buildDevelopmentBudgetInput(
+  budget: { lineItems: unknown; contingencies: unknown } | null,
+): DevelopmentBudgetCalcInput {
+  const lineItems: DevelopmentBudgetCalcInput["lineItems"] = [];
+  if (budget && Array.isArray(budget.lineItems)) {
+    for (const item of budget.lineItems) {
+      if (!item || typeof item !== "object") {
+        continue;
+      }
+      const candidate = item as {
+        name?: unknown;
+        category?: unknown;
+        amount?: unknown;
+      };
+      if (
+        typeof candidate.name === "string" &&
+        (candidate.category === "hard" ||
+          candidate.category === "soft" ||
+          candidate.category === "other") &&
+        typeof candidate.amount === "number"
+      ) {
+        lineItems.push({
+          name: candidate.name,
+          category: candidate.category,
+          amount: candidate.amount,
+        });
+      }
+    }
+  }
+
+  const contingencies: DevelopmentBudgetCalcInput["contingencies"] = {};
+  if (budget && budget.contingencies && typeof budget.contingencies === "object") {
+    const candidate = budget.contingencies as {
+      hardCostContingencyPct?: unknown;
+      softCostContingencyPct?: unknown;
+    };
+    if (typeof candidate.hardCostContingencyPct === "number") {
+      contingencies.hardCostContingencyPct = candidate.hardCostContingencyPct;
+    }
+    if (typeof candidate.softCostContingencyPct === "number") {
+      contingencies.softCostContingencyPct = candidate.softCostContingencyPct;
+    }
+  }
+
+  return { lineItems, contingencies };
 }
 
 export const getDealContext = tool({
@@ -361,6 +412,120 @@ export const get_rent_roll = tool({
         rentPerSf: decimalToNumber(lease.rentPerSf),
         annualEscalationPct: decimalToNumber(lease.annualEscalationPct),
       })),
+    });
+  },
+});
+
+export const model_capital_stack = tool({
+  name: "model_capital_stack",
+  description:
+    "Model sources and uses from persisted capital sources + equity waterfall tiers for a deal.",
+  parameters: z.object({
+    orgId: z.string().uuid().describe("The org ID for security scoping"),
+    dealId: z.string().uuid().describe("The deal ID"),
+  }),
+  execute: async ({ orgId, dealId }) => {
+    const deal = await prisma.deal.findFirst({
+      where: { id: dealId, orgId },
+      select: { id: true, financialModelAssumptions: true },
+    });
+    if (!deal) {
+      return JSON.stringify({ error: "Deal not found or access denied" });
+    }
+
+    const budget = await prisma.developmentBudget.findFirst({
+      where: { orgId, dealId },
+      select: {
+        lineItems: true,
+        contingencies: true,
+      },
+    });
+    const capitalSources = await prisma.capitalSource.findMany({
+      where: { orgId, dealId },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    });
+    const equityWaterfalls = await prisma.equityWaterfall.findMany({
+      where: { orgId, dealId },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    });
+
+    const assumptions = deal.financialModelAssumptions as
+      | {
+          acquisition?: { purchasePrice?: number; closingCostsPct?: number };
+        }
+      | null;
+    const purchasePrice = assumptions?.acquisition?.purchasePrice ?? 0;
+    const closingCostsPct = assumptions?.acquisition?.closingCostsPct ?? 0;
+    const closingCosts = purchasePrice * (closingCostsPct / 100);
+    const developmentBudgetSummary = summarizeDevelopmentBudget(
+      buildDevelopmentBudgetInput(budget),
+    );
+    const totalUses = purchasePrice + closingCosts + developmentBudgetSummary.totalBudget;
+
+    const totals = capitalSources.reduce(
+      (acc, source) => {
+        const amount = decimalToNumber(source.amount);
+        acc.totalSources += amount;
+        if (source.sourceKind === "DEBT" || source.sourceKind === "MEZZ") {
+          acc.debtSources += amount;
+        } else if (
+          source.sourceKind === "LP_EQUITY" ||
+          source.sourceKind === "GP_EQUITY" ||
+          source.sourceKind === "PREF_EQUITY"
+        ) {
+          acc.equitySources += amount;
+          if (source.sourceKind === "GP_EQUITY") {
+            acc.gpEquity += amount;
+          }
+          if (source.sourceKind === "LP_EQUITY" || source.sourceKind === "PREF_EQUITY") {
+            acc.lpEquity += amount;
+          }
+        } else {
+          acc.otherSources += amount;
+        }
+        return acc;
+      },
+      {
+        totalSources: 0,
+        debtSources: 0,
+        equitySources: 0,
+        otherSources: 0,
+        lpEquity: 0,
+        gpEquity: 0,
+      },
+    );
+
+    return JSON.stringify({
+      dealId,
+      sources: capitalSources.map((source) => ({
+        id: source.id,
+        name: source.name,
+        sourceKind: source.sourceKind,
+        amount: decimalToNumber(source.amount),
+        notes: source.notes,
+        sortOrder: source.sortOrder,
+      })),
+      waterfallTiers: equityWaterfalls.map((tier) => ({
+        id: tier.id,
+        tierName: tier.tierName,
+        hurdleIrrPct: decimalToNumber(tier.hurdleIrrPct),
+        lpDistributionPct: decimalToNumber(tier.lpDistributionPct),
+        gpDistributionPct: decimalToNumber(tier.gpDistributionPct),
+        sortOrder: tier.sortOrder,
+      })),
+      summary: {
+        purchasePrice,
+        closingCosts,
+        developmentBudget: developmentBudgetSummary.totalBudget,
+        totalUses,
+        totalSources: totals.totalSources,
+        debtSources: totals.debtSources,
+        equitySources: totals.equitySources,
+        otherSources: totals.otherSources,
+        lpEquity: totals.lpEquity,
+        gpEquity: totals.gpEquity,
+        sourcesUsesDelta: totals.totalSources - totalUses,
+      },
     });
   },
 });

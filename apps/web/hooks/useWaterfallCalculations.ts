@@ -8,8 +8,12 @@ import type { ProFormaResults } from "@/hooks/useProFormaCalculations";
 export interface PromoteTier {
   /** IRR hurdle that must be exceeded for this tier to activate (e.g., 12 = 12%) */
   hurdleIrrPct: number;
-  /** GP's share of distributions in this tier (e.g., 20 = 20%) */
-  gpSplitPct: number;
+  /** Legacy GP share of distributions in this tier (e.g., 20 = 20%) */
+  gpSplitPct?: number;
+  /** LP share of tier distributions (e.g., 80 = 80%) */
+  lpDistributionPct?: number;
+  /** GP share of tier distributions (e.g., 20 = 20%) */
+  gpDistributionPct?: number;
 }
 
 export interface WaterfallStructure {
@@ -91,6 +95,16 @@ function computeIRR(
 function round(value: number, decimals: number): number {
   const factor = Math.pow(10, decimals);
   return Math.round(value * factor) / factor;
+}
+
+function resolveGpSplitPct(tier: PromoteTier): number {
+  if (typeof tier.gpDistributionPct === "number") {
+    return tier.gpDistributionPct / 100;
+  }
+  if (typeof tier.lpDistributionPct === "number") {
+    return Math.max(0, (100 - tier.lpDistributionPct) / 100);
+  }
+  return (tier.gpSplitPct ?? 0) / 100;
 }
 
 // ---------------------------------------------------------------------------
@@ -210,14 +224,14 @@ export function computeWaterfall(
 
         for (const tier of sortedTiers) {
           if (irrPct >= tier.hurdleIrrPct) {
-            gpSplit = tier.gpSplitPct / 100;
+            gpSplit = resolveGpSplitPct(tier);
             activeTier = `Promote ${tier.hurdleIrrPct}%+`;
           }
         }
 
         // If no tiers defined or haven't hit first hurdle, use first tier's split
         if (sortedTiers.length > 0 && irrPct < sortedTiers[0].hurdleIrrPct) {
-          gpSplit = sortedTiers[0].gpSplitPct / 100;
+          gpSplit = resolveGpSplitPct(sortedTiers[0]);
           activeTier = `Below ${sortedTiers[0].hurdleIrrPct}% Hurdle`;
         }
 

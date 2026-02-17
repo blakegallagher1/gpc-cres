@@ -30,7 +30,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { Plus, Trash2, Save, Download, X } from "lucide-react";
+import { Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import type { ProFormaResults } from "@/hooks/useProFormaCalculations";
 import {
@@ -39,6 +39,33 @@ import {
   type PromoteTier,
   type WaterfallResults,
 } from "@/hooks/useWaterfallCalculations";
+
+type CapitalSourceKind =
+  | "LP_EQUITY"
+  | "GP_EQUITY"
+  | "DEBT"
+  | "MEZZ"
+  | "PREF_EQUITY"
+  | "GRANT"
+  | "OTHER";
+
+type CapitalSourceRecord = {
+  id: string;
+  name: string;
+  sourceKind: CapitalSourceKind;
+  amount: number;
+  notes: string | null;
+  sortOrder: number;
+};
+
+type EquityWaterfallRecord = {
+  id: string;
+  tierName: string;
+  hurdleIrrPct: number;
+  lpDistributionPct: number;
+  gpDistributionPct: number;
+  sortOrder: number;
+};
 
 // ---------------------------------------------------------------------------
 // Formatting helpers
@@ -70,9 +97,9 @@ function createDefaultStructure(equityRequired: number): WaterfallStructure {
     preferredReturnPct: 8,
     catchUpPct: 50,
     promoteTiers: [
-      { hurdleIrrPct: 0, gpSplitPct: 20 },
-      { hurdleIrrPct: 12, gpSplitPct: 30 },
-      { hurdleIrrPct: 18, gpSplitPct: 40 },
+      { hurdleIrrPct: 0, lpDistributionPct: 80, gpDistributionPct: 20 },
+      { hurdleIrrPct: 12, lpDistributionPct: 70, gpDistributionPct: 30 },
+      { hurdleIrrPct: 18, lpDistributionPct: 60, gpDistributionPct: 40 },
     ],
     createdAt: new Date().toISOString(),
   };
@@ -99,18 +126,28 @@ function StructureEditor({
     onChange({ ...structure, promoteTiers: tiers });
   };
 
+  const getTierGpSplit = (tier: PromoteTier): number => {
+    if (typeof tier.gpDistributionPct === "number") return tier.gpDistributionPct;
+    if (typeof tier.lpDistributionPct === "number") return 100 - tier.lpDistributionPct;
+    return tier.gpSplitPct ?? 0;
+  };
+
   const addTier = () => {
     const lastHurdle = structure.promoteTiers.length > 0
       ? structure.promoteTiers[structure.promoteTiers.length - 1].hurdleIrrPct
       : 0;
     const lastSplit = structure.promoteTiers.length > 0
-      ? structure.promoteTiers[structure.promoteTiers.length - 1].gpSplitPct
+      ? getTierGpSplit(structure.promoteTiers[structure.promoteTiers.length - 1])
       : 20;
     onChange({
       ...structure,
       promoteTiers: [
         ...structure.promoteTiers,
-        { hurdleIrrPct: lastHurdle + 6, gpSplitPct: Math.min(lastSplit + 10, 50) },
+        {
+          hurdleIrrPct: lastHurdle + 6,
+          lpDistributionPct: Math.max(0, 100 - Math.min(lastSplit + 10, 50)),
+          gpDistributionPct: Math.min(lastSplit + 10, 50),
+        },
       ],
     });
   };
@@ -233,8 +270,18 @@ function StructureEditor({
                 <span className="text-xs text-muted-foreground">GP:</span>
                 <Input
                   type="number"
-                  value={tier.gpSplitPct}
-                  onChange={(e) => updateTier(idx, "gpSplitPct", parseFloat(e.target.value) || 0)}
+                  value={getTierGpSplit(tier)}
+                  onChange={(e) => {
+                    const gpSplit = parseFloat(e.target.value) || 0;
+                    const tiers = [...structure.promoteTiers];
+                    tiers[idx] = {
+                      ...tiers[idx],
+                      gpDistributionPct: gpSplit,
+                      lpDistributionPct: 100 - gpSplit,
+                      gpSplitPct: gpSplit,
+                    };
+                    onChange({ ...structure, promoteTiers: tiers });
+                  }}
                   step={5}
                   min={0}
                   max={100}
@@ -243,7 +290,7 @@ function StructureEditor({
                 <span className="text-xs text-muted-foreground">%</span>
               </div>
               <span className="text-xs text-muted-foreground">
-                LP: {100 - tier.gpSplitPct}%
+                LP: {100 - getTierGpSplit(tier)}%
               </span>
               {structure.promoteTiers.length > 1 && (
                 <Button
@@ -406,9 +453,55 @@ function WaterfallResultsDisplay({ results }: { results: WaterfallResults }) {
 export function WaterfallBuilder({
   dealId,
   proForma,
+  capitalSources,
+  equityWaterfalls,
+  onCreateCapitalSource,
+  onUpdateCapitalSource,
+  onDeleteCapitalSource,
+  onCreateEquityWaterfallTier,
+  onUpdateEquityWaterfallTier,
+  onDeleteEquityWaterfallTier,
 }: {
   dealId: string;
   proForma: ProFormaResults;
+  capitalSources?: CapitalSourceRecord[];
+  equityWaterfalls?: EquityWaterfallRecord[];
+  onCreateCapitalSource?: (payload: {
+    name: string;
+    sourceKind: CapitalSourceKind;
+    amount: number;
+    notes: string | null;
+    sortOrder: number;
+  }) => Promise<void>;
+  onUpdateCapitalSource?: (
+    id: string,
+    patch: Partial<{
+      name: string;
+      sourceKind: CapitalSourceKind;
+      amount: number;
+      notes: string | null;
+      sortOrder: number;
+    }>,
+  ) => Promise<void>;
+  onDeleteCapitalSource?: (id: string) => Promise<void>;
+  onCreateEquityWaterfallTier?: (payload: {
+    tierName: string;
+    hurdleIrrPct: number;
+    lpDistributionPct: number;
+    gpDistributionPct: number;
+    sortOrder: number;
+  }) => Promise<void>;
+  onUpdateEquityWaterfallTier?: (
+    id: string,
+    patch: Partial<{
+      tierName: string;
+      hurdleIrrPct: number;
+      lpDistributionPct: number;
+      gpDistributionPct: number;
+      sortOrder: number;
+    }>,
+  ) => Promise<void>;
+  onDeleteEquityWaterfallTier?: (id: string) => Promise<void>;
 }) {
   const [structures, setStructures] = useState<WaterfallStructure[]>([]);
   const [activeIdx, setActiveIdx] = useState(0);
@@ -416,9 +509,24 @@ export function WaterfallBuilder({
   const [saveNameOpen, setSaveNameOpen] = useState(false);
   const [newName, setNewName] = useState("");
 
+  const hasExternalCapitalStack =
+    Array.isArray(capitalSources) &&
+    Array.isArray(equityWaterfalls) &&
+    typeof onCreateCapitalSource === "function" &&
+    typeof onUpdateCapitalSource === "function" &&
+    typeof onDeleteCapitalSource === "function" &&
+    typeof onCreateEquityWaterfallTier === "function" &&
+    typeof onUpdateEquityWaterfallTier === "function" &&
+    typeof onDeleteEquityWaterfallTier === "function";
+
   // Load from API
   useEffect(() => {
     if (!dealId) return;
+    if (hasExternalCapitalStack) {
+      setStructures([createDefaultStructure(proForma.acquisitionBasis.equityRequired)]);
+      setLoaded(true);
+      return;
+    }
     fetch(`/api/deals/${dealId}/waterfall`)
       .then((r) => r.json())
       .then((data) => {
@@ -434,11 +542,14 @@ export function WaterfallBuilder({
         setStructures([createDefaultStructure(proForma.acquisitionBasis.equityRequired)]);
         setLoaded(true);
       });
-  }, [dealId, proForma.acquisitionBasis.equityRequired]);
+  }, [dealId, hasExternalCapitalStack, proForma.acquisitionBasis.equityRequired]);
 
   // Persist
   const persist = useCallback(
     async (updated: WaterfallStructure[]) => {
+      if (hasExternalCapitalStack) {
+        return;
+      }
       try {
         await fetch(`/api/deals/${dealId}/waterfall`, {
           method: "PUT",
@@ -449,7 +560,7 @@ export function WaterfallBuilder({
         toast.error("Failed to save waterfall structure");
       }
     },
-    [dealId]
+    [dealId, hasExternalCapitalStack]
   );
 
   // Update active structure
@@ -500,11 +611,50 @@ export function WaterfallBuilder({
 
   const activeStructure = structures[activeIdx] ?? null;
 
+  const modeledStructure: WaterfallStructure | null = useMemo(() => {
+    if (!activeStructure) return null;
+    if (!hasExternalCapitalStack || !capitalSources || !equityWaterfalls) {
+      return activeStructure;
+    }
+
+    const totalEquity = capitalSources
+      .filter(
+        (source) =>
+          source.sourceKind === "LP_EQUITY" ||
+          source.sourceKind === "GP_EQUITY" ||
+          source.sourceKind === "PREF_EQUITY",
+      )
+      .reduce((sum, source) => sum + source.amount, 0);
+    const gpEquity = capitalSources
+      .filter((source) => source.sourceKind === "GP_EQUITY")
+      .reduce((sum, source) => sum + source.amount, 0);
+    const gpCoinvestPct = totalEquity > 0 ? (gpEquity / totalEquity) * 100 : activeStructure.gpCoinvestPct;
+
+    const promoteTiers: PromoteTier[] =
+      equityWaterfalls.length > 0
+        ? [...equityWaterfalls]
+            .sort((a, b) => a.sortOrder - b.sortOrder)
+            .map((tier) => ({
+              hurdleIrrPct: tier.hurdleIrrPct,
+              lpDistributionPct: tier.lpDistributionPct,
+              gpDistributionPct: tier.gpDistributionPct,
+              gpSplitPct: tier.gpDistributionPct,
+            }))
+        : activeStructure.promoteTiers;
+
+    return {
+      ...activeStructure,
+      totalEquity: totalEquity > 0 ? totalEquity : activeStructure.totalEquity,
+      gpCoinvestPct,
+      promoteTiers,
+    };
+  }, [activeStructure, capitalSources, equityWaterfalls, hasExternalCapitalStack]);
+
   // Compute waterfall results
   const results: WaterfallResults | null = useMemo(() => {
-    if (!activeStructure) return null;
-    return computeWaterfall(activeStructure, proForma);
-  }, [activeStructure, proForma]);
+    if (!modeledStructure) return null;
+    return computeWaterfall(modeledStructure, proForma);
+  }, [modeledStructure, proForma]);
 
   if (!loaded) return null;
 
@@ -592,6 +742,207 @@ export function WaterfallBuilder({
           )}
         </CardContent>
       </Card>
+
+      {hasExternalCapitalStack && capitalSources && equityWaterfalls && (
+        <>
+          <Card>
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm">Capital Sources</CardTitle>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs gap-1"
+                  onClick={() => {
+                    const nextOrder = capitalSources.length;
+                    void onCreateCapitalSource?.({
+                      name: `Source ${nextOrder + 1}`,
+                      sourceKind: "LP_EQUITY",
+                      amount: 0,
+                      notes: null,
+                      sortOrder: nextOrder,
+                    }).catch(() => toast.error("Failed to add capital source"));
+                  }}
+                >
+                  <Plus className="h-3 w-3" />
+                  Add Source
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {capitalSources.length === 0 && (
+                  <p className="text-xs text-muted-foreground">No capital sources configured.</p>
+                )}
+                {capitalSources.map((source) => (
+                  <div key={source.id} className="grid grid-cols-12 gap-2 items-center">
+                    <Input
+                      className="col-span-3 h-8 text-xs"
+                      value={source.name}
+                      onChange={(e) =>
+                        void onUpdateCapitalSource?.(source.id, { name: e.target.value }).catch(() =>
+                          toast.error("Failed to update capital source"),
+                        )
+                      }
+                    />
+                    <select
+                      className="col-span-3 h-8 rounded-md border bg-background px-2 text-xs"
+                      value={source.sourceKind}
+                      onChange={(e) =>
+                        void onUpdateCapitalSource?.(source.id, {
+                          sourceKind: e.target.value as CapitalSourceKind,
+                        }).catch(() => toast.error("Failed to update capital source"))
+                      }
+                    >
+                      <option value="LP_EQUITY">LP Equity</option>
+                      <option value="GP_EQUITY">GP Equity</option>
+                      <option value="DEBT">Debt</option>
+                      <option value="MEZZ">Mezz</option>
+                      <option value="PREF_EQUITY">Pref Equity</option>
+                      <option value="GRANT">Grant</option>
+                      <option value="OTHER">Other</option>
+                    </select>
+                    <Input
+                      className="col-span-3 h-8 text-xs"
+                      type="number"
+                      value={source.amount}
+                      onChange={(e) =>
+                        void onUpdateCapitalSource?.(source.id, {
+                          amount: parseFloat(e.target.value) || 0,
+                        }).catch(() => toast.error("Failed to update capital source"))
+                      }
+                    />
+                    <Input
+                      className="col-span-2 h-8 text-xs"
+                      type="number"
+                      value={source.sortOrder}
+                      onChange={(e) =>
+                        void onUpdateCapitalSource?.(source.id, {
+                          sortOrder: parseInt(e.target.value, 10) || 0,
+                        }).catch(() => toast.error("Failed to update capital source"))
+                      }
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="col-span-1 h-7 w-7 p-0 text-destructive"
+                      onClick={() =>
+                        void onDeleteCapitalSource?.(source.id).catch(() =>
+                          toast.error("Failed to delete capital source"),
+                        )
+                      }
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm">Waterfall Tiers</CardTitle>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs gap-1"
+                  onClick={() => {
+                    const nextOrder = equityWaterfalls.length;
+                    void onCreateEquityWaterfallTier?.({
+                      tierName: `Tier ${nextOrder + 1}`,
+                      hurdleIrrPct: nextOrder === 0 ? 0 : (equityWaterfalls[nextOrder - 1]?.hurdleIrrPct ?? 0) + 4,
+                      lpDistributionPct: 80,
+                      gpDistributionPct: 20,
+                      sortOrder: nextOrder,
+                    }).catch(() => toast.error("Failed to add waterfall tier"));
+                  }}
+                >
+                  <Plus className="h-3 w-3" />
+                  Add Tier
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {equityWaterfalls.length === 0 && (
+                  <p className="text-xs text-muted-foreground">No waterfall tiers configured.</p>
+                )}
+                {equityWaterfalls.map((tier) => (
+                  <div key={tier.id} className="grid grid-cols-12 gap-2 items-center">
+                    <Input
+                      className="col-span-3 h-8 text-xs"
+                      value={tier.tierName}
+                      onChange={(e) =>
+                        void onUpdateEquityWaterfallTier?.(tier.id, { tierName: e.target.value }).catch(() =>
+                          toast.error("Failed to update waterfall tier"),
+                        )
+                      }
+                    />
+                    <Input
+                      className="col-span-2 h-8 text-xs"
+                      type="number"
+                      value={tier.hurdleIrrPct}
+                      onChange={(e) =>
+                        void onUpdateEquityWaterfallTier?.(tier.id, {
+                          hurdleIrrPct: parseFloat(e.target.value) || 0,
+                        }).catch(() => toast.error("Failed to update waterfall tier"))
+                      }
+                    />
+                    <Input
+                      className="col-span-2 h-8 text-xs"
+                      type="number"
+                      value={tier.lpDistributionPct}
+                      onChange={(e) => {
+                        const lp = Math.min(100, Math.max(0, parseFloat(e.target.value) || 0));
+                        void onUpdateEquityWaterfallTier?.(tier.id, {
+                          lpDistributionPct: lp,
+                          gpDistributionPct: 100 - lp,
+                        }).catch(() => toast.error("Failed to update waterfall tier"));
+                      }}
+                    />
+                    <Input
+                      className="col-span-2 h-8 text-xs"
+                      type="number"
+                      value={tier.gpDistributionPct}
+                      onChange={(e) => {
+                        const gp = Math.min(100, Math.max(0, parseFloat(e.target.value) || 0));
+                        void onUpdateEquityWaterfallTier?.(tier.id, {
+                          gpDistributionPct: gp,
+                          lpDistributionPct: 100 - gp,
+                        }).catch(() => toast.error("Failed to update waterfall tier"));
+                      }}
+                    />
+                    <Input
+                      className="col-span-2 h-8 text-xs"
+                      type="number"
+                      value={tier.sortOrder}
+                      onChange={(e) =>
+                        void onUpdateEquityWaterfallTier?.(tier.id, {
+                          sortOrder: parseInt(e.target.value, 10) || 0,
+                        }).catch(() => toast.error("Failed to update waterfall tier"))
+                      }
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="col-span-1 h-7 w-7 p-0 text-destructive"
+                      onClick={() =>
+                        void onDeleteEquityWaterfallTier?.(tier.id).catch(() =>
+                          toast.error("Failed to delete waterfall tier"),
+                        )
+                      }
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
 
       {/* Results */}
       {results && <WaterfallResultsDisplay results={results} />}
