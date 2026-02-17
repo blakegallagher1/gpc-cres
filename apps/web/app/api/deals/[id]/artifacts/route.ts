@@ -61,6 +61,28 @@ export async function POST(
       include: {
         parcels: { orderBy: { createdAt: "asc" } },
         jurisdiction: true,
+        terms: {
+          select: {
+            offerPrice: true,
+            closingDate: true,
+          },
+        },
+        tenantLeases: {
+          select: {
+            rentPerSf: true,
+            rentedAreaSf: true,
+            startDate: true,
+            endDate: true,
+          },
+        },
+        outcome: {
+          select: {
+            actualNoiYear1: true,
+            actualExitPrice: true,
+            actualIrr: true,
+            actualEquityMultiple: true,
+          },
+        },
       },
     });
     if (!deal) {
@@ -90,7 +112,7 @@ export async function POST(
     const requiresTriage: ArtifactType[] = [
       "TRIAGE_PDF", "HEARING_DECK_PPTX", "EXIT_PACKAGE_PDF",
       "INVESTMENT_MEMO_PDF", "OFFERING_MEMO_PDF", "COMP_ANALYSIS_PDF",
-      "IC_DECK_PPTX",
+      "IC_DECK_PPTX", "BUYER_TEASER_PDF",
     ];
     if (requiresTriage.includes(aType)) {
       const triageRun = await prisma.run.findFirst({
@@ -284,7 +306,24 @@ interface DealWithRelations {
   sku: string;
   status: string;
   notes: string | null;
+  financialModelAssumptions?: unknown;
   jurisdiction: { id: string; name: string; kind: string; state: string } | null;
+  terms?: {
+    offerPrice: { toString(): string } | null;
+    closingDate: Date | null;
+  } | null;
+  tenantLeases?: Array<{
+    rentPerSf: { toString(): string };
+    rentedAreaSf: { toString(): string };
+    startDate: Date;
+    endDate: Date;
+  }>;
+  outcome?: {
+    actualNoiYear1: { toString(): string } | null;
+    actualExitPrice: { toString(): string } | null;
+    actualIrr: { toString(): string } | null;
+    actualEquityMultiple: { toString(): string } | null;
+  } | null;
   parcels: Array<{
     id: string;
     address: string;
@@ -346,50 +385,65 @@ async function buildArtifactSpec(
     schema_version: "1.0" as const,
     deal_id: deal.id,
     title: `${deal.name} - ${artifactTypeLabel(artifactType)}`,
-    sources_summary: [] as string[],
+    sources_summary: ["https://gallagherpropco.com"] as string[],
   };
 
   switch (artifactType) {
     case "TRIAGE_PDF": {
       const triage = triageOutput!;
+      const triageTier = inferTriageTier(triage);
+      const financialSection = buildTriageFinancialContractSection(deal, triage);
       const sections = [
         {
           key: "executive_summary",
           heading: "Executive Summary",
-          body_markdown: buildTriageExecutiveSummary(deal, triage),
+          body_markdown: [
+            `**Deal Name:** ${deal.name}`,
+            `**Recommendation:** ${String(triage.decision ?? "N/A")}`,
+            `**Triage Tier:** ${triageTier}`,
+            "",
+            "**Key Risks:**",
+            extractRiskMatrixLines(triage),
+          ].join("\n"),
         },
         {
-          key: "property_overview",
-          heading: "Property Overview",
-          body_markdown: buildDetailedParcelSummary(deal.parcels),
+          key: "site_overview",
+          heading: "Site Overview",
+          body_markdown: [
+            `**Addresses:** ${deal.parcels.map((p) => p.address).join("; ") || "N/A"}`,
+            `**Total Acreage:** ${totalAcreage(deal.parcels)} acres`,
+            `**Zoning:** ${[...new Set(deal.parcels.map((p) => p.currentZoning).filter(Boolean))].join(", ") || "Unknown"}`,
+            "",
+            "**Map Thumbnail:** [Map thumbnail placeholder]",
+          ].join("\n"),
         },
         {
-          key: "scorecard",
-          heading: "Triage Scorecard",
-          body_markdown: buildTriageScorecard(triage),
+          key: "entitlement_analysis",
+          heading: "Entitlement Analysis",
+          body_markdown: buildEntitlementAnalysis(deal, triage),
         },
         {
-          key: "risk_scores",
-          heading: "Risk Assessment",
-          body_markdown: formatRiskScores(triage),
+          key: "financial_summary",
+          heading: "Financial Summary",
+          body_markdown: financialSection,
         },
         {
-          key: "disqualifiers",
-          heading: "Disqualifiers",
-          body_markdown: formatDisqualifiers(triage),
-        },
-        {
-          key: "financial_snapshot",
-          heading: "Financial Snapshot",
-          body_markdown: buildFinancialSnapshot(deal, triage),
+          key: "risk_matrix",
+          heading: "Risk Matrix",
+          body_markdown: extractRiskMatrixLines(triage),
         },
         {
           key: "next_actions",
-          heading: "Recommended Next Steps",
-          body_markdown: formatNextActions(triage),
+          heading: "Next Actions",
+          body_markdown: buildPrioritizedActions(triage),
         },
       ];
-      return { ...base, artifact_type: "TRIAGE_PDF", sections };
+      return {
+        ...base,
+        artifact_type: "TRIAGE_PDF",
+        sections,
+        sources_summary: buildSourcesSummary(triage),
+      };
     }
 
     case "SUBMISSION_CHECKLIST_PDF": {
@@ -407,25 +461,85 @@ async function buildArtifactSpec(
       }
       const appUrl = sourcesByPurpose["applications"]?.[0] ?? sourcesByPurpose["forms"]?.[0];
       const ordUrl = sourcesByPurpose["ordinance"]?.[0];
+      const feeUrl = sourcesByPurpose["fees"]?.[0] ?? ordUrl;
+      const noticeUrl = sourcesByPurpose["public_notice"]?.[0] ?? ordUrl;
+      const envUrl = sourcesByPurpose["environmental"]?.[0] ?? ordUrl;
+      const trafficUrl = sourcesByPurpose["traffic"]?.[0] ?? ordUrl;
+      const fallbackSource = "https://gallagherpropco.com/reference/submission-requirements";
+      const checklistItems = [
+        {
+          item: "Application Forms",
+          description: "Master entitlement application form and owner authorization package.",
+          required: true,
+          status: "pending" as const,
+          notes: `${jurisdiction} form package.`,
+          sources: appUrl ? [appUrl] : [fallbackSource],
+        },
+        {
+          item: "Required Drawings/Plans",
+          description: "Site plan, boundary survey, legal description, and utility layout.",
+          required: true,
+          status: "pending" as const,
+          notes: "Prepared by licensed surveyor/engineer.",
+          sources: ordUrl ? [ordUrl] : [fallbackSource],
+        },
+        {
+          item: "Environmental Reports",
+          description: "Phase I ESA and supporting environmental documentation where required.",
+          required: true,
+          status: "pending" as const,
+          notes: "Upload report package and consultant summary.",
+          sources: envUrl ? [envUrl] : [fallbackSource],
+        },
+        {
+          item: "Traffic Studies",
+          description: "Traffic impact assessment if trip-generation threshold is exceeded.",
+          required: false,
+          status: "not_applicable" as const,
+          notes: "Switch to pending when threshold trigger is met.",
+          sources: trafficUrl ? [trafficUrl] : [fallbackSource],
+        },
+        {
+          item: "Public Notice Requirements",
+          description: "Mailing list, newspaper posting, and site signage requirements.",
+          required: true,
+          status: "pending" as const,
+          notes: "Track notice windows and affidavit deadlines.",
+          sources: noticeUrl ? [noticeUrl] : [fallbackSource],
+        },
+        {
+          item: "Fee Schedule",
+          description: "Application fees, hearing fees, and re-notice fees.",
+          required: true,
+          status: "pending" as const,
+          notes: "Verify current fee schedule before filing.",
+          sources: feeUrl ? [feeUrl] : [fallbackSource],
+        },
+      ];
       return {
         ...base,
         artifact_type: "SUBMISSION_CHECKLIST_PDF",
-        checklist_items: [
-          { item: "Application Form", required: true, notes: `${jurisdiction} application form`, sources: appUrl ? [appUrl] : [] },
-          { item: "Site Plan", required: true, notes: "Prepared by licensed surveyor/engineer", sources: [] },
-          { item: "Legal Description", required: true, notes: "From title report or survey", sources: [] },
-          { item: "Ownership Documentation", required: true, notes: "Deed, purchase agreement, or authorization letter", sources: [] },
-          { item: "Environmental Assessment", required: false, notes: "Phase I ESA if available", sources: [] },
-          { item: "Traffic Impact Analysis", required: false, notes: `Required if TIA threshold is met per ${jurisdiction} standards`, sources: ordUrl ? [ordUrl] : [] },
-          { item: "Stormwater Management Plan", required: true, notes: "Per parish/city drainage requirements", sources: ordUrl ? [ordUrl] : [] },
-        ],
+        checklist_items: checklistItems,
         sections: [
           {
             key: "deal_overview",
             heading: "Deal Overview",
             body_markdown: `**Deal:** ${deal.name}\n**SKU:** ${deal.sku}\n**Jurisdiction:** ${jurisdiction}\n\n${buildParcelSummary(deal.parcels)}`,
           },
+          {
+            key: "submission_sections",
+            heading: "Submission Package Sections",
+            body_markdown: checklistItems
+              .map(
+                (item) =>
+                  `- **${item.item}:** ${item.description} (status: ${item.status.replaceAll("_", " ")})`,
+              )
+              .join("\n"),
+          },
         ],
+        sources_summary: Array.from(
+          new Set(checklistItems.flatMap((item) => item.sources)),
+        ),
       };
     }
 
@@ -457,65 +571,204 @@ async function buildArtifactSpec(
         orderBy: { createdAt: "desc" },
         select: { id: true },
       });
-      const triageUrl = latestTriagePdf
-        ? `/api/deals/${deal.id}/artifacts/${latestTriagePdf.id}/download`
-        : null;
+      const triageUrl = latestTriagePdf ? absoluteArtifactDownloadUrl(deal.id, latestTriagePdf.id) : null;
+      const parish = deal.jurisdiction?.name ?? "";
+      const marketData = parish
+        ? await prisma.marketDataPoint.findMany({
+            where: {
+              parish: { equals: parish, mode: "insensitive" },
+              dataType: "comp_sale",
+            },
+            orderBy: { observedAt: "desc" },
+            take: 25,
+            select: {
+              source: true,
+              data: true,
+            },
+          })
+        : [];
+
+      const compCapRates = marketData
+        .map((point) => parseNumericValue((point.data as Record<string, unknown>).cap_rate))
+        .filter((value): value is number => value !== null);
+      const compSalePrices = marketData
+        .map((point) => parseNumericValue((point.data as Record<string, unknown>).sale_price))
+        .filter((value): value is number => value !== null);
+      const avgCompCapRate =
+        compCapRates.length > 0
+          ? compCapRates.reduce((sum, value) => sum + normalizeRate(value), 0) /
+            compCapRates.length
+          : null;
+      const avgCompSale =
+        compSalePrices.length > 0
+          ? compSalePrices.reduce((sum, value) => sum + value, 0) / compSalePrices.length
+          : null;
+
+      type LeaseLike = {
+        rentedAreaSf?: { toString(): string } | null;
+        rentPerSf?: { toString(): string } | null;
+        endDate?: Date | null;
+      } | null;
+      const leases = (deal.tenantLeases ?? []) as LeaseLike[];
+      const rentRollSf = leases.reduce((sum, lease) => {
+        return sum + (parseDecimal(lease == null ? null : lease.rentedAreaSf ?? null) ?? 0);
+      }, 0);
+      const weightedRentPsf =
+        rentRollSf > 0
+          ? leases.reduce((sum, lease) => {
+              const sf = parseDecimal(lease == null ? null : lease.rentedAreaSf ?? null) ?? 0;
+              return sum + (parseDecimal(lease == null ? null : lease.rentPerSf ?? null) ?? 0) * sf;
+            }, 0) / rentRollSf
+          : null;
+      const leaseCount = leases.filter((lease) => lease !== null).length;
+      const occupiedLeases = leases.filter((lease) => lease && lease.endDate && lease.endDate >= new Date()).length;
+      const occupancyPct =
+        leaseCount > 0
+          ? (occupiedLeases / leaseCount) * 100
+          : null;
+
+      const askingPrice = parseDecimal(deal.terms?.offerPrice ?? null);
+
+      const marketSources = Array.from(
+        new Set(
+          marketData
+            .map((point) => point.source)
+            .filter((source): source is string => Boolean(source && /^https?:\/\//.test(source))),
+        ),
+      );
       return {
         ...base,
         artifact_type: "EXIT_PACKAGE_PDF",
-        approval_summary: `Deal "${deal.name}" received entitlement approval. Decision from triage: ${String(triage.decision ?? "N/A")}.`,
-        conditions_summary: "See approval documentation for specific conditions of approval.",
+        approval_summary: `Disposition package for "${deal.name}" with current entitlement and underwriting support.`,
+        conditions_summary:
+          "Verify entitlement conditions, title exceptions, and transfer constraints prior to final disposition.",
         evidence_index: [
-          { label: "Triage Assessment", url: triageUrl ?? "", notes: "Auto-generated triage report" },
+          {
+            label: "Triage Assessment",
+            url: triageUrl ?? "https://gallagherpropco.com",
+            notes: "Auto-generated triage report",
+          },
         ],
         sections: [
           {
-            key: "deal_overview",
-            heading: "Deal Overview",
-            body_markdown: `**Deal:** ${deal.name}\n**SKU:** ${deal.sku}\n**Status:** ${deal.status}\n\n${buildParcelSummary(deal.parcels)}`,
+            key: "executive_summary",
+            heading: "Executive Summary",
+            body_markdown: [
+              `**Deal:** ${deal.name}`,
+              `**Status:** ${deal.status}`,
+              `**SKU:** ${deal.sku}`,
+              `**Disposition Thesis:** ${String(triage.rationale ?? "Transition to market with completed diligence package.")}`,
+            ].join("\n"),
+          },
+          {
+            key: "property_description",
+            heading: "Property Description",
+            body_markdown: buildDetailedParcelSummary(deal.parcels),
+          },
+          {
+            key: "financial_performance",
+            heading: "Financial Performance",
+            body_markdown: [
+              `**Historical NOI (Year 1):** ${formatCurrency(parseDecimal(deal.outcome?.actualNoiYear1 ?? null))}`,
+              `**Rent Roll SF:** ${Math.round(rentRollSf).toLocaleString()} sf`,
+              `**Weighted Avg Rent/SF:** ${weightedRentPsf !== null ? `$${weightedRentPsf.toFixed(2)}` : "N/A"}`,
+              `**Occupancy Trend (active leases):** ${occupancyPct !== null ? `${occupancyPct.toFixed(1)}%` : "N/A"}`,
+            ].join("\n"),
+          },
+          {
+            key: "market_overview",
+            heading: "Market Overview",
+            body_markdown: [
+              `**Parish:** ${parish || "N/A"}`,
+              `**Recent Comp Count:** ${marketData.length}`,
+              `**Average Comp Cap Rate:** ${avgCompCapRate !== null ? `${(avgCompCapRate * 100).toFixed(2)}%` : "N/A"}`,
+              `**Average Comp Sale Price:** ${formatCurrency(avgCompSale)}`,
+            ].join("\n"),
+          },
+          {
+            key: "investment_highlights",
+            heading: "Investment Highlights",
+            body_markdown: buildInvestmentHighlights(deal, triage),
+          },
+          {
+            key: "asking_price_terms",
+            heading: "Asking Price and Terms",
+            body_markdown: [
+              `**Asking Price:** ${formatCurrency(askingPrice)}`,
+              `**Offer Price Baseline:** ${formatCurrency(askingPrice)}`,
+              `**Target Close:** ${deal.terms?.closingDate ? deal.terms.closingDate.toISOString().slice(0, 10) : "TBD"}`,
+            ].join("\n"),
           },
         ],
+        sources_summary:
+          marketSources.length > 0 ? marketSources : buildSourcesSummary(triage),
       };
     }
 
     case "BUYER_TEASER_PDF": {
       const triage = triageOutput;
       const acreage = totalAcreage(deal.parcels);
+      const assumptions =
+        deal.financialModelAssumptions &&
+        typeof deal.financialModelAssumptions === "object"
+          ? (deal.financialModelAssumptions as Record<string, unknown>)
+          : null;
+      const buildableSf = parseNumericValue(assumptions?.buildableSf) ?? null;
+      const financialSummary =
+        triage && triage.financial_summary && typeof triage.financial_summary === "object"
+          ? (triage.financial_summary as Record<string, unknown>)
+          : null;
+      const noi = parseNumericValue(financialSummary?.estimated_noi);
+      const capRate = parseNumericValue(financialSummary?.projected_cap_rate);
+      const askingPrice = parseDecimal(deal.terms?.offerPrice ?? null);
       const zonings = [...new Set(deal.parcels.map((p) => p.currentZoning).filter(Boolean))].join(", ") || "See Details";
+      const thesis = buildBuyerTeaserThesis(deal, triage);
       return {
         ...base,
         artifact_type: "BUYER_TEASER_PDF",
         sections: [
           {
-            key: "opportunity",
-            heading: "Investment Opportunity",
+            key: "branding",
+            heading: "Branding",
             body_markdown: [
+              "**[GPC LOGO PLACEHOLDER]**",
               `**${deal.name}**`,
-              `Product Type: ${skuLabel(deal.sku)}`,
-              `Jurisdiction: ${deal.jurisdiction?.name ?? "Louisiana"}`,
-              `Total Acreage: ${acreage} acres`,
-              `Zoning: ${zonings}`,
-              "",
-              `Entitled ${skuLabel(deal.sku).toLowerCase()} opportunity with all approvals in place.`,
-              triage ? `\nTriage Recommendation: **${String(triage.decision ?? "N/A")}** (Confidence: ${String(triage.confidence ?? "N/A")})` : "",
-            ].filter(Boolean).join("\n"),
+              "**Property Photo:** [Property photo placeholder]",
+            ].join("\n"),
           },
           {
-            key: "highlights",
-            heading: "Investment Highlights",
-            body_markdown: buildInvestmentHighlights(deal, triage),
+            key: "key_metrics",
+            heading: "Key Metrics",
+            body_markdown: [
+              `- Acreage: ${acreage} acres`,
+              `- Buildable SF: ${buildableSf !== null ? Math.round(buildableSf).toLocaleString() : "N/A"} sf`,
+              `- NOI: ${formatCurrency(noi)}`,
+              `- Cap Rate: ${capRate !== null ? `${(normalizeRate(capRate) * 100).toFixed(2)}%` : "N/A"}`,
+              `- Asking Price: ${formatCurrency(askingPrice)}`,
+            ].join("\n"),
           },
           {
-            key: "site",
-            heading: "Site Details",
-            body_markdown: buildDetailedParcelSummary(deal.parcels),
+            key: "location_highlights",
+            heading: "Location Highlights",
+            body_markdown: [
+              `- Jurisdiction: ${deal.jurisdiction?.name ?? "Louisiana"}`,
+              `- Zoning: ${zonings}`,
+              `- Addresses: ${deal.parcels.map((p) => p.address).join("; ") || "N/A"}`,
+            ].join("\n"),
+          },
+          {
+            key: "investment_thesis",
+            heading: "Investment Thesis",
+            body_markdown: thesis,
           },
           {
             key: "contact",
             heading: "Contact",
-            body_markdown: "For more information, contact:\n\n**Gallagher Property Company**\nBaton Rouge, Louisiana\ngallagherpropco.com",
+            body_markdown:
+              "For more information, contact:\n\n**Gallagher Property Company**\nBaton Rouge, Louisiana\n(225) 000-0000\ninvestments@gallagherpropco.com",
           },
         ],
+        sources_summary: buildSourcesSummary(triage),
       };
     }
 
@@ -841,6 +1094,201 @@ async function buildArtifactSpec(
 }
 
 // --- Helper functions ---
+
+function parseNumericValue(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  if (
+    value &&
+    typeof value === "object" &&
+    "toString" in value &&
+    typeof (value as { toString: () => string }).toString === "function"
+  ) {
+    const parsed = Number((value as { toString: () => string }).toString());
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function parseDecimal(value: { toString(): string } | null | undefined): number | null {
+  if (!value) return null;
+  const parsed = Number(value.toString());
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function formatCurrency(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "N/A";
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function normalizeRate(value: number): number {
+  return value > 1 ? value / 100 : value;
+}
+
+function buildSourcesSummary(triage: Record<string, unknown> | null): string[] {
+  if (!triage) return ["https://gallagherpropco.com"];
+  const raw = triage.sources;
+  if (!Array.isArray(raw)) return ["https://gallagherpropco.com"];
+  const urls = raw
+    .map((item) => (typeof item === "string" ? item : null))
+    .filter((item): item is string => Boolean(item && /^https?:\/\//.test(item)));
+  return urls.length > 0 ? Array.from(new Set(urls)) : ["https://gallagherpropco.com"];
+}
+
+function inferTriageTier(triage: Record<string, unknown>): string {
+  const confidence = parseNumericValue(triage.confidence);
+  if (confidence === null) return "Unscored";
+  const normalized = confidence > 1 ? confidence / 100 : confidence;
+  if (normalized >= 0.8) return "Tier A";
+  if (normalized >= 0.65) return "Tier B";
+  if (normalized >= 0.5) return "Tier C";
+  return "Tier D";
+}
+
+function extractRiskMatrixLines(triage: Record<string, unknown>): string {
+  const lines: string[] = [];
+  const riskScores =
+    triage.risk_scores && typeof triage.risk_scores === "object"
+      ? (triage.risk_scores as Record<string, unknown>)
+      : null;
+  if (riskScores) {
+    for (const [category, scoreRaw] of Object.entries(riskScores)) {
+      const score = parseNumericValue(scoreRaw);
+      const severity =
+        score === null ? "unknown" : score >= 8 ? "critical" : score >= 6 ? "high" : score >= 4 ? "medium" : "low";
+      lines.push(`- ${category.replaceAll("_", " ")} | severity: ${severity} | score: ${score ?? "N/A"}/10`);
+    }
+  }
+
+  const disqualifiers = Array.isArray(triage.disqualifiers) ? triage.disqualifiers : [];
+  for (const item of disqualifiers) {
+    if (!item || typeof item !== "object") continue;
+    const label = String((item as Record<string, unknown>).label ?? "Disqualifier");
+    const detail = String((item as Record<string, unknown>).detail ?? "No detail");
+    const severity = String((item as Record<string, unknown>).severity ?? "soft");
+    lines.push(`- ${label} | severity: ${severity} | ${detail}`);
+  }
+
+  return lines.length > 0 ? lines.join("\n") : "- No material risks were identified.";
+}
+
+function buildEntitlementAnalysis(
+  deal: DealWithRelations,
+  triage: Record<string, unknown>,
+): string {
+  const strategy =
+    String(
+      triage.recommended_strategy ??
+        triage.entitlement_strategy ??
+        triage.path ??
+        "Recommended path pending",
+    );
+  const approvalProbRaw =
+    parseNumericValue(triage.approval_probability) ??
+    parseNumericValue(triage.approvalProbability);
+  const approvalProbability =
+    approvalProbRaw === null ? "N/A" : `${(approvalProbRaw > 1 ? approvalProbRaw : approvalProbRaw * 100).toFixed(1)}%`;
+  const timelineMonths =
+    parseNumericValue(triage.expected_timeline_months) ??
+    parseNumericValue(triage.timeline_months) ??
+    null;
+
+  return [
+    `**Jurisdiction:** ${deal.jurisdiction?.name ?? "N/A"}`,
+    `**Recommended Strategy:** ${strategy}`,
+    `**Approval Probability:** ${approvalProbability}`,
+    `**Expected Timeline:** ${timelineMonths !== null ? `${timelineMonths} months` : "N/A"}`,
+  ].join("\n");
+}
+
+function buildTriageFinancialContractSection(
+  deal: DealWithRelations,
+  triage: Record<string, unknown>,
+): string {
+  const assumptions =
+    deal.financialModelAssumptions &&
+    typeof deal.financialModelAssumptions === "object"
+      ? (deal.financialModelAssumptions as Record<string, unknown>)
+      : null;
+  const financialSummary =
+    triage.financial_summary && typeof triage.financial_summary === "object"
+      ? (triage.financial_summary as Record<string, unknown>)
+      : null;
+  const projectedIrr =
+    parseNumericValue(financialSummary?.estimated_irr) ??
+    parseNumericValue((assumptions?.targetIrrPct as unknown) ?? null);
+  const projectedCapRate = parseNumericValue(financialSummary?.projected_cap_rate);
+  const equityMultiple = parseNumericValue(financialSummary?.equity_multiple);
+
+  const irrText =
+    projectedIrr === null
+      ? "N/A"
+      : `${(projectedIrr > 1 ? projectedIrr : projectedIrr * 100).toFixed(1)}%`;
+  const capRateText =
+    projectedCapRate === null
+      ? "N/A"
+      : `${(normalizeRate(projectedCapRate) * 100).toFixed(2)}%`;
+  const emText = equityMultiple === null ? "N/A" : `${equityMultiple.toFixed(2)}x`;
+
+  return [
+    `**Projected IRR:** ${irrText}`,
+    `**Projected Exit Cap Rate:** ${capRateText}`,
+    `**Projected Equity Multiple:** ${emText}`,
+  ].join("\n");
+}
+
+function buildPrioritizedActions(triage: Record<string, unknown>): string {
+  const actions = Array.isArray(triage.next_actions) ? triage.next_actions : [];
+  if (actions.length === 0) {
+    return "1. Confirm file completeness\n2. Prepare submission packet\n3. Advance diligence tasks";
+  }
+  return actions
+    .slice(0, 6)
+    .map((action, index) => {
+      if (!action || typeof action !== "object") {
+        return `${index + 1}. Follow up on outstanding task`;
+      }
+      const title = String((action as Record<string, unknown>).title ?? "Action item");
+      const description = String((action as Record<string, unknown>).description ?? "");
+      return `${index + 1}. ${title}${description ? ` — ${description}` : ""}`;
+    })
+    .join("\n");
+}
+
+function buildBuyerTeaserThesis(
+  deal: DealWithRelations,
+  triage: Record<string, unknown> | null,
+): string {
+  const rationale = triage ? String(triage.rationale ?? "") : "";
+  if (rationale.trim().length > 0) {
+    return rationale
+      .split(".")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .slice(0, 3)
+      .map((line) => `${line}.`)
+      .join(" ");
+  }
+  return `This ${skuLabel(deal.sku).toLowerCase()} opportunity in ${
+    deal.jurisdiction?.name ?? "Louisiana"
+  } offers entitled positioning, executable site characteristics, and near-term monetization potential.`;
+}
+
+function absoluteArtifactDownloadUrl(dealId: string, artifactId: string): string {
+  const baseUrl = (
+    process.env.APP_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    "https://app.gallagherpropco.com"
+  ).replace(/\/$/, "");
+  return `${baseUrl}/api/deals/${dealId}/artifacts/${artifactId}/download`;
+}
 
 function artifactTypeLabel(t: ArtifactType): string {
   const labels: Record<ArtifactType, string> = {
