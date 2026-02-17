@@ -135,6 +135,41 @@ export default function ProspectingPage() {
     [pathname, router, searchParams]
   );
 
+  const searchParcels = useCallback(
+    async (poly: number[][][], f: ProspectFilterState) => {
+      setLoading(true);
+      setSearched(true);
+      try {
+        const res = await fetch("/api/map/prospect", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            polygon: { type: "Polygon", coordinates: poly },
+            filters: {
+              zoningCodes: f.zoningCodes.length > 0 ? f.zoningCodes : undefined,
+              minAcreage: f.minAcreage,
+              maxAcreage: f.maxAcreage,
+              minAssessedValue: f.minAssessedValue,
+              maxAssessedValue: f.maxAssessedValue,
+              excludeFloodZone: f.excludeFloodZone,
+            },
+          }),
+        });
+        if (!res.ok) throw new Error("Search failed");
+        const data = await res.json();
+        setAllParcels(data.parcels || []);
+        setParcels(data.parcels || []);
+        setSelectedIds(new Set());
+      } catch {
+        setParcels([]);
+        setAllParcels([]);
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
+
   const applySavedSearch = useCallback(
     async (search: SavedSearchItem) => {
       const nextFilters = toFilters(search.criteria);
@@ -215,41 +250,6 @@ export default function ProspectingPage() {
       toast.error(error instanceof Error ? error.message : "Failed to run search");
     }
   }, []);
-
-  const searchParcels = useCallback(
-    async (poly: number[][][], f: ProspectFilterState) => {
-      setLoading(true);
-      setSearched(true);
-      try {
-        const res = await fetch("/api/map/prospect", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            polygon: { type: "Polygon", coordinates: poly },
-            filters: {
-              zoningCodes: f.zoningCodes.length > 0 ? f.zoningCodes : undefined,
-              minAcreage: f.minAcreage,
-              maxAcreage: f.maxAcreage,
-              minAssessedValue: f.minAssessedValue,
-              maxAssessedValue: f.maxAssessedValue,
-              excludeFloodZone: f.excludeFloodZone,
-            },
-          }),
-        });
-        if (!res.ok) throw new Error("Search failed");
-        const data = await res.json();
-        setAllParcels(data.parcels || []);
-        setParcels(data.parcels || []);
-        setSelectedIds(new Set());
-      } catch {
-        setParcels([]);
-        setAllParcels([]);
-      } finally {
-        setLoading(false);
-      }
-    },
-    []
-  );
 
   const handlePolygonDrawn = useCallback(
     (coords: number[][][]) => {
