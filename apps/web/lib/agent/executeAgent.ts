@@ -204,8 +204,6 @@ const BASE_ALLOWED_TOOLS = [
   "search_parcels",
   "get_parcel_details",
   "evidence_snapshot",
-  "web_search_preview",
-  "file_search",
 ];
 
 const TOOL_POLICY_BY_INTENT: Record<string, ToolPolicy> = {
@@ -281,6 +279,9 @@ function getToolDefinitionName(tool: unknown): string | null {
 function filterToolsForIntent(intent: string, tools: readonly unknown[]): unknown[] {
   const policy = TOOL_POLICY_BY_INTENT[intent] ?? TOOL_POLICY_BY_INTENT.general;
   const filtered = tools.filter((tool) => {
+    if (isRecord(tool) && tool.type === "hosted_tool") {
+      return false;
+    }
     const name = getToolDefinitionName(tool);
     if (!name) return true;
     if (policy.exact.has(name)) return true;
