@@ -814,7 +814,7 @@ export default function AutomationPage() {
                           </span>
                         </TableCell>
                         <TableCell className="text-right text-xs tabular-nums">
-                          {formatDuration(h.avgDurationMs)}
+                          {h.avgDurationMs == null ? "N/A" : formatDuration(h.avgDurationMs)}
                         </TableCell>
                         <TableCell className="text-right text-xs text-muted-foreground">
                           {h.lastRunAt ? timeAgo(h.lastRunAt) : "Never"}
