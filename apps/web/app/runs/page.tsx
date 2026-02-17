@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -303,7 +303,7 @@ function RunsHistoryTab() {
 
 type RunsTab = "history" | "intelligence";
 
-export default function RunsPage() {
+function RunsPageContent() {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -338,5 +338,23 @@ export default function RunsPage() {
         </TabsContent>
       </Tabs>
     </DashboardShell>
+  );
+}
+
+function RunsPageFallback() {
+  return (
+    <DashboardShell>
+      <div className="py-24 text-center text-sm text-muted-foreground">
+        Loading runs...
+      </div>
+    </DashboardShell>
+  );
+}
+
+export default function RunsPage() {
+  return (
+    <Suspense fallback={<RunsPageFallback />}>
+      <RunsPageContent />
+    </Suspense>
   );
 }

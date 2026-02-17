@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { Suspense, useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -77,7 +77,7 @@ const SKU_OPTIONS = [
 
 type TriageDecisionFilter = "all" | "ADVANCE" | "HOLD" | "KILL";
 
-export default function DealsPage() {
+function DealsPageContent() {
   const [deals, setDeals] = useState<DealSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<"grid" | "table">("table");
@@ -816,5 +816,23 @@ export default function DealsPage() {
         )}
       </div>
     </DashboardShell>
+  );
+}
+
+function DealsPageFallback() {
+  return (
+    <DashboardShell>
+      <div className="py-24 text-center text-sm text-muted-foreground">
+        Loading deals...
+      </div>
+    </DashboardShell>
+  );
+}
+
+export default function DealsPage() {
+  return (
+    <Suspense fallback={<DealsPageFallback />}>
+      <DealsPageContent />
+    </Suspense>
   );
 }
