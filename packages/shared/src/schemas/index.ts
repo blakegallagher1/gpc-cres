@@ -9,3 +9,4 @@ export * from "./entitlementPath.js";
 export * from "./dealRisk.js";
 export * from "./environmentalAssessment.js";
 export * from "./dealFinancing.js";
+export * from "./dealStakeholder.js";

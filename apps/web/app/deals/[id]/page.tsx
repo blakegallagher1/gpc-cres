@@ -37,7 +37,7 @@ import { TriageResultPanel } from "@/components/deals/TriageResultPanel";
 import { RunTriageButton } from "@/components/deals/RunTriageButton";
 import { ActivityTimeline } from "@/components/deals/ActivityTimeline";
 import { TaskCreateForm } from "@/components/deals/TaskCreateForm";
-import { DealContacts } from "@/components/deals/DealContacts";
+import { DealStakeholdersPanel } from "@/components/deals/DealStakeholdersPanel";
 import { CollaborativeMemo } from "@/components/deal-room/CollaborativeMemo";
 import type { TaskItem } from "@/components/deals/TaskCard";
 import { DeadlineBar } from "@/components/deals/DeadlineBar";
@@ -45,6 +45,18 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { toast } from "sonner";
 
 const fetcher = (url: string) => fetch(url).then((response) => response.json());
+
+const CONTACTS_START = "---CONTACTS---\n";
+const CONTACTS_END = "\n---END_CONTACTS---";
+
+function stripStakeholderMarker(notes: string): string {
+  const startIdx = notes.indexOf(CONTACTS_START);
+  const endIdx = notes.indexOf(CONTACTS_END);
+  if (startIdx === -1 || endIdx === -1 || endIdx < startIdx) {
+    return notes.trim();
+  }
+  return (notes.slice(0, startIdx) + notes.slice(endIdx + CONTACTS_END.length)).trim();
+}
 
 const DealParcelMap = dynamic(
   () => import("@/components/maps/DealParcelMap"),
@@ -212,6 +224,11 @@ export default function DealDetailPage() {
   useEffect(() => {
     if (id) loadDeal();
   }, [id, loadDeal]);
+
+  const displayNotes = useMemo(
+    () => (deal?.notes ? stripStakeholderMarker(deal.notes) : ""),
+    [deal?.notes],
+  );
 
   // Also load latest triage from dedicated endpoint
   useEffect(() => {
@@ -762,21 +779,21 @@ export default function DealDetailPage() {
                 </Card>
 
                 {/* Notes */}
-                {deal.notes && !deal.notes.startsWith("---CONTACTS---") && (
+                {displayNotes ? (
                   <Card>
                     <CardHeader>
                       <CardTitle className="text-base">Notes</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <p className="whitespace-pre-wrap text-sm">{deal.notes}</p>
+                      <p className="whitespace-pre-wrap text-sm">{displayNotes}</p>
                     </CardContent>
                   </Card>
-                )}
+                ) : null}
               </div>
 
               {/* Right column */}
               <div className="space-y-4">
-                <DealContacts dealId={deal.id} notes={deal.notes ?? null} />
+                <DealStakeholdersPanel dealId={deal.id} />
                 <RiskRegisterPanel dealId={deal.id} />
 
                 <Card>

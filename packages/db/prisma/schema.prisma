@@ -101,6 +101,17 @@ enum notification_priority {
   CRITICAL
 }
 
+enum deal_stakeholder_role {
+  SPONSOR
+  EQUITY_PARTNER
+  LENDER
+  BROKER
+  LAWYER
+  TITLE_COMPANY
+  CONTRACTOR
+  OTHER
+}
+
 model Org {
   id        String   @id @default(uuid()) @db.Uuid
   name      String   @db.Text
@@ -134,6 +145,7 @@ model Org {
   financings              DealFinancing[]
   risks                   DealRisk[]
   entitlementPaths          EntitlementPath[]
+  stakeholders            DealStakeholder[]
 
   @@map("orgs")
 }
@@ -249,6 +261,7 @@ model Deal {
   environmentalAssessments EnvironmentalAssessment[]
   financings       DealFinancing[]
   risks            DealRisk[]
+  stakeholders     DealStakeholder[]
   assumptionActuals AssumptionActual[]
   entitlementGraphNodes       EntitlementGraphNode[]
   entitlementOutcomePrecedents EntitlementOutcomePrecedent[]
@@ -1078,6 +1091,29 @@ model DealRisk {
   @@index([orgId])
   @@index([dealId])
   @@map("deal_risks")
+}
+
+model DealStakeholder {
+  id              String                @id @default(uuid()) @db.Uuid
+  dealId          String                @map("deal_id") @db.Uuid
+  orgId           String                @map("org_id") @db.Uuid
+  role            deal_stakeholder_role @map("role")
+  name            String                @map("name") @db.Text
+  company         String?               @map("company") @db.Text
+  email           String?               @map("email") @db.Text
+  phone           String?               @map("phone") @db.Text
+  equityOwnership Decimal?              @map("equity_ownership") @db.Decimal(6, 4)
+  decisionRights  String[]              @map("decision_rights") @default([])
+  notes           String?               @map("notes") @db.Text
+  createdAt       DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  org   Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  deal  Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([dealId])
+  @@map("deal_stakeholders")
 }
 
 model AssumptionActual {
