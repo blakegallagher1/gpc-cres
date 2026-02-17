@@ -129,6 +129,26 @@ interface DealEntitlementPath {
   conditionComplianceStatus: string | null;
 }
 
+interface DealPropertyTitle {
+  id: string;
+  orgId: string;
+  dealId: string;
+  titleInsuranceReceived: boolean | null;
+  exceptions: string[];
+  liens: string[];
+  easements: string[];
+}
+
+interface DealPropertySurvey {
+  id: string;
+  orgId: string;
+  dealId: string;
+  surveyCompletedDate: string | null;
+  acreageConfirmed: string | number | null;
+  encroachments: string[];
+  setbacks: Record<string, unknown>;
+}
+
 interface DealBuyer {
   id: string;
   name: string;
@@ -194,14 +214,39 @@ export default function DealDetailPage() {
     id ? `/api/deals/${id}/entitlement-path` : null,
     fetcher
   );
+  const propertyTitleFetcher = useSWR<{ propertyTitle: DealPropertyTitle | null }>(
+    id ? `/api/deals/${id}/property-title` : null,
+    fetcher
+  );
+  const propertySurveyFetcher = useSWR<{ propertySurvey: DealPropertySurvey | null }>(
+    id ? `/api/deals/${id}/property-survey` : null,
+    fetcher
+  );
   const terms = termsFetcher.data?.terms ?? null;
   const entitlementPath = entitlementFetcher.data?.entitlementPath ?? null;
+  const propertyTitle = propertyTitleFetcher.data?.propertyTitle ?? null;
+  const propertySurvey = propertySurveyFetcher.data?.propertySurvey ?? null;
 
   const formatCurrencyValue = (value: string | number | null | undefined) => {
     if (value === null || value === undefined) return "—";
     const numberValue = typeof value === "number" ? value : Number(value);
     if (Number.isNaN(numberValue)) return "—";
     return formatCurrency(numberValue);
+  };
+
+  const formatNumericValue = (value: string | number | null | undefined) => {
+    if (value === null || value === undefined) return "—";
+    const numberValue = typeof value === "number" ? value : Number(value);
+    if (Number.isNaN(numberValue)) return "—";
+    return numberValue.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 4,
+    });
+  };
+
+  const formatSetbacks = (setbacks: Record<string, unknown>) => {
+    if (!setbacks || Object.keys(setbacks).length === 0) return "—";
+    return JSON.stringify(setbacks, null, 2);
   };
 
   const loadDeal = useCallback(async () => {
@@ -716,6 +761,124 @@ export default function DealDetailPage() {
                     ) : (
                       <p className="text-xs text-muted-foreground">
                         No entitlement path available for this deal.
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Property Title</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3 text-sm">
+                    {propertyTitle ? (
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Title Insurance</p>
+                          <p className="font-medium">
+                            {propertyTitle.titleInsuranceReceived === null
+                              ? "—"
+                              : propertyTitle.titleInsuranceReceived
+                                ? "Received"
+                                : "Pending"}
+                          </p>
+                        </div>
+                        <div className="col-span-2">
+                          <p className="text-xs text-muted-foreground">Exceptions</p>
+                          <ul className="mt-1 list-disc pl-4">
+                            {propertyTitle.exceptions.length > 0 ? (
+                              propertyTitle.exceptions.map((item) => (
+                                <li key={item} className="text-xs">
+                                  {item}
+                                </li>
+                              ))
+                            ) : (
+                              <li className="text-xs text-muted-foreground">None</li>
+                            )}
+                          </ul>
+                        </div>
+                        <div className="col-span-2">
+                          <p className="text-xs text-muted-foreground">Liens</p>
+                          <ul className="mt-1 list-disc pl-4">
+                            {propertyTitle.liens.length > 0 ? (
+                              propertyTitle.liens.map((item) => (
+                                <li key={item} className="text-xs">
+                                  {item}
+                                </li>
+                              ))
+                            ) : (
+                              <li className="text-xs text-muted-foreground">None</li>
+                            )}
+                          </ul>
+                        </div>
+                        <div className="col-span-2">
+                          <p className="text-xs text-muted-foreground">Easements</p>
+                          <ul className="mt-1 list-disc pl-4">
+                            {propertyTitle.easements.length > 0 ? (
+                              propertyTitle.easements.map((item) => (
+                                <li key={item} className="text-xs">
+                                  {item}
+                                </li>
+                              ))
+                            ) : (
+                              <li className="text-xs text-muted-foreground">None</li>
+                            )}
+                          </ul>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        No property title information available for this deal.
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Property Survey</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3 text-sm">
+                    {propertySurvey ? (
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Survey Completed</p>
+                          <p className="font-medium">
+                            {propertySurvey.surveyCompletedDate
+                              ? formatDate(propertySurvey.surveyCompletedDate)
+                              : "—"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Acreage Confirmed</p>
+                          <p className="font-medium">
+                            {formatNumericValue(propertySurvey.acreageConfirmed)} ac
+                          </p>
+                        </div>
+                        <div className="col-span-2">
+                          <p className="text-xs text-muted-foreground">Encroachments</p>
+                          <ul className="mt-1 list-disc pl-4">
+                            {propertySurvey.encroachments.length > 0 ? (
+                              propertySurvey.encroachments.map((item) => (
+                                <li key={item} className="text-xs">
+                                  {item}
+                                </li>
+                              ))
+                            ) : (
+                              <li className="text-xs text-muted-foreground">None</li>
+                            )}
+                          </ul>
+                        </div>
+                        <div className="col-span-2">
+                          <p className="text-xs text-muted-foreground">Setbacks</p>
+                          <p className="font-mono text-xs whitespace-pre-wrap">
+                            {formatSetbacks(propertySurvey.setbacks)}
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        No property survey information available for this deal.
                       </p>
                     )}
                   </CardContent>

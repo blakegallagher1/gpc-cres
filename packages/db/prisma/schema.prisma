@@ -146,6 +146,8 @@ model Org {
   risks                   DealRisk[]
   entitlementPaths          EntitlementPath[]
   stakeholders            DealStakeholder[]
+  propertyTitles          PropertyTitle[]
+  propertySurveys         PropertySurvey[]
 
   @@map("orgs")
 }
@@ -258,6 +260,8 @@ model Deal {
   outcome          DealOutcome?
   terms            DealTerms?
   entitlementPath  EntitlementPath?
+  propertyTitle    PropertyTitle?
+  propertySurvey   PropertySurvey?
   environmentalAssessments EnvironmentalAssessment[]
   financings       DealFinancing[]
   risks            DealRisk[]
@@ -1037,6 +1041,46 @@ model EntitlementPath {
 
   @@index([orgId])
   @@map("entitlement_paths")
+}
+
+model PropertyTitle {
+  id                    String     @id @default(uuid()) @db.Uuid
+  dealId                String     @map("deal_id") @db.Uuid
+  orgId                 String     @map("org_id") @db.Uuid
+  titleInsuranceReceived Boolean?   @map("title_insurance_received")
+  exceptions            String[]   @map("exceptions") @default([])
+  liens                 String[]   @map("liens") @default([])
+  easements             String[]   @map("easements") @default([])
+  createdAt             DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  org  Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([dealId])
+  @@unique([dealId])
+  @@map("property_titles")
+}
+
+model PropertySurvey {
+  id                 String     @id @default(uuid()) @db.Uuid
+  dealId             String     @map("deal_id") @db.Uuid
+  orgId              String     @map("org_id") @db.Uuid
+  surveyCompletedDate DateTime?  @map("survey_completed_date") @db.Date
+  acreageConfirmed   Decimal?   @map("acreage_confirmed") @db.Decimal(12, 4)
+  encroachments      String[]   @map("encroachments") @default([])
+  setbacks           Json       @default("{}") @map("setbacks") @db.JsonB
+  createdAt          DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  org  Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([dealId])
+  @@unique([dealId])
+  @@map("property_surveys")
 }
 
 model DealFinancing {

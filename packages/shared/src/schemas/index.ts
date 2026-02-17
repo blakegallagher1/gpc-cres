@@ -10,3 +10,5 @@ export * from "./dealRisk.js";
 export * from "./environmentalAssessment.js";
 export * from "./dealFinancing.js";
 export * from "./dealStakeholder.js";
+export * from "./propertyTitle.js";
+export * from "./propertySurvey.js";
