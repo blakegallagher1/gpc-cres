@@ -1,4 +1,5 @@
 import { assistant as assistantMessage, run, RunState, user as userMessage } from "@openai/agents";
+import type { Agent } from "@openai/agents";
 import {
   AgentReport,
   AgentReportSchema,
@@ -140,6 +141,7 @@ export type AgentExecutionParams = {
   fallbackReason?: string;
   executionLeaseToken?: string;
   resumedRunState?: string;
+  previousResponseId?: string | null;
   toolApprovalDecision?: {
     toolCallId: string;
     action: "approve" | "reject";
@@ -190,6 +192,103 @@ function buildAgentInputItems(input: AgentInputMessage[]) {
       })),
     );
   });
+}
+
+type ToolPolicy = {
+  exact: Set<string>;
+  prefixes: string[];
+};
+
+const BASE_ALLOWED_TOOLS = [
+  "search_knowledge_base",
+  "search_parcels",
+  "get_parcel_details",
+  "evidence_snapshot",
+  "web_search_preview",
+  "file_search",
+];
+
+const TOOL_POLICY_BY_INTENT: Record<string, ToolPolicy> = {
+  finance: {
+    exact: new Set([...BASE_ALLOWED_TOOLS, "calculate_proforma", "calculate_debt_sizing"]),
+    prefixes: ["consult_", "finance_", "calculate_", "debt_", "underwrite_", "market_"],
+  },
+  legal: {
+    exact: new Set(BASE_ALLOWED_TOOLS),
+    prefixes: ["consult_", "legal_", "zoning_", "entitlement_", "due_diligence_"],
+  },
+  entitlements: {
+    exact: new Set(BASE_ALLOWED_TOOLS),
+    prefixes: ["consult_", "entitlement_", "zoning_", "permit_", "parish_"],
+  },
+  due_diligence: {
+    exact: new Set(BASE_ALLOWED_TOOLS),
+    prefixes: ["consult_", "due_diligence_", "risk_", "flood_", "evidence_"],
+  },
+  risk: {
+    exact: new Set(BASE_ALLOWED_TOOLS),
+    prefixes: ["consult_", "risk_", "flood_", "screen_", "hazard_", "evidence_"],
+  },
+  marketing: {
+    exact: new Set(BASE_ALLOWED_TOOLS),
+    prefixes: ["consult_", "marketing_", "buyer_", "outreach_", "market_"],
+  },
+  operations: {
+    exact: new Set(BASE_ALLOWED_TOOLS),
+    prefixes: ["consult_", "operations_", "task_", "project_", "schedule_"],
+  },
+  tax: {
+    exact: new Set(BASE_ALLOWED_TOOLS),
+    prefixes: ["consult_", "tax_", "finance_", "calculate_"],
+  },
+  design: {
+    exact: new Set(BASE_ALLOWED_TOOLS),
+    prefixes: ["consult_", "design_", "site_", "entitlement_"],
+  },
+  market_intel: {
+    exact: new Set(BASE_ALLOWED_TOOLS),
+    prefixes: ["consult_", "market_", "comps_", "research_"],
+  },
+  screener: {
+    exact: new Set(BASE_ALLOWED_TOOLS),
+    prefixes: ["consult_", "screen_", "triage_", "parcel_", "risk_", "finance_"],
+  },
+  research: {
+    exact: new Set(BASE_ALLOWED_TOOLS),
+    prefixes: ["consult_", "research_", "market_", "evidence_"],
+  },
+  land_search: {
+    exact: new Set(BASE_ALLOWED_TOOLS),
+    prefixes: ["consult_", "search_", "parcel_", "screen_", "evidence_"],
+  },
+  general: {
+    exact: new Set(BASE_ALLOWED_TOOLS),
+    prefixes: ["consult_"],
+  },
+};
+
+function getToolDefinitionName(tool: unknown): string | null {
+  if (!isRecord(tool)) return null;
+  if (typeof tool.name === "string" && tool.name.trim().length > 0) {
+    return tool.name;
+  }
+  if (isRecord(tool.function) && typeof tool.function.name === "string") {
+    return tool.function.name;
+  }
+  return null;
+}
+
+function filterToolsForIntent(intent: string, tools: readonly unknown[]): unknown[] {
+  const policy = TOOL_POLICY_BY_INTENT[intent] ?? TOOL_POLICY_BY_INTENT.general;
+  const filtered = tools.filter((tool) => {
+    const name = getToolDefinitionName(tool);
+    if (!name) return true;
+    if (policy.exact.has(name)) return true;
+    return policy.prefixes.some((prefix) => name.startsWith(prefix));
+  });
+
+  // Safety fallback: never produce an empty tool list unexpectedly.
+  return filtered.length > 0 ? filtered : [...tools];
 }
 
 function isAsyncIterable(value: unknown): value is AsyncIterable<unknown> {
@@ -904,6 +1003,7 @@ export async function executeAgentWorkflow(
     runType: params.runType ?? "ENRICHMENT",
     dealId: params.dealId ?? null,
     jurisdictionId: params.jurisdictionId ?? null,
+    previousResponseId: params.previousResponseId ?? null,
     input: params.input,
   });
   const firstUserInput = params.input.find((entry) => entry.role === "user")?.content;
@@ -1030,7 +1130,18 @@ export async function executeAgentWorkflow(
       firstUserInput,
     });
 
-    const coordinator = createIntentAwareCoordinator(queryIntent);
+    const baseCoordinator = createIntentAwareCoordinator(queryIntent) as Agent & {
+      clone?: (config: { tools: Agent["tools"] }) => Agent;
+    };
+    const coordinator =
+      typeof baseCoordinator.clone === "function"
+        ? baseCoordinator.clone({
+            tools: filterToolsForIntent(
+              queryIntent,
+              [...(baseCoordinator.tools ?? [])],
+            ) as Agent["tools"],
+          })
+        : baseCoordinator;
     emit({ type: "agent_switch", agentName: "Coordinator" });
 
     let runInput: ReturnType<typeof buildAgentInputItems> | RunState<
@@ -1098,6 +1209,10 @@ export async function executeAgentWorkflow(
         sku: params.sku ?? null,
       },
     } as Parameters<typeof run>[2];
+    if (params.previousResponseId && !params.resumedRunState) {
+      (runOptions as { previousResponseId?: string }).previousResponseId =
+        params.previousResponseId;
+    }
 
     const result = await run(
       coordinator,
@@ -1436,6 +1551,7 @@ export async function executeAgentWorkflow(
           toolCallId: pendingApprovalState.toolCallId,
           toolName: pendingApprovalState.toolName,
           conversationId: params.conversationId,
+          previousResponseId: openaiResponseId ?? params.previousResponseId ?? null,
         },
       } as Prisma.InputJsonValue;
 
@@ -1784,6 +1900,10 @@ export async function resumeAgentToolApproval(params: {
     pendingApproval && typeof pendingApproval.conversationId === "string"
       ? pendingApproval.conversationId
       : "agent-run";
+  const previousResponseId =
+    pendingApproval && typeof pendingApproval.previousResponseId === "string"
+      ? pendingApproval.previousResponseId
+      : null;
 
   if (!serializedRunState) {
     throw new Error("No pending tool approval state found for this run.");
@@ -1825,6 +1945,7 @@ export async function resumeAgentToolApproval(params: {
     sku: runRecord.sku ?? undefined,
     intentHint: queryIntent,
     resumedRunState: serializedRunState,
+    previousResponseId,
     toolApprovalDecision: {
       toolCallId: params.toolCallId,
       action: params.action,
@@ -1850,6 +1971,7 @@ export async function resumeSerializedAgentRun(params: {
       sku: true,
       outputJson: true,
       serializedState: true,
+      openaiResponseId: true,
     },
   });
 
@@ -1885,6 +2007,10 @@ export async function resumeSerializedAgentRun(params: {
     pendingApproval && typeof pendingApproval.queryIntent === "string"
       ? pendingApproval.queryIntent
       : undefined;
+  const previousResponseId =
+    pendingApproval && typeof pendingApproval.previousResponseId === "string"
+      ? pendingApproval.previousResponseId
+      : runRecord.openaiResponseId;
 
   return executeAgentWorkflow({
     orgId: params.orgId,
@@ -1898,6 +2024,7 @@ export async function resumeSerializedAgentRun(params: {
     sku: runRecord.sku ?? undefined,
     intentHint: queryIntent,
     resumedRunState: serializedRunState,
+    previousResponseId,
     onEvent: params.onEvent,
   });
 }

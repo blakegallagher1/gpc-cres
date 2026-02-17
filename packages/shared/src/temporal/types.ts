@@ -219,6 +219,7 @@ export type AgentRunWorkflowInput = {
   orgId: string;
   userId: string;
   conversationId: string;
+  previousResponseId?: string | null;
   runId?: string;
   correlationId?: string;
   input: AgentRunInputMessage[];

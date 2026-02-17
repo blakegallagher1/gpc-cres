@@ -98,6 +98,31 @@ function toStringArray(value: unknown): string[] {
   return value.filter((item) => typeof item === "string");
 }
 
+function extractRunIdFromMetadata(metadata: unknown): string | null {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null;
+  const runId = (metadata as { runId?: unknown }).runId;
+  return typeof runId === "string" && runId.length > 0 ? runId : null;
+}
+
+async function resolvePreviousResponseIdFromHistory(
+  orgId: string,
+  history: Array<{ role: string; metadata?: unknown }>,
+): Promise<string | null> {
+  const lastAssistantWithRun = [...history]
+    .reverse()
+    .find((entry) => entry.role === "assistant" && extractRunIdFromMetadata(entry.metadata));
+  const priorRunId = lastAssistantWithRun
+    ? extractRunIdFromMetadata(lastAssistantWithRun.metadata)
+    : null;
+  if (!priorRunId) return null;
+
+  const priorRun = await prisma.run.findFirst({
+    where: { id: priorRunId, orgId },
+    select: { openaiResponseId: true },
+  });
+  return typeof priorRun?.openaiResponseId === "string" ? priorRun.openaiResponseId : null;
+}
+
 function normalizePersistedAgentSummary(raw: {
   outputJson: unknown;
   status: unknown;
@@ -537,6 +562,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
   let chatSession: PrismaChatSession | null = null;
   let contextDeal: DealContext | null = null;
   let jurisdictionContext: JurisdictionContext | null = null;
+  let previousResponseId: string | null = null;
 
   if (dealId) {
     contextDeal = await prisma.deal.findFirst({
@@ -634,7 +660,14 @@ export async function runAgentWorkflow(params: AgentRunInput) {
           where: conversationId ? { conversationId } : {},
           orderBy: { createdAt: "asc" },
           take: 50,
+          select: {
+            role: true,
+            content: true,
+            metadata: true,
+          },
         });
+
+    previousResponseId = await resolvePreviousResponseIdFromHistory(orgId, history);
 
     agentInput = history
       .map((entry: { role: string; content: string }) =>
@@ -776,6 +809,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
       orgId,
       userId,
       conversationId: conversationId ?? "agent-run",
+      previousResponseId,
       input: agentInput as AgentRunInputMessage[],
       runId: workflowId,
       correlationId,
@@ -825,6 +859,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
               metadata: {
                 kind: "chat_assistant_message",
                 runId: workflowResult.runId,
+                openaiResponseId: workflowResult.openaiResponseId,
               },
             },
           ]);
@@ -956,6 +991,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
       jurisdictionId: jurisdictionId ?? undefined,
       sku: sku ?? undefined,
       intentHint,
+      previousResponseId,
       onEvent,
     });
 
@@ -968,6 +1004,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
             metadata: {
               kind: "chat_assistant_message",
               runId: result.runId,
+              openaiResponseId: result.openaiResponseId,
             },
           },
         ]);
@@ -1013,6 +1050,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
     jurisdictionId: jurisdictionId ?? undefined,
     sku: sku ?? undefined,
     intentHint,
+    previousResponseId,
     onEvent,
   });
 
@@ -1025,6 +1063,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
           metadata: {
             kind: "chat_assistant_message",
             runId: result.runId,
+            openaiResponseId: result.openaiResponseId,
           },
         },
       ]);

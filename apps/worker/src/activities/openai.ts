@@ -106,6 +106,101 @@ function buildAgentInputItems(input: AgentInputMessage[]) {
   });
 }
 
+type ToolPolicy = {
+  exact: Set<string>;
+  prefixes: string[];
+};
+
+const BASE_ALLOWED_TOOLS = [
+  "search_knowledge_base",
+  "search_parcels",
+  "get_parcel_details",
+  "evidence_snapshot",
+  "web_search_preview",
+  "file_search",
+];
+
+const TOOL_POLICY_BY_INTENT: Record<string, ToolPolicy> = {
+  finance: {
+    exact: new Set([...BASE_ALLOWED_TOOLS, "calculate_proforma", "calculate_debt_sizing"]),
+    prefixes: ["consult_", "finance_", "calculate_", "debt_", "underwrite_", "market_"],
+  },
+  legal: {
+    exact: new Set(BASE_ALLOWED_TOOLS),
+    prefixes: ["consult_", "legal_", "zoning_", "entitlement_", "due_diligence_"],
+  },
+  entitlements: {
+    exact: new Set(BASE_ALLOWED_TOOLS),
+    prefixes: ["consult_", "entitlement_", "zoning_", "permit_", "parish_"],
+  },
+  due_diligence: {
+    exact: new Set(BASE_ALLOWED_TOOLS),
+    prefixes: ["consult_", "due_diligence_", "risk_", "flood_", "evidence_"],
+  },
+  risk: {
+    exact: new Set(BASE_ALLOWED_TOOLS),
+    prefixes: ["consult_", "risk_", "flood_", "screen_", "hazard_", "evidence_"],
+  },
+  marketing: {
+    exact: new Set(BASE_ALLOWED_TOOLS),
+    prefixes: ["consult_", "marketing_", "buyer_", "outreach_", "market_"],
+  },
+  operations: {
+    exact: new Set(BASE_ALLOWED_TOOLS),
+    prefixes: ["consult_", "operations_", "task_", "project_", "schedule_"],
+  },
+  tax: {
+    exact: new Set(BASE_ALLOWED_TOOLS),
+    prefixes: ["consult_", "tax_", "finance_", "calculate_"],
+  },
+  design: {
+    exact: new Set(BASE_ALLOWED_TOOLS),
+    prefixes: ["consult_", "design_", "site_", "entitlement_"],
+  },
+  market_intel: {
+    exact: new Set(BASE_ALLOWED_TOOLS),
+    prefixes: ["consult_", "market_", "comps_", "research_"],
+  },
+  screener: {
+    exact: new Set(BASE_ALLOWED_TOOLS),
+    prefixes: ["consult_", "screen_", "triage_", "parcel_", "risk_", "finance_"],
+  },
+  research: {
+    exact: new Set(BASE_ALLOWED_TOOLS),
+    prefixes: ["consult_", "research_", "market_", "evidence_"],
+  },
+  land_search: {
+    exact: new Set(BASE_ALLOWED_TOOLS),
+    prefixes: ["consult_", "search_", "parcel_", "screen_", "evidence_"],
+  },
+  general: {
+    exact: new Set(BASE_ALLOWED_TOOLS),
+    prefixes: ["consult_"],
+  },
+};
+
+function getToolDefinitionName(tool: unknown): string | null {
+  if (!isRecord(tool)) return null;
+  if (typeof tool.name === "string" && tool.name.trim().length > 0) {
+    return tool.name;
+  }
+  if (isRecord(tool.function) && typeof tool.function.name === "string") {
+    return tool.function.name;
+  }
+  return null;
+}
+
+function filterToolsForIntent(intent: string, tools: readonly unknown[]): unknown[] {
+  const policy = TOOL_POLICY_BY_INTENT[intent] ?? TOOL_POLICY_BY_INTENT.general;
+  const filtered = tools.filter((tool) => {
+    const name = getToolDefinitionName(tool);
+    if (!name) return true;
+    if (policy.exact.has(name)) return true;
+    return policy.prefixes.some((prefix) => name.startsWith(prefix));
+  });
+  return filtered.length > 0 ? filtered : [...tools];
+}
+
 function safeParseJson(value: unknown): unknown | null {
   if (typeof value !== "string") return null;
   try {
@@ -830,6 +925,7 @@ export async function runAgentTurn(
     orgId: params.orgId,
     userId: params.userId,
     conversationId: params.conversationId,
+    previousResponseId: params.previousResponseId ?? null,
     runType,
     dealId: params.dealId ?? null,
     jurisdictionId: params.jurisdictionId ?? null,
@@ -923,15 +1019,32 @@ export async function runAgentTurn(
       firstUserInput,
     });
 
-    const coordinator = createIntentAwareCoordinator(queryIntent);
+    const baseCoordinator = createIntentAwareCoordinator(queryIntent) as {
+      tools?: unknown[];
+      clone?: (config: { tools: unknown[] }) => Parameters<typeof run>[0];
+    };
+    const coordinator =
+      typeof baseCoordinator.clone === "function"
+        ? baseCoordinator.clone({
+            tools: filterToolsForIntent(
+              queryIntent,
+              [...(baseCoordinator.tools ?? [])],
+            ),
+          })
+        : (baseCoordinator as Parameters<typeof run>[0]);
     const agentInput = buildAgentInputItems(input) as Parameters<typeof run>[1];
+    const runOptions = buildAgentStreamRunOptions({
+      conversationId: params.conversationId,
+      maxTurns: params.maxTurns,
+    }) as Parameters<typeof run>[2];
+    if (params.previousResponseId) {
+      (runOptions as { previousResponseId?: string }).previousResponseId =
+        params.previousResponseId;
+    }
     const result = await run(
       coordinator,
       agentInput,
-      buildAgentStreamRunOptions({
-        conversationId: params.conversationId,
-        maxTurns: params.maxTurns,
-      }) as Parameters<typeof run>[2],
+      runOptions,
     );
     agentRunResult = result;
 
