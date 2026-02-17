@@ -23,6 +23,7 @@ import * as Sentry from "@sentry/nextjs";
 // POST /api/deals/[id]/triage - run triage via Temporal
 const TEMPORAL_TASK_QUEUE = process.env.TEMPORAL_TASK_QUEUE || "entitlement-os";
 const TRIAGE_RESULT_TIMEOUT_MS = Number(process.env.TRIAGE_RESULT_TIMEOUT_MS ?? "15000");
+const TRIAGE_RISK_SOURCE = "triage";
 
 type TriageWorkflowError = Error & { code?: string };
 
@@ -49,6 +50,111 @@ function withWorkflowTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise
       }, timeoutMs);
     }),
   ]);
+}
+
+type TriagedRiskCandidate = {
+  category: string;
+  title: string;
+  description: string;
+  severity: "low" | "medium" | "high" | "critical";
+  status: "open" | "monitoring" | "mitigating" | "accepted" | "closed";
+  owner: string | null;
+  source: string;
+  score: number;
+  notes: string | null;
+};
+
+function clampRiskScore(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function confidenceFromTriageRiskScore(value: number): number {
+  return clampRiskScore((10 - value) * 10);
+}
+
+function deriveSeverityFromValue(value: number): "low" | "medium" | "high" | "critical" {
+  if (value >= 9) return "critical";
+  if (value >= 7) return "high";
+  if (value >= 5) return "medium";
+  return "low";
+}
+
+function titleize(raw: string): string {
+  return raw
+    .split("_")
+    .map((segment) => (segment ? `${segment[0].toUpperCase()}${segment.slice(1)}` : segment))
+    .join(" ");
+}
+
+async function syncTriageRisks(params: {
+  dealId: string;
+  orgId: string;
+  triage: ParcelTriage;
+}): Promise<void> {
+  const candidates: TriagedRiskCandidate[] = [];
+
+  const riskScores = triage.risk_scores;
+  for (const [dimension, value] of Object.entries(riskScores) as Array<[string, number]>) {
+    if (value >= 7) {
+      candidates.push({
+        category: "Risk Score",
+        title: `${titleize(dimension)} risk is elevated`,
+        description: `${titleize(dimension)} risk is elevated in triage scoring: ${value}/10.`,
+        severity: deriveSeverityFromValue(value),
+        status: "open",
+        owner: null,
+        source: TRIAGE_RISK_SOURCE,
+        score: confidenceFromTriageRiskScore(value),
+        notes: null,
+      });
+    }
+  }
+
+  for (const disqualifier of triage.disqualifiers) {
+    if (typeof disqualifier.label !== "string" || !disqualifier.label.trim()) {
+      continue;
+    }
+    if (typeof disqualifier.detail !== "string" || !disqualifier.detail.trim()) {
+      continue;
+    }
+    const sources = disqualifier.sources
+      ?.filter((source): source is string => Boolean(source))
+      .join(", ");
+    const severity = disqualifier.severity === "hard" ? "critical" : "medium";
+    const score = disqualifier.severity === "hard" ? 10 : 6;
+    candidates.push({
+      category: "Disqualifier",
+      title: disqualifier.label,
+      description: disqualifier.detail,
+      severity,
+      status: "open",
+      owner: null,
+      source: TRIAGE_RISK_SOURCE,
+      score: confidenceFromTriageRiskScore(score),
+      notes: sources?.length ? `Sources: ${sources}` : null,
+    });
+  }
+
+  if (candidates.length === 0) {
+    await prisma.dealRisk.deleteMany({
+      where: { dealId: params.dealId, orgId: params.orgId, source: TRIAGE_RISK_SOURCE },
+    });
+    return;
+  }
+
+  await prisma.dealRisk.deleteMany({
+    where: { dealId: params.dealId, orgId: params.orgId, source: TRIAGE_RISK_SOURCE },
+  });
+  await prisma.dealRisk.createMany({
+    data: candidates.map((candidate) => ({
+      dealId: params.dealId,
+      orgId: params.orgId,
+      ...candidate,
+    })),
+  });
 }
 
 export async function POST(
@@ -144,7 +250,11 @@ export async function POST(
         orgId: auth.orgId,
         status: deal.status,
       });
-    });
+      });
+    syncTriageRisks({ dealId: id, orgId: auth.orgId, triage: result.triage })
+      .catch((error) => {
+        console.error("Failed to sync triage-derived risks:", error);
+      });
 
     generateTriagePdf({
       dealId: id,

@@ -32,6 +32,7 @@ import { UploadList } from "@/components/deals/UploadList";
 import { DocumentExtractionReview, ExtractionPendingBadge } from "@/components/deals/DocumentExtractionReview";
 import { EnvironmentalAssessmentsPanel } from "@/components/deals/EnvironmentalAssessmentsPanel";
 import { DealFinancingPanel } from "@/components/deals/DealFinancingPanel";
+import { RiskRegisterPanel } from "@/components/deals/RiskRegisterPanel";
 import { TriageResultPanel } from "@/components/deals/TriageResultPanel";
 import { RunTriageButton } from "@/components/deals/RunTriageButton";
 import { ActivityTimeline } from "@/components/deals/ActivityTimeline";
@@ -776,6 +777,7 @@ export default function DealDetailPage() {
               {/* Right column */}
               <div className="space-y-4">
                 <DealContacts dealId={deal.id} notes={deal.notes ?? null} />
+                <RiskRegisterPanel dealId={deal.id} />
 
                 <Card>
                   <CardHeader>

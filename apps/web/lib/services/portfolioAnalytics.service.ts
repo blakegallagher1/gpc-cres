@@ -201,6 +201,34 @@ async function loadTriageScores(
   );
 }
 
+async function loadRiskSourceScores(
+  orgId: string,
+  dealIds: string[]
+): Promise<Map<string, number | null>> {
+  const riskRows = await prisma.dealRisk.findMany({
+    where: {
+      orgId,
+      source: "triage",
+      dealId: { in: dealIds },
+      score: { not: null },
+    },
+    select: { dealId: true, score: true },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const latestRiskScoreByDeal = new Map<string, number | null>();
+  for (const risk of riskRows) {
+    if (risk.score === null) continue;
+    const score = risk.score;
+    const current = latestRiskScoreByDeal.get(risk.dealId) ?? null;
+    if (current === null || score < current) {
+      latestRiskScoreByDeal.set(risk.dealId, score);
+    }
+  }
+
+  return latestRiskScoreByDeal;
+}
+
 // ---------------------------------------------------------------------------
 // Service Methods
 // ---------------------------------------------------------------------------
@@ -346,9 +374,11 @@ export async function getConcentrationAnalysis(
   // Risk tier (based on triage scores)
   const dealIds = active.map((d) => d.id);
   const triageScores = await loadTriageScores(orgId, dealIds);
+  const riskSourceScores = await loadRiskSourceScores(orgId, dealIds);
   const riskMap = new Map<string, { count: number; acreage: number }>();
   for (const d of active) {
-    const score = triageScores.get(d.id);
+    const score =
+      triageScores.get(d.id) ?? riskSourceScores.get(d.id);
     let tier = "Unscored";
     if (score !== null && score !== undefined) {
       if (score >= 80) tier = "A (Low Risk)";

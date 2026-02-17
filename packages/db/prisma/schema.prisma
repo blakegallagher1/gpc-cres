@@ -132,6 +132,7 @@ model Org {
   dealTerms                DealTerms[]
   environmentalAssessments EnvironmentalAssessment[]
   financings              DealFinancing[]
+  risks                   DealRisk[]
   entitlementPaths          EntitlementPath[]
 
   @@map("orgs")
@@ -247,6 +248,7 @@ model Deal {
   entitlementPath  EntitlementPath?
   environmentalAssessments EnvironmentalAssessment[]
   financings       DealFinancing[]
+  risks            DealRisk[]
   assumptionActuals AssumptionActual[]
   entitlementGraphNodes       EntitlementGraphNode[]
   entitlementOutcomePrecedents EntitlementOutcomePrecedent[]
@@ -1052,6 +1054,30 @@ model DealFinancing {
   @@index([orgId])
   @@index([dealId])
   @@map("deal_financings")
+}
+
+model DealRisk {
+  id          String   @id @default(uuid()) @db.Uuid
+  dealId      String   @map("deal_id") @db.Uuid
+  orgId       String   @map("org_id") @db.Uuid
+  category    String?  @map("category") @db.Text
+  title       String?  @map("title") @db.Text
+  description String?  @map("description") @db.Text
+  severity    String?  @map("severity") @db.Text
+  status      String?  @map("status") @db.Text
+  owner       String?  @map("owner") @db.Text
+  source      String?  @map("source") @db.Text
+  score       Int?     @map("score")
+  notes       String?  @map("notes") @db.Text
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  org   Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  deal  Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([dealId])
+  @@map("deal_risks")
 }
 
 model AssumptionActual {
