@@ -511,7 +511,7 @@ export default function AutomationPage() {
                             {ev.eventType}
                           </TableCell>
                           <TableCell className="text-xs tabular-nums">
-                            {formatDuration(ev.durationMs)}
+                            {ev.durationMs != null ? formatDuration(ev.durationMs) : "—"}
                           </TableCell>
                           <TableCell className="text-right text-xs text-muted-foreground">
                             {timeAgo(ev.startedAt)}
