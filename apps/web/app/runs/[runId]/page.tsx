@@ -733,7 +733,7 @@ export default function RunTracePage() {
                               <TableCell>
                                 {citation.sourceId ? (
                                   <Link
-                                    href={`/evidence?sourceId=${citation.sourceId}`}
+                                    href={`/reference?tab=evidence&sourceId=${citation.sourceId}`}
                                     className="text-blue-600 hover:underline"
                                   >
                                     {citation.sourceId}

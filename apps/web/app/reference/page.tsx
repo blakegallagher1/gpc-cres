@@ -48,6 +48,7 @@ type ReferenceTab = "evidence" | "jurisdictions";
 export default function ReferencePage() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const sourceId = searchParams.get("sourceId") ?? null;
 
   const activeTab: ReferenceTab = useMemo(() => {
     const raw = searchParams.get("tab");
@@ -97,7 +98,12 @@ export default function ReferencePage() {
               ) : (
                 <div className="space-y-2">
                   {evidenceSources.map((source) => (
-                    <div key={source.id} className="rounded-lg border p-3">
+                    <div
+                      key={source.id}
+                      className={`rounded-lg border p-3 ${
+                        sourceId === source.id ? "border-primary bg-primary/5" : ""
+                      }`}
+                    >
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <p className="font-medium">{source.title ?? source.domain}</p>
                         <div className="flex items-center gap-2">
