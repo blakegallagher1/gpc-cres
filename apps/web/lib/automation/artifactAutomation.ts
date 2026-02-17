@@ -204,17 +204,8 @@ export async function handleTriageArtifactNotification(event: AutomationEvent): 
   const { dealId, orgId } = event;
 
   try {
-    // Check that a TRIAGE_PDF artifact actually exists (may still be generating)
-    // Wait a moment for the fire-and-forget generation to complete
-    await new Promise((resolve) => setTimeout(resolve, 3000));
-
-    const artifact = await prisma.artifact.findFirst({
-      where: { dealId, orgId, artifactType: "TRIAGE_PDF" },
-      orderBy: { createdAt: "desc" },
-      select: { version: true },
-    });
-
-    if (!artifact) return; // PDF not generated (or failed) — skip notification
+    const artifactVersion = await ensureTriagePdfGenerated(dealId, orgId);
+    if (artifactVersion === null) return;
 
     const deal = await prisma.deal.findFirst({
       where: { id: dealId, orgId },
@@ -235,11 +226,11 @@ export async function handleTriageArtifactNotification(event: AutomationEvent): 
         dealId,
         type: "AUTOMATION" as never,
         title: "Triage Report Generated",
-        body: `Triage Report v${artifact.version} has been generated for "${deal?.name ?? dealId}".`,
+        body: `Triage Report v${artifactVersion} has been generated for "${deal?.name ?? dealId}".`,
         metadata: {
           automationType: "artifact_generated",
           artifactType: "TRIAGE_PDF",
-          version: artifact.version,
+          version: artifactVersion,
         },
         priority: "LOW" as never,
         actionUrl: `/deals/${dealId}`,
@@ -257,6 +248,161 @@ export async function handleTriageArtifactNotification(event: AutomationEvent): 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+async function ensureTriagePdfGenerated(dealId: string, orgId: string): Promise<number | null> {
+  const existing = await prisma.artifact.findFirst({
+    where: { dealId, orgId, artifactType: "TRIAGE_PDF" },
+    orderBy: { createdAt: "desc" },
+    select: { version: true },
+  });
+  if (existing) return existing.version;
+
+  const deal = await prisma.deal.findFirst({
+    where: { id: dealId, orgId },
+    include: {
+      parcels: { orderBy: { createdAt: "asc" } },
+      jurisdiction: true,
+    },
+  });
+  if (!deal || deal.parcels.length === 0) return null;
+
+  const triageRun = await prisma.run.findFirst({
+    where: { dealId, orgId, runType: "TRIAGE", status: "succeeded" },
+    orderBy: { startedAt: "desc" },
+    select: { outputJson: true },
+  });
+  const triage = (triageRun?.outputJson ?? null) as Record<string, unknown> | null;
+
+  const run = await prisma.run.create({
+    data: { orgId, dealId, runType: "ARTIFACT_GEN", status: "running" },
+  });
+
+  try {
+    const riskScores =
+      triage && typeof triage.risk_scores === "object" && triage.risk_scores !== null
+        ? (triage.risk_scores as Record<string, unknown>)
+        : null;
+    const riskText =
+      riskScores != null
+        ? Object.entries(riskScores)
+            .map(([k, v]) => `- ${k.replace(/_/g, " ")}: ${String(v)}/10`)
+            .join("\n")
+        : "- Risk scores unavailable";
+    const disqualifiers = Array.isArray(triage?.disqualifiers)
+      ? (triage!.disqualifiers as Array<Record<string, unknown>>)
+      : [];
+    const actions = Array.isArray(triage?.next_actions)
+      ? (triage!.next_actions as Array<Record<string, unknown>>)
+      : [];
+
+    const spec: ArtifactSpec = {
+      schema_version: "1.0",
+      artifact_type: "TRIAGE_PDF",
+      deal_id: dealId,
+      title: `${deal.name} - Triage Report`,
+      sections: [
+        {
+          key: "executive_summary",
+          heading: "Executive Summary",
+          body_markdown: [
+            `**Deal Name:** ${deal.name}`,
+            `**Recommendation:** ${String(triage?.decision ?? "N/A")}`,
+            `**Triage Tier:** ${String(triage?.decision ?? "N/A")}`,
+            "",
+            `**Rationale:** ${String(triage?.rationale ?? "Triage output pending rationale.")}`,
+          ].join("\n"),
+        },
+        {
+          key: "site_overview",
+          heading: "Site Overview",
+          body_markdown: [
+            `**Jurisdiction:** ${deal.jurisdiction?.name ?? "N/A"}`,
+            `**Addresses:** ${deal.parcels.map((p) => p.address).join("; ")}`,
+            `**Total Acreage:** ${totalAcreage(deal.parcels)} acres`,
+            `**Map Thumbnail:** [Map thumbnail placeholder]`,
+          ].join("\n"),
+        },
+        {
+          key: "entitlement_analysis",
+          heading: "Entitlement Analysis",
+          body_markdown: `Recommended path: ${String(triage?.recommended_path ?? "UNKNOWN")}\nExpected timeline: ${String(triage?.timeline_months ?? "N/A")} months`,
+        },
+        {
+          key: "financial_summary",
+          heading: "Financial Summary",
+          body_markdown: `Projected IRR: ${String((triage as Record<string, unknown> | null)?.projected_irr ?? "N/A")}\nProjected cap rate: ${String((triage as Record<string, unknown> | null)?.projected_cap_rate ?? "N/A")}\nEquity multiple: ${String((triage as Record<string, unknown> | null)?.equity_multiple ?? "N/A")}`,
+        },
+        {
+          key: "risk_matrix",
+          heading: "Risk Matrix",
+          body_markdown: riskText,
+        },
+        {
+          key: "next_actions",
+          heading: "Next Actions",
+          body_markdown:
+            actions.length > 0
+              ? actions
+                  .map((action) => `- ${String(action.title ?? "Action")} — ${String(action.description ?? "")}`)
+                  .join("\n")
+              : disqualifiers.length > 0
+                ? disqualifiers
+                    .map((disqualifier) => `- ${String(disqualifier.label ?? "Issue")} — ${String(disqualifier.detail ?? "")}`)
+                    .join("\n")
+                : "- No actions identified",
+        },
+      ],
+      sources_summary: [],
+    };
+
+    const rendered = await renderArtifactFromSpec(spec);
+    const latest = await prisma.artifact.findFirst({
+      where: { dealId, artifactType: "TRIAGE_PDF" },
+      orderBy: { version: "desc" },
+      select: { version: true },
+    });
+    const nextVersion = (latest?.version ?? 0) + 1;
+
+    const storageObjectKey = buildArtifactObjectKey({
+      orgId,
+      dealId,
+      artifactType: "TRIAGE_PDF",
+      version: nextVersion,
+      filename: rendered.filename,
+    });
+    const { error: storageError } = await supabaseAdmin.storage
+      .from("deal-room-uploads")
+      .upload(storageObjectKey, Buffer.from(rendered.bytes), {
+        contentType: rendered.contentType,
+        upsert: false,
+      });
+    if (storageError) throw new Error(`Storage upload failed: ${storageError.message}`);
+
+    await prisma.artifact.create({
+      data: {
+        orgId,
+        dealId,
+        artifactType: "TRIAGE_PDF",
+        version: nextVersion,
+        storageObjectKey,
+        generatedByRunId: run.id,
+      },
+    });
+    await prisma.run.update({
+      where: { id: run.id },
+      data: { status: "succeeded", finishedAt: new Date() },
+    });
+    return nextVersion;
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    await prisma.run.update({
+      where: { id: run.id },
+      data: { status: "failed", finishedAt: new Date(), error: msg },
+    });
+    console.error("[automation] TRIAGE_PDF auto-generation failed:", msg);
+    return null;
+  }
+}
 
 function totalAcreage(
   parcels: Array<{ acreage: { toString(): string } | null }>

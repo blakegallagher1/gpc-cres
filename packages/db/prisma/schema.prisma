@@ -146,6 +146,7 @@ model Org {
   tenantLeases            TenantLease[]
   developmentBudgets      DevelopmentBudget[]
   capitalSources          CapitalSource[]
+  capitalDeployments      CapitalDeployment[]
   equityWaterfalls        EquityWaterfall[]
   financings              DealFinancing[]
   risks                   DealRisk[]
@@ -272,6 +273,7 @@ model Deal {
   tenantLeases   TenantLease[]
   developmentBudget DevelopmentBudget?
   capitalSources CapitalSource[]
+  capitalDeployments CapitalDeployment[]
   equityWaterfalls EquityWaterfall[]
   financings       DealFinancing[]
   risks            DealRisk[]
@@ -1195,6 +1197,28 @@ model EquityWaterfall {
   @@index([dealId])
   @@index([orgId, dealId])
   @@map("equity_waterfalls")
+}
+
+model CapitalDeployment {
+  id                   String   @id @default(uuid()) @db.Uuid
+  dealId               String   @map("deal_id") @db.Uuid
+  orgId                String   @map("org_id") @db.Uuid
+  stage                String   @map("stage") @db.Text
+  capitalCommitted     Decimal  @map("capital_committed") @db.Decimal(14, 2)
+  capitalDeployed      Decimal  @map("capital_deployed") @db.Decimal(14, 2)
+  nonRecoverableExpense Decimal @map("non_recoverable_expense") @db.Decimal(14, 2)
+  deploymentDate       DateTime @map("deployment_date") @db.Date
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  org  Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([dealId])
+  @@index([orgId, stage])
+  @@index([orgId, deploymentDate])
+  @@map("capital_deployments")
 }
 
 model DealFinancing {

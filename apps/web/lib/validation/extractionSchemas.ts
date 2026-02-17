@@ -34,6 +34,7 @@ const JsonObjectSchema = z.record(z.string(), JsonValueSchema);
 export const DocTypeSchema = z.enum([
   "psa",
   "phase_i_esa",
+  "financing_commitment",
   "title_commitment",
   "survey",
   "zoning_letter",
@@ -48,6 +49,7 @@ export type DocType = z.infer<typeof DocTypeSchema>;
 export const DOC_TYPE_LABELS: Record<DocType, string> = {
   psa: "Purchase & Sale Agreement",
   phase_i_esa: "Phase I ESA",
+  financing_commitment: "Financing Commitment",
   title_commitment: "Title Commitment",
   survey: "Survey",
   zoning_letter: "Zoning Letter",
@@ -170,6 +172,20 @@ export const AppraisalExtractionSchema = z
   })
   .strict();
 
+export const FinancingCommitmentExtractionSchema = z
+  .object({
+    lender_name: NonEmptyNullableStringSchema,
+    loan_amount: NullableNumberSchema,
+    interest_rate: NullableNumberSchema,
+    loan_term_months: z.number().int().nonnegative().nullable(),
+    dscr_requirement: NullableNumberSchema,
+    ltv_percent: NullableNumberSchema,
+    commitment_date: NullableDateStringSchema,
+    expiry_date: NullableDateStringSchema,
+    conditions: StringListSchema,
+  })
+  .strict();
+
 export const LoiExtractionSchema = z
   .object({
     purchase_price: NullableNumberSchema,
@@ -187,6 +203,7 @@ export const LoiExtractionSchema = z
 export const EXTRACTION_SCHEMAS = {
   psa: PsaExtractionSchema,
   phase_i_esa: PhaseIEsaExtractionSchema,
+  financing_commitment: FinancingCommitmentExtractionSchema,
   title_commitment: TitleCommitmentExtractionSchema,
   survey: SurveyExtractionSchema,
   zoning_letter: ZoningLetterExtractionSchema,

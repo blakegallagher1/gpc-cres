@@ -146,6 +146,10 @@ const ENHANCED_CLASSIFICATION_RULES: ReadonlyArray<{
   { pattern: /phase\s*[1i]\b.*(?:esa|environmental)/i, docType: "phase_i_esa", confidence: 0.95 },
   { pattern: /environmental\s*site\s*assessment/i, docType: "phase_i_esa", confidence: 0.9 },
   { pattern: /\besa\b/i, docType: "phase_i_esa", confidence: 0.7 },
+  // Financing Commitment
+  { pattern: /financing\s*commitment/i, docType: "financing_commitment", confidence: 0.95 },
+  { pattern: /loan\s*commitment/i, docType: "financing_commitment", confidence: 0.92 },
+  { pattern: /commitment\s*letter/i, docType: "financing_commitment", confidence: 0.82 },
   // Title Commitment
   { pattern: /title\s*commitment/i, docType: "title_commitment", confidence: 0.95 },
   { pattern: /title\s*report/i, docType: "title_commitment", confidence: 0.85 },
@@ -376,6 +380,22 @@ Required JSON schema:
   "noi": number or null — net operating income used in income approach,
   "highest_best_use": "string" or null — highest and best use conclusion,
   "appraiser": "string" or null — name of appraiser or appraisal firm
+}`,
+
+  financing_commitment: `Extract ALL of the following fields from this Financing Commitment / Loan Commitment Letter.
+For percentages, return numeric percentages (e.g., 7.25 for 7.25%).
+
+Required JSON schema:
+{
+  "lender_name": "string" or null — lender or issuing institution,
+  "loan_amount": number or null — committed principal amount in dollars,
+  "interest_rate": number or null — annual interest rate percentage (e.g., 7.25),
+  "loan_term_months": number or null — loan term in months,
+  "dscr_requirement": number or null — minimum DSCR covenant,
+  "ltv_percent": number or null — maximum LTV percentage (e.g., 70 for 70%),
+  "commitment_date": "YYYY-MM-DD" or null — commitment letter date,
+  "expiry_date": "YYYY-MM-DD" or null — commitment expiration date,
+  "conditions": ["string"] — major funding/closing conditions
 }`,
 
   lease: `Extract ALL of the following fields from this Lease / Rent Roll / Lease Abstract.
@@ -703,6 +723,39 @@ export class DocumentProcessingService {
     data: Record<string, unknown>
   ): Promise<void> {
     try {
+      const ensureAutomationTask = async (
+        title: string,
+        description: string,
+        pipelineStep: number,
+        dueInDays: number,
+      ): Promise<void> => {
+        const existing = await prisma.task.findFirst({
+          where: { orgId, dealId, title },
+          select: { id: true },
+        });
+        if (existing) return;
+
+        await prisma.task.create({
+          data: {
+            orgId,
+            dealId,
+            title,
+            description,
+            pipelineStep,
+            dueAt: new Date(Date.now() + dueInDays * 24 * 60 * 60 * 1000),
+          },
+        });
+      };
+
+      const asNumber = (value: unknown): number | null => {
+        if (typeof value === "number" && Number.isFinite(value)) return value;
+        if (typeof value === "string") {
+          const parsed = Number(value.replace(/[$,%\s,]/g, ""));
+          return Number.isFinite(parsed) ? parsed : null;
+        }
+        return null;
+      };
+
       const parcels = await prisma.parcel.findMany({
         where: { dealId },
         select: { id: true, floodZone: true, acreage: true, currentZoning: true, envNotes: true, soilsNotes: true },
@@ -772,6 +825,13 @@ export class DocumentProcessingService {
         }
 
         if (recs && recs.length > 0) {
+          await ensureAutomationTask(
+            "[AUTO] Schedule Phase II ESA",
+            `RECs detected in Phase I ESA. Schedule Phase II ESA scoping and proposal. RECs: ${recs.join("; ")}`,
+            4,
+            7,
+          );
+
           for (const parcel of parcels) {
             if (!parcel.envNotes) {
               await prisma.parcel.update({
@@ -779,6 +839,144 @@ export class DocumentProcessingService {
                 data: { envNotes: `RECs: ${recs.join("; ")}` },
               });
             }
+          }
+        }
+      }
+
+      // Appraisal → appraisal gap renegotiation task
+      if (docType === "appraisal") {
+        const appraisedValue = asNumber(data.appraised_value);
+        if (appraisedValue !== null) {
+          const terms = await prisma.dealTerms.findFirst({
+            where: { orgId, dealId },
+            select: { offerPrice: true },
+          });
+          const offerPrice =
+            terms?.offerPrice != null ? Number(terms.offerPrice.toString()) : null;
+          if (
+            offerPrice !== null &&
+            offerPrice > 0 &&
+            appraisedValue < offerPrice * 0.95
+          ) {
+            const gap = Math.round(offerPrice - appraisedValue);
+            await ensureAutomationTask(
+              "[AUTO][HIGH] Appraisal Gap — Renegotiate",
+              `Appraised value ${appraisedValue.toLocaleString()} is below offer ${offerPrice.toLocaleString()} (gap ${gap.toLocaleString()}). Review valuation gap and renegotiate terms.`,
+              3,
+              3,
+            );
+          }
+        }
+      }
+
+      // Financing commitment → compare extracted terms to modeled financing and flag discrepancies
+      if (docType === "financing_commitment") {
+        const extractedLoanAmount = asNumber(data.loan_amount);
+        const extractedRate = asNumber(data.interest_rate);
+        const extractedTerm = asNumber(data.loan_term_months);
+        const extractedDscr = asNumber(data.dscr_requirement);
+        const extractedLtvRaw = asNumber(data.ltv_percent);
+        const extractedLtv =
+          extractedLtvRaw === null ? null : extractedLtvRaw > 1 ? extractedLtvRaw / 100 : extractedLtvRaw;
+        const extractedLender =
+          typeof data.lender_name === "string" ? data.lender_name.trim() : null;
+
+        const latestFinancing = await prisma.dealFinancing.findFirst({
+          where: { orgId, dealId },
+          orderBy: { createdAt: "desc" },
+          select: {
+            lenderName: true,
+            loanAmount: true,
+            interestRate: true,
+            loanTermMonths: true,
+            dscrRequirement: true,
+            ltvPercent: true,
+          },
+        });
+
+        if (latestFinancing) {
+          const discrepancies: string[] = [];
+          const modelLoanAmount =
+            latestFinancing.loanAmount != null
+              ? Number(latestFinancing.loanAmount.toString())
+              : null;
+          const modelRate =
+            latestFinancing.interestRate != null
+              ? Number(latestFinancing.interestRate.toString())
+              : null;
+          const modelDscr =
+            latestFinancing.dscrRequirement != null
+              ? Number(latestFinancing.dscrRequirement.toString())
+              : null;
+          const modelLtvRaw =
+            latestFinancing.ltvPercent != null
+              ? Number(latestFinancing.ltvPercent.toString())
+              : null;
+          const modelLtv =
+            modelLtvRaw === null ? null : modelLtvRaw > 1 ? modelLtvRaw / 100 : modelLtvRaw;
+
+          if (
+            extractedLender &&
+            latestFinancing.lenderName &&
+            extractedLender.toLowerCase() !== latestFinancing.lenderName.toLowerCase()
+          ) {
+            discrepancies.push(
+              `Lender mismatch: extracted "${extractedLender}" vs modeled "${latestFinancing.lenderName}"`,
+            );
+          }
+          if (
+            extractedLoanAmount !== null &&
+            modelLoanAmount !== null &&
+            Math.abs(extractedLoanAmount - modelLoanAmount) > Math.max(50_000, modelLoanAmount * 0.05)
+          ) {
+            discrepancies.push(
+              `Loan amount mismatch: extracted ${Math.round(extractedLoanAmount).toLocaleString()} vs modeled ${Math.round(modelLoanAmount).toLocaleString()}`,
+            );
+          }
+          if (
+            extractedRate !== null &&
+            modelRate !== null &&
+            Math.abs(extractedRate - modelRate) > 0.5
+          ) {
+            discrepancies.push(
+              `Interest rate mismatch: extracted ${extractedRate}% vs modeled ${modelRate}%`,
+            );
+          }
+          if (
+            extractedTerm !== null &&
+            latestFinancing.loanTermMonths !== null &&
+            Math.abs(extractedTerm - latestFinancing.loanTermMonths) > 6
+          ) {
+            discrepancies.push(
+              `Loan term mismatch: extracted ${Math.round(extractedTerm)} months vs modeled ${latestFinancing.loanTermMonths} months`,
+            );
+          }
+          if (
+            extractedDscr !== null &&
+            modelDscr !== null &&
+            Math.abs(extractedDscr - modelDscr) > 0.1
+          ) {
+            discrepancies.push(
+              `DSCR requirement mismatch: extracted ${extractedDscr} vs modeled ${modelDscr}`,
+            );
+          }
+          if (
+            extractedLtv !== null &&
+            modelLtv !== null &&
+            Math.abs(extractedLtv - modelLtv) > 0.03
+          ) {
+            discrepancies.push(
+              `LTV mismatch: extracted ${(extractedLtv * 100).toFixed(1)}% vs modeled ${(modelLtv * 100).toFixed(1)}%`,
+            );
+          }
+
+          if (discrepancies.length > 0) {
+            await ensureAutomationTask(
+              "[AUTO] Financing Commitment Discrepancy Review",
+              `Extracted financing terms differ from modeled DealFinancing terms:\n- ${discrepancies.join("\n- ")}`,
+              4,
+              3,
+            );
           }
         }
       }

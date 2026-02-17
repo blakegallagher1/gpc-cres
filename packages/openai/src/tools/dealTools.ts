@@ -1462,6 +1462,542 @@ export const model_exit_scenarios = tool({
   },
 });
 
+export const recommend_entitlement_path = tool({
+  name: "recommend_entitlement_path",
+  description:
+    "Recommend an entitlement strategy path with approval probability, timeline, costs, ranked alternatives, and risk flags.",
+  parameters: z.object({
+    jurisdiction_id: z.string().nullable(),
+    sku: z.string(),
+    proposed_use: z.string(),
+    site_constraints: z.array(z.string()).nullable(),
+    risk_tolerance: z.enum(["conservative", "moderate", "aggressive"]),
+  }),
+  execute: async ({
+    jurisdiction_id,
+    sku,
+    proposed_use,
+    site_constraints,
+    risk_tolerance,
+  }) => {
+    const constraints = (site_constraints ?? []).map((item) => item.toLowerCase());
+    const hasWetlands = constraints.some((item) => item.includes("wetland"));
+    const hasFlood = constraints.some((item) => item.includes("flood"));
+    const hasAccess = constraints.some((item) => item.includes("access"));
+    const hasAdjacency = constraints.some((item) => item.includes("adjacen"));
+
+    const baseOptions = [
+      {
+        path: "CUP",
+        approvalProbability: 0.74,
+        expectedTimelineMonths: 5.5,
+        estimatedCost: 45_000,
+      },
+      {
+        path: "REZONING",
+        approvalProbability: 0.62,
+        expectedTimelineMonths: 9,
+        estimatedCost: 85_000,
+      },
+      {
+        path: "VARIANCE",
+        approvalProbability: 0.68,
+        expectedTimelineMonths: 6.5,
+        estimatedCost: 55_000,
+      },
+    ];
+
+    const adjusted = baseOptions.map((option) => {
+      let probability = option.approvalProbability;
+      let months = option.expectedTimelineMonths;
+      let cost = option.estimatedCost;
+
+      if (hasWetlands) {
+        probability -= 0.08;
+        months += 1.5;
+        cost += 18_000;
+      }
+      if (hasFlood) {
+        probability -= 0.05;
+        months += 1;
+        cost += 12_000;
+      }
+      if (hasAccess) {
+        probability -= 0.04;
+        months += 0.75;
+        cost += 8_000;
+      }
+      if (hasAdjacency) {
+        probability -= 0.03;
+        months += 0.5;
+        cost += 6_000;
+      }
+      if (risk_tolerance === "conservative" && option.path === "REZONING") {
+        probability -= 0.04;
+      }
+      if (risk_tolerance === "aggressive" && option.path === "REZONING") {
+        probability += 0.03;
+      }
+      if (proposed_use.toLowerCase().includes("industrial") && option.path === "CUP") {
+        probability -= 0.03;
+      }
+      if (sku.toLowerCase().includes("truck") && option.path === "VARIANCE") {
+        probability -= 0.02;
+      }
+
+      const boundedProbability = Math.max(0.2, Math.min(0.92, probability));
+      const boundedMonths = Math.max(2, months);
+      const score = round(boundedProbability * 100 - boundedMonths * 2.5 - cost / 10_000, 2);
+
+      return {
+        ...option,
+        approvalProbability: round(boundedProbability, 4),
+        expectedTimelineMonths: round(boundedMonths, 1),
+        estimatedCost: Math.round(cost),
+        score,
+      };
+    });
+
+    adjusted.sort((a, b) => b.score - a.score);
+    const recommended = adjusted[0];
+
+    const riskFlags = [
+      hasWetlands ? "wetlands_permitting_risk" : null,
+      hasFlood ? "floodplain_mitigation_risk" : null,
+      hasAccess ? "access_easement_or_dotd_risk" : null,
+      hasAdjacency ? "neighbor_opposition_risk" : null,
+      jurisdiction_id ? null : "missing_jurisdiction_reference",
+    ].filter((value): value is string => value !== null);
+
+    return JSON.stringify({
+      jurisdiction_id,
+      sku,
+      proposed_use,
+      recommended_path: {
+        path: recommended.path,
+        approval_probability: recommended.approvalProbability,
+        expected_timeline_months: recommended.expectedTimelineMonths,
+        estimated_cost: recommended.estimatedCost,
+      },
+      alternatives_ranked: adjusted.slice(1, 4).map((option, idx) => ({
+        rank: idx + 2,
+        path: option.path,
+        approval_probability: option.approvalProbability,
+        expected_timeline_months: option.expectedTimelineMonths,
+        estimated_cost: option.estimatedCost,
+      })),
+      risk_flags: riskFlags,
+    });
+  },
+});
+
+export const analyze_comparable_sales = tool({
+  name: "analyze_comparable_sales",
+  description:
+    "Analyze comparable sales with time adjustments and return valuation range, recommended offer, and market strength.",
+  parameters: z.object({
+    parcel_address: z.string(),
+    acreage: z.number(),
+    sku_type: z.string(),
+    comps: z.array(
+      z.object({
+        address: z.string(),
+        salePrice: z.number(),
+        acreage: z.number(),
+        saleDate: z.string(),
+      }),
+    ),
+  }),
+  execute: async ({ parcel_address, acreage, sku_type, comps }) => {
+    if (!Array.isArray(comps) || comps.length === 0) {
+      return JSON.stringify({ error: "At least one comparable sale is required" });
+    }
+
+    const now = new Date();
+    const adjusted = comps.map((comp) => {
+      const saleDate = new Date(comp.saleDate);
+      const ageMonths = Number.isNaN(saleDate.getTime())
+        ? 0
+        : Math.max(0, (now.getTime() - saleDate.getTime()) / (1000 * 60 * 60 * 24 * 30.4375));
+      const timeAdjustmentPct = Math.min(0.24, ageMonths * 0.0025);
+      const basePpa = comp.acreage > 0 ? comp.salePrice / comp.acreage : 0;
+      const adjustedPpa = basePpa * (1 + timeAdjustmentPct);
+      const adjustedValue = adjustedPpa * Math.max(acreage, 0.1);
+
+      return {
+        address: comp.address,
+        sale_price: Math.round(comp.salePrice),
+        acreage: round(comp.acreage, 3),
+        sale_date: comp.saleDate,
+        base_price_per_acre: Math.round(basePpa),
+        time_adjustment_pct: round(timeAdjustmentPct * 100, 2),
+        adjusted_price_per_acre: Math.round(adjustedPpa),
+        adjusted_value_for_subject: Math.round(adjustedValue),
+      };
+    });
+
+    const ppaSeries = adjusted
+      .map((row) => row.adjusted_price_per_acre)
+      .filter((value) => Number.isFinite(value) && value > 0)
+      .sort((a, b) => a - b);
+
+    const lowPpa = ppaSeries[Math.max(0, Math.floor(ppaSeries.length * 0.2))] ?? 0;
+    const midPpa = ppaSeries[Math.max(0, Math.floor(ppaSeries.length * 0.5))] ?? 0;
+    const highPpa = ppaSeries[Math.max(0, Math.floor(ppaSeries.length * 0.8))] ?? 0;
+
+    const low = Math.round(lowPpa * acreage);
+    const mid = Math.round(midPpa * acreage);
+    const high = Math.round(highPpa * acreage);
+    const recommendedOffer = Math.round(mid * 0.96);
+
+    const dispersion =
+      midPpa > 0 ? (highPpa - lowPpa) / midPpa : 0;
+    const marketStrengthIndicator =
+      dispersion < 0.2 ? "strong" : dispersion < 0.4 ? "balanced" : "soft";
+
+    return JSON.stringify({
+      parcel_address,
+      sku_type,
+      subject_acreage: round(acreage, 3),
+      adjusted_comps: adjusted,
+      valuation_range: {
+        low,
+        mid,
+        high,
+      },
+      recommended_offer_price: recommendedOffer,
+      market_strength_indicator: marketStrengthIndicator,
+    });
+  },
+});
+
+export const optimize_debt_structure = tool({
+  name: "optimize_debt_structure",
+  description:
+    "Rank debt structures and return conservative/moderate/aggressive options with equity, DSCR, levered IRR, and risk score.",
+  parameters: z.object({
+    purchase_price: z.number(),
+    noi: z.number(),
+    available_equity: z.number(),
+    risk_tolerance: z.enum(["conservative", "moderate", "aggressive"]),
+    debt_options: z.array(
+      z.object({
+        lenderType: z.string(),
+        maxLoan: z.number(),
+        interestRate: z.number(),
+        term: z.number().int().positive(),
+        dscrRequired: z.number(),
+      }),
+    ),
+  }),
+  execute: async ({
+    purchase_price,
+    noi,
+    available_equity,
+    risk_tolerance,
+    debt_options,
+  }) => {
+    if (!debt_options.length || purchase_price <= 0) {
+      return JSON.stringify({ error: "Debt options and purchase price are required" });
+    }
+
+    const annualDebtService = (loan: number, annualRatePct: number, termYears: number): number => {
+      const monthlyRate = annualRatePct / 100 / 12;
+      const periods = Math.max(1, termYears * 12);
+      if (monthlyRate <= 0) return loan / periods * 12;
+      const monthlyPayment =
+        (loan * monthlyRate) /
+        (1 - Math.pow(1 + monthlyRate, -periods));
+      return monthlyPayment * 12;
+    };
+
+    const baseCapRate = noi > 0 ? noi / purchase_price : 0;
+
+    const candidates = debt_options
+      .map((option) => {
+        const maxDebt = Math.min(option.maxLoan, purchase_price);
+        const debtService = annualDebtService(maxDebt, option.interestRate, option.term);
+        const dscr = debtService > 0 ? noi / debtService : 0;
+        const equityRequired = Math.max(0, purchase_price - maxDebt);
+        const leverage = maxDebt / purchase_price;
+        const spread = baseCapRate - option.interestRate / 100;
+        const leveredIrr = baseCapRate + spread * leverage * 1.35;
+        const riskPenalty = Math.max(0, leverage - 0.7) * 120 + Math.max(0, option.interestRate - 7);
+        const riskScore = Math.max(
+          0,
+          Math.min(100, Math.round(55 + (1.25 - dscr) * 45 + riskPenalty)),
+        );
+
+        return {
+          lender_type: option.lenderType,
+          debt_amount: Math.round(maxDebt),
+          equity_required: Math.round(equityRequired),
+          dscr: round(dscr, 3),
+          levered_irr: round(leveredIrr * 100, 2),
+          risk_score: riskScore,
+          feasible:
+            dscr >= option.dscrRequired &&
+            equityRequired <= available_equity,
+        };
+      })
+      .filter((candidate) => candidate.feasible);
+
+    if (candidates.length === 0) {
+      return JSON.stringify({
+        error: "No feasible structure for current equity + DSCR constraints",
+      });
+    }
+
+    const byConservative = [...candidates].sort(
+      (a, b) => a.risk_score - b.risk_score || b.levered_irr - a.levered_irr,
+    );
+    const byAggressive = [...candidates].sort(
+      (a, b) => b.levered_irr - a.levered_irr || a.risk_score - b.risk_score,
+    );
+    const byModerate = [...candidates].sort(
+      (a, b) =>
+        Math.abs(a.risk_score - 55) - Math.abs(b.risk_score - 55) ||
+        b.levered_irr - a.levered_irr,
+    );
+
+    const structures = [
+      { profile: "conservative", value: byConservative[0] },
+      { profile: "moderate", value: byModerate[0] },
+      { profile: "aggressive", value: byAggressive[0] },
+    ];
+
+    const ranked = structures.map((structure) => ({
+      profile: structure.profile,
+      ...structure.value,
+      recommended: structure.profile === risk_tolerance,
+    }));
+
+    return JSON.stringify({
+      purchase_price: Math.round(purchase_price),
+      noi: Math.round(noi),
+      available_equity: Math.round(available_equity),
+      ranked_structures: ranked,
+    });
+  },
+});
+
+export const estimate_phase_ii_scope = tool({
+  name: "estimate_phase_ii_scope",
+  description:
+    "Estimate Phase II ESA scope, timeline, cost bands, remediation risk, and probable remediation range from Phase I RECs.",
+  parameters: z.object({
+    phase_i_recs: z.array(z.string()),
+    site_acreage: z.number(),
+    groundwater_depth: z.number().nullable(),
+  }),
+  execute: async ({ phase_i_recs, site_acreage, groundwater_depth }) => {
+    const recs = phase_i_recs.map((item) => item.toLowerCase());
+    const hasUst = recs.some((item) => item.includes("ust") || item.includes("tank"));
+    const hasVapor = recs.some((item) => item.includes("vapor"));
+    const hasSolvent = recs.some((item) => item.includes("solvent") || item.includes("dry clean"));
+    const hasFill = recs.some((item) => item.includes("fill") || item.includes("debris"));
+
+    let riskScore = 35 + recs.length * 6;
+    if (hasUst) riskScore += 15;
+    if (hasVapor) riskScore += 10;
+    if (hasSolvent) riskScore += 12;
+    if (hasFill) riskScore += 8;
+    if (groundwater_depth !== null && groundwater_depth <= 12) riskScore += 10;
+    if (groundwater_depth !== null && groundwater_depth >= 40) riskScore -= 4;
+    riskScore = Math.max(10, Math.min(95, riskScore));
+
+    const baseCost = 22_000 + Math.max(site_acreage, 0) * 7_000;
+    const low = Math.round(baseCost * (0.75 + riskScore / 400));
+    const mid = Math.round(baseCost * (1 + riskScore / 220));
+    const high = Math.round(baseCost * (1.35 + riskScore / 160));
+
+    const remediationLow = Math.round(low * (0.6 + riskScore / 250));
+    const remediationMid = Math.round(mid * (0.85 + riskScore / 180));
+    const remediationHigh = Math.round(high * (1.15 + riskScore / 140));
+
+    const timelineWeeks = {
+      low: Math.max(3, Math.round(4 + riskScore / 18)),
+      mid: Math.max(5, Math.round(6 + riskScore / 14)),
+      high: Math.max(7, Math.round(8 + riskScore / 11)),
+    };
+
+    const scopeParts = [
+      hasUst ? "targeted tank basin borings" : null,
+      hasSolvent ? "VOC panel and chlorinated solvent suite" : null,
+      hasVapor ? "sub-slab soil gas screening" : null,
+      hasFill ? "fill material metals/PAH characterization" : "baseline soil/groundwater screening",
+    ].filter((value): value is string => value !== null);
+
+    return JSON.stringify({
+      phase_i_recs,
+      site_acreage: round(site_acreage, 3),
+      groundwater_depth,
+      phase_ii_cost_range: { low, mid, high },
+      timeline_weeks: timelineWeeks,
+      remediation_scope_description: `Recommended scope includes ${scopeParts.join(", ")}.`,
+      remediation_cost_range: {
+        low: remediationLow,
+        mid: remediationMid,
+        high: remediationHigh,
+      },
+      probability_remediation_required: round(riskScore / 100, 3),
+    });
+  },
+});
+
+export const analyze_title_commitment = tool({
+  name: "analyze_title_commitment",
+  description:
+    "Analyze title commitment text and return categorized exceptions, lien severity, easement impact, insurance estimate, and cure plan.",
+  parameters: z.object({
+    title_commitment_text: z.string(),
+    deal_type: z.string(),
+  }),
+  execute: async ({ title_commitment_text, deal_type }) => {
+    const lines = title_commitment_text
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+
+    const exceptionLines = lines.filter((line) =>
+      /exception|subject to|encumbrance|restriction/i.test(line),
+    );
+    const lienLines = lines.filter((line) =>
+      /lien|mortgage|judgment|tax|ucc/i.test(line),
+    );
+    const easementLines = lines.filter((line) =>
+      /easement|right[- ]of[- ]way|servitude|access agreement/i.test(line),
+    );
+
+    const categorizedExceptions = exceptionLines.slice(0, 20).map((line) => ({
+      item: line,
+      category: /tax|assessment|lien|mortgage/i.test(line)
+        ? "financial_encumbrance"
+        : /easement|right[- ]of[- ]way|servitude/i.test(line)
+          ? "use_restriction"
+          : "general_exception",
+    }));
+
+    const liens = lienLines.slice(0, 20).map((line) => ({
+      item: line,
+      severity: /tax|judgment|federal/i.test(line)
+        ? "critical"
+        : /mortgage|deed of trust|ucc/i.test(line)
+          ? "high"
+          : "medium",
+    }));
+
+    const easementImpactDescription =
+      easementLines.length === 0
+        ? "No material easement burden identified in extracted text."
+        : `${easementLines.length} easement/right-of-way item(s) may constrain site planning and access layout.`;
+
+    const moneyMatches = [...title_commitment_text.matchAll(/\$?\b\d{1,3}(?:,\d{3})+(?:\.\d+)?\b/g)]
+      .map((match) => Number(match[0].replace(/[$,]/g, "")))
+      .filter((value) => Number.isFinite(value));
+    const policyAmount =
+      moneyMatches.length > 0 ? Math.max(...moneyMatches) : 1_000_000;
+    const insuranceRate =
+      /raw land|land/i.test(deal_type) ? 0.0032 : 0.0043;
+    const titleInsuranceCostEstimate = Math.round(policyAmount * insuranceRate);
+
+    const cureItems = liens.slice(0, 8).map((lien, idx) => ({
+      item: lien.item,
+      estimated_cost: Math.round(titleInsuranceCostEstimate * (0.08 + idx * 0.01)),
+      timeline_days: lien.severity === "critical" ? 45 : lien.severity === "high" ? 30 : 21,
+    }));
+
+    return JSON.stringify({
+      categorized_exceptions: categorizedExceptions,
+      liens,
+      easement_impact_description: easementImpactDescription,
+      title_insurance_cost_estimate: titleInsuranceCostEstimate,
+      cure_items: cureItems,
+    });
+  },
+});
+
+export const generate_zoning_compliance_checklist = tool({
+  name: "generate_zoning_compliance_checklist",
+  description:
+    "Generate requirement-level zoning compliance matrix with variance counts, likelihood, and aggregate variance timing/cost estimates.",
+  parameters: z.object({
+    jurisdiction_id: z.string().nullable(),
+    sku: z.string(),
+    current_zoning: z.string().nullable(),
+    site_constraints: z.object({
+      acreage: z.number().nullable(),
+      proposed_height: z.number().nullable(),
+      parking_spaces: z.number().nullable(),
+      far: z.number().nullable(),
+    }),
+  }),
+  execute: async ({ jurisdiction_id, sku, current_zoning, site_constraints }) => {
+    const zoning = (current_zoning ?? "UNKNOWN").toUpperCase();
+    const acreage = site_constraints.acreage ?? 0;
+    const proposedHeight = site_constraints.proposed_height ?? 0;
+    const proposedParking = site_constraints.parking_spaces ?? 0;
+    const proposedFar = site_constraints.far ?? 0;
+
+    const requiredMaxHeight =
+      zoning.startsWith("M-") ? 85 : zoning.startsWith("C-") ? 60 : 45;
+    const requiredMaxFar =
+      zoning.startsWith("M-") ? 2.0 : zoning.startsWith("C-") ? 1.5 : 1.0;
+    const requiredParking =
+      Math.max(4, Math.round((sku.toLowerCase().includes("truck") ? 1.2 : 2.4) * Math.max(acreage, 1)));
+    const requiredMinAcreage =
+      sku.toLowerCase().includes("truck") ? 3 : sku.toLowerCase().includes("storage") ? 2 : 1;
+
+    const checklist = [
+      {
+        item: "Minimum Site Acreage",
+        required: `${requiredMinAcreage.toFixed(1)} acres min`,
+        proposed: acreage > 0 ? `${round(acreage, 2)} acres` : "Not provided",
+        compliant: acreage >= requiredMinAcreage,
+      },
+      {
+        item: "Maximum Building Height",
+        required: `${requiredMaxHeight} ft max`,
+        proposed: proposedHeight > 0 ? `${round(proposedHeight, 1)} ft` : "Not provided",
+        compliant: proposedHeight > 0 ? proposedHeight <= requiredMaxHeight : false,
+      },
+      {
+        item: "Parking Supply",
+        required: `${requiredParking} spaces min`,
+        proposed: proposedParking > 0 ? `${Math.round(proposedParking)} spaces` : "Not provided",
+        compliant: proposedParking >= requiredParking,
+      },
+      {
+        item: "Floor Area Ratio (FAR)",
+        required: `${requiredMaxFar.toFixed(2)} FAR max`,
+        proposed: proposedFar > 0 ? round(proposedFar, 2).toFixed(2) : "Not provided",
+        compliant: proposedFar > 0 ? proposedFar <= requiredMaxFar : false,
+      },
+    ].map((row) => {
+      const varianceNeeded = !row.compliant;
+      return {
+        ...row,
+        variance_needed: varianceNeeded,
+        variance_likelihood: varianceNeeded ? "moderate" : "low",
+      };
+    });
+
+    const totalVarianceCount = checklist.filter((row) => row.variance_needed).length;
+    const estimatedVarianceCost = totalVarianceCount * 18_500;
+    const estimatedVarianceTimelineMonths = round(totalVarianceCount * 2.5, 1);
+
+    return JSON.stringify({
+      jurisdiction_id,
+      sku,
+      current_zoning,
+      compliance_matrix: checklist,
+      total_variance_count: totalVarianceCount,
+      estimated_variance_cost: estimatedVarianceCost,
+      estimated_variance_timeline_months: estimatedVarianceTimelineMonths,
+    });
+  },
+});
+
 export const addParcelToDeal = tool({
   name: "add_parcel_to_deal",
   description: "Attach a parcel (by address and optional details) to a deal",

@@ -55,6 +55,13 @@ export interface TriageCalibration {
   successRate: number;
 }
 
+export interface PredictionTrackingSummary {
+  avgIrrOverestimatePct: number | null;
+  avgTimelineUnderestimateMonths: number | null;
+  riskAccuracyScore: number | null;
+  sampleSize: number;
+}
+
 export interface OutcomeSummary {
   totalExited: number;
   totalKilled: number;
@@ -63,6 +70,7 @@ export interface OutcomeSummary {
   avgHoldMonths: number | null;
   topBiases: AssumptionBias[];
   triageCalibration: TriageCalibration[];
+  predictionTracking: PredictionTrackingSummary;
 }
 
 // ---------------------------------------------------------------------------
@@ -393,6 +401,7 @@ export async function getOutcomeSummary(orgId: string): Promise<OutcomeSummary> 
 
   // Triage calibration
   const calibration = await getTriageCalibration(orgId);
+  const predictionTracking = await getPredictionTrackingSummary(orgId);
 
   return {
     totalExited: exited.length,
@@ -404,6 +413,7 @@ export async function getOutcomeSummary(orgId: string): Promise<OutcomeSummary> 
       : null,
     topBiases: biases,
     triageCalibration: calibration,
+    predictionTracking,
   };
 }
 
@@ -590,6 +600,182 @@ async function getTriageCalibration(
   );
 
   return result;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function asNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value.replace(/[%,$\s,]/g, ""));
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function toPctPoints(value: number): number {
+  return Math.abs(value) <= 1 ? value * 100 : value;
+}
+
+function extractPredictedIrr(output: Record<string, unknown>): number | null {
+  const direct = asNumber(output.predicted_irr) ?? asNumber(output.projected_irr);
+  if (direct !== null) return toPctPoints(direct);
+
+  const financial = asRecord(output.financial_summary);
+  if (!financial) return null;
+  const nested =
+    asNumber(financial.projected_irr) ??
+    asNumber(financial.predicted_irr) ??
+    asNumber(financial.irr);
+  return nested === null ? null : toPctPoints(nested);
+}
+
+function extractPredictedTimelineMonths(output: Record<string, unknown>): number | null {
+  const direct =
+    asNumber(output.predicted_timeline_months) ??
+    asNumber(output.timeline_months) ??
+    asNumber(output.expected_timeline_months);
+  if (direct !== null) return direct;
+
+  const actions = Array.isArray(output.next_actions)
+    ? (output.next_actions as Array<Record<string, unknown>>)
+    : [];
+  if (actions.length === 0) return null;
+
+  const maxDays = actions.reduce((max, action) => {
+    const due = asNumber(action.due_in_days);
+    if (due === null) return max;
+    return Math.max(max, due);
+  }, 0);
+  if (maxDays <= 0) return null;
+  return Math.round((maxDays / 30.4375) * 10) / 10;
+}
+
+function extractPredictedRiskScore(output: Record<string, unknown>): number | null {
+  const direct =
+    asNumber(output.predicted_risk_score) ??
+    asNumber(output.risk_score);
+  if (direct !== null) {
+    return direct <= 1 ? direct * 100 : direct;
+  }
+
+  const triageScore = asNumber(output.triageScore);
+  if (triageScore !== null) {
+    const normalized = triageScore <= 1 ? triageScore * 100 : triageScore;
+    return Math.max(0, Math.min(100, 100 - normalized));
+  }
+
+  const riskScores = asRecord(output.risk_scores);
+  if (!riskScores) return null;
+  const values = Object.values(riskScores)
+    .map((value) => asNumber(value))
+    .filter((value): value is number => value !== null);
+  if (values.length === 0) return null;
+  const avg = values.reduce((sum, value) => sum + value, 0) / values.length;
+  return Math.max(0, Math.min(100, avg * 10));
+}
+
+async function getPredictionTrackingSummary(
+  orgId: string,
+): Promise<PredictionTrackingSummary> {
+  const runs = await prisma.run.findMany({
+    where: {
+      runType: "TRIAGE",
+      status: "succeeded",
+      deal: { orgId },
+    },
+    include: {
+      deal: {
+        select: {
+          status: true,
+          createdAt: true,
+          outcome: {
+            select: {
+              actualIrr: true,
+              actualHoldPeriodMonths: true,
+              exitDate: true,
+            },
+          },
+        },
+      },
+    },
+    orderBy: { finishedAt: "desc" },
+  });
+
+  const latestByDeal = new Map<string, (typeof runs)[number]>();
+  for (const run of runs) {
+    if (!run.dealId || !run.outputJson) continue;
+    if (!latestByDeal.has(run.dealId)) {
+      latestByDeal.set(run.dealId, run);
+    }
+  }
+
+  const irrDiffs: number[] = [];
+  const timelineDiffs: number[] = [];
+  const riskAccuracies: number[] = [];
+  let sampleSize = 0;
+
+  for (const [, run] of latestByDeal.entries()) {
+    const output = asRecord(run.outputJson);
+    if (!output) continue;
+    const deal = run.deal;
+    if (!deal) continue;
+
+    const predictedIrr = extractPredictedIrr(output);
+    const predictedTimeline = extractPredictedTimelineMonths(output);
+    const predictedRiskScore = extractPredictedRiskScore(output);
+
+    const outcome = deal.outcome;
+    const actualIrr =
+      outcome?.actualIrr != null
+        ? toPctPoints(Number(outcome.actualIrr.toString()))
+        : null;
+    const actualTimeline =
+      outcome?.actualHoldPeriodMonths ??
+      (outcome?.exitDate
+        ? Math.max(
+            0,
+            Math.round(
+              ((new Date(outcome.exitDate).getTime() - deal.createdAt.getTime()) /
+                (1000 * 60 * 60 * 24 * 30.4375)) *
+                10,
+            ) / 10,
+          )
+        : null);
+
+    if (predictedIrr !== null && actualIrr !== null) {
+      irrDiffs.push(predictedIrr - actualIrr);
+      sampleSize += 1;
+    }
+    if (predictedTimeline !== null && actualTimeline !== null) {
+      timelineDiffs.push(actualTimeline - predictedTimeline);
+    }
+    if (predictedRiskScore !== null) {
+      const actualRiskOutcome =
+        deal.status === "KILLED" ? 100 : deal.status === "EXITED" ? 0 : 50;
+      const accuracy = Math.max(
+        0,
+        100 - Math.abs(predictedRiskScore - actualRiskOutcome),
+      );
+      riskAccuracies.push(accuracy);
+    }
+  }
+
+  const avg = (values: number[]): number | null =>
+    values.length > 0
+      ? Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 100) / 100
+      : null;
+
+  return {
+    avgIrrOverestimatePct: avg(irrDiffs),
+    avgTimelineUnderestimateMonths: avg(timelineDiffs),
+    riskAccuracyScore: avg(riskAccuracies),
+    sampleSize,
+  };
 }
 
 export async function getHistoricalAccuracy(

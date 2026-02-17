@@ -42,6 +42,8 @@ import { SkuDonut, JurisdictionBar } from "@/components/portfolio/DealVelocityCh
 import { ConcentrationCharts } from "@/components/portfolio/ConcentrationCharts";
 import { DebtMaturityWall } from "@/components/portfolio/DebtMaturityWall";
 import { CapitalAllocationWidget } from "@/components/portfolio/CapitalAllocationWidget";
+import { DealVelocityMetrics } from "@/components/portfolio/DealVelocityMetrics";
+import { CapitalDeploymentTracker } from "@/components/portfolio/CapitalDeploymentTracker";
 import { Exchange1031Matcher } from "@/components/portfolio/Exchange1031Matcher";
 import { StressTestPanel } from "@/components/portfolio/StressTestPanel";
 import {
@@ -54,6 +56,8 @@ import type {
   PortfolioSummary,
   ConcentrationAnalysis,
   DebtMaturityWall as DebtMaturityWallData,
+  DealVelocityAnalytics,
+  CapitalDeploymentAnalytics,
 } from "@/lib/services/portfolioAnalytics.service";
 import { formatCurrency, timeAgo } from "@/lib/utils";
 import { cn } from "@/lib/utils";
@@ -114,6 +118,12 @@ interface OutcomeSummary {
   avgHoldMonths: number | null;
   topBiases: AssumptionBias[];
   triageCalibration: TriageCalibration[];
+  predictionTracking: {
+    avgIrrOverestimatePct: number | null;
+    avgTimelineUnderestimateMonths: number | null;
+    riskAccuracyScore: number | null;
+    sampleSize: number;
+  };
 }
 
 const AGING_BUCKETS: Array<{ label: string; minDays: number; maxDays: number | null }> = [
@@ -453,6 +463,14 @@ function PortfolioPageContent() {
     "/api/portfolio/debt-maturity",
     fetcher,
   );
+  const { data: velocityMetrics } = useSWR<DealVelocityAnalytics>(
+    "/api/portfolio/velocity",
+    fetcher,
+  );
+  const { data: capitalDeployment } = useSWR<CapitalDeploymentAnalytics>(
+    "/api/portfolio/capital-deployment",
+    fetcher,
+  );
 
   const [sortField, setSortField] = useState<SortField>("lastActivity");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -595,6 +613,73 @@ function PortfolioPageContent() {
                     </div>
                   ))}
                 </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="space-y-3">
+              <p className="text-sm font-medium">Triage Prediction vs Actual Calibration</p>
+              <div className="grid gap-3 md:grid-cols-3">
+                <div className="rounded border p-3">
+                  <p className="text-xs text-muted-foreground">Avg IRR Overestimate</p>
+                  <p className="text-lg font-semibold">
+                    {outcomeSummary.predictionTracking.avgIrrOverestimatePct != null
+                      ? `${outcomeSummary.predictionTracking.avgIrrOverestimatePct > 0 ? "+" : ""}${outcomeSummary.predictionTracking.avgIrrOverestimatePct.toFixed(2)} pp`
+                      : "—"}
+                  </p>
+                </div>
+                <div className="rounded border p-3">
+                  <p className="text-xs text-muted-foreground">Avg Timeline Underestimate</p>
+                  <p className="text-lg font-semibold">
+                    {outcomeSummary.predictionTracking.avgTimelineUnderestimateMonths != null
+                      ? `${outcomeSummary.predictionTracking.avgTimelineUnderestimateMonths > 0 ? "+" : ""}${outcomeSummary.predictionTracking.avgTimelineUnderestimateMonths.toFixed(2)} mo`
+                      : "—"}
+                  </p>
+                </div>
+                <div className="rounded border p-3">
+                  <p className="text-xs text-muted-foreground">Risk Accuracy Score</p>
+                  <p className="text-lg font-semibold">
+                    {outcomeSummary.predictionTracking.riskAccuracyScore != null
+                      ? `${outcomeSummary.predictionTracking.riskAccuracyScore.toFixed(1)} / 100`
+                      : "—"}
+                  </p>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Sample size: {outcomeSummary.predictionTracking.sampleSize}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="space-y-3">
+              <p className="text-sm font-medium">Triage Tier Calibration</p>
+              {outcomeSummary.triageCalibration.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No triage calibration data yet.
+                </p>
+              ) : (
+                outcomeSummary.triageCalibration.map((row) => (
+                  <div key={row.triageTier} className="rounded border p-3">
+                    <div className="mb-2 flex items-center justify-between">
+                      <p className="font-medium">{row.triageTier}</p>
+                      <p className="text-xs text-muted-foreground">n={row.totalDeals}</p>
+                    </div>
+                    <div className="grid gap-2 text-xs md:grid-cols-4">
+                      <div>Success: {row.successRate}%</div>
+                      <div>Exited: {row.exitedDeals}</div>
+                      <div>Killed: {row.killedDeals}</div>
+                      <div>Avg IRR: {row.avgActualIrr != null ? `${row.avgActualIrr}%` : "—"}</div>
+                    </div>
+                    <div className="mt-2 h-2 rounded-full bg-muted">
+                      <div
+                        className="h-2 rounded-full bg-emerald-500"
+                        style={{ width: `${Math.min(Math.max(row.successRate, 0), 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                ))
               )}
             </CardContent>
           </Card>
@@ -1033,7 +1118,9 @@ function PortfolioPageContent() {
       <Tabs defaultValue="concentration" className="mt-6">
         <TabsList>
           <TabsTrigger value="concentration">Concentration Risk</TabsTrigger>
+          <TabsTrigger value="velocity">Deal Velocity</TabsTrigger>
           <TabsTrigger value="debt">Debt Maturity Wall</TabsTrigger>
+          <TabsTrigger value="deployment">Capital Deployment</TabsTrigger>
           <TabsTrigger value="allocation">Capital Allocation</TabsTrigger>
           <TabsTrigger value="1031">1031 Exchange</TabsTrigger>
           <TabsTrigger value="stress">Stress Test</TabsTrigger>
@@ -1049,9 +1136,29 @@ function PortfolioPageContent() {
           )}
         </TabsContent>
 
+        <TabsContent value="velocity" className="mt-4">
+          {velocityMetrics ? (
+            <DealVelocityMetrics data={velocityMetrics} />
+          ) : (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          )}
+        </TabsContent>
+
         <TabsContent value="debt" className="mt-4">
           {debtMaturity ? (
             <DebtMaturityWall data={debtMaturity} />
+          ) : (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="deployment" className="mt-4">
+          {capitalDeployment ? (
+            <CapitalDeploymentTracker data={capitalDeployment} />
           ) : (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
