@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { Suspense, useMemo } from "react";
 import useSWR from "swr";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertCircle, CalendarClock } from "lucide-react";
@@ -45,7 +45,7 @@ interface JurisdictionItem {
 
 type ReferenceTab = "evidence" | "jurisdictions";
 
-export default function ReferencePage() {
+function ReferencePageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const sourceId = searchParams.get("sourceId") ?? null;
@@ -176,5 +176,23 @@ export default function ReferencePage() {
         </TabsContent>
       </Tabs>
     </DashboardShell>
+  );
+}
+
+function ReferencePageLoading() {
+  return (
+    <DashboardShell>
+      <div className="py-24 text-center text-sm text-muted-foreground">
+        Loading reference...
+      </div>
+    </DashboardShell>
+  );
+}
+
+export default function ReferencePage() {
+  return (
+    <Suspense fallback={<ReferencePageLoading />}>
+      <ReferencePageContent />
+    </Suspense>
   );
 }

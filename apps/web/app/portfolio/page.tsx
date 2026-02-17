@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { Suspense, useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
@@ -415,7 +415,7 @@ function PortfolioTrendCards({ trend }: { trend: PortfolioTrendPoint[] }) {
   );
 }
 
-export default function PortfolioPage() {
+function PortfolioPageContent() {
   const { data, isLoading } = useSWR<{
     deals: Array<{
       id: string;
@@ -1154,5 +1154,23 @@ export default function PortfolioPage() {
         </CardContent>
       </Card>
     </DashboardShell>
+  );
+}
+
+function PortfolioPageFallback() {
+  return (
+    <DashboardShell>
+      <div className="py-24 text-center text-sm text-muted-foreground">
+        Loading portfolio...
+      </div>
+    </DashboardShell>
+  );
+}
+
+export default function PortfolioPage() {
+  return (
+    <Suspense fallback={<PortfolioPageFallback />}>
+      <PortfolioPageContent />
+    </Suspense>
   );
 }

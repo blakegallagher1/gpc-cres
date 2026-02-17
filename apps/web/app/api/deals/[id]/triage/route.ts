@@ -94,6 +94,7 @@ async function syncTriageRisks(params: {
   orgId: string;
   triage: ParcelTriage;
 }): Promise<void> {
+  const { triage } = params;
   const candidates: TriagedRiskCandidate[] = [];
 
   const riskScores = triage.risk_scores;

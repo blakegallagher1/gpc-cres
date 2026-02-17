@@ -1,6 +1,6 @@
  "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import useSWR from "swr";
@@ -41,7 +41,7 @@ const ProspectMap = dynamic(
   }
 );
 
-export default function ProspectingPage() {
+function ProspectingPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -430,5 +430,23 @@ export default function ProspectingPage() {
         )}
       </div>
     </DashboardShell>
+  );
+}
+
+function ProspectingPageLoading() {
+  return (
+    <DashboardShell>
+      <div className="py-24 text-center text-sm text-muted-foreground">
+        Loading prospecting...
+      </div>
+    </DashboardShell>
+  );
+}
+
+export default function ProspectingPage() {
+  return (
+    <Suspense fallback={<ProspectingPageLoading />}>
+      <ProspectingPageContent />
+    </Suspense>
   );
 }
