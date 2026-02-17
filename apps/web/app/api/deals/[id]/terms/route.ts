@@ -183,14 +183,14 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  return handleUpsertTerms(request, params, "PUT");
+  return handleUpsertTerms(request, params);
 }
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  return handleUpsertTerms(request, params, "PATCH");
+  return handleUpsertTerms(request, params);
 }
 
 async function handleUpsertTerms(

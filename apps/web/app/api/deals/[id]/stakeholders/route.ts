@@ -215,7 +215,7 @@ export async function POST(
       );
     }
 
-    const payload = toStakeholderPayload(parsed.data as DealStakeholderCreateInput);
+    const payload = parsed.data;
     const stakeholder = await prisma.dealStakeholder.create({
       data: {
         ...payload,
