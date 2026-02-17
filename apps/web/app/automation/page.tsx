@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import {
@@ -166,7 +166,7 @@ function StatusIcon({ status }: { status: string }) {
   }
 }
 
-export default function AutomationPage() {
+function AutomationPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -878,5 +878,21 @@ export default function AutomationPage() {
         </TabsContent>
       </Tabs>
     </DashboardShell>
+  );
+}
+
+export default function AutomationPage() {
+  return (
+    <Suspense
+      fallback={
+        <DashboardShell>
+          <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
+            Loading automation dashboard...
+          </div>
+        </DashboardShell>
+      }
+    >
+      <AutomationPageContent />
+    </Suspense>
   );
 }
