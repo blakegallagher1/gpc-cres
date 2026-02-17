@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Plus,
   Search,
@@ -75,6 +75,8 @@ const SKU_OPTIONS = [
   { value: "TRUCK_PARKING", label: "Truck Parking" },
 ];
 
+type TriageDecisionFilter = "all" | "ADVANCE" | "HOLD" | "KILL";
+
 export default function DealsPage() {
   const [deals, setDeals] = useState<DealSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -87,7 +89,15 @@ export default function DealsPage() {
   const [bulkStatus, setBulkStatus] = useState("INTAKE");
   const [bulkAction, setBulkAction] = useState<"delete" | "status" | null>(null);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [triageDecisionFilter, setTriageDecisionFilter] =
+    useState<TriageDecisionFilter>("all");
+  const [triageMinScore, setTriageMinScore] = useState("");
+  const [triageMaxScore, setTriageMaxScore] = useState("");
+  const [triageNeedsReviewOnly, setTriageNeedsReviewOnly] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const triageMode = searchParams?.get("view") === "triage";
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -324,9 +334,187 @@ export default function DealsPage() {
     [deals, search]
   );
 
+  const triageModeDeals = useMemo(() => {
+    const min =
+      triageMinScore.trim() === "" ? Number.NaN : Number(triageMinScore);
+    const max =
+      triageMaxScore.trim() === "" ? Number.NaN : Number(triageMaxScore);
+    return deals.filter((deal) => {
+      const decision = deal.triageTier ?? "UNSCORED";
+
+      if (triageDecisionFilter !== "all" && decision !== triageDecisionFilter) {
+        return false;
+      }
+
+      const normalizedScore =
+        typeof deal.triageScore === "number"
+          ? (deal.triageScore > 1 ? deal.triageScore : deal.triageScore * 100)
+          : null;
+
+      if (triageNeedsReviewOnly && decision !== "HOLD") {
+        return false;
+      }
+
+      if (!Number.isNaN(min) && normalizedScore !== null && normalizedScore < min) {
+        return false;
+      }
+      if (!Number.isNaN(max) && normalizedScore !== null && normalizedScore > max) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [deals, triageDecisionFilter, triageNeedsReviewOnly, triageMinScore, triageMaxScore]);
+
   useEffect(() => {
     loadDeals();
   }, [loadDeals]);
+
+  if (triageMode) {
+    return (
+      <DashboardShell>
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-2xl font-bold">Triage Queue</h1>
+            <p className="text-sm text-muted-foreground">
+              Card-based triage queue with decision and score filters.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <Select
+              value={triageDecisionFilter}
+              onValueChange={(value) =>
+                setTriageDecisionFilter(value as TriageDecisionFilter)
+              }
+            >
+              <SelectTrigger className="w-[170px]">
+                <SelectValue placeholder="Decision" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Decisions</SelectItem>
+                <SelectItem value="ADVANCE">ADVANCE</SelectItem>
+                <SelectItem value="HOLD">HOLD</SelectItem>
+                <SelectItem value="KILL">KILL</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Input
+              value={triageMinScore}
+              onChange={(e) => setTriageMinScore(e.target.value)}
+              placeholder="Min score"
+              type="number"
+              min={0}
+              max={100}
+              className="w-28"
+            />
+            <Input
+              value={triageMaxScore}
+              onChange={(e) => setTriageMaxScore(e.target.value)}
+              placeholder="Max score"
+              type="number"
+              min={0}
+              max={100}
+              className="w-28"
+            />
+
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Checkbox
+                checked={triageNeedsReviewOnly}
+                onCheckedChange={(checked) =>
+                  setTriageNeedsReviewOnly(checked === true)
+                }
+              />
+              Review only
+            </label>
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="ml-auto"
+              onClick={() => router.push(pathname)}
+            >
+              Exit Triage View
+            </Button>
+          </div>
+
+          {loading ? (
+            <Card>
+              <CardContent className="py-10 text-center text-sm text-muted-foreground">
+                Loading triage queue...
+              </CardContent>
+            </Card>
+          ) : triageModeDeals.length === 0 ? (
+            <Card>
+              <CardContent className="py-16 text-center">
+                <p className="text-muted-foreground">
+                  No matching triage candidates.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Decision</TableHead>
+                    <TableHead>Score</TableHead>
+                    <TableHead>Review Flag</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead className="w-20" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {triageModeDeals.map((deal) => {
+                    const scoreValue =
+                      typeof deal.triageScore === "number"
+                        ? deal.triageScore > 1
+                          ? deal.triageScore
+                          : deal.triageScore * 100
+                        : null;
+                    const needsReview = deal.triageTier === "HOLD";
+
+                    return (
+                      <TableRow key={deal.id}>
+                        <TableCell>
+                          <Link
+                            href={`/deals/${deal.id}`}
+                            className="font-medium hover:underline"
+                          >
+                            {deal.name}
+                          </Link>
+                        </TableCell>
+                        <TableCell>
+                          <TriageIndicator tier={deal.triageTier} showLabel />
+                        </TableCell>
+                        <TableCell>
+                          {scoreValue === null ? "—" : scoreValue.toFixed(1)}
+                        </TableCell>
+                        <TableCell>{needsReview ? "Needs review" : "Clear"}</TableCell>
+                        <TableCell>
+                          <StatusBadge status={deal.status} />
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {formatDate(deal.createdAt)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button size="sm" variant="outline" asChild>
+                            <Link href={`/deals/${deal.id}`}>Open</Link>
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </Card>
+          )}
+        </div>
+      </DashboardShell>
+    );
+  }
 
   return (
     <DashboardShell>

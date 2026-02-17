@@ -356,12 +356,12 @@ export function OpportunityFeed() {
             })}
 
             {total > opportunities.length && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full text-xs"
-                onClick={() => router.push("/saved-searches")}
-              >
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-xs"
+                  onClick={() => router.push("/prospecting?tab=saved-filters")}
+                >
                 View all {total} opportunities
                 <ArrowRight className="ml-1 h-3 w-3" />
               </Button>

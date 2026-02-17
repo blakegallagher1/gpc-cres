@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import type { Prisma } from "@entitlement-os/db";
 
 // GET /api/buyers - list buyers for the org
 export async function GET(request: NextRequest) {
@@ -13,22 +14,118 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search");
     const buyerType = searchParams.get("buyerType");
+    const dealId = searchParams.get("dealId");
+    const withDeals =
+      searchParams.get("withDeals") === "1" ||
+      searchParams.get("withDeals")?.toLowerCase() === "true";
 
-    const where: Record<string, unknown> = { orgId: auth.orgId };
-    if (buyerType) where.buyerType = buyerType;
+    const where: Prisma.BuyerWhereInput = { orgId: auth.orgId };
     if (search) {
       where.OR = [
         { name: { contains: search, mode: "insensitive" } },
         { company: { contains: search, mode: "insensitive" } },
       ];
     }
+    if (buyerType) {
+      where.buyerType = buyerType;
+    }
+    if (dealId) {
+      where.outreach = {
+        some: { dealId },
+      };
+    }
 
-    const buyers = await prisma.buyer.findMany({
+    const queryOptions: Prisma.BuyerFindManyArgs = {
       where,
       orderBy: { createdAt: "desc" },
+    };
+
+    if (withDeals) {
+      queryOptions.include = {
+        outreach: {
+          where: dealId ? { dealId } : undefined,
+          select: {
+            status: true,
+            channel: true,
+            lastContactAt: true,
+            nextFollowupAt: true,
+            deal: {
+              select: {
+                id: true,
+                name: true,
+                status: true,
+                sku: true,
+                jurisdiction: {
+                  select: {
+                    id: true,
+                    name: true,
+                    kind: true,
+                    state: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      };
+    }
+
+    const buyers = await prisma.buyer.findMany(queryOptions);
+
+    if (!withDeals) {
+      return NextResponse.json({ buyers });
+    }
+
+    const normalizedBuyers = buyers.map((buyer) => {
+      const dealsById = new Map<
+        string,
+        {
+          id: string;
+          name: string;
+          status: string;
+          sku: string;
+          jurisdiction?: {
+            id: string;
+            name: string;
+            kind: string;
+            state: string;
+          } | null;
+        }
+      >();
+
+      const outreach = buyer.outreach ?? [];
+
+      for (const relation of outreach) {
+        if (!relation.deal) {
+          continue;
+        }
+
+        const { deal } = relation;
+        if (dealsById.has(deal.id)) continue;
+        dealsById.set(deal.id, {
+          id: deal.id,
+          name: deal.name,
+          status: String(deal.status),
+          sku: String(deal.sku),
+          jurisdiction: deal.jurisdiction
+            ? {
+                id: deal.jurisdiction.id,
+                name: deal.jurisdiction.name,
+                kind: deal.jurisdiction.kind,
+                state: deal.jurisdiction.state,
+              }
+            : null,
+        });
+      }
+
+      return {
+        ...buyer,
+        deals: Array.from(dealsById.values()),
+        outreach: undefined,
+      };
     });
 
-    return NextResponse.json({ buyers });
+    return NextResponse.json({ buyers: normalizedBuyers });
   } catch (error) {
     console.error("Error fetching buyers:", error);
     return NextResponse.json(

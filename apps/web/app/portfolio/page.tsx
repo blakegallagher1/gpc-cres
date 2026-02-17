@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import {
   Download,
@@ -15,6 +16,11 @@ import {
   Loader2,
   DollarSign,
   BarChart3,
+  TrendingDown,
+  CheckCircle2,
+  XCircle,
+  Minus,
+  Clock,
 } from "lucide-react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -77,6 +83,35 @@ interface AgingSummary {
   oldestDeal: string;
   oldestDealAgeDays: number | null;
   buckets: AgingBucket[];
+}
+
+interface AssumptionBias {
+  assumptionName: string;
+  avgProjected: number;
+  avgActual: number;
+  avgVariancePct: number;
+  sampleSize: number;
+  direction: "over" | "under" | "neutral";
+}
+
+interface TriageCalibration {
+  triageTier: string;
+  totalDeals: number;
+  exitedDeals: number;
+  killedDeals: number;
+  avgActualIrr: number | null;
+  avgActualEquityMultiple: number | null;
+  successRate: number;
+}
+
+interface OutcomeSummary {
+  totalExited: number;
+  totalKilled: number;
+  avgIrr: number | null;
+  avgEquityMultiple: number | null;
+  avgHoldMonths: number | null;
+  topBiases: AssumptionBias[];
+  triageCalibration: TriageCalibration[];
 }
 
 const AGING_BUCKETS: Array<{ label: string; minDays: number; maxDays: number | null }> = [
@@ -416,6 +451,205 @@ export default function PortfolioPage() {
   const [sortField, setSortField] = useState<SortField>("lastActivity");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [isExporting, setIsExporting] = useState(false);
+  const searchParams = useSearchParams();
+  const activeTab = searchParams?.get("tab") ?? "analytics";
+
+  const { data: outcomeSummary } = useSWR<OutcomeSummary>(
+    activeTab === "outcomes" ? "/api/outcomes?view=summary" : null,
+    fetcher
+  );
+  const { data: buyersResponse } = useSWR<{
+    buyers: Array<{
+      id: string;
+      name: string;
+      company?: string | null;
+      buyerType?: string | null;
+      email?: string | null;
+      phone?: string | null;
+      deals?: Array<{
+        id: string;
+        name: string;
+        status: string;
+        sku: string;
+        jurisdiction?: {
+          id: string;
+          name: string;
+          kind: string;
+          state: string;
+        } | null;
+      }>;
+    }>;
+  }>(activeTab === "buyers" ? "/api/buyers?withDeals=true" : null, fetcher);
+
+  const buyers = buyersResponse?.buyers ?? [];
+
+  if (activeTab === "outcomes") {
+    if (!outcomeSummary) {
+      return (
+        <DashboardShell>
+          <div className="flex items-center justify-center py-24 text-muted-foreground">
+            Loading outcome data...
+          </div>
+        </DashboardShell>
+      );
+    }
+
+    return (
+      <DashboardShell>
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-2xl font-bold">Outcome Tracking</h1>
+            <p className="text-sm text-muted-foreground">
+              Compare projected vs. actual performance, detect systematic biases,
+              and calibrate triage scoring.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground">Exited Deals</p>
+                <p className="text-lg font-bold">
+                  {String(outcomeSummary.totalExited)}
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground">Killed Deals</p>
+                <p className="text-lg font-bold">
+                  {String(outcomeSummary.totalKilled)}
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground">Avg IRR</p>
+                <p className="text-lg font-bold">
+                  {outcomeSummary.avgIrr != null
+                    ? `${outcomeSummary.avgIrr.toFixed(1)}%`
+                    : "—"}
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground">Avg Equity Multiple</p>
+                <p className="text-lg font-bold">
+                  {outcomeSummary.avgEquityMultiple != null
+                    ? `${outcomeSummary.avgEquityMultiple.toFixed(2)}x`
+                    : "—"}
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground">Avg Hold Period</p>
+                <p className="text-lg font-bold">
+                  {outcomeSummary.avgHoldMonths != null
+                    ? `${outcomeSummary.avgHoldMonths} mo`
+                    : "—"}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardContent>
+              <p className="mb-4 text-sm font-medium">Assumption Bias Detection</p>
+              {outcomeSummary.topBiases.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No bias data yet. Record outcomes on exited deals to start tracking biases.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {outcomeSummary.topBiases.map((bias) => (
+                    <div
+                      key={bias.assumptionName}
+                      className="rounded-lg border p-3"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="font-medium">{bias.assumptionName}</p>
+                        <p
+                          className={`text-sm font-semibold ${
+                            Math.abs(bias.avgVariancePct) > 10
+                              ? "text-red-500"
+                              : Math.abs(bias.avgVariancePct) > 5
+                                ? "text-amber-500"
+                                : "text-green-500"
+                          }`}
+                        >
+                          {bias.avgVariancePct > 0 ? "+" : ""}
+                          {bias.avgVariancePct.toFixed(1)}%
+                        </p>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Projected avg {bias.avgProjected} vs actual {bias.avgActual}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </DashboardShell>
+    );
+  }
+
+  if (activeTab === "buyers") {
+    return (
+      <DashboardShell>
+        <Card>
+          <CardHeader>
+            <CardTitle>Buyers</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {buyers.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No buyers yet.</p>
+            ) : (
+                  <div className="space-y-2">
+                {buyers.map((buyer) => (
+                  <div key={buyer.id} className="rounded-lg border p-3">
+                    <p className="font-medium">{buyer.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {(buyer.company ?? "—") +
+                        (buyer.buyerType ? ` · ${buyer.buyerType}` : "")}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {(buyer.email ?? "—") + (buyer.phone ? ` · ${buyer.phone}` : "")}
+                    </p>
+                    {buyer.deals && buyer.deals.length > 0 ? (
+                      <div className="mt-2 space-y-1">
+                        <p className="text-xs font-medium">Deals</p>
+                        <div className="space-y-1">
+                          {buyer.deals.map((deal) => (
+                            <Link
+                              key={deal.id}
+                              href={`/deals/${deal.id}`}
+                              className="inline-flex max-w-full items-center gap-2 rounded bg-muted px-2 py-1 text-xs hover:underline"
+                            >
+                              <span className="truncate">{deal.name}</span>
+                              <span className="text-muted-foreground">
+                                · {deal.sku} / {deal.status}
+                              </span>
+                              <span className="text-muted-foreground">
+                                {deal.jurisdiction?.name ?? "Unknown"}
+                              </span>
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </DashboardShell>
+    );
+  }
 
   const deals: PortfolioDeal[] = useMemo(
     () =>

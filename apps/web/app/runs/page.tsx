@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   PlayCircle,
   Search,
-  LineChart,
   CheckCircle2,
   XCircle,
   Loader2,
@@ -39,11 +39,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { formatNumber, timeAgo } from "@/lib/utils";
 import { WorkflowRun } from "@/types";
 import { toast } from "sonner";
 import { useRuns } from "@/lib/hooks/useRuns";
+import { RunIntelligenceTab } from "@/components/runs/RunIntelligenceTab";
 
 function StatusBadge({ status }: { status: string }) {
   const variants: Record<string, { icon: React.ElementType; class: string; label: string }> = {
@@ -64,7 +71,7 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-export default function RunsPage() {
+function RunsHistoryTab() {
   const { runs, mutate: mutateRuns } = useRuns();
   const [searchQuery, setSearchQuery] = useState("");
   const [runTypeFilter, setRunTypeFilter] = useState<string>("all");
@@ -144,171 +151,192 @@ export default function RunsPage() {
   };
 
   return (
-    <DashboardShell>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Run History</h1>
-            <p className="text-muted-foreground">
-              Trace and inspect agent executions
-            </p>
-          </div>
-          <Button asChild variant="outline" size="sm">
-            <Link href="/runs/dashboard">
-              <LineChart className="mr-2 h-4 w-4" />
-              Run Dashboard
-            </Link>
-          </Button>
-          {selectedRuns.size > 0 && (
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={handleBulkExport}>
-                <Download className="mr-2 h-4 w-4" />
-                Export ({selectedRuns.size})
-              </Button>
-              <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete ({selectedRuns.size})
-              </Button>
-            </div>
-          )}
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Run History</h1>
+          <p className="text-muted-foreground">Trace and inspect agent executions</p>
         </div>
-
-        {/* Filters */}
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search runs..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          <Select value={runTypeFilter} onValueChange={setRunTypeFilter}>
-            <SelectTrigger className="w-[160px]">
-              <SelectValue placeholder="All Run Types" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Run Types</SelectItem>
-              {runTypes.map((runType) => (
-                <SelectItem key={runType} value={runType}>
-                  {runType}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="All Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="running">Running</SelectItem>
-              <SelectItem value="succeeded">Succeeded</SelectItem>
-              <SelectItem value="failed">Failed</SelectItem>
-              <SelectItem value="canceled">Canceled</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Runs Table */}
-        <Card>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12">
-                    <Checkbox
-                      checked={
-                        sortedRuns.length > 0 && selectedRuns.size === sortedRuns.length
-                      }
-                      onCheckedChange={toggleSelectAll}
-                    />
-                  </TableHead>
-                  <TableHead>Run ID</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Last Agent</TableHead>
-                  <TableHead>Duration</TableHead>
-                  <TableHead>Evidence</TableHead>
-                  <TableHead>Confidence</TableHead>
-                  <TableHead>Time</TableHead>
-                  <TableHead className="w-12"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sortedRuns.map((run) => {
-                  return (
-                    <TableRow key={run.id}>
-                      <TableCell>
-                        <Checkbox
-                          checked={selectedRuns.has(run.id)}
-                          onCheckedChange={() => toggleSelectRun(run.id)}
-                        />
-                      </TableCell>
-                      <TableCell className="font-mono text-sm">{run.id}</TableCell>
-                      <TableCell>{run.runType}</TableCell>
-                      <TableCell>
-                        <StatusBadge status={run.status} />
-                      </TableCell>
-                      <TableCell>
-                        {run.summary?.lastAgentName ?? "—"}
-                      </TableCell>
-                      <TableCell>
-                        {run.durationMs
-                          ? `${Math.round(run.durationMs / 1000)}s`
-                          : "—"}
-                      </TableCell>
-                      <TableCell>{formatNumber(run.summary?.evidenceCount ?? 0)}</TableCell>
-                      <TableCell>
-                        {typeof run.summary?.confidence === "number"
-                          ? `${Math.round(run.summary.confidence * 100)}%`
-                          : "—"}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {timeAgo(run.startedAt)}
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem asChild>
-                              <Link href={`/runs/${run.id}`}>View Trace</Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => {
-                                navigator.clipboard.writeText(run.id);
-                                toast.success("Run ID copied");
-                              }}
-                            >
-                              Copy ID
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-
-        {sortedRuns.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <PlayCircle className="h-12 w-12 text-muted-foreground" />
-            <h3 className="mt-4 text-lg font-semibold">No runs found</h3>
-            <p className="text-muted-foreground">
-              Try adjusting your search or filters
-            </p>
+        {selectedRuns.size > 0 && (
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={handleBulkExport}>
+              <Download className="mr-2 h-4 w-4" />
+              Export ({selectedRuns.size})
+            </Button>
+            <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete ({selectedRuns.size})
+            </Button>
           </div>
         )}
       </div>
+
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search runs..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <Select value={runTypeFilter} onValueChange={setRunTypeFilter}>
+          <SelectTrigger className="w-[160px]">
+            <SelectValue placeholder="All Run Types" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Run Types</SelectItem>
+            {runTypes.map((runType) => (
+              <SelectItem key={runType} value={runType}>
+                {runType}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="All Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="running">Running</SelectItem>
+            <SelectItem value="succeeded">Succeeded</SelectItem>
+            <SelectItem value="failed">Failed</SelectItem>
+            <SelectItem value="canceled">Canceled</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-12">
+                  <Checkbox
+                    checked={
+                      sortedRuns.length > 0 && selectedRuns.size === sortedRuns.length
+                    }
+                    onCheckedChange={toggleSelectAll}
+                  />
+                </TableHead>
+                <TableHead>Run ID</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Last Agent</TableHead>
+                <TableHead>Duration</TableHead>
+                <TableHead>Evidence</TableHead>
+                <TableHead>Confidence</TableHead>
+                <TableHead>Time</TableHead>
+                <TableHead className="w-12"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sortedRuns.map((run) => {
+                return (
+                  <TableRow key={run.id}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedRuns.has(run.id)}
+                        onCheckedChange={() => toggleSelectRun(run.id)}
+                      />
+                    </TableCell>
+                    <TableCell className="font-mono text-sm">{run.id}</TableCell>
+                    <TableCell>{run.runType}</TableCell>
+                    <TableCell>
+                      <StatusBadge status={run.status} />
+                    </TableCell>
+                    <TableCell>{run.summary?.lastAgentName ?? "—"}</TableCell>
+                    <TableCell>
+                      {run.durationMs ? `${Math.round(run.durationMs / 1000)}s` : "—"}
+                    </TableCell>
+                    <TableCell>{formatNumber(run.summary?.evidenceCount ?? 0)}</TableCell>
+                    <TableCell>
+                      {typeof run.summary?.confidence === "number"
+                        ? `${Math.round(run.summary.confidence * 100)}%`
+                        : "—"}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {timeAgo(run.startedAt)}
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem asChild>
+                            <Link href={`/runs/${run.id}`}>View Trace</Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              navigator.clipboard.writeText(run.id);
+                              toast.success("Run ID copied");
+                            }}
+                          >
+                            Copy ID
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {sortedRuns.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <PlayCircle className="h-12 w-12 text-muted-foreground" />
+          <h3 className="mt-4 text-lg font-semibold">No runs found</h3>
+          <p className="text-muted-foreground">Try adjusting your search or filters</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+type RunsTab = "history" | "intelligence";
+
+export default function RunsPage() {
+  const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const activeTab = ((searchParams?.get("tab") as RunsTab) ?? "history") === "intelligence"
+    ? "intelligence"
+    : "history";
+
+  const handleTabChange = (value: string) => {
+    const nextTab = (value as RunsTab) === "intelligence" ? "intelligence" : "history";
+    const nextParams = new URLSearchParams(Array.from(searchParams.entries()));
+    if (nextTab === "history") {
+      nextParams.delete("tab");
+    } else {
+      nextParams.set("tab", nextTab);
+    }
+    const query = nextParams.toString();
+    router.replace(`${pathname}${query ? `?${query}` : ""}`, { scroll: false });
+  };
+
+  return (
+    <DashboardShell>
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="history">History</TabsTrigger>
+          <TabsTrigger value="intelligence">Intelligence</TabsTrigger>
+        </TabsList>
+        <TabsContent value="history">
+          <RunsHistoryTab />
+        </TabsContent>
+        <TabsContent value="intelligence">
+          <RunIntelligenceTab />
+        </TabsContent>
+      </Tabs>
     </DashboardShell>
   );
 }

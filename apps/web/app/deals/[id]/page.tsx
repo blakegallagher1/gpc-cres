@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useEffect, useMemo, useState, useCallback } from "react";
+import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import useSWR from "swr";
 import {
   ArrowLeft,
   Loader2,
@@ -34,10 +35,13 @@ import { RunTriageButton } from "@/components/deals/RunTriageButton";
 import { ActivityTimeline } from "@/components/deals/ActivityTimeline";
 import { TaskCreateForm } from "@/components/deals/TaskCreateForm";
 import { DealContacts } from "@/components/deals/DealContacts";
+import { CollaborativeMemo } from "@/components/deal-room/CollaborativeMemo";
 import type { TaskItem } from "@/components/deals/TaskCard";
 import { DeadlineBar } from "@/components/deals/DeadlineBar";
 import { formatDate } from "@/lib/utils";
 import { toast } from "sonner";
+
+const fetcher = (url: string) => fetch(url).then((response) => response.json());
 
 const DealParcelMap = dynamic(
   () => import("@/components/maps/DealParcelMap"),
@@ -68,14 +72,58 @@ interface DealDetail {
   };
 }
 
+interface DealBuyer {
+  id: string;
+  name: string;
+  company?: string | null;
+  buyerType?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  deals?: Array<{
+    id: string;
+    name: string;
+    status: string;
+    sku: string;
+    jurisdiction?: {
+      id: string;
+      name: string;
+      kind: string;
+      state: string;
+    } | null;
+  }>;
+}
+
 export default function DealDetailPage() {
   const params = useParams<{ id: string }>();
   const id = params?.id ?? "";
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const activeTab = searchParams?.get("tab") ?? "overview";
   const [deal, setDeal] = useState<DealDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [triageResult, setTriageResult] = useState<Record<string, unknown> | null>(null);
   const [triageSources, setTriageSources] = useState<{ url: string; title?: string }[]>([]);
+  const [buyerSearch, setBuyerSearch] = useState("");
+  const [buyerName, setBuyerName] = useState("");
+  const [buyerCompany, setBuyerCompany] = useState("");
+  const [buyerType, setBuyerType] = useState("BUYER");
+  const [isCreatingBuyer, setIsCreatingBuyer] = useState(false);
+  const buyerQuery = useMemo(() => {
+    const params = new URLSearchParams();
+    if (buyerSearch.trim()) {
+      params.set("search", buyerSearch.trim());
+    }
+    params.set("dealId", id);
+    params.set("withDeals", "true");
+    return `/api/buyers?${params.toString()}`;
+  }, [buyerSearch, id]);
+
+  const { data: buyersResponse, mutate: mutateBuyers } = useSWR<{ buyers: DealBuyer[] }>(
+    buyerQuery,
+    fetcher
+  );
+  const buyers = buyersResponse?.buyers ?? [];
 
   // Add-parcel form state
   const [parcelAddress, setParcelAddress] = useState("");
@@ -209,6 +257,47 @@ export default function DealDetailPage() {
     }
   };
 
+  const handleTabChange = (value: string) => {
+    const nextParams = new URLSearchParams(Array.from(searchParams?.entries() ?? []));
+    if (value === "overview") {
+      nextParams.delete("tab");
+    } else {
+      nextParams.set("tab", value);
+    }
+    const query = nextParams.toString();
+    router.replace(`${pathname}${query ? `?${query}` : ""}`, { scroll: false });
+  };
+
+  const handleCreateBuyer = async () => {
+    if (!buyerName.trim()) {
+      toast.error("Buyer name is required");
+      return;
+    }
+
+    setIsCreatingBuyer(true);
+    try {
+      const res = await fetch("/api/buyers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: buyerName.trim(),
+          buyerType: buyerType.trim() || "BUYER",
+          company: buyerCompany.trim() || null,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to save buyer");
+      toast.success("Buyer added");
+      setBuyerName("");
+      setBuyerCompany("");
+      setBuyerType("BUYER");
+      await mutateBuyers();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to add buyer");
+    } finally {
+      setIsCreatingBuyer(false);
+    }
+  };
+
   if (loading) {
     return (
       <DashboardShell>
@@ -302,7 +391,7 @@ export default function DealDetailPage() {
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue="overview">
+        <Tabs value={activeTab} onValueChange={handleTabChange}>
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="documents">
@@ -318,6 +407,9 @@ export default function DealDetailPage() {
             <TabsTrigger value="artifacts">
               Artifacts ({deal.artifacts.length})
             </TabsTrigger>
+            <TabsTrigger value="buyers">Buyers</TabsTrigger>
+            <TabsTrigger value="room">Room</TabsTrigger>
+            <TabsTrigger value="collaborate">Collaborate</TabsTrigger>
           </TabsList>
 
           {/* Overview Tab */}
@@ -654,6 +746,141 @@ export default function DealDetailPage() {
                     );
                   }}
                 />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="buyers">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Deal Buyers</CardTitle>
+                <CardDescription>
+                  Buyer contacts and outreach for this specific deal.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="grid gap-2 sm:grid-cols-[1fr_1fr_150px]">
+                    <Input
+                      value={buyerSearch}
+                      onChange={(e) => setBuyerSearch(e.target.value)}
+                      placeholder="Search buyers"
+                    />
+                    <Input
+                      value={buyerName}
+                      onChange={(e) => setBuyerName(e.target.value)}
+                      placeholder="New buyer name"
+                    />
+                    <Input
+                      value={buyerCompany}
+                      onChange={(e) => setBuyerCompany(e.target.value)}
+                      placeholder="Company"
+                    />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-[1fr_120px_auto]">
+                    <Input
+                      value={buyerType}
+                      onChange={(e) => setBuyerType(e.target.value)}
+                      placeholder="Buyer type"
+                    />
+                    <Button
+                      onClick={handleCreateBuyer}
+                      disabled={isCreatingBuyer}
+                      variant="outline"
+                    >
+                      {isCreatingBuyer ? "Saving..." : "Add Buyer"}
+                    </Button>
+                  </div>
+
+                  {buyers.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No buyers found. Add buyers to create outreach lists.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {buyers.map((buyer) => (
+                        <div
+                          key={buyer.id}
+                          className="rounded-lg border p-3 text-sm"
+                        >
+                          <p className="font-medium">{buyer.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {(buyer.company ?? "—") +
+                              (buyer.buyerType ? ` · ${buyer.buyerType}` : "")}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {(buyer.email ?? "—") + (buyer.phone ? ` · ${buyer.phone}` : "")}
+                          </p>
+                          {buyer.deals && buyer.deals.length > 1 ? (
+                            <div className="mt-2 text-xs">
+                              <p className="font-medium">Linked deals</p>
+                              <div className="mt-1 space-y-1">
+                                {buyer.deals
+                                  .filter((linkedDeal) => linkedDeal.id !== deal.id)
+                                  .map((linkedDeal) => (
+                                    <Link
+                                      key={linkedDeal.id}
+                                      href={`/deals/${linkedDeal.id}`}
+                                      className="inline-flex items-center gap-1 rounded bg-muted px-2 py-1 text-muted-foreground hover:underline"
+                                    >
+                                      {linkedDeal.name}
+                                      <span>· {linkedDeal.sku}</span>
+                                    </Link>
+                                  ))}
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="room">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Deal Room</CardTitle>
+                <CardDescription>
+                  Messaging, shared documents, and team coordination workspace.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    Shared notes and collaboration feed for this deal.
+                  </p>
+                  <CollaborativeMemo
+                    roomId={deal.id}
+                    artifactId={deal.id}
+                    initialContent={`# ${deal.name} Collaboration Room`}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="collaborate">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Deal Room</CardTitle>
+                <CardDescription>
+                  Messaging, shared documents, and team coordination workspace.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    Shared notes and collaboration feed for this deal.
+                  </p>
+                  <CollaborativeMemo
+                    roomId={deal.id}
+                    artifactId={deal.id}
+                    initialContent={`# ${deal.name} Collaboration Room`}
+                  />
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

@@ -15,6 +15,7 @@ export interface DealSummary {
   jurisdiction?: { name: string } | null;
   createdAt: string;
   triageTier?: string | null;
+  triageScore?: number | null;
 }
 
 interface DealCardProps {

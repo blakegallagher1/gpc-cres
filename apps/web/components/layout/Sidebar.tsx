@@ -8,23 +8,14 @@ import {
   Map,
   PieChart,
   Wallet,
-  Users,
-  MapPin,
   FileSearch,
   Building2,
   Bot,
   Play,
-  Filter,
-  GitBranch,
-  Rocket,
-  FolderKanban,
   Sparkles,
-  Search,
   Crosshair,
   Activity,
   BarChart3,
-  Target,
-  LineChart,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/stores/uiStore";
@@ -53,7 +44,6 @@ const navGroups: NavGroup[] = [
   {
     label: "Pipeline",
     items: [
-      { id: "screening", href: "/screening", icon: Filter, label: "Screening" },
       { id: "prospecting", href: "/prospecting", icon: Crosshair, label: "Prospecting" },
       { id: "portfolio", href: "/portfolio", icon: PieChart, label: "Portfolio" },
       { id: "wealth", href: "/wealth", icon: Wallet, label: "Wealth" },
@@ -63,24 +53,16 @@ const navGroups: NavGroup[] = [
     label: "Intelligence",
     items: [
       { id: "command-center", href: "/command-center", icon: Sparkles, label: "Command Center" },
-      { id: "saved-searches", href: "/saved-searches", icon: Search, label: "Saved Searches" },
       { id: "agents", href: "/agents", icon: Bot, label: "Agents" },
       { id: "runs", href: "/runs", icon: Play, label: "Runs" },
-      { id: "run-dashboard", href: "/runs/dashboard", icon: LineChart, label: "Run Dashboard" },
-      { id: "workflows", href: "/workflows", icon: GitBranch, label: "Workflows" },
       { id: "automation", href: "/automation", icon: Activity, label: "Automation" },
-      { id: "market", href: "/market", icon: BarChart3, label: "Market Intel" },
-      { id: "outcomes", href: "/outcomes", icon: Target, label: "Outcomes" },
     ],
   },
   {
-    label: "Operations",
+    label: "Settings",
     items: [
-      { id: "buyers", href: "/buyers", icon: Users, label: "Buyers" },
-      { id: "jurisdictions", href: "/jurisdictions", icon: MapPin, label: "Jurisdictions" },
-      { id: "evidence", href: "/evidence", icon: FileSearch, label: "Evidence" },
-      { id: "deploy", href: "/deploy", icon: Rocket, label: "Deploy" },
-      { id: "deal-room", href: "/deal-room", icon: FolderKanban, label: "Deal Rooms" },
+      { id: "reference", href: "/reference", icon: FileSearch, label: "Reference Data" },
+      { id: "market-settings", href: "/market", icon: BarChart3, label: "Market Intel" },
     ],
   },
 ];

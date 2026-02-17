@@ -72,9 +72,23 @@ export async function GET(request: NextRequest) {
     const result = deals.map((d: typeof deals[number]) => {
       const triageRun = d.runs[0];
       let triageTier: string | null = null;
+      let triageScore: number | null = null;
       if (triageRun?.outputJson && typeof triageRun.outputJson === "object") {
         const output = triageRun.outputJson as Record<string, unknown>;
-        triageTier = (output.tier as string) ?? null;
+        const triageCandidate =
+          output.triage && typeof output.triage === "object"
+            ? (output.triage as Record<string, unknown>)
+            : output;
+        triageTier =
+          (output.tier as string) ?? (triageCandidate.decision as string) ?? null;
+        triageScore =
+          typeof output.triageScore === "number"
+            ? output.triageScore
+            : typeof output.confidence === "number"
+              ? output.confidence
+              : typeof triageCandidate.confidence === "number"
+                ? triageCandidate.confidence
+                : null;
       }
       return {
         id: d.id,
@@ -86,6 +100,7 @@ export async function GET(request: NextRequest) {
         updatedAt: d.updatedAt.toISOString(),
         notes: d.notes,
         triageTier,
+        triageScore,
       };
     });
 

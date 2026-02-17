@@ -16,7 +16,6 @@ import {
   Bot,
   Workflow,
   Play,
-  Rocket,
   Settings,
   Search,
   FileJson,
@@ -27,6 +26,7 @@ import {
   Presentation,
   Sparkles,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { useAgents } from "@/lib/hooks/useAgents";
 import { useTheme } from "next-themes";
 import { useUIStore } from "@/stores/uiStore";
@@ -75,20 +75,20 @@ export function CommandPalette() {
         keywords: ["agents", "library", "models"],
       },
       {
-        id: "nav-workflows",
+        id: "nav-automation",
         title: "Go to Workflows",
         shortcut: "G W",
         icon: Workflow,
-        action: () => navigate("/workflows"),
+        action: () => navigate("/automation?tab=builder"),
         keywords: ["workflows", "pipelines", "automation"],
       },
       {
         id: "nav-deal-room",
-        title: "Go to Deal Room",
+        title: "Go to Deals",
         shortcut: "G D",
         icon: Presentation,
-        action: () => navigate("/deal-room"),
-        keywords: ["deal", "room", "collaboration", "memo"],
+        action: () => navigate("/deals"),
+        keywords: ["deals", "screening", "triage"],
       },
       {
         id: "nav-runs",
@@ -97,14 +97,6 @@ export function CommandPalette() {
         icon: Play,
         action: () => navigate("/runs"),
         keywords: ["runs", "history", "executions"],
-      },
-      {
-        id: "nav-deploy",
-        title: "Go to Deploy",
-        shortcut: "G P",
-        icon: Rocket,
-        action: () => navigate("/deploy"),
-        keywords: ["deploy", "publish", "channels"],
       },
       {
         id: "nav-settings",
@@ -130,7 +122,7 @@ export function CommandPalette() {
         title: "Create New Workflow",
         shortcut: "⌘ N",
         icon: Plus,
-        action: () => navigate("/workflows/new"),
+        action: () => navigate("/automation?tab=builder"),
         keywords: ["new", "create", "workflow"],
       },
       {
@@ -202,7 +194,7 @@ export function CommandPalette() {
               break;
             case "d":
               e.preventDefault();
-              navigate("/deal-room");
+              navigate("/deals");
               break;
             case "a":
               e.preventDefault();
@@ -210,7 +202,7 @@ export function CommandPalette() {
               break;
             case "w":
               e.preventDefault();
-              navigate("/workflows");
+              navigate("/automation?tab=builder");
               break;
             case "r":
               e.preventDefault();
@@ -218,7 +210,7 @@ export function CommandPalette() {
               break;
             case "p":
               e.preventDefault();
-              navigate("/deploy");
+              navigate("/prospecting");
               break;
             case "s":
               e.preventDefault();
@@ -324,6 +316,3 @@ export function CommandPalette() {
     </>
   );
 }
-
-// Import Button for the command palette trigger
-import { Button } from "@/components/ui/button";
