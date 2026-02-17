@@ -60,6 +60,11 @@ const RUN_TYPE_OPTIONS = [
   "BUYER_OUTREACH_DRAFT",
   "DEADLINE_MONITOR",
 ];
+type AutomationTab = "feed" | "builder" | "health" | "failures";
+
+function isAutomationTab(value: string): value is AutomationTab {
+  return value === "feed" || value === "builder" || value === "health" || value === "failures";
+}
 
 interface BuilderWorkflow {
   id: string;
@@ -166,7 +171,8 @@ export default function AutomationPage() {
   const router = useRouter();
   const pathname = usePathname();
 
-  const tab = searchParams?.get("tab") ?? "feed";
+  const rawTab = searchParams?.get("tab");
+  const tab: AutomationTab = isAutomationTab(rawTab ?? "") ? (rawTab as AutomationTab) : "feed";
   const workflowQueryParam = searchParams?.get("workflow");
 
   const { data: stats } = useSWR<{
@@ -383,20 +389,16 @@ export default function AutomationPage() {
     }
   }, [isRunning, mutateRuntimeRuns, workflowDraft]);
 
-  const handleTabChange = useCallback(
-    (value: string) => {
-      if (
-        value === "feed" ||
-        value === "health" ||
-        value === "failures" ||
-        value === "builder"
-      ) {
-        setQueryParam(value === "feed" ? null : value === "feed" ? null : "builder");
-        const params = new URLSearchParams(Array.from(searchParams?.entries() ?? []));
-        params.set("tab", value);
-        const query = params.toString();
-        router.replace(`${pathname}${query ? `?${query}` : ""}`, { scroll: false });
-      }
+  const handleTabChange = useCallback<(value: string) => void>(
+    (value) => {
+      if (!isAutomationTab(value)) return;
+      const selectedTab = value as string;
+
+      setQueryParam(selectedTab === "feed" ? null : selectedTab === "feed" ? null : "builder");
+      const params = new URLSearchParams(Array.from(searchParams?.entries() ?? []));
+      params.set("tab", selectedTab);
+      const query = params.toString();
+      router.replace(`${pathname}${query ? `?${query}` : ""}`, { scroll: false });
     },
     [router, pathname, searchParams, setQueryParam]
   );
