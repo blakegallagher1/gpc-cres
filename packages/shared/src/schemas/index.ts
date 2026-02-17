@@ -6,3 +6,5 @@ export * from "./opportunityScorecard.js";
 export * from "./dealOutcome.js";
 export * from "./dealTerms.js";
 export * from "./entitlementPath.js";
+export * from "./environmentalAssessment.js";
+export * from "./dealFinancing.js";

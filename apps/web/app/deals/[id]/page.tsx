@@ -30,6 +30,8 @@ import { ArtifactList, type ArtifactItem } from "@/components/deals/ArtifactList
 import { FileUploadZone, type UploadItem } from "@/components/deals/FileUploadZone";
 import { UploadList } from "@/components/deals/UploadList";
 import { DocumentExtractionReview, ExtractionPendingBadge } from "@/components/deals/DocumentExtractionReview";
+import { EnvironmentalAssessmentsPanel } from "@/components/deals/EnvironmentalAssessmentsPanel";
+import { DealFinancingPanel } from "@/components/deals/DealFinancingPanel";
 import { TriageResultPanel } from "@/components/deals/TriageResultPanel";
 import { RunTriageButton } from "@/components/deals/RunTriageButton";
 import { ActivityTimeline } from "@/components/deals/ActivityTimeline";
@@ -837,6 +839,9 @@ export default function DealDetailPage() {
                 <DocumentExtractionReview dealId={deal.id} />
               </CardContent>
             </Card>
+
+            <EnvironmentalAssessmentsPanel dealId={deal.id} />
+            <DealFinancingPanel dealId={deal.id} />
           </TabsContent>
 
           {/* Parcels Tab */}

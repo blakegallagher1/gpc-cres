@@ -4,6 +4,7 @@ import { useEffect, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Loader2, Save, Check } from "lucide-react";
+import useSWR from "swr";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -17,6 +18,30 @@ import { DebtComparison } from "@/components/financial/DebtComparison";
 import { useFinancialModelStore, DEFAULT_ASSUMPTIONS, type FinancialModelAssumptions } from "@/stores/financialModelStore";
 import { useProFormaCalculations } from "@/hooks/useProFormaCalculations";
 import { toast } from "sonner";
+
+type DebtFinancing = {
+  id: string;
+  lenderName: string | null;
+  facilityName: string | null;
+  loanType: string | null;
+  loanAmount: string | null;
+  commitmentDate: string | null;
+  fundedDate: string | null;
+  interestRate: string | null;
+  loanTermMonths: number | null;
+  amortizationYears: number | null;
+  ltvPercent: string | null;
+  dscrRequirement: string | null;
+  originationFeePercent: string | null;
+  status: string | null;
+  notes: string | null;
+};
+
+type FinancesResponse = {
+  financings: DebtFinancing[];
+};
+
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export default function FinancialModelPage() {
   const params = useParams<{ id: string }>();
@@ -35,6 +60,11 @@ export default function FinancialModelPage() {
 
   const results = useProFormaCalculations(assumptions);
   const dealNameRef = useRef<string>("");
+  const financingFetcher = useSWR<FinancesResponse>(
+    dealId ? `/api/deals/${dealId}/financings` : null,
+    fetcher
+  );
+  const financings = financingFetcher.data?.financings ?? [];
 
   // Load saved assumptions from API
   useEffect(() => {
@@ -208,7 +238,12 @@ export default function FinancialModelPage() {
               </TabsContent>
 
               <TabsContent value="debt">
-                <DebtComparison dealId={dealId} proForma={results} />
+                <DebtComparison
+                  dealId={dealId}
+                  proForma={results}
+                  assumptions={assumptions}
+                  financings={financings}
+                />
               </TabsContent>
 
               <TabsContent value="scenarios">

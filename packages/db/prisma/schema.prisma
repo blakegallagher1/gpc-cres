@@ -130,6 +130,8 @@ model Org {
   entitlementOutcomePrecedents EntitlementOutcomePrecedent[]
   entitlementPredictionSnapshots EntitlementPredictionSnapshot[]
   dealTerms                DealTerms[]
+  environmentalAssessments EnvironmentalAssessment[]
+  financings              DealFinancing[]
   entitlementPaths          EntitlementPath[]
 
   @@map("orgs")
@@ -243,6 +245,8 @@ model Deal {
   outcome          DealOutcome?
   terms            DealTerms?
   entitlementPath  EntitlementPath?
+  environmentalAssessments EnvironmentalAssessment[]
+  financings       DealFinancing[]
   assumptionActuals AssumptionActual[]
   entitlementGraphNodes       EntitlementGraphNode[]
   entitlementOutcomePrecedents EntitlementOutcomePrecedent[]
@@ -962,6 +966,33 @@ model DealTerms {
   @@map("deal_terms")
 }
 
+model EnvironmentalAssessment {
+  id                     String     @id @default(uuid()) @db.Uuid
+  dealId                 String     @map("deal_id") @db.Uuid
+  orgId                  String     @map("org_id") @db.Uuid
+  reportType             String?    @map("report_type") @db.Text
+  reportDate             DateTime?  @map("report_date") @db.Date
+  consultantName         String?    @map("consultant_name") @db.Text
+  reportTitle            String?    @map("report_title") @db.Text
+  recs                   String[]   @map("recs") @default([])
+  deMinimisConditions    String[]   @map("de_minimis_conditions") @default([])
+  phaseIiRecommended     Boolean?   @map("phase_ii_recommended")
+  phaseIiScope           String?    @map("phase_ii_scope") @db.Text
+  estimatedRemediationCost Decimal?  @map("estimated_remediation_cost") @db.Decimal(14, 2)
+  sourceUploadId         String?    @map("source_upload_id") @db.Uuid
+  notes                  String?    @db.Text
+  createdAt              DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  org   Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  deal  Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([dealId])
+  @@index([reportDate])
+  @@map("environmental_assessments")
+}
+
 model EntitlementPath {
   id                     String     @id @default(uuid()) @db.Uuid
   dealId                 String     @unique @map("deal_id") @db.Uuid
@@ -991,6 +1022,36 @@ model EntitlementPath {
 
   @@index([orgId])
   @@map("entitlement_paths")
+}
+
+model DealFinancing {
+  id                    String     @id @default(uuid()) @db.Uuid
+  dealId                String     @map("deal_id") @db.Uuid
+  orgId                 String     @map("org_id") @db.Uuid
+  lenderName            String?    @map("lender_name") @db.Text
+  facilityName          String?    @map("facility_name") @db.Text
+  loanType              String?    @map("loan_type") @db.Text
+  loanAmount            Decimal?   @map("loan_amount") @db.Decimal(14, 2)
+  commitmentDate        DateTime?  @map("commitment_date") @db.Date
+  fundedDate            DateTime?  @map("funded_date") @db.Date
+  interestRate          Decimal?   @map("interest_rate") @db.Decimal(6, 4)
+  loanTermMonths        Int?       @map("loan_term_months")
+  amortizationYears     Int?       @map("amortization_years")
+  ltvPercent            Decimal?   @map("ltv_percent") @db.Decimal(6, 4)
+  dscrRequirement       Decimal?   @map("dscr_requirement") @db.Decimal(6, 4)
+  originationFeePercent Decimal?   @map("origination_fee_percent") @db.Decimal(6, 4)
+  sourceUploadId        String?    @map("source_upload_id") @db.Uuid
+  status                String?    @map("status") @db.Text
+  notes                 String?    @db.Text
+  createdAt             DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  org   Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  deal  Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([dealId])
+  @@map("deal_financings")
 }
 
 model AssumptionActual {

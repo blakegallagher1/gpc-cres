@@ -507,7 +507,7 @@ export class DocumentProcessingService {
 
     // Step 4: Auto-fill or create review notification
     if (overallConfidence >= 0.85 && Object.keys(extractedData).length > 0) {
-      await this.autoFillDealFields(dealId, finalDocType, extractedData);
+      await this.autoFillDealFields(dealId, orgId, finalDocType, extractedData);
     } else if (Object.keys(extractedData).length > 0) {
       // Create review notification for lower confidence extractions
       await this.createReviewNotification(
@@ -527,6 +527,7 @@ export class DocumentProcessingService {
    */
   async autoFillDealFields(
     dealId: string,
+    orgId: string,
     docType: DocType,
     data: Record<string, unknown>
   ): Promise<void> {
@@ -560,9 +561,45 @@ export class DocumentProcessingService {
         }
       }
 
-      // Phase I ESA → env notes
+      // Phase I ESA → env notes + structured record
       if (docType === "phase_i_esa") {
         const recs = data.recs as string[] | undefined;
+        const phaseIiScope = data.phase_ii_scope;
+        const consultant = data.consultant;
+        const reportDate = data.report_date;
+        const phaseIiRecommended = data.recommended_phase_ii;
+        const deMinimis = data.de_minimis_conditions as string[] | undefined;
+
+        const existingAssessment = await prisma.environmentalAssessment.findFirst({
+          where: {
+            orgId,
+            dealId,
+            reportType: "Phase I ESA",
+            consultantName: consultant ? String(consultant) : undefined,
+            phaseIiScope: phaseIiScope ? String(phaseIiScope) : undefined,
+            phaseIiRecommended:
+              typeof phaseIiRecommended === "boolean" ? phaseIiRecommended : undefined,
+          },
+          select: { id: true },
+        });
+
+        if (!existingAssessment && (recs?.length || deMinimis?.length || consultant || phaseIiScope)) {
+          await prisma.environmentalAssessment.create({
+            data: {
+              orgId,
+              dealId,
+              reportType: "Phase I ESA",
+              reportDate: reportDate ? new Date(String(reportDate)) : null,
+              consultantName: consultant ? String(consultant) : null,
+              reportTitle: "Phase I Environmental Site Assessment",
+              recs: recs ?? [],
+              deMinimisConditions: deMinimis ?? [],
+              phaseIiRecommended: typeof phaseIiRecommended === "boolean" ? phaseIiRecommended : null,
+              phaseIiScope: phaseIiScope ? String(phaseIiScope) : null,
+            },
+          });
+        }
+
         if (recs && recs.length > 0) {
           for (const parcel of parcels) {
             if (!parcel.envNotes) {
@@ -692,7 +729,7 @@ export class DocumentProcessingService {
     const finalData = (updates?.extractedData ?? extraction.extractedData) as Record<string, unknown>;
     const finalDocType = (updates?.docType ?? extraction.docType) as DocType;
     if (Object.keys(finalData).length > 0) {
-      await this.autoFillDealFields(extraction.dealId, finalDocType, finalData);
+      await this.autoFillDealFields(extraction.dealId, extraction.orgId, finalDocType, finalData);
     }
 
     return updated;

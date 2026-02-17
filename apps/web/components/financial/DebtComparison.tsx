@@ -29,6 +29,8 @@ import {
   type LoanAnalysis,
   type PrepaymentType,
 } from "@/hooks/useDebtComparison";
+import type { FinancialModelAssumptions } from "@/stores/financialModelStore";
+import { estimateRemainingBalance } from "@/hooks/useProFormaCalculations";
 
 // ---------------------------------------------------------------------------
 // Formatting
@@ -45,6 +47,32 @@ function fmt(value: number): string {
 function pctFmt(value: number): string {
   return `${(value * 100).toFixed(2)}%`;
 }
+
+type DebtFinancingItem = {
+  id: string;
+  lenderName: string | null;
+  facilityName: string | null;
+  loanType: string | null;
+  loanAmount: string | null;
+  commitmentDate: string | null;
+  fundedDate: string | null;
+  interestRate: string | null;
+  loanTermMonths: number | null;
+  amortizationYears: number | null;
+  ltvPercent: string | null;
+  dscrRequirement: string | null;
+  originationFeePercent: string | null;
+  sourceUploadId: string | null;
+  status: string | null;
+  notes: string | null;
+};
+
+type ComparisonRow = {
+  metric: string;
+  modeled: string;
+  actual: string;
+  variance: string;
+};
 
 // ---------------------------------------------------------------------------
 // Default loan
@@ -72,6 +100,215 @@ const PREPAY_LABELS: Record<PrepaymentType, string> = {
   defeasance: "Defeasance",
   step_down: "Step-Down",
 };
+
+function parseMaybeNumber(value: string | null): number | null {
+  if (!value) {
+    return null;
+  }
+  const parsed = Number(value);
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+function formatVariance(
+  actual: number | null,
+  modeled: number | null,
+  formatValue: (value: number) => string,
+  includePercent = true
+): string {
+  if (actual === null || modeled === null || !Number.isFinite(actual) || !Number.isFinite(modeled)) {
+    return "—";
+  }
+  const delta = actual - modeled;
+  const varianceText = formatValue(delta);
+  if (!includePercent || modeled === 0) {
+    return `${delta >= 0 ? "+" : ""}${varianceText}`;
+  }
+  const percentText = `${((delta / Math.abs(modeled)) * 100).toFixed(1)}%`;
+  return `${delta >= 0 ? "+" : ""}${varianceText} (${delta >= 0 ? "+" : ""}${percentText})`;
+}
+
+function calcMonthlyDebtPayment(
+  principal: number,
+  annualRate: number,
+  amortizationYears: number
+): number {
+  if (principal <= 0 || annualRate <= 0 || amortizationYears <= 0) {
+    return 0;
+  }
+  const monthlyRate = annualRate / 12;
+  const numPayments = amortizationYears * 12;
+  return (
+    principal *
+    ((monthlyRate * Math.pow(1 + monthlyRate, numPayments)) /
+      (Math.pow(1 + monthlyRate, numPayments) - 1))
+  );
+}
+
+function estimateFirstYearDebtService(
+  loanAmount: number | null,
+  interestRate: number | null,
+  amortizationYears: number | null,
+  ioMonths: number | null
+): number | null {
+  if (loanAmount === null || interestRate === null || amortizationYears === null) {
+    return null;
+  }
+  const annualRate = interestRate / 100;
+  if (loanAmount <= 0 || annualRate <= 0 || amortizationYears <= 0) {
+    return null;
+  }
+  if ((ioMonths ?? 0) > 0) {
+    return loanAmount * annualRate;
+  }
+  return calcMonthlyDebtPayment(loanAmount, annualRate, amortizationYears) * 12;
+}
+
+function formatLtv(value: number | null): string {
+  if (value === null) return "—";
+  const normalized = value > 1 ? value : value * 100;
+  return `${normalized.toFixed(2)}%`;
+}
+
+function comparisonRows(
+  financing: DebtFinancingItem,
+  assumptions: FinancialModelAssumptions,
+  proForma: ProFormaResults
+): ComparisonRow[] {
+  const holdYears = Math.max(1, proForma.annualCashFlows.length);
+  const modeledLoanAmount = proForma.acquisitionBasis.loanAmount;
+  const modeledRate = assumptions.financing.interestRate;
+  const modeledAmortizationMonths = assumptions.financing.amortizationYears * 12;
+  const modeledIoMonths = assumptions.financing.ioPeriodYears * 12;
+  const modeledOriginationFee = assumptions.financing.loanFeePct;
+  const modeledLtv = assumptions.financing.ltvPct;
+  const modeledDscr = proForma.dscr;
+
+  const actualLoanAmount = parseMaybeNumber(financing.loanAmount);
+  const actualInterestRate = parseMaybeNumber(financing.interestRate);
+  const actualTermMonths =
+    financing.loanTermMonths ??
+    (financing.amortizationYears === null ? null : financing.amortizationYears * 12);
+  const actualAmortizationYears =
+    financing.amortizationYears ??
+    (actualTermMonths === null ? null : actualTermMonths / 12);
+  const actualLtv = parseMaybeNumber(financing.ltvPercent);
+  const actualOriginationFee = parseMaybeNumber(financing.originationFeePercent);
+  const actualDscrRequirement = parseMaybeNumber(financing.dscrRequirement);
+
+  const actualFirstYearDebtService = estimateFirstYearDebtService(
+    actualLoanAmount,
+    actualInterestRate,
+    actualAmortizationYears,
+    null
+  );
+  const actualBalanceAtHold =
+    actualLoanAmount === null || actualInterestRate === null || actualAmortizationYears === null
+      ? null
+      : estimateRemainingBalance(
+          actualLoanAmount,
+          actualInterestRate / 100,
+          actualAmortizationYears,
+          holdYears
+        );
+
+  return [
+    {
+      metric: "Loan amount",
+      modeled: modeledLoanAmount > 0 ? fmt(modeledLoanAmount) : "—",
+      actual: actualLoanAmount === null ? "—" : fmt(actualLoanAmount),
+      variance: formatVariance(actualLoanAmount, modeledLoanAmount, fmt),
+    },
+    {
+      metric: "Interest rate",
+      modeled: `${modeledRate.toFixed(2)}%`,
+      actual: actualInterestRate === null ? "—" : `${actualInterestRate.toFixed(2)}%`,
+      variance: formatVariance(
+        actualInterestRate,
+        modeledRate,
+        (value) => `${value.toFixed(2)}%`
+      ),
+    },
+    {
+      metric: "Loan term (months)",
+      modeled: modeledAmortizationMonths.toString(),
+      actual: actualTermMonths === null ? "—" : actualTermMonths.toString(),
+      variance: formatVariance(
+        actualTermMonths,
+        modeledAmortizationMonths,
+        (value) => value.toString(),
+        false
+      ),
+    },
+    {
+      metric: "IO period (months)",
+      modeled: modeledIoMonths.toString(),
+      actual: "—",
+      variance: "—",
+    },
+    {
+      metric: "Origination fee",
+      modeled: `${modeledOriginationFee.toFixed(2)}%`,
+      actual:
+        actualOriginationFee === null ? "—" : `${actualOriginationFee.toFixed(2)}%`,
+      variance: formatVariance(
+        actualOriginationFee,
+        modeledOriginationFee,
+        (value) => `${value.toFixed(2)}%`
+      ),
+    },
+    {
+      metric: "LTV",
+      modeled: formatLtv(modeledLtv),
+      actual: actualLtv === null ? "—" : formatLtv(actualLtv),
+      variance: formatVariance(
+        actualLtv,
+        modeledLtv,
+        (value) => `${value.toFixed(2)}%`
+      ),
+    },
+    {
+      metric: `1st-year debt service (${holdYears}yr hold)`,
+      modeled:
+        proForma.annualDebtService > 0 ? fmt(proForma.annualDebtService) : "—",
+      actual:
+        actualFirstYearDebtService === null ? "—" : fmt(actualFirstYearDebtService),
+      variance: formatVariance(
+        actualFirstYearDebtService,
+        proForma.annualDebtService,
+        fmt
+      ),
+    },
+    {
+      metric: `Balance at hold (${holdYears}yr)`,
+      modeled:
+        proForma.exitAnalysis.loanPayoff > 0 ? fmt(proForma.exitAnalysis.loanPayoff) : "—",
+      actual: actualBalanceAtHold === null ? "—" : fmt(actualBalanceAtHold),
+      variance: formatVariance(
+        actualBalanceAtHold,
+        proForma.exitAnalysis.loanPayoff,
+        fmt
+      ),
+    },
+    {
+      metric: "Required DSCR vs modeled DSCR",
+      modeled: Number.isFinite(modeledDscr) ? modeledDscr.toFixed(2) : "—",
+      actual:
+        actualDscrRequirement === null ? "—" : actualDscrRequirement.toFixed(2),
+      variance: formatVariance(
+        actualDscrRequirement,
+        Number.isFinite(modeledDscr) ? modeledDscr : null,
+        (value) => value.toFixed(2),
+        false
+      ),
+    },
+  ];
+}
+
+function financingLabel(financing: DebtFinancingItem): string {
+  const parts = [financing.lenderName, financing.facilityName, financing.loanType]
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0);
+  return parts.length > 0 ? parts.join(" · ") : "Unnamed financing";
+}
 
 // ---------------------------------------------------------------------------
 // Loan Editor card
@@ -308,9 +545,13 @@ function LoanEditor({
 export function DebtComparison({
   dealId,
   proForma,
+  assumptions,
+  financings,
 }: {
   dealId: string;
   proForma: ProFormaResults;
+  assumptions: FinancialModelAssumptions;
+  financings: DebtFinancingItem[];
 }) {
   const [loans, setLoans] = useState<LoanStructure[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -647,6 +888,50 @@ export function DebtComparison({
                 ))}
               </TableBody>
             </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      {financings.length > 0 && analyses.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Actual vs Modeled Comparison</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {financings.map((financing) => {
+              const rows = comparisonRows(financing, assumptions, proForma);
+              return (
+                <Card key={financing.id} className="p-3">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-xs font-medium">
+                      {financingLabel(financing)}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Metric</TableHead>
+                          <TableHead className="text-center">Modeled</TableHead>
+                          <TableHead className="text-center">Actual</TableHead>
+                          <TableHead className="text-center">Variance</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {rows.map((row) => (
+                          <TableRow key={row.metric}>
+                            <TableCell className="font-medium text-xs">{row.metric}</TableCell>
+                            <TableCell className="text-center tabular-nums text-xs">{row.modeled}</TableCell>
+                            <TableCell className="text-center tabular-nums text-xs">{row.actual}</TableCell>
+                            <TableCell className="text-center tabular-nums text-xs">{row.variance}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </CardContent>
         </Card>
       )}
