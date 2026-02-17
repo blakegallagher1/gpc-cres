@@ -1167,6 +1167,8 @@ The following items were identified by analyzing 6 OpenAI GitHub repositories (`
     - `pnpm test` ✅
     - `pnpm build` ✅
   - Final integration commit (code): `3517e50`
+  - Context baseline sync:
+    - `AGENTS.md` project status snapshot updated to reflect A→G completion + H gate closure.
 
 ---
 
