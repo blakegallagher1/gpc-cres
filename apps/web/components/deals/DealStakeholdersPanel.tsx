@@ -103,7 +103,7 @@ function buildPayload(form: FormState): StakeholderPayload {
   if (form.name.trim()) {
     payload.name = form.name.trim();
   }
-  if (form.role.trim()) {
+  if (form.role !== "") {
     payload.role = form.role;
   }
   if (form.company.trim()) {
