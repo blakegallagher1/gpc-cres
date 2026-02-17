@@ -33,6 +33,7 @@ type DebtFinancing = {
   ltvPercent: string | null;
   dscrRequirement: string | null;
   originationFeePercent: string | null;
+  sourceUploadId: string | null;
   status: string | null;
   notes: string | null;
 };
