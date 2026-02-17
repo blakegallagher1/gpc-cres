@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback, useRef } from "react";
+import { useEffect, useCallback, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Loader2, Save, Check } from "lucide-react";
@@ -15,6 +15,15 @@ import { TornadoChart } from "@/components/financial/TornadoChart";
 import { ScenarioManager } from "@/components/financial/ScenarioManager";
 import { WaterfallBuilder } from "@/components/financial/WaterfallBuilder";
 import { DebtComparison } from "@/components/financial/DebtComparison";
+import {
+  RentRollTab,
+  type TenantLeaseRecord,
+  type TenantRecord,
+} from "@/components/financial/RentRollTab";
+import {
+  DevelopmentBudgetTab,
+  type DevelopmentBudgetRecord,
+} from "@/components/financial/DevelopmentBudgetTab";
 import { useFinancialModelStore, DEFAULT_ASSUMPTIONS, type FinancialModelAssumptions } from "@/stores/financialModelStore";
 import { useProFormaCalculations } from "@/hooks/useProFormaCalculations";
 import { toast } from "sonner";
@@ -42,11 +51,28 @@ type FinancesResponse = {
   financings: DebtFinancing[];
 };
 
+type FinancialModelResponse = {
+  assumptions: FinancialModelAssumptions | null;
+  deal: {
+    id: string;
+    name: string;
+    sku: string;
+    status: string;
+    totalAcreage: number;
+  };
+  tenants: TenantRecord[];
+  tenantLeases: TenantLeaseRecord[];
+  developmentBudget: DevelopmentBudgetRecord | null;
+};
+
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export default function FinancialModelPage() {
   const params = useParams<{ id: string }>();
   const dealId = params?.id ?? "";
+  const [tenants, setTenants] = useState<TenantRecord[]>([]);
+  const [tenantLeases, setTenantLeases] = useState<TenantLeaseRecord[]>([]);
+  const [developmentBudget, setDevelopmentBudget] = useState<DevelopmentBudgetRecord | null>(null);
 
   const {
     assumptions,
@@ -59,7 +85,15 @@ export default function FinancialModelPage() {
     markClean,
   } = useFinancialModelStore();
 
-  const results = useProFormaCalculations(assumptions);
+  const results = useProFormaCalculations(assumptions, {
+    tenantLeases,
+    developmentBudget: developmentBudget
+      ? {
+          lineItems: developmentBudget.lineItems,
+          contingencies: developmentBudget.contingencies,
+        }
+      : undefined,
+  });
   const dealNameRef = useRef<string>("");
   const financingFetcher = useSWR<FinancesResponse>(
     dealId ? `/api/deals/${dealId}/financings` : null,
@@ -77,10 +111,13 @@ export default function FinancialModelPage() {
       try {
         const res = await fetch(`/api/deals/${dealId}/financial-model`);
         if (!res.ok) throw new Error("Failed to load");
-        const data = await res.json();
+        const data = (await res.json()) as FinancialModelResponse;
         if (cancelled) return;
 
         dealNameRef.current = data.deal?.name ?? "";
+        setTenants(data.tenants ?? []);
+        setTenantLeases(data.tenantLeases ?? []);
+        setDevelopmentBudget(data.developmentBudget ?? null);
 
         if (data.assumptions) {
           // Merge saved assumptions with defaults to handle any missing fields
@@ -103,6 +140,9 @@ export default function FinancialModelPage() {
       } catch {
         toast.error("Failed to load financial model");
         setAssumptions({ ...DEFAULT_ASSUMPTIONS });
+        setTenants([]);
+        setTenantLeases([]);
+        setDevelopmentBudget(null);
       }
     })();
 
@@ -117,7 +157,15 @@ export default function FinancialModelPage() {
       const res = await fetch(`/api/deals/${dealId}/financial-model`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ assumptions }),
+        body: JSON.stringify({
+          assumptions,
+          developmentBudget: developmentBudget
+            ? {
+                lineItems: developmentBudget.lineItems,
+                contingencies: developmentBudget.contingencies,
+              }
+            : null,
+        }),
       });
       if (!res.ok) throw new Error("Failed to save");
       markClean();
@@ -127,7 +175,7 @@ export default function FinancialModelPage() {
     } finally {
       setSaving(false);
     }
-  }, [dealId, saving, assumptions, setSaving, markClean]);
+  }, [dealId, saving, assumptions, developmentBudget, setSaving, markClean]);
 
   // Auto-save on dirty after 2 seconds of inactivity
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -221,6 +269,8 @@ export default function FinancialModelPage() {
                 <TabsTrigger value="waterfall">Waterfall</TabsTrigger>
                 <TabsTrigger value="debt">Debt</TabsTrigger>
                 <TabsTrigger value="scenarios">Scenarios</TabsTrigger>
+                <TabsTrigger value="rent-roll">Rent Roll</TabsTrigger>
+                <TabsTrigger value="development-budget">Development Budget</TabsTrigger>
               </TabsList>
 
               <TabsContent value="returns">
@@ -252,6 +302,29 @@ export default function FinancialModelPage() {
                   dealId={dealId}
                   currentAssumptions={assumptions}
                   onLoadScenario={handleLoadScenario}
+                />
+              </TabsContent>
+
+              <TabsContent value="rent-roll">
+                <RentRollTab
+                  dealId={dealId}
+                  tenants={tenants}
+                  tenantLeases={tenantLeases}
+                  weightedAverageLeaseTermYears={results.weightedAverageLeaseTermYears}
+                  onDataChange={({ tenants: nextTenants, tenantLeases: nextTenantLeases }) => {
+                    setTenants(nextTenants);
+                    setTenantLeases(nextTenantLeases);
+                  }}
+                />
+              </TabsContent>
+
+              <TabsContent value="development-budget">
+                <DevelopmentBudgetTab
+                  dealId={dealId}
+                  developmentBudget={developmentBudget}
+                  onBudgetSaved={(budget) => {
+                    setDevelopmentBudget(budget);
+                  }}
                 />
               </TabsContent>
             </Tabs>

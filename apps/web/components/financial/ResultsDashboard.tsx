@@ -58,12 +58,13 @@ export function ResultsDashboard({ results }: { results: ProFormaResults }) {
     goingInCapRate,
     annualDebtService,
     dscr,
+    weightedAverageLeaseTermYears,
   } = results;
 
   return (
     <div className="space-y-4 overflow-y-auto">
       {/* Metric Cards */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 xl:grid-cols-7">
         <MetricCard
           label="Levered IRR"
           value={leveredIRR !== null ? fmt(leveredIRR, "percent") : "N/A"}
@@ -89,6 +90,10 @@ export function ResultsDashboard({ results }: { results: ProFormaResults }) {
           value={fmt(goingInCapRate, "percent")}
           sub={`DSCR: ${dscr >= 999 ? "N/A" : dscr.toFixed(2)}x`}
         />
+        <MetricCard
+          label="WALT"
+          value={`${weightedAverageLeaseTermYears.toFixed(2)} yrs`}
+        />
       </div>
 
       {/* Acquisition Basis */}
@@ -109,6 +114,12 @@ export function ResultsDashboard({ results }: { results: ProFormaResults }) {
                 <TableCell className="font-medium">Closing Costs</TableCell>
                 <TableCell className="text-right tabular-nums">
                   {fmt(ab.closingCosts, "currency")}
+                </TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="font-medium">Development Budget</TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {fmt(ab.developmentCosts, "currency")}
                 </TableCell>
               </TableRow>
               <TableRow>

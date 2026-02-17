@@ -22,5 +22,8 @@ export type {
   Artifact,
   Upload,
   Conversation,
+  Tenant,
+  TenantLease,
+  DevelopmentBudget,
   Message,
 } from "@prisma/client";

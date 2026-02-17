@@ -12,3 +12,4 @@ export * from "./dealFinancing.js";
 export * from "./dealStakeholder.js";
 export * from "./propertyTitle.js";
 export * from "./propertySurvey.js";
+export * from "./financialModel.js";

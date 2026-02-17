@@ -1,4 +1,11 @@
 import { useMemo } from "react";
+import {
+  aggregateRentRoll,
+  summarizeDevelopmentBudget,
+  type DevelopmentBudgetCalcInput,
+  type RentRollAggregation,
+  type RentRollLeaseInput,
+} from "@entitlement-os/shared";
 import type { FinancialModelAssumptions } from "@/stores/financialModelStore";
 
 // ---------------------------------------------------------------------------
@@ -78,6 +85,7 @@ export interface AnnualCashFlow {
 export interface AcquisitionBasis {
   purchasePrice: number;
   closingCosts: number;
+  developmentCosts: number;
   loanFees: number;
   totalBasis: number;
   loanAmount: number;
@@ -93,6 +101,11 @@ export interface ExitAnalysis {
   profit: number;
 }
 
+export interface ProFormaContext {
+  tenantLeases?: RentRollLeaseInput[];
+  developmentBudget?: DevelopmentBudgetCalcInput | null;
+}
+
 export interface ProFormaResults {
   acquisitionBasis: AcquisitionBasis;
   annualCashFlows: AnnualCashFlow[];
@@ -105,6 +118,9 @@ export interface ProFormaResults {
   goingInCapRate: number;
   annualDebtService: number;
   dscr: number;
+  weightedAverageLeaseTermYears: number;
+  rentRoll: RentRollAggregation;
+  developmentBudgetSummary: ReturnType<typeof summarizeDevelopmentBudget>;
 }
 
 // ---------------------------------------------------------------------------
@@ -112,23 +128,40 @@ export interface ProFormaResults {
 // ---------------------------------------------------------------------------
 
 export function computeProForma(
-  assumptions: FinancialModelAssumptions
+  assumptions: FinancialModelAssumptions,
+  context?: ProFormaContext
 ): ProFormaResults {
   const { acquisition, income, expenses, financing, exit, buildableSf } =
     assumptions;
 
+  const developmentBudgetSummary = summarizeDevelopmentBudget(
+    context?.developmentBudget ?? { lineItems: [], contingencies: {} }
+  );
+
+  const holdYears = Math.max(1, Math.min(exit.holdYears, 30));
+  const rentRoll = aggregateRentRoll({
+    leases: context?.tenantLeases ?? [],
+    holdYears,
+    marketRentPerSf: income.rentPerSf,
+    marketVacancyPct: income.vacancyPct,
+  });
+
   // --- Acquisition Basis ---
   const closingCosts =
     acquisition.purchasePrice * (acquisition.closingCostsPct / 100);
-  const loanAmount =
-    acquisition.purchasePrice * (financing.ltvPct / 100);
+  const basisBeforeDebt =
+    acquisition.purchasePrice +
+    closingCosts +
+    developmentBudgetSummary.totalBudget;
+  const loanAmount = basisBeforeDebt * (financing.ltvPct / 100);
   const loanFees = loanAmount * (financing.loanFeePct / 100);
-  const totalBasis = acquisition.purchasePrice + closingCosts + loanFees;
+  const totalBasis = basisBeforeDebt + loanFees;
   const equityRequired = totalBasis - loanAmount;
 
   const acquisitionBasis: AcquisitionBasis = {
     purchasePrice: acquisition.purchasePrice,
     closingCosts: round(closingCosts, 0),
+    developmentCosts: round(developmentBudgetSummary.totalBudget, 0),
     loanFees: round(loanFees, 0),
     totalBasis: round(totalBasis, 0),
     loanAmount: round(loanAmount, 0),
@@ -136,9 +169,13 @@ export function computeProForma(
   };
 
   // --- Income & NOI ---
-  const grossPotentialRent = buildableSf * income.rentPerSf;
-  const effectiveGrossIncome =
-    grossPotentialRent * (1 - income.vacancyPct / 100) + income.otherIncome;
+  const grossPotentialRent = rentRoll.hasLeases
+    ? rentRoll.yearOneRevenue
+    : buildableSf * income.rentPerSf;
+
+  const effectiveGrossIncome = rentRoll.hasLeases
+    ? grossPotentialRent + income.otherIncome
+    : grossPotentialRent * (1 - income.vacancyPct / 100) + income.otherIncome;
 
   const totalOpex =
     buildableSf * expenses.opexPerSf +
@@ -164,32 +201,34 @@ export function computeProForma(
   const ioAnnualDebtService = loanAmount * rate;
 
   // Going-in cap rate
-  const goingInCapRate =
-    acquisition.purchasePrice > 0
-      ? baseNoi / acquisition.purchasePrice
-      : 0;
+  const goingInCapRate = totalBasis > 0 ? baseNoi / totalBasis : 0;
 
   // DSCR
-  const dscr =
-    annualDebtService > 0 ? baseNoi / annualDebtService : Infinity;
+  const dscr = annualDebtService > 0 ? baseNoi / annualDebtService : Infinity;
 
   // --- Annual Cash Flows ---
-  const holdYears = Math.max(1, Math.min(exit.holdYears, 30));
   const leveredCFs: number[] = [-equityRequired];
   const unleveredCFs: number[] = [-totalBasis];
   const annualCashFlows: AnnualCashFlow[] = [];
   let cumulativeCF = 0;
+  let finalYearNoi = baseNoi;
 
   for (let y = 1; y <= holdYears; y++) {
     const growthFactor = Math.pow(1 + income.rentGrowthPct / 100, y - 1);
-    const yearGrossRent = grossPotentialRent * growthFactor;
-    const yearEgi =
-      yearGrossRent * (1 - income.vacancyPct / 100) +
-      income.otherIncome * growthFactor;
+    const yearLeaseRevenue =
+      rentRoll.annualSchedule[y - 1]?.totalRevenue ??
+      rentRoll.annualSchedule[rentRoll.annualSchedule.length - 1]?.totalRevenue ??
+      0;
+
+    const yearEgi = rentRoll.hasLeases
+      ? yearLeaseRevenue + income.otherIncome * growthFactor
+      : grossPotentialRent * growthFactor * (1 - income.vacancyPct / 100) +
+        income.otherIncome * growthFactor;
 
     // Expenses grow at 2% annually
     const yearOpex = totalOpex * Math.pow(1.02, y - 1);
     const yearNoi = yearEgi - yearOpex;
+    finalYearNoi = yearNoi;
 
     // IO period: interest only; otherwise full amortizing
     const yearDS =
@@ -212,14 +251,12 @@ export function computeProForma(
   }
 
   // --- Exit Analysis ---
-  const exitGrowthFactor = Math.pow(
-    1 + income.rentGrowthPct / 100,
-    holdYears
-  );
-  const exitNoi =
-    (grossPotentialRent * exitGrowthFactor * (1 - income.vacancyPct / 100) +
-      income.otherIncome * exitGrowthFactor) -
-    totalOpex * Math.pow(1.02, holdYears);
+  const exitNoi = rentRoll.hasLeases
+    ? finalYearNoi
+    : (grossPotentialRent * Math.pow(1 + income.rentGrowthPct / 100, holdYears) *
+        (1 - income.vacancyPct / 100) +
+        income.otherIncome * Math.pow(1 + income.rentGrowthPct / 100, holdYears)) -
+      totalOpex * Math.pow(1.02, holdYears);
 
   const salePrice =
     exit.exitCapRate > 0 ? exitNoi / (exit.exitCapRate / 100) : 0;
@@ -273,6 +310,9 @@ export function computeProForma(
     goingInCapRate: round(goingInCapRate, 4),
     annualDebtService: round(annualDebtService, 0),
     dscr: round(dscr === Infinity ? 999 : dscr, 2),
+    weightedAverageLeaseTermYears: rentRoll.weightedAverageLeaseTermYears,
+    rentRoll,
+    developmentBudgetSummary,
   };
 }
 
@@ -281,7 +321,8 @@ export function computeProForma(
 // ---------------------------------------------------------------------------
 
 export function useProFormaCalculations(
-  assumptions: FinancialModelAssumptions
+  assumptions: FinancialModelAssumptions,
+  context?: ProFormaContext
 ): ProFormaResults {
-  return useMemo(() => computeProForma(assumptions), [assumptions]);
+  return useMemo(() => computeProForma(assumptions, context), [assumptions, context]);
 }

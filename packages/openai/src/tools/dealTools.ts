@@ -1,6 +1,7 @@
 import { tool } from "@openai/agents";
 import { z } from "zod";
 import { prisma } from "@entitlement-os/db";
+import { aggregateRentRoll } from "@entitlement-os/shared";
 
 const HIGH_IMPACT_STATUSES = ["APPROVED", "EXIT_MARKETED", "EXITED", "KILLED"] as const;
 const PACK_STALE_DAYS = 7;
@@ -12,6 +13,13 @@ function isJsonStringArray(value: unknown): value is string[] {
 
 function daysSince(value: Date): number {
   return Math.floor((Date.now() - value.getTime()) / (24 * 60 * 60 * 1000));
+}
+
+function decimalToNumber(value: { toString(): string } | number): number {
+  if (typeof value === "number") {
+    return value;
+  }
+  return Number.parseFloat(value.toString());
 }
 
 export const getDealContext = tool({
@@ -271,6 +279,89 @@ export const listDeals = tool({
       take: limit ?? 20,
     });
     return JSON.stringify(deals);
+  },
+});
+
+export const get_rent_roll = tool({
+  name: "get_rent_roll",
+  description:
+    "Return full rent roll detail for a deal, including lease schedule, rollover vacancy behavior, and weighted average lease term.",
+  parameters: z.object({
+    orgId: z.string().uuid().describe("The org ID for security scoping"),
+    dealId: z.string().uuid().describe("The deal ID"),
+    holdYears: z
+      .number()
+      .int()
+      .min(1)
+      .max(30)
+      .nullable()
+      .describe("Optional hold period override for the lease schedule"),
+  }),
+  execute: async ({ orgId, dealId, holdYears }) => {
+    const deal = await prisma.deal.findFirst({
+      where: { id: dealId, orgId },
+      select: { id: true, financialModelAssumptions: true },
+    });
+
+    if (!deal) {
+      return JSON.stringify({ error: "Deal not found or access denied" });
+    }
+
+    const leases = await prisma.tenantLease.findMany({
+      where: { orgId, dealId },
+      include: {
+        tenant: {
+          select: { id: true, name: true },
+        },
+      },
+      orderBy: [{ startDate: "asc" }, { endDate: "asc" }],
+    });
+
+    const assumptions = deal.financialModelAssumptions as
+      | {
+          income?: { rentPerSf?: number; vacancyPct?: number };
+          exit?: { holdYears?: number };
+        }
+      | null;
+
+    const resolvedHoldYears = holdYears ?? assumptions?.exit?.holdYears ?? 10;
+    const marketRentPerSf = assumptions?.income?.rentPerSf ?? 0;
+    const marketVacancyPct = assumptions?.income?.vacancyPct ?? 5;
+
+    const schedule = aggregateRentRoll({
+      leases: leases.map((lease) => ({
+        id: lease.id,
+        tenantId: lease.tenantId,
+        leaseName: lease.leaseName,
+        startDate: lease.startDate,
+        endDate: lease.endDate,
+        rentedAreaSf: decimalToNumber(lease.rentedAreaSf),
+        rentPerSf: decimalToNumber(lease.rentPerSf),
+        annualEscalationPct: decimalToNumber(lease.annualEscalationPct),
+      })),
+      holdYears: resolvedHoldYears,
+      marketRentPerSf,
+      marketVacancyPct,
+    });
+
+    return JSON.stringify({
+      dealId,
+      holdYears: resolvedHoldYears,
+      leaseCount: leases.length,
+      weightedAverageLeaseTermYears: schedule.weightedAverageLeaseTermYears,
+      annualSchedule: schedule.annualSchedule,
+      leases: leases.map((lease) => ({
+        id: lease.id,
+        tenantId: lease.tenantId,
+        tenantName: lease.tenant.name,
+        leaseName: lease.leaseName,
+        startDate: lease.startDate.toISOString(),
+        endDate: lease.endDate.toISOString(),
+        rentedAreaSf: decimalToNumber(lease.rentedAreaSf),
+        rentPerSf: decimalToNumber(lease.rentPerSf),
+        annualEscalationPct: decimalToNumber(lease.annualEscalationPct),
+      })),
+    });
   },
 });
 

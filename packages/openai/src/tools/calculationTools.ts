@@ -1,5 +1,6 @@
 import { tool } from "@openai/agents";
 import { z } from "zod";
+import { summarizeDevelopmentBudget } from "@entitlement-os/shared";
 
 // ==================== FINANCE TOOLS ====================
 
@@ -144,63 +145,66 @@ export const calculate_debt_sizing = tool({
 export const calculate_development_budget = tool({
   name: "calculate_development_budget",
   description:
-    "Estimate a development budget based on acreage, proposed use, and construction costs",
+    "Calculate a development budget from explicit line items and contingency percentages",
   parameters: z.object({
-    acreage: z.number().describe("Site acreage"),
-    proposed_use: z
-      .string()
-      .describe(
-        "Proposed use type: SMALL_BAY_FLEX, OUTDOOR_STORAGE, or TRUCK_PARKING",
-      ),
-    construction_cost_per_sf: z
-      .number()
-      .nullable()
-      .describe("Override hard cost per SF (null to use defaults)"),
-    hard_cost_contingency_pct: z
-      .number()
-      .nullable()
-      .describe("Hard cost contingency % (default 10%)"),
+    line_items: z
+      .array(
+        z.object({
+          name: z.string().min(1).describe("Line item name"),
+          category: z
+            .enum(["hard", "soft", "other"])
+            .describe("Line item category"),
+          amount: z.number().nonnegative().describe("Line item amount in USD"),
+        }),
+      )
+      .describe("Development budget line items"),
+    contingencies: z
+      .object({
+        hard_cost_contingency_pct: z
+          .number()
+          .nullable()
+          .describe("Hard cost contingency percent"),
+        soft_cost_contingency_pct: z
+          .number()
+          .nullable()
+          .describe("Soft cost contingency percent"),
+        other_cost_contingency_pct: z
+          .number()
+          .nullable()
+          .describe("Other cost contingency percent"),
+      })
+      .describe("Contingency percentages by category"),
   }),
   execute: async (params) => {
-    const {
-      acreage,
-      proposed_use,
-      construction_cost_per_sf,
-      hard_cost_contingency_pct,
-    } = params;
-
-    const siteSF = acreage * 43560;
-    const coverageByUse: Record<string, number> = {
-      SMALL_BAY_FLEX: 0.45,
-      OUTDOOR_STORAGE: 0.05,
-      TRUCK_PARKING: 0.03,
-    };
-    const costByUse: Record<string, number> = {
-      SMALL_BAY_FLEX: 85,
-      OUTDOOR_STORAGE: 15,
-      TRUCK_PARKING: 8,
-    };
-
-    const coverage = coverageByUse[proposed_use] ?? 0.3;
-    const buildableSF = siteSF * coverage;
-    const costPerSF =
-      construction_cost_per_sf ?? costByUse[proposed_use] ?? 50;
-    const contingency = hard_cost_contingency_pct ?? 10;
-
-    const hardCosts = buildableSF * costPerSF;
-    const hardCostsWithContingency = hardCosts * (1 + contingency / 100);
-    const softCostsPct = 20;
-    const softCosts = hardCostsWithContingency * (softCostsPct / 100);
-    const totalDevCost = hardCostsWithContingency + softCosts;
+    const summary = summarizeDevelopmentBudget({
+      lineItems: params.line_items.map((lineItem) => ({
+        name: lineItem.name,
+        category: lineItem.category,
+        amount: lineItem.amount,
+      })),
+      contingencies: {
+        hardCostContingencyPct: params.contingencies.hard_cost_contingency_pct ?? 0,
+        softCostContingencyPct: params.contingencies.soft_cost_contingency_pct ?? 0,
+        otherCostContingencyPct: params.contingencies.other_cost_contingency_pct ?? 0,
+      },
+    });
 
     return JSON.stringify({
-      site_sf: round(siteSF, 0),
-      buildable_sf: round(buildableSF, 0),
-      hard_costs: round(hardCostsWithContingency, 0),
-      soft_costs_pct: softCostsPct,
-      soft_costs: round(softCosts, 0),
-      total_dev_cost: round(totalDevCost, 0),
-      cost_per_sf: round(totalDevCost / buildableSF, 2),
+      line_items: params.line_items,
+      contingencies: {
+        hard_cost_contingency_pct:
+          params.contingencies.hard_cost_contingency_pct ?? 0,
+        soft_cost_contingency_pct:
+          params.contingencies.soft_cost_contingency_pct ?? 0,
+        other_cost_contingency_pct:
+          params.contingencies.other_cost_contingency_pct ?? 0,
+      },
+      hard_costs: round(summary.hardCosts, 0),
+      soft_costs: round(summary.softCosts, 0),
+      other_costs: round(summary.otherCosts, 0),
+      subtotal: round(summary.lineItemsTotal, 0),
+      total_contingency: round(summary.totalContingency, 0),
+      total_dev_cost: round(summary.totalBudget, 0),
     });
   },
 });
