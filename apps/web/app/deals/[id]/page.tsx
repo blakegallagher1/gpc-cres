@@ -46,18 +46,6 @@ import { toast } from "sonner";
 
 const fetcher = (url: string) => fetch(url).then((response) => response.json());
 
-const CONTACTS_START = "---CONTACTS---\n";
-const CONTACTS_END = "\n---END_CONTACTS---";
-
-function stripStakeholderMarker(notes: string): string {
-  const startIdx = notes.indexOf(CONTACTS_START);
-  const endIdx = notes.indexOf(CONTACTS_END);
-  if (startIdx === -1 || endIdx === -1 || endIdx < startIdx) {
-    return notes.trim();
-  }
-  return (notes.slice(0, startIdx) + notes.slice(endIdx + CONTACTS_END.length)).trim();
-}
-
 const DealParcelMap = dynamic(
   () => import("@/components/maps/DealParcelMap"),
   { ssr: false }
@@ -270,10 +258,7 @@ export default function DealDetailPage() {
     if (id) loadDeal();
   }, [id, loadDeal]);
 
-  const displayNotes = useMemo(
-    () => (deal?.notes ? stripStakeholderMarker(deal.notes) : ""),
-    [deal?.notes],
-  );
+  const displayNotes = deal?.notes?.trim() ?? "";
 
   // Also load latest triage from dedicated endpoint
   useEffect(() => {
@@ -675,6 +660,78 @@ export default function DealDetailPage() {
                     ) : (
                       <p className="text-xs text-muted-foreground">
                         No acquisition terms available for this deal.
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Timeline Milestones</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3 text-sm">
+                    {terms || entitlementPath ? (
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Offer Closing</p>
+                          <p className="font-medium">
+                            {terms?.closingDate ? formatDate(terms.closingDate) : "—"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Pre-Application</p>
+                          <p className="font-medium">
+                            {entitlementPath?.preAppMeetingDate
+                              ? formatDate(entitlementPath.preAppMeetingDate)
+                              : "—"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Public Notice</p>
+                          <p className="font-medium">
+                            {entitlementPath?.publicNoticeDate
+                              ? formatDate(entitlementPath.publicNoticeDate)
+                              : "—"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Hearing</p>
+                          <p className="font-medium">
+                            {entitlementPath?.hearingScheduledDate
+                              ? formatDate(entitlementPath.hearingScheduledDate)
+                              : "—"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Title Review Due</p>
+                          <p className="font-medium">
+                            {terms?.titleReviewDue ? formatDate(terms.titleReviewDue) : "—"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Survey Due</p>
+                          <p className="font-medium">
+                            {terms?.surveyDue ? formatDate(terms.surveyDue) : "—"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Environmental Due</p>
+                          <p className="font-medium">
+                            {terms?.environmentalDue ? formatDate(terms.environmentalDue) : "—"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Decision Date</p>
+                          <p className="font-medium">
+                            {entitlementPath?.decisionDate
+                              ? formatDate(entitlementPath.decisionDate)
+                              : "—"}
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        No timeline milestone data available yet.
                       </p>
                     )}
                   </CardContent>
