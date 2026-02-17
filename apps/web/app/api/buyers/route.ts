@@ -35,13 +35,19 @@ export async function GET(request: NextRequest) {
       };
     }
 
-    const queryOptions: Prisma.BuyerFindManyArgs = {
+    if (!withDeals) {
+      const buyers = await prisma.buyer.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+      });
+
+      return NextResponse.json({ buyers });
+    }
+
+    const buyers = await prisma.buyer.findMany({
       where,
       orderBy: { createdAt: "desc" },
-    };
-
-    if (withDeals) {
-      queryOptions.include = {
+      include: {
         outreach: {
           where: dealId ? { dealId } : undefined,
           select: {
@@ -67,14 +73,8 @@ export async function GET(request: NextRequest) {
             },
           },
         },
-      };
-    }
-
-    const buyers = await prisma.buyer.findMany(queryOptions);
-
-    if (!withDeals) {
-      return NextResponse.json({ buyers });
-    }
+      },
+    });
 
     const normalizedBuyers = buyers.map((buyer) => {
       const dealsById = new Map<
