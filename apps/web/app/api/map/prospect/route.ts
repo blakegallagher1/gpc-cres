@@ -38,19 +38,18 @@ function pointInPolygon(
   if (!ring || ring.length < 4) return false;
 
   let inside = false;
+  const x = lng;
+  const y = lat;
   for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
     // GeoJSON coordinates are [lng, lat]
-    const xi = ring[i][1],
-      yi = ring[i][0];
-    const xj = ring[j][1],
-      yj = ring[j][0];
-
-    if (
-      yi > lng !== yj > lng &&
-      lat < ((xj - xi) * (lng - yi)) / (yj - yi) + xi
-    ) {
-      inside = !inside;
-    }
+    const xi = ring[i][0];
+    const yi = ring[i][1];
+    const xj = ring[j][0];
+    const yj = ring[j][1];
+    const intersects =
+      yi > y !== yj > y &&
+      x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
+    if (intersects) inside = !inside;
   }
   return inside;
 }
@@ -191,6 +190,7 @@ export async function POST(req: NextRequest) {
       lng: Number(p.longitude ?? p.lng ?? 0),
       parish: String(p.parish_name ?? p.parish ?? ""),
       parcelUid: String(p.parcel_uid ?? p.parcel_id ?? ""),
+      propertyDbId: String(p.parcel_uid ?? p.parcel_id ?? p.id ?? ""),
     }));
 
     return NextResponse.json({ parcels, total: parcels.length });
@@ -238,6 +238,7 @@ export async function PUT(req: NextRequest) {
       zoning: string;
       floodZone: string;
       id: string;
+      propertyDbId?: string;
       parish: string;
     }>) {
       // Try to find a parish-specific jurisdiction
@@ -274,7 +275,7 @@ export async function PUT(req: NextRequest) {
           acreage: parcel.acreage,
           currentZoning: parcel.zoning || null,
           floodZone: parcel.floodZone || null,
-          propertyDbId: parcel.id || null,
+          propertyDbId: parcel.propertyDbId || parcel.id || null,
         },
       });
 

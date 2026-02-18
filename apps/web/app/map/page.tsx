@@ -37,6 +37,7 @@ export default function MapPage() {
   const [parcels, setParcels] = useState<MapParcel[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState("");
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const visibleParcels = useMemo(() => {
     const query = searchText.trim().toLowerCase();
@@ -57,7 +58,10 @@ export default function MapPage() {
     async function load() {
       try {
         const res = await fetch("/api/parcels?hasCoords=true");
-        if (!res.ok) return;
+        if (!res.ok) {
+          setLoadError("Failed to load parcels. Please refresh and try again.");
+          return;
+        }
         const data = await res.json();
         const mapped: MapParcel[] = (data.parcels as ApiParcel[])
           .filter((p) => p.lat != null && p.lng != null)
@@ -76,7 +80,7 @@ export default function MapPage() {
           }));
         setParcels(mapped);
       } catch {
-        // silently fail
+        setLoadError("Failed to load parcels. Please refresh and try again.");
       } finally {
         setLoading(false);
       }
@@ -92,7 +96,11 @@ export default function MapPage() {
           <p className="text-sm text-muted-foreground">
             {loading
               ? "Loading..."
-              : `${visibleParcels.length} of ${parcels.length} parcels with coordinates`}
+              : loadError
+                ? loadError
+                : parcels.length === 0
+                  ? "No parcels with coordinates are available yet. Enrich parcel coordinates to enable map search and boundaries."
+                  : `${visibleParcels.length} of ${parcels.length} parcels with coordinates`}
           </p>
         </div>
         <div className="max-w-md">

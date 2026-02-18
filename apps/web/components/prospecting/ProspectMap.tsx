@@ -210,6 +210,29 @@ function DrawControl({
   );
 }
 
+function ProspectLayerPersistence({
+  onBaseLayerChange,
+}: {
+  onBaseLayerChange: (name: string) => void;
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    const onBaseChange = (e: L.LayersControlEvent) => {
+      onBaseLayerChange(e.name);
+      try {
+        localStorage.setItem("map-base-layer", e.name);
+      } catch {}
+    };
+    map.on("baselayerchange", onBaseChange);
+    return () => {
+      map.off("baselayerchange", onBaseChange);
+    };
+  }, [map, onBaseLayerChange]);
+
+  return null;
+}
+
 // ---------------------------------------------------------------------------
 // FitBounds
 // ---------------------------------------------------------------------------
@@ -243,13 +266,23 @@ export function ProspectMap({
   onClear,
   selectedIds,
 }: ProspectMapProps) {
+  const [baseLayer, setBaseLayer] = useState("Streets");
+
+  useEffect(() => {
+    try {
+      setBaseLayer(localStorage.getItem("map-base-layer") || "Streets");
+    } catch {
+      setBaseLayer("Streets");
+    }
+  }, []);
+
   const geometryCandidates = useMemo(
     () =>
       parcels.map((parcel) => ({
         id: parcel.id,
         lat: parcel.lat,
         lng: parcel.lng,
-        propertyDbId: parcel.id,
+        propertyDbId: parcel.propertyDbId ?? parcel.parcelUid ?? parcel.id,
       })),
     [parcels]
   );
@@ -275,14 +308,15 @@ export function ProspectMap({
       style={{ height: "500px", width: "100%" }}
       className="rounded-lg border"
     >
+      <ProspectLayerPersistence onBaseLayerChange={setBaseLayer} />
       <LayersControl position="topright">
-        <LayersControl.BaseLayer checked name="Streets">
+        <LayersControl.BaseLayer checked={baseLayer !== "Satellite"} name="Streets">
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
         </LayersControl.BaseLayer>
-        <LayersControl.BaseLayer name="Satellite">
+        <LayersControl.BaseLayer checked={baseLayer === "Satellite"} name="Satellite">
           <TileLayer
             attribution='&copy; <a href="https://www.esri.com">Esri</a>'
             url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"

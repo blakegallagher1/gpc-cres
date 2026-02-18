@@ -107,11 +107,16 @@ function FitBounds({ parcels }: { parcels: MapParcel[] }) {
 }
 
 /** Persists layer control choices to localStorage. */
-function LayerPersistence() {
+function LayerPersistence({
+  onBaseLayerChange,
+}: {
+  onBaseLayerChange: (name: string) => void;
+}) {
   const map = useMap();
 
   useEffect(() => {
     const onBaseChange = (e: L.LayersControlEvent) => {
+      onBaseLayerChange(e.name);
       try {
         localStorage.setItem("map-base-layer", e.name);
       } catch {}
@@ -144,7 +149,7 @@ function LayerPersistence() {
       map.off("overlayadd", onOverlayAdd);
       map.off("overlayremove", onOverlayRemove);
     };
-  }, [map]);
+  }, [map, onBaseLayerChange]);
 
   return null;
 }
@@ -221,6 +226,7 @@ export function ParcelMap({
   const [showComps, setShowComps] = useState(false);
   const [showHeatmap, setShowHeatmap] = useState(false);
   const [showIsochrone, setShowIsochrone] = useState(false);
+  const [baseLayer, setBaseLayer] = useState("Streets");
 
   // Compute center from parcels for comp search
   const parcelCenter = useMemo(() => {
@@ -233,6 +239,10 @@ export function ParcelMap({
   // Read saved layer preferences (client-only, safe because component is "use client")
   const savedBase = useMemo(() => getSavedBaseLayer(), []);
   const savedOverlays = useMemo(() => getSavedOverlays(), []);
+
+  useEffect(() => {
+    setBaseLayer(savedBase);
+  }, [savedBase]);
 
   // Split parcels by geometry availability
   const parcelsWithGeometry = useMemo(
@@ -301,12 +311,12 @@ export function ParcelMap({
       className="rounded-lg border"
     >
       {parcels.length > 0 && <FitBounds parcels={parcels} />}
-      <LayerPersistence />
+      <LayerPersistence onBaseLayerChange={setBaseLayer} />
 
       <LayersControl position="topright">
         {/* ---- Base Layers ---- */}
         <LayersControl.BaseLayer
-          checked={savedBase !== "Satellite"}
+          checked={baseLayer !== "Satellite"}
           name="Streets"
         >
           <TileLayer
@@ -316,7 +326,7 @@ export function ParcelMap({
         </LayersControl.BaseLayer>
 
         <LayersControl.BaseLayer
-          checked={savedBase === "Satellite"}
+          checked={baseLayer === "Satellite"}
           name="Satellite"
         >
           <TileLayer

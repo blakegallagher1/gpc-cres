@@ -39,6 +39,7 @@ export interface ProspectParcel {
   lng: number;
   parish: string;
   parcelUid: string;
+  propertyDbId?: string;
 }
 
 type SortField =

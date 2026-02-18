@@ -1670,6 +1670,7 @@ function MapLibreIsochroneControl({
   const [minutes, setMinutes] = useState<number>(10);
   const [clickMode, setClickMode] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<IsochroneResult | null>(null);
   const popupRef = useRef<maplibregl.Popup | null>(null);
   const mapRef = useRef(map);
@@ -1690,11 +1691,8 @@ function MapLibreIsochroneControl({
   }, []);
 
   const countParcelsInPolygon = useCallback(
-    (polygonCoords: [number, number][]) => {
-      if (polygonCoords.length === 0) return 0;
-      const ring = polygonCoords[0]?.[0] ? polygonCoords : [];
+    (ring: [number, number][]) => {
       if (ring.length === 0) return 0;
-
       return parcels.reduce((count, parcel) => {
         return count + (isPointInPolygon([parcel.lng, parcel.lat], ring) ? 1 : 0);
       }, 0);
@@ -1705,22 +1703,37 @@ function MapLibreIsochroneControl({
   const compute = useCallback(
     async (lat: number, lng: number, minutesToUse: number) => {
       setLoading(true);
+      setError(null);
       clearResult();
       setClickMode(false);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
 
       try {
         const res = await fetch("/api/map/isochrone", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ lat, lng, minutes: minutesToUse }),
+          signal: controller.signal,
         });
-        if (!res.ok) return;
+        if (!res.ok) {
+          const payload = await res.json().catch(() => ({}));
+          setError(
+            typeof payload?.error === "string"
+              ? payload.error
+              : "Drive-time analysis failed"
+          );
+          return;
+        }
         const data = await res.json();
-        if (!data.polygon?.length) return;
+        if (!data.polygon?.length) {
+          setError("No drive-time polygon returned for this location");
+          return;
+        }
 
         const polygon = data.polygon.map(([pLat, pLng]: [number, number]) => [pLng, pLat] as [number, number]);
         const lngLats = polygon.map(([lng, lat]: [number, number]) => [lng, lat] as [number, number]);
-        const parcelCount = countParcelsInPolygon([lngLats]);
+        const parcelCount = countParcelsInPolygon(lngLats);
         setResult({
           polygon: lngLats,
           center: [lat, lng],
@@ -1732,8 +1745,14 @@ function MapLibreIsochroneControl({
         if (!bounds.isEmpty()) {
           mapRef.current?.fitBounds(bounds, { padding: 40 });
         }
-      } catch {
+      } catch (err) {
+        if ((err as Error).name === "AbortError") {
+          setError("Drive-time analysis timed out. Try a shorter drive time.");
+        } else {
+          setError("Drive-time analysis failed. Please try again.");
+        }
       } finally {
+        clearTimeout(timeout);
         setLoading(false);
       }
     },
@@ -1769,6 +1788,7 @@ function MapLibreIsochroneControl({
     if (!visible) {
       mapInstance.off("click", handleMapClick);
       clearResult();
+      setError(null);
       setClickMode(false);
       if (mapInstance.getLayer(fillId)) {
         mapInstance.setLayoutProperty(fillId, "visibility", "none");
@@ -1904,6 +1924,7 @@ function MapLibreIsochroneControl({
           <button
             onClick={() => {
               clearResult();
+              setError(null);
               setClickMode(false);
               if (mapRef.current) mapRef.current.getCanvas().style.cursor = "";
             }}
@@ -1927,6 +1948,7 @@ function MapLibreIsochroneControl({
       <button
         onClick={() => {
           setClickMode(true);
+          setError(null);
           if (mapRef.current) mapRef.current.getCanvas().style.cursor = "crosshair";
         }}
         disabled={loading}
@@ -1938,6 +1960,11 @@ function MapLibreIsochroneControl({
         <div className="mt-1.5 rounded bg-purple-50 px-2 py-1.5 text-xs">
           <div className="font-semibold text-purple-800">{result.minutes}-min drive area</div>
           <div className="text-purple-600">{result.parcelCount} parcel{result.parcelCount !== 1 ? "s" : ""} in range</div>
+        </div>
+      )}
+      {error && (
+        <div className="mt-1.5 rounded bg-red-50 px-2 py-1.5 text-xs text-red-700">
+          {error}
         </div>
       )}
     </div>

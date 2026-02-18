@@ -162,9 +162,17 @@ async function getRouteDuration(
   lng2: number
 ): Promise<number> {
   const url = `${OSRM_BASE}/route/v1/driving/${lng1},${lat1};${lng2},${lat2}?overview=false`;
-  const res = await fetch(url, {
-    headers: { "User-Agent": "EntitlementOS/1.0" },
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 7000);
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      headers: { "User-Agent": "EntitlementOS/1.0" },
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!res.ok) throw new Error(`OSRM error: ${res.status}`);
   const data = await res.json();

@@ -28,11 +28,31 @@ interface IsochroneControlProps {
 
 const DRIVE_TIMES = [5, 10, 15, 30] as const;
 
+function isPointInPolygon(
+  point: { lat: number; lng: number },
+  ring: [number, number][]
+): boolean {
+  let inside = false;
+  const x = point.lng;
+  const y = point.lat;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const xi = ring[i][1];
+    const yi = ring[i][0];
+    const xj = ring[j][1];
+    const yj = ring[j][0];
+    const intersects =
+      yi > y !== yj > y &&
+      x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
+    if (intersects) inside = !inside;
+  }
+  return inside;
+}
+
 export function IsochroneControl({ parcels, visible }: IsochroneControlProps) {
   const map = useMap();
-  const [active, setActive] = useState(false);
   const [selectedMinutes, setSelectedMinutes] = useState<number>(10);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<IsochroneResult | null>(null);
   const [clickMode, setClickMode] = useState(false);
   const markerRef = useRef<L.CircleMarker | null>(null);
@@ -46,27 +66,39 @@ export function IsochroneControl({ parcels, visible }: IsochroneControlProps) {
   const fetchIsochrone = useCallback(
     async (lat: number, lng: number, minutes: number) => {
       setLoading(true);
+      setError(null);
       clearResult();
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
 
       try {
         const res = await fetch("/api/map/isochrone", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ lat, lng, minutes }),
+          signal: controller.signal,
         });
-        if (!res.ok) return;
+        if (!res.ok) {
+          const payload = await res.json().catch(() => ({}));
+          setError(
+            typeof payload?.error === "string"
+              ? payload.error
+              : "Drive-time analysis failed"
+          );
+          return;
+        }
         const data = await res.json();
 
-        if (data.polygon) {
-          // Count parcels within the isochrone polygon
-          const isoPolygon = L.polygon(
-            data.polygon.map(([pLat, pLng]: [number, number]) => L.latLng(pLat, pLng))
-          );
+        if (data.polygon?.length) {
+          const polygonRing = data.polygon as [number, number][];
+          const isoPolygon = L.polygon(polygonRing);
           const bounds = isoPolygon.getBounds();
-          const count = parcels.filter((p) => bounds.contains(L.latLng(p.lat, p.lng))).length;
+          const count = parcels.filter((p) =>
+            isPointInPolygon({ lat: p.lat, lng: p.lng }, polygonRing)
+          ).length;
 
           const isoResult: IsochroneResult = {
-            polygon: data.polygon,
+            polygon: polygonRing,
             center: [lat, lng],
             minutes,
             parcelCount: count,
@@ -75,10 +107,17 @@ export function IsochroneControl({ parcels, visible }: IsochroneControlProps) {
 
           // Fit map to isochrone bounds
           map.fitBounds(bounds, { padding: [40, 40] });
+        } else {
+          setError("No drive-time polygon returned for this location");
         }
-      } catch {
-        // silent
+      } catch (err) {
+        if ((err as Error).name === "AbortError") {
+          setError("Drive-time analysis timed out. Try a shorter drive time.");
+        } else {
+          setError("Drive-time analysis failed. Please try again.");
+        }
       } finally {
+        clearTimeout(timeout);
         setLoading(false);
       }
     },
@@ -124,7 +163,7 @@ export function IsochroneControl({ parcels, visible }: IsochroneControlProps) {
   useEffect(() => {
     if (!visible) {
       clearResult();
-      setActive(false);
+      setError(null);
       setClickMode(false);
       map.getContainer().style.cursor = "";
     }
@@ -146,6 +185,7 @@ export function IsochroneControl({ parcels, visible }: IsochroneControlProps) {
               <button
                 onClick={() => {
                   clearResult();
+                  setError(null);
                   setClickMode(false);
                   map.getContainer().style.cursor = "";
                 }}
@@ -177,7 +217,7 @@ export function IsochroneControl({ parcels, visible }: IsochroneControlProps) {
           <button
             onClick={() => {
               setClickMode(true);
-              setActive(true);
+              setError(null);
             }}
             disabled={loading}
             className="mt-1.5 w-full rounded bg-purple-500 px-2 py-1.5 text-xs font-medium text-white hover:bg-purple-600 disabled:opacity-50"
@@ -203,6 +243,11 @@ export function IsochroneControl({ parcels, visible }: IsochroneControlProps) {
               <div className="text-purple-600">
                 {result.parcelCount} parcel{result.parcelCount !== 1 ? "s" : ""} in range
               </div>
+            </div>
+          )}
+          {error && (
+            <div className="mt-1.5 rounded bg-red-50 px-2 py-1.5 text-xs text-red-700">
+              {error}
             </div>
           )}
         </div>
