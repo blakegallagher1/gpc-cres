@@ -1286,8 +1286,25 @@ export async function getDealVelocityAnalytics(
 export async function getCapitalDeploymentAnalytics(
   orgId: string,
 ): Promise<CapitalDeploymentAnalytics> {
-  const [records, deals] = await Promise.all([
-    prisma.capitalDeployment.findMany({
+  const deals = await prisma.deal.findMany({
+    where: { orgId },
+    select: {
+      id: true,
+      status: true,
+      parcels: { select: { id: true, acreage: true } },
+    },
+  });
+
+  let records: Array<{
+    stage: string;
+    capitalCommitted: { toString(): string };
+    capitalDeployed: { toString(): string };
+    nonRecoverableExpense: { toString(): string };
+    dealId: string;
+  }> = [];
+
+  try {
+    records = await prisma.capitalDeployment.findMany({
       where: { orgId },
       select: {
         stage: true,
@@ -1296,16 +1313,29 @@ export async function getCapitalDeploymentAnalytics(
         nonRecoverableExpense: true,
         dealId: true,
       },
-    }),
-    prisma.deal.findMany({
-      where: { orgId },
-      select: {
-        id: true,
-        status: true,
-        parcels: { select: { id: true, acreage: true } },
-      },
-    }),
-  ]);
+    });
+  } catch (error) {
+    const prismaCode =
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      typeof (error as { code?: unknown }).code === "string"
+        ? (error as { code: string }).code
+        : null;
+    const message = error instanceof Error ? error.message : String(error);
+    const missingCapitalDeploymentsTable =
+      prismaCode === "P2021" &&
+      message.toLowerCase().includes("capital_deployments");
+
+    if (!missingCapitalDeploymentsTable) {
+      throw error;
+    }
+
+    console.warn(
+      "[portfolio-analytics] capital_deployments table missing; returning zeroed capital deployment metrics",
+      { orgId, prismaCode },
+    );
+  }
 
   const activeDeals = deals.filter(
     (deal) => deal.status !== "KILLED" && deal.status !== "EXITED",

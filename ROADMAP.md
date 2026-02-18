@@ -1190,6 +1190,37 @@ The following items were identified by analyzing 6 OpenAI GitHub repositories (`
   - `apps/web/lib/agent/executeAgent.ts`
   - `apps/web/lib/agent/__tests__/executeAgent.runState-contract.test.ts`
 
+### INC-002 — ENTITLEMENT-OS-WEB-6 Capital Deployment Missing Table Fallback
+
+- **Priority:** P0
+- **Status:** Done (2026-02-18)
+- **Scope:** Portfolio analytics API resilience
+- **Problem:** `GET /api/portfolio/capital-deployment` threw `PrismaClientKnownRequestError` (`P2021`) when `public.capital_deployments` is unavailable in the production database.
+- **Expected Outcome (measurable):**
+  - Endpoint returns deterministic zeroed capital deployment metrics instead of a 500 when the table is absent.
+  - Non-table-missing Prisma failures continue to throw.
+- **Evidence of need:** Sentry issue `ENTITLEMENT-OS-WEB-6` (issue id `7273289255`).
+- **Acceptance Criteria / Tests:**
+  - `apps/web/lib/services/portfolioAnalytics.service.ts` handles `P2021` for `capital_deployments` with zeroed fallback.
+  - `apps/web/lib/services/portfolioAnalytics.capital-deployment.test.ts` covers fallback path and non-fallback rethrow path.
+- **Completion Evidence (2026-02-18):**
+  - `apps/web/lib/services/portfolioAnalytics.service.ts`
+  - `apps/web/lib/services/portfolioAnalytics.capital-deployment.test.ts`
+
+### OPS-001 — ENTITLEMENT-OS-WEB-4 Change-Detection Monitor Missed Check-ins
+
+- **Priority:** P0
+- **Status:** Done (2026-02-18)
+- **Scope:** Production cron environment hardening
+- **Problem:** Sentry monitor `change-detection` recorded missed check-ins because production `CRON_SECRET` was not configured.
+- **Expected Outcome (measurable):**
+  - Production `CRON_SECRET` exists in Vercel environment.
+  - Manual authenticated cron trigger records `ok` check-in.
+- **Evidence of need:** Sentry issue `ENTITLEMENT-OS-WEB-4` (issue id `7271035443`) with monitor status `missed`.
+- **Completion Evidence (2026-02-18):**
+  - Added `CRON_SECRET` to Vercel production env.
+  - Triggered `GET /api/cron/change-detection` with bearer secret; monitor check-in status is `ok`.
+
 ---
 
 ## Not Added (did not pass value/risk gate)
