@@ -23,6 +23,7 @@ import { createHash } from "node:crypto";
 import {
   buildAgentStreamRunOptions,
   captureAgentError,
+  captureAgentWarning,
   createIntentAwareCoordinator,
   deserializeRunStateEnvelope,
   evaluateProofCompliance,
@@ -1536,6 +1537,15 @@ export async function executeAgentWorkflow(
           taskSummary: firstUserInput ?? "Coordinator request",
           generatedAt: new Date().toISOString(),
         });
+        captureAgentWarning(lastAgentName || "Coordinator", reason, {
+          orgId: params.orgId,
+          dealId: params.dealId ?? undefined,
+          conversationId: params.conversationId,
+          runId: dbRun.id,
+          correlationId: params.correlationId,
+          path: "apps/web/lib/agent/executeAgent.ts",
+          fallback: "non_json_output",
+        });
         finalText = JSON.stringify(finalReport, null, 2);
       } else {
         const validation = AgentReportSchema.safeParse(parsed);
@@ -1553,6 +1563,15 @@ export async function executeAgentWorkflow(
             rawText: typeof parsed === "string" ? parsed : JSON.stringify(parsed),
             taskSummary: firstUserInput ?? "Coordinator request",
             generatedAt: new Date().toISOString(),
+          });
+          captureAgentWarning(lastAgentName || "Coordinator", message, {
+            orgId: params.orgId,
+            dealId: params.dealId ?? undefined,
+            conversationId: params.conversationId,
+            runId: dbRun.id,
+            correlationId: params.correlationId,
+            path: "apps/web/lib/agent/executeAgent.ts",
+            fallback: "schema_validation_failure",
           });
           finalText = JSON.stringify(finalReport, null, 2);
         } else {
