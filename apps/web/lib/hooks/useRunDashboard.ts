@@ -155,6 +155,7 @@ export interface RunDashboardPayload {
 export interface UseRunDashboardOptions {
   runLimit?: number;
   refreshIntervalMs?: number;
+  fallbackData?: RunDashboardPayload;
 }
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
@@ -173,6 +174,7 @@ export function useRunDashboard(options: UseRunDashboardOptions = {}) {
   const { data, error, isLoading, mutate } = useSWR<RunDashboardPayload>(endpoint, fetcher, {
     refreshInterval: refreshIntervalMs,
     dedupingInterval: refreshIntervalMs ? Math.min(refreshIntervalMs, 5000) : undefined,
+    fallbackData: options.fallbackData,
   });
 
   return {

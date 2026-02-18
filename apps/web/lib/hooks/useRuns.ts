@@ -8,13 +8,17 @@ export interface RunsQuery {
   limit?: number;
 }
 
+export interface RunsOptions {
+  fallbackData?: { runs: WorkflowRun[] };
+}
+
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 function normalizeForCompare(value: string): string {
   return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-");
 }
 
-export function useRuns(query: RunsQuery = {}) {
+export function useRuns(query: RunsQuery = {}, options: RunsOptions = {}) {
   const agentId = query.agentId;
   const params = new URLSearchParams();
   if (query.status) params.set("status", query.status);
@@ -25,6 +29,9 @@ export function useRuns(query: RunsQuery = {}) {
   const { data, error, isLoading, mutate } = useSWR<{ runs: WorkflowRun[] }>(
     key,
     fetcher,
+    {
+      fallbackData: options.fallbackData,
+    },
   );
 
   const runs = (data?.runs ?? []) as WorkflowRun[];

@@ -641,11 +641,17 @@ function SourceManifestContinuitySection({
   );
 }
 
-export function RunIntelligenceTab() {
+export function RunIntelligenceTab({
+  initialDashboard,
+}: {
+  initialDashboard?: RunDashboardPayload;
+}) {
   const { dashboard, isLoading, isError, mutate } = useRunDashboard({
     runLimit: 500,
     refreshIntervalMs: 30000,
+    fallbackData: initialDashboard,
   });
+
   const [isExporting, setIsExporting] = useState(false);
 
   const handleExportRunHistory = useCallback(() => {
