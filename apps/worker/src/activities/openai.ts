@@ -45,6 +45,10 @@ import { autoFeedRun } from "../dataAgentAutoFeed.service.js";
 
 const DATA_AGENT_RETRIEVAL_LIMIT = 6;
 
+function normalizeOpenAiConversationId(value: unknown): string | undefined {
+  return typeof value === "string" && value.startsWith("conv") ? value : undefined;
+}
+
 type AgentInputMessage =
   | { role: "user"; content: string }
   | {
@@ -114,6 +118,7 @@ type ToolPolicy = {
 };
 
 const BASE_ALLOWED_TOOLS = [
+  "query_org_sql",
   "search_knowledge_base",
   "search_parcels",
   "get_parcel_details",
@@ -1098,13 +1103,10 @@ export async function runAgentTurn(
         : (baseCoordinator as Parameters<typeof run>[0]);
     const agentInput = buildAgentInputItems(input) as Parameters<typeof run>[1];
     const runOptions = buildAgentStreamRunOptions({
-      conversationId: params.conversationId,
+      conversationId: normalizeOpenAiConversationId(params.conversationId),
+      previousResponseId: params.previousResponseId ?? null,
       maxTurns: params.maxTurns,
     }) as Parameters<typeof run>[2];
-    if (params.previousResponseId) {
-      (runOptions as { previousResponseId?: string }).previousResponseId =
-        params.previousResponseId;
-    }
     const result = await run(
       coordinator,
       agentInput,

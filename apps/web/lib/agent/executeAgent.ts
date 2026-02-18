@@ -40,6 +40,10 @@ import { unifiedRetrieval } from "./retrievalAdapter";
 const DATA_AGENT_RETRIEVAL_LIMIT = 6;
 const DB_UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+function normalizeOpenAiConversationId(value: unknown): string | undefined {
+  return typeof value === "string" && value.startsWith("conv") ? value : undefined;
+}
+
 export type AgentInputMessage =
   | { role: "user"; content: string }
   | {
@@ -125,7 +129,7 @@ function normalizeSku(sku: string | null | undefined): (typeof SKU_TYPES)[number
 export type AgentExecutionParams = {
   orgId: string;
   userId: string;
-  conversationId: string;
+  conversationId?: string;
   input: AgentInputMessage[];
   runId?: string;
   runType?: string;
@@ -202,6 +206,7 @@ type ToolPolicy = {
 };
 
 const BASE_ALLOWED_TOOLS = [
+  "query_org_sql",
   "search_knowledge_base",
   "search_parcels",
   "get_parcel_details",
@@ -1262,7 +1267,8 @@ export async function executeAgentWorkflow(
 
     const runOptions = {
       ...buildAgentStreamRunOptions({
-        conversationId: params.conversationId,
+        conversationId: normalizeOpenAiConversationId(params.conversationId),
+        previousResponseId: params.previousResponseId ?? null,
         maxTurns: params.maxTurns,
       }),
       context: {
@@ -1273,10 +1279,6 @@ export async function executeAgentWorkflow(
         sku: params.sku ?? null,
       },
     } as Parameters<typeof run>[2];
-    if (params.previousResponseId && !params.resumedRunState) {
-      (runOptions as { previousResponseId?: string }).previousResponseId =
-        params.previousResponseId;
-    }
 
     const result = await run(
       coordinator,
@@ -1648,7 +1650,7 @@ export async function executeAgentWorkflow(
           queryIntent: pendingApprovalState.queryIntent,
           toolCallId: pendingApprovalState.toolCallId,
           toolName: pendingApprovalState.toolName,
-          conversationId: params.conversationId,
+          conversationId: normalizeOpenAiConversationId(params.conversationId),
           previousResponseId: openaiResponseId ?? params.previousResponseId ?? null,
         },
       } as Prisma.InputJsonValue;
@@ -1688,7 +1690,7 @@ export async function executeAgentWorkflow(
         type: "done",
         runId: dbRun.id,
         status: "canceled",
-        conversationId: params.conversationId,
+        conversationId: normalizeOpenAiConversationId(params.conversationId),
       });
 
       return {
@@ -1997,7 +1999,7 @@ export async function resumeAgentToolApproval(params: {
   const conversationId =
     pendingApproval && typeof pendingApproval.conversationId === "string"
       ? pendingApproval.conversationId
-      : "agent-run";
+      : undefined;
   const previousResponseId =
     pendingApproval && typeof pendingApproval.previousResponseId === "string"
       ? pendingApproval.previousResponseId
@@ -2100,7 +2102,7 @@ export async function resumeSerializedAgentRun(params: {
   const conversationId =
     pendingApproval && typeof pendingApproval.conversationId === "string"
       ? pendingApproval.conversationId
-      : "agent-run";
+      : undefined;
   const queryIntent =
     pendingApproval && typeof pendingApproval.queryIntent === "string"
       ? pendingApproval.queryIntent

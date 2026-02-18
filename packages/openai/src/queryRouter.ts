@@ -73,7 +73,7 @@ export const SPECIALIST_LABELS: Record<SpecialistAgentKey, string> = {
 
 const KNOWLEDGE_PROOF_GROUP: ProofGroup = {
   label: "Institutional knowledge or evidence",
-  tools: ["search_knowledge_base", "search_parcels", "evidence_snapshot"],
+  tools: ["search_knowledge_base", "search_parcels", "evidence_snapshot", "query_org_sql"],
 };
 
 const PARCEL_PROOF_GROUP: ProofGroup = {
