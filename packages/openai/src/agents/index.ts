@@ -92,8 +92,17 @@ const SPECIALIST_CONSULT_TOOLS: SpecialistConsultToolConfig[] = [
   },
 ];
 
+function filterUnsupportedAgentTools(tools: readonly unknown[]): unknown[] {
+  return tools.filter((tool) => {
+    if (typeof tool !== "object" || tool === null) {
+      return true;
+    }
+    return (tool as { type?: unknown }).type !== "hosted_tool";
+  });
+}
+
 function getToolNames(tools: readonly unknown[]): string[] {
-  return tools
+  return filterUnsupportedAgentTools(tools)
     .map((tool) =>
       typeof tool === "object" &&
       tool !== null &&
@@ -165,7 +174,10 @@ function withTools(config: SpecialistAgentConfig): Agent {
   }
 
   return config.agent.clone({
-    tools: instrumentAgentTools(config.agent.name, [...config.tools]) as Agent["tools"],
+    tools: instrumentAgentTools(
+      config.agent.name,
+      filterUnsupportedAgentTools([...config.tools]),
+    ) as Agent["tools"],
     handoffs: [],
     outputGuardrails: [...(config.outputGuardrails ?? [])] as Agent["outputGuardrails"],
     instructions: async (runContext, agent) => {
@@ -273,7 +285,7 @@ export function createIntentAwareCoordinator(intent: QueryIntent): Agent {
   return coordinatorAgent.clone({
     tools: instrumentAgentTools(
       coordinatorAgent.name,
-      [...coordinatorTools, ...consultTools],
+      filterUnsupportedAgentTools([...coordinatorTools, ...consultTools]),
     ) as Agent["tools"],
     handoffs: specialists,
     instructions,
