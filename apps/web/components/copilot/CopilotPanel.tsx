@@ -378,10 +378,32 @@ export function CopilotPanel() {
         query,
         projectId,
         onChunk: (chunk) => {
+          const payloadType = typeof chunk.data?.type === "string" ? chunk.data.type : null;
+
           if (chunk.event === "chunk" && typeof chunk.data.content === "string") {
             setOutput((prev) => `${prev}${chunk.data.content}`);
           }
+          if (
+            payloadType === "text_delta" &&
+            typeof chunk.data.content === "string"
+          ) {
+            setOutput((prev) => `${prev}${chunk.data.content}`);
+          }
+          if (
+            payloadType === "agent_progress" &&
+            typeof chunk.data.partialOutput === "string"
+          ) {
+            setOutput(chunk.data.partialOutput);
+          }
+          if (payloadType === "error" && typeof chunk.data.message === "string") {
+            setStreaming(false);
+            setError(chunk.data.message);
+            return;
+          }
           if (chunk.event === "complete") {
+            setStreaming(false);
+          }
+          if (payloadType === "done") {
             setStreaming(false);
           }
         },

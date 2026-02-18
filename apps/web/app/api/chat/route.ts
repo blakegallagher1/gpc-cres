@@ -10,6 +10,17 @@ function sseEvent(data: Record<string, unknown>): string {
   return `data: ${JSON.stringify(data)}\n\n`;
 }
 
+function isInternalFailureMessage(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("prisma") ||
+    normalized.includes("findmany") ||
+    normalized.includes("public.") ||
+    normalized.includes("user_preferences") ||
+    normalized.includes("the table")
+  );
+}
+
 function isGuardrailTripwireMessage(message: string): boolean {
   const normalized = message.toLowerCase();
   return (
@@ -19,8 +30,15 @@ function isGuardrailTripwireMessage(message: string): boolean {
   );
 }
 
-function toGuardrailErrorPayload(message: string): Record<string, unknown> {
+function toClientErrorPayload(message: string): Record<string, unknown> {
   if (!isGuardrailTripwireMessage(message)) {
+    if (isInternalFailureMessage(message)) {
+      return {
+        type: "error",
+        message:
+          "Chat is temporarily unavailable due to a backend dependency issue. Please try again shortly.",
+      };
+    }
     return { type: "error", message };
   }
 
@@ -81,7 +99,7 @@ export async function POST(req: NextRequest) {
             }
             if (event.type === "error") {
               controller.enqueue(
-                encoder.encode(sseEvent(toGuardrailErrorPayload(event.message))),
+                encoder.encode(sseEvent(toClientErrorPayload(event.message))),
               );
               return;
             }
@@ -106,7 +124,7 @@ export async function POST(req: NextRequest) {
       } catch (error) {
         const errMsg = error instanceof Error ? error.message : "Agent execution failed";
         controller.enqueue(
-          encoder.encode(sseEvent(toGuardrailErrorPayload(errMsg))),
+          encoder.encode(sseEvent(toClientErrorPayload(errMsg))),
         );
       } finally {
         if (!doneSent) {

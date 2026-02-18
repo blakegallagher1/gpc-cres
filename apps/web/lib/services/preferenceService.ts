@@ -47,6 +47,27 @@ function userPreferenceModel() {
   }).userPreference;
 }
 
+function isPreferenceStorageUnavailableError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const maybeCode = (error as { code?: unknown }).code;
+  const message =
+    typeof (error as { message?: unknown }).message === "string"
+      ? (error as { message: string }).message
+      : "";
+  return (
+    maybeCode === "P2021" ||
+    message.includes("public.user_preferences") ||
+    message.toLowerCase().includes("user_preferences")
+  );
+}
+
+function logPreferenceStorageUnavailable(operation: string, error: unknown): void {
+  console.warn(
+    `[preferences.${operation}] preference storage unavailable; continuing without persisted preferences`,
+    error instanceof Error ? error.message : String(error),
+  );
+}
+
 function clampConfidence(value: number): number {
   if (!Number.isFinite(value)) return 0;
   return Math.max(0, Math.min(1, value));
@@ -83,83 +104,99 @@ export async function mergeExtractedPreferences(
 ): Promise<void> {
   if (extracted.length === 0) return;
 
-  await prisma.$transaction(async (tx) => {
-    const model = (tx as unknown as {
-      userPreference?: {
-        findUnique: typeof tx.userPreference.findUnique;
-        create: typeof tx.userPreference.create;
-        update: typeof tx.userPreference.update;
-      };
-    }).userPreference;
-    if (!model) return;
+  try {
+    await prisma.$transaction(async (tx) => {
+      const model = (tx as unknown as {
+        userPreference?: {
+          findUnique: typeof tx.userPreference.findUnique;
+          create: typeof tx.userPreference.create;
+          update: typeof tx.userPreference.update;
+        };
+      }).userPreference;
+      if (!model) return;
 
-    for (const pref of extracted) {
-      const confidence = clampConfidence(pref.confidence);
-      if (confidence < PREFERENCE_CONFIDENCE_MIN) continue;
+      for (const pref of extracted) {
+        const confidence = clampConfidence(pref.confidence);
+        if (confidence < PREFERENCE_CONFIDENCE_MIN) continue;
 
-      const existing = await model.findUnique({
-        where: {
-          orgId_userId_category_key: {
-            orgId,
-            userId,
-            category: pref.category,
-            key: pref.key,
+        const existing = await model.findUnique({
+          where: {
+            orgId_userId_category_key: {
+              orgId,
+              userId,
+              category: pref.category,
+              key: pref.key,
+            },
           },
-        },
-      });
+        });
 
-      if (!existing) {
-        await model.create({
+        if (!existing) {
+          await model.create({
+            data: {
+              orgId,
+              userId,
+              category: pref.category,
+              key: pref.key,
+              value: toJsonValue(pref.value),
+              valueType: pref.valueType,
+              confidence,
+              sourceCount: 1,
+              lastSourceMessageId: pref.messageId ?? null,
+              extractedFrom: pref.isExplicit ? "CONVERSATION" : "INFERRED",
+              evidenceSnippet: pref.evidence,
+              isActive: true,
+            },
+          });
+          continue;
+        }
+
+        const shouldUpdate = pref.isExplicit || confidence >= existing.confidence * 0.8;
+        if (!shouldUpdate) continue;
+
+        const averagedConfidence = clampConfidence(
+          (existing.confidence + confidence) / 2 + (pref.isExplicit ? 0.08 : 0.04),
+        );
+
+        await model.update({
+          where: { id: existing.id },
           data: {
-            orgId,
-            userId,
-            category: pref.category,
-            key: pref.key,
             value: toJsonValue(pref.value),
             valueType: pref.valueType,
-            confidence,
-            sourceCount: 1,
-            lastSourceMessageId: pref.messageId ?? null,
+            confidence: averagedConfidence,
+            sourceCount: existing.sourceCount + 1,
+            lastSourceMessageId: pref.messageId ?? existing.lastSourceMessageId,
             extractedFrom: pref.isExplicit ? "CONVERSATION" : "INFERRED",
             evidenceSnippet: pref.evidence,
             isActive: true,
           },
         });
-        continue;
       }
-
-      const shouldUpdate = pref.isExplicit || confidence >= existing.confidence * 0.8;
-      if (!shouldUpdate) continue;
-
-      const averagedConfidence = clampConfidence(
-        (existing.confidence + confidence) / 2 + (pref.isExplicit ? 0.08 : 0.04),
-      );
-
-      await model.update({
-        where: { id: existing.id },
-        data: {
-          value: toJsonValue(pref.value),
-          valueType: pref.valueType,
-          confidence: averagedConfidence,
-          sourceCount: existing.sourceCount + 1,
-          lastSourceMessageId: pref.messageId ?? existing.lastSourceMessageId,
-          extractedFrom: pref.isExplicit ? "CONVERSATION" : "INFERRED",
-          evidenceSnippet: pref.evidence,
-          isActive: true,
-        },
-      });
+    });
+  } catch (error) {
+    if (isPreferenceStorageUnavailableError(error)) {
+      logPreferenceStorageUnavailable("merge", error);
+      return;
     }
-  });
+    throw error;
+  }
 }
 
 export async function listUserPreferences(orgId: string, userId: string) {
   const model = userPreferenceModel();
   if (!model) return [];
 
-  return model.findMany({
-    where: { orgId, userId },
-    orderBy: [{ confidence: "desc" }, { createdAt: "desc" }],
-  });
+  try {
+    return await model.findMany({
+      where: { orgId, userId },
+      orderBy: [{ confidence: "desc" }, { createdAt: "desc" }],
+    });
+  } catch (error) {
+    if (isPreferenceStorageUnavailableError(error)) {
+      logPreferenceStorageUnavailable("list", error);
+      return [];
+    }
+    throw error;
+  }
 }
 
 export async function updateUserPreference(params: {
@@ -174,32 +211,39 @@ export async function updateUserPreference(params: {
     throw new Error("Preference model unavailable");
   }
 
-  const existing = await model.findFirst({
-    where: {
-      id: params.preferenceId,
-      orgId: params.orgId,
-      userId: params.userId,
-    },
-  });
+  try {
+    const existing = await model.findFirst({
+      where: {
+        id: params.preferenceId,
+        orgId: params.orgId,
+        userId: params.userId,
+      },
+    });
 
-  if (!existing) {
-    throw new Error("Preference not found");
+    if (!existing) {
+      throw new Error("Preference not found");
+    }
+
+    const nextConfidence =
+      typeof params.confidence === "number"
+        ? clampConfidence(params.confidence)
+        : existing.confidence;
+    const nextIsActive =
+      typeof params.isActive === "boolean" ? params.isActive : existing.isActive;
+
+    return await model.update({
+      where: { id: existing.id },
+      data: {
+        confidence: nextConfidence,
+        isActive: nextIsActive,
+      },
+    });
+  } catch (error) {
+    if (isPreferenceStorageUnavailableError(error)) {
+      throw new Error("Preference storage unavailable");
+    }
+    throw error;
   }
-
-  const nextConfidence =
-    typeof params.confidence === "number"
-      ? clampConfidence(params.confidence)
-      : existing.confidence;
-  const nextIsActive =
-    typeof params.isActive === "boolean" ? params.isActive : existing.isActive;
-
-  return model.update({
-    where: { id: existing.id },
-    data: {
-      confidence: nextConfidence,
-      isActive: nextIsActive,
-    },
-  });
 }
 
 export async function getStructuredPreferences(
@@ -209,14 +253,32 @@ export async function getStructuredPreferences(
   const model = userPreferenceModel();
   if (!model) return {};
 
-  const prefs = await model.findMany({
-    where: {
-      orgId,
-      userId,
-      isActive: true,
-      confidence: { gte: PREFERENCE_CONTEXT_CONFIDENCE_MIN },
-    },
-  });
+  let prefs: Array<{
+    category: string;
+    key: string;
+    value: unknown;
+  }> = [];
+  try {
+    prefs = await model.findMany({
+      where: {
+        orgId,
+        userId,
+        isActive: true,
+        confidence: { gte: PREFERENCE_CONTEXT_CONFIDENCE_MIN },
+      },
+      select: {
+        category: true,
+        key: true,
+        value: true,
+      },
+    });
+  } catch (error) {
+    if (isPreferenceStorageUnavailableError(error)) {
+      logPreferenceStorageUnavailable("structured", error);
+      return {};
+    }
+    throw error;
+  }
 
   const result: Record<string, unknown> = {};
   for (const pref of prefs) {
@@ -241,10 +303,19 @@ export async function buildPreferenceContext(
   const model = userPreferenceModel();
   if (!model) return "";
 
-  const prefs = await model.findMany({
-    where,
-    orderBy: [{ category: "asc" }, { confidence: "desc" }],
-  });
+  let prefs: Awaited<ReturnType<typeof model.findMany>> = [];
+  try {
+    prefs = await model.findMany({
+      where,
+      orderBy: [{ category: "asc" }, { confidence: "desc" }],
+    });
+  } catch (error) {
+    if (isPreferenceStorageUnavailableError(error)) {
+      logPreferenceStorageUnavailable("context", error);
+      return "";
+    }
+    throw error;
+  }
 
   if (prefs.length === 0) return "";
 
