@@ -21,6 +21,24 @@ function sseEvent(data: Record<string, unknown>): string {
   return `data: ${JSON.stringify(data)}\n\n`;
 }
 
+function isInternalFailureMessage(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("prisma") ||
+    normalized.includes("findmany") ||
+    normalized.includes("public.") ||
+    normalized.includes("user_preferences") ||
+    normalized.includes("the table")
+  );
+}
+
+function toSafeErrorMessage(message: string): string {
+  if (isInternalFailureMessage(message)) {
+    return "Agent is temporarily unavailable due to a backend dependency issue. Please try again shortly.";
+  }
+  return message;
+}
+
 function parseInputPayload(input: unknown): AgentInputMessage[] | null {
   if (!Array.isArray(input)) return null;
   const parsed: AgentInputMessage[] = [];
@@ -125,7 +143,7 @@ export async function POST(req: NextRequest) {
       } catch (error) {
         const errMsg = error instanceof Error ? error.message : "Agent execution failed";
         controller.enqueue(
-          encoder.encode(sseEvent({ type: "error", message: errMsg })),
+          encoder.encode(sseEvent({ type: "error", message: toSafeErrorMessage(errMsg) })),
         );
       } finally {
         if (!doneSent) {

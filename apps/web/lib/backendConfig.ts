@@ -36,6 +36,11 @@ export function getBackendBaseUrl(
     return configuredUrl;
   }
 
+  // Browser fallback for integrated deployments: use same-origin app host.
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return normalizeBackendUrl(window.location.origin);
+  }
+
   if (process.env.NODE_ENV !== "production" && options.allowLocalFallback !== false) {
     return DEFAULT_LOCAL_BACKEND_URL;
   }

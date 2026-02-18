@@ -45,6 +45,12 @@ export async function PATCH(
     if (error instanceof Error && error.message === "Preference not found") {
       return NextResponse.json({ error: "Preference not found" }, { status: 404 });
     }
+    if (error instanceof Error && error.message === "Preference storage unavailable") {
+      return NextResponse.json(
+        { error: "Preference storage is temporarily unavailable" },
+        { status: 503 },
+      );
+    }
     console.error("[preferences.patch]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
