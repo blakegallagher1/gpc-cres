@@ -1221,6 +1221,69 @@ The following items were identified by analyzing 6 OpenAI GitHub repositories (`
   - Added `CRON_SECRET` to Vercel production env.
   - Triggered `GET /api/cron/change-detection` with bearer secret; monitor check-in status is `ok`.
 
+### PREF-001 — Conversation-Native Preference Extraction and Prompt Injection
+
+- **Priority:** P1
+- **Status:** Done (2026-02-18)
+- **Scope:** Preference memory + chat personalization
+- **Problem:** Preference signals from conversation were not persisted and therefore could not influence follow-up assistant behavior.
+- **Expected Outcome (measurable):**
+  - Preferences extracted asynchronously from conversation transcripts.
+  - Learned preferences injected into runtime system context for future chats.
+  - User-adjustable confidence/activation controls available in UI.
+- **Completion Evidence (2026-02-18):**
+  - `packages/db/prisma/schema.prisma`
+  - `packages/db/prisma/migrations/20260218200000_add_preference_proactive_and_tool_health/migration.sql`
+  - `apps/web/lib/services/preferenceExtraction.service.ts`
+  - `apps/web/lib/services/preferenceService.ts`
+  - `apps/web/app/api/preferences/route.ts`
+  - `apps/web/app/api/preferences/[id]/route.ts`
+  - `apps/web/lib/agent/agentRunner.ts`
+  - `apps/web/app/api/chat/route.ts`
+  - `apps/web/components/preferences/UserPreferencesPanel.tsx`
+
+### PRO-001 — Proactive Trigger Engine with Approval-First Actioning
+
+- **Priority:** P1
+- **Status:** Done (2026-02-18)
+- **Scope:** Event-driven proactive automation
+- **Problem:** Automation flows were reactive only; users had no trigger-based approval queue for proactive AI-initiated actions.
+- **Expected Outcome (measurable):**
+  - Configurable proactive triggers persisted by org/user.
+  - Runtime event evaluation produces pending approval actions.
+  - Approval/reject/modify lifecycle exposed via API + dashboard tab.
+- **Completion Evidence (2026-02-18):**
+  - `packages/db/prisma/schema.prisma`
+  - `packages/db/prisma/migrations/20260218200000_add_preference_proactive_and_tool_health/migration.sql`
+  - `apps/web/lib/services/proactiveTrigger.service.ts`
+  - `apps/web/lib/services/proactiveAction.service.ts`
+  - `apps/web/lib/automation/events.ts`
+  - `apps/web/app/api/proactive/triggers/route.ts`
+  - `apps/web/app/api/proactive/actions/route.ts`
+  - `apps/web/app/api/proactive/actions/[id]/respond/route.ts`
+  - `apps/web/components/proactive/CreateTriggerWizard.tsx`
+  - `apps/web/components/proactive/ProactiveActionsFeed.tsx`
+
+### RES-001 — Resilient Tool Wrapper + Health Telemetry Surface
+
+- **Priority:** P2
+- **Status:** Done (2026-02-18)
+- **Scope:** Self-healing tool execution and visibility
+- **Problem:** Tool execution failures lacked standardized fallback behavior and route-level health visibility.
+- **Expected Outcome (measurable):**
+  - Standard resilient executor supports retry/fallback/inference chains.
+  - Zoning tool path emits resilient execution metrics.
+  - Automation dashboard shows tool health and degradation indicators.
+- **Completion Evidence (2026-02-18):**
+  - `packages/openai/src/tools/resilientToolWrapper.ts`
+  - `packages/openai/src/tools/resilientZoningTool.ts`
+  - `packages/openai/src/index.ts`
+  - `packages/db/prisma/schema.prisma`
+  - `apps/web/app/api/tools/health/route.ts`
+  - `apps/web/components/self-healing/ResilientDataDisplay.tsx`
+  - `apps/web/components/self-healing/ToolHealthDashboard.tsx`
+  - `apps/web/app/automation/page.tsx`
+
 ---
 
 ## Not Added (did not pass value/risk gate)

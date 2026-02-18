@@ -1,5 +1,6 @@
 import * as Sentry from "@sentry/nextjs";
 import type { DealStatus } from "@entitlement-os/shared";
+import { evaluateProactiveEvent } from "@/lib/services/proactiveTrigger.service";
 
 // Event type definitions
 export type AutomationEvent =
@@ -31,8 +32,7 @@ export function registerHandler(eventType: AutomationEventType, handler: Automat
  * Automatically instruments all handler executions to automation_events table.
  */
 export async function dispatchEvent(event: AutomationEvent): Promise<void> {
-  const eventHandlers = handlers.get(event.type);
-  if (!eventHandlers || eventHandlers.length === 0) return;
+  const eventHandlers = handlers.get(event.type) ?? [];
 
   // Extract dealId from event (not all events have it)
   const dealId = "dealId" in event ? event.dealId : undefined;
@@ -108,6 +108,18 @@ export async function dispatchEvent(event: AutomationEvent): Promise<void> {
       }
     }
   }
+
+  const proactivePayload = event as unknown as Record<string, unknown>;
+  void evaluateProactiveEvent({
+    orgId: event.orgId,
+    eventType: event.type,
+    payload: proactivePayload,
+  }).catch((error) => {
+    console.error(
+      "[automation] proactive trigger evaluation failed:",
+      error instanceof Error ? error.message : String(error),
+    );
+  });
 }
 
 // Reset handlers (for testing only)

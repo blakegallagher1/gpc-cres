@@ -16,6 +16,7 @@ import {
   type AgentRunWorkflowOutput,
 } from "@entitlement-os/shared";
 import { PrismaChatSession } from "@/lib/chat/session";
+import { buildPreferenceContext } from "@/lib/services/preferenceService";
 
 const LOCAL_LEASE_GRACE_MS = 15 * 60 * 1000;
 const LOCAL_LEASE_WAIT_MS = 60_000 * 10;
@@ -408,6 +409,7 @@ function buildSystemContext(
   dealId?: string | null,
   jurisdictionId?: string | null,
   sku?: string | null,
+  preferenceContext?: string,
 ) {
   return [
     `[System context — use these values when calling tools]`,
@@ -416,6 +418,7 @@ function buildSystemContext(
     dealId ? `dealId: ${dealId}` : "",
     jurisdictionId ? `jurisdictionId: ${jurisdictionId}` : "",
     sku ? `sku: ${sku}` : "",
+    preferenceContext ? `\n[Learned user preferences]\n${preferenceContext}` : "",
   ]
     .filter(Boolean)
     .join("\n");
@@ -612,8 +615,10 @@ export async function runAgentWorkflow(params: AgentRunInput) {
     }
   }
 
+  const preferenceContext = await buildPreferenceContext(orgId, userId);
+
   const systemContext = [
-    buildSystemContext(orgId, userId, dealId, jurisdictionId, sku),
+    buildSystemContext(orgId, userId, dealId, jurisdictionId, sku, preferenceContext),
     buildJurisdictionContext(jurisdictionContext),
     contextDeal
       ? [

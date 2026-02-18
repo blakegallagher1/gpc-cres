@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { runAgentWorkflow } from "@/lib/agent/agentRunner";
 import type { AgentStreamEvent } from "@/lib/agent/executeAgent";
+import { extractAndMergeConversationPreferences } from "@/lib/services/preferenceExtraction.service";
 
 function sseEvent(data: Record<string, unknown>): string {
   return `data: ${JSON.stringify(data)}\n\n`;
@@ -64,7 +65,7 @@ export async function POST(req: NextRequest) {
       let doneSent = false;
 
       try {
-        await runAgentWorkflow({
+        const workflow = await runAgentWorkflow({
           orgId: auth.orgId,
           userId: auth.userId,
           conversationId: requestedConversationId ?? null,
@@ -89,6 +90,19 @@ export async function POST(req: NextRequest) {
             );
           },
         });
+
+        if (workflow.conversationId) {
+          void extractAndMergeConversationPreferences({
+            orgId: auth.orgId,
+            userId: auth.userId,
+            conversationId: workflow.conversationId,
+          }).catch((error) => {
+            console.error(
+              "[PreferenceExtraction] Failed:",
+              error instanceof Error ? error.message : String(error),
+            );
+          });
+        }
       } catch (error) {
         const errMsg = error instanceof Error ? error.message : "Agent execution failed";
         controller.enqueue(

@@ -48,6 +48,10 @@ import { workflowTemplates } from "@/lib/workflow-io";
 import type { WorkflowRun } from "@/types";
 import { formatDuration, timeAgo } from "@/lib/utils";
 import { timeAgo as formatTimeAgo } from "@/lib/utils";
+import { UserPreferencesPanel } from "@/components/preferences/UserPreferencesPanel";
+import { CreateTriggerWizard } from "@/components/proactive/CreateTriggerWizard";
+import { ProactiveActionsFeed } from "@/components/proactive/ProactiveActionsFeed";
+import { ToolHealthDashboard } from "@/components/self-healing/ToolHealthDashboard";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -60,10 +64,25 @@ const RUN_TYPE_OPTIONS = [
   "BUYER_OUTREACH_DRAFT",
   "DEADLINE_MONITOR",
 ];
-type AutomationTab = "feed" | "builder" | "health" | "failures";
+type AutomationTab =
+  | "feed"
+  | "builder"
+  | "health"
+  | "preferences"
+  | "proactive"
+  | "resilience"
+  | "failures";
 
 function isAutomationTab(value: string): value is AutomationTab {
-  return value === "feed" || value === "builder" || value === "health" || value === "failures";
+  return (
+    value === "feed" ||
+    value === "builder" ||
+    value === "health" ||
+    value === "preferences" ||
+    value === "proactive" ||
+    value === "resilience" ||
+    value === "failures"
+  );
 }
 
 interface BuilderWorkflow {
@@ -392,15 +411,16 @@ function AutomationPageContent() {
   const handleTabChange = useCallback<(value: string) => void>(
     (value) => {
       if (!isAutomationTab(value)) return;
-      const selectedTab = value as string;
-
-      setQueryParam(selectedTab === "feed" ? null : selectedTab === "feed" ? null : "builder");
+      const selectedTab = value as AutomationTab;
       const params = new URLSearchParams(Array.from(searchParams?.entries() ?? []));
       params.set("tab", selectedTab);
+      if (selectedTab !== "builder") {
+        params.delete("workflow");
+      }
       const query = params.toString();
       router.replace(`${pathname}${query ? `?${query}` : ""}`, { scroll: false });
     },
-    [router, pathname, searchParams, setQueryParam]
+    [router, pathname, searchParams]
   );
 
   const formatDurationMs = useCallback((ms: number | null) => {
@@ -457,6 +477,9 @@ function AutomationPageContent() {
           <TabsTrigger value="feed">Live Feed</TabsTrigger>
           <TabsTrigger value="builder">Builder</TabsTrigger>
           <TabsTrigger value="health">Handler Health</TabsTrigger>
+          <TabsTrigger value="preferences">Preferences</TabsTrigger>
+          <TabsTrigger value="proactive">Proactive</TabsTrigger>
+          <TabsTrigger value="resilience">Resilience</TabsTrigger>
           <TabsTrigger value="failures">
             Failures
             {(failureData?.events?.length ?? 0) > 0 && (
@@ -824,6 +847,43 @@ function AutomationPageContent() {
                   </TableBody>
                 </Table>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="preferences" className="mt-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">Learned Preferences</CardTitle>
+              <CardDescription className="text-xs">
+                Preferences are extracted from conversation patterns and used as
+                context for future responses.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <UserPreferencesPanel />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="proactive" className="mt-4 space-y-4">
+          <div className="grid gap-4 lg:grid-cols-[380px_1fr]">
+            <CreateTriggerWizard />
+            <ProactiveActionsFeed />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="resilience" className="mt-4 space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">Resilient Tool Health</CardTitle>
+              <CardDescription className="text-xs">
+                Tracks primary success rates, fallback usage, and degraded
+                execution signals for resilient tools.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ToolHealthDashboard />
             </CardContent>
           </Card>
         </TabsContent>
