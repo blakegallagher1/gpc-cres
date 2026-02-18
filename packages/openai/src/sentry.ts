@@ -18,6 +18,13 @@ type ToolLike = {
 let sentryInitialized = false;
 let missingDsnWarned = false;
 
+function parseSampleRate(value: string | undefined, fallback: number): number {
+  if (!value) return fallback;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(0, Math.min(1, parsed));
+}
+
 export function initAgentsSentry(): void {
   if (sentryInitialized) return;
   const dsn = process.env.SENTRY_AGENTS_DSN;
@@ -33,7 +40,10 @@ export function initAgentsSentry(): void {
     dsn,
     environment: process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? "development",
     release: process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.GIT_COMMIT_SHA,
-    tracesSampleRate: process.env.NODE_ENV === "production" ? 0.3 : 1.0,
+    tracesSampleRate: parseSampleRate(
+      process.env.SENTRY_AGENTS_TRACES_SAMPLE_RATE,
+      process.env.NODE_ENV === "production" ? 0.2 : 1,
+    ),
   });
   sentryInitialized = true;
 }
