@@ -1,14 +1,24 @@
 -- Add deal stakeholders table (deal-scoped many-to-one).
-CREATE TYPE IF NOT EXISTS "deal_stakeholder_role" AS ENUM (
-  'SPONSOR',
-  'EQUITY_PARTNER',
-  'LENDER',
-  'BROKER',
-  'LAWYER',
-  'TITLE_COMPANY',
-  'CONTRACTOR',
-  'OTHER'
-);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_type
+    WHERE typname = 'deal_stakeholder_role'
+  ) THEN
+    CREATE TYPE "deal_stakeholder_role" AS ENUM (
+      'SPONSOR',
+      'EQUITY_PARTNER',
+      'LENDER',
+      'BROKER',
+      'LAWYER',
+      'TITLE_COMPANY',
+      'CONTRACTOR',
+      'OTHER'
+    );
+  END IF;
+END
+$$;
 
 CREATE TABLE IF NOT EXISTS "deal_stakeholders" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
