@@ -317,6 +317,38 @@ function safeParseJson(value: unknown): unknown | null {
   }
 }
 
+function parseFinalOutputJsonObject(value: string): Record<string, unknown> | null {
+  const parseCandidate = (candidate: string): Record<string, unknown> | null => {
+    const parsed = safeParseJson(candidate.trim());
+    return isRecord(parsed) ? parsed : null;
+  };
+
+  const direct = parseCandidate(value);
+  if (direct) return direct;
+
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return null;
+
+  const fencedJsonPattern = /```(?:json)?\s*([\s\S]*?)\s*```/gi;
+  for (const match of trimmed.matchAll(fencedJsonPattern)) {
+    const candidate = parseCandidate(match[1] ?? "");
+    if (candidate) {
+      return candidate;
+    }
+  }
+
+  const firstBrace = trimmed.indexOf("{");
+  const lastBrace = trimmed.lastIndexOf("}");
+  if (firstBrace >= 0 && lastBrace > firstBrace) {
+    const candidate = parseCandidate(trimmed.slice(firstBrace, lastBrace + 1));
+    if (candidate) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
 function normalizeConfidence(value: unknown): number | null {
   if (typeof value !== "number" || !Number.isFinite(value)) return null;
   if (value > 1 && value <= 100) return value / 100;
@@ -1529,8 +1561,8 @@ export async function executeAgentWorkflow(
   } finally {
     if (status === "succeeded") {
       const sanitizedOutput = sanitizeOutputText(finalText);
-      const parsed = safeParseJson(sanitizedOutput);
-      if (!isRecord(parsed)) {
+      const parsedReport = parseFinalOutputJsonObject(sanitizedOutput);
+      if (!parsedReport) {
         const reason = "Final agent output is not a valid JSON object.";
         state.toolErrorMessages.push(`final_report: ${reason}`);
         state.missingEvidence.add("Final agent report did not parse as JSON.");
@@ -1550,7 +1582,7 @@ export async function executeAgentWorkflow(
         });
         finalText = JSON.stringify(finalReport, null, 2);
       } else {
-        const validation = AgentReportSchema.safeParse(parsed);
+        const validation = AgentReportSchema.safeParse(parsedReport);
         if (!validation.success) {
           const reason = validation.error.issues
             .map((issue) => {
@@ -1562,7 +1594,7 @@ export async function executeAgentWorkflow(
           state.toolErrorMessages.push(`final_report: ${reason}`);
           state.missingEvidence.add("Final agent report failed schema validation.");
           finalReport = buildFallbackAgentReportFromText({
-            rawText: typeof parsed === "string" ? parsed : JSON.stringify(parsed),
+            rawText: JSON.stringify(parsedReport),
             taskSummary: firstUserInput ?? "Coordinator request",
             generatedAt: new Date().toISOString(),
           });

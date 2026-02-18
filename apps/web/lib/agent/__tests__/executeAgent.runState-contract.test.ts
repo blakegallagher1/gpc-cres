@@ -21,6 +21,8 @@ vi.mock("@entitlement-os/openai", () => ({
   createIntentAwareCoordinator: vi.fn(() => ({ id: "coordinator-agent" })),
   evaluateProofCompliance: vi.fn(() => []),
   buildAgentStreamRunOptions: vi.fn(() => ({})),
+  captureAgentError: vi.fn(),
+  captureAgentWarning: vi.fn(),
   getProofGroupsForIntent: vi.fn(() => []),
   setupAgentTracing: vi.fn(),
   serializeRunStateEnvelope: vi.fn((input: unknown) => input),
@@ -229,6 +231,54 @@ describe("executeAgentWorkflow", () => {
     });
     expect(outputJson.fallbackLineage).toBeUndefined();
     expect(outputJson.fallbackReason).toBeUndefined();
+  });
+
+  it("accepts markdown-fenced JSON final output without fallback warning", async () => {
+    const { prisma } = await vi.importMock("@entitlement-os/db");
+    const openAiAgents = await vi.importMock("@openai/agents");
+    const openAiRuntime = await vi.importMock("@entitlement-os/openai");
+    const { run } = openAiAgents as {
+      run: ReturnType<typeof vi.fn>;
+      user: ReturnType<typeof vi.fn>;
+      assistant: ReturnType<typeof vi.fn>;
+    };
+    const { captureAgentWarning } = openAiRuntime as {
+      captureAgentWarning: ReturnType<typeof vi.fn>;
+    };
+
+    prisma.run.findUnique.mockResolvedValue(null);
+    prisma.run.upsert.mockResolvedValue({
+      id: NORMALIZED_RUN_ID,
+      status: "running",
+      inputHash: "input-hash",
+      outputJson: null,
+      openaiResponseId: null,
+      startedAt: new Date("2025-01-01T00:00:00.000Z"),
+      finishedAt: null,
+    });
+    (run as ReturnType<typeof vi.fn>).mockResolvedValue({
+      finalOutput: `Final normalized report:\n\`\`\`json\n${JSON.stringify(VALID_REPORT, null, 2)}\n\`\`\``,
+      lastResponseId: "openai-response-id",
+    });
+    prisma.run.update.mockResolvedValue({ status: "succeeded" });
+
+    await executeAgentWorkflow({
+      orgId: "org-test",
+      userId: "user-test",
+      conversationId: "conversation-test",
+      runId: SOURCE_RUN_ID,
+      input: [{ role: "user", content: "Run entitlement analysis" }],
+      runType: "ENRICHMENT",
+      correlationId: "corr-local",
+    });
+
+    expect(prisma.run.update).toHaveBeenCalledTimes(1);
+    const updateCall = prisma.run.update.mock.calls[0][0];
+    const outputJson = updateCall.data.outputJson as Record<string, unknown>;
+
+    expect(outputJson.finalReport).toEqual(VALID_REPORT);
+    expect(JSON.parse(String(outputJson.finalOutput))).toEqual(VALID_REPORT);
+    expect(captureAgentWarning).not.toHaveBeenCalled();
   });
 
   it("replays deterministically for equivalent local reruns", async () => {
