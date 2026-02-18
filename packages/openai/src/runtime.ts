@@ -7,6 +7,10 @@ export type BuildAgentStreamRunOptionsParams = {
   conversationId?: string;
 };
 
+function isOpenAiConversationId(value: string): boolean {
+  return value.startsWith("conv");
+}
+
 export function buildAgentStreamRunOptions(
   params: BuildAgentStreamRunOptionsParams = {},
 ): StreamRunOptions {
@@ -15,7 +19,11 @@ export function buildAgentStreamRunOptions(
     maxTurns: params.maxTurns ?? DEFAULT_MAX_TURNS,
   };
 
-  if (process.env.OPENAI_AGENTS_MEMORY_DISABLED !== "true" && params.conversationId) {
+  if (
+    process.env.OPENAI_AGENTS_MEMORY_DISABLED !== "true" &&
+    params.conversationId &&
+    isOpenAiConversationId(params.conversationId)
+  ) {
     options.conversationId = params.conversationId;
   }
 

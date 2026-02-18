@@ -22,6 +22,7 @@ import type { Prisma } from "@entitlement-os/db";
 import { createHash } from "node:crypto";
 import {
   buildAgentStreamRunOptions,
+  captureAgentError,
   createIntentAwareCoordinator,
   deserializeRunStateEnvelope,
   evaluateProofCompliance,
@@ -1449,6 +1450,14 @@ export async function executeAgentWorkflow(
     }
   } catch (error) {
     status = "failed";
+    captureAgentError(lastAgentName || "Coordinator", error, {
+      orgId: params.orgId,
+      dealId: params.dealId,
+      conversationId: params.conversationId,
+      runId: dbRun.id,
+      correlationId: params.correlationId,
+      path: "apps/web/lib/agent/executeAgent.ts",
+    });
     errorMessage = error instanceof Error ? error.message : "Agent execution failed";
     state.toolErrorMessages.push(errorMessage);
     state.missingEvidence.add(`Execution failure: ${errorMessage}`);

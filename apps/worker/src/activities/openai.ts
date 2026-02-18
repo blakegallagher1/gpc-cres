@@ -34,6 +34,7 @@ import {
 import { hashJsonSha256 } from "@entitlement-os/shared/crypto";
 import {
   buildAgentStreamRunOptions,
+  captureAgentError,
   createIntentAwareCoordinator,
   evaluateProofCompliance,
   inferQueryIntentFromText,
@@ -1122,6 +1123,14 @@ export async function runAgentTurn(
     status = "succeeded";
   } catch (error) {
     status = "failed";
+    captureAgentError(lastAgentName || "Coordinator", error, {
+      orgId: params.orgId,
+      dealId: params.dealId ?? undefined,
+      conversationId: params.conversationId,
+      runId: dbRun.id,
+      correlationId: params.correlationId,
+      path: "apps/worker/src/activities/openai.ts",
+    });
     errorMessage = error instanceof Error ? error.message : "Agent execution failed";
     state.toolErrorMessages.push(errorMessage);
     state.missingEvidence.add(`Execution failure: ${errorMessage}`);
