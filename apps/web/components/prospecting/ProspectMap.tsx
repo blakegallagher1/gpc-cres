@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -14,6 +14,8 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Pencil, Trash2, X } from "lucide-react";
 import type { ProspectParcel } from "./ProspectResults";
+import { useParcelGeometry } from "@/components/maps/useParcelGeometry";
+import { geoJsonToPositions } from "@/components/maps/mapStyles";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -241,6 +243,26 @@ export function ProspectMap({
   onClear,
   selectedIds,
 }: ProspectMapProps) {
+  const geometryCandidates = useMemo(
+    () =>
+      parcels.map((parcel) => ({
+        id: parcel.id,
+        lat: parcel.lat,
+        lng: parcel.lng,
+        propertyDbId: parcel.id,
+      })),
+    [parcels]
+  );
+  const { geometries } = useParcelGeometry(geometryCandidates, 200);
+  const parcelsWithGeometry = useMemo(
+    () => parcels.filter((parcel) => geometries.has(parcel.id)),
+    [parcels, geometries]
+  );
+  const parcelsWithoutGeometry = useMemo(
+    () => parcels.filter((parcel) => !geometries.has(parcel.id)),
+    [parcels, geometries]
+  );
+
   // Convert GeoJSON polygon [lng, lat] to Leaflet [lat, lng]
   const polygonPositions = polygon
     ? polygon[0].map(([lng, lat]) => [lat, lng] as [number, number])
@@ -292,8 +314,58 @@ export function ProspectMap({
         />
       )}
 
-      {/* Parcel markers */}
-      {parcels.map((parcel) => {
+      {/* Parcel boundaries (when geometry is available) */}
+      {parcelsWithGeometry.flatMap((parcel) => {
+        const geometryEntry = geometries.get(parcel.id);
+        if (!geometryEntry) return [];
+        const positions = geoJsonToPositions(geometryEntry.geometry);
+        const isSelected = selectedIds.has(parcel.id);
+        return positions.map((polygonPositionsItem, index) => (
+          <Polygon
+            key={`b-${parcel.id}-${index}`}
+            positions={polygonPositionsItem}
+            pathOptions={{
+              color: isSelected ? "#7c3aed" : "#3b82f6",
+              weight: isSelected ? 3 : 2,
+              opacity: 0.85,
+              fillColor: isSelected ? "#7c3aed" : "#3b82f6",
+              fillOpacity: isSelected ? 0.22 : 0.14,
+            }}
+          >
+            <Popup>
+              <div style={{ fontSize: "13px", lineHeight: 1.5 }}>
+                <div style={{ fontWeight: 600 }}>{parcel.address}</div>
+                {parcel.owner && (
+                  <div style={{ fontSize: "11px", color: "#6b7280" }}>
+                    {parcel.owner}
+                  </div>
+                )}
+                {parcel.acreage != null && (
+                  <div style={{ fontSize: "11px" }}>
+                    {parcel.acreage.toFixed(2)} acres
+                  </div>
+                )}
+                {parcel.zoning && (
+                  <div style={{ fontSize: "11px" }}>Zoning: {parcel.zoning}</div>
+                )}
+                {parcel.floodZone && (
+                  <div style={{ fontSize: "11px" }}>
+                    Flood: {parcel.floodZone}
+                  </div>
+                )}
+                {parcel.assessedValue != null && (
+                  <div style={{ fontSize: "11px" }}>
+                    Assessed: ${parcel.assessedValue.toLocaleString()}
+                  </div>
+                )}
+              </div>
+            </Popup>
+          </Polygon>
+        ));
+      })}
+
+      {/* Parcel point fallback (when no boundary geometry is available) */}
+      {parcelsWithoutGeometry.map((parcel) => {
         const isSelected = selectedIds.has(parcel.id);
         return (
           <CircleMarker

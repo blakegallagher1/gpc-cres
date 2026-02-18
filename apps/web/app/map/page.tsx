@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import type { MapParcel } from "@/components/maps/ParcelMap";
+import { Input } from "@/components/ui/input";
 
 const ParcelMap = dynamic(
   () => import("@/components/maps/ParcelMap").then((m) => m.ParcelMap),
@@ -35,6 +36,22 @@ export default function MapPage() {
   const router = useRouter();
   const [parcels, setParcels] = useState<MapParcel[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchText, setSearchText] = useState("");
+
+  const visibleParcels = useMemo(() => {
+    const query = searchText.trim().toLowerCase();
+    if (!query) return parcels;
+    return parcels.filter((parcel) => {
+      const address = parcel.address.toLowerCase();
+      const dealName = parcel.dealName?.toLowerCase() ?? "";
+      const zoning = parcel.currentZoning?.toLowerCase() ?? "";
+      return (
+        address.includes(query) ||
+        dealName.includes(query) ||
+        zoning.includes(query)
+      );
+    });
+  }, [parcels, searchText]);
 
   useEffect(() => {
     async function load() {
@@ -73,12 +90,21 @@ export default function MapPage() {
         <div>
           <h1 className="text-2xl font-bold">Parcel Map</h1>
           <p className="text-sm text-muted-foreground">
-            {loading ? "Loading..." : `${parcels.length} parcels with coordinates`}
+            {loading
+              ? "Loading..."
+              : `${visibleParcels.length} of ${parcels.length} parcels with coordinates`}
           </p>
+        </div>
+        <div className="max-w-md">
+          <Input
+            value={searchText}
+            onChange={(event) => setSearchText(event.target.value)}
+            placeholder="Search parcel address, deal, or zoning"
+          />
         </div>
         {!loading && (
           <ParcelMap
-            parcels={parcels}
+            parcels={visibleParcels}
             height="calc(100vh - 14rem)"
             showTools
             onParcelClick={(id) => {

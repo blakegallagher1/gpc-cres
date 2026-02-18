@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 // ---------------------------------------------------------------------------
 
 export interface ProspectFilterState {
+  searchText: string;
   zoningCodes: string[];
   minAcreage: number | undefined;
   maxAcreage: number | undefined;
@@ -60,6 +61,19 @@ export function ProspectFilters({
         <CardTitle className="text-sm">Filters</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Address / parcel text search */}
+        <div className="space-y-1.5">
+          <Label className="text-xs">Property Search</Label>
+          <Input
+            type="text"
+            placeholder="Address, owner, or parcel id"
+            disabled={disabled}
+            value={filters.searchText}
+            onChange={(e) => update({ searchText: e.target.value })}
+            className="h-8 text-xs"
+          />
+        </div>
+
         {/* Zoning multi-select */}
         <div className="space-y-1.5">
           <Label className="text-xs">Zoning Codes</Label>

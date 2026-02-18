@@ -47,6 +47,7 @@ function ProspectingPageContent() {
   const pathname = usePathname();
   const [polygon, setPolygon] = useState<number[][][] | null>(null);
   const [filters, setFilters] = useState<ProspectFilterState>({
+    searchText: "",
     zoningCodes: [],
     minAcreage: undefined,
     maxAcreage: undefined,
@@ -90,6 +91,7 @@ function ProspectingPageContent() {
     };
 
     const next: ProspectFilterState = {
+      searchText: typeof criteria.searchText === "string" ? criteria.searchText : "",
       zoningCodes:
         Array.isArray(criteria.zoningCodes) &&
         criteria.zoningCodes.every((item) => typeof item === "string")
@@ -146,6 +148,7 @@ function ProspectingPageContent() {
           body: JSON.stringify({
             polygon: { type: "Polygon", coordinates: poly },
             filters: {
+              searchText: f.searchText.trim() || undefined,
               zoningCodes: f.zoningCodes.length > 0 ? f.zoningCodes : undefined,
               minAcreage: f.minAcreage,
               maxAcreage: f.maxAcreage,
