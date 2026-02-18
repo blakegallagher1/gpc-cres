@@ -281,6 +281,55 @@ describe("executeAgentWorkflow", () => {
     expect(captureAgentWarning).not.toHaveBeenCalled();
   });
 
+  it("normalizes plain-text final output without emitting a Sentry warning", async () => {
+    const { prisma } = await vi.importMock("@entitlement-os/db");
+    const openAiAgents = await vi.importMock("@openai/agents");
+    const openAiRuntime = await vi.importMock("@entitlement-os/openai");
+    const { run } = openAiAgents as {
+      run: ReturnType<typeof vi.fn>;
+      user: ReturnType<typeof vi.fn>;
+      assistant: ReturnType<typeof vi.fn>;
+    };
+    const { captureAgentWarning } = openAiRuntime as {
+      captureAgentWarning: ReturnType<typeof vi.fn>;
+    };
+
+    prisma.run.findUnique.mockResolvedValue(null);
+    prisma.run.upsert.mockResolvedValue({
+      id: NORMALIZED_RUN_ID,
+      status: "running",
+      inputHash: "input-hash",
+      outputJson: null,
+      openaiResponseId: null,
+      startedAt: new Date("2025-01-01T00:00:00.000Z"),
+      finishedAt: null,
+    });
+    (run as ReturnType<typeof vi.fn>).mockResolvedValue({
+      finalOutput: "Task Understanding: Evaluate entitlement feasibility for this parcel.",
+      lastResponseId: "openai-response-id",
+    });
+    prisma.run.update.mockResolvedValue({ status: "succeeded" });
+
+    await executeAgentWorkflow({
+      orgId: "org-test",
+      userId: "user-test",
+      conversationId: "conversation-test",
+      runId: SOURCE_RUN_ID,
+      input: [{ role: "user", content: "Run entitlement analysis" }],
+      runType: "ENRICHMENT",
+      correlationId: "corr-local",
+    });
+
+    expect(prisma.run.update).toHaveBeenCalledTimes(1);
+    const updateCall = prisma.run.update.mock.calls[0][0];
+    const outputJson = updateCall.data.outputJson as Record<string, unknown>;
+    const finalReport = outputJson.finalReport as Record<string, unknown>;
+
+    expect(finalReport.schema_version).toBe("1.0");
+    expect(captureAgentWarning).not.toHaveBeenCalled();
+    expect(JSON.parse(String(outputJson.finalOutput))).toEqual(finalReport);
+  });
+
   it("replays deterministically for equivalent local reruns", async () => {
     const { prisma } = await vi.importMock("@entitlement-os/db");
     const openAiAgents = await vi.importMock("@openai/agents");

@@ -1571,14 +1571,13 @@ export async function executeAgentWorkflow(
           taskSummary: firstUserInput ?? "Coordinator request",
           generatedAt: new Date().toISOString(),
         });
-        captureAgentWarning(lastAgentName || "Coordinator", reason, {
+        logger.warn("Agent final output was non-JSON; applied fallback report normalization", {
           orgId: params.orgId,
-          dealId: params.dealId ?? undefined,
+          dealId: params.dealId,
           conversationId: params.conversationId,
           runId: dbRun.id,
           correlationId: params.correlationId,
-          path: "apps/web/lib/agent/executeAgent.ts",
-          fallback: "non_json_output",
+          agentName: lastAgentName || "Coordinator",
         });
         finalText = JSON.stringify(finalReport, null, 2);
       } else {

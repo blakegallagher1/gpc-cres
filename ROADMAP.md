@@ -1170,6 +1170,26 @@ The following items were identified by analyzing 6 OpenAI GitHub repositories (`
   - Context baseline sync:
     - `AGENTS.md` project status snapshot updated to reflect A→G completion + H gate closure.
 
+### INC-001 — ENTITLEMENT-OS-WEB-5 Non-JSON Fallback Sentry Noise
+
+- **Priority:** P0
+- **Status:** Done (2026-02-18)
+- **Scope:** Chat runtime observability hardening
+- **Problem:** `POST /api/chat` can complete with plain-text agent output that is normalized into a fallback `AgentReport`, but the recoverable branch was still emitting `captureAgentWarning("Final agent output is not a valid JSON object.")`, creating noisy Sentry issue `ENTITLEMENT-OS-WEB-5`.
+- **Expected Outcome (measurable):**
+  - Recoverable non-JSON normalization no longer emits Sentry warning events.
+  - Fallback report generation remains intact and persisted.
+- **Evidence of need:** Sentry issue `ENTITLEMENT-OS-WEB-5` (issue id `7273289004`) with culprit `POST /api/chat`.
+- **Alignment:** Preserves strict schema persistence behavior and does not relax auth/org scoping or validation boundaries.
+- **Risk/rollback:** Low. Change is isolated to warning/reporting behavior for an already-handled fallback path; rollback by restoring the prior `captureAgentWarning` call.
+- **Acceptance Criteria / Tests:**
+  - `apps/web/lib/agent/executeAgent.ts` keeps fallback normalization and uses local warning logs instead of Sentry capture for non-JSON parse fallback.
+  - Regression test validates plain-text final output is normalized and does not trigger `captureAgentWarning`.
+  - Full verification gate passes (`pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`).
+- **Completion Evidence (2026-02-18):**
+  - `apps/web/lib/agent/executeAgent.ts`
+  - `apps/web/lib/agent/__tests__/executeAgent.runState-contract.test.ts`
+
 ---
 
 ## Not Added (did not pass value/risk gate)

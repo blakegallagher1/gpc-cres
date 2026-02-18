@@ -277,7 +277,7 @@ function buildSpecialistConsultTools(specialists: Agent[]): Agent["tools"] {
   }) as Agent["tools"];
 }
 
-export function createIntentAwareCoordinator(intent: QueryIntent): Agent {
+export function createIntentAwareCoordinator(intent: QueryIntent): Agent<unknown, any> {
   initAgentsSentry();
   const profile = getQueryIntentProfile(intent);
   const specialists = buildSpecialistTeam(profile.specialists);
@@ -305,6 +305,6 @@ export function createIntentAwareCoordinator(intent: QueryIntent): Agent {
  * We clone every agent so the module-level exports stay tool-free,
  * allowing callers to wire custom subsets if needed.
  */
-export function createConfiguredCoordinator(): Agent {
+export function createConfiguredCoordinator(): Agent<unknown, any> {
   return createIntentAwareCoordinator('general');
 }

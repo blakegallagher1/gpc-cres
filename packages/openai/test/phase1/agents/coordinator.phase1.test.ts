@@ -70,6 +70,13 @@ describe("Phase 1 Agent Pack :: coordinator", () => {
     expect(guardrailNames.has("coordinator_input_guardrail")).toBe(true);
   });
 
+  it("[MATRIX:agent:coordinator][PACK:structured-output] configures coordinator outputType", () => {
+    const configured = createConfiguredCoordinator();
+
+    expect(configured.outputType).toBeDefined();
+    expect(configured.outputType).not.toBe("text");
+  });
+
   it("[MATRIX:agent:coordinator][PACK:contract] validates structured output schema and required evidence fields", () => {
     const instructionText = coordinatorAgent.instructions;
 
