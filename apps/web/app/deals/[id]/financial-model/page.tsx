@@ -3,6 +3,7 @@
 import { useEffect, useCallback, useRef, useState, useMemo } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { ArrowLeft, Loader2, Save, Check } from "lucide-react";
 import useSWR from "swr";
 import { DashboardShell } from "@/components/layout/DashboardShell";
@@ -10,12 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { AssumptionsPanel } from "@/components/financial/AssumptionsPanel";
 import { ResultsDashboard } from "@/components/financial/ResultsDashboard";
-import { SensitivityTable } from "@/components/financial/SensitivityTable";
-import { TornadoChart } from "@/components/financial/TornadoChart";
 import { ScenarioManager } from "@/components/financial/ScenarioManager";
-import { WaterfallBuilder } from "@/components/financial/WaterfallBuilder";
 import { DebtComparison } from "@/components/financial/DebtComparison";
-import { ExitAnalysisView } from "@/components/financial/ExitAnalysisView";
 import {
   RentRollTab,
   type TenantLeaseRecord,
@@ -100,6 +97,46 @@ export type EquityWaterfallRecord = {
 };
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
+const ExitAnalysisView = dynamic(
+  () => import("@/components/financial/ExitAnalysisView").then((m) => m.ExitAnalysisView),
+  {
+    loading: () => (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      </div>
+    ),
+  },
+);
+const SensitivityTable = dynamic(
+  () => import("@/components/financial/SensitivityTable").then((m) => m.SensitivityTable),
+  {
+    loading: () => (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      </div>
+    ),
+  },
+);
+const TornadoChart = dynamic(
+  () => import("@/components/financial/TornadoChart").then((m) => m.TornadoChart),
+  {
+    loading: () => (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      </div>
+    ),
+  },
+);
+const WaterfallBuilder = dynamic(
+  () => import("@/components/financial/WaterfallBuilder").then((m) => m.WaterfallBuilder),
+  {
+    loading: () => (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      </div>
+    ),
+  },
+);
 
 export default function FinancialModelPage() {
   const params = useParams<{ id: string }>();

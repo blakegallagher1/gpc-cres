@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import useSWR from "swr";
 import {
   Download,
@@ -36,15 +37,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { MetricCard } from "@/components/portfolio/MetricCard";
-import { PipelineFunnel } from "@/components/portfolio/PipelineFunnel";
-import { SkuDonut, JurisdictionBar } from "@/components/portfolio/DealVelocityChart";
-import { ConcentrationCharts } from "@/components/portfolio/ConcentrationCharts";
-import { DebtMaturityWall } from "@/components/portfolio/DebtMaturityWall";
-import { CapitalAllocationWidget } from "@/components/portfolio/CapitalAllocationWidget";
-import { DealVelocityMetrics } from "@/components/portfolio/DealVelocityMetrics";
-import { CapitalDeploymentTracker } from "@/components/portfolio/CapitalDeploymentTracker";
-import { Exchange1031Matcher } from "@/components/portfolio/Exchange1031Matcher";
-import { StressTestPanel } from "@/components/portfolio/StressTestPanel";
 import {
   type PortfolioDeal,
   SKU_CONFIG,
@@ -63,6 +55,48 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
+
+const PipelineFunnel = dynamic(
+  () => import("@/components/portfolio/PipelineFunnel").then((m) => m.PipelineFunnel),
+  { loading: () => <Skeleton className="h-72 w-full" /> },
+);
+const SkuDonut = dynamic(
+  () => import("@/components/portfolio/DealVelocityChart").then((m) => m.SkuDonut),
+  { loading: () => <Skeleton className="h-64 w-full" /> },
+);
+const JurisdictionBar = dynamic(
+  () => import("@/components/portfolio/DealVelocityChart").then((m) => m.JurisdictionBar),
+  { loading: () => <Skeleton className="h-64 w-full" /> },
+);
+const ConcentrationCharts = dynamic(
+  () => import("@/components/portfolio/ConcentrationCharts").then((m) => m.ConcentrationCharts),
+  { loading: () => <Skeleton className="h-96 w-full" /> },
+);
+const DealVelocityMetrics = dynamic(
+  () => import("@/components/portfolio/DealVelocityMetrics").then((m) => m.DealVelocityMetrics),
+  { loading: () => <Skeleton className="h-72 w-full" /> },
+);
+const DebtMaturityWall = dynamic(
+  () => import("@/components/portfolio/DebtMaturityWall").then((m) => m.DebtMaturityWall),
+  { loading: () => <Skeleton className="h-72 w-full" /> },
+);
+const CapitalDeploymentTracker = dynamic(
+  () =>
+    import("@/components/portfolio/CapitalDeploymentTracker").then((m) => m.CapitalDeploymentTracker),
+  { loading: () => <Skeleton className="h-72 w-full" /> },
+);
+const CapitalAllocationWidget = dynamic(
+  () => import("@/components/portfolio/CapitalAllocationWidget").then((m) => m.CapitalAllocationWidget),
+  { loading: () => <Skeleton className="h-64 w-full" /> },
+);
+const Exchange1031Matcher = dynamic(
+  () => import("@/components/portfolio/Exchange1031Matcher").then((m) => m.Exchange1031Matcher),
+  { loading: () => <Skeleton className="h-64 w-full" /> },
+);
+const StressTestPanel = dynamic(
+  () => import("@/components/portfolio/StressTestPanel").then((m) => m.StressTestPanel),
+  { loading: () => <Skeleton className="h-64 w-full" /> },
+);
 
 type SortField = "name" | "sku" | "jurisdiction" | "status" | "triageScore" | "lastActivity";
 type SortDir = "asc" | "desc";

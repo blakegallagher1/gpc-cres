@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { usePathname, useRouter } from "next/navigation";
 import {
   PlayCircle,
@@ -50,8 +51,18 @@ import { formatNumber, timeAgo } from "@/lib/utils";
 import { WorkflowRun } from "@/types";
 import { toast } from "sonner";
 import { useRuns } from "@/lib/hooks/useRuns";
-import { RunIntelligenceTab } from "@/components/runs/RunIntelligenceTab";
 import type { RunDashboardPayload } from "@/lib/hooks/useRunDashboard";
+
+const RunIntelligenceTab = dynamic(
+  () => import("@/components/runs/RunIntelligenceTab").then((m) => m.RunIntelligenceTab),
+  {
+    loading: () => (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    ),
+  },
+);
 
 function StatusBadge({ status }: { status: string }) {
   const variants: Record<string, { icon: React.ElementType; class: string; label: string }> = {
