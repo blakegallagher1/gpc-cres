@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { EvidenceCitation } from '@/types';
@@ -43,6 +44,7 @@ export function AgentStatePanel({
   fallbackReason,
   retryCount,
 }: AgentStatePanelProps) {
+  const [expanded, setExpanded] = useState(false);
   const normalizedConfidence = Math.max(0, Math.min(1, confidence ?? 0));
   const confidencePercent = Math.round(normalizedConfidence * 100);
 
@@ -68,6 +70,13 @@ export function AgentStatePanel({
             Agent state
           </p>
           <h3 className="text-base font-semibold">{lastAgentName}</h3>
+          <button
+            type="button"
+            onClick={() => setExpanded((value) => !value)}
+            className="mt-2 text-xs font-medium text-primary underline-offset-4 hover:underline"
+          >
+            {expanded ? 'Hide details' : 'Show details'}
+          </button>
         </div>
         <div className="w-32 text-right">
           <p className="text-xs text-muted-foreground">Confidence</p>
@@ -83,6 +92,8 @@ export function AgentStatePanel({
         </div>
       </div>
 
+      {expanded ? (
+        <>
       {plan && plan.length > 0 ? (
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -292,6 +303,8 @@ export function AgentStatePanel({
           </div>
         </>
       )}
+        </>
+      ) : null}
     </div>
   );
 }
