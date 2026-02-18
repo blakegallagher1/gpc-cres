@@ -192,7 +192,6 @@ export const webSearchPreviewTool = hostedWebSearchPreviewTool;
 
 /** Tools available to the Coordinator agent. */
 export const coordinatorTools = [
-  webSearchPreviewTool,
   getDealContext,
   listDeals,
   createDeal,
@@ -260,7 +259,6 @@ export const researchTools = [
   screenFull,
   screenTraffic,
   analyze_comparable_sales,
-  webSearchPreviewTool,
   query_market_data,
   search_knowledge_base,
   store_knowledge_entry,
@@ -333,7 +331,6 @@ export const screenerTools = [
   screenWetlands,
   screenEpa,
   screenFull,
-  webSearchPreviewTool,
   search_knowledge_base,
   store_knowledge_entry,
   share_analysis_finding,
@@ -420,7 +417,6 @@ export const marketIntelTools = [
   getDealContext,
   searchParcels,
   getParcelDetails,
-  webSearchPreviewTool,
   search_comparable_sales,
   calculate_market_metrics,
   query_market_data,
@@ -453,7 +449,6 @@ export const taxTools = [
   getDealContext,
   searchParcels,
   getParcelDetails,
-  webSearchPreviewTool,
   calculate_depreciation_schedule,
   calculate_cost_segregation_estimate,
   calculate_1031_deadlines,

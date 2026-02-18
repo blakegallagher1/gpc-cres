@@ -97,7 +97,12 @@ function filterUnsupportedAgentTools(tools: readonly unknown[]): unknown[] {
     if (typeof tool !== "object" || tool === null) {
       return true;
     }
-    return (tool as { type?: unknown }).type !== "hosted_tool";
+    const type = (tool as { type?: unknown }).type;
+    return (
+      type !== "hosted_tool" &&
+      type !== "web_search_preview" &&
+      type !== "file_search"
+    );
   });
 }
 
