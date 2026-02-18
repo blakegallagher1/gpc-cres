@@ -16,11 +16,18 @@ type ToolLike = {
 };
 
 let sentryInitialized = false;
+let missingDsnWarned = false;
 
 export function initAgentsSentry(): void {
   if (sentryInitialized) return;
   const dsn = process.env.SENTRY_AGENTS_DSN;
-  if (!dsn) return;
+  if (!dsn) {
+    if (!missingDsnWarned && process.env.NODE_ENV !== "test") {
+      missingDsnWarned = true;
+      console.warn("[sentry] Agents SDK disabled: missing SENTRY_AGENTS_DSN.");
+    }
+    return;
+  }
 
   Sentry.init({
     dsn,
@@ -46,6 +53,23 @@ export function captureAgentError(
     if (context.orgId) scope.setTag("orgId", context.orgId);
     scope.setContext("agent_context", context);
     Sentry.captureException(safeError);
+  });
+}
+
+export function captureAgentWarning(
+  agentName: string,
+  message: string,
+  context: AgentErrorContext = {},
+): void {
+  initAgentsSentry();
+  Sentry.withScope((scope) => {
+    scope.setTag("agent", agentName);
+    if (context.tool) scope.setTag("tool", context.tool);
+    if (context.model) scope.setTag("model", context.model);
+    if (context.dealId) scope.setTag("dealId", context.dealId);
+    if (context.orgId) scope.setTag("orgId", context.orgId);
+    scope.setContext("agent_context", context);
+    Sentry.captureMessage(message, "warning");
   });
 }
 

@@ -35,6 +35,7 @@ import { hashJsonSha256 } from "@entitlement-os/shared/crypto";
 import {
   buildAgentStreamRunOptions,
   captureAgentError,
+  captureAgentWarning,
   createIntentAwareCoordinator,
   evaluateProofCompliance,
   inferQueryIntentFromText,
@@ -1207,6 +1208,15 @@ export async function runAgentTurn(
           taskSummary: firstUserInput ?? "Coordinator request",
           generatedAt: new Date().toISOString(),
         });
+        captureAgentWarning(lastAgentName || "Coordinator", reason, {
+          orgId: params.orgId,
+          dealId: params.dealId ?? undefined,
+          conversationId: params.conversationId,
+          runId: dbRun.id,
+          correlationId: params.correlationId,
+          path: "apps/worker/src/activities/openai.ts",
+          fallback: "non_json_output",
+        });
         finalText = JSON.stringify(finalReport, null, 2);
       } else {
         const validation = AgentReportSchema.safeParse(parsed);
@@ -1224,6 +1234,15 @@ export async function runAgentTurn(
             rawText: typeof parsed === "string" ? parsed : JSON.stringify(parsed),
             taskSummary: firstUserInput ?? "Coordinator request",
             generatedAt: new Date().toISOString(),
+          });
+          captureAgentWarning(lastAgentName || "Coordinator", message, {
+            orgId: params.orgId,
+            dealId: params.dealId ?? undefined,
+            conversationId: params.conversationId,
+            runId: dbRun.id,
+            correlationId: params.correlationId,
+            path: "apps/worker/src/activities/openai.ts",
+            fallback: "schema_validation_failure",
           });
           finalText = JSON.stringify(finalReport, null, 2);
         } else {

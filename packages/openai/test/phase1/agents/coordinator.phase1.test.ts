@@ -37,14 +37,14 @@ describe("Phase 1 Agent Pack :: coordinator", () => {
     expect(coordinatorToolNames.has("log_reasoning_trace")).toBe(true);
   });
 
-  it("[MATRIX:agent:coordinator][PACK:hosted-tools] includes hosted web search capability", () => {
+  it("[MATRIX:agent:coordinator][PACK:hosted-tools] excludes hosted web search from direct coordinator toolset", () => {
     const hasHostedWebSearch = coordinatorTools.some(
       (tool) =>
         "type" in (tool as object) &&
         (tool as { type?: string }).type === "web_search_preview",
     );
 
-    expect(hasHostedWebSearch).toBe(true);
+    expect(hasHostedWebSearch).toBe(false);
   });
 
   it("[MATRIX:agent:coordinator][PACK:agent-as-tool] exposes specialist consult tools while preserving handoffs", () => {
