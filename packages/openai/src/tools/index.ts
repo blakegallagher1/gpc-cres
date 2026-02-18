@@ -51,6 +51,7 @@ export {
   screenLdeq,
   screenFull,
 } from "./propertyDbTools.js";
+export { query_org_sql } from "./databaseTools.js";
 
 export {
   calculate_proforma,
@@ -143,6 +144,7 @@ import {
   screenLdeq,
   screenFull,
 } from "./propertyDbTools.js";
+import { query_org_sql } from "./databaseTools.js";
 import {
   calculate_proforma,
   calculate_debt_sizing,
@@ -192,6 +194,7 @@ export const webSearchPreviewTool = hostedWebSearchPreviewTool;
 
 /** Tools available to the Coordinator agent. */
 export const coordinatorTools = [
+  query_org_sql,
   getDealContext,
   listDeals,
   createDeal,
