@@ -42,7 +42,6 @@ import { RunTriageButton } from "@/components/deals/RunTriageButton";
 import { ActivityTimeline } from "@/components/deals/ActivityTimeline";
 import { TaskCreateForm } from "@/components/deals/TaskCreateForm";
 import { DealStakeholdersPanel } from "@/components/deals/DealStakeholdersPanel";
-import { CollaborativeMemo } from "@/components/deal-room/CollaborativeMemo";
 import type { TaskItem } from "@/components/deals/TaskCard";
 import { DeadlineBar } from "@/components/deals/DeadlineBar";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -53,6 +52,17 @@ const fetcher = (url: string) => fetch(url).then((response) => response.json());
 const DealParcelMap = dynamic(
   () => import("@/components/maps/DealParcelMap"),
   { ssr: false }
+);
+const CollaborativeMemo = dynamic(
+  () => import("@/components/deal-room/CollaborativeMemo").then((m) => m.CollaborativeMemo),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="rounded border border-dashed p-3 text-xs text-muted-foreground">
+        Loading collaboration editor...
+      </div>
+    ),
+  },
 );
 
 interface DealDetail {
