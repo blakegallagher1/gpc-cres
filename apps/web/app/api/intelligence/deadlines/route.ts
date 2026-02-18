@@ -17,6 +17,11 @@ type DeadlineItem = {
   dealStatus: string;
 };
 
+type PrismaKnownRequestLikeError = {
+  code?: unknown;
+  meta?: unknown;
+};
+
 function classifyUrgency(hoursUntilDue: number): Urgency {
   if (hoursUntilDue <= 0) return "black";
   if (hoursUntilDue <= 24) return "red";
@@ -80,14 +85,36 @@ function mapEntitlementDeadline(entry: {
   };
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isMissingEntitlementPathsTableError(error: unknown): boolean {
+  if (!isRecord(error)) {
+    return false;
+  }
+
+  const known = error as PrismaKnownRequestLikeError;
+  if (known.code !== "P2021") {
+    return false;
+  }
+
+  if (!isRecord(known.meta)) {
+    return false;
+  }
+
+  const table = known.meta.table;
+  return typeof table === "string" && table.includes("entitlement_paths");
+}
+
 export async function GET() {
   const auth = await resolveAuth();
   if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const [tasks, entitlementPaths] = await Promise.all([
-    prisma.task.findMany({
+  try {
+    const tasksPromise = prisma.task.findMany({
       where: {
         dueAt: { not: null },
         status: { notIn: ["DONE", "CANCELED"] },
@@ -110,8 +137,9 @@ export async function GET() {
       },
       orderBy: { dueAt: "asc" },
       take: 50,
-    }),
-    prisma.entitlementPath.findMany({
+    });
+
+    const entitlementPathsPromise = prisma.entitlementPath.findMany({
       where: {
         hearingScheduledDate: { not: null },
         deal: { orgId: auth.orgId },
@@ -130,44 +158,60 @@ export async function GET() {
       },
       orderBy: { hearingScheduledDate: "asc" },
       take: 50,
-    }),
-  ]);
+    }).catch((error: unknown) => {
+      if (isMissingEntitlementPathsTableError(error)) {
+        console.warn(
+          "[api/intelligence/deadlines] entitlement_paths table missing; returning task-only deadlines.",
+        );
+        return [];
+      }
+      throw error;
+    });
 
-  const taskDeadlines = tasks
-    .filter((task) => task.dueAt)
-    .map((task) =>
-      mapTaskDeadline(task as {
-        id: string;
-        title: string;
-        dueAt: Date;
-        status: string;
-        pipelineStep: number;
-        deal: { id: string; name: string; status: string };
-      }),
+    const [tasks, entitlementPaths] = await Promise.all([
+      tasksPromise,
+      entitlementPathsPromise,
+    ]);
+
+    const taskDeadlines = tasks
+      .filter((task) => task.dueAt)
+      .map((task) =>
+        mapTaskDeadline(task as {
+          id: string;
+          title: string;
+          dueAt: Date;
+          status: string;
+          pipelineStep: number;
+          deal: { id: string; name: string; status: string };
+        }),
+      );
+
+    const entitlementDeadlines = entitlementPaths
+      .map((entry) =>
+        mapEntitlementDeadline(entry as {
+          id: string;
+          hearingScheduledDate: Date;
+          hearingBody: string | null;
+          deal: { id: string; name: string; status: string };
+        }),
+      );
+
+    const deadlines = [...taskDeadlines, ...entitlementDeadlines];
+
+    // Sort by urgency: black first, then red, yellow, green
+    const urgencyOrder: Record<string, number> = {
+      black: 0,
+      red: 1,
+      yellow: 2,
+      green: 3,
+    };
+    deadlines.sort(
+      (a, b) => (urgencyOrder[a.urgency] ?? 4) - (urgencyOrder[b.urgency] ?? 4),
     );
 
-  const entitlementDeadlines = entitlementPaths
-    .map((entry) =>
-      mapEntitlementDeadline(entry as {
-        id: string;
-        hearingScheduledDate: Date;
-        hearingBody: string | null;
-        deal: { id: string; name: string; status: string };
-      }),
-    );
-
-  const deadlines = [...taskDeadlines, ...entitlementDeadlines];
-
-  // Sort by urgency: black first, then red, yellow, green
-  const urgencyOrder: Record<string, number> = {
-    black: 0,
-    red: 1,
-    yellow: 2,
-    green: 3,
-  };
-  deadlines.sort(
-    (a, b) => (urgencyOrder[a.urgency] ?? 4) - (urgencyOrder[b.urgency] ?? 4),
-  );
-
-  return NextResponse.json({ deadlines, total: deadlines.length });
+    return NextResponse.json({ deadlines, total: deadlines.length });
+  } catch (error) {
+    console.error("[api/intelligence/deadlines]", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 }

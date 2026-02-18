@@ -6,10 +6,12 @@ const TaskUnderstandingSchema = z.object({
     .describe("How the coordinator interprets the original request and its goals"),
   focus_questions: z
     .array(z.string())
+    .nullable()
     .describe("Outstanding questions or follow-ups to clarify the mission")
     .optional(),
   context: z
     .string()
+    .nullable()
     .describe("Additional context that shaped the interpretation")
     .optional(),
 });
@@ -20,6 +22,7 @@ const ExecutionPlanStepSchema = z.object({
   rationale: z.string().describe("Why the agent is being requested for this task"),
   timeline: z
     .string()
+    .nullable()
     .describe("Target timing for the step (week/day/date)")
     .optional(),
 });
@@ -38,10 +41,12 @@ const AgentOutputSchema = z.object({
     .number()
     .min(0)
     .max(1)
+    .nullable()
     .optional()
     .describe("Optional confidence score between 0 and 1"),
   citations: z
     .array(z.string().url())
+    .nullable()
     .describe("URLs referenced when generating the agent output")
     .optional(),
 });
@@ -53,6 +58,7 @@ const SynthesisSchema = z.object({
     .number()
     .min(0)
     .max(1)
+    .nullable()
     .optional()
     .describe("Optional confidence level assigned to the recommendation"),
 });
@@ -74,10 +80,12 @@ const NextStepSchema = z.object({
   dueDate: z
     .string()
     .datetime()
+    .nullable()
     .describe("ISO 8601 due date for the action")
     .optional(),
   priority: z
     .enum(["high", "medium", "low"])
+    .nullable()
     .describe("Priority label for the action")
     .optional(),
 });
