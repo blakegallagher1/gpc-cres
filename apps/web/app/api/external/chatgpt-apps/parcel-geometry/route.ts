@@ -35,6 +35,12 @@ function toFiniteNumber(value: unknown): number | null {
   return null;
 }
 
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value,
+  );
+}
+
 function parseGeometry(value: unknown): GeoJsonGeometry | null {
   let candidate = value;
   if (typeof candidate === "string") {
@@ -207,16 +213,51 @@ export async function POST(request: Request) {
 
   if (!result.ok) {
     try {
-      const fallbackRaw = await propertyDbRpc("api_get_parcel", {
-        parcel_id: input.parcelId,
-      });
-      const fallbackGeometry = deriveFallbackParcelGeometry(fallbackRaw);
-      if (fallbackGeometry) {
-        return NextResponse.json({
-          ok: true,
-          request_id: requestId,
-          data: fallbackGeometry,
+      const candidateParcelIds = new Set<string>();
+      candidateParcelIds.add(input.parcelId);
+
+      if (!isUuid(input.parcelId)) {
+        const matchedParcels = await propertyDbRpc("api_search_parcels", {
+          search_text: input.parcelId,
+          limit_rows: 1,
         });
+        const firstMatch =
+          Array.isArray(matchedParcels) &&
+          matchedParcels[0] &&
+          typeof matchedParcels[0] === "object"
+            ? (matchedParcels[0] as Record<string, unknown>)
+            : null;
+        if (firstMatch && typeof firstMatch.id === "string" && firstMatch.id.length > 0) {
+          candidateParcelIds.add(firstMatch.id);
+        }
+      }
+
+      for (const candidateId of candidateParcelIds) {
+        if (!isUuid(candidateId)) continue;
+
+        const geometryRpcRaw = await propertyDbRpc("rpc_get_parcel_geometry", {
+          parcel_id: candidateId,
+        });
+        const geometryFallback = deriveFallbackParcelGeometry(geometryRpcRaw);
+        if (geometryFallback) {
+          return NextResponse.json({
+            ok: true,
+            request_id: requestId,
+            data: geometryFallback,
+          });
+        }
+
+        const parcelRpcRaw = await propertyDbRpc("api_get_parcel", {
+          parcel_id: candidateId,
+        });
+        const parcelFallback = deriveFallbackParcelGeometry(parcelRpcRaw);
+        if (parcelFallback) {
+          return NextResponse.json({
+            ok: true,
+            request_id: requestId,
+            data: parcelFallback,
+          });
+        }
       }
     } catch {
       // continue to error response
