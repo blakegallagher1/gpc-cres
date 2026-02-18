@@ -20,6 +20,8 @@
     "prisma": "dotenv -e ../../.env -- prisma",
     "generate": "sh -c 'DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@localhost:5432/postgres} DIRECT_DATABASE_URL=${DIRECT_DATABASE_URL:-postgresql://postgres:postgres@localhost:5432/postgres} prisma generate'",
     "migrate:dev": "dotenv -e ../../.env -- prisma migrate dev",
+    "migrate:dev:local": "sh -c 'DATABASE_URL=${DATABASE_URL_LOCAL:-postgresql://postgres:postgres@localhost:54323/entitlement_os?schema=public} DIRECT_DATABASE_URL=${DIRECT_DATABASE_URL_LOCAL:-postgresql://postgres:postgres@localhost:54323/entitlement_os?schema=public} prisma migrate dev'",
+    "migrate:deploy:local": "sh -c 'DATABASE_URL=${DATABASE_URL_LOCAL:-postgresql://postgres:postgres@localhost:54323/entitlement_os?schema=public} DIRECT_DATABASE_URL=${DIRECT_DATABASE_URL_LOCAL:-postgresql://postgres:postgres@localhost:54323/entitlement_os?schema=public} prisma migrate deploy'",
     "migrate:deploy": "dotenv -e ../../.env -- prisma migrate deploy",
     "seed": "dotenv -e ../../.env -- tsx seed/seed.ts"
   },

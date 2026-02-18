@@ -23,7 +23,9 @@
     "test:phase1:stubs:generate": "node scripts/testing/generate-phase1-stubs.mjs",
     "test:phase1:track": "node scripts/testing/track-phase1-coverage.mjs",
     "test:phase1:track:complete": "node scripts/testing/track-phase1-coverage.mjs --require-complete",
-    "db:migrate": "pnpm -C packages/db run migrate:dev",
+    "db:migrate": "pnpm run db:migrate:local",
+    "db:migrate:local": "pnpm -C packages/db run migrate:deploy:local",
+    "db:migrate:remote": "pnpm -C packages/db run migrate:dev",
     "db:deploy": "pnpm -C packages/db run migrate:deploy",
     "db:seed": "pnpm -C packages/db run seed"
   }
