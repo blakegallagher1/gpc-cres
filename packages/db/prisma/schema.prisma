@@ -101,6 +101,69 @@ enum notification_priority {
   CRITICAL
 }
 
+enum preference_category {
+  DEAL_CRITERIA
+  FINANCIAL
+  COMMUNICATION
+  WORKFLOW
+  RISK_TOLERANCE
+  TIMING
+}
+
+enum preference_value_type {
+  NUMBER
+  STRING
+  ARRAY
+  BOOLEAN
+  RANGE
+  OBJECT
+}
+
+enum preference_source {
+  CONVERSATION
+  DEAL_ACTION
+  EXPLICIT_SETTING
+  INFERRED
+}
+
+enum proactive_trigger_type {
+  SCHEDULED
+  EVENT
+  WEBHOOK
+  ANOMALY
+}
+
+enum proactive_action_type {
+  NOTIFY
+  RUN_WORKFLOW
+  CREATE_TASK
+  AUTO_TRIAGE
+}
+
+enum proactive_action_status {
+  PENDING
+  APPROVED
+  REJECTED
+  MODIFY_REQUESTED
+  AUTO_EXECUTED
+  EXPIRED
+  FAILED
+}
+
+enum proactive_priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum tool_execution_status {
+  SUCCESS
+  FALLBACK
+  INFERRED
+  FAILED
+}
+
 enum deal_stakeholder_role {
   SPONSOR
   EQUITY_PARTNER
@@ -135,6 +198,10 @@ model Org {
   entities          Entity[]
   taxEvents         TaxEvent[]
   notifications     Notification[]
+  userPreferences   UserPreference[]
+  proactiveTriggers ProactiveTrigger[]
+  proactiveActions  ProactiveAction[]
+  toolExecutionMetrics ToolExecutionMetric[]
   savedSearches     SavedSearch[]
   entitlementGraphNodes       EntitlementGraphNode[]
   entitlementGraphEdges       EntitlementGraphEdge[]
@@ -172,6 +239,10 @@ model User {
   conversations          Conversation[]
   notifications          Notification[]
   notificationPreferences NotificationPreference[]
+  preferences            UserPreference[]
+  proactiveTriggersCreated ProactiveTrigger[] @relation("proactive_trigger_created_by")
+  proactiveActionsAssigned ProactiveAction[] @relation("proactive_action_user")
+  toolExecutionMetrics     ToolExecutionMetric[] @relation("tool_execution_metric_user")
   savedSearches          SavedSearch[]
 
   @@map("users")
@@ -692,6 +763,119 @@ model NotificationPreference {
 
   @@unique([userId, type])
   @@map("notification_preferences")
+}
+
+model UserPreference {
+  id                  String                @id @default(uuid()) @db.Uuid
+  orgId               String                @map("org_id") @db.Uuid
+  userId              String                @map("user_id") @db.Uuid
+  category            preference_category
+  key                 String                @db.Text
+  value               Json                  @db.JsonB
+  valueType           preference_value_type @map("value_type")
+  confidence          Float                 @default(0.5)
+  sourceCount         Int                   @default(1) @map("source_count")
+  lastSourceMessageId String?               @map("last_source_message_id") @db.Uuid
+  lastExtractedAt     DateTime              @default(now()) @updatedAt @map("last_extracted_at") @db.Timestamptz(6)
+  extractedFrom       preference_source     @default(CONVERSATION) @map("extracted_from")
+  evidenceSnippet     String?               @map("evidence_snippet") @db.Text
+  isActive            Boolean               @default(true) @map("is_active")
+  createdAt           DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  org  Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, userId, category, key])
+  @@index([orgId, userId, category])
+  @@index([userId, confidence])
+  @@index([orgId, userId, isActive])
+  @@map("user_preferences")
+}
+
+model ProactiveTrigger {
+  id              String                 @id @default(uuid()) @db.Uuid
+  orgId           String                 @map("org_id") @db.Uuid
+  createdBy       String                 @map("created_by") @db.Uuid
+  name            String                 @db.Text
+  description     String?                @db.Text
+  triggerType     proactive_trigger_type @map("trigger_type")
+  triggerConfig   Json                   @map("trigger_config") @db.JsonB
+  conditions      Json                   @db.JsonB
+  actionType      proactive_action_type  @map("action_type")
+  actionConfig    Json                   @map("action_config") @db.JsonB
+  targetUsers     String[]               @default([]) @map("target_users")
+  maxRunsPerDay   Int                    @default(10) @map("max_runs_per_day")
+  maxAutoCost     Float                  @default(5) @map("max_auto_cost")
+  requireApproval Boolean                @default(true) @map("require_approval")
+  status          String                 @default("ACTIVE") @db.Text
+  lastRunAt       DateTime?              @map("last_run_at") @db.Timestamptz(6)
+  runCount        Int                    @default(0) @map("run_count")
+  createdAt       DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  org     Org             @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  creator User            @relation("proactive_trigger_created_by", fields: [createdBy], references: [id], onDelete: Cascade)
+  actions ProactiveAction[]
+
+  @@index([orgId, status])
+  @@index([triggerType])
+  @@index([createdBy])
+  @@map("proactive_triggers")
+}
+
+model ProactiveAction {
+  id              String                  @id @default(uuid()) @db.Uuid
+  triggerId       String?                 @map("trigger_id") @db.Uuid
+  orgId           String                  @map("org_id") @db.Uuid
+  userId          String                  @map("user_id") @db.Uuid
+  actionType      proactive_action_type   @map("action_type")
+  priority        proactive_priority      @default(MEDIUM)
+  title           String                  @db.Text
+  description     String                  @db.Text
+  context         Json                    @default("{}") @db.JsonB
+  matchConfidence Float?                  @map("match_confidence")
+  status          proactive_action_status @default(PENDING)
+  actionTaken     String?                 @map("action_taken") @db.Text
+  actionResult    Json?                   @map("action_result") @db.JsonB
+  userResponse    String?                 @map("user_response") @db.Text
+  userNote        String?                 @map("user_note") @db.Text
+  respondedAt     DateTime?               @map("responded_at") @db.Timestamptz(6)
+  cost            Float                   @default(0)
+  createdAt       DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  expiresAt       DateTime                @map("expires_at") @db.Timestamptz(6)
+
+  trigger ProactiveTrigger? @relation(fields: [triggerId], references: [id], onDelete: SetNull)
+  org     Org               @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user    User              @relation("proactive_action_user", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, userId, status])
+  @@index([userId, createdAt])
+  @@index([triggerId])
+  @@map("proactive_actions")
+}
+
+model ToolExecutionMetric {
+  id           String                @id @default(uuid()) @db.Uuid
+  orgId        String?               @map("org_id") @db.Uuid
+  userId       String?               @map("user_id") @db.Uuid
+  toolName     String                @map("tool_name") @db.Text
+  status       tool_execution_status
+  latencyMs    Int                   @map("latency_ms")
+  fallbackUsed Boolean               @default(false) @map("fallback_used")
+  warningCount Int                   @default(0) @map("warning_count")
+  confidence   Float?
+  source       String?               @db.Text
+  error        String?               @db.Text
+  metadata     Json                  @default("{}") @db.JsonB
+  createdAt    DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  org  Org?  @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  user User? @relation("tool_execution_metric_user", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, toolName])
+  @@index([toolName, createdAt(sort: Desc)])
+  @@index([status])
+  @@map("tool_execution_metrics")
 }
 
 model SavedSearch {
