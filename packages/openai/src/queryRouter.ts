@@ -207,7 +207,7 @@ const QUERY_INTENT_PROFILES: Record<QueryIntent, QueryIntentProfile> = {
     label: "General",
     description: "Default routing when no other query intent can be determined.",
     specialists: SPECIALIST_AGENT_KEYS,
-    proofGroups: [KNOWLEDGE_PROOF_GROUP],
+    proofGroups: [],
     keywordTriggers: [],
   },
 };

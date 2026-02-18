@@ -248,6 +248,67 @@ function sanitizeOutputText(value: unknown): string {
   }
 }
 
+function buildFallbackAgentReportFromText(params: {
+  rawText: string;
+  taskSummary: string;
+  generatedAt?: string;
+}): AgentReport {
+  const generatedAt = params.generatedAt ?? new Date().toISOString();
+  const summary = params.rawText.trim().length > 0
+    ? params.rawText.trim()
+    : "The agent returned an unstructured response.";
+
+  return {
+    schema_version: "1.0",
+    generated_at: generatedAt,
+    task_understanding: {
+      summary: params.taskSummary,
+      context: "Fallback normalization applied because the coordinator returned non-schema text.",
+    },
+    execution_plan: {
+      summary: "Return a normalized coordinator report and request evidence-backed follow-up if needed.",
+      steps: [
+        {
+          agent: "coordinator",
+          responsibility: "Normalize unstructured output into AgentReport schema",
+          rationale: "Pipeline requires strict JSON schema output",
+        },
+      ],
+    },
+    agent_outputs: [
+      {
+        agent: "coordinator",
+        summary,
+        confidence: 0.35,
+      },
+    ],
+    synthesis: {
+      recommendation: summary,
+      rationale: "Generated from fallback normalization of non-JSON model output.",
+      confidence: 0.35,
+    },
+    key_assumptions: [
+      "Original model output did not match strict AgentReport JSON schema.",
+    ],
+    uncertainty_map: [
+      {
+        area: "Output structure",
+        impact: "Confidence is reduced due to schema fallback.",
+        mitigation: "Re-run with stronger tool-use and structured-output guidance.",
+        reducible: true,
+      },
+    ],
+    next_steps: [
+      {
+        action: "Re-run with explicit evidence tooling and schema-constrained output",
+        owner: "Coordinator",
+        priority: "high",
+      },
+    ],
+    sources: [],
+  };
+}
+
 function toPrismaInputJson(value: unknown): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
 }
@@ -1138,11 +1199,15 @@ export async function runAgentTurn(
     if (status === "succeeded") {
       const parsed = safeParseJson(finalText);
       if (!isRecord(parsed)) {
-      const reason = "Final agent output is not a valid JSON object.";
-        errorMessage ??= reason;
+        const reason = "Final agent output is not a valid JSON object.";
         state.toolErrorMessages.push(`final_report: ${reason}`);
         state.missingEvidence.add("Final agent report did not parse as JSON.");
-        status = "failed";
+        finalReport = buildFallbackAgentReportFromText({
+          rawText: finalText,
+          taskSummary: firstUserInput ?? "Coordinator request",
+          generatedAt: new Date().toISOString(),
+        });
+        finalText = JSON.stringify(finalReport, null, 2);
       } else {
         const validation = AgentReportSchema.safeParse(parsed);
         if (!validation.success) {
@@ -1153,10 +1218,14 @@ export async function runAgentTurn(
             })
             .join("; ");
           const message = `Final agent report failed schema validation: ${reason}`;
-          errorMessage ??= message;
           state.toolErrorMessages.push(`final_report: ${reason}`);
           state.missingEvidence.add("Final agent report failed schema validation.");
-          status = "failed";
+          finalReport = buildFallbackAgentReportFromText({
+            rawText: typeof parsed === "string" ? parsed : JSON.stringify(parsed),
+            taskSummary: firstUserInput ?? "Coordinator request",
+            generatedAt: new Date().toISOString(),
+          });
+          finalText = JSON.stringify(finalReport, null, 2);
         } else {
           finalReport = validation.data;
           finalText = JSON.stringify(finalReport, null, 2);
