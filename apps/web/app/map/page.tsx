@@ -32,12 +32,18 @@ interface ApiParcel {
   deal?: { id: string; name: string; sku: string; status: string } | null;
 }
 
+interface ParcelsApiResponse {
+  parcels: ApiParcel[];
+  source?: "org" | "property-db-fallback";
+}
+
 export default function MapPage() {
   const router = useRouter();
   const [parcels, setParcels] = useState<MapParcel[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState("");
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [source, setSource] = useState<"org" | "property-db-fallback">("org");
 
   const visibleParcels = useMemo(() => {
     const query = searchText.trim().toLowerCase();
@@ -62,7 +68,8 @@ export default function MapPage() {
           setLoadError("Failed to load parcels. Please refresh and try again.");
           return;
         }
-        const data = await res.json();
+        const data = (await res.json()) as ParcelsApiResponse;
+        setSource(data.source === "property-db-fallback" ? "property-db-fallback" : "org");
         const mapped: MapParcel[] = (data.parcels as ApiParcel[])
           .filter((p) => p.lat != null && p.lng != null)
           .map((p) => ({
@@ -100,6 +107,8 @@ export default function MapPage() {
                 ? loadError
                 : parcels.length === 0
                   ? "No parcels with coordinates are available yet. Enrich parcel coordinates to enable map search and boundaries."
+                  : source === "property-db-fallback"
+                    ? `${visibleParcels.length} of ${parcels.length} parcels (property database fallback)`
                   : `${visibleParcels.length} of ${parcels.length} parcels with coordinates`}
           </p>
         </div>
