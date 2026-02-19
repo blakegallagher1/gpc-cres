@@ -3,8 +3,35 @@
 Last reviewed: 2026-02-19
 
 
-Date generated: 2026-02-15
-Primary goal for this pass: make the screening feature usable, stabilize chat submission behavior, and add guided onboarding for empty sections while tracking broader roadmap execution.
+Date generated: 2026-02-19
+Primary goal for this pass: track security/tenant-isolation hardening completion and maintain continuity with earlier roadmap execution.
+
+## 2026-02-19 security and isolation hardening
+
+- [x] Tenant isolation hardening completed for map/chat retrieval paths.
+- [x] Org-scoping enforcement completed in fallback and cache boundaries.
+- [x] Secret-boundary hardening completed for property DB env handling (no hardcoded/fallback credentials).
+- [x] Supabase init fail-fast behavior enforced for missing/placeholder env values.
+- [x] Map popup XSS sanitization completed for user-sourced values.
+- [x] Error normalization completed for targeted parcel/map-facing routes (generic client-safe 500 responses).
+- [x] Geometry and fetch-loop reliability improvements completed (bounded concurrency and full pending-id processing).
+- [x] Regression coverage expanded for critical security surfaces (tenant isolation, cache namespacing, env fail-fast, retrieval org-scoping).
+
+### Validation snapshot
+
+- `pnpm lint` passed
+- `pnpm typecheck` passed
+- `pnpm test` passed
+- `pnpm build` passed
+
+### Operational follow-up
+
+- Dashboard-side Supabase Pro operations still required:
+  - read replica provisioning
+  - PITR validation drill
+  - spend caps and alerting
+  - log drains provisioning
+  - custom domain DNS/TLS cutover
 
 ## Execution status
 

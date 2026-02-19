@@ -22,13 +22,16 @@ Design goals:
 
 Last reviewed: 2026-02-19
 
-# ✅ PROJECT STATUS SNAPSHOT (2026-02-17)
+# ✅ PROJECT STATUS SNAPSHOT (2026-02-19)
 # =========================================================
 
 Current implementation status against `Entitlement_OS_Meta_Prompt.md`:
 
 - Phases `A` through `G` are completed and integrated.
 - Phase `H` verification gate completed: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build` all pass.
+- Security hardening pass completed across tenant isolation, org scoping, map XSS sanitization, auth consistency, and error normalization.
+- Property DB and Supabase env initialization paths now enforce fail-fast behavior for missing/placeholder credentials.
+- Supabase Pro code-side optimizations are wired (read replica/direct URL toggles, pooling params, custom-domain env support); dashboard-only actions remain operational tasks.
 - Formal compliance evidence is captured in:
   - `docs/ENTITLEMENT_OS_META_AUDIT_2026-02-17.md`
   - `ROADMAP.md` item `EOS-001`
