@@ -85,3 +85,11 @@ docs/_build/
 .env*.local
 
 .pnpm-store/
+
+# Local Playwright artifacts
+.playwright-cli/
+output/playwright/
+output/playwright-*.png
+
+# Local parcel import drops
+parcel_data_updated/
