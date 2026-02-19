@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { z, ZodError } from "zod";
-import { getAmenitiesCache, upsertAmenitiesCache } from "@/lib/server/chatgptAppsClient";
+import {
+  getAmenitiesCache,
+  toOrgScopedCacheKey,
+  upsertAmenitiesCache,
+} from "@/lib/server/chatgptAppsClient";
 import { checkRateLimit } from "@/lib/server/rateLimiter";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { captureChatGptAppsError } from "@/lib/automation/sentry";
@@ -41,11 +45,11 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url);
-  const cacheKey = searchParams.get("cacheKey");
+  const rawCacheKey = searchParams.get("cacheKey");
 
   let input: z.infer<typeof GetSchema>;
   try {
-    input = GetSchema.parse({ cacheKey });
+    input = GetSchema.parse({ cacheKey: rawCacheKey });
   } catch (err) {
     const message = err instanceof ZodError
       ? err.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")
@@ -57,15 +61,16 @@ export async function GET(request: Request) {
   }
 
   let result: Awaited<ReturnType<typeof getAmenitiesCache>>;
+  const cacheKey = toOrgScopedCacheKey(auth.orgId, input.cacheKey);
   try {
-    result = await getAmenitiesCache(input.cacheKey, requestId);
+    result = await getAmenitiesCache(cacheKey, requestId);
   } catch (error) {
     captureChatGptAppsError(error, {
       rpc: "getAmenitiesCache",
       requestId,
       orgId: auth.orgId,
       route: "/api/external/chatgpt-apps/amenities-cache",
-      input: { cacheKey: input.cacheKey },
+      input: { cacheKey },
     });
     return NextResponse.json(
       { ok: false, request_id: requestId, error: { code: "UPSTREAM_ERROR", message: "Upstream request failed" } },
@@ -80,7 +85,7 @@ export async function GET(request: Request) {
       orgId: auth.orgId,
       route: "/api/external/chatgpt-apps/amenities-cache",
       status: result.status,
-      input: { cacheKey: input.cacheKey },
+      input: { cacheKey },
       details: result.error,
     });
     const status =
@@ -88,7 +93,11 @@ export async function GET(request: Request) {
         ? result.status
         : 502;
     return NextResponse.json(
-      { ok: false, request_id: result.requestId, error: { code: "UPSTREAM_ERROR", message: result.error } },
+      {
+        ok: false,
+        request_id: result.requestId,
+        error: { code: "UPSTREAM_ERROR", message: "Upstream request failed" },
+      },
       { status },
     );
   }
@@ -153,9 +162,10 @@ export async function POST(request: Request) {
   }
 
   let result: Awaited<ReturnType<typeof upsertAmenitiesCache>>;
+  const cacheKey = toOrgScopedCacheKey(auth.orgId, input.cacheKey);
   try {
     result = await upsertAmenitiesCache(
-      input.cacheKey,
+      cacheKey,
       input.payload as Record<string, unknown>,
       input.ttlSeconds,
       requestId,
@@ -166,7 +176,7 @@ export async function POST(request: Request) {
       requestId,
       orgId: auth.orgId,
       route: "/api/external/chatgpt-apps/amenities-cache",
-      input: { cacheKey: input.cacheKey, ttlSeconds: input.ttlSeconds },
+      input: { cacheKey, ttlSeconds: input.ttlSeconds },
     });
     return NextResponse.json(
       { ok: false, request_id: requestId, error: { code: "UPSTREAM_ERROR", message: "Upstream request failed" } },
@@ -181,7 +191,7 @@ export async function POST(request: Request) {
       orgId: auth.orgId,
       route: "/api/external/chatgpt-apps/amenities-cache",
       status: result.status,
-      input: { cacheKey: input.cacheKey, ttlSeconds: input.ttlSeconds },
+      input: { cacheKey, ttlSeconds: input.ttlSeconds },
       details: result.error,
     });
     const status =
@@ -189,7 +199,11 @@ export async function POST(request: Request) {
         ? result.status
         : 502;
     return NextResponse.json(
-      { ok: false, request_id: result.requestId, error: { code: "UPSTREAM_ERROR", message: result.error } },
+      {
+        ok: false,
+        request_id: result.requestId,
+        error: { code: "UPSTREAM_ERROR", message: "Upstream request failed" },
+      },
       { status },
     );
   }

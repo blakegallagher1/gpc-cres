@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { prisma } from "@entitlement-os/db";
 import { resolveSupabaseAnonKey, resolveSupabaseUrl } from "@/lib/db/supabaseEnv";
 
 const REQUIRED_ENV_VARS = [
@@ -110,7 +111,15 @@ async function isAuthorized(request: NextRequest) {
     data: { session },
   } = await supabase.auth.getSession();
 
-  return Boolean(session);
+  if (!session?.user?.id) {
+    return false;
+  }
+
+  const membership = await prisma.orgMembership.findFirst({
+    where: { userId: session.user.id },
+    select: { orgId: true },
+  });
+  return Boolean(membership?.orgId);
 }
 
 export async function GET(request: NextRequest) {

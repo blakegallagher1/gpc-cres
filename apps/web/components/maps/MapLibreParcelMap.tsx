@@ -1484,16 +1484,31 @@ function MapLibreCompSaleLayer({
         };
 
         popupRef.current?.remove();
+        const safeAddress = escapeHtml(comp.address);
+        const safeSalePrice = comp.salePrice != null ? escapeHtml(formatCurrency(comp.salePrice)) : null;
+        const safePricePerAcre = comp.pricePerAcre != null
+          ? escapeHtml(formatCurrency(comp.pricePerAcre))
+          : null;
+        const safePricePerSf = comp.pricePerSf != null
+          ? escapeHtml(comp.pricePerSf.toFixed(2))
+          : null;
+        const safeAcreage = comp.acreage != null ? escapeHtml(comp.acreage.toFixed(2)) : null;
+        const safeSaleDate = comp.saleDate != null
+          ? escapeHtml(new Date(comp.saleDate).toLocaleDateString())
+          : null;
+        const safeRecency = comp.saleDate != null ? escapeHtml(getRecencyLabel(comp.saleDate)) : null;
+        const safeUseType = comp.useType ? escapeHtml(comp.useType) : null;
+
         popupRef.current = new maplibregl.Popup({ closeOnClick: true })
           .setLngLat([event.lngLat.lng, event.lngLat.lat])
           .setHTML(`<div style="font-size:13px;line-height:1.4">
-            <div style="font-weight:600;margin-bottom:2px;">${comp.address}</div>
-            ${comp.salePrice != null ? `<div style="font-size:14px;font-weight:700;color:#1e40af;">${formatCurrency(comp.salePrice)}</div>` : ""}
-            ${comp.pricePerAcre != null ? `<div style="font-size:11px;">${formatCurrency(comp.pricePerAcre)} / acre</div>` : ""}
-            ${comp.pricePerSf != null ? `<div style="font-size:11px;">$${comp.pricePerSf.toFixed(2)} / SF</div>` : ""}
-            ${comp.acreage != null ? `<div style="font-size:11px;">${comp.acreage.toFixed(2)} acres</div>` : ""}
-            ${comp.saleDate != null ? `<div style="font-size:11px;color:#6b7280;">Sold: ${new Date(comp.saleDate).toLocaleDateString()} (${getRecencyLabel(comp.saleDate)})</div>` : ""}
-            ${comp.useType ? `<div style="font-size:11px;color:#6b7280;">Use: ${comp.useType}</div>` : ""}
+            <div style="font-weight:600;margin-bottom:2px;">${safeAddress}</div>
+            ${safeSalePrice != null ? `<div style="font-size:14px;font-weight:700;color:#1e40af;">${safeSalePrice}</div>` : ""}
+            ${safePricePerAcre != null ? `<div style="font-size:11px;">${safePricePerAcre} / acre</div>` : ""}
+            ${safePricePerSf != null ? `<div style="font-size:11px;">$${safePricePerSf} / SF</div>` : ""}
+            ${safeAcreage != null ? `<div style="font-size:11px;">${safeAcreage} acres</div>` : ""}
+            ${safeSaleDate != null ? `<div style="font-size:11px;color:#6b7280;">Sold: ${safeSaleDate}${safeRecency ? ` (${safeRecency})` : ""}</div>` : ""}
+            ${safeUseType ? `<div style="font-size:11px;color:#6b7280;">Use: ${safeUseType}</div>` : ""}
           </div>`)
           .addTo(mapInstance);
       };
@@ -1692,6 +1707,9 @@ function MapLibreIsochroneControl({
   const [result, setResult] = useState<IsochroneResult | null>(null);
   const popupRef = useRef<maplibregl.Popup | null>(null);
   const mapRef = useRef(map);
+  const visibleRef = useRef(visible);
+  const clickModeRef = useRef(clickMode);
+  const minutesRef = useRef(minutes);
   const sourceId = "maplibre-isochrone-source";
   const lineId = "maplibre-isochrone-line";
   const fillId = "maplibre-isochrone-fill";
@@ -1701,6 +1719,18 @@ function MapLibreIsochroneControl({
   useEffect(() => {
     mapRef.current = map;
   }, [map]);
+
+  useEffect(() => {
+    visibleRef.current = visible;
+  }, [visible]);
+
+  useEffect(() => {
+    clickModeRef.current = clickMode;
+  }, [clickMode]);
+
+  useEffect(() => {
+    minutesRef.current = minutes;
+  }, [minutes]);
 
   const clearResult = useCallback(() => {
     setResult(null);
@@ -1782,8 +1812,8 @@ function MapLibreIsochroneControl({
     if (!mapInstance) return;
 
     const handleMapClick = (event: maplibregl.MapMouseEvent) => {
-      if (!visible || !clickMode) return;
-      compute(event.lngLat.lat, event.lngLat.lng, minutes);
+      if (!visibleRef.current || !clickModeRef.current) return;
+      compute(event.lngLat.lat, event.lngLat.lng, minutesRef.current);
 
       const centerSource = mapInstance.getSource(centerSourceId) as
         | { setData: (data: GeoJSON.FeatureCollection) => void }
@@ -1804,7 +1834,6 @@ function MapLibreIsochroneControl({
     };
 
     if (!visible) {
-      mapInstance.off("click", handleMapClick);
       clearResult();
       setError(null);
       setClickMode(false);
@@ -1867,9 +1896,14 @@ function MapLibreIsochroneControl({
         });
       }
 
-      mapInstance.on("click", handleMapClick);
     }
-  }, [visible, clickMode, compute, clearResult, minutes, mapRef]);
+
+    mapInstance.off("click", handleMapClick);
+    mapInstance.on("click", handleMapClick);
+    return () => {
+      mapInstance.off("click", handleMapClick);
+    };
+  }, [visible, compute, clearResult]);
 
   useEffect(() => {
     const mapInstance = mapRef.current;

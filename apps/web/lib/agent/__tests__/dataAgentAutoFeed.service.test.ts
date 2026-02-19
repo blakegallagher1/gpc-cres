@@ -13,6 +13,7 @@ vi.mock("@entitlement-os/db", () => ({
 import { autoFeedRun } from "../dataAgentAutoFeed.service";
 
 const BASE_INPUT = {
+  orgId: "org-contract",
   runId: "run-contract",
   runType: "ENRICHMENT",
   agentIntent: "Run entitlement analysis",

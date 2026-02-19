@@ -30,6 +30,7 @@ describe("GET /api/parcels", () => {
     vi.stubGlobal("fetch", fetchMock);
     process.env.LA_PROPERTY_DB_URL = "https://example.supabase.co";
     process.env.LA_PROPERTY_DB_KEY = "test-key";
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
   });
 
   it("returns 401 when unauthenticated", async () => {
@@ -82,6 +83,19 @@ describe("GET /api/parcels", () => {
     findManyMock.mockResolvedValue([]);
     fetchMock.mockResolvedValue({
       ok: true,
+      text: async () =>
+        JSON.stringify([
+          {
+            id: "external-1",
+            site_address: "456 River Rd",
+            latitude: 30.41,
+            longitude: -91.09,
+            acreage: 3.4,
+            flood_zone: "AE",
+            zone_code: "I1",
+            parcel_uid: "parcel-uid-1",
+          },
+        ]),
       json: async () => [
         {
           id: "external-1",
@@ -104,5 +118,22 @@ describe("GET /api/parcels", () => {
     expect(body.source).toBe("property-db-fallback");
     expect(body.parcels.length).toBeGreaterThan(0);
     expect(body.parcels[0].propertyDbId).toBe("external-1");
+  });
+
+  it("throws at module load when LA_PROPERTY_DB_KEY is missing even if SUPABASE_SERVICE_ROLE_KEY exists", async () => {
+    delete process.env.LA_PROPERTY_DB_KEY;
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "service-role-key";
+
+    await expect(import("./route")).rejects.toThrow(
+      "[parcels-route] Missing required LA_PROPERTY_DB_KEY.",
+    );
+  });
+
+  it("throws at module load when LA_PROPERTY_DB_URL is missing", async () => {
+    delete process.env.LA_PROPERTY_DB_URL;
+
+    await expect(import("./route")).rejects.toThrow(
+      "[parcels-route] Missing required LA_PROPERTY_DB_URL.",
+    );
   });
 });

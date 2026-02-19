@@ -30,6 +30,7 @@ describe("propertyDbTools rpc key enforcement", () => {
   });
 
   it("returns RPC JSON on happy path with a valid LA_PROPERTY_DB_KEY", async () => {
+    process.env.LA_PROPERTY_DB_URL = "https://example.supabase.co";
     process.env.LA_PROPERTY_DB_KEY = "service-role-key";
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -45,6 +46,7 @@ describe("propertyDbTools rpc key enforcement", () => {
   });
 
   it("throws when LA_PROPERTY_DB_KEY is missing", async () => {
+    process.env.LA_PROPERTY_DB_URL = "https://example.supabase.co";
     const { rpc } = await import("./propertyDbTools");
 
     await expect(rpc("api_search_parcels", { search_text: "main" })).rejects.toThrow(
@@ -53,11 +55,31 @@ describe("propertyDbTools rpc key enforcement", () => {
   });
 
   it("treats whitespace-only LA_PROPERTY_DB_KEY as missing", async () => {
+    process.env.LA_PROPERTY_DB_URL = "https://example.supabase.co";
     process.env.LA_PROPERTY_DB_KEY = "   ";
     const { rpc } = await import("./propertyDbTools");
 
     await expect(rpc("api_search_parcels", { search_text: "main" })).rejects.toThrow(
       "[propertyDbTools] Missing required LA_PROPERTY_DB_KEY.",
+    );
+  });
+
+  it("throws when LA_PROPERTY_DB_URL is missing", async () => {
+    process.env.LA_PROPERTY_DB_KEY = "service-role-key";
+    const { rpc } = await import("./propertyDbTools");
+
+    await expect(rpc("api_search_parcels", { search_text: "main" })).rejects.toThrow(
+      "[propertyDbTools] Missing required LA_PROPERTY_DB_URL.",
+    );
+  });
+
+  it("treats whitespace-only LA_PROPERTY_DB_URL as missing", async () => {
+    process.env.LA_PROPERTY_DB_URL = "   ";
+    process.env.LA_PROPERTY_DB_KEY = "service-role-key";
+    const { rpc } = await import("./propertyDbTools");
+
+    await expect(rpc("api_search_parcels", { search_text: "main" })).rejects.toThrow(
+      "[propertyDbTools] Missing required LA_PROPERTY_DB_URL.",
     );
   });
 });

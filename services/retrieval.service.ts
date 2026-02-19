@@ -107,6 +107,7 @@ function loadDataAgentTelemetry(): {
 export async function unifiedRetrieval(
   query: string,
   subjectId?: string,
+  orgId?: string,
 ): Promise<UnifiedRetrievalRecord[]> {
   const safeQuery = query?.trim();
   if (!safeQuery) {
@@ -132,7 +133,7 @@ export async function unifiedRetrieval(
         )
       : Promise.resolve([]),
     withSpan("retrieval.sparse", () => sparseSearch(safeQuery, subjectId)),
-    withSpan("retrieval.graph", () => graphSearch(safeQuery, subjectId)),
+    withSpan("retrieval.graph", () => graphSearch(safeQuery, subjectId, orgId)),
   ]);
 
   const merged = rerank(semantic, sparse, graph);
@@ -301,21 +302,30 @@ async function sparseSearch(
 async function graphSearch(
   query: string,
   subjectId?: string,
+  orgId?: string,
 ): Promise<UnifiedRetrievalRecord[]> {
-  const params: unknown[] = [query];
+  if (!orgId) {
+    return [];
+  }
+
+  const params: unknown[] = [query, orgId];
   const baseWhere = subjectId
     ? `
-      WHERE
-        ge.subject_id ILIKE ('%' || $1 || '%')
-        OR ge.object_id ILIKE ('%' || $1 || '%')
-        OR ge.predicate ILIKE ('%' || $1 || '%')
-        OR ge.subject_id = $2
+      WHERE ge.org_id = $2
+        AND (
+          ge.subject_id ILIKE ('%' || $1 || '%')
+          OR ge.object_id ILIKE ('%' || $1 || '%')
+          OR ge.predicate ILIKE ('%' || $1 || '%')
+          OR ge.subject_id = $3
+        )
     `
     : `
-      WHERE
-        ge.subject_id ILIKE ('%' || $1 || '%')
-        OR ge.object_id ILIKE ('%' || $1 || '%')
-        OR ge.predicate ILIKE ('%' || $1 || '%')
+      WHERE ge.org_id = $2
+        AND (
+          ge.subject_id ILIKE ('%' || $1 || '%')
+          OR ge.object_id ILIKE ('%' || $1 || '%')
+          OR ge.predicate ILIKE ('%' || $1 || '%')
+        )
     `;
 
   if (subjectId) {

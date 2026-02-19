@@ -349,6 +349,10 @@ export interface AmenitiesCacheResult {
   created_at?: string;
 }
 
+export function toOrgScopedCacheKey(orgId: string, cacheKey: string): string {
+  return `${orgId}:${cacheKey}`;
+}
+
 export async function getAmenitiesCache(
   cacheKey: string,
   requestId?: string,

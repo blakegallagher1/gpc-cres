@@ -20,6 +20,7 @@ function recordDataAgentAutoFeed(_event: Record<string, unknown>): void {
 }
 
 export interface AutoFeedInput {
+  orgId: string;
   runId: string;
   runType: string;
   agentIntent: string;
@@ -211,9 +212,10 @@ export async function autoFeedRun(input: AutoFeedInput): Promise<AutoFeedResult>
         citation.tool ?? citation.sourceId ?? citation.snapshotId ?? citation.url ?? citation.contentHash ??
         "evidence";
       const createdEvent = await prisma.$queryRawUnsafe<TimestampedRow[]>(
-        `INSERT INTO "KGEvent" (subject_id, predicate, object_id, confidence, source_hash)
-         VALUES ($1, $2, $3, $4, $5)
+        `INSERT INTO "KGEvent" (org_id, subject_id, predicate, object_id, confidence, source_hash)
+         VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING id`,
+        input.orgId,
         input.subjectId ?? `${DEFAULT_SUBJECT_PREFIX}:${input.runId}`,
         citation.tool ? `tool:${citation.tool}` : "evidence:citation",
         objectId,
@@ -239,9 +241,10 @@ export async function autoFeedRun(input: AutoFeedInput): Promise<AutoFeedResult>
 
     if (!citationEvents.length) {
       const fallback = await prisma.$queryRawUnsafe<TimestampedRow[]>(
-        `INSERT INTO "KGEvent" (subject_id, predicate, object_id, confidence, source_hash)
-         VALUES ($1, $2, $3, $4, $5)
+        `INSERT INTO "KGEvent" (org_id, subject_id, predicate, object_id, confidence, source_hash)
+         VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING id`,
+        input.orgId,
         input.subjectId ?? `${DEFAULT_SUBJECT_PREFIX}:${input.runId}`,
         "run:auto-feed",
         input.runId,
@@ -358,6 +361,9 @@ function deriveOutcomeSignal(
 }
 
 function validateAutoFeedInput(input: AutoFeedInput): string | null {
+  if (!input.orgId || typeof input.orgId !== "string" || input.orgId.trim().length === 0) {
+    return "orgId is required";
+  }
   if (!input.runId || typeof input.runId !== "string" || input.runId.trim().length === 0) {
     return "runId is required";
   }

@@ -77,7 +77,15 @@ async function isAuthorized(request: NextRequest) {
     data: { session },
   } = await supabase.auth.getSession();
 
-  return Boolean(session);
+  if (!session?.user?.id) {
+    return false;
+  }
+
+  const membership = await prisma.orgMembership.findFirst({
+    where: { userId: session.user.id },
+    select: { orgId: true },
+  });
+  return Boolean(membership?.orgId);
 }
 
 async function getDbStatus(): Promise<DbStatus> {

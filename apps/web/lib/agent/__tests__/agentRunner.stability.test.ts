@@ -41,6 +41,21 @@ vi.mock("@/lib/workflowClient", () => ({
   getTemporalClient: vi.fn(),
 }));
 
+vi.mock("@/lib/chat/session", () => ({
+  PrismaChatSession: {
+    create: vi.fn().mockResolvedValue({
+      getConversationId: () => "conversation-id",
+      runCompaction: vi.fn().mockResolvedValue(undefined),
+      getItems: vi.fn().mockResolvedValue([]),
+      addItems: vi.fn().mockResolvedValue(undefined),
+    }),
+  },
+}));
+
+vi.mock("@/lib/services/preferenceService", () => ({
+  buildPreferenceContext: vi.fn().mockResolvedValue(""),
+}));
+
 import { getTemporalClient } from "@/lib/workflowClient";
 import { prisma } from "@entitlement-os/db";
 import { executeAgentWorkflow } from "../executeAgent";
@@ -200,5 +215,63 @@ describe("runAgentWorkflow local fallback resilience", () => {
     );
 
     expect((executeAgentWorkflow as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(1);
+  });
+
+  it("uses org-scoped conversation lookup on happy path when conversationId is provided", async () => {
+    delete process.env.TEMPORAL_ADDRESS;
+    prisma.conversation.findFirst.mockResolvedValue({ id: "conv-1" });
+    prisma.message.findMany.mockResolvedValue([]);
+    prisma.run.upsert.mockResolvedValue({ id: "run-1", status: "running" });
+    prisma.run.update.mockResolvedValue({ id: "run-1", status: "succeeded" });
+
+    await runAgentWorkflow({
+      ...BASE_REQUEST,
+      correlationId: "org-scoped-conversation-lookup",
+      conversationId: "conv-1",
+      persistConversation: false,
+    });
+
+    expect(prisma.conversation.findFirst).toHaveBeenCalledWith({
+      where: { id: "conv-1", orgId: "org-stability" },
+      select: { id: true },
+    });
+  });
+
+  it("rejects cross-tenant conversation IDs when membership scope does not match", async () => {
+    delete process.env.TEMPORAL_ADDRESS;
+    prisma.conversation.findFirst.mockResolvedValue(null);
+
+    await expect(
+      runAgentWorkflow({
+        ...BASE_REQUEST,
+        correlationId: "cross-tenant-conversation",
+        conversationId: "foreign-conversation",
+        persistConversation: false,
+      }),
+    ).rejects.toThrow("Conversation not found");
+  });
+
+  it("skips fallback history query when persistConversation=false and no conversationId", async () => {
+    delete process.env.TEMPORAL_ADDRESS;
+    prisma.conversation.findFirst.mockReset();
+    prisma.message.findMany.mockResolvedValue([
+      {
+        role: "assistant",
+        content: "unexpected",
+        metadata: null,
+      },
+    ]);
+    prisma.run.upsert.mockResolvedValue({ id: "run-2", status: "running" });
+    prisma.run.update.mockResolvedValue({ id: "run-2", status: "succeeded" });
+
+    await runAgentWorkflow({
+      ...BASE_REQUEST,
+      correlationId: "no-fallback-history",
+      conversationId: undefined,
+      persistConversation: false,
+    });
+
+    expect(prisma.conversation.findFirst).not.toHaveBeenCalled();
+    expect(prisma.message.findMany).not.toHaveBeenCalled();
   });
 });

@@ -3,13 +3,8 @@ import { prismaRead } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 
 const PROPERTY_DB_URL =
-  process.env.LA_PROPERTY_DB_URL ?? "https://jueyosscalcljgdorrpy.supabase.co";
-const PROPERTY_DB_KEY = (
-  process.env.LA_PROPERTY_DB_KEY ??
-  process.env.SUPABASE_SERVICE_ROLE_KEY ??
-  process.env.SUPABASE_SERVICE_ROLE_KEY_DEV ??
-  ""
-).trim();
+  requirePropertyDbEnv(process.env.LA_PROPERTY_DB_URL, "LA_PROPERTY_DB_URL");
+const PROPERTY_DB_KEY = requirePropertyDbEnv(process.env.LA_PROPERTY_DB_KEY, "LA_PROPERTY_DB_KEY");
 const PROPERTY_DB_PARISHES = [
   "East Baton Rouge",
   "Ascension",
@@ -24,6 +19,14 @@ const PROPERTY_DB_SEARCH_TERMS = [
   "West Baton Rouge",
   "Iberville",
 ] as const;
+
+function requirePropertyDbEnv(value: string | undefined, name: string): string {
+  const normalized = value?.trim();
+  if (!normalized) {
+    throw new Error(`[parcels-route] Missing required ${name}.`);
+  }
+  return normalized;
+}
 
 function sanitizeSearchInput(input: string): string {
   return input
@@ -248,9 +251,6 @@ async function propertyRpc(
   fnName: string,
   body: Record<string, unknown>,
 ): Promise<unknown[]> {
-  if (!PROPERTY_DB_URL || !PROPERTY_DB_KEY) {
-    return [];
-  }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
   try {
@@ -559,14 +559,6 @@ export async function GET(request: NextRequest) {
 
     if (parcels.length > 0 || !hasCoords) {
       return NextResponse.json({ parcels, source: "org" });
-    }
-
-    if (!PROPERTY_DB_KEY) {
-      return NextResponse.json({
-        parcels: [],
-        source: "property-db-fallback",
-        error: "Missing LA property DB API key",
-      });
     }
 
     const fallbackQueries: Array<() => Promise<unknown[]>> = searchText

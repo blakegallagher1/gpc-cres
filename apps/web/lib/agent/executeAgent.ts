@@ -290,13 +290,11 @@ function filterToolsForIntent(intent: string, tools: readonly unknown[]): unknow
       return false;
     }
     const name = getToolDefinitionName(tool);
-    if (!name) return true;
+    if (!name) return false;
     if (policy.exact.has(name)) return true;
     return policy.prefixes.some((prefix) => name.startsWith(prefix));
   });
-
-  // Safety fallback: never produce an empty tool list unexpectedly.
-  return filtered.length > 0 ? filtered : [...tools];
+  return filtered;
 }
 
 function isAsyncIterable(value: unknown): value is AsyncIterable<unknown> {
@@ -1227,6 +1225,7 @@ export async function executeAgentWorkflow(
 
     retrievalContext = await buildRetrievalContext({
       runId: dbRun.id,
+      orgId: params.orgId,
       queryIntent,
       firstUserInput,
     });
@@ -1925,6 +1924,7 @@ export async function executeAgentWorkflow(
     });
 
     void autoFeedRun({
+      orgId: params.orgId,
       runId: dbRun.id,
       runType: params.runType ?? "ENRICHMENT",
       agentIntent:
@@ -2162,6 +2162,7 @@ export async function resumeSerializedAgentRun(params: {
 
 async function buildRetrievalContext(params: {
   runId: string;
+  orgId: string;
   queryIntent?: string | null;
   firstUserInput?: string;
 }): Promise<DataAgentRetrievalContext | null> {
@@ -2177,7 +2178,7 @@ async function buildRetrievalContext(params: {
   }
 
   try {
-    const retrievalResults = await unifiedRetrieval(query, params.runId);
+    const retrievalResults = await unifiedRetrieval(query, params.runId, params.orgId);
     const topResults = retrievalResults.slice(0, DATA_AGENT_RETRIEVAL_LIMIT);
     const sources = {
       semantic: 0,

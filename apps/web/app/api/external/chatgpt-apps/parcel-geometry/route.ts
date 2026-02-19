@@ -463,7 +463,11 @@ export async function POST(request: Request) {
     });
     const status = result.status === 429 ? 429 : result.status === 504 ? 504 : 502;
     return NextResponse.json(
-      { ok: false, request_id: result.requestId, error: { code: "UPSTREAM_ERROR", message: result.error } },
+      {
+        ok: false,
+        request_id: result.requestId,
+        error: { code: "UPSTREAM_ERROR", message: "Upstream request failed" },
+      },
       { status },
     );
   }

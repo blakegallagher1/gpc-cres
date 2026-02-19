@@ -3,27 +3,26 @@ import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { prisma } from "@entitlement-os/db";
 
 const PROPERTY_DB_URL =
-  process.env.LA_PROPERTY_DB_URL ?? "https://jueyosscalcljgdorrpy.supabase.co";
-const PROPERTY_DB_KEY = process.env.LA_PROPERTY_DB_KEY ?? "";
-const PROPERTY_DB_FALLBACK_KEY =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ??
-  process.env.SUPABASE_SERVICE_ROLE_KEY_DEV ??
-  "";
+  requirePropertyDbEnv(process.env.LA_PROPERTY_DB_URL, "LA_PROPERTY_DB_URL");
+const PROPERTY_DB_KEY = requirePropertyDbEnv(process.env.LA_PROPERTY_DB_KEY, "LA_PROPERTY_DB_KEY");
 
-const resolvedPropertyDbKey =
-  PROPERTY_DB_KEY || PROPERTY_DB_FALLBACK_KEY;
+function requirePropertyDbEnv(value: string | undefined, name: string): string {
+  const normalized = value?.trim();
+  if (!normalized) {
+    throw new Error(`[map-prospect-route] Missing required ${name}.`);
+  }
+  return normalized;
+}
 
 async function propertyRpc(
   fnName: string,
   body: Record<string, unknown>
 ): Promise<unknown> {
-  if (!resolvedPropertyDbKey) return [];
-
   const res = await fetch(`${PROPERTY_DB_URL}/rest/v1/rpc/${fnName}`, {
     method: "POST",
     headers: {
-      apikey: resolvedPropertyDbKey,
-      Authorization: `Bearer ${resolvedPropertyDbKey}`,
+      apikey: PROPERTY_DB_KEY,
+      Authorization: `Bearer ${PROPERTY_DB_KEY}`,
       "Content-Type": "application/json",
       Prefer: "return=representation",
     },
@@ -126,13 +125,6 @@ export async function POST(req: NextRequest) {
 
     // Query parcels from each parish
     const allParcels: Record<string, unknown>[] = [];
-    if (!resolvedPropertyDbKey) {
-      return NextResponse.json(
-        { parcels: [], total: 0, error: "Missing LA property DB API key" },
-        { status: 200 },
-      );
-    }
-
     for (const parish of parishes) {
       const raw = await propertyRpc("api_search_parcels", {
         search_text: filters?.searchText || "*",
