@@ -1,5 +1,8 @@
 # Chat Runtime: Behavior and API Contracts
 
+Last reviewed: 2026-02-19
+
+
 Last updated: 2026-02-16
 
 This document defines runtime contracts for chat execution in `apps/web`, including SSE events, approval flow, resume flow, checkpoint persistence, and failure/retry behavior.

@@ -1,5 +1,8 @@
 # CLAUDE.md
 
+Last reviewed: 2026-02-19
+
+
 ## Project Overview
 
 **Entitlement OS** — Internal operating system for Gallagher Property Company, a commercial real estate investment and development firm focused on light industrial, outdoor storage, and truck parking in Louisiana. The platform combines a 13-agent AI coordinator with a deal pipeline UI, property database integration, and document generation to manufacture certainty in entitlement processes.

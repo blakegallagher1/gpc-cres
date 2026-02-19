@@ -1,5 +1,8 @@
 # Codex Automation Scripts
 
+Last reviewed: 2026-02-19
+
+
 Autonomous development automation for gallagher-cres using `codex exec`. No ChatGPT required — these run entirely via the Codex CLI.
 
 ## Quick Start

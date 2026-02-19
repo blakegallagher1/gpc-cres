@@ -21,6 +21,17 @@ function isInternalFailureMessage(message: string): boolean {
   );
 }
 
+function isSystemConfigurationErrorMessage(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("invalid schema for response_format") ||
+    normalized.includes("response_format") ||
+    normalized.includes("not a valid format") ||
+    normalized.includes("json_schema") ||
+    normalized.includes("outputtype")
+  );
+}
+
 function isGuardrailTripwireMessage(message: string): boolean {
   const normalized = message.toLowerCase();
   return (
@@ -30,13 +41,14 @@ function isGuardrailTripwireMessage(message: string): boolean {
   );
 }
 
-function toClientErrorPayload(message: string): Record<string, unknown> {
+function toClientErrorPayload(message: string, correlationId: string): Record<string, unknown> {
   if (!isGuardrailTripwireMessage(message)) {
-    if (isInternalFailureMessage(message)) {
+    if (isInternalFailureMessage(message) || isSystemConfigurationErrorMessage(message)) {
       return {
         type: "error",
-        message:
-          "Chat is temporarily unavailable due to a backend dependency issue. Please try again shortly.",
+        code: "system_configuration_error",
+        correlationId,
+        message: "System configuration error. Please contact admin.",
       };
     }
     return { type: "error", message };
@@ -66,7 +78,8 @@ export async function POST(req: NextRequest) {
 
   const { conversationId: requestedConversationId, dealId } = body;
   const message = (body.message ?? "").trim();
-  const correlationId = req.headers.get("x-request-id") ?? req.headers.get("idempotency-key");
+  const correlationId =
+    req.headers.get("x-request-id") ?? req.headers.get("idempotency-key") ?? randomUUID();
 
   if (!message || message.length === 0) {
     return Response.json({ error: "message is required" }, { status: 400 });
@@ -91,15 +104,16 @@ export async function POST(req: NextRequest) {
           dealId: dealId ?? null,
           runType: "ENRICHMENT",
         maxTurns: 15,
-        correlationId: correlationId ?? undefined,
+        correlationId,
         persistConversation: true,
         onEvent: (event: AgentStreamEvent) => {
             if (event.type === "done") {
               doneSent = true;
             }
             if (event.type === "error") {
+              console.error(`[chat-route][${correlationId}]`, event.message);
               controller.enqueue(
-                encoder.encode(sseEvent(toClientErrorPayload(event.message))),
+                encoder.encode(sseEvent(toClientErrorPayload(event.message, correlationId))),
               );
               return;
             }
@@ -123,8 +137,9 @@ export async function POST(req: NextRequest) {
         }
       } catch (error) {
         const errMsg = error instanceof Error ? error.message : "Agent execution failed";
+        console.error(`[chat-route][${correlationId}]`, errMsg);
         controller.enqueue(
-          encoder.encode(sseEvent(toClientErrorPayload(errMsg))),
+          encoder.encode(sseEvent(toClientErrorPayload(errMsg, correlationId))),
         );
       } finally {
         if (!doneSent) {

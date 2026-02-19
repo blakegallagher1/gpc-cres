@@ -1,5 +1,8 @@
 # Automation Framework Tests - Wave 0
 
+Last reviewed: 2026-02-19
+
+
 ## Overview
 
 This directory contains comprehensive test suites for all 5 shared automation modules that form the foundation of the Automation Frontier project. These tests are written test-first (TDD) and will initially fail until the implementation modules are created.

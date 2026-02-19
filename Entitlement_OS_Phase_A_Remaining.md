@@ -1,3 +1,5 @@
+Last reviewed: 2026-02-19
+
 Read CLAUDE.md, ROADMAP.md, and IMPLEMENTATION_PLAN.md first.
 Continue Phase A only and complete remaining work (do not revert route redirect changes already done).
 

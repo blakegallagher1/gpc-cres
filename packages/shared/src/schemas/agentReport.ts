@@ -45,9 +45,9 @@ const AgentOutputSchema = z.object({
     .optional()
     .describe("Optional confidence score between 0 and 1"),
   citations: z
-    .array(z.string().url())
+    .array(z.string())
     .nullable()
-    .describe("URLs referenced when generating the agent output")
+    .describe("References used when generating the agent output")
     .optional(),
 });
 
@@ -113,9 +113,9 @@ export const AgentReportSchema = z.object({
     .min(1, "At least one next step is required")
     .describe("Actions that should occur after this report"),
   sources: z
-    .array(z.string().url())
+    .array(z.string())
     .default([])
-    .describe("URLs cited to support the final report"),
+    .describe("References cited to support the final report"),
 });
 
 export type AgentReport = z.infer<typeof AgentReportSchema>;

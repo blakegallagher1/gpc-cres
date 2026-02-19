@@ -32,11 +32,27 @@ function isInternalFailureMessage(message: string): boolean {
   );
 }
 
-function toSafeErrorMessage(message: string): string {
-  if (isInternalFailureMessage(message)) {
-    return "Agent is temporarily unavailable due to a backend dependency issue. Please try again shortly.";
+function isSystemConfigurationErrorMessage(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("invalid schema for response_format") ||
+    normalized.includes("response_format") ||
+    normalized.includes("not a valid format") ||
+    normalized.includes("json_schema") ||
+    normalized.includes("outputtype")
+  );
+}
+
+function toClientErrorPayload(message: string, correlationId: string): Record<string, unknown> {
+  if (isInternalFailureMessage(message) || isSystemConfigurationErrorMessage(message)) {
+    return {
+      type: "error",
+      code: "system_configuration_error",
+      correlationId,
+      message: "System configuration error. Please contact admin.",
+    };
   }
-  return message;
+  return { type: "error", message };
 }
 
 function parseInputPayload(input: unknown): AgentInputMessage[] | null {
@@ -106,7 +122,8 @@ export async function POST(req: NextRequest) {
     typeof body.maxTurns === "number" && Number.isInteger(body.maxTurns)
       ? body.maxTurns
       : undefined;
-  const correlationId = req.headers.get("x-request-id") ?? req.headers.get("idempotency-key");
+  const correlationId =
+    req.headers.get("x-request-id") ?? req.headers.get("idempotency-key") ?? randomUUID();
 
   const runInput = {
     orgId: auth.orgId,
@@ -119,7 +136,7 @@ export async function POST(req: NextRequest) {
     sku: body.sku ?? null,
     runType: body.runType,
     maxTurns,
-    correlationId: correlationId ?? undefined,
+    correlationId,
     persistConversation: body.persistConversation ?? true,
     injectSystemContext: body.injectSystemContext ?? true,
   };
@@ -142,8 +159,9 @@ export async function POST(req: NextRequest) {
         });
       } catch (error) {
         const errMsg = error instanceof Error ? error.message : "Agent execution failed";
+        console.error(`[agent-route][${correlationId}]`, errMsg);
         controller.enqueue(
-          encoder.encode(sseEvent({ type: "error", message: toSafeErrorMessage(errMsg) })),
+          encoder.encode(sseEvent(toClientErrorPayload(errMsg, correlationId))),
         );
       } finally {
         if (!doneSent) {

@@ -1,5 +1,8 @@
 # Test Matrix Starter
 
+Last reviewed: 2026-02-19
+
+
 This directory contains the starter matrix for component-level test coverage across agents, tools, API routes, automation modules, and cross-cutting features.
 
 ## Files

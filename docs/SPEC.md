@@ -1,5 +1,8 @@
 # Entitlement OS v1.0
 
+Last reviewed: 2026-02-19
+
+
 Source-of-truth build plan for: Next.js (TypeScript) + Postgres + Temporal + OpenAI Responses API + Supabase Storage
 
 This document is the authoritative spec for what we are building. It includes architecture, data model, workflows, API contracts, prompts/schemas, storage layout, security model, deployment, testing, and a phased delivery plan.

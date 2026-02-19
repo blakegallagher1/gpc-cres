@@ -1,4 +1,7 @@
 # Entitlement OS – Phase B Restart: Part 4
+
+Last reviewed: 2026-02-19
+
 # Scope: B6 only
 
 Read CLAUDE.md, ROADMAP.md, and IMPLEMENTATION_PLAN.md first.

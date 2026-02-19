@@ -19,6 +19,9 @@ Design goals:
 """
 
 # =========================================================
+
+Last reviewed: 2026-02-19
+
 # ✅ PROJECT STATUS SNAPSHOT (2026-02-17)
 # =========================================================
 
@@ -676,3 +679,24 @@ Codex may use ANY `gh` subcommand without asking for permission.
 - When fixing CI failures, push fixes to the SAME PR branch — do not create new PRs
 - If a PR has merge conflicts with main, rebase the branch:
   `git fetch origin main && git rebase origin/main && git push --force-with-lease`
+
+---
+
+# 16 PROD MAP / PARCEL OPERATIONS ADDENDUM (2026-02-19)
+
+- For map and prospecting incidents, treat these as first-line smoke checks:
+  - `GET /api/parcels?hasCoords=true`
+  - `GET /api/parcels?hasCoords=true&search=<address>`
+  - `POST /api/external/chatgpt-apps/parcel-geometry`
+- If parcel points render but polygons do not, verify geometry fallback path executes in this order:
+  1. direct geometry lookup
+  2. address-normalized lookup
+  3. RPC fallback `rpc_get_parcel_geometry`
+- Do not expose raw Prisma or infrastructure errors to client responses. Return generic 4xx/5xx payloads and log internal details server-side.
+- Server-side parcel DB access must rely on production env vars:
+  - `LA_PROPERTY_DB_URL`
+  - `LA_PROPERTY_DB_KEY` (service role only, never client-exposed)
+- Production deploys using Vercel CLI should prefer archive mode for this repo size:
+  - `vercel --prod --yes --archive=tgz`
+- When PR automation is required, use standard PR flow from a fresh execution context if prior context blocks `gh pr create` policy checks.
+- Keep `main` as source of truth; after merge, sync local main and remove temporary branches.

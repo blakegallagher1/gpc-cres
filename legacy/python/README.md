@@ -1,5 +1,8 @@
 # Gallagher Property Company - AI Agent System
 
+Last reviewed: 2026-02-19
+
+
 A production-grade multi-agent system for commercial real estate development workflows, built with the OpenAI Agents SDK.
 
 ## Overview

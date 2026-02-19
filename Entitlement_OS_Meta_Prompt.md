@@ -1,5 +1,8 @@
 # ENTITLEMENT OS — Consolidation & Enhancement Meta-Prompt
 
+Last reviewed: 2026-02-19
+
+
 **Gallagher Property Company | February 2026 | v1.0**
 
 > This document is a self-contained instruction set for a coding agent. Paste the full text into a new agent session. It contains every specification, schema definition, and acceptance criterion needed for execution.

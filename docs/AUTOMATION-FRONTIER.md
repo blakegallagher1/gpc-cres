@@ -1,5 +1,8 @@
 # The Automation Frontier: Entitlement OS
 
+Last reviewed: 2026-02-19
+
+
 ## Current State: "Guided Autonomy"
 
 The system is a **consultation tool, not an autonomous deal machine**. Agents advise, humans decide. Every deal requires ~44 manual trigger points across its lifecycle. Here's every place a human intervenes, what an autonomous loop would look like, and what guardrails keep it safe.

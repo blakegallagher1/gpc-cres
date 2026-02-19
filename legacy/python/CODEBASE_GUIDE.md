@@ -1,5 +1,8 @@
 # Gallagher Cres - Codebase Guide
 
+Last reviewed: 2026-02-19
+
+
 This folder contains the complete codebase for the Gallagher Property Company AI Agent Dashboard.
 
 ## Folder Structure

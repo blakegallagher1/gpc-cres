@@ -1,5 +1,8 @@
 # Entitlement OS Monorepo
 
+Last reviewed: 2026-02-19
+
+
 Next.js + Temporal + Prisma/Supabase + OpenAI agent runtime for entitlement workflows, chat orchestration, memory, and evidence-backed automation.
 
 ## Core capabilities

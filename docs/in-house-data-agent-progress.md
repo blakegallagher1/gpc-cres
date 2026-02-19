@@ -1,5 +1,8 @@
 # OpenAI In-House Data Agent Capabilities — Implementation Roadmap
 
+Last reviewed: 2026-02-19
+
+
 Date started: 2026-02-14
 
 This document maps the capabilities described in OpenAI’s in-house data agent to the current Entitlement OS implementation, with explicit progress tracking.

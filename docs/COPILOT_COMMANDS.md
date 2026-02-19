@@ -1,5 +1,8 @@
 # Copilot Commands Library
 
+Last reviewed: 2026-02-19
+
+
 _Last updated: 2026-02-15_
 
 This library maps practical commands to tested copilot workflows.

@@ -1,5 +1,8 @@
 # chatgpt-apps Integration
 
+Last reviewed: 2026-02-19
+
+
 Secure integration between gallagher-cres (Next.js) and chatgpt-apps (Supabase PostGIS) for canonical GIS, zoning, and amenities data.
 
 ## Architecture

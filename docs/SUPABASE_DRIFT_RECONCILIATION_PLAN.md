@@ -1,5 +1,8 @@
 # Supabase Drift Reconciliation Plan (Safe, Non-Destructive First)
 
+Last reviewed: 2026-02-19
+
+
 ## Scope
 Reconcile schema drift between Prisma migration history and shared Supabase development database without destructive reset.
 

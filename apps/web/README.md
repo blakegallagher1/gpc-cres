@@ -1,5 +1,8 @@
 # Apps/Web (Next.js 16)
 
+Last reviewed: 2026-02-19
+
+
 Web application and API surface for Entitlement OS.
 
 ## Key API routes
