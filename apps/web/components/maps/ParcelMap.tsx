@@ -52,6 +52,7 @@ export interface MapParcel {
   floodZone?: string | null;
   currentZoning?: string | null;
   propertyDbId?: string | null;
+  geometryLookupKey?: string | null;
   acreage?: number | null;
 }
 
@@ -91,16 +92,22 @@ function getSavedOverlays(): Record<string, boolean> {
 // Sub-components
 // ---------------------------------------------------------------------------
 
-/** Auto-fits map bounds to parcel positions on first render. */
+/** Auto-fits map bounds to parcel positions when the visible set changes. */
 function FitBounds({ parcels }: { parcels: MapParcel[] }) {
   const map = useMap();
-  const fitted = useRef(false);
+  const lastFitKey = useRef("");
 
   useEffect(() => {
-    if (parcels.length === 0 || fitted.current) return;
+    if (parcels.length === 0) return;
+
+    const fitKey = parcels
+      .map((parcel) => `${parcel.id}:${parcel.lat}:${parcel.lng}`)
+      .join("|");
+    if (fitKey === lastFitKey.current) return;
+
     const bounds = L.latLngBounds(parcels.map((p) => [p.lat, p.lng]));
     map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
-    fitted.current = true;
+    lastFitKey.current = fitKey;
   }, [map, parcels]);
 
   return null;

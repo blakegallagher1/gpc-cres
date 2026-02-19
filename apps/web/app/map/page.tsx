@@ -1,6 +1,12 @@
 "use client";
 
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import {
+  type FormEvent,
+  type KeyboardEvent,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { Loader2, Search } from "lucide-react";
@@ -30,12 +36,14 @@ interface ApiParcel {
   floodZone?: string | null;
   currentZoning?: string | null;
   propertyDbId?: string | null;
+  geometryLookupKey?: string | null;
   deal?: { id: string; name: string; sku: string; status: string } | null;
 }
 
 interface ParcelsApiResponse {
   parcels: ApiParcel[];
   source?: "org" | "property-db-fallback";
+  error?: string;
 }
 
 const SURROUNDING_PARCELS_RADIUS_MILES = 1.25;
@@ -67,71 +75,77 @@ export default function MapPage() {
   const handleSearchSubmit = (event?: FormEvent<HTMLFormElement>) => {
     event?.preventDefault();
     const nextSearch = searchText.trim();
+    if (!nextSearch) return;
+
     setDebouncedSearch(nextSearch);
     setSearchSubmitId((value) => value + 1);
   };
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(searchText.trim());
-    }, 250);
-    return () => clearTimeout(timer);
-  }, [searchText]);
+  const handleSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Enter") return;
+    if (!searchText.trim()) return;
+    event.preventDefault();
+    handleSearchSubmit();
+  };
+
+  const submitSearch = () => {
+    handleSearchSubmit();
+  };
 
   const mapApiParcels = (data: ParcelsApiResponse): MapParcel[] =>
-    (data.parcels as ApiParcel[])
-      .filter((p) => p.lat != null && p.lng != null)
-      .map((p) => ({
+    (data.parcels as ApiParcel[]).reduce<MapParcel[]>((acc, p) => {
+      const lat = Number(p.lat);
+      const lng = Number(p.lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return acc;
+
+      acc.push({
         id: p.id,
         address: p.address,
-        lat: Number(p.lat),
-        lng: Number(p.lng),
+        lat,
+        lng,
         dealId: p.deal?.id,
         dealName: p.deal?.name,
         dealStatus: p.deal?.status,
         floodZone: p.floodZone ?? null,
         currentZoning: p.currentZoning ?? null,
         propertyDbId: p.propertyDbId ?? null,
+        geometryLookupKey:
+          p.geometryLookupKey ??
+          p.propertyDbId ??
+          p.address ??
+          null,
         acreage: p.acreage != null ? Number(p.acreage) : null,
-      }));
+      });
 
-  const baseVisibleParcels = useMemo(
-    () => (debouncedSearch ? searchParcels ?? [] : parcels),
-    [debouncedSearch, searchParcels, parcels],
-  );
+      return acc;
+    }, []);
 
   const visibleParcels = useMemo(() => {
     const query = debouncedSearch.toLowerCase();
-    if (!query) return baseVisibleParcels;
+    if (!query) {
+      return parcels;
+    }
 
-    const matching = baseVisibleParcels.filter((parcel) => {
-      const address = parcel.address.toLowerCase();
-      const dealName = parcel.dealName?.toLowerCase() ?? "";
-      const zoning = parcel.currentZoning?.toLowerCase() ?? "";
-      return (
-        address.includes(query) ||
-        dealName.includes(query) ||
-        zoning.includes(query)
-      );
-    });
+    if (!searchParcels || searchParcels.length === 0) {
+      return [];
+    }
 
-    if (matching.length === 0) return [];
-
-    const anchor =
-      matching.find((parcel) => parcel.address.toLowerCase().startsWith(query)) ??
-      matching[0];
-
-    const surrounding = parcels.filter(
-      (parcel) =>
-        distanceMiles(anchor, parcel) <= SURROUNDING_PARCELS_RADIUS_MILES,
+    const surrounding = parcels.filter((parcel) =>
+      searchParcels.some(
+        (anchor) => distanceMiles(anchor, parcel) <= SURROUNDING_PARCELS_RADIUS_MILES,
+      ),
     );
 
     const merged = new Map<string, MapParcel>();
     for (const parcel of surrounding) merged.set(parcel.id, parcel);
-    for (const parcel of matching) merged.set(parcel.id, parcel);
+    for (const parcel of searchParcels) merged.set(parcel.id, parcel);
 
     return Array.from(merged.values());
-  }, [baseVisibleParcels, debouncedSearch, parcels]);
+  }, [debouncedSearch, parcels, searchParcels]);
+
+  const isSearchActive = debouncedSearch.trim().length > 0;
+  const hasNoSearchResults =
+    isSearchActive && searchParcels !== null && searchParcels.length === 0;
 
   useEffect(() => {
     async function loadBaseParcels() {
@@ -143,6 +157,9 @@ export default function MapPage() {
         }
         const data = (await res.json()) as ParcelsApiResponse;
         setSource(data.source === "property-db-fallback" ? "property-db-fallback" : "org");
+        if (data.error) {
+          setLoadError(data.error);
+        }
         setParcels(mapApiParcels(data));
       } catch {
         setLoadError("Failed to load parcels. Please refresh and try again.");
@@ -174,10 +191,16 @@ export default function MapPage() {
         }
         const data = (await res.json()) as ParcelsApiResponse;
         if (!active) return;
+        if (data.error) {
+          setLoadError(data.error);
+        } else {
+          setLoadError(null);
+        }
         setSource(data.source === "property-db-fallback" ? "property-db-fallback" : "org");
         setSearchParcels(mapApiParcels(data));
       } catch {
         if (active) setSearchParcels([]);
+        setLoadError("Search failed. Please try again.");
       } finally {
         if (active) {
           setIsSearchLoading(false);
@@ -200,11 +223,13 @@ export default function MapPage() {
               ? "Loading..."
               : loadError
                 ? loadError
-                : parcels.length === 0
+                : hasNoSearchResults
+                  ? "No parcels found for that search. Try a broader address, parcel number, or owner name."
+                  : parcels.length === 0
                   ? "No parcels with coordinates are available yet. Enrich parcel coordinates to enable map search and boundaries."
                   : source === "property-db-fallback"
                     ? `${visibleParcels.length} of ${parcels.length} parcels (property database fallback)`
-                  : `${visibleParcels.length} of ${parcels.length} parcels with coordinates`}
+                    : `${visibleParcels.length} of ${parcels.length} parcels with coordinates`}
             {debouncedSearch
               ? ` • showing matches + nearby parcels (${SURROUNDING_PARCELS_RADIUS_MILES} mi)`
               : ""}
@@ -218,12 +243,14 @@ export default function MapPage() {
             <Input
               value={searchText}
               onChange={(event) => setSearchText(event.target.value)}
+              onKeyDown={handleSearchKeyDown}
               placeholder="Search parcel address, deal, or zoning"
             />
             <Button
               type="submit"
               size="sm"
               disabled={!searchText.trim()}
+              onClick={submitSearch}
             >
               {isSearchLoading ? (
                 <span className="inline-flex items-center gap-2">

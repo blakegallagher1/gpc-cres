@@ -283,6 +283,12 @@ export function ProspectMap({
         lat: parcel.lat,
         lng: parcel.lng,
         propertyDbId: parcel.propertyDbId ?? parcel.parcelUid ?? parcel.id,
+        geometryLookupKey:
+          parcel.propertyDbId ??
+          parcel.parcelUid ??
+          parcel.id ??
+          parcel.address ??
+          null,
       })),
     [parcels]
   );

@@ -259,7 +259,7 @@ export function MapLibreParcelMap({
   const mapRef = useRef<maplibregl.Map | null>(null);
   const popupRef = useRef<maplibregl.Popup | null>(null);
   const [mapReady, setMapReady] = useState(false);
-  const fittedBoundsRef = useRef(false);
+  const fittedBoundsRef = useRef("");
   const [mapError, setMapError] = useState<string | null>(null);
 
   const [baseLayer, setBaseLayer] = useState<string>(() => getSavedBaseLayer());
@@ -462,7 +462,12 @@ export function MapLibreParcelMap({
 
   const fitBounds = () => {
     const map = mapRef.current;
-    if (!map || parcels.length === 0 || fittedBoundsRef.current) return;
+    if (!map || parcels.length === 0) return;
+
+    const fitKey = parcels
+      .map((parcel) => `${parcel.id}:${parcel.lat}:${parcel.lng}`)
+      .join("|");
+    if (fitKey === fittedBoundsRef.current) return;
 
     const bounds = new maplibregl.LngLatBounds();
     for (const parcel of parcels) {
@@ -471,7 +476,7 @@ export function MapLibreParcelMap({
 
     if (bounds.isEmpty()) return;
     map.fitBounds(bounds, { padding: 40, maxZoom: 15, animate: false });
-    fittedBoundsRef.current = true;
+    fittedBoundsRef.current = fitKey;
   };
 
   useEffect(() => {
@@ -695,9 +700,7 @@ export function MapLibreParcelMap({
         map.on("mouseleave", "parcel-points", clearHoverCursor);
 
         map.on("moveend", () => {
-          if (!fittedBoundsRef.current && parcels.length > 0) {
-            fitBounds();
-          }
+          fitBounds();
           // Debounced viewport bounds update for geometry loading
           if (boundsTimerRef.current) clearTimeout(boundsTimerRef.current);
           boundsTimerRef.current = setTimeout(() => {

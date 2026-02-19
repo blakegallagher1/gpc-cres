@@ -33,7 +33,13 @@ export interface ViewportBounds {
  * Uses an AbortController to cancel stale fetches when bounds change.
  */
 export function useParcelGeometry(
-  parcels: Array<{ id: string; lat?: number; lng?: number; propertyDbId?: string | null }>,
+  parcels: Array<{
+    id: string;
+    lat?: number;
+    lng?: number;
+    propertyDbId?: string | null;
+    geometryLookupKey?: string | null;
+  }>,
   maxFetch: number = 50,
   viewportBounds?: ViewportBounds | null
 ): { geometries: Map<string, ParcelGeometryEntry>; loading: boolean } {
@@ -51,7 +57,7 @@ export function useParcelGeometry(
     abortRef.current = controller;
 
     let candidates = parcels.filter(
-      (p) => p.propertyDbId && !fetchedRef.current.has(p.id)
+      (p) => (p.propertyDbId || p.geometryLookupKey) && !fetchedRef.current.has(p.id)
     );
 
     // Viewport filtering: only fetch parcels within bounds + padding
@@ -91,11 +97,17 @@ export function useParcelGeometry(
 
       const results = await Promise.allSettled(
         batch.map(async (parcel) => {
+          const lookupKey =
+            parcel.geometryLookupKey?.trim() ||
+            parcel.propertyDbId?.trim() ||
+            parcel.id;
+          const cleanedLookupKey = lookupKey.replace(/^ext-/, "");
+
           const res = await fetch("/api/external/chatgpt-apps/parcel-geometry", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              parcelId: parcel.propertyDbId,
+              parcelId: cleanedLookupKey,
               detailLevel: "low",
             }),
             signal: controller.signal,
@@ -104,15 +116,37 @@ export function useParcelGeometry(
           const json = await res.json();
           if (!json.ok || !json.data?.geom_simplified) return null;
 
-          const geom =
-            typeof json.data.geom_simplified === "string"
-              ? JSON.parse(json.data.geom_simplified)
-              : json.data.geom_simplified;
+          let parsedGeometry: unknown = json.data.geom_simplified;
+          if (typeof parsedGeometry === "string") {
+            try {
+              parsedGeometry = JSON.parse(parsedGeometry);
+            } catch {
+              // Some responses return malformed JSON with escaped payloads;
+              // treat those as unavailable rather than fail the full request batch.
+              return null;
+            }
+          }
+
+          if (
+            !parsedGeometry ||
+            typeof parsedGeometry !== "object" ||
+            Array.isArray(parsedGeometry)
+          ) {
+            return null;
+          }
+
+          const geomType = (parsedGeometry as { type?: unknown }).type;
+          if (geomType !== "Polygon" && geomType !== "MultiPolygon") {
+            return null;
+          }
 
           return {
             parcelId: parcel.id,
             entry: {
-              geometry: geom as { type: string; coordinates: unknown },
+              geometry: parsedGeometry as {
+                type: "Polygon" | "MultiPolygon";
+                coordinates: unknown;
+              },
               bbox: json.data.bbox as [number, number, number, number],
               area_sqft: json.data.area_sqft as number,
             },

@@ -26,6 +26,32 @@ function toRecord(value: unknown): Record<string, unknown> | null {
   return value as Record<string, unknown>;
 }
 
+function normalizeRpcRows(value: unknown): Record<string, unknown>[] {
+  if (!value) return [];
+
+  if (Array.isArray(value)) {
+    return value
+      .filter(
+        (item): item is Record<string, unknown> =>
+          item !== null && typeof item === "object" && !Array.isArray(item),
+      )
+      .map((item) => item as Record<string, unknown>);
+  }
+
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    if (Array.isArray(record.data)) return normalizeRpcRows(record.data);
+    if (Array.isArray(record.rows)) return normalizeRpcRows(record.rows);
+    if (Array.isArray(record.result)) return normalizeRpcRows(record.result);
+    if (Array.isArray(record.items)) return normalizeRpcRows(record.items);
+    if (record.error != null) return [];
+
+    return [record];
+  }
+
+  return [];
+}
+
 function toFiniteNumber(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string" && value.trim().length > 0) {
@@ -33,12 +59,6 @@ function toFiniteNumber(value: unknown): number | null {
     return Number.isFinite(parsed) ? parsed : null;
   }
   return null;
-}
-
-function isUuid(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    value,
-  );
 }
 
 function parseGeometry(value: unknown): GeoJsonGeometry | null {
@@ -102,8 +122,119 @@ function parseBbox(value: unknown): [number, number, number, number] | null {
   return [minLng, minLat, maxLng, maxLat];
 }
 
+function candidateParcelKeys(row: Record<string, unknown>): string[] {
+  const candidates = new Set<string>();
+
+  const push = (value: unknown) => {
+    if (typeof value !== "string") return;
+    const trimmed = value.trim();
+    if (trimmed.length > 0) {
+      candidates.add(trimmed);
+    }
+  };
+
+  push(row.id);
+  push(row.parcel_id);
+  push(row.parcel_uid);
+  push(row.apn);
+  push(row.parcel_number);
+  push(row.site_address);
+  push(row.situs_address);
+
+  const parcelData = toRecord(row.parcel_data);
+  if (parcelData) {
+    push(parcelData.id);
+    push(parcelData.parcel_id);
+    push(parcelData.parcel_uid);
+    push(parcelData.apn);
+    push(parcelData.parcel_number);
+    push(parcelData.site_address);
+    push(parcelData.situs_address);
+  }
+
+  return Array.from(candidates);
+}
+
+function normalizeCandidateKey(value: string): string[] {
+  const trimmed = value.trim();
+  if (!trimmed) return [];
+
+  const out = new Set<string>();
+  out.add(trimmed);
+  out.add(trimmed.replace(/^ext-/, ""));
+  out.add(trimmed.replace(/[\s,_-]+/g, " "));
+
+  const normalized = trimmed.toLowerCase();
+  out.add(normalized);
+  out.add(normalized.replace(/[^a-z0-9]/g, ""));
+  out.add(normalized.replace(/[^a-z0-9\s]/g, " ").trim());
+
+  return Array.from(out).filter((entry) => entry.length > 0);
+}
+
+function addAddressFallback(candidates: Set<string>, row: Record<string, unknown>, input: string) {
+  const address = String(row.site_address ?? row.situs_address ?? "").trim();
+  if (address.length > 0) {
+    candidates.add(address);
+  }
+  const fallbackAddress = input.trim();
+  if (fallbackAddress.length > 0) {
+    candidates.add(fallbackAddress);
+  }
+}
+
+async function resolveGeometryFallback(candidateId: string): Promise<ParcelGeometry | null> {
+  const rpcIds = normalizeCandidateKey(candidateId);
+  const tried = new Set<string>();
+
+  for (const rawId of rpcIds) {
+    const normalized = rawId.replace(/^ext-/, "").trim();
+    if (!normalized || tried.has(normalized)) continue;
+    tried.add(normalized);
+
+    const geometryAttempts = [
+      normalized,
+      normalized.toLowerCase(),
+      normalized.toUpperCase(),
+      normalized.replace(/-/g, ""),
+      normalized.replace(/[\s,_-]/g, " "),
+    ];
+
+    for (const id of geometryAttempts) {
+      if (!id || !id.trim()) continue;
+      const geometryRpcRaw = await propertyDbRpc("rpc_get_parcel_geometry", {
+        parcel_id: id,
+      });
+      const geometryFallback = deriveFallbackParcelGeometry(geometryRpcRaw);
+      if (geometryFallback) return geometryFallback;
+    }
+
+    const directGeometryRaw = await propertyDbRpc("api_get_parcel", {
+      parcel_id: normalized,
+    });
+    const directGeometryRows = normalizeRpcRows(directGeometryRaw);
+    const geometryFallback = deriveFallbackParcelGeometry(directGeometryRows);
+    if (geometryFallback) return geometryFallback;
+
+    const fromParcel = deriveFallbackParcelGeometry(
+      (await propertyDbRpc("api_get_parcel", {
+        parcel_id: normalized.replace(/^ext-/, ""),
+      }))
+    );
+    if (fromParcel) return fromParcel;
+  }
+
+  return null;
+}
+
 function deriveFallbackParcelGeometry(raw: unknown): ParcelGeometry | null {
-  const row = Array.isArray(raw) ? toRecord(raw[0]) : toRecord(raw);
+  const row = (() => {
+    if (Array.isArray(raw)) {
+      return toRecord(raw[0]);
+    }
+    const rows = normalizeRpcRows(raw);
+    return rows[0] ? rows[0] : null;
+  })();
   if (!row) return null;
 
   const geometry =
@@ -111,7 +242,10 @@ function deriveFallbackParcelGeometry(raw: unknown): ParcelGeometry | null {
     parseGeometry(row.geometry) ??
     parseGeometry(row.geom) ??
     parseGeometry(row.geom_geojson) ??
-    parseGeometry(row.polygon);
+    parseGeometry(row.polygon) ??
+    parseGeometry(row.geometry_geojson) ??
+    parseGeometry(row.geom_geo_json) ??
+    parseGeometry(row.wkb);
   if (!geometry) return null;
 
   const bbox = parseBbox(row.bbox) ?? bboxFromGeometry(geometry);
@@ -213,52 +347,53 @@ export async function POST(request: Request) {
 
   if (!result.ok) {
     try {
-      const candidateParcelIds = new Set<string>();
-      candidateParcelIds.add(input.parcelId);
+      const candidateParcelIds = new Set<string>(normalizeCandidateKey(input.parcelId));
 
-      if (!isUuid(input.parcelId)) {
-        const matchedParcels = await propertyDbRpc("api_search_parcels", {
-          search_text: input.parcelId,
-          limit_rows: 1,
-        });
-        const firstMatch =
-          Array.isArray(matchedParcels) &&
-          matchedParcels[0] &&
-          typeof matchedParcels[0] === "object"
-            ? (matchedParcels[0] as Record<string, unknown>)
-            : null;
-        if (firstMatch && typeof firstMatch.id === "string" && firstMatch.id.length > 0) {
-          candidateParcelIds.add(firstMatch.id);
+      const matchedParcels = await propertyDbRpc("api_search_parcels", {
+        search_text: input.parcelId,
+        limit_rows: 10,
+      });
+      if (Array.isArray(matchedParcels)) {
+        for (const row of matchedParcels) {
+          if (!row || typeof row !== "object") continue;
+          const record = row as Record<string, unknown>;
+          for (const key of candidateParcelKeys(record)) {
+            normalizeCandidateKey(key).forEach((value) => candidateParcelIds.add(value));
+          }
+          addAddressFallback(candidateParcelIds, record, input.parcelId);
+        }
+      }
+
+      const alternateSearch = await propertyDbRpc("api_search_parcels", {
+        p_search_text: input.parcelId,
+        p_limit: 10,
+      });
+      if (Array.isArray(alternateSearch)) {
+        for (const row of alternateSearch) {
+          if (!row || typeof row !== "object") continue;
+          const record = row as Record<string, unknown>;
+          for (const key of candidateParcelKeys(record)) {
+            normalizeCandidateKey(key).forEach((value) => candidateParcelIds.add(value));
+          }
+          addAddressFallback(candidateParcelIds, record, input.parcelId);
         }
       }
 
       for (const candidateId of candidateParcelIds) {
-        if (!isUuid(candidateId)) continue;
-
-        const geometryRpcRaw = await propertyDbRpc("rpc_get_parcel_geometry", {
-          parcel_id: candidateId,
-        });
-        const geometryFallback = deriveFallbackParcelGeometry(geometryRpcRaw);
-        if (geometryFallback) {
-          return NextResponse.json({
-            ok: true,
-            request_id: requestId,
-            data: geometryFallback,
-          });
-        }
-
-        const parcelRpcRaw = await propertyDbRpc("api_get_parcel", {
-          parcel_id: candidateId,
-        });
-        const parcelFallback = deriveFallbackParcelGeometry(parcelRpcRaw);
-        if (parcelFallback) {
-          return NextResponse.json({
-            ok: true,
-            request_id: requestId,
-            data: parcelFallback,
-          });
+        try {
+          const geometryFallback = await resolveGeometryFallback(candidateId);
+          if (geometryFallback) {
+            return NextResponse.json({
+              ok: true,
+              request_id: requestId,
+              data: geometryFallback,
+            });
+          }
+        } catch {
+          // continue through candidates
         }
       }
+
     } catch {
       // continue to error response
     }
