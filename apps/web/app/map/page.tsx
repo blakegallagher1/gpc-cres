@@ -59,12 +59,15 @@ export default function MapPage() {
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [searchSubmitId, setSearchSubmitId] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [source, setSource] = useState<"org" | "property-db-fallback">("org");
 
   const handleSearchSubmit = (event?: FormEvent<HTMLFormElement>) => {
     event?.preventDefault();
-    setDebouncedSearch(searchText.trim());
+    const nextSearch = searchText.trim();
+    setDebouncedSearch(nextSearch);
+    setSearchSubmitId((value) => value + 1);
   };
 
   useEffect(() => {
@@ -178,7 +181,7 @@ export default function MapPage() {
     return () => {
       active = false;
     };
-  }, [debouncedSearch]);
+  }, [debouncedSearch, searchSubmitId]);
 
   return (
     <DashboardShell>
@@ -209,6 +212,12 @@ export default function MapPage() {
               value={searchText}
               onChange={(event) => setSearchText(event.target.value)}
               placeholder="Search parcel address, deal, or zoning"
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  handleSearchSubmit();
+                }
+              }}
             />
             <Button
               type="submit"
