@@ -223,23 +223,38 @@ function isPolygonGeometry(
   );
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function parcelPopupHtml(parcel: MapParcel): string {
+  const safeAddress = escapeHtml(parcel.address);
+  const safeDealName = parcel.dealName ? escapeHtml(parcel.dealName) : null;
+  const safeDealStatus = parcel.dealStatus ? escapeHtml(parcel.dealStatus.replace(/_/g, " ")) : null;
+  const safeZoning = parcel.currentZoning ? escapeHtml(parcel.currentZoning) : null;
+  const safeFloodZone = parcel.floodZone ? escapeHtml(parcel.floodZone) : null;
+
   const rows = [
-    `<div style="font-weight:600;margin-bottom:2px;">${parcel.address}</div>`,
-    parcel.dealName
-      ? `<div style="color:#6b7280;font-size:11px;">${parcel.dealName}</div>`
+    `<div style="font-weight:600;margin-bottom:2px;">${safeAddress}</div>`,
+    safeDealName
+      ? `<div style="color:#6b7280;font-size:11px;">${safeDealName}</div>`
       : "",
     parcel.acreage != null
       ? `<div style=\"font-size:11px;\">${Number(parcel.acreage).toFixed(2)} acres</div>`
       : "",
-    parcel.dealStatus
-      ? `<div style=\"font-size:11px;\">Status: ${parcel.dealStatus.replace(/_/g, " ")}</div>`
+    safeDealStatus
+      ? `<div style=\"font-size:11px;\">Status: ${safeDealStatus}</div>`
       : "",
-    parcel.currentZoning
-      ? `<div style=\"font-size:11px;\">Zoning: ${parcel.currentZoning}</div>`
+    safeZoning
+      ? `<div style=\"font-size:11px;\">Zoning: ${safeZoning}</div>`
       : "",
-    parcel.floodZone
-      ? `<div style=\"font-size:11px;\">Flood: ${parcel.floodZone}</div>`
+    safeFloodZone
+      ? `<div style=\"font-size:11px;\">Flood: ${safeFloodZone}</div>`
       : "",
   ].filter(Boolean);
 

@@ -97,7 +97,7 @@ export async function POST(request: Request) {
         ? result.status
         : 502;
     return NextResponse.json(
-      { ok: false, request_id: result.requestId, error: { code: "UPSTREAM_ERROR", message: result.error } },
+      { ok: false, request_id: result.requestId, error: { code: "UPSTREAM_ERROR", message: "Upstream request failed" } },
       { status },
     );
   }

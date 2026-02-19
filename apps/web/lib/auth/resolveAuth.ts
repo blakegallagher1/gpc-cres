@@ -77,28 +77,14 @@ export async function resolveAuth(): Promise<{
         if (user) {
           const membership = await prisma.orgMembership.findFirst({
             where: { userId: user.id },
+            orderBy: { createdAt: "asc" },
             select: { orgId: true },
           });
 
           if (membership) {
             return { userId: user.id, orgId: membership.orgId };
           }
-
-          const defaultOrg = await prisma.org.findFirst({ select: { id: true } });
-          if (!defaultOrg) return null;
-
-          await prisma.user.upsert({
-            where: { id: user.id },
-            update: { email: user.email ?? "" },
-            create: { id: user.id, email: user.email ?? "" },
-          });
-
-          const fallback = await prisma.orgMembership.create({
-            data: { orgId: defaultOrg.id, userId: user.id, role: "member" },
-            select: { orgId: true },
-          });
-
-          return { userId: user.id, orgId: fallback.orgId };
+          return null;
         }
 
         if (tokenError) {
@@ -116,26 +102,10 @@ export async function resolveAuth(): Promise<{
       // Look up org membership for this user
       let membership = await prisma.orgMembership.findFirst({
         where: { userId: user.id },
+        orderBy: { createdAt: "asc" },
         select: { orgId: true },
       });
-
-      // Auto-provision: if user has no org, assign them to the default org
-      if (!membership) {
-        const defaultOrg = await prisma.org.findFirst({ select: { id: true } });
-        if (!defaultOrg) return null;
-
-        // Upsert user record (Supabase auth user may not exist in our User table yet)
-        await prisma.user.upsert({
-          where: { id: user.id },
-          update: { email: user.email ?? "" },
-          create: { id: user.id, email: user.email ?? "" },
-        });
-
-        membership = await prisma.orgMembership.create({
-          data: { orgId: defaultOrg.id, userId: user.id, role: "member" },
-          select: { orgId: true },
-        });
-      }
+      if (!membership) return null;
 
       return { userId: user.id, orgId: membership.orgId };
     },

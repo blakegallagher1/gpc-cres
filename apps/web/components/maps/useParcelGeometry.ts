@@ -48,6 +48,7 @@ export function useParcelGeometry(
   );
   const [loading, setLoading] = useState(false);
   const fetchedRef = useRef(new Set<string>());
+  const inFlightRef = useRef(new Set<string>());
   const abortRef = useRef<AbortController | null>(null);
 
   const fetchGeometries = useCallback(async () => {
@@ -57,7 +58,10 @@ export function useParcelGeometry(
     abortRef.current = controller;
 
     let candidates = parcels.filter(
-      (p) => (p.propertyDbId || p.geometryLookupKey) && !fetchedRef.current.has(p.id)
+      (p) =>
+        (p.propertyDbId || p.geometryLookupKey) &&
+        !fetchedRef.current.has(p.id) &&
+        !inFlightRef.current.has(p.id)
     );
 
     // Viewport filtering: only fetch parcels within bounds + padding
@@ -80,8 +84,8 @@ export function useParcelGeometry(
 
     setLoading(true);
 
-    // Mark as in-flight to prevent duplicate fetches
-    for (const p of toFetch) fetchedRef.current.add(p.id);
+    // Mark as in-flight to prevent duplicate fetches while requests are pending.
+    for (const p of toFetch) inFlightRef.current.add(p.id);
 
     const BATCH_SIZE = 5;
 
@@ -89,7 +93,7 @@ export function useParcelGeometry(
       // Check if aborted between batches
       if (controller.signal.aborted) {
         // Un-mark parcels so they can be re-fetched next cycle
-        for (const p of toFetch.slice(i)) fetchedRef.current.delete(p.id);
+        for (const p of toFetch.slice(i)) inFlightRef.current.delete(p.id);
         break;
       }
 
@@ -156,9 +160,12 @@ export function useParcelGeometry(
 
       // Merge successful results into state
       const newEntries = new Map<string, ParcelGeometryEntry>();
+      const successfulParcelIds = new Set<string>();
+      const attemptedParcelIds = new Set<string>(batch.map((parcel) => parcel.id));
       for (const result of results) {
         if (result.status === "fulfilled" && result.value) {
           newEntries.set(result.value.parcelId, result.value.entry);
+          successfulParcelIds.add(result.value.parcelId);
         }
       }
       if (newEntries.size > 0) {
@@ -169,6 +176,14 @@ export function useParcelGeometry(
         });
       }
 
+      // Only mark as fetched after successful responses.
+      for (const parcelId of attemptedParcelIds) {
+        inFlightRef.current.delete(parcelId);
+      }
+      for (const parcelId of successfulParcelIds) {
+        fetchedRef.current.add(parcelId);
+      }
+
       // Small delay between batches to stay within rate limits
       if (i + BATCH_SIZE < toFetch.length) {
         await new Promise((r) => setTimeout(r, 200));
@@ -177,6 +192,8 @@ export function useParcelGeometry(
 
     if (!controller.signal.aborted) {
       setLoading(false);
+    } else {
+      for (const p of toFetch) inFlightRef.current.delete(p.id);
     }
   }, [parcels, maxFetch, viewportBounds]);
 

@@ -183,6 +183,33 @@ function addAddressFallback(candidates: Set<string>, row: Record<string, unknown
   }
 }
 
+async function runWithConcurrency<T>(
+  tasks: Array<() => Promise<T>>,
+  maxConcurrent: number = 5,
+): Promise<PromiseSettledResult<T>[]> {
+  const limit = Math.max(1, maxConcurrent);
+  const results: Array<PromiseSettledResult<T>> = new Array(tasks.length);
+  let nextIndex = 0;
+
+  const worker = async () => {
+    while (nextIndex < tasks.length) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+      try {
+        const value = await tasks[currentIndex]();
+        results[currentIndex] = { status: "fulfilled", value };
+      } catch (reason) {
+        results[currentIndex] = { status: "rejected", reason };
+      }
+    }
+  };
+
+  await Promise.all(
+    Array.from({ length: Math.min(limit, tasks.length) }, () => worker()),
+  );
+  return results;
+}
+
 async function resolveGeometryFallback(candidateId: string): Promise<ParcelGeometry | null> {
   const rpcIds = normalizeCandidateKey(candidateId);
   const tried = new Set<string>();
@@ -200,26 +227,53 @@ async function resolveGeometryFallback(candidateId: string): Promise<ParcelGeome
       normalized.replace(/[\s,_-]/g, " "),
     ];
 
-    for (const id of geometryAttempts) {
-      if (!id || !id.trim()) continue;
-      const geometryRpcRaw = await propertyDbRpc("rpc_get_parcel_geometry", {
-        parcel_id: id,
-      });
-      const geometryFallback = deriveFallbackParcelGeometry(geometryRpcRaw);
-      if (geometryFallback) return geometryFallback;
-    }
-
+    // Order required by map incident spec: direct geometry lookup first.
     const directGeometryRaw = await propertyDbRpc("api_get_parcel", {
       parcel_id: normalized,
     });
     const directGeometryRows = normalizeRpcRows(directGeometryRaw);
-    const geometryFallback = deriveFallbackParcelGeometry(directGeometryRows);
-    if (geometryFallback) return geometryFallback;
+    const directGeometryFallback = deriveFallbackParcelGeometry(directGeometryRows);
+    if (directGeometryFallback) return directGeometryFallback;
 
+    // Address/normalized lookup second.
+    const normalizedLookupTasks = geometryAttempts
+      .filter((id) => Boolean(id && id.trim()))
+      .map((id) => async () => {
+        const response = await propertyDbRpc("api_search_parcels", {
+          search_text: id,
+          limit_rows: 5,
+        });
+        return deriveFallbackParcelGeometry(response);
+      });
+
+    const normalizedLookupResults = await runWithConcurrency(normalizedLookupTasks, 5);
+    const normalizedGeometry = normalizedLookupResults.find(
+      (result): result is PromiseFulfilledResult<ParcelGeometry | null> =>
+        result.status === "fulfilled" && result.value !== null,
+    )?.value;
+    if (normalizedGeometry) return normalizedGeometry;
+
+    // RPC fallback third.
+    const rpcLookupTasks = geometryAttempts
+      .filter((id) => Boolean(id && id.trim()))
+      .map((id) => async () => {
+        const geometryRpcRaw = await propertyDbRpc("rpc_get_parcel_geometry", {
+          parcel_id: id,
+        });
+        return deriveFallbackParcelGeometry(geometryRpcRaw);
+      });
+    const rpcLookupResults = await runWithConcurrency(rpcLookupTasks, 5);
+    const rpcGeometry = rpcLookupResults.find(
+      (result): result is PromiseFulfilledResult<ParcelGeometry | null> =>
+        result.status === "fulfilled" && result.value !== null,
+    )?.value;
+    if (rpcGeometry) return rpcGeometry;
+
+    // Last compatibility attempt with the de-prefixed id.
     const fromParcel = deriveFallbackParcelGeometry(
-      (await propertyDbRpc("api_get_parcel", {
+      await propertyDbRpc("api_get_parcel", {
         parcel_id: normalized.replace(/^ext-/, ""),
-      }))
+      }),
     );
     if (fromParcel) return fromParcel;
   }
