@@ -1,44 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { prisma } from "@entitlement-os/db";
-import { resolveSupabaseAnonKey, resolveSupabaseUrl } from "@/lib/db/supabaseEnv";
-
-async function resolveAuth() {
-  const supabaseUrl = resolveSupabaseUrl() ?? "";
-  const supabaseAnonKey = resolveSupabaseAnonKey() ?? "";
-
-  if (!supabaseUrl || !supabaseAnonKey) return null;
-
-  const cookieStore = await cookies();
-  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      get(name: string) {
-        return cookieStore.get(name)?.value;
-      },
-      set(name: string, value: string, options: CookieOptions) {
-        cookieStore.set({ name, value, ...options });
-      },
-      remove(name: string, options: CookieOptions) {
-        cookieStore.set({ name, value: "", ...options });
-      },
-    },
-  });
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
-
-  const membership = await prisma.orgMembership.findFirst({
-    where: { userId: user.id },
-    select: { orgId: true },
-  });
-
-  if (!membership) return null;
-
-  return { userId: user.id, orgId: membership.orgId };
-}
+import { resolveAuth } from "@/lib/auth/resolveAuth";
 
 // GET /api/chat/conversations/[id] — get a conversation with all messages
 export async function GET(

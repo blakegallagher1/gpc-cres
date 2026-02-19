@@ -25,6 +25,7 @@ vi.mock("../openTelemetry/setup.ts", () => ({
 import * as retrieval from "../services/retrieval.service.ts";
 
 beforeEach(() => {
+  vi.restoreAllMocks();
   mockQueryRawUnsafe.mockReset();
   mockTemporalFindMany.mockReset();
 });
@@ -81,7 +82,7 @@ describe("retrieval.service", () => {
 
     mockTemporalFindMany.mockResolvedValue([]);
 
-    const result = await retrieval.unifiedRetrieval("permit review");
+    const result = await retrieval.unifiedRetrieval("permit review", undefined, "org-1");
 
     expect(result).toHaveLength(3);
     expect(result[0].source).toBe("semantic");
@@ -92,5 +93,82 @@ describe("retrieval.service", () => {
 
   it("requires non-empty query", async () => {
     await expect(retrieval.unifiedRetrieval("   ")).rejects.toThrow("query is required");
+  });
+
+  it("applies orgId scoping to KG graph queries on happy path", async () => {
+    vi.spyOn(retrieval, "createQueryEmbedding").mockResolvedValue(Array(4).fill(0.11));
+
+    mockQueryRawUnsafe.mockImplementation((query: string, ...params: unknown[]) => {
+      if (typeof query === "string" && query.includes("pg_extension")) {
+        return Promise.resolve([{ available: true }]);
+      }
+      if (typeof query === "string" && query.includes("vector_embedding")) {
+        return Promise.resolve([]);
+      }
+      if (typeof query === "string" && query.includes("similarity(ke.content_text")) {
+        return Promise.resolve([]);
+      }
+      if (typeof query === "string" && query.includes("FROM \"KGEvent\"")) {
+        expect(query).toContain("WHERE ge.org_id = $2");
+        expect(params[0]).toBe("permit");
+        expect(params[1]).toBe("org-1");
+        return Promise.resolve([
+          {
+            id: "g1",
+            subjectId: "s",
+            predicate: "relates_to",
+            objectId: "o",
+            confidence: 0.7,
+            timestamp: new Date(),
+            sourceHash: "hash",
+          },
+        ]);
+      }
+      if (typeof query === "string" && query.includes("FROM \"TemporalEdge\"")) {
+        return Promise.resolve([]);
+      }
+      return Promise.resolve([]);
+    });
+
+    const result = await retrieval.unifiedRetrieval("permit", undefined, "org-1");
+    expect(result.some((entry) => entry.source === "graph")).toBe(true);
+  });
+
+  it("rejects cross-tenant graph access by requiring orgId for KG search", async () => {
+    vi.spyOn(retrieval, "createQueryEmbedding").mockResolvedValue(Array(4).fill(0.11));
+
+    mockQueryRawUnsafe.mockImplementation((query: string) => {
+      if (typeof query === "string" && query.includes("pg_extension")) {
+        return Promise.resolve([{ available: true }]);
+      }
+      if (typeof query === "string" && query.includes("vector_embedding")) {
+        return Promise.resolve([]);
+      }
+      if (typeof query === "string" && query.includes("similarity(ke.content_text")) {
+        return Promise.resolve([]);
+      }
+      if (typeof query === "string" && query.includes("FROM \"KGEvent\"")) {
+        throw new Error("graph query should not run without orgId");
+      }
+      return Promise.resolve([]);
+    });
+
+    const result = await retrieval.unifiedRetrieval("permit");
+    expect(result).toEqual([]);
+  });
+
+  it("throws when OPENAI_API_KEY is missing for embedding generation", async () => {
+    const originalKey = process.env.OPENAI_API_KEY;
+    delete process.env.OPENAI_API_KEY;
+
+    await expect(retrieval.createQueryEmbedding("permit")).rejects.toThrow(
+      "OPENAI_API_KEY is required for semantic retrieval",
+    );
+
+    if (originalKey === undefined) {
+      delete process.env.OPENAI_API_KEY;
+    } else {
+      process.env.OPENAI_API_KEY = originalKey;
+    }
   });
 });

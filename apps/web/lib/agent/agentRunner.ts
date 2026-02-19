@@ -661,16 +661,23 @@ export async function runAgentWorkflow(params: AgentRunInput) {
     }
     const history = chatSession
       ? await chatSession.getItems({ limit: 50 })
-      : await prisma.message.findMany({
-          where: conversationId ? { conversationId } : {},
-          orderBy: { createdAt: "asc" },
-          take: 50,
-          select: {
-            role: true,
-            content: true,
-            metadata: true,
-          },
-        });
+      : !conversationId || !persistConversation
+        ? []
+        : await prisma.message.findMany({
+            where: {
+              conversationId,
+              conversation: {
+                orgId,
+              },
+            },
+            orderBy: { createdAt: "asc" },
+            take: 50,
+            select: {
+              role: true,
+              content: true,
+              metadata: true,
+            },
+          });
 
     previousResponseId = await resolvePreviousResponseIdFromHistory(orgId, history);
 

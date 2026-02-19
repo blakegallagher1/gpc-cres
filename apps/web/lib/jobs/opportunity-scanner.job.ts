@@ -3,8 +3,16 @@ import type { Prisma } from "@entitlement-os/db";
 import { getNotificationService } from "@/lib/services/notification.service";
 
 const PROPERTY_DB_URL =
-  process.env.LA_PROPERTY_DB_URL ?? "https://jueyosscalcljgdorrpy.supabase.co";
-const PROPERTY_DB_KEY = process.env.LA_PROPERTY_DB_KEY ?? "";
+  requirePropertyDbEnv(process.env.LA_PROPERTY_DB_URL, "LA_PROPERTY_DB_URL");
+const PROPERTY_DB_KEY = requirePropertyDbEnv(process.env.LA_PROPERTY_DB_KEY, "LA_PROPERTY_DB_KEY");
+
+function requirePropertyDbEnv(value: string | undefined, name: string): string {
+  const normalized = value?.trim();
+  if (!normalized) {
+    throw new Error(`[opportunity-scanner-job] Missing required ${name}.`);
+  }
+  return normalized;
+}
 
 export interface JobResult {
   success: boolean;

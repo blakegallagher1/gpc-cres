@@ -1407,6 +1407,7 @@ export async function runAgentTurn(
     });
 
     void autoFeedRun({
+      orgId: params.orgId,
       runId: dbRun.id,
       runType: params.runType ?? "ENRICHMENT",
       agentIntent:

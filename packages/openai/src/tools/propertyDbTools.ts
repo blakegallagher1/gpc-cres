@@ -8,13 +8,19 @@ import { z } from "zod";
  * containing 560K parcels across 5 Louisiana parishes with
  * flood, soils, wetlands, EPA, traffic, and LDEQ screening data.
  *
- * Env vars (optional overrides):
+ * Env vars:
  *   LA_PROPERTY_DB_URL  — Supabase project URL
  *   LA_PROPERTY_DB_KEY  — Service-role API key
  */
 
-const PROPERTY_DB_URL =
-  process.env.LA_PROPERTY_DB_URL ?? "https://jueyosscalcljgdorrpy.supabase.co";
+function getPropertyDbUrl(): string {
+  const url = process.env.LA_PROPERTY_DB_URL?.trim();
+  if (!url) {
+    throw new Error("[propertyDbTools] Missing required LA_PROPERTY_DB_URL.");
+  }
+  return url;
+}
+
 function getPropertyDbKey(): string {
   const key = process.env.LA_PROPERTY_DB_KEY?.trim();
   if (!key) {
@@ -49,6 +55,7 @@ function delayMs(valueMs: number): Promise<void> {
 
 /** Call a Supabase RPC endpoint and return the JSON body. */
 export async function rpc(fnName: string, body: Record<string, unknown>): Promise<unknown> {
+  const PROPERTY_DB_URL = getPropertyDbUrl();
   const PROPERTY_DB_KEY = getPropertyDbKey();
   let lastError: string | null = null;
 
