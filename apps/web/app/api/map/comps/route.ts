@@ -2,25 +2,54 @@ import { NextRequest, NextResponse } from "next/server";
 import { z, ZodError } from "zod";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 
-const PROPERTY_DB_URL = process.env.LA_PROPERTY_DB_URL || "";
-const PROPERTY_DB_KEY = process.env.LA_PROPERTY_DB_KEY || "";
+function isMissingOrPlaceholder(value: string | undefined): boolean {
+  const normalized = (value ?? "").trim().toLowerCase();
+  return (
+    normalized.length === 0 ||
+    normalized === "undefined" ||
+    normalized === "null" ||
+    normalized === "placeholder" ||
+    normalized.includes("placeholder")
+  );
+}
+
+function getPropertyDbConfig(): { url: string; key: string } | null {
+  const url = process.env.LA_PROPERTY_DB_URL;
+  const key = process.env.LA_PROPERTY_DB_KEY;
+
+  if (!url || !key) return null;
+
+  if (isMissingOrPlaceholder(url) || isMissingOrPlaceholder(key)) {
+    return null;
+  }
+
+  return { url: url.trim(), key: key.trim() };
+}
 
 async function propertyRpc(
   fnName: string,
   body: Record<string, unknown>
 ): Promise<unknown> {
-  const res = await fetch(`${PROPERTY_DB_URL}/rest/v1/rpc/${fnName}`, {
+  const config = getPropertyDbConfig();
+  if (!config) return [];
+
+  const { url, key } = config;
+  const res = await fetch(`${url}/rest/v1/rpc/${fnName}`, {
     method: "POST",
     headers: {
-      apikey: PROPERTY_DB_KEY,
-      Authorization: `Bearer ${PROPERTY_DB_KEY}`,
+      apikey: key,
+      Authorization: `Bearer ${key}`,
       "Content-Type": "application/json",
       Prefer: "return=representation",
     },
     body: JSON.stringify(body),
   });
   if (!res.ok) return [];
-  return res.json();
+  try {
+    return await res.json();
+  } catch {
+    return [];
+  }
 }
 
 const QuerySchema = z

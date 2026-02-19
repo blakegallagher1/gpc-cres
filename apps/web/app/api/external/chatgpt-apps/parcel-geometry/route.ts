@@ -4,6 +4,7 @@ import { getParcelGeometry, type ParcelGeometry } from "@/lib/server/chatgptApps
 import { checkRateLimit } from "@/lib/server/rateLimiter";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { captureChatGptAppsError } from "@/lib/automation/sentry";
+import { logPropertyDbRuntimeHealth } from "@/lib/server/propertyDbEnv";
 import { propertyDbRpc } from "@entitlement-os/openai";
 
 export const runtime = "nodejs";
@@ -211,6 +212,8 @@ async function runWithConcurrency<T>(
 }
 
 async function resolveGeometryFallback(candidateId: string): Promise<ParcelGeometry | null> {
+  logPropertyDbRuntimeHealth("/api/external/chatgpt-apps/parcel-geometry");
+
   const rpcIds = normalizeCandidateKey(candidateId);
   const tried = new Set<string>();
 

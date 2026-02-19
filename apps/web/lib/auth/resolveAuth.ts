@@ -6,6 +6,29 @@ import { headers } from "next/headers";
 import { resolveSupabaseAnonKey, resolveSupabaseUrl } from "@/lib/db/supabaseEnv";
 
 let hasLoggedMissingDatabaseUrl = false;
+const DEFAULT_E2E_ORG_ID = "00000000-0000-0000-0000-000000000001";
+const DEFAULT_E2E_USER_ID = "00000000-0000-0000-0000-000000000002";
+
+function isAuthDisabledForLocalDev(): boolean {
+  if (process.env.NODE_ENV === "production") return false;
+  return process.env.NEXT_PUBLIC_DISABLE_AUTH === "true";
+}
+
+function getDisabledAuthFallbackOrgId(): string {
+  return (
+    process.env.E2E_ORG_ID ||
+    process.env.NEXT_PUBLIC_E2E_ORG_ID ||
+    DEFAULT_E2E_ORG_ID
+  );
+}
+
+function getDisabledAuthFallbackUserId(): string {
+  return (
+    process.env.E2E_USER_ID ||
+    process.env.NEXT_PUBLIC_E2E_USER_ID ||
+    DEFAULT_E2E_USER_ID
+  );
+}
 
 /**
  * Resolve Supabase auth from request cookies.
@@ -21,6 +44,13 @@ export async function resolveAuth(): Promise<{
       op: "auth.resolve",
     },
     async () => {
+      if (isAuthDisabledForLocalDev()) {
+        return {
+          userId: getDisabledAuthFallbackUserId(),
+          orgId: getDisabledAuthFallbackOrgId(),
+        };
+      }
+
       const supabaseUrl = resolveSupabaseUrl() ?? "";
       const supabaseAnonKey = resolveSupabaseAnonKey() ?? "";
       const databaseUrl = process.env.DATABASE_URL || "";

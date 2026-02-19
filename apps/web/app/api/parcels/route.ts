@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prismaRead } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import { logPropertyDbRuntimeHealth, requirePropertyDbConfig } from "@/lib/server/propertyDbEnv";
 
 const PROPERTY_DB_PARISHES = [
   "East Baton Rouge",
@@ -16,21 +17,6 @@ const PROPERTY_DB_SEARCH_TERMS = [
   "West Baton Rouge",
   "Iberville",
 ] as const;
-
-function requirePropertyDbEnv(value: string | undefined, name: string): string {
-  const normalized = value?.trim();
-  if (!normalized) {
-    throw new Error(`[parcels-route] Missing required ${name}.`);
-  }
-  return normalized;
-}
-
-function getPropertyDbConfig(): { url: string; key: string } {
-  return {
-    url: requirePropertyDbEnv(process.env.LA_PROPERTY_DB_URL, "LA_PROPERTY_DB_URL"),
-    key: requirePropertyDbEnv(process.env.LA_PROPERTY_DB_KEY, "LA_PROPERTY_DB_KEY"),
-  };
-}
 
 function sanitizeSearchInput(input: string): string {
   return input
@@ -258,7 +244,7 @@ async function propertyRpc(
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
   try {
-    const { url, key } = getPropertyDbConfig();
+    const { url, key } = requirePropertyDbConfig("parcels-route");
     const res = await fetch(`${url}/rest/v1/rpc/${fnName}`, {
       method: "POST",
       headers: {
@@ -584,6 +570,8 @@ export async function GET(request: NextRequest) {
           ),
           () => searchPropertyDbParcels("*", undefined, 200),
         ];
+
+    logPropertyDbRuntimeHealth("/api/parcels");
 
     const parishResults = (await runWithConcurrency(fallbackQueries, 5))
       .filter(

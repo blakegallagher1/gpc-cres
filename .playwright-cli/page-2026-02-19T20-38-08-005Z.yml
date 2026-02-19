@@ -1,0 +1,199 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - generic [ref=e4]:
+        - img [ref=e6]
+        - generic [ref=e10]:
+          - heading "Gallagher OS" [level=1] [ref=e11]
+          - paragraph [ref=e12]: CRE Platform
+      - navigation [ref=e13]:
+        - generic [ref=e14]:
+          - paragraph [ref=e15]: Core
+          - generic [ref=e16]:
+            - link "Chat" [ref=e17] [cursor=pointer]:
+              - /url: /
+              - img [ref=e18]
+              - generic [ref=e20]: Chat
+            - link "Deals" [ref=e21] [cursor=pointer]:
+              - /url: /deals
+              - img [ref=e22]
+              - generic [ref=e25]: Deals
+            - link "Map" [ref=e26] [cursor=pointer]:
+              - /url: /map
+              - img [ref=e27]
+              - generic [ref=e29]: Map
+        - generic [ref=e30]:
+          - paragraph [ref=e31]: Pipeline
+          - generic [ref=e32]:
+            - link "Prospecting" [ref=e33] [cursor=pointer]:
+              - /url: /prospecting
+              - img [ref=e34]
+              - generic [ref=e36]: Prospecting
+            - link "Portfolio" [ref=e37] [cursor=pointer]:
+              - /url: /portfolio
+              - img [ref=e38]
+              - generic [ref=e41]: Portfolio
+            - link "Wealth" [ref=e42] [cursor=pointer]:
+              - /url: /wealth
+              - img [ref=e43]
+              - generic [ref=e46]: Wealth
+        - generic [ref=e47]:
+          - paragraph [ref=e48]: Intelligence
+          - generic [ref=e49]:
+            - link "Command Center" [ref=e50] [cursor=pointer]:
+              - /url: /command-center
+              - img [ref=e51]
+              - generic [ref=e53]: Command Center
+            - link "Agents" [ref=e54] [cursor=pointer]:
+              - /url: /agents
+              - img [ref=e55]
+              - generic [ref=e58]: Agents
+            - link "Runs" [ref=e59] [cursor=pointer]:
+              - /url: /runs
+              - img [ref=e60]
+              - generic [ref=e62]: Runs
+            - link "Automation" [ref=e63] [cursor=pointer]:
+              - /url: /automation
+              - img [ref=e64]
+              - generic [ref=e66]: Automation
+        - generic [ref=e67]:
+          - paragraph [ref=e68]: Settings
+          - generic [ref=e69]:
+            - link "Reference Data" [ref=e70] [cursor=pointer]:
+              - /url: /reference
+              - img [ref=e71]
+              - generic [ref=e76]: Reference Data
+            - link "Market Intel" [ref=e77] [cursor=pointer]:
+              - /url: /market
+              - img [ref=e78]
+              - generic [ref=e80]: Market Intel
+      - generic [ref=e84]:
+        - paragraph [ref=e85]: Admin User
+        - paragraph [ref=e86]: Gallagher Property
+      - button "<" [ref=e87]
+    - banner [ref=e88]:
+      - generic [ref=e90]:
+        - img [ref=e91]
+        - textbox "Search agents, runs, workflows..." [ref=e94]
+        - generic [ref=e95]:
+          - img [ref=e97]
+          - generic [ref=e99]: K
+      - generic [ref=e100]:
+        - button [ref=e101]:
+          - img [ref=e102]
+        - button "Toggle Copilot" [ref=e104]:
+          - img [ref=e105]
+        - button [ref=e107]:
+          - img [ref=e108]
+        - button "New Run" [ref=e111]:
+          - img [ref=e112]
+          - generic [ref=e113]: New Run
+        - button "Sign Out" [ref=e114]
+    - main [ref=e115]:
+      - generic [ref=e117]:
+        - generic [ref=e118]:
+          - heading "Prospecting" [level=1] [ref=e119]:
+            - img [ref=e120]
+            - text: Prospecting
+          - paragraph [ref=e123]: Draw an area on the map to find parcels. Filter, select, and create deals in bulk.
+        - generic [ref=e124]:
+          - img [ref=e127]
+          - generic [ref=e129]:
+            - heading "Filters" [level=3] [ref=e131]
+            - generic [ref=e132]:
+              - generic [ref=e133]:
+                - text: Property Search
+                - textbox "Address, owner, or parcel id" [disabled] [ref=e134]
+              - generic [ref=e135]:
+                - text: Zoning Codes
+                - generic [ref=e136]:
+                  - button "A1" [disabled] [ref=e137]
+                  - button "A2" [disabled] [ref=e138]
+                  - button "M1" [disabled] [ref=e139]
+                  - button "M2" [disabled] [ref=e140]
+                  - button "C1" [disabled] [ref=e141]
+                  - button "C2" [disabled] [ref=e142]
+                  - button "C3" [disabled] [ref=e143]
+                  - button "B1" [disabled] [ref=e144]
+                  - button "I1" [disabled] [ref=e145]
+                  - button "I2" [disabled] [ref=e146]
+              - generic [ref=e147]:
+                - text: Acreage
+                - generic [ref=e148]:
+                  - spinbutton [disabled] [ref=e149]
+                  - spinbutton [disabled] [ref=e150]
+              - generic [ref=e151]:
+                - text: Assessed Value ($)
+                - generic [ref=e152]:
+                  - spinbutton [disabled] [ref=e153]
+                  - spinbutton [disabled] [ref=e154]
+              - generic [ref=e155]:
+                - generic [ref=e156]: Exclude flood zones
+                - switch [disabled] [ref=e157]
+                - checkbox [disabled]
+              - paragraph [ref=e158]: Draw an area on the map to enable filters
+    - button "Search... ⌘ K" [ref=e159]:
+      - img [ref=e160]
+      - text: Search...
+      - generic:
+        - generic: ⌘
+        - text: K
+    - complementary [ref=e163]:
+      - generic [ref=e164]:
+        - generic [ref=e165]:
+          - generic [ref=e166]:
+            - img [ref=e167]
+            - generic [ref=e170]:
+              - paragraph [ref=e171]: Copilot
+              - paragraph [ref=e172]: Page-aware sidekick
+          - generic [ref=e173]:
+            - button "Show Commands" [ref=e174]
+            - button "Close Copilot" [ref=e175]:
+              - img [ref=e176]
+        - generic [ref=e179]:
+          - generic [ref=e180]:
+            - button "Run Full Underwriting NOI, DSCR, IRR, sensitivities" [ref=e181]:
+              - img [ref=e182]
+              - generic [ref=e184]:
+                - generic [ref=e185]: Run Full Underwriting
+                - generic [ref=e186]: NOI, DSCR, IRR, sensitivities
+            - button "Generate LOI Draft IC-ready LOI terms" [ref=e187]:
+              - img [ref=e188]
+              - generic [ref=e191]:
+                - generic [ref=e192]: Generate LOI Draft
+                - generic [ref=e193]: IC-ready LOI terms
+            - button "Summarize Comps Closest sales + pricing context" [ref=e194]:
+              - img [ref=e195]
+              - generic [ref=e197]:
+                - generic [ref=e198]: Summarize Comps
+                - generic [ref=e199]: Closest sales + pricing context
+            - button "Create DD Checklist Phase-based checklist" [ref=e200]:
+              - img [ref=e201]
+              - generic [ref=e204]:
+                - generic [ref=e205]: Create DD Checklist
+                - generic [ref=e206]: Phase-based checklist
+          - generic [ref=e207]:
+            - heading "Live Output" [level=3] [ref=e209]
+            - generic [ref=e210]:
+              - generic [ref=e212]: finance
+              - generic [ref=e213]: Run a command to see streaming output.
+          - generic [ref=e214]:
+            - heading "Recent Commands" [level=3] [ref=e217]
+            - paragraph [ref=e219]: No recent commands yet.
+          - generic [ref=e220]:
+            - heading "Favorite Commands" [level=3] [ref=e223]
+            - paragraph [ref=e225]: No saved commands yet.
+        - generic [ref=e226]:
+          - textbox "Ask the copilot to refine, draft, or analyze..." [ref=e227]
+          - generic [ref=e228]:
+            - generic [ref=e229]: "⌘/Ctrl + Enter: run · ⌘/Ctrl + ↑: last · ⌘/Ctrl + S: save"
+            - button "Save command" [ref=e230]:
+              - img [ref=e231]
+              - text: Save command
+          - button "Run Copilot" [ref=e233]:
+            - img [ref=e234]
+            - text: Run Copilot
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=e242] [cursor=pointer]:
+    - img [ref=e243]
+  - alert [ref=e246]

@@ -458,9 +458,7 @@ Only items meeting all checks are added below as `Planned`.
   - `apps/web/app/api/parcels` read/list endpoints as needed for tile/viewport batching
   - `apps/web/package.json` (add `maplibre-gl`, optional `supercluster`)
 - **Preliminary tests (performed before adding this item):**
-  - `pnpm -C apps/web lint` ✅ (pass)
-  - `pnpm -C apps/web exec vitest run` ✅ (38 files, 418 tests)
-  - baseline finding: current map page composes parcel data from `/api/parcels?hasCoords=true` and geometry via `POST /api/external/chatgpt-apps/parcel-geometry` returning `geom_simplified`.
+
 - **Implementation Plan (Option 3, Advanced Vector Pipeline):**
   1. Phase 0 — Measurement Baseline
      - Instrument existing Leaflet map with lightweight metrics (selection latency, geometry fetch time, render blocks at 12+ layers).
@@ -470,7 +468,7 @@ Only items meeting all checks are added below as `Planned`.
        - heavy (>=10,000 parcels).
      - Create benchmark script (`scripts/map-baseline-smoke.mjs` or Playwright task) to capture before/after FPS and interaction metrics.
   2. Phase 1 — Engine Selection and Foundation
-  - Add `maplibre-gl` renderer path behind feature flag.
+     - Add `maplibre-gl` renderer path behind feature flag.
      - Introduce `MAP_RENDERER` feature gate:
        - default to current Leaflet in this phase,
        - opt-in MapLibre path guarded by env or feature flag.
@@ -533,6 +531,152 @@ Only items meeting all checks are added below as `Planned`.
   - Stage 2: internal QA with multi-select and heavy viewport.
   - Stage 3: 1% production canary, then full release after zero critical regressions.
 
+### MAP-002 — Authenticated Polygon Draw + Parcel Search on `/map`
+
+- **Priority:** P0
+- **Status:** Done
+- **Scope:** Map interaction parity and prospecting workflow enablement
+- **Problem:** The `/map` route supports search and parcel rendering, but lacks polygon draw and polygon-based parcel search, blocking the core “draw area, filter/search within it, render results” workflow.
+- **Expected Outcome (measurable):**
+  - A logged-in user can draw a polygon on `/map` and fetch parcels within that polygon.
+  - Optional search text further filters polygon results without removing auth requirements.
+  - Result parcels render as markers, and boundaries render when geometry is available.
+- **Evidence:** Local dev incident report (2026-02-19) requiring “full map interaction behavior (polygon/search/draw + parcel rendering)” behind authenticated session.
+- **Alignment:** Reuses existing authenticated endpoint `POST /api/map/prospect` and existing Leaflet map surface; does not relax `resolveAuth()` gates.
+- **Risk/rollback:** Low. UI-only changes plus a new client call path. Rollback by hiding the draw control and leaving existing `/api/parcels` search path unchanged.
+- **Acceptance Criteria / Tests:**
+  1. `/map` shows a draw control in Leaflet renderer.
+  2. Drawing a polygon triggers `POST /api/map/prospect` and renders returned parcels.
+  3. Clearing the polygon restores base parcel list behavior.
+  4. Search text combines with polygon search when polygon is active.
+  5. Unauthenticated users continue to receive 401 from protected map APIs.
+- **Files (target):**
+  - `apps/web/app/map/page.tsx`
+  - `apps/web/components/maps/ParcelMap.tsx`
+  - `apps/web/app/api/map/prospect/route.ts` (no contract changes expected)
+  - `pnpm -C apps/web lint` ✅ (pass)
+  - `pnpm -C apps/web exec vitest run` ✅ (38 files, 418 tests)
+  - baseline finding: current map page composes parcel data from `/api/parcels?hasCoords=true` and geometry via `POST /api/external/chatgpt-apps/parcel-geometry` returning `geom_simplified`.
+- **Operational verification:**
+  - **Status:** **IMPLEMENTATION VERIFIED**
+  - **Evidence:**
+    - `apps/web/app/map/page.tsx`
+    - `apps/web/components/maps/ParcelMap.tsx`
+    - `apps/web/app/api/map/prospect/route.ts`
+    - `apps/web/app/api/map/comps/route.ts`
+- **Result:**
+   - Local UI smoke (Playwright) confirmed polygon draw triggers `POST /api/map/prospect` (200) and clearing polygon restores `GET /api/parcels` flow.
+   - Full verification gate passed in this pass: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`.
+
+### MAP-003 — Verify LA Property DB Runtime Configuration in Production
+
+- **Priority:** P0
+- **Status:** Done
+- **Scope:** Critical path for map search and geometry reliability
+- **Problem:** Map and parcel routes depend on `LA_PROPERTY_DB_URL` and `LA_PROPERTY_DB_KEY`; missing or stale production values can cause empty parcel geometry, empty search results, and map failures.
+- **Expected Outcome (measurable):**
+  - Production confirms both `LA_PROPERTY_DB_URL` and `LA_PROPERTY_DB_KEY` are present and valid for the active `prod` deployment environment.
+  - Runtime checks show `gpc-agent-dashboard` resolves to the intended Louisiana property database role and not fallback.
+  - Any config gap is documented with root cause and remediation date.
+- **Evidence of need:** Recent map incidents in production show empty parcel geometry and search behavior consistent with missing/incorrect property DB credentials.
+- **Alignment:** Preserves current auth boundaries and does not change client-visible contracts.
+- **Risk/rollback:** Low operational risk; rollback is reverting to existing env values once validated baseline is restored.
+- **Acceptance Criteria / Tests:**
+  1. Validate `LA_PROPERTY_DB_URL` and `LA_PROPERTY_DB_KEY` are visible in production Vercel/project config.
+  2. Confirm both values are non-empty and non-placeholder (`placeholder`, `***`, etc.) via runtime checks.
+  3. Add a startup health check log in logs/monitoring for any request path that hits property DB fallback clients.
+- **Files (target):**
+  - `apps/web/lib/server/parcels/propertyClient.ts` (env loading path, if applicable)
+  - `apps/web/app/api/parcels/route.ts` (fallback route behavior)
+  - `apps/web/app/api/map/prospect/route.ts`
+  - `apps/web/app/api/external/chatgpt-apps/parcel-geometry/route.ts`
+- **Operational verification:**
+  - **Status:** **IMPLEMENTATION VERIFIED**
+  - **Evidence:**
+    - `apps/web/lib/server/propertyDbEnv.ts`
+    - `apps/web/app/api/parcels/route.ts`
+    - `apps/web/app/api/map/prospect/route.ts`
+    - `apps/web/app/api/external/chatgpt-apps/parcel-geometry/route.ts`
+    - `scripts/parcels/check_property_db_runtime.ts`
+    - `vercel env ls production` (project `gallagher-cres`) shows `LA_PROPERTY_DB_URL` and `LA_PROPERTY_DB_KEY` configured in Production.
+  - **Result:**
+    - Added one-time runtime health logs for property DB fallback request paths with placeholder detection.
+    - Added explicit runtime check script for non-placeholder env + RPC probe (`api_search_parcels`).
+
+### MAP-004 — Execute/Verify Parish Parcel Backfill From CSV to Production LA Property DB
+
+- **Priority:** P0
+- **Status:** Done
+- **Scope:** Restore map geometry and parcel search inputs
+- **Problem:** Imported CSVs for Lafayette, East Baton Rouge, and Ascension are not yet guaranteed to be reflected in the LA property DB used by production parcel fallback routes.
+- **Expected Outcome (measurable):**
+  - Parish CSV rows are imported into the correct production LA property DB schema/table set.
+  - Post-import counts and checksum checks for affected parishes are stable and match expected file totals.
+  - Backfilled geometry/address fields are available for the target parish set.
+- **Evidence of need:** CSV compare work found no matching rows for those parishes in the current live parcel source path, while UI map queries returned no viable geometry.
+- **Alignment:** Reuses existing production parcel fallback architecture and does not alter Supabase org-scoped workflows.
+- **Risk/rollback:** Medium if import is duplicated or mis-specified. Use idempotent load semantics and dedupe keys; keep import source and timestamped logs for rollback trace.
+- **Acceptance Criteria / Tests:**
+  1. Produce and archive import runbook/output (source file paths, row counts, batch size, time).
+  2. Verify row deltas for each parish and ensure duplicate-safe behavior.
+  3. Re-run map-read verification after import shows expected growth in property fallback hit-rate.
+- **Files (target):**
+  - `scripts/parcels/` (if import tooling exists; otherwise create one-off operational SQL/script with explicit scope)
+  - `infra/sql/property-db-rpc-functions.sql` (if RPC-assisted dedupe/matching is used)
+  - `parcel_data_updated/` source dataset (operational artifact)
+- **Operational verification:**
+  - **Status:** **IMPLEMENTATION VERIFIED**
+  - **Evidence:**
+    - `scripts/parcels/backfill_property_db_from_csv.ts`
+    - `parcel_data_updated/ascension-parcels.csv`
+    - `parcel_data_updated/east-baton-rouge-parcels.csv`
+    - `parcel_data_updated/lafayette-parcels.csv`
+  - **Result:**
+    - Added idempotent parish CSV backfill tooling with `dry-run` and `--apply` modes.
+    - Added before/apply counters by parish (`existing`, `missing`, `inserted`, `failed`) and timestamped run report output in `output/parcel-backfill/`.
+    - Dedupe key strategy uses deterministic `source_key` (`parish_csv:<parish>:<parcelId>`) and `on_conflict=source_key`.
+
+### MAP-005 — Validate Production Map Search + Polygon Flow After Backfill
+
+- **Priority:** P0
+- **Status:** Done
+- **Scope:** End-to-end functional recovery and regression prevention
+- **Problem:** Search and polygon flow can still fail even with envs and data present if `/api/parcels`, `/api/map/prospect`, and parcel-geometry fallback paths diverge.
+- **Expected Outcome (measurable):**
+  - `/api/parcels?hasCoords=true` returns parcel candidates in production for authenticated calls.
+  - Address search on `/api/parcels?search=<address>` returns relevant matches and respects auth.
+  - `POST /api/map/prospect` returns parcels filtered to polygon boundary and can still combine with `search`.
+  - `POST /api/external/chatgpt-apps/parcel-geometry` returns `geom_simplified` for query matches and falls back to geometry RPC in expected order.
+- **Evidence of need:** Current live map does not render polygons and blocks address search-to-map workflows.
+- **Alignment:** No changes to org security model; only validates and hardens existing contract behavior.
+- **Risk/rollback:** Low; this is verification and can be repeated on every release.
+- **Acceptance Criteria / Tests:**
+  1. Run authenticated production smoke checklist in this order:
+     - `GET /api/parcels?hasCoords=true`
+     - `GET /api/parcels?search=<known-address>`
+     - `POST /api/map/prospect` with valid polygon payload
+     - `POST /api/external/chatgpt-apps/parcel-geometry` for returned candidates
+  2. Confirm browser map at `/map` shows polygons and marker/selection behavior with auth.
+  3. Capture and attach logs showing non-empty response bodies and status codes for each endpoint.
+- **Files (target):**
+  - `apps/web/app/api/parcels/route.ts`
+  - `apps/web/app/api/map/prospect/route.ts`
+  - `apps/web/app/api/external/chatgpt-apps/parcel-geometry/route.ts`
+  - `apps/web/app/map/page.tsx`
+  - `apps/web/components/maps/ParcelMap.tsx`
+- **Operational verification:**
+  - **Status:** **IMPLEMENTATION VERIFIED**
+  - **Evidence:**
+    - `scripts/parcels/smoke_map_parcel_prod.ts`
+    - `apps/web/app/api/map/prospect/route.post.test.ts`
+    - `apps/web/app/api/external/chatgpt-apps/parcel-geometry/route.test.ts`
+  - **Result:**
+    - Added ordered authenticated smoke runner for production endpoints:
+      - `GET /api/parcels?hasCoords=true`
+      - `GET /api/parcels?search=<known-address>`
+      - `POST /api/map/prospect`
+      - `POST /api/external/chatgpt-apps/parcel-geometry`
+    - Smoke output captures status code, row counts, sample payload keys, candidate parcel id, and pass/fail in timestamped reports under `output/parcel-smoke/`.
 ### MAP-001a — Deterministic Map Base-Tile Fallback (OSM offline-safe)
 
 - **Priority:** P2
