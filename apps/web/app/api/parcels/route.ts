@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@entitlement-os/db";
+import { prismaRead } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 
 const PROPERTY_DB_URL =
@@ -546,7 +546,7 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    const parcels = await prisma.parcel.findMany({
+    const parcels = await prismaRead.parcel.findMany({
       where,
       include: {
         deal: {

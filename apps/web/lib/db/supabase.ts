@@ -1,32 +1,18 @@
 import { createBrowserClient } from "@supabase/ssr";
+import { requireEnv, resolveSupabaseUrl } from "./supabaseEnv";
 
-const rawSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const rawSupabaseUrl = resolveSupabaseUrl();
 const rawSupabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-function isMissingOrPlaceholder(value: string | undefined): boolean {
-  if (!value) return true;
-  const normalized = value.trim().toLowerCase();
-  return (
-    normalized.length === 0 ||
-    normalized === "undefined" ||
-    normalized === "null" ||
-    normalized === "placeholder" ||
-    normalized.includes("placeholder")
-  );
-}
-
-function requireEnv(value: string | undefined, name: string): string {
-  if (typeof value !== "string" || isMissingOrPlaceholder(value)) {
-    throw new Error(`[supabase] Missing valid ${name}.`);
-  }
-  return value;
-}
 
 let configError: Error | null = null;
 let supabaseUrl = "https://invalid.supabase.local";
 let supabaseKey = "invalid";
 
 try {
-  supabaseUrl = requireEnv(rawSupabaseUrl, "NEXT_PUBLIC_SUPABASE_URL");
+  supabaseUrl = requireEnv(
+    rawSupabaseUrl,
+    "NEXT_PUBLIC_SUPABASE_CUSTOM_DOMAIN_URL or SUPABASE_CUSTOM_DOMAIN_URL or NEXT_PUBLIC_SUPABASE_URL",
+  );
   supabaseKey = requireEnv(rawSupabaseKey, "NEXT_PUBLIC_SUPABASE_ANON_KEY");
 } catch (error) {
   configError = error instanceof Error ? error : new Error(String(error));

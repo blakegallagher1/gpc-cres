@@ -16,13 +16,6 @@ const {
   prismaMock: {
     orgMembership: {
       findFirst: vi.fn(),
-      create: vi.fn(),
-    },
-    org: {
-      findFirst: vi.fn(),
-    },
-    user: {
-      upsert: vi.fn(),
     },
   },
   startSpanMock: vi.fn(
@@ -62,6 +55,10 @@ describe("resolveAuth", () => {
     originalSupabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     originalDatabaseUrl = process.env.DATABASE_URL;
 
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
+    process.env.DATABASE_URL = "postgresql://localhost:5432/entitlement_os_test";
+
     cookiesMock.mockResolvedValue({
       get: vi.fn(),
       set: vi.fn(),
@@ -70,7 +67,6 @@ describe("resolveAuth", () => {
     headersMock.mockResolvedValue({
       get: vi.fn().mockReturnValue(null),
     });
-    getUserMock.mockResolvedValue({ data: { user: null } });
     createServerClientMock.mockReturnValue({ auth: { getUser: getUserMock } });
   });
 
@@ -94,29 +90,49 @@ describe("resolveAuth", () => {
     }
   });
 
-  it("returns null without touching Prisma when DATABASE_URL is missing", async () => {
-    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
-    delete process.env.DATABASE_URL;
+  it("returns auth for the oldest membership on happy path", async () => {
+    getUserMock.mockResolvedValue({ data: { user: { id: "user-1" } } });
+    prismaMock.orgMembership.findFirst.mockResolvedValue({ orgId: "org-oldest" });
 
     const auth = await resolveAuth();
 
-    expect(auth).toBeNull();
-    expect(createServerClientMock).not.toHaveBeenCalled();
-    expect(prismaMock.orgMembership.findFirst).not.toHaveBeenCalled();
-    expect(prismaMock.org.findFirst).not.toHaveBeenCalled();
-    expect(prismaMock.user.upsert).not.toHaveBeenCalled();
+    expect(auth).toEqual({ userId: "user-1", orgId: "org-oldest" });
+    expect(prismaMock.orgMembership.findFirst).toHaveBeenCalledWith({
+      where: { userId: "user-1" },
+      orderBy: { createdAt: "asc" },
+      select: { orgId: true },
+    });
   });
 
-  it("continues through Supabase auth flow when DATABASE_URL is present", async () => {
-    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
-    process.env.DATABASE_URL = "postgresql://localhost:5432/entitlement_os_test";
+  it("fails closed when authenticated user has no membership", async () => {
+    getUserMock.mockResolvedValue({ data: { user: { id: "user-2" } } });
+    prismaMock.orgMembership.findFirst.mockResolvedValue(null);
 
     const auth = await resolveAuth();
 
     expect(auth).toBeNull();
-    expect(createServerClientMock).toHaveBeenCalledTimes(1);
-    expect(getUserMock).toHaveBeenCalledTimes(1);
+    expect(prismaMock.orgMembership.findFirst).toHaveBeenCalledTimes(1);
+  });
+
+  it("captures bearer token errors and falls back to cookie auth user", async () => {
+    headersMock.mockResolvedValue({
+      get: vi.fn().mockReturnValue("Bearer expired-token"),
+    });
+    getUserMock
+      .mockResolvedValueOnce({
+        data: { user: null },
+        error: new Error("JWT expired"),
+      })
+      .mockResolvedValueOnce({
+        data: { user: { id: "user-cookie" } },
+      });
+    prismaMock.orgMembership.findFirst.mockResolvedValue({ orgId: "org-1" });
+
+    const auth = await resolveAuth();
+
+    expect(auth).toEqual({ userId: "user-cookie", orgId: "org-1" });
+    expect(captureExceptionMock).toHaveBeenCalledTimes(1);
+    expect(getUserMock).toHaveBeenNthCalledWith(1, "expired-token");
+    expect(getUserMock).toHaveBeenNthCalledWith(2);
   });
 });

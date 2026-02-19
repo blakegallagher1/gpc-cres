@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { isEmailAllowed } from "@/lib/auth/allowedEmails";
+import { resolveSupabaseAnonKey, resolveSupabaseUrl } from "@/lib/db/supabaseEnv";
 
 const resolveRedirectPath = (url: URL) => {
   const nextParam = url.searchParams.get("next");
@@ -19,10 +20,8 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${callbackUrl.origin}/login?error=missing_code`);
   }
 
-  const supabaseUrl =
-    process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || "";
-  const supabaseAnonKey =
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || "";
+  const supabaseUrl = resolveSupabaseUrl() ?? "";
+  const supabaseAnonKey = resolveSupabaseAnonKey() ?? "";
 
   if (!supabaseUrl || !supabaseAnonKey) {
     return NextResponse.redirect(`${callbackUrl.origin}/login?error=missing_supabase_config`);

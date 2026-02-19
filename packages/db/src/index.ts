@@ -1,4 +1,4 @@
-export { prisma } from "./client.js";
+export { prisma, prismaRead } from "./client.js";
 
 // Re-export Prisma types for downstream packages (e.g. evidence) without requiring
 // them to depend on @prisma/client directly.
