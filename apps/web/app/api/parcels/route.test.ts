@@ -120,20 +120,42 @@ describe("GET /api/parcels", () => {
     expect(body.parcels[0].propertyDbId).toBe("external-1");
   });
 
-  it("throws at module load when LA_PROPERTY_DB_KEY is missing even if SUPABASE_SERVICE_ROLE_KEY exists", async () => {
+  it("returns empty fallback results when LA_PROPERTY_DB_KEY is missing (no SUPABASE_SERVICE_ROLE_KEY fallback)", async () => {
+    ({ GET } = await import("./route"));
     delete process.env.LA_PROPERTY_DB_KEY;
     process.env.SUPABASE_SERVICE_ROLE_KEY = "service-role-key";
+    resolveAuthMock.mockResolvedValue({
+      userId: "99999999-9999-4999-8999-999999999999",
+      orgId: "11111111-1111-4111-8111-111111111111",
+    });
+    findManyMock.mockResolvedValue([]);
 
-    await expect(import("./route")).rejects.toThrow(
-      "[parcels-route] Missing required LA_PROPERTY_DB_KEY.",
-    );
+    const req = new NextRequest("http://localhost/api/parcels?hasCoords=true");
+    const res = await GET(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.source).toBe("property-db-fallback");
+    expect(body.parcels).toEqual([]);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("throws at module load when LA_PROPERTY_DB_URL is missing", async () => {
+  it("returns empty fallback results when LA_PROPERTY_DB_URL is missing", async () => {
+    ({ GET } = await import("./route"));
     delete process.env.LA_PROPERTY_DB_URL;
+    resolveAuthMock.mockResolvedValue({
+      userId: "99999999-9999-4999-8999-999999999999",
+      orgId: "11111111-1111-4111-8111-111111111111",
+    });
+    findManyMock.mockResolvedValue([]);
 
-    await expect(import("./route")).rejects.toThrow(
-      "[parcels-route] Missing required LA_PROPERTY_DB_URL.",
-    );
+    const req = new NextRequest("http://localhost/api/parcels?hasCoords=true");
+    const res = await GET(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.source).toBe("property-db-fallback");
+    expect(body.parcels).toEqual([]);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
