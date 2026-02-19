@@ -2,15 +2,17 @@
 
 Last updated: 2026-02-19
 
+Code-implementable items in this checklist are now wired in repository code. Remaining unchecked work is dashboard/infra operational.
+
 ## Read Replicas
-- `Status`: Partially implemented in code (env + read-client wiring complete; dashboard replica provisioning still required).
+- `Status`: Code wiring complete (env + read-client wiring); dashboard replica provisioning still required.
 - `Action`: Enable read replicas for read-heavy workloads in Supabase dashboard.
 - `Action`: Route read-only analytics/listing queries to replica connection string where applicable. ✅ Implemented via `READ_REPLICA_DATABASE_URL` + `ENABLE_READ_REPLICA` and `prismaRead`.
 - `Action`: Add an app-level toggle/env to selectively use replica reads for non-critical freshness paths. ✅ Implemented (`ENABLE_READ_REPLICA`).
 - `Validation`: Compare p95 latency and primary CPU before/after rollout.
 
 ## Connection Pooling
-- `Status`: Implemented in code via runtime URL parameter wiring; dashboard pooling endpoint selection still required.
+- `Status`: Implemented in code via runtime URL parameter wiring; dashboard pooled endpoint selection still required.
 - `Action`: Ensure production DB URLs use Supavisor/pooled connection strings for app and workers.
 - `Action`: Keep long-lived pooled clients; avoid per-request client construction.
 - `Action`: Verify Prisma pool sizing and timeout settings align with Supabase limits. ✅ Implemented via `PRISMA_CONNECTION_LIMIT` + `PRISMA_POOL_TIMEOUT_SECONDS`.
