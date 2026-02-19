@@ -2,9 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { prismaRead } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 
-const PROPERTY_DB_URL =
-  requirePropertyDbEnv(process.env.LA_PROPERTY_DB_URL, "LA_PROPERTY_DB_URL");
-const PROPERTY_DB_KEY = requirePropertyDbEnv(process.env.LA_PROPERTY_DB_KEY, "LA_PROPERTY_DB_KEY");
 const PROPERTY_DB_PARISHES = [
   "East Baton Rouge",
   "Ascension",
@@ -26,6 +23,13 @@ function requirePropertyDbEnv(value: string | undefined, name: string): string {
     throw new Error(`[parcels-route] Missing required ${name}.`);
   }
   return normalized;
+}
+
+function getPropertyDbConfig(): { url: string; key: string } {
+  return {
+    url: requirePropertyDbEnv(process.env.LA_PROPERTY_DB_URL, "LA_PROPERTY_DB_URL"),
+    key: requirePropertyDbEnv(process.env.LA_PROPERTY_DB_KEY, "LA_PROPERTY_DB_KEY"),
+  };
 }
 
 function sanitizeSearchInput(input: string): string {
@@ -254,11 +258,12 @@ async function propertyRpc(
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
   try {
-    const res = await fetch(`${PROPERTY_DB_URL}/rest/v1/rpc/${fnName}`, {
+    const { url, key } = getPropertyDbConfig();
+    const res = await fetch(`${url}/rest/v1/rpc/${fnName}`, {
       method: "POST",
       headers: {
-        apikey: PROPERTY_DB_KEY,
-        Authorization: `Bearer ${PROPERTY_DB_KEY}`,
+        apikey: key,
+        Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",
         Prefer: "return=representation",
       },
