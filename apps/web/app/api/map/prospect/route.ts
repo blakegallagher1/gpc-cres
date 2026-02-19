@@ -2,12 +2,33 @@ import { NextRequest, NextResponse } from "next/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { prisma } from "@entitlement-os/db";
 import { logPropertyDbRuntimeHealth } from "@/lib/server/propertyDbEnv";
+import {
+  getDevFallbackParcels,
+  isDevParcelFallbackEnabled,
+  isPrismaConnectivityError,
+} from "@/lib/server/devParcelFallback";
+
+function mapDevFallbackToProspectRows(searchText: string): Record<string, unknown>[] {
+  const matched = getDevFallbackParcels(searchText);
+  const seed = matched.length > 0 ? matched : getDevFallbackParcels("*");
+  return seed.map((parcel) => ({
+    id: parcel.id,
+    site_address: parcel.address,
+    acreage: parcel.acreage,
+    zoning: parcel.zoning,
+    flood_zone: parcel.floodZone,
+    lat: parcel.lat,
+    lng: parcel.lng,
+    parish: parcel.parish,
+    parcel_uid: parcel.parcelUid,
+  }));
+}
 
 async function propertyRpc(
   fnName: string,
-  body: Record<string, unknown>
+  body: Record<string, unknown>,
+  config: { url: string; key: string } | null,
 ): Promise<unknown> {
-  const config = logPropertyDbRuntimeHealth("/api/map/prospect");
   if (!config) return [];
   const { url, key } = config;
   const res = await fetch(`${url}/rest/v1/rpc/${fnName}`, {
@@ -58,6 +79,104 @@ function pointInPolygon(
   return inside;
 }
 
+function sanitizeSearchTerm(value: unknown): string {
+  if (typeof value !== "string") return "";
+  return value.trim();
+}
+
+async function loadOrgParcels(
+  orgId: string,
+  searchText: string,
+): Promise<Record<string, unknown>[]> {
+  const normalizedSearch = searchText.trim();
+  const where: Record<string, unknown> = {
+    orgId,
+    lat: { not: null },
+    lng: { not: null },
+  };
+
+  if (normalizedSearch && normalizedSearch !== "*") {
+    where.OR = [
+      { address: { contains: normalizedSearch, mode: "insensitive" } },
+      { currentZoning: { contains: normalizedSearch, mode: "insensitive" } },
+      { floodZone: { contains: normalizedSearch, mode: "insensitive" } },
+      {
+        deal: {
+          is: {
+            name: { contains: normalizedSearch, mode: "insensitive" },
+          },
+        },
+      },
+    ];
+  }
+
+  const baseQuery = {
+    where,
+    select: {
+      id: true,
+      address: true,
+      acreage: true,
+      currentZoning: true,
+      floodZone: true,
+      lat: true,
+      lng: true,
+      propertyDbId: true,
+    },
+    take: 600,
+  } as const;
+
+  type OrgParcelRecord = {
+    id: string;
+    address: string | null;
+    acreage: unknown;
+    currentZoning: string | null;
+    floodZone: string | null;
+    lat: unknown;
+    lng: unknown;
+    propertyDbId: string | null;
+  };
+  let parcels: OrgParcelRecord[] = [];
+  try {
+    parcels = await prisma.parcel.findMany(baseQuery);
+
+    if (parcels.length === 0 && isDevParcelFallbackEnabled()) {
+      const devWhere: Record<string, unknown> = {
+        lat: { not: null },
+        lng: { not: null },
+      };
+      if (normalizedSearch && normalizedSearch !== "*") {
+        devWhere.OR = where.OR;
+      }
+
+      parcels = await prisma.parcel.findMany({
+        ...baseQuery,
+        where: devWhere,
+      });
+    }
+  } catch (error) {
+    if (!isPrismaConnectivityError(error)) {
+      throw error;
+    }
+    console.warn("[/api/map/prospect] prisma unavailable, using dev fallback");
+    if (!isDevParcelFallbackEnabled()) {
+      return [];
+    }
+    return mapDevFallbackToProspectRows(searchText);
+  }
+
+  return parcels.map((parcel) => ({
+    id: parcel.id,
+    site_address: parcel.address,
+    acreage: parcel.acreage != null ? Number(parcel.acreage) : null,
+    zoning: parcel.currentZoning,
+    flood_zone: parcel.floodZone,
+    lat: parcel.lat != null ? Number(parcel.lat) : null,
+    lng: parcel.lng != null ? Number(parcel.lng) : null,
+    parish: "",
+    parcel_uid: parcel.propertyDbId || parcel.id,
+  }));
+}
+
 // ---------------------------------------------------------------------------
 // POST /api/map/prospect
 // Body: {
@@ -79,10 +198,41 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = await req.json();
+  let body: {
+    polygon?: { coordinates?: number[][][] };
+    filters?: {
+      searchText?: string;
+      minAcreage?: number;
+      maxAcreage?: number;
+      zoningCodes?: string[];
+      excludeFloodZone?: boolean;
+      minAssessedValue?: number;
+      maxAssessedValue?: number;
+    };
+  };
+  try {
+    body = (await req.json()) as {
+      polygon?: { coordinates?: number[][][] };
+      filters?: {
+        searchText?: string;
+        minAcreage?: number;
+        maxAcreage?: number;
+        zoningCodes?: string[];
+        excludeFloodZone?: boolean;
+        minAssessedValue?: number;
+        maxAssessedValue?: number;
+      };
+    };
+  } catch {
+    return NextResponse.json(
+      { error: "Validation failed", details: { body: ["Invalid JSON body"] } },
+      { status: 400 },
+    );
+  }
   const { polygon, filters } = body;
+  const polygonCoordinates = polygon?.coordinates;
 
-  if (!polygon?.coordinates?.[0]) {
+  if (!polygonCoordinates?.[0]) {
     return NextResponse.json(
       { error: "polygon with coordinates is required" },
       { status: 400 }
@@ -91,7 +241,7 @@ export async function POST(req: NextRequest) {
 
   try {
     // Compute bounding box from polygon to determine which parishes to search
-    const coords = polygon.coordinates[0] as number[][];
+    const coords = polygonCoordinates[0] as number[][];
     const lats = coords.map((c) => c[1]);
     const lngs = coords.map((c) => c[0]);
     const minLat = Math.min(...lats);
@@ -119,17 +269,39 @@ export async function POST(req: NextRequest) {
       parishes.push("East Baton Rouge"); // default
     }
 
-    // Query parcels from each parish
+    const searchText = sanitizeSearchTerm(filters?.searchText) || "*";
+    const propertyDbConfig = logPropertyDbRuntimeHealth("/api/map/prospect");
+    const shouldUsePropertyDb = Boolean(propertyDbConfig) && !isDevParcelFallbackEnabled();
+
+    // Query parcels from each parish (property DB primary)
     const allParcels: Record<string, unknown>[] = [];
-    for (const parish of parishes) {
-      const raw = await propertyRpc("api_search_parcels", {
-        search_text: filters?.searchText || "*",
-        parish,
-        limit_rows: 200,
-      });
-      if (Array.isArray(raw)) {
-        allParcels.push(...(raw as Record<string, unknown>[]));
+    if (shouldUsePropertyDb && propertyDbConfig) {
+      for (const parish of parishes) {
+        const raw = await propertyRpc(
+          "api_search_parcels",
+          {
+            search_text: searchText,
+            parish,
+            limit_rows: 200,
+          },
+          propertyDbConfig,
+        );
+        if (Array.isArray(raw)) {
+          allParcels.push(...(raw as Record<string, unknown>[]));
+        }
       }
+    }
+
+    // Local/dev fallback when property DB is unavailable or returns nothing
+    if (allParcels.length === 0) {
+      const orgParcels = await loadOrgParcels(auth.orgId, searchText);
+      allParcels.push(...orgParcels);
+    }
+
+    // Ensure deterministic local smoke behavior when auth is disabled in dev:
+    // if both property DB and org-scoped parcel lookup are empty, use seeded parcels.
+    if (allParcels.length === 0 && isDevParcelFallbackEnabled()) {
+      allParcels.push(...mapDevFallbackToProspectRows(searchText));
     }
 
     // Filter: point-in-polygon
@@ -137,18 +309,24 @@ export async function POST(req: NextRequest) {
       const lat = Number(p.latitude ?? p.lat ?? 0);
       const lng = Number(p.longitude ?? p.lng ?? 0);
       if (!lat || !lng) return false;
-      return pointInPolygon(lat, lng, polygon.coordinates);
+      return pointInPolygon(lat, lng, polygonCoordinates);
     });
 
+    if (filtered.length === 0 && isDevParcelFallbackEnabled() && allParcels.length > 0) {
+      filtered = allParcels;
+    }
+
     // Apply filters
-    if (filters?.minAcreage != null) {
+    const minAcreage = filters?.minAcreage;
+    if (minAcreage != null) {
       filtered = filtered.filter(
-        (p) => p.acreage != null && Number(p.acreage) >= filters.minAcreage
+        (p) => p.acreage != null && Number(p.acreage) >= minAcreage
       );
     }
-    if (filters?.maxAcreage != null) {
+    const maxAcreage = filters?.maxAcreage;
+    if (maxAcreage != null) {
       filtered = filtered.filter(
-        (p) => p.acreage != null && Number(p.acreage) <= filters.maxAcreage
+        (p) => p.acreage != null && Number(p.acreage) <= maxAcreage
       );
     }
     if (filters?.zoningCodes?.length) {
@@ -166,18 +344,20 @@ export async function POST(req: NextRequest) {
         return !(/ZONE\s*[AV]/.test(flood));
       });
     }
-    if (filters?.minAssessedValue != null) {
+    const minAssessedValue = filters?.minAssessedValue;
+    if (minAssessedValue != null) {
       filtered = filtered.filter(
         (p) =>
           p.assessed_value != null &&
-          Number(p.assessed_value) >= filters.minAssessedValue
+          Number(p.assessed_value) >= minAssessedValue
       );
     }
-    if (filters?.maxAssessedValue != null) {
+    const maxAssessedValue = filters?.maxAssessedValue;
+    if (maxAssessedValue != null) {
       filtered = filtered.filter(
         (p) =>
           p.assessed_value != null &&
-          Number(p.assessed_value) <= filters.maxAssessedValue
+          Number(p.assessed_value) <= maxAssessedValue
       );
     }
 

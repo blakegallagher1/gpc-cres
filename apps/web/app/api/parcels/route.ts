@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { prismaRead } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { logPropertyDbRuntimeHealth, requirePropertyDbConfig } from "@/lib/server/propertyDbEnv";
+import {
+  getDevFallbackParcels,
+  isDevParcelFallbackEnabled,
+  isPrismaConnectivityError,
+} from "@/lib/server/devParcelFallback";
 
 const PROPERTY_DB_PARISHES = [
   "East Baton Rouge",
@@ -537,18 +542,28 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    const parcels = await prismaRead.parcel.findMany({
-      where,
-      include: {
-        deal: {
-          select: { id: true, name: true, sku: true, status: true },
+    let parcels: unknown[] = [];
+    let prismaUnavailable = false;
+    try {
+      parcels = await prismaRead.parcel.findMany({
+        where,
+        include: {
+          deal: {
+            select: { id: true, name: true, sku: true, status: true },
+          },
         },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 500,
-    });
+        orderBy: { createdAt: "desc" },
+        take: 500,
+      });
+    } catch (error) {
+      prismaUnavailable = isPrismaConnectivityError(error);
+      if (!prismaUnavailable) {
+        throw error;
+      }
+      console.warn("[/api/parcels] prisma unavailable, using fallbacks");
+    }
 
-    if (parcels.length > 0 || !hasCoords) {
+    if (parcels.length > 0 || (!hasCoords && !prismaUnavailable)) {
       return NextResponse.json({ parcels, source: "org" });
     }
 
@@ -582,6 +597,23 @@ export async function GET(request: NextRequest) {
 
     const externalRows = parishResults.flat();
     if (externalRows.length === 0) {
+      if (isDevParcelFallbackEnabled()) {
+        const devParcels = getDevFallbackParcels(searchText).map((parcel) => ({
+          id: parcel.id,
+          address: parcel.address,
+          lat: parcel.lat,
+          lng: parcel.lng,
+          acreage: parcel.acreage,
+          floodZone: parcel.floodZone,
+          currentZoning: parcel.zoning,
+          propertyDbId: parcel.propertyDbId,
+          deal: null,
+        }));
+        return NextResponse.json({
+          parcels: devParcels,
+          source: "dev-fallback",
+        });
+      }
       return NextResponse.json({
         parcels: [],
         source: "property-db-fallback",

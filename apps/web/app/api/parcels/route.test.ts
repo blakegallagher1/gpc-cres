@@ -158,4 +158,27 @@ describe("GET /api/parcels", () => {
     expect(body.parcels).toEqual([]);
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it("uses dev fallback parcels when prisma is unreachable in local auth-disabled mode", async () => {
+    ({ GET } = await import("./route"));
+    process.env.NEXT_PUBLIC_DISABLE_AUTH = "true";
+    process.env.LA_PROPERTY_DB_URL = "placeholder";
+    process.env.LA_PROPERTY_DB_KEY = "placeholder";
+    resolveAuthMock.mockResolvedValue({
+      userId: "99999999-9999-4999-8999-999999999999",
+      orgId: "11111111-1111-4111-8111-111111111111",
+    });
+    findManyMock.mockRejectedValue(
+      new Error("PrismaClientInitializationError: Can't reach database server"),
+    );
+
+    const req = new NextRequest("http://localhost/api/parcels?hasCoords=true&search=government");
+    const res = await GET(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.source).toBe("dev-fallback");
+    expect(body.parcels.length).toBeGreaterThan(0);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });
