@@ -2,10 +2,6 @@ import { prisma } from "@entitlement-os/db";
 import type { Prisma } from "@entitlement-os/db";
 import { getNotificationService } from "@/lib/services/notification.service";
 
-const PROPERTY_DB_URL =
-  requirePropertyDbEnv(process.env.LA_PROPERTY_DB_URL, "LA_PROPERTY_DB_URL");
-const PROPERTY_DB_KEY = requirePropertyDbEnv(process.env.LA_PROPERTY_DB_KEY, "LA_PROPERTY_DB_KEY");
-
 function requirePropertyDbEnv(value: string | undefined, name: string): string {
   const normalized = value?.trim();
   if (!normalized) {
@@ -46,11 +42,19 @@ async function propertyDbRpc(
   fnName: string,
   body: Record<string, unknown>
 ): Promise<unknown> {
-  const res = await fetch(`${PROPERTY_DB_URL}/rest/v1/rpc/${fnName}`, {
+  const propertyDbUrl = requirePropertyDbEnv(
+    process.env.LA_PROPERTY_DB_URL,
+    "LA_PROPERTY_DB_URL",
+  );
+  const propertyDbKey = requirePropertyDbEnv(
+    process.env.LA_PROPERTY_DB_KEY,
+    "LA_PROPERTY_DB_KEY",
+  );
+  const res = await fetch(`${propertyDbUrl}/rest/v1/rpc/${fnName}`, {
     method: "POST",
     headers: {
-      apikey: PROPERTY_DB_KEY,
-      Authorization: `Bearer ${PROPERTY_DB_KEY}`,
+      apikey: propertyDbKey,
+      Authorization: `Bearer ${propertyDbKey}`,
       "Content-Type": "application/json",
       Prefer: "return=representation",
     },
