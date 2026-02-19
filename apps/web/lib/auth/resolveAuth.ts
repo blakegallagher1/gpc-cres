@@ -3,6 +3,7 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { prisma } from "@entitlement-os/db";
 import * as Sentry from "@sentry/nextjs";
 import { headers } from "next/headers";
+import { resolveSupabaseAnonKey, resolveSupabaseUrl } from "@/lib/db/supabaseEnv";
 
 let hasLoggedMissingDatabaseUrl = false;
 
@@ -20,12 +21,8 @@ export async function resolveAuth(): Promise<{
       op: "auth.resolve",
     },
     async () => {
-      const supabaseUrl =
-        process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || "";
-      const supabaseAnonKey =
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-        process.env.SUPABASE_ANON_KEY ||
-        "";
+      const supabaseUrl = resolveSupabaseUrl() ?? "";
+      const supabaseAnonKey = resolveSupabaseAnonKey() ?? "";
       const databaseUrl = process.env.DATABASE_URL || "";
 
       if (!supabaseUrl || !supabaseAnonKey) return null;

@@ -223,7 +223,7 @@ function isPolygonGeometry(
   );
 }
 
-function escapeHtml(value: string): string {
+export function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -232,7 +232,7 @@ function escapeHtml(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
-function parcelPopupHtml(parcel: MapParcel): string {
+export function parcelPopupHtml(parcel: MapParcel): string {
   const safeAddress = escapeHtml(parcel.address);
   const safeDealName = parcel.dealName ? escapeHtml(parcel.dealName) : null;
   const safeDealStatus = parcel.dealStatus ? escapeHtml(parcel.dealStatus.replace(/_/g, " ")) : null;

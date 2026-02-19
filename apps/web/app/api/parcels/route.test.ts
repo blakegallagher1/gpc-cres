@@ -12,7 +12,7 @@ vi.mock("@/lib/auth/resolveAuth", () => ({
 }));
 
 vi.mock("@entitlement-os/db", () => ({
-  prisma: {
+  prismaRead: {
     parcel: {
       findMany: findManyMock,
     },

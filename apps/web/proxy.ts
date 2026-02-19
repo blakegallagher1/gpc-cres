@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { resolveSupabaseAnonKey, resolveSupabaseUrl } from "@/lib/db/supabaseEnv";
 
 const publicRoutes = ["/login", "/signup"];
 
@@ -58,10 +59,8 @@ export async function proxy(request: NextRequest) {
   }
 
   const response = NextResponse.next();
-  const supabaseUrl =
-    process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-  const supabaseAnonKey =
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+  const supabaseUrl = resolveSupabaseUrl();
+  const supabaseAnonKey = resolveSupabaseAnonKey();
   const hasSupabaseConfig =
     Boolean(supabaseUrl && supabaseAnonKey) &&
     supabaseUrl !== "undefined" &&
