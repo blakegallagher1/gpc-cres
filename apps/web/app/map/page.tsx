@@ -4,6 +4,7 @@ import {
   type FormEvent,
   type KeyboardEvent,
   useEffect,
+  useCallback,
   useMemo,
   useState,
 } from "react";
@@ -46,6 +47,23 @@ interface ParcelsApiResponse {
   error?: string;
 }
 
+interface ProspectApiParcel {
+  id: string;
+  address: string;
+  lat: number;
+  lng: number;
+  acreage: number | null;
+  floodZone: string;
+  zoning: string;
+  propertyDbId: string;
+}
+
+interface ProspectApiResponse {
+  parcels: ProspectApiParcel[];
+  total: number;
+  error?: string;
+}
+
 const SURROUNDING_PARCELS_RADIUS_MILES = 1.25;
 
 function distanceMiles(a: MapParcel, b: MapParcel): number {
@@ -71,6 +89,10 @@ export default function MapPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [source, setSource] = useState<"org" | "property-db-fallback">("org");
   const [isSearchLoading, setIsSearchLoading] = useState(false);
+  const [polygon, setPolygon] = useState<number[][][] | null>(null);
+  const [polygonParcels, setPolygonParcels] = useState<MapParcel[] | null>(null);
+  const [polygonError, setPolygonError] = useState<string | null>(null);
+  const [isPolygonLoading, setIsPolygonLoading] = useState(false);
 
   const handleSearchSubmit = (event?: FormEvent<HTMLFormElement>) => {
     event?.preventDefault();
@@ -120,6 +142,77 @@ export default function MapPage() {
       return acc;
     }, []);
 
+  const mapProspectParcels = (data: ProspectApiResponse): MapParcel[] =>
+    (data.parcels as ProspectApiParcel[]).reduce<MapParcel[]>((acc, p) => {
+      const lat = Number(p.lat);
+      const lng = Number(p.lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return acc;
+
+      const propertyDbId = (p.propertyDbId ?? "").trim() || null;
+      const id =
+        (p.id ?? "").trim() ||
+        propertyDbId ||
+        `${lat.toFixed(6)}:${lng.toFixed(6)}:${(p.address ?? "").trim() || "parcel"}`;
+
+      acc.push({
+        id,
+        address: (p.address ?? "Unknown").trim(),
+        lat,
+        lng,
+        floodZone: (p.floodZone ?? "").trim() || null,
+        currentZoning: (p.zoning ?? "").trim() || null,
+        propertyDbId,
+        geometryLookupKey: propertyDbId ?? id,
+        acreage: p.acreage != null ? Number(p.acreage) : null,
+      });
+
+      return acc;
+    }, []);
+
+  const loadPolygonParcels = useCallback(
+    async (coords: number[][][]) => {
+    setIsPolygonLoading(true);
+    setPolygonError(null);
+    try {
+      const res = await fetch("/api/map/prospect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          polygon: { type: "Polygon", coordinates: coords },
+          filters: {
+            searchText: debouncedSearch.trim() ? debouncedSearch.trim() : "*",
+          },
+        }),
+      });
+
+      if (!res.ok) {
+        setPolygonParcels([]);
+        setPolygonError(
+          res.status === 401
+            ? "You must be signed in to use polygon search."
+            : "Polygon search failed. Please try again."
+        );
+        return;
+      }
+
+      const data = (await res.json()) as ProspectApiResponse;
+      if (data.error) {
+        setPolygonParcels([]);
+        setPolygonError(data.error);
+        return;
+      }
+
+      setPolygonParcels(mapProspectParcels(data));
+    } catch {
+      setPolygonParcels([]);
+      setPolygonError("Polygon search failed. Please try again.");
+    } finally {
+      setIsPolygonLoading(false);
+    }
+    },
+    [debouncedSearch]
+  );
+
   const visibleParcels = useMemo(() => {
     const query = debouncedSearch.toLowerCase();
     if (!query) {
@@ -147,6 +240,11 @@ export default function MapPage() {
   const hasNoSearchResults =
     isSearchActive && searchParcels !== null && searchParcels.length === 0;
 
+  const activeParcels = useMemo(() => {
+    if (polygon) return polygonParcels ?? [];
+    return visibleParcels;
+  }, [polygon, polygonParcels, visibleParcels]);
+
   useEffect(() => {
     async function loadBaseParcels() {
       try {
@@ -173,6 +271,12 @@ export default function MapPage() {
   useEffect(() => {
     let active = true;
     async function loadSearchParcels() {
+      if (polygon) {
+        setSearchParcels(null);
+        setIsSearchLoading(false);
+        return;
+      }
+
       setIsSearchLoading(Boolean(debouncedSearch));
       if (!debouncedSearch) {
         setSearchParcels(null);
@@ -211,7 +315,59 @@ export default function MapPage() {
     return () => {
       active = false;
     };
-  }, [debouncedSearch, searchSubmitId]);
+  }, [debouncedSearch, searchSubmitId, polygon]);
+
+  useEffect(() => {
+    if (!polygon) {
+      setPolygonParcels(null);
+      setPolygonError(null);
+      setIsPolygonLoading(false);
+      return;
+    }
+    void loadPolygonParcels(polygon);
+  }, [polygon, debouncedSearch, searchSubmitId, loadPolygonParcels]);
+
+  const clearPolygon = () => {
+    setPolygon(null);
+    setPolygonParcels(null);
+    setPolygonError(null);
+    setIsPolygonLoading(false);
+  };
+
+  const statusText = useMemo(() => {
+    if (loading) return "Loading...";
+    if (polygon) {
+      if (isPolygonLoading) return "Searching within polygon...";
+      if (polygonError) return polygonError;
+      const count = activeParcels.length;
+      const suffix = debouncedSearch.trim() ? " (filtered)" : "";
+      return `${count} parcels in polygon${suffix}`;
+    }
+
+    if (loadError) return loadError;
+    if (hasNoSearchResults) {
+      return "No parcels found for that search. Try a broader address, parcel number, or owner name.";
+    }
+    if (parcels.length === 0) {
+      return "No parcels with coordinates are available yet. Enrich parcel coordinates to enable map search and boundaries.";
+    }
+    if (source === "property-db-fallback") {
+      return `${visibleParcels.length} of ${parcels.length} parcels (property database fallback)`;
+    }
+    return `${visibleParcels.length} of ${parcels.length} parcels with coordinates`;
+  }, [
+    activeParcels.length,
+    debouncedSearch,
+    hasNoSearchResults,
+    isPolygonLoading,
+    loadError,
+    loading,
+    parcels.length,
+    polygon,
+    polygonError,
+    source,
+    visibleParcels.length,
+  ]);
 
   return (
     <DashboardShell>
@@ -219,18 +375,8 @@ export default function MapPage() {
         <div>
           <h1 className="text-2xl font-bold">Parcel Map</h1>
           <p className="text-sm text-muted-foreground">
-            {loading
-              ? "Loading..."
-              : loadError
-                ? loadError
-                : hasNoSearchResults
-                  ? "No parcels found for that search. Try a broader address, parcel number, or owner name."
-                  : parcels.length === 0
-                  ? "No parcels with coordinates are available yet. Enrich parcel coordinates to enable map search and boundaries."
-                  : source === "property-db-fallback"
-                    ? `${visibleParcels.length} of ${parcels.length} parcels (property database fallback)`
-                    : `${visibleParcels.length} of ${parcels.length} parcels with coordinates`}
-            {debouncedSearch
+            {statusText}
+            {!polygon && debouncedSearch
               ? ` • showing matches + nearby parcels (${SURROUNDING_PARCELS_RADIUS_MILES} mi)`
               : ""}
           </p>
@@ -268,11 +414,16 @@ export default function MapPage() {
         </div>
         {!loading && (
           <ParcelMap
-            parcels={visibleParcels}
+            parcels={activeParcels}
             height="calc(100vh - 14rem)"
             showTools
+            polygon={polygon}
+            onPolygonDrawn={(coords) => {
+              setPolygon(coords);
+            }}
+            onPolygonCleared={clearPolygon}
             onParcelClick={(id) => {
-              const parcel = parcels.find((p) => p.id === id);
+              const parcel = activeParcels.find((p) => p.id === id);
               if (parcel?.dealId) router.push(`/deals/${parcel.dealId}`);
             }}
           />

@@ -48,12 +48,18 @@ describe("resolveAuth", () => {
   let originalSupabaseUrl: string | undefined;
   let originalSupabaseAnonKey: string | undefined;
   let originalDatabaseUrl: string | undefined;
+  let originalDisableAuth: string | undefined;
+  let originalE2eOrgId: string | undefined;
+  let originalE2eUserId: string | undefined;
 
   beforeEach(() => {
     vi.clearAllMocks();
     originalSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     originalSupabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     originalDatabaseUrl = process.env.DATABASE_URL;
+    originalDisableAuth = process.env.NEXT_PUBLIC_DISABLE_AUTH;
+    originalE2eOrgId = process.env.E2E_ORG_ID;
+    originalE2eUserId = process.env.E2E_USER_ID;
 
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
@@ -87,6 +93,24 @@ describe("resolveAuth", () => {
       delete process.env.DATABASE_URL;
     } else {
       process.env.DATABASE_URL = originalDatabaseUrl;
+    }
+
+    if (originalDisableAuth === undefined) {
+      delete process.env.NEXT_PUBLIC_DISABLE_AUTH;
+    } else {
+      process.env.NEXT_PUBLIC_DISABLE_AUTH = originalDisableAuth;
+    }
+
+    if (originalE2eOrgId === undefined) {
+      delete process.env.E2E_ORG_ID;
+    } else {
+      process.env.E2E_ORG_ID = originalE2eOrgId;
+    }
+
+    if (originalE2eUserId === undefined) {
+      delete process.env.E2E_USER_ID;
+    } else {
+      process.env.E2E_USER_ID = originalE2eUserId;
     }
   });
 
@@ -134,5 +158,19 @@ describe("resolveAuth", () => {
     expect(captureExceptionMock).toHaveBeenCalledTimes(1);
     expect(getUserMock).toHaveBeenNthCalledWith(1, "expired-token");
     expect(getUserMock).toHaveBeenNthCalledWith(2);
+  });
+
+  it("returns deterministic fallback auth when NEXT_PUBLIC_DISABLE_AUTH=true", async () => {
+    process.env.NEXT_PUBLIC_DISABLE_AUTH = "true";
+    process.env.E2E_ORG_ID = "test-org-dev";
+    process.env.E2E_USER_ID = "test-user-dev";
+
+    const auth = await resolveAuth();
+
+    expect(auth).toEqual({
+      userId: "test-user-dev",
+      orgId: "test-org-dev",
+    });
+    expect(createServerClientMock).not.toHaveBeenCalled();
   });
 });

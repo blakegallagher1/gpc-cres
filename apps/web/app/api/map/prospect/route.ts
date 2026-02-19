@@ -1,27 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { prisma } from "@entitlement-os/db";
-
-function requirePropertyDbEnv(value: string | undefined, name: string): string {
-  const normalized = value?.trim();
-  if (!normalized) {
-    throw new Error(`[map-prospect-route] Missing required ${name}.`);
-  }
-  return normalized;
-}
-
-function getPropertyDbConfig(): { url: string; key: string } {
-  return {
-    url: requirePropertyDbEnv(process.env.LA_PROPERTY_DB_URL, "LA_PROPERTY_DB_URL"),
-    key: requirePropertyDbEnv(process.env.LA_PROPERTY_DB_KEY, "LA_PROPERTY_DB_KEY"),
-  };
-}
+import { logPropertyDbRuntimeHealth } from "@/lib/server/propertyDbEnv";
 
 async function propertyRpc(
   fnName: string,
   body: Record<string, unknown>
 ): Promise<unknown> {
-  const { url, key } = getPropertyDbConfig();
+  const config = logPropertyDbRuntimeHealth("/api/map/prospect");
+  if (!config) return [];
+  const { url, key } = config;
   const res = await fetch(`${url}/rest/v1/rpc/${fnName}`, {
     method: "POST",
     headers: {
@@ -33,7 +21,11 @@ async function propertyRpc(
     body: JSON.stringify(body),
   });
   if (!res.ok) return [];
-  return res.json();
+  try {
+    return await res.json();
+  } catch {
+    return [];
+  }
 }
 
 // ---------------------------------------------------------------------------

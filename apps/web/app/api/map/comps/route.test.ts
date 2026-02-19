@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { resolveAuthMock } = vi.hoisted(() => ({
   resolveAuthMock: vi.fn(),
@@ -16,11 +16,24 @@ const USER_ID = "99999999-9999-4999-8999-999999999999";
 
 describe("GET /api/map/comps", () => {
   const fetchMock = vi.fn();
+  const priorEnv = {
+    url: process.env.LA_PROPERTY_DB_URL,
+    key: process.env.LA_PROPERTY_DB_KEY,
+  };
 
   beforeEach(() => {
     resolveAuthMock.mockReset();
     fetchMock.mockReset();
     vi.stubGlobal("fetch", fetchMock);
+
+    // Route short-circuits RPC calls if env is missing/placeholder.
+    process.env.LA_PROPERTY_DB_URL = "http://property-db.test";
+    process.env.LA_PROPERTY_DB_KEY = "test-key";
+  });
+
+  afterEach(() => {
+    process.env.LA_PROPERTY_DB_URL = priorEnv.url;
+    process.env.LA_PROPERTY_DB_KEY = priorEnv.key;
   });
 
   it("returns 401 when unauthenticated", async () => {
