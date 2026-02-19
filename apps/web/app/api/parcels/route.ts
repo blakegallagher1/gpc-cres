@@ -102,14 +102,25 @@ function parseGeometryCentroid(value: unknown): [number, number] | null {
   return [lat / size, lng / size];
 }
 
+function normalizeLatLngPair(first: number, second: number): [number, number] | null {
+  const firstLooksLat = first >= -90 && first <= 90;
+  const firstLooksLng = first >= -180 && first <= 180;
+  const secondLooksLat = second >= -90 && second <= 90;
+  const secondLooksLng = second >= -180 && second <= 180;
+
+  if (firstLooksLat && secondLooksLng) return [first, second];
+  if (firstLooksLng && secondLooksLat) return [second, first];
+  return null;
+}
+
 function deriveAddressCentroid(
   value: unknown,
 ): [number, number] | null {
   if (!value) return null;
   if (typeof value === "string") {
-    const [x, y] = value.split(",").map((part) => toFiniteNumberOrNull(part));
-    if (x == null || y == null) return null;
-    return [y, x];
+    const [first, second] = value.split(",").map((part) => toFiniteNumberOrNull(part));
+    if (first == null || second == null) return null;
+    return normalizeLatLngPair(first, second);
   }
   if (typeof value === "object" && !Array.isArray(value)) {
     const centroid = value as Record<string, unknown>;
@@ -120,9 +131,11 @@ function deriveAddressCentroid(
     }
   }
   if (Array.isArray(value) && value.length >= 2) {
-    const lng = toFiniteNumberOrNull(value[0]);
-    const lat = toFiniteNumberOrNull(value[1]);
-    if (lng != null && lat != null) return [lat, lng];
+    const first = toFiniteNumberOrNull(value[0]);
+    const second = toFiniteNumberOrNull(value[1]);
+    if (first != null && second != null) {
+      return normalizeLatLngPair(first, second);
+    }
   }
   return null;
 }
@@ -323,6 +336,34 @@ function mergeRpcResultRows(values: unknown[][]): Record<string, unknown>[] {
   return Array.from(deduped.values());
 }
 
+async function runWithConcurrency<T>(
+  tasks: Array<() => Promise<T>>,
+  maxConcurrent: number = 5,
+): Promise<PromiseSettledResult<T>[]> {
+  const limit = Math.max(1, maxConcurrent);
+  const results: Array<PromiseSettledResult<T>> = new Array(tasks.length);
+  let nextIndex = 0;
+
+  const worker = async () => {
+    while (nextIndex < tasks.length) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+      try {
+        const value = await tasks[currentIndex]();
+        results[currentIndex] = { status: "fulfilled", value };
+      } catch (reason) {
+        results[currentIndex] = { status: "rejected", reason };
+      }
+    }
+  };
+
+  await Promise.all(
+    Array.from({ length: Math.min(limit, tasks.length) }, () => worker()),
+  );
+
+  return results;
+}
+
 function mapExternalParcelToApiShape(
   row: Record<string, unknown>,
 ): Record<string, unknown> | null {
@@ -406,15 +447,15 @@ async function searchPropertyDbParcels(
   const candidates = buildRpcSearchTerms(fallback);
   const limit = Math.max(80, Math.min(limitRows, 250));
 
-  const searchCalls: Array<Promise<unknown[]>> = [];
+  const searchCalls: Array<() => Promise<unknown[]>> = [];
   const addSearchCalls = (query: string, withAltNames = true) => {
     searchCalls.push(
-      propertyRpc("api_search_parcels", {
+      () => propertyRpc("api_search_parcels", {
         search_text: query,
         ...(parish ? { parish } : {}),
         limit_rows: limit,
       }),
-      propertyRpc("api_search_parcels", {
+      () => propertyRpc("api_search_parcels", {
         p_search_text: query,
         ...(parish ? { p_parish: parish } : {}),
         p_limit: limit,
@@ -423,27 +464,27 @@ async function searchPropertyDbParcels(
 
     if (withAltNames) {
       searchCalls.push(
-        propertyRpc("api_search_parcels", {
+        () => propertyRpc("api_search_parcels", {
           search_query: query,
           ...(parish ? { parish } : {}),
           limit_rows: limit,
         }),
-        propertyRpc("api_search_parcels", {
+        () => propertyRpc("api_search_parcels", {
           q: query,
           ...(parish ? { parish } : {}),
           p_limit: limit,
         }),
-        propertyRpc("api_search_parcels", {
+        () => propertyRpc("api_search_parcels", {
           query: query,
           ...(parish ? { parish } : {}),
           limit: limit,
         }),
-        propertyRpc("api_search_parcels", {
+        () => propertyRpc("api_search_parcels", {
           query_text: query,
           ...(parish ? { parish } : {}),
           limit_rows: limit,
         }),
-        propertyRpc("api_search_parcels", {
+        () => propertyRpc("api_search_parcels", {
           search_term: query,
           ...(parish ? { parish } : {}),
           limit_rows: limit,
@@ -461,10 +502,16 @@ async function searchPropertyDbParcels(
   if (fallback !== "*") {
     addSearchCalls(fallback.toLowerCase(), false);
     addSearchCalls(fallback.toUpperCase(), false);
-    searchCalls.push(propertyRpc("api_get_parcel", { parcel_id: fallback }));
+    searchCalls.push(() => propertyRpc("api_get_parcel", { parcel_id: fallback }));
   }
 
-  const results = await Promise.all(searchCalls);
+  const settled = await runWithConcurrency(searchCalls, 5);
+  const results = settled
+    .filter(
+      (result): result is PromiseFulfilledResult<unknown[]> =>
+        result.status === "fulfilled",
+    )
+    .map((result) => result.value);
   return mergeRpcResultRows(results);
 }
 
@@ -522,28 +569,31 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const fallbackQueries: Array<Promise<unknown[]>> = searchText
+    const fallbackQueries: Array<() => Promise<unknown[]>> = searchText
       ? Array.from(
           new Set([...buildSearchTerms(searchText), ...normalizeParcelCandidate(searchText)]),
         ).flatMap((term) => [
-          searchPropertyDbParcels(term, undefined, 180),
+          () => searchPropertyDbParcels(term, undefined, 180),
           ...PROPERTY_DB_PARISHES.map((parish) =>
-            searchPropertyDbParcels(term, parish, 120),
+            () => searchPropertyDbParcels(term, parish, 120),
           ),
         ])
       : [
           ...PROPERTY_DB_PARISHES.map((parish) =>
-            searchPropertyDbParcels("*", parish, 150),
+            () => searchPropertyDbParcels("*", parish, 150),
           ),
           ...PROPERTY_DB_SEARCH_TERMS.map((term) =>
-            searchPropertyDbParcels(term, undefined, 200),
+            () => searchPropertyDbParcels(term, undefined, 200),
           ),
-          searchPropertyDbParcels("*", undefined, 200),
+          () => searchPropertyDbParcels("*", undefined, 200),
         ];
 
-    const parishResults = await Promise.all(
-      fallbackQueries,
-    );
+    const parishResults = (await runWithConcurrency(fallbackQueries, 5))
+      .filter(
+        (result): result is PromiseFulfilledResult<unknown[]> =>
+          result.status === "fulfilled",
+      )
+      .map((result) => result.value);
 
     const externalRows = parishResults.flat();
     if (externalRows.length === 0) {

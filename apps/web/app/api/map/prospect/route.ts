@@ -235,6 +235,8 @@ export async function PUT(req: NextRequest) {
   if (action === "create-deals" && Array.isArray(parcels)) {
     // Find default jurisdiction for the org (use first available)
     const jurisdiction = await prisma.jurisdiction.findFirst({
+      where: { orgId: auth.orgId },
+      orderBy: { createdAt: "asc" },
       select: { id: true },
     });
     if (!jurisdiction) {
@@ -262,8 +264,10 @@ export async function PUT(req: NextRequest) {
       if (parcel.parish) {
         const parishJur = await prisma.jurisdiction.findFirst({
           where: {
+            orgId: auth.orgId,
             name: { contains: parcel.parish, mode: "insensitive" },
           },
+          orderBy: { createdAt: "asc" },
           select: { id: true },
         });
         if (parishJur) jId = parishJur.id;

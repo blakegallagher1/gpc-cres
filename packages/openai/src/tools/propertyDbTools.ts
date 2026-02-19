@@ -15,9 +15,13 @@ import { z } from "zod";
 
 const PROPERTY_DB_URL =
   process.env.LA_PROPERTY_DB_URL ?? "https://jueyosscalcljgdorrpy.supabase.co";
-const PROPERTY_DB_KEY =
-  process.env.LA_PROPERTY_DB_KEY ??
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp1ZXlvc3NjYWxjbGpnZG9ycnB5Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MDM1MjU3NywiZXhwIjoyMDg1OTI4NTc3fQ.4ZsbLoYxhWGJfu20TyLtrCDLtx-VdeHcQEmaffekJVI";
+function getPropertyDbKey(): string {
+  const key = process.env.LA_PROPERTY_DB_KEY?.trim();
+  if (!key) {
+    throw new Error("[propertyDbTools] Missing required LA_PROPERTY_DB_KEY.");
+  }
+  return key;
+}
 
 const MAX_RETRIES = 3;
 
@@ -45,6 +49,7 @@ function delayMs(valueMs: number): Promise<void> {
 
 /** Call a Supabase RPC endpoint and return the JSON body. */
 export async function rpc(fnName: string, body: Record<string, unknown>): Promise<unknown> {
+  const PROPERTY_DB_KEY = getPropertyDbKey();
   let lastError: string | null = null;
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
