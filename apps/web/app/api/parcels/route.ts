@@ -78,6 +78,23 @@ function mapExternalParcelToApiShape(
   };
 }
 
+function matchesSearchQuery(
+  parcel: Record<string, unknown>,
+  query: string,
+): boolean {
+  if (!query) return true;
+  const q = query.toLowerCase();
+  const fields = [
+    parcel.address,
+    parcel.currentZoning,
+    parcel.floodZone,
+    parcel.propertyDbId,
+  ];
+  return fields.some((value) =>
+    typeof value === "string" && value.toLowerCase().includes(q),
+  );
+}
+
 async function searchPropertyDbParcels(
   searchText: string,
   parish?: string,
@@ -174,8 +191,12 @@ export async function GET(request: NextRequest) {
       )
       .filter((row): row is Record<string, unknown> => row !== null);
 
+    const filteredExternal = searchText
+      ? mappedExternal.filter((parcel) => matchesSearchQuery(parcel, searchText))
+      : mappedExternal;
+
     const deduped = Array.from(
-      new Map(mappedExternal.map((item) => [String(item.id), item])).values(),
+      new Map(filteredExternal.map((item) => [String(item.id), item])).values(),
     ).slice(0, 500);
 
     return NextResponse.json({ parcels: deduped, source: "property-db-fallback" });
