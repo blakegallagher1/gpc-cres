@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import type { MapParcel } from "@/components/maps/ParcelMap";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 const ParcelMap = dynamic(
   () => import("@/components/maps/ParcelMap").then((m) => m.ParcelMap),
@@ -60,6 +61,11 @@ export default function MapPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [source, setSource] = useState<"org" | "property-db-fallback">("org");
+
+  const handleSearchSubmit = (event?: FormEvent<HTMLFormElement>) => {
+    event?.preventDefault();
+    setDebouncedSearch(searchText.trim());
+  };
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -195,11 +201,22 @@ export default function MapPage() {
           </p>
         </div>
         <div className="max-w-md">
-          <Input
-            value={searchText}
-            onChange={(event) => setSearchText(event.target.value)}
-            placeholder="Search parcel address, deal, or zoning"
-          />
+          <form
+            onSubmit={handleSearchSubmit}
+            className="flex items-center gap-2"
+          >
+            <Input
+              value={searchText}
+              onChange={(event) => setSearchText(event.target.value)}
+              placeholder="Search parcel address, deal, or zoning"
+            />
+            <Button
+              type="submit"
+              size="sm"
+            >
+              Search
+            </Button>
+          </form>
         </div>
         {!loading && (
           <ParcelMap
