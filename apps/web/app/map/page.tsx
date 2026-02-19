@@ -37,18 +37,64 @@ interface ParcelsApiResponse {
   source?: "org" | "property-db-fallback";
 }
 
+const SURROUNDING_PARCELS_RADIUS_MILES = 1.25;
+
+function distanceMiles(a: MapParcel, b: MapParcel): number {
+  const toRad = (value: number) => (value * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+  const h =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  return 3958.8 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+}
+
 export default function MapPage() {
   const router = useRouter();
   const [parcels, setParcels] = useState<MapParcel[]>([]);
+  const [searchParcels, setSearchParcels] = useState<MapParcel[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [source, setSource] = useState<"org" | "property-db-fallback">("org");
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchText.trim());
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [searchText]);
+
+  const mapApiParcels = (data: ParcelsApiResponse): MapParcel[] =>
+    (data.parcels as ApiParcel[])
+      .filter((p) => p.lat != null && p.lng != null)
+      .map((p) => ({
+        id: p.id,
+        address: p.address,
+        lat: Number(p.lat),
+        lng: Number(p.lng),
+        dealId: p.deal?.id,
+        dealName: p.deal?.name,
+        dealStatus: p.deal?.status,
+        floodZone: p.floodZone ?? null,
+        currentZoning: p.currentZoning ?? null,
+        propertyDbId: p.propertyDbId ?? null,
+        acreage: p.acreage != null ? Number(p.acreage) : null,
+      }));
+
+  const baseVisibleParcels = useMemo(
+    () => (debouncedSearch ? searchParcels ?? [] : parcels),
+    [debouncedSearch, searchParcels, parcels],
+  );
+
   const visibleParcels = useMemo(() => {
-    const query = searchText.trim().toLowerCase();
-    if (!query) return parcels;
-    return parcels.filter((parcel) => {
+    const query = debouncedSearch.toLowerCase();
+    if (!query) return baseVisibleParcels;
+
+    const matching = baseVisibleParcels.filter((parcel) => {
       const address = parcel.address.toLowerCase();
       const dealName = parcel.dealName?.toLowerCase() ?? "";
       const zoning = parcel.currentZoning?.toLowerCase() ?? "";
@@ -58,10 +104,27 @@ export default function MapPage() {
         zoning.includes(query)
       );
     });
-  }, [parcels, searchText]);
+
+    if (matching.length === 0) return [];
+
+    const anchor =
+      matching.find((parcel) => parcel.address.toLowerCase().startsWith(query)) ??
+      matching[0];
+
+    const surrounding = parcels.filter(
+      (parcel) =>
+        distanceMiles(anchor, parcel) <= SURROUNDING_PARCELS_RADIUS_MILES,
+    );
+
+    const merged = new Map<string, MapParcel>();
+    for (const parcel of surrounding) merged.set(parcel.id, parcel);
+    for (const parcel of matching) merged.set(parcel.id, parcel);
+
+    return Array.from(merged.values());
+  }, [baseVisibleParcels, debouncedSearch, parcels]);
 
   useEffect(() => {
-    async function load() {
+    async function loadBaseParcels() {
       try {
         const res = await fetch("/api/parcels?hasCoords=true");
         if (!res.ok) {
@@ -70,30 +133,46 @@ export default function MapPage() {
         }
         const data = (await res.json()) as ParcelsApiResponse;
         setSource(data.source === "property-db-fallback" ? "property-db-fallback" : "org");
-        const mapped: MapParcel[] = (data.parcels as ApiParcel[])
-          .filter((p) => p.lat != null && p.lng != null)
-          .map((p) => ({
-            id: p.id,
-            address: p.address,
-            lat: Number(p.lat),
-            lng: Number(p.lng),
-            dealId: p.deal?.id,
-            dealName: p.deal?.name,
-            dealStatus: p.deal?.status,
-            floodZone: p.floodZone ?? null,
-            currentZoning: p.currentZoning ?? null,
-            propertyDbId: p.propertyDbId ?? null,
-            acreage: p.acreage != null ? Number(p.acreage) : null,
-          }));
-        setParcels(mapped);
+        setParcels(mapApiParcels(data));
       } catch {
         setLoadError("Failed to load parcels. Please refresh and try again.");
       } finally {
         setLoading(false);
       }
     }
-    load();
+    loadBaseParcels();
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    async function loadSearchParcels() {
+      if (!debouncedSearch) {
+        setSearchParcels(null);
+        return;
+      }
+      try {
+        const qs = new URLSearchParams({
+          hasCoords: "true",
+          search: debouncedSearch,
+        });
+        const res = await fetch(`/api/parcels?${qs.toString()}`);
+        if (!res.ok || !active) {
+          if (active) setSearchParcels([]);
+          return;
+        }
+        const data = (await res.json()) as ParcelsApiResponse;
+        if (!active) return;
+        setSource(data.source === "property-db-fallback" ? "property-db-fallback" : "org");
+        setSearchParcels(mapApiParcels(data));
+      } catch {
+        if (active) setSearchParcels([]);
+      }
+    }
+    void loadSearchParcels();
+    return () => {
+      active = false;
+    };
+  }, [debouncedSearch]);
 
   return (
     <DashboardShell>
@@ -110,6 +189,9 @@ export default function MapPage() {
                   : source === "property-db-fallback"
                     ? `${visibleParcels.length} of ${parcels.length} parcels (property database fallback)`
                   : `${visibleParcels.length} of ${parcels.length} parcels with coordinates`}
+            {debouncedSearch
+              ? ` • showing matches + nearby parcels (${SURROUNDING_PARCELS_RADIUS_MILES} mi)`
+              : ""}
           </p>
         </div>
         <div className="max-w-md">

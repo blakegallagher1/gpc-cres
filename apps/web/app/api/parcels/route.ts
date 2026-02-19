@@ -107,11 +107,26 @@ export async function GET(request: NextRequest) {
     }
 
     const hasCoords = request.nextUrl.searchParams.get("hasCoords") === "true";
+    const searchText = request.nextUrl.searchParams.get("search")?.trim() ?? "";
 
     const where: Record<string, unknown> = { orgId: auth.orgId };
     if (hasCoords) {
       where.lat = { not: null };
       where.lng = { not: null };
+    }
+    if (searchText) {
+      where.OR = [
+        { address: { contains: searchText, mode: "insensitive" } },
+        { currentZoning: { contains: searchText, mode: "insensitive" } },
+        { floodZone: { contains: searchText, mode: "insensitive" } },
+        {
+          deal: {
+            is: {
+              name: { contains: searchText, mode: "insensitive" },
+            },
+          },
+        },
+      ];
     }
 
     const parcels = await prisma.parcel.findMany({
@@ -129,15 +144,22 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ parcels, source: "org" });
     }
 
-    const fallbackQueries: Array<Promise<unknown[]>> = [
-      ...PROPERTY_DB_PARISHES.map((parish) =>
-        searchPropertyDbParcels("*", parish, 150),
-      ),
-      ...PROPERTY_DB_SEARCH_TERMS.map((term) =>
-        searchPropertyDbParcels(term, undefined, 200),
-      ),
-      searchPropertyDbParcels("*", undefined, 200),
-    ];
+    const fallbackQueries: Array<Promise<unknown[]>> = searchText
+      ? [
+          searchPropertyDbParcels(searchText, undefined, 300),
+          ...PROPERTY_DB_PARISHES.map((parish) =>
+            searchPropertyDbParcels(searchText, parish, 200),
+          ),
+        ]
+      : [
+          ...PROPERTY_DB_PARISHES.map((parish) =>
+            searchPropertyDbParcels("*", parish, 150),
+          ),
+          ...PROPERTY_DB_SEARCH_TERMS.map((term) =>
+            searchPropertyDbParcels(term, undefined, 200),
+          ),
+          searchPropertyDbParcels("*", undefined, 200),
+        ];
 
     const parishResults = await Promise.all(
       fallbackQueries,
