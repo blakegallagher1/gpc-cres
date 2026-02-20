@@ -84,6 +84,9 @@ export {
 
 export { query_market_data } from "./marketTools.js";
 
+export { queryBuildingPermits } from "./socrataTools.js";
+export { searchNearbyPlaces } from "./placesTools.js";
+
 export { get_historical_accuracy, record_deal_outcome } from "./outcomeTools.js";
 
 export { search_knowledge_base, store_knowledge_entry } from "./knowledgeTools.js";
@@ -161,6 +164,8 @@ import {
 } from "./calculationTools.js";
 import { analyze_portfolio } from "./portfolioTools.js";
 import { query_market_data } from "./marketTools.js";
+import { queryBuildingPermits } from "./socrataTools.js";
+import { searchNearbyPlaces } from "./placesTools.js";
 import {
   get_jurisdiction_pack,
   create_tasks,
@@ -445,6 +450,22 @@ export const designTools = [
   share_analysis_finding,
   get_shared_context,
   log_reasoning_trace,
+];
+
+/** Tools available to the Market Trajectory agent. (#14) */
+export const marketTrajectoryTools = [
+  queryBuildingPermits,
+  searchNearbyPlaces,
+  getDealContext,
+  searchParcels,
+  getParcelDetails,
+  search_knowledge_base,
+  store_knowledge_entry,
+  share_analysis_finding,
+  get_shared_context,
+  log_reasoning_trace,
+  query_market_data,
+  search_comparable_sales,
 ];
 
 /** Tools available to the Tax Strategist agent. (#11 Dead Agent Revival) */

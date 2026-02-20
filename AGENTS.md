@@ -697,8 +697,7 @@ Codex may use ANY `gh` subcommand without asking for permission.
   3. RPC fallback `rpc_get_parcel_geometry`
 - Do not expose raw Prisma or infrastructure errors to client responses. Return generic 4xx/5xx payloads and log internal details server-side.
 - Server-side parcel DB access must rely on production env vars:
-  - `LA_PROPERTY_DB_URL`
-  - `LA_PROPERTY_DB_KEY` (service role only, never client-exposed)
+  - Property DB uses `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`
 - Production deploys using Vercel CLI should prefer archive mode for this repo size:
   - `vercel --prod --yes --archive=tgz`
 - When PR automation is required, use standard PR flow from a fresh execution context if prior context blocks `gh pr create` policy checks.

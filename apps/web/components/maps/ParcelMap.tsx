@@ -29,6 +29,8 @@ import { CompSaleLayer } from "./CompSaleLayer";
 import { HeatmapLayer } from "./HeatmapLayer";
 import { IsochroneControl } from "./IsochroneControl";
 import { MapLibreParcelMap } from "./MapLibreParcelMap";
+import { TrajectoryLayer } from "./TrajectoryLayer";
+
 
 // Fix default marker icons for webpack/next.js
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
@@ -71,6 +73,10 @@ interface ParcelMapProps {
   /** Called with GeoJSON ring coordinates in [lng, lat] format. */
   onPolygonDrawn?: (coordinates: number[][][]) => void;
   onPolygonCleared?: () => void;
+  /** GeoJSON FeatureCollection from Market Trajectory agent (legacy choropleth) */
+  trajectoryData?: { type: "FeatureCollection"; features: unknown[] } | null;
+  /** Lightweight velocity overlay: parcel_id + velocity_of_change; base shapes from vector tiles */
+  trajectoryVelocityData?: { parcel_id: string; velocity_of_change: number }[] | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -88,7 +94,17 @@ function getSavedBaseLayer(): string {
 function getSavedOverlays(): Record<string, boolean> {
   try {
     const saved = localStorage.getItem("map-overlay-prefs");
-    return saved ? JSON.parse(saved) : {};
+    const parsed = saved ? (JSON.parse(saved) as Record<string, boolean>) : {};
+    const parcelBoundaries = parsed["Parcel Boundaries"] !== false;
+    const zoning = parsed["Zoning Overlay"] === true;
+    const flood = parsed["Flood Zones"] === true;
+
+    // Guard against persisted "all off" overlay state, which makes the map appear empty.
+    if (!parcelBoundaries && !zoning && !flood) {
+      parsed["Parcel Boundaries"] = true;
+    }
+
+    return parsed;
   } catch {
     return {};
   }
@@ -404,9 +420,12 @@ export function ParcelMap({
   polygon = null,
   onPolygonDrawn,
   onPolygonCleared,
+  trajectoryData = null,
+  trajectoryVelocityData = null,
 }: ParcelMapProps) {
   const mapRenderer = process.env.NEXT_PUBLIC_MAP_RENDERER;
-  if (mapRenderer === "maplibre") {
+  const requiresPolygonWorkflow = Boolean(onPolygonDrawn && onPolygonCleared);
+  if (mapRenderer === "maplibre" && !requiresPolygonWorkflow) {
     return (
       <MapLibreParcelMap
         parcels={parcels}
@@ -421,7 +440,25 @@ export function ParcelMap({
   }
 
   // Fetch GeoJSON polygon geometries for enriched parcels
-  const { geometries } = useParcelGeometry(parcels);
+  const { geometries, health } = useParcelGeometry(parcels);
+  const geometryWarning = useMemo(() => {
+    if (health.failedCount === 0) return null;
+    if (health.unauthorized) {
+      return "Parcel polygons unavailable: authentication failed for geometry API.";
+    }
+    if (health.rateLimited) {
+      return "Parcel polygons temporarily unavailable: geometry API is rate limited.";
+    }
+    if (health.propertyDbUnconfigured) {
+      return "Parcel polygons unavailable: property database credentials are missing or invalid.";
+    }
+    if (health.upstreamError) {
+      return "Parcel polygons unavailable: upstream geometry provider error.";
+    }
+    return health.lastErrorMessage
+      ? `Parcel polygons unavailable: ${health.lastErrorMessage}`
+      : "Parcel polygons unavailable right now.";
+  }, [health]);
 
   // Analytical tool visibility state
   const [showComps, setShowComps] = useState(false);
@@ -454,6 +491,14 @@ export function ParcelMap({
     () => parcels.filter((p) => !geometries.has(p.id)),
     [parcels, geometries]
   );
+  const parcelBoundariesDefaultChecked = useMemo(() => {
+    const savedPreference = savedOverlays["Parcel Boundaries"];
+    if (savedPreference === false && parcelsWithoutGeometry.length > 0) {
+      // When markers are the only available representation, keep boundaries on by default.
+      return true;
+    }
+    return savedPreference !== false;
+  }, [savedOverlays, parcelsWithoutGeometry.length]);
 
   // Parcels with zoning data + geometry (for zoning overlay)
   const parcelsWithZoning = useMemo(
@@ -473,12 +518,18 @@ export function ParcelMap({
   if (!showLayers) {
     // Simple mode: just markers with street tiles (no layers control)
     return (
-      <MapContainer
-        center={center}
-        zoom={zoom}
-        style={{ height, width: "100%" }}
-        className="rounded-lg border"
-      >
+      <div className="relative">
+        {geometryWarning && (
+          <div className="mb-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            {geometryWarning}
+          </div>
+        )}
+        <MapContainer
+          center={center}
+          zoom={zoom}
+          style={{ height, width: "100%" }}
+          className="rounded-lg border"
+        >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url={getLeafletStreetTileUrl()}
@@ -500,7 +551,8 @@ export function ParcelMap({
             <ParcelPopup parcel={parcel} />
           </CircleMarker>
         ))}
-      </MapContainer>
+        </MapContainer>
+      </div>
     );
   }
 
@@ -514,12 +566,18 @@ export function ParcelMap({
   const hasPolygon = Boolean(polygonPositions && polygonPositions.length >= 4);
 
   return (
-    <MapContainer
-      center={center}
-      zoom={zoom}
-      style={{ height, width: "100%" }}
-      className="rounded-lg border"
-    >
+    <div className="relative">
+      {geometryWarning && (
+        <div className="mb-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          {geometryWarning}
+        </div>
+      )}
+      <MapContainer
+        center={center}
+        zoom={zoom}
+        style={{ height, width: "100%" }}
+        className="rounded-lg border"
+      >
       {parcels.length > 0 && <FitBounds parcels={parcels} />}
       <LayerPersistence onBaseLayerChange={setBaseLayer} />
 
@@ -556,7 +614,7 @@ export function ParcelMap({
 
         {/* ---- Overlay: Parcel Boundaries ---- */}
         <LayersControl.Overlay
-          checked={savedOverlays["Parcel Boundaries"] !== false}
+          checked={parcelBoundariesDefaultChecked}
           name="Parcel Boundaries"
         >
           <LayerGroup>
@@ -682,6 +740,24 @@ export function ParcelMap({
             })}
           </LayerGroup>
         </LayersControl.Overlay>
+
+        {/* ---- Overlay: Trajectory (Market Trajectory agent choropleth) ---- */}
+        {((trajectoryVelocityData && trajectoryVelocityData.length > 0) ||
+          (trajectoryData && trajectoryData.features.length > 0)) && (
+          <LayersControl.Overlay
+            checked
+            name="Trajectory Analysis"
+          >
+            <LayerGroup>
+              <TrajectoryLayer
+                data={
+                  trajectoryData as import("geojson").FeatureCollection | null
+                }
+                velocityData={trajectoryVelocityData ?? undefined}
+              />
+            </LayerGroup>
+          </LayersControl.Overlay>
+        )}
       </LayersControl>
 
       {/* ---- Polygon Search Overlay ---- */}
@@ -720,7 +796,8 @@ export function ParcelMap({
           <IsochroneControl parcels={parcels} visible={showIsochrone} />
         </>
       )}
-    </MapContainer>
+      </MapContainer>
+    </div>
   );
 }
 

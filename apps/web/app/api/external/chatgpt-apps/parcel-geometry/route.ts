@@ -4,7 +4,14 @@ import { getParcelGeometry, type ParcelGeometry } from "@/lib/server/chatgptApps
 import { checkRateLimit } from "@/lib/server/rateLimiter";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { captureChatGptAppsError } from "@/lib/automation/sentry";
-import { logPropertyDbRuntimeHealth } from "@/lib/server/propertyDbEnv";
+import {
+  getPropertyDbConfigOrNull,
+  logPropertyDbRuntimeHealth,
+} from "@/lib/server/propertyDbEnv";
+import {
+  getDevFallbackParcelByPropertyDbId,
+  isDevParcelFallbackEnabled,
+} from "@/lib/server/devParcelFallback";
 import { propertyDbRpc } from "@entitlement-os/openai";
 
 export const runtime = "nodejs";
@@ -21,6 +28,17 @@ type GeoJsonGeometry = {
   type: "Polygon" | "MultiPolygon";
   coordinates: unknown;
 };
+
+function logParcelGeometryDevPayload(
+  phase: string,
+  details: Record<string, unknown>,
+): void {
+  if (process.env.NODE_ENV === "production") return;
+  console.info("[/api/external/chatgpt-apps/parcel-geometry][dev-payload]", {
+    phase,
+    ...details,
+  });
+}
 
 function toRecord(value: unknown): Record<string, unknown> | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
@@ -74,9 +92,42 @@ function parseGeometry(value: unknown): GeoJsonGeometry | null {
   const record = toRecord(candidate);
   if (!record) return null;
   const type = record.type;
-  if (type !== "Polygon" && type !== "MultiPolygon") return null;
-  if (!Array.isArray(record.coordinates)) return null;
-  return { type, coordinates: record.coordinates };
+  if (type === "Polygon" || type === "MultiPolygon") {
+    if (!Array.isArray(record.coordinates)) return null;
+    return { type, coordinates: record.coordinates };
+  }
+
+  // Support GeoJSON wrappers emitted by some parcel providers.
+  if (type === "Feature") {
+    return parseGeometry(record.geometry);
+  }
+  if (type === "FeatureCollection" && Array.isArray(record.features)) {
+    for (const feature of record.features) {
+      const geometry = parseGeometry(feature);
+      if (geometry) return geometry;
+    }
+    return null;
+  }
+  if (type === "GeometryCollection" && Array.isArray(record.geometries)) {
+    for (const geometry of record.geometries) {
+      const parsed = parseGeometry(geometry);
+      if (parsed) return parsed;
+    }
+    return null;
+  }
+
+  return null;
+}
+
+function isAbortLikeError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const err = error as { name?: unknown; code?: unknown; message?: unknown };
+  if (err.name === "AbortError") return true;
+  if (err.code === "ECONNRESET") return true;
+  if (typeof err.message === "string" && err.message.toLowerCase().includes("aborted")) {
+    return true;
+  }
+  return false;
 }
 
 function collectCoordinatePairs(value: unknown, pairs: Array<[number, number]>) {
@@ -284,6 +335,59 @@ async function resolveGeometryFallback(candidateId: string): Promise<ParcelGeome
   return null;
 }
 
+async function resolveGeometryFromCandidateSearch(
+  inputParcelId: string,
+  request: Request,
+): Promise<ParcelGeometry | null> {
+  const candidateParcelIds = new Set<string>(normalizeCandidateKey(inputParcelId));
+
+  const matchedParcels = await propertyDbRpc("api_search_parcels", {
+    search_text: inputParcelId,
+    limit_rows: 10,
+  });
+  if (Array.isArray(matchedParcels)) {
+    for (const row of matchedParcels) {
+      if (!row || typeof row !== "object") continue;
+      const record = row as Record<string, unknown>;
+      for (const key of candidateParcelKeys(record)) {
+        normalizeCandidateKey(key).forEach((value) => candidateParcelIds.add(value));
+      }
+      addAddressFallback(candidateParcelIds, record, inputParcelId);
+    }
+  }
+
+  const alternateSearch = await propertyDbRpc("api_search_parcels", {
+    p_search_text: inputParcelId,
+    p_limit: 10,
+  });
+  if (Array.isArray(alternateSearch)) {
+    for (const row of alternateSearch) {
+      if (!row || typeof row !== "object") continue;
+      const record = row as Record<string, unknown>;
+      for (const key of candidateParcelKeys(record)) {
+        normalizeCandidateKey(key).forEach((value) => candidateParcelIds.add(value));
+      }
+      addAddressFallback(candidateParcelIds, record, inputParcelId);
+    }
+  }
+
+  for (const candidateId of candidateParcelIds) {
+    if (request.signal.aborted) {
+      throw new Error("Client aborted request");
+    }
+    try {
+      const geometryFallback = await resolveGeometryFallback(candidateId);
+      if (geometryFallback) {
+        return geometryFallback;
+      }
+    } catch {
+      // continue through candidates
+    }
+  }
+
+  return null;
+}
+
 function deriveFallbackParcelGeometry(raw: unknown): ParcelGeometry | null {
   const row = (() => {
     if (Array.isArray(raw)) {
@@ -340,118 +444,211 @@ function deriveFallbackParcelGeometry(raw: unknown): ParcelGeometry | null {
   };
 }
 
+function deriveDevFallbackGeometry(parcelId: string): ParcelGeometry | null {
+  if (!isDevParcelFallbackEnabled()) return null;
+  const parcel = getDevFallbackParcelByPropertyDbId(parcelId);
+  if (!parcel) return null;
+
+  const areaSqft = Math.max(parcel.acreage * 43_560, 1_000);
+  const halfSideFeet = Math.sqrt(areaSqft) / 2;
+  const latScaleFeetPerDeg = 364_000;
+  const lngScaleFeetPerDeg =
+    Math.max(Math.cos((parcel.lat * Math.PI) / 180), 0.1) * latScaleFeetPerDeg;
+  const latHalfDelta = halfSideFeet / latScaleFeetPerDeg;
+  const lngHalfDelta = halfSideFeet / lngScaleFeetPerDeg;
+
+  const ring = [
+    [parcel.lng - lngHalfDelta, parcel.lat - latHalfDelta],
+    [parcel.lng + lngHalfDelta, parcel.lat - latHalfDelta],
+    [parcel.lng + lngHalfDelta, parcel.lat + latHalfDelta],
+    [parcel.lng - lngHalfDelta, parcel.lat + latHalfDelta],
+    [parcel.lng - lngHalfDelta, parcel.lat - latHalfDelta],
+  ];
+  const bbox: [number, number, number, number] = [
+    parcel.lng - lngHalfDelta,
+    parcel.lat - latHalfDelta,
+    parcel.lng + lngHalfDelta,
+    parcel.lat + latHalfDelta,
+  ];
+
+  return {
+    bbox,
+    centroid: { lat: parcel.lat, lng: parcel.lng },
+    area_sqft: areaSqft,
+    geom_simplified: JSON.stringify({
+      type: "Polygon",
+      coordinates: [ring],
+    }),
+    srid: 4326,
+    dataset_version: "dev-fallback",
+  };
+}
+
 export async function POST(request: Request) {
   const requestId = crypto.randomUUID();
-
-  const auth = await resolveAuth();
-  if (!auth) {
-    return NextResponse.json(
-      { ok: false, request_id: requestId, error: { code: "UNAUTHORIZED", message: "Unauthorized" } },
-      { status: 401 },
-    );
-  }
-
-  if (!checkRateLimit(`${ROUTE_KEY}:${auth.orgId}`)) {
-    return NextResponse.json(
-      { ok: false, request_id: requestId, error: { code: "RATE_LIMITED", message: "Too many requests" } },
-      { status: 429 },
-    );
-  }
-
-  const contentLength = request.headers.get("content-length");
-  if (contentLength && parseInt(contentLength, 10) > MAX_JSON_BODY_BYTES) {
-    return NextResponse.json(
-      { ok: false, request_id: requestId, error: { code: "PAYLOAD_TOO_LARGE", message: "Request body too large" } },
-      { status: 413 },
-    );
-  }
-
-  let body: unknown;
   try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json(
-      { ok: false, request_id: requestId, error: { code: "BAD_REQUEST", message: "Invalid JSON body" } },
-      { status: 400 },
-    );
-  }
+    if (request.signal.aborted) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: { code: "CLIENT_ABORTED", message: "Request aborted by client" },
+        },
+        { status: 499 },
+      );
+    }
 
-  let input: z.infer<typeof BodySchema>;
-  try {
-    input = BodySchema.parse(body);
-  } catch (err) {
-    const message = err instanceof ZodError
-      ? err.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")
-      : "Invalid input";
-    return NextResponse.json(
-      { ok: false, request_id: requestId, error: { code: "BAD_REQUEST", message } },
-      { status: 400 },
-    );
-  }
+    const isProd = process.env.NODE_ENV === "production";
+    const devFallbackMode = isDevParcelFallbackEnabled();
 
-  let result: Awaited<ReturnType<typeof getParcelGeometry>>;
-  try {
-    result = await getParcelGeometry(input.parcelId, input.detailLevel, requestId);
-  } catch {
-    result = {
-      ok: false,
-      error: "Upstream request failed",
-      status: 502,
-      requestId,
-      durationMs: 0,
-    };
-  }
+    const auth = await resolveAuth();
+    if (!auth) {
+      return NextResponse.json(
+        { ok: false, request_id: requestId, error: { code: "UNAUTHORIZED", message: "Unauthorized" } },
+        { status: 401 },
+      );
+    }
 
-  if (!result.ok) {
+    if (!devFallbackMode && !checkRateLimit(`${ROUTE_KEY}:${auth.orgId}`)) {
+      return NextResponse.json(
+        { ok: false, request_id: requestId, error: { code: "RATE_LIMITED", message: "Too many requests" } },
+        { status: 429 },
+      );
+    }
+
+    const contentLength = request.headers.get("content-length");
+    if (contentLength && parseInt(contentLength, 10) > MAX_JSON_BODY_BYTES) {
+      return NextResponse.json(
+        { ok: false, request_id: requestId, error: { code: "PAYLOAD_TOO_LARGE", message: "Request body too large" } },
+        { status: 413 },
+      );
+    }
+
+    let body: unknown;
     try {
-      const candidateParcelIds = new Set<string>(normalizeCandidateKey(input.parcelId));
-
-      const matchedParcels = await propertyDbRpc("api_search_parcels", {
-        search_text: input.parcelId,
-        limit_rows: 10,
-      });
-      if (Array.isArray(matchedParcels)) {
-        for (const row of matchedParcels) {
-          if (!row || typeof row !== "object") continue;
-          const record = row as Record<string, unknown>;
-          for (const key of candidateParcelKeys(record)) {
-            normalizeCandidateKey(key).forEach((value) => candidateParcelIds.add(value));
-          }
-          addAddressFallback(candidateParcelIds, record, input.parcelId);
-        }
-      }
-
-      const alternateSearch = await propertyDbRpc("api_search_parcels", {
-        p_search_text: input.parcelId,
-        p_limit: 10,
-      });
-      if (Array.isArray(alternateSearch)) {
-        for (const row of alternateSearch) {
-          if (!row || typeof row !== "object") continue;
-          const record = row as Record<string, unknown>;
-          for (const key of candidateParcelKeys(record)) {
-            normalizeCandidateKey(key).forEach((value) => candidateParcelIds.add(value));
-          }
-          addAddressFallback(candidateParcelIds, record, input.parcelId);
-        }
-      }
-
-      for (const candidateId of candidateParcelIds) {
-        try {
-          const geometryFallback = await resolveGeometryFallback(candidateId);
-          if (geometryFallback) {
-            return NextResponse.json({
-              ok: true,
-              request_id: requestId,
-              data: geometryFallback,
-            });
-          }
-        } catch {
-          // continue through candidates
-        }
-      }
-
+      body = await request.json();
     } catch {
+      return NextResponse.json(
+        { ok: false, request_id: requestId, error: { code: "BAD_REQUEST", message: "Invalid JSON body" } },
+        { status: 400 },
+      );
+    }
+
+    let input: z.infer<typeof BodySchema>;
+    try {
+      input = BodySchema.parse(body);
+    } catch (err) {
+      const message = err instanceof ZodError
+        ? err.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")
+        : "Invalid input";
+      return NextResponse.json(
+        { ok: false, request_id: requestId, error: { code: "BAD_REQUEST", message } },
+        { status: 400 },
+      );
+    }
+
+    logParcelGeometryDevPayload("request", {
+      requestId,
+      parcelId: input.parcelId,
+      detailLevel: input.detailLevel,
+    });
+
+    const devGeometry = deriveDevFallbackGeometry(input.parcelId);
+    if (devGeometry) {
+      logParcelGeometryDevPayload("response", {
+        requestId,
+        parcelId: input.parcelId,
+        source: "dev-fallback",
+        hasGeom: Boolean(parseGeometry(devGeometry.geom_simplified)),
+      });
+      return NextResponse.json({ ok: true, request_id: requestId, data: devGeometry });
+    }
+
+    let result: Awaited<ReturnType<typeof getParcelGeometry>>;
+    try {
+      result = await getParcelGeometry(input.parcelId, input.detailLevel, requestId);
+    } catch {
+      result = {
+        ok: false,
+        error: "Upstream request failed",
+        status: 502,
+        requestId,
+        durationMs: 0,
+      };
+    }
+
+    logParcelGeometryDevPayload("upstream", {
+      requestId,
+      parcelId: input.parcelId,
+      ok: result.ok,
+      status: result.status,
+      hasData: Boolean(result.ok && result.data),
+      hasGeom: Boolean(result.ok && result.data && parseGeometry(result.data.geom_simplified)),
+    });
+
+    if (!result.ok) {
+    const propertyDbConfig = getPropertyDbConfigOrNull();
+    if (!propertyDbConfig) {
+      captureChatGptAppsError(new Error(result.error), {
+        rpc: "getParcelGeometry",
+        requestId: result.requestId,
+        orgId: auth.orgId,
+        route: "/api/external/chatgpt-apps/parcel-geometry",
+        status: result.status,
+        input: { parcelId: input.parcelId, detailLevel: input.detailLevel },
+        details: "SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY missing or placeholder",
+      });
+      return NextResponse.json(
+        {
+          ok: false,
+          request_id: result.requestId,
+          error: {
+            code: "PROPERTY_DB_UNCONFIGURED",
+            message: "Parcel geometry provider is unavailable",
+          },
+          ...(!isProd
+            ? {
+              debug: {
+                upstream_status: result.status,
+                upstream_error: result.error,
+                parcel_id: input.parcelId,
+              },
+            }
+            : {}),
+        },
+        { status: 503 },
+      );
+    }
+
+    try {
+      const geometryFallback = await resolveGeometryFromCandidateSearch(
+        input.parcelId,
+        request,
+      );
+      if (geometryFallback) {
+        logParcelGeometryDevPayload("response", {
+          requestId,
+          parcelId: input.parcelId,
+          source: "property-db-candidate-search",
+          reason: "upstream_not_ok",
+          hasGeom: Boolean(parseGeometry(geometryFallback.geom_simplified)),
+        });
+        return NextResponse.json({
+          ok: true,
+          request_id: requestId,
+          data: geometryFallback,
+        });
+      }
+    } catch (error) {
+      if (isAbortLikeError(error) || request.signal.aborted) {
+        return NextResponse.json(
+          {
+            ok: false,
+            request_id: requestId,
+            error: { code: "CLIENT_ABORTED", message: "Request aborted by client" },
+          },
+          { status: 499 },
+        );
+      }
       // continue to error response
     }
 
@@ -470,10 +667,126 @@ export async function POST(request: Request) {
         ok: false,
         request_id: result.requestId,
         error: { code: "UPSTREAM_ERROR", message: "Upstream request failed" },
+        ...(!isProd
+          ? {
+            debug: {
+              upstream_status: result.status,
+              upstream_error: result.error,
+              parcel_id: input.parcelId,
+            },
+          }
+          : {}),
       },
       { status },
     );
-  }
+    }
 
-  return NextResponse.json({ ok: true, request_id: result.requestId, data: result.data });
+    if (!result.data) {
+      try {
+        const geometryFallback = await resolveGeometryFromCandidateSearch(
+          input.parcelId,
+          request,
+        );
+        if (geometryFallback) {
+          logParcelGeometryDevPayload("response", {
+            requestId,
+            parcelId: input.parcelId,
+            source: "property-db-candidate-search",
+            reason: "upstream_ok_missing_data",
+            hasGeom: Boolean(parseGeometry(geometryFallback.geom_simplified)),
+          });
+          return NextResponse.json({
+            ok: true,
+            request_id: requestId,
+            data: geometryFallback,
+          });
+        }
+      } catch (error) {
+        if (isAbortLikeError(error) || request.signal.aborted) {
+          return NextResponse.json(
+            {
+              ok: false,
+              request_id: requestId,
+              error: { code: "CLIENT_ABORTED", message: "Request aborted by client" },
+            },
+            { status: 499 },
+          );
+        }
+      }
+
+      return NextResponse.json(
+        {
+          ok: false,
+          request_id: requestId,
+          error: { code: "UPSTREAM_ERROR", message: "Upstream request failed" },
+        },
+        { status: 502 },
+      );
+    }
+
+    const parsedPrimaryGeometry = parseGeometry(result.data.geom_simplified);
+    if (!parsedPrimaryGeometry) {
+      try {
+        const geometryFallback = await resolveGeometryFromCandidateSearch(
+          input.parcelId,
+          request,
+        );
+        if (geometryFallback) {
+          logParcelGeometryDevPayload("response", {
+            requestId,
+            parcelId: input.parcelId,
+            source: "property-db-candidate-search",
+            reason: "upstream_ok_invalid_geom",
+            hasGeom: Boolean(parseGeometry(geometryFallback.geom_simplified)),
+          });
+          return NextResponse.json({
+            ok: true,
+            request_id: requestId,
+            data: geometryFallback,
+          });
+        }
+      } catch (error) {
+        if (isAbortLikeError(error) || request.signal.aborted) {
+          return NextResponse.json(
+            {
+              ok: false,
+              request_id: requestId,
+              error: { code: "CLIENT_ABORTED", message: "Request aborted by client" },
+            },
+            { status: 499 },
+          );
+        }
+      }
+    }
+
+    logParcelGeometryDevPayload("response", {
+      requestId,
+      parcelId: input.parcelId,
+      source: "chatgpt-apps-upstream",
+      hasGeom: Boolean(parsedPrimaryGeometry),
+      geomType: parsedPrimaryGeometry?.type ?? null,
+    });
+
+    return NextResponse.json({ ok: true, request_id: result.requestId, data: result.data });
+  } catch (error) {
+    if (isAbortLikeError(error) || request.signal.aborted) {
+      return NextResponse.json(
+        {
+          ok: false,
+          request_id: requestId,
+          error: { code: "CLIENT_ABORTED", message: "Request aborted by client" },
+        },
+        { status: 499 },
+      );
+    }
+    console.error("[/api/external/chatgpt-apps/parcel-geometry]", error);
+    return NextResponse.json(
+      {
+        ok: false,
+        request_id: requestId,
+        error: { code: "UPSTREAM_ERROR", message: "Upstream request failed" },
+      },
+      { status: 502 },
+    );
+  }
 }

@@ -40,6 +40,8 @@ export type AgentRunInput = {
   persistConversation?: boolean;
   injectSystemContext?: boolean;
   onEvent?: (event: AgentStreamEvent) => void;
+  /** Force routing to a specific query intent (e.g. "market_trajectory"). */
+  intent?: string;
 };
 
 type DealContext = {
@@ -555,6 +557,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
     persistConversation = true,
     injectSystemContext = true,
     onEvent,
+    intent: intentOverride,
   } = params;
 
   if (!message && !(input && input.length > 0)) {
@@ -1003,6 +1006,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
       jurisdictionId: jurisdictionId ?? undefined,
       sku: sku ?? undefined,
       intentHint,
+      queryIntentOverride: intentOverride as import("@entitlement-os/openai").QueryIntent | undefined,
       previousResponseId,
       onEvent,
     });
@@ -1062,6 +1066,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
     jurisdictionId: jurisdictionId ?? undefined,
     sku: sku ?? undefined,
     intentHint,
+    queryIntentOverride: intentOverride as import("@entitlement-os/openai").QueryIntent | undefined,
     previousResponseId,
     onEvent,
   });

@@ -34,8 +34,8 @@ describe("POST /api/map/prospect", () => {
     fetchMock.mockReset();
     parcelFindManyMock.mockReset();
     vi.stubGlobal("fetch", fetchMock);
-    process.env.LA_PROPERTY_DB_URL = "https://example.supabase.co";
-    process.env.LA_PROPERTY_DB_KEY = "service-role-key";
+    process.env.SUPABASE_URL = "https://example.supabase.co";
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "service-role-key";
     ({ POST } = await import("./route"));
   });
 
@@ -97,8 +97,8 @@ describe("POST /api/map/prospect", () => {
   });
 
   it("returns org-scoped fallback parcels when property DB env is placeholder", async () => {
-    process.env.LA_PROPERTY_DB_URL = "placeholder";
-    process.env.LA_PROPERTY_DB_KEY = "placeholder";
+    process.env.SUPABASE_URL = "placeholder";
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "placeholder";
     ({ POST } = await import("./route"));
 
     resolveAuthMock.mockResolvedValue({ userId: "user-1", orgId: "org-1" });
@@ -147,8 +147,10 @@ describe("POST /api/map/prospect", () => {
   });
 
   it("uses dev fallback parcels when prisma is unreachable in local auth-disabled mode", async () => {
-    process.env.LA_PROPERTY_DB_URL = "placeholder";
-    process.env.LA_PROPERTY_DB_KEY = "placeholder";
+    process.env.SUPABASE_URL = "placeholder";
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "placeholder";
+    delete process.env.SUPABASE_URL;
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
     process.env.NEXT_PUBLIC_DISABLE_AUTH = "true";
     ({ POST } = await import("./route"));
 
@@ -177,8 +179,10 @@ describe("POST /api/map/prospect", () => {
   });
 
   it("uses seeded dev parcels when property and org lookups are both empty in local auth-disabled mode", async () => {
-    process.env.LA_PROPERTY_DB_URL = "placeholder";
-    process.env.LA_PROPERTY_DB_KEY = "placeholder";
+    process.env.SUPABASE_URL = "placeholder";
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "placeholder";
+    delete process.env.SUPABASE_URL;
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
     process.env.NEXT_PUBLIC_DISABLE_AUTH = "true";
     ({ POST } = await import("./route"));
 

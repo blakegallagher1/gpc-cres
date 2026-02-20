@@ -2,29 +2,32 @@ import { tool } from "@openai/agents";
 import { z } from "zod";
 
 /**
- * Louisiana Property Database — Supabase REST API tools.
+ * Property Database — Supabase REST API tools.
  *
- * Connects to a separate Supabase project (jueyosscalcljgdorrpy)
- * containing 560K parcels across 5 Louisiana parishes with
- * flood, soils, wetlands, EPA, traffic, and LDEQ screening data.
+ * Uses the main Supabase project (gpc-dashboard) for parcel search,
+ * screening (flood, soils, wetlands, EPA, traffic, LDEQ), and geometry.
  *
  * Env vars:
- *   LA_PROPERTY_DB_URL  — Supabase project URL
- *   LA_PROPERTY_DB_KEY  — Service-role API key
+ *   SUPABASE_URL             — Supabase project URL
+ *   SUPABASE_SERVICE_ROLE_KEY — Service-role API key
  */
 
 function getPropertyDbUrl(): string {
-  const url = process.env.LA_PROPERTY_DB_URL?.trim();
+  const url = (
+    process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL
+  )?.trim();
   if (!url) {
-    throw new Error("[propertyDbTools] Missing required LA_PROPERTY_DB_URL.");
+    throw new Error("[propertyDbTools] Missing required SUPABASE_URL.");
   }
   return url;
 }
 
 function getPropertyDbKey(): string {
-  const key = process.env.LA_PROPERTY_DB_KEY?.trim();
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   if (!key) {
-    throw new Error("[propertyDbTools] Missing required LA_PROPERTY_DB_KEY.");
+    throw new Error(
+      "[propertyDbTools] Missing required SUPABASE_SERVICE_ROLE_KEY.",
+    );
   }
   return key;
 }

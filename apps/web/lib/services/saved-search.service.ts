@@ -12,8 +12,14 @@ function requirePropertyDbEnv(value: string | undefined, name: string): string {
 
 function getPropertyDbConfig(): { url: string; key: string } {
   return {
-    url: requirePropertyDbEnv(process.env.LA_PROPERTY_DB_URL, "LA_PROPERTY_DB_URL"),
-    key: requirePropertyDbEnv(process.env.LA_PROPERTY_DB_KEY, "LA_PROPERTY_DB_KEY"),
+    url: requirePropertyDbEnv(
+      process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL,
+      "SUPABASE_URL",
+    ),
+    key: requirePropertyDbEnv(
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      "SUPABASE_SERVICE_ROLE_KEY",
+    ),
   };
 }
 

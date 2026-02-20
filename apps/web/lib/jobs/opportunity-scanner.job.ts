@@ -43,12 +43,12 @@ async function propertyDbRpc(
   body: Record<string, unknown>
 ): Promise<unknown> {
   const propertyDbUrl = requirePropertyDbEnv(
-    process.env.LA_PROPERTY_DB_URL,
-    "LA_PROPERTY_DB_URL",
+    process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL,
+    "SUPABASE_URL",
   );
   const propertyDbKey = requirePropertyDbEnv(
-    process.env.LA_PROPERTY_DB_KEY,
-    "LA_PROPERTY_DB_KEY",
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    "SUPABASE_SERVICE_ROLE_KEY",
   );
   const res = await fetch(`${propertyDbUrl}/rest/v1/rpc/${fnName}`, {
     method: "POST",

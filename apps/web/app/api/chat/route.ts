@@ -65,18 +65,24 @@ function toClientErrorPayload(message: string, correlationId: string): Record<st
 export async function POST(req: NextRequest) {
   setupAgentTracing();
 
-  let body: { message?: string; conversationId?: string; dealId?: string };
+  let body: {
+    message?: string;
+    conversationId?: string;
+    dealId?: string;
+    intent?: string;
+  };
   try {
     body = (await req.json()) as {
       message?: string;
       conversationId?: string;
       dealId?: string;
+      intent?: string;
     };
   } catch {
     return Response.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { conversationId: requestedConversationId, dealId } = body;
+  const { conversationId: requestedConversationId, dealId, intent } = body;
   const message = (body.message ?? "").trim();
   const correlationId =
     req.headers.get("x-request-id") ?? req.headers.get("idempotency-key") ?? randomUUID();
@@ -103,9 +109,10 @@ export async function POST(req: NextRequest) {
           message,
           dealId: dealId ?? null,
           runType: "ENRICHMENT",
-        maxTurns: 15,
-        correlationId,
-        persistConversation: true,
+          maxTurns: 15,
+          correlationId,
+          persistConversation: true,
+          intent: intent ?? undefined,
         onEvent: (event: AgentStreamEvent) => {
             if (event.type === "done") {
               doneSent = true;

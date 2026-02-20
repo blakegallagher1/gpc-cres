@@ -76,6 +76,7 @@ Before finalizing any recommendation, follow this reasoning checklist:
 | "Tax/IRC question" | Tax Strategist | Finance (modeling), Legal (structure) |
 | "Screen this deal" | Deal Screener | Research (data), Risk (flood/env), Finance (numbers) |
 | "Due diligence status" | Due Diligence | Legal (title), Risk (env), Finance (rent roll) |
+| "Neighborhood trajectory / path of progress / gentrification" | Market Trajectory | Research (parcels), Market Intel (comps) |
 | "Full project evaluation" | All | Parallel execution then synthesis |
 
 ## WORKFLOW PATTERNS
@@ -115,6 +116,7 @@ Use **consult tools** when you need a focused sub-answer but must keep orchestra
 - \`consult_finance_specialist\`
 - \`consult_risk_specialist\`
 - \`consult_legal_specialist\`
+- \`consult_market_trajectory_specialist\` — for neighborhood trajectory, permit heatmaps, path of progress, gentrification indicators
 
 Use **handoff** when a specialist should run a full independent workstream with multiple internal tool steps.
 

@@ -17,6 +17,76 @@ export interface ViewportBounds {
   north: number;
 }
 
+type ParcelGeometryErrorResponse = {
+  ok?: boolean;
+  request_id?: string;
+  error?: {
+    code?: string;
+    message?: string;
+  };
+  debug?: {
+    upstream_status?: number;
+    upstream_error?: string;
+    parcel_id?: string;
+  };
+};
+
+type GeometryFetchHealth = {
+  failedCount: number;
+  unauthorized: boolean;
+  rateLimited: boolean;
+  propertyDbUnconfigured: boolean;
+  upstreamError: boolean;
+  lastErrorCode: string | null;
+  lastErrorMessage: string | null;
+  lastRequestId: string | null;
+};
+
+type PolygonGeometry = {
+  type: "Polygon" | "MultiPolygon";
+  coordinates: unknown;
+};
+
+function extractPolygonGeometry(input: unknown): PolygonGeometry | null {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return null;
+  const record = input as {
+    type?: unknown;
+    coordinates?: unknown;
+    geometry?: unknown;
+    features?: unknown;
+    geometries?: unknown;
+  };
+
+  if ((record.type === "Polygon" || record.type === "MultiPolygon") && Array.isArray(record.coordinates)) {
+    return {
+      type: record.type,
+      coordinates: record.coordinates,
+    };
+  }
+
+  if (record.type === "Feature") {
+    return extractPolygonGeometry(record.geometry);
+  }
+
+  if (record.type === "FeatureCollection" && Array.isArray(record.features)) {
+    for (const feature of record.features) {
+      const geometry = extractPolygonGeometry(feature);
+      if (geometry) return geometry;
+    }
+    return null;
+  }
+
+  if (record.type === "GeometryCollection" && Array.isArray(record.geometries)) {
+    for (const geometry of record.geometries) {
+      const parsed = extractPolygonGeometry(geometry);
+      if (parsed) return parsed;
+    }
+    return null;
+  }
+
+  return null;
+}
+
 // ---------------------------------------------------------------------------
 // Hook: fetch GeoJSON geometries for enriched parcels
 // ---------------------------------------------------------------------------
@@ -42,16 +112,33 @@ export function useParcelGeometry(
   }>,
   maxFetch: number = 50,
   viewportBounds?: ViewportBounds | null
-): { geometries: Map<string, ParcelGeometryEntry>; loading: boolean } {
+): {
+  geometries: Map<string, ParcelGeometryEntry>;
+  loading: boolean;
+  health: GeometryFetchHealth;
+} {
   const [geometries, setGeometries] = useState<Map<string, ParcelGeometryEntry>>(
     new Map()
   );
   const [loading, setLoading] = useState(false);
+  const [health, setHealth] = useState<GeometryFetchHealth>({
+    failedCount: 0,
+    unauthorized: false,
+    rateLimited: false,
+    propertyDbUnconfigured: false,
+    upstreamError: false,
+    lastErrorCode: null,
+    lastErrorMessage: null,
+    lastRequestId: null,
+  });
   const [fetchCycle, setFetchCycle] = useState(0);
+  const abortNetworkRequests = process.env.NODE_ENV === "production";
   const fetchedRef = useRef(new Set<string>());
   const inFlightRef = useRef(new Set<string>());
   const attemptsRef = useRef(new Map<string, number>());
   const abortRef = useRef<AbortController | null>(null);
+  const isFetchingRef = useRef(false);
+  const pendingFetchRef = useRef(false);
 
   const collectCandidates = useCallback(() => {
     let candidates = parcels.filter(
@@ -79,36 +166,41 @@ export function useParcelGeometry(
   }, [parcels, viewportBounds]);
 
   const fetchGeometries = useCallback(async () => {
-    // Abort any in-flight fetch cycle
-    abortRef.current?.abort();
+    if (isFetchingRef.current) {
+      pendingFetchRef.current = true;
+      return;
+    }
+    isFetchingRef.current = true;
+
     const controller = new AbortController();
     abortRef.current = controller;
 
-    const candidates = collectCandidates();
+    try {
+      const candidates = collectCandidates();
 
-    const toFetch = candidates.slice(0, maxFetch);
+      const toFetch = candidates.slice(0, maxFetch);
 
-    if (toFetch.length === 0) return;
+      if (toFetch.length === 0) return;
 
-    setLoading(true);
+      setLoading(true);
 
-    // Mark as in-flight to prevent duplicate fetches while requests are pending.
-    for (const p of toFetch) inFlightRef.current.add(p.id);
+      // Mark as in-flight to prevent duplicate fetches while requests are pending.
+      for (const p of toFetch) inFlightRef.current.add(p.id);
 
-    const BATCH_SIZE = 5;
+      const BATCH_SIZE = 5;
 
-    for (let i = 0; i < toFetch.length; i += BATCH_SIZE) {
-      // Check if aborted between batches
-      if (controller.signal.aborted) {
-        // Un-mark parcels so they can be re-fetched next cycle
-        for (const p of toFetch.slice(i)) inFlightRef.current.delete(p.id);
-        break;
-      }
+      for (let i = 0; i < toFetch.length; i += BATCH_SIZE) {
+        // Check if aborted between batches
+        if (controller.signal.aborted) {
+          // Un-mark parcels so they can be re-fetched next cycle
+          for (const p of toFetch.slice(i)) inFlightRef.current.delete(p.id);
+          break;
+        }
 
-      const batch = toFetch.slice(i, i + BATCH_SIZE);
+        const batch = toFetch.slice(i, i + BATCH_SIZE);
 
-      const results = await Promise.allSettled(
-        batch.map(async (parcel) => {
+        const results = await Promise.allSettled(
+          batch.map(async (parcel) => {
           const lookupKey =
             parcel.geometryLookupKey?.trim() ||
             parcel.propertyDbId?.trim() ||
@@ -122,13 +214,81 @@ export function useParcelGeometry(
               parcelId: cleanedLookupKey,
               detailLevel: "low",
             }),
-            signal: controller.signal,
+            ...(abortNetworkRequests ? { signal: controller.signal } : {}),
           });
-          if (!res.ok) return null;
-          const json = await res.json();
-          if (!json.ok || !json.data?.geom_simplified) return null;
+          let json: ParcelGeometryErrorResponse;
+          try {
+            json = (await res.json()) as ParcelGeometryErrorResponse;
+          } catch {
+            if (process.env.NODE_ENV !== "production") {
+              console.warn("[useParcelGeometry] Non-JSON parcel geometry response", {
+                parcelId: parcel.id,
+                lookupKey: cleanedLookupKey,
+                status: res.status,
+              });
+            }
+            return null;
+          }
 
-          let parsedGeometry: unknown = json.data.geom_simplified;
+          if (!res.ok || !json.ok) {
+            const errorCode = json.error?.code ?? null;
+            const errorMessage = json.error?.message ?? null;
+            if (errorCode === "CLIENT_ABORTED") {
+              return null;
+            }
+            setHealth((prev) => ({
+              failedCount: prev.failedCount + 1,
+              unauthorized: prev.unauthorized || res.status === 401 || errorCode === "UNAUTHORIZED",
+              rateLimited: prev.rateLimited || res.status === 429 || errorCode === "RATE_LIMITED",
+              propertyDbUnconfigured:
+                prev.propertyDbUnconfigured || errorCode === "PROPERTY_DB_UNCONFIGURED",
+              upstreamError:
+                prev.upstreamError ||
+                errorCode === "UPSTREAM_ERROR" ||
+                errorCode === "PROPERTY_DB_UNCONFIGURED",
+              lastErrorCode: errorCode,
+              lastErrorMessage: errorMessage,
+              lastRequestId: json.request_id ?? null,
+            }));
+            if (process.env.NODE_ENV !== "production") {
+              console.warn("[useParcelGeometry] Parcel geometry request failed", {
+                parcelId: parcel.id,
+                lookupKey: cleanedLookupKey,
+                status: res.status,
+                requestId: json.request_id,
+                errorCode: json.error?.code,
+                errorMessage: json.error?.message,
+                debug: json.debug,
+              });
+            }
+            return null;
+          }
+          if (!(json as { data?: { geom_simplified?: unknown } }).data?.geom_simplified) {
+            setHealth((prev) => ({
+              ...prev,
+              failedCount: prev.failedCount + 1,
+              lastErrorCode: "MISSING_GEOMETRY",
+              lastErrorMessage: "geom_simplified missing",
+              lastRequestId: json.request_id ?? null,
+            }));
+            if (process.env.NODE_ENV !== "production") {
+              console.warn("[useParcelGeometry] Parcel geometry missing geom_simplified", {
+                parcelId: parcel.id,
+                lookupKey: cleanedLookupKey,
+                requestId: json.request_id,
+              });
+            }
+            return null;
+          }
+
+          const geometryData = (json as {
+            data: {
+              geom_simplified: unknown;
+              bbox: unknown;
+              area_sqft: unknown;
+            };
+          }).data;
+          let parsedGeometry: unknown = geometryData.geom_simplified;
           if (typeof parsedGeometry === "string") {
             try {
               parsedGeometry = JSON.parse(parsedGeometry);
@@ -139,83 +299,86 @@ export function useParcelGeometry(
             }
           }
 
-          if (
-            !parsedGeometry ||
-            typeof parsedGeometry !== "object" ||
-            Array.isArray(parsedGeometry)
-          ) {
-            return null;
-          }
-
-          const geomType = (parsedGeometry as { type?: unknown }).type;
-          if (geomType !== "Polygon" && geomType !== "MultiPolygon") {
-            return null;
-          }
+          const normalizedGeometry = extractPolygonGeometry(parsedGeometry);
+          if (!normalizedGeometry) return null;
 
           return {
             parcelId: parcel.id,
             entry: {
-              geometry: parsedGeometry as {
-                type: "Polygon" | "MultiPolygon";
-                coordinates: unknown;
-              },
-              bbox: json.data.bbox as [number, number, number, number],
-              area_sqft: json.data.area_sqft as number,
+              geometry: normalizedGeometry,
+              bbox: geometryData.bbox as [number, number, number, number],
+              area_sqft: geometryData.area_sqft as number,
             },
           };
-        })
-      );
+          })
+        );
 
-      // Merge successful results into state
-      const newEntries = new Map<string, ParcelGeometryEntry>();
-      const successfulParcelIds = new Set<string>();
-      const attemptedParcelIds = new Set<string>(batch.map((parcel) => parcel.id));
-      for (const result of results) {
-        if (result.status === "fulfilled" && result.value) {
-          newEntries.set(result.value.parcelId, result.value.entry);
-          successfulParcelIds.add(result.value.parcelId);
+        // Merge successful results into state
+        const newEntries = new Map<string, ParcelGeometryEntry>();
+        const successfulParcelIds = new Set<string>();
+        const attemptedParcelIds = new Set<string>(batch.map((parcel) => parcel.id));
+        for (const result of results) {
+          if (result.status === "fulfilled" && result.value) {
+            newEntries.set(result.value.parcelId, result.value.entry);
+            successfulParcelIds.add(result.value.parcelId);
+          }
+        }
+        if (newEntries.size > 0) {
+          setGeometries((prev) => {
+            const next = new Map(prev);
+            for (const [k, v] of newEntries) next.set(k, v);
+            return next;
+          });
+        }
+
+        // Only mark as fetched after successful responses.
+        for (const parcelId of attemptedParcelIds) {
+          inFlightRef.current.delete(parcelId);
+          attemptsRef.current.set(parcelId, (attemptsRef.current.get(parcelId) ?? 0) + 1);
+        }
+        for (const parcelId of successfulParcelIds) {
+          fetchedRef.current.add(parcelId);
+          attemptsRef.current.delete(parcelId);
+        }
+
+        // Small delay between batches to stay within rate limits
+        if (i + BATCH_SIZE < toFetch.length) {
+          await new Promise((r) => setTimeout(r, 200));
         }
       }
-      if (newEntries.size > 0) {
-        setGeometries((prev) => {
-          const next = new Map(prev);
-          for (const [k, v] of newEntries) next.set(k, v);
-          return next;
-        });
-      }
 
-      // Only mark as fetched after successful responses.
-      for (const parcelId of attemptedParcelIds) {
-        inFlightRef.current.delete(parcelId);
-        attemptsRef.current.set(parcelId, (attemptsRef.current.get(parcelId) ?? 0) + 1);
+      if (!controller.signal.aborted) {
+        setLoading(false);
+        if (collectCandidates().length > 0) {
+          setFetchCycle((cycle) => cycle + 1);
+        }
+      } else {
+        for (const p of toFetch) inFlightRef.current.delete(p.id);
       }
-      for (const parcelId of successfulParcelIds) {
-        fetchedRef.current.add(parcelId);
-        attemptsRef.current.delete(parcelId);
+    } finally {
+      if (abortRef.current === controller) {
+        abortRef.current = null;
       }
-
-      // Small delay between batches to stay within rate limits
-      if (i + BATCH_SIZE < toFetch.length) {
-        await new Promise((r) => setTimeout(r, 200));
-      }
-    }
-
-    if (!controller.signal.aborted) {
-      setLoading(false);
-      if (collectCandidates().length > 0) {
+      isFetchingRef.current = false;
+      if (pendingFetchRef.current) {
+        pendingFetchRef.current = false;
         setFetchCycle((cycle) => cycle + 1);
       }
-    } else {
-      for (const p of toFetch) inFlightRef.current.delete(p.id);
     }
-  }, [collectCandidates, maxFetch]);
+  }, [abortNetworkRequests, collectCandidates, maxFetch]);
 
   useEffect(() => {
     fetchGeometries();
-    return () => {
-      abortRef.current?.abort();
-    };
   }, [fetchGeometries, fetchCycle]);
 
-  return { geometries, loading };
+  useEffect(
+    () => () => {
+      if (abortNetworkRequests) {
+        abortRef.current?.abort();
+      }
+    },
+    [abortNetworkRequests]
+  );
+
+  return { geometries, loading, health };
 }

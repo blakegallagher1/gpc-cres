@@ -18,22 +18,19 @@ export function isMissingOrPlaceholder(value: string | undefined): boolean {
 }
 
 export function getPropertyDbConfigOrNull(): PropertyDbConfig | null {
-  const url = process.env.LA_PROPERTY_DB_URL;
-  const key = process.env.LA_PROPERTY_DB_KEY;
-
+  const url = (process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL)?.trim();
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   if (!url || !key) return null;
   if (isMissingOrPlaceholder(url) || isMissingOrPlaceholder(key)) return null;
-
-  return {
-    url: url.trim(),
-    key: key.trim(),
-  };
+  return { url, key };
 }
 
 export function requirePropertyDbConfig(routeTag: string): PropertyDbConfig {
   const config = getPropertyDbConfigOrNull();
   if (!config) {
-    throw new Error(`[${routeTag}] Missing required LA_PROPERTY_DB_URL/LA_PROPERTY_DB_KEY.`);
+    throw new Error(
+      `[${routeTag}] Missing required SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY.`,
+    );
   }
   return config;
 }

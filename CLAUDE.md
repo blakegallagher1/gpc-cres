@@ -5,7 +5,7 @@ Last reviewed: 2026-02-19
 
 ## Project Overview
 
-**Entitlement OS** — Internal operating system for Gallagher Property Company, a commercial real estate investment and development firm focused on light industrial, outdoor storage, and truck parking in Louisiana. The platform combines a 13-agent AI coordinator with a deal pipeline UI, property database integration, and document generation to manufacture certainty in entitlement processes.
+**Entitlement OS** — Internal operating system for Gallagher Property Company, a commercial real estate investment and development firm focused on light industrial, outdoor storage, and truck parking in Louisiana. The platform combines a 14-agent AI coordinator with a deal pipeline UI, property database integration, and document generation to manufacture certainty in entitlement processes.
 
 **Live at:** gallagherpropco.com
 **Deployed on:** Vercel (frontend) — Temporal worker parked for v2
@@ -93,7 +93,7 @@ db generate → shared build → db build → openai build → next build
 
 ## Agent Architecture
 
-13 agents in `packages/openai/src/agents/`, wired via `createConfiguredCoordinator()`:
+14 agents in `packages/openai/src/agents/`, wired via `createConfiguredCoordinator()`:
 
 | Agent | Model | Purpose |
 |-------|-------|---------|
@@ -110,10 +110,11 @@ db generate → shared build → db build → openai build → next build
 | Marketing | gpt-5.1 | Buyer outreach, leasing strategy |
 | Tax Strategist | gpt-5.1 | IRC 1031, depreciation, cost segregation |
 | Market Intel | gpt-5.1 | Competitor tracking, absorption trends |
+| Market Trajectory | gpt-5.1 | Neighborhood trajectory, permit heatmaps, gentrification indicators |
 
 **Tool wiring:** Module-level agent exports are tool-free. Tools are attached via `withTools()` inside `createConfiguredCoordinator()` — never on the bare exports.
 
-**~26 unique tools** across 8 files in `packages/openai/src/tools/`, distributed into 13 agent-specific arrays:
+**~28 unique tools** across 10 files in `packages/openai/src/tools/`, distributed into 14 agent-specific arrays:
 - Deal CRUD, task management, parcel updates
 - Property DB: search 560K parcels, 7 screening endpoints (flood, soils, wetlands, EPA, traffic, LDEQ, full)
 - Zoning matrix lookup (EBR UDC), parish pack lookup
@@ -121,7 +122,7 @@ db generate → shared build → db build → openai build → next build
 - Triage scoring, hard filter checks
 - Buyer management + outreach logging
 
-All 13 agents now have tools wired (Design: 6, Tax: 4 — previously had zero).
+All 14 agents have tools wired. Market Trajectory uses Socrata (building permits) and Google Places (gentrification indicators).
 
 ## Data Model (Prisma — 18 models)
 
@@ -140,7 +141,7 @@ All 13 agents now have tools wired (Design: 6, Tax: 4 — previously had zero).
 
 **Three Supabase projects:**
 - Entitlement OS DB (`yjddspdbxuseowxndrak`) — system of record, Prisma-managed
-- Louisiana Property DB (`jueyosscalcljgdorrpy`) — 560K parcels, 5 parishes, 9 RPC functions (read-only via `LA_PROPERTY_DB_URL` + `LA_PROPERTY_DB_KEY`)
+- Louisiana Property DB — parcel search/screening uses main Supabase (`SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`)
 - chatgpt-apps GIS DB (`jueyosscalcljgdorrpy`) — same Supabase project as Property DB, accessed via separate `external_reader` role with two-header auth. 6 RPC functions for geometry, dimensions, zoning, and amenities cache. See `docs/chatgpt-apps-integration.md`.
 
 ## Environment Variables
@@ -155,9 +156,10 @@ TEMPORAL_ADDRESS, TEMPORAL_NAMESPACE, TEMPORAL_TASK_QUEUE
 ### Frontend (`apps/web/.env.local`)
 ```
 NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY,
-OPENAI_API_KEY, LA_PROPERTY_DB_URL, LA_PROPERTY_DB_KEY, ALLOWED_LOGIN_EMAILS,
+OPENAI_API_KEY, ALLOWED_LOGIN_EMAILS,
 CRON_SECRET,
-CHATGPT_APPS_SUPABASE_URL, CHATGPT_APPS_SUPABASE_ANON_KEY, CHATGPT_APPS_SUPABASE_EXT_JWT
+CHATGPT_APPS_SUPABASE_URL, CHATGPT_APPS_SUPABASE_ANON_KEY, CHATGPT_APPS_SUPABASE_EXT_JWT,
+SOCRATA_BASE_URL, SOCRATA_APP_TOKEN, GOOGLE_MAPS_API_KEY
 ```
 
 ## Automation Philosophy

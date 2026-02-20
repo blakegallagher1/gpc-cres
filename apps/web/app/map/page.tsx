@@ -16,6 +16,11 @@ import type { MapParcel } from "@/components/maps/ParcelMap";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
+const MapChatPanel = dynamic(
+  () => import("@/components/maps/MapChatPanel").then((m) => m.MapChatPanel),
+  { ssr: false }
+);
+
 const ParcelMap = dynamic(
   () => import("@/components/maps/ParcelMap").then((m) => m.ParcelMap),
   {
@@ -33,6 +38,12 @@ interface ApiParcel {
   address: string;
   lat: string | number | null;
   lng: string | number | null;
+  latitude?: string | number | null;
+  longitude?: string | number | null;
+  geom_x?: string | number | null;
+  geom_y?: string | number | null;
+  x?: string | number | null;
+  y?: string | number | null;
   acreage?: string | number | null;
   floodZone?: string | null;
   currentZoning?: string | null;
@@ -78,6 +89,17 @@ function distanceMiles(a: MapParcel, b: MapParcel): number {
   return 3958.8 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
 }
 
+function toFiniteNumber(...values: Array<unknown>): number | null {
+  for (const value of values) {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string" && value.trim().length > 0) {
+      const parsed = Number(value.replace(/,/g, "").trim());
+      if (Number.isFinite(parsed)) return parsed;
+    }
+  }
+  return null;
+}
+
 export default function MapPage() {
   const router = useRouter();
   const [parcels, setParcels] = useState<MapParcel[]>([]);
@@ -93,6 +115,14 @@ export default function MapPage() {
   const [polygonParcels, setPolygonParcels] = useState<MapParcel[] | null>(null);
   const [polygonError, setPolygonError] = useState<string | null>(null);
   const [isPolygonLoading, setIsPolygonLoading] = useState(false);
+  const [trajectoryData, setTrajectoryData] = useState<{
+  type: "FeatureCollection";
+  features: unknown[];
+} | null>(null);
+  const authDisabledHint =
+    process.env.NODE_ENV !== "production"
+      ? " Start the dev server with NEXT_PUBLIC_DISABLE_AUTH=true or sign in."
+      : " Please sign in and try again.";
 
   const handleSearchSubmit = (event?: FormEvent<HTMLFormElement>) => {
     event?.preventDefault();
@@ -116,9 +146,9 @@ export default function MapPage() {
 
   const mapApiParcels = (data: ParcelsApiResponse): MapParcel[] =>
     (data.parcels as ApiParcel[]).reduce<MapParcel[]>((acc, p) => {
-      const lat = Number(p.lat);
-      const lng = Number(p.lng);
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return acc;
+      const lat = toFiniteNumber(p.lat, p.latitude, p.geom_y, p.y);
+      const lng = toFiniteNumber(p.lng, p.longitude, p.geom_x, p.x);
+      if (lat == null || lng == null) return acc;
 
       acc.push({
         id: p.id,
@@ -250,7 +280,11 @@ export default function MapPage() {
       try {
         const res = await fetch("/api/parcels?hasCoords=true");
         if (!res.ok) {
-          setLoadError("Failed to load parcels. Please refresh and try again.");
+          setLoadError(
+            res.status === 401
+              ? `Unauthorized.${authDisabledHint}`
+              : "Failed to load parcels. Please refresh and try again.",
+          );
           return;
         }
         const data = (await res.json()) as ParcelsApiResponse;
@@ -258,7 +292,13 @@ export default function MapPage() {
         if (data.error) {
           setLoadError(data.error);
         }
-        setParcels(mapApiParcels(data));
+        const mapped = mapApiParcels(data);
+        if (mapped.length === 0 && data.parcels.length > 0) {
+          setLoadError(
+            "Parcels were returned but missing usable coordinates (lat/lng). Check API parcel field names.",
+          );
+        }
+        setParcels(mapped);
       } catch {
         setLoadError("Failed to load parcels. Please refresh and try again.");
       } finally {
@@ -290,7 +330,12 @@ export default function MapPage() {
         });
         const res = await fetch(`/api/parcels?${qs.toString()}`);
         if (!res.ok || !active) {
-          if (active) setSearchParcels([]);
+          if (active) {
+            setSearchParcels([]);
+            if (res.status === 401) {
+              setLoadError(`Unauthorized.${authDisabledHint}`);
+            }
+          }
           return;
         }
         const data = (await res.json()) as ParcelsApiResponse;
@@ -301,7 +346,13 @@ export default function MapPage() {
           setLoadError(null);
         }
         setSource(data.source === "property-db-fallback" ? "property-db-fallback" : "org");
-        setSearchParcels(mapApiParcels(data));
+        const mapped = mapApiParcels(data);
+        if (mapped.length === 0 && data.parcels.length > 0) {
+          setLoadError(
+            "Search returned parcels without usable coordinates (lat/lng).",
+          );
+        }
+        setSearchParcels(mapped);
       } catch {
         if (active) setSearchParcels([]);
         setLoadError("Search failed. Please try again.");
@@ -413,7 +464,9 @@ export default function MapPage() {
           </form>
         </div>
         {!loading && (
-          <ParcelMap
+          <div className="relative">
+            <MapChatPanel onGeoJsonReceived={setTrajectoryData} />
+            <ParcelMap
             parcels={activeParcels}
             height="calc(100vh - 14rem)"
             showTools
@@ -426,7 +479,9 @@ export default function MapPage() {
               const parcel = activeParcels.find((p) => p.id === id);
               if (parcel?.dealId) router.push(`/deals/${parcel.dealId}`);
             }}
+            trajectoryData={trajectoryData}
           />
+          </div>
         )}
       </div>
     </DashboardShell>
