@@ -573,16 +573,16 @@ Only items meeting all checks are added below as `Planned`.
 - **Priority:** P0
 - **Status:** Done
 - **Scope:** Critical path for map search and geometry reliability
-- **Problem:** Map and parcel routes depend on `LA_PROPERTY_DB_URL` and `LA_PROPERTY_DB_KEY`; missing or stale production values can cause empty parcel geometry, empty search results, and map failures.
+- **Problem:** Map and parcel routes depend on Supabase credentials; missing or stale production values can cause empty parcel geometry, empty search results, and map failures.
 - **Expected Outcome (measurable):**
-  - Production confirms both `LA_PROPERTY_DB_URL` and `LA_PROPERTY_DB_KEY` are present and valid for the active `prod` deployment environment.
+  - Production confirms `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are present and valid for the active `prod` deployment environment.
   - Runtime checks show `gpc-agent-dashboard` resolves to the intended Louisiana property database role and not fallback.
   - Any config gap is documented with root cause and remediation date.
 - **Evidence of need:** Recent map incidents in production show empty parcel geometry and search behavior consistent with missing/incorrect property DB credentials.
 - **Alignment:** Preserves current auth boundaries and does not change client-visible contracts.
 - **Risk/rollback:** Low operational risk; rollback is reverting to existing env values once validated baseline is restored.
 - **Acceptance Criteria / Tests:**
-  1. Validate `LA_PROPERTY_DB_URL` and `LA_PROPERTY_DB_KEY` are visible in production Vercel/project config.
+  1. Validate `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are visible in production Vercel/project config.
   2. Confirm both values are non-empty and non-placeholder (`placeholder`, `***`, etc.) via runtime checks.
   3. Add a startup health check log in logs/monitoring for any request path that hits property DB fallback clients.
 - **Files (target):**
@@ -598,7 +598,7 @@ Only items meeting all checks are added below as `Planned`.
     - `apps/web/app/api/map/prospect/route.ts`
     - `apps/web/app/api/external/chatgpt-apps/parcel-geometry/route.ts`
     - `scripts/parcels/check_property_db_runtime.ts`
-    - `vercel env ls production` (project `gallagher-cres`) shows `LA_PROPERTY_DB_URL` and `LA_PROPERTY_DB_KEY` configured in Production.
+    - `vercel env ls production` (project `gallagher-cres`) shows `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` configured in Production.
   - **Result:**
     - Added one-time runtime health logs for property DB fallback request paths with placeholder detection.
     - Added explicit runtime check script for non-placeholder env + RPC probe (`api_search_parcels`).
@@ -670,13 +670,14 @@ Only items meeting all checks are added below as `Planned`.
     - `scripts/parcels/smoke_map_parcel_prod.ts`
     - `apps/web/app/api/map/prospect/route.post.test.ts`
     - `apps/web/app/api/external/chatgpt-apps/parcel-geometry/route.test.ts`
-  - **Result:**
+- **Result:**
     - Added ordered authenticated smoke runner for production endpoints:
       - `GET /api/parcels?hasCoords=true`
       - `GET /api/parcels?search=<known-address>`
       - `POST /api/map/prospect`
       - `POST /api/external/chatgpt-apps/parcel-geometry`
     - Smoke output captures status code, row counts, sample payload keys, candidate parcel id, and pass/fail in timestamped reports under `output/parcel-smoke/`.
+    - 2026-02-20 regression hardening: `/api/parcels` search now canonicalizes street suffix variants (`drive`/`dr`, etc.) and maps stringified `geom_simplified` payloads to centroid coordinates; parcel geometry route and auth proxy now guard uncaught abort/reset errors with normalized responses.
 ### MAP-001a — Deterministic Map Base-Tile Fallback (OSM offline-safe)
 
 - **Priority:** P2

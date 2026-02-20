@@ -10,7 +10,8 @@ export type SpecialistAgentKey =
   | "operations"
   | "marketing"
   | "tax"
-  | "marketIntel";
+  | "marketIntel"
+  | "marketTrajectory";
 
 export type QueryIntent =
   | "land_search"
@@ -26,6 +27,7 @@ export type QueryIntent =
   | "market_intel"
   | "screener"
   | "research"
+  | "market_trajectory"
   | "general";
 
 export type ProofGroup = {
@@ -54,6 +56,7 @@ export const SPECIALIST_AGENT_KEYS: SpecialistAgentKey[] = [
   "marketing",
   "tax",
   "marketIntel",
+  "marketTrajectory",
 ];
 
 export const SPECIALIST_LABELS: Record<SpecialistAgentKey, string> = {
@@ -69,6 +72,7 @@ export const SPECIALIST_LABELS: Record<SpecialistAgentKey, string> = {
   marketing: "Marketing",
   tax: "Tax",
   marketIntel: "Market Intelligence",
+  marketTrajectory: "Market Trajectory",
 };
 
 const KNOWLEDGE_PROOF_GROUP: ProofGroup = {
@@ -185,6 +189,17 @@ const QUERY_INTENT_PROFILES: Record<QueryIntent, QueryIntentProfile> = {
       /comparable|comps/, /market\s+data/, /market\s+intel/, /absorption/, /forecast/, /trend/, /sales\s+history/, /prices/, /analysis/,
     ],
   },
+  market_trajectory: {
+    label: "Market trajectory",
+    description: "Neighborhood trajectory, path of progress, permit heatmaps, gentrification indicators.",
+    specialists: ["marketTrajectory", "research"],
+    proofGroups: [KNOWLEDGE_PROOF_GROUP, PARCEL_PROOF_GROUP],
+    keywordTriggers: [
+      /\bpath\s+of\s+progress\b/, /\btrajectory\b/, /\bgentrification\b/,
+      /\bpermit\s+(activity|heatmap|volume)\b/, /\bneighborhood\s+growth\b/,
+      /\bspatial\s+momentum\b/, /\bappreciat(ing|ion)\b/, /\bzip\s*code\s+70801\b/,
+    ],
+  },
   screener: {
     label: "Deal screener",
     description: "Deal screening work that regularly hits parcel scores and knowledge sources.",
@@ -224,6 +239,7 @@ const QUERY_INTENT_ORDER: QueryIntent[] = [
   "due_diligence",
   "entitlements",
   "market_intel",
+  "market_trajectory",
   "screener",
   "research",
   "general",

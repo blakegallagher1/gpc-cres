@@ -27,10 +27,29 @@ function sanitizeSearchInput(input: string): string {
   return input
     .normalize("NFKD")
     .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[.,]/g, " ")
     .replace(/\s+/g, " ")
     .replace(/[\u0000-\u001f]/g, " ")
     .trim()
     .toLowerCase();
+}
+
+const STREET_SUFFIX_CANONICAL: Array<[RegExp, string]> = [
+  [/\bdr\b/g, "drive"],
+  [/\bst\b/g, "street"],
+  [/\brd\b/g, "road"],
+  [/\bave\b/g, "avenue"],
+  [/\bblvd\b/g, "boulevard"],
+  [/\bhwy\b/g, "highway"],
+  [/\bln\b/g, "lane"],
+];
+
+function canonicalizeAddressLikeText(input: string): string {
+  let value = sanitizeSearchInput(input);
+  for (const [pattern, replacement] of STREET_SUFFIX_CANONICAL) {
+    value = value.replace(pattern, replacement);
+  }
+  return value.replace(/\s+/g, " ").trim();
 }
 
 function toFiniteNumberOrNull(value: unknown): number | null {
@@ -43,8 +62,28 @@ function toFiniteNumberOrNull(value: unknown): number | null {
 }
 
 function computeCoordsFromBbox(row: Record<string, unknown>): [number, number] | null {
-  const bbox = row.bbox;
-  if (!Array.isArray(bbox) || bbox.length !== 4) return null;
+  const rawBbox = row.bbox;
+  let bbox: unknown[] | null = null;
+  if (Array.isArray(rawBbox) && rawBbox.length === 4) {
+    bbox = rawBbox;
+  } else if (typeof rawBbox === "string" && rawBbox.trim().length > 0) {
+    const trimmed = rawBbox.trim();
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed) && parsed.length === 4) {
+        bbox = parsed;
+      }
+    } catch {
+      const csvParts = trimmed
+        .replace(/^\[|\]$/g, "")
+        .split(",")
+        .map((part) => part.trim());
+      if (csvParts.length === 4) {
+        bbox = csvParts;
+      }
+    }
+  }
+  if (!bbox) return null;
 
   const minLng = toFiniteNumberOrNull(bbox[0]);
   const minLat = toFiniteNumberOrNull(bbox[1]);
@@ -63,6 +102,15 @@ function computeCoordsFromBbox(row: Record<string, unknown>): [number, number] |
 }
 
 function parseGeometryCentroid(value: unknown): [number, number] | null {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    try {
+      return parseGeometryCentroid(JSON.parse(trimmed));
+    } catch {
+      return null;
+    }
+  }
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
 
   const geometry = value as Record<string, unknown>;
@@ -127,6 +175,12 @@ function deriveAddressCentroid(
     if (lat != null && lng != null) {
       return [lat, lng];
     }
+    const x = toFiniteNumberOrNull(centroid.x);
+    const y = toFiniteNumberOrNull(centroid.y);
+    if (x != null && y != null) {
+      const normalized = normalizeLatLngPair(x, y);
+      if (normalized) return normalized;
+    }
   }
   if (Array.isArray(value) && value.length >= 2) {
     const first = toFiniteNumberOrNull(value[0]);
@@ -139,7 +193,7 @@ function deriveAddressCentroid(
 }
 
 function buildSearchTerms(rawText: string): string[] {
-  const normalized = sanitizeSearchInput(rawText);
+  const normalized = canonicalizeAddressLikeText(rawText);
   if (!normalized) return ["*"];
 
   const terms = new Set<string>([normalized]);
@@ -208,6 +262,17 @@ function parseRpcResponseArray(value: string): unknown[] {
   } catch {
     return [];
   }
+}
+
+function logParcelsDevPayload(
+  phase: string,
+  details: Record<string, unknown>,
+): void {
+  if (process.env.NODE_ENV === "production") return;
+  console.info("[/api/parcels][dev-payload]", {
+    phase,
+    ...details,
+  });
 }
 
 function normalizeRpcRows(value: unknown): Record<string, unknown>[] {
@@ -295,7 +360,7 @@ async function propertyRpc(
 }
 
 function buildRpcSearchTerms(rawText: string): string[] {
-  const normalized = sanitizeSearchInput(rawText);
+  const normalized = canonicalizeAddressLikeText(rawText);
   if (!normalized) return ["*"];
 
   const terms = new Set<string>([
@@ -363,7 +428,15 @@ async function runWithConcurrency<T>(
 function mapExternalParcelToApiShape(
   row: Record<string, unknown>,
 ): Record<string, unknown> | null {
-  const geometryCentroid = parseGeometryCentroid(row.geometry ?? row.geom_geojson);
+  const geometryCentroid = parseGeometryCentroid(
+    row.geometry ??
+      row.geom_geojson ??
+      row.geom_simplified ??
+      row.geom ??
+      row.geom_geo_json ??
+      row.geometry_geojson ??
+      row.polygon,
+  );
   const fallbackCoords =
     computeCoordsFromBbox(row) ??
     deriveAddressCentroid(row.centroid) ??
@@ -394,7 +467,7 @@ function mapExternalParcelToApiShape(
     row.id ?? row.parcel_uid ?? row.parcel_id ?? row.apn ?? "",
   );
   const address = String(row.site_address ?? row.situs_address ?? row.address ?? "Unknown");
-  const normalizedAddress = sanitizeSearchInput(address);
+  const normalizedAddress = canonicalizeAddressLikeText(address);
 
   return {
     id: `ext-${propertyDbId || `${lat}-${lng}`}`,
@@ -419,7 +492,7 @@ function matchesSearchQuery(
   query: string,
 ): boolean {
   if (!query) return true;
-  const q = sanitizeSearchInput(query);
+  const q = canonicalizeAddressLikeText(query);
   const searchText = String(parcel.searchText ?? "");
   const fields = [
     parcel.address,
@@ -430,7 +503,7 @@ function matchesSearchQuery(
   ];
   return fields.some((value) =>
     typeof value === "string" &&
-    sanitizeSearchInput(value).includes(q),
+    canonicalizeAddressLikeText(value).includes(q),
   );
 }
 
@@ -564,6 +637,12 @@ export async function GET(request: NextRequest) {
     }
 
     if (parcels.length > 0 || (!hasCoords && !prismaUnavailable)) {
+      logParcelsDevPayload("org", {
+        hasCoords,
+        searchText,
+        prismaUnavailable,
+        parcelCount: parcels.length,
+      });
       return NextResponse.json({ parcels, source: "org" });
     }
 
@@ -598,7 +677,11 @@ export async function GET(request: NextRequest) {
     const externalRows = parishResults.flat();
     if (externalRows.length === 0) {
       if (isDevParcelFallbackEnabled()) {
-        const devParcels = getDevFallbackParcels(searchText).map((parcel) => ({
+        const matchedDevParcels = getDevFallbackParcels(searchText);
+        const seed = matchedDevParcels.length > 0
+          ? matchedDevParcels
+          : getDevFallbackParcels("*");
+        const devParcels = seed.map((parcel) => ({
           id: parcel.id,
           address: parcel.address,
           lat: parcel.lat,
@@ -609,11 +692,24 @@ export async function GET(request: NextRequest) {
           propertyDbId: parcel.propertyDbId,
           deal: null,
         }));
+        logParcelsDevPayload("dev-fallback", {
+          hasCoords,
+          searchText,
+          reason: "external_rows_empty",
+          matchedDevCount: matchedDevParcels.length,
+          parcelCount: devParcels.length,
+        });
         return NextResponse.json({
           parcels: devParcels,
           source: "dev-fallback",
+          searchFallback: Boolean(searchText) && matchedDevParcels.length === 0,
         });
       }
+      logParcelsDevPayload("property-db-empty", {
+        hasCoords,
+        searchText,
+        externalRowCount: 0,
+      });
       return NextResponse.json({
         parcels: [],
         source: "property-db-fallback",
@@ -631,6 +727,52 @@ export async function GET(request: NextRequest) {
       )
       .filter((row): row is Record<string, unknown> => row !== null);
 
+    if (mappedExternal.length === 0 && isDevParcelFallbackEnabled()) {
+      const matchedDevParcels = getDevFallbackParcels(searchText);
+      const seed = matchedDevParcels.length > 0
+        ? matchedDevParcels
+        : getDevFallbackParcels("*");
+      const devParcels = seed.map((parcel) => ({
+        id: parcel.id,
+        address: parcel.address,
+        lat: parcel.lat,
+        lng: parcel.lng,
+        acreage: parcel.acreage,
+        floodZone: parcel.floodZone,
+        currentZoning: parcel.zoning,
+        propertyDbId: parcel.propertyDbId,
+        deal: null,
+      }));
+      logParcelsDevPayload("dev-fallback", {
+        hasCoords,
+        searchText,
+        reason: "mapped_external_empty",
+        externalRowCount: externalRows.length,
+        matchedDevCount: matchedDevParcels.length,
+        parcelCount: devParcels.length,
+      });
+      return NextResponse.json({
+        parcels: devParcels,
+        source: "dev-fallback",
+        searchFallback: Boolean(searchText) && matchedDevParcels.length === 0,
+      });
+    }
+
+    if (
+      process.env.NODE_ENV !== "production" &&
+      externalRows.length > 0 &&
+      mappedExternal.length === 0
+    ) {
+      const sample = externalRows.find(
+        (row): row is Record<string, unknown> =>
+          typeof row === "object" && row !== null && !Array.isArray(row),
+      );
+      console.warn("[/api/parcels] fallback rows found but none mapped to coords", {
+        externalRowCount: externalRows.length,
+        sampleKeys: sample ? Object.keys(sample).slice(0, 20) : [],
+      });
+    }
+
     const filteredExternal = searchText
       ? (() => {
           const preFiltered = mappedExternal.filter((parcel) =>
@@ -643,6 +785,22 @@ export async function GET(request: NextRequest) {
     const deduped = Array.from(
       new Map(filteredExternal.map((item) => [String(item.id), item])).values(),
     ).slice(0, 500);
+
+    logParcelsDevPayload("property-db-fallback", {
+      hasCoords,
+      searchText,
+      externalRowCount: externalRows.length,
+      mappedCount: mappedExternal.length,
+      filteredCount: filteredExternal.length,
+      dedupedCount: deduped.length,
+      withPropertyDbIdCount: deduped.filter((parcel) =>
+        typeof parcel === "object" &&
+        parcel !== null &&
+        "propertyDbId" in parcel &&
+        typeof (parcel as { propertyDbId?: unknown }).propertyDbId === "string" &&
+        ((parcel as { propertyDbId: string }).propertyDbId).trim().length > 0
+      ).length,
+    });
 
     return NextResponse.json({ parcels: deduped, source: "property-db-fallback" });
   } catch (error) {

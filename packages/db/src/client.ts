@@ -44,6 +44,24 @@ function createPrismaClient(url: string | null): PrismaClient {
 const runtimeDatabaseUrl = normalizeDbUrl(process.env.DATABASE_URL);
 const pooledDatabaseUrl = runtimeDatabaseUrl ? withPoolParams(runtimeDatabaseUrl) : null;
 
+// Guardrail: serverless must use Supavisor (port 6543), not Session Mode (5432)
+if (
+  process.env.NODE_ENV === "production" &&
+  pooledDatabaseUrl
+) {
+  try {
+    const u = new URL(pooledDatabaseUrl);
+    const port = u.port || (u.protocol === "postgresql:" ? "5432" : "");
+    if (port === "5432") {
+      console.warn(
+        "[db] DATABASE_URL uses port 5432 (Session Mode). Serverless should use port 6543 (Supavisor Transaction Mode) to avoid connection exhaustion."
+      );
+    }
+  } catch {
+    /* ignore parse errors */
+  }
+}
+
 export const prisma: PrismaClient = globalThis.__ENTITLEMENT_OS_PRISMA__ ?? createPrismaClient(pooledDatabaseUrl);
 
 const readReplicaUrl = normalizeDbUrl(process.env.READ_REPLICA_DATABASE_URL);

@@ -40,8 +40,8 @@ describe("PUT /api/map/prospect", () => {
     jurisdictionFindFirstMock.mockReset();
     dealCreateMock.mockReset();
     parcelCreateMock.mockReset();
-    process.env.LA_PROPERTY_DB_URL = "https://example.supabase.co";
-    process.env.LA_PROPERTY_DB_KEY = "service-role-key";
+    process.env.SUPABASE_URL = "https://example.supabase.co";
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "service-role-key";
     ({ PUT } = await import("./route"));
   });
 

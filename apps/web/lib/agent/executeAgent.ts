@@ -28,6 +28,7 @@ import {
   deserializeRunStateEnvelope,
   evaluateProofCompliance,
   inferQueryIntentFromText,
+  type QueryIntent,
   getProofGroupsForIntent,
   serializeRunStateEnvelope,
   setupAgentTracing,
@@ -138,6 +139,8 @@ export type AgentExecutionParams = {
   jurisdictionId?: string;
   sku?: string;
   intentHint?: string;
+  /** When set, use this instead of inferring from intentHint. */
+  queryIntentOverride?: QueryIntent;
   onEvent?: (event: AgentStreamEvent) => void;
   correlationId?: string;
   retryMode?: string;
@@ -1107,7 +1110,8 @@ export async function executeAgentWorkflow(
   });
   const firstUserInput = params.input.find((entry) => entry.role === "user")?.content;
   const userTextForIntent = params.intentHint ?? firstUserInput;
-  const queryIntent = inferQueryIntentFromText(userTextForIntent);
+  const queryIntent =
+    params.queryIntentOverride ?? inferQueryIntentFromText(userTextForIntent);
   const runId = toDatabaseRunId(
     params.runId ??
       `agent-run-${hashJsonSha256({ inputHash, runType: params.runType ?? "ENRICHMENT" })}`,

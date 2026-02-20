@@ -12,6 +12,7 @@ export const AGENT_MODEL_IDS = {
   marketing: "gpt-5.1",
   tax: "gpt-5.1",
   marketIntel: "gpt-5.1",
+  marketTrajectory: "gpt-5.1",
 } as const;
 
 export type AgentModelId = (typeof AGENT_MODEL_IDS)[keyof typeof AGENT_MODEL_IDS];

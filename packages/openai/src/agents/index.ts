@@ -20,6 +20,7 @@ export { operationsAgent } from './operations.js';
 export { marketingAgent } from './marketing.js';
 export { taxAgent } from './tax.js';
 export { marketIntelAgent } from './marketIntel.js';
+export { marketTrajectoryAgent } from './marketTrajectory.js';
 
 type SpecialistAgentConfig = {
   key: SpecialistAgentKey;
@@ -69,6 +70,7 @@ const SPECIALIST_AGENT_CONFIGS: SpecialistAgentConfig[] = [
   { key: 'marketing', agent: marketingAgent, tools: marketingTools },
   { key: 'tax', agent: taxAgent, tools: taxTools },
   { key: 'marketIntel', agent: marketIntelAgent, tools: marketIntelTools },
+  { key: 'marketTrajectory', agent: marketTrajectoryAgent, tools: marketTrajectoryTools },
 ];
 
 const SPECIALIST_CONSULT_TOOLS: SpecialistConsultToolConfig[] = [
@@ -89,6 +91,12 @@ const SPECIALIST_CONSULT_TOOLS: SpecialistConsultToolConfig[] = [
     toolName: "consult_legal_specialist",
     toolDescription:
       "Consult Legal Agent for focused contract/zoning/legal-risk questions while the Coordinator retains control.",
+  },
+  {
+    key: "marketTrajectory",
+    toolName: "consult_market_trajectory_specialist",
+    toolDescription:
+      "Consult Market Trajectory Agent for neighborhood growth analysis, permit activity mapping, and gentrification indicator tracking.",
   },
 ];
 
@@ -215,6 +223,7 @@ import { operationsAgent } from './operations.js';
 import { marketingAgent } from './marketing.js';
 import { taxAgent } from './tax.js';
 import { marketIntelAgent } from './marketIntel.js';
+import { marketTrajectoryAgent } from './marketTrajectory.js';
 
 import {
   coordinatorTools,
@@ -228,6 +237,7 @@ import {
   marketingTools,
   operationsTools,
   marketIntelTools,
+  marketTrajectoryTools,
   designTools,
   taxTools,
 } from '../tools/index.js';

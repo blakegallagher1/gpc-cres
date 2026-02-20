@@ -76,7 +76,17 @@ function getSavedBaseLayer(): string {
 function getSavedOverlays(): Record<string, boolean> {
   try {
     const saved = localStorage.getItem("map-overlay-prefs");
-    return saved ? JSON.parse(saved) : {};
+    const parsed = saved ? (JSON.parse(saved) as Record<string, boolean>) : {};
+    const parcelBoundaries = parsed["Parcel Boundaries"] !== false;
+    const zoning = parsed["Zoning Overlay"] === true;
+    const flood = parsed["Flood Zones"] === true;
+
+    // Guard against persisted "all off" overlay state, which makes the map appear empty.
+    if (!parcelBoundaries && !zoning && !flood) {
+      parsed["Parcel Boundaries"] = true;
+    }
+
+    return parsed;
   } catch {
     return {};
   }

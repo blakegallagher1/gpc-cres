@@ -54,6 +54,21 @@ export function getDevFallbackParcels(searchText?: string): DevFallbackParcel[] 
   });
 }
 
+export function getDevFallbackParcelByPropertyDbId(
+  propertyDbId: string,
+): DevFallbackParcel | null {
+  const target = normalize(propertyDbId);
+  if (!target) return null;
+
+  return (
+    DEV_PARCEL_SEED.find(
+      (parcel) =>
+        normalize(parcel.propertyDbId) === target ||
+        normalize(parcel.parcelUid) === target,
+    ) ?? null
+  );
+}
+
 export function isPrismaConnectivityError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error ?? "");
   return (

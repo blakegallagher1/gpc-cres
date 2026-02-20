@@ -240,8 +240,15 @@ async function insertRows(
 
 async function main() {
   const { apply, dataDir, reportDir, batchSize } = parseArgs(process.argv.slice(2));
-  const propertyDbUrl = requireEnv("LA_PROPERTY_DB_URL");
-  const propertyDbKey = requireEnv("LA_PROPERTY_DB_KEY");
+  const propertyDbUrl =
+    process.env.SUPABASE_URL?.trim() ||
+    process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  if (!propertyDbUrl) {
+    throw new Error(
+      "[parcel-backfill] Missing SUPABASE_URL or NEXT_PUBLIC_SUPABASE_URL.",
+    );
+  }
+  const propertyDbKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
 
   const absoluteDataDir = path.resolve(process.cwd(), dataDir);
   const files = (await readdir(absoluteDataDir))

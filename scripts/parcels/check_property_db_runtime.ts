@@ -19,8 +19,16 @@ function requireHealthyEnv(name: string): string {
 }
 
 async function main() {
-  const url = requireHealthyEnv("LA_PROPERTY_DB_URL");
-  const key = requireHealthyEnv("LA_PROPERTY_DB_KEY");
+  const url =
+    process.env.SUPABASE_URL?.trim() ||
+    process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
+    "";
+  if (isPlaceholder(url)) {
+    throw new Error(
+      "[property-db-check] SUPABASE_URL or NEXT_PUBLIC_SUPABASE_URL is missing or placeholder.",
+    );
+  }
+  const key = requireHealthyEnv("SUPABASE_SERVICE_ROLE_KEY");
 
   const host = (() => {
     try {

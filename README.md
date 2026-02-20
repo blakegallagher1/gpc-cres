@@ -42,10 +42,7 @@ pnpm build
 ## Security and tenant isolation baseline
 
 - All API routes must authenticate session, verify org membership, and scope DB access by `org_id`.
-- Property DB credentials are fail-fast only:
-  - `LA_PROPERTY_DB_URL` is required server-side.
-  - `LA_PROPERTY_DB_KEY` is required server-side.
-  - No hardcoded fallbacks, defaults, or service-role substitution behavior.
+- Property DB uses main Supabase credentials (`SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`).
 - Route errors must follow generic client-safe responses (`400` validation, `401/403` auth, `500` internal) while logging server-side details only.
 - Map popup/user-facing HTML content must sanitize user-sourced values before insertion.
 
@@ -54,8 +51,6 @@ pnpm build
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
-- `LA_PROPERTY_DB_URL`
-- `LA_PROPERTY_DB_KEY`
 - `OPENAI_API_KEY`
 
 ## Parcel geometry fallback contract
