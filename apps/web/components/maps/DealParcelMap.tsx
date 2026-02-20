@@ -32,6 +32,7 @@ export function DealParcelMap({ parcels, dealName, dealStatus }: DealParcelMapPr
       floodZone: p.floodZone ?? null,
       currentZoning: p.currentZoning ?? null,
       propertyDbId: p.propertyDbId ?? null,
+      geometryLookupKey: p.propertyDbId ?? p.address ?? null,
       acreage: p.acreage != null ? Number(p.acreage) : null,
     }));
 
