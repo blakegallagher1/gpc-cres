@@ -142,7 +142,7 @@ All 14 agents have tools wired. Market Trajectory uses Socrata (building permits
 **Three Supabase projects:**
 - Entitlement OS DB (`yjddspdbxuseowxndrak`) — system of record, Prisma-managed
 - Louisiana Property DB — parcel search/screening uses main Supabase (`SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`)
-- chatgpt-apps GIS DB (`jueyosscalcljgdorrpy`) — same Supabase project as Property DB, accessed via separate `external_reader` role with two-header auth. 6 RPC functions for geometry, dimensions, zoning, and amenities cache. See `docs/chatgpt-apps-integration.md`.
+- chatgpt-apps GIS DB (`yjddspdbxuseowxndrak`) — same Supabase project as Property DB (gpc-dashboard), accessed via separate `external_reader` role with two-header auth. 6 RPC functions for geometry, dimensions, zoning, and amenities cache. See `docs/chatgpt-apps-integration.md`.
 
 ## Environment Variables
 

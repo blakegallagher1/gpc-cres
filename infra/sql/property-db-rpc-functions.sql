@@ -1,7 +1,7 @@
 -- =============================================================================
 -- Louisiana Property Database — RPC Functions for Agent Tools
--- Target: jueyosscalcljgdorrpy.supabase.co (GPC-MOAT)
--- Run this in the Supabase SQL Editor for the GPC-MOAT project.
+-- Target: yjddspdbxuseowxndrak.supabase.co (gpc-dashboard)
+-- Run this in the Supabase SQL Editor for the gpc-dashboard project.
 -- =============================================================================
 
 -- Drop existing functions to allow signature changes

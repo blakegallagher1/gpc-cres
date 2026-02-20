@@ -38,7 +38,7 @@ Add to `apps/web/.env.local` (never prefix with `NEXT_PUBLIC_`):
 
 ```bash
 # chatgpt-apps Supabase integration (3 required)
-CHATGPT_APPS_SUPABASE_URL=https://jueyosscalcljgdorrpy.supabase.co
+CHATGPT_APPS_SUPABASE_URL=https://yjddspdbxuseowxndrak.supabase.co
 CHATGPT_APPS_SUPABASE_ANON_KEY=<anon key>
 CHATGPT_APPS_SUPABASE_EXT_JWT=<external_reader JWT>
 
@@ -96,7 +96,7 @@ The smoke test calls chatgpt-apps Supabase directly (not through API routes) to 
 
 ```bash
 # Set env vars (or add to .env and source)
-export CHATGPT_APPS_SUPABASE_URL=https://jueyosscalcljgdorrpy.supabase.co
+export CHATGPT_APPS_SUPABASE_URL=https://yjddspdbxuseowxndrak.supabase.co
 export CHATGPT_APPS_SUPABASE_ANON_KEY=<anon key>
 export CHATGPT_APPS_SUPABASE_EXT_JWT=<external_reader JWT>
 
