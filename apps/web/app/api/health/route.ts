@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { prisma } from "@entitlement-os/db";
 import { resolveSupabaseAnonKey, resolveSupabaseUrl } from "@/lib/db/supabaseEnv";
+import { getPropertyDbConfigOrNull } from "@/lib/server/propertyDbEnv";
 
 const REQUIRED_ENV_VARS = [
   "OPENAI_API_KEY",
@@ -132,10 +133,37 @@ export async function GET(request: NextRequest) {
   const missing = REQUIRED_ENV_VARS.filter((key) => !process.env[key]);
   const ok = missing.length === 0;
 
+  const propertyDbConfig = getPropertyDbConfigOrNull();
+  let propertyDbReachable: boolean | null = null;
+  if (propertyDbConfig) {
+    try {
+      const res = await fetch(
+        `${propertyDbConfig.url}/rest/v1/rpc/api_search_parcels`,
+        {
+          method: "POST",
+          headers: {
+            apikey: propertyDbConfig.key,
+            Authorization: `Bearer ${propertyDbConfig.key}`,
+            "Content-Type": "application/json",
+            Prefer: "return=representation",
+          },
+          body: JSON.stringify({ search_text: "*", limit_rows: 1 }),
+        },
+      );
+      propertyDbReachable = res.ok;
+    } catch {
+      propertyDbReachable = false;
+    }
+  }
+
   return NextResponse.json(
     {
       status: ok ? "ok" : "degraded",
       missing,
+      propertyDb: {
+        configured: Boolean(propertyDbConfig),
+        reachable: propertyDbReachable,
+      },
       build: {
         sha: process.env.VERCEL_GIT_COMMIT_SHA || null,
         ref: process.env.VERCEL_GIT_COMMIT_REF || null,

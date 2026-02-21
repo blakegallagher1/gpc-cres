@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@entitlement-os/db/client";
 
 const CACHE_MAX_AGE = 86400; // 24h — tiles are immutable for given xyz
 const CACHE_STALE = 604800; // 7d — allow CDN to serve stale while revalidating
@@ -8,7 +7,7 @@ type RouteParams = { params: Promise<{ z: string; x: string; y: string }> };
 
 /**
  * Vector tile endpoint: returns parcel boundaries as Mapbox Vector Tiles (.pbf).
- * Calls get_parcel_mvt(z,x,y) RPC. Requires Supavisor (port 6543) for serverless.
+ * Proxies to local FastAPI server via Cloudflare Tunnel.
  * No auth — base map tiles; aggressive CDN caching.
  */
 export async function GET(_req: Request, { params }: RouteParams) {
@@ -28,31 +27,54 @@ export async function GET(_req: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Tile out of range" }, { status: 400 });
   }
 
-  try {
-    const rows = await prisma.$queryRawUnsafe<
-      { get_parcel_mvt: Buffer | null }[]
-    >("SELECT get_parcel_mvt($1::int, $2::int, $3::int) AS get_parcel_mvt", zi, xi, yi);
+  const localApiUrl = process.env.LOCAL_API_URL;
+  const localApiKey = process.env.LOCAL_API_KEY;
 
-    const buf = rows?.[0]?.get_parcel_mvt ?? null;
-    if (!buf || buf.length === 0) {
-      return new NextResponse(null, {
-        status: 204,
+  if (!localApiUrl || !localApiKey) {
+    return NextResponse.json(
+      { error: "Local API not configured" },
+      { status: 503 }
+    );
+  }
+
+  try {
+    const response = await fetch(
+      `${localApiUrl}/tiles/${zi}/${xi}/${yi}.pbf`,
+      {
         headers: {
-          "Cache-Control": `public, max-age=${CACHE_MAX_AGE}, s-maxage=${CACHE_MAX_AGE}, stale-while-revalidate=${CACHE_STALE}`,
+          Authorization: `Bearer ${localApiKey}`,
         },
-      });
+      }
+    );
+
+    if (!response.ok) {
+      if (response.status === 204) {
+        // No data for this tile
+        return new NextResponse(null, {
+          status: 204,
+          headers: {
+            "Cache-Control": `public, max-age=${CACHE_MAX_AGE}, s-maxage=${CACHE_MAX_AGE}, stale-while-revalidate=${CACHE_STALE}`,
+          },
+        });
+      }
+      throw new Error(`Local API returned ${response.status}`);
     }
 
-    return new NextResponse(Buffer.from(buf), {
+    const data = await response.arrayBuffer();
+
+    return new NextResponse(data, {
       status: 200,
       headers: {
         "Content-Type": "application/vnd.mapbox-vector-tile",
         "Cache-Control": `public, max-age=${CACHE_MAX_AGE}, s-maxage=${CACHE_MAX_AGE}, stale-while-revalidate=${CACHE_STALE}, immutable`,
-        "Content-Length": String(buf.length),
+        "Content-Length": String(data.byteLength),
       },
     });
   } catch (err) {
-    console.error("[tiles]", err);
-    return new NextResponse(null, { status: 204 });
+    console.error("[tiles] Proxy error:", err);
+    return NextResponse.json(
+      { error: "Failed to fetch tile from local API" },
+      { status: 503 }
+    );
   }
 }

@@ -1,4 +1,5 @@
 import { withSentryConfig } from "@sentry/nextjs";
+import path from "path";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
@@ -10,6 +11,10 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
   },
+  outputFileTracingRoot: path.join(__dirname, "..", ".."),
+  turbopack: {
+    root: path.join(__dirname, "..", ".."),
+  },
 };
 
 const sentryOptions = {
@@ -19,12 +24,16 @@ const sentryOptions = {
   sourcemaps: { deleteSourcemapsAfterUpload: true },
   widenClientFileUpload: true,
   tunnelRoute: "/monitoring",
-  autoInstrumentServerFunctions: true,
   silent: true,
   hideSourceMaps: true,
-  disableLogger: true,
   release: {
     name: process.env.SENTRY_RELEASE || process.env.VERCEL_GIT_COMMIT_SHA,
+  },
+  webpack: {
+    autoInstrumentServerFunctions: true,
+    treeshake: {
+      removeDebugLogging: true,
+    },
   },
 };
 

@@ -146,66 +146,6 @@ describe("POST /api/map/prospect", () => {
     expect(body.error).toBe("Validation failed");
   });
 
-  it("uses dev fallback parcels when prisma is unreachable in local auth-disabled mode", async () => {
-    process.env.SUPABASE_URL = "placeholder";
-    process.env.SUPABASE_SERVICE_ROLE_KEY = "placeholder";
-    delete process.env.SUPABASE_URL;
-    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
-    process.env.NEXT_PUBLIC_DISABLE_AUTH = "true";
-    ({ POST } = await import("./route"));
-
-    resolveAuthMock.mockResolvedValue({ userId: "user-1", orgId: "org-1" });
-    parcelFindManyMock.mockRejectedValue(
-      new Error("PrismaClientInitializationError: Can't reach database server"),
-    );
-
-    const req = new NextRequest("http://localhost/api/map/prospect", {
-      method: "POST",
-      body: JSON.stringify({
-        polygon: {
-          type: "Polygon",
-          coordinates: [[[-91.25, 30.5], [-91.25, 30.35], [-91.05, 30.35], [-91.05, 30.5], [-91.25, 30.5]]],
-        },
-        filters: {
-          searchText: "government",
-        },
-      }),
-    });
-
-    const res = await POST(req);
-    const body = await res.json();
-    expect(res.status).toBe(200);
-    expect(body.total).toBeGreaterThan(0);
-  });
-
-  it("uses seeded dev parcels when property and org lookups are both empty in local auth-disabled mode", async () => {
-    process.env.SUPABASE_URL = "placeholder";
-    process.env.SUPABASE_SERVICE_ROLE_KEY = "placeholder";
-    delete process.env.SUPABASE_URL;
-    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
-    process.env.NEXT_PUBLIC_DISABLE_AUTH = "true";
-    ({ POST } = await import("./route"));
-
-    resolveAuthMock.mockResolvedValue({ userId: "user-1", orgId: "org-1" });
-    parcelFindManyMock.mockResolvedValue([]);
-
-    const req = new NextRequest("http://localhost/api/map/prospect", {
-      method: "POST",
-      body: JSON.stringify({
-        polygon: {
-          type: "Polygon",
-          coordinates: [[[-91.25, 30.5], [-91.25, 30.35], [-91.05, 30.35], [-91.05, 30.5], [-91.25, 30.5]]],
-        },
-        filters: {
-          searchText: "nonexistent-search-term",
-        },
-      }),
-    });
-
-    const res = await POST(req);
-    const body = await res.json();
-    expect(res.status).toBe(200);
-    expect(body.total).toBeGreaterThan(0);
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
+  // Dev fallback tests removed — isDevParcelFallbackEnabled() permanently returns false.
+  // Parcels always use real DB / Property DB / local API.
 });

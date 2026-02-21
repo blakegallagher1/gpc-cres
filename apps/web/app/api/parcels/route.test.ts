@@ -354,52 +354,6 @@ describe("GET /api/parcels", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("uses dev fallback parcels when prisma is unreachable in local auth-disabled mode", async () => {
-    ({ GET } = await import("./route"));
-    process.env.NEXT_PUBLIC_DISABLE_AUTH = "true";
-    process.env.SUPABASE_URL = "placeholder";
-    process.env.SUPABASE_SERVICE_ROLE_KEY = "placeholder";
-    resolveAuthMock.mockResolvedValue({
-      userId: "99999999-9999-4999-8999-999999999999",
-      orgId: "11111111-1111-4111-8111-111111111111",
-    });
-    findManyMock.mockRejectedValue(
-      new Error("PrismaClientInitializationError: Can't reach database server"),
-    );
-
-    const req = new NextRequest("http://localhost/api/parcels?hasCoords=true&search=government");
-    const res = await GET(req);
-    const body = await res.json();
-
-    expect(res.status).toBe(200);
-    expect(body.source).toBe("dev-fallback");
-    expect(body.parcels.length).toBeGreaterThan(0);
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  it("returns seeded dev parcels when local fallback search has no direct matches", async () => {
-    ({ GET } = await import("./route"));
-    process.env.NEXT_PUBLIC_DISABLE_AUTH = "true";
-    process.env.SUPABASE_URL = "placeholder";
-    process.env.SUPABASE_SERVICE_ROLE_KEY = "placeholder";
-    resolveAuthMock.mockResolvedValue({
-      userId: "99999999-9999-4999-8999-999999999999",
-      orgId: "11111111-1111-4111-8111-111111111111",
-    });
-    findManyMock.mockRejectedValue(
-      new Error("PrismaClientInitializationError: Can't reach database server"),
-    );
-
-    const req = new NextRequest(
-      "http://localhost/api/parcels?hasCoords=true&search=3154+college+drive%2C+baton+rouge%2C+la",
-    );
-    const res = await GET(req);
-    const body = await res.json();
-
-    expect(res.status).toBe(200);
-    expect(body.source).toBe("dev-fallback");
-    expect(body.searchFallback).toBe(true);
-    expect(body.parcels.length).toBeGreaterThan(0);
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
+  // Dev fallback tests removed — isDevParcelFallbackEnabled() permanently returns false.
+  // Parcels always use real DB / Property DB / local API.
 });

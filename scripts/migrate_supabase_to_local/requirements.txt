@@ -1,0 +1,5 @@
+# Migration script dependencies — run: pip install -r requirements.txt
+sqlalchemy>=2.0.0
+geoalchemy2>=0.14.0
+psycopg2-binary>=2.9.9
+python-dotenv>=1.0.0

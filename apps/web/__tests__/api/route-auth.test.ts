@@ -15,10 +15,6 @@ vi.mock("@/lib/server/rateLimiter", () => ({
   checkRateLimit: vi.fn(() => true),
 }));
 
-vi.mock("@/lib/server/chatgptAppsClient", () => ({
-  getParcelGeometry: vi.fn(),
-}));
-
 describe("API Route Auth Guardrails", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -55,7 +51,6 @@ describe("API Route Auth Guardrails", () => {
     (resolveAuth as unknown as { mockResolvedValue: (v: unknown) => void }).mockResolvedValue(null);
 
     const { checkRateLimit } = await import("@/lib/server/rateLimiter");
-    const { getParcelGeometry } = await import("@/lib/server/chatgptAppsClient");
     const { POST } = await import("@/app/api/external/chatgpt-apps/parcel-geometry/route");
 
     const res = await POST(
@@ -68,7 +63,6 @@ describe("API Route Auth Guardrails", () => {
 
     expect(res.status).toBe(401);
     expect(checkRateLimit).not.toHaveBeenCalled();
-    expect(getParcelGeometry).not.toHaveBeenCalled();
   });
 });
 

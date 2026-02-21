@@ -92,8 +92,9 @@ function extractPolygonGeometry(input: unknown): PolygonGeometry | null {
 // ---------------------------------------------------------------------------
 
 /**
- * Fetches parcel polygon geometries from the chatgpt-apps proxy.
- * Only fetches for parcels that have a `propertyDbId` (linked to LA Property DB).
+ * Fetches parcel polygon geometries from Supabase (property DB) via
+ * POST /api/external/chatgpt-apps/parcel-geometry.
+ * Only fetches for parcels that have a `propertyDbId` or `geometryLookupKey`.
  * Batches requests in groups of 5 with 200ms inter-batch delay to respect rate limits.
  *
  * When `viewportBounds` is provided, only parcels whose lat/lng fall within

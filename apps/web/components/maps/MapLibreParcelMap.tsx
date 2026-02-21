@@ -5,13 +5,14 @@ import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 import { useParcelGeometry, type ViewportBounds } from "./useParcelGeometry";
-import { getStreetTileUrls, getSatelliteTileUrl } from "./tileUrls";
+import { getStreetTileUrls, getSatelliteTileUrl, getParcelTileUrl } from "./tileUrls";
 import {
   STATUS_COLORS,
   DEFAULT_STATUS_COLOR,
   getZoningColor,
   getFloodColor,
 } from "./mapStyles";
+import { Pencil, Trash2, X } from "lucide-react";
 import { useStableOptions } from "@/lib/hooks/useStableOptions";
 import type { MapParcel } from "./ParcelMap";
 
@@ -53,6 +54,8 @@ type IsochroneResult = {
   parcelCount: number;
 };
 
+type VelocityParcel = { parcel_id: string; velocity_of_change: number };
+
 interface MapLibreParcelMapProps {
   parcels: MapParcel[];
   center?: [number, number];
@@ -61,6 +64,17 @@ interface MapLibreParcelMapProps {
   onParcelClick?: (id: string) => void;
   showLayers?: boolean;
   showTools?: boolean;
+  /** GeoJSON ring coords [lng,lat]. Rendered as search-area overlay. */
+  polygon?: number[][][] | null;
+  /** Called with GeoJSON ring coords when user finishes drawing. */
+  onPolygonDrawn?: (coordinates: number[][][]) => void;
+  onPolygonCleared?: () => void;
+  /** Legacy: GeoJSON FeatureCollection from Market Trajectory agent. */
+  trajectoryData?: { type: "FeatureCollection"; features: unknown[] } | null;
+  /** Velocity overlay: parcel_id + velocity_of_change; colored choropleth. */
+  trajectoryVelocityData?: VelocityParcel[] | null;
+  /** Externally controlled highlight (e.g. ProspectMap selectedIds). */
+  highlightParcelIds?: Set<string>;
 }
 
 const ZOOM_LIMIT = 19;
@@ -271,14 +285,29 @@ export function parcelPopupHtml(parcel: MapParcel): string {
   return `<div style="font-size:13px;line-height:1.4">${rows.join("")}</div>`;
 }
 
+function getVelocityColor(score: number): string {
+  if (score >= 90) return "#800026";
+  if (score >= 70) return "#BD0026";
+  if (score >= 50) return "#E31A1C";
+  if (score >= 30) return "#FC4E2A";
+  if (score >= 15) return "#FD8D3C";
+  return "#FFEDA0";
+}
+
 export function MapLibreParcelMap({
   parcels,
-  center = [30.4515, -91.1871],
+  center = [-91.1871, 30.4515],
   zoom = 11,
   height = "400px",
   onParcelClick,
   showLayers = true,
   showTools = false,
+  polygon = null,
+  onPolygonDrawn,
+  onPolygonCleared,
+  trajectoryData = null,
+  trajectoryVelocityData = null,
+  highlightParcelIds,
 }: MapLibreParcelMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -301,6 +330,14 @@ export function MapLibreParcelMap({
   const stableMapCallbacks = useStableOptions({ onParcelClick });
   const parcelByIdRef = useRef<Map<string, MapParcel>>(new Map());
 
+  const effectiveSelectedIds = useMemo(() => {
+    const merged = new Set(selectedParcelIds);
+    if (highlightParcelIds) {
+      for (const id of highlightParcelIds) merged.add(id);
+    }
+    return merged;
+  }, [selectedParcelIds, highlightParcelIds]);
+
   const parcelById = useMemo(() => {
     const map = new Map<string, MapParcel>();
     for (const parcel of parcels) {
@@ -316,13 +353,17 @@ export function MapLibreParcelMap({
     return { lat: avgLat, lng: avgLng };
   }, [parcels]);
 
-  const { geometries } = useParcelGeometry(parcels, 200, viewportBounds);
+  const { geometries, loading: geometryLoading, health: geometryHealth } = useParcelGeometry(
+    parcels,
+    200,
+    viewportBounds,
+  );
 
   useEffect(() => {
     parcelByIdRef.current = parcelById;
   }, [parcelById]);
 
-  const mapCenter: [number, number] = [center[1], center[0]];
+  const mapCenter: [number, number] = center;
 
   const boundarySource = useMemo(() => {
     const features = parcels
@@ -331,7 +372,7 @@ export function MapLibreParcelMap({
         if (!isPolygonGeometry(geometry)) return null;
 
         const color = statusColorForParcel(parcel);
-        const isSelected = selectedParcelIds.has(parcel.id);
+        const isSelected = effectiveSelectedIds.has(parcel.id);
 
         return {
           type: "Feature" as const,
@@ -362,7 +403,7 @@ export function MapLibreParcelMap({
       GeoJSON.Polygon | GeoJSON.MultiPolygon,
       ParcelFeatureProperties
     >;
-  }, [parcels, geometries, selectedParcelIds]);
+  }, [parcels, geometries, effectiveSelectedIds]);
 
   const zoningSource = useMemo(() => {
     const features = parcels
@@ -382,7 +423,7 @@ export function MapLibreParcelMap({
             acreage: parcel.acreage ?? null,
             floodZone: parcel.floodZone,
             currentZoning: parcel.currentZoning,
-            selected: selectedParcelIds.has(parcel.id),
+            selected: effectiveSelectedIds.has(parcel.id),
             fillColor: getZoningColor(parcel.currentZoning),
             strokeColor: getZoningColor(parcel.currentZoning),
           } satisfies ParcelFeatureProperties,
@@ -400,7 +441,7 @@ export function MapLibreParcelMap({
       GeoJSON.Polygon | GeoJSON.MultiPolygon,
       ParcelFeatureProperties
     >;
-  }, [parcels, geometries, selectedParcelIds]);
+  }, [parcels, geometries, effectiveSelectedIds]);
 
   const floodSource = useMemo(() => {
     const features = parcels
@@ -424,7 +465,7 @@ export function MapLibreParcelMap({
             acreage: parcel.acreage ?? null,
             floodZone: parcel.floodZone,
             currentZoning: parcel.currentZoning,
-            selected: selectedParcelIds.has(parcel.id),
+            selected: effectiveSelectedIds.has(parcel.id),
             fillColor: color,
             strokeColor: color,
           } satisfies ParcelFeatureProperties,
@@ -442,14 +483,14 @@ export function MapLibreParcelMap({
       GeoJSON.Polygon | GeoJSON.MultiPolygon,
       ParcelFeatureProperties
     >;
-  }, [parcels, geometries, selectedParcelIds]);
+  }, [parcels, geometries, effectiveSelectedIds]);
 
   const pointSource = useMemo(() => {
     const features = parcels
       .filter((parcel) => !geometries.has(parcel.id))
       .map((parcel) => {
         const color = statusColorForParcel(parcel);
-        const isSelected = selectedParcelIds.has(parcel.id);
+        const isSelected = effectiveSelectedIds.has(parcel.id);
 
         return {
           type: "Feature" as const,
@@ -483,7 +524,7 @@ export function MapLibreParcelMap({
       GeoJSON.Point,
       ParcelFeatureProperties
     >;
-  }, [parcels, geometries, selectedParcelIds]);
+  }, [parcels, geometries, effectiveSelectedIds]);
 
   const fitBounds = () => {
     const map = mapRef.current;
@@ -529,6 +570,12 @@ export function MapLibreParcelMap({
               maxzoom: ZOOM_LIMIT,
               attribution: "Esri",
             },
+            "parcel-tiles": {
+              type: "vector",
+              tiles: [getParcelTileUrl()],
+              minzoom: 10,
+              maxzoom: 22,
+            },
             "parcel-boundary-source": {
               type: "geojson",
               data: boundarySource,
@@ -564,6 +611,34 @@ export function MapLibreParcelMap({
               },
             },
             {
+              id: "parcel-tiles-fill",
+              type: "fill",
+              source: "parcel-tiles",
+              "source-layer": "parcels",
+              layout: {
+                visibility: showLayers && showParcelBoundaries ? "visible" : "none",
+              },
+              paint: {
+                "fill-color": "#3b82f6",
+                "fill-opacity": 0.15,
+                "fill-outline-color": "#1d4ed8",
+              },
+            },
+            {
+              id: "parcel-tiles-line",
+              type: "line",
+              source: "parcel-tiles",
+              "source-layer": "parcels",
+              layout: {
+                visibility: showLayers && showParcelBoundaries ? "visible" : "none",
+              },
+              paint: {
+                "line-color": "#1d4ed8",
+                "line-width": 0.75,
+                "line-opacity": 0.6,
+              },
+            },
+            {
               id: "parcels-zoning-layer",
               type: "fill",
               source: "parcel-zoning-source",
@@ -596,7 +671,7 @@ export function MapLibreParcelMap({
               },
               paint: {
                 "fill-color": ["get", "fillColor"],
-                "fill-opacity": ["case", ["get", "selected"], 0.18, 0.1],
+                "fill-opacity": ["case", ["get", "selected"], 0.4, 0.25],
               },
             },
             {
@@ -642,6 +717,16 @@ export function MapLibreParcelMap({
 
         const hideBoundaryLayerVisibility = () => {
           try {
+            map.setLayoutProperty(
+              "parcel-tiles-fill",
+              "visibility",
+              showLayers && showParcelBoundaries ? "visible" : "none"
+            );
+            map.setLayoutProperty(
+              "parcel-tiles-line",
+              "visibility",
+              showLayers && showParcelBoundaries ? "visible" : "none"
+            );
             map.setLayoutProperty(
               "parcels-boundary-fill",
               "visibility",
@@ -781,6 +866,8 @@ export function MapLibreParcelMap({
     pointLayer?.setData(pointSource);
 
     try {
+      map.setLayoutProperty("parcel-tiles-fill", "visibility", showLayers && showParcelBoundaries ? "visible" : "none");
+      map.setLayoutProperty("parcel-tiles-line", "visibility", showLayers && showParcelBoundaries ? "visible" : "none");
       map.setLayoutProperty("parcels-boundary-fill", "visibility", showLayers && showParcelBoundaries ? "visible" : "none");
       map.setLayoutProperty("parcels-boundary-line", "visibility", showLayers && showParcelBoundaries ? "visible" : "none");
       map.setLayoutProperty("parcels-zoning-layer", "visibility", showLayers && showZoning ? "visible" : "none");
@@ -800,7 +887,7 @@ export function MapLibreParcelMap({
     showZoning,
     showFlood,
     baseLayer,
-    selectedParcelIds,
+    effectiveSelectedIds,
   ]);
 
   useEffect(() => {
@@ -899,9 +986,36 @@ export function MapLibreParcelMap({
             </button>
           </div>
           <div className="mt-2 text-[10px] text-gray-500">
-            Selected: {selectedParcelIds.size}
+            Selected: {effectiveSelectedIds.size}
           </div>
+          {(geometryLoading || geometryHealth.failedCount > 0 || geometryHealth.propertyDbUnconfigured) && (
+            <div className="mt-1.5 border-t border-gray-200 pt-1.5 text-[10px] text-amber-600">
+              {geometryLoading
+                ? "Loading parcel shapes…"
+                : geometryHealth.propertyDbUnconfigured
+                  ? "Parcel shapes unavailable (property DB not configured)"
+                  : "Some parcel shapes unavailable"}
+            </div>
+          )}
         </div>
+      )}
+      {showTools && onPolygonDrawn && onPolygonCleared && (
+        <MapLibreDrawControl
+          map={mapRef.current}
+          polygon={polygon}
+          onPolygonDrawn={onPolygonDrawn}
+          onPolygonCleared={onPolygonCleared}
+        />
+      )}
+      {polygon && (
+        <MapLibrePolygonOverlay map={mapRef.current} polygon={polygon} mapReady={mapReady} />
+      )}
+      {(trajectoryData?.features?.length ?? 0) > 0 && (
+        <MapLibreTrajectoryLayer
+          map={mapRef.current}
+          trajectoryData={trajectoryData as { type: "FeatureCollection"; features: unknown[] }}
+          mapReady={mapReady}
+        />
       )}
       {showTools && (
         <>
@@ -941,6 +1055,364 @@ export function MapLibreParcelMap({
       )}
     </div>
   );
+}
+
+function MapLibreDrawControl({
+  map,
+  polygon,
+  onPolygonDrawn,
+  onPolygonCleared,
+}: {
+  map: maplibregl.Map | null;
+  polygon: number[][][] | null;
+  onPolygonDrawn: (coords: number[][][]) => void;
+  onPolygonCleared: () => void;
+}) {
+  const [drawing, setDrawing] = useState(false);
+  const pointsRef = useRef<maplibregl.LngLat[]>([]);
+  const sourceId = "draw-polygon-source";
+  const lineLayerId = "draw-polygon-line";
+  const pointLayerId = "draw-polygon-points";
+  const mapRef = useRef(map);
+
+  useEffect(() => {
+    mapRef.current = map;
+  }, [map]);
+
+  const hasPolygon = Boolean(polygon && polygon[0] && polygon[0].length >= 4);
+
+  const clearDrawing = useCallback(() => {
+    pointsRef.current = [];
+    const m = mapRef.current;
+    if (m?.getSource(sourceId)) {
+      (m.getSource(sourceId) as unknown as { setData: (d: GeoJSON.FeatureCollection) => void })?.setData({
+        type: "FeatureCollection",
+        features: [],
+      });
+    }
+  }, []);
+
+  const finishDrawing = useCallback(() => {
+    const pts = pointsRef.current;
+    if (pts.length < 3) {
+      clearDrawing();
+      setDrawing(false);
+      mapRef.current?.getCanvas().style.cursor && (mapRef.current.getCanvas().style.cursor = "");
+      return;
+    }
+    const ring = pts.map((p) => [p.lng, p.lat] as [number, number]);
+    ring.push(ring[0]);
+    clearDrawing();
+    setDrawing(false);
+    mapRef.current?.getCanvas().style.cursor && (mapRef.current.getCanvas().style.cursor = "");
+    onPolygonDrawn([ring]);
+  }, [clearDrawing, onPolygonDrawn]);
+
+  useEffect(() => {
+    const m = mapRef.current;
+    if (!m) return;
+
+    if (drawing) {
+      m.doubleClickZoom.disable();
+    } else {
+      m.doubleClickZoom.enable();
+    }
+  }, [drawing]);
+
+  useEffect(() => {
+    const m = mapRef.current;
+    if (!m) return;
+
+    const setup = () => {
+      if (m.getSource(sourceId)) return;
+      m.addSource(sourceId, {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+      m.addLayer({
+        id: pointLayerId,
+        type: "circle",
+        source: sourceId,
+        filter: ["==", ["get", "kind"], "point"],
+        paint: {
+          "circle-radius": 5,
+          "circle-color": "#7c3aed",
+          "circle-stroke-width": 2,
+          "circle-stroke-color": "#ffffff",
+        },
+      });
+      m.addLayer({
+        id: lineLayerId,
+        type: "line",
+        source: sourceId,
+        filter: ["==", ["get", "kind"], "line"],
+        paint: {
+          "line-color": "#7c3aed",
+          "line-width": 2,
+          "line-dasharray": [4, 2],
+        },
+      });
+    };
+
+    const clickHandler = (e: maplibregl.MapMouseEvent) => {
+      if (!drawing || !mapRef.current) return;
+      pointsRef.current.push(e.lngLat);
+      const pts = pointsRef.current;
+      const features: GeoJSON.Feature[] = pts.map((p) => ({
+        type: "Feature" as const,
+        geometry: { type: "Point" as const, coordinates: [p.lng, p.lat] },
+        properties: { kind: "point" },
+      }));
+      if (pts.length >= 2) {
+        features.push({
+          type: "Feature" as const,
+          geometry: {
+            type: "LineString" as const,
+            coordinates: [...pts.map((p) => [p.lng, p.lat]), [pts[0].lng, pts[0].lat]],
+          },
+          properties: { kind: "line" },
+        });
+      }
+      (mapRef.current.getSource(sourceId) as unknown as { setData: (d: GeoJSON.FeatureCollection) => void })?.setData({
+        type: "FeatureCollection",
+        features,
+      });
+    };
+
+    const dblClickHandler = (e: maplibregl.MapMouseEvent) => {
+      if (!drawing) return;
+      e.preventDefault();
+      finishDrawing();
+    };
+
+    setup();
+    if (drawing) {
+      m.getCanvas().style.cursor = "crosshair";
+      m.on("click", clickHandler);
+      m.on("dblclick", dblClickHandler);
+      return () => {
+        m.off("click", clickHandler);
+        m.off("dblclick", dblClickHandler);
+      };
+    }
+  }, [drawing, finishDrawing]);
+
+  useEffect(() => {
+    if (!drawing) {
+      mapRef.current?.getCanvas().style.cursor && (mapRef.current.getCanvas().style.cursor = "");
+      clearDrawing();
+    }
+  }, [drawing, clearDrawing]);
+
+  return (
+    <div className="absolute left-2 top-2 z-10 mt-10" style={{ marginTop: 10 }}>
+      <div className="flex flex-col rounded-lg border bg-white/95 shadow-lg">
+        {!hasPolygon ? (
+          <button
+            type="button"
+            title="Draw polygon search area"
+            onClick={() => {
+              if (drawing) finishDrawing();
+              else {
+                clearDrawing();
+                setDrawing(true);
+              }
+            }}
+            className={`flex h-8 w-8 items-center justify-center rounded ${
+              drawing ? "bg-purple-500 text-white" : "bg-white text-gray-700 hover:bg-gray-100"
+            }`}
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+        ) : (
+          <button
+            type="button"
+            title="Clear polygon"
+            onClick={() => {
+              clearDrawing();
+              onPolygonCleared();
+            }}
+            className="flex h-8 w-8 items-center justify-center rounded bg-white text-red-500 hover:bg-red-50"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        )}
+        {drawing && (
+          <>
+            <button
+              type="button"
+              title="Finish drawing (or double-click)"
+              onClick={finishDrawing}
+              className="flex h-8 w-8 items-center justify-center rounded border-t border-gray-200 bg-green-500 text-white hover:bg-green-600"
+            >
+              <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M2 8l4 4 8-8" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              title="Cancel drawing"
+              onClick={() => {
+                clearDrawing();
+                setDrawing(false);
+              }}
+              className="flex h-8 w-8 items-center justify-center rounded border-t border-gray-200 bg-white text-gray-500 hover:bg-gray-100"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </>
+        )}
+      </div>
+      {drawing && (
+        <div className="mt-1 rounded bg-purple-600/90 px-2 py-1 text-[10px] text-white shadow">
+          Click to add points, double-click to finish
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MapLibrePolygonOverlay({
+  map,
+  polygon,
+  mapReady,
+}: {
+  map: maplibregl.Map | null;
+  polygon: number[][][] | null;
+  mapReady: boolean;
+}) {
+  const mapRef = useRef(map);
+  const sourceId = "polygon-overlay-source";
+  const fillId = "polygon-overlay-fill";
+  const lineId = "polygon-overlay-line";
+
+  useEffect(() => {
+    mapRef.current = map;
+  }, [map]);
+
+  const data = useMemo(() => {
+    if (!polygon?.[0]?.length) return { type: "FeatureCollection" as const, features: [] };
+    const ring = polygon[0];
+    if (ring.length < 4) return { type: "FeatureCollection" as const, features: [] };
+    return {
+      type: "FeatureCollection" as const,
+      features: [
+        {
+          type: "Feature" as const,
+          geometry: { type: "Polygon" as const, coordinates: [ring] },
+          properties: {},
+        },
+      ],
+    };
+  }, [polygon]);
+
+  useEffect(() => {
+    const m = mapRef.current;
+    if (!m || !mapReady) return;
+
+    if (!m.getSource(sourceId)) {
+      m.addSource(sourceId, { type: "geojson", data });
+      m.addLayer({
+        id: fillId,
+        type: "fill",
+        source: sourceId,
+        paint: { "fill-color": "#7c3aed", "fill-opacity": 0.08 },
+      });
+      m.addLayer({
+        id: lineId,
+        type: "line",
+        source: sourceId,
+        paint: {
+          "line-color": "#7c3aed",
+          "line-width": 2,
+          "line-dasharray": [4, 2],
+        },
+      });
+    } else {
+      (m.getSource(sourceId) as unknown as { setData: (d: GeoJSON.FeatureCollection) => void })?.setData(data);
+    }
+  }, [mapReady, data]);
+
+  return null;
+}
+
+function MapLibreTrajectoryLayer({
+  map,
+  trajectoryData,
+  mapReady,
+}: {
+  map: maplibregl.Map | null;
+  trajectoryData: { type: "FeatureCollection"; features: unknown[] } | null;
+  mapReady: boolean;
+}) {
+  const mapRef = useRef(map);
+  const sourceId = "trajectory-source";
+  const fillId = "trajectory-fill";
+  const lineId = "trajectory-line";
+
+  useEffect(() => {
+    mapRef.current = map;
+  }, [map]);
+
+  const hasData =
+    trajectoryData?.type === "FeatureCollection" &&
+    Array.isArray(trajectoryData.features) &&
+    trajectoryData.features.length > 0;
+
+  useEffect(() => {
+    const m = mapRef.current;
+    if (!m || !mapReady) return;
+
+    if (!hasData) {
+      if (m.getSource(sourceId)) {
+        (m.getSource(sourceId) as unknown as { setData: (d: GeoJSON.FeatureCollection) => void })?.setData({
+          type: "FeatureCollection",
+          features: [],
+        });
+      }
+      return;
+    }
+
+    const data = trajectoryData as GeoJSON.FeatureCollection;
+
+    if (!m.getSource(sourceId)) {
+      m.addSource(sourceId, { type: "geojson", data });
+      m.addLayer({
+        id: fillId,
+        type: "fill",
+        source: sourceId,
+        filter: ["in", ["geometry-type"], ["literal", ["Polygon", "MultiPolygon"]]],
+        paint: {
+          "fill-color": [
+            "match",
+            ["get", "velocity_of_change"],
+            0, "#FFEDA0",
+            15, "#FD8D3C",
+            30, "#FC4E2A",
+            50, "#E31A1C",
+            70, "#BD0026",
+            90, "#800026",
+            "#e5e7eb",
+          ],
+          "fill-opacity": 0.65,
+        },
+      });
+      m.addLayer({
+        id: lineId,
+        type: "line",
+        source: sourceId,
+        filter: ["in", ["geometry-type"], ["literal", ["Polygon", "MultiPolygon"]]],
+        paint: {
+          "line-color": "#ffffff",
+          "line-width": 2,
+        },
+      });
+    } else {
+      (m.getSource(sourceId) as unknown as { setData: (d: GeoJSON.FeatureCollection) => void })?.setData(data);
+    }
+  }, [mapReady, hasData, trajectoryData]);
+
+  return null;
 }
 
 interface MapLibreAnalyticalToolbarProps {

@@ -33,11 +33,9 @@ function normalize(value: string): string {
     .toLowerCase();
 }
 
+/** Always false — parcels and geometry always use DB / Property DB / real GIS polygons. */
 export function isDevParcelFallbackEnabled(): boolean {
-  return (
-    process.env.NODE_ENV !== "production" &&
-    process.env.NEXT_PUBLIC_DISABLE_AUTH === "true"
-  );
+  return false;
 }
 
 export function getDevFallbackParcels(searchText?: string): DevFallbackParcel[] {

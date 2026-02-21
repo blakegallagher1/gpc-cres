@@ -696,8 +696,13 @@ Codex may use ANY `gh` subcommand without asking for permission.
   2. address-normalized lookup
   3. RPC fallback `rpc_get_parcel_geometry`
 - Do not expose raw Prisma or infrastructure errors to client responses. Return generic 4xx/5xx payloads and log internal details server-side.
-- Server-side parcel DB access must rely on production env vars:
-  - Property DB uses `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`
+- Server-side parcel DB access routes through local Docker Compose stack via single Cloudflare Tunnel:
+  - **Tile operations** (vector tiles): `tiles.gallagherpropco.com` → martin:3000
+  - **Data/tools operations** (parcel search, memory): `api.gallagherpropco.com` → gateway:8000
+  - Both use `LOCAL_API_URL` + `LOCAL_API_KEY` for service-to-service auth (Bearer token, single GATEWAY_API_KEY)
+  - Backend: Docker Compose at `C:\gpc-cres-backend\docker-compose.yml` — PostgreSQL (`cres_db`) + Martin (MVT) + Qdrant (vector search)
+  - Tool-safe endpoints follow `/tools/<resource>.<action>` pattern (e.g., `/tools/parcel.bbox`, `/tools/parcel.lookup`)
+  - Cloudflare Tunnel ingress rules managed in dashboard (not local config file)
 - Production deploys using Vercel CLI should prefer archive mode for this repo size:
   - `vercel --prod --yes --archive=tgz`
 - When PR automation is required, use standard PR flow from a fresh execution context if prior context blocks `gh pr create` policy checks.

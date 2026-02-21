@@ -1,0 +1,17 @@
+# Ephemeral PostGIS for migration target — matches Martin tile server config
+# postgres:Nola0528!@localhost:5432/cres_db
+services:
+  postgis:
+    image: postgis/postgis:16-3.4
+    container_name: cres-migrate-postgis
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "Nola0528!"
+      POSTGRES_DB: cres_db
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d cres_db"]
+      interval: 2s
+      timeout: 5s
+      retries: 10

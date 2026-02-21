@@ -51,18 +51,19 @@ export function getSatelliteTileUrl(): string {
 }
 
 /**
- * Returns a single street tile URL for Leaflet (which handles `{s}` natively).
- * In local mode, returns the local placeholder URL instead.
- */
-export function getLeafletStreetTileUrl(): string {
-  const mode = getTileMode();
-  if (mode === "local") return LOCAL_TILE_URL;
-  return "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
-}
-
-/**
  * Returns the local fallback tile URL for explicit use.
  */
 export function getLocalFallbackTileUrl(): string {
   return LOCAL_TILE_URL;
+}
+
+/**
+ * Returns parcel vector tile URL (MVT from get_parcel_mvt).
+ * Renders parcel boundaries for the full visible extent.
+ */
+export function getParcelTileUrl(): string {
+  if (typeof window !== "undefined") {
+    return `${window.location.origin}/api/map/tiles/{z}/{x}/{y}`;
+  }
+  return "/api/map/tiles/{z}/{x}/{y}";
 }
