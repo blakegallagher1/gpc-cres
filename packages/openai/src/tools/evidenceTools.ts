@@ -7,7 +7,7 @@ import {
   buildEvidenceExtractObjectKey,
 } from "@entitlement-os/shared";
 import { hashBytesSha256 } from "@entitlement-os/shared/crypto";
-import { rpc } from "./propertyDbTools.js";
+import { gatewayPost } from "./propertyDbTools.js";
 
 function detectExtension(contentType: string | null, url: string): string {
   const lowerType = (contentType ?? "").toLowerCase();
@@ -182,115 +182,15 @@ export const floodZoneLookup = tool({
     lng: z.number().nullable().describe("Longitude (unused currently, address search preferred)"),
   }),
   execute: async ({ address }) => {
-    try {
-      // Normalize address: strip punctuation, collapse whitespace
-      const normalizedAddress = address
-        .replace(/[''`.,#]/g, "")
-        .replace(/\s+/g, " ")
-        .trim();
-
-      // Step 1: Search for matching parcels
-      const searchResult = await rpc("api_search_parcels", {
-        search_text: normalizedAddress,
-        parish: null,
-        limit_rows: 5,
-      });
-
-      if (
-        !searchResult ||
-        (searchResult as { error?: string }).error ||
-        !Array.isArray(searchResult) ||
-        searchResult.length === 0
-      ) {
-        return JSON.stringify({
-          address,
-          floodZone: null,
-          riskLevel: null,
-          matchedParcel: null,
-          note: "No matching parcel found in the Louisiana Property Database for this address.",
-        });
-      }
-
-      const firstMatch = searchResult[0] as {
-        id: string;
-        address?: string;
-        owner_name?: string;
-        parcel_number?: string;
-        acres?: number;
-      };
-
-      // Step 2: Screen for flood zones using the matched parcel ID
-      const floodResult = await rpc("api_screen_flood", {
-        parcel_id: firstMatch.id,
-      });
-
-      if ((floodResult as { error?: string }).error) {
-        return JSON.stringify({
-          address,
-          matchedParcel: {
-            id: firstMatch.id,
-            address: firstMatch.address ?? null,
-            parcelNumber: firstMatch.parcel_number ?? null,
-          },
-          floodZone: null,
-          riskLevel: null,
-          error: (floodResult as { error: string }).error,
-        });
-      }
-
-      const flood = floodResult as {
-        parcel_id: string;
-        flood_zones: Array<{
-          zone: string;
-          bfe?: number;
-          panel_id?: string;
-          effective_date?: string;
-          overlap_pct?: number;
-        }>;
-        in_sfha: boolean;
-      };
-
-      // Step 3: Compute risk level from worst-case zone
-      const zones = flood.flood_zones ?? [];
-      let worstRisk: "HIGH" | "MODERATE" | "LOW" = "LOW";
-      const riskOrder = { HIGH: 3, MODERATE: 2, LOW: 1 } as const;
-
-      for (const z of zones) {
-        const risk = classifyFloodRisk(z.zone);
-        if (riskOrder[risk] > riskOrder[worstRisk]) {
-          worstRisk = risk;
-        }
-      }
-
-      return JSON.stringify({
-        address,
-        matchedParcel: {
-          id: firstMatch.id,
-          address: firstMatch.address ?? null,
-          parcelNumber: firstMatch.parcel_number ?? null,
-          acres: firstMatch.acres ?? null,
-        },
-        floodZones: zones.map((z) => ({
-          zone: z.zone,
-          baseFloodElevation: z.bfe ?? null,
-          panelId: z.panel_id ?? null,
-          effectiveDate: z.effective_date ?? null,
-          overlapPct: z.overlap_pct ?? null,
-          riskLevel: classifyFloodRisk(z.zone),
-        })),
-        primaryFloodZone: zones.length > 0 ? zones[0].zone : null,
-        riskLevel: zones.length > 0 ? worstRisk : null,
-        inSfha: flood.in_sfha,
-        zoneCount: zones.length,
-      });
-    } catch (err) {
-      return JSON.stringify({
-        address,
-        floodZone: null,
-        riskLevel: null,
-        error: `Flood zone lookup failed: ${err instanceof Error ? err.message : String(err)}`,
-      });
-    }
+    // Address search and flood screening are not yet available on the gateway.
+    // Return a helpful degraded response.
+    return JSON.stringify({
+      address,
+      floodZone: null,
+      riskLevel: null,
+      matchedParcel: null,
+      error: "Flood zone lookup is not yet available. Address search and flood screening endpoints are pending on the gateway. Use get_parcel_details with a known parcel number instead.",
+    });
   },
 });
 

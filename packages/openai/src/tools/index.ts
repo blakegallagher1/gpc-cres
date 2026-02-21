@@ -208,6 +208,7 @@ export const coordinatorTools = [
   updateTask,
   listTasks,
   searchParcels,
+  getParcelDetails,
   updateParcel,
   generate_artifact,
   search_knowledge_base,

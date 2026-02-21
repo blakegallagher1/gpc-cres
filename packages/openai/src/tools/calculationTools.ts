@@ -660,20 +660,8 @@ export const search_comparable_sales = tool({
   execute: async (params) => {
     const { address, parish } = params;
 
-    // Use the property DB RPC to search
-    const { rpc: propertyRpc } = await import("./propertyDbTools.js");
-    const normalized = address
-      .replace(/[''`,.#]/g, "")
-      .replace(/\s+/g, " ")
-      .trim();
-
-    const result = await propertyRpc("api_search_parcels", {
-      search_text: normalized,
-      parish: parish ?? null,
-      limit_rows: 20,
-    });
-
-    const parcels = Array.isArray(result) ? result : [];
+    // Address search is not available on the gateway — return empty comparables
+    const parcels: Record<string, unknown>[] = [];
     const comparables = parcels.map((p: Record<string, unknown>) => ({
       address: p.site_address ?? p.address ?? "Unknown",
       acreage: p.acreage ? Number(p.acreage) : null,

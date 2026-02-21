@@ -1,0 +1,7008 @@
+{
+  "count": 1000,
+  "successful": 1000,
+  "errors": 0,
+  "generated_at": "2026-02-21T17:38:57Z",
+  "addresses": [
+    {
+      "address": "222 ST LOUIS ST",
+      "parcel_id": "001-5096-7",
+      "lat": 30.5217585,
+      "lng": -91.1548158,
+      "geocoder": "google"
+    },
+    {
+      "address": "PO BOX 80217",
+      "parcel_id": "000-8596-0",
+      "lat": 30.5190775,
+      "lng": -91.5208624,
+      "geocoder": "google"
+    },
+    {
+      "address": "2164 OLIVE ST",
+      "parcel_id": "001-4416-9",
+      "lat": 30.4392517,
+      "lng": -91.1655378,
+      "geocoder": "google"
+    },
+    {
+      "address": "3346 DRUSILLA LN STE A",
+      "parcel_id": "001-2167-3",
+      "lat": 30.4207191,
+      "lng": -91.08977159999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "7515 JEFFERSON HWY #304",
+      "parcel_id": "000-4371-0",
+      "lat": 30.4337042,
+      "lng": -91.1094675,
+      "geocoder": "google"
+    },
+    {
+      "address": "1726 AMERICA ST",
+      "parcel_id": "001-6681-2",
+      "lat": 30.4465092,
+      "lng": -91.17114199999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "PO BOX 1148",
+      "parcel_id": "001-6718-5",
+      "lat": 30.5190775,
+      "lng": -91.5208624,
+      "geocoder": "google"
+    },
+    {
+      "address": "312 S 17TH ST",
+      "parcel_id": "000-4037-1",
+      "lat": 30.4452711,
+      "lng": -91.1719964,
+      "geocoder": "google"
+    },
+    {
+      "address": "2415 QUAIL DR",
+      "parcel_id": "000-2962-9",
+      "lat": 30.4034126,
+      "lng": -91.12637649999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "256 S 18TH ST",
+      "parcel_id": "001-8374-1",
+      "lat": 30.445926,
+      "lng": -91.17042599999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1563 OAKLEY DR",
+      "parcel_id": "001-9172-8",
+      "lat": 30.4351235,
+      "lng": -91.0909154,
+      "geocoder": "google"
+    },
+    {
+      "address": "124 BRICE ST",
+      "parcel_id": "001-1027-2",
+      "lat": 30.4471214,
+      "lng": -91.17121580000001,
+      "geocoder": "google"
+    },
+    {
+      "address": "341 BRICE ST",
+      "parcel_id": "001-4426-6",
+      "lat": 30.445269,
+      "lng": -91.17079849999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1550 BANCROFT AVE, APT 411",
+      "parcel_id": "000-0411-1",
+      "lat": 29.5875251,
+      "lng": -90.6773075,
+      "geocoder": "google"
+    },
+    {
+      "address": "1919 FLOWERS CIR",
+      "parcel_id": "001-3358-2",
+      "lat": 30.5190775,
+      "lng": -91.5208624,
+      "geocoder": "google"
+    },
+    {
+      "address": "224 S 17TH ST",
+      "parcel_id": "000-8828-5",
+      "lat": 30.4461666,
+      "lng": -91.1718252,
+      "geocoder": "google"
+    },
+    {
+      "address": "345 BRICE ST",
+      "parcel_id": "001-8488-8",
+      "lat": 30.4451336,
+      "lng": -91.17079079999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1488 GOVERNMENT ST",
+      "parcel_id": "001-0866-9",
+      "lat": 30.4433852,
+      "lng": -91.1734743,
+      "geocoder": "google"
+    },
+    {
+      "address": "1748 SPAIN ST",
+      "parcel_id": "001-8121-8",
+      "lat": 30.4446186,
+      "lng": -91.17067899999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "11933 GROSS RD",
+      "parcel_id": "000-5300-7",
+      "lat": 30.8068404,
+      "lng": -90.9965352,
+      "geocoder": "google"
+    },
+    {
+      "address": "6800 CINTAS BLVD",
+      "parcel_id": "000-5427-5",
+      "lat": 30.5190775,
+      "lng": -91.5208624,
+      "geocoder": "google"
+    },
+    {
+      "address": "349 BRICE ST",
+      "parcel_id": "000-5485-2",
+      "lat": 30.4449839,
+      "lng": -91.1707837,
+      "geocoder": "google"
+    },
+    {
+      "address": "1700 NORTH BLVD",
+      "parcel_id": "030-5906-5",
+      "lat": 30.447501,
+      "lng": -91.1715703,
+      "geocoder": "google"
+    },
+    {
+      "address": "PO BOX 1786",
+      "parcel_id": "000-0319-0",
+      "lat": 30.5190775,
+      "lng": -91.5208624,
+      "geocoder": "google"
+    },
+    {
+      "address": "260 S 18TH ST",
+      "parcel_id": "000-9831-0",
+      "lat": 30.4458462,
+      "lng": -91.1704288,
+      "geocoder": "google"
+    },
+    {
+      "address": "PO BOX 127",
+      "parcel_id": "001-0853-7",
+      "lat": 31.8467956,
+      "lng": -92.2130195,
+      "geocoder": "google"
+    },
+    {
+      "address": "223 S 17TH ST",
+      "parcel_id": "000-8756-4",
+      "lat": 30.4462681,
+      "lng": -91.1714592,
+      "geocoder": "google"
+    },
+    {
+      "address": "132 N BROAD ST",
+      "parcel_id": "001-9426-3",
+      "lat": 29.9661312,
+      "lng": -90.086505,
+      "geocoder": "google"
+    },
+    {
+      "address": "401 S 16TH ST",
+      "parcel_id": "001-4480-0",
+      "lat": 30.4448069,
+      "lng": -91.17182319999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1778 AMERICA ST",
+      "parcel_id": "308-4806-0",
+      "lat": 30.4465444,
+      "lng": -91.1706823,
+      "geocoder": "google"
+    },
+    {
+      "address": "302 S 18TH ST",
+      "parcel_id": "000-1386-2",
+      "lat": 30.445595,
+      "lng": -91.170417,
+      "geocoder": "google"
+    },
+    {
+      "address": "153 N 17TH ST",
+      "parcel_id": "001-6310-4",
+      "lat": 30.4485745,
+      "lng": -91.1718612,
+      "geocoder": "google"
+    },
+    {
+      "address": "307 S 15TH ST",
+      "parcel_id": "001-7888-8",
+      "lat": 30.4450628,
+      "lng": -91.1733216,
+      "geocoder": "google"
+    },
+    {
+      "address": "151 S 17TH ST",
+      "parcel_id": "000-7645-7",
+      "lat": 30.4468155,
+      "lng": -91.1714875,
+      "geocoder": "google"
+    },
+    {
+      "address": "1623 CONVENTION ST",
+      "parcel_id": "001-0188-5",
+      "lat": 30.449117,
+      "lng": -91.1724033,
+      "geocoder": "google"
+    },
+    {
+      "address": "337 BRICE ST",
+      "parcel_id": "001-9565-0",
+      "lat": 30.4452826,
+      "lng": -91.1707538,
+      "geocoder": "google"
+    },
+    {
+      "address": "855 FLORIDA BLVD",
+      "parcel_id": "023-9441-3",
+      "lat": 30.4524281,
+      "lng": -91.09368830000001,
+      "geocoder": "google"
+    },
+    {
+      "address": "1777 AMERICA ST",
+      "parcel_id": "000-5550-6",
+      "lat": 30.4469547,
+      "lng": -91.1706284,
+      "geocoder": "google"
+    },
+    {
+      "address": "2215 RHODES AVE",
+      "parcel_id": "001-6971-4",
+      "lat": 30.46823079999999,
+      "lng": -91.1472537,
+      "geocoder": "google"
+    },
+    {
+      "address": "326 BRICE ST",
+      "parcel_id": "000-3129-1",
+      "lat": 30.445291,
+      "lng": -91.1711057,
+      "geocoder": "google"
+    },
+    {
+      "address": "1504 FLORIDA BLVD",
+      "parcel_id": "001-9425-5",
+      "lat": 30.4490528,
+      "lng": -91.17325389999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "216 S 17TH ST",
+      "parcel_id": "000-8838-2",
+      "lat": 30.4464206,
+      "lng": -91.1717671,
+      "geocoder": "google"
+    },
+    {
+      "address": "1605 NORTH BLVD",
+      "parcel_id": "001-5398-2",
+      "lat": 30.447925,
+      "lng": -91.172522,
+      "geocoder": "google"
+    },
+    {
+      "address": "1647 CONVENTION ST",
+      "parcel_id": "000-3944-6",
+      "lat": 30.4489125,
+      "lng": -91.17180499999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "308 OGLETHORP ST NE",
+      "parcel_id": "000-0597-5",
+      "lat": 30.5190775,
+      "lng": -91.5208624,
+      "geocoder": "google"
+    },
+    {
+      "address": "725 MAIN ST",
+      "parcel_id": "000-0473-1",
+      "lat": 29.7575041,
+      "lng": -90.81684949999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "425 S 17TH ST",
+      "parcel_id": "001-5946-8",
+      "lat": 30.4443504,
+      "lng": -91.1714125,
+      "geocoder": "google"
+    },
+    {
+      "address": "1713 SPAIN ST",
+      "parcel_id": "001-4795-8",
+      "lat": 29.9751605,
+      "lng": -90.05344939999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "PO BOX 3333",
+      "parcel_id": "001-6776-2",
+      "lat": 30.5190775,
+      "lng": -91.5208624,
+      "geocoder": "google"
+    },
+    {
+      "address": "1800 AMERICA ST",
+      "parcel_id": "023-9124-4",
+      "lat": 30.08799479999999,
+      "lng": -90.9935019,
+      "geocoder": "google"
+    },
+    {
+      "address": "385 S 11TH ST",
+      "parcel_id": "001-6580-8",
+      "lat": 30.4440763,
+      "lng": -91.17752039999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "RT 1 BOX 154",
+      "parcel_id": "000-9953-8",
+      "lat": 31.0569968,
+      "lng": -92.02754,
+      "geocoder": "google"
+    },
+    {
+      "address": "310 S 18TH ST",
+      "parcel_id": "000-6526-9",
+      "lat": 30.4452876,
+      "lng": -91.1704183,
+      "geocoder": "google"
+    },
+    {
+      "address": "1743 CONVENTION ST",
+      "parcel_id": "023-9086-8",
+      "lat": 30.449074,
+      "lng": -91.1708848,
+      "geocoder": "google"
+    },
+    {
+      "address": "214 BRICE ST",
+      "parcel_id": "000-3916-0",
+      "lat": 30.446356,
+      "lng": -91.1711971,
+      "geocoder": "google"
+    },
+    {
+      "address": "239 BRICE ST",
+      "parcel_id": "000-9861-2",
+      "lat": 30.4460585,
+      "lng": -91.17086169999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "252 S 18TH ST",
+      "parcel_id": "000-6459-9",
+      "lat": 30.4460117,
+      "lng": -91.1703701,
+      "geocoder": "google"
+    },
+    {
+      "address": "228 S 18TH ST",
+      "parcel_id": "001-0172-9",
+      "lat": 30.44641399999999,
+      "lng": -91.17043420000002,
+      "geocoder": "google"
+    },
+    {
+      "address": "247 BRICE ST",
+      "parcel_id": "001-1031-0",
+      "lat": 30.4459942,
+      "lng": -91.17080349999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "12000 BOSSOM LN",
+      "parcel_id": "001-7068-2",
+      "lat": 30.5549244,
+      "lng": -90.4501604,
+      "geocoder": "google"
+    },
+    {
+      "address": "240 S 18TH ST",
+      "parcel_id": "000-2625-5",
+      "lat": 30.446101,
+      "lng": -91.17182199999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "202 S 17TH ST",
+      "parcel_id": "000-3363-4",
+      "lat": 30.4464913,
+      "lng": -91.17176979999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "322 S 16TH ST",
+      "parcel_id": "001-3392-2",
+      "lat": 30.44496449999999,
+      "lng": -91.1729867,
+      "geocoder": "google"
+    },
+    {
+      "address": "5775 CASTILE AVE",
+      "parcel_id": "000-8844-7",
+      "lat": 30.4397988,
+      "lng": -91.13111359999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "PO BOX 80836",
+      "parcel_id": "001-6909-9",
+      "lat": 30.5190775,
+      "lng": -91.5208624,
+      "geocoder": "google"
+    },
+    {
+      "address": "1305 LAUREL ST",
+      "parcel_id": "001-1984-9",
+      "lat": 30.4509283,
+      "lng": -91.17597940000002,
+      "geocoder": "google"
+    },
+    {
+      "address": "3996 BILLOPS ST",
+      "parcel_id": "004-6940-8",
+      "lat": 30.46064669999999,
+      "lng": -91.1503486,
+      "geocoder": "google"
+    },
+    {
+      "address": "4004 PITCHER ST",
+      "parcel_id": "002-0124-3",
+      "lat": 30.4612999,
+      "lng": -91.15015029999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "4013 GUS YOUNG AVE",
+      "parcel_id": "003-3375-1",
+      "lat": 30.4621511,
+      "lng": -91.150003,
+      "geocoder": "google"
+    },
+    {
+      "address": "4014 PITCHER ST",
+      "parcel_id": "002-4752-9",
+      "lat": 30.4613315,
+      "lng": -91.1500363,
+      "geocoder": "google"
+    },
+    {
+      "address": "3607 ALMONASTER AVE",
+      "parcel_id": "002-0768-3",
+      "lat": 29.9959812,
+      "lng": -90.04156599999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1324 N 40TH ST",
+      "parcel_id": "012-1298-2",
+      "lat": 30.4604236,
+      "lng": -91.148816,
+      "geocoder": "google"
+    },
+    {
+      "address": "3918 FLORIDA BLVD",
+      "parcel_id": "007-1341-4",
+      "lat": 30.450192,
+      "lng": -91.14992939999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "365 LOFASO ST",
+      "parcel_id": "005-4989-4",
+      "lat": 30.4516274,
+      "lng": -91.14991669999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "523 LIVE OAK BLVD",
+      "parcel_id": "005-7683-2",
+      "lat": 30.4526059,
+      "lng": -91.1491707,
+      "geocoder": "google"
+    },
+    {
+      "address": "3955 FLORIDA BLVD",
+      "parcel_id": "007-3867-0",
+      "lat": 30.4507376,
+      "lng": -91.1499494,
+      "geocoder": "google"
+    },
+    {
+      "address": "555 LOFASO ST",
+      "parcel_id": "007-5153-7",
+      "lat": 30.45314939999999,
+      "lng": -91.1499271,
+      "geocoder": "google"
+    },
+    {
+      "address": "7660 BOYCE DR",
+      "parcel_id": "007-5476-5",
+      "lat": 30.4134205,
+      "lng": -91.14297239999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1031 HEATHER DR",
+      "parcel_id": "007-1589-1",
+      "lat": 30.4485022,
+      "lng": -91.0667477,
+      "geocoder": "google"
+    },
+    {
+      "address": "2915 MONROE AVE",
+      "parcel_id": "001-4619-6",
+      "lat": 30.469555,
+      "lng": -91.15958719999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "4012 PROVOST ST",
+      "parcel_id": "003-7804-6",
+      "lat": 30.4600006,
+      "lng": -91.15008399999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "8936 ROUND OAK DR",
+      "parcel_id": "008-4999-5",
+      "lat": 30.3676839,
+      "lng": -90.9998423,
+      "geocoder": "google"
+    },
+    {
+      "address": "4045 ADAMS AVE",
+      "parcel_id": "001-0044-7",
+      "lat": 30.4690444,
+      "lng": -91.14993249999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "4016 ADAMS AVE",
+      "parcel_id": "001-6597-2",
+      "lat": 30.4686689,
+      "lng": -91.149965,
+      "geocoder": "google"
+    },
+    {
+      "address": "1675 CHOCTAW DR",
+      "parcel_id": "308-4493-6",
+      "lat": 30.4702209,
+      "lng": -91.172584,
+      "geocoder": "google"
+    },
+    {
+      "address": "10315 LANGSTON DR",
+      "parcel_id": "004-5698-5",
+      "lat": 30.5561971,
+      "lng": -90.91610299999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "9386 SOUTHLAWN DR",
+      "parcel_id": "003-8303-1",
+      "lat": 30.3778914,
+      "lng": -91.1115257,
+      "geocoder": "google"
+    },
+    {
+      "address": "2051 MAULD RD.",
+      "parcel_id": "024-6370-9",
+      "lat": 32.190459,
+      "lng": -91.6975702,
+      "geocoder": "google"
+    },
+    {
+      "address": "1885 CHOCTAW DR",
+      "parcel_id": "001-9867-6",
+      "lat": 30.4701221,
+      "lng": -91.1703656,
+      "geocoder": "google"
+    },
+    {
+      "address": "1563 CHOCTAW DR",
+      "parcel_id": "002-4413-9",
+      "lat": 30.469912,
+      "lng": -91.173268,
+      "geocoder": "google"
+    },
+    {
+      "address": "1515 CHOCTAW DR",
+      "parcel_id": "003-0128-0",
+      "lat": 30.4704885,
+      "lng": -91.17360289999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "12030 LAKELAND PARK BLVD, STE 101",
+      "parcel_id": "003-0129-9",
+      "lat": 30.3877665,
+      "lng": -91.0449953,
+      "geocoder": "google"
+    },
+    {
+      "address": "1565 CHOCTAW DR",
+      "parcel_id": "002-4412-0",
+      "lat": 30.4699137,
+      "lng": -91.17308039999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "6145 PARKCREST CT",
+      "parcel_id": "004-4091-4",
+      "lat": 30.3958873,
+      "lng": -91.04587680000002,
+      "geocoder": "google"
+    },
+    {
+      "address": "3335 ALLIQUIPA ST",
+      "parcel_id": "003-9156-5",
+      "lat": 30.478518,
+      "lng": -91.1626048,
+      "geocoder": "google"
+    },
+    {
+      "address": "50 PARK CIRCLE",
+      "parcel_id": "003-7812-7",
+      "lat": 30.5251021,
+      "lng": -92.0946421,
+      "geocoder": "google"
+    },
+    {
+      "address": "4016 N BARROW DR",
+      "parcel_id": "000-5385-6",
+      "lat": 30.46634139999999,
+      "lng": -91.1500195,
+      "geocoder": "google"
+    },
+    {
+      "address": "4014 WASHINGTON AVE",
+      "parcel_id": "001-5807-0",
+      "lat": 30.4649857,
+      "lng": -91.14992029999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "12328 SIR WALTER AVE",
+      "parcel_id": "002-8947-7",
+      "lat": 30.368028,
+      "lng": -91.08177309999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "PO BOX 2803",
+      "parcel_id": "002-7202-7",
+      "lat": 30.5190775,
+      "lng": -91.5208624,
+      "geocoder": "google"
+    },
+    {
+      "address": "1665 N 41ST ST",
+      "parcel_id": "002-9734-8",
+      "lat": 30.4634793,
+      "lng": -91.1499024,
+      "geocoder": "google"
+    },
+    {
+      "address": "1645 N 37TH ST",
+      "parcel_id": "004-1842-0",
+      "lat": 30.4631278,
+      "lng": -91.15317449999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "4463 BLUEBONNET BLVD STE A",
+      "parcel_id": "000-1613-6",
+      "lat": 30.4081461,
+      "lng": -91.07893260000002,
+      "geocoder": "google"
+    },
+    {
+      "address": "1645 N 38TH ST",
+      "parcel_id": "004-0885-9",
+      "lat": 30.4631809,
+      "lng": -91.15239989999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1680 N 39TH ST",
+      "parcel_id": "002-2439-1",
+      "lat": 30.4635847,
+      "lng": -91.1511029,
+      "geocoder": "google"
+    },
+    {
+      "address": "PO BOX 11109",
+      "parcel_id": "004-7118-6",
+      "lat": 30.5190775,
+      "lng": -91.5208624,
+      "geocoder": "google"
+    },
+    {
+      "address": "177 LAUREL AVE NW",
+      "parcel_id": "001-8299-0",
+      "lat": 30.494906,
+      "lng": -92.41605729999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1791 N 39TH ST",
+      "parcel_id": "004-4553-3",
+      "lat": 30.4644547,
+      "lng": -91.15160929999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1640 N 36TH ST",
+      "parcel_id": "004-3156-7",
+      "lat": 30.4630556,
+      "lng": -91.15358479999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "8796 GREENWELL SPRINGS RD",
+      "parcel_id": "000-2990-4",
+      "lat": 30.4818562,
+      "lng": -91.0944876,
+      "geocoder": "google"
+    },
+    {
+      "address": "4068 NOAH ST",
+      "parcel_id": "000-0492-8",
+      "lat": 30.4624703,
+      "lng": -91.14990309999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1780 N 38TH ST",
+      "parcel_id": "004-0619-8",
+      "lat": 30.46452099999999,
+      "lng": -91.1520778,
+      "geocoder": "google"
+    },
+    {
+      "address": "616 HASTENS CT",
+      "parcel_id": "004-5572-5",
+      "lat": 30.5190775,
+      "lng": -91.5208624,
+      "geocoder": "google"
+    },
+    {
+      "address": "1734 N 36TH ST",
+      "parcel_id": "002-6271-4",
+      "lat": 30.4640122,
+      "lng": -91.15355509999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1684 N 35TH ST",
+      "parcel_id": "003-3735-8",
+      "lat": 30.46344059999999,
+      "lng": -91.15434270000002,
+      "geocoder": "google"
+    },
+    {
+      "address": "1767 N 39TH ST",
+      "parcel_id": "004-8180-7",
+      "lat": 30.4642274,
+      "lng": -91.15154679999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1627 N ACADIAN THWY W",
+      "parcel_id": "004-6590-9",
+      "lat": 30.4628697,
+      "lng": -91.1555652,
+      "geocoder": "google"
+    },
+    {
+      "address": "1741 N 4TH ST",
+      "parcel_id": "000-2992-0",
+      "lat": 39.4550491,
+      "lng": -91.05292170000001,
+      "geocoder": "google"
+    },
+    {
+      "address": "9145 W CHANADIA DR",
+      "parcel_id": "000-8791-2",
+      "lat": 30.382869,
+      "lng": -91.1111426,
+      "geocoder": "google"
+    },
+    {
+      "address": "1706 N ACADIAN THWY W",
+      "parcel_id": "001-6088-1",
+      "lat": 30.4635391,
+      "lng": -91.1559537,
+      "geocoder": "google"
+    },
+    {
+      "address": "1697 NORTH EXPY # 282",
+      "parcel_id": "000-2717-0",
+      "lat": 30.4287689,
+      "lng": -90.0399687,
+      "geocoder": "google"
+    },
+    {
+      "address": "1670 N ACADIAN THWY W",
+      "parcel_id": "001-3474-0",
+      "lat": 30.4634332,
+      "lng": -91.15594949999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "4735 WASHINGTON AVE",
+      "parcel_id": "003-4560-1",
+      "lat": 30.4662531,
+      "lng": -91.1424169,
+      "geocoder": "google"
+    },
+    {
+      "address": "1673 N 36TH ST",
+      "parcel_id": "004-3416-7",
+      "lat": 30.4634117,
+      "lng": -91.1539743,
+      "geocoder": "google"
+    },
+    {
+      "address": "1657 N 39TH ST",
+      "parcel_id": "004-3980-0",
+      "lat": 30.46335599999999,
+      "lng": -91.1515005,
+      "geocoder": "google"
+    },
+    {
+      "address": "1722 N 35TH ST",
+      "parcel_id": "004-1855-2",
+      "lat": 30.4637774,
+      "lng": -91.1543803,
+      "geocoder": "google"
+    },
+    {
+      "address": "6731 BAYOU SARA WAY",
+      "parcel_id": "023-3813-0",
+      "lat": 30.825034,
+      "lng": -91.41904199999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1546 N 35TH ST",
+      "parcel_id": "002-9406-3",
+      "lat": 30.4621411,
+      "lng": -91.15429429999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1770 N 38TH ST",
+      "parcel_id": "004-0617-1",
+      "lat": 30.4644364,
+      "lng": -91.15204779999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1754 N 38TH ST",
+      "parcel_id": "004-7989-6",
+      "lat": 30.4642274,
+      "lng": -91.1520462,
+      "geocoder": "google"
+    },
+    {
+      "address": "4152 PROVOST ST",
+      "parcel_id": "003-3758-7",
+      "lat": 30.4600669,
+      "lng": -91.14843789999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1050 S FOSTER DR",
+      "parcel_id": "024-4162-4",
+      "lat": 30.43841879999999,
+      "lng": -91.1344025,
+      "geocoder": "google"
+    },
+    {
+      "address": "1670 N 38TH ST",
+      "parcel_id": "002-7534-4",
+      "lat": 30.46326869999999,
+      "lng": -91.1519959,
+      "geocoder": "google"
+    },
+    {
+      "address": "1785 N 38TH ST",
+      "parcel_id": "004-3667-4",
+      "lat": 30.4643518,
+      "lng": -91.15243389999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "7183 HANKS DR",
+      "parcel_id": "003-1043-3",
+      "lat": 30.49609,
+      "lng": -91.11843359999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1713 N 37TH ST",
+      "parcel_id": "002-6302-8",
+      "lat": 30.4637234,
+      "lng": -91.15319860000001,
+      "geocoder": "google"
+    },
+    {
+      "address": "1716 N 37TH ST",
+      "parcel_id": "004-1845-5",
+      "lat": 30.4637495,
+      "lng": -91.15282769999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1657 N 38TH ST",
+      "parcel_id": "002-3635-7",
+      "lat": 30.4632775,
+      "lng": -91.15240849999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1650 N 38TH ST",
+      "parcel_id": "002-2953-9",
+      "lat": 30.4631558,
+      "lng": -91.15200809999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1653 N 36TH ST",
+      "parcel_id": "003-9946-9",
+      "lat": 30.4631438,
+      "lng": -91.1539057,
+      "geocoder": "google"
+    },
+    {
+      "address": "3935 NOAH ST",
+      "parcel_id": "003-4679-9",
+      "lat": 30.4628266,
+      "lng": -91.150875,
+      "geocoder": "google"
+    },
+    {
+      "address": "1834 88TH AVE",
+      "parcel_id": "004-0189-7",
+      "lat": 29.4754583,
+      "lng": -90.3077656,
+      "geocoder": "google"
+    },
+    {
+      "address": "249 RIVERCREST AVE",
+      "parcel_id": "003-3129-5",
+      "lat": 30.5417149,
+      "lng": -91.19830449999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "6075 BROWNSFIELD RD",
+      "parcel_id": "004-1922-2",
+      "lat": 30.5465772,
+      "lng": -91.1206617,
+      "geocoder": "google"
+    },
+    {
+      "address": "1664 N 35TH ST",
+      "parcel_id": "003-3189-9",
+      "lat": 30.4633025,
+      "lng": -91.1544073,
+      "geocoder": "google"
+    },
+    {
+      "address": "1575 N 35TH ST",
+      "parcel_id": "002-1497-3",
+      "lat": 30.4623498,
+      "lng": -91.15476609999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1582 N ACADIAN THWY E",
+      "parcel_id": "002-1684-4",
+      "lat": 30.4623832,
+      "lng": -91.1551132,
+      "geocoder": "google"
+    },
+    {
+      "address": "1665 N 39TH ST",
+      "parcel_id": "004-8495-4",
+      "lat": 30.463216,
+      "lng": -91.15152429999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "2112 MARYLAND ST",
+      "parcel_id": "003-0698-3",
+      "lat": 30.428188,
+      "lng": -91.17399420000001,
+      "geocoder": "google"
+    },
+    {
+      "address": "1593 N 36TH ST",
+      "parcel_id": "004-5571-7",
+      "lat": 30.4624651,
+      "lng": -91.1539229,
+      "geocoder": "google"
+    },
+    {
+      "address": "1752 N ACADIAN THWY W",
+      "parcel_id": "001-6094-6",
+      "lat": 30.4642937,
+      "lng": -91.1559839,
+      "geocoder": "google"
+    },
+    {
+      "address": "1753 N 36TH ST",
+      "parcel_id": "002-9826-3",
+      "lat": 30.464282,
+      "lng": -91.15400199999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1678 N 38TH ST",
+      "parcel_id": "003-1074-3",
+      "lat": 30.4633606,
+      "lng": -91.1520116,
+      "geocoder": "google"
+    },
+    {
+      "address": "16517 WOODLAWN ACRES AVE",
+      "parcel_id": "002-7791-6",
+      "lat": 30.3839587,
+      "lng": -91.0011133,
+      "geocoder": "google"
+    },
+    {
+      "address": "3256 NICHOLSON DR",
+      "parcel_id": "007-2280-4",
+      "lat": 30.4192353,
+      "lng": -91.1879187,
+      "geocoder": "google"
+    },
+    {
+      "address": "344 JENNIFER JEAN",
+      "parcel_id": "007-9135-0",
+      "lat": 30.4014065,
+      "lng": -91.1735817,
+      "geocoder": "google"
+    },
+    {
+      "address": "1230 W CHIMES ST",
+      "parcel_id": "005-3284-3",
+      "lat": 30.4188168,
+      "lng": -91.19049059999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "3115 WYOMING ST",
+      "parcel_id": "005-3888-4",
+      "lat": 30.4200586,
+      "lng": -91.1883264,
+      "geocoder": "google"
+    },
+    {
+      "address": "1336 ASTER ST",
+      "parcel_id": "004-9214-0",
+      "lat": 30.4197742,
+      "lng": -91.1911935,
+      "geocoder": "google"
+    },
+    {
+      "address": "1465 ASTER ST",
+      "parcel_id": "007-1613-8",
+      "lat": 30.4193961,
+      "lng": -91.1929241,
+      "geocoder": "google"
+    },
+    {
+      "address": "1525 W CHIMES ST",
+      "parcel_id": "006-6181-3",
+      "lat": 30.418808,
+      "lng": -91.19361440000002,
+      "geocoder": "google"
+    },
+    {
+      "address": "1203 ASTER ST",
+      "parcel_id": "006-5333-0",
+      "lat": 30.4194282,
+      "lng": -91.1901802,
+      "geocoder": "google"
+    },
+    {
+      "address": "1376 W CHIMES ST",
+      "parcel_id": "008-6299-1",
+      "lat": 30.4188482,
+      "lng": -91.19199189999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1462 ASTER ST",
+      "parcel_id": "005-1123-4",
+      "lat": 30.4197618,
+      "lng": -91.19286079999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1121 ASTER ST",
+      "parcel_id": "006-5315-2",
+      "lat": 30.4188397,
+      "lng": -91.1897601,
+      "geocoder": "google"
+    },
+    {
+      "address": "1420 ASTER ST",
+      "parcel_id": "005-1046-7",
+      "lat": 30.4198399,
+      "lng": -91.1921072,
+      "geocoder": "google"
+    },
+    {
+      "address": "1233 ASTER ST",
+      "parcel_id": "006-4509-5",
+      "lat": 30.4193264,
+      "lng": -91.1906506,
+      "geocoder": "google"
+    },
+    {
+      "address": "3132 WYOMING ST",
+      "parcel_id": "007-2275-8",
+      "lat": 30.4198088,
+      "lng": -91.1888517,
+      "geocoder": "google"
+    },
+    {
+      "address": "3187 WYOMING ST",
+      "parcel_id": "005-9313-3",
+      "lat": 30.4197821,
+      "lng": -91.18827639999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1245 ASTER ST",
+      "parcel_id": "006-7167-3",
+      "lat": 30.4193662,
+      "lng": -91.19083169999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1305 ASTER ST",
+      "parcel_id": "007-1591-3",
+      "lat": 30.4193789,
+      "lng": -91.1909948,
+      "geocoder": "google"
+    },
+    {
+      "address": "3150 NICHOLSON DR",
+      "parcel_id": "005-3914-7",
+      "lat": 30.4200315,
+      "lng": -91.1877069,
+      "geocoder": "google"
+    },
+    {
+      "address": "3262 WYOMING ST",
+      "parcel_id": "005-1441-1",
+      "lat": 30.4191276,
+      "lng": -91.18882750000002,
+      "geocoder": "google"
+    },
+    {
+      "address": "1402 W CHIMES ST",
+      "parcel_id": "008-9241-6",
+      "lat": 30.4188523,
+      "lng": -91.1921351,
+      "geocoder": "google"
+    },
+    {
+      "address": "1355 W CHIMES ST",
+      "parcel_id": "007-5453-6",
+      "lat": 30.4183944,
+      "lng": -91.1917666,
+      "geocoder": "google"
+    },
+    {
+      "address": "1263 W CHIMES ST",
+      "parcel_id": "007-6973-8",
+      "lat": 30.4183429,
+      "lng": -91.1906963,
+      "geocoder": "google"
+    },
+    {
+      "address": "1310 ASTER ST",
+      "parcel_id": "007-0504-7",
+      "lat": 30.419794,
+      "lng": -91.19102679999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1476 ASTER ST",
+      "parcel_id": "006-9225-5",
+      "lat": 30.4197612,
+      "lng": -91.19322419999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1215 W CHIMES ST",
+      "parcel_id": "004-9104-7",
+      "lat": 30.4182988,
+      "lng": -91.18986369999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "3148 WYOMING ST",
+      "parcel_id": "007-9086-9",
+      "lat": 30.4196773,
+      "lng": -91.1887022,
+      "geocoder": "google"
+    },
+    {
+      "address": "1324 W CHIMES ST",
+      "parcel_id": "008-4573-6",
+      "lat": 30.4188016,
+      "lng": -91.1912231,
+      "geocoder": "google"
+    },
+    {
+      "address": "1345 W CHIMES ST",
+      "parcel_id": "006-8474-0",
+      "lat": 30.4183954,
+      "lng": -91.1915944,
+      "geocoder": "google"
+    },
+    {
+      "address": "1445 ASTER ST",
+      "parcel_id": "005-4522-8",
+      "lat": 30.4193417,
+      "lng": -91.1924695,
+      "geocoder": "google"
+    },
+    {
+      "address": "1255 W CHIMES ST",
+      "parcel_id": "004-9182-9",
+      "lat": 30.4183667,
+      "lng": -91.19049059999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1425 ASTER ST",
+      "parcel_id": "007-4338-0",
+      "lat": 30.4193598,
+      "lng": -91.19228369999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1565 W CHIMES ST",
+      "parcel_id": "005-0699-0",
+      "lat": 30.4192435,
+      "lng": -91.1934885,
+      "geocoder": "google"
+    },
+    {
+      "address": "1460 W CHIMES ST",
+      "parcel_id": "007-3414-4",
+      "lat": 30.4188417,
+      "lng": -91.19270499999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1415 ASTER ST",
+      "parcel_id": "007-4544-8",
+      "lat": 30.4193873,
+      "lng": -91.1921045,
+      "geocoder": "google"
+    },
+    {
+      "address": "1325 ASTER ST",
+      "parcel_id": "005-4687-9",
+      "lat": 30.4194067,
+      "lng": -91.1913496,
+      "geocoder": "google"
+    },
+    {
+      "address": "1413 W CHIMES ST",
+      "parcel_id": "005-3265-7",
+      "lat": 30.4183945,
+      "lng": -91.19215349999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "3235 WYOMING ST",
+      "parcel_id": "008-9093-6",
+      "lat": 30.4194106,
+      "lng": -91.188222,
+      "geocoder": "google"
+    },
+    {
+      "address": "1370 ASTER ST",
+      "parcel_id": "007-5102-2",
+      "lat": 30.4198648,
+      "lng": -91.1919297,
+      "geocoder": "google"
+    },
+    {
+      "address": "1247 W CHIMES ST",
+      "parcel_id": "005-2320-8",
+      "lat": 30.4183676,
+      "lng": -91.1903277,
+      "geocoder": "google"
+    },
+    {
+      "address": "1524 W CHIMES ST",
+      "parcel_id": "005-4520-1",
+      "lat": 30.4188613,
+      "lng": -91.193024,
+      "geocoder": "google"
+    },
+    {
+      "address": "1146 W CHIMES ST",
+      "parcel_id": "008-6592-3",
+      "lat": 30.41892769999999,
+      "lng": -91.1901547,
+      "geocoder": "google"
+    },
+    {
+      "address": "3222 NICHOLSON DR",
+      "parcel_id": "007-2301-0",
+      "lat": 30.4194095,
+      "lng": -91.18775769999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1440 W CHIMES ST",
+      "parcel_id": "008-7449-3",
+      "lat": 30.41883979999999,
+      "lng": -91.19256829999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1344 ASTER ST",
+      "parcel_id": "006-1524-2",
+      "lat": 30.4198243,
+      "lng": -91.191514,
+      "geocoder": "google"
+    },
+    {
+      "address": "1465 W CHIMES ST",
+      "parcel_id": "006-7863-5",
+      "lat": 30.4184223,
+      "lng": -91.1928637,
+      "geocoder": "google"
+    },
+    {
+      "address": "1554 W CHIMES ST",
+      "parcel_id": "008-0106-2",
+      "lat": 30.4190312,
+      "lng": -91.1930137,
+      "geocoder": "google"
+    },
+    {
+      "address": "1345 ASTER ST",
+      "parcel_id": "007-3400-4",
+      "lat": 30.4193735,
+      "lng": -91.1915495,
+      "geocoder": "google"
+    },
+    {
+      "address": "1420 W CHIMES ST",
+      "parcel_id": "007-3188-9",
+      "lat": 30.4188675,
+      "lng": -91.1923484,
+      "geocoder": "google"
+    },
+    {
+      "address": "1241 W CHIMES ST",
+      "parcel_id": "008-1021-5",
+      "lat": 30.4183698,
+      "lng": -91.1901529,
+      "geocoder": "google"
+    },
+    {
+      "address": "1435 W CHIMES ST",
+      "parcel_id": "008-8561-4",
+      "lat": 30.4183963,
+      "lng": -91.1925167,
+      "geocoder": "google"
+    },
+    {
+      "address": "1272 ASTER ST",
+      "parcel_id": "006-6241-0",
+      "lat": 30.4198039,
+      "lng": -91.1908284,
+      "geocoder": "google"
+    },
+    {
+      "address": "1470 ASTER ST",
+      "parcel_id": "006-3406-9",
+      "lat": 30.4197838,
+      "lng": -91.19304269999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1365 ASTER ST",
+      "parcel_id": "005-6880-5",
+      "lat": 30.4193583,
+      "lng": -91.1917876,
+      "geocoder": "google"
+    },
+    {
+      "address": "3152 NICHOLSON DR",
+      "parcel_id": "005-3913-9",
+      "lat": 30.4199218,
+      "lng": -91.1877511,
+      "geocoder": "google"
+    },
+    {
+      "address": "1534 ASTER ST",
+      "parcel_id": "005-2323-2",
+      "lat": 30.4197745,
+      "lng": -91.1936193,
+      "geocoder": "google"
+    },
+    {
+      "address": "1455 W CHIMES ST",
+      "parcel_id": "007-0357-5",
+      "lat": 30.4184014,
+      "lng": -91.1926874,
+      "geocoder": "google"
+    },
+    {
+      "address": "35541 CANE MARKET RD",
+      "parcel_id": "005-1443-8",
+      "lat": 30.5618625,
+      "lng": -90.925377,
+      "geocoder": "google"
+    },
+    {
+      "address": "1260 W CHIMES ST",
+      "parcel_id": "006-0182-9",
+      "lat": 30.4187768,
+      "lng": -91.190877,
+      "geocoder": "google"
+    },
+    {
+      "address": "1535 W CHIMES ST",
+      "parcel_id": "006-1049-6",
+      "lat": 30.4189529,
+      "lng": -91.1935671,
+      "geocoder": "google"
+    },
+    {
+      "address": "1232 ASTER ST",
+      "parcel_id": "008-1978-6",
+      "lat": 30.4197765,
+      "lng": -91.1901015,
+      "geocoder": "google"
+    },
+    {
+      "address": "1136 W CHIMES ST",
+      "parcel_id": "007-1378-3",
+      "lat": 30.41920499999999,
+      "lng": -91.1901072,
+      "geocoder": "google"
+    },
+    {
+      "address": "1147 W CHIMES ST",
+      "parcel_id": "006-4193-6",
+      "lat": 30.4187866,
+      "lng": -91.18959489999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1485 W CHIMES ST",
+      "parcel_id": "005-0309-6",
+      "lat": 30.4184318,
+      "lng": -91.19323039999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "3300/3328 WYOMING ST",
+      "parcel_id": "007-2547-1",
+      "lat": 30.4189118,
+      "lng": -91.1884096,
+      "geocoder": "google"
+    },
+    {
+      "address": "1310 W CHIMES ST",
+      "parcel_id": "004-9202-7",
+      "lat": 30.4188083,
+      "lng": -91.191035,
+      "geocoder": "google"
+    },
+    {
+      "address": "1242 ASTER ST",
+      "parcel_id": "007-7419-7",
+      "lat": 30.419778,
+      "lng": -91.19031489999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1516 ASTER ST",
+      "parcel_id": "005-1834-4",
+      "lat": 30.4197709,
+      "lng": -91.1933859,
+      "geocoder": "google"
+    },
+    {
+      "address": "3348 WYOMING ST",
+      "parcel_id": "007-7332-8",
+      "lat": 30.4183917,
+      "lng": -91.1886701,
+      "geocoder": "google"
+    },
+    {
+      "address": "1145 MAGNOLIA WOODS AVE",
+      "parcel_id": "005-8036-8",
+      "lat": 30.3869018,
+      "lng": -91.1179654,
+      "geocoder": "google"
+    },
+    {
+      "address": "1334 W CHIMES ST",
+      "parcel_id": "008-7208-3",
+      "lat": 30.4188083,
+      "lng": -91.19142889999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1315 ASTER ST",
+      "parcel_id": "008-3065-8",
+      "lat": 30.4193607,
+      "lng": -91.1911729,
+      "geocoder": "google"
+    },
+    {
+      "address": "1440 ASTER ST",
+      "parcel_id": "006-0136-5",
+      "lat": 30.4198173,
+      "lng": -91.19246470000002,
+      "geocoder": "google"
+    },
+    {
+      "address": "1252 ASTER ST",
+      "parcel_id": "007-4538-3",
+      "lat": 30.4197708,
+      "lng": -91.19046329999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1262 ASTER ST",
+      "parcel_id": "006-7097-9",
+      "lat": 30.4198056,
+      "lng": -91.1906408,
+      "geocoder": "google"
+    },
+    {
+      "address": "1233 W CHIMES ST",
+      "parcel_id": "005-0107-7",
+      "lat": 30.41833,
+      "lng": -91.19003529999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1551 W CHIMES ST",
+      "parcel_id": "009-0651-4",
+      "lat": 30.4190878,
+      "lng": -91.1935766,
+      "geocoder": "google"
+    },
+    {
+      "address": "955 VIOLET ST",
+      "parcel_id": "005-3887-6",
+      "lat": 30.4200518,
+      "lng": -91.18831399999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "3164 NICHOLSON DR",
+      "parcel_id": "005-3912-0",
+      "lat": 30.4198518,
+      "lng": -91.18803249999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1137 W CHIMES ST",
+      "parcel_id": "006-5316-0",
+      "lat": 30.41914109999999,
+      "lng": -91.1894774,
+      "geocoder": "google"
+    },
+    {
+      "address": "1315 W CHIMES ST",
+      "parcel_id": "005-9230-7",
+      "lat": 30.4183612,
+      "lng": -91.1912186,
+      "geocoder": "google"
+    },
+    {
+      "address": "1375 ASTER ST",
+      "parcel_id": "009-1936-5",
+      "lat": 30.4193585,
+      "lng": -91.1919245,
+      "geocoder": "google"
+    },
+    {
+      "address": "1375 W CHIMES ST",
+      "parcel_id": "005-3092-1",
+      "lat": 30.4183888,
+      "lng": -91.19197249999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1564 W CHIMES ST",
+      "parcel_id": "005-9311-7",
+      "lat": 30.4192233,
+      "lng": -91.19301080000001,
+      "geocoder": "google"
+    },
+    {
+      "address": "1430 ASTER ST",
+      "parcel_id": "008-9323-4",
+      "lat": 30.4197906,
+      "lng": -91.19229209999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1475 W CHIMES ST",
+      "parcel_id": "008-4788-7",
+      "lat": 30.4184336,
+      "lng": -91.19304269999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "944/948 GERANIUM ST",
+      "parcel_id": "005-4796-4",
+      "lat": 30.4191073,
+      "lng": -91.1882389,
+      "geocoder": "google"
+    },
+    {
+      "address": "1350 W CHIMES ST",
+      "parcel_id": "005-9559-4",
+      "lat": 30.41890519999999,
+      "lng": -91.191577,
+      "geocoder": "google"
+    },
+    {
+      "address": "1425 W CHIMES ST",
+      "parcel_id": "005-9290-0",
+      "lat": 30.4183818,
+      "lng": -91.1923214,
+      "geocoder": "google"
+    },
+    {
+      "address": "1001 ASTER ST",
+      "parcel_id": "005-8037-6",
+      "lat": 30.419242,
+      "lng": -91.1885921,
+      "geocoder": "google"
+    },
+    {
+      "address": "1250 W CHIMES ST",
+      "parcel_id": "005-3285-1",
+      "lat": 30.4187544,
+      "lng": -91.1906545,
+      "geocoder": "google"
+    },
+    {
+      "address": "1505 W CHIMES ST",
+      "parcel_id": "006-5997-5",
+      "lat": 30.4184598,
+      "lng": -91.1934552,
+      "geocoder": "google"
+    },
+    {
+      "address": "1215 ASTER ST",
+      "parcel_id": "006-9274-3",
+      "lat": 30.4193569,
+      "lng": -91.19049059999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1205 W CHIMES ST",
+      "parcel_id": "006-4194-4",
+      "lat": 30.4183873,
+      "lng": -91.1894997,
+      "geocoder": "google"
+    },
+    {
+      "address": "1360 ASTER ST",
+      "parcel_id": "008-0764-8",
+      "lat": 30.4198215,
+      "lng": -91.1917362,
+      "geocoder": "google"
+    },
+    {
+      "address": "1455 ASTER ST",
+      "parcel_id": "007-1614-6",
+      "lat": 30.4193825,
+      "lng": -91.1926299,
+      "geocoder": "google"
+    },
+    {
+      "address": "2659 LINWOOD ST",
+      "parcel_id": "003-8472-0",
+      "lat": 30.4709546,
+      "lng": -91.1731647,
+      "geocoder": "google"
+    },
+    {
+      "address": "2793 LINWOOD ST",
+      "parcel_id": "001-9858-7",
+      "lat": 30.4727051,
+      "lng": -91.1732651,
+      "geocoder": "google"
+    },
+    {
+      "address": "2716 CEDAR AVE",
+      "parcel_id": "003-2088-9",
+      "lat": 30.4717097,
+      "lng": -91.1700164,
+      "geocoder": "google"
+    },
+    {
+      "address": "50 E. NORTH TEMPLE, RE: 530-3400,",
+      "parcel_id": "004-7850-4",
+      "lat": 30.5190775,
+      "lng": -91.5208624,
+      "geocoder": "google"
+    },
+    {
+      "address": "2724 LINWOOD ST",
+      "parcel_id": "002-9371-7",
+      "lat": 30.471716,
+      "lng": -91.1727803,
+      "geocoder": "google"
+    },
+    {
+      "address": "2756 LOCKWOOD ST",
+      "parcel_id": "003-6353-7",
+      "lat": 30.4779518,
+      "lng": -90.0948975,
+      "geocoder": "google"
+    },
+    {
+      "address": "2736 CEDAR AVE",
+      "parcel_id": "002-1429-9",
+      "lat": 30.4719432,
+      "lng": -91.1699898,
+      "geocoder": "google"
+    },
+    {
+      "address": "2733 PIMPERNEL AVE",
+      "parcel_id": "002-7607-3",
+      "lat": 30.4719001,
+      "lng": -91.172282,
+      "geocoder": "google"
+    },
+    {
+      "address": "2755 CEDAR AVE",
+      "parcel_id": "003-4752-3",
+      "lat": 30.4722415,
+      "lng": -91.1704384,
+      "geocoder": "google"
+    },
+    {
+      "address": "2704 CEDAR AVE",
+      "parcel_id": "003-1735-7",
+      "lat": 30.4715612,
+      "lng": -91.16996689999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "2736 JESSAMINE AVE",
+      "parcel_id": "003-6691-9",
+      "lat": 30.47193099999999,
+      "lng": -91.1709018,
+      "geocoder": "google"
+    },
+    {
+      "address": "2784 LINWOOD ST",
+      "parcel_id": "002-5432-0",
+      "lat": 30.4725252,
+      "lng": -91.17285539999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "2717 JESSAMINE AVE",
+      "parcel_id": "002-7645-6",
+      "lat": 30.471631,
+      "lng": -91.1713245,
+      "geocoder": "google"
+    },
+    {
+      "address": "2797 CEDAR AVE",
+      "parcel_id": "004-5444-3",
+      "lat": 30.4729189,
+      "lng": -91.1704642,
+      "geocoder": "google"
+    },
+    {
+      "address": "2786 PIMPERNEL AVE",
+      "parcel_id": "003-4197-5",
+      "lat": 30.47258129999999,
+      "lng": -91.1718918,
+      "geocoder": "google"
+    },
+    {
+      "address": "2714 LINWOOD ST",
+      "parcel_id": "002-9299-0",
+      "lat": 30.47159,
+      "lng": -91.17278329999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "PO BOX 551",
+      "parcel_id": "003-3100-7",
+      "lat": 32.9550214,
+      "lng": -92.2970777,
+      "geocoder": "google"
+    },
+    {
+      "address": "2714 LOCKWOOD ST",
+      "parcel_id": "002-7217-5",
+      "lat": 30.4779518,
+      "lng": -90.0948975,
+      "geocoder": "google"
+    },
+    {
+      "address": "PO BOX 64106",
+      "parcel_id": "002-0089-1",
+      "lat": 30.5190775,
+      "lng": -91.5208624,
+      "geocoder": "google"
+    },
+    {
+      "address": "2778 CEDAR AVE",
+      "parcel_id": "001-9887-0",
+      "lat": 30.4725246,
+      "lng": -91.1700187,
+      "geocoder": "google"
+    },
+    {
+      "address": "2756 CEDAR AVE",
+      "parcel_id": "002-6192-0",
+      "lat": 30.47225419999999,
+      "lng": -91.1698905,
+      "geocoder": "google"
+    },
+    {
+      "address": "1501 SENECA ST",
+      "parcel_id": "004-3312-8",
+      "lat": 30.471422,
+      "lng": -91.17380349999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "2736 PIMPERNEL AVE",
+      "parcel_id": "003-4017-0",
+      "lat": 30.4718817,
+      "lng": -91.1718612,
+      "geocoder": "google"
+    },
+    {
+      "address": "2747 CEDAR AVE",
+      "parcel_id": "002-5137-2",
+      "lat": 30.4720741,
+      "lng": -91.17046719999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "2784 LOCKWOOD ST",
+      "parcel_id": "003-5230-6",
+      "lat": 30.4779518,
+      "lng": -90.0948975,
+      "geocoder": "google"
+    },
+    {
+      "address": "1604 SENECA ST",
+      "parcel_id": "002-0763-2",
+      "lat": 30.47106489999999,
+      "lng": -91.17281179999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "2729 JESSAMINE AVE",
+      "parcel_id": "004-4755-2",
+      "lat": 30.4717823,
+      "lng": -91.17134449999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "2793 JESSAMINE AVE",
+      "parcel_id": "002-8292-8",
+      "lat": 30.4727277,
+      "lng": -91.1714105,
+      "geocoder": "google"
+    },
+    {
+      "address": "2795 LINWOOD ST",
+      "parcel_id": "004-1553-7",
+      "lat": 30.4728361,
+      "lng": -91.1733055,
+      "geocoder": "google"
+    },
+    {
+      "address": "2774 LOCKWOOD ST",
+      "parcel_id": "003-3119-8",
+      "lat": 30.4779518,
+      "lng": -90.0948975,
+      "geocoder": "google"
+    },
+    {
+      "address": "2775 PIMPERNEL AVE",
+      "parcel_id": "004-6934-3",
+      "lat": 30.47240639999999,
+      "lng": -91.172302,
+      "geocoder": "google"
+    },
+    {
+      "address": "2703 LINWOOD ST",
+      "parcel_id": "004-8562-4",
+      "lat": 30.4714288,
+      "lng": -91.1731956,
+      "geocoder": "google"
+    },
+    {
+      "address": "2744 LOCKWOOD ST",
+      "parcel_id": "003-3103-1",
+      "lat": 30.4779518,
+      "lng": -90.0948975,
+      "geocoder": "google"
+    },
+    {
+      "address": "2798 CEDAR AVE",
+      "parcel_id": "002-2101-5",
+      "lat": 30.472914,
+      "lng": -91.1700505,
+      "geocoder": "google"
+    },
+    {
+      "address": "2766 CEDAR AVE",
+      "parcel_id": "002-5234-4",
+      "lat": 30.4723822,
+      "lng": -91.1699763,
+      "geocoder": "google"
+    },
+    {
+      "address": "2717 LINWOOD ST",
+      "parcel_id": "004-8563-2",
+      "lat": 30.4715806,
+      "lng": -91.17339229999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "2717 CEDAR AVE",
+      "parcel_id": "003-4147-9",
+      "lat": 30.4716961,
+      "lng": -91.17037359999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1502 CHIPPEWA ST",
+      "parcel_id": "004-7897-0",
+      "lat": 30.472729,
+      "lng": -91.17381999999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "2773 LINWOOD ST",
+      "parcel_id": "004-4940-7",
+      "lat": 30.4724031,
+      "lng": -91.173288,
+      "geocoder": "google"
+    },
+    {
+      "address": "2795 PIMPERNEL AVE",
+      "parcel_id": "004-4528-2",
+      "lat": 30.4728287,
+      "lng": -91.1723294,
+      "geocoder": "google"
+    },
+    {
+      "address": "2769 CEDAR AVE",
+      "parcel_id": "002-5324-3",
+      "lat": 30.47236669999999,
+      "lng": -91.17045449999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "2793 CEDAR AVE",
+      "parcel_id": "003-6184-4",
+      "lat": 30.4727716,
+      "lng": -91.17045449999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "2755 LINWOOD ST",
+      "parcel_id": "002-7589-1",
+      "lat": 30.4721169,
+      "lng": -91.1732305,
+      "geocoder": "google"
+    },
+    {
+      "address": "2784 CEDAR AVE",
+      "parcel_id": "002-2440-5",
+      "lat": 30.4726348,
+      "lng": -91.16998989999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "2726 JESSAMINE AVE",
+      "parcel_id": "003-3747-1",
+      "lat": 30.4717694,
+      "lng": -91.1709738,
+      "geocoder": "google"
+    },
+    {
+      "address": "2778 PIMPERNEL AVE",
+      "parcel_id": "002-5983-7",
+      "lat": 30.4724556,
+      "lng": -91.1719268,
+      "geocoder": "google"
+    },
+    {
+      "address": "2797 PIMPERNEL AVE",
+      "parcel_id": "003-6869-5",
+      "lat": 30.472874,
+      "lng": -91.1723315,
+      "geocoder": "google"
+    },
+    {
+      "address": "1704 CHIPPEWA ST",
+      "parcel_id": "003-5415-5",
+      "lat": 30.4727685,
+      "lng": -91.17190509999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "2762 JESSAMINE AVE",
+      "parcel_id": "003-3708-0",
+      "lat": 30.4723352,
+      "lng": -91.17094379999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "2734 LINWOOD ST",
+      "parcel_id": "004-0947-2",
+      "lat": 30.4718507,
+      "lng": -91.17281779999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "2748 CEDAR AVE",
+      "parcel_id": "003-2909-6",
+      "lat": 30.4719895,
+      "lng": -91.1699936,
+      "geocoder": "google"
+    },
+    {
+      "address": "2794 LINWOOD ST",
+      "parcel_id": "002-8982-5",
+      "lat": 30.4727948,
+      "lng": -91.1728929,
+      "geocoder": "google"
+    },
+    {
+      "address": "2704 JESSAMINE AVE",
+      "parcel_id": "004-7950-0",
+      "lat": 30.4715213,
+      "lng": -91.17088969999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "2727 LINWOOD ST",
+      "parcel_id": "003-7841-0",
+      "lat": 30.4717156,
+      "lng": -91.1732367,
+      "geocoder": "google"
+    },
+    {
+      "address": "2790 LINWOOD ST",
+      "parcel_id": "002-8983-3",
+      "lat": 30.4726931,
+      "lng": -91.17288030000002,
+      "geocoder": "google"
+    },
+    {
+      "address": "9665 W CORONADO DR",
+      "parcel_id": "003-6301-4",
+      "lat": 30.4678931,
+      "lng": -91.07943050000002,
+      "geocoder": "google"
+    },
+    {
+      "address": "2728 CEDAR AVE",
+      "parcel_id": "003-9132-8",
+      "lat": 30.4696266,
+      "lng": -91.1277322,
+      "geocoder": "google"
+    },
+    {
+      "address": "2765 LINWOOD ST",
+      "parcel_id": "004-5715-9",
+      "lat": 30.47225629999999,
+      "lng": -91.1732205,
+      "geocoder": "google"
+    },
+    {
+      "address": "3912 WHITE SANDS DR",
+      "parcel_id": "002-7216-7",
+      "lat": 30.4861385,
+      "lng": -91.0650409,
+      "geocoder": "google"
+    },
+    {
+      "address": "1505 SENECA ST",
+      "parcel_id": "023-3797-5",
+      "lat": 30.4714059,
+      "lng": -91.1735025,
+      "geocoder": "google"
+    },
+    {
+      "address": "2786 CEDAR AVE",
+      "parcel_id": "003-8689-8",
+      "lat": 30.4727819,
+      "lng": -91.17004999999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "2745 PIMPERNEL AVE",
+      "parcel_id": "003-8489-5",
+      "lat": 30.4720203,
+      "lng": -91.1723421,
+      "geocoder": "google"
+    },
+    {
+      "address": "2779 CEDAR AVE",
+      "parcel_id": "002-8664-8",
+      "lat": 30.4725064,
+      "lng": -91.1704716,
+      "geocoder": "google"
+    },
+    {
+      "address": "2785 CEDAR AVE",
+      "parcel_id": "004-3370-5",
+      "lat": 30.4726236,
+      "lng": -91.1704796,
+      "geocoder": "google"
+    },
+    {
+      "address": "2554 CEDAR AVE",
+      "parcel_id": "004-0602-3",
+      "lat": 30.4705988,
+      "lng": -91.1699184,
+      "geocoder": "google"
+    },
+    {
+      "address": "2548 CEDAR AVE",
+      "parcel_id": "003-9862-4",
+      "lat": 30.47128309999999,
+      "lng": -91.1699787,
+      "geocoder": "google"
+    },
+    {
+      "address": "2604 CEDAR AVE",
+      "parcel_id": "002-2228-3",
+      "lat": 30.4707152,
+      "lng": -91.1698698,
+      "geocoder": "google"
+    },
+    {
+      "address": "2542 CEDAR AVE",
+      "parcel_id": "004-1911-7",
+      "lat": 30.470478,
+      "lng": -91.16989819999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "2627 CEDAR AVE",
+      "parcel_id": "004-8049-5",
+      "lat": 30.4709522,
+      "lng": -91.1703512,
+      "geocoder": "google"
+    },
+    {
+      "address": "2704 ARBUTUS AVE",
+      "parcel_id": "002-8539-0",
+      "lat": 30.4711688,
+      "lng": -91.18170839999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "2602 LUPINE AVE",
+      "parcel_id": "003-4156-8",
+      "lat": 30.4702961,
+      "lng": -91.18273649999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "2621 ARBUTUS AVE",
+      "parcel_id": "004-4485-5",
+      "lat": 30.4705967,
+      "lng": -91.18219739999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "2748 LUPINE AVE",
+      "parcel_id": "002-9949-9",
+      "lat": 30.4718096,
+      "lng": -91.18280730000001,
+      "geocoder": "google"
+    },
+    {
+      "address": "2973 AUGUSTA",
+      "parcel_id": "003-2904-5",
+      "lat": 30.8338055,
+      "lng": -92.20484719999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "2768 LUPINE AVE",
+      "parcel_id": "002-1439-6",
+      "lat": 30.4720876,
+      "lng": -91.1827508,
+      "geocoder": "google"
+    },
+    {
+      "address": "2722 LUPINE AVE",
+      "parcel_id": "002-4486-4",
+      "lat": 30.4713938,
+      "lng": -91.1827873,
+      "geocoder": "google"
+    },
+    {
+      "address": "2709 LARKSPUR AVE",
+      "parcel_id": "003-6995-0",
+      "lat": 30.471228,
+      "lng": -91.1802799,
+      "geocoder": "google"
+    },
+    {
+      "address": "2765 ARBUTUS AVE",
+      "parcel_id": "004-4724-2",
+      "lat": 30.4721484,
+      "lng": -91.1823264,
+      "geocoder": "google"
+    },
+    {
+      "address": "16550 SPILLERS WAY",
+      "parcel_id": "002-3824-4",
+      "lat": 30.414226,
+      "lng": -91.00069660000001,
+      "geocoder": "google"
+    },
+    {
+      "address": "2330 THIRD ST",
+      "parcel_id": "003-3137-6",
+      "lat": 31.3033668,
+      "lng": -92.43549999999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "PO BOX 548",
+      "parcel_id": "003-0115-9",
+      "lat": 32.3610979,
+      "lng": -92.2982679,
+      "geocoder": "google"
+    },
+    {
+      "address": "2734 ARBUTUS AVE",
+      "parcel_id": "003-6423-1",
+      "lat": 30.47156249999999,
+      "lng": -91.18174619999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "2615 SORREL AVE",
+      "parcel_id": "003-8279-5",
+      "lat": 30.4705219,
+      "lng": -91.1811829,
+      "geocoder": "google"
+    },
+    {
+      "address": "2729 LARKSPUR AVE",
+      "parcel_id": "004-8817-8",
+      "lat": 30.4716607,
+      "lng": -91.1802563,
+      "geocoder": "google"
+    },
+    {
+      "address": "10705 LEIGH ELLEN AVE",
+      "parcel_id": "002-2632-7",
+      "lat": 30.3736681,
+      "lng": -91.0937701,
+      "geocoder": "google"
+    },
+    {
+      "address": "10748 PERKINS RD",
+      "parcel_id": "001-2750-7",
+      "lat": 30.3749543,
+      "lng": -91.09261959999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "10713 LEIGH ELLEN AVE",
+      "parcel_id": "002-2609-2",
+      "lat": 30.3734904,
+      "lng": -91.0933088,
+      "geocoder": "google"
+    },
+    {
+      "address": "1701 O'BRIEN DR",
+      "parcel_id": "000-9767-5",
+      "lat": 30.37377889999999,
+      "lng": -91.0945998,
+      "geocoder": "google"
+    },
+    {
+      "address": "1717 GREENBRIAR HOLLOW DR",
+      "parcel_id": "002-2594-0",
+      "lat": 30.3732123,
+      "lng": -91.0927478,
+      "geocoder": "google"
+    },
+    {
+      "address": "10710 N GREAT OAK CT",
+      "parcel_id": "014-8867-8",
+      "lat": 30.3129231,
+      "lng": -90.8765086,
+      "geocoder": "google"
+    },
+    {
+      "address": "1673 O'BRIEN DR",
+      "parcel_id": "001-0249-0",
+      "lat": 30.3734168,
+      "lng": -91.0948244,
+      "geocoder": "google"
+    },
+    {
+      "address": "1739 GREAT OAK DR",
+      "parcel_id": "014-8910-0",
+      "lat": 30.3735533,
+      "lng": -91.0919601,
+      "geocoder": "google"
+    },
+    {
+      "address": "1834 RIDGELAND DR",
+      "parcel_id": "014-9141-5",
+      "lat": 30.3739408,
+      "lng": -91.0898328,
+      "geocoder": "google"
+    },
+    {
+      "address": "10925 PERKINS RD",
+      "parcel_id": "000-4937-9",
+      "lat": 30.3751785,
+      "lng": -91.08994159999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1731 O'BRIEN DR",
+      "parcel_id": "000-9578-8",
+      "lat": 30.3741778,
+      "lng": -91.0943727,
+      "geocoder": "google"
+    },
+    {
+      "address": "1781 O'BRIEN DR",
+      "parcel_id": "000-9376-9",
+      "lat": 30.3747956,
+      "lng": -91.0940225,
+      "geocoder": "google"
+    },
+    {
+      "address": "10611 MCGUIRE AVE",
+      "parcel_id": "000-9334-3",
+      "lat": 30.3752425,
+      "lng": -91.0938274,
+      "geocoder": "google"
+    },
+    {
+      "address": "1790 O'BRIEN DR",
+      "parcel_id": "000-9069-7",
+      "lat": 30.3746704,
+      "lng": -91.0934735,
+      "geocoder": "google"
+    },
+    {
+      "address": "10720 N GREAT OAK CT",
+      "parcel_id": "014-8868-6",
+      "lat": 30.3129231,
+      "lng": -90.8765086,
+      "geocoder": "google"
+    },
+    {
+      "address": "1813 GREAT OAK DR",
+      "parcel_id": "014-8870-8",
+      "lat": 30.3741852,
+      "lng": -91.09152259999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "10717 LEIGH ELLEN AVE",
+      "parcel_id": "002-2600-9",
+      "lat": 30.3733873,
+      "lng": -91.0930791,
+      "geocoder": "google"
+    },
+    {
+      "address": "10889 PERKINS RD",
+      "parcel_id": "000-4939-5",
+      "lat": 30.3754336,
+      "lng": -91.09030249999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "10621 MCGUIRE AVE",
+      "parcel_id": "000-9281-9",
+      "lat": 30.3752114,
+      "lng": -91.093684,
+      "geocoder": "google"
+    },
+    {
+      "address": "1672 O'BRIEN DR",
+      "parcel_id": "001-6355-4",
+      "lat": 30.3731364,
+      "lng": -91.0943559,
+      "geocoder": "google"
+    },
+    {
+      "address": "1768 GREAT OAK DR",
+      "parcel_id": "014-8987-9",
+      "lat": 30.3737584,
+      "lng": -91.0911271,
+      "geocoder": "google"
+    },
+    {
+      "address": "1711 O'BRIEN DR",
+      "parcel_id": "000-9766-7",
+      "lat": 30.3739443,
+      "lng": -91.0945421,
+      "geocoder": "google"
+    },
+    {
+      "address": "1738 GREAT OAK DR",
+      "parcel_id": "014-9099-0",
+      "lat": 30.3731719,
+      "lng": -91.0914646,
+      "geocoder": "google"
+    },
+    {
+      "address": "1750 O'BRIEN DR",
+      "parcel_id": "000-8460-3",
+      "lat": 30.3741968,
+      "lng": -91.0937259,
+      "geocoder": "google"
+    },
+    {
+      "address": "10935 PERKINS RD",
+      "parcel_id": "000-4936-0",
+      "lat": 30.3750074,
+      "lng": -91.08983429999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "10727 LEIGH ELLEN AVE",
+      "parcel_id": "002-2595-9",
+      "lat": 30.373276,
+      "lng": -91.0928618,
+      "geocoder": "google"
+    },
+    {
+      "address": "1791 O'BRIEN DR",
+      "parcel_id": "000-9358-0",
+      "lat": 30.3748999,
+      "lng": -91.0939523,
+      "geocoder": "google"
+    },
+    {
+      "address": "10715 LEIGH ELLEN AVE",
+      "parcel_id": "002-2606-8",
+      "lat": 30.3734318,
+      "lng": -91.093198,
+      "geocoder": "google"
+    },
+    {
+      "address": "10707 LEIGH ELLEN AVE",
+      "parcel_id": "002-2625-4",
+      "lat": 30.3736281,
+      "lng": -91.0936536,
+      "geocoder": "google"
+    },
+    {
+      "address": "1823 RIDGELAND DR",
+      "parcel_id": "014-9119-9",
+      "lat": 30.37360989999999,
+      "lng": -91.0906265,
+      "geocoder": "google"
+    },
+    {
+      "address": "10641 MCGUIRE AVE",
+      "parcel_id": "000-9161-8",
+      "lat": 30.37508159999999,
+      "lng": -91.0933864,
+      "geocoder": "google"
+    },
+    {
+      "address": "1729 GREAT OAK DR",
+      "parcel_id": "014-8926-7",
+      "lat": 30.3732975,
+      "lng": -91.0920743,
+      "geocoder": "google"
+    },
+    {
+      "address": "1687 PATRICK DR",
+      "parcel_id": "002-2637-8",
+      "lat": 30.3732449,
+      "lng": -91.09385089999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1683 O'BRIEN DR",
+      "parcel_id": "000-9769-1",
+      "lat": 30.3735376,
+      "lng": -91.0947407,
+      "geocoder": "google"
+    },
+    {
+      "address": "10849 PERKINS RD",
+      "parcel_id": "004-4080-9",
+      "lat": 30.3758566,
+      "lng": -91.0907651,
+      "geocoder": "google"
+    },
+    {
+      "address": "1756 RIDGELAND DR",
+      "parcel_id": "014-9149-0",
+      "lat": 30.3732261,
+      "lng": -91.09016419999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "10631 MCGUIRE AVE",
+      "parcel_id": "000-9263-0",
+      "lat": 30.3751657,
+      "lng": -91.0935279,
+      "geocoder": "google"
+    },
+    {
+      "address": "PO BOX 83373",
+      "parcel_id": "014-9504-6",
+      "lat": 30.5190775,
+      "lng": -91.5208624,
+      "geocoder": "google"
+    },
+    {
+      "address": "1759 GREAT OAK DR",
+      "parcel_id": "014-8871-6",
+      "lat": 30.3739685,
+      "lng": -91.0916678,
+      "geocoder": "google"
+    },
+    {
+      "address": "1692 O'BRIEN DR",
+      "parcel_id": "001-6357-0",
+      "lat": 30.3734049,
+      "lng": -91.094201,
+      "geocoder": "google"
+    },
+    {
+      "address": "1748 GREAT OAK DR",
+      "parcel_id": "014-9048-6",
+      "lat": 30.3733698,
+      "lng": -91.0913459,
+      "geocoder": "google"
+    },
+    {
+      "address": "1780 O'BRIEN DR",
+      "parcel_id": "000-9020-4",
+      "lat": 30.374581,
+      "lng": -91.0935294,
+      "geocoder": "google"
+    },
+    {
+      "address": "1755 RIDGELAND DR",
+      "parcel_id": "014-9112-1",
+      "lat": 30.3734143,
+      "lng": -91.0907232,
+      "geocoder": "google"
+    },
+    {
+      "address": "1740 O'BRIEN DR",
+      "parcel_id": "000-8397-6",
+      "lat": 30.3740767,
+      "lng": -91.09380499999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1682 O'BRIEN DR",
+      "parcel_id": "001-6356-2",
+      "lat": 30.3732696,
+      "lng": -91.0942853,
+      "geocoder": "google"
+    },
+    {
+      "address": "1758 GREAT OAK DR",
+      "parcel_id": "014-9004-4",
+      "lat": 30.3735474,
+      "lng": -91.0912441,
+      "geocoder": "google"
+    },
+    {
+      "address": "1760 O'BRIEN DR",
+      "parcel_id": "000-8564-2",
+      "lat": 30.3743232,
+      "lng": -91.09366279999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1710 O'BRIEN DR",
+      "parcel_id": "000-8110-8",
+      "lat": 30.3737083,
+      "lng": -91.0940232,
+      "geocoder": "google"
+    },
+    {
+      "address": "1812 GREAT OAK DR",
+      "parcel_id": "014-8951-8",
+      "lat": 30.3739643,
+      "lng": -91.09092319999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1814 RIDGELAND DR",
+      "parcel_id": "014-9143-1",
+      "lat": 30.3734602,
+      "lng": -91.0900746,
+      "geocoder": "google"
+    },
+    {
+      "address": "1745 RIDGELAND DR",
+      "parcel_id": "014-9110-5",
+      "lat": 30.3732247,
+      "lng": -91.0908556,
+      "geocoder": "google"
+    },
+    {
+      "address": "1730 O'BRIEN DR",
+      "parcel_id": "000-8388-7",
+      "lat": 30.3739385,
+      "lng": -91.0939058,
+      "geocoder": "google"
+    },
+    {
+      "address": "1824 RIDGELAND DR",
+      "parcel_id": "014-9142-3",
+      "lat": 30.3736189,
+      "lng": -91.0898802,
+      "geocoder": "google"
+    },
+    {
+      "address": "10915 PERKINS RD",
+      "parcel_id": "000-4938-7",
+      "lat": 30.3753149,
+      "lng": -91.0901027,
+      "geocoder": "google"
+    },
+    {
+      "address": "1844 RIDGELAND DR",
+      "parcel_id": "014-9139-3",
+      "lat": 30.374108,
+      "lng": -91.0900362,
+      "geocoder": "google"
+    },
+    {
+      "address": "1843 RIDGELAND DR",
+      "parcel_id": "014-9138-5",
+      "lat": 30.3740464,
+      "lng": -91.09040879999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "10651 MCGUIRE AVE",
+      "parcel_id": "000-9114-6",
+      "lat": 30.3750058,
+      "lng": -91.09325179999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1749 GREAT OAK DR",
+      "parcel_id": "014-8872-4",
+      "lat": 30.3737759,
+      "lng": -91.0917784,
+      "geocoder": "google"
+    },
+    {
+      "address": "10859 PERKINS RD",
+      "parcel_id": "001-2839-2",
+      "lat": 30.37568719999999,
+      "lng": -91.0904625,
+      "geocoder": "google"
+    },
+    {
+      "address": "1721 O'BRIEN DR",
+      "parcel_id": "000-9765-9",
+      "lat": 30.3740552,
+      "lng": -91.0944504,
+      "geocoder": "google"
+    },
+    {
+      "address": "1720 O'BRIEN DR",
+      "parcel_id": "000-8156-6",
+      "lat": 30.37384,
+      "lng": -91.093963,
+      "geocoder": "google"
+    },
+    {
+      "address": "10730 N GREAT OAK CT",
+      "parcel_id": "014-8869-4",
+      "lat": 30.3129231,
+      "lng": -90.8765086,
+      "geocoder": "google"
+    },
+    {
+      "address": "10721 LEIGH ELLEN AVE",
+      "parcel_id": "002-2597-5",
+      "lat": 30.3733386,
+      "lng": -91.092967,
+      "geocoder": "google"
+    },
+    {
+      "address": "10711 LEIGH ELLEN AVE",
+      "parcel_id": "002-2612-2",
+      "lat": 30.3735358,
+      "lng": -91.0934254,
+      "geocoder": "google"
+    },
+    {
+      "address": "1833 RIDGELAND DR",
+      "parcel_id": "014-9129-6",
+      "lat": 30.3737974,
+      "lng": -91.09054139999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "10711 N GREAT OAK CT",
+      "parcel_id": "014-8865-1",
+      "lat": 30.3129231,
+      "lng": -90.8765086,
+      "geocoder": "google"
+    },
+    {
+      "address": "1088 ELYSIAN DR",
+      "parcel_id": "008-7480-9",
+      "lat": 30.3804556,
+      "lng": -91.1094232,
+      "geocoder": "google"
+    },
+    {
+      "address": "9642 CHANADIA DR",
+      "parcel_id": "008-1693-0",
+      "lat": 30.3793603,
+      "lng": -91.1072634,
+      "geocoder": "google"
+    },
+    {
+      "address": "1027 FLORA LN",
+      "parcel_id": "006-7853-8",
+      "lat": 30.3790553,
+      "lng": -91.1073947,
+      "geocoder": "google"
+    },
+    {
+      "address": "945 ARCADIA DR",
+      "parcel_id": "008-0037-6",
+      "lat": 30.379441,
+      "lng": -91.1095026,
+      "geocoder": "google"
+    },
+    {
+      "address": "728 ALAYNA'S CT",
+      "parcel_id": "024-9777-8",
+      "lat": 30.3783174,
+      "lng": -91.1151744,
+      "geocoder": "google"
+    },
+    {
+      "address": "1034 ELYSIAN DR",
+      "parcel_id": "007-5214-2",
+      "lat": 30.3799982,
+      "lng": -91.1096929,
+      "geocoder": "google"
+    },
+    {
+      "address": "9464 SOUTHLAWN DR",
+      "parcel_id": "005-3827-2",
+      "lat": 30.3777695,
+      "lng": -91.11063589999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "8910 MAGNOLIA LEAF AVE",
+      "parcel_id": "024-9722-0",
+      "lat": 30.3777434,
+      "lng": -91.1157233,
+      "geocoder": "google"
+    },
+    {
+      "address": "9422 SOUTHLAWN DR",
+      "parcel_id": "008-9929-1",
+      "lat": 30.3778637,
+      "lng": -91.1110949,
+      "geocoder": "google"
+    },
+    {
+      "address": "1122 ARCADIA DR",
+      "parcel_id": "007-2149-2",
+      "lat": 30.3805112,
+      "lng": -91.10820009999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "818 FLORA LN",
+      "parcel_id": "006-7241-6",
+      "lat": 30.3773614,
+      "lng": -91.1078384,
+      "geocoder": "google"
+    },
+    {
+      "address": "815 N SABINE DR",
+      "parcel_id": "004-2065-4",
+      "lat": 30.377397,
+      "lng": -91.10726299999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "9042 MAGNOLIA LEAF AVE",
+      "parcel_id": "024-9733-6",
+      "lat": 30.3770288,
+      "lng": -91.114368,
+      "geocoder": "google"
+    },
+    {
+      "address": "9226 MAGNOLIA LEAF AVE",
+      "parcel_id": "024-9741-7",
+      "lat": 30.3764417,
+      "lng": -91.1131047,
+      "geocoder": "google"
+    },
+    {
+      "address": "9154 MAGNOLIA LEAF AVE",
+      "parcel_id": "024-9738-7",
+      "lat": 30.3766366,
+      "lng": -91.11351300000001,
+      "geocoder": "google"
+    },
+    {
+      "address": "1122 ELYSIAN DR",
+      "parcel_id": "008-6818-3",
+      "lat": 30.38060309999999,
+      "lng": -91.10934259999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "834 SAVANNA VIEW DR",
+      "parcel_id": "008-3989-2",
+      "lat": 30.3783853,
+      "lng": -91.10842439999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "820 STARING LN",
+      "parcel_id": "008-0728-1",
+      "lat": 30.3793422,
+      "lng": -91.1156671,
+      "geocoder": "google"
+    },
+    {
+      "address": "889 ELYSIAN DR",
+      "parcel_id": "007-2457-2",
+      "lat": 30.3786418,
+      "lng": -91.1107636,
+      "geocoder": "google"
+    },
+    {
+      "address": "9467 SOUTHLAWN DR",
+      "parcel_id": "006-0246-9",
+      "lat": 30.378243,
+      "lng": -91.1104155,
+      "geocoder": "google"
+    },
+    {
+      "address": "1027 ARCADIA DR",
+      "parcel_id": "006-2544-2",
+      "lat": 30.379963,
+      "lng": -91.1091958,
+      "geocoder": "google"
+    },
+    {
+      "address": "741 ROSS TURN ST",
+      "parcel_id": "024-9757-3",
+      "lat": 30.5190775,
+      "lng": -91.5208624,
+      "geocoder": "google"
+    },
+    {
+      "address": "9397 SOUTHLAWN DR",
+      "parcel_id": "006-9156-9",
+      "lat": 30.3783847,
+      "lng": -91.11129,
+      "geocoder": "google"
+    },
+    {
+      "address": "9636 CHANADIA DR",
+      "parcel_id": "006-5591-0",
+      "lat": 30.3795246,
+      "lng": -91.1076916,
+      "geocoder": "google"
+    },
+    {
+      "address": "735 TANYA'S TRAIL ST",
+      "parcel_id": "024-9748-4",
+      "lat": 30.3774952,
+      "lng": -91.1131384,
+      "geocoder": "google"
+    },
+    {
+      "address": "1144 SAVANNA VIEW DR",
+      "parcel_id": "005-8024-4",
+      "lat": 30.3801679,
+      "lng": -91.1072745,
+      "geocoder": "google"
+    },
+    {
+      "address": "1146 ARCADIA DR",
+      "parcel_id": "005-7007-9",
+      "lat": 30.3807085,
+      "lng": -91.1081275,
+      "geocoder": "google"
+    },
+    {
+      "address": "823 FLORA LN",
+      "parcel_id": "005-4018-8",
+      "lat": 30.3780401,
+      "lng": -91.1080418,
+      "geocoder": "google"
+    },
+    {
+      "address": "718 ALAYNA'S CT",
+      "parcel_id": "024-9775-1",
+      "lat": 30.37819989999999,
+      "lng": -91.1152781,
+      "geocoder": "google"
+    },
+    {
+      "address": "9114 MAGNOLIA LEAF AVE",
+      "parcel_id": "024-9734-4",
+      "lat": 30.3769133,
+      "lng": -91.1140841,
+      "geocoder": "google"
+    },
+    {
+      "address": "724 TANYA'S TRAIL ST",
+      "parcel_id": "024-9746-8",
+      "lat": 30.3770678,
+      "lng": -91.11277040000002,
+      "geocoder": "google"
+    },
+    {
+      "address": "1144 ELYSIAN DR",
+      "parcel_id": "009-1011-2",
+      "lat": 30.3807498,
+      "lng": -91.1092412,
+      "geocoder": "google"
+    },
+    {
+      "address": "919 FLORA LN",
+      "parcel_id": "005-7996-3",
+      "lat": 30.3783301,
+      "lng": -91.1078621,
+      "geocoder": "google"
+    },
+    {
+      "address": "1105 ELYSIAN DR",
+      "parcel_id": "005-8452-5",
+      "lat": 30.3807788,
+      "lng": -91.1098013,
+      "geocoder": "google"
+    },
+    {
+      "address": "373 MARION DR",
+      "parcel_id": "005-2195-7",
+      "lat": 30.4465213,
+      "lng": -91.1260463,
+      "geocoder": "google"
+    },
+    {
+      "address": "115 W ARDENWOOD DR",
+      "parcel_id": "006-2450-0",
+      "lat": 30.4494682,
+      "lng": -91.1299452,
+      "geocoder": "google"
+    },
+    {
+      "address": "5945 ARDEN PL",
+      "parcel_id": "007-5485-4",
+      "lat": 30.4470484,
+      "lng": -91.1286966,
+      "geocoder": "google"
+    },
+    {
+      "address": "5857 EVANS ST",
+      "parcel_id": "007-3173-0",
+      "lat": 30.4460368,
+      "lng": -91.1291968,
+      "geocoder": "google"
+    },
+    {
+      "address": "5844 CONVENTION ST",
+      "parcel_id": "005-9953-0",
+      "lat": 30.4494935,
+      "lng": -91.1292855,
+      "geocoder": "google"
+    },
+    {
+      "address": "6040 GLENWOOD DR",
+      "parcel_id": "008-4734-8",
+      "lat": 30.44862329999999,
+      "lng": -91.1279831,
+      "geocoder": "google"
+    },
+    {
+      "address": "455 W ARDENWOOD DR",
+      "parcel_id": "007-8405-2",
+      "lat": 30.4454559,
+      "lng": -91.1297566,
+      "geocoder": "google"
+    },
+    {
+      "address": "5974 EVANS ST",
+      "parcel_id": "009-1933-0",
+      "lat": 30.44565829999999,
+      "lng": -91.1283794,
+      "geocoder": "google"
+    },
+    {
+      "address": "344 S ARDENWOOD DR",
+      "parcel_id": "005-4543-0",
+      "lat": 30.4470048,
+      "lng": -91.1276381,
+      "geocoder": "google"
+    },
+    {
+      "address": "5946 ARDEN PL",
+      "parcel_id": "009-0232-2",
+      "lat": 30.4465508,
+      "lng": -91.12866849999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "125 W ARDENWOOD DR",
+      "parcel_id": "008-7281-4",
+      "lat": 30.4491001,
+      "lng": -91.12992400000002,
+      "geocoder": "google"
+    },
+    {
+      "address": "5944 GLENWOOD DR",
+      "parcel_id": "007-4250-3",
+      "lat": 30.4485671,
+      "lng": -91.12879769999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "429 MARION DR",
+      "parcel_id": "005-3379-3",
+      "lat": 30.4458983,
+      "lng": -91.1259836,
+      "geocoder": "google"
+    },
+    {
+      "address": "339 S ARDENWOOD DR",
+      "parcel_id": "005-3944-9",
+      "lat": 30.446902,
+      "lng": -91.12706589999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "6045 EVANS ST",
+      "parcel_id": "022-0769-9",
+      "lat": 30.4460485,
+      "lng": -91.12810739999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "5963 EVANS ST",
+      "parcel_id": "022-0776-1",
+      "lat": 30.4460191,
+      "lng": -91.1286046,
+      "geocoder": "google"
+    },
+    {
+      "address": "327 MARION DR",
+      "parcel_id": "005-5287-9",
+      "lat": 30.4469786,
+      "lng": -91.1260053,
+      "geocoder": "google"
+    },
+    {
+      "address": "271 S ARDENWOOD DR",
+      "parcel_id": "007-8454-0",
+      "lat": 30.4477237,
+      "lng": -91.12704819999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "368 S ARDENWOOD DR",
+      "parcel_id": "006-5757-3",
+      "lat": 30.44641159999999,
+      "lng": -91.1275755,
+      "geocoder": "google"
+    },
+    {
+      "address": "6016 ARDEN PL",
+      "parcel_id": "007-4545-6",
+      "lat": 30.4465621,
+      "lng": -91.12810689999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "254 S ARDENWOOD DR",
+      "parcel_id": "008-2032-6",
+      "lat": 30.448279,
+      "lng": -91.1276486,
+      "geocoder": "google"
+    },
+    {
+      "address": "240 MARION DR",
+      "parcel_id": "005-5671-8",
+      "lat": 30.4484532,
+      "lng": -91.1266638,
+      "geocoder": "google"
+    },
+    {
+      "address": "265 S ARDENWOOD DR",
+      "parcel_id": "005-2536-7",
+      "lat": 30.4479629,
+      "lng": -91.1270054,
+      "geocoder": "google"
+    },
+    {
+      "address": "229 S ARDENWOOD DR",
+      "parcel_id": "005-3321-1",
+      "lat": 30.4484642,
+      "lng": -91.1270524,
+      "geocoder": "google"
+    },
+    {
+      "address": "5845 EASTWOOD DR",
+      "parcel_id": "005-7968-8",
+      "lat": 30.4480519,
+      "lng": -91.1295797,
+      "geocoder": "google"
+    },
+    {
+      "address": "218 MARION ST",
+      "parcel_id": "006-7747-7",
+      "lat": 30.0855546,
+      "lng": -91.00359929999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "6021 EASTWOOD DR",
+      "parcel_id": "006-3700-9",
+      "lat": 30.4480948,
+      "lng": -91.1282402,
+      "geocoder": "google"
+    },
+    {
+      "address": "5844 GLENWOOD DRIVE",
+      "parcel_id": "005-2922-2",
+      "lat": 30.448553,
+      "lng": -91.1296559,
+      "geocoder": "google"
+    },
+    {
+      "address": "6065 EASTWOOD DR",
+      "parcel_id": "006-1175-1",
+      "lat": 30.4480622,
+      "lng": -91.1276444,
+      "geocoder": "google"
+    },
+    {
+      "address": "5860 ARDEN PL",
+      "parcel_id": "005-6275-0",
+      "lat": 30.4464838,
+      "lng": -91.1292502,
+      "geocoder": "google"
+    },
+    {
+      "address": "206 MARQUETTE AVE",
+      "parcel_id": "005-3308-4",
+      "lat": 30.4492144,
+      "lng": -91.1252466,
+      "geocoder": "google"
+    },
+    {
+      "address": "6161 GLENWOOD DR",
+      "parcel_id": "007-7400-6",
+      "lat": 30.4491916,
+      "lng": -91.1265418,
+      "geocoder": "google"
+    },
+    {
+      "address": "355 W ARDENWOOD DR",
+      "parcel_id": "007-6009-9",
+      "lat": 30.4464641,
+      "lng": -91.1297542,
+      "geocoder": "google"
+    },
+    {
+      "address": "162 MARQUETTE AVE",
+      "parcel_id": "007-2550-1",
+      "lat": 30.44955,
+      "lng": -91.1252995,
+      "geocoder": "google"
+    },
+    {
+      "address": "430 MARION DR",
+      "parcel_id": "009-2037-1",
+      "lat": 30.4458824,
+      "lng": -91.12645409999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "5880 FLORIDA BLVD",
+      "parcel_id": "007-5253-3",
+      "lat": 30.4507546,
+      "lng": -91.1292089,
+      "geocoder": "google"
+    },
+    {
+      "address": "5979 ARDEN PL",
+      "parcel_id": "007-2530-7",
+      "lat": 30.4470327,
+      "lng": -91.12832189999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "5962 EVANS ST",
+      "parcel_id": "005-7916-5",
+      "lat": 30.445599,
+      "lng": -91.12866149999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "236 MARQUETTE ANN DR",
+      "parcel_id": "008-8254-2",
+      "lat": 30.5190775,
+      "lng": -91.5208624,
+      "geocoder": "google"
+    },
+    {
+      "address": "5865 GLENWOOD DRIVE",
+      "parcel_id": "008-4765-8",
+      "lat": 30.4490524,
+      "lng": -91.12930030000001,
+      "geocoder": "google"
+    },
+    {
+      "address": "5958 FLORIDA BLVD",
+      "parcel_id": "005-6021-9",
+      "lat": 30.4506723,
+      "lng": -91.1285178,
+      "geocoder": "google"
+    },
+    {
+      "address": "196 S ARDENWOOD DR",
+      "parcel_id": "004-9493-3",
+      "lat": 30.449147,
+      "lng": -91.12765329999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "245 MARION DR",
+      "parcel_id": "030-1978-0",
+      "lat": 30.4484684,
+      "lng": -91.12609979999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "345 W ARDENWOOD DR",
+      "parcel_id": "006-5914-2",
+      "lat": 30.447035,
+      "lng": -91.1298343,
+      "geocoder": "google"
+    },
+    {
+      "address": "143 S ARDENWOOD DR",
+      "parcel_id": "008-9238-6",
+      "lat": 30.4500236,
+      "lng": -91.1269848,
+      "geocoder": "google"
+    },
+    {
+      "address": "6015 ARDEN PL",
+      "parcel_id": "006-5682-8",
+      "lat": 30.4470579,
+      "lng": -91.12813290000001,
+      "geocoder": "google"
+    },
+    {
+      "address": "6032 ARDEN PL",
+      "parcel_id": "005-2454-9",
+      "lat": 30.4465617,
+      "lng": -91.1279108,
+      "geocoder": "google"
+    },
+    {
+      "address": "6060 FLORIDA BLVD",
+      "parcel_id": "012-8868-7",
+      "lat": 30.4506056,
+      "lng": -91.1280426,
+      "geocoder": "google"
+    },
+    {
+      "address": "5867 ARDEN PL",
+      "parcel_id": "006-4503-6",
+      "lat": 30.4470315,
+      "lng": -91.1291699,
+      "geocoder": "google"
+    },
+    {
+      "address": "454 S ARDENWOOD DR",
+      "parcel_id": "005-2524-3",
+      "lat": 30.4454415,
+      "lng": -91.1275325,
+      "geocoder": "google"
+    },
+    {
+      "address": "5983 EVANS ST",
+      "parcel_id": "031-6383-0",
+      "lat": 30.4460534,
+      "lng": -91.1283875,
+      "geocoder": "google"
+    },
+    {
+      "address": "6137 NULLD'UNE TERRE AVE",
+      "parcel_id": "308-5768-2",
+      "lat": 31.2725336,
+      "lng": -92.497472,
+      "geocoder": "google"
+    },
+    {
+      "address": "6153 NULLD'UNE TERRE AVE",
+      "parcel_id": "308-5768-0",
+      "lat": 31.2725336,
+      "lng": -92.497472,
+      "geocoder": "google"
+    },
+    {
+      "address": "39236 VIOLET AVE",
+      "parcel_id": "308-5768-6",
+      "lat": 30.3108755,
+      "lng": -90.948285,
+      "geocoder": "google"
+    },
+    {
+      "address": "8202 KELWOOD AVE",
+      "parcel_id": "005-4532-5",
+      "lat": 30.447228,
+      "lng": -91.1001697,
+      "geocoder": "google"
+    },
+    {
+      "address": "8260 N PARKLAND DR",
+      "parcel_id": "008-9618-7",
+      "lat": 30.4499543,
+      "lng": -91.10134699999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "8211 KELWOOD AVE",
+      "parcel_id": "006-3362-3",
+      "lat": 30.4479705,
+      "lng": -91.0999033,
+      "geocoder": "google"
+    },
+    {
+      "address": "8303 O'HARA COURT",
+      "parcel_id": "005-4533-3",
+      "lat": 30.4466548,
+      "lng": -91.1001771,
+      "geocoder": "google"
+    },
+    {
+      "address": "604 CHEVELLE DR",
+      "parcel_id": "030-0088-5",
+      "lat": 30.4445869,
+      "lng": -91.0992301,
+      "geocoder": "google"
+    },
+    {
+      "address": "8304 O'HARA CT",
+      "parcel_id": "030-1290-5",
+      "lat": 30.446304,
+      "lng": -91.1007135,
+      "geocoder": "google"
+    },
+    {
+      "address": "8314 OHARA CT",
+      "parcel_id": "005-4536-8",
+      "lat": 30.446088,
+      "lng": -91.099903,
+      "geocoder": "google"
+    },
+    {
+      "address": "8278 N PARKLAND DR",
+      "parcel_id": "006-9162-3",
+      "lat": 30.4499267,
+      "lng": -91.10112629999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "324 W PARKLAND DR",
+      "parcel_id": "006-3942-7",
+      "lat": 30.4482293,
+      "lng": -91.1000294,
+      "geocoder": "google"
+    },
+    {
+      "address": "276 W PARKLAND DR",
+      "parcel_id": "005-9124-6",
+      "lat": 30.4488554,
+      "lng": -91.1000329,
+      "geocoder": "google"
+    },
+    {
+      "address": "455 E AIRPORT AVE",
+      "parcel_id": "007-7637-8",
+      "lat": 30.446984,
+      "lng": -91.10174710000001,
+      "geocoder": "google"
+    },
+    {
+      "address": "8364 N PARKLAND DR",
+      "parcel_id": "006-7796-5",
+      "lat": 30.4499736,
+      "lng": -91.1004289,
+      "geocoder": "google"
+    },
+    {
+      "address": "285 E AIRPORT AVE",
+      "parcel_id": "015-9847-3",
+      "lat": 30.4492416,
+      "lng": -91.1009342,
+      "geocoder": "google"
+    },
+    {
+      "address": "8332 N PARKLAND DR",
+      "parcel_id": "006-5070-6",
+      "lat": 30.4499667,
+      "lng": -91.1006286,
+      "geocoder": "google"
+    },
+    {
+      "address": "527 E AIRPORT AVE",
+      "parcel_id": "005-7704-9",
+      "lat": 30.44612979999999,
+      "lng": -91.1014696,
+      "geocoder": "google"
+    },
+    {
+      "address": "615 E AIRPORT AVE",
+      "parcel_id": "308-5833-0",
+      "lat": 30.4452328,
+      "lng": -91.1017186,
+      "geocoder": "google"
+    },
+    {
+      "address": "8380 N PARKLAND DR",
+      "parcel_id": "007-4511-1",
+      "lat": 30.4499613,
+      "lng": -91.10009559999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "8204 N PARKLAND DR",
+      "parcel_id": "005-9267-6",
+      "lat": 30.449914,
+      "lng": -91.10207079999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "236 W PARKLAND DR",
+      "parcel_id": "004-9425-9",
+      "lat": 30.4495349,
+      "lng": -91.0999878,
+      "geocoder": "google"
+    },
+    {
+      "address": "252 W PARKLAND DR",
+      "parcel_id": "006-0677-4",
+      "lat": 30.4493215,
+      "lng": -91.0999976,
+      "geocoder": "google"
+    },
+    {
+      "address": "8313 O'HARA COURT",
+      "parcel_id": "005-1739-9",
+      "lat": 30.44689139999999,
+      "lng": -91.09994689999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "224 W PARKLAND DR",
+      "parcel_id": "005-5251-8",
+      "lat": 30.4497593,
+      "lng": -91.1000294,
+      "geocoder": "google"
+    },
+    {
+      "address": "353 E AIRPORT AVE",
+      "parcel_id": "005-4106-0",
+      "lat": 30.4484704,
+      "lng": -91.1018747,
+      "geocoder": "google"
+    },
+    {
+      "address": "323 CELESTE DR",
+      "parcel_id": "007-4167-1",
+      "lat": 30.0275357,
+      "lng": -91.8308416,
+      "geocoder": "google"
+    },
+    {
+      "address": "8201 KELWOOD AVE",
+      "parcel_id": "005-2158-2",
+      "lat": 30.4478305,
+      "lng": -91.1001739,
+      "geocoder": "google"
+    },
+    {
+      "address": "411 E AIRPORT AVE",
+      "parcel_id": "008-3529-3",
+      "lat": 30.4479043,
+      "lng": -91.1011362,
+      "geocoder": "google"
+    },
+    {
+      "address": "375 E AIRPORT AVE",
+      "parcel_id": "008-7171-0",
+      "lat": 30.4482364,
+      "lng": -91.101877,
+      "geocoder": "google"
+    },
+    {
+      "address": "429 E AIRPORT AVE",
+      "parcel_id": "008-9736-1",
+      "lat": 30.4476409,
+      "lng": -91.1015988,
+      "geocoder": "google"
+    },
+    {
+      "address": "429 E AIRPORT AVE #2",
+      "parcel_id": "008-9738-8",
+      "lat": 30.447665,
+      "lng": -91.10147529999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "451 E AIRPORT AVE # B",
+      "parcel_id": "004-9622-7",
+      "lat": 30.4474498,
+      "lng": -91.1013936,
+      "geocoder": "google"
+    },
+    {
+      "address": "2378 KENSINGTON DR",
+      "parcel_id": "006-1085-2",
+      "lat": 30.4278683,
+      "lng": -91.1025602,
+      "geocoder": "google"
+    },
+    {
+      "address": "2122 RUE BEAUREGARD",
+      "parcel_id": "017-6985-5",
+      "lat": 30.4302892,
+      "lng": -91.1007801,
+      "geocoder": "google"
+    },
+    {
+      "address": "2355 PALM HILLS BLVD",
+      "parcel_id": "005-8493-2",
+      "lat": 30.4292428,
+      "lng": -91.103083,
+      "geocoder": "google"
+    },
+    {
+      "address": "8371 BARNETT DR",
+      "parcel_id": "019-1440-5",
+      "lat": 30.4273877,
+      "lng": -91.10016209999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "8224 ARGOSY CT",
+      "parcel_id": "006-2262-1",
+      "lat": 30.42829,
+      "lng": -91.1006395,
+      "geocoder": "google"
+    },
+    {
+      "address": "8315 ARGOSY CT",
+      "parcel_id": "005-1472-1",
+      "lat": 30.4290128,
+      "lng": -91.1000669,
+      "geocoder": "google"
+    },
+    {
+      "address": "8246 ARGOSY CT",
+      "parcel_id": "008-2026-1",
+      "lat": 30.4284258,
+      "lng": -91.1004195,
+      "geocoder": "google"
+    },
+    {
+      "address": "817 N ALLYSON DR",
+      "parcel_id": "011-1513-8",
+      "lat": 30.4468253,
+      "lng": -91.07196859999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "774 LONITA ST",
+      "parcel_id": "009-3404-6",
+      "lat": 30.44712939999999,
+      "lng": -91.0737347,
+      "geocoder": "google"
+    },
+    {
+      "address": "555 WOODHAVEN DR",
+      "parcel_id": "009-7168-5",
+      "lat": 32.5693284,
+      "lng": -92.0797151,
+      "geocoder": "google"
+    },
+    {
+      "address": "512 WOODHAVEN ST",
+      "parcel_id": "009-8900-2",
+      "lat": 30.4499172,
+      "lng": -91.07488819999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "862 LONITA ST",
+      "parcel_id": "009-9374-3",
+      "lat": 30.4460947,
+      "lng": -91.0737572,
+      "geocoder": "google"
+    },
+    {
+      "address": "744 WOODHAVEN DR",
+      "parcel_id": "009-6835-8",
+      "lat": 32.5693284,
+      "lng": -92.0797151,
+      "geocoder": "google"
+    },
+    {
+      "address": "623 ELIZABETH ST",
+      "parcel_id": "011-0122-6",
+      "lat": 30.0109426,
+      "lng": -91.83323399999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "714 N ALLYSON DR",
+      "parcel_id": "009-6179-5",
+      "lat": 30.44777909999999,
+      "lng": -91.0726145,
+      "geocoder": "google"
+    },
+    {
+      "address": "574 LONITA ST",
+      "parcel_id": "010-8378-3",
+      "lat": 30.4490824,
+      "lng": -91.0736629,
+      "geocoder": "google"
+    },
+    {
+      "address": "726 LONITA ST",
+      "parcel_id": "009-3018-0",
+      "lat": 30.4476925,
+      "lng": -91.073746,
+      "geocoder": "google"
+    },
+    {
+      "address": "623 LONITA ST",
+      "parcel_id": "010-6557-2",
+      "lat": 30.4488135,
+      "lng": -91.0731484,
+      "geocoder": "google"
+    },
+    {
+      "address": "968 WOODHAVEN",
+      "parcel_id": "009-2996-4",
+      "lat": 30.4453559,
+      "lng": -91.0748156,
+      "geocoder": "google"
+    },
+    {
+      "address": "825 WOODHAVEN DR",
+      "parcel_id": "009-6997-4",
+      "lat": 32.5693284,
+      "lng": -92.0797151,
+      "geocoder": "google"
+    },
+    {
+      "address": "645 WOODHAVEN DR",
+      "parcel_id": "011-0677-5",
+      "lat": 32.5693284,
+      "lng": -92.0797151,
+      "geocoder": "google"
+    },
+    {
+      "address": "671 N ALLYSON DR",
+      "parcel_id": "011-1503-0",
+      "lat": 30.4479886,
+      "lng": -91.0720462,
+      "geocoder": "google"
+    },
+    {
+      "address": "715 N ALLYSON DR",
+      "parcel_id": "011-1515-4",
+      "lat": 30.44775659999999,
+      "lng": -91.07199899999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "622 LONITA ST",
+      "parcel_id": "010-5217-9",
+      "lat": 30.4488023,
+      "lng": -91.073753,
+      "geocoder": "google"
+    },
+    {
+      "address": "554 LONITA ST",
+      "parcel_id": "011-0441-1",
+      "lat": 30.4493425,
+      "lng": -91.0737037,
+      "geocoder": "google"
+    },
+    {
+      "address": "10114 S RIVEROAKS DR",
+      "parcel_id": "010-1719-5",
+      "lat": 30.44996769999999,
+      "lng": -91.0754521,
+      "geocoder": "google"
+    },
+    {
+      "address": "725 N ALLYSON DR",
+      "parcel_id": "011-1502-2",
+      "lat": 30.447558,
+      "lng": -91.07202509999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "897 LONITA ST",
+      "parcel_id": "010-9396-7",
+      "lat": 30.4454492,
+      "lng": -91.073229,
+      "geocoder": "google"
+    },
+    {
+      "address": "10568 FERNCLIFF AVENUE",
+      "parcel_id": "009-8649-6",
+      "lat": 30.4473327,
+      "lng": -91.06693829999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "10522 FERNCLIFF AVENUE",
+      "parcel_id": "010-3246-1",
+      "lat": 30.4475541,
+      "lng": -91.06750799999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "911 SHARP RD",
+      "parcel_id": "010-7958-1",
+      "lat": 30.4459579,
+      "lng": -91.0682662,
+      "geocoder": "google"
+    },
+    {
+      "address": "10740 EFFRINGHAM AVE",
+      "parcel_id": "010-6447-9",
+      "lat": 30.4485536,
+      "lng": -91.0645356,
+      "geocoder": "google"
+    },
+    {
+      "address": "10277 PARKVIEW DR",
+      "parcel_id": "009-4188-3",
+      "lat": 30.4462361,
+      "lng": -91.0700894,
+      "geocoder": "google"
+    },
+    {
+      "address": "865 SHARP RD",
+      "parcel_id": "011-1713-0",
+      "lat": 30.4463836,
+      "lng": -91.0685625,
+      "geocoder": "google"
+    },
+    {
+      "address": "10280 PARKVIEW DR",
+      "parcel_id": "010-3445-6",
+      "lat": 30.4456275,
+      "lng": -91.06981410000002,
+      "geocoder": "google"
+    },
+    {
+      "address": "10266 PARKVIEW DR",
+      "parcel_id": "010-7118-1",
+      "lat": 30.4455965,
+      "lng": -91.0701564,
+      "geocoder": "google"
+    },
+    {
+      "address": "10255 PARKVIEW DR",
+      "parcel_id": "010-9788-1",
+      "lat": 30.4460649,
+      "lng": -91.0706616,
+      "geocoder": "google"
+    },
+    {
+      "address": "984 SINCLAIR DRIVE",
+      "parcel_id": "010-4748-5",
+      "lat": 30.44905869999999,
+      "lng": -91.0662466,
+      "geocoder": "google"
+    },
+    {
+      "address": "10356 PARKVIEW DR",
+      "parcel_id": "010-7482-2",
+      "lat": 30.4456427,
+      "lng": -91.0692728,
+      "geocoder": "google"
+    },
+    {
+      "address": "720 SHARP RD",
+      "parcel_id": "308-2518-7",
+      "lat": 30.4473544,
+      "lng": -91.07063169999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1066 SINCLAIR DRIVE",
+      "parcel_id": "010-9641-9",
+      "lat": 30.4485169,
+      "lng": -91.0662454,
+      "geocoder": "google"
+    },
+    {
+      "address": "10795 GOODWOOD BLVD",
+      "parcel_id": "009-6957-5",
+      "lat": 30.448122,
+      "lng": -91.0639449,
+      "geocoder": "google"
+    },
+    {
+      "address": "10346 PARKVIEW DR",
+      "parcel_id": "009-4037-2",
+      "lat": 30.4456503,
+      "lng": -91.06955029999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "860 SINCLAIR DRIVE",
+      "parcel_id": "010-9505-6",
+      "lat": 30.4497898,
+      "lng": -91.0662472,
+      "geocoder": "google"
+    },
+    {
+      "address": "1089 SINCLAIR DRIVE",
+      "parcel_id": "010-5850-9",
+      "lat": 30.4479008,
+      "lng": -91.0657667,
+      "geocoder": "google"
+    },
+    {
+      "address": "1171 SINCLAIR DRIVE",
+      "parcel_id": "010-6418-5",
+      "lat": 30.4475191,
+      "lng": -91.0661525,
+      "geocoder": "google"
+    },
+    {
+      "address": "820 VOOHRIES DRIVE",
+      "parcel_id": "009-5424-1",
+      "lat": 30.4500762,
+      "lng": -91.0639704,
+      "geocoder": "google"
+    },
+    {
+      "address": "980 HEDGEWOOD DR",
+      "parcel_id": "009-3338-4",
+      "lat": 30.4490507,
+      "lng": -91.0650984,
+      "geocoder": "google"
+    },
+    {
+      "address": "10773 GOODWOOD BLVD",
+      "parcel_id": "009-9502-9",
+      "lat": 30.4480128,
+      "lng": -91.06489169999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "923 SINCLAIR DRIVE",
+      "parcel_id": "009-8876-6",
+      "lat": 30.449274,
+      "lng": -91.06566,
+      "geocoder": "google"
+    },
+    {
+      "address": "922 SHARP RD",
+      "parcel_id": "010-6656-0",
+      "lat": 30.4455976,
+      "lng": -91.0688986,
+      "geocoder": "google"
+    },
+    {
+      "address": "10464 S RIVEROAKS DR",
+      "parcel_id": "011-3064-1",
+      "lat": 30.4499104,
+      "lng": -91.0709048,
+      "geocoder": "google"
+    },
+    {
+      "address": "10779 GOODWOOD BLVD",
+      "parcel_id": "010-8340-6",
+      "lat": 30.4481188,
+      "lng": -91.0645768,
+      "geocoder": "google"
+    },
+    {
+      "address": "10924 EFFRINGHAM AVE",
+      "parcel_id": "010-3668-8",
+      "lat": 30.44858309999999,
+      "lng": -91.0626185,
+      "geocoder": "google"
+    },
+    {
+      "address": "11067 GOODWOOD BLVD",
+      "parcel_id": "009-5078-5",
+      "lat": 30.448657,
+      "lng": -91.0606832,
+      "geocoder": "google"
+    },
+    {
+      "address": "913 VOOHRIES DRIVE",
+      "parcel_id": "010-9153-0",
+      "lat": 30.4494664,
+      "lng": -91.0634043,
+      "geocoder": "google"
+    },
+    {
+      "address": "11016 GOODWOOD BLVD",
+      "parcel_id": "010-7560-8",
+      "lat": 30.4478364,
+      "lng": -91.061223,
+      "geocoder": "google"
+    },
+    {
+      "address": "10966 SHERATON DRIVE",
+      "parcel_id": "010-4519-9",
+      "lat": 30.44563399999999,
+      "lng": -91.0616052,
+      "geocoder": "google"
+    },
+    {
+      "address": "1170 S TINLEY DR",
+      "parcel_id": "010-3895-8",
+      "lat": 30.4464743,
+      "lng": -91.0604383,
+      "geocoder": "google"
+    },
+    {
+      "address": "923 S TINLEY DR",
+      "parcel_id": "010-0097-7",
+      "lat": 30.4495943,
+      "lng": -91.060119,
+      "geocoder": "google"
+    },
+    {
+      "address": "859 TIFTON DRIVE",
+      "parcel_id": "011-0056-4",
+      "lat": 30.4500571,
+      "lng": -91.06121879999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1079 S TINLEY DR",
+      "parcel_id": "011-0290-7",
+      "lat": 30.447235,
+      "lng": -91.06004089999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "11124 GOODWOOD BLVD",
+      "parcel_id": "010-8327-9",
+      "lat": 30.4481316,
+      "lng": -91.0601164,
+      "geocoder": "google"
+    },
+    {
+      "address": "10964 EFFRINGHAM AVE",
+      "parcel_id": "011-1082-9",
+      "lat": 30.4487585,
+      "lng": -91.0618439,
+      "geocoder": "google"
+    },
+    {
+      "address": "1080 BRAEBURN DR",
+      "parcel_id": "010-4937-2",
+      "lat": 30.4469677,
+      "lng": -91.06162139999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "10869 GOODWOOD BLVD",
+      "parcel_id": "009-3236-1",
+      "lat": 30.4481519,
+      "lng": -91.0628253,
+      "geocoder": "google"
+    },
+    {
+      "address": "11006 SHERATON DRIVE",
+      "parcel_id": "011-1086-1",
+      "lat": 30.445673,
+      "lng": -91.0606016,
+      "geocoder": "google"
+    },
+    {
+      "address": "10920 GOODWOOD BLVD",
+      "parcel_id": "010-1349-1",
+      "lat": 30.4475845,
+      "lng": -91.06218199999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "835 MARLBROOK DRIVE",
+      "parcel_id": "010-7986-7",
+      "lat": 30.450113,
+      "lng": -91.062293,
+      "geocoder": "google"
+    },
+    {
+      "address": "923 VOORHIES DRIVE",
+      "parcel_id": "010-9444-0",
+      "lat": 30.228114,
+      "lng": -92.02586439999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "945 MARLBROOK DRIVE",
+      "parcel_id": "010-3091-4",
+      "lat": 30.4494031,
+      "lng": -91.0623008,
+      "geocoder": "google"
+    },
+    {
+      "address": "10944 SHERATON DRIVE",
+      "parcel_id": "009-9606-8",
+      "lat": 30.44561209999999,
+      "lng": -91.0618257,
+      "geocoder": "google"
+    },
+    {
+      "address": "1117 S TINLEY DR",
+      "parcel_id": "011-2036-0",
+      "lat": 30.4469838,
+      "lng": -91.0600164,
+      "geocoder": "google"
+    },
+    {
+      "address": "834 MARLBROOK DRIVE",
+      "parcel_id": "009-2714-7",
+      "lat": 30.4500896,
+      "lng": -91.06290039999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "987 MARLBROOK DRIVE",
+      "parcel_id": "010-9724-5",
+      "lat": 30.4491691,
+      "lng": -91.0622197,
+      "geocoder": "google"
+    },
+    {
+      "address": "10940 GOODWOOD BLVD",
+      "parcel_id": "009-8710-7",
+      "lat": 30.4476677,
+      "lng": -91.0617729,
+      "geocoder": "google"
+    },
+    {
+      "address": "821 VOOHRIES DRIVE",
+      "parcel_id": "009-7240-1",
+      "lat": 30.4501066,
+      "lng": -91.0633837,
+      "geocoder": "google"
+    },
+    {
+      "address": "1183 S TINLEY DR",
+      "parcel_id": "011-0981-2",
+      "lat": 30.4463183,
+      "lng": -91.05985290000001,
+      "geocoder": "google"
+    },
+    {
+      "address": "11019 GOODWOOD BLVD",
+      "parcel_id": "009-8623-2",
+      "lat": 30.4484928,
+      "lng": -91.06120759999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "10954 EFFRINGHAM AVE",
+      "parcel_id": "010-3411-1",
+      "lat": 30.4486996,
+      "lng": -91.0620929,
+      "geocoder": "google"
+    },
+    {
+      "address": "11045 WORTHINGTON AVE",
+      "parcel_id": "009-3664-2",
+      "lat": 30.4428784,
+      "lng": -91.0605494,
+      "geocoder": "google"
+    },
+    {
+      "address": "1570 BELLFORT DR",
+      "parcel_id": "010-5589-5",
+      "lat": 30.4399882,
+      "lng": -91.0598983,
+      "geocoder": "google"
+    },
+    {
+      "address": "11088 BELLARBOR DR",
+      "parcel_id": "010-2748-4",
+      "lat": 30.4395419,
+      "lng": -91.0603306,
+      "geocoder": "google"
+    },
+    {
+      "address": "1867 BELLRIDGE DR",
+      "parcel_id": "009-8042-0",
+      "lat": 30.4391016,
+      "lng": -91.0603761,
+      "geocoder": "google"
+    },
+    {
+      "address": "11088 CHARINGTON AVE",
+      "parcel_id": "010-9007-0",
+      "lat": 30.4446205,
+      "lng": -91.06001309999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "11126 SHERATON DR",
+      "parcel_id": "009-9722-6",
+      "lat": 30.4457723,
+      "lng": -91.060125,
+      "geocoder": "google"
+    },
+    {
+      "address": "1345 BRAEBURN DR",
+      "parcel_id": "009-2662-0",
+      "lat": 30.4441118,
+      "lng": -91.0604999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1175 BRAEBURN DR",
+      "parcel_id": "009-7590-7",
+      "lat": 30.4463719,
+      "lng": -91.0609357,
+      "geocoder": "google"
+    },
+    {
+      "address": "11000 SHERATON DRIVE",
+      "parcel_id": "010-5059-1",
+      "lat": 30.4456503,
+      "lng": -91.06083989999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1338 SILVERTON DR",
+      "parcel_id": "011-0295-8",
+      "lat": 30.4441343,
+      "lng": -91.0600446,
+      "geocoder": "google"
+    },
+    {
+      "address": "11123 MAJOR OAK DR",
+      "parcel_id": "009-6849-8",
+      "lat": 30.4413155,
+      "lng": -91.0603754,
+      "geocoder": "google"
+    },
+    {
+      "address": "1375 BRAEBURN DR",
+      "parcel_id": "009-6837-4",
+      "lat": 30.4436929,
+      "lng": -91.06049259999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "11052 BURTON AVE",
+      "parcel_id": "011-1871-4",
+      "lat": 30.44037089999999,
+      "lng": -91.060912,
+      "geocoder": "google"
+    },
+    {
+      "address": "1376 SILVERTON DR",
+      "parcel_id": "010-0096-9",
+      "lat": 30.4437001,
+      "lng": -91.0600363,
+      "geocoder": "google"
+    },
+    {
+      "address": "11085 CHARINGTON AVE",
+      "parcel_id": "010-3355-7",
+      "lat": 30.4451276,
+      "lng": -91.0600803,
+      "geocoder": "google"
+    },
+    {
+      "address": "1391 BRAEBURN DR",
+      "parcel_id": "010-5629-8",
+      "lat": 30.4432669,
+      "lng": -91.0605016,
+      "geocoder": "google"
+    },
+    {
+      "address": "1321 BRAEBURN DR",
+      "parcel_id": "009-9360-3",
+      "lat": 30.444331,
+      "lng": -91.06054490000001,
+      "geocoder": "google"
+    },
+    {
+      "address": "11128 SHERATON DR",
+      "parcel_id": "010-3077-9",
+      "lat": 30.4458241,
+      "lng": -91.0598983,
+      "geocoder": "google"
+    },
+    {
+      "address": "11140 WORTHINGTON",
+      "parcel_id": "010-1865-5",
+      "lat": 30.5190775,
+      "lng": -91.5208624,
+      "geocoder": "google"
+    },
+    {
+      "address": "11067 WORTHINGTON AVE",
+      "parcel_id": "009-6016-0",
+      "lat": 30.4427784,
+      "lng": -91.0602894,
+      "geocoder": "google"
+    },
+    {
+      "address": "1382 SILVERTON DR",
+      "parcel_id": "009-3630-8",
+      "lat": 30.4434816,
+      "lng": -91.0599913,
+      "geocoder": "google"
+    },
+    {
+      "address": "11060 BURTON AVE",
+      "parcel_id": "011-0834-4",
+      "lat": 30.4405038,
+      "lng": -91.0605593,
+      "geocoder": "google"
+    },
+    {
+      "address": "11050 BELLARBOR DR",
+      "parcel_id": "011-1145-0",
+      "lat": 30.4395555,
+      "lng": -91.06097609999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "1642 BELLFORT DR",
+      "parcel_id": "010-2543-0",
+      "lat": 30.4395388,
+      "lng": -91.0598816,
+      "geocoder": "google"
+    },
+    {
+      "address": "11087 BELLARBOR DR",
+      "parcel_id": "010-0251-1",
+      "lat": 30.43995859999999,
+      "lng": -91.06037429999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "11016 SHERATON DRIVE",
+      "parcel_id": "009-8693-3",
+      "lat": 30.4457131,
+      "lng": -91.0603747,
+      "geocoder": "google"
+    },
+    {
+      "address": "8275 W EL CAJON DR",
+      "parcel_id": "010-7100-9",
+      "lat": 30.4694329,
+      "lng": -91.100505,
+      "geocoder": "google"
+    },
+    {
+      "address": "8484 ATHENS AVE",
+      "parcel_id": "009-7071-9",
+      "lat": 30.4748488,
+      "lng": -91.1001951,
+      "geocoder": "google"
+    },
+    {
+      "address": "8448 ATHENS AVE",
+      "parcel_id": "009-6259-7",
+      "lat": 30.474948,
+      "lng": -91.10045199999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "8450 S CHOCTAW DR",
+      "parcel_id": "010-7280-3",
+      "lat": 30.47091129999999,
+      "lng": -91.09994480000002,
+      "geocoder": "google"
+    },
+    {
+      "address": "8352 W EL CAJON DR",
+      "parcel_id": "010-9658-3",
+      "lat": 30.4688443,
+      "lng": -91.09996079999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "8435 PARIS AVE",
+      "parcel_id": "010-6354-5",
+      "lat": 30.4736694,
+      "lng": -91.1005198,
+      "geocoder": "google"
+    },
+    {
+      "address": "8351 W EL CAJON DR",
+      "parcel_id": "010-9147-6",
+      "lat": 30.4694687,
+      "lng": -91.09997899999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "2387 N AIRWAY DR",
+      "parcel_id": "009-7172-3",
+      "lat": 30.469765,
+      "lng": -91.0994115,
+      "geocoder": "google"
+    },
+    {
+      "address": "10620 HWY 76",
+      "parcel_id": "010-2095-1",
+      "lat": 30.5190775,
+      "lng": -91.5208624,
+      "geocoder": "google"
+    },
+    {
+      "address": "4221 LAKE LIVINGSTON CT",
+      "parcel_id": "009-9550-9",
+      "lat": 30.4145598,
+      "lng": -91.0410381,
+      "geocoder": "google"
+    },
+    {
+      "address": "8447 ATHENS AVE",
+      "parcel_id": "023-4038-0",
+      "lat": 30.4754882,
+      "lng": -91.1005376,
+      "geocoder": "google"
+    },
+    {
+      "address": "8325 S CHOCTAW DR",
+      "parcel_id": "009-2942-5",
+      "lat": 30.4721327,
+      "lng": -91.0998747,
+      "geocoder": "google"
+    },
+    {
+      "address": "8327 TOM DR",
+      "parcel_id": "010-2108-7",
+      "lat": 30.4684283,
+      "lng": -91.1002966,
+      "geocoder": "google"
+    },
+    {
+      "address": "8450 PARIS AVE",
+      "parcel_id": "011-0469-1",
+      "lat": 30.4730051,
+      "lng": -91.1000679,
+      "geocoder": "google"
+    },
+    {
+      "address": "2648 ROME DR",
+      "parcel_id": "011-0465-9",
+      "lat": 30.4727045,
+      "lng": -91.10036099999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "719 WINN AVE",
+      "parcel_id": "010-9583-8",
+      "lat": 30.4425253,
+      "lng": -91.1274972,
+      "geocoder": "google"
+    },
+    {
+      "address": "8463 ATHENS AVE",
+      "parcel_id": "009-3378-3",
+      "lat": 30.4755024,
+      "lng": -91.1002785,
+      "geocoder": "google"
+    },
+    {
+      "address": "2658 ROME DR",
+      "parcel_id": "011-0466-7",
+      "lat": 30.4728392,
+      "lng": -91.100329,
+      "geocoder": "google"
+    },
+    {
+      "address": "8469 MADRID AVE",
+      "parcel_id": "009-5024-6",
+      "lat": 30.4745532,
+      "lng": -91.09980469999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "2055 N AIRWAY DR",
+      "parcel_id": "008-6236-3",
+      "lat": 30.467277,
+      "lng": -91.09969249999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "2668 ROME DR",
+      "parcel_id": "011-0467-5",
+      "lat": 30.4729591,
+      "lng": -91.10033,
+      "geocoder": "google"
+    },
+    {
+      "address": "8471 ATHENS AVE",
+      "parcel_id": "010-0393-3",
+      "lat": 30.4754616,
+      "lng": -91.1000334,
+      "geocoder": "google"
+    },
+    {
+      "address": "11126 SUNCREST AVE",
+      "parcel_id": "010-1861-2",
+      "lat": 30.5123079,
+      "lng": -91.0629716,
+      "geocoder": "google"
+    },
+    {
+      "address": "8305 TOM DR",
+      "parcel_id": "010-2107-9",
+      "lat": 30.4684497,
+      "lng": -91.10042759999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "8367 TOM DR",
+      "parcel_id": "010-8784-3",
+      "lat": 30.4683777,
+      "lng": -91.0999647,
+      "geocoder": "google"
+    },
+    {
+      "address": "PO BOX 309",
+      "parcel_id": "010-1132-4",
+      "lat": 29.7656095,
+      "lng": -90.9025593,
+      "geocoder": "google"
+    },
+    {
+      "address": "2678 ROME DR",
+      "parcel_id": "011-0464-0",
+      "lat": 30.4731214,
+      "lng": -91.1003526,
+      "geocoder": "google"
+    },
+    {
+      "address": "8356 TOM DR",
+      "parcel_id": "010-3049-3",
+      "lat": 30.46775239999999,
+      "lng": -91.100055,
+      "geocoder": "google"
+    },
+    {
+      "address": "8469 PARIS AVE",
+      "parcel_id": "009-3192-6",
+      "lat": 30.4736748,
+      "lng": -91.09995049999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "2540 ROME DR",
+      "parcel_id": "308-5848-9",
+      "lat": 30.4719667,
+      "lng": -91.0997486,
+      "geocoder": "google"
+    },
+    {
+      "address": "6945 FRONTIER DR",
+      "parcel_id": "011-0951-0",
+      "lat": 30.5149339,
+      "lng": -91.04932099999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "8451 PARIS AVE",
+      "parcel_id": "010-2094-3",
+      "lat": 30.4736776,
+      "lng": -91.1001933,
+      "geocoder": "google"
+    },
+    {
+      "address": "10120 FLORIDA BLVD",
+      "parcel_id": "010-3050-7",
+      "lat": 30.4879116,
+      "lng": -90.8640413,
+      "geocoder": "google"
+    },
+    {
+      "address": "8328 TOM DR",
+      "parcel_id": "010-3051-5",
+      "lat": 30.4678252,
+      "lng": -91.1002491,
+      "geocoder": "google"
+    },
+    {
+      "address": "5928 S HOWELL DR",
+      "parcel_id": "003-4712-4",
+      "lat": 30.4769073,
+      "lng": -91.129874,
+      "geocoder": "google"
+    },
+    {
+      "address": "6426 RITTERMAN AVE",
+      "parcel_id": "003-5236-5",
+      "lat": 30.4751865,
+      "lng": -91.12581159999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "6013 CHOCTAW DR",
+      "parcel_id": "024-4203-5",
+      "lat": 30.4714898,
+      "lng": -91.12938059999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "6225 CHOCTAW DR",
+      "parcel_id": "004-2270-3",
+      "lat": 30.4718613,
+      "lng": -91.12790489999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "6335 NELLIE AVE",
+      "parcel_id": "004-8505-5",
+      "lat": 30.4741511,
+      "lng": -91.12662499999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "PO BOX 80063",
+      "parcel_id": "004-2268-1",
+      "lat": 30.5190775,
+      "lng": -91.5208624,
+      "geocoder": "google"
+    },
+    {
+      "address": "6326 KINCAID AVE",
+      "parcel_id": "003-6320-0",
+      "lat": 30.4719603,
+      "lng": -91.1267932,
+      "geocoder": "google"
+    },
+    {
+      "address": "3035 MICHELLI DR",
+      "parcel_id": "002-9372-5",
+      "lat": 30.4771748,
+      "lng": -91.1272268,
+      "geocoder": "google"
+    },
+    {
+      "address": "2665 MICHELLI DR",
+      "parcel_id": "003-0685-1",
+      "lat": 30.4729572,
+      "lng": -91.1273423,
+      "geocoder": "google"
+    },
+    {
+      "address": "6310 RITTERMAN AVE",
+      "parcel_id": "004-3897-9",
+      "lat": 30.4751984,
+      "lng": -91.12668500000001,
+      "geocoder": "google"
+    },
+    {
+      "address": "6438 KINCAID AVE",
+      "parcel_id": "003-2464-7",
+      "lat": 30.4720219,
+      "lng": -91.12564809999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "6451 CHOCTAW DR",
+      "parcel_id": "001-9996-6",
+      "lat": 30.4713694,
+      "lng": -91.1256554,
+      "geocoder": "google"
+    },
+    {
+      "address": "6411 NELLIE AVE",
+      "parcel_id": "308-4135-2",
+      "lat": 30.4741528,
+      "lng": -91.1259931,
+      "geocoder": "google"
+    },
+    {
+      "address": "2753 MICHELLI DR",
+      "parcel_id": "002-9410-1",
+      "lat": 30.4739968,
+      "lng": -91.12736439999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "6407 OSBORNE AVE",
+      "parcel_id": "003-8631-6",
+      "lat": 30.4734851,
+      "lng": -91.1259535,
+      "geocoder": "google"
+    },
+    {
+      "address": "2752 MICHELLI DR",
+      "parcel_id": "002-0732-2",
+      "lat": 30.4740624,
+      "lng": -91.1268324,
+      "geocoder": "google"
+    },
+    {
+      "address": "6375 CHOCTAW DR",
+      "parcel_id": "003-8665-0",
+      "lat": 30.4714231,
+      "lng": -91.1261844,
+      "geocoder": "google"
+    },
+    {
+      "address": "6361 UNDERWOOD AVE",
+      "parcel_id": "004-3902-9",
+      "lat": 30.474851,
+      "lng": -91.126427,
+      "geocoder": "google"
+    },
+    {
+      "address": "6435 NELLIE AVE",
+      "parcel_id": "002-2077-9",
+      "lat": 30.4741838,
+      "lng": -91.12575749999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "2832 MICHELLI DR",
+      "parcel_id": "004-8572-1",
+      "lat": 30.47491879999999,
+      "lng": -91.12692659999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "2776 MICHELLI DR",
+      "parcel_id": "002-6841-0",
+      "lat": 30.4742828,
+      "lng": -91.1268874,
+      "geocoder": "google"
+    },
+    {
+      "address": "6358 NELLIE AVE",
+      "parcel_id": "002-1022-6",
+      "lat": 30.4737474,
+      "lng": -91.1263695,
+      "geocoder": "google"
+    },
+    {
+      "address": "5945 S HOWELL DR",
+      "parcel_id": "003-1077-8",
+      "lat": 30.4773116,
+      "lng": -91.1298635,
+      "geocoder": "google"
+    },
+    {
+      "address": "6363 KINCAID AVE",
+      "parcel_id": "003-5210-1",
+      "lat": 30.4724139,
+      "lng": -91.1262029,
+      "geocoder": "google"
+    },
+    {
+      "address": "2819 MICHELLI DR",
+      "parcel_id": "003-1667-9",
+      "lat": 30.4748909,
+      "lng": -91.1273799,
+      "geocoder": "google"
+    },
+    {
+      "address": "6349 OSBORNE AVE",
+      "parcel_id": "004-2958-9",
+      "lat": 30.4734731,
+      "lng": -91.12647849999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "2764 MICHELLI DR",
+      "parcel_id": "004-2383-1",
+      "lat": 30.4741735,
+      "lng": -91.1268666,
+      "geocoder": "google"
+    },
+    {
+      "address": "2820 MICHELLI DR",
+      "parcel_id": "004-4584-3",
+      "lat": 30.4748823,
+      "lng": -91.1269914,
+      "geocoder": "google"
+    },
+    {
+      "address": "2765 MICHELLI DR",
+      "parcel_id": "004-7107-0",
+      "lat": 30.4741174,
+      "lng": -91.1273423,
+      "geocoder": "google"
+    },
+    {
+      "address": "2678 MICHELLI DR",
+      "parcel_id": "004-8017-7",
+      "lat": 30.4731113,
+      "lng": -91.1268419,
+      "geocoder": "google"
+    },
+    {
+      "address": "6384 OSBORNE AVE",
+      "parcel_id": "003-4877-5",
+      "lat": 30.4730754,
+      "lng": -91.1261504,
+      "geocoder": "google"
+    },
+    {
+      "address": "2725 MICHELLI DR",
+      "parcel_id": "002-8022-4",
+      "lat": 30.4735654,
+      "lng": -91.1273589,
+      "geocoder": "google"
+    },
+    {
+      "address": "3175 ELGIN ST",
+      "parcel_id": "002-4665-4",
+      "lat": 30.4770986,
+      "lng": -91.1265379,
+      "geocoder": "google"
+    },
+    {
+      "address": "5955 S HOWELL DR",
+      "parcel_id": "004-4466-9",
+      "lat": 30.4773291,
+      "lng": -91.1296723,
+      "geocoder": "google"
+    },
+    {
+      "address": "6346 NELLIE AVE",
+      "parcel_id": "001-9920-6",
+      "lat": 30.473741,
+      "lng": -91.1264832,
+      "geocoder": "google"
+    },
+    {
+      "address": "6438 RITTERMAN AVE",
+      "parcel_id": "003-4050-2",
+      "lat": 30.475207,
+      "lng": -91.1256748,
+      "geocoder": "google"
+    },
+    {
+      "address": "6349 UNDERWOOD AVE",
+      "parcel_id": "003-3881-8",
+      "lat": 30.4748659,
+      "lng": -91.1265513,
+      "geocoder": "google"
+    },
+    {
+      "address": "2710 MICHELLI DR",
+      "parcel_id": "004-8809-7",
+      "lat": 30.4733896,
+      "lng": -91.1267814,
+      "geocoder": "google"
+    },
+    {
+      "address": "6230 RUBY CT",
+      "parcel_id": "004-0096-3",
+      "lat": 30.4759439,
+      "lng": -91.12836949999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "6336 OSBORNE AVE",
+      "parcel_id": "003-2384-5",
+      "lat": 30.4730852,
+      "lng": -91.12657159999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "6055 S HOWELL DR",
+      "parcel_id": "002-7889-0",
+      "lat": 30.4773459,
+      "lng": -91.1290494,
+      "geocoder": "google"
+    },
+    {
+      "address": "PO BOX 748",
+      "parcel_id": "004-6840-1",
+      "lat": 30.5190775,
+      "lng": -91.5208624,
+      "geocoder": "google"
+    },
+    {
+      "address": "6350 KINCAID AVE",
+      "parcel_id": "004-1105-1",
+      "lat": 30.4719962,
+      "lng": -91.12646989999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "6423 UNDERWOOD AVE",
+      "parcel_id": "003-1411-0",
+      "lat": 30.4748601,
+      "lng": -91.1259237,
+      "geocoder": "google"
+    },
+    {
+      "address": "2789 MICHELLI DR",
+      "parcel_id": "003-5966-1",
+      "lat": 30.4743613,
+      "lng": -91.1273908,
+      "geocoder": "google"
+    },
+    {
+      "address": "6408 OSBORNE AVE",
+      "parcel_id": "004-8874-7",
+      "lat": 30.4730902,
+      "lng": -91.12593389999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "6349 KINCAID AVE",
+      "parcel_id": "002-3710-8",
+      "lat": 30.472431,
+      "lng": -91.1264903,
+      "geocoder": "google"
+    },
+    {
+      "address": "2975 MICHELLI DR",
+      "parcel_id": "004-1075-6",
+      "lat": 30.4765086,
+      "lng": -91.12718939999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "6360 OSBORNE AVE",
+      "parcel_id": "003-1552-4",
+      "lat": 30.47305579999999,
+      "lng": -91.1263163,
+      "geocoder": "google"
+    },
+    {
+      "address": "2724 MICHELLI DR",
+      "parcel_id": "003-7936-0",
+      "lat": 30.4736045,
+      "lng": -91.1268552,
+      "geocoder": "google"
+    },
+    {
+      "address": "6020 S HOWELL DR",
+      "parcel_id": "004-4924-5",
+      "lat": 30.47692,
+      "lng": -91.1294666,
+      "geocoder": "google"
+    },
+    {
+      "address": "13808 MORVANT RD",
+      "parcel_id": "308-5847-1",
+      "lat": 30.573478,
+      "lng": -91.1497114,
+      "geocoder": "google"
+    },
+    {
+      "address": "13804 MORVANT RD",
+      "parcel_id": "012-7393-0",
+      "lat": 30.5734499,
+      "lng": -91.1497028,
+      "geocoder": "google"
+    },
+    {
+      "address": "656 RAY WEILAND DR",
+      "parcel_id": "015-7238-5",
+      "lat": 30.5820054,
+      "lng": -91.1789893,
+      "geocoder": "google"
+    },
+    {
+      "address": "644 RAY WEILAND DR",
+      "parcel_id": "015-1325-7",
+      "lat": 30.5818285,
+      "lng": -91.179014,
+      "geocoder": "google"
+    },
+    {
+      "address": "632 RAY WEILAND DR",
+      "parcel_id": "016-4648-6",
+      "lat": 30.5815985,
+      "lng": -91.17905309999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "620 RAY WEILAND DR",
+      "parcel_id": "016-1371-5",
+      "lat": 30.5813496,
+      "lng": -91.1790965,
+      "geocoder": "google"
+    },
+    {
+      "address": "812 CENTER COURT BLVD",
+      "parcel_id": "022-1078-9",
+      "lat": 30.5849035,
+      "lng": -91.1781827,
+      "geocoder": "google"
+    },
+    {
+      "address": "607 RAY WEILAND DR",
+      "parcel_id": "015-8759-5",
+      "lat": 30.5812409,
+      "lng": -91.17966129999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "2345 RAY WEILAND DR",
+      "parcel_id": "016-1552-1",
+      "lat": 30.5836548,
+      "lng": -91.1784538,
+      "geocoder": "google"
+    },
+    {
+      "address": "2333 RAY WEILAND DR",
+      "parcel_id": "015-4042-4",
+      "lat": 30.58366699999999,
+      "lng": -91.1786679,
+      "geocoder": "google"
+    },
+    {
+      "address": "2321 RAY WEILAND DR",
+      "parcel_id": "015-0943-8",
+      "lat": 30.5835438,
+      "lng": -91.178923,
+      "geocoder": "google"
+    },
+    {
+      "address": "759 RAY WEILAND DR",
+      "parcel_id": "024-0776-0",
+      "lat": 30.5831849,
+      "lng": -91.1793458,
+      "geocoder": "google"
+    },
+    {
+      "address": "747 RAY WEILAND DR",
+      "parcel_id": "016-3530-1",
+      "lat": 30.5829731,
+      "lng": -91.1794477,
+      "geocoder": "google"
+    },
+    {
+      "address": "723 RAY WEILAND DR",
+      "parcel_id": "016-1895-4",
+      "lat": 30.5825451,
+      "lng": -91.1795045,
+      "geocoder": "google"
+    },
+    {
+      "address": "711 RAY WEILAND DR",
+      "parcel_id": "015-2113-6",
+      "lat": 30.5822845,
+      "lng": -91.17949589999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "645 DAY DR",
+      "parcel_id": "015-7432-9",
+      "lat": 30.5816004,
+      "lng": -91.17796799999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "657 DAY DR",
+      "parcel_id": "016-3745-2",
+      "lat": 30.5819059,
+      "lng": -91.177915,
+      "geocoder": "google"
+    },
+    {
+      "address": "669 DAY DRIVE",
+      "parcel_id": "015-5417-4",
+      "lat": 30.5821652,
+      "lng": -91.17777,
+      "geocoder": "google"
+    },
+    {
+      "address": "2409 N DAY DR",
+      "parcel_id": "015-8311-5",
+      "lat": 30.5836826,
+      "lng": -91.173801,
+      "geocoder": "google"
+    },
+    {
+      "address": "2421 DAY DR",
+      "parcel_id": "015-3350-9",
+      "lat": 30.5825116,
+      "lng": -91.1771503,
+      "geocoder": "google"
+    },
+    {
+      "address": "2433 DAY DR",
+      "parcel_id": "016-0536-4",
+      "lat": 30.582505,
+      "lng": -91.1768787,
+      "geocoder": "google"
+    },
+    {
+      "address": "2412 SOUTH ST",
+      "parcel_id": "016-3442-9",
+      "lat": 30.5805452,
+      "lng": -91.17751299999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "536 DAY DR",
+      "parcel_id": "016-2414-8",
+      "lat": 30.580231,
+      "lng": -91.1775487,
+      "geocoder": "google"
+    },
+    {
+      "address": "524 DAY DRIVE",
+      "parcel_id": "015-4226-5",
+      "lat": 30.5799724,
+      "lng": -91.1775778,
+      "geocoder": "google"
+    },
+    {
+      "address": "512 DAY DR",
+      "parcel_id": "016-2321-4",
+      "lat": 30.5796688,
+      "lng": -91.1775085,
+      "geocoder": "google"
+    },
+    {
+      "address": "480 DAY DR",
+      "parcel_id": "015-6085-9",
+      "lat": 30.5794294,
+      "lng": -91.1776828,
+      "geocoder": "google"
+    },
+    {
+      "address": "468 DAY DR",
+      "parcel_id": "016-3368-6",
+      "lat": 30.5791502,
+      "lng": -91.177694,
+      "geocoder": "google"
+    },
+    {
+      "address": "2418 DAY DR",
+      "parcel_id": "016-2684-1",
+      "lat": 30.5819172,
+      "lng": -91.1770433,
+      "geocoder": "google"
+    },
+    {
+      "address": "650 DAY DR",
+      "parcel_id": "015-9374-9",
+      "lat": 30.5816299,
+      "lng": -91.17731979999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "2411 SOUTH ST",
+      "parcel_id": "015-4079-3",
+      "lat": 30.5810536,
+      "lng": -91.1774477,
+      "geocoder": "google"
+    },
+    {
+      "address": "608 RAY WEILAND DR",
+      "parcel_id": "015-7150-8",
+      "lat": 30.5811541,
+      "lng": -91.17903609999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "621 DAY DR",
+      "parcel_id": "015-6591-5",
+      "lat": 30.5810726,
+      "lng": -91.17801999999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "633 DAY DR",
+      "parcel_id": "015-7402-7",
+      "lat": 30.5813496,
+      "lng": -91.17801209999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "2325 N MAGNOLIA DR",
+      "parcel_id": "015-3061-5",
+      "lat": 30.5853207,
+      "lng": -91.1788614,
+      "geocoder": "google"
+    },
+    {
+      "address": "2313 N MAGNOLIA DR",
+      "parcel_id": "016-3826-2",
+      "lat": 30.5852881,
+      "lng": -91.17915,
+      "geocoder": "google"
+    },
+    {
+      "address": "2225 N MAGNOLIA DR",
+      "parcel_id": "015-3910-8",
+      "lat": 30.5852231,
+      "lng": -91.1794829,
+      "geocoder": "google"
+    },
+    {
+      "address": "2243 N MAGNOLIA DR",
+      "parcel_id": "015-1078-9",
+      "lat": 30.5851773,
+      "lng": -91.1797763,
+      "geocoder": "google"
+    },
+    {
+      "address": "2231 N MAGNOLIA DR",
+      "parcel_id": "016-0496-1",
+      "lat": 30.5851291,
+      "lng": -91.180083,
+      "geocoder": "google"
+    },
+    {
+      "address": "2219 N MAGNOLIA DR",
+      "parcel_id": "015-9652-7",
+      "lat": 30.58507599999999,
+      "lng": -91.1804343,
+      "geocoder": "google"
+    },
+    {
+      "address": "2207 N MAGNOLIA DR",
+      "parcel_id": "015-9817-1",
+      "lat": 30.5850157,
+      "lng": -91.1806965,
+      "geocoder": "google"
+    },
+    {
+      "address": "857 W MAGNOLIA DR",
+      "parcel_id": "015-3462-9",
+      "lat": 30.584797,
+      "lng": -91.1809402,
+      "geocoder": "google"
+    },
+    {
+      "address": "845 W MAGNOLIA DR",
+      "parcel_id": "015-5018-7",
+      "lat": 30.5846071,
+      "lng": -91.1811468,
+      "geocoder": "google"
+    },
+    {
+      "address": "833 W MAGNOLIA DR",
+      "parcel_id": "015-5305-4",
+      "lat": 30.5843518,
+      "lng": -91.1812236,
+      "geocoder": "google"
+    },
+    {
+      "address": "821 W MAGNOLIA DR",
+      "parcel_id": "015-7414-0",
+      "lat": 30.58405539999999,
+      "lng": -91.18144129999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "809 W MAGNOLIA DR",
+      "parcel_id": "015-7413-2",
+      "lat": 30.5837463,
+      "lng": -91.18125119999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "755 W MAGNOLIA DR",
+      "parcel_id": "015-0886-5",
+      "lat": 30.583528,
+      "lng": -91.1812685,
+      "geocoder": "google"
+    },
+    {
+      "address": "2423 SOUTH ST",
+      "parcel_id": "016-3360-0",
+      "lat": 30.5810124,
+      "lng": -91.1772255,
+      "geocoder": "google"
+    },
+    {
+      "address": "2435 SOUTH ST",
+      "parcel_id": "016-3720-7",
+      "lat": 30.5810272,
+      "lng": -91.1769322,
+      "geocoder": "google"
+    },
+    {
+      "address": "637 W MAGNOLIA DR",
+      "parcel_id": "015-9805-8",
+      "lat": 30.5818717,
+      "lng": -91.181578,
+      "geocoder": "google"
+    },
+    {
+      "address": "2429 N MAGNOLIA DR",
+      "parcel_id": "016-3298-1",
+      "lat": 30.5857369,
+      "lng": -91.17695119999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "2417 N MAGNOLIA DR",
+      "parcel_id": "016-0674-3",
+      "lat": 30.5856151,
+      "lng": -91.1772522,
+      "geocoder": "google"
+    },
+    {
+      "address": "2405 N MAGNOLIA DR",
+      "parcel_id": "016-2381-8",
+      "lat": 30.5856288,
+      "lng": -91.1775073,
+      "geocoder": "google"
+    },
+    {
+      "address": "2361 N MAGNOLIA DR",
+      "parcel_id": "016-0701-4",
+      "lat": 30.5855341,
+      "lng": -91.1778831,
+      "geocoder": "google"
+    },
+    {
+      "address": "2349 N MAGNOLIA DR",
+      "parcel_id": "016-0800-2",
+      "lat": 30.5854387,
+      "lng": -91.1781939,
+      "geocoder": "google"
+    },
+    {
+      "address": "2337 N MAGNOLIA DR",
+      "parcel_id": "016-4687-7",
+      "lat": 30.58537429999999,
+      "lng": -91.17849849999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "707 W MAGNOLIA DR",
+      "parcel_id": "015-1274-9",
+      "lat": 30.5824192,
+      "lng": -91.1814941,
+      "geocoder": "google"
+    },
+    {
+      "address": "649 W MAGNOLIA DR",
+      "parcel_id": "016-4972-8",
+      "lat": 30.5821466,
+      "lng": -91.18152909999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "625 W MAGNOLIA DR",
+      "parcel_id": "015-8490-1",
+      "lat": 30.5815883,
+      "lng": -91.1816252,
+      "geocoder": "google"
+    },
+    {
+      "address": "613 W MAGNOLIA DR",
+      "parcel_id": "015-3979-5",
+      "lat": 30.5813259,
+      "lng": -91.1816456,
+      "geocoder": "google"
+    },
+    {
+      "address": "553 W MAGNOLIA DR",
+      "parcel_id": "016-1791-5",
+      "lat": 30.5810116,
+      "lng": -91.1816997,
+      "geocoder": "google"
+    },
+    {
+      "address": "529 W MAGNOLIA DR",
+      "parcel_id": "015-7636-4",
+      "lat": 30.5804811,
+      "lng": -91.18182589999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "517 W MAGNOLIA DR",
+      "parcel_id": "015-7105-2",
+      "lat": 30.5802364,
+      "lng": -91.18187669999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "473 W MAGNOLIA DR",
+      "parcel_id": "015-1923-9",
+      "lat": 30.5799388,
+      "lng": -91.18186399999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "461 W MAGNOLIA DR",
+      "parcel_id": "015-1194-7",
+      "lat": 30.5796815,
+      "lng": -91.1819369,
+      "geocoder": "google"
+    },
+    {
+      "address": "449 W MAGNOLIA DR",
+      "parcel_id": "015-6581-8",
+      "lat": 30.5792785,
+      "lng": -91.1819517,
+      "geocoder": "google"
+    },
+    {
+      "address": "743 W MAGNOLIA DR",
+      "parcel_id": "016-3526-3",
+      "lat": 30.5832148,
+      "lng": -91.1813204,
+      "geocoder": "google"
+    },
+    {
+      "address": "731 W MAGNOLIA DR",
+      "parcel_id": "015-4216-8",
+      "lat": 30.582953,
+      "lng": -91.1813708,
+      "geocoder": "google"
+    },
+    {
+      "address": "719 W MAGNOLIA DR",
+      "parcel_id": "015-6469-2",
+      "lat": 30.5826981,
+      "lng": -91.18146390000001,
+      "geocoder": "google"
+    },
+    {
+      "address": "2406 RAY WEILAND DR",
+      "parcel_id": "015-3365-7",
+      "lat": 30.58340389999999,
+      "lng": -91.1771048,
+      "geocoder": "google"
+    },
+    {
+      "address": "2394 RAY WEILAND DR",
+      "parcel_id": "015-3474-2",
+      "lat": 30.5833528,
+      "lng": -91.1773262,
+      "geocoder": "google"
+    },
+    {
+      "address": "2382 RAY WEILAND DR",
+      "parcel_id": "015-2162-4",
+      "lat": 30.5833129,
+      "lng": -91.1775794,
+      "geocoder": "google"
+    },
+    {
+      "address": "2370 RAY WEILAND DR",
+      "parcel_id": "015-9627-6",
+      "lat": 30.5832434,
+      "lng": -91.17784499999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "2358 RAY WEILAND DR",
+      "parcel_id": "015-4143-9",
+      "lat": 30.5832422,
+      "lng": -91.1780524,
+      "geocoder": "google"
+    },
+    {
+      "address": "2346 RAY WEILAND DR",
+      "parcel_id": "001-0661-5",
+      "lat": 30.5831809,
+      "lng": -91.17831629999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "738 RAY WEILAND DR",
+      "parcel_id": "001-0660-7",
+      "lat": 30.58293119999999,
+      "lng": -91.1788223,
+      "geocoder": "google"
+    },
+    {
+      "address": "736 RAY WEILAND DR",
+      "parcel_id": "016-0392-2",
+      "lat": 30.5826771,
+      "lng": -91.1788959,
+      "geocoder": "google"
+    },
+    {
+      "address": "712 RAY WEILAND DR",
+      "parcel_id": "015-2983-8",
+      "lat": 30.5822501,
+      "lng": -91.1789438,
+      "geocoder": "google"
+    },
+    {
+      "address": "655 RAY WEILAND DR",
+      "parcel_id": "015-1422-9",
+      "lat": 30.5820911,
+      "lng": -91.1795585,
+      "geocoder": "google"
+    },
+    {
+      "address": "643 RAY WEILAND DR",
+      "parcel_id": "015-4218-4",
+      "lat": 30.5818635,
+      "lng": -91.179566,
+      "geocoder": "google"
+    },
+    {
+      "address": "631 RAY WEILAND DR",
+      "parcel_id": "016-0619-0",
+      "lat": 30.5816409,
+      "lng": -91.17963499999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "619 RAY WEILAND DR",
+      "parcel_id": "016-1655-2",
+      "lat": 30.5814598,
+      "lng": -91.17965249999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "620 W MAGNOLIA DR",
+      "parcel_id": "015-1181-5",
+      "lat": 30.5813849,
+      "lng": -91.1810115,
+      "geocoder": "google"
+    },
+    {
+      "address": "632 W MAGNOLIA DR",
+      "parcel_id": "015-1787-2",
+      "lat": 30.5816225,
+      "lng": -91.1803755,
+      "geocoder": "google"
+    },
+    {
+      "address": "644 W MAGNOLIA DR",
+      "parcel_id": "015-2064-4",
+      "lat": 30.5819352,
+      "lng": -91.1809031,
+      "geocoder": "google"
+    },
+    {
+      "address": "656 W MAGNOLIA DR",
+      "parcel_id": "016-4361-4",
+      "lat": 30.5822101,
+      "lng": -91.1808623,
+      "geocoder": "google"
+    },
+    {
+      "address": "714 W MAGNOLIA DR",
+      "parcel_id": "015-3475-0",
+      "lat": 30.5825542,
+      "lng": -91.18076219999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "738 W MAGNOLIA DR",
+      "parcel_id": "015-1924-7",
+      "lat": 30.5829749,
+      "lng": -91.18069039999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "750 W MAGNOLIA DR",
+      "parcel_id": "016-2568-3",
+      "lat": 30.5833159,
+      "lng": -91.18067359999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "762 W MAGNOLIA DR",
+      "parcel_id": "015-6098-0",
+      "lat": 30.58360219999999,
+      "lng": -91.18061259999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "816 W MAGNOLIA DR",
+      "parcel_id": "015-2906-4",
+      "lat": 30.5838481,
+      "lng": -91.18059079999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "830 W MAGNOLIA DR",
+      "parcel_id": "015-5393-3",
+      "lat": 30.5841727,
+      "lng": -91.18059699999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "2220 N MAGNOLIA DR",
+      "parcel_id": "015-2079-2",
+      "lat": 30.58450729999999,
+      "lng": -91.18026979999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "2230 N MAGNOLIA DR",
+      "parcel_id": "016-4967-1",
+      "lat": 30.5845469,
+      "lng": -91.1799729,
+      "geocoder": "google"
+    },
+    {
+      "address": "2244 N MAGNOLIA DR",
+      "parcel_id": "015-2219-1",
+      "lat": 30.584584,
+      "lng": -91.1796985,
+      "geocoder": "google"
+    },
+    {
+      "address": "2256 N MAGNOLIA DR",
+      "parcel_id": "015-1826-7",
+      "lat": 30.584679,
+      "lng": -91.1793532,
+      "geocoder": "google"
+    },
+    {
+      "address": "2314 N MAGNOLIA DR",
+      "parcel_id": "015-4193-5",
+      "lat": 30.5847502,
+      "lng": -91.17901599999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "2369 RAY WEILAND DR",
+      "parcel_id": "015-0948-9",
+      "lat": 30.5837914,
+      "lng": -91.17797159999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "2419 RAY WEILAND DR",
+      "parcel_id": "016-2724-4",
+      "lat": 30.5839258,
+      "lng": -91.1769446,
+      "geocoder": "google"
+    },
+    {
+      "address": "8449 PORT HUDSON-PRIDE RD",
+      "parcel_id": "013-7550-4",
+      "lat": 30.68232,
+      "lng": -91.10251,
+      "geocoder": "google"
+    },
+    {
+      "address": "5540 HILLCREST DR",
+      "parcel_id": "013-6547-9",
+      "lat": 30.6608165,
+      "lng": -91.1435934,
+      "geocoder": "google"
+    },
+    {
+      "address": "6546 DONNIE ST",
+      "parcel_id": "011-3995-9",
+      "lat": 30.6625223,
+      "lng": -91.1444374,
+      "geocoder": "google"
+    },
+    {
+      "address": "6667 DONNIE ST",
+      "parcel_id": "013-3814-5",
+      "lat": 30.6633009,
+      "lng": -91.1453502,
+      "geocoder": "google"
+    },
+    {
+      "address": "6442 DONNIE ST",
+      "parcel_id": "013-0181-0",
+      "lat": 30.6616795,
+      "lng": -91.14521669999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "6539 DONNIE ST",
+      "parcel_id": "012-5471-5",
+      "lat": 30.6624774,
+      "lng": -91.14529069999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "5226 DONNIE ST",
+      "parcel_id": "011-2648-2",
+      "lat": 30.6630583,
+      "lng": -91.1450579,
+      "geocoder": "google"
+    },
+    {
+      "address": "5671 HILLCREST DR",
+      "parcel_id": "013-0133-0",
+      "lat": 30.6610841,
+      "lng": -91.141393,
+      "geocoder": "google"
+    },
+    {
+      "address": "5463 HILLCREST DR",
+      "parcel_id": "012-8249-2",
+      "lat": 30.6617213,
+      "lng": -91.1439273,
+      "geocoder": "google"
+    },
+    {
+      "address": "5215 HILLCREST DR",
+      "parcel_id": "012-7734-0",
+      "lat": 30.6618097,
+      "lng": -91.14658089999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "5412 HILLCREST DR",
+      "parcel_id": "013-1515-3",
+      "lat": 30.6610691,
+      "lng": -91.1449854,
+      "geocoder": "google"
+    },
+    {
+      "address": "6530 DONNIE ST",
+      "parcel_id": "007-2699-0",
+      "lat": 30.6629161,
+      "lng": -91.1445842,
+      "geocoder": "google"
+    },
+    {
+      "address": "5561 HILLCREST DR",
+      "parcel_id": "014-8335-8",
+      "lat": 30.6614753,
+      "lng": -91.1428925,
+      "geocoder": "google"
+    },
+    {
+      "address": "6443 DONNIE ST",
+      "parcel_id": "007-2700-8",
+      "lat": 30.66227619999999,
+      "lng": -91.14565449999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "5462 HILLCREST DR",
+      "parcel_id": "014-1591-3",
+      "lat": 30.6608985,
+      "lng": -91.14439139999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "5623 HILLCREST DR",
+      "parcel_id": "001-5033-9",
+      "lat": 30.6627741,
+      "lng": -91.1417172,
+      "geocoder": "google"
+    },
+    {
+      "address": "5312 HILLCREST DR",
+      "parcel_id": "011-9191-8",
+      "lat": 30.66114839999999,
+      "lng": -91.1457152,
+      "geocoder": "google"
+    },
+    {
+      "address": "6545 DONNIE ST",
+      "parcel_id": "011-9889-0",
+      "lat": 30.6627026,
+      "lng": -91.14509489999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "4901 HILLCREST DR",
+      "parcel_id": "014-3129-3",
+      "lat": 30.6622414,
+      "lng": -91.1499405,
+      "geocoder": "google"
+    },
+    {
+      "address": "6820 N. 1ST PLACE",
+      "parcel_id": "016-0626-3",
+      "lat": 30.830194,
+      "lng": -90.667979,
+      "geocoder": "google"
+    },
+    {
+      "address": "5250 E MAE ST",
+      "parcel_id": "015-7447-7",
+      "lat": 30.6464179,
+      "lng": -91.1488158,
+      "geocoder": "google"
+    },
+    {
+      "address": "4317 OLD WEIS RD",
+      "parcel_id": "015-1429-6",
+      "lat": 30.6458283,
+      "lng": -91.1489929,
+      "geocoder": "google"
+    },
+    {
+      "address": "4385 OLD WEIS RD",
+      "parcel_id": "015-9427-3",
+      "lat": 30.6459216,
+      "lng": -91.14897739999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "26 DEL OAKS DR",
+      "parcel_id": "015-8181-3",
+      "lat": 30.4138465,
+      "lng": -90.1342404,
+      "geocoder": "google"
+    },
+    {
+      "address": "5515 OLD SLAUGHTER RD",
+      "parcel_id": "030-3632-4",
+      "lat": 30.6557252,
+      "lng": -91.14542019999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "5353 MAIN ST",
+      "parcel_id": "308-3288-6",
+      "lat": 29.6504097,
+      "lng": -90.7643884,
+      "geocoder": "google"
+    },
+    {
+      "address": "4608 HWY 19",
+      "parcel_id": "030-3716-9",
+      "lat": 30.6487443,
+      "lng": -91.1499406,
+      "geocoder": "google"
+    },
+    {
+      "address": "5131 HWY 64",
+      "parcel_id": "015-8255-0",
+      "lat": 30.5190775,
+      "lng": -91.5208624,
+      "geocoder": "google"
+    },
+    {
+      "address": "5233 MAIN ST",
+      "parcel_id": "014-1872-6",
+      "lat": 29.65416729999999,
+      "lng": -90.7663841,
+      "geocoder": "google"
+    },
+    {
+      "address": "5249 MAIN ST",
+      "parcel_id": "015-2154-3",
+      "lat": 29.6536459,
+      "lng": -90.76613700000001,
+      "geocoder": "google"
+    },
+    {
+      "address": "5635-C MAIN ST",
+      "parcel_id": "020-8589-5",
+      "lat": 29.6411842,
+      "lng": -90.7610864,
+      "geocoder": "google"
+    },
+    {
+      "address": "5323 BOND ST",
+      "parcel_id": "015-4181-1",
+      "lat": 30.6501067,
+      "lng": -91.14778799999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "5312 BOND ST",
+      "parcel_id": "015-3336-3",
+      "lat": 30.6504697,
+      "lng": -91.14787849999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "5321 BOND ST",
+      "parcel_id": "015-3340-1",
+      "lat": 30.6504351,
+      "lng": -91.1476783,
+      "geocoder": "google"
+    },
+    {
+      "address": "4805 OLD SLAUGHTER RD",
+      "parcel_id": "015-7494-9",
+      "lat": 30.6499979,
+      "lng": -91.14731049999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "4749 OLD SLAUGHTER RD",
+      "parcel_id": "016-3331-7",
+      "lat": 30.6497435,
+      "lng": -91.14743800000001,
+      "geocoder": "google"
+    },
+    {
+      "address": "4909 OLD SLAUGHTER RD",
+      "parcel_id": "015-9653-5",
+      "lat": 30.650924,
+      "lng": -91.1472969,
+      "geocoder": "google"
+    },
+    {
+      "address": "5355 CHURCH ST",
+      "parcel_id": "015-6405-6",
+      "lat": 30.6491251,
+      "lng": -91.1475036,
+      "geocoder": "google"
+    },
+    {
+      "address": "5337 CHURCH ST",
+      "parcel_id": "015-4999-5",
+      "lat": 30.6491671,
+      "lng": -91.147841,
+      "geocoder": "google"
+    },
+    {
+      "address": "9563 AIRLINE HWY",
+      "parcel_id": "015-4252-4",
+      "lat": 30.19543789999999,
+      "lng": -90.86185379999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "4846 HWY 19",
+      "parcel_id": "015-1045-2",
+      "lat": 30.650543,
+      "lng": -91.14975319999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "4824 HWY 19",
+      "parcel_id": "015-1050-9",
+      "lat": 30.6503609,
+      "lng": -91.1497021,
+      "geocoder": "google"
+    },
+    {
+      "address": "4754 RANKIN ST",
+      "parcel_id": "015-6071-9",
+      "lat": 30.6499801,
+      "lng": -91.1492301,
+      "geocoder": "google"
+    },
+    {
+      "address": "4814 RANKIN ST",
+      "parcel_id": "016-2808-9",
+      "lat": 30.65021,
+      "lng": -91.149197,
+      "geocoder": "google"
+    },
+    {
+      "address": "4817 OLD SLAUGHTER RD",
+      "parcel_id": "015-4998-7",
+      "lat": 30.6499737,
+      "lng": -91.1473542,
+      "geocoder": "google"
+    },
+    {
+      "address": "5321 CHURCH ST",
+      "parcel_id": "015-6607-5",
+      "lat": 30.6492472,
+      "lng": -91.14797569999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "5305 CHURCH ST",
+      "parcel_id": "015-1185-8",
+      "lat": 30.6492561,
+      "lng": -91.14806209999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "5253 BOND ST",
+      "parcel_id": "016-1373-1",
+      "lat": 30.6501755,
+      "lng": -91.1485591,
+      "geocoder": "google"
+    },
+    {
+      "address": "14024 CAYUGA DR.",
+      "parcel_id": "016-1559-9",
+      "lat": 30.5743422,
+      "lng": -91.1556123,
+      "geocoder": "google"
+    },
+    {
+      "address": "4901-B HILLCREST DR",
+      "parcel_id": "014-3130-7",
+      "lat": 30.6622414,
+      "lng": -91.1499405,
+      "geocoder": "google"
+    },
+    {
+      "address": "5602 HILLCREST DR",
+      "parcel_id": "013-8246-2",
+      "lat": 30.6605303,
+      "lng": -91.14255089999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "5028 HWY. 24",
+      "parcel_id": "005-3585-0",
+      "lat": 40.7632954,
+      "lng": -86.4683271,
+      "geocoder": "google"
+    },
+    {
+      "address": "5063 HILLCREST DR",
+      "parcel_id": "014-1375-9",
+      "lat": 30.6623417,
+      "lng": -91.14900899999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "5440 MAIN ST",
+      "parcel_id": "017-7829-3",
+      "lat": 29.6474193,
+      "lng": -90.7634174,
+      "geocoder": "google"
+    },
+    {
+      "address": "5520 HWY 64",
+      "parcel_id": "308-5278-0",
+      "lat": 30.5190775,
+      "lng": -91.5208624,
+      "geocoder": "google"
+    },
+    {
+      "address": "5085 HILLCREST DR",
+      "parcel_id": "011-9963-3",
+      "lat": 30.6620585,
+      "lng": -91.1483284,
+      "geocoder": "google"
+    },
+    {
+      "address": "5125 HARLEM ST",
+      "parcel_id": "015-2274-4",
+      "lat": 30.6537995,
+      "lng": -91.14896519999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "5268 HARLEM ST.",
+      "parcel_id": "015-7665-8",
+      "lat": 30.6532843,
+      "lng": -91.1477721,
+      "geocoder": "google"
+    },
+    {
+      "address": "5220 ST LOUIS ST",
+      "parcel_id": "018-2986-6",
+      "lat": 30.6524528,
+      "lng": -91.1484315,
+      "geocoder": "google"
+    },
+    {
+      "address": "5223 LENNOX ST",
+      "parcel_id": "015-7315-2",
+      "lat": 30.6546172,
+      "lng": -91.1480881,
+      "geocoder": "google"
+    },
+    {
+      "address": "5256 HARLEM ST",
+      "parcel_id": "016-3327-9",
+      "lat": 30.6533676,
+      "lng": -91.1479469,
+      "geocoder": "google"
+    },
+    {
+      "address": "5276 ST LOUIS ST",
+      "parcel_id": "015-8554-1",
+      "lat": 30.6524701,
+      "lng": -91.14821669999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "5290 ST LOUIS ST",
+      "parcel_id": "015-6347-5",
+      "lat": 30.6523442,
+      "lng": -91.14805659999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "5119 ST LOUIS ST",
+      "parcel_id": "308-2731-4",
+      "lat": 30.6533112,
+      "lng": -91.14917200000001,
+      "geocoder": "google"
+    },
+    {
+      "address": "5149 ST LOUIS ST",
+      "parcel_id": "015-8642-4",
+      "lat": 30.6528939,
+      "lng": -91.1488991,
+      "geocoder": "google"
+    },
+    {
+      "address": "3733 CARBOU CT",
+      "parcel_id": "015-8658-0",
+      "lat": 30.4891442,
+      "lng": -91.0629086,
+      "geocoder": "google"
+    },
+    {
+      "address": "PO BOX 253",
+      "parcel_id": "016-2519-5",
+      "lat": 30.5190775,
+      "lng": -91.5208624,
+      "geocoder": "google"
+    },
+    {
+      "address": "5268 HARLEM ST",
+      "parcel_id": "015-7656-9",
+      "lat": 30.6532843,
+      "lng": -91.1477721,
+      "geocoder": "google"
+    },
+    {
+      "address": "5131 OLD SLAUGHTER RD",
+      "parcel_id": "015-7201-6",
+      "lat": 30.6530942,
+      "lng": -91.14702559999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "5307 BOND ST",
+      "parcel_id": "016-4340-1",
+      "lat": 30.6501429,
+      "lng": -91.1481656,
+      "geocoder": "google"
+    },
+    {
+      "address": "5227 HARLEM ST",
+      "parcel_id": "308-2576-1",
+      "lat": 30.6537561,
+      "lng": -91.14795360000001,
+      "geocoder": "google"
+    },
+    {
+      "address": "21840 W J WICKER RD",
+      "parcel_id": "015-2232-9",
+      "lat": 30.6748952,
+      "lng": -91.1072365,
+      "geocoder": "google"
+    },
+    {
+      "address": "1377 SHEFFIELD PKWY",
+      "parcel_id": "028-2601-1",
+      "lat": 30.5190775,
+      "lng": -91.5208624,
+      "geocoder": "google"
+    },
+    {
+      "address": "5308 ST LOUIS ST",
+      "parcel_id": "015-1361-3",
+      "lat": 30.6523446,
+      "lng": -91.1474449,
+      "geocoder": "google"
+    },
+    {
+      "address": "3849 OLD WEIS RD",
+      "parcel_id": "004-2850-7",
+      "lat": 30.6422365,
+      "lng": -91.1491533,
+      "geocoder": "google"
+    },
+    {
+      "address": "3834 STONEY BROOK ST",
+      "parcel_id": "004-2838-8",
+      "lat": 30.6419462,
+      "lng": -91.1487008,
+      "geocoder": "google"
+    },
+    {
+      "address": "5365 LOWER ZACHARY RD",
+      "parcel_id": "029-4925-3",
+      "lat": 30.6408591,
+      "lng": -91.1481922,
+      "geocoder": "google"
+    },
+    {
+      "address": "3809 STONEY BROOK ST",
+      "parcel_id": "004-2821-3",
+      "lat": 30.6413152,
+      "lng": -91.14834669999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "5325 HARLEM ST",
+      "parcel_id": "016-0999-8",
+      "lat": 30.6536015,
+      "lng": -91.1472749,
+      "geocoder": "google"
+    },
+    {
+      "address": "5243 OLD SLAUGHTER RD",
+      "parcel_id": "015-6323-8",
+      "lat": 30.6541368,
+      "lng": -91.14684930000001,
+      "geocoder": "google"
+    },
+    {
+      "address": "5267 ST LOUIS ST",
+      "parcel_id": "016-1518-1",
+      "lat": 30.6527443,
+      "lng": -91.14786199999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "24522 PLANK RD",
+      "parcel_id": "000-6933-7",
+      "lat": 30.7082207,
+      "lng": -91.079988,
+      "geocoder": "google"
+    },
+    {
+      "address": "10745 SCENIC HWY, # 8",
+      "parcel_id": "000-6934-5",
+      "lat": 30.5416724,
+      "lng": -91.1919616,
+      "geocoder": "google"
+    },
+    {
+      "address": "14367 GLYNN RD",
+      "parcel_id": "000-6939-6",
+      "lat": 30.5759397,
+      "lng": -91.2007093,
+      "geocoder": "google"
+    },
+    {
+      "address": "6001 MAIN ST",
+      "parcel_id": "011-4739-0",
+      "lat": 29.709193,
+      "lng": -91.3843263,
+      "geocoder": "google"
+    },
+    {
+      "address": "4510 MAIN ST",
+      "parcel_id": "011-9015-6",
+      "lat": 29.6683415,
+      "lng": -90.77477189999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "6797 RONNIE DR",
+      "parcel_id": "012-4187-7",
+      "lat": 30.6654487,
+      "lng": -91.1475748,
+      "geocoder": "google"
+    },
+    {
+      "address": "6582 RONNIE DR",
+      "parcel_id": "012-3536-2",
+      "lat": 30.6635593,
+      "lng": -91.1471663,
+      "geocoder": "google"
+    },
+    {
+      "address": "6510 RONNIE DR",
+      "parcel_id": "012-4966-5",
+      "lat": 30.663076,
+      "lng": -91.14719199999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "18127 PLANCHET RD",
+      "parcel_id": "017-8561-3",
+      "lat": 30.49337689999999,
+      "lng": -90.9798732,
+      "geocoder": "google"
+    },
+    {
+      "address": "18195 PLANCHET RD",
+      "parcel_id": "019-8467-5",
+      "lat": 30.4925574,
+      "lng": -90.978319,
+      "geocoder": "google"
+    },
+    {
+      "address": "18163 PLANCHET RD",
+      "parcel_id": "016-8738-7",
+      "lat": 30.4927851,
+      "lng": -90.97921029999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "18189 PLANCHET RD",
+      "parcel_id": "018-8215-5",
+      "lat": 30.4932569,
+      "lng": -90.9786123,
+      "geocoder": "google"
+    },
+    {
+      "address": "18159 PLANCHET RD",
+      "parcel_id": "020-4421-8",
+      "lat": 30.4934162,
+      "lng": -90.97946220000001,
+      "geocoder": "google"
+    },
+    {
+      "address": "18115 PLANCHET RD",
+      "parcel_id": "019-0074-9",
+      "lat": 30.4935618,
+      "lng": -90.9804715,
+      "geocoder": "google"
+    },
+    {
+      "address": "PO BOX 235",
+      "parcel_id": "018-2894-0",
+      "lat": 30.5190775,
+      "lng": -91.5208624,
+      "geocoder": "google"
+    },
+    {
+      "address": "18257 PLANCHET RD",
+      "parcel_id": "308-5840-9",
+      "lat": 30.4922665,
+      "lng": -90.97724529999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "17097 FRENCHTOWN RD",
+      "parcel_id": "012-0297-9",
+      "lat": 30.48700939999999,
+      "lng": -90.9871871,
+      "geocoder": "google"
+    },
+    {
+      "address": "13574 REED AVE",
+      "parcel_id": "308-5841-1",
+      "lat": 30.5576091,
+      "lng": -91.03708329999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "18255 FRENCHTOWN ACRES DR",
+      "parcel_id": "019-6636-7",
+      "lat": 30.4890543,
+      "lng": -90.99056689999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "18166 PLANCHET RD",
+      "parcel_id": "031-2001-5",
+      "lat": 30.4915351,
+      "lng": -90.9795065,
+      "geocoder": "google"
+    },
+    {
+      "address": "PO BOX 96",
+      "parcel_id": "005-8541-6",
+      "lat": 30.1588484,
+      "lng": -91.7881506,
+      "geocoder": "google"
+    },
+    {
+      "address": "17357 FRENCHTOWN RD",
+      "parcel_id": "018-1224-6",
+      "lat": 30.4840693,
+      "lng": -90.9853835,
+      "geocoder": "google"
+    },
+    {
+      "address": "18290 PLANCHET RD",
+      "parcel_id": "019-8465-9",
+      "lat": 30.4912012,
+      "lng": -90.9770379,
+      "geocoder": "google"
+    },
+    {
+      "address": "18280 PLANCHET RD",
+      "parcel_id": "016-7659-8",
+      "lat": 30.4910687,
+      "lng": -90.97747319999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "18194 PLANCHET RD",
+      "parcel_id": "031-2000-7",
+      "lat": 30.4915552,
+      "lng": -90.9782955,
+      "geocoder": "google"
+    },
+    {
+      "address": "17059 FRENCHTOWN RD",
+      "parcel_id": "308-3508-6",
+      "lat": 30.4878612,
+      "lng": -90.98766409999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "18225 PLANCHET RD",
+      "parcel_id": "018-1854-6",
+      "lat": 30.4923408,
+      "lng": -90.9778414,
+      "geocoder": "google"
+    },
+    {
+      "address": "6400 RIVER RD",
+      "parcel_id": "005-3510-9",
+      "lat": 30.3844076,
+      "lng": -91.2070095,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #166",
+      "parcel_id": "022-9597-0",
+      "lat": 30.3901308,
+      "lng": -91.2064718,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #135",
+      "parcel_id": "022-9563-6",
+      "lat": 30.3888468,
+      "lng": -91.2064255,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #72",
+      "parcel_id": "022-2005-9",
+      "lat": 30.38920389999999,
+      "lng": -91.20916869999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #117",
+      "parcel_id": "022-9538-5",
+      "lat": 30.3889624,
+      "lng": -91.2072077,
+      "geocoder": "google"
+    },
+    {
+      "address": "3955 NORTHSHORE AVE",
+      "parcel_id": "017-2236-0",
+      "lat": 30.3907717,
+      "lng": -91.20697709999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #101",
+      "parcel_id": "022-2054-7",
+      "lat": 30.3890619,
+      "lng": -91.20795799999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #82",
+      "parcel_id": "022-2021-0",
+      "lat": 30.3888301,
+      "lng": -91.20907919999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #80",
+      "parcel_id": "022-2017-2",
+      "lat": 30.3888451,
+      "lng": -91.2091985,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #66",
+      "parcel_id": "022-1994-8",
+      "lat": 30.3889089,
+      "lng": -91.20961299999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #124",
+      "parcel_id": "022-9549-0",
+      "lat": 30.3886101,
+      "lng": -91.20732730000002,
+      "geocoder": "google"
+    },
+    {
+      "address": "3945 NORTHSHORE AVE",
+      "parcel_id": "017-2229-8",
+      "lat": 30.3907839,
+      "lng": -91.2066919,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #56",
+      "parcel_id": "022-1968-9",
+      "lat": 30.3893066,
+      "lng": -91.2095023,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #45",
+      "parcel_id": "022-1955-7",
+      "lat": 30.3891918,
+      "lng": -91.2106065,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #59",
+      "parcel_id": "022-1971-9",
+      "lat": 30.3891971,
+      "lng": -91.21003660000001,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #93",
+      "parcel_id": "022-2040-7",
+      "lat": 30.3887617,
+      "lng": -91.2085348,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #29",
+      "parcel_id": "022-1938-7",
+      "lat": 30.3898393,
+      "lng": -91.2086309,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #109",
+      "parcel_id": "022-2071-7",
+      "lat": 30.3886932,
+      "lng": -91.20798959999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #121",
+      "parcel_id": "022-9546-6",
+      "lat": 30.3889364,
+      "lng": -91.2069685,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #164",
+      "parcel_id": "022-9595-4",
+      "lat": 30.3902345,
+      "lng": -91.206458,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #36",
+      "parcel_id": "022-1946-8",
+      "lat": 30.3897294,
+      "lng": -91.2101253,
+      "geocoder": "google"
+    },
+    {
+      "address": "3930 NORTHSHORE AVE",
+      "parcel_id": "017-1292-6",
+      "lat": 30.3912021,
+      "lng": -91.2062109,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #87",
+      "parcel_id": "022-2029-6",
+      "lat": 30.3891131,
+      "lng": -91.2084455,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #74",
+      "parcel_id": "022-2008-3",
+      "lat": 30.3891889,
+      "lng": -91.2090494,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #94",
+      "parcel_id": "022-2041-5",
+      "lat": 30.3887542,
+      "lng": -91.2084751,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #52",
+      "parcel_id": "022-1964-6",
+      "lat": 30.38944279999999,
+      "lng": -91.2097045,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #68",
+      "parcel_id": "022-1997-2",
+      "lat": 30.3888709,
+      "lng": -91.20950099999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "4033 NORTHSHORE AVE",
+      "parcel_id": "017-2253-0",
+      "lat": 30.3909257,
+      "lng": -91.20796279999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #28",
+      "parcel_id": "022-1937-9",
+      "lat": 30.3898816,
+      "lng": -91.2085937,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #30",
+      "parcel_id": "022-1939-5",
+      "lat": 30.3897971,
+      "lng": -91.2086679,
+      "geocoder": "google"
+    },
+    {
+      "address": "3946 NORTHSHORE AVE",
+      "parcel_id": "017-1270-5",
+      "lat": 30.3912565,
+      "lng": -91.206594,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #114",
+      "parcel_id": "022-2082-2",
+      "lat": 30.3886558,
+      "lng": -91.20769140000002,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #21",
+      "parcel_id": "022-1929-8",
+      "lat": 30.3902611,
+      "lng": -91.2082685,
+      "geocoder": "google"
+    },
+    {
+      "address": "3935 NORTHSHORE AVE",
+      "parcel_id": "017-2216-6",
+      "lat": 30.3907318,
+      "lng": -91.2064197,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #128",
+      "parcel_id": "022-9553-9",
+      "lat": 30.3885801,
+      "lng": -91.2070888,
+      "geocoder": "google"
+    },
+    {
+      "address": "3961 NORTHSHORE AVE",
+      "parcel_id": "017-2238-7",
+      "lat": 30.3908147,
+      "lng": -91.20710439999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #115",
+      "parcel_id": "022-2086-5",
+      "lat": 30.3886483,
+      "lng": -91.2076318,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #127",
+      "parcel_id": "022-9552-0",
+      "lat": 30.3885876,
+      "lng": -91.2071484,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #190",
+      "parcel_id": "022-9626-8",
+      "lat": 30.3892805,
+      "lng": -91.2062995,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #99",
+      "parcel_id": "022-2051-2",
+      "lat": 30.3887168,
+      "lng": -91.2081769,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #27",
+      "parcel_id": "022-1936-0",
+      "lat": 30.3899297,
+      "lng": -91.20855159999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #123",
+      "parcel_id": "022-9548-2",
+      "lat": 30.38892329999999,
+      "lng": -91.20684899999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #141",
+      "parcel_id": "022-9569-5",
+      "lat": 30.388519,
+      "lng": -91.2066023,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #176",
+      "parcel_id": "022-9609-8",
+      "lat": 30.3901965,
+      "lng": -91.20615910000001,
+      "geocoder": "google"
+    },
+    {
+      "address": "3941 NORTHSHORE AVE",
+      "parcel_id": "017-2224-7",
+      "lat": 30.3907616,
+      "lng": -91.2065565,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #53",
+      "parcel_id": "022-1965-4",
+      "lat": 30.38942059999999,
+      "lng": -91.2096491,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #69",
+      "parcel_id": "022-1999-9",
+      "lat": 30.3888516,
+      "lng": -91.2094446,
+      "geocoder": "google"
+    },
+    {
+      "address": "PO BOX 14715",
+      "parcel_id": "017-3322-2",
+      "lat": 30.5190775,
+      "lng": -91.5208624,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #178",
+      "parcel_id": "022-9612-8",
+      "lat": 30.3900933,
+      "lng": -91.2061775,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #119",
+      "parcel_id": "022-9541-5",
+      "lat": 30.3889494,
+      "lng": -91.20708820000002,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #103",
+      "parcel_id": "022-2059-8",
+      "lat": 30.3890466,
+      "lng": -91.20783879999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #95",
+      "parcel_id": "022-2043-1",
+      "lat": 30.3887467,
+      "lng": -91.2084155,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #158",
+      "parcel_id": "022-9587-3",
+      "lat": 30.3895549,
+      "lng": -91.20701129999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #76",
+      "parcel_id": "022-2011-3",
+      "lat": 30.389174,
+      "lng": -91.20893009999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #172",
+      "parcel_id": "022-9604-7",
+      "lat": 30.3893523,
+      "lng": -91.2065451,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #46",
+      "parcel_id": "022-1956-5",
+      "lat": 30.3891506,
+      "lng": -91.21064349999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #79",
+      "parcel_id": "022-2016-4",
+      "lat": 30.3888526,
+      "lng": -91.2092581,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #89",
+      "parcel_id": "022-2033-4",
+      "lat": 30.389109,
+      "lng": -91.2083248,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #107",
+      "parcel_id": "022-2068-7",
+      "lat": 30.3890143,
+      "lng": -91.2075855,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #9",
+      "parcel_id": "022-1916-6",
+      "lat": 30.390406,
+      "lng": -91.20869080000001,
+      "geocoder": "google"
+    },
+    {
+      "address": "3925 NORTHSHORE AVE",
+      "parcel_id": "017-2209-3",
+      "lat": 30.3907028,
+      "lng": -91.20615509999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "4057 NORTHSHORE AVE",
+      "parcel_id": "017-2273-5",
+      "lat": 30.3909867,
+      "lng": -91.20868019999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #10",
+      "parcel_id": "022-2053-9",
+      "lat": 30.389067,
+      "lng": -91.20804,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #147",
+      "parcel_id": "022-9576-8",
+      "lat": 30.388474,
+      "lng": -91.2062444,
+      "geocoder": "google"
+    },
+    {
+      "address": "3940 NORTHSHORE AVE",
+      "parcel_id": "017-1276-4",
+      "lat": 30.3912125,
+      "lng": -91.20648140000002,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #15",
+      "parcel_id": "022-1922-0",
+      "lat": 30.3899332,
+      "lng": -91.2090936,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #120",
+      "parcel_id": "022-9543-1",
+      "lat": 30.3889429,
+      "lng": -91.2070284,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #23",
+      "parcel_id": "022-1932-8",
+      "lat": 30.3901785,
+      "lng": -91.2083392,
+      "geocoder": "google"
+    },
+    {
+      "address": "4022 NORTHSHORE AVE",
+      "parcel_id": "017-1235-7",
+      "lat": 30.3913688,
+      "lng": -91.20755129999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "3931 NORTHSHORE AVE",
+      "parcel_id": "017-2210-7",
+      "lat": 30.3907022,
+      "lng": -91.2062912,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #44",
+      "parcel_id": "022-1954-9",
+      "lat": 30.3892331,
+      "lng": -91.2105696,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #60",
+      "parcel_id": "022-1972-7",
+      "lat": 30.3891664,
+      "lng": -91.2099879,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #92",
+      "parcel_id": "022-2038-5",
+      "lat": 30.3887692,
+      "lng": -91.2085944,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #165",
+      "parcel_id": "022-9596-2",
+      "lat": 30.3901828,
+      "lng": -91.2064649,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #91",
+      "parcel_id": "022-2036-9",
+      "lat": 30.3890954,
+      "lng": -91.20819019999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #51",
+      "parcel_id": "022-1963-8",
+      "lat": 30.3895595,
+      "lng": -91.2096854,
+      "geocoder": "google"
+    },
+    {
+      "address": "4023 NORTHSHORE AVE",
+      "parcel_id": "017-2247-6",
+      "lat": 30.3908863,
+      "lng": -91.2076828,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #34",
+      "parcel_id": "022-1943-3",
+      "lat": 30.3896284,
+      "lng": -91.2088508,
+      "geocoder": "google"
+    },
+    {
+      "address": "4027 NORTHSHORE AVE",
+      "parcel_id": "017-2252-2",
+      "lat": 30.3909076,
+      "lng": -91.2078142,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #62",
+      "parcel_id": "022-1974-3",
+      "lat": 30.3891105,
+      "lng": -91.2098858,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #85",
+      "parcel_id": "022-2026-1",
+      "lat": 30.3887987,
+      "lng": -91.20890229999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "4036 NORTHSHORE AVE",
+      "parcel_id": "017-1207-1",
+      "lat": 30.3914078,
+      "lng": -91.20798219999999,
+      "geocoder": "google"
+    },
+    {
+      "address": "4032 NORTHSHORE AVE",
+      "parcel_id": "017-1224-1",
+      "lat": 30.3913792,
+      "lng": -91.20785210000001,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #12",
+      "parcel_id": "022-1919-0",
+      "lat": 30.39026419999999,
+      "lng": -91.2088137,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #182",
+      "parcel_id": "022-9616-0",
+      "lat": 30.3897484,
+      "lng": -91.20622,
+      "geocoder": "google"
+    },
+    {
+      "address": "4000 LAKE BEAU PRE' BLVD #16",
+      "parcel_id": "022-1923-9",
+      "lat": 30.3898812,
+      "lng": -91.2091385,
+      "geocoder": "google"
+    }
+  ]
+}

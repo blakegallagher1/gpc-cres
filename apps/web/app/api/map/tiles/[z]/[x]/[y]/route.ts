@@ -37,9 +37,15 @@ export async function GET(_req: Request, { params }: RouteParams) {
     );
   }
 
+  // Martin tile server is on a separate subdomain from the gateway.
+  // Derive the tile URL: api.gallagherpropco.com → tiles.gallagherpropco.com
+  const tileBaseUrl = process.env.TILE_SERVER_URL
+    ?? localApiUrl.replace("api.", "tiles.");
+  const tileLayer = process.env.TILE_LAYER_NAME ?? "ebr_parcels";
+
   try {
     const response = await fetch(
-      `${localApiUrl}/tiles/${zi}/${xi}/${yi}.pbf`,
+      `${tileBaseUrl}/${tileLayer}/${zi}/${xi}/${yi}`,
       {
         headers: {
           Authorization: `Bearer ${localApiKey}`,

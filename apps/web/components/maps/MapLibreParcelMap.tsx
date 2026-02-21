@@ -285,6 +285,34 @@ export function parcelPopupHtml(parcel: MapParcel): string {
   return `<div style="font-size:13px;line-height:1.4">${rows.join("")}</div>`;
 }
 
+/** Popup HTML for vector tile parcels (from Martin/PostGIS). */
+export function tileParcelPopupHtml(props: Record<string, unknown>): string {
+  const address = props.address ? escapeHtml(String(props.address)) : "Unknown address";
+  const parcelId = props.parcel_id ? escapeHtml(String(props.parcel_id)) : null;
+  const owner = props.owner ? escapeHtml(String(props.owner)) : null;
+  const areaSqft = typeof props.area_sqft === "number" ? props.area_sqft : null;
+  const assessed = typeof props.assessed_value === "number" ? props.assessed_value : null;
+  const acreage = areaSqft ? (areaSqft / 43560).toFixed(2) : null;
+
+  const rows = [
+    `<div style="font-weight:600;margin-bottom:2px;">${address}</div>`,
+    parcelId
+      ? `<div style="color:#6b7280;font-size:11px;">Parcel: ${parcelId}</div>`
+      : "",
+    owner
+      ? `<div style="font-size:11px;">Owner: ${owner}</div>`
+      : "",
+    acreage
+      ? `<div style="font-size:11px;">${acreage} acres (${areaSqft!.toLocaleString()} sqft)</div>`
+      : "",
+    assessed != null
+      ? `<div style="font-size:11px;">Assessed: $${assessed.toLocaleString()}</div>`
+      : "",
+  ].filter(Boolean);
+
+  return `<div style="font-size:13px;line-height:1.4">${rows.join("")}</div>`;
+}
+
 function getVelocityColor(score: number): string {
   if (score >= 90) return "#800026";
   if (score >= 70) return "#BD0026";
@@ -614,7 +642,7 @@ export function MapLibreParcelMap({
               id: "parcel-tiles-fill",
               type: "fill",
               source: "parcel-tiles",
-              "source-layer": "parcels",
+              "source-layer": "ebr_parcels",
               layout: {
                 visibility: showLayers && showParcelBoundaries ? "visible" : "none",
               },
@@ -628,7 +656,7 @@ export function MapLibreParcelMap({
               id: "parcel-tiles-line",
               type: "line",
               source: "parcel-tiles",
-              "source-layer": "parcels",
+              "source-layer": "ebr_parcels",
               layout: {
                 visibility: showLayers && showParcelBoundaries ? "visible" : "none",
               },
@@ -796,6 +824,25 @@ export function MapLibreParcelMap({
         map.on("click", "parcels-boundary-line", handleFeatureClick);
         map.on("click", "parcels-boundary-fill", handleFeatureClick);
         map.on("click", "parcel-points", handleFeatureClick);
+
+        // Click handler for vector tile parcels (all 560K parcels from Martin)
+        const handleTileParcelClick = (e: maplibregl.MapLayerMouseEvent) => {
+          const feature = e.features?.[0];
+          if (!feature?.properties) return;
+          // If this parcel is also in the GeoJSON layers, skip — the GeoJSON
+          // handler will fire instead (it's registered first).
+          const tileParcelId = feature.properties.id as string | undefined;
+          if (tileParcelId && parcelByIdRef.current.has(tileParcelId)) return;
+
+          popupRef.current?.remove();
+          popupRef.current = new maplibregl.Popup({ closeOnClick: true })
+            .setLngLat([e.lngLat.lng, e.lngLat.lat])
+            .setHTML(tileParcelPopupHtml(feature.properties))
+            .addTo(map);
+        };
+
+        map.on("click", "parcel-tiles-fill", handleTileParcelClick);
+
         map.on("mouseenter", "parcels-boundary-line", () => {
           map.getCanvas().style.cursor = "pointer";
         });
@@ -805,9 +852,13 @@ export function MapLibreParcelMap({
         map.on("mouseenter", "parcel-points", () => {
           map.getCanvas().style.cursor = "pointer";
         });
+        map.on("mouseenter", "parcel-tiles-fill", () => {
+          map.getCanvas().style.cursor = "pointer";
+        });
         map.on("mouseleave", "parcels-boundary-line", clearHoverCursor);
         map.on("mouseleave", "parcels-boundary-fill", clearHoverCursor);
         map.on("mouseleave", "parcel-points", clearHoverCursor);
+        map.on("mouseleave", "parcel-tiles-fill", clearHoverCursor);
 
         map.on("moveend", () => {
           fitBounds();
