@@ -60,10 +60,25 @@ export function getLocalFallbackTileUrl(): string {
 /**
  * Returns parcel vector tile URL (MVT from get_parcel_mvt).
  * Renders parcel boundaries for the full visible extent.
+ *
+ * When NEXT_PUBLIC_TILE_SERVER_URL is set (e.g. local HP Martin), fetches
+ * directly from that server. Otherwise proxies via /api/map/tiles.
  */
 export function getParcelTileUrl(): string {
+  const base = process.env.NEXT_PUBLIC_TILE_SERVER_URL?.trim();
+  if (base) {
+    return `${base.replace(/\/$/, "")}/rpc/get_parcel_mvt/{z}/{x}/{y}.pbf`;
+  }
   if (typeof window !== "undefined") {
     return `${window.location.origin}/api/map/tiles/{z}/{x}/{y}`;
   }
   return "/api/map/tiles/{z}/{x}/{y}";
+}
+
+/**
+ * Source-layer name for parcel vector tiles.
+ * get_parcel_mvt RPC returns layer "parcels"; production Martin table uses "ebr_parcels".
+ */
+export function getParcelTileSourceLayer(): string {
+  return process.env.NEXT_PUBLIC_TILE_SERVER_URL ? "parcels" : "ebr_parcels";
 }

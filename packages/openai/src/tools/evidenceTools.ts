@@ -7,7 +7,7 @@ import {
   buildEvidenceExtractObjectKey,
 } from "@entitlement-os/shared";
 import { hashBytesSha256 } from "@entitlement-os/shared/crypto";
-import { gatewayPost } from "./propertyDbTools.js";
+import { rpc } from "./propertyDbTools.js";
 
 function detectExtension(contentType: string | null, url: string): string {
   const lowerType = (contentType ?? "").toLowerCase();
@@ -24,6 +24,12 @@ function detectExtension(contentType: string | null, url: string): string {
   }
   return ".bin";
 }
+
+function normalizeAddress(value: string): string {
+  return value.replace(/[''`]/g, "").replace(/\\s+/g, " ").trim();
+}
+
+const riskOrder = { HIGH: 3, MODERATE: 2, LOW: 1 } as const;
 
 export const evidenceSnapshot = tool({
   name: "evidence_snapshot",
@@ -169,6 +175,29 @@ function classifyFloodRisk(zone: string): "HIGH" | "MODERATE" | "LOW" {
   return "LOW";
 }
 
+function toRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function selectScreenFloodZone(screenFloodResult: unknown): string | null {
+  const flood = toRecord(screenFloodResult);
+  if (!flood) return null;
+
+  const floodCode = [
+    flood.flood_zone,
+    flood.floodZone,
+    flood.zone,
+    flood.code,
+    flood.riskZone,
+  ];
+  for (const code of floodCode) {
+    if (typeof code === "string") return code;
+  }
+  return null;
+}
+
 export const floodZoneLookup = tool({
   name: "flood_zone_lookup",
   description:
@@ -182,14 +211,48 @@ export const floodZoneLookup = tool({
     lng: z.number().nullable().describe("Longitude (unused currently, address search preferred)"),
   }),
   execute: async ({ address }) => {
-    // Address search and flood screening are not yet available on the gateway.
-    // Return a helpful degraded response.
+    const normalizedAddress = address;
+    const sanitizedAddress = normalizeAddress(normalizedAddress);
+
+    const parcelResult = await rpc("api_search_parcels", {
+      search_text: sanitizedAddress,
+    });
+    const parcels = Array.isArray(parcelResult) ? parcelResult : [];
+    const matchedParcel = parcels[0];
+
+    if (!matchedParcel || typeof matchedParcel !== "object" || !("parcel_id" in matchedParcel)) {
+      return JSON.stringify({
+        address,
+        floodZone: null,
+        riskLevel: null,
+        matchedParcel: null,
+        error: "No parcel match found for this address.",
+      });
+    }
+
+    const parcel = matchedParcel as Record<string, unknown>;
+    const parcelId = typeof parcel.parcel_id === "string" ? parcel.parcel_id : null;
+    if (!parcelId) {
+      return JSON.stringify({
+        address,
+        floodZone: null,
+        riskLevel: null,
+        matchedParcel: null,
+        error: "Parcel match is missing parcel_id.",
+      });
+    }
+
+    const floodResult = await rpc("api_screen_flood", { parcel_id: parcelId });
+    const floodZone = selectScreenFloodZone(floodResult);
+    const riskLevel = floodZone ? classifyFloodRisk(floodZone) : null;
+    const riskValue = riskLevel ? riskOrder[riskLevel] : null;
+
     return JSON.stringify({
       address,
-      floodZone: null,
-      riskLevel: null,
-      matchedParcel: null,
-      error: "Flood zone lookup is not yet available. Address search and flood screening endpoints are pending on the gateway. Use get_parcel_details with a known parcel number instead.",
+      floodZone,
+      riskLevel,
+      riskValue,
+      matchedParcel: parcel,
     });
   },
 });

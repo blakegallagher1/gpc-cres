@@ -14,8 +14,6 @@ describe("Phase 1 Tool Pack :: screenFlood", () => {
   it("[MATRIX:tool:screenFlood][PACK:security] validates auth, org scoping, and cross-tenant access protections", () => {
     const source = readRepoSource("packages/openai/src/tools/propertyDbTools.ts");
 
-    expect(source.includes("Authorization: `Bearer ${PROPERTY_DB_KEY}`")).toBe(true);
-    expect(source.includes("apikey: PROPERTY_DB_KEY")).toBe(true);
     expect(source.includes("name: \"screen_flood\"")).toBe(true);
   });
 

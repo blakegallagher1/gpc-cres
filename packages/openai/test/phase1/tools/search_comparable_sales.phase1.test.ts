@@ -18,7 +18,7 @@ describe("Phase 1 Tool Pack :: search_comparable_sales", () => {
     const source = readRepoSource("packages/openai/src/tools/calculationTools.ts");
 
     expect(source.includes("replace(/[''`,.#]/g, \"\")")).toBe(true);
-    expect(source.includes("parish: parish ?? null")).toBe(true);
+    expect(source.includes("parish: parish ?")).toBe(true);
     expect(source.includes("limit_rows: 20")).toBe(true);
   });
 

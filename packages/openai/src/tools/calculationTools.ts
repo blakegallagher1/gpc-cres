@@ -6,6 +6,7 @@ import {
   calculateDepreciationSchedule,
   summarizeDevelopmentBudget,
 } from "@entitlement-os/shared";
+import { rpc as propertyRpc } from "./propertyDbTools.js";
 
 // ==================== FINANCE TOOLS ====================
 
@@ -658,11 +659,23 @@ export const search_comparable_sales = tool({
     parish: z.string().nullable().describe("Parish name to search in"),
   }),
   execute: async (params) => {
-    const { address, parish } = params;
+    const { address, proposed_use, parish } = params;
+    const normalizedAddress = address
+      .replace(/[''`,.#]/g, "")
+      .replace(/\\s+/g, " ")
+      .trim();
+    const normalizedParish = parish ? parish.trim() : null;
 
-    // Address search is not available on the gateway — return empty comparables
-    const parcels: Record<string, unknown>[] = [];
-    const comparables = parcels.map((p: Record<string, unknown>) => ({
+    const result = await propertyRpc("api_search_parcels", {
+      search_text: normalizedAddress,
+      ...(proposed_use ? { proposed_use } : {}),
+      parish: parish ? normalizedParish : null,
+      limit_rows: 20,
+    });
+
+    const parcels = Array.isArray(result) ? result : [];
+    const comparableParcels = parcels as Array<Record<string, unknown>>;
+    const comparables = comparableParcels.map((p) => ({
       address: p.site_address ?? p.address ?? "Unknown",
       acreage: p.acreage ? Number(p.acreage) : null,
       sale_price: p.sale_price ? Number(p.sale_price) : null,

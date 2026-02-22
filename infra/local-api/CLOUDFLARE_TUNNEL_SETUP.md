@@ -1,12 +1,14 @@
 # Cloudflare Tunnel Setup Guide
 
+> **For the two-tunnel setup (api + tiles), see [../cloudflared/README.md](../cloudflared/README.md).**
+
 ## Overview
 
 This guide walks through setting up a Cloudflare Tunnel to securely expose your local FastAPI server to Vercel without opening firewall ports or exposing your home IP address.
 
 **Architecture:**
 ```
-Vercel → Cloudflare Edge → Cloudflare Tunnel (cloudflared) → Local API Server :8080 → PostgreSQL/Martin
+Vercel → Cloudflare Edge → Cloudflare Tunnel (cloudflared) → Local API Server :8000 → PostgreSQL/Martin
 ```
 
 **Benefits:**

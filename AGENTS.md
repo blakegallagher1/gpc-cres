@@ -1,5 +1,5 @@
 """
-Entitlement OS Repository Guidelines (v3)
+Entitlement OS Repository Guidelines (v4)
 
 Entitlement OS is an automation-first operating system for a repeatable
 entitlement-flip business in the Baton Rouge region.
@@ -10,17 +10,16 @@ Authoritative architecture spec:
 This AGENTS.md governs Codex behavior in this repository.
 
 Design goals:
-- Preserve security invariants.
+- Act autonomously within security boundaries.
+- Infer intent and execute without unnecessary confirmation.
+- Leverage automation at every opportunity.
 - Enforce org-scoped data discipline.
-- Support controlled autonomy.
-- Eliminate legacy CAOA bootstrap behavior.
-- Maintain speed for interactive usage.
-- Enforce mutation rigor only when explicitly required.
+- Minimize round-trips with the operator.
 """
 
 # =========================================================
 
-Last reviewed: 2026-02-19
+Last reviewed: 2026-02-21
 
 # ✅ PROJECT STATUS SNAPSHOT (2026-02-19)
 # =========================================================
@@ -30,8 +29,9 @@ Current implementation status against `Entitlement_OS_Meta_Prompt.md`:
 - Phases `A` through `G` are completed and integrated.
 - Phase `H` verification gate completed: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build` all pass.
 - Security hardening pass completed across tenant isolation, org scoping, map XSS sanitization, auth consistency, and error normalization.
-- Property DB and Supabase env initialization paths now enforce fail-fast behavior for missing/placeholder credentials.
-- Supabase Pro code-side optimizations are wired (read replica/direct URL toggles, pooling params, custom-domain env support); dashboard-only actions remain operational tasks.
+- Both databases run on local PostgreSQL via Docker Compose. Application DB (`entitlement_os`, port 54323) managed by Prisma. Property DB (`cres_db`) on Windows 11 backend served via FastAPI gateway + Martin tiles.
+- Property DB spatial data migrated from Supabase to local PostGIS. Migration tooling preserved in `scripts/migrate_supabase_to_local/`.
+- Env initialization paths enforce fail-fast behavior for missing/placeholder credentials.
 - Formal compliance evidence is captured in:
   - `docs/ENTITLEMENT_OS_META_AUDIT_2026-02-17.md`
   - `ROADMAP.md` item `EOS-001`
@@ -39,139 +39,185 @@ Current implementation status against `Entitlement_OS_Meta_Prompt.md`:
 When planning follow-on work, treat A→G baseline as complete and prioritize net-new scope only.
 
 # =========================================================
-# 🚨 CAOA BOOTSTRAP DEPRECATION (CRITICAL OVERRIDE)
+# 🚨 CAOA BOOTSTRAP — DEPRECATED
 # =========================================================
 
-This repository previously required a CAOA SYNC REPORT bootstrap process.
-
-That behavior is now deprecated.
-
-Codex MUST NOT:
-
-- Emit SYNC REPORT
-- Perform decision-log scanning
-- Compute file fingerprints
-- Traverse docs/ for institutional context
-- Inspect git state by default
-- Perform repository-wide bootstrap scans
-
-UNLESS:
-
-- Explicitly instructed to prepare a formal compliance artifact
-- Running in CI audit context
-- Explicitly asked to perform CAOA compliance
-
-Profile-aware execution rules take precedence over any legacy CAOA instructions.
-
-Bootstrap is disabled in normal interactive sessions.
+Legacy CAOA SYNC REPORT bootstrap is permanently disabled.
+Do not emit sync reports, scan the repo, fingerprint files, or traverse docs/ on session start.
+Exception: explicit compliance-audit or CI-audit instructions.
 
 ---
 
 # =========================================================
-# 1️⃣ EXECUTION MODEL (PROFILE-AWARE — AUTHORITATIVE)
+# 1️⃣ EXECUTION MODEL (ACT-FIRST — AUTHORITATIVE)
 # =========================================================
 
-Codex operates in strict profile-aware mode.
+Codex operates in **act-first** mode. When the operator's intent is
+clear — implement, fix, refactor, deploy, test — proceed immediately.
+Do not ask for confirmation unless the action is destructive or ambiguous.
 
-Two execution classes exist:
+## Intent Inference Rules
 
-## A) ANALYSIS-ONLY PROFILES
-- architecture-intelligence
-- openai-frontier-intelligence
+| Operator signal | Codex action |
+|---|---|
+| "Add X" / "Implement Y" / "Fix Z" / "Update W" | Execute mutation → verify → PR → merge |
+| "What does X do?" / "Explain Y" / "Review Z" | Read-only analysis |
+| Ambiguous or high-risk (drop table, delete data, force-push) | Clarify once, then act |
+| ROADMAP item ID provided | Implement that item end-to-end |
+| Bug report or error paste | Diagnose → fix → verify → PR → merge |
+| Multiple tasks (numbered/comma-separated) | Execute sequentially through full pipeline |
 
-## B) MUTATION PROFILES
-- fast-brain
-- mid-brain
-- deep-brain
-- swarm-brain
-- validation-brain
-- or explicit instruction to modify files
+**No separate "analysis mode" or "mutation mode" gates.** Intent is inferred
+from the operator's message. If the message implies a change, make the change.
 
-Profile determines behavior.
+## Execution Constraints (always apply regardless of intent)
+- Security invariants (§5) override all other behavior.
+- Org-scoping is non-negotiable.
+- ROADMAP-first protocol gates new feature work.
+- Mandatory Verification Protocol gates every mutation before merge.
 
-Intent determines mutation.
-
-No automatic escalation.
+## Speed Discipline
+- Do not scan the entire repo unless the task requires it.
+- Do not read files speculatively — read only what the task demands.
+- Do not inspect git state unless needed for the current operation.
+- Minimize round-trips: batch related changes, chain dependent steps.
+- Default to direct answer for questions; default to direct action for tasks.
 
 ---
 
 # =========================================================
-# 2️⃣ ANALYSIS MODE (DEFAULT)
+# 2️⃣ DECISION AUTHORITY MATRIX
 # =========================================================
 
-Used when:
-- Producing strategy memos
-- Answering conceptual questions
-- Designing architecture
-- Reviewing system direction
-- Running architecture-intelligence
-- Running openai-frontier-intelligence
-- No explicit instruction to modify files
+Three tiers govern what Codex may do without asking.
 
-In ANALYSIS MODE:
+### Tier 1 — Full Autonomy (act without asking)
+- Create / switch / delete `codex/*` feature branches
+- Run lint, typecheck, test, build
+- Fix lint errors, type errors, and test failures caused by own changes
+- Stage, commit, push to `codex/*` branches
+- Create PRs against main, enable auto-merge (squash)
+- Monitor CI checks, diagnose and fix failures, re-push
+- Close stale `codex/*` PRs and delete merged `codex/*` branches
+- Select and invoke skills from `.codex/skills/` and `~/.codex/skills/`
+- Read any file needed for the current task
+- Write / edit files to implement the requested task
+- Install / upgrade dependencies when required by the task
+- Generate and run database migrations for schema changes (review SQL first)
+- Run all `pnpm` commands (install, dev, build, lint, test, typecheck, db:*)
+- Create GitHub issues to track follow-up work discovered during implementation
+- Rebase `codex/*` branches on main to resolve conflicts
+- Re-run failed CI jobs
 
-- DO NOT scan entire repository.
-- DO NOT emit SYNC REPORT.
-- DO NOT inspect git state.
-- DO NOT fingerprint files.
-- DO NOT traverse docs for bootstrap.
-- DO NOT run shell commands.
-- DO NOT attempt file writes.
-- DO NOT generate patches.
-- DO NOT run apply_patch.
-- DO NOT execute migrations.
-- DO NOT run build/test commands.
+### Tier 2 — Act then Report (do it, tell the operator afterward)
+- Refactor code adjacent to the requested change when it measurably reduces complexity
+- Add tests for untested code you modified
+- Update `ROADMAP.md` status after completing a roadmap item
+- Fix pre-existing lint / type errors in files you touched
+- Optimize queries or remove dead code in files you touched
+- Create a GitHub issue for a bug or tech debt item discovered during work
 
-Allowed:
-- Read specific files if directly relevant.
-- Structured analysis.
-- Capability audits.
-- Strategic recommendations.
-- Risk modeling.
-- Roadmap synthesis.
-
-Default behavior is lightweight and direct.
-
-Speed is prioritized.
+### Tier 3 — Clarify First (ask before acting)
+- Any operation on `main` branch directly (force-push, reset, rebase)
+- Dropping database tables or columns with existing data
+- Deleting files not created in the current session
+- Changing security invariants, auth middleware, or org-scoping logic
+- Modifying branch protection rules or GitHub Actions secrets
+- Any destructive or irreversible action not covered by Tier 1 or Tier 2
 
 ---
 
 # =========================================================
-# 3️⃣ MUTATION MODE (EXPLICIT ONLY)
+# 3️⃣ AUTOMATION LEVERAGE PATTERNS
 # =========================================================
 
-Triggered only when:
+These patterns are standing orders. Use them proactively,
+not only when explicitly asked.
 
-- Explicit instruction to modify files
-- Explicit instruction to implement changes
-- Using mutation profiles (fast/mid/deep/swarm/validation)
-- CI codex-autofix or codex-review context
+## A) End-to-End Mutation Pipeline
 
-In MUTATION MODE:
+When the task is clear, execute the full pipeline in one shot:
 
-Codex MUST:
+1. Implement the change
+2. Run verification (lint → typecheck → test → build)
+3. Self-repair any failures from step 2
+4. Diff review
+5. Branch → commit → push → PR → auto-merge → monitor → confirm merge
 
-- Follow security invariants.
-- Enforce org_id scoping.
-- Maintain Supabase auth checks.
-- Preserve citation completeness.
-- Preserve evidence hashing determinism.
-- Maintain idempotency.
-- Keep changes minimal and focused.
-- Avoid unrelated refactors.
-- Never weaken Zod validation.
-- Never weaken schema enforcement.
-- Never weaken security boundaries.
+Do NOT pause between steps to ask the operator. The pipeline runs
+autonomously until either (a) all checks pass and PR merges, or
+(b) a Tier 3 decision requires clarification.
 
-Only in MUTATION MODE may Codex:
+## B) Self-Healing Loop
 
-- Write files
-- Apply patches
-- Run migration commands
-- Suggest schema changes
-- Execute Golden Path checklists
+When verification or CI fails:
 
-Mutation must be explicit and controlled.
+1. Read the error output.
+2. Identify root cause.
+3. Fix the code.
+4. Re-run the failing step.
+5. Repeat up to 3 cycles per step.
+6. If still failing after 3 attempts, report the exact error with diagnosis.
+
+Never report a failure without attempting to fix it first.
+
+## C) Batch Operations
+
+When a task touches multiple files or components:
+
+- Identify all affected files upfront.
+- Apply changes in a single coherent pass.
+- Run verification once at the end, not per-file.
+- Commit as a single atomic unit unless changes are logically separable.
+
+## D) Proactive Skill Selection
+
+When a task matches an available skill in `.codex/skills/` or `~/.codex/skills/`:
+
+- Load and follow the skill automatically.
+- Do not ask "should I use the X skill?" — just use it.
+- If multiple skills apply, compose them.
+
+## E) CI Failure Auto-Fix
+
+When CI checks fail on a `codex/*` PR:
+
+1. Pull failure logs via `gh run view <id> --log-failed`.
+2. Diagnose the failure.
+3. Push a fix to the same branch.
+4. Continue monitoring until green or 3 fix cycles exhausted.
+
+This loop runs autonomously — do not ask the operator to check CI.
+
+## F) Chained Task Execution
+
+When the operator provides multiple tasks:
+
+- Execute them sequentially, each through the full pipeline.
+- Carry context forward — later tasks may depend on earlier ones.
+- Commit each task separately if logically independent.
+- Report aggregate results at the end, not after each individual task.
+
+## G) Proactive Issue Creation
+
+When you discover a bug, tech debt, or missing test coverage while working:
+
+- Fix it if it falls within Tier 1 or Tier 2.
+- If out of scope for the current task, create a GitHub issue with:
+  - Clear title and reproduction steps
+  - Severity estimate
+  - Suggested fix approach
+- Link the issue in your PR description under a "Discovered Issues" section.
+
+## H) Context Bootstrapping
+
+At session start for a mutation task:
+
+1. Read only the files directly relevant to the task.
+2. If the task references a ROADMAP item, read `ROADMAP.md` for that item only.
+3. If the task touches an area with a matching skill, load that skill.
+4. Do not pre-read docs/, do not scan the repo, do not inspect git history.
+5. Begin implementation immediately after reading necessary context.
 
 ---
 
@@ -188,10 +234,41 @@ pnpm workspaces monorepo:
 - packages/openai/ — Responses API wrapper (strict JSON schema)
 - packages/evidence/ — evidence fetch/hash/extract
 - packages/artifacts/ — PPTX/PDF generators
-- infra/docker/ — local dev infra
+- infra/docker/ — Docker Compose: application PostgreSQL (port 54323) + Temporal stack
+- scripts/migrate_supabase_to_local/ — Supabase → local PostGIS migration tooling
 - legacy/python/ — deprecated reference only
 
 Never modify legacy/python unless explicitly instructed.
+
+---
+
+# =========================================================
+# 4½ DATABASE ARCHITECTURE (LOCAL — AUTHORITATIVE)
+# =========================================================
+
+Both databases are self-hosted PostgreSQL. No managed database services.
+
+## Application Database (`entitlement_os`)
+- **Engine:** pgvector/pgvector:pg16 (Docker Compose, `infra/docker/docker-compose.yml`)
+- **Port:** 54323 (host) → 5432 (container)
+- **ORM:** Prisma — schema at `packages/db/prisma/schema.prisma`
+- **Env:** `DATABASE_URL`, `DIRECT_DATABASE_URL`
+- **Contents:** 18 Prisma models — Org, User, Deal, Parcel, Task, Artifact, Buyer, Conversation, etc.
+- **Migrations:** Prisma Migrate (`pnpm db:migrate`)
+- **Extensions:** pgvector (for future embedding search)
+
+## Property Database (`cres_db`)
+- **Engine:** PostGIS 16-3.4 (Docker Compose on Windows 11 backend)
+- **Port:** 5432 on backend host
+- **Access:** FastAPI gateway (`api.gallagherpropco.com`) + Martin tiles (`tiles.gallagherpropco.com`) via Cloudflare Tunnel
+- **Contents:** 560K parcels (5 parishes), EPA facilities, FEMA flood zones, soils, wetlands, traffic counts, LDEQ permits
+- **Extensions:** PostGIS, materialized views (`mv_parcel_intelligence`), RPC functions (`get_parcel_mvt`)
+- **Auth:** Bearer token (`GATEWAY_API_KEY`) for all gateway endpoints
+
+## Connection Rules
+- Application code (Next.js API routes, Prisma) connects to application DB via `DATABASE_URL`.
+- Property lookups route through the FastAPI gateway via `LOCAL_API_URL` + `LOCAL_API_KEY` — never direct DB connections from Vercel.
+- Both DBs are backed up independently. Application DB via Prisma seed + migrations. Property DB via the migration script in `scripts/migrate_supabase_to_local/`.
 
 ---
 
@@ -202,23 +279,24 @@ Never modify legacy/python unless explicitly instructed.
 All DB rows are scoped by org_id.
 
 Every API route must:
-1. Authenticate Supabase session.
+1. Authenticate the user session.
 2. Confirm org membership.
 3. Scope all queries by org_id.
 
-Supabase Storage:
+File storage:
 - Private buckets only.
 - Access via signed URLs only.
 
 Secrets:
 - Never committed.
 - Server-side only.
-- Never expose service role keys to client.
+- Never expose database credentials or API keys to client.
 
 OpenAI API key:
 - Server-only usage.
 
 Violation of these rules is not allowed.
+These invariants are Tier 3 — changes require explicit operator approval.
 
 ---
 
@@ -274,12 +352,38 @@ Durable execution must not introduce silent drift.
 ---
 
 # =========================================================
-# 9️⃣ DEVELOPMENT COMMANDS
+# 9️⃣ DEVELOPMENT COMMANDS & ROADMAP PROTOCOL
 # =========================================================
 
 Run from repo root:
 
----
+- pnpm install
+- pnpm dev
+- pnpm build
+- pnpm lint
+- pnpm typecheck
+- pnpm test
+
+Database (local PostgreSQL):
+
+- pnpm db:migrate
+- pnpm db:deploy
+- pnpm db:seed
+- Application DB: `entitlement_os` on port 54323 (`infra/docker/docker-compose.yml`)
+- Property DB: `cres_db` on Windows 11 backend (`C:\gpc-cres-backend\docker-compose.yml`)
+- `DATABASE_URL` must point to local application PostgreSQL
+- `DIRECT_DATABASE_URL` for Prisma migrations (bypasses connection pooler if used)
+
+Local infra:
+
+- docker compose -f infra/docker/docker-compose.yml up -d
+- Starts application PostgreSQL (pgvector/pgvector:pg16) + Temporal + Temporal UI
+
+Temporal UI:
+
+- http://localhost:8080
+
+Never run destructive commands without explicit instruction (Tier 3).
 
 ## ROADMAP-FIRST IMPLEMENTATION PROTOCOL (MANDATORY)
 
@@ -297,30 +401,7 @@ Before any implementation work in this repository:
 4. If an item is speculative or low-value, mark it as `Deferred` with explicit reason and revisit later; do not implement it silently.
 5. When you finish an item, mark it `Done` in `ROADMAP.md` with evidence references (tests, logs, migration IDs, files touched).
 
-Both Codex and CLAUDE sessions should treat `ROADMAP.md` as the planning gate and avoid implementation drift.
-
-- pnpm install
-- pnpm dev
-- pnpm build
-- pnpm lint
-- pnpm typecheck
-- pnpm test
-
-Database:
-
-- pnpm db:migrate
-- pnpm db:deploy
-- pnpm db:seed
-
-Local infra:
-
-- docker compose -f infra/docker/docker-compose.yml up -d
-
-Temporal UI:
-
-- http://localhost:8080
-
-Never run destructive commands without explicit instruction.
+Both Codex and CLAUDE sessions treat `ROADMAP.md` as the planning gate.
 
 ---
 
@@ -344,60 +425,10 @@ Required coverage areas:
 
 Integration tests must not auto-run unless explicitly invoked.
 
-Never run tests during Analysis Mode.
-
 ---
 
 # =========================================================
-# 11️⃣ PERFORMANCE RULES
-# =========================================================
-
-- Do not scan entire repo unless necessary.
-- Do not bootstrap repository.
-- Do not emit SYNC REPORT.
-- Do not fingerprint files.
-- Do not inspect git unless required.
-- Keep IO minimal.
-- Respect profile-aware behavior.
-- Default to direct answer.
-
-Speed matters in analysis sessions.
-
----
-
-# =========================================================
-# 12️⃣ LEGACY PYTHON
-# =========================================================
-
-legacy/python/ is preserved for reference only.
-
-Do not delete.
-Do not refactor.
-Do not migrate unless explicitly requested.
-
----
-
-# =========================================================
-# ✅ DEFAULT BEHAVIOR SUMMARY
-# =========================================================
-
-If uncertain:
-
-- Assume ANALYSIS MODE.
-- Do not mutate files.
-- Do not bootstrap.
-- Do not emit SYNC REPORT.
-- Do not scan entire repo.
-- Provide concise, direct output.
-
-Mutation requires explicit instruction.
-
-Security and org scoping always override convenience.
-
----
-
-# =========================================================
-# 13 TEST COVERAGE MANDATE
+# 11 TEST COVERAGE MANDATE
 # =========================================================
 
 When modifying any API route handler or automation loop:
@@ -421,7 +452,7 @@ When modifying any API route handler or automation loop:
 ---
 
 # =========================================================
-# 14 ERROR HANDLING PATTERN
+# 12 ERROR HANDLING PATTERN
 # =========================================================
 
 All error handling in Entitlement OS follows a consistent pattern:
@@ -431,7 +462,6 @@ All error handling in Entitlement OS follows a consistent pattern:
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 
-// Wrap handler logic in try/catch
 try {
   const validated = InputSchema.parse(body);
   // ... logic
@@ -462,7 +492,7 @@ try {
 ---
 
 # =========================================================
-# 15 MIGRATION SAFETY RULES
+# 13 MIGRATION SAFETY RULES
 # =========================================================
 
 Database migrations (Prisma) must follow these safety rules:
@@ -506,7 +536,7 @@ pnpm typecheck
 # MANDATORY VERIFICATION PROTOCOL (MVP)
 # =========================================================
 
-Every MUTATION MODE task MUST complete the following verification
+Every mutation task MUST complete the following verification
 gate BEFORE reporting success or moving to the next task.
 
 ## Verification Sequence (run in order)
@@ -528,12 +558,10 @@ gate BEFORE reporting success or moving to the next task.
 
 4. **Build** — `pnpm build`
    - Full monorepo build must succeed.
-   - If build fails on missing env vars (e.g., Supabase keys),
+   - If build fails on missing env vars (e.g., database URL),
      provide stub env vars for the build step only:
      ```
-     NEXT_PUBLIC_SUPABASE_URL=https://placeholder.supabase.co \
-     NEXT_PUBLIC_SUPABASE_ANON_KEY=placeholder \
-     SUPABASE_SERVICE_ROLE_KEY=placeholder \
+     DATABASE_URL=postgresql://postgres:postgres@localhost:54323/entitlement_os \
      OPENAI_API_KEY=placeholder \
      pnpm build
      ```
@@ -549,16 +577,16 @@ gate BEFORE reporting success or moving to the next task.
 
 ## Failure Protocol
 
-- If ANY step fails due to your changes: FIX IT before moving on.
+- If ANY step fails due to your changes: enter the Self-Healing Loop (§3B).
 - Do NOT skip verification steps.
 - Do NOT report success until all 5 steps pass.
-- If you cannot fix a failure, STOP and report the exact error
-  to the user with your diagnosis.
+- If you cannot fix a failure after 3 attempts, STOP and report the exact error
+  to the operator with your diagnosis.
 
-## Commit Gate (AUTO-EXECUTE VIA PR — FULL AUTONOMY)
+## Commit Gate (AUTO-EXECUTE — FULL AUTONOMY)
 
 Once all 5 verification steps pass, AUTOMATICALLY execute the
-full pipeline below — do NOT stop and wait for user confirmation
+full pipeline below. Do NOT stop and wait for operator confirmation
 at ANY step. The task is NOT complete until the PR is merged to main.
 
 ### Step 1: Branch + Commit + Push
@@ -574,23 +602,21 @@ at ANY step. The task is NOT complete until the PR is merged to main.
    `gh pr create --title "<imperative summary>" --body "<what changed and why>"`
 6. Immediately enable auto-merge (squash) on the PR:
    `gh pr merge --auto --squash`
-   This ensures the PR merges automatically once all required checks pass.
 
 ### Step 3: Monitor Checks Until Resolution
-7. Poll check status every 30–60 seconds until all checks complete:
+7. Poll check status until all checks complete:
    `gh pr checks --watch`
-   Or manually: `gh pr checks` in a loop.
-8. If ALL checks pass → auto-merge will fire. Confirm merge completed:
+8. If ALL checks pass → auto-merge fires. Confirm merge completed:
    `gh pr view --json state,mergeCommit`
-   Report the merge commit hash and confirm main is updated.
+   Report the merge commit hash.
 9. If ANY check fails:
    a. Read the failing check logs: `gh run view <run-id> --log-failed`
    b. Diagnose and fix the failure on the same branch.
-   c. Re-run verification (lint, typecheck, test, build) locally.
-   d. Commit the fix, push to the same branch (the PR updates automatically).
-   e. Return to step 7 — monitor checks again.
-   f. Repeat until all checks pass and PR merges.
-10. After merge, clean up the remote branch:
+   c. Re-run verification locally.
+   d. Commit the fix, push to the same branch.
+   e. Return to step 7.
+   f. Repeat until all checks pass and PR merges (max 3 fix cycles).
+10. After merge, clean up:
     `git push origin --delete codex/<branch-name>`
     `git checkout main && git pull origin main`
 
@@ -600,7 +626,7 @@ The task is DONE only when:
 - You have reported: PR URL, merge commit hash, files included
 
 Do NOT report success after just creating the PR.
-Do NOT stop and ask the user to check on CI.
+Do NOT stop and ask the operator to check on CI.
 Do NOT leave a PR open and unmonitored.
 The full cycle — commit → PR → checks pass → merge — is YOUR responsibility.
 
@@ -613,8 +639,6 @@ This protocol applies to ALL mutation work including but not limited to:
 - Migration tasks (CSS, DB, API, etc.)
 - Refactors
 - Config changes that affect build output
-
-Analysis-only tasks are exempt.
 
 ---
 
@@ -685,7 +709,21 @@ Codex may use ANY `gh` subcommand without asking for permission.
 
 ---
 
-# 16 PROD MAP / PARCEL OPERATIONS ADDENDUM (2026-02-19)
+# =========================================================
+# 14 LEGACY PYTHON
+# =========================================================
+
+legacy/python/ is preserved for reference only.
+
+Do not delete.
+Do not refactor.
+Do not migrate unless explicitly requested.
+
+---
+
+# =========================================================
+# 15 PROD MAP / PARCEL OPERATIONS ADDENDUM (2026-02-19)
+# =========================================================
 
 - For map and prospecting incidents, treat these as first-line smoke checks:
   - `GET /api/parcels?hasCoords=true`
@@ -707,3 +745,27 @@ Codex may use ANY `gh` subcommand without asking for permission.
   - `vercel --prod --yes --archive=tgz`
 - When PR automation is required, use standard PR flow from a fresh execution context if prior context blocks `gh pr create` policy checks.
 - Keep `main` as source of truth; after merge, sync local main and remove temporary branches.
+
+---
+
+# =========================================================
+# ✅ DEFAULT BEHAVIOR SUMMARY
+# =========================================================
+
+If uncertain about **intent**:
+- Task implies a change → act on the most likely interpretation, note assumptions in PR.
+- Pure question with no implementation ask → read-only analysis.
+- Genuinely ambiguous → clarify once, then act.
+
+If uncertain about **scope**:
+- Keep changes minimal and focused.
+- Fix adjacent issues in files you touched (Tier 2).
+- Create GitHub issues for out-of-scope problems you discover (Tier 2).
+
+**Standing priorities (in order):**
+1. Security and org-scoping (never compromised)
+2. Correctness (verification protocol must pass)
+3. Autonomy (minimize operator round-trips)
+4. Speed (batch work, chain steps, avoid speculative reads)
+
+The goal is: operator states intent once → Codex delivers a merged PR.

@@ -5,7 +5,7 @@ import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 import { useParcelGeometry, type ViewportBounds } from "./useParcelGeometry";
-import { getStreetTileUrls, getSatelliteTileUrl, getParcelTileUrl } from "./tileUrls";
+import { getStreetTileUrls, getSatelliteTileUrl, getParcelTileUrl, getParcelTileSourceLayer } from "./tileUrls";
 import {
   STATUS_COLORS,
   DEFAULT_STATUS_COLOR,
@@ -642,7 +642,7 @@ export function MapLibreParcelMap({
               id: "parcel-tiles-fill",
               type: "fill",
               source: "parcel-tiles",
-              "source-layer": "ebr_parcels",
+              "source-layer": getParcelTileSourceLayer(),
               layout: {
                 visibility: showLayers && showParcelBoundaries ? "visible" : "none",
               },
@@ -656,7 +656,7 @@ export function MapLibreParcelMap({
               id: "parcel-tiles-line",
               type: "line",
               source: "parcel-tiles",
-              "source-layer": "ebr_parcels",
+              "source-layer": getParcelTileSourceLayer(),
               layout: {
                 visibility: showLayers && showParcelBoundaries ? "visible" : "none",
               },

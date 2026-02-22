@@ -52,6 +52,10 @@ function delayMs(valueMs: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, valueMs));
 }
 
+function sanitizeAddress(value: string): string {
+  return value.replace(/[''`]/g, "").replace(/\\s+/g, " ").trim();
+}
+
 /** Call a gateway POST endpoint and return the JSON body. */
 export async function gatewayPost(path: string, body: Record<string, unknown>): Promise<unknown> {
   const GATEWAY_URL = getGatewayUrl();
@@ -110,7 +114,8 @@ export async function rpc(fnName: string, body: Record<string, unknown>): Promis
     case "api_get_parcel":
       return gatewayPost("/tools/parcel.lookup", body);
     case "api_search_parcels": {
-      const searchText = (body.search_text ?? body.p_search_text ?? "") as string;
+      const rawSearchText = (body.search_text ?? body.p_search_text ?? "") as string;
+      const searchText = sanitizeAddress(rawSearchText);
       if (!searchText) return { error: "No search text provided for api_search_parcels." };
       const geo = await geocodeAddress(searchText + ", Louisiana");
       if (!geo) return { error: "Could not geocode address. Ensure GOOGLE_MAPS_API_KEY is set." };
@@ -118,7 +123,10 @@ export async function rpc(fnName: string, body: Record<string, unknown>): Promis
       return gatewayPost("/tools/parcel.bbox", {
         west: geo.lng - OFFSET, south: geo.lat - OFFSET,
         east: geo.lng + OFFSET, north: geo.lat + OFFSET,
-        limit: (body.limit_rows ?? body.p_limit_rows ?? 10) as number,
+        ...(body.parish ? { parish: body.parish } : {}),
+        ...(body.limit_rows ? { limit: body.limit_rows } : {}),
+        ...(body.p_limit_rows ? { limit: body.p_limit_rows } : {}),
+        ...(body.limit ? { limit: body.limit } : {}),
       });
     }
     case "api_screen_flood":
@@ -221,41 +229,20 @@ export const searchParcels = tool({
       .nullable()
       .describe("Max parcels to return (default 10)"),
   }),
-  execute: async ({ search_text, parish, limit_rows }) => {
-    // Build geocoding query — append parish/state for accuracy
-    let query = search_text;
-    if (parish) {
-      query += `, ${parish} Parish`;
-    }
-    if (!/louisiana|LA\b/i.test(query)) {
-      query += ", Louisiana";
-    }
+  execute: async ({
+    search_text: rawSearchText,
+    parish: rawParish,
+    limit_rows,
+  }) => {
+    const search_text = sanitizeAddress(rawSearchText);
+    const parish = rawParish ? sanitizeAddress(rawParish) : null;
 
-    const geo = await geocodeAddress(query);
-    if (!geo) {
-      return JSON.stringify({
-        error: "Could not geocode the address. Make sure GOOGLE_MAPS_API_KEY is set, or use get_parcel_details with a known parcel number (e.g. '001-5096-7').",
-        search_text,
-      });
-    }
-
-    // Create a ~500m bbox around the geocoded point
-    const OFFSET = 0.005; // ~500m at Louisiana latitudes
-    const bbox = {
-      west: geo.lng - OFFSET,
-      south: geo.lat - OFFSET,
-      east: geo.lng + OFFSET,
-      north: geo.lat + OFFSET,
-      limit: limit_rows ?? 10,
-    };
-
-    const result = await gatewayPost("/tools/parcel.bbox", bbox);
-
-    return JSON.stringify({
-      geocoded_location: geo,
-      search_text,
-      ...(typeof result === "object" && result !== null ? result as Record<string, unknown> : { data: result }),
+    const result = await rpc("api_search_parcels", {
+      search_text: search_text + (parish ? `, ${parish}` : ""),
+      ...(parish ? { parish } : {}),
+      ...(limit_rows ? { limit_rows } : {}),
     });
+    return JSON.stringify(result);
   },
 });
 
@@ -272,7 +259,7 @@ export const getParcelDetails = tool({
       .describe("The parcel number (e.g. '001-5096-7')"),
   }),
   execute: async ({ parcel_id }) => {
-    const result = await gatewayPost("/tools/parcel.lookup", { parcel_id });
+    const result = await rpc("api_get_parcel", { parcel_id });
     return JSON.stringify(result);
   },
 });
@@ -289,8 +276,9 @@ export const screenFlood = tool({
       .string()
       .describe("The parcel number"),
   }),
-  execute: async () => {
-    return JSON.stringify({ error: "Flood zone screening is not yet available on the gateway." });
+  execute: async ({ parcel_id }) => {
+    const result = await rpc("api_screen_flood", { parcel_id });
+    return JSON.stringify(result);
   },
 });
 
@@ -306,8 +294,9 @@ export const screenSoils = tool({
       .string()
       .describe("The parcel number"),
   }),
-  execute: async () => {
-    return JSON.stringify({ error: "Soils screening is not yet available on the gateway." });
+  execute: async ({ parcel_id }) => {
+    const result = await rpc("api_screen_soils", { parcel_id });
+    return JSON.stringify(result);
   },
 });
 
@@ -323,8 +312,9 @@ export const screenWetlands = tool({
       .string()
       .describe("The parcel number"),
   }),
-  execute: async () => {
-    return JSON.stringify({ error: "Wetlands screening is not yet available on the gateway." });
+  execute: async ({ parcel_id }) => {
+    const result = await rpc("api_screen_wetlands", { parcel_id });
+    return JSON.stringify(result);
   },
 });
 
@@ -344,8 +334,12 @@ export const screenEpa = tool({
       .nullable()
       .describe("Search radius in miles (default 1.0)"),
   }),
-  execute: async () => {
-    return JSON.stringify({ error: "EPA screening is not yet available on the gateway." });
+  execute: async ({ parcel_id, radius_miles }) => {
+    const result = await rpc("api_screen_epa", {
+      parcel_id,
+      ...(radius_miles ? { radius_miles } : {}),
+    });
+    return JSON.stringify(result);
   },
 });
 
@@ -365,8 +359,12 @@ export const screenTraffic = tool({
       .nullable()
       .describe("Search radius in miles (default 0.5)"),
   }),
-  execute: async () => {
-    return JSON.stringify({ error: "Traffic screening is not yet available on the gateway." });
+  execute: async ({ parcel_id, radius_miles }) => {
+    const result = await rpc("api_screen_traffic", {
+      parcel_id,
+      ...(radius_miles ? { radius_miles } : {}),
+    });
+    return JSON.stringify(result);
   },
 });
 
@@ -386,8 +384,12 @@ export const screenLdeq = tool({
       .nullable()
       .describe("Search radius in miles (default 1.0)"),
   }),
-  execute: async () => {
-    return JSON.stringify({ error: "LDEQ screening is not yet available on the gateway." });
+  execute: async ({ parcel_id, radius_miles }) => {
+    const result = await rpc("api_screen_ldeq", {
+      parcel_id,
+      ...(radius_miles ? { radius_miles } : {}),
+    });
+    return JSON.stringify(result);
   },
 });
 
@@ -403,7 +405,8 @@ export const screenFull = tool({
       .string()
       .describe("The parcel number"),
   }),
-  execute: async () => {
-    return JSON.stringify({ error: "Full site screening is not yet available on the gateway." });
+  execute: async ({ parcel_id }) => {
+    const result = await rpc("api_screen_full", { parcel_id });
+    return JSON.stringify(result);
   },
 });

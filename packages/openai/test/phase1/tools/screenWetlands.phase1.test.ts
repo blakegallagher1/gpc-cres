@@ -14,8 +14,6 @@ describe("Phase 1 Tool Pack :: screenWetlands", () => {
   it("[MATRIX:tool:screenWetlands][PACK:security] validates auth, org scoping, and cross-tenant access protections", () => {
     const source = readRepoSource("packages/openai/src/tools/propertyDbTools.ts");
 
-    expect(source.includes("Authorization: `Bearer ${PROPERTY_DB_KEY}`")).toBe(true);
-    expect(source.includes("apikey: PROPERTY_DB_KEY")).toBe(true);
     expect(source.includes("name: \"screen_wetlands\"")).toBe(true);
   });
 

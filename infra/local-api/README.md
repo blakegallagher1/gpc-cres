@@ -25,7 +25,7 @@ curl -H "Authorization: Bearer $GATEWAY_API_KEY" \
 
 **Reference docs:**
 - [DEPLOYMENT.md](./DEPLOYMENT.md) - Legacy deployment guide (bare-metal, outdated)
-- [CLOUDFLARE_TUNNEL_SETUP.md](./CLOUDFLARE_TUNNEL_SETUP.md) - Tunnel configuration reference
+- [../cloudflared/README.md](../cloudflared/README.md) - Two-tunnel setup (api + tiles)
 - `PHASE_3_DEPLOYMENT_BLOCKERS.md` (repo root) - Deployment verification evidence
 
 ---
@@ -65,12 +65,13 @@ Docker Compose (Windows 11, 12-core i7)
 infra/local-api/
 ├── README.md                      # This file
 ├── DEPLOYMENT.md                  # Complete deployment guide
-├── CLOUDFLARE_TUNNEL_SETUP.md     # Tunnel configuration
-├── main.py                        # FastAPI server (461 lines)
+├── main.py                        # FastAPI server
 ├── requirements.txt               # Python dependencies
 ├── .env.example                   # Environment template
-└── .env                          # Actual config (git-ignored)
+└── .env                           # Actual config (git-ignored)
 ```
+
+Tunnel config: `infra/cloudflared/` (templates + README)
 
 ---
 
@@ -80,6 +81,7 @@ infra/local-api/
 - `GET /health` - Health check (database + Martin status)
 
 ### Authenticated (Bearer Token):
+- `GET /deals?org_id=...` - List deals (org-scoped, supports status/sku/search filters)
 - `GET /tiles/{z}/{x}/{y}.pbf` - Vector tiles (proxied to Martin)
 - `GET /api/parcels/search?q=...&parish=...&limit=25` - Search parcels
 - `GET /api/parcels/{id}` - Get parcel details
@@ -89,7 +91,7 @@ infra/local-api/
 - `POST /api/query` - Dynamic SQL execution (for agents)
 - `GET /api/stats` - Database statistics
 
-**Interactive docs:** [http://localhost:8080/docs](http://localhost:8080/docs) (when running locally)
+**Interactive docs:** [http://localhost:8000/docs](http://localhost:8000/docs) (when running locally)
 
 ---
 
@@ -191,8 +193,8 @@ psql postgresql://postgres:Nola0528!@localhost:5432/cres_db -c "SELECT version()
 # Check Martin
 curl http://localhost:3000/health
 
-# Check port 8080 availability
-lsof -i :8080
+# Check port 8000 availability
+lsof -i :8000
 ```
 
 ### 401 Unauthorized:
@@ -218,9 +220,9 @@ psql postgresql://postgres:Nola0528!@localhost:5432/cres_db \
 | File | Purpose |
 |------|---------|
 | [DEPLOYMENT.md](./DEPLOYMENT.md) | Step-by-step deployment (5 minutes) |
-| [CLOUDFLARE_TUNNEL_SETUP.md](./CLOUDFLARE_TUNNEL_SETUP.md) | Tunnel configuration + systemd/launchd setup |
+| [../cloudflared/README.md](../cloudflared/README.md) | Two-tunnel setup (api + tiles) |
 | `.env.example` | Environment variable template |
-| [http://localhost:8080/docs](http://localhost:8080/docs) | Interactive API docs (OpenAPI) |
+| [http://localhost:8000/docs](http://localhost:8000/docs) | Interactive API docs (OpenAPI) |
 
 ---
 
@@ -239,7 +241,7 @@ psql postgresql://postgres:Nola0528!@localhost:5432/cres_db \
 ## Next Steps
 
 1. **Deploy:** Follow [DEPLOYMENT.md](./DEPLOYMENT.md)
-2. **Configure Tunnel:** Follow [CLOUDFLARE_TUNNEL_SETUP.md](./CLOUDFLARE_TUNNEL_SETUP.md)
+2. **Configure Tunnel:** Follow [../cloudflared/README.md](../cloudflared/README.md)
 3. **Update Vercel:** Set `LOCAL_API_URL` and `LOCAL_API_KEY` env vars
 4. **Update Next.js:** Proxy API routes to local server
 5. **Test:** Visit `https://gallagherpropco.com/maps`
@@ -248,7 +250,7 @@ psql postgresql://postgres:Nola0528!@localhost:5432/cres_db \
 
 ## Support
 
-- **API Docs:** http://localhost:8080/docs
+- **API Docs:** http://localhost:8000/docs
 - **FastAPI:** https://fastapi.tiangolo.com
 - **Cloudflare Tunnel:** https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/
 - **PostgreSQL:** See `infra/LOCAL_DB_SETUP_GUIDE.md`

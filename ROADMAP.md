@@ -1,6 +1,6 @@
 # Entitlement OS — Master Implementation Roadmap
 
-Last reviewed: 2026-02-20
+Last reviewed: 2026-02-22
 
 
 ## Governance
@@ -1432,7 +1432,220 @@ The following items were identified by analyzing 6 OpenAI GitHub repositories (`
   - `apps/web/components/self-healing/ToolHealthDashboard.tsx`
   - `apps/web/app/automation/page.tsx`
 
----
+## Automation Reliability Enhancements
+
+### AUT-001 — Unified Cron Execution Contract
+
+- **Priority:** P0
+- **Status:** Planned
+- **Scope:** Automation reliability + operations
+- **Problem:** Cron handlers currently duplicate auth/run setup and implement inconsistent persistence, monitoring, and error behavior across endpoints.
+- **Expected Outcome (measurable):**
+  - All cron routes validate a single shared `X-Cron-Secret` pattern and create/update a canonical run row in one path.
+  - Cron handlers return a standardized result envelope with status, timing, and item counts.
+  - Existing inconsistent cron behaviors (`401/500` differences, missing run row, missing summary output) are eliminated.
+- **Evidence:** Route audit found duplicated auth helpers in multiple handlers and mixed run lifecycle handling between `change-detection`, `parish-pack-refresh`, `deadline-monitor`, `opportunity-scan`, `entitlement-precedent-backfill`, and `source-ingestion`.
+- **Alignment:** Preserves current org-scoping and auth middleware expectations while reducing operational variance.
+- **Risk/rollback:** Low; wrapper changes are additive and can be rolled back by re-running handlers in a legacy compatibility mode.
+- **Acceptance Criteria / Tests:**
+  - Add shared cron runtime helper (auth, run create/update, metrics envelope).
+  - Replace per-route bespoke auth/run boilerplate with helper.
+  - Update all existing cron routes to use the common helper.
+  - Add/extend route tests for standardized 401/400/200 responses and run status persistence.
+- **Files (target):**
+  - `apps/web/lib/automation/cron.ts` (new shared helper)
+  - `apps/web/app/api/cron/*/route.ts`
+  - `apps/web/app/api/automation/events/route.ts` (if run summary exposure is needed)
+  - `apps/web/app/api/cron/source-ingestion/route.test.ts`
+  - New tests per cron route (`apps/web/app/api/cron/*/route.test.ts`)
+
+### AUT-002 — Cron Schedule Registry and Drift Validation
+
+- **Priority:** P0
+- **Status:** Planned
+- **Scope:** Deployment safety + runtime correctness
+- **Problem:** The scheduled surface and actual cron handlers are out of sync (`deadline-check` and `market-monitor` are present as handlers but not registered in `vercel.json`), creating ambiguity about execution expectations.
+- **Expected Outcome (measurable):**
+  - Single source of truth for `slug + cron` definitions used for operational validation.
+  - CI or preflight fails if a registered schedule has no route, or a route exists without an explicit schedule reason.
+  - A deterministic report identifies active, deprecated, or intentionally-disabled cron handlers.
+- **Evidence:** Audit shows `vercel.json` schedules 6 routes but repo contains additional cron route handlers not in the active schedule set.
+- **Alignment:** Does not alter execution semantics; only enforces explicit scheduling contracts.
+- **Risk/rollback:** Low. Rollback by removing schedule metadata for an intentionally paused job and updating audit note.
+- **Acceptance Criteria / Tests:**
+  - Add `apps/web/lib/automation/cronScheduleRegistry.ts` with explicit schedule metadata.
+  - Add validation command in CI (or preflight script) to detect missing/orphan cron handlers.
+  - Document explicit reason for intentionally unscheduled handlers if retained.
+- **Files (target):**
+  - `apps/web/vercel.json`
+  - `apps/web/lib/automation/cronScheduleRegistry.ts` (new)
+  - `scripts/automation/validate-cron-surface.mjs` (new)
+  - `.github/workflows/ci.yml`
+
+### AUT-003 — Route Cron Jobs to Temporal for Heavy Automation
+
+- **Priority:** P0
+- **Status:** Planned
+- **Scope:** Scalability + replay safety + retry discipline
+- **Problem:** Heavy cron logic in web routes duplicates existing workflow behavior (`changeDetection`, `parishPackRefresh`) and bypasses Temporal orchestration strengths.
+- **Expected Outcome (measurable):**
+  - Cron routes become thin dispatchers that trigger Temporal workflows, not inline long-running task processors.
+  - Retry/replay semantics, concurrency limits, and workflow-level idempotency are centralized.
+- **Evidence:** Matching workflow files exist in `apps/worker/src/workflows/changeDetection.ts` and `apps/worker/src/workflows/parishPackRefresh.ts`, while route handlers still perform substantial orchestration inline.
+- **Alignment:** Maintains org scoping boundaries and improves operational safety without changing business logic.
+- **Risk/rollback:** Medium: workflow handoff timing changes. Rollback by feature-flagging route execution mode back to inline for one release.
+- **Acceptance Criteria / Tests:**
+  - Trigger workflow execution from `apps/web/app/api/cron/change-detection/route.ts` and `.../parish-pack-refresh/route.ts`.
+  - Add workflow input/output contract tests.
+  - Confirm route-level outputs preserve existing run summaries by reading workflow run state.
+- **Files (target):**
+  - `apps/web/app/api/cron/change-detection/route.ts`
+  - `apps/web/app/api/cron/parish-pack-refresh/route.ts`
+  - `apps/web/lib/automation/temporalCronDispatcher.ts` (new)
+  - `apps/worker/src/workflows/changeDetection.ts`
+  - `apps/worker/src/workflows/parishPackRefresh.ts`
+
+### AUT-004 — Automation Event Dispatch Reliability (Retries + DLQ)
+
+- **Priority:** P1
+- **Status:** Planned
+- **Scope:** Failure handling + reliability
+- **Problem:** `dispatchEvent` currently swallows handler failures and does not persist retry state, creating silent event loss risk.
+- **Expected Outcome (measurable):**
+  - Each automation event records `started/attempted/failed/completed` state with retry metadata.
+  - Failed dispatches automatically retry with bounded backoff.
+- **Evidence:** `apps/web/lib/automation/events.ts` currently logs and continues on handler exceptions, with only proactive event trigger path after failure logging.
+- **Alignment:** Preserves existing security/event boundaries while improving deterministic recovery behavior.
+- **Risk/rollback:** Medium if retry flood occurs; mitigate with capped attempts and dead-letter escalation.
+- **Acceptance Criteria / Tests:**
+  - Add retry policy and terminal-failure tracking for dispatch failures.
+  - Expose queue depth and max-attempt counts in health/ops endpoints.
+  - Add tests for transient failure retry and terminal failure dead-letter path.
+- **Files (target):**
+  - `apps/web/lib/automation/events.ts`
+  - `apps/web/lib/services/automationEvent.service.ts`
+  - `apps/web/app/api/automation/events/route.ts`
+  - `apps/web/lib/automation/__tests__/events-retry.test.ts` (new)
+
+### AUT-005 — Enforce Automation Test Matrix in CI
+
+- **Priority:** P1
+- **Status:** Planned
+- **Scope:** Coverage quality + prevent drift
+- **Problem:** Current validation script fails in repository, and there is currently no enforced matrix gate in CI.
+- **Expected Outcome (measurable):**
+  - Automated test-matrix coverage check fails build if a listed automation endpoint, module, or workflow lacks required tests.
+  - Missing cron/automation tests are surfaced before merge.
+- **Evidence:** `scripts/testing/validate-test-matrix.mjs` already reports missing cron routes (`deadline-check`, `market-monitor`, `source-ingestion`) and automation modules.
+- **Alignment:** Matches existing rule that untested API handlers and automation surfaces must be closed before merge.
+- **Risk/rollback:** Low; temporary test failures indicate missing or incomplete coverage only.
+- **Acceptance Criteria / Tests:**
+  - Run matrix validation as part of CI.
+  - Add required cron tests for all handlers under `apps/web/app/api/cron/**`.
+  - Add/expand module tests for uncovered automation modules (`deadlineMonitoring`, `marketMonitoring`, `financialInit`, `knowledgeCapture`, `entitlementStrategy`).
+- **Files (target):**
+  - `scripts/testing/validate-test-matrix.mjs`
+  - `.github/workflows/ci.yml`
+  - `apps/web/app/api/cron/*/route.test.ts`
+  - `apps/web/lib/automation/__tests__/*`
+
+### AUT-006 — Automation Freshness Monitoring and Stale-Run Alerts
+
+- **Priority:** P1
+- **Status:** Planned
+- **Scope:** Operational confidence
+- **Problem:** Current monitoring covers basic health but not cron/automation freshness (stalled runs, long-running jobs, no-success intervals).
+- **Expected Outcome (measurable):**
+  - A scheduled monitoring step alerts when any scheduled automation has not completed within its expected window.
+  - Stale or repeatedly failed runs are surfaced with counts and owners.
+- **Evidence:** `scripts/codex-auto/monitoring.sh` currently focuses on general health and does not include automation run freshness checks.
+- **Alignment:** Preserves existing security posture and adds observability signals only.
+- **Risk/rollback:** Low; can run in warning mode before enforcement.
+- **Acceptance Criteria / Tests:**
+  - Add automation freshness checks to existing monitoring script and/or new script.
+  - Add tests for stale-window edge cases.
+  - Add alert path when run age or failure-rate thresholds are exceeded.
+- **Files (target):**
+  - `scripts/codex-auto/monitoring.sh`
+  - `scripts/codex-auto/reporting.sh`
+  - `apps/web/lib/services/automationRun.service.ts` (or equivalent run-query path)
+
+### AUT-007 — CI Verification of Package-Level Quality Gates
+
+- **Priority:** P1
+- **Status:** Planned
+- **Scope:** Release safety + regression prevention
+- **Problem:** Repository root `pnpm lint`, `pnpm test`, and `pnpm build` currently do not execute package-level checks for `@entitlement-os/openai`, allowing known failures in that package to be missed before merge (`unused vars`, `matrix/security/idempotency` test failures).
+- **Expected Outcome (measurable):**
+  - CI fails when `packages/openai` lint, typecheck, or tests fail.
+  - CI runs scoped package checks for `@entitlement-os/openai`, `@entitlement-os/db`, `@entitlement-os/shared`, and `@entitlement-os/evidence` as baseline automation safety.
+  - Merge is blocked until all package quality gates pass.
+- **Evidence of need:** Current verification pass showed:
+  - `pnpm lint` ❌ in pre-existing `packages/openai` (`unused vars: parish, gatewayPost, classifyFloodRisk`)
+  - `pnpm test` ❌ in pre-existing `packages/openai` matrix/security/idempotency tests
+- **Alignment:** Security and correctness boundaries remain unchanged; this extends verification without runtime behavior changes.
+- **Risk/rollback:** Moderate increase in CI duration. Rollback by reducing scope to lint+test first, then reintroducing typecheck/build gates.
+- **Acceptance Criteria / Tests:**
+  - Add dedicated CI job(s) invoking:
+    - `pnpm --filter @entitlement-os/openai lint`
+    - `pnpm --filter @entitlement-os/openai typecheck`
+    - `pnpm --filter @entitlement-os/openai test`
+  - Add package-quality gate step in CI preflight for shared/domain libraries where drift risk is highest.
+  - Add local script `pnpm ci:pkg-verify` (or equivalent) to run package quality gates with one command.
+- **Files (target):**
+  - `.github/workflows/ci.yml`
+  - `package.json`
+  - `packages/openai/package.json` (if script names/aliases need normalization)
+
+### AUT-008 — Behavioral Contract Test Matrix for Tool and Agent Runtime
+
+- **Priority:** P1
+- **Status:** Planned
+- **Scope:** Maintainability + stable automation confidence
+- **Problem:** Current matrix validation and several OpenAI phase tests are brittle around internal implementation details, creating false positives/maintenance churn while still permitting behavior drift in tool outputs.
+- **Expected Outcome (measurable):**
+  - Matrix coverage for `packages/openai` is defined by behavior fixtures, request/response contracts, and idempotency/security expectations—not source line assertions.
+  - At least one reusable fixture harness enforces expected behavior for tool families (`parcels`, `screening`, `comparable`, `flood`).
+  - Test failures are actionable by failing contract name and fixture, not brittle implementation snapshots.
+- **Evidence of need:** `pnpm -C packages/openai test` currently fails in `matrix/security/idempotency` paths despite behavioral fixes, indicating current tests are fragile and under-governed.
+- **Alignment:** Pure test architecture change; no security or tenant boundary change.
+- **Risk/rollback:** Medium refactor risk in test harness only. Roll back by restoring legacy fixture set.
+- **Acceptance Criteria / Tests:**
+  - Add/extend contract tests for parcel/screening/comparable tools using explicit input/output fixtures.
+  - Add fixture for idempotency semantics and one for security input rejection.
+  - Update matrix metadata (`docs/testing/test-matrix-starter.json`) to reference contract coverage instead of internal code shape expectations.
+  - CI runs contract matrix tests and fails on missing/empty fixture contracts.
+- **Files (target):**
+  - `packages/openai/test/phase1/tools/*`
+  - `packages/openai/test/phase1/utils/*`
+  - `packages/openai/test/test-matrix-smoke.test.ts`
+  - `docs/testing/test-matrix-starter.json`
+  - `docs/testing/test-matrix-starter.csv`
+
+### AUT-009 — Matrix Registry Sync and Drift Enforcement for API/Automation Surface
+
+- **Priority:** P1
+- **Status:** Planned
+- **Scope:** Coverage governance + compliance drift control
+- **Problem:** `scripts/testing/validate-test-matrix.mjs` currently flags many discovered routes/tools/automation modules not represented in the matrix, and there is no automatic remediation or baseline sync flow to close those gaps.
+- **Expected Outcome (measurable):**
+  - Matrix validation identifies missing components with deterministic action IDs and produces a machine-readable report.
+  - A CI-safe sync path can add new matrix entries or intentionally mark entries as deferred/intentional exceptions.
+  - CI remains green only when matrix and implemented surface are intentionally aligned.
+- **Evidence of need:** Running `node scripts/testing/validate-test-matrix.mjs` reports dozens of discovered entries missing from `docs/testing/test-matrix-starter.json` (agents, routes, tools, and automation modules).
+- **Alignment:** Operates on governance metadata only; no changes to functional execution paths.
+- **Risk/rollback:** Low. If sync generation overfills, block with manual review; no runtime impact.
+- **Acceptance Criteria / Tests:**
+  - Add `scripts/testing/sync-test-matrix.mjs` to generate a diff report for missing/stale components.
+  - Add an exception/intent file for deprecated or intentionally untested components.
+  - Add CI preflight command that calls sync + validate and fails on unreviewed deltas.
+  - Store sync artifacts in `output/` for audit.
+- **Files (target):**
+  - `scripts/testing/validate-test-matrix.mjs`
+  - `scripts/testing/sync-test-matrix.mjs` (new)
+  - `docs/testing/test-matrix-starter.json`
+  - `.github/workflows/ci.yml`
+
 
 ## Infrastructure & Deployment Phases
 

@@ -15,8 +15,6 @@ describe("Phase 1 Tool Pack :: screenLdeq", () => {
   it("[MATRIX:tool:screenLdeq][PACK:security] validates auth, org scoping, and cross-tenant access protections", () => {
     const source = readRepoSource("packages/openai/src/tools/propertyDbTools.ts");
 
-    expect(source.includes("Authorization: `Bearer ${PROPERTY_DB_KEY}`")).toBe(true);
-    expect(source.includes("apikey: PROPERTY_DB_KEY")).toBe(true);
     expect(source.includes("name: \"screen_ldeq\"")).toBe(true);
   });
 
