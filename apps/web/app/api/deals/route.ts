@@ -33,7 +33,7 @@ const DealBulkActionSchema = z.discriminatedUnion("action", [
   }),
 ]);
 
-// GET /api/deals - list deals for the org
+// GET /api/deals - proxy to local FastAPI (production) or Prisma (local dev fallback)
 export async function GET(request: NextRequest) {
   try {
     const auth = await resolveAuth();
@@ -41,6 +41,42 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const localApiUrl = process.env.LOCAL_API_URL?.trim();
+    const localApiKey = process.env.LOCAL_API_KEY?.trim();
+
+    // Production: proxy to FastAPI via Cloudflare Tunnel
+    if (localApiUrl && localApiKey) {
+      const { searchParams } = new URL(request.url);
+      const params = new URLSearchParams();
+      params.set("org_id", auth.orgId);
+      searchParams.forEach((v, k) => params.set(k, v));
+
+      const res = await fetch(`${localApiUrl.replace(/\/$/, "")}/deals?${params.toString()}`, {
+        cache: "no-store",
+        headers: { Authorization: `Bearer ${localApiKey}` },
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        console.error("[api/deals] Local API error:", res.status, text.slice(0, 200));
+        return NextResponse.json(
+          { error: "Failed to fetch deals from backend" },
+          { status: res.status >= 500 ? 503 : res.status }
+        );
+      }
+
+      const data = await res.json();
+      return NextResponse.json(data);
+    }
+
+    // Local dev fallback: Prisma (when LOCAL_API_URL/KEY not set)
+    // In production, Prisma must never be used for deals — require LOCAL_API_URL
+    if (process.env.NODE_ENV === "production") {
+      return NextResponse.json(
+        { error: "Deals API requires LOCAL_API_URL in production" },
+        { status: 503 }
+      );
+    }
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
     const sku = searchParams.get("sku");
@@ -117,7 +153,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/deals - create a new deal
+// POST /api/deals - create a new deal (proxy to FastAPI when LOCAL_API_URL set)
 export async function POST(request: NextRequest) {
   try {
     const auth = await resolveAuth();
@@ -134,12 +170,39 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate sku
-    const validSkus = ["SMALL_BAY_FLEX", "OUTDOOR_STORAGE", "TRUCK_PARKING"];
-    if (!validSkus.includes(body.sku)) {
+    const localApiUrl = process.env.LOCAL_API_URL?.trim();
+    const localApiKey = process.env.LOCAL_API_KEY?.trim();
+
+    if (localApiUrl && localApiKey) {
+      const res = await fetch(`${localApiUrl.replace(/\/$/, "")}/deals`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${localApiKey}`,
+          "Content-Type": "application/json",
+          "X-Org-Id": auth.orgId,
+          "X-User-Id": auth.userId,
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        console.error("[api/deals] Local API POST error:", res.status, text.slice(0, 200));
+        return NextResponse.json(
+          { error: "Failed to create deal" },
+          { status: res.status >= 500 ? 503 : res.status }
+        );
+      }
+
+      const data = await res.json();
+      return NextResponse.json(data, { status: 201 });
+    }
+
+    // Local dev fallback: Prisma
+    if (process.env.NODE_ENV === "production") {
       return NextResponse.json(
-        { error: `Invalid SKU. Must be one of: ${validSkus.join(", ")}` },
-        { status: 400 }
+        { error: "Deals API requires LOCAL_API_URL in production" },
+        { status: 503 }
       );
     }
 
@@ -184,7 +247,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PATCH /api/deals — bulk actions for list of deals
+// PATCH /api/deals — bulk actions for list of deals (proxy to FastAPI when LOCAL_API_URL set)
 export async function PATCH(request: NextRequest) {
   try {
     const auth = await resolveAuth();
@@ -203,6 +266,33 @@ export async function PATCH(request: NextRequest) {
         },
         { status: 400 }
       );
+    }
+
+    const localApiUrl = process.env.LOCAL_API_URL?.trim();
+    const localApiKey = process.env.LOCAL_API_KEY?.trim();
+
+    if (localApiUrl && localApiKey) {
+      const res = await fetch(`${localApiUrl.replace(/\/$/, "")}/deals`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${localApiKey}`,
+          "Content-Type": "application/json",
+          "X-Org-Id": auth.orgId,
+        },
+        body: JSON.stringify(parsed.data),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        console.error("[api/deals] Local API PATCH error:", res.status, text.slice(0, 200));
+        return NextResponse.json(
+          { error: "Failed to bulk update deals on backend" },
+          { status: res.status >= 500 ? 503 : res.status }
+        );
+      }
+
+      const data = await res.json();
+      return NextResponse.json(data);
     }
 
     const ids = [...new Set(parsed.data.ids)];

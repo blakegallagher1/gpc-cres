@@ -1,11 +1,13 @@
 """
 FastAPI server for local PostgreSQL + Martin tile proxy.
-Provides secure API access from Vercel to local 12-core i7 server.
+Provides secure API access from Vercel to local backend.
+Runs on port 8000. Postgres (5432) is never exposed to the internet.
 """
 import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, Depends, Query
 from fastapi.responses import Response
+from fastapi.middleware.cors import CORSMiddleware
 import httpx
 import asyncpg
 from typing import Optional, AsyncIterator
@@ -21,48 +23,74 @@ load_dotenv()
 # =============================================================================
 
 DATABASE_URL = os.getenv("DATABASE_URL")
-if not DATABASE_URL:
-    raise ValueError("DATABASE_URL environment variable is required")
+APPLICATION_DATABASE_URL = os.getenv("APPLICATION_DATABASE_URL") or DATABASE_URL
 MARTIN_URL = os.getenv("MARTIN_URL", "http://localhost:3000")
-API_KEYS = set(os.getenv("API_KEYS", "").split(","))  # Comma-separated keys
+API_KEYS = set(
+    k.strip()
+    for k in (os.getenv("API_KEYS") or os.getenv("GATEWAY_API_KEY") or "").split(",")
+    if k.strip()
+)
+ALLOWED_ORIGINS = [
+    o.strip() for o in (os.getenv("ALLOWED_ORIGINS") or "").split(",") if o.strip()
+]
 
-if not API_KEYS or "" in API_KEYS:
+if not API_KEYS:
     print("⚠️  WARNING: No API_KEYS set! API is INSECURE!")
     print("⚠️  Set API_KEYS in .env file")
 
 # =============================================================================
-# Database Connection Pool
+# Database Connection Pools
 # =============================================================================
 
 db_pool: Optional[asyncpg.Pool] = None
+app_db_pool: Optional[asyncpg.Pool] = None
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     """Manage application lifespan (startup/shutdown)."""
-    global db_pool
-    # Startup
-    db_pool = await asyncpg.create_pool(
-        DATABASE_URL,
-        min_size=5,
-        max_size=20,
-        command_timeout=60,
-    )
-    print(f"✅ Database pool created: {DATABASE_URL}")
+    global db_pool, app_db_pool
+    # Property DB (parcels, Martin-related)
+    if DATABASE_URL:
+        db_pool = await asyncpg.create_pool(
+            DATABASE_URL,
+            min_size=2,
+            max_size=10,
+            command_timeout=60,
+        )
+        print(f"✅ Property DB pool created")
+    # Application DB (deals, orgs) - for /deals endpoint
+    if APPLICATION_DATABASE_URL:
+        app_db_pool = await asyncpg.create_pool(
+            APPLICATION_DATABASE_URL,
+            min_size=2,
+            max_size=10,
+            command_timeout=60,
+        )
+        print(f"✅ Application DB pool created")
 
     yield
 
-    # Shutdown
     if db_pool:
         await db_pool.close()
-        print("✅ Database pool closed")
+    if app_db_pool:
+        await app_db_pool.close()
+    print("✅ Database pools closed")
 
 
 async def get_db():
-    """Dependency: get database connection from pool."""
+    """Dependency: get property DB connection."""
     if not db_pool:
         raise HTTPException(status_code=503, detail="Database not available")
     async with db_pool.acquire() as conn:
+        yield conn
+
+
+async def get_app_db():
+    """Dependency: get application DB connection (deals, orgs)."""
+    if not app_db_pool:
+        raise HTTPException(status_code=503, detail="Application database not available")
+    async with app_db_pool.acquire() as conn:
         yield conn
 
 
@@ -74,10 +102,30 @@ app = FastAPI(
     title="GPC Local Property Database API",
     description="Secure API for Vercel to access local PostgreSQL + Martin tiles",
     version="1.0.0",
-    docs_url="/docs",  # OpenAPI docs at http://localhost:8080/docs
+    docs_url="/docs",
     redoc_url="/redoc",
     lifespan=lifespan,
 )
+
+# CORS: default deny if ALLOWED_ORIGINS unset
+if ALLOWED_ORIGINS:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=ALLOWED_ORIGINS,
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PATCH", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type"],
+    )
+
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    """Add security headers to JSON responses."""
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    return response
+
 
 # =============================================================================
 # Authentication
@@ -122,23 +170,248 @@ def verify_api_key(request: Request) -> str:
 @app.get("/health")
 async def health_check():
     """Public health check (no auth required)."""
-    db_status = "connected" if db_pool else "disconnected"
-
-    # Test Martin
-    martin_status = "unknown"
-    try:
-        async with httpx.AsyncClient(timeout=2.0) as client:
-            resp = await client.get(f"{MARTIN_URL}/health")
-            martin_status = "up" if resp.status_code == 200 else "down"
-    except:
-        martin_status = "unreachable"
-
+    db_status = "connected" if (db_pool or app_db_pool) else "disconnected"
     return {
         "status": "ok",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "database": db_status,
-        "martin": martin_status,
     }
+
+
+# =============================================================================
+# Deals (Application DB)
+# =============================================================================
+
+
+@app.get("/deals")
+async def get_deals(
+    org_id: str = Query(..., description="Org UUID for tenant isolation"),
+    status: Optional[str] = Query(None),
+    sku: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    limit: int = Query(200, ge=1, le=500),
+    api_key: str = Depends(verify_api_key),
+    conn: asyncpg.Connection = Depends(get_app_db),
+):
+    """
+    List deals for an org. Requires Bearer token.
+    Returns: { "deals": [ { id, name, sku, status, createdAt, updatedAt, notes, jurisdiction, triageTier, triageScore } ] }
+    """
+    conditions = ["d.org_id = $1"]
+    params: list = [org_id]
+    idx = 2
+
+    if status:
+        conditions.append(f"d.status = ${idx}")
+        params.append(status)
+        idx += 1
+    if sku:
+        conditions.append(f"d.sku::text = ${idx}")
+        params.append(sku)
+        idx += 1
+    if search:
+        conditions.append(f"d.name ILIKE ${idx}")
+        params.append(f"%{search}%")
+        idx += 1
+
+    where_clause = " AND ".join(conditions)
+    params.append(limit)
+    limit_param = idx
+
+    rows = await conn.fetch(
+        f"""
+        SELECT
+            d.id,
+            d.name,
+            d.sku::text AS sku,
+            d.status::text AS status,
+            d.created_at,
+            d.updated_at,
+            d.notes,
+            j.id AS jurisdiction_id,
+            j.name AS jurisdiction_name,
+            (
+                SELECT r.output_json
+                FROM runs r
+                WHERE r.deal_id = d.id AND r.run_type = 'TRIAGE'
+                ORDER BY r.started_at DESC
+                LIMIT 1
+            ) AS triage_output
+        FROM deals d
+        LEFT JOIN jurisdictions j ON d.jurisdiction_id = j.id
+        WHERE {where_clause}
+        ORDER BY d.created_at DESC
+        LIMIT ${limit_param}
+        """,
+        *params,
+    )
+
+    deals = []
+    for row in rows:
+        triage_tier = None
+        triage_score = None
+        if row["triage_output"] and isinstance(row["triage_output"], dict):
+            out = row["triage_output"]
+            triage_tier = out.get("tier") or (
+                out.get("triage", {}).get("decision") if isinstance(out.get("triage"), dict) else None
+            )
+            triage_score = out.get("triageScore") or out.get("confidence")
+            if triage_score is None and isinstance(out.get("triage"), dict):
+                triage_score = out["triage"].get("confidence")
+
+        deals.append({
+            "id": str(row["id"]),
+            "name": row["name"],
+            "sku": row["sku"],
+            "status": row["status"],
+            "createdAt": row["created_at"].isoformat() if row["created_at"] else None,
+            "updatedAt": row["updated_at"].isoformat() if row["updated_at"] else None,
+            "notes": row["notes"],
+            "jurisdiction": (
+                {"id": str(row["jurisdiction_id"]), "name": row["jurisdiction_name"]}
+                if row["jurisdiction_id"] else None
+            ),
+            "triageTier": triage_tier,
+            "triageScore": float(triage_score) if triage_score is not None else None,
+        })
+
+    return {"deals": deals}
+
+
+@app.post("/deals")
+async def create_deal(
+    request: Request,
+    api_key: str = Depends(verify_api_key),
+    conn: asyncpg.Connection = Depends(get_app_db),
+):
+    """
+    Create a deal. Requires Bearer token.
+    Body: { name, sku, jurisdictionId, notes?, targetCloseDate?, parcelAddress?, apn? }
+    Headers: X-Org-Id, X-User-Id (for tenant isolation)
+    """
+    org_id = request.headers.get("X-Org-Id")
+    created_by = request.headers.get("X-User-Id")
+    if not org_id or not created_by:
+        raise HTTPException(status_code=400, detail="X-Org-Id and X-User-Id headers required")
+
+    body = await request.json()
+    name = body.get("name")
+    sku = body.get("sku")
+    jurisdiction_id = body.get("jurisdictionId")
+    if not name or not sku or not jurisdiction_id:
+        raise HTTPException(status_code=400, detail="name, sku, and jurisdictionId required")
+
+    valid_skus = ("SMALL_BAY_FLEX", "OUTDOOR_STORAGE", "TRUCK_PARKING")
+    if sku not in valid_skus:
+        raise HTTPException(status_code=400, detail=f"Invalid sku. Must be one of: {', '.join(valid_skus)}")
+
+    notes = body.get("notes")
+    target_close_date = body.get("targetCloseDate")
+    parcel_address = body.get("parcelAddress")
+    apn = body.get("apn")
+
+    row = await conn.fetchrow(
+        """
+        INSERT INTO deals (org_id, name, sku, jurisdiction_id, status, notes, target_close_date, created_by, created_at, updated_at)
+        VALUES ($1, $2, $3::sku_type, $4, 'INTAKE', $5, $6::date, $7, NOW(), NOW())
+        RETURNING id, name, sku, status, created_at, updated_at
+        """,
+        org_id,
+        name,
+        sku,
+        jurisdiction_id,
+        notes,
+        target_close_date if target_close_date else None,
+        created_by,
+    )
+
+    deal_id = str(row["id"])
+
+    if parcel_address:
+        await conn.execute(
+            """
+            INSERT INTO parcels (org_id, deal_id, address, apn, created_at)
+            VALUES ($1, $2, $3, $4, NOW())
+            """,
+            org_id,
+            deal_id,
+            parcel_address,
+            apn,
+        )
+
+    jurisdiction_row = await conn.fetchrow(
+        "SELECT id, name FROM jurisdictions WHERE id = $1", jurisdiction_id
+    )
+    jurisdiction = (
+        {"id": str(jurisdiction_row["id"]), "name": jurisdiction_row["name"]}
+        if jurisdiction_row else None
+    )
+
+    return {
+        "deal": {
+            "id": deal_id,
+            "name": row["name"],
+            "sku": row["sku"],
+            "status": row["status"],
+            "createdAt": row["created_at"].isoformat(),
+            "updatedAt": row["updated_at"].isoformat(),
+            "jurisdiction": jurisdiction,
+        }
+    }
+
+
+@app.patch("/deals")
+async def patch_deals(
+    request: Request,
+    api_key: str = Depends(verify_api_key),
+    conn: asyncpg.Connection = Depends(get_app_db),
+):
+    """
+    Bulk actions on deals. Requires Bearer token.
+    Body: { action: "delete"|"update-status", ids: string[], status?: string }
+    Headers: X-Org-Id (for tenant isolation)
+    """
+    org_id = request.headers.get("X-Org-Id")
+    if not org_id:
+        raise HTTPException(status_code=400, detail="X-Org-Id header required")
+
+    body = await request.json()
+    action = body.get("action")
+    ids = body.get("ids")
+    if not action or not isinstance(ids, list) or len(ids) == 0:
+        raise HTTPException(status_code=400, detail="action and ids (non-empty array) required")
+
+    ids = list(set(str(i) for i in ids))
+
+    if action == "delete":
+        result = await conn.execute(
+            "DELETE FROM deals WHERE org_id = $1 AND id = ANY($2::uuid[])",
+            org_id,
+            ids,
+        )
+        count = int(result.split()[-1]) if result else 0
+        return {"action": "delete", "updated": count, "skipped": len(ids) - count, "ids": ids}
+
+    if action == "update-status":
+        status = body.get("status")
+        if not status:
+            raise HTTPException(status_code=400, detail="status required for update-status")
+        valid = ("INTAKE", "TRIAGE_DONE", "PREAPP", "CONCEPT", "NEIGHBORS", "SUBMITTED", "HEARING", "APPROVED", "EXIT_MARKETED", "EXITED", "KILLED")
+        if status not in valid:
+            raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {', '.join(valid)}")
+        result = await conn.execute(
+            """
+            UPDATE deals SET status = $1::deal_status, updated_at = NOW()
+            WHERE org_id = $2 AND id = ANY($3::uuid[])
+            """,
+            status,
+            org_id,
+            ids,
+        )
+        count = int(result.split()[-1]) if result else 0
+        return {"action": "update-status", "status": status, "updated": count, "skipped": len(ids) - count, "ids": ids}
+
+    raise HTTPException(status_code=400, detail="action must be delete or update-status")
 
 
 # =============================================================================
@@ -195,6 +468,89 @@ async def get_tile(
                 status_code=503,
                 detail=f"Martin tile server unreachable: {str(e)}"
             )
+
+
+# =============================================================================
+# Agent Tool Endpoints (/tools/parcel.* — used by propertyDbTools)
+# =============================================================================
+
+
+@app.post("/tools/parcel.lookup")
+async def tools_parcel_lookup(
+    request: Request,
+    api_key: str = Depends(verify_api_key),
+):
+    """Lookup parcel by ID. Used by get_parcel_details agent tool."""
+    if not db_pool:
+        raise HTTPException(status_code=503, detail="Property database not configured")
+    body = await request.json()
+    parcel_id = body.get("parcel_id")
+    if not parcel_id:
+        raise HTTPException(status_code=400, detail="parcel_id required")
+    async with db_pool.acquire() as conn:
+        try:
+            rows = await conn.fetch("SELECT * FROM api_get_parcel($1::text)", parcel_id)
+        except asyncpg.UndefinedFunctionError:
+            rows = await conn.fetch(
+                """
+                SELECT id, parcel_id as parcel_uid, address as situs_address,
+                       owner as owner_name,
+                       COALESCE(area_sqft, 0) / 43560.0 as acreage,
+                       ST_Y(ST_Centroid(geom)) as lat, ST_X(ST_Centroid(geom)) as lng,
+                       ST_AsGeoJSON(geom)::text as geom_simplified,
+                       ARRAY[ST_XMin(geom), ST_YMin(geom), ST_XMax(geom), ST_YMax(geom)] as bbox
+                FROM ebr_parcels
+                WHERE id::text = $1 OR parcel_id = $1
+                   OR lower(parcel_id) = lower($1)
+                   OR replace(parcel_id, '-', '') = replace($1, '-', '')
+                LIMIT 1
+                """,
+                parcel_id,
+            )
+    if not rows:
+        return {"ok": False, "error": "Parcel not found", "data": None}
+    return {"ok": True, "data": dict(rows[0])}
+
+
+@app.post("/tools/parcel.bbox")
+async def tools_parcel_bbox(
+    request: Request,
+    api_key: str = Depends(verify_api_key),
+):
+    """Search parcels in bounding box. Used by search_parcels agent tool."""
+    if not db_pool:
+        raise HTTPException(status_code=503, detail="Property database not configured")
+    body = await request.json()
+    west = body.get("west")
+    south = body.get("south")
+    east = body.get("east")
+    north = body.get("north")
+    if None in (west, south, east, north):
+        raise HTTPException(status_code=400, detail="west, south, east, north required")
+    limit = min(int(body.get("limit", 25)), 100)
+    parish = body.get("parish")
+    async with db_pool.acquire() as conn:
+        try:
+            rows = await conn.fetch(
+                """
+                SELECT id::text, parcel_id as parcel_uid, address as site_address,
+                       owner as owner_name,
+                       COALESCE(area_sqft, 0) / 43560.0 as acreage,
+                       NULL::text as zoning, NULL::text as flood_zone,
+                       NULL::text as parish,
+                       ST_Y(ST_Centroid(geom)) as lat, ST_X(ST_Centroid(geom)) as lng
+                FROM ebr_parcels
+                WHERE geom IS NOT NULL
+                  AND ST_Y(ST_Centroid(geom)) BETWEEN $1 AND $2
+                  AND ST_X(ST_Centroid(geom)) BETWEEN $3 AND $4
+                LIMIT $5
+                """,
+                south, north, west, east, limit,
+            )
+        except Exception:
+            return {"ok": True, "parcels": [], "count": 0, "data": []}
+    data = [dict(r) for r in rows]
+    return {"ok": True, "parcels": data, "count": len(data), "data": data}
 
 
 # =============================================================================
@@ -414,20 +770,24 @@ async def get_stats(
 if __name__ == "__main__":
     import uvicorn
 
+    port = int(os.getenv("PORT", "8000"))
+    host = os.getenv("HOST", "0.0.0.0")
+
     print("=" * 70)
     print("🚀 GPC Local Property Database API")
     print("=" * 70)
-    print(f"📍 Server: http://localhost:8080")
-    print(f"📖 Docs:   http://localhost:8080/docs")
-    print(f"🗄️  Database: {DATABASE_URL}")
+    print(f"📍 Server: http://localhost:{port}")
+    print(f"📖 Docs:   http://localhost:{port}/docs")
+    print(f"🗄️  Property DB: configured")
+    print(f"🗄️  Application DB: configured" if APPLICATION_DATABASE_URL else "🗄️  Application DB: (using property DB)")
     print(f"🗺️  Martin: {MARTIN_URL}")
     print(f"🔑 API Keys: {len(API_KEYS)} configured")
     print("=" * 70)
 
     uvicorn.run(
         "main:app",
-        host="0.0.0.0",
-        port=8080,
-        reload=True,  # Auto-reload on code changes
+        host=host,
+        port=port,
+        reload=True,
         log_level="info",
     )

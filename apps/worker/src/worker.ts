@@ -4,6 +4,12 @@ import { fileURLToPath } from "node:url";
 
 import * as activities from "./activities/index.js";
 
+// Zero-cost migration: Temporal is optional. Only run when explicitly enabled.
+if (process.env.ENABLE_TEMPORAL !== "true") {
+  console.log("Temporal worker skipped (ENABLE_TEMPORAL not set)");
+  process.exit(0);
+}
+
 const resolveWorkflowsPath = () => {
   const tsPath = fileURLToPath(new URL("./workflows/index.ts", import.meta.url));
   const jsPath = fileURLToPath(new URL("./workflows/index.js", import.meta.url));
