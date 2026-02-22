@@ -1,0 +1,11 @@
+# TEMPLATE ONLY
+# Copy to ~/.cloudflared/config-tiles.yml
+
+tunnel: <TILES_TUNNEL_ID>
+credentials-file: ~/.cloudflared/<TILES_TUNNEL_ID>.json
+
+ingress:
+  - hostname: tiles.gallagherpropco.com
+    service: http://localhost:3000
+
+  - service: http_status:404

@@ -1,0 +1,11 @@
+# TEMPLATE ONLY
+# Copy to ~/.cloudflared/config-api.yml and fill in real values
+
+tunnel: <API_TUNNEL_ID>
+credentials-file: ~/.cloudflared/<API_TUNNEL_ID>.json
+
+ingress:
+  - hostname: api.gallagherpropco.com
+    service: http://localhost:8000
+
+  - service: http_status:404

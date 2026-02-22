@@ -1,9 +1,11 @@
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { DealSummary } from "@/components/deals/DealCard";
 import DealsPage from "./page-client";
+import { resolveAuth } from "@/lib/auth/resolveAuth";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -12,7 +14,7 @@ type DealsListResponse = {
 };
 
 type DealsRouteProps = {
-  searchParams?: SearchParams;
+  searchParams?: SearchParams | Promise<SearchParams>;
 };
 
 function getSearchParam(value: string | string[] | undefined): string | undefined {
@@ -23,32 +25,42 @@ function getSearchParam(value: string | string[] | undefined): string | undefine
   return Array.isArray(value) ? value[0] : value;
 }
 
-async function getApiBaseUrl() {
-  const headerStore = await headers();
-  const host =
-    headerStore.get("x-forwarded-host") ??
-    headerStore.get("host") ??
-    "localhost:3000";
-  const protocol = headerStore.get("x-forwarded-proto") ?? "http";
-  return `${protocol}://${host}`;
-}
+const LOCAL_DEALS_API = "https://api.gallagherpropco.com";
 
-async function getCookieHeader() {
-  const headerStore = await headers();
-  return headerStore.get("cookie") ?? undefined;
-}
+async function fetchDealsFromLocalApi(
+  orgId: string,
+  query: URLSearchParams,
+): Promise<DealsListResponse> {
+  const apiKey = process.env.LOCAL_API_KEY?.trim();
+  const baseUrl = process.env.LOCAL_API_URL?.trim() || LOCAL_DEALS_API;
 
-async function fetchJson<T>(url: string, cookie?: string): Promise<T> {
-  const response = await fetch(url, {
-    cache: "no-store",
-    headers: cookie ? { cookie } : undefined,
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to load data from ${url}: ${response.status}`);
+  if (apiKey && baseUrl) {
+    const url = `${baseUrl.replace(/\/$/, "")}/deals?org_id=${encodeURIComponent(orgId)}${query.toString() ? `&${query.toString()}` : ""}`;
+    const response = await fetch(url, {
+      cache: "no-store",
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Local API returned ${response.status}: ${text.slice(0, 200)}`);
+    }
+    return response.json() as Promise<DealsListResponse>;
   }
 
-  return response.json() as Promise<T>;
+  const h = await headers();
+  const host = h.get("host") ?? "localhost:3000";
+  const proto = h.get("x-forwarded-proto") ?? "http";
+  const base = `${proto}://${host}`;
+  const url = `${base}/api/deals?org_id=${encodeURIComponent(orgId)}${query.toString() ? `&${query.toString()}` : ""}`;
+  const cookie = h.get("cookie");
+  const response = await fetch(url, {
+    cache: "no-store",
+    headers: cookie ? { Cookie: cookie } : {},
+  });
+  if (!response.ok) {
+    throw new Error(`Deals API returned ${response.status}`);
+  }
+  return response.json() as Promise<DealsListResponse>;
 }
 
 async function DealsSection({
@@ -108,11 +120,17 @@ function DealsFallback() {
   );
 }
 
-export default async function DealsRoute({ searchParams = {} }: DealsRouteProps) {
-  const statusFilter = getSearchParam(searchParams?.status) ?? "all";
-  const skuFilter = getSearchParam(searchParams?.sku) ?? "all";
-  const initialSearch = getSearchParam(searchParams?.search) ?? "";
-  const triageMode = getSearchParam(searchParams?.view) === "triage";
+export default async function DealsRoute({ searchParams }: DealsRouteProps) {
+  const auth = await resolveAuth();
+  if (!auth) {
+    redirect("/login");
+  }
+
+  const params = searchParams instanceof Promise ? await searchParams : searchParams ?? {};
+  const statusFilter = getSearchParam(params?.status) ?? "all";
+  const skuFilter = getSearchParam(params?.sku) ?? "all";
+  const initialSearch = getSearchParam(params?.search) ?? "";
+  const triageMode = getSearchParam(params?.view) === "triage";
 
   const query = new URLSearchParams();
   if (statusFilter !== "all") {
@@ -126,13 +144,7 @@ export default async function DealsRoute({ searchParams = {} }: DealsRouteProps)
     query.set("search", searchTerm);
   }
 
-  const baseUrl = await getApiBaseUrl();
-  const cookie = await getCookieHeader();
-
-  const dealsPromise = fetchJson<DealsListResponse>(
-    `${baseUrl}/api/deals${query.toString() ? `?${query.toString()}` : ""}`,
-    cookie,
-  );
+  const dealsPromise = fetchDealsFromLocalApi(auth.orgId, query);
 
   return (
     <Suspense

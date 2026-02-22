@@ -1,0 +1,9 @@
+# Real tunnel configs (never commit)
+config-api.yml
+config-tiles.yml
+
+# Cloudflare credentials
+*.json
+
+# OS
+.DS_Store
