@@ -496,7 +496,7 @@ export default function DealDetailPage() {
               </Link>
             </Button>
             <Button variant="outline" size="sm" className="gap-1.5" asChild>
-              <Link href={`/chat?dealId=${deal.id}`}>
+              <Link href={`/?dealId=${deal.id}`}>
                 <MessageSquare className="h-4 w-4" />
                 Chat
               </Link>
