@@ -4,6 +4,8 @@ import type { OpenAiJsonSchema } from "@entitlement-os/shared";
 
 import type { OpenAiToolSources, OpenAiWebSearchSource, StrictJsonResponse } from "./types.js";
 import { withExponentialBackoff } from "./utils/retry.js";
+import { getAgentOsConfig, isAgentOsFeatureEnabled } from "./agentos/config.js";
+import { buildResponseContinuationParams } from "./agentos/sessionManager.js";
 
 export type CreateStrictJsonResponseParams = {
   apiKey?: string;
@@ -12,6 +14,10 @@ export type CreateStrictJsonResponseParams = {
   jsonSchema: OpenAiJsonSchema;
   tools?: OpenAI.Responses.ResponseCreateParams["tools"];
   reasoning?: OpenAI.Responses.ResponseCreateParams["reasoning"];
+  previousResponseId?: string | null;
+  contextManagement?: {
+    strategy: "compaction";
+  } | null;
 };
 
 const OPENAI_CLIENT_MAX_RETRIES = 0;
@@ -107,17 +113,34 @@ export async function createStrictJsonResponse<T>(
   params: CreateStrictJsonResponseParams,
 ): Promise<StrictJsonResponse<T>> {
   const client = getClient(params.apiKey);
+  const config = getAgentOsConfig();
 
   const include: OpenAI.Responses.ResponseIncludable[] = [
     "web_search_call.action.sources",
     "file_search_call.results",
   ];
 
-  const response = await withExponentialBackoff(
-    async () =>
-      client.responses.create({
+  const continuation = buildResponseContinuationParams(params.previousResponseId ?? null);
+  const contextManagement =
+    params.contextManagement ??
+    (isAgentOsFeatureEnabled("contextManagementCompaction")
+      ? continuation.context_management ?? { strategy: config.contextManagement.strategy }
+      : undefined);
+
+  const reasoning =
+    params.reasoning ??
+    (config.enabled
+      ? ({
+          effort: config.models.reasoningEffort,
+        } as OpenAI.Responses.ResponseCreateParams["reasoning"])
+      : undefined);
+
+  const response = (await withExponentialBackoff(
+    async () => {
+      const requestBody: Record<string, unknown> = {
         model: params.model,
         input: params.input,
+        stream: false,
         text: {
           format: {
             type: "json_schema",
@@ -126,11 +149,21 @@ export async function createStrictJsonResponse<T>(
             strict: true,
           },
         },
-        reasoning: params.reasoning,
+        reasoning,
         tools: params.tools,
         store: false,
         include,
-      }),
+        ...continuation,
+      };
+
+      if (contextManagement) {
+        requestBody.context_management = contextManagement;
+      }
+
+      return client.responses.create(
+        requestBody as OpenAI.Responses.ResponseCreateParams,
+      );
+    },
     {
       retries: envNumber("OPENAI_RESPONSES_RETRIES", DEFAULT_RESPONSE_RETRIES),
       initialDelayMs: envNumber(
@@ -146,7 +179,7 @@ export async function createStrictJsonResponse<T>(
         DEFAULT_RETRY_MULTIPLIER,
       ),
     },
-  );
+  )) as OpenAI.Responses.Response;
 
   const outputText = getOutputText(response);
   const outputJson = parseStrictJson(outputText) as T;

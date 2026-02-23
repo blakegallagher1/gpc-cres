@@ -13,11 +13,12 @@ import type {
 } from "@entitlement-os/shared";
 
 import { createEmbedding } from "../embeddings.js";
+import { canUseQdrantHybridRetrieval, hybridSearchQdrant } from "../agentos/qdrant.js";
 
 type JsonRecord = Record<string, unknown>;
 
 const DEFAULT_RETRIEVAL_LIMIT = 20;
-const OPENAI_EMBEDDING_MODEL = process.env.OPENAI_EMBEDDING_MODEL ?? "text-embedding-3-small";
+const OPENAI_EMBEDDING_MODEL = process.env.OPENAI_EMBEDDING_MODEL ?? "text-embedding-3-large";
 
 interface SemanticSearchRow {
   id: string;
@@ -44,6 +45,10 @@ interface GraphSearchRow {
   sourceHash: string;
   timestamp: Date;
 }
+
+export type DataAgentRetrievalOptions = {
+  orgId?: string;
+};
 
 let vectorSupportCache: boolean | null = null;
 let sparseSupportCache: boolean | null = null;
@@ -218,6 +223,33 @@ async function semanticSearch(
   }
 }
 
+async function qdrantHybridSearch(
+  query: string,
+  subjectId?: string,
+  options?: DataAgentRetrievalOptions,
+): Promise<DataAgentRetrievalItem[]> {
+  const hits = await hybridSearchQdrant({
+    query,
+    orgId: options?.orgId,
+    limit: 40,
+  });
+
+  const filtered = subjectId
+    ? hits.filter((hit) => {
+        const payload = normalizeMetadata(hit.payload);
+        return (
+          hit.text.includes(subjectId) ||
+          String(payload.subjectId ?? "") === subjectId ||
+          String(payload.runId ?? "") === subjectId
+        );
+      })
+    : hits;
+
+  return filtered.map((hit) =>
+    makeItem(hit.source, hit.id, hit.text, clamp01(hit.score), normalizeMetadata(hit.payload)),
+  );
+}
+
 async function sparseSearch(
   query: string,
   subjectId?: string,
@@ -336,18 +368,29 @@ async function graphSearch(query: string, subjectId?: string): Promise<DataAgent
 export async function buildDataAgentRetrievalContext(
   query: string,
   subjectId?: string,
+  options?: DataAgentRetrievalOptions,
 ): Promise<DataAgentRetrievalContext> {
   const normalizedQuery = query.trim();
   if (!normalizedQuery) {
     throw new Error("query is required");
   }
 
-  const useVector = await hasVectorSupport();
-  const [semantic, sparse, graph] = await Promise.all([
-    useVector ? semanticSearch(normalizedQuery, subjectId) : Promise.resolve([]),
-    sparseSearch(normalizedQuery, subjectId),
-    graphSearch(normalizedQuery, subjectId),
-  ]);
+  const useQdrantHybrid = canUseQdrantHybridRetrieval();
+
+  const [semantic, sparse, graph] = await (useQdrantHybrid
+    ? Promise.all([
+        qdrantHybridSearch(normalizedQuery, subjectId, options),
+        Promise.resolve([] as DataAgentRetrievalItem[]),
+        graphSearch(normalizedQuery, subjectId),
+      ])
+    : (async () => {
+        const useVector = await hasVectorSupport();
+        return Promise.all([
+          useVector ? semanticSearch(normalizedQuery, subjectId) : Promise.resolve([]),
+          sparseSearch(normalizedQuery, subjectId),
+          graphSearch(normalizedQuery, subjectId),
+        ]);
+      })());
 
   const sourceStats = coerceSources(semantic.length, sparse.length, graph.length);
   const merged = new Map<string, DataAgentRetrievalItem>();

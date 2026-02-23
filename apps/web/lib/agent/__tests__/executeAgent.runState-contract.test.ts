@@ -27,6 +27,14 @@ vi.mock("@entitlement-os/openai", () => ({
   setupAgentTracing: vi.fn(),
   serializeRunStateEnvelope: vi.fn((input: unknown) => input),
   deserializeRunStateEnvelope: vi.fn(() => null),
+  createTrajectoryRecorder: vi.fn(() => ({
+    record: vi.fn(),
+    snapshot: vi.fn(() => []),
+  })),
+  extractUsageSummary: vi.fn(() => null),
+  isAgentOsFeatureEnabled: vi.fn(() => false),
+  maybeTrimToolOutput: vi.fn((value: unknown) => ({ value, wasTrimmed: false })),
+  runCriticEvaluation: vi.fn(async () => {}),
 }));
 vi.mock("../retrievalAdapter", () => ({
   unifiedRetrieval: vi.fn(async () => [

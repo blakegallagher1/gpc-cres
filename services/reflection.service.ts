@@ -12,7 +12,7 @@ import { logger } from "../utils/logger";
 import { withSpan } from "../openTelemetry/setup.ts";
 import { EpisodeRecord } from "./episode.service";
 
-const OPENAI_EMBEDDING_MODEL = process.env.OPENAI_EMBEDDING_MODEL ?? "text-embedding-3-small";
+const OPENAI_EMBEDDING_MODEL = process.env.OPENAI_EMBEDDING_MODEL ?? "text-embedding-3-large";
 const requireModule = createRequire(import.meta.url);
 
 type JsonRecord = Record<string, unknown>;
@@ -225,6 +225,7 @@ async function createEmbedding(input: string): Promise<number[]> {
     model: OPENAI_EMBEDDING_MODEL,
     input,
     encoding_format: "float",
+    dimensions: 1536,
   })) as { data?: Array<{ embedding?: number[] }> };
   const embedding = response?.data?.[0]?.embedding;
   if (!Array.isArray(embedding) || embedding.length === 0) {

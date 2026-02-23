@@ -82,6 +82,7 @@ enum entity_type {
   TRUST
   CORP
   INDIVIDUAL
+
   @@map("entity_type")
 }
 
@@ -175,52 +176,79 @@ enum deal_stakeholder_role {
   OTHER
 }
 
+enum episodic_outcome {
+  SUCCESS
+  FAILURE
+  PARTIAL
+}
+
+enum risk_level {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum domain_source_type {
+  ZONING_CODE
+  MARKET_REPORT
+  INTERNAL_MEMO
+  SCHEMA_DOC
+}
+
 model Org {
   id        String   @id @default(uuid()) @db.Uuid
   name      String   @db.Text
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  memberships       OrgMembership[]
-  jurisdictions     Jurisdiction[]
-  deals             Deal[]
-  parcels           Parcel[]
-  tasks             Task[]
-  buyers            Buyer[]
-  outreach          Outreach[]
-  runs              Run[]
-  evidenceSources   EvidenceSource[]
-  evidenceSnapshots EvidenceSnapshot[]
-  parishPackVersions ParishPackVersion[]
-  artifacts         Artifact[]
-  uploads              Upload[]
-  documentExtractions  DocumentExtraction[]
-  conversations        Conversation[]
-  entities          Entity[]
-  taxEvents         TaxEvent[]
-  notifications     Notification[]
-  userPreferences   UserPreference[]
-  proactiveTriggers ProactiveTrigger[]
-  proactiveActions  ProactiveAction[]
-  toolExecutionMetrics ToolExecutionMetric[]
-  savedSearches     SavedSearch[]
-  entitlementGraphNodes       EntitlementGraphNode[]
-  entitlementGraphEdges       EntitlementGraphEdge[]
-  entitlementOutcomePrecedents EntitlementOutcomePrecedent[]
+  memberships                    OrgMembership[]
+  jurisdictions                  Jurisdiction[]
+  deals                          Deal[]
+  parcels                        Parcel[]
+  tasks                          Task[]
+  buyers                         Buyer[]
+  outreach                       Outreach[]
+  runs                           Run[]
+  evidenceSources                EvidenceSource[]
+  evidenceSnapshots              EvidenceSnapshot[]
+  parishPackVersions             ParishPackVersion[]
+  artifacts                      Artifact[]
+  uploads                        Upload[]
+  documentExtractions            DocumentExtraction[]
+  conversations                  Conversation[]
+  entities                       Entity[]
+  taxEvents                      TaxEvent[]
+  notifications                  Notification[]
+  userPreferences                UserPreference[]
+  proactiveTriggers              ProactiveTrigger[]
+  proactiveActions               ProactiveAction[]
+  toolExecutionMetrics           ToolExecutionMetric[]
+  savedSearches                  SavedSearch[]
+  entitlementGraphNodes          EntitlementGraphNode[]
+  entitlementGraphEdges          EntitlementGraphEdge[]
+  entitlementOutcomePrecedents   EntitlementOutcomePrecedent[]
   entitlementPredictionSnapshots EntitlementPredictionSnapshot[]
-  dealTerms                DealTerms[]
-  environmentalAssessments EnvironmentalAssessment[]
-  tenants                 Tenant[]
-  tenantLeases            TenantLease[]
-  developmentBudgets      DevelopmentBudget[]
-  capitalSources          CapitalSource[]
-  capitalDeployments      CapitalDeployment[]
-  equityWaterfalls        EquityWaterfall[]
-  financings              DealFinancing[]
-  risks                   DealRisk[]
-  entitlementPaths          EntitlementPath[]
-  stakeholders            DealStakeholder[]
-  propertyTitles          PropertyTitle[]
-  propertySurveys         PropertySurvey[]
+  dealTerms                      DealTerms[]
+  environmentalAssessments       EnvironmentalAssessment[]
+  tenants                        Tenant[]
+  tenantLeases                   TenantLease[]
+  developmentBudgets             DevelopmentBudget[]
+  capitalSources                 CapitalSource[]
+  capitalDeployments             CapitalDeployment[]
+  equityWaterfalls               EquityWaterfall[]
+  financings                     DealFinancing[]
+  risks                          DealRisk[]
+  entitlementPaths               EntitlementPath[]
+  stakeholders                   DealStakeholder[]
+  propertyTitles                 PropertyTitle[]
+  propertySurveys                PropertySurvey[]
+  episodicEntries                EpisodicEntry[]
+  semanticFacts                  SemanticFact[]
+  proceduralSkills               ProceduralSkill[]
+  domainDocs                     DomainDoc[]
+  trajectoryLogs                 TrajectoryLog[]
+  toolSpecs                      ToolSpec[]
+  evalResults                    EvalResult[]
 
   @@map("orgs")
 }
@@ -231,19 +259,19 @@ model User {
   email     String   @db.Text
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  memberships            OrgMembership[]
-  dealsCreated           Deal[]   @relation("deal_created_by")
-  tasksOwned             Task[]   @relation("task_owner_user_id")
-  uploadsCreated         Upload[] @relation("upload_uploaded_by")
-  extractionsReviewed    DocumentExtraction[] @relation("extraction_reviewed_by")
-  conversations          Conversation[]
-  notifications          Notification[]
-  notificationPreferences NotificationPreference[]
-  preferences            UserPreference[]
-  proactiveTriggersCreated ProactiveTrigger[] @relation("proactive_trigger_created_by")
-  proactiveActionsAssigned ProactiveAction[] @relation("proactive_action_user")
-  toolExecutionMetrics     ToolExecutionMetric[] @relation("tool_execution_metric_user")
-  savedSearches          SavedSearch[]
+  memberships              OrgMembership[]
+  dealsCreated             Deal[]                   @relation("deal_created_by")
+  tasksOwned               Task[]                   @relation("task_owner_user_id")
+  uploadsCreated           Upload[]                 @relation("upload_uploaded_by")
+  extractionsReviewed      DocumentExtraction[]     @relation("extraction_reviewed_by")
+  conversations            Conversation[]
+  notifications            Notification[]
+  notificationPreferences  NotificationPreference[]
+  preferences              UserPreference[]
+  proactiveTriggersCreated ProactiveTrigger[]       @relation("proactive_trigger_created_by")
+  proactiveActionsAssigned ProactiveAction[]        @relation("proactive_action_user")
+  toolExecutionMetrics     ToolExecutionMetric[]    @relation("tool_execution_metric_user")
+  savedSearches            SavedSearch[]
 
   @@map("users")
 }
@@ -272,14 +300,14 @@ model Jurisdiction {
   officialDomains String[] @map("official_domains")
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  org         Org                    @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  seedSources JurisdictionSeedSource[]
-  deals       Deal[]
-  parishPackVersions ParishPackVersion[]
-  runs        Run[]
-  entitlementGraphNodes       EntitlementGraphNode[]
-  entitlementGraphEdges       EntitlementGraphEdge[]
-  entitlementOutcomePrecedents EntitlementOutcomePrecedent[]
+  org                            Org                             @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  seedSources                    JurisdictionSeedSource[]
+  deals                          Deal[]
+  parishPackVersions             ParishPackVersion[]
+  runs                           Run[]
+  entitlementGraphNodes          EntitlementGraphNode[]
+  entitlementGraphEdges          EntitlementGraphEdge[]
+  entitlementOutcomePrecedents   EntitlementOutcomePrecedent[]
   entitlementPredictionSnapshots EntitlementPredictionSnapshot[]
 
   @@index([orgId])
@@ -301,57 +329,57 @@ model JurisdictionSeedSource {
 }
 
 model Deal {
-  id              String      @id @default(uuid()) @db.Uuid
-  orgId           String      @map("org_id") @db.Uuid
-  name            String      @db.Text
-  sku             sku_type
-  jurisdictionId  String      @map("jurisdiction_id") @db.Uuid
-  status          deal_status @default(INTAKE)
-  targetCloseDate DateTime?   @map("target_close_date") @db.Date
-  notes           String?     @db.Text
-  createdBy       String      @map("created_by") @db.Uuid
-  createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
-  source                    String?  @db.Text
-  financialModelAssumptions Json?    @map("financial_model_assumptions") @db.JsonB
-  financialModelScenarios   Json?    @map("financial_model_scenarios") @db.JsonB
-  waterfallStructures       Json?    @map("waterfall_structures") @db.JsonB
-  debtComparisons           Json?    @map("debt_comparisons") @db.JsonB
+  id                        String      @id @default(uuid()) @db.Uuid
+  orgId                     String      @map("org_id") @db.Uuid
+  name                      String      @db.Text
+  sku                       sku_type
+  jurisdictionId            String      @map("jurisdiction_id") @db.Uuid
+  status                    deal_status @default(INTAKE)
+  targetCloseDate           DateTime?   @map("target_close_date") @db.Date
+  notes                     String?     @db.Text
+  createdBy                 String      @map("created_by") @db.Uuid
+  createdAt                 DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                 DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  source                    String?     @db.Text
+  financialModelAssumptions Json?       @map("financial_model_assumptions") @db.JsonB
+  financialModelScenarios   Json?       @map("financial_model_scenarios") @db.JsonB
+  waterfallStructures       Json?       @map("waterfall_structures") @db.JsonB
+  debtComparisons           Json?       @map("debt_comparisons") @db.JsonB
 
   org          Org          @relation(fields: [orgId], references: [id], onDelete: Cascade)
   jurisdiction Jurisdiction @relation(fields: [jurisdictionId], references: [id], onDelete: Restrict)
   creator      User         @relation("deal_created_by", fields: [createdBy], references: [id], onDelete: Restrict)
 
-  parcels       Parcel[]
-  tasks         Task[]
-  outreach      Outreach[]
-  runs          Run[]
-  artifacts     Artifact[]
-  uploads              Upload[]
-  documentExtractions  DocumentExtraction[]
-  conversations        Conversation[]
-  entityDeals      EntityDeal[]
-  taxEvents        TaxEvent[]
-  notifications    Notification[]
-  approvalRequests ApprovalRequest[]
-  outcome          DealOutcome?
-  terms            DealTerms?
-  entitlementPath  EntitlementPath?
-  propertyTitle    PropertyTitle?
-  propertySurvey   PropertySurvey?
-  environmentalAssessments EnvironmentalAssessment[]
-  tenants        Tenant[]
-  tenantLeases   TenantLease[]
-  developmentBudget DevelopmentBudget?
-  capitalSources CapitalSource[]
-  capitalDeployments CapitalDeployment[]
-  equityWaterfalls EquityWaterfall[]
-  financings       DealFinancing[]
-  risks            DealRisk[]
-  stakeholders     DealStakeholder[]
-  assumptionActuals AssumptionActual[]
-  entitlementGraphNodes       EntitlementGraphNode[]
-  entitlementOutcomePrecedents EntitlementOutcomePrecedent[]
+  parcels                        Parcel[]
+  tasks                          Task[]
+  outreach                       Outreach[]
+  runs                           Run[]
+  artifacts                      Artifact[]
+  uploads                        Upload[]
+  documentExtractions            DocumentExtraction[]
+  conversations                  Conversation[]
+  entityDeals                    EntityDeal[]
+  taxEvents                      TaxEvent[]
+  notifications                  Notification[]
+  approvalRequests               ApprovalRequest[]
+  outcome                        DealOutcome?
+  terms                          DealTerms?
+  entitlementPath                EntitlementPath?
+  propertyTitle                  PropertyTitle?
+  propertySurvey                 PropertySurvey?
+  environmentalAssessments       EnvironmentalAssessment[]
+  tenants                        Tenant[]
+  tenantLeases                   TenantLease[]
+  developmentBudget              DevelopmentBudget?
+  capitalSources                 CapitalSource[]
+  capitalDeployments             CapitalDeployment[]
+  equityWaterfalls               EquityWaterfall[]
+  financings                     DealFinancing[]
+  risks                          DealRisk[]
+  stakeholders                   DealStakeholder[]
+  assumptionActuals              AssumptionActual[]
+  entitlementGraphNodes          EntitlementGraphNode[]
+  entitlementOutcomePrecedents   EntitlementOutcomePrecedent[]
   entitlementPredictionSnapshots EntitlementPredictionSnapshot[]
 
   @@index([orgId])
@@ -361,15 +389,15 @@ model Deal {
 }
 
 model Parcel {
-  id            String   @id @default(uuid()) @db.Uuid
-  orgId         String   @map("org_id") @db.Uuid
-  dealId        String   @map("deal_id") @db.Uuid
-  address       String   @db.Text
-  apn           String?  @db.Text
+  id             String   @id @default(uuid()) @db.Uuid
+  orgId          String   @map("org_id") @db.Uuid
+  dealId         String   @map("deal_id") @db.Uuid
+  address        String   @db.Text
+  apn            String?  @db.Text
   // Store coordinates/acreage as fixed-point decimals for determinism and DB portability.
-  lat           Decimal? @db.Decimal(10, 7)
-  lng           Decimal? @db.Decimal(10, 7)
-  acreage       Decimal? @db.Decimal(12, 4)
+  lat            Decimal? @db.Decimal(10, 7)
+  lng            Decimal? @db.Decimal(10, 7)
+  acreage        Decimal? @db.Decimal(12, 4)
   currentZoning  String?  @map("current_zoning") @db.Text
   futureLandUse  String?  @map("future_land_use") @db.Text
   utilitiesNotes String?  @map("utilities_notes") @db.Text
@@ -401,8 +429,8 @@ model Task {
   pipelineStep Int         @map("pipeline_step")
   createdAt    DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  org   Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  deal  Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  org   Org   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  deal  Deal  @relation(fields: [dealId], references: [id], onDelete: Cascade)
   owner User? @relation("task_owner_user_id", fields: [ownerUserId], references: [id], onDelete: SetNull)
 
   @@index([orgId])
@@ -425,7 +453,7 @@ model Buyer {
   notes                 String?    @db.Text
   createdAt             DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  org      Org       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org      Org        @relation(fields: [orgId], references: [id], onDelete: Cascade)
   outreach Outreach[]
 
   @@index([orgId])
@@ -454,28 +482,30 @@ model Outreach {
 }
 
 model Run {
-  id              String    @id @default(uuid()) @db.Uuid
-  orgId           String    @map("org_id") @db.Uuid
-  runType         run_type  @map("run_type")
-  dealId          String?   @map("deal_id") @db.Uuid
-  jurisdictionId  String?   @map("jurisdiction_id") @db.Uuid
-  sku             sku_type?
-  status          String    @db.Text // running|succeeded|failed|canceled
-  startedAt       DateTime  @default(now()) @map("started_at") @db.Timestamptz(6)
-  finishedAt      DateTime? @map("finished_at") @db.Timestamptz(6)
-  error           String?   @db.Text
-  openaiResponseId String?  @map("openai_response_id") @db.Text
-  inputHash       String?   @map("input_hash") @db.Text
-  outputJson      Json?     @map("output_json")
-  serializedState Json?     @map("serialized_state")
+  id               String    @id @default(uuid()) @db.Uuid
+  orgId            String    @map("org_id") @db.Uuid
+  runType          run_type  @map("run_type")
+  dealId           String?   @map("deal_id") @db.Uuid
+  jurisdictionId   String?   @map("jurisdiction_id") @db.Uuid
+  sku              sku_type?
+  status           String    @db.Text // running|succeeded|failed|canceled
+  startedAt        DateTime  @default(now()) @map("started_at") @db.Timestamptz(6)
+  finishedAt       DateTime? @map("finished_at") @db.Timestamptz(6)
+  error            String?   @db.Text
+  openaiResponseId String?   @map("openai_response_id") @db.Text
+  inputHash        String?   @map("input_hash") @db.Text
+  outputJson       Json?     @map("output_json")
+  serializedState  Json?     @map("serialized_state")
+  trajectory       Json?     @map("trajectory")
 
   org          Org           @relation(fields: [orgId], references: [id], onDelete: Cascade)
   deal         Deal?         @relation(fields: [dealId], references: [id], onDelete: Cascade)
   jurisdiction Jurisdiction? @relation(fields: [jurisdictionId], references: [id], onDelete: SetNull)
 
-  evidenceSnapshots   EvidenceSnapshot[]
-  parishPackVersions  ParishPackVersion[]
-  artifacts           Artifact[]
+  evidenceSnapshots  EvidenceSnapshot[]
+  parishPackVersions ParishPackVersion[]
+  artifacts          Artifact[]
+  trajectoryLogs     TrajectoryLog[]
 
   @@index([orgId])
   @@index([dealId])
@@ -493,7 +523,7 @@ model EvidenceSource {
   isOfficial  Boolean  @default(false) @map("is_official")
   firstSeenAt DateTime @default(now()) @map("first_seen_at") @db.Timestamptz(6)
 
-  org              Org              @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org               Org                @relation(fields: [orgId], references: [id], onDelete: Cascade)
   evidenceSnapshots EvidenceSnapshot[]
 
   @@unique([orgId, url])
@@ -503,20 +533,20 @@ model EvidenceSource {
 }
 
 model EvidenceSnapshot {
-  id                 String   @id @default(uuid()) @db.Uuid
-  orgId              String   @map("org_id") @db.Uuid
-  evidenceSourceId   String   @map("evidence_source_id") @db.Uuid
-  retrievedAt        DateTime @map("retrieved_at") @db.Timestamptz(6)
-  httpStatus         Int      @map("http_status")
-  contentType        String   @map("content_type") @db.Text
-  contentHash        String   @map("content_hash") @db.Text
-  storageObjectKey   String   @map("storage_object_key") @db.Text
-  textExtractObjectKey String? @map("text_extract_object_key") @db.Text
-  runId              String   @map("run_id") @db.Uuid
+  id                   String   @id @default(uuid()) @db.Uuid
+  orgId                String   @map("org_id") @db.Uuid
+  evidenceSourceId     String   @map("evidence_source_id") @db.Uuid
+  retrievedAt          DateTime @map("retrieved_at") @db.Timestamptz(6)
+  httpStatus           Int      @map("http_status")
+  contentType          String   @map("content_type") @db.Text
+  contentHash          String   @map("content_hash") @db.Text
+  storageObjectKey     String   @map("storage_object_key") @db.Text
+  textExtractObjectKey String?  @map("text_extract_object_key") @db.Text
+  runId                String   @map("run_id") @db.Uuid
 
-  org          Org          @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org            Org            @relation(fields: [orgId], references: [id], onDelete: Cascade)
   evidenceSource EvidenceSource @relation(fields: [evidenceSourceId], references: [id], onDelete: Cascade)
-  run          Run          @relation(fields: [runId], references: [id], onDelete: Cascade)
+  run            Run            @relation(fields: [runId], references: [id], onDelete: Cascade)
 
   @@index([orgId])
   @@index([evidenceSourceId])
@@ -525,24 +555,24 @@ model EvidenceSnapshot {
 }
 
 model ParishPackVersion {
-  id              String   @id @default(uuid()) @db.Uuid
-  orgId           String   @map("org_id") @db.Uuid
-  jurisdictionId  String   @map("jurisdiction_id") @db.Uuid
-  sku             sku_type
-  version         Int
-  status          String   @db.Text // draft|current|superseded|invalid
-  generatedAt     DateTime @map("generated_at") @db.Timestamptz(6)
-  generatedByRunId String  @map("generated_by_run_id") @db.Uuid
-  packJson        Json     @map("pack_json")
-  sourceEvidenceIds   Json     @default("[]") @map("source_evidence_ids")
-  sourceSnapshotIds   Json     @default("[]") @map("source_snapshot_ids")
-  sourceContentHashes Json     @default("[]") @map("source_content_hashes")
-  officialOnly        Boolean   @default(false) @map("official_only")
-  sourceUrls          Json     @default("[]") @map("source_urls")
-  packCoverageScore   Float?    @map("pack_coverage_score")
-  canonicalSchemaVersion String? @map("canonical_schema_version") @db.Text
-  coverageSourceCount Int?      @map("coverage_source_count")
-  inputHash          String?   @map("input_hash") @db.Text
+  id                     String   @id @default(uuid()) @db.Uuid
+  orgId                  String   @map("org_id") @db.Uuid
+  jurisdictionId         String   @map("jurisdiction_id") @db.Uuid
+  sku                    sku_type
+  version                Int
+  status                 String   @db.Text // draft|current|superseded|invalid
+  generatedAt            DateTime @map("generated_at") @db.Timestamptz(6)
+  generatedByRunId       String   @map("generated_by_run_id") @db.Uuid
+  packJson               Json     @map("pack_json")
+  sourceEvidenceIds      Json     @default("[]") @map("source_evidence_ids")
+  sourceSnapshotIds      Json     @default("[]") @map("source_snapshot_ids")
+  sourceContentHashes    Json     @default("[]") @map("source_content_hashes")
+  officialOnly           Boolean  @default(false) @map("official_only")
+  sourceUrls             Json     @default("[]") @map("source_urls")
+  packCoverageScore      Float?   @map("pack_coverage_score")
+  canonicalSchemaVersion String?  @map("canonical_schema_version") @db.Text
+  coverageSourceCount    Int?     @map("coverage_source_count")
+  inputHash              String?  @map("input_hash") @db.Text
 
   org          Org          @relation(fields: [orgId], references: [id], onDelete: Cascade)
   jurisdiction Jurisdiction @relation(fields: [jurisdictionId], references: [id], onDelete: Cascade)
@@ -556,14 +586,14 @@ model ParishPackVersion {
 }
 
 model Artifact {
-  id              String        @id @default(uuid()) @db.Uuid
-  orgId           String        @map("org_id") @db.Uuid
-  dealId          String        @map("deal_id") @db.Uuid
-  artifactType    artifact_type @map("artifact_type")
-  version         Int
-  storageObjectKey String       @map("storage_object_key") @db.Text
-  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  generatedByRunId String       @map("generated_by_run_id") @db.Uuid
+  id               String        @id @default(uuid()) @db.Uuid
+  orgId            String        @map("org_id") @db.Uuid
+  dealId           String        @map("deal_id") @db.Uuid
+  artifactType     artifact_type @map("artifact_type")
+  version          Int
+  storageObjectKey String        @map("storage_object_key") @db.Text
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  generatedByRunId String        @map("generated_by_run_id") @db.Uuid
 
   org  Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
   deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
@@ -576,16 +606,17 @@ model Artifact {
 }
 
 model Upload {
-  id              String   @id @default(uuid()) @db.Uuid
-  orgId           String   @map("org_id") @db.Uuid
-  dealId          String   @map("deal_id") @db.Uuid
-  kind            String   @db.Text
-  filename        String   @db.Text
-  contentType     String   @map("content_type") @db.Text
-  sizeBytes       Int      @map("size_bytes")
-  storageObjectKey String  @map("storage_object_key") @db.Text
-  uploadedBy      String   @map("uploaded_by") @db.Uuid
-  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  id               String   @id @default(uuid()) @db.Uuid
+  orgId            String   @map("org_id") @db.Uuid
+  dealId           String   @map("deal_id") @db.Uuid
+  kind             String   @db.Text
+  filename         String   @db.Text
+  contentType      String   @map("content_type") @db.Text
+  sizeBytes        Int      @map("size_bytes")
+  storageObjectKey String   @map("storage_object_key") @db.Text
+  status           String   @default("available") @db.Text // pending | available (B2 two-phase flow)
+  uploadedBy       String   @map("uploaded_by") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   org  Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
   deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
@@ -663,16 +694,16 @@ model Message {
 }
 
 model Entity {
-  id            String      @id @default(uuid()) @db.Uuid
-  orgId         String      @map("org_id") @db.Uuid
-  name          String      @db.Text
-  entityType    entity_type @map("entity_type")
-  parentId      String?     @map("parent_id") @db.Uuid
-  ownershipPct  Decimal     @default(100) @map("ownership_pct") @db.Decimal(5, 2)
-  taxId         String?     @map("tax_id") @db.Text
-  state         String?     @db.Text
-  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id           String      @id @default(uuid()) @db.Uuid
+  orgId        String      @map("org_id") @db.Uuid
+  name         String      @db.Text
+  entityType   entity_type @map("entity_type")
+  parentId     String?     @map("parent_id") @db.Uuid
+  ownershipPct Decimal     @default(100) @map("ownership_pct") @db.Decimal(5, 2)
+  taxId        String?     @map("tax_id") @db.Text
+  state        String?     @db.Text
+  createdAt    DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   org       Org          @relation(fields: [orgId], references: [id], onDelete: Cascade)
   parent    Entity?      @relation("EntityHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
@@ -750,14 +781,14 @@ model Notification {
 }
 
 model NotificationPreference {
-  id              String   @id @default(uuid()) @db.Uuid
-  userId          String   @map("user_id") @db.Uuid
+  id              String            @id @default(uuid()) @db.Uuid
+  userId          String            @map("user_id") @db.Uuid
   type            notification_type
-  channel         String   @default("in_app") @db.Text // in_app|email|both
-  enabled         Boolean  @default(true)
-  thresholdConfig Json     @default("{}") @map("threshold_config") @db.JsonB
-  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  channel         String            @default("in_app") @db.Text // in_app|email|both
+  enabled         Boolean           @default(true)
+  thresholdConfig Json              @default("{}") @map("threshold_config") @db.JsonB
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -813,8 +844,8 @@ model ProactiveTrigger {
   createdAt       DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  org     Org             @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  creator User            @relation("proactive_trigger_created_by", fields: [createdBy], references: [id], onDelete: Cascade)
+  org     Org               @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  creator User              @relation("proactive_trigger_created_by", fields: [createdBy], references: [id], onDelete: Cascade)
   actions ProactiveAction[]
 
   @@index([orgId, status])
@@ -985,14 +1016,14 @@ model OpportunityMatch {
 }
 
 model KnowledgeEmbedding {
-  id          String   @id @default(uuid()) @db.Uuid
-  contentType String   @map("content_type") @db.Text // deal_memo|agent_analysis|document_extraction|market_report|user_note
-  sourceId    String   @map("source_id") @db.Text // polymorphic reference
-  contentText String   @map("content_text") @db.Text
+  id          String                       @id @default(uuid()) @db.Uuid
+  contentType String                       @map("content_type") @db.Text // deal_memo|agent_analysis|document_extraction|market_report|user_note
+  sourceId    String                       @map("source_id") @db.Text // polymorphic reference
+  contentText String                       @map("content_text") @db.Text
   embedding   Unsupported("vector(1536)")?
-  metadata    Json     @default("{}") @db.JsonB
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  metadata    Json                         @default("{}") @db.JsonB
+  createdAt   DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime                     @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@index([contentType])
   @@index([sourceId])
@@ -1017,8 +1048,8 @@ model EntitlementGraphNode {
   jurisdiction Jurisdiction @relation(fields: [jurisdictionId], references: [id], onDelete: Cascade)
   deal         Deal?        @relation(fields: [dealId], references: [id], onDelete: SetNull)
 
-  outgoingEdges EntitlementGraphEdge[] @relation("graph_edge_from")
-  incomingEdges EntitlementGraphEdge[] @relation("graph_edge_to")
+  outgoingEdges      EntitlementGraphEdge[]        @relation("graph_edge_from")
+  incomingEdges      EntitlementGraphEdge[]        @relation("graph_edge_to")
   strategyPrecedents EntitlementOutcomePrecedent[] @relation("strategy_node_precedents")
 
   @@unique([orgId, jurisdictionId, nodeType, nodeKey])
@@ -1042,8 +1073,8 @@ model EntitlementGraphEdge {
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  org          Org          @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  jurisdiction Jurisdiction @relation(fields: [jurisdictionId], references: [id], onDelete: Cascade)
+  org          Org                  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  jurisdiction Jurisdiction         @relation(fields: [jurisdictionId], references: [id], onDelete: Cascade)
   fromNode     EntitlementGraphNode @relation("graph_edge_from", fields: [fromNodeId], references: [id], onDelete: Cascade)
   toNode       EntitlementGraphNode @relation("graph_edge_to", fields: [toNodeId], references: [id], onDelete: Cascade)
 
@@ -1057,34 +1088,34 @@ model EntitlementGraphEdge {
 }
 
 model EntitlementOutcomePrecedent {
-  id               String    @id @default(uuid()) @db.Uuid
-  orgId            String    @map("org_id") @db.Uuid
-  jurisdictionId   String    @map("jurisdiction_id") @db.Uuid
-  dealId           String?   @map("deal_id") @db.Uuid
-  strategyNodeId   String?   @map("strategy_node_id") @db.Uuid
-  precedentKey     String    @map("precedent_key") @db.Text
-  strategyKey      String    @map("strategy_key") @db.Text
-  strategyLabel    String    @map("strategy_label") @db.Text
-  sku              sku_type?
-  applicationType  String?   @map("application_type") @db.Text
-  hearingBody      String?   @map("hearing_body") @db.Text
-  submittedAt      DateTime? @map("submitted_at") @db.Date
-  decisionAt       DateTime? @map("decision_at") @db.Date
-  decision         String    @db.Text // approved|approved_with_conditions|denied|withdrawn
-  timelineDays     Int?      @map("timeline_days")
-  conditions       Json      @default("[]") @db.JsonB
-  riskFlags        String[]  @default([]) @map("risk_flags")
-  sourceEvidenceIds String[] @default([]) @map("source_evidence_ids")
-  sourceSnapshotIds String[] @default([]) @map("source_snapshot_ids")
-  confidence       Decimal   @default(0.7000) @db.Decimal(5, 4)
-  notes            String?   @db.Text
-  createdBy        String?   @map("created_by") @db.Uuid
-  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                String    @id @default(uuid()) @db.Uuid
+  orgId             String    @map("org_id") @db.Uuid
+  jurisdictionId    String    @map("jurisdiction_id") @db.Uuid
+  dealId            String?   @map("deal_id") @db.Uuid
+  strategyNodeId    String?   @map("strategy_node_id") @db.Uuid
+  precedentKey      String    @map("precedent_key") @db.Text
+  strategyKey       String    @map("strategy_key") @db.Text
+  strategyLabel     String    @map("strategy_label") @db.Text
+  sku               sku_type?
+  applicationType   String?   @map("application_type") @db.Text
+  hearingBody       String?   @map("hearing_body") @db.Text
+  submittedAt       DateTime? @map("submitted_at") @db.Date
+  decisionAt        DateTime? @map("decision_at") @db.Date
+  decision          String    @db.Text // approved|approved_with_conditions|denied|withdrawn
+  timelineDays      Int?      @map("timeline_days")
+  conditions        Json      @default("[]") @db.JsonB
+  riskFlags         String[]  @default([]) @map("risk_flags")
+  sourceEvidenceIds String[]  @default([]) @map("source_evidence_ids")
+  sourceSnapshotIds String[]  @default([]) @map("source_snapshot_ids")
+  confidence        Decimal   @default(0.7000) @db.Decimal(5, 4)
+  notes             String?   @db.Text
+  createdBy         String?   @map("created_by") @db.Uuid
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  org          Org          @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  jurisdiction Jurisdiction @relation(fields: [jurisdictionId], references: [id], onDelete: Cascade)
-  deal         Deal?        @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  org          Org                   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  jurisdiction Jurisdiction          @relation(fields: [jurisdictionId], references: [id], onDelete: Cascade)
+  deal         Deal?                 @relation(fields: [dealId], references: [id], onDelete: SetNull)
   strategyNode EntitlementGraphNode? @relation("strategy_node_precedents", fields: [strategyNodeId], references: [id], onDelete: SetNull)
 
   @@unique([orgId, jurisdictionId, precedentKey])
@@ -1098,24 +1129,24 @@ model EntitlementOutcomePrecedent {
 }
 
 model EntitlementPredictionSnapshot {
-  id                    String    @id @default(uuid()) @db.Uuid
-  orgId                 String    @map("org_id") @db.Uuid
-  jurisdictionId        String    @map("jurisdiction_id") @db.Uuid
-  dealId                String?   @map("deal_id") @db.Uuid
-  strategyKey           String    @map("strategy_key") @db.Text
-  strategyLabel         String    @map("strategy_label") @db.Text
-  sku                   sku_type?
-  probabilityApproval   Decimal   @map("probability_approval") @db.Decimal(6, 5)
-  probabilityLow        Decimal   @map("probability_low") @db.Decimal(6, 5)
-  probabilityHigh       Decimal   @map("probability_high") @db.Decimal(6, 5)
-  expectedDaysP50       Int       @map("expected_days_p50")
-  expectedDaysP75       Int       @map("expected_days_p75")
-  expectedDaysP90       Int       @map("expected_days_p90")
-  sampleSize            Int       @map("sample_size")
-  modelVersion          String    @map("model_version") @db.Text
-  inputHash             String    @map("input_hash") @db.Text
-  rationale             Json      @default("{}") @db.JsonB
-  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  id                  String    @id @default(uuid()) @db.Uuid
+  orgId               String    @map("org_id") @db.Uuid
+  jurisdictionId      String    @map("jurisdiction_id") @db.Uuid
+  dealId              String?   @map("deal_id") @db.Uuid
+  strategyKey         String    @map("strategy_key") @db.Text
+  strategyLabel       String    @map("strategy_label") @db.Text
+  sku                 sku_type?
+  probabilityApproval Decimal   @map("probability_approval") @db.Decimal(6, 5)
+  probabilityLow      Decimal   @map("probability_low") @db.Decimal(6, 5)
+  probabilityHigh     Decimal   @map("probability_high") @db.Decimal(6, 5)
+  expectedDaysP50     Int       @map("expected_days_p50")
+  expectedDaysP75     Int       @map("expected_days_p75")
+  expectedDaysP90     Int       @map("expected_days_p90")
+  sampleSize          Int       @map("sample_size")
+  modelVersion        String    @map("model_version") @db.Text
+  inputHash           String    @map("input_hash") @db.Text
+  rationale           Json      @default("{}") @db.JsonB
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
 
   org          Org          @relation(fields: [orgId], references: [id], onDelete: Cascade)
   jurisdiction Jurisdiction @relation(fields: [jurisdictionId], references: [id], onDelete: Cascade)
@@ -1131,22 +1162,22 @@ model EntitlementPredictionSnapshot {
 }
 
 model DealOutcome {
-  id                    String    @id @default(uuid()) @db.Uuid
-  dealId                String    @unique @map("deal_id") @db.Uuid
-  actualPurchasePrice   Decimal?  @map("actual_purchase_price") @db.Decimal(14, 2)
-  actualNoiYear1        Decimal?  @map("actual_noi_year1") @db.Decimal(14, 2)
-  actualExitPrice       Decimal?  @map("actual_exit_price") @db.Decimal(14, 2)
-  actualIrr             Decimal?  @map("actual_irr") @db.Decimal(8, 4)
-  actualEquityMultiple  Decimal?  @map("actual_equity_multiple") @db.Decimal(8, 4)
-  actualHoldPeriodMonths Int?     @map("actual_hold_period_months")
-  exitDate              DateTime? @map("exit_date") @db.Date
-  exitType              String?   @map("exit_type") @db.Text // sale|refinance|1031|other
-  killReason            String?   @map("kill_reason") @db.Text
-  killWasCorrect        Boolean?  @map("kill_was_correct")
-  notes                 String?   @db.Text
-  createdBy             String    @map("created_by") @db.Uuid
-  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                     String    @id @default(uuid()) @db.Uuid
+  dealId                 String    @unique @map("deal_id") @db.Uuid
+  actualPurchasePrice    Decimal?  @map("actual_purchase_price") @db.Decimal(14, 2)
+  actualNoiYear1         Decimal?  @map("actual_noi_year1") @db.Decimal(14, 2)
+  actualExitPrice        Decimal?  @map("actual_exit_price") @db.Decimal(14, 2)
+  actualIrr              Decimal?  @map("actual_irr") @db.Decimal(8, 4)
+  actualEquityMultiple   Decimal?  @map("actual_equity_multiple") @db.Decimal(8, 4)
+  actualHoldPeriodMonths Int?      @map("actual_hold_period_months")
+  exitDate               DateTime? @map("exit_date") @db.Date
+  exitType               String?   @map("exit_type") @db.Text // sale|refinance|1031|other
+  killReason             String?   @map("kill_reason") @db.Text
+  killWasCorrect         Boolean?  @map("kill_was_correct")
+  notes                  String?   @db.Text
+  createdBy              String    @map("created_by") @db.Uuid
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
 
@@ -1155,52 +1186,52 @@ model DealOutcome {
 }
 
 model DealTerms {
-  id                      String     @id @default(uuid()) @db.Uuid
-  dealId                  String     @unique @map("deal_id") @db.Uuid
-  orgId                   String     @map("org_id") @db.Uuid
-  offerPrice              Decimal?   @map("offer_price") @db.Decimal(14, 2)
-  earnestMoney            Decimal?   @map("earnest_money") @db.Decimal(14, 2)
-  closingDate             DateTime?  @map("closing_date") @db.Date
-  titleCompany            String?    @map("title_company") @db.Text
-  dueDiligenceDays        Int?       @map("due_diligence_days")
-  financingContingencyDays Int?       @map("financing_contingency_days")
-  loiSignedAt             DateTime?  @map("loi_signed_at") @db.Date
-  psaSignedAt             DateTime?  @map("psa_signed_at") @db.Date
-  titleReviewDue          DateTime?  @map("title_review_due") @db.Date
-  surveyDue               DateTime?  @map("survey_due") @db.Date
-  environmentalDue        DateTime?   @map("environmental_due") @db.Date
-  sellerContact          String?      @map("seller_contact") @db.Text
-  brokerContact          String?      @map("broker_contact") @db.Text
-  createdAt              DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt              DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                       String    @id @default(uuid()) @db.Uuid
+  dealId                   String    @unique @map("deal_id") @db.Uuid
+  orgId                    String    @map("org_id") @db.Uuid
+  offerPrice               Decimal?  @map("offer_price") @db.Decimal(14, 2)
+  earnestMoney             Decimal?  @map("earnest_money") @db.Decimal(14, 2)
+  closingDate              DateTime? @map("closing_date") @db.Date
+  titleCompany             String?   @map("title_company") @db.Text
+  dueDiligenceDays         Int?      @map("due_diligence_days")
+  financingContingencyDays Int?      @map("financing_contingency_days")
+  loiSignedAt              DateTime? @map("loi_signed_at") @db.Date
+  psaSignedAt              DateTime? @map("psa_signed_at") @db.Date
+  titleReviewDue           DateTime? @map("title_review_due") @db.Date
+  surveyDue                DateTime? @map("survey_due") @db.Date
+  environmentalDue         DateTime? @map("environmental_due") @db.Date
+  sellerContact            String?   @map("seller_contact") @db.Text
+  brokerContact            String?   @map("broker_contact") @db.Text
+  createdAt                DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  org   Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  deal  Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  org  Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
 
   @@index([orgId])
   @@map("deal_terms")
 }
 
 model EnvironmentalAssessment {
-  id                     String     @id @default(uuid()) @db.Uuid
-  dealId                 String     @map("deal_id") @db.Uuid
-  orgId                  String     @map("org_id") @db.Uuid
-  reportType             String?    @map("report_type") @db.Text
-  reportDate             DateTime?  @map("report_date") @db.Date
-  consultantName         String?    @map("consultant_name") @db.Text
-  reportTitle            String?    @map("report_title") @db.Text
-  recs                   String[]   @map("recs") @default([])
-  deMinimisConditions    String[]   @map("de_minimis_conditions") @default([])
-  phaseIiRecommended     Boolean?   @map("phase_ii_recommended")
-  phaseIiScope           String?    @map("phase_ii_scope") @db.Text
+  id                       String    @id @default(uuid()) @db.Uuid
+  dealId                   String    @map("deal_id") @db.Uuid
+  orgId                    String    @map("org_id") @db.Uuid
+  reportType               String?   @map("report_type") @db.Text
+  reportDate               DateTime? @map("report_date") @db.Date
+  consultantName           String?   @map("consultant_name") @db.Text
+  reportTitle              String?   @map("report_title") @db.Text
+  recs                     String[]  @default([]) @map("recs")
+  deMinimisConditions      String[]  @default([]) @map("de_minimis_conditions")
+  phaseIiRecommended       Boolean?  @map("phase_ii_recommended")
+  phaseIiScope             String?   @map("phase_ii_scope") @db.Text
   estimatedRemediationCost Decimal?  @map("estimated_remediation_cost") @db.Decimal(14, 2)
-  sourceUploadId         String?    @map("source_upload_id") @db.Uuid
-  notes                  String?    @db.Text
-  createdAt              DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt              DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  sourceUploadId           String?   @map("source_upload_id") @db.Uuid
+  notes                    String?   @db.Text
+  createdAt                DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  org   Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  deal  Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  org  Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
 
   @@index([orgId])
   @@index([dealId])
@@ -1209,90 +1240,90 @@ model EnvironmentalAssessment {
 }
 
 model EntitlementPath {
-  id                     String     @id @default(uuid()) @db.Uuid
-  dealId                 String     @unique @map("deal_id") @db.Uuid
-  orgId                  String     @map("org_id") @db.Uuid
-  recommendedStrategy    String?     @map("recommended_strategy") @db.Text
-  preAppMeetingDate      DateTime?  @map("pre_app_meeting_date") @db.Date
-  preAppMeetingNotes     String?    @map("pre_app_meeting_notes") @db.Text
-  applicationType        String?    @map("application_type") @db.Text
-  applicationSubmittedDate DateTime? @map("application_submitted_date") @db.Date
-  applicationNumber      String?    @map("application_number") @db.Text
-  publicNoticeDate       DateTime?  @map("public_notice_date") @db.Date
-  publicNoticePeriodDays Int?       @map("public_notice_period_days")
-  hearingScheduledDate   DateTime?  @map("hearing_scheduled_date") @db.Date
-  hearingBody            String?    @map("hearing_body") @db.Text
-  hearingNotes           String?    @map("hearing_notes") @db.Text
-  decisionDate           DateTime?  @map("decision_date") @db.Date
-  decisionType           String?    @map("decision_type") @db.Text
-  conditions             String[]   @map("conditions") @default([])
-  appealDeadline         DateTime?  @map("appeal_deadline") @db.Date
-  appealFiled            Boolean?   @map("appeal_filed")
-  conditionComplianceStatus String?  @map("condition_compliance_status") @db.Text
-  createdAt              DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt              DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                        String    @id @default(uuid()) @db.Uuid
+  dealId                    String    @unique @map("deal_id") @db.Uuid
+  orgId                     String    @map("org_id") @db.Uuid
+  recommendedStrategy       String?   @map("recommended_strategy") @db.Text
+  preAppMeetingDate         DateTime? @map("pre_app_meeting_date") @db.Date
+  preAppMeetingNotes        String?   @map("pre_app_meeting_notes") @db.Text
+  applicationType           String?   @map("application_type") @db.Text
+  applicationSubmittedDate  DateTime? @map("application_submitted_date") @db.Date
+  applicationNumber         String?   @map("application_number") @db.Text
+  publicNoticeDate          DateTime? @map("public_notice_date") @db.Date
+  publicNoticePeriodDays    Int?      @map("public_notice_period_days")
+  hearingScheduledDate      DateTime? @map("hearing_scheduled_date") @db.Date
+  hearingBody               String?   @map("hearing_body") @db.Text
+  hearingNotes              String?   @map("hearing_notes") @db.Text
+  decisionDate              DateTime? @map("decision_date") @db.Date
+  decisionType              String?   @map("decision_type") @db.Text
+  conditions                String[]  @default([]) @map("conditions")
+  appealDeadline            DateTime? @map("appeal_deadline") @db.Date
+  appealFiled               Boolean?  @map("appeal_filed")
+  conditionComplianceStatus String?   @map("condition_compliance_status") @db.Text
+  createdAt                 DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                 DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  org   Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  deal  Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  org  Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
 
   @@index([orgId])
   @@map("entitlement_paths")
 }
 
 model PropertyTitle {
-  id                    String     @id @default(uuid()) @db.Uuid
-  dealId                String     @map("deal_id") @db.Uuid
-  orgId                 String     @map("org_id") @db.Uuid
-  titleInsuranceReceived Boolean?   @map("title_insurance_received")
-  exceptions            String[]   @map("exceptions") @default([])
-  liens                 String[]   @map("liens") @default([])
-  easements             String[]   @map("easements") @default([])
-  createdAt             DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt             DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                     String   @id @default(uuid()) @db.Uuid
+  dealId                 String   @map("deal_id") @db.Uuid
+  orgId                  String   @map("org_id") @db.Uuid
+  titleInsuranceReceived Boolean? @map("title_insurance_received")
+  exceptions             String[] @default([]) @map("exceptions")
+  liens                  String[] @default([]) @map("liens")
+  easements              String[] @default([]) @map("easements")
+  createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   org  Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
   deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
 
+  @@unique([dealId])
   @@index([orgId])
   @@index([dealId])
-  @@unique([dealId])
   @@map("property_titles")
 }
 
 model PropertySurvey {
-  id                 String     @id @default(uuid()) @db.Uuid
-  dealId             String     @map("deal_id") @db.Uuid
-  orgId              String     @map("org_id") @db.Uuid
-  surveyCompletedDate DateTime?  @map("survey_completed_date") @db.Date
-  acreageConfirmed   Decimal?   @map("acreage_confirmed") @db.Decimal(12, 4)
-  encroachments      String[]   @map("encroachments") @default([])
-  setbacks           Json       @default("{}") @map("setbacks") @db.JsonB
-  createdAt          DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt          DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                  String    @id @default(uuid()) @db.Uuid
+  dealId              String    @map("deal_id") @db.Uuid
+  orgId               String    @map("org_id") @db.Uuid
+  surveyCompletedDate DateTime? @map("survey_completed_date") @db.Date
+  acreageConfirmed    Decimal?  @map("acreage_confirmed") @db.Decimal(12, 4)
+  encroachments       String[]  @default([]) @map("encroachments")
+  setbacks            Json      @default("{}") @map("setbacks") @db.JsonB
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   org  Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
   deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
 
+  @@unique([dealId])
   @@index([orgId])
   @@index([dealId])
-  @@unique([dealId])
   @@map("property_surveys")
 }
 
 model Tenant {
-  id          String        @id @default(uuid()) @db.Uuid
-  dealId      String        @map("deal_id") @db.Uuid
-  orgId       String        @map("org_id") @db.Uuid
-  name        String        @map("name") @db.Text
-  contactName String?       @map("contact_name") @db.Text
-  email       String?       @map("email") @db.Text
-  phone       String?       @map("phone") @db.Text
-  notes       String?       @map("notes") @db.Text
-  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id          String   @id @default(uuid()) @db.Uuid
+  dealId      String   @map("deal_id") @db.Uuid
+  orgId       String   @map("org_id") @db.Uuid
+  name        String   @map("name") @db.Text
+  contactName String?  @map("contact_name") @db.Text
+  email       String?  @map("email") @db.Text
+  phone       String?  @map("phone") @db.Text
+  notes       String?  @map("notes") @db.Text
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  org          Org    @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  deal         Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  org          Org           @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  deal         Deal          @relation(fields: [dealId], references: [id], onDelete: Cascade)
   tenantLeases TenantLease[]
 
   @@index([orgId])
@@ -1301,18 +1332,18 @@ model Tenant {
 }
 
 model TenantLease {
-  id                 String         @id @default(uuid()) @db.Uuid
-  dealId             String         @map("deal_id") @db.Uuid
-  orgId              String         @map("org_id") @db.Uuid
-  tenantId           String         @map("tenant_id") @db.Uuid
-  leaseName          String?        @map("lease_name") @db.Text
-  startDate          DateTime       @map("start_date") @db.Date
-  endDate            DateTime       @map("end_date") @db.Date
-  rentedAreaSf       Decimal        @map("rented_area_sf") @db.Decimal(12, 4)
-  rentPerSf          Decimal        @map("rent_per_sf") @db.Decimal(10, 4)
-  annualEscalationPct Decimal        @default(0) @map("annual_escalation_pct") @db.Decimal(6, 4)
-  createdAt          DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt          DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                  String   @id @default(uuid()) @db.Uuid
+  dealId              String   @map("deal_id") @db.Uuid
+  orgId               String   @map("org_id") @db.Uuid
+  tenantId            String   @map("tenant_id") @db.Uuid
+  leaseName           String?  @map("lease_name") @db.Text
+  startDate           DateTime @map("start_date") @db.Date
+  endDate             DateTime @map("end_date") @db.Date
+  rentedAreaSf        Decimal  @map("rented_area_sf") @db.Decimal(12, 4)
+  rentPerSf           Decimal  @map("rent_per_sf") @db.Decimal(10, 4)
+  annualEscalationPct Decimal  @default(0) @map("annual_escalation_pct") @db.Decimal(6, 4)
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   org    Org    @relation(fields: [orgId], references: [id], onDelete: Cascade)
   deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
@@ -1384,16 +1415,16 @@ model EquityWaterfall {
 }
 
 model CapitalDeployment {
-  id                   String   @id @default(uuid()) @db.Uuid
-  dealId               String   @map("deal_id") @db.Uuid
-  orgId                String   @map("org_id") @db.Uuid
-  stage                String   @map("stage") @db.Text
-  capitalCommitted     Decimal  @map("capital_committed") @db.Decimal(14, 2)
-  capitalDeployed      Decimal  @map("capital_deployed") @db.Decimal(14, 2)
-  nonRecoverableExpense Decimal @map("non_recoverable_expense") @db.Decimal(14, 2)
-  deploymentDate       DateTime @map("deployment_date") @db.Date
-  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                    String   @id @default(uuid()) @db.Uuid
+  dealId                String   @map("deal_id") @db.Uuid
+  orgId                 String   @map("org_id") @db.Uuid
+  stage                 String   @map("stage") @db.Text
+  capitalCommitted      Decimal  @map("capital_committed") @db.Decimal(14, 2)
+  capitalDeployed       Decimal  @map("capital_deployed") @db.Decimal(14, 2)
+  nonRecoverableExpense Decimal  @map("non_recoverable_expense") @db.Decimal(14, 2)
+  deploymentDate        DateTime @map("deployment_date") @db.Date
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   org  Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
   deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
@@ -1406,29 +1437,29 @@ model CapitalDeployment {
 }
 
 model DealFinancing {
-  id                    String     @id @default(uuid()) @db.Uuid
-  dealId                String     @map("deal_id") @db.Uuid
-  orgId                 String     @map("org_id") @db.Uuid
-  lenderName            String?    @map("lender_name") @db.Text
-  facilityName          String?    @map("facility_name") @db.Text
-  loanType              String?    @map("loan_type") @db.Text
-  loanAmount            Decimal?   @map("loan_amount") @db.Decimal(14, 2)
-  commitmentDate        DateTime?  @map("commitment_date") @db.Date
-  fundedDate            DateTime?  @map("funded_date") @db.Date
-  interestRate          Decimal?   @map("interest_rate") @db.Decimal(6, 4)
-  loanTermMonths        Int?       @map("loan_term_months")
-  amortizationYears     Int?       @map("amortization_years")
-  ltvPercent            Decimal?   @map("ltv_percent") @db.Decimal(6, 4)
-  dscrRequirement       Decimal?   @map("dscr_requirement") @db.Decimal(6, 4)
-  originationFeePercent Decimal?   @map("origination_fee_percent") @db.Decimal(6, 4)
-  sourceUploadId        String?    @map("source_upload_id") @db.Uuid
-  status                String?    @map("status") @db.Text
-  notes                 String?    @db.Text
-  createdAt             DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt             DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                    String    @id @default(uuid()) @db.Uuid
+  dealId                String    @map("deal_id") @db.Uuid
+  orgId                 String    @map("org_id") @db.Uuid
+  lenderName            String?   @map("lender_name") @db.Text
+  facilityName          String?   @map("facility_name") @db.Text
+  loanType              String?   @map("loan_type") @db.Text
+  loanAmount            Decimal?  @map("loan_amount") @db.Decimal(14, 2)
+  commitmentDate        DateTime? @map("commitment_date") @db.Date
+  fundedDate            DateTime? @map("funded_date") @db.Date
+  interestRate          Decimal?  @map("interest_rate") @db.Decimal(6, 4)
+  loanTermMonths        Int?      @map("loan_term_months")
+  amortizationYears     Int?      @map("amortization_years")
+  ltvPercent            Decimal?  @map("ltv_percent") @db.Decimal(6, 4)
+  dscrRequirement       Decimal?  @map("dscr_requirement") @db.Decimal(6, 4)
+  originationFeePercent Decimal?  @map("origination_fee_percent") @db.Decimal(6, 4)
+  sourceUploadId        String?   @map("source_upload_id") @db.Uuid
+  status                String?   @map("status") @db.Text
+  notes                 String?   @db.Text
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  org   Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  deal  Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  org  Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
 
   @@index([orgId])
   @@index([dealId])
@@ -1451,8 +1482,8 @@ model DealRisk {
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  org   Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  deal  Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  org  Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
 
   @@index([orgId])
   @@index([dealId])
@@ -1469,13 +1500,13 @@ model DealStakeholder {
   email           String?               @map("email") @db.Text
   phone           String?               @map("phone") @db.Text
   equityOwnership Decimal?              @map("equity_ownership") @db.Decimal(6, 4)
-  decisionRights  String[]              @map("decision_rights") @default([])
+  decisionRights  String[]              @default([]) @map("decision_rights")
   notes           String?               @map("notes") @db.Text
   createdAt       DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  org   Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  deal  Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  org  Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
 
   @@index([orgId])
   @@index([dealId])
@@ -1483,19 +1514,176 @@ model DealStakeholder {
 }
 
 model AssumptionActual {
-  id              String    @id @default(uuid()) @db.Uuid
-  dealId          String    @map("deal_id") @db.Uuid
-  assumptionName  String    @map("assumption_name") @db.Text
-  projectedValue  Decimal   @map("projected_value") @db.Decimal(14, 4)
-  actualValue     Decimal?  @map("actual_value") @db.Decimal(14, 4)
-  variancePct     Decimal?  @map("variance_pct") @db.Decimal(8, 4)
-  recordedAt      DateTime  @default(now()) @map("recorded_at") @db.Timestamptz(6)
-  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id             String   @id @default(uuid()) @db.Uuid
+  dealId         String   @map("deal_id") @db.Uuid
+  assumptionName String   @map("assumption_name") @db.Text
+  projectedValue Decimal  @map("projected_value") @db.Decimal(14, 4)
+  actualValue    Decimal? @map("actual_value") @db.Decimal(14, 4)
+  variancePct    Decimal? @map("variance_pct") @db.Decimal(8, 4)
+  recordedAt     DateTime @default(now()) @map("recorded_at") @db.Timestamptz(6)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
 
   @@index([dealId])
   @@index([assumptionName])
   @@map("assumption_actuals")
+}
+
+// ---------------------------------------------------------------------------
+// AgentOS v2 models
+// ---------------------------------------------------------------------------
+
+model EpisodicEntry {
+  id          String           @id @default(uuid()) @db.Uuid
+  orgId       String           @map("org_id") @db.Uuid
+  agentId     String           @map("agent_id") @db.Text
+  taskType    String           @map("task_type") @db.Text
+  summary     String           @db.Text
+  embeddingId String           @map("embedding_id") @db.Text
+  outcome     episodic_outcome
+  confidence  Float            @db.DoublePrecision
+  tags        String[]         @default([])
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  org Org @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, agentId])
+  @@index([orgId, taskType])
+  @@index([orgId, outcome])
+  @@index([createdAt])
+  @@map("episodic_entries")
+}
+
+model SemanticFact {
+  id                  String   @id @default(uuid()) @db.Uuid
+  orgId               String   @map("org_id") @db.Uuid
+  key                 String   @db.Text
+  valueJson           Json     @map("value_json")
+  confidence          Float    @db.DoublePrecision
+  provenanceEpisodeId String?  @map("provenance_episode_id") @db.Uuid
+  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  org Org @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, key])
+  @@index([orgId, updatedAt])
+  @@map("semantic_facts")
+}
+
+model ProceduralSkill {
+  id                String   @id @default(uuid()) @db.Uuid
+  orgId             String   @map("org_id") @db.Uuid
+  name              String   @db.Text
+  description       String   @db.Text
+  skillMdContent    String   @map("skill_md_content") @db.Text
+  toolSequence      String[] @default([]) @map("tool_sequence")
+  successCount      Int      @default(0) @map("success_count")
+  failCount         Int      @default(0) @map("fail_count")
+  successRate       Float    @default(0) @map("success_rate") @db.DoublePrecision
+  evaluatorAvgScore Float    @default(0) @map("evaluator_avg_score") @db.DoublePrecision
+  dedupeHash        String   @map("dedupe_hash") @db.Text
+  embeddingId       String   @map("embedding_id") @db.Text
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  org Org @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, dedupeHash])
+  @@index([orgId, successRate])
+  @@index([orgId, evaluatorAvgScore])
+  @@map("procedural_skills")
+}
+
+model DomainDoc {
+  id             String             @id @default(uuid()) @db.Uuid
+  orgId          String             @map("org_id") @db.Uuid
+  sourceType     domain_source_type @map("source_type")
+  title          String             @db.Text
+  summary        String             @db.Text
+  contentPointer String             @map("content_pointer") @db.Text
+  embeddingId    String             @map("embedding_id") @db.Text
+  tags           String[]           @default([])
+  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  org Org @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, sourceType])
+  @@index([orgId, tags])
+  @@map("domain_docs")
+}
+
+model TrajectoryLog {
+  id                      String   @id @default(uuid()) @db.Uuid
+  orgId                   String   @map("org_id") @db.Uuid
+  runId                   String   @map("run_id") @db.Uuid
+  agentId                 String   @map("agent_id") @db.Text
+  taskInput               String   @map("task_input") @db.Text
+  retrievedContextSummary Json     @map("retrieved_context_summary")
+  plan                    String?  @db.Text
+  toolCalls               Json     @map("tool_calls")
+  intermediateSteps       Json     @map("intermediate_steps")
+  finalOutput             String   @map("final_output") @db.Text
+  reflection              Json?
+  evaluatorScore          Float?   @map("evaluator_score") @db.DoublePrecision
+  latencyMs               Int      @map("latency_ms")
+  tokenUsage              Json     @map("token_usage")
+  costUsd                 Float    @map("cost_usd") @db.DoublePrecision
+  riskEvents              Json     @map("risk_events")
+  createdAt               DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  org Org @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  run Run @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  evalResults EvalResult[]
+
+  @@index([orgId, agentId])
+  @@index([orgId, createdAt])
+  @@index([evaluatorScore])
+  @@map("trajectory_logs")
+}
+
+model ToolSpec {
+  id               String     @id @default(uuid()) @db.Uuid
+  orgId            String     @map("org_id") @db.Uuid
+  name             String     @db.Text
+  description      String     @db.Text
+  inputSchemaJson  Json       @map("input_schema_json")
+  outputSchemaJson Json       @map("output_schema_json")
+  riskLevel        risk_level @map("risk_level")
+  retryPolicy      Json       @map("retry_policy")
+  permissionScope  String     @map("permission_scope") @db.Text
+  costStats        Json       @map("cost_stats")
+  latencyStats     Json       @map("latency_stats")
+  errorRate        Float      @map("error_rate") @db.DoublePrecision
+  embeddingId      String     @map("embedding_id") @db.Text
+  createdAt        DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  org Org @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, name])
+  @@index([orgId, riskLevel])
+  @@map("tool_specs")
+}
+
+model EvalResult {
+  id              String   @id @default(uuid()) @db.Uuid
+  orgId           String   @map("org_id") @db.Uuid
+  trajectoryLogId String   @map("trajectory_log_id") @db.Uuid
+  dimensionScores Json     @map("dimension_scores")
+  overallScore    Float    @map("overall_score") @db.DoublePrecision
+  rationale       String   @db.Text
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  org           Org           @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  trajectoryLog TrajectoryLog @relation(fields: [trajectoryLogId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([trajectoryLogId])
+  @@index([overallScore])
+  @@map("eval_results")
 }
