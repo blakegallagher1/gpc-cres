@@ -26,4 +26,11 @@ export type {
   TenantLease,
   DevelopmentBudget,
   Message,
+  EpisodicEntry,
+  SemanticFact,
+  ProceduralSkill,
+  DomainDoc,
+  TrajectoryLog,
+  ToolSpec,
+  EvalResult,
 } from "@prisma/client";
