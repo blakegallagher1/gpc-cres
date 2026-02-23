@@ -7,4 +7,5 @@ export * from "./costTracking.js";
 export * from "./sessionManager.js";
 export * from "./toolRegistry.js";
 export * from "./utils/toolOutputTrimmer.js";
-
+export * from "./utils/embedding.js";
+export * from "./memory/index.js";
