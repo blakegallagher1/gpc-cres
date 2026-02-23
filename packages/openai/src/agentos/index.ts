@@ -10,3 +10,4 @@ export * from "./utils/embedding.js";
 export * from "./memory/index.js";
 export * from "./tools/index.js";
 export * from "./guardrails.js";
+export * from "./eval/index.js";
