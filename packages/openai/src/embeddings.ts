@@ -3,10 +3,14 @@
  */
 
 import OpenAI from "openai";
+import { getAgentOsConfig } from "./agentos/config.js";
 
-const OPENAI_EMBEDDING_MODEL = process.env.OPENAI_EMBEDDING_MODEL ?? "text-embedding-3-small";
+const OPENAI_EMBEDDING_MODEL = process.env.OPENAI_EMBEDDING_MODEL ?? "text-embedding-3-large";
 
 export type EmbeddingInput = string | readonly string[];
+export type EmbeddingOptions = {
+  dimensions?: number;
+};
 
 function getApiKey(): string {
   const apiKey = process.env.OPENAI_API_KEY?.trim();
@@ -16,7 +20,11 @@ function getApiKey(): string {
   return apiKey;
 }
 
-export async function createEmbedding(input: EmbeddingInput, model = OPENAI_EMBEDDING_MODEL): Promise<number[]> {
+export async function createEmbedding(
+  input: EmbeddingInput,
+  model = OPENAI_EMBEDDING_MODEL,
+  options?: EmbeddingOptions,
+): Promise<number[]> {
   const normalized = typeof input === "string" ? input.trim() : input;
   const prompt = Array.isArray(normalized)
     ? normalized.map((value) => value.trim()).filter(Boolean)
@@ -33,10 +41,13 @@ export async function createEmbedding(input: EmbeddingInput, model = OPENAI_EMBE
   }
 
   const client = new OpenAI({ apiKey: getApiKey() });
+  const config = getAgentOsConfig();
+  const dimensions = options?.dimensions ?? config.models.embeddingDimensions;
   const response = await client.embeddings.create({
     model,
     input: prompt,
     encoding_format: "float",
+    dimensions,
   });
 
   if (!Array.isArray(response?.data) || response.data.length === 0) {

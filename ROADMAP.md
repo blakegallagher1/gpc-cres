@@ -33,6 +33,36 @@ Only items meeting all checks are added below as `Planned`.
 
 ## Active Roadmap (Prioritized)
 
+### AOS-001 — AgentOS Upgrade Foundation (P0)
+
+- **Priority:** P0
+- **Status:** Done
+- **Scope:** Runtime modernization + retrieval infrastructure
+- **Problem:** Agent runtime lacked TS-native Qdrant hybrid retrieval wiring, server-side context compaction controls, tool-output trimming controls, and post-run critic scaffolding.
+- **Expected Outcome (measurable):**
+  - Agent runtime can enable Qdrant dense+sparse hybrid retrieval through feature flags.
+  - Responses API strict JSON wrapper supports `context_management: { strategy: "compaction" }`.
+  - Tool-output trimming + trajectory capture + critic evaluation are available and safely toggleable.
+- **Evidence:** Implemented feature-flagged `agentos` modules and runtime integrations across web/worker paths.
+- **Alignment:** Enhances existing execution paths without replacing coordinator/session/guardrail architecture; preserves parity when flags are off.
+- **Risk/rollback:** Medium integration risk; rollback is flag-based (`AGENTOS_ENABLED=0`) with zero behavior change.
+- **Acceptance Criteria / Tests:**
+  - Add `@qdrant/js-client-rest` dependency and Qdrant setup script under `infra/scripts`.
+  - Add feature-flagged `agentos` config, qdrant client, tool trimmer, critic, trajectory, and cost utilities.
+  - Wire retrieval adapters and worker retrieval context to AgentOS retrieval path with legacy fallback.
+  - Upgrade default embeddings to `text-embedding-3-large` with `dimensions=1536`.
+- **Files (target):**
+  - `packages/openai/src/agentos/*`
+  - `packages/openai/src/responses.ts`
+  - `packages/openai/src/dataAgent/retrieval.ts`
+  - `apps/web/lib/agent/retrievalAdapter.ts`
+  - `apps/web/lib/agent/executeAgent.ts`
+  - `apps/worker/src/activities/openai.ts`
+  - `infra/scripts/setup_qdrant_collections.py`
+  - `infra/local-api/requirements.txt`
+  - `packages/shared/src/openaiModels.ts`
+- **Completion note:** Foundation slice implemented with flag-safe runtime wiring and one-time Qdrant setup tooling.
+
 ### R-001 — chatgpt-apps Integration Verification & Hardening
 
 - **Priority:** P0

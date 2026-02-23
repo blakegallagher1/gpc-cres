@@ -22,14 +22,19 @@ import type { Prisma } from "@entitlement-os/db";
 import { createHash } from "node:crypto";
 import {
   buildAgentStreamRunOptions,
+  createTrajectoryRecorder,
   captureAgentError,
   captureAgentWarning,
   createIntentAwareCoordinator,
   deserializeRunStateEnvelope,
+  extractUsageSummary,
   evaluateProofCompliance,
   inferQueryIntentFromText,
+  isAgentOsFeatureEnabled,
+  maybeTrimToolOutput,
   type QueryIntent,
   getProofGroupsForIntent,
+  runCriticEvaluation,
   serializeRunStateEnvelope,
   setupAgentTracing,
 } from "@entitlement-os/openai";
@@ -1156,6 +1161,7 @@ export async function executeAgentWorkflow(
     toolErrorMessages: [],
     hadOutputText: false,
   };
+  const trajectoryRecorder = createTrajectoryRecorder();
 
   let finalText = "";
   let finalReport: AgentReport | null = null;
@@ -1175,6 +1181,63 @@ export async function executeAgentWorkflow(
     readSerializedRunStateFromStoredValue(dbRun.serializedState) ?? null;
 
   const emit = (event: AgentStreamEvent) => {
+    if (trajectoryRecorder) {
+      switch (event.type) {
+        case "agent_switch":
+          trajectoryRecorder.record({
+            kind: "agent_switch",
+            agentName: event.agentName,
+          });
+          break;
+        case "handoff":
+          trajectoryRecorder.record({
+            kind: "handoff",
+            agentName: event.to,
+            details: {
+              from: event.from ?? null,
+              to: event.to,
+            },
+          });
+          break;
+        case "tool_start":
+          trajectoryRecorder.record({
+            kind: "tool_start",
+            toolName: event.name,
+            details: {
+              toolCallId: event.toolCallId ?? null,
+            },
+          });
+          break;
+        case "tool_end":
+          trajectoryRecorder.record({
+            kind: "tool_end",
+            toolName: event.name,
+            details: {
+              toolCallId: event.toolCallId ?? null,
+              status: event.status ?? null,
+            },
+          });
+          break;
+        case "text_delta":
+          trajectoryRecorder.record({
+            kind: "text_delta",
+            details: {
+              length: event.content.length,
+            },
+          });
+          break;
+        case "error":
+          trajectoryRecorder.record({
+            kind: "error",
+            details: {
+              message: event.message,
+            },
+          });
+          break;
+        default:
+          break;
+      }
+    }
     params.onEvent?.(event);
   };
 
@@ -1451,10 +1514,11 @@ export async function executeAgentWorkflow(
           }
 
           if (output !== null) {
+            const trimmedOutput = maybeTrimToolOutput(output);
             emit({
               type: "tool_end",
               name: toolName,
-              result: output,
+              result: trimmedOutput.value,
               status: "completed",
               toolCallId,
             });
@@ -1659,7 +1723,7 @@ export async function executeAgentWorkflow(
         leaseExpiresAt: new Date().toISOString(),
       };
 
-      const outputJson = {
+      const pendingOutputJson = {
         runState,
         finalOutput: "",
         finalReport: null,
@@ -1687,7 +1751,11 @@ export async function executeAgentWorkflow(
           conversationId: normalizeOpenAiConversationId(params.conversationId),
           previousResponseId: openaiResponseId ?? params.previousResponseId ?? null,
         },
-      } as Prisma.InputJsonValue;
+      } as Record<string, unknown>;
+      if (trajectoryRecorder) {
+        pendingOutputJson.trajectory = trajectoryRecorder.snapshot();
+      }
+      const outputJson = pendingOutputJson as Prisma.InputJsonValue;
 
       const persisted = await persistFinalRunResult({
         runId: dbRun.id,
@@ -1854,6 +1922,9 @@ export async function executeAgentWorkflow(
       fallbackReason: trust.fallbackReason,
       retrievalContext: retrievalContext ?? undefined,
     };
+    const usageSummary = isAgentOsFeatureEnabled("costTracking")
+      ? extractUsageSummary(agentRunResult)
+      : null;
 
     const outputJson: AgentRunOutputJson = {
       runState,
@@ -1880,6 +1951,13 @@ export async function executeAgentWorkflow(
       finalReport: finalReport ?? null,
       finalOutput: finalText,
     };
+    if (usageSummary) {
+      (outputJson as unknown as Record<string, unknown>).usage = usageSummary;
+    }
+    if (trajectoryRecorder) {
+      (outputJson as unknown as Record<string, unknown>).trajectory =
+        trajectoryRecorder.snapshot();
+    }
 
     const persisted = await persistFinalRunResult({
       runId: dbRun.id,
@@ -1976,6 +2054,21 @@ export async function executeAgentWorkflow(
         error: String(error),
       });
     });
+    if (isAgentOsFeatureEnabled("criticEvaluation")) {
+      void runCriticEvaluation({
+        runId: dbRun.id,
+        orgId: params.orgId,
+        finalOutput: finalText,
+        toolsInvoked: trust.toolsInvoked,
+        toolFailures: trust.toolFailures,
+        missingEvidence: trust.missingEvidence,
+      }).catch((error) => {
+        logger.warn("AgentOS critic evaluation failed", {
+          runId: dbRun.id,
+          error: String(error),
+        });
+      });
+    }
 
     return {
       runId: dbRun.id,

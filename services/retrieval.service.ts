@@ -61,7 +61,7 @@ export interface UnifiedRetrievalRecord {
   metadata: JsonRecord;
 }
 
-const OPENAI_EMBEDDING_MODEL = process.env.OPENAI_EMBEDDING_MODEL ?? "text-embedding-3-small";
+const OPENAI_EMBEDDING_MODEL = process.env.OPENAI_EMBEDDING_MODEL ?? "text-embedding-3-large";
 let vectorSearchSupportedCache: boolean | null = null;
 let sparseSearchSupportedCache: boolean | null = null;
 type DataAgentRetrievalMetricPayload = {
@@ -177,6 +177,7 @@ export async function createQueryEmbedding(query: string): Promise<number[]> {
     model: OPENAI_EMBEDDING_MODEL,
     input: query,
     encoding_format: "float",
+    dimensions: 1536,
   })) as { data?: Array<{ embedding?: number[] }> };
   const embedding = response?.data?.[0]?.embedding;
   if (!Array.isArray(embedding) || embedding.length === 0) {

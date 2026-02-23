@@ -60,8 +60,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/shared
       '@openai/agents':
-        specifier: ^0.4.6
-        version: 0.4.6(ws@8.19.0)(zod@4.3.6)
+        specifier: ^0.4.15
+        version: 0.4.15(ws@8.19.0)(zod@4.3.6)
       '@radix-ui/react-checkbox':
         specifier: ^1.1.2
         version: 1.3.3(@types/react-dom@19.2.3(@types/react@19.2.13))(@types/react@19.2.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -389,8 +389,11 @@ importers:
         specifier: workspace:*
         version: link:../shared
       '@openai/agents':
-        specifier: ^0.4.6
-        version: 0.4.6(ws@8.19.0)(zod@4.3.6)
+        specifier: ^0.4.15
+        version: 0.4.15(ws@8.19.0)(zod@4.3.6)
+      '@qdrant/js-client-rest':
+        specifier: ^1.17.0
+        version: 1.17.0(typescript@5.9.3)
       '@sentry/node':
         specifier: ^10.22.0
         version: 10.39.0
@@ -1226,26 +1229,26 @@ packages:
     resolution: {integrity: sha512-nn5ozdjYQpUCZlWGuxcJY/KpxkWQs4DcbMCmKojjyrYDEAGy4Ce19NN4v5MduafTwJlbKc99UA8YhSVqq9yPZA==}
     engines: {node: '>=12.4.0'}
 
-  '@openai/agents-core@0.4.6':
-    resolution: {integrity: sha512-ZnrWBRfp7o+OU6j2x1wTgL+AZet8RKQ9PLevhjT0jsEtGnYnegLPYplwJvjZ5/WSM9V1JqLjKS3gkIr50dFlig==}
+  '@openai/agents-core@0.4.15':
+    resolution: {integrity: sha512-LDCg7GnKLgAj2Zt5f3Wi40gedez9Oh1zoLA8UgoBGKs2cLwShIMLYoeh8DTE6fHKupzdnRHScAroT3EVTV8JOw==}
     peerDependencies:
       zod: ^4.0.0
     peerDependenciesMeta:
       zod:
         optional: true
 
-  '@openai/agents-openai@0.4.6':
-    resolution: {integrity: sha512-RH/oZ5piNIhIukH79X51QRFEeivcSM04nxhITGT08PnQlu78FYcp7thahcSOvJr6CKC/etnL2Mc6l1MVrsaGvg==}
+  '@openai/agents-openai@0.4.15':
+    resolution: {integrity: sha512-JCcHyi3IAv3VdUUmnUyQI5EYiAMf9DRsuH3rgxkROdkaHQ2OBVpvwqpRFNMPOKHuLIyZuSPuP/Lf1HcfeXU2zA==}
     peerDependencies:
       zod: ^4.0.0
 
-  '@openai/agents-realtime@0.4.6':
-    resolution: {integrity: sha512-Kt9qBh8NXZrCSB1lj3AtaXisQCbqb/a+jdS4sz2emKDVY5DIGqG1hDiqSD4d6RavLHw7UYHzWzU2N+QETfB2ZQ==}
+  '@openai/agents-realtime@0.4.15':
+    resolution: {integrity: sha512-i3eUVCjXFu9AhuhMDZynl+NBaGfpyGRgZ9CYPEvKRlZhxSYnQabtpdDyat7Dv+iljPR1+fzXJcMgci7mQLQFFg==}
     peerDependencies:
       zod: ^4.0.0
 
-  '@openai/agents@0.4.6':
-    resolution: {integrity: sha512-U0ONnLTjJQ8So2/unMvj+yPfatR6YxHKuTU506NYFKR6FW8SX4ZjV/s9ovE3UY9XDS42vC9se/HVawdoiqC4cQ==}
+  '@openai/agents@0.4.15':
+    resolution: {integrity: sha512-O3CJf8BIA2FoYtUy4cHmFqNcPNi2mjFIcKOySfV8m5BTkZJXElzs6zRWI6TNcEpp4nuJNB/xnKrJz3hSwQI+pw==}
     peerDependencies:
       zod: ^4.0.0
 
@@ -1525,6 +1528,16 @@ packages:
 
   '@protobufjs/utf8@1.1.0':
     resolution: {integrity: sha512-Vvn3zZrhQZkkBE8LSuW3em98c0FwgO4nxzv6OdSxPKJIEKY2bGbHn+mhGIPerzI4twdxaP8/0+06HBpwf345Lw==}
+
+  '@qdrant/js-client-rest@1.17.0':
+    resolution: {integrity: sha512-aZFQeirWVqWAa1a8vJ957LMzcXkFHGbsoRhzc8AkGfg6V0jtK8PlG8/eyyc2xhYsR961FDDx1Tx6nyE0K7lS+A==}
+    engines: {node: '>=18.17.0', pnpm: '>=8'}
+    peerDependencies:
+      typescript: '>=4.7'
+
+  '@qdrant/openapi-typescript-fetch@1.2.6':
+    resolution: {integrity: sha512-oQG/FejNpItrxRHoyctYvT3rwGZOnK4jr3JdppO/c78ktDvkWiPXPHNsrDf33K9sZdRb6PR7gi4noIapu5q4HA==}
+    engines: {node: '>=18.0.0', pnpm: '>=8'}
 
   '@radix-ui/number@1.1.1':
     resolution: {integrity: sha512-MkKCwxlXTgz6CFoJx3pCwn07GKp36+aZyu/u2Ln2VrA5DcdyCZkASEDBTd8x5whTQQL5CiYf4prXKLcgQdv29g==}
@@ -5753,6 +5766,10 @@ packages:
   undici-types@6.21.0:
     resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
 
+  undici@6.23.0:
+    resolution: {integrity: sha512-VfQPToRA5FZs/qJxLIinmU59u0r7LXqoJkCzinq3ckNJp3vKEh7jTWN589YQ5+aoAC/TGRLyJLCPKcLQbM8r9g==}
+    engines: {node: '>=18.17'}
+
   undici@7.21.0:
     resolution: {integrity: sha512-Hn2tCQpoDt1wv23a68Ctc8Cr/BHpUSfaPYrkajTXOS9IKpxVRx/X5m1K2YkbK2ipgZgxXSgsUinl3x+2YdSSfg==}
     engines: {node: '>=20.18.1'}
@@ -6854,7 +6871,7 @@ snapshots:
 
   '@nolyfill/is-core-module@1.0.39': {}
 
-  '@openai/agents-core@0.4.6(ws@8.19.0)(zod@4.3.6)':
+  '@openai/agents-core@0.4.15(ws@8.19.0)(zod@4.3.6)':
     dependencies:
       debug: 4.4.3
       openai: 6.21.0(ws@8.19.0)(zod@4.3.6)
@@ -6866,9 +6883,9 @@ snapshots:
       - supports-color
       - ws
 
-  '@openai/agents-openai@0.4.6(ws@8.19.0)(zod@4.3.6)':
+  '@openai/agents-openai@0.4.15(ws@8.19.0)(zod@4.3.6)':
     dependencies:
-      '@openai/agents-core': 0.4.6(ws@8.19.0)(zod@4.3.6)
+      '@openai/agents-core': 0.4.15(ws@8.19.0)(zod@4.3.6)
       debug: 4.4.3
       openai: 6.21.0(ws@8.19.0)(zod@4.3.6)
       zod: 4.3.6
@@ -6877,9 +6894,9 @@ snapshots:
       - supports-color
       - ws
 
-  '@openai/agents-realtime@0.4.6(zod@4.3.6)':
+  '@openai/agents-realtime@0.4.15(zod@4.3.6)':
     dependencies:
-      '@openai/agents-core': 0.4.6(ws@8.19.0)(zod@4.3.6)
+      '@openai/agents-core': 0.4.15(ws@8.19.0)(zod@4.3.6)
       '@types/ws': 8.18.1
       debug: 4.4.3
       ws: 8.19.0
@@ -6890,11 +6907,11 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@openai/agents@0.4.6(ws@8.19.0)(zod@4.3.6)':
+  '@openai/agents@0.4.15(ws@8.19.0)(zod@4.3.6)':
     dependencies:
-      '@openai/agents-core': 0.4.6(ws@8.19.0)(zod@4.3.6)
-      '@openai/agents-openai': 0.4.6(ws@8.19.0)(zod@4.3.6)
-      '@openai/agents-realtime': 0.4.6(zod@4.3.6)
+      '@openai/agents-core': 0.4.15(ws@8.19.0)(zod@4.3.6)
+      '@openai/agents-openai': 0.4.15(ws@8.19.0)(zod@4.3.6)
+      '@openai/agents-realtime': 0.4.15(zod@4.3.6)
       debug: 4.4.3
       openai: 6.21.0(ws@8.19.0)(zod@4.3.6)
       zod: 4.3.6
@@ -7233,6 +7250,14 @@ snapshots:
   '@protobufjs/pool@1.1.0': {}
 
   '@protobufjs/utf8@1.1.0': {}
+
+  '@qdrant/js-client-rest@1.17.0(typescript@5.9.3)':
+    dependencies:
+      '@qdrant/openapi-typescript-fetch': 1.2.6
+      typescript: 5.9.3
+      undici: 6.23.0
+
+  '@qdrant/openapi-typescript-fetch@1.2.6': {}
 
   '@radix-ui/number@1.1.1': {}
 
@@ -11997,6 +12022,8 @@ snapshots:
       which-boxed-primitive: 1.1.1
 
   undici-types@6.21.0: {}
+
+  undici@6.23.0: {}
 
   undici@7.21.0: {}
 

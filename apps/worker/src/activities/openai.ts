@@ -34,12 +34,18 @@ import {
 import { hashJsonSha256 } from "@entitlement-os/shared/crypto";
 import {
   buildAgentStreamRunOptions,
+  buildDataAgentRetrievalContext,
+  createTrajectoryRecorder,
   captureAgentError,
   captureAgentWarning,
   createIntentAwareCoordinator,
+  extractUsageSummary,
   evaluateProofCompliance,
   inferQueryIntentFromText,
+  isAgentOsFeatureEnabled,
   getProofGroupsForIntent,
+  maybeTrimToolOutput,
+  runCriticEvaluation,
 } from "@entitlement-os/openai";
 import { autoFeedRun } from "../dataAgentAutoFeed.service.js";
 
@@ -657,8 +663,8 @@ function buildVerificationSteps(missingEvidence: string[]): string[] {
   return steps;
 }
 
-const PARISH_PACK_MODEL = process.env.OPENAI_FLAGSHIP_MODEL || "o3";
-const TRIAGE_MODEL = process.env.OPENAI_STANDARD_MODEL || "gpt-4.1";
+const PARISH_PACK_MODEL = process.env.OPENAI_FLAGSHIP_MODEL || "gpt-5.2";
+const TRIAGE_MODEL = process.env.OPENAI_STANDARD_MODEL || "gpt-5.2";
 
 /**
  * Generate a parish pack JSON from extracted evidence texts using OpenAI.
@@ -1043,6 +1049,7 @@ export async function runAgentTurn(
     missingEvidence: new Set(),
     toolErrorMessages: [],
   };
+  const trajectoryRecorder = createTrajectoryRecorder();
 
   let finalText = "";
   let finalReport: AgentReport | null = null;
@@ -1084,6 +1091,7 @@ export async function runAgentTurn(
 
     retrievalContext = await buildRetrievalContext({
       runId: dbRun.id,
+      orgId: params.orgId,
       queryIntent,
       firstUserInput,
     });
@@ -1127,6 +1135,10 @@ export async function runAgentTurn(
               ? (current.agent?.name as string)
               : "Coordinator";
           lastAgentName = agentName;
+          trajectoryRecorder?.record({
+            kind: "agent_switch",
+            agentName,
+          });
           continue;
         }
 
@@ -1136,6 +1148,10 @@ export async function runAgentTurn(
             const delta = typeof data.delta === "string" ? data.delta : undefined;
             if (delta) {
               finalText += delta;
+              trajectoryRecorder?.record({
+                kind: "text_delta",
+                details: { length: delta.length },
+              });
               await emitProgress();
             }
           }
@@ -1146,6 +1162,16 @@ export async function runAgentTurn(
         if (toolName) {
           state.toolsInvoked.add(toolName);
           const output = extractToolOutput(current);
+          const trimmedOutput = output !== null ? maybeTrimToolOutput(output) : null;
+          trajectoryRecorder?.record({
+            kind: output !== null ? "tool_end" : "tool_start",
+            toolName,
+            details: {
+              trimmed: trimmedOutput?.trimmed ?? false,
+              serializedLength:
+                trimmedOutput?.trimmedSerializedLength ?? null,
+            },
+          });
           if (output !== null) {
             collectToolOutputSignals(toolName, output, state);
           }
@@ -1156,6 +1182,10 @@ export async function runAgentTurn(
         if (eventType === "error" && typeof current.error === "string") {
           errorMessage = current.error;
           state.missingEvidence.add(`Agent error: ${current.error}`);
+          trajectoryRecorder?.record({
+            kind: "error",
+            details: { message: current.error },
+          });
         }
       }
     } else if (isRecord(agentRunResult) && "finalOutput" in agentRunResult) {
@@ -1339,6 +1369,9 @@ export async function runAgentTurn(
       url: citation.url ?? null,
       isOfficial: citation.isOfficial ?? null,
     }));
+    const usageSummary = isAgentOsFeatureEnabled("costTracking")
+      ? extractUsageSummary(agentRunResult)
+      : null;
 
     const outputJsonPayload = {
       toolsInvoked: trust.toolsInvoked,
@@ -1363,6 +1396,13 @@ export async function runAgentTurn(
       finalReport: finalReport,
       correlationId: params.correlationId,
     };
+    if (usageSummary) {
+      (outputJsonPayload as Record<string, unknown>).usage = usageSummary;
+    }
+    if (trajectoryRecorder) {
+      (outputJsonPayload as Record<string, unknown>).trajectory =
+        trajectoryRecorder.snapshot();
+    }
 
     await emitProgress(true);
 
@@ -1440,6 +1480,21 @@ export async function runAgentTurn(
         error: String(error),
       });
     });
+    if (isAgentOsFeatureEnabled("criticEvaluation")) {
+      void runCriticEvaluation({
+        runId: dbRun.id,
+        orgId: params.orgId,
+        finalOutput: finalText,
+        toolsInvoked: trust.toolsInvoked,
+        toolFailures: trust.toolFailures,
+        missingEvidence: trust.missingEvidence,
+      }).catch((error: unknown) => {
+        console.warn("AgentOS critic evaluation failed after temporal run", {
+          runId: dbRun.id,
+          error: String(error),
+        });
+      });
+    }
 
     finalResult = {
       runId: dbRun.id,
@@ -1499,6 +1554,7 @@ function normalizeCitationForAutoFeed(
 
 async function buildRetrievalContext(params: {
   runId: string;
+  orgId: string;
   queryIntent?: string;
   firstUserInput?: string;
 }): Promise<DataAgentRetrievalContext | null> {
@@ -1514,35 +1570,12 @@ async function buildRetrievalContext(params: {
   }
 
   try {
-    const retrievalResults: Array<{
-      id: string;
-      source: "semantic" | "sparse" | "graph";
-      text: string;
-      score: number;
-      metadata: unknown;
-    }> = [];
-    const topResults = retrievalResults.slice(0, DATA_AGENT_RETRIEVAL_LIMIT);
-    const sources = {
-      semantic: 0,
-      sparse: 0,
-      graph: 0,
-    };
-
+    const context = await buildDataAgentRetrievalContext(query, params.runId, {
+      orgId: params.orgId,
+    });
     return {
-      query,
-      subjectId: params.runId,
-      generatedAt: new Date().toISOString(),
-      results: topResults.map((result) => {
-        sources[result.source] += 1;
-        return {
-          id: result.id,
-          source: result.source,
-          text: result.text,
-          score: result.score,
-          metadata: isRecord(result.metadata) ? result.metadata : { metadata: result.metadata },
-        };
-      }),
-      sources,
+      ...context,
+      results: context.results.slice(0, DATA_AGENT_RETRIEVAL_LIMIT),
     };
   } catch (error) {
     console.warn("Failed to compute retrieval context for temporal run", {
