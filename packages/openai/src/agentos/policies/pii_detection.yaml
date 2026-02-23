@@ -1,0 +1,27 @@
+# PII detection patterns for the PolicyEngine and guardrails.
+# Matches are logged; action depends on context.
+
+patterns:
+  ssn:
+    regex: "\\d{3}-\\d{2}-\\d{4}"
+    label: "SSN"
+    action: block
+    redaction: "[REDACTED-SSN]"
+
+  credit_card:
+    regex: "\\d{4}[\\s-]?\\d{4}[\\s-]?\\d{4}[\\s-]?\\d{4}"
+    label: "Credit Card"
+    action: block
+    redaction: "[REDACTED-CC]"
+
+  phone_us:
+    regex: "\\(?\\d{3}\\)?[\\s.-]?\\d{3}[\\s.-]?\\d{4}"
+    label: "Phone Number"
+    action: warn
+    redaction: "[REDACTED-PHONE]"
+
+  email:
+    regex: "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}"
+    label: "Email Address"
+    action: warn
+    redaction: "[REDACTED-EMAIL]"

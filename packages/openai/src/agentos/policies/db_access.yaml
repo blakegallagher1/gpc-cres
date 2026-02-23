@@ -1,0 +1,47 @@
+# Database access policy for the PolicyEngine.
+# Controls which tables and operations tools may access.
+
+allow_writes: false
+
+# Tables readable via cres_db gateway (PropertyDB tools)
+cres_db_tables:
+  - parcels
+  - assessor
+  - assessor_sales
+  - flood_zones
+  - soil_types
+  - wetlands
+  - epa_sites
+  - traffic_counts
+  - ldeq_sites
+  - permits
+  - zoning_districts
+  - zoning_overlay
+
+# Tables readable via Supabase/Prisma (app DB)
+app_db_tables:
+  - deals
+  - parcels
+  - tasks
+  - runs
+  - artifacts
+  - evidence_sources
+  - evidence_snapshots
+  - conversations
+  - messages
+  - orgs
+  - jurisdictions
+  - buyers
+  - outreach
+  - parish_pack_versions
+  - knowledge_embeddings
+
+# SQL patterns that are always blocked, regardless of allow_writes
+blocked_patterns:
+  - "DROP TABLE"
+  - "DROP DATABASE"
+  - "TRUNCATE"
+  - "ALTER TABLE"
+  - "CREATE TABLE"
+  - "GRANT "
+  - "REVOKE "
