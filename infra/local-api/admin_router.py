@@ -106,8 +106,12 @@ async def admin_health():
         except Exception:
             pass
 
+    # Ignore stopped legacy containers (e.g. local-postgis after DB consolidation)
+    IGNORED_CONTAINERS = {"local-postgis"}
     overall = db_ok and all(
-        c.get("status") == "running" for c in containers if "error" not in c
+        c.get("status") == "running"
+        for c in containers
+        if "error" not in c and c.get("name") not in IGNORED_CONTAINERS
     )
     return {
         "ok": overall,
