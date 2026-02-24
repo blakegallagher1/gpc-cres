@@ -1,5 +1,3 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-
 import type { PrismaClient } from "@entitlement-os/db";
 
 import { compareEvidenceHash } from "./compare.js";
@@ -11,8 +9,6 @@ export type CaptureEvidenceParams = {
   orgId: string;
   runId: string;
   prisma: PrismaClient;
-  supabase: SupabaseClient;
-  evidenceBucket?: string;
   allowPlaywrightFallback?: boolean;
   officialDomains?: string[];
 };
@@ -32,7 +28,7 @@ export type CaptureEvidenceResult = {
  * Full evidence capture pipeline:
  * 1. Fetch URL content (HTTP with optional Playwright fallback)
  * 2. Hash content
- * 3. Upload snapshot + text extract to Supabase Storage
+ * 3. Upload snapshot + text extract to B2 via gateway
  * 4. Store records in DB via Prisma
  * 5. Compare with previous snapshot to detect changes
  *
@@ -40,16 +36,12 @@ export type CaptureEvidenceResult = {
  * change detection.
  */
 export async function captureEvidence(params: CaptureEvidenceParams): Promise<CaptureEvidenceResult> {
-  const bucket = params.evidenceBucket ?? "evidence";
-
   const snapshot: EvidenceSnapshotResult = await fetchAndSnapshotUrl({
     orgId: params.orgId,
     runId: params.runId,
     url: params.url,
     allowPlaywrightFallback: params.allowPlaywrightFallback ?? false,
     prisma: params.prisma,
-    supabase: params.supabase,
-    evidenceBucket: bucket,
     officialDomains: params.officialDomains,
   });
 

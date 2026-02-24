@@ -2,7 +2,6 @@ import { prisma } from "@entitlement-os/db";
 import { captureEvidence } from "@entitlement-os/evidence";
 import { hashJsonSha256 } from "@entitlement-os/shared/crypto";
 
-import { supabaseAdmin } from "@/lib/db/supabaseAdmin";
 import { upsertEntitlementOutcomePrecedent } from "@/lib/services/entitlementIntelligence.service";
 
 type ConnectorType = "rss" | "socrata" | "arcgis" | "unknown";
@@ -82,8 +81,6 @@ export interface BackfillEntitlementPrecedentsResult {
 const DEFAULT_SOURCE_LIMIT = 25;
 const DEFAULT_RECORDS_PER_SOURCE = 75;
 const DEFAULT_EVIDENCE_LINKS = 2;
-const EVIDENCE_BUCKET = "evidence";
-
 const BATON_ROUGE_FIELD_PRESETS: FieldPreset[] = [
   {
     id: "brla-socrata-zoning-cases",
@@ -624,8 +621,6 @@ async function captureEvidenceForCandidate(
         orgId,
         runId,
         prisma,
-        supabase: supabaseAdmin,
-        evidenceBucket: EVIDENCE_BUCKET,
         allowPlaywrightFallback: false,
         officialDomains,
       });

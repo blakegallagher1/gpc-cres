@@ -1,10 +1,10 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { chromium } from "playwright";
 
 import type { PrismaClient } from "@entitlement-os/db";
 import { buildEvidenceExtractObjectKey, buildEvidenceSnapshotObjectKey } from "@entitlement-os/shared";
 import { hashBytesSha256 } from "@entitlement-os/shared/crypto";
 
+import { uploadEvidenceBytesViaGateway } from "./storage.js";
 import { extractTextFromHtml, extractTextFromPdfBytes } from "./textExtract.js";
 import { detectExtension, getHostname, looksLikeJsPlaceholder } from "./util.js";
 import type { EvidenceSnapshotResult, FetchAndSnapshotUrlParams } from "./types.js";
@@ -15,29 +15,6 @@ type FetchBytesResult = {
   httpStatus: number | null;
   usedPlaywright: boolean;
 };
-
-type BucketConfig = {
-  public: boolean;
-};
-
-async function ensureBucket(
-  supabase: SupabaseClient,
-  bucket: string,
-): Promise<void> {
-  const { data: buckets, error: listError } = await supabase.storage.listBuckets();
-  if (listError) {
-    throw new Error(`Evidence bucket lookup failed: ${listError.message}`);
-  }
-
-  if (buckets?.some((item) => item.name === bucket)) return;
-
-  const { error } = await supabase.storage.createBucket(bucket, {
-    public: false,
-  } as BucketConfig);
-  if (error) {
-    throw new Error(`Evidence bucket create failed: ${error.message}`);
-  }
-}
 
 async function fetchBytesViaHttp(url: string): Promise<FetchBytesResult> {
   const res = await fetch(url, {
@@ -74,28 +51,6 @@ async function fetchHtmlViaPlaywright(url: string): Promise<FetchBytesResult> {
   } finally {
     await browser.close();
   }
-}
-
-async function uploadBytesToSupabase(params: {
-  supabase: SupabaseClient;
-  bucket: string;
-  objectKey: string;
-  bytes: Uint8Array;
-  contentType: string;
-}): Promise<void> {
-  await ensureBucket(params.supabase, params.bucket);
-
-  const { error } = await params.supabase.storage.from(params.bucket).upload(params.objectKey, params.bytes, {
-    contentType: params.contentType,
-    upsert: false,
-  });
-
-  if (!error) return;
-
-  // Idempotency: deterministic keys include a content hash. If the object already exists, treat as success.
-  const msg = String(error.message ?? "");
-  if (msg.toLowerCase().includes("already exists")) return;
-  throw error;
 }
 
 function isOfficialDomain(hostname: string | null, officialDomains: string[]): boolean {
@@ -223,20 +178,19 @@ export async function fetchAndSnapshotUrl(
     extractedText = await extractTextFromHtml(new TextDecoder().decode(fetchResult.bytes));
   }
 
-  // Upload snapshot + text extract (best-effort to keep deterministic).
-  await uploadBytesToSupabase({
-    supabase: params.supabase,
-    bucket: params.evidenceBucket,
+  await uploadEvidenceBytesViaGateway({
     objectKey: storageObjectKey,
     bytes: fetchResult.bytes,
     contentType,
+    kind: "evidence_snapshot",
+    orgId: params.orgId,
   });
-  await uploadBytesToSupabase({
-    supabase: params.supabase,
-    bucket: params.evidenceBucket,
+  await uploadEvidenceBytesViaGateway({
     objectKey: textExtractObjectKey,
     bytes: new TextEncoder().encode(extractedText),
     contentType: "text/plain; charset=utf-8",
+    kind: "evidence_extract",
+    orgId: params.orgId,
   });
 
   const snapshotRow = await createEvidenceSnapshotRow({

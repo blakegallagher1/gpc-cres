@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
-import { supabaseAdmin } from "@/lib/db/supabaseAdmin";
+import { getDownloadUrlFromGateway } from "@/lib/storage/gatewayStorage";
 
 type SnapshotRecord = {
   id: string;
@@ -30,11 +30,17 @@ function parseLimit(value: string | null, fallback: number): number {
   return Math.max(1, Math.min(Math.floor(parsed), 120));
 }
 
-function signedUrlOrError(key: string): Promise<string | null> {
-  return supabaseAdmin.storage
-    .from("evidence")
-    .createSignedUrl(key, 180)
-    .then((payload) => (payload.error || !payload.data?.signedUrl ? null : payload.data.signedUrl));
+async function getEvidenceDownloadUrl(
+  auth: { orgId: string; userId: string },
+  snapshotId: string,
+  type: "evidence_snapshot" | "evidence_extract"
+): Promise<string | null> {
+  try {
+    const { downloadUrl } = await getDownloadUrlFromGateway({ auth, id: snapshotId, type });
+    return downloadUrl;
+  } catch {
+    return null;
+  }
 }
 
 function deriveFilename(objectKey: string): string {
@@ -86,11 +92,12 @@ export async function GET(
       return NextResponse.json(buildErrorPayload("Evidence source not found"), { status: 404 });
     }
 
+    const authPayload = { orgId: auth.orgId, userId: auth.userId };
     const signedFileRows = await Promise.all(
       (source.evidenceSnapshots as EvidenceSourceRecord["evidenceSnapshots"]).map(async (snapshot) => {
-        const snapshotUrl = await signedUrlOrError(snapshot.storageObjectKey);
+        const snapshotUrl = await getEvidenceDownloadUrl(authPayload, snapshot.id, "evidence_snapshot");
         const textUrl = snapshot.textExtractObjectKey
-          ? await signedUrlOrError(snapshot.textExtractObjectKey)
+          ? await getEvidenceDownloadUrl(authPayload, snapshot.id, "evidence_extract")
           : null;
 
         return {
