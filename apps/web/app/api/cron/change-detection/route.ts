@@ -10,13 +10,10 @@ import {
   withRetry,
   withTimeout,
 } from "@entitlement-os/evidence";
-import { supabaseAdmin } from "@/lib/db/supabaseAdmin";
 import { runWithCronMonitor } from "@/lib/automation/sentry";
 
 const MAX_TIMEOUT_MS = 60_000;
 const MAX_RETRIES = 3;
-const EVIDENCE_BUCKET = "evidence";
-
 function verifyCronSecret(req: Request): boolean {
   const secret = (process.env.CRON_SECRET || "").trim();
   if (!secret) return false;
@@ -107,8 +104,6 @@ export async function GET(req: Request) {
                 orgId: source.jurisdiction.orgId,
                 runId: run.id,
                 prisma,
-                supabase: supabaseAdmin,
-                evidenceBucket: EVIDENCE_BUCKET,
                 allowPlaywrightFallback: false, // No Playwright in cron (cost cap guardrail)
                 officialDomains: source.jurisdiction.officialDomains,
               }),

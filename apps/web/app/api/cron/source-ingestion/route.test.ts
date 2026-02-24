@@ -58,10 +58,6 @@ vi.mock("@entitlement-os/evidence", () => ({
   withTimeout: withTimeoutMock,
 }));
 
-vi.mock("@/lib/db/supabaseAdmin", () => ({
-  supabaseAdmin: {},
-}));
-
 vi.mock("@/lib/services/notification.service", () => ({
   getNotificationService: () => ({
     createBatch: createBatchNotificationMock,

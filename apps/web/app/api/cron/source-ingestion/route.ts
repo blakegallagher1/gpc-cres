@@ -2,7 +2,6 @@ import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { captureEvidence, withTimeout } from "@entitlement-os/evidence";
-import { supabaseAdmin } from "@/lib/db/supabaseAdmin";
 import {
   type NotificationPriority,
   getNotificationService,
@@ -13,7 +12,6 @@ import {
   dedupeEvidenceCitations,
 } from "@entitlement-os/shared/evidence";
 
-const EVIDENCE_BUCKET = "evidence";
 const MAX_CAPTURE_RETRIES = 2;
 const MAX_CAPTURE_TIMEOUT_MS = 45_000;
 const CAPTURE_INTERVAL_DAYS = 7;
@@ -781,8 +779,6 @@ async function captureSourceWithRetry(params: {
           orgId: params.orgId,
           runId: params.runId,
           prisma,
-          supabase: supabaseAdmin,
-          evidenceBucket: EVIDENCE_BUCKET,
           allowPlaywrightFallback: true,
           officialDomains: params.officialDomains ?? [],
         }),

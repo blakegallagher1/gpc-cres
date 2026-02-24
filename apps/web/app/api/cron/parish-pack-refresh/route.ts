@@ -17,7 +17,10 @@ import {
 import { captureEvidence } from "@entitlement-os/evidence";
 import type { CaptureEvidenceResult } from "@entitlement-os/evidence";
 import { withRetry, withTimeout } from "@entitlement-os/evidence";
-import { supabaseAdmin } from "@/lib/db/supabaseAdmin";
+import {
+  fetchObjectBytesFromGateway,
+  systemAuth,
+} from "@/lib/storage/gatewayStorage";
 import { hashJsonSha256 } from "@entitlement-os/shared/crypto";
 import { runWithCronMonitor } from "@/lib/automation/sentry";
 
@@ -25,7 +28,6 @@ const SKUS: SkuType[] = ["SMALL_BAY_FLEX", "OUTDOOR_STORAGE", "TRUCK_PARKING"];
 const STALE_DAYS = 7;
 const EVIDENCE_TIMEOUT_MS = 30_000;
 const EVIDENCE_RETRIES = 2;
-const EVIDENCE_BUCKET = "evidence";
 const PARISH_PACK_MODEL = process.env.OPENAI_PARISH_PACK_MODEL || "gpt-4.1";
 const OFFICIAL_ONLY = true;
 
@@ -294,12 +296,13 @@ export async function GET(req: Request) {
               });
 
               if (existingSnapshot?.textExtractObjectKey) {
-                const { data, error } = await supabaseAdmin.storage
-                  .from(EVIDENCE_BUCKET)
-                  .download(existingSnapshot.textExtractObjectKey);
-
-                if (data && !error) {
-                  const text = await data.text();
+                try {
+                  const auth = systemAuth(orgId);
+                  const data = await fetchObjectBytesFromGateway(
+                    existingSnapshot.textExtractObjectKey,
+                    auth
+                  );
+                  const text = new TextDecoder().decode(data);
                   if (text.trim().length > 0) {
                     evidenceTexts.push(text);
                     sourceEvidenceIds.push(existingSnapshot.evidenceSourceId);
@@ -315,10 +318,13 @@ export async function GET(req: Request) {
                     });
                     continue;
                   }
+                } catch {
+                  /* fall through to capture fresh evidence */
                 }
               }
 
               // No existing snapshot or couldn't download — capture fresh evidence
+              const auth = systemAuth(orgId);
               const captureResult: CaptureEvidenceResult = await withRetry(
                 () =>
                   withTimeout(
@@ -327,8 +333,6 @@ export async function GET(req: Request) {
                       orgId,
                       runId: run.id,
                       prisma,
-                      supabase: supabaseAdmin,
-                      evidenceBucket: EVIDENCE_BUCKET,
                       allowPlaywrightFallback: false,
                       officialDomains: jurisdiction.officialDomains,
                     }),

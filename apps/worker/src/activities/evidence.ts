@@ -1,6 +1,5 @@
 import { prisma } from "@entitlement-os/db";
 import { captureEvidence } from "@entitlement-os/evidence";
-import { createClient } from "@supabase/supabase-js";
 
 function isOfficialSource(url: string, officialDomains: string[]): boolean {
   try {
@@ -9,15 +8,6 @@ function isOfficialSource(url: string, officialDomains: string[]): boolean {
   } catch {
     return false;
   }
-}
-
-function getSupabase() {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) {
-    throw new Error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required");
-  }
-  return createClient(url, key);
 }
 
 /**
@@ -72,15 +62,11 @@ export async function captureEvidenceForSource(params: {
   changed: boolean;
   extractedText: string;
 }> {
-  const supabase = getSupabase();
-
   const result = await captureEvidence({
     url: params.url,
     orgId: params.orgId,
     runId: params.runId,
     prisma,
-    supabase,
-    evidenceBucket: "evidence",
     allowPlaywrightFallback: true,
     officialDomains: params.officialDomains,
   });

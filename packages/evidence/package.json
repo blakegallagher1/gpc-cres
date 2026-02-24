@@ -20,8 +20,9 @@
   },
   "dependencies": {
     "@entitlement-os/db": "workspace:*",
-    "@entitlement-os/shared": "workspace:*",
-    "@supabase/supabase-js": "^2.93.3",
+"@entitlement-os/shared": "workspace:*",
+                "@prisma/client": "~6.19.2",
+                "@supabase/supabase-js": "^2.93.3",
     "html-to-text": "^9.0.5",
     "unpdf": "^1.4.0",
     "playwright": "^1.50.0"

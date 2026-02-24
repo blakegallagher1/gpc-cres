@@ -351,6 +351,9 @@ importers:
       '@entitlement-os/shared':
         specifier: workspace:*
         version: link:../shared
+      '@prisma/client':
+        specifier: ~6.19.2
+        version: 6.19.2(prisma@6.19.2(typescript@5.9.3))(typescript@5.9.3)
       '@supabase/supabase-js':
         specifier: ^2.93.3
         version: 2.95.3
