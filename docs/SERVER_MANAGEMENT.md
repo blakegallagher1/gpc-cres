@@ -1,0 +1,196 @@
+# Windows PC Server Management
+
+Manage the Windows PC backend (BG) from your MacBook anywhere via Cloudflare Tunnel.
+
+**Cost:** $0. Cloudflare Free plan is sufficient.
+
+---
+
+## Server Details (BG)
+
+| Field | Value |
+|-------|-------|
+| Hostname | BG |
+| OS | Windows 10 (Build 22631.3296) |
+| SSH User | `cres_admin` |
+| SSH Server | OpenSSH_for_Windows_8.6 |
+| Auth Method | SSH key (ed25519) + password fallback |
+| Project Path | `C:\gpc-cres-backend\` |
+| DB Password | `postgres` (set at container init, not the `.env` value) |
+
+### Docker Services
+
+All services use a single PostgreSQL database (`entitlement_os` on `entitlement-db`). The legacy `local-postgis` container (`db` service) is stopped — its data was consolidated into `entitlement-db` on 2026-02-24.
+
+| Container | Service | Port |
+|-----------|---------|------|
+| entitlement-os-postgres | PostgreSQL (all data) | 5432 (internal) / 54323 (localhost) |
+| fastapi-gateway | FastAPI API | 8000 |
+| martin-tile-server | Vector tiles | 3000 |
+| qdrant | Vector search | 6333 |
+| cloudflared | Tunnel | — |
+| pgadmin | DB admin UI | 5050 |
+
+---
+
+## MacBook Setup
+
+**1. Install cloudflared**
+
+```bash
+brew install cloudflared
+```
+
+**2. Configure SSH**
+
+Add to `~/.ssh/config`:
+
+```
+Host ssh.gallagherpropco.com
+  ProxyCommand cloudflared access ssh --hostname %h
+  User cres_admin
+```
+
+**3. Connect**
+
+```bash
+ssh ssh.gallagherpropco.com
+```
+
+If Cloudflare Access is enabled, you’ll see a browser login first. Then SSH proceeds.
+
+## Repo Config
+
+```bash
+cp scripts/server/config.example.sh scripts/server/config.sh
+```
+
+Edit `scripts/server/config.sh`:
+
+```bash
+# Cloudflare SSH hostname
+export SERVER_HOST="ssh.gallagherpropco.com"
+
+# Your Windows username
+export SERVER_USER="YourWindowsUsername"
+
+# Path to backend on Windows
+export SERVER_PATH="C:/gpc-cres-backend"
+```
+
+The scripts use your `~/.ssh/config` ProxyCommand automatically.
+
+---
+
+## Windows PC Setup
+
+Enable OpenSSH Server (PowerShell as Administrator):
+
+```powershell
+Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
+Start-Service sshd
+Set-Service -Name sshd -StartupType Automatic
+```
+
+---
+
+## Architecture
+
+```
+MacBook (anywhere)                    Windows PC (BG)
+     │                                      │
+     │  ssh cres_admin@ssh.gallagherpropco.com
+     │  cloudflared access tcp (db)         │
+     │         │                            │
+     │         ▼                            │
+     │  Cloudflare Edge                     │
+     │  (Access: Blake@gallagherpropco.com) │
+     │         │                            │
+     │         ▼                            │
+     │  gpc-hp-tunnel ─────────────────────►│  OpenSSH :22
+     │                                      │  entitlement-db :5432
+     │                                      │  gateway :8000
+     │                                      │  martin :3000
+     │                                      │
+```
+
+---
+
+## Available Commands
+
+From repo root (after configuring `config.sh`):
+
+| Command | Description |
+|---------|-------------|
+| `pnpm server:status` | Docker container status |
+| `pnpm server:restart` | Restart gateway container |
+| `pnpm server:logs` | Tail gateway logs |
+| `pnpm server:deploy` | Deploy updated main.py to gateway |
+| `pnpm server:ssh` | Open SSH session to server |
+
+---
+
+## Cloudflare Account: Upgrade?
+
+**No.** The Free plan is enough:
+
+- Cloudflare Access: 500 applications, 50 identity providers
+- Tunnel: already in use for api/tiles
+- For one user managing one server, Free covers everything
+
+Upgrade only if you need higher limits or advanced Zero Trust features.
+
+---
+
+## Troubleshooting
+
+### SSH: "websocket: bad handshake"
+- OpenSSH Server (sshd) is likely stopped on the PC
+- RDP in or have someone run: `Start-Service sshd` in PowerShell (Admin)
+- Confirm it's running: `Get-Service sshd`
+
+### SSH: connection timeout
+- Confirm the SSH ingress rule in the tunnel config
+- Ensure `ssh.gallagherpropco.com` resolves (e.g. `nslookup ssh.gallagherpropco.com`)
+- Check OpenSSH is running on Windows: `Get-Service sshd`
+
+### Tunnel is down
+- SSH or RDP into the PC
+- `cd C:\gpc-cres-backend && docker compose up -d tunnel`
+
+### Cloudflare: "cloudflared access ssh" not found
+- Install cloudflared: `brew install cloudflared`
+- Ensure `~/.ssh/config` has the ProxyCommand for `ssh.gallagherpropco.com`
+
+### Docker commands fail over SSH
+- Ensure Docker Desktop is running on Windows
+- Use forward slashes in `SERVER_PATH` (e.g. `C:/gpc-cres-backend`)
+
+### Docker credential helper fails over SSH
+When deploying via SSH, Docker Desktop's credential helper can fail (`A specified logon session does not exist`). Workaround:
+
+1. Temporarily rename:
+   - `C:\Program Files\Docker\Docker\resources\bin\docker-credential-desktop.exe` → `docker-credential-desktop.exe.bak`
+   - `C:\Program Files\Docker\Docker\resources\bin\docker-credential-wincred.exe` → `docker-credential-wincred.exe.bak`
+2. Run `docker compose up -d --build gateway`
+3. Restore: rename both `.bak` back to `.exe`
+
+Requires Administrator. Anonymous pulls (e.g. python:3.11-slim) work without credentials.
+
+---
+
+## Reference: Windows Server Layout
+
+| Path | Purpose |
+|------|---------|
+| `C:\gpc-cres-backend\` | Backend root |
+| `C:\gpc-cres-backend\docker-compose.yml` | Compose definition |
+| `C:\gpc-cres-backend\.env` | Env vars (GATEWAY_API_KEY, B2_*, etc.) |
+
+---
+
+## Related Docs
+
+- `docs/CLOUDFLARE.md` — Cloudflare Tunnel config (ingress rules, DNS)
+- `docs/claude/backend.md` — Gateway architecture, endpoints
+- `docs/B2_DEPLOY_CHECKLIST.md` — B2 storage deployment

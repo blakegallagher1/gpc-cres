@@ -1,6 +1,8 @@
 # Local PostgreSQL Map Tiles - Quick Start Checklist
 
-**Target:** `postgresql://postgres:Nola0528!@localhost:5432/cres_db` (12-core i7)
+**Target:** `postgresql://postgres:YOUR_DB_PASSWORD@localhost:5432/entitlement_os` (12-core i7)
+
+Replace `YOUR_DB_PASSWORD` with a value from your secure secret source (vault/secret manager). Do not store real passwords directly in this file.
 
 ---
 
@@ -8,13 +10,13 @@
 
 - [ ] PostgreSQL 16+ installed and running
 - [ ] PostGIS extension available (`sudo apt-get install postgis` or equivalent)
-- [ ] Database `cres_db` exists
-- [ ] User `postgres` has password `Nola0528!`
+- [ ] Database `entitlement_os` exists
+- [ ] User `postgres` has password `YOUR_DB_PASSWORD`
 - [ ] EBR parcel data migrated from Supabase (including `geom` column)
 
 **Verify database connection:**
 ```bash
-psql postgresql://postgres:Nola0528!@localhost:5432/cres_db -c "SELECT version();"
+psql postgresql://postgres:YOUR_DB_PASSWORD@localhost:5432/entitlement_os -c "SELECT version();"
 ```
 
 ---
@@ -23,7 +25,7 @@ psql postgresql://postgres:Nola0528!@localhost:5432/cres_db -c "SELECT version()
 
 - [ ] Run SQL setup script:
   ```bash
-  psql postgresql://postgres:Nola0528!@localhost:5432/cres_db \
+  psql postgresql://postgres:YOUR_DB_PASSWORD@localhost:5432/entitlement_os \
     -f infra/sql/local-db-setup.sql
   ```
 
@@ -77,7 +79,7 @@ psql postgresql://postgres:Nola0528!@localhost:5432/cres_db -c "SELECT version()
 
 - [ ] Set `LOCAL_DATABASE_URI` in `apps/web/.env.local`:
   ```bash
-  echo "LOCAL_DATABASE_URI=postgresql://postgres:Nola0528!@localhost:5432/cres_db" \
+  echo "LOCAL_DATABASE_URI=postgresql://postgres:YOUR_DB_PASSWORD@localhost:5432/entitlement_os" \
     >> apps/web/.env.local
   ```
 
@@ -203,7 +205,7 @@ psql postgresql://postgres:Nola0528!@localhost:5432/cres_db -c "SELECT version()
 - [ ] Schedule daily materialized view refresh (cron or pg_cron):
   ```bash
   # Add to crontab
-  0 3 * * * psql postgresql://postgres:Nola0528!@localhost:5432/cres_db \
+  0 3 * * * psql postgresql://postgres:YOUR_DB_PASSWORD@localhost:5432/entitlement_os \
     -c "REFRESH MATERIALIZED VIEW CONCURRENTLY mv_parcel_intelligence;"
   ```
 
@@ -250,7 +252,7 @@ On 12-core i7 with optimized config:
 
 2. **Update `.env.example`:**
    ```bash
-   echo "LOCAL_DATABASE_URI=postgresql://postgres:PASSWORD@localhost:5432/cres_db" \
+echo "LOCAL_DATABASE_URI=postgresql://postgres:YOUR_DB_PASSWORD@localhost:5432/entitlement_os" \
      >> apps/web/.env.example
    ```
 

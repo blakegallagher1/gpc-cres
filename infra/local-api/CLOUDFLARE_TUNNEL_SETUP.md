@@ -369,7 +369,7 @@ sudo journalctl -u cloudflared -f  # Linux
 
 ### Tiles return 204 everywhere:
 - PostgreSQL not running or data missing
-- Check: `psql postgresql://postgres:Nola0528!@localhost:5432/cres_db -c "SELECT COUNT(*) FROM ebr_parcels WHERE geom IS NOT NULL;"`
+- Check: `psql postgresql://postgres:postgres@localhost:54323/entitlement_os -c "SELECT COUNT(*) FROM ebr_parcels WHERE geom IS NOT NULL;"`
 
 ---
 

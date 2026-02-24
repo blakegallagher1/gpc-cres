@@ -1,6 +1,8 @@
 # Local PostgreSQL Setup Guide for Map Tiles
 
-**Target Database:** `postgresql://postgres:Nola0528!@localhost:5432/cres_db`
+**Target Database:** `postgresql://postgres:YOUR_DB_PASSWORD@localhost:5432/entitlement_os`
+
+Use `YOUR_DB_PASSWORD` as a placeholder and source the real value from a secure secret store when running commands.
 **Hardware:** 12-core i7 processor
 **Goal:** Maximum performance + parcel polygon rendering on /maps page
 
@@ -14,7 +16,7 @@ Execute the comprehensive SQL setup script to create all required tables, indexe
 cd /Users/gallagherpropertycompany/Documents/gallagher-cres
 
 # Run the setup script
-psql postgresql://postgres:Nola0528!@localhost:5432/cres_db -f infra/sql/local-db-setup.sql
+psql postgresql://postgres:YOUR_DB_PASSWORD@localhost:5432/entitlement_os -f infra/sql/local-db-setup.sql
 ```
 
 **Expected output:**
@@ -36,7 +38,7 @@ Check that geometry data exists:
 
 ```sql
 -- Connect to database
-psql postgresql://postgres:Nola0528!@localhost:5432/cres_db
+psql postgresql://postgres:YOUR_DB_PASSWORD@localhost:5432/entitlement_os
 
 -- Check parcel count and geometry coverage
 SELECT
@@ -154,7 +156,7 @@ cd apps/web
 cat >> .env.local <<EOF
 
 # Local PostgreSQL for map tiles
-LOCAL_DATABASE_URI=postgresql://postgres:Nola0528!@localhost:5432/cres_db
+LOCAL_DATABASE_URI=postgresql://postgres:YOUR_DB_PASSWORD@localhost:5432/entitlement_os
 EOF
 ```
 
@@ -163,7 +165,7 @@ EOF
 ```bash
 # Set environment variable in Vercel project
 vercel env add LOCAL_DATABASE_URI production
-# When prompted, enter: postgresql://postgres:Nola0528!@localhost:5432/cres_db
+# When prompted, enter: postgresql://postgres:YOUR_DB_PASSWORD@localhost:5432/entitlement_os
 # Note: This won't work for Vercel cloud - only for local testing
 ```
 
@@ -422,7 +424,7 @@ If you want to use Martin instead of Next.js API routes:
 cargo install martin
 
 # Configure Martin to serve tiles from get_parcel_mvt function
-martin postgresql://postgres:Nola0528!@localhost:5432/cres_db --keep-alive 75
+martin postgresql://postgres:YOUR_DB_PASSWORD@localhost:5432/entitlement_os --keep-alive 75
 
 # Martin will auto-discover get_parcel_mvt and serve at:
 # http://localhost:3000/parcels/{z}/{x}/{y}.pbf
@@ -459,5 +461,5 @@ If you encounter issues not covered here:
 
 4. **Test direct database connection:**
    ```bash
-   psql postgresql://postgres:Nola0528!@localhost:5432/cres_db -c "SELECT version();"
+   psql postgresql://postgres:YOUR_DB_PASSWORD@localhost:5432/entitlement_os -c "SELECT version();"
    ```

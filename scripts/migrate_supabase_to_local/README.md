@@ -23,7 +23,7 @@ python migrate_supabase_to_local.py
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `SUPABASE_DATABASE_URI` | — | Source Postgres URI (or use `DIRECT_DATABASE_URL` / `DATABASE_URL` from `.env`) |
-| `LOCAL_DATABASE_URI` | `postgresql://postgres:Nola0528!@localhost:5432/cres_db` | Target local PostGIS |
+| `LOCAL_DATABASE_URI` | `postgresql://postgres:postgres@localhost:5432/entitlement_os` | Target local PostGIS |
 
 ## Tables Migrated
 
@@ -43,4 +43,4 @@ If local Postgres is not running:
 docker compose -f docker-compose.postgis.yml up -d
 ```
 
-Credentials: `postgres:Nola0528!@localhost:5432/cres_db` (matches Martin config).
+Credentials: `postgres:postgres@localhost:5432/entitlement_os` (matches Martin config).

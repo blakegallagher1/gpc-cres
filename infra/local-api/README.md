@@ -42,7 +42,7 @@ Cloudflare Edge (Atlanta: atl01, atl08, atl10, atl12)
 Docker Compose (Windows 11, 12-core i7)
     ├── gateway (FastAPI :8000) — Auth + parcel/memory endpoints
     ├── martin (:3000) — MVT tile generation
-    ├── postgres (:5432 internal) — 560K parcels, PostGIS
+    ├── entitlement-db (:5432 internal) — entitlement_os, 560K parcels, deals, orgs, PostGIS
     ├── qdrant (:6333 internal) — vector search
     ├── pgadmin (internal)
     └── cloudflared (tunnel agent)
@@ -99,7 +99,7 @@ See `.env.example` for full list. Critical values:
 
 ```bash
 # Database
-DATABASE_URL=postgresql://postgres:PASSWORD@localhost:5432/cres_db
+DATABASE_URL=postgresql://postgres:postgres@entitlement-db:5432/entitlement_os
 
 # Martin tile server
 MARTIN_URL=http://localhost:3000
@@ -186,26 +186,26 @@ Docs auto-update at `/docs`.
 ### Server won't start:
 ```bash
 # Check PostgreSQL
-psql postgresql://postgres:Nola0528!@localhost:5432/cres_db -c "SELECT version();"
+psql postgresql://postgres:postgres@localhost:54323/entitlement_os -c "SELECT version();"
 
 # Check Martin
 curl http://localhost:3000/health
 
-# Check port 8080 availability
-lsof -i :8080
+# Check port 8000 availability
+lsof -i :8000
 ```
 
 ### 401 Unauthorized:
 ```bash
 # Verify API key in .env matches Vercel env var
-cat .env | grep API_KEYS
+cat .env | grep GATEWAY_API_KEY
 vercel env ls
 ```
 
 ### Tiles return 204:
 ```bash
 # Refresh materialized view
-psql postgresql://postgres:Nola0528!@localhost:5432/cres_db \
+psql postgresql://postgres:postgres@localhost:54323/entitlement_os \
   -c "REFRESH MATERIALIZED VIEW mv_parcel_intelligence;"
 ```
 

@@ -1,6 +1,15 @@
-# Cloudflare Tunnel Setup
+# Cloudflare Tunnel Setup (Legacy Reference)
 
-This repo uses TWO Cloudflare tunnels:
+This document is for **legacy historical reference only**.
+
+The authoritative setup is documented in [`docs/CLOUDFLARE.md`](/docs/CLOUDFLARE.md) and should be treated as current truth:
+- Single tunnel: `gpc-hp-tunnel`
+- `api.gallagherpropco.com` and `tiles.gallagherpropco.com` over one Cloudflare tunnel
+- Current API/tiles port and proxy assumptions as noted in that document
+
+Use this file only when you need archived command examples for historical context.
+
+Legacy layout shown below assumes separate tunnel configs (`gpc-api`, `gpc-tiles`) and should not be used for active deployment.
 
 1. **api.gallagherpropco.com** → localhost:8000 (FastAPI)
 2. **tiles.gallagherpropco.com** → localhost:3000 (Martin)
@@ -48,9 +57,8 @@ sudo cloudflared service install
 
 | Component | Exposure |
 |-----------|----------|
-| Postgres 5432 | Never exposed |
+| Postgres 5432 | Via Cloudflare tunnel, gated by Cloudflare Access (email auth) |
 | FastAPI 8000 | Only via Cloudflare tunnel |
 | Martin 3000 | Only via Cloudflare tunnel |
-| Ingress | Only ports 8000 and 3000 |
 
-FastAPI connects to Postgres via localhost only.
+See `docs/CLOUDFLARE.md` for the current authoritative setup including remote DB access.

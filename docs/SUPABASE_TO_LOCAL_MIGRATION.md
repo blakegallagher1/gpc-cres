@@ -6,29 +6,14 @@ Moves app Postgres and evidence storage from Supabase to the local Windows HP Se
 
 ### 1A) Add app-db to production Docker Compose
 
-On the Windows HP server (`C:\gpc-cres-backend\docker-compose.yml`), add:
+Use the fragment in `infra/docker/docker-compose.app-db.yml`, or merge into `C:\gpc-cres-backend\docker-compose.yml`:
 
-```yaml
-app-db:
-  image: pgvector/pgvector:pg16
-  container_name: entitlement-os-db
-  restart: unless-stopped
-  ports:
-    - "127.0.0.1:5433:5432"
-  environment:
-    POSTGRES_DB: entitlement_os
-    POSTGRES_USER: postgres
-    POSTGRES_PASSWORD: ${APP_DB_PASSWORD}
-  volumes:
-    - app-db-data:/var/lib/postgresql/data
-  healthcheck:
-    test: ["CMD-SHELL", "pg_isready -U postgres -d entitlement_os"]
-    interval: 10s
-    timeout: 5s
-    retries: 5
+```bash
+# From repo root (local dev)
+docker compose -f infra/docker/docker-compose.yml -f infra/docker/docker-compose.app-db.yml up -d app-db
 
-volumes:
-  app-db-data:
+# On Windows server (C:\gpc-cres-backend)
+# Copy app-db service + app-db-data volume from infra/docker/docker-compose.app-db.yml
 ```
 
 Port 5433 avoids conflict with cres_db (5432). `pgvector` is required for `KnowledgeEmbedding` (vector column).
@@ -70,6 +55,16 @@ Set `APP_DB_PASSWORD` for the scheduled task. Optionally sync backups to B2 for 
 - `retrievedAt >= 2026-02-24` → B2 via gateway
 
 ### 2E) Migration script
+
+```bash
+# Load from .env, then run (dry-run first)
+pnpm migrate:evidence:b2:dry
+
+# Actual migration
+pnpm migrate:evidence:b2
+```
+
+Or with explicit env:
 
 ```bash
 DATABASE_URL="..." LOCAL_API_URL="..." LOCAL_API_KEY="..." \

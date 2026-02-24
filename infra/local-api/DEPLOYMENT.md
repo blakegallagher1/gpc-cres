@@ -8,7 +8,7 @@ Complete deployment from scratch.
 
 ## Prerequisites Checklist
 
-- [ ] PostgreSQL 16+ running with `cres_db` database
+- [ ] PostgreSQL 16+ running with `entitlement_os` database
 - [ ] Martin tile server running on port 3000
 - [ ] Database setup script executed (`infra/sql/local-db-setup.sql`)
 - [ ] Python 3.11+ installed
@@ -45,7 +45,7 @@ vim .env  # or nano .env
 
 ```bash
 # Database (update password)
-DATABASE_URL=postgresql://postgres:Nola0528!@localhost:5432/cres_db
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/entitlement_os
 
 # Martin URL (verify port)
 MARTIN_URL=http://localhost:3000
@@ -71,7 +71,7 @@ openssl rand -hex 32
 
 ```bash
 # Make sure PostgreSQL and Martin are running
-psql postgresql://postgres:Nola0528!@localhost:5432/cres_db -c "SELECT version();"
+psql postgresql://postgres:postgres@localhost:5432/entitlement_os -c "SELECT version();"
 curl http://localhost:3000/health  # Martin health check
 
 # Start FastAPI server
@@ -85,7 +85,7 @@ python main.py
 ======================================================================
 📍 Server: http://localhost:8080
 📖 Docs:   http://localhost:8080/docs
-🗄️  Database: postgresql://postgres:***@localhost:5432/cres_db
+🗄️  Database: postgresql://postgres:***@localhost:5432/entitlement_os
 🗺️  Martin: http://localhost:3000
 🔑 API Keys: 1 configured
 ======================================================================
@@ -283,7 +283,7 @@ vercel --prod
 ### 1. Check local services:
 ```bash
 # PostgreSQL
-psql postgresql://postgres:Nola0528!@localhost:5432/cres_db -c "SELECT COUNT(*) FROM ebr_parcels WHERE geom IS NOT NULL;"
+psql postgresql://postgres:postgres@localhost:5432/entitlement_os -c "SELECT COUNT(*) FROM ebr_parcels WHERE geom IS NOT NULL;"
 
 # Martin
 curl http://localhost:3000/health
@@ -350,7 +350,7 @@ vercel env ls
 
 **Fix:**
 ```bash
-psql postgresql://postgres:Nola0528!@localhost:5432/cres_db <<EOF
+psql postgresql://postgres:postgres@localhost:5432/entitlement_os <<EOF
 -- Refresh materialized view
 REFRESH MATERIALIZED VIEW mv_parcel_intelligence;
 
@@ -369,7 +369,7 @@ EOF
 **Fix:**
 ```bash
 # Check query performance
-psql postgresql://postgres:Nola0528!@localhost:5432/cres_db <<EOF
+psql postgresql://postgres:postgres@localhost:5432/entitlement_os <<EOF
 SELECT query, calls, mean_exec_time
 FROM pg_stat_statements
 WHERE query LIKE '%get_parcel_mvt%'
@@ -409,21 +409,21 @@ tail -f /tmp/gpc-api.log
 ### Daily:
 ```bash
 # Refresh materialized view (if data changes)
-psql postgresql://postgres:Nola0528!@localhost:5432/cres_db \
+psql postgresql://postgres:postgres@localhost:5432/entitlement_os \
   -c "REFRESH MATERIALIZED VIEW CONCURRENTLY mv_parcel_intelligence;"
 ```
 
 ### Weekly:
 ```bash
 # Vacuum and analyze
-psql postgresql://postgres:Nola0528!@localhost:5432/cres_db \
+psql postgresql://postgres:postgres@localhost:5432/entitlement_os \
   -c "VACUUM ANALYZE ebr_parcels; VACUUM ANALYZE mv_parcel_intelligence;"
 ```
 
 ### Monthly:
 ```bash
 # Check for slow queries
-psql postgresql://postgres:Nola0528!@localhost:5432/cres_db \
+psql postgresql://postgres:postgres@localhost:5432/entitlement_os \
   -c "SELECT query, calls, mean_exec_time FROM pg_stat_statements ORDER BY mean_exec_time DESC LIMIT 10;"
 ```
 
@@ -556,7 +556,7 @@ Once deployed and working:
 │        │                                  │                     │
 │  ┌─────▼──────────────┐         ┌────────▼────────────┐        │
 │  │  Martin (:3000)    │         │  PostgreSQL         │        │
-│  │  - Vector Tiles    │         │  - cres_db          │        │
+│  │  - Vector Tiles    │         │  - entitlement_os          │        │
 │  │  - MVT Generation  │         │  - PostGIS          │        │
 │  │  - Read-only       │         │  - 560K parcels     │        │
 │  └────────────────────┘         │  - Materialized View│        │

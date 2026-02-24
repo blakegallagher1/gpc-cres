@@ -95,7 +95,7 @@ All 14 agents have tools wired. Market Trajectory uses Socrata (building permits
 
 **Database architecture:**
 - **Entitlement OS DB** (Supabase `yjddspdbxuseowxndrak`) — system of record, Prisma-managed
-- **Property Database** (local PostgreSQL `cres_db`) — 560K parcels, PostGIS, parcel search/screening/geometry served via local FastAPI server
+- **Property Database** (local PostgreSQL `entitlement_os`) — 560K parcels, PostGIS, parcel search/screening/geometry served via local FastAPI server
 
 ## Automation Philosophy
 
@@ -140,64 +140,6 @@ See `docs/AUTOMATION-FRONTIER.md` for the full automation frontier map.
 
 ## Local Property API (Docker Compose on Windows 11)
 
-**Architecture:** Vercel serverless functions cannot hold persistent database connections. The local API layer solves this with a Docker Compose stack on a 12-core i7 Windows 11 desktop, exposed via a single Cloudflare Tunnel with remotely-managed ingress rules.
+**Full reference:** See `/docs/claude/backend.md` for the canonical backend documentation including architecture diagram, all 20 endpoints, auth details, database pools, RPC functions, and operational notes.
 
-```
-Vercel (gallagherpropco.com)
-    ↓ HTTPS + Bearer Token
-Cloudflare Edge (Atlanta: atl01, atl08, atl10, atl12)
-    ├── api.gallagherpropco.com → gateway:8000 (FastAPI)
-    │   └── Cache: 60s-3600s by endpoint
-    └── tiles.gallagherpropco.com → martin:3000 (MVT tiles)
-        └── Cache: 7d immutable
-    ↓ Single Cloudflare Tunnel (4 QUIC connections)
-Windows 11 Desktop (12-core i7) — Docker Compose
-    ├── gateway (FastAPI :8000)
-    │   ├── Auth: Bearer token (GATEWAY_API_KEY)
-    │   ├── PostgreSQL: asyncpg pool
-    │   ├── Qdrant: vector search
-    │   └── Request shaping: max bbox 0.1 sq degrees, max 100 results
-    ├── martin (:3000, MVT tile generation)
-    ├── postgres (internal network, :5432)
-    │   └── 560K parcels, 5 parishes, PostGIS
-    ├── qdrant (internal network, :6333)
-    ├── pgadmin (internal)
-    └── cloudflared (tunnel agent)
-```
-
-**Why separate subdomains?**
-- Independent cache policies (tiles immutable 7d, data short-lived)
-- Separate rate limiting (tiles high-volume, tools low-volume)
-- CDN optimization (tile subdomain gets aggressive edge caching)
-
-**Tile proxy:** `apps/web/app/api/map/tiles/[z]/[x]/[y]/route.ts` proxies to `https://tiles.gallagherpropco.com/tiles/{z}/{x}/{y}.pbf` with Bearer token. Caching: 24h max-age, 7d stale-while-revalidate, immutable.
-
-**Tiles (`tiles.gallagherpropco.com` → martin:3000):**
-- `GET /tiles/{z}/{x}/{y}.pbf` — Vector tiles
-- Cache: `public, max-age=604800, immutable`
-
-**API Gateway (`api.gallagherpropco.com` → gateway:8000):**
-All endpoints authenticated with Bearer token (`GATEWAY_API_KEY`).
-
-**Parcel endpoints:**
-- `POST /tools/parcel.bbox` — Search parcels within bounding box (max 0.1 sq degrees, 100 results, 60s cache)
-- `POST /tools/parcel.lookup` — Single parcel by ID (300s cache)
-
-**Qdrant endpoints:**
-- `POST /tools/docs.search` — Search project documentation (300s cache, max 20 results)
-- `POST /tools/memory.write` — Store conversation memory (no cache, max 10KB payload)
-
-**Health check:**
-- `GET /health` — No auth. Returns `{status, timestamp, database, qdrant}`
-
-**Performance targets (p95):**
-- Tile requests: <100ms
-- Bbox search: <500ms
-- Single parcel: <50ms
-- Docs/memory: <300ms
-
-**Rate limiter:** `apps/web/lib/server/rateLimiter.ts` — in-memory token bucket, 10 burst, ~100 req/min per route.
-
-**Env vars (Vercel side):** `LOCAL_API_URL` points to either `https://tiles.gallagherpropco.com` or `https://api.gallagherpropco.com` depending on context. `LOCAL_API_KEY` = the GATEWAY_API_KEY; returns 503 if missing.
-
-**Deployment:** Docker Compose at `C:\gpc-cres-backend\docker-compose.yml`. Single `.env` file with `GATEWAY_API_KEY` and `CLOUDFLARE_TUNNEL_TOKEN`. Cloudflare Tunnel ingress rules managed in dashboard (not local config file).
+**Summary:** Docker Compose on Windows 11 (12-core i7). FastAPI gateway (:8000) + Martin tiles (:3000) + PostgreSQL `entitlement_os` (560K parcels, deals, orgs) + Qdrant. Single Cloudflare Tunnel: `api.gallagherpropco.com` → gateway, `tiles.gallagherpropco.com` → martin. Bearer token auth. Vercel connects via `LOCAL_API_URL` + `LOCAL_API_KEY` env vars.

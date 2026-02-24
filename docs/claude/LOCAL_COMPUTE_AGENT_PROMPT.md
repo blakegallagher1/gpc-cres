@@ -13,9 +13,9 @@ DEALS: POST/GET /api/deals proxy to FastAPI when LOCAL_API_URL + LOCAL_API_KEY a
 
 AGENT PARCEL TOOLS: /tools/parcel.bbox (bbox search on ebr_parcels via ST_Centroid) and /tools/parcel.lookup (parcel ID lookup, fallback to ebr_parcels when api_get_parcel missing). propertyDbTools uses gatewayPost for both.
 
-LOCAL RUN: docker compose -f infra/docker/docker-compose.yml up -d postgres → pnpm db:migrate → cd infra/local-api && python main.py → pnpm dev. Set LOCAL_API_URL=http://localhost:8000 and LOCAL_API_KEY=test-api-key-12345 in apps/web/.env.local.
+LOCAL RUN: docker compose -f infra/docker/docker-compose.yml up -d postgres → pnpm db:migrate → cd infra/local-api && python main.py → pnpm dev. Set LOCAL_API_URL=http://localhost:8000 and LOCAL_API_KEY=YOUR_GATEWAY_API_KEY in apps/web/.env.local.
 
-ARCHITECTURE: Two Cloudflare tunnels (api→8000, tiles→3000). Postgres never exposed. Vercel UI-only. Temporal worker gated by ENABLE_TEMPORAL. See docs/claude/LOCAL_COMPUTE_AGENT_PROMPT.md for full context.
+ARCHITECTURE: Single Cloudflare tunnel (`gpc-hp-tunnel`) for API, tiles, and SSH. Postgres never exposed. Vercel UI-only. Temporal worker gated by ENABLE_TEMPORAL. See docs/claude/LOCAL_COMPUTE_AGENT_PROMPT.md for full context.
 ```
 
 ---
@@ -24,7 +24,7 @@ ARCHITECTURE: Two Cloudflare tunnels (api→8000, tiles→3000). Postgres never 
 
 This repo uses a **zero-cost, local-compute** setup with:
 
-- **Two Cloudflare tunnels** — `tiles.gallagherpropco.com` → Martin :3000, `api.gallagherpropco.com` → FastAPI :8000
+- **Single Cloudflare tunnel (`gpc-hp-tunnel`)** — `api.gallagherpropco.com` → FastAPI :8000, `tiles.gallagherpropco.com` → Martin :3000, `ssh.gallagherpropco.com` SSH route (when enabled)
 - **Postgres never exposed** — no ingress to 5432
 - **Vercel UI-only** — no Prisma in production
 - **Bearer token auth** for Vercel → FastAPI
@@ -106,24 +106,24 @@ pnpm dev
 **Required env for Next.js** (`apps/web/.env.local`):
 ```
 LOCAL_API_URL=https://api.gallagherpropco.com
-LOCAL_API_KEY=<same value as GATEWAY_API_KEY>
+LOCAL_API_KEY=YOUR_GATEWAY_API_KEY
+Obtain all secret values from your secure secret manager or team vault; never store real keys in docs.
 ```
 `LOCAL_API_KEY` must match the backend `GATEWAY_API_KEY` (Bearer token). Backend injects it via `${GATEWAY_API_KEY}` in `.env` line 11.
 
 **Required env for FastAPI** (`infra/local-api/.env`):
 - `APPLICATION_DATABASE_URL` — deals, orgs (application DB)
 - `DATABASE_URL` — parcels, `ebr_parcels` (property DB); can be same as application DB if single instance
-- `API_KEYS` or `GATEWAY_API_KEY` — bearer token(s) for auth (frontend uses same value as `LOCAL_API_KEY`)
+- `GATEWAY_API_KEY` (legacy docs may mention `API_KEYS`) — bearer token for auth (frontend uses same value as `LOCAL_API_KEY`; load from secure source)
 - `ALLOWED_ORIGINS` — CORS origins (e.g. Vercel domain)
 
 **Note:** Parcel tools (`/tools/parcel.*`) require the property DB (`DATABASE_URL`). Without it, they return 503. Deals use the application DB (`APPLICATION_DATABASE_URL`).
 
 ### 4. Cloudflare Tunnel Setup
 
-- **API tunnel:** `api.gallagherpropco.com` → `http://localhost:8000`
-- **Tiles tunnel:** `tiles.gallagherpropco.com` → `http://localhost:3000` (Martin)
+- **Single-tunnel ingress:** `api.gallagherpropco.com` → `http://localhost:8000`, `tiles.gallagherpropco.com` → `http://localhost:3000` (Martin), `ssh.gallagherpropco.com` (Cloudflare Access SSH) on the same `gpc-hp-tunnel`
 
-Templates live in `infra/cloudflared/`. Real configs and credentials stay out of git (see `.gitignore`).
+Canonical docs are in `docs/CLOUDFLARE.md`. `infra/cloudflared/README.md` is legacy/reference only.
 
 ---
 

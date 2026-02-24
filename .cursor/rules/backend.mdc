@@ -1,0 +1,45 @@
+---
+description: Backend context for local FastAPI gateway + property database
+globs:
+  - infra/local-api/**
+  - packages/openai/src/tools/propertyDbTools.ts
+  - apps/web/app/api/map/**
+  - apps/web/app/api/parcels/**
+  - apps/web/app/api/screening/**
+  - apps/web/lib/server/propertyDbEnv.ts
+  - infra/sql/**
+alwaysApply: false
+---
+
+# Local Backend Context
+
+Read `docs/claude/backend.md` for full reference before modifying backend-related code.
+
+## Quick Reference
+
+**Architecture:** Docker Compose on Windows 11 (12-core i7) at `C:\gpc-cres-backend\docker-compose.yml`. FastAPI gateway (:8000), Martin tiles (:3000), PostgreSQL `entitlement_os` (560K parcels, deals, orgs, PostGIS), Qdrant (vector search). Single Cloudflare Tunnel with remotely-managed ingress.
+
+**Public URLs:**
+- `api.gallagherpropco.com` → gateway:8000 (data/tools)
+- `tiles.gallagherpropco.com` → martin:3000 (vector tiles)
+
+**Auth:** Bearer token (`GATEWAY_API_KEY`), constant-time comparison. All endpoints except `/health` require auth.
+
+**Two DB pools in `main.py`:**
+- `db_pool` (`DATABASE_URL`) → property DB (parcels, geometry, screening, stats)
+- `app_db_pool` (`APPLICATION_DATABASE_URL`) → application DB (deals, orgs, runs)
+
+**Endpoint groups (20 total):**
+- `/health` — no auth, health check
+- `/deals` GET/POST/PATCH — application DB, org-scoped via `X-Org-Id`
+- `/tiles/{z}/{x}/{y}.pbf` — Martin proxy, 24h cache
+- `/tools/parcel.lookup`, `/tools/parcel.bbox` — agent tool endpoints
+- `/api/parcels/search`, `/api/parcels/{id}`, `/api/parcels/{id}/geometry` — parcel API
+- `/tools/screen.{flood,soils,wetlands,epa,traffic,ldeq,full}` — 7 screening endpoints
+- `/api/stats` — database statistics
+
+**Vercel env vars:** `LOCAL_API_URL` (https://api.gallagherpropco.com), `LOCAL_API_KEY` (GATEWAY_API_KEY value).
+
+**Key files:** `infra/local-api/main.py` (gateway), `packages/openai/src/tools/propertyDbTools.ts` (agent tools), `infra/sql/property-db-rpc-functions.sql` (RPC definitions).
+
+**Maintenance rule:** When adding/removing endpoints in `main.py`, update `docs/claude/backend.md` endpoint inventory.

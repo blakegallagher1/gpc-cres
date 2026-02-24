@@ -3,8 +3,8 @@
 
 allow_writes: false
 
-# Tables readable via cres_db gateway (PropertyDB tools)
-cres_db_tables:
+# Tables readable via entitlement_os gateway (PropertyDB tools)
+entitlement_os_tables:
   - parcels
   - assessor
   - assessor_sales

@@ -65,7 +65,7 @@ SOCRATA_BASE_URL, SOCRATA_APP_TOKEN, GOOGLE_MAPS_API_KEY
 ```
 GATEWAY_API_KEY=<single bearer token for all endpoints>
 CLOUDFLARE_TUNNEL_TOKEN=<tunnel token from Cloudflare dashboard>
-DATABASE_URL=postgresql://postgres:PASSWORD@postgres:5432/cres_db
+DATABASE_URL=postgresql://postgres:postgres@entitlement-db:5432/entitlement_os
 QDRANT_URL=http://qdrant:6333
 ```
 
