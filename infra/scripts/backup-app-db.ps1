@@ -1,38 +1,48 @@
-# Nightly backup of entitlement_os Postgres to local dir + optional B2 sync.
-# Requires: APP_DB_PASSWORD env var (or pass via -Password).
+# Nightly backup of entitlement_os Postgres via docker exec.
+# pg_dump runs inside the entitlement-os-postgres container (not on host).
 # Usage: .\backup-app-db.ps1 [-BackupDir "C:\backups\app-db"] [-RetentionDays 30]
 #
-# Production: app-db on localhost:5433 (C:\gpc-cres-backend)
-# Local dev: postgres on localhost:54323 (infra/docker)
+# BG production: entitlement-os-postgres container, port 54323 external
+# Dump + gzip happen inside container, then docker cp extracts the file.
 
 param(
     [string]$BackupDir = "C:\backups\app-db",
     [int]$RetentionDays = 30,
-    [string]$Host = "localhost",
-    [int]$Port = 5433,
+    [string]$ContainerName = "entitlement-os-postgres",
     [string]$DbName = "entitlement_os",
-    [string]$User = "postgres",
-    [string]$Password = $env:APP_DB_PASSWORD
+    [string]$User = "postgres"
 )
 
 $ErrorActionPreference = "Stop"
 
-if (-not $Password) {
-    Write-Error "Set APP_DB_PASSWORD or pass -Password"
+# Verify container is running
+$containerState = docker inspect --format '{{.State.Running}}' $ContainerName 2>&1
+if ($containerState -ne "True") {
+    Write-Error "Container '$ContainerName' is not running"
 }
 
 $timestamp = Get-Date -Format "yyyy-MM-dd-HHmm"
 $dumpFile = Join-Path $BackupDir "entitlement_os_$timestamp.sql.gz"
+$containerTmp = "/tmp/entitlement_os_backup.sql.gz"
 
 New-Item -ItemType Directory -Force -Path $BackupDir | Out-Null
 
-$env:PGPASSWORD = $Password
-
-Write-Host "Backing up $DbName from ${Host}:${Port}..."
+Write-Host "Backing up $DbName from container $ContainerName..."
 try {
-    pg_dump -h $Host -p $Port -U $User -d $DbName 2>$null | gzip > $dumpFile
+    # Dump + gzip inside the container (avoids needing pg_dump/gzip on host)
+    docker exec $ContainerName bash -c "pg_dump -U $User $DbName | gzip > $containerTmp"
+    if ($LASTEXITCODE -ne 0) { throw "pg_dump inside container failed (exit code $LASTEXITCODE)" }
+
+    # Copy compressed dump from container to host
+    docker cp "${ContainerName}:${containerTmp}" $dumpFile
+    if ($LASTEXITCODE -ne 0) { throw "docker cp failed (exit code $LASTEXITCODE)" }
+
+    # Clean up temp file inside container
+    docker exec $ContainerName rm -f $containerTmp
 } catch {
-    Write-Error "pg_dump failed: $_"
+    # Clean up container temp on failure
+    docker exec $ContainerName rm -f $containerTmp 2>$null
+    Write-Error "Backup failed: $_"
 }
 
 if (Test-Path $dumpFile) {
@@ -51,4 +61,4 @@ Get-ChildItem $BackupDir -Filter "*.sql.gz" -ErrorAction SilentlyContinue |
     }
 
 # Optional: sync to B2 for off-site redundancy
-# b2 sync $BackupDir b2://your-bucket/backups/app-db/
+# b2 sync $BackupDir b2://gallagher-documents/backups/app-db/

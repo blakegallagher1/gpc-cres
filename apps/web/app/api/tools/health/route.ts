@@ -22,7 +22,7 @@ export async function GET() {
     const metrics = await prisma.toolExecutionMetric.findMany({
       where: {
         createdAt: { gte: since },
-        OR: [{ orgId: auth.orgId }, { orgId: null }],
+        orgId: auth.orgId,
       },
       orderBy: { createdAt: "desc" },
       select: {

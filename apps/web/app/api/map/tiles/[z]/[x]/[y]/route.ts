@@ -8,7 +8,8 @@ type RouteParams = { params: Promise<{ z: string; x: string; y: string }> };
 /**
  * Vector tile endpoint: returns parcel boundaries as Mapbox Vector Tiles (.pbf).
  * Proxies to local FastAPI server via Cloudflare Tunnel.
- * No auth — base map tiles; aggressive CDN caching.
+ * Public by design (anonymous geometry tiles) and typically served through
+ * Cloudflare Tunnel + CDN caching for caching and protection.
  */
 export async function GET(_req: Request, { params }: RouteParams) {
   const { z, x, y } = await params;

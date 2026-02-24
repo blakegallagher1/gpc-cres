@@ -2,10 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { getDownloadUrlFromGateway } from "@/lib/storage/gatewayStorage";
-import { supabaseAdmin } from "@/lib/db/supabaseAdmin";
-
-/** Evidence retrieved before this date is in Supabase Storage; newer evidence is in B2. */
-const MIGRATION_CUTOFF = new Date("2026-02-24T00:00:00Z");
 
 type DownloadVariant = "snapshot" | "text";
 
@@ -40,7 +36,6 @@ export async function GET(
         contentType: true,
         storageObjectKey: true,
         textExtractObjectKey: true,
-        retrievedAt: true,
       },
     });
 
@@ -59,29 +54,11 @@ export async function GET(
     }
 
     const downloadType = variant === "text" ? "evidence_extract" : "evidence_snapshot";
-    let downloadUrl: string;
-
-    if (snapshot.retrievedAt < MIGRATION_CUTOFF) {
-      const { data, error } = await supabaseAdmin.storage
-        .from("evidence")
-        .createSignedUrl(key, 3600);
-      if (error || !data?.signedUrl) {
-        console.error("[evidence/download] Supabase fallback failed:", {
-          snapshotId,
-          key,
-          error: error?.message ?? "No signed URL",
-        });
-        return NextResponse.json({ error: "Evidence not found" }, { status: 404 });
-      }
-      downloadUrl = data.signedUrl;
-    } else {
-      const result = await getDownloadUrlFromGateway({
-        auth: { orgId: auth.orgId, userId: auth.userId },
-        id: snapshotId,
-        type: downloadType,
-      });
-      downloadUrl = result.downloadUrl;
-    }
+    const { downloadUrl } = await getDownloadUrlFromGateway({
+      auth: { orgId: auth.orgId, userId: auth.userId },
+      id: snapshotId,
+      type: downloadType,
+    });
 
     const filename =
       variant === "text"

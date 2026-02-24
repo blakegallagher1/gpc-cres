@@ -11,6 +11,10 @@ Last reviewed: 2026-02-20
 
 **Architecture (verified 2026-02-20):** Docker Compose on Windows 11 — FastAPI gateway (:8000), Martin (:3000), PostgreSQL + Qdrant on internal Docker network, single Cloudflare Tunnel with remotely-managed ingress rules. All P0/P1/P2 deployment blockers resolved. See `PHASE_3_DEPLOYMENT_BLOCKERS.md` for deployment evidence.
 
+**Remote DB access:** `cloudflared access tcp --hostname db.gallagherpropco.com --url localhost:54399` — then connect on `localhost:54399` (user: `postgres`, password: `postgres`). Protected by Cloudflare Access (Blake only). See `docs/CLOUDFLARE.md` for full details.
+
+**Remote SSH:** `ssh cres_admin@ssh.gallagherpropco.com` (requires `~/.ssh/config` ProxyCommand). See `docs/SERVER_MANAGEMENT.md` for server details, Docker services, and troubleshooting.
+
 ## Key Rules
 
 ### Do This

@@ -50,7 +50,7 @@ $datasetTask = @{
 Register-ScheduledTask @datasetTask -Force
 Write-Host "Created task: AgentOS-BuildDataset (weekly Sunday 4:00 AM)"
 
-# App DB backup: daily at 1:00 AM (requires APP_DB_PASSWORD in task environment)
+# App DB backup: daily at 1:00 AM (uses docker exec — no host-level pg_dump needed)
 $backupTask = @{
     TaskName = "AgentOS-AppDB-Backup"
     Action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-ExecutionPolicy Bypass -File `"$backupAppDbScript`""
@@ -58,7 +58,7 @@ $backupTask = @{
     Settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
 }
 Register-ScheduledTask @backupTask -Force
-Write-Host "Created task: AgentOS-AppDB-Backup (daily 1:00 AM) — set APP_DB_PASSWORD for the task"
+Write-Host "Created task: AgentOS-AppDB-Backup (daily 1:00 AM) — uses docker exec, no extra config needed"
 
 Write-Host "`nCrontab equivalents (Linux/macOS):"
 Write-Host "# Memory cleanup: daily at 2:00 AM"
@@ -70,5 +70,5 @@ Write-Host ""
 Write-Host "# Dataset build: weekly Sunday at 4:00 AM"
 Write-Host "0 4 * * 0 cd $RepoRoot && npx tsx packages/openai/src/agentos/jobs/buildDataset.ts"
 Write-Host ""
-Write-Host "# App DB backup: daily at 1:00 AM (set APP_DB_PASSWORD)"
-Write-Host "0 1 * * * cd $RepoRoot && APP_DB_PASSWORD=... bash infra/scripts/backup-app-db.sh"
+Write-Host "# App DB backup: daily at 1:00 AM (uses docker exec)"
+Write-Host "0 1 * * * cd $RepoRoot && powershell -File infra/scripts/backup-app-db.ps1"

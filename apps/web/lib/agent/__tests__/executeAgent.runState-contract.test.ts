@@ -23,6 +23,7 @@ vi.mock("@entitlement-os/openai", () => ({
   buildAgentStreamRunOptions: vi.fn(() => ({})),
   captureAgentError: vi.fn(),
   captureAgentWarning: vi.fn(),
+  getAgentOsConfig: vi.fn(() => ({ enabled: false })),
   getProofGroupsForIntent: vi.fn(() => []),
   setupAgentTracing: vi.fn(),
   serializeRunStateEnvelope: vi.fn((input: unknown) => input),

@@ -1,5 +1,6 @@
 /**
  * One-time migration: copy evidence from Supabase Storage to B2 via gateway.
+ * Loads .env from repo root when run via pnpm migrate:evidence:b2.
  *
  * Usage:
  *   DATABASE_URL="..." LOCAL_API_URL="..." LOCAL_API_KEY="..." \
@@ -13,6 +14,7 @@
  *   --cutoff DATE     ISO date; only migrate snapshots with retrievedAt < cutoff (default: 2026-02-24T00:00:00Z)
  */
 
+import "dotenv/config";
 import { createClient } from "@supabase/supabase-js";
 import { PrismaClient } from "@prisma/client";
 import { uploadEvidenceBytesViaGateway } from "../storage.js";
