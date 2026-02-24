@@ -13,6 +13,7 @@ import asyncpg
 from typing import Optional, AsyncIterator
 from dotenv import load_dotenv
 import secrets
+from admin_router import router as admin_router, set_db_pool as set_admin_db_pool
 from datetime import datetime, timezone
 import json
 
@@ -59,6 +60,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
             command_timeout=60,
         )
         print(f"✅ Property DB pool created")
+        set_admin_db_pool(db_pool)
     # Application DB (deals, orgs) - for /deals endpoint
     if APPLICATION_DATABASE_URL:
         app_db_pool = await asyncpg.create_pool(
@@ -125,6 +127,9 @@ async def add_security_headers(request: Request, call_next):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     return response
+
+
+app.include_router(admin_router, prefix="/admin")
 
 
 # =============================================================================
@@ -496,6 +501,7 @@ async def tools_parcel_lookup(
                 SELECT id, parcel_id as parcel_uid, address as situs_address,
                        owner as owner_name,
                        COALESCE(area_sqft, 0) / 43560.0 as acreage,
+                       zoning_type, existing_land_use, future_land_use,
                        ST_Y(ST_Centroid(geom)) as lat, ST_X(ST_Centroid(geom)) as lng,
                        ST_AsGeoJSON(geom)::text as geom_simplified,
                        ARRAY[ST_XMin(geom), ST_YMin(geom), ST_XMax(geom), ST_YMax(geom)] as bbox
@@ -536,7 +542,8 @@ async def tools_parcel_bbox(
                 SELECT id::text, parcel_id as parcel_uid, address as site_address,
                        owner as owner_name,
                        COALESCE(area_sqft, 0) / 43560.0 as acreage,
-                       NULL::text as zoning, NULL::text as flood_zone,
+                       zoning_type as zoning, existing_land_use, future_land_use,
+                       NULL::text as flood_zone,
                        NULL::text as parish,
                        ST_Y(ST_Centroid(geom)) as lat, ST_X(ST_Centroid(geom)) as lng
                 FROM ebr_parcels
@@ -660,8 +667,68 @@ async def get_parcel_geometry(
 
 
 # =============================================================================
+# Screening Helpers
+# =============================================================================
+
+
+async def resolve_parcel(conn: asyncpg.Connection, parcel_id: str):
+    """Resolve a text parcel_id (e.g. '001-5096-7') to (uuid, geom) from ebr_parcels."""
+    row = await conn.fetchrow(
+        """
+        SELECT id, geom
+        FROM ebr_parcels
+        WHERE parcel_id = $1
+           OR lower(parcel_id) = lower($1)
+           OR replace(parcel_id, '-', '') = replace($1, '-', '')
+        LIMIT 1
+        """,
+        parcel_id,
+    )
+    return row
+
+
+# =============================================================================
 # Screening Endpoints (for agents)
 # =============================================================================
+
+
+@app.post("/api/screening/zoning")
+async def screen_zoning(
+    request: Request,
+    api_key: str = Depends(verify_api_key),
+    conn: asyncpg.Connection = Depends(get_db),
+):
+    """Screen parcel for zoning classification. Expects: { "parcelId": "001-5096-7" }"""
+    body = await request.json()
+    parcel_id = body.get("parcelId")
+    if not parcel_id:
+        raise HTTPException(status_code=400, detail="Missing parcelId")
+
+    row = await conn.fetchrow(
+        """
+        SELECT parcel_id, address, owner, area_sqft,
+               zoning_type, existing_land_use, future_land_use
+        FROM ebr_parcels
+        WHERE parcel_id = $1
+           OR lower(parcel_id) = lower($1)
+           OR replace(parcel_id, '-', '') = replace($1, '-', '')
+        LIMIT 1
+        """,
+        parcel_id,
+    )
+    if not row:
+        return {"ok": False, "error": f"Parcel '{parcel_id}' not found"}
+
+    return {
+        "ok": True,
+        "data": {
+            "parcelId": row["parcel_id"],
+            "address": row["address"],
+            "zoningType": row["zoning_type"],
+            "existingLandUse": row["existing_land_use"],
+            "futureLandUse": row["future_land_use"],
+        },
+    }
 
 
 @app.post("/api/screening/flood")
@@ -670,32 +737,401 @@ async def screen_flood(
     api_key: str = Depends(verify_api_key),
     conn: asyncpg.Connection = Depends(get_db),
 ):
-    """
-    Screen parcel for flood zones.
-    Expects: { "parcelId": "...", "lat": 30.45, "lng": -91.18 }
-    """
+    """Screen parcel for FEMA flood zones. Expects: { "parcelId": "001-5096-7" }"""
     body = await request.json()
     parcel_id = body.get("parcelId")
-    lat = body.get("lat")
-    lng = body.get("lng")
+    if not parcel_id:
+        raise HTTPException(status_code=400, detail="Missing parcelId")
 
-    if not parcel_id or lat is None or lng is None:
-        raise HTTPException(
-            status_code=400,
-            detail="Missing required fields: parcelId, lat, lng"
-        )
+    parcel = await resolve_parcel(conn, parcel_id)
+    if not parcel:
+        return {"ok": False, "error": f"Parcel '{parcel_id}' not found"}
 
-    # TODO: Implement api_screen_flood RPC or custom query
-    # For now, return mock data
+    # SFHA zones: A, AE, AH, AO, AR, V, VE (Special Flood Hazard Areas)
+    SFHA_PREFIXES = ("A", "V")
+
+    rows = await conn.fetch(
+        """
+        SELECT
+            f.zone,
+            f.bfe,
+            f.panel_id,
+            f.effective_date,
+            ROUND(
+                (ST_Area(ST_Intersection(f.geom, $1::geometry)) /
+                 NULLIF(ST_Area($1::geometry), 0) * 100)::numeric, 2
+            ) AS overlap_pct
+        FROM fema_flood f
+        WHERE ST_Intersects(f.geom, $1::geometry)
+        ORDER BY overlap_pct DESC
+        """,
+        parcel["geom"],
+    )
+
+    zones = [
+        {
+            "floodZone": r["zone"],
+            "bfe": float(r["bfe"]) if r["bfe"] else None,
+            "inSfha": (r["zone"] or "").startswith(SFHA_PREFIXES),
+            "panelId": r["panel_id"],
+            "effectiveDate": r["effective_date"].isoformat() if r["effective_date"] else None,
+            "overlapPct": float(r["overlap_pct"]) if r["overlap_pct"] else 0,
+        }
+        for r in rows
+    ]
+    in_sfha = any(z["inSfha"] for z in zones)
+
     return {
         "ok": True,
         "data": {
             "parcelId": parcel_id,
-            "floodZone": "X",  # Minimal risk
-            "floodRisk": "low",
-            "firmPanel": "22033C0305E",
-            "effectiveDate": "2024-01-01",
+            "inSfha": in_sfha,
+            "zoneCount": len(zones),
+            "zones": zones,
+        },
+    }
+
+
+@app.post("/api/screening/soils")
+async def screen_soils(
+    request: Request,
+    api_key: str = Depends(verify_api_key),
+    conn: asyncpg.Connection = Depends(get_db),
+):
+    """Screen parcel for USDA soil conditions. Expects: { "parcelId": "001-5096-7" }"""
+    body = await request.json()
+    parcel_id = body.get("parcelId")
+    if not parcel_id:
+        raise HTTPException(status_code=400, detail="Missing parcelId")
+
+    parcel = await resolve_parcel(conn, parcel_id)
+    if not parcel:
+        return {"ok": False, "error": f"Parcel '{parcel_id}' not found"}
+
+    rows = await conn.fetch(
+        """
+        SELECT
+            s.mapunit_key,
+            s.drainage_class,
+            s.hydric_rating,
+            s.shrink_swell,
+            ROUND(
+                (ST_Area(ST_Intersection(s.geom, $1::geometry)) /
+                 NULLIF(ST_Area($1::geometry), 0) * 100)::numeric, 2
+            ) AS overlap_pct
+        FROM soils s
+        WHERE ST_Intersects(s.geom, $1::geometry)
+        ORDER BY overlap_pct DESC
+        """,
+        parcel["geom"],
+    )
+
+    units = [
+        {
+            "mapunitKey": r["mapunit_key"],
+            "drainageClass": r["drainage_class"],
+            "hydricRating": r["hydric_rating"],
+            "shrinkSwell": r["shrink_swell"],
+            "overlapPct": float(r["overlap_pct"]) if r["overlap_pct"] else 0,
         }
+        for r in rows
+    ]
+    has_hydric = any(
+        u["hydricRating"] and u["hydricRating"].lower() in ("yes", "all hydric")
+        for u in units
+    )
+
+    return {
+        "ok": True,
+        "data": {
+            "parcelId": parcel_id,
+            "hasHydric": has_hydric,
+            "unitCount": len(units),
+            "soilUnits": units,
+        },
+    }
+
+
+@app.post("/api/screening/wetlands")
+async def screen_wetlands(
+    request: Request,
+    api_key: str = Depends(verify_api_key),
+    conn: asyncpg.Connection = Depends(get_db),
+):
+    """Screen parcel for NWI wetlands. Expects: { "parcelId": "001-5096-7" }"""
+    body = await request.json()
+    parcel_id = body.get("parcelId")
+    if not parcel_id:
+        raise HTTPException(status_code=400, detail="Missing parcelId")
+
+    parcel = await resolve_parcel(conn, parcel_id)
+    if not parcel:
+        return {"ok": False, "error": f"Parcel '{parcel_id}' not found"}
+
+    rows = await conn.fetch(
+        """
+        SELECT
+            w.wetland_type,
+            ROUND(
+                (ST_Area(ST_Intersection(w.geom, $1::geometry)) /
+                 NULLIF(ST_Area($1::geometry), 0) * 100)::numeric, 2
+            ) AS overlap_pct
+        FROM wetlands w
+        WHERE ST_Intersects(w.geom, $1::geometry)
+        ORDER BY overlap_pct DESC
+        """,
+        parcel["geom"],
+    )
+
+    areas = [
+        {
+            "wetlandType": r["wetland_type"],
+            "overlapPct": float(r["overlap_pct"]) if r["overlap_pct"] else 0,
+        }
+        for r in rows
+    ]
+    has_wetlands = len(areas) > 0
+
+    return {
+        "ok": True,
+        "data": {
+            "parcelId": parcel_id,
+            "hasWetlands": has_wetlands,
+            "areaCount": len(areas),
+            "wetlandAreas": areas,
+        },
+    }
+
+
+@app.post("/api/screening/epa")
+async def screen_epa(
+    request: Request,
+    api_key: str = Depends(verify_api_key),
+    conn: asyncpg.Connection = Depends(get_db),
+):
+    """Screen parcel for nearby EPA-regulated facilities. Expects: { "parcelId": "...", "radiusMiles": 1.0 }"""
+    body = await request.json()
+    parcel_id = body.get("parcelId")
+    if not parcel_id:
+        raise HTTPException(status_code=400, detail="Missing parcelId")
+
+    radius_miles = float(body.get("radiusMiles", 1.0))
+    radius_meters = radius_miles * 1609.34
+
+    parcel = await resolve_parcel(conn, parcel_id)
+    if not parcel:
+        return {"ok": False, "error": f"Parcel '{parcel_id}' not found"}
+
+    rows = await conn.fetch(
+        """
+        SELECT
+            e.registry_id,
+            e.name,
+            e.city,
+            e.zip,
+            e.status,
+            e.violations_last_3yr,
+            e.penalties_last_3yr,
+            ROUND(
+                (ST_Distance(
+                    e.geom::geography,
+                    ST_Centroid($1::geometry)::geography
+                ) / 1609.34)::numeric, 2
+            ) AS distance_miles
+        FROM epa_facilities e
+        WHERE ST_DWithin(
+            e.geom::geography,
+            ST_Centroid($1::geometry)::geography,
+            $2
+        )
+        ORDER BY distance_miles ASC
+        """,
+        parcel["geom"],
+        radius_meters,
+    )
+
+    facilities = [
+        {
+            "registryId": r["registry_id"],
+            "name": r["name"],
+            "city": r["city"],
+            "zip": r["zip"],
+            "status": r["status"],
+            "violationsLast3yr": r["violations_last_3yr"],
+            "penaltiesLast3yr": float(r["penalties_last_3yr"]) if r["penalties_last_3yr"] else None,
+            "distanceMiles": float(r["distance_miles"]) if r["distance_miles"] else None,
+        }
+        for r in rows
+    ]
+
+    return {
+        "ok": True,
+        "data": {
+            "parcelId": parcel_id,
+            "radiusMiles": radius_miles,
+            "facilityCount": len(facilities),
+            "facilities": facilities,
+        },
+    }
+
+
+@app.post("/api/screening/traffic")
+async def screen_traffic(
+    request: Request,
+    api_key: str = Depends(verify_api_key),
+    conn: asyncpg.Connection = Depends(get_db),
+):
+    """Screen parcel for nearby traffic counts. Expects: { "parcelId": "...", "radiusMiles": 0.5 }"""
+    body = await request.json()
+    parcel_id = body.get("parcelId")
+    if not parcel_id:
+        raise HTTPException(status_code=400, detail="Missing parcelId")
+
+    radius_miles = float(body.get("radiusMiles", 0.5))
+    radius_meters = radius_miles * 1609.34
+
+    parcel = await resolve_parcel(conn, parcel_id)
+    if not parcel:
+        return {"ok": False, "error": f"Parcel '{parcel_id}' not found"}
+
+    # Check if traffic_counts table exists
+    table_exists = await conn.fetchval(
+        "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'traffic_counts')"
+    )
+    if not table_exists:
+        return {
+            "ok": True,
+            "data": {
+                "parcelId": parcel_id,
+                "available": False,
+                "message": "Traffic counts table not yet loaded in the database.",
+            },
+        }
+
+    rows = await conn.fetch(
+        """
+        SELECT
+            t.route_name,
+            t.aadt,
+            t.year,
+            ROUND(
+                (ST_Distance(
+                    t.geom::geography,
+                    ST_Centroid($1::geometry)::geography
+                ) / 1609.34)::numeric, 2
+            ) AS distance_miles
+        FROM traffic_counts t
+        WHERE ST_DWithin(
+            t.geom::geography,
+            ST_Centroid($1::geometry)::geography,
+            $2
+        )
+        ORDER BY distance_miles ASC
+        """,
+        parcel["geom"],
+        radius_meters,
+    )
+
+    counts = [
+        {
+            "route": r["route_name"],
+            "aadt": r["aadt"],
+            "year": r["year"],
+            "distanceMiles": float(r["distance_miles"]) if r["distance_miles"] else None,
+        }
+        for r in rows
+    ]
+
+    return {
+        "ok": True,
+        "data": {
+            "parcelId": parcel_id,
+            "radiusMiles": radius_miles,
+            "available": True,
+            "countStations": len(counts),
+            "trafficCounts": counts,
+        },
+    }
+
+
+@app.post("/api/screening/ldeq")
+async def screen_ldeq(
+    request: Request,
+    api_key: str = Depends(verify_api_key),
+    conn: asyncpg.Connection = Depends(get_db),
+):
+    """Screen parcel for nearby LDEQ permits. Expects: { "parcelId": "...", "radiusMiles": 1.0 }"""
+    body = await request.json()
+    parcel_id = body.get("parcelId")
+    if not parcel_id:
+        raise HTTPException(status_code=400, detail="Missing parcelId")
+
+    radius_miles = float(body.get("radiusMiles", 1.0))
+    radius_meters = radius_miles * 1609.34
+
+    parcel = await resolve_parcel(conn, parcel_id)
+    if not parcel:
+        return {"ok": False, "error": f"Parcel '{parcel_id}' not found"}
+
+    # Check if ldeq_permits table exists
+    table_exists = await conn.fetchval(
+        "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'ldeq_permits')"
+    )
+    if not table_exists:
+        return {
+            "ok": True,
+            "data": {
+                "parcelId": parcel_id,
+                "available": False,
+                "message": "LDEQ permits table not yet loaded in the database.",
+            },
+        }
+
+    rows = await conn.fetch(
+        """
+        SELECT
+            l.ai_number,
+            l.facility_name,
+            l.permit_type,
+            l.status,
+            ROUND(
+                (ST_Distance(
+                    l.geom::geography,
+                    ST_Centroid($1::geometry)::geography
+                ) / 1609.34)::numeric, 2
+            ) AS distance_miles
+        FROM ldeq_permits l
+        WHERE ST_DWithin(
+            l.geom::geography,
+            ST_Centroid($1::geometry)::geography,
+            $2
+        )
+        ORDER BY distance_miles ASC
+        """,
+        parcel["geom"],
+        radius_meters,
+    )
+
+    permits = [
+        {
+            "aiNumber": r["ai_number"],
+            "facilityName": r["facility_name"],
+            "permitType": r["permit_type"],
+            "status": r["status"],
+            "distanceMiles": float(r["distance_miles"]) if r["distance_miles"] else None,
+        }
+        for r in rows
+    ]
+
+    return {
+        "ok": True,
+        "data": {
+            "parcelId": parcel_id,
+            "radiusMiles": radius_miles,
+            "available": True,
+            "permitCount": len(permits),
+            "permits": permits,
+        },
     }
 
 
@@ -707,28 +1143,171 @@ async def screen_full(
 ):
     """
     Full parcel screening (flood, soils, wetlands, EPA, traffic, LDEQ).
-    Expects: { "parcelId": "..." }
+    Expects: { "parcelId": "001-5096-7" }
     """
     body = await request.json()
     parcel_id = body.get("parcelId")
-
     if not parcel_id:
         raise HTTPException(status_code=400, detail="Missing parcelId")
 
-    # TODO: Implement api_screen_full RPC
-    # For now, return mock data
+    parcel = await resolve_parcel(conn, parcel_id)
+    if not parcel:
+        return {"ok": False, "error": f"Parcel '{parcel_id}' not found"}
+
+    geom = parcel["geom"]
+
+    # --- Zoning (column lookup, no spatial query) ---
+    try:
+        zoning_row = await conn.fetchrow(
+            """
+            SELECT zoning_type, existing_land_use, future_land_use
+            FROM ebr_parcels
+            WHERE parcel_id = $1
+               OR lower(parcel_id) = lower($1)
+               OR replace(parcel_id, '-', '') = replace($1, '-', '')
+            LIMIT 1
+            """,
+            parcel_id,
+        )
+        zoning_result = {
+            "zoningType": zoning_row["zoning_type"] if zoning_row else None,
+            "existingLandUse": zoning_row["existing_land_use"] if zoning_row else None,
+            "futureLandUse": zoning_row["future_land_use"] if zoning_row else None,
+        }
+    except Exception as e:
+        zoning_result = {"error": str(e)}
+
+    # --- Flood ---
+    try:
+        flood_rows = await conn.fetch(
+            """
+            SELECT zone, bfe, panel_id, effective_date,
+                   ROUND((ST_Area(ST_Intersection(geom, $1::geometry)) /
+                          NULLIF(ST_Area($1::geometry), 0) * 100)::numeric, 2) AS overlap_pct
+            FROM fema_flood WHERE ST_Intersects(geom, $1::geometry)
+            ORDER BY overlap_pct DESC
+            """, geom,
+        )
+        flood_zones = [{"floodZone": r["zone"], "inSfha": (r["zone"] or "").startswith(("A", "V")),
+                        "bfe": r["bfe"], "panelId": r["panel_id"],
+                        "overlapPct": float(r["overlap_pct"] or 0)} for r in flood_rows]
+        flood_result = {"inSfha": any(z["inSfha"] for z in flood_zones), "zoneCount": len(flood_zones), "zones": flood_zones}
+    except Exception as e:
+        flood_result = {"error": str(e)}
+
+    # --- Soils ---
+    try:
+        soils_rows = await conn.fetch(
+            """
+            SELECT mapunit_key, drainage_class, hydric_rating, shrink_swell,
+                   ROUND((ST_Area(ST_Intersection(geom, $1::geometry)) /
+                          NULLIF(ST_Area($1::geometry), 0) * 100)::numeric, 2) AS overlap_pct
+            FROM soils WHERE ST_Intersects(geom, $1::geometry)
+            ORDER BY overlap_pct DESC
+            """, geom,
+        )
+        soil_units = [{"mapunitKey": r["mapunit_key"], "drainageClass": r["drainage_class"],
+                       "hydricRating": r["hydric_rating"], "shrinkSwell": r["shrink_swell"],
+                       "overlapPct": float(r["overlap_pct"] or 0)} for r in soils_rows]
+        soils_result = {"hasHydric": any(u["hydricRating"] and u["hydricRating"].lower() in ("yes", "all hydric") for u in soil_units),
+                        "unitCount": len(soil_units), "soilUnits": soil_units}
+    except Exception as e:
+        soils_result = {"error": str(e)}
+
+    # --- Wetlands ---
+    try:
+        wet_rows = await conn.fetch(
+            """
+            SELECT wetland_type,
+                   ROUND((ST_Area(ST_Intersection(geom, $1::geometry)) /
+                          NULLIF(ST_Area($1::geometry), 0) * 100)::numeric, 2) AS overlap_pct
+            FROM wetlands WHERE ST_Intersects(geom, $1::geometry)
+            ORDER BY overlap_pct DESC
+            """, geom,
+        )
+        wet_areas = [{"wetlandType": r["wetland_type"],
+                      "overlapPct": float(r["overlap_pct"] or 0)} for r in wet_rows]
+        wetlands_result = {"hasWetlands": len(wet_areas) > 0, "areaCount": len(wet_areas), "wetlandAreas": wet_areas}
+    except Exception as e:
+        wetlands_result = {"error": str(e)}
+
+    # --- EPA (1 mile) ---
+    try:
+        epa_rows = await conn.fetch(
+            """
+            SELECT registry_id, name, city, zip, status, violations_last_3yr, penalties_last_3yr,
+                   ROUND((ST_Distance(e.geom::geography, ST_Centroid($1::geometry)::geography) / 1609.34)::numeric, 2) AS distance_miles
+            FROM epa_facilities e
+            WHERE ST_DWithin(e.geom::geography, ST_Centroid($1::geometry)::geography, $2)
+            ORDER BY distance_miles ASC
+            """, geom, 1609.34,
+        )
+        epa_facs = [{"registryId": r["registry_id"], "name": r["name"], "city": r["city"],
+                     "status": r["status"], "violations": r["violations_last_3yr"],
+                     "penalties": r["penalties_last_3yr"],
+                     "distanceMiles": float(r["distance_miles"] or 0)} for r in epa_rows]
+        epa_result = {"facilityCount": len(epa_facs), "facilities": epa_facs}
+    except Exception as e:
+        epa_result = {"error": str(e)}
+
+    # --- Traffic (0.5 mile) ---
+    try:
+        has_traffic = await conn.fetchval(
+            "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'traffic_counts')"
+        )
+        if has_traffic:
+            traf_rows = await conn.fetch(
+                """
+                SELECT route_name, aadt, year,
+                       ROUND((ST_Distance(geom::geography, ST_Centroid($1::geometry)::geography) / 1609.34)::numeric, 2) AS distance_miles
+                FROM traffic_counts
+                WHERE ST_DWithin(geom::geography, ST_Centroid($1::geometry)::geography, $2)
+                ORDER BY distance_miles ASC
+                """, geom, 804.67,
+            )
+            traffic_result = {"available": True, "countStations": len(traf_rows),
+                              "trafficCounts": [{"route": r["route_name"], "aadt": r["aadt"],
+                                                 "distanceMiles": float(r["distance_miles"] or 0)} for r in traf_rows]}
+        else:
+            traffic_result = {"available": False, "message": "Traffic counts table not yet loaded."}
+    except Exception as e:
+        traffic_result = {"error": str(e)}
+
+    # --- LDEQ (1 mile) ---
+    try:
+        has_ldeq = await conn.fetchval(
+            "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'ldeq_permits')"
+        )
+        if has_ldeq:
+            ldeq_rows = await conn.fetch(
+                """
+                SELECT ai_number, facility_name, permit_type, status,
+                       ROUND((ST_Distance(geom::geography, ST_Centroid($1::geometry)::geography) / 1609.34)::numeric, 2) AS distance_miles
+                FROM ldeq_permits
+                WHERE ST_DWithin(geom::geography, ST_Centroid($1::geometry)::geography, $2)
+                ORDER BY distance_miles ASC
+                """, geom, 1609.34,
+            )
+            ldeq_result = {"available": True, "permitCount": len(ldeq_rows),
+                           "permits": [{"aiNumber": r["ai_number"], "facilityName": r["facility_name"],
+                                        "distanceMiles": float(r["distance_miles"] or 0)} for r in ldeq_rows]}
+        else:
+            ldeq_result = {"available": False, "message": "LDEQ permits table not yet loaded."}
+    except Exception as e:
+        ldeq_result = {"error": str(e)}
+
     return {
         "ok": True,
         "data": {
             "parcelId": parcel_id,
-            "flood": {"zone": "X", "risk": "low"},
-            "soils": {"rating": 3, "suitability": "good"},
-            "wetlands": {"present": False},
-            "epa": {"superfundSites": 0, "distance": None},
-            "traffic": {"aadt": 12500},
-            "ldeq": {"sites": 0},
-            "overallScore": 85,
-        }
+            "zoning": zoning_result,
+            "flood": flood_result,
+            "soils": soils_result,
+            "wetlands": wetlands_result,
+            "epa": epa_result,
+            "traffic": traffic_result,
+            "ldeq": ldeq_result,
+        },
     }
 
 

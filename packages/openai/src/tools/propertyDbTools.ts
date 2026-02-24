@@ -4,8 +4,8 @@ import { z } from "zod";
 /**
  * Property Database — Gateway API tools.
  *
- * Calls the FastAPI gateway at api.gallagherpropco.com for parcel lookup
- * and bbox search. Screening endpoints are not yet available on the gateway.
+ * Calls the FastAPI gateway at api.gallagherpropco.com for parcel lookup,
+ * bbox search, and environmental/site screening.
  *
  * Env vars:
  *   LOCAL_API_URL — Gateway base URL (e.g. https://api.gallagherpropco.com)
@@ -121,14 +121,22 @@ export async function rpc(fnName: string, body: Record<string, unknown>): Promis
         limit: (body.limit_rows ?? body.p_limit_rows ?? 10) as number,
       });
     }
+    case "api_screen_zoning":
+      return gatewayPost("/api/screening/zoning", { parcelId: body.parcel_id ?? body.p_parcel_id });
     case "api_screen_flood":
+      return gatewayPost("/api/screening/flood", { parcelId: body.parcel_id ?? body.p_parcel_id });
     case "api_screen_soils":
+      return gatewayPost("/api/screening/soils", { parcelId: body.parcel_id ?? body.p_parcel_id });
     case "api_screen_wetlands":
+      return gatewayPost("/api/screening/wetlands", { parcelId: body.parcel_id ?? body.p_parcel_id });
     case "api_screen_epa":
+      return gatewayPost("/api/screening/epa", { parcelId: body.parcel_id ?? body.p_parcel_id, radiusMiles: body.radius_miles ?? 1.0 });
     case "api_screen_traffic":
+      return gatewayPost("/api/screening/traffic", { parcelId: body.parcel_id ?? body.p_parcel_id, radiusMiles: body.radius_miles ?? 0.5 });
     case "api_screen_ldeq":
+      return gatewayPost("/api/screening/ldeq", { parcelId: body.parcel_id ?? body.p_parcel_id, radiusMiles: body.radius_miles ?? 1.0 });
     case "api_screen_full":
-      return { error: `${fnName} screening is not yet available on the gateway.` };
+      return gatewayPost("/api/screening/full", { parcelId: body.parcel_id ?? body.p_parcel_id });
     default:
       return { error: `Unknown RPC function: ${fnName}` };
   }
@@ -278,132 +286,166 @@ export const getParcelDetails = tool({
 });
 
 // ---------------------------------------------------------------------------
-// 3. Flood Zone Screening (not available on gateway)
+// 3. Zoning Screening
+// ---------------------------------------------------------------------------
+export const screenZoning = tool({
+  name: "screen_zoning",
+  description:
+    "Screen a parcel for zoning classification. Returns the EBR zoning type (e.g. C2, M1, A1), existing land use, and future land use from EBRGIS data.",
+  parameters: z.object({
+    parcel_id: z
+      .string()
+      .describe("The parcel number (e.g. '001-5096-7')"),
+  }),
+  execute: async ({ parcel_id }) => {
+    const result = await gatewayPost("/api/screening/zoning", { parcelId: parcel_id });
+    return JSON.stringify(result);
+  },
+});
+
+// ---------------------------------------------------------------------------
+// 4. Flood Zone Screening
 // ---------------------------------------------------------------------------
 export const screenFlood = tool({
   name: "screen_flood",
   description:
-    "Screen a parcel for FEMA flood zone hazards. NOTE: This screening is not yet available on the gateway.",
+    "Screen a parcel for FEMA flood zone hazards. Returns flood zones that intersect the parcel, SFHA status, and overlap percentages.",
   parameters: z.object({
     parcel_id: z
       .string()
-      .describe("The parcel number"),
+      .describe("The parcel number (e.g. '001-5096-7')"),
   }),
-  execute: async () => {
-    return JSON.stringify({ error: "Flood zone screening is not yet available on the gateway." });
+  execute: async ({ parcel_id }) => {
+    const result = await gatewayPost("/api/screening/flood", { parcelId: parcel_id });
+    return JSON.stringify(result);
   },
 });
 
 // ---------------------------------------------------------------------------
-// 4. Soils Screening (not available on gateway)
+// 4. Soils Screening
 // ---------------------------------------------------------------------------
 export const screenSoils = tool({
   name: "screen_soils",
   description:
-    "Screen a parcel for USDA soil conditions. NOTE: This screening is not yet available on the gateway.",
+    "Screen a parcel for USDA soil conditions. Returns soil map units, hydrologic groups, and hydric ratings.",
   parameters: z.object({
     parcel_id: z
       .string()
-      .describe("The parcel number"),
+      .describe("The parcel number (e.g. '001-5096-7')"),
   }),
-  execute: async () => {
-    return JSON.stringify({ error: "Soils screening is not yet available on the gateway." });
+  execute: async ({ parcel_id }) => {
+    const result = await gatewayPost("/api/screening/soils", { parcelId: parcel_id });
+    return JSON.stringify(result);
   },
 });
 
 // ---------------------------------------------------------------------------
-// 5. Wetlands Screening (not available on gateway)
+// 5. Wetlands Screening
 // ---------------------------------------------------------------------------
 export const screenWetlands = tool({
   name: "screen_wetlands",
   description:
-    "Screen a parcel for NWI wetlands. NOTE: This screening is not yet available on the gateway.",
+    "Screen a parcel for NWI wetlands. Returns wetland areas that intersect the parcel with type and overlap percentages.",
   parameters: z.object({
     parcel_id: z
       .string()
-      .describe("The parcel number"),
+      .describe("The parcel number (e.g. '001-5096-7')"),
   }),
-  execute: async () => {
-    return JSON.stringify({ error: "Wetlands screening is not yet available on the gateway." });
+  execute: async ({ parcel_id }) => {
+    const result = await gatewayPost("/api/screening/wetlands", { parcelId: parcel_id });
+    return JSON.stringify(result);
   },
 });
 
 // ---------------------------------------------------------------------------
-// 6. EPA Environmental Screening (not available on gateway)
+// 6. EPA Environmental Screening
 // ---------------------------------------------------------------------------
 export const screenEpa = tool({
   name: "screen_epa",
   description:
-    "Screen a parcel for EPA-regulated facilities. NOTE: This screening is not yet available on the gateway.",
+    "Screen a parcel for nearby EPA-regulated facilities (Superfund, RCRA, etc.). Returns facilities within the search radius with distance.",
   parameters: z.object({
     parcel_id: z
       .string()
-      .describe("The parcel number"),
+      .describe("The parcel number (e.g. '001-5096-7')"),
     radius_miles: z
       .number()
       .nullable()
       .describe("Search radius in miles (default 1.0)"),
   }),
-  execute: async () => {
-    return JSON.stringify({ error: "EPA screening is not yet available on the gateway." });
+  execute: async ({ parcel_id, radius_miles }) => {
+    const result = await gatewayPost("/api/screening/epa", {
+      parcelId: parcel_id,
+      radiusMiles: radius_miles ?? 1.0,
+    });
+    return JSON.stringify(result);
   },
 });
 
 // ---------------------------------------------------------------------------
-// 7. Traffic / Access Screening (not available on gateway)
+// 7. Traffic / Access Screening
 // ---------------------------------------------------------------------------
 export const screenTraffic = tool({
   name: "screen_traffic",
   description:
-    "Screen a parcel for traffic counts and road access. NOTE: This screening is not yet available on the gateway.",
+    "Screen a parcel for nearby traffic count stations. Returns AADT counts and distances. May return 'not available' if traffic data is not yet loaded.",
   parameters: z.object({
     parcel_id: z
       .string()
-      .describe("The parcel number"),
+      .describe("The parcel number (e.g. '001-5096-7')"),
     radius_miles: z
       .number()
       .nullable()
       .describe("Search radius in miles (default 0.5)"),
   }),
-  execute: async () => {
-    return JSON.stringify({ error: "Traffic screening is not yet available on the gateway." });
+  execute: async ({ parcel_id, radius_miles }) => {
+    const result = await gatewayPost("/api/screening/traffic", {
+      parcelId: parcel_id,
+      radiusMiles: radius_miles ?? 0.5,
+    });
+    return JSON.stringify(result);
   },
 });
 
 // ---------------------------------------------------------------------------
-// 8. LDEQ Screening (not available on gateway)
+// 8. LDEQ Screening
 // ---------------------------------------------------------------------------
 export const screenLdeq = tool({
   name: "screen_ldeq",
   description:
-    "Screen a parcel for LDEQ permits and regulated sites. NOTE: This screening is not yet available on the gateway.",
+    "Screen a parcel for nearby LDEQ-permitted facilities. Returns permits within the search radius with distance. May return 'not available' if LDEQ data is not yet loaded.",
   parameters: z.object({
     parcel_id: z
       .string()
-      .describe("The parcel number"),
+      .describe("The parcel number (e.g. '001-5096-7')"),
     radius_miles: z
       .number()
       .nullable()
       .describe("Search radius in miles (default 1.0)"),
   }),
-  execute: async () => {
-    return JSON.stringify({ error: "LDEQ screening is not yet available on the gateway." });
+  execute: async ({ parcel_id, radius_miles }) => {
+    const result = await gatewayPost("/api/screening/ldeq", {
+      parcelId: parcel_id,
+      radiusMiles: radius_miles ?? 1.0,
+    });
+    return JSON.stringify(result);
   },
 });
 
 // ---------------------------------------------------------------------------
-// 9. Full Site Screening (not available on gateway)
+// 9. Full Site Screening
 // ---------------------------------------------------------------------------
 export const screenFull = tool({
   name: "screen_full",
   description:
-    "Run a comprehensive site screening on a parcel. NOTE: This screening is not yet available on the gateway.",
+    "Run a comprehensive site screening on a parcel covering zoning, flood, soils, wetlands, EPA, traffic, and LDEQ. Returns all screening results in one call.",
   parameters: z.object({
     parcel_id: z
       .string()
-      .describe("The parcel number"),
+      .describe("The parcel number (e.g. '001-5096-7')"),
   }),
-  execute: async () => {
-    return JSON.stringify({ error: "Full site screening is not yet available on the gateway." });
+  execute: async ({ parcel_id }) => {
+    const result = await gatewayPost("/api/screening/full", { parcelId: parcel_id });
+    return JSON.stringify(result);
   },
 });

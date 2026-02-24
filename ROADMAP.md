@@ -31,7 +31,27 @@ Only items meeting all checks are added below as `Planned`.
 - `Done`: Completed and verified
 - `Deferred`: Held due-to low value / unclear benefit / duplicate coverage
 
+**Archive rule:** When an item reaches `Done`, move it from Active Roadmap into the [Completed](#completed) section at the bottom. Active Roadmap stays short and focused on work-in-progress only.
+
 ## Active Roadmap (Prioritized)
+
+No active items. All 41 items completed. See [Completed](#completed) below for full details with evidence and acceptance criteria.
+
+---
+
+## Not Added (did not pass value/risk gate)
+
+These are explicitly not being added now to avoid noise:
+
+- Dark mode validation pass across all modified widgets
+- Keyboard-navigation expansion
+- Activity feed + notification preference surfaces
+- Collaboration upgrades (`@mentions`, assignment alerts)
+
+Reason: these were low-priority for current operating goals and can be deferred until we quantify product impact for each and/or complete higher-impact reliability and operator-efficiency work above.
+
+
+## Completed
 
 ### AOS-001 — AgentOS Upgrade Foundation (P0)
 
@@ -1589,18 +1609,7 @@ The following items were identified by analyzing 6 OpenAI GitHub repositories (`
   - ✅ Chat API route live: returns 401 unauthenticated, 400 missing message
   - ⚠️ **Remaining:** Create `documents` Qdrant collection + populate with EBR zoning data, browser chat end-to-end test
 
----
 
-## Not Added (did not pass value/risk gate)
-
-These are explicitly not being added now to avoid noise:
-
-- Dark mode validation pass across all modified widgets
-- Keyboard-navigation expansion
-- Activity feed + notification preference surfaces
-- Collaboration upgrades (`@mentions`, assignment alerts)
-
-Reason: these were low-priority for current operating goals and can be deferred until we quantify product impact for each and/or complete higher-impact reliability and operator-efficiency work above.
 
 ## Completed (for traceability only)
 

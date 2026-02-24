@@ -15,6 +15,8 @@ Last reviewed: 2026-02-20
 
 **Remote SSH:** `ssh cres_admin@ssh.gallagherpropco.com` (requires `~/.ssh/config` ProxyCommand). See `docs/SERVER_MANAGEMENT.md` for server details, Docker services, and troubleshooting.
 
+**Admin API (preferred over SSH):** `https://api.gallagherpropco.com/admin` with `Authorization: Bearer $ADMIN_API_KEY`. Key endpoints: `/admin/health`, `/admin/db/schema`, `/admin/db/query`, `/admin/containers/{name}/logs`, `/admin/deploy/gateway`. See `docs/SERVER_MANAGEMENT.md` for full reference.
+
 ## Key Rules
 
 ### Do This

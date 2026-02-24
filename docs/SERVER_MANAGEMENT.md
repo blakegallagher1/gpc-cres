@@ -189,6 +189,75 @@ Requires Administrator. Anonymous pulls (e.g. python:3.11-slim) work without cre
 
 ---
 
+## Admin API
+
+The gateway exposes an `/admin` API for programmatic server management — no SSH required for deploys, restarts, logs, schema inspection, or read-only queries.
+
+**Base URL:** `https://api.gallagherpropco.com/admin`
+**Auth:** `Authorization: Bearer $ADMIN_API_KEY` (separate from `GATEWAY_API_KEY`)
+
+### Env Var
+
+Add to `C:\gpc-cres-backend\.env`:
+
+```
+ADMIN_API_KEY=v6g5qQQ24nkD2ihhg_vxtZ7Fnj0B0lKh5lErdb57Tfo
+```
+
+### Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/admin/health` | All container statuses + DB connectivity |
+| GET | `/admin/containers` | List all Docker containers |
+| POST | `/admin/containers/{name}/restart` | Restart a container |
+| POST | `/admin/containers/{name}/stop` | Stop a container |
+| POST | `/admin/containers/{name}/start` | Start a container |
+| GET | `/admin/containers/{name}/logs?lines=50` | Tail container logs |
+| POST | `/admin/deploy/gateway` | Upload new `main.py` + restart gateway |
+| POST | `/admin/deploy/reload` | Restart gateway (no file upload) |
+| GET | `/admin/db/schema` | Full column list for all public tables |
+| GET | `/admin/db/tables` | List all table names |
+| POST | `/admin/db/query` | Read-only SQL query (SELECT only, 500 row cap) |
+| GET | `/admin/env` | Safe (non-secret) env vars |
+
+### Example curl Commands
+
+```bash
+# Health check
+curl https://api.gallagherpropco.com/admin/health \
+  -H "Authorization: Bearer $ADMIN_API_KEY"
+
+# DB schema
+curl https://api.gallagherpropco.com/admin/db/schema \
+  -H "Authorization: Bearer $ADMIN_API_KEY"
+
+# List tables
+curl https://api.gallagherpropco.com/admin/db/tables \
+  -H "Authorization: Bearer $ADMIN_API_KEY"
+
+# Container logs
+curl "https://api.gallagherpropco.com/admin/containers/fastapi-gateway/logs?lines=20" \
+  -H "Authorization: Bearer $ADMIN_API_KEY"
+
+# Read-only query
+curl -X POST https://api.gallagherpropco.com/admin/db/query \
+  -H "Authorization: Bearer $ADMIN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"sql": "SELECT table_name FROM information_schema.tables WHERE table_schema='\''public'\'' ORDER BY table_name"}'
+
+# Deploy updated main.py
+curl -X POST https://api.gallagherpropco.com/admin/deploy/gateway \
+  -H "Authorization: Bearer $ADMIN_API_KEY" \
+  -F "file=@infra/local-api/main.py"
+
+# Restart gateway (no upload)
+curl -X POST https://api.gallagherpropco.com/admin/deploy/reload \
+  -H "Authorization: Bearer $ADMIN_API_KEY"
+```
+
+---
+
 ## Related Docs
 
 - `docs/CLOUDFLARE.md` — Cloudflare Tunnel config (ingress rules, DNS)

@@ -58,6 +58,7 @@
     "e2e",
     "test-utils",
     "**/*.test.ts",
-    "**/*.test.tsx"
+    "**/*.test.tsx",
+    "scripts"
   ]
 }
