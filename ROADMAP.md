@@ -35,6 +35,40 @@ Only items meeting all checks are added below as `Planned`.
 
 ## Active Roadmap (Prioritized)
 
+### GATE-001 — Repository Verification Gate Stabilization Baseline Cleanup (P0)
+
+- **Priority:** P0
+- **Status:** Done (2026-02-25)
+- **Scope:** Monorepo gate stabilization for lint/typecheck/test baseline cleanup
+- **Problem:** The repo-level verification baseline is not currently stable, which blocks roadmap-first implementation flow and makes unrelated feature work fail mandatory gates.
+- **Expected Outcome (measurable):**
+  - `pnpm lint` passes at repo root with zero errors.
+  - `pnpm typecheck` passes at repo root with zero errors.
+  - `pnpm test` passes at repo root with zero failing suites.
+  - Engineers can run the full verification gate without unrelated baseline failures.
+- **Evidence of need:** Active/completed roadmap execution notes already record baseline instability, including: full repo lint/typecheck/test failures outside DI-001 scope and repeated `pnpm typecheck` blockers in SDK items due to pre-existing worker errors.
+- **Alignment:** Directly enforces the roadmap-first + mandatory verification protocol, improves delivery reliability, and does not alter security invariants (`org_id` scoping, auth checks, strict schema validation).
+- **Risk/rollback:** Medium risk due to broad touch surface across workspaces; rollback by reverting offending cleanup commits per package and restoring last known passing subset while preserving security and validation guarantees.
+- **Acceptance Criteria / Tests:**
+  - Resolve existing baseline lint/typecheck/test failures without weakening validation, auth, or org-scoping protections.
+  - Document fixed failure classes and touched packages in completion evidence.
+  - Full verification gate commands pass from repo root:
+    - `pnpm lint`
+    - `pnpm typecheck`
+    - `pnpm test`
+    - `pnpm build`
+- **Evidence (2026-02-25):**
+  - Fixed lint blocker: removed stale inline ESLint rule directive in `apps/web/components/chat/ChatContainer.tsx`.
+  - Added/updated gateway + property-db tool contract hardening and response parsing coverage in `packages/openai/src/tools/*`.
+  - Reworked deals API route test baselines to current route behavior:
+    - `apps/web/app/api/deals/route.test.ts`
+    - `apps/web/app/api/deals/[id]/route.test.ts`
+  - Verification gate passed at repo root:
+    - `pnpm lint`
+    - `pnpm typecheck`
+    - `pnpm test`
+    - `pnpm build`
+
 ### DI-001 — Document Intelligence Agent Integration Upgrade (P0)
 
 - **Priority:** P0

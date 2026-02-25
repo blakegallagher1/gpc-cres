@@ -6,6 +6,7 @@ import {
   calculateDepreciationSchedule,
   summarizeDevelopmentBudget,
 } from "@entitlement-os/shared";
+import { rpc as propertyRpc } from "./propertyDbTools";
 
 // ==================== FINANCE TOOLS ====================
 
@@ -659,21 +660,35 @@ export const search_comparable_sales = tool({
   }),
   execute: async (params) => {
     const { address, parish } = params;
+    const normalizedAddress = address.replace(/[''`,.#]/g, "").trim();
+    const result = await propertyRpc("api_search_parcels", {
+      search_text: normalizedAddress || address.trim(),
+      parish: parish ?? null,
+      limit_rows: 20,
+    });
+    const parcels = Array.isArray(result) ? result : [];
+    const comparables = parcels
+      .filter(
+        (parcel): parcel is Record<string, unknown> =>
+          parcel !== null && typeof parcel === "object",
+      )
+      .map((p) => {
+        const acreage = Number(p.acreage ?? 0);
+        const salePrice = Number(p.sale_price ?? 0);
+        const hasAcreage = Number.isFinite(acreage) && acreage > 0;
+        const hasSalePrice = Number.isFinite(salePrice) && salePrice > 0;
 
-    // Address search is not available on the gateway — return empty comparables
-    const parcels: Record<string, unknown>[] = [];
-    const comparables = parcels.map((p: Record<string, unknown>) => ({
-      address: p.site_address ?? p.address ?? "Unknown",
-      acreage: p.acreage ? Number(p.acreage) : null,
-      sale_price: p.sale_price ? Number(p.sale_price) : null,
-      price_per_acre:
-        p.acreage && p.sale_price
-          ? round(Number(p.sale_price) / Number(p.acreage), 0)
-          : null,
-      sale_date: p.sale_date ?? null,
-      use_type: p.use_code ?? p.land_use ?? null,
-      parcel_id: p.id ?? null,
-    }));
+        return {
+          address: p.site_address ?? p.address ?? "Unknown",
+          acreage: hasAcreage ? acreage : null,
+          sale_price: hasSalePrice ? salePrice : null,
+          price_per_acre:
+            hasAcreage && hasSalePrice ? round(salePrice / acreage, 0) : null,
+          sale_date: p.sale_date ?? null,
+          use_type: p.use_code ?? p.land_use ?? null,
+          parcel_id: p.id ?? null,
+        };
+      });
 
     return JSON.stringify({
       comparables,

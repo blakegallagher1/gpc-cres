@@ -457,8 +457,10 @@ export class AgentChatDO implements DurableObject {
 
       case "error":
         // OpenAI WebSocket protocol error (invalid request, etc.)
-        const wsError = (event as Record<string, unknown>).error as Record<string, string> | undefined;
-        const wsErrorMsg = wsError?.message ?? "Unknown OpenAI WebSocket error";
+        const wsErrorMsg =
+          event.error?.message ??
+          event.message ??
+          "Unknown OpenAI WebSocket error";
         console.error("OpenAI WebSocket error event:", wsErrorMsg);
         this.awaitingToolResponse = false;
         this.activeToolCalls = 0;

@@ -205,7 +205,7 @@ export function ChatContainer() {
     if (WS_ENABLED && !conversationIdRef.current) {
       setConversationState(crypto.randomUUID());
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {

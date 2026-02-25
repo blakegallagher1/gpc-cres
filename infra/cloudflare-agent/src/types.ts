@@ -82,4 +82,14 @@ export type OpenAIEvent =
   | { type: "response.completed"; response: { id: string; output: unknown[] } }
   | { type: "response.failed"; response: { id: string; error?: { message: string } } }
   | { type: "response.output_item.done"; item: { id: string; type: string; [key: string]: unknown } }
-  | { type: string; [key: string]: unknown }; // catch-all for unhandled events
+  | {
+      type: "error";
+      error?: {
+        message?: string;
+        code?: string;
+        type?: string;
+        [key: string]: unknown;
+      };
+      message?: string;
+      code?: string;
+    };
