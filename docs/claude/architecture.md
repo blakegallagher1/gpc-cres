@@ -18,6 +18,7 @@
 | Node | 22 | — |
 | TypeScript | strict mode | 5.7.3 |
 | Local API | FastAPI gateway (Docker Compose) + Martin + Qdrant | 0.115 / 0.30 |
+| Agent Runtime | Cloudflare Workers + Durable Objects (WebSocket chat) | — |
 | Tunnel | Cloudflare Tunnel (single, remotely-managed ingress) | — |
 | Orchestration (parked) | Temporal | 1.24.2 |
 
@@ -37,6 +38,7 @@ entitlement-os/
 │   ├── evidence/            # URL snapshot, text extraction, hash comparison
 │   └── artifacts/           # PDF + PPTX generation via Playwright + pptxgenjs
 ├── infra/
+│   ├── cloudflare-agent/    # Cloudflare Worker + Durable Object for WebSocket agent chat
 │   ├── local-api/           # FastAPI server: tiles proxy, parcel search, screening (Python)
 │   ├── docker/              # docker-compose: Postgres + Temporal stack
 │   └── sql/                 # Property DB RPC function definitions
@@ -77,6 +79,29 @@ entitlement-os/
 - Buyer management + outreach logging
 
 All 14 agents have tools wired. Market Trajectory uses Socrata (building permits) and Google Places (gentrification indicators).
+
+## Agent Communication Layer (Cloudflare Worker + Durable Object)
+
+Deployed at `agents.gallagherpropco.com`. Provides persistent WebSocket transport for agent chat, replacing the SSE-only path for longer-running multi-tool conversations.
+
+```
+[Browser] ←WebSocket→ [CF Worker] → [Durable Object (per conversationId)]
+                                         ├── WebSocket → OpenAI Responses API (wss://api.openai.com/v1/responses)
+                                         ├── HTTP POST → api.gallagherpropco.com (gateway tools: parcel, screening)
+                                         └── HTTP POST → gallagherpropco.com/api/agent/tools/execute (Vercel tools: deals, tasks, etc.)
+```
+
+**Key files:** `infra/cloudflare-agent/src/index.ts` (Worker entry), `infra/cloudflare-agent/src/durable-object.ts` (AgentChatDO), `infra/cloudflare-agent/src/tool-router.ts` (gateway vs Vercel routing).
+
+**Browser hook:** `apps/web/lib/chat/useAgentWebSocket.ts` — React hook connecting to DO via `wss://agents.gallagherpropco.com/ws?token=<jwt>&conversationId=<uuid>`.
+
+**Dual transport:** Feature-flagged via `NEXT_PUBLIC_AGENT_WS_URL`. When set, `ChatContainer.tsx` uses WebSocket; otherwise falls back to SSE (`POST /api/chat`).
+
+**Tool routing:** Gateway tools (parcel lookup, screening) go to `api.gallagherpropco.com` with `LOCAL_API_KEY`. Vercel tools (deals, tasks, knowledge) go to `gallagherpropco.com/api/agent/tools/execute` with the user's Supabase JWT. Hosted tools (web_search) execute server-side on OpenAI.
+
+**Durable Object state:** Keyed by `conversationId`. Stores `lastResponseId` for OpenAI response chaining via `previous_response_id`. Uses Hibernation API (`acceptWebSocket`) — instance variables reset between messages, recovered from `this.state.storage`.
+
+**Detailed architecture:** See `docs/CLOUDFLARE_AGENTS.md`.
 
 ## Data Model (Prisma — 18 models)
 

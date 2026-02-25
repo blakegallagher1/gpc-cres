@@ -74,6 +74,27 @@ QDRANT_URL=http://qdrant:6333
 - `tiles.gallagherpropco.com` → martin:3000 (MVT tiles)
 - Catch-all → 404
 
+### Cloudflare Worker (Agent WebSocket)
+
+**Secrets (set via `wrangler secret put`):**
+```
+OPENAI_API_KEY        # OpenAI API key for Responses API WebSocket
+LOCAL_API_KEY         # Gateway bearer token (same as GATEWAY_API_KEY)
+LOCAL_API_URL         # https://api.gallagherpropco.com
+SUPABASE_ANON_KEY     # Supabase anon key for JWT validation
+VERCEL_URL            # https://gallagherpropco.com
+```
+
+**Vars (in `wrangler.toml`):**
+```
+SUPABASE_URL = "https://yjddspdbxuseowxndrak.supabase.co"
+```
+
+**Feature flag (Vercel env):**
+```
+NEXT_PUBLIC_AGENT_WS_URL=wss://agents.gallagherpropco.com  # Set to enable WebSocket transport
+```
+
 ## CI/CD
 
 GitHub Actions (`ci.yml`): push to `main` + PRs. Backend (Python 3.11) + Frontend (Node 22).
@@ -115,6 +136,22 @@ Update status after each sub-phase ships:
 | 9A: Outcome Tracking | ✅ Done |
 | 9B: Knowledge Base & RAG | ✅ Done |
 
+## Cloudflare Worker Commands
+
+```bash
+# Deploy Worker + Durable Object
+cd infra/cloudflare-agent && npx wrangler deploy
+
+# Set a secret
+cd infra/cloudflare-agent && npx wrangler secret put OPENAI_API_KEY
+
+# Tail production logs
+cd infra/cloudflare-agent && npx wrangler tail
+
+# Build-time tool schema export (runs automatically as predeploy)
+cd infra/cloudflare-agent && npx tsx scripts/export-tools.ts
+```
+
 ## Gotchas
 
 - Root `.gitignore` has `lib/` pattern - force-add `apps/web/lib/` files
@@ -131,3 +168,6 @@ Update status after each sub-phase ships:
 - `pipelineStep` is `Int` (1-8), not a string enum. Step 4 = Entitlements.
 - ParishPackSchema uses `z.string().url()` — this is for Zod validation only (OK), but the JSON schema for OpenAI structured outputs is generated via `zodToOpenAiJsonSchema()` which strips `format:` constraints. Just keep this in mind.
 - Parish pack `web_search_preview` tool type must use `as const` assertion in TypeScript to match OpenAI SDK types.
+- Durable Object Hibernation API: `acceptWebSocket()` evicts the JS isolate between messages — all instance variables (`this.conv`, `this.clientWs`) are reset. Must recover from `this.state.storage.get()` and `ws` parameter in `webSocketMessage()`.
+- Durable Object `sendToClient()`: Use `this.state.getWebSockets()` as fallback when `this.clientWs` is null after hibernation recovery.
+- Worker tool routing: Screening endpoints expect camelCase (`parcelId`), but agent tool schemas use snake_case (`parcel_id`) — `tool-router.ts` transforms arguments before gateway calls.

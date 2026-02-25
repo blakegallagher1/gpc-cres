@@ -43,6 +43,15 @@ const normalized = address
 3. Restore `apps/web/.env.local` after `vercel link` (it overwrites the file)
 4. Verify env vars in Vercel dashboard
 
+## Cloudflare Worker Deploy Procedure
+
+1. `cd infra/cloudflare-agent`
+2. `npx wrangler deploy` (runs `predeploy` script to export tool schemas automatically)
+3. Verify with `npx wrangler tail` — check for `[DO]` log lines
+4. Secrets managed via `npx wrangler secret put <KEY>` (OPENAI_API_KEY, LOCAL_API_KEY, LOCAL_API_URL, SUPABASE_ANON_KEY, VERCEL_URL)
+
+**Enabling WebSocket transport:** Set `NEXT_PUBLIC_AGENT_WS_URL=wss://agents.gallagherpropco.com` in Vercel env vars, then redeploy Vercel. The browser `ChatContainer.tsx` auto-detects this and uses WebSocket instead of SSE.
+
 ## Adding New Automation Handler
 
 1. Create handler in `apps/web/lib/automation/<handlerName>.ts`

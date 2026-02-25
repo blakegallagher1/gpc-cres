@@ -3,9 +3,9 @@
 Last reviewed: 2026-02-19
 
 
-Last updated: 2026-02-16
+Last updated: 2026-02-24
 
-This document defines runtime contracts for chat execution in `apps/web`, including SSE events, approval flow, resume flow, checkpoint persistence, and failure/retry behavior.
+This document defines runtime contracts for chat execution in `apps/web`, including SSE events, WebSocket transport, approval flow, resume flow, checkpoint persistence, and failure/retry behavior.
 
 ## 1) Primary endpoints
 
@@ -22,6 +22,22 @@ This document defines runtime contracts for chat execution in `apps/web`, includ
   - Returns `{ ok, runId, status, events }`.
 
 All endpoints are org-scoped and require authenticated session context.
+
+### WebSocket transport (Cloudflare Worker)
+
+- `wss://agents.gallagherpropco.com/ws?token=<supabase_jwt>&conversationId=<uuid>`
+  - Persistent WebSocket to Cloudflare Durable Object.
+  - Auth: Supabase JWT validated server-side before WebSocket upgrade.
+  - Send: `{ type: "message", text: "...", dealId?: "..." }`
+  - Receive: Same `ChatStreamEvent` types as SSE (text_delta, tool_start, tool_end, done, error).
+
+**Feature flag:** Enabled when `NEXT_PUBLIC_AGENT_WS_URL` is set. Browser hook: `apps/web/lib/chat/useAgentWebSocket.ts`.
+
+**When to use which:**
+- **SSE** (`POST /api/chat`): Default. Runs agent loop on Vercel. Subject to function timeout (60s Pro).
+- **WebSocket**: Persistent connection via Cloudflare DO. No timeout limit. Supports OpenAI hosted tools (web_search, file_search). Uses OpenAI Responses API WebSocket mode for connection-local state caching.
+
+See `docs/CLOUDFLARE_AGENTS.md` for full architecture.
 
 ## 2) SSE event types (`/api/chat`)
 
@@ -127,3 +143,5 @@ Companion docs:
 
 - `docs/SPEC.md` (architecture + security model)
 - `docs/PLAN.md` (delivery plan context)
+- `docs/CLOUDFLARE_AGENTS.md` (Worker + Durable Object WebSocket architecture)
+- `apps/web/lib/chat/useAgentWebSocket.ts` (browser WebSocket hook)
