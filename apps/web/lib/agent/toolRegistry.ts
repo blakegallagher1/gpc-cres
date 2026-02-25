@@ -67,6 +67,8 @@ import {
   screenTraffic,
   screenLdeq,
   screenFull,
+  queryPropertyDb,
+  queryPropertyDbSql,
 
   // Database tools
   query_org_sql,
@@ -202,6 +204,8 @@ const TOOLS: Array<{
   screenTraffic,
   screenLdeq,
   screenFull,
+  queryPropertyDb,
+  queryPropertyDbSql,
   query_org_sql,
   calculate_proforma,
   calculate_debt_sizing,

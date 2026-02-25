@@ -114,11 +114,10 @@ export async function rpc(fnName: string, body: Record<string, unknown>): Promis
       if (!searchText) return { error: "No search text provided for api_search_parcels." };
       const geo = await geocodeAddress(searchText + ", Louisiana");
       if (!geo) return { error: "Could not geocode address. Ensure GOOGLE_MAPS_API_KEY is set." };
-      const OFFSET = 0.005;
-      return gatewayPost("/tools/parcel.bbox", {
-        west: geo.lng - OFFSET, south: geo.lat - OFFSET,
-        east: geo.lng + OFFSET, north: geo.lat + OFFSET,
-        limit: (body.limit_rows ?? body.p_limit_rows ?? 10) as number,
+      return gatewayPost("/tools/parcel.point", {
+        lat: geo.lat,
+        lng: geo.lng,
+        limit: (body.limit_rows ?? body.p_limit_rows ?? 5) as number,
       });
     }
     case "api_screen_zoning":
@@ -247,17 +246,12 @@ export const searchParcels = tool({
       });
     }
 
-    // Create a ~500m bbox around the geocoded point
-    const OFFSET = 0.005; // ~500m at Louisiana latitudes
-    const bbox = {
-      west: geo.lng - OFFSET,
-      south: geo.lat - OFFSET,
-      east: geo.lng + OFFSET,
-      north: geo.lat + OFFSET,
-      limit: limit_rows ?? 10,
-    };
-
-    const result = await gatewayPost("/tools/parcel.bbox", bbox);
+    // Point-in-polygon lookup + KNN fallback
+    const result = await gatewayPost("/tools/parcel.point", {
+      lat: geo.lat,
+      lng: geo.lng,
+      limit: limit_rows ?? 5,
+    });
 
     return JSON.stringify({
       geocoded_location: geo,
@@ -446,6 +440,53 @@ export const screenFull = tool({
   }),
   execute: async ({ parcel_id }) => {
     const result = await gatewayPost("/api/screening/full", { parcelId: parcel_id });
+    return JSON.stringify(result);
+  },
+});
+
+// ---------------------------------------------------------------------------
+// 10. Query Property DB — Typed Facade
+// ---------------------------------------------------------------------------
+export const queryPropertyDb = tool({
+  name: "query_property_db",
+  description:
+    "Search the Louisiana Property Database (198K+ EBR parcels) with structured filters. " +
+    "Use this for parcel ranking, filtering by zoning/acreage/ZIP/owner, and spatial queries. " +
+    "This queries the STATEWIDE parcel layer, NOT the internal org deals/parcels table. " +
+    "For complex spatial or analytical queries that these filters cannot express, use query_property_db_sql instead.",
+  parameters: z.object({
+    zoning: z.string().nullable().describe("Zoning type to filter by (e.g. 'C2', 'M1', 'A1'). Case/hyphen insensitive."),
+    zip: z.string().nullable().describe("ZIP code to filter parcels by (matched in situs address)."),
+    min_acreage: z.number().nullable().describe("Minimum parcel acreage."),
+    max_acreage: z.number().nullable().describe("Maximum parcel acreage."),
+    owner_contains: z.string().nullable().describe("Filter parcels where owner name contains this text (case-insensitive)."),
+    land_use: z.string().nullable().describe("Filter by existing land use classification."),
+    sort: z.string().nullable().describe("Sort order: 'acreage_desc' (default), 'acreage_asc', 'assessed_value_desc', 'address_asc'."),
+    limit: z.number().nullable().describe("Max results to return (default 10, max 100)."),
+  }),
+  execute: async (params) => {
+    const result = await gatewayPost("/tools/parcels.search", params);
+    return JSON.stringify(result);
+  },
+});
+
+// ---------------------------------------------------------------------------
+// 11. Query Property DB — Raw SQL
+// ---------------------------------------------------------------------------
+export const queryPropertyDbSql = tool({
+  name: "query_property_db_sql",
+  description:
+    "Run a read-only SQL query against the Louisiana Property Database for advanced spatial or analytical questions. " +
+    "Available tables: ebr_parcels (198K parcels with parcel_id, address, owner, area_sqft, assessed_value, geom, zoning_type, existing_land_use, future_land_use), " +
+    "fema_flood (5.2K flood zone polygons), soils (37K soil units), wetlands (39K wetland polygons), epa_facilities (6.7K facilities). " +
+    "PostGIS functions available: ST_Area, ST_DWithin, ST_Intersects, ST_Contains, ST_Centroid, ST_MakeEnvelope, etc. " +
+    "Acreage from area_sqft: area_sqft / 43560.0. SELECT only, max 100 rows.",
+  parameters: z.object({
+    sql: z.string().describe("Read-only SQL query. SELECT/WITH only, no semicolons. Tables: ebr_parcels, fema_flood, soils, wetlands, epa_facilities."),
+    limit: z.number().nullable().describe("Max rows (default 100, max 100)."),
+  }),
+  execute: async (params) => {
+    const result = await gatewayPost("/tools/parcels.sql", params);
     return JSON.stringify(result);
   },
 });

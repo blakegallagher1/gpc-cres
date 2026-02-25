@@ -16,6 +16,7 @@ import secrets
 from admin_router import router as admin_router, set_db_pool as set_admin_db_pool
 from datetime import datetime, timezone
 import json
+import re
 
 load_dotenv()
 
@@ -558,6 +559,361 @@ async def tools_parcel_bbox(
             return {"ok": True, "parcels": [], "count": 0, "data": []}
     data = [dict(r) for r in rows]
     return {"ok": True, "parcels": data, "count": len(data), "data": data}
+
+
+# =============================================================================
+# Agent Tool: Point-in-Polygon Parcel Lookup (/tools/parcel.point)
+# =============================================================================
+
+
+@app.post("/tools/parcel.point")
+async def tools_parcel_point(
+    request: Request,
+    api_key: str = Depends(verify_api_key),
+):
+    """
+    Find the parcel at a specific lat/lng point.
+    Phase 1: exact point-in-polygon match (ST_Contains).
+    Phase 2 fallback: nearest parcels by geometry distance (KNN via <->).
+    Used by search_parcels agent tool after geocoding an address.
+    """
+    if not db_pool:
+        raise HTTPException(status_code=503, detail="Property database not configured")
+    body = await request.json()
+    lat = body.get("lat")
+    lng = body.get("lng")
+    if lat is None or lng is None:
+        raise HTTPException(status_code=400, detail="lat and lng required")
+    limit = min(int(body.get("limit", 5)), 50)
+
+    async with db_pool.acquire() as conn:
+        # Phase 1: Exact point-in-polygon match
+        rows = await conn.fetch(
+            """
+            SELECT parcel_id, address, owner,
+                   COALESCE(area_sqft, 0) / 43560.0 AS acreage,
+                   area_sqft, assessed_value,
+                   zoning_type, existing_land_use, future_land_use,
+                   ST_Y(ST_Centroid(geom)) AS lat, ST_X(ST_Centroid(geom)) AS lng
+            FROM ebr_parcels
+            WHERE geom IS NOT NULL
+              AND ST_Contains(geom, ST_SetSRID(ST_Point($2, $1), 4326))
+            LIMIT 1
+            """,
+            lat, lng,
+        )
+
+        if not rows:
+            # Phase 2: KNN fallback — nearest parcels by distance
+            rows = await conn.fetch(
+                """
+                SELECT parcel_id, address, owner,
+                       COALESCE(area_sqft, 0) / 43560.0 AS acreage,
+                       area_sqft, assessed_value,
+                       zoning_type, existing_land_use, future_land_use,
+                       ST_Y(ST_Centroid(geom)) AS lat, ST_X(ST_Centroid(geom)) AS lng
+                FROM ebr_parcels
+                WHERE geom IS NOT NULL
+                ORDER BY geom <-> ST_SetSRID(ST_Point($2, $1), 4326)
+                LIMIT $3
+                """,
+                lat, lng, limit,
+            )
+
+    data = [dict(r) for r in rows]
+    # Convert Decimal to float for JSON serialization
+    for row in data:
+        for k, v in row.items():
+            if hasattr(v, "as_tuple"):  # Decimal
+                row[k] = float(v)
+    return {"ok": True, "parcels": data, "count": len(data)}
+
+
+# =============================================================================
+# ZIP Code Geocoding Helper
+# =============================================================================
+
+
+async def _geocode_zip(zip_code: str) -> Optional[dict]:
+    """Geocode a US ZIP code to its centroid using Nominatim (free, no key)."""
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                "https://nominatim.openstreetmap.org/search",
+                params={
+                    "postalcode": zip_code,
+                    "country": "us",
+                    "format": "json",
+                    "limit": 1,
+                },
+                headers={"User-Agent": "GallagherPropertyCo-Gateway/1.0"},
+                timeout=5.0,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                if data:
+                    return {"lat": float(data[0]["lat"]), "lng": float(data[0]["lon"])}
+    except Exception:
+        pass
+    return None
+
+
+# =============================================================================
+# Agent Tool: Typed Parcel Search (/tools/parcels.search)
+# =============================================================================
+
+
+@app.post("/tools/parcels.search")
+async def tools_parcels_search(
+    request: Request,
+    api_key: str = Depends(verify_api_key),
+):
+    """
+    Search parcels with structured filters (zoning, ZIP, acreage, owner, etc.).
+    Builds parameterized SQL from typed inputs. Max 100 rows, 10s timeout.
+    """
+    if not db_pool:
+        raise HTTPException(status_code=503, detail="Property database not configured")
+    body = await request.json()
+
+    zoning = body.get("zoning")
+    zip_code = body.get("zip")
+    min_acreage = body.get("min_acreage")
+    max_acreage = body.get("max_acreage")
+    owner_contains = body.get("owner_contains")
+    land_use = body.get("land_use")
+    bbox = body.get("bbox")  # { west, south, east, north }
+    point_radius = body.get("point_radius")  # { lat, lng, miles }
+    sort = body.get("sort", "acreage_desc")
+    limit = min(int(body.get("limit", 10) or 10), 100)
+
+    # Require at least one filter
+    has_filter = any([zoning, zip_code, min_acreage, max_acreage, owner_contains, land_use, bbox, point_radius])
+    if not has_filter:
+        return {"ok": False, "error": "At least one filter is required (zoning, zip, min_acreage, max_acreage, owner_contains, land_use, bbox, or point_radius)."}
+
+    conditions = ["geom IS NOT NULL"]
+    params: list = []
+    idx = 1
+    filters_applied = {}
+
+    if zoning:
+        # zoning_type is comma-separated (e.g. "A1, C2, M1") — check each element
+        conditions.append(
+            f"EXISTS (SELECT 1 FROM unnest(string_to_array(zoning_type, ', ')) AS z "
+            f"WHERE UPPER(REPLACE(z, '-', '')) = UPPER(REPLACE(${idx}, '-', '')))"
+        )
+        params.append(str(zoning))
+        filters_applied["zoning"] = f"{zoning} (normalized, multi-value)"
+        idx += 1
+
+    if zip_code:
+        geo = await _geocode_zip(str(zip_code))
+        if geo:
+            radius_m = 8046.72  # 5 miles — covers most ZIP code areas
+            conditions.append(f"ST_DWithin(geom::geography, ST_Point(${idx+1}, ${idx})::geography, ${idx+2})")
+            params.extend([geo["lat"], geo["lng"], radius_m])
+            filters_applied["zip"] = f"{zip_code} (centroid: {geo['lat']:.4f}, {geo['lng']:.4f}, 5mi radius)"
+            idx += 3
+        else:
+            return {"ok": False, "error": f"Could not geocode ZIP code '{zip_code}'. Try using point_radius instead."}
+
+    if min_acreage is not None:
+        conditions.append(f"area_sqft / 43560.0 >= ${idx}")
+        params.append(float(min_acreage))
+        filters_applied["min_acreage"] = min_acreage
+        idx += 1
+
+    if max_acreage is not None:
+        conditions.append(f"area_sqft / 43560.0 <= ${idx}")
+        params.append(float(max_acreage))
+        filters_applied["max_acreage"] = max_acreage
+        idx += 1
+
+    if owner_contains:
+        conditions.append(f"owner ILIKE '%' || ${idx} || '%'")
+        params.append(str(owner_contains))
+        filters_applied["owner_contains"] = owner_contains
+        idx += 1
+
+    if land_use:
+        conditions.append(f"UPPER(existing_land_use) = UPPER(${idx})")
+        params.append(str(land_use))
+        filters_applied["land_use"] = land_use
+        idx += 1
+
+    if bbox and isinstance(bbox, dict):
+        w, s, e, n = bbox.get("west"), bbox.get("south"), bbox.get("east"), bbox.get("north")
+        if None not in (w, s, e, n):
+            conditions.append(f"ST_Intersects(geom, ST_MakeEnvelope(${idx}, ${idx+1}, ${idx+2}, ${idx+3}, 4326))")
+            params.extend([float(w), float(s), float(e), float(n)])
+            filters_applied["bbox"] = bbox
+            idx += 4
+
+    if point_radius and isinstance(point_radius, dict):
+        pr_lat, pr_lng, pr_miles = point_radius.get("lat"), point_radius.get("lng"), point_radius.get("miles", 1.0)
+        if pr_lat is not None and pr_lng is not None:
+            conditions.append(f"ST_DWithin(geom::geography, ST_Point(${idx+1}, ${idx})::geography, ${idx+2})")
+            params.extend([float(pr_lat), float(pr_lng), float(pr_miles) * 1609.34])
+            filters_applied["point_radius"] = point_radius
+            idx += 3
+
+    # Sort
+    sort_map = {
+        "acreage_desc": "area_sqft DESC NULLS LAST",
+        "acreage_asc": "area_sqft ASC NULLS LAST",
+        "assessed_value_desc": "assessed_value DESC NULLS LAST",
+        "address_asc": "address ASC NULLS LAST",
+    }
+    order_clause = sort_map.get(sort, "area_sqft DESC NULLS LAST")
+    order_clause += ", parcel_id ASC"
+    filters_applied["sort"] = sort
+
+    where_clause = " AND ".join(conditions)
+    params.append(limit)
+
+    sql = f"""
+        SELECT parcel_id, address, owner,
+               COALESCE(area_sqft, 0) / 43560.0 AS acreage,
+               area_sqft, assessed_value,
+               zoning_type, existing_land_use, future_land_use,
+               ST_Y(ST_Centroid(geom)) AS lat, ST_X(ST_Centroid(geom)) AS lng
+        FROM ebr_parcels
+        WHERE {where_clause}
+        ORDER BY {order_clause}
+        LIMIT ${idx}
+    """
+
+    async with db_pool.acquire() as conn:
+        try:
+            await conn.execute("SET statement_timeout = '10s'")
+            rows = await conn.fetch(sql, *params)
+        except asyncpg.QueryCanceledError:
+            return {"ok": False, "error": "Query timed out (10s). Try narrowing your filters."}
+        except asyncpg.PostgresError as exc:
+            return {"ok": False, "error": f"Query error: {str(exc)[:200]}"}
+
+    data = [dict(r) for r in rows]
+    for row in data:
+        for k, v in row.items():
+            if hasattr(v, "as_tuple"):
+                row[k] = float(v)
+
+    return {
+        "ok": True,
+        "count": len(data),
+        "filters_applied": filters_applied,
+        "parcels": data,
+    }
+
+
+# =============================================================================
+# Agent Tool: Governed SQL Query (/tools/parcels.sql)
+# =============================================================================
+
+_ALLOWED_TABLES = {
+    "ebr_parcels", "fema_flood", "soils", "wetlands",
+    "epa_facilities", "traffic_counts", "ldeq_permits",
+}
+
+_DISALLOWED_SQL_PATTERN = re.compile(
+    r"\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|GRANT|REVOKE|COPY|EXECUTE|CALL)\b",
+    re.IGNORECASE,
+)
+
+_CATALOG_PATTERN = re.compile(
+    r"\b(pg_catalog|pg_|information_schema)\b",
+    re.IGNORECASE,
+)
+
+
+@app.post("/tools/parcels.sql")
+async def tools_parcels_sql(
+    request: Request,
+    api_key: str = Depends(verify_api_key),
+):
+    """
+    Run a read-only SQL query against the property database.
+    SELECT/WITH only. Table allowlist enforced. Max 100 rows.
+    """
+    if not db_pool:
+        raise HTTPException(status_code=503, detail="Property database not configured")
+    body = await request.json()
+    sql = (body.get("sql") or "").strip()
+    limit = min(int(body.get("limit", 100) or 100), 100)
+
+    if not sql:
+        return {"ok": False, "error": "Missing 'sql' field."}
+
+    # Validate: SELECT or WITH only
+    upper_sql = sql.upper().lstrip()
+    if not (upper_sql.startswith("SELECT") or upper_sql.startswith("WITH")):
+        return {"ok": False, "error": "Only SELECT/WITH queries are allowed."}
+
+    # No statement chaining
+    if ";" in sql:
+        return {"ok": False, "error": "Semicolons are not allowed (no statement chaining)."}
+
+    # No DML/DDL
+    if _DISALLOWED_SQL_PATTERN.search(sql):
+        return {"ok": False, "error": "Query contains disallowed SQL keywords (INSERT, UPDATE, DELETE, DROP, ALTER, etc.)."}
+
+    # No catalog access
+    if _CATALOG_PATTERN.search(sql):
+        return {"ok": False, "error": "Access to pg_catalog / information_schema is not allowed."}
+
+    # Table allowlist — extract table references from FROM / JOIN clauses
+    # Simple regex approach: find word tokens after FROM or JOIN
+    table_refs = re.findall(r'\b(?:FROM|JOIN)\s+(\w+)', sql, re.IGNORECASE)
+    disallowed = [t for t in table_refs if t.lower() not in _ALLOWED_TABLES]
+    if disallowed:
+        return {"ok": False, "error": f"Disallowed table(s) referenced: {', '.join(set(disallowed))}. Allowed: {', '.join(sorted(_ALLOWED_TABLES))}"}
+
+    # Wrap in subquery to enforce row limit
+    wrapped_sql = f"SELECT * FROM ({sql}) _q LIMIT {limit}"
+
+    async with db_pool.acquire() as conn:
+        try:
+            await conn.execute("SET statement_timeout = '10s'")
+            rows = await conn.fetch(wrapped_sql)
+        except asyncpg.QueryCanceledError:
+            return {"ok": False, "error": "Query timed out (10s). Try simplifying or adding WHERE filters."}
+        except asyncpg.PostgresError as exc:
+            return {"ok": False, "error": f"SQL error: {str(exc)[:300]}"}
+
+    if not rows:
+        return {
+            "ok": True,
+            "rowCount": 0,
+            "columns": [],
+            "rows": [],
+            "query_mode": "sql",
+            "limitApplied": limit,
+        }
+
+    columns = list(rows[0].keys())
+    result = []
+    for r in rows:
+        row_dict = dict(r)
+        for k, v in row_dict.items():
+            if hasattr(v, "isoformat"):
+                row_dict[k] = v.isoformat()
+            elif hasattr(v, "as_tuple"):  # Decimal
+                row_dict[k] = float(v)
+            elif isinstance(v, (bytes, bytearray, memoryview)):
+                row_dict[k] = "<binary>"
+            elif not isinstance(v, (str, int, float, bool, type(None), list, dict)):
+                row_dict[k] = str(v)
+        result.append(row_dict)
+
+    return {
+        "ok": True,
+        "rowCount": len(result),
+        "columns": columns,
+        "rows": result,
+        "query_mode": "sql",
+        "limitApplied": limit,
+    }
 
 
 # =============================================================================

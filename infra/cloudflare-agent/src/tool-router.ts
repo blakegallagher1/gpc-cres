@@ -16,6 +16,8 @@ const GATEWAY_TOOLS: Record<string, string> = {
   screen_traffic: "/tools/screen.traffic",
   screen_ldeq: "/tools/screen.ldeq",
   screen_full: "/tools/screen.full",
+  query_property_db: "/tools/parcels.search",
+  query_property_db_sql: "/tools/parcels.sql",
   // screen_zoning: no gateway endpoint — routes to Vercel
 };
 
@@ -44,6 +46,7 @@ function transformGatewayArgs(
   args: Record<string, unknown>,
 ): Record<string, unknown> {
   if (toolName === "get_parcel_details") return args; // parcel.lookup uses parcel_id as-is
+  if (toolName === "query_property_db" || toolName === "query_property_db_sql") return args; // pass-through
   // Screening endpoints: parcel_id stays, convert radius_miles → radius_m
   const transformed: Record<string, unknown> = {};
   if (args.parcel_id != null) transformed.parcel_id = args.parcel_id;

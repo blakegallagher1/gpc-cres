@@ -51,6 +51,8 @@ export {
   screenTraffic,
   screenLdeq,
   screenFull,
+  queryPropertyDb,
+  queryPropertyDbSql,
 } from "./propertyDbTools.js";
 export { query_org_sql } from "./databaseTools.js";
 
@@ -148,6 +150,8 @@ import {
   screenTraffic,
   screenLdeq,
   screenFull,
+  queryPropertyDb,
+  queryPropertyDbSql,
 } from "./propertyDbTools.js";
 import { query_org_sql } from "./databaseTools.js";
 import {
@@ -247,6 +251,8 @@ export const coordinatorTools = [
   screenTraffic,
   screenLdeq,
   screenFull,
+  queryPropertyDb,
+  queryPropertyDbSql,
 ];
 
 /** Tools available to the Legal / Entitlements agent. */
@@ -287,6 +293,8 @@ export const researchTools = [
   predict_entitlement_path,
   get_entitlement_feature_primitives,
   get_entitlement_intelligence_kpis,
+  queryPropertyDb,
+  queryPropertyDbSql,
 ];
 
 /** Tools available to the Risk agent. */
@@ -358,6 +366,8 @@ export const screenerTools = [
   get_shared_context,
   assess_uncertainty,
   log_reasoning_trace,
+  queryPropertyDb,
+  queryPropertyDbSql,
 ];
 
 /** Tools available to the Marketing / Dispositions agent. */
