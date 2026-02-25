@@ -42,8 +42,8 @@ export const generate_artifact = tool({
   description:
     "Generate a professional document (PDF or PPTX) for a deal and store it. Supports: TRIAGE_PDF, SUBMISSION_CHECKLIST_PDF, HEARING_DECK_PPTX, IC_DECK_PPTX, EXIT_PACKAGE_PDF, BUYER_TEASER_PDF, INVESTMENT_MEMO_PDF, OFFERING_MEMO_PDF, COMP_ANALYSIS_PDF. The deal must meet the stage prerequisite for the requested type. Returns artifact ID, version, and download URL on success.",
   parameters: z.object({
-    orgId: z.string().uuid().describe("The org ID for security scoping"),
-    dealId: z.string().uuid().describe("The deal ID to generate artifact for"),
+    orgId: z.string().describe("The org ID for security scoping"),
+    dealId: z.string().describe("The deal ID to generate artifact for"),
     artifactType: z
       .enum([
         "TRIAGE_PDF",
@@ -58,7 +58,7 @@ export const generate_artifact = tool({
       ])
       .describe("Type of artifact to generate"),
     comparisonDealIds: z
-      .array(z.string().uuid())
+      .array(z.string())
       .nullable()
       .describe("For COMP_ANALYSIS_PDF only: IDs of deals to compare against. Null for other types."),
   }),

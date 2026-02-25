@@ -26,6 +26,8 @@ import {
   createStreamPresenterState,
   type StreamPresenterState,
 } from '@/lib/chat/streamPresenter';
+import { useAgentWebSocket } from '@/lib/chat/useAgentWebSocket';
+import { supabase } from '@/lib/db/supabase';
 
 type RawConversationMessage = {
   id?: unknown;
@@ -51,6 +53,7 @@ type RawConversationResponse = {
 const CHAT_RECENTS_KEY = 'chat.recentConversationIds';
 const MAX_RECENTS = 5;
 const AUI_MESSAGE_ENHANCEMENTS = process.env.NEXT_PUBLIC_AUI_MESSAGE_ENHANCEMENTS !== 'false';
+const WS_ENABLED = Boolean(process.env.NEXT_PUBLIC_AGENT_WS_URL);
 
 function isString(value: unknown): value is string {
   return typeof value === 'string';
@@ -155,6 +158,8 @@ export function ChatContainer() {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [isLoadingConversations, setIsLoadingConversations] = useState(false);
 
+  const [supabaseToken, setSupabaseToken] = useState<string | null>(null);
+
   const [presenterState, setPresenterState] = useState<StreamPresenterState>(
     createStreamPresenterState(),
   );
@@ -167,6 +172,28 @@ export function ChatContainer() {
   useEffect(() => {
     presenterRef.current = presenterState;
   }, [presenterState]);
+
+  // Fetch Supabase JWT for WebSocket auth
+  useEffect(() => {
+    if (!WS_ENABLED) return;
+    let cancelled = false;
+    const fetchToken = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!cancelled && data.session?.access_token) {
+        setSupabaseToken(data.session.access_token);
+      }
+    };
+    fetchToken();
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!cancelled) {
+        setSupabaseToken(session?.access_token ?? null);
+      }
+    });
+    return () => {
+      cancelled = true;
+      listener.subscription.unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -343,6 +370,14 @@ export function ChatContainer() {
     [reloadConversations, setConversationState, syncRecent],
   );
 
+  // WebSocket transport (Cloudflare Agent Worker)
+  const { sendMessage: wsSendMessage } = useAgentWebSocket({
+    token: supabaseToken,
+    conversationId,
+    onEvent: applyEvent,
+    enabled: WS_ENABLED,
+  });
+
   const handleSend = useCallback(
     async (content: string) => {
       const text = content.trim();
@@ -364,6 +399,13 @@ export function ChatContainer() {
       setIsStreaming(true);
       setMessages((current) => [...current, userMessage]);
 
+      // WebSocket transport — send and return (events arrive via onEvent callback)
+      if (WS_ENABLED) {
+        wsSendMessage(text, selectedDealId ?? undefined);
+        return;
+      }
+
+      // SSE transport (fallback)
       abortControllerRef.current?.abort();
       const controller = new AbortController();
       abortControllerRef.current = controller;
@@ -414,7 +456,7 @@ export function ChatContainer() {
         setCurrentAgent(null);
       }
     },
-    [applyEvent, selectedDealId],
+    [applyEvent, selectedDealId, wsSendMessage],
   );
 
   const handleStop = useCallback(() => {

@@ -623,9 +623,9 @@ export const predict_entitlement_path = tool({
     "historical precedent outcomes and persists prediction snapshots for auditability. " +
     "Use this before choosing an entitlement strategy to compare certainty vs speed.",
   parameters: z.object({
-    orgId: z.string().uuid().describe("The org ID for security scoping."),
-    jurisdictionId: z.string().uuid().describe("Jurisdiction to model."),
-    dealId: z.string().uuid().nullable().describe("Optional deal scope filter."),
+    orgId: z.string().describe("The org ID for security scoping."),
+    jurisdictionId: z.string().describe("Jurisdiction to model."),
+    dealId: z.string().nullable().describe("Optional deal scope filter."),
     sku: skuSchema.nullable().describe("Optional SKU filter for strategy relevance."),
     applicationType: z
       .string()
@@ -812,9 +812,9 @@ export const get_entitlement_feature_primitives = tool({
     "including strategy/hearing-body rates, timeline distributions, top risk flags, graph coverage, " +
     "and calibration diagnostics for confidence quality checks.",
   parameters: z.object({
-    orgId: z.string().uuid().describe("The org ID for security scoping."),
-    jurisdictionId: z.string().uuid().describe("Jurisdiction to analyze."),
-    dealId: z.string().uuid().nullable().describe("Optional deal scope filter."),
+    orgId: z.string().describe("The org ID for security scoping."),
+    jurisdictionId: z.string().describe("Jurisdiction to analyze."),
+    dealId: z.string().nullable().describe("Optional deal scope filter."),
     sku: skuSchema.nullable().describe("Optional SKU filter for strategy relevance."),
     applicationType: z
       .string()
@@ -1028,9 +1028,9 @@ export const get_entitlement_intelligence_kpis = tool({
     "Retrieve entitlement forecast-quality KPIs including median decision timeline, timeline " +
     "forecast error (MAE), approval calibration gap, and strategy/month trend diagnostics.",
   parameters: z.object({
-    orgId: z.string().uuid().describe("The org ID for security scoping."),
-    jurisdictionId: z.string().uuid().describe("Jurisdiction to analyze."),
-    dealId: z.string().uuid().nullable().describe("Optional deal scope filter."),
+    orgId: z.string().describe("The org ID for security scoping."),
+    jurisdictionId: z.string().describe("Jurisdiction to analyze."),
+    dealId: z.string().nullable().describe("Optional deal scope filter."),
     sku: skuSchema.nullable().describe("Optional SKU filter."),
     applicationType: z
       .string()

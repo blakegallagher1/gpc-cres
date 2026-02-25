@@ -239,6 +239,14 @@ export const coordinatorTools = [
   run_underwriting,
   summarize_comps,
   evaluate_run,
+  screenZoning,
+  screenFlood,
+  screenSoils,
+  screenWetlands,
+  screenEpa,
+  screenTraffic,
+  screenLdeq,
+  screenFull,
 ];
 
 /** Tools available to the Legal / Entitlements agent. */
@@ -496,3 +504,15 @@ export const taxTools = [
  * Not yet enabled on agents until store IDs and indexing pipelines are configured.
  */
 export const fileSearchTool = hostedFileSearchTool;
+
+/**
+ * All function tools available to the coordinator, used by the build-time
+ * export script (`infra/cloudflare-agent/scripts/export-tools.ts`) to generate
+ * static JSON schemas for the Cloudflare Worker.
+ *
+ * This includes coordinatorTools plus consult tool stubs.  The actual consult
+ * tool implementations use `agent.asTool()` at runtime which is unavailable
+ * in the Worker — the Worker just sends these schemas to OpenAI and routes
+ * the resulting function_call to Vercel for execution.
+ */
+export const ALL_COORDINATOR_TOOL_OBJECTS = coordinatorTools;

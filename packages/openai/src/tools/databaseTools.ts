@@ -118,7 +118,7 @@ export const query_org_sql = tool({
     "Use this for counting, grouping, filtering, and joining org-scoped records when a normal lookup tool is insufficient. " +
     "Strict rules: SELECT/CTE only, allowed tables only, and SQL MUST include the {{org_id}} placeholder for org scoping.",
   parameters: z.object({
-    orgId: z.string().uuid().describe("Organization ID for mandatory data scoping."),
+    orgId: z.string().describe("Organization ID for mandatory data scoping."),
     sql: z
       .string()
       .min(1)

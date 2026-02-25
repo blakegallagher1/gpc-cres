@@ -6,9 +6,9 @@
     "@eslint/js": "^9.20.0",
     "@types/node": "^22.13.4",
     "@types/pg": "^8.11.6",
+    "dotenv": "^16.4.5",
     "eslint": "^9.20.1",
     "pg": "^8.13.0",
-    "dotenv": "^16.4.5",
     "prisma": "6.19.2",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3",
@@ -37,8 +37,11 @@
     "db:migrate:local": "pnpm -C packages/db run migrate:deploy:local",
     "db:migrate:remote": "pnpm -C packages/db run migrate:dev",
     "db:deploy": "pnpm -C packages/db run migrate:deploy",
-"db:seed": "pnpm -C packages/db run seed",
+    "db:seed": "pnpm -C packages/db run seed",
     "migrate:evidence:b2": "pnpm exec tsx packages/evidence/src/scripts/migrate-supabase-to-b2.ts",
     "migrate:evidence:b2:dry": "pnpm exec tsx packages/evidence/src/scripts/migrate-supabase-to-b2.ts --dry-run"
-}
+  },
+  "dependencies": {
+    "ws": "^8.19.0"
+  }
 }

@@ -1,0 +1,26 @@
+name = "entitlement-os-agent"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+
+routes = [
+  { pattern = "agents.gallagherpropco.com/*", zone_id = "ae43d9f313e1eb6f017bb198cd114b33" }
+]
+
+[durable_objects]
+bindings = [
+  { name = "AGENT_CHAT", class_name = "AgentChatDO" }
+]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["AgentChatDO"]
+
+[vars]
+SUPABASE_URL = "https://yjddspdbxuseowxndrak.supabase.co"
+
+# Secrets (set via `wrangler secret put`):
+# OPENAI_API_KEY
+# LOCAL_API_KEY
+# LOCAL_API_URL        (e.g. https://api.gallagherpropco.com)
+# SUPABASE_ANON_KEY
+# VERCEL_URL           (e.g. https://gallagherpropco.com)
