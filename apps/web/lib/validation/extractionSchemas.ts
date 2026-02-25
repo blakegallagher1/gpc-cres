@@ -41,6 +41,8 @@ export const DocTypeSchema = z.enum([
   "appraisal",
   "lease",
   "loi",
+  "rent_roll",
+  "trailing_financials",
   "other",
 ]);
 
@@ -56,6 +58,8 @@ export const DOC_TYPE_LABELS: Record<DocType, string> = {
   appraisal: "Appraisal",
   lease: "Lease",
   loi: "Letter of Intent",
+  rent_roll: "Rent Roll",
+  trailing_financials: "Trailing Financials (T3/T6/T12)",
   other: "Other",
 };
 
@@ -200,6 +204,81 @@ export const LoiExtractionSchema = z
   })
   .strict();
 
+export const RentRollExtractionSchema = z
+  .object({
+    as_of_date: NullableDateStringSchema,
+    property_name: NonEmptyNullableStringSchema,
+    total_units: z.number().int().nonnegative().nullable(),
+    total_rentable_sf: NullableNumberSchema,
+    occupied_units: z.number().int().nonnegative().nullable(),
+    occupied_sf: NullableNumberSchema,
+    vacancy_rate_pct: NullableNumberSchema,
+    total_monthly_rent: NullableNumberSchema,
+    total_annual_rent: NullableNumberSchema,
+    avg_rent_per_sf: NullableNumberSchema,
+    avg_rent_per_unit: NullableNumberSchema,
+    tenants: z.array(
+      z
+        .object({
+          tenant_name: NonEmptyNullableStringSchema,
+          suite_unit: NonEmptyNullableStringSchema,
+          rentable_sf: NullableNumberSchema,
+          lease_start: NullableDateStringSchema,
+          lease_end: NullableDateStringSchema,
+          monthly_rent: NullableNumberSchema,
+          annual_rent: NullableNumberSchema,
+          rent_per_sf: NullableNumberSchema,
+          lease_type: z.enum(["NNN", "gross", "modified_gross"]).nullable(),
+          status: z
+            .enum(["occupied", "vacant", "month_to_month", "notice_to_vacate"])
+            .nullable(),
+        })
+        .strict()
+    ),
+    weighted_avg_lease_term_years: NullableNumberSchema,
+    near_term_expirations: z.array(
+      z
+        .object({
+          tenant_name: NonEmptyNullableStringSchema,
+          expiration_date: NullableDateStringSchema,
+          annual_rent: NullableNumberSchema,
+          sf: NullableNumberSchema,
+        })
+        .strict()
+    ),
+  })
+  .strict();
+
+export const TrailingFinancialsExtractionSchema = z
+  .object({
+    period_type: z.enum(["T3", "T6", "T12"]).nullable(),
+    period_start: NullableDateStringSchema,
+    period_end: NullableDateStringSchema,
+    property_name: NonEmptyNullableStringSchema,
+    gross_potential_rent: NullableNumberSchema,
+    vacancy_loss: NullableNumberSchema,
+    effective_gross_income: NullableNumberSchema,
+    other_income: NullableNumberSchema,
+    total_revenue: NullableNumberSchema,
+    real_estate_taxes: NullableNumberSchema,
+    insurance: NullableNumberSchema,
+    utilities: NullableNumberSchema,
+    repairs_maintenance: NullableNumberSchema,
+    management_fees: NullableNumberSchema,
+    general_administrative: NullableNumberSchema,
+    other_expenses: NullableNumberSchema,
+    total_expenses: NullableNumberSchema,
+    noi: NullableNumberSchema,
+    capex_reserves: NullableNumberSchema,
+    net_cash_flow: NullableNumberSchema,
+    expense_ratio_pct: NullableNumberSchema,
+    noi_margin_pct: NullableNumberSchema,
+    opex_per_sf: NullableNumberSchema,
+    annualized_noi: NullableNumberSchema,
+    annualized_revenue: NullableNumberSchema,
+  })
+  .strict();
+
 export const EXTRACTION_SCHEMAS = {
   psa: PsaExtractionSchema,
   phase_i_esa: PhaseIEsaExtractionSchema,
@@ -210,6 +289,8 @@ export const EXTRACTION_SCHEMAS = {
   appraisal: AppraisalExtractionSchema,
   lease: LeaseExtractionSchema,
   loi: LoiExtractionSchema,
+  rent_roll: RentRollExtractionSchema,
+  trailing_financials: TrailingFinancialsExtractionSchema,
   other: JsonObjectSchema,
 } as const;
 

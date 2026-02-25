@@ -113,6 +113,11 @@ export {
   get_entitlement_feature_primitives,
   get_entitlement_intelligence_kpis,
 } from "./entitlementIntelligenceTools.js";
+export {
+  query_document_extractions,
+  get_document_extraction_summary,
+  compare_document_vs_deal_terms,
+} from "./documentTools.js";
 
 // --- Agent-specific tool collections ---
 import {
@@ -199,6 +204,11 @@ import {
   get_entitlement_feature_primitives,
   get_entitlement_intelligence_kpis,
 } from "./entitlementIntelligenceTools.js";
+import {
+  query_document_extractions,
+  get_document_extraction_summary,
+  compare_document_vs_deal_terms,
+} from "./documentTools.js";
 
 /** Web search tool for Responses API pass-through. */
 export const webSearchPreviewTool = hostedWebSearchPreviewTool;
@@ -253,6 +263,9 @@ export const coordinatorTools = [
   screenFull,
   queryPropertyDb,
   queryPropertyDbSql,
+  query_document_extractions,
+  get_document_extraction_summary,
+  compare_document_vs_deal_terms,
 ];
 
 /** Tools available to the Legal / Entitlements agent. */
@@ -272,6 +285,7 @@ export const legalTools = [
   predict_entitlement_path,
   get_entitlement_feature_primitives,
   get_entitlement_intelligence_kpis,
+  query_document_extractions,
 ];
 
 /** Tools available to the Research agent. */
@@ -318,6 +332,7 @@ export const riskTools = [
   get_shared_context,
   assess_uncertainty,
   log_reasoning_trace,
+  query_document_extractions,
 ];
 
 /** Tools available to the Finance agent. */
@@ -343,6 +358,9 @@ export const financeTools = [
   get_shared_context,
   assess_uncertainty,
   log_reasoning_trace,
+  query_document_extractions,
+  get_document_extraction_summary,
+  compare_document_vs_deal_terms,
 ];
 
 /** Tools available to the Deal Screener agent. */
@@ -407,6 +425,9 @@ export const dueDiligenceTools = [
   share_analysis_finding,
   get_shared_context,
   log_reasoning_trace,
+  query_document_extractions,
+  get_document_extraction_summary,
+  compare_document_vs_deal_terms,
 ];
 
 /** Tools available to the Entitlements agent. */

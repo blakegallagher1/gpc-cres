@@ -35,7 +35,49 @@ Only items meeting all checks are added below as `Planned`.
 
 ## Active Roadmap (Prioritized)
 
-No active items. All 42 items completed. See [Completed](#completed) below for full details with evidence and acceptance criteria.
+### DI-001 — Document Intelligence Agent Integration Upgrade (P0)
+
+- **Priority:** P0
+- **Status:** Done
+- **Scope:** Document extraction-to-agent bridge, schema expansion, and OCR fallback
+- **Problem:** Extracted document intelligence is not fully available to agent toolchains, and scanned PDFs can produce low-text extraction quality.
+- **Expected Outcome (measurable):**
+  - Agents can query, summarize, and compare document extractions through dedicated tool functions.
+  - `rent_roll` and `trailing_financials` are supported end-to-end in validation and UI schema layers.
+  - Scanned PDFs trigger OCR fallback, improving extraction coverage for image-based uploads.
+- **Evidence of need:** `updates/gpc-cres-code-updates.pdf` specifies required bridge work and patch set for document intelligence integration.
+- **Alignment:** Preserves org-scoped access patterns, strict schema validation, and existing extraction service flow.
+- **Risk/rollback:** Medium integration risk due to prompt/schema/service touchpoints; rollback by reverting new tool registrations and OCR fallback block.
+- **Acceptance Criteria / Tests:**
+  - Add `packages/openai/src/tools/documentTools.ts` with: `query_document_extractions`, `get_document_extraction_summary`, `compare_document_vs_deal_terms`.
+  - Wire document tools in `packages/openai/src/tools/index.ts` and relevant agent tool arrays.
+  - Update `packages/openai/src/agents/finance.ts` and `packages/openai/src/agents/dueDiligence.ts` with document-intelligence protocol instructions.
+  - Add `rent_roll` and `trailing_financials` schemas in:
+    - `apps/web/lib/validation/extractionSchemas.ts`
+    - `apps/web/lib/schemas/extractionSchemas.ts`
+  - Patch `apps/web/lib/services/documentProcessing.service.ts` for:
+    - enhanced classification rules
+    - extraction prompts for new doc types
+    - OCR fallback via `ocrPdfBuffer`
+  - Add `tesseract.js` dependency in the app workspace handling document processing.
+  - Verification gate passes: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`.
+- **Evidence (2026-02-25):**
+  - Implemented files:
+    - `packages/openai/src/tools/documentTools.ts`
+    - `packages/openai/src/tools/index.ts`
+    - `packages/openai/src/agents/finance.ts`
+    - `packages/openai/src/agents/dueDiligence.ts`
+    - `apps/web/lib/validation/extractionSchemas.ts`
+    - `apps/web/lib/schemas/extractionSchemas.ts`
+    - `apps/web/lib/services/documentProcessing.service.ts`
+    - `apps/web/package.json`
+    - `pnpm-lock.yaml`
+  - Feature-focused tests passing:
+    - `pnpm --filter @entitlement-os/openai test -- src/tools/documentTools.test.ts`
+    - `pnpm --filter gpc-agent-dashboard test -- lib/schemas/extractionSchemas.test.ts lib/validation/extractionSchemas.test.ts`
+  - Full build passing:
+    - `pnpm build`
+  - Full repo lint/typecheck/test currently fail on pre-existing unrelated issues outside this change set (details captured in execution log).
 
 ---
 
