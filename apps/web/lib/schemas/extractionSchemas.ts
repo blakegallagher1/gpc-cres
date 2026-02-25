@@ -125,6 +125,75 @@ export const LoiExtractionSchema = z.object({
 });
 export type LoiExtraction = z.infer<typeof LoiExtractionSchema>;
 
+export const RentRollExtractionSchema = z.object({
+  as_of_date: z.string().nullable(),
+  property_name: z.string().nullable(),
+  total_units: z.number().nullable(),
+  total_rentable_sf: z.number().nullable(),
+  occupied_units: z.number().nullable(),
+  occupied_sf: z.number().nullable(),
+  vacancy_rate_pct: z.number().nullable(),
+  total_monthly_rent: z.number().nullable(),
+  total_annual_rent: z.number().nullable(),
+  avg_rent_per_sf: z.number().nullable(),
+  avg_rent_per_unit: z.number().nullable(),
+  tenants: z.array(
+    z.object({
+      tenant_name: z.string().nullable(),
+      suite_unit: z.string().nullable(),
+      rentable_sf: z.number().nullable(),
+      lease_start: z.string().nullable(),
+      lease_end: z.string().nullable(),
+      monthly_rent: z.number().nullable(),
+      annual_rent: z.number().nullable(),
+      rent_per_sf: z.number().nullable(),
+      lease_type: z.enum(["NNN", "gross", "modified_gross"]).nullable(),
+      status: z
+        .enum(["occupied", "vacant", "month_to_month", "notice_to_vacate"])
+        .nullable(),
+    }),
+  ),
+  weighted_avg_lease_term_years: z.number().nullable(),
+  near_term_expirations: z.array(
+    z.object({
+      tenant_name: z.string().nullable(),
+      expiration_date: z.string().nullable(),
+      annual_rent: z.number().nullable(),
+      sf: z.number().nullable(),
+    }),
+  ),
+});
+export type RentRollExtraction = z.infer<typeof RentRollExtractionSchema>;
+
+export const TrailingFinancialsExtractionSchema = z.object({
+  period_type: z.enum(["T3", "T6", "T12"]).nullable(),
+  period_start: z.string().nullable(),
+  period_end: z.string().nullable(),
+  property_name: z.string().nullable(),
+  gross_potential_rent: z.number().nullable(),
+  vacancy_loss: z.number().nullable(),
+  effective_gross_income: z.number().nullable(),
+  other_income: z.number().nullable(),
+  total_revenue: z.number().nullable(),
+  real_estate_taxes: z.number().nullable(),
+  insurance: z.number().nullable(),
+  utilities: z.number().nullable(),
+  repairs_maintenance: z.number().nullable(),
+  management_fees: z.number().nullable(),
+  general_administrative: z.number().nullable(),
+  other_expenses: z.number().nullable(),
+  total_expenses: z.number().nullable(),
+  noi: z.number().nullable(),
+  capex_reserves: z.number().nullable(),
+  net_cash_flow: z.number().nullable(),
+  expense_ratio_pct: z.number().nullable(),
+  noi_margin_pct: z.number().nullable(),
+  opex_per_sf: z.number().nullable(),
+  annualized_noi: z.number().nullable(),
+  annualized_revenue: z.number().nullable(),
+});
+export type TrailingFinancialsExtraction = z.infer<typeof TrailingFinancialsExtractionSchema>;
+
 export const OtherExtractionSchema = z.object({
   document_title: z.string().nullable(),
   document_date: z.string().nullable(),
@@ -144,6 +213,8 @@ export const EXTRACTION_SCHEMAS: Record<string, z.ZodType> = {
   appraisal: AppraisalExtractionSchema,
   lease: LeaseExtractionSchema,
   loi: LoiExtractionSchema,
+  rent_roll: RentRollExtractionSchema,
+  trailing_financials: TrailingFinancialsExtractionSchema,
   other: OtherExtractionSchema,
 };
 
@@ -239,6 +310,49 @@ export const FIELD_LABELS: Record<string, Record<string, string>> = {
     expiration_date: "Expiration Date",
     financing_terms: "Financing Terms",
   },
+  rent_roll: {
+    as_of_date: "As-of Date",
+    property_name: "Property Name",
+    total_units: "Total Units",
+    total_rentable_sf: "Total Rentable SF",
+    occupied_units: "Occupied Units",
+    occupied_sf: "Occupied SF",
+    vacancy_rate_pct: "Vacancy Rate (%)",
+    total_monthly_rent: "Total Monthly Rent",
+    total_annual_rent: "Total Annual Rent",
+    avg_rent_per_sf: "Avg Rent/SF",
+    avg_rent_per_unit: "Avg Rent/Unit",
+    tenants: "Tenant Schedule",
+    weighted_avg_lease_term_years: "WALT (years)",
+    near_term_expirations: "Near-Term Expirations",
+  },
+  trailing_financials: {
+    period_type: "Period Type",
+    period_start: "Period Start",
+    period_end: "Period End",
+    property_name: "Property Name",
+    gross_potential_rent: "Gross Potential Rent",
+    vacancy_loss: "Vacancy Loss",
+    effective_gross_income: "Effective Gross Income",
+    other_income: "Other Income",
+    total_revenue: "Total Revenue",
+    real_estate_taxes: "Real Estate Taxes",
+    insurance: "Insurance",
+    utilities: "Utilities",
+    repairs_maintenance: "Repairs & Maintenance",
+    management_fees: "Management Fees",
+    general_administrative: "G&A",
+    other_expenses: "Other Expenses",
+    total_expenses: "Total Expenses",
+    noi: "NOI",
+    capex_reserves: "CapEx Reserves",
+    net_cash_flow: "Net Cash Flow",
+    expense_ratio_pct: "Expense Ratio (%)",
+    noi_margin_pct: "NOI Margin (%)",
+    opex_per_sf: "OpEx/SF",
+    annualized_noi: "Annualized NOI",
+    annualized_revenue: "Annualized Revenue",
+  },
   other: {
     document_title: "Document Title",
     document_date: "Document Date",
@@ -257,5 +371,7 @@ export const DOC_TYPE_LABELS: Record<string, string> = {
   appraisal: "Appraisal",
   lease: "Lease",
   loi: "Letter of Intent",
+  rent_roll: "Rent Roll",
+  trailing_financials: "Trailing Financials (T3/T6/T12)",
   other: "Other",
 };

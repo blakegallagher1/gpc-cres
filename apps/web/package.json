@@ -52,6 +52,7 @@
     "sonner": "^1.5.0",
     "swr": "^2.4.0",
     "tailwind-merge": "^2.6.1",
+    "tesseract.js": "^5",
     "unpdf": "^1.4.0",
     "y-websocket": "^1.5.0",
     "yjs": "^13.6.15",

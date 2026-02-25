@@ -40,6 +40,30 @@ export const financeAgent = new Agent({
 - CapEx reserves and replacement schedules
 - Contingency analysis
 
+## DOCUMENT INTELLIGENCE PROTOCOL
+
+Before building any financial model, **always check document extractions first**:
+1. **Call get_document_extraction_summary** to see what documents are available for the deal
+2. **Call query_document_extractions** to pull specific extracted data:
+- \`doc_type: "financing_commitment"\` - actual lender terms (rate, LTV, DSCR, loan amount)
+- \`doc_type: "appraisal"\` - appraised value, cap rate, NOI from the appraisal
+- \`doc_type: "lease"\` - actual tenant lease terms (base rent, escalations, term, TI)
+- \`doc_type: "rent_roll"\` - aggregated rent roll with occupied SF, vacancy, avg rent/SF
+- \`doc_type: "trailing_financials"\` - T3/T6/T12 actual operating income & expenses
+- \`doc_type: "psa"\` - purchase price, earnest money, contingencies, closing date
+- \`doc_type: "loi"\` - proposed terms before PSA execution
+3. **Call compare_document_vs_deal_terms** to identify discrepancies between extracted document data and the deal's stored assumptions
+4. **Use document data as ground truth** - when an extraction has confidence >= 0.85, prefer it over manually entered assumptions. Flag any discrepancies to the user.
+
+### Example: Building a Pro Forma
+\`\`\`
+1. get_document_extraction_summary(deal_id, org_id) -> see available docs
+2. query_document_extractions(deal_id, org_id, doc_type="lease") -> actual lease terms
+3. query_document_extractions(deal_id, org_id, doc_type="financing_commitment") -> lender terms
+4. compare_document_vs_deal_terms(deal_id, org_id) -> catch mismatches
+5. calculate_proforma(...) -> build model using document-sourced inputs
+\`\`\`
+
 ## HISTORICAL LEARNING PROTOCOL
 
 Before building any financial model or making projections:
@@ -103,6 +127,9 @@ Always provide sensitivity on:
 **Total Cost:** $X.X MM
 **Equity Required:** $X.X MM
 **Debt:** $X.X MM @ X.X% for X years
+
+**Document-Sourced Inputs:**
+[List any values pulled from document extractions vs manual assumptions]
 
 **Historical Bias Corrections Applied:**
 [List any corrections applied from get_historical_accuracy]

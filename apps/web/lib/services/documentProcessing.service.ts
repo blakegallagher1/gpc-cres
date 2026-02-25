@@ -15,6 +15,7 @@ import {
 export { DOC_TYPE_LABELS };
 
 const MIN_TEXT_FOR_EXTRACTION = 50;
+const ADDITIONAL_LLM_DOC_TYPES = ["rent_roll", "trailing_financials"] as const;
 
 type ExtractionWithOptionalUpload = {
   id: string;
@@ -169,8 +170,18 @@ const ENHANCED_CLASSIFICATION_RULES: ReadonlyArray<{
   { pattern: /valuation\s*report/i, docType: "appraisal", confidence: 0.85 },
   // Lease
   { pattern: /\blease\b/i, docType: "lease", confidence: 0.85 },
-  { pattern: /rent\s*roll/i, docType: "lease", confidence: 0.85 },
   { pattern: /lease\s*abstract/i, docType: "lease", confidence: 0.9 },
+  // Rent Roll (multi-tenant)
+  { pattern: /rent\s*roll/i, docType: "rent_roll" as DocType, confidence: 0.95 },
+  { pattern: /tenant\s*roster/i, docType: "rent_roll" as DocType, confidence: 0.9 },
+  { pattern: /occupancy\s*report/i, docType: "rent_roll" as DocType, confidence: 0.85 },
+  { pattern: /rent\s*schedule/i, docType: "rent_roll" as DocType, confidence: 0.85 },
+  // Trailing Financials (T3/T6/T12)
+  { pattern: /trailing\s*(?:3|6|12|three|six|twelve)\s*month/i, docType: "trailing_financials" as DocType, confidence: 0.95 },
+  { pattern: /\b(?:t3|t6|t12)\b/i, docType: "trailing_financials" as DocType, confidence: 0.9 },
+  { pattern: /operating\s*statement/i, docType: "trailing_financials" as DocType, confidence: 0.85 },
+  { pattern: /income\s*(?:and|&)\s*expense\s*statement/i, docType: "trailing_financials" as DocType, confidence: 0.85 },
+  { pattern: /actual\s*(?:income|financials|operating)/i, docType: "trailing_financials" as DocType, confidence: 0.8 },
   // LOI
   { pattern: /letter\s*of\s*intent/i, docType: "loi", confidence: 0.9 },
   { pattern: /\bloi\b/i, docType: "loi", confidence: 0.85 },
@@ -213,6 +224,72 @@ function isScannedPdf(text: string, pageCount?: number): boolean {
   return false;
 }
 
+/**
+ * OCR fallback for scanned PDFs using Tesseract.js.
+ * Converts each PDF page to an image, then runs OCR.
+ * Returns concatenated text from all pages.
+ */
+async function ocrPdfBuffer(buffer: Buffer): Promise<string> {
+  const tesseractModuleName = ["tesseract", "js"].join(".");
+  const { createWorker } = (await import(tesseractModuleName)) as {
+    createWorker: (
+      language?: string
+    ) => Promise<{
+      recognize: (image: Buffer | Uint8Array | string) => Promise<{ data: { text: string } }>;
+      terminate: () => Promise<void>;
+    }>;
+  };
+  const unpdf = (await import("unpdf")) as Record<string, unknown>;
+  const renderPageAsImage = unpdf.renderPageAsImage as
+    | ((pdf: Uint8Array, page: number, options?: { scale?: number }) => Promise<Uint8Array | null>)
+    | undefined;
+  const getDocumentProxy = unpdf.getDocumentProxy as
+    | ((pdf: Uint8Array) => Promise<{ numPages: number }>)
+    | undefined;
+
+  if (!renderPageAsImage || !getDocumentProxy) {
+    console.warn("[doc-processing] OCR fallback unavailable: unpdf missing required OCR exports");
+    return "";
+  }
+
+  const doc = await getDocumentProxy(new Uint8Array(buffer));
+  const pageCount = doc.numPages;
+  if (pageCount === 0) return "";
+
+  // Limit to first 20 pages to keep processing time reasonable
+  const maxPages = Math.min(pageCount, 20);
+  const worker = await createWorker("eng");
+  const pageTexts: string[] = [];
+
+  try {
+    for (let i = 1; i <= maxPages; i += 1) {
+      try {
+        const imageResult = await renderPageAsImage(new Uint8Array(buffer), i, {
+          scale: 2, // 2x for better OCR accuracy
+        });
+        if (!imageResult) continue;
+
+        // renderPageAsImage returns a Uint8Array PNG
+        const imageBuffer = Buffer.from(imageResult);
+        const {
+          data: { text },
+        } = await worker.recognize(imageBuffer);
+
+        if (text && text.trim().length > 0) {
+          pageTexts.push(text.trim());
+        }
+      } catch (pageErr) {
+        console.warn(`[doc-processing] OCR failed on page ${i}:`, pageErr);
+        // Continue with other pages
+      }
+    }
+  } finally {
+    await worker.terminate();
+  }
+
+  return pageTexts.join("\n\n");
+}
+
 // ---------------------------------------------------------------------------
 // LLM-based classification
 // ---------------------------------------------------------------------------
@@ -241,8 +318,10 @@ Valid doc_type values:
 - "survey" — Survey / ALTA / Plat / Boundary
 - "zoning_letter" — Zoning Letter / Verification / CUP
 - "appraisal" — Appraisal / Valuation Report
-- "lease" — Lease / Rent Roll / Lease Abstract
+- "lease" — Lease / Lease Abstract
 - "loi" — Letter of Intent
+- "rent_roll" — Rent Roll / Tenant Roster / Occupancy Report (multi-tenant schedule)
+- "trailing_financials" — Trailing Financials / T3 / T6 / T12 / Operating Statement / Income & Expense Statement
 - "other" — Does not match any above
 
 confidence: 0.0 to 1.0 (your confidence in the classification)`,
@@ -259,12 +338,12 @@ confidence: 0.0 to 1.0 (your confidence in the classification)`,
     if (!content) return { docType: "other", confidence: 0.3 };
 
     const parsed = JSON.parse(content);
-    const docType = parsed.doc_type as DocType;
+    const docType = typeof parsed.doc_type === "string" ? parsed.doc_type : "";
     const confidence = typeof parsed.confidence === "number" ? parsed.confidence : 0.5;
 
     // Validate doc_type
-    if (docType in DOC_TYPE_LABELS) {
-      return { docType, confidence: Math.min(confidence, 0.98) };
+    if (docType in DOC_TYPE_LABELS || ADDITIONAL_LLM_DOC_TYPES.includes(docType as (typeof ADDITIONAL_LLM_DOC_TYPES)[number])) {
+      return { docType: docType as DocType, confidence: Math.min(confidence, 0.98) };
     }
     return { docType: "other", confidence: 0.3 };
   } catch (err) {
@@ -277,7 +356,7 @@ confidence: 0.0 to 1.0 (your confidence in the classification)`,
 // LLM-based structured extraction per doc type
 // ---------------------------------------------------------------------------
 
-const EXTRACTION_PROMPTS: Record<DocType, string> = {
+const EXTRACTION_PROMPTS: Record<DocType | "rent_roll" | "trailing_financials", string> = {
   psa: `Extract ALL of the following fields from this Purchase & Sale Agreement (PSA).
 For dollar amounts, extract as plain numbers (no commas, no "$"). For dates use YYYY-MM-DD. For lists, include every distinct item found.
 
@@ -433,6 +512,82 @@ Required JSON schema:
   "financing_terms": "string" or null — proposed financing terms (e.g., "Cash at closing", "70% LTV conventional")
 }`,
 
+  rent_roll: `Extract ALL of the following fields from this Rent Roll / Tenant Roster / Occupancy Report.
+For dollar amounts, extract as plain numbers. For dates use YYYY-MM-DD. Extract EVERY tenant row found.
+Required JSON schema:
+{
+  "as_of_date": "YYYY-MM-DD" or null — the effective / as-of date of the rent roll,
+  "property_name": "string" or null — property name or address,
+  "total_units": integer or null — total unit/suite count,
+  "total_rentable_sf": number or null — total rentable square footage,
+  "occupied_units": integer or null — number of currently occupied units,
+  "occupied_sf": number or null — occupied square footage,
+  "vacancy_rate_pct": number or null — vacancy rate as a percentage (e.g., 5.2 for 5.2%),
+  "total_monthly_rent": number or null — sum of all monthly rents,
+  "total_annual_rent": number or null — sum of all annual rents (or monthly × 12),
+  "avg_rent_per_sf": number or null — average rent per square foot per year,
+  "avg_rent_per_unit": number or null — average rent per unit per month,
+  "tenants": [
+    {
+      "tenant_name": "string" or null,
+      "suite_unit": "string" or null — suite/unit number,
+      "rentable_sf": number or null,
+      "lease_start": "YYYY-MM-DD" or null,
+      "lease_end": "YYYY-MM-DD" or null,
+      "monthly_rent": number or null,
+      "annual_rent": number or null,
+      "rent_per_sf": number or null — annual rent per SF,
+      "lease_type": "NNN" or "gross" or "modified_gross" or null,
+      "status": "occupied" or "vacant" or "month_to_month" or "notice_to_vacate" or null
+    }
+  ],
+  "weighted_avg_lease_term_years": number or null — weighted average remaining lease term,
+  "near_term_expirations": [
+    {
+      "tenant_name": "string" or null,
+      "expiration_date": "YYYY-MM-DD" or null,
+      "annual_rent": number or null,
+      "sf": number or null
+    }
+  ] — leases expiring within the next 24 months
+}
+IMPORTANT: Extract every tenant/unit row. For vacant units, include with status "vacant" and null rent fields.
+If computed totals are not on the document, calculate them from the individual rows.`,
+
+  trailing_financials: `Extract ALL of the following fields from this Operating Statement / Trailing Financials
+(T3/T6/T12).
+For dollar amounts, extract as plain numbers. Identify the period type (T3=3 months, T6=6 months, T12=12 months).
+Required JSON schema:
+{
+  "period_type": "T3" or "T6" or "T12" or null — the trailing period (3, 6, or 12 months),
+  "period_start": "YYYY-MM-DD" or null — start of the reporting period,
+  "period_end": "YYYY-MM-DD" or null — end of the reporting period,
+  "property_name": "string" or null — property name or address,
+  "gross_potential_rent": number or null — gross potential rent / scheduled rent,
+  "vacancy_loss": number or null — vacancy and credit loss (as a positive number),
+  "effective_gross_income": number or null — gross potential rent minus vacancy loss,
+  "other_income": number or null — other income (parking, laundry, late fees, etc.),
+  "total_revenue": number or null — total revenue / effective gross income + other income,
+  "real_estate_taxes": number or null,
+  "insurance": number or null,
+  "utilities": number or null,
+  "repairs_maintenance": number or null — repairs and maintenance,
+  "management_fees": number or null,
+  "general_administrative": number or null — G&A / administrative expenses,
+  "other_expenses": number or null — any other operating expenses,
+  "total_expenses": number or null — total operating expenses,
+  "noi": number or null — net operating income (total_revenue minus total_expenses),
+  "capex_reserves": number or null — capital expenditure reserves / replacement reserves,
+  "net_cash_flow": number or null — NOI minus capex reserves,
+  "expense_ratio_pct": number or null — total_expenses / total_revenue × 100,
+  "noi_margin_pct": number or null — NOI / total_revenue × 100,
+  "opex_per_sf": number or null — total_expenses / total building SF (if available),
+  "annualized_noi": number or null — for T3/T6 only: NOI × (12 / period_months),
+  "annualized_revenue": number or null — for T3/T6 only: revenue × (12 / period_months)
+}
+IMPORTANT: If this is a T3 or T6, always calculate and include annualized_noi and annualized_revenue.
+If the document shows both actual and budget columns, extract the ACTUAL column.`,
+
   other: `Extract any structured information you can identify from this document:
 {
   "document_title": "string" or null — the document's title or heading,
@@ -586,9 +741,19 @@ export class DocumentProcessingService {
       extractedText = await extractTextFromPdf(buffer);
 
       if (isScannedPdf(extractedText)) {
-        console.log(`[doc-processing] Scanned PDF detected for "${upload.filename}" — text extraction limited`);
-        // For scanned PDFs, we still proceed with whatever text we got
-        // Full OCR (Tesseract.js or API) can be added as a future enhancement
+        console.log(`[doc-processing] Scanned PDF detected for "${upload.filename}" — attempting OCR fallback`);
+        try {
+          const ocrText = await ocrPdfBuffer(buffer);
+          if (ocrText && ocrText.length >= MIN_TEXT_FOR_EXTRACTION) {
+            extractedText = ocrText;
+            console.log(`[doc-processing] OCR extracted ${ocrText.length} chars from "${upload.filename}"`);
+          } else {
+            console.log(`[doc-processing] OCR yielded insufficient text for "${upload.filename}"`);
+          }
+        } catch (ocrErr) {
+          console.error(`[doc-processing] OCR fallback failed for "${upload.filename}":`, ocrErr);
+          // Continue with whatever text we have — OCR is best-effort
+        }
       }
     } else if (isDoc) {
       // Word docs — we can't easily extract text server-side without heavy deps
