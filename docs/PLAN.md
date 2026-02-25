@@ -70,7 +70,7 @@ You: "Run the triage and build me a hearing deck"
 
 ### The Agent Layer (OpenAI Agents SDK — TypeScript)
 
-Port the 12-agent architecture using `@openai/agents` (the TypeScript Agents SDK, now production-ready on npm). This gives us:
+Port the legacy agent architecture using `@openai/agents` (the TypeScript Agents SDK, now production-ready on npm). This gives us:
 
 - **Agents** with system prompts, model configs, and tool lists
 - **Handoffs** — Coordinator delegates to specialists, specialists can delegate to each other
@@ -78,23 +78,26 @@ Port the 12-agent architecture using `@openai/agents` (the TypeScript Agents SDK
 - **Function tools** — any TypeScript function becomes a callable tool with Zod schema
 - **Tracing** — built-in observability for debugging
 
-**Agents (v1.0):**
+**Agents (shipped — 14 total):**
 
-| Agent | Model | Role | Key Tools |
-|-------|-------|------|-----------|
-| **Coordinator** | GPT-5.2 | Routes requests, synthesizes multi-agent results, manages deal context | `get_deal_context`, `update_deal_status`, `create_task` |
-| **Legal / Entitlements** | GPT-5.2 | Zoning analysis, permit tracking, entitlement path planning | `zoning_matrix_lookup`, `parish_pack_lookup`, `analyze_zoning_entitlements`, `create_permit_record` |
-| **Research** | GPT-5.2 | Parcel research, market data, comparables | `web_search`, `search_parcels`, `research_parcel`, `evidence_snapshot` |
-| **Risk** | GPT-5.1 | Flood, environmental, market risk assessment | `flood_zone_lookup`, `environmental_check`, `evidence_snapshot` |
-| **Finance** | GPT-5.2 | Pro formas, debt sizing, deal economics | `build_proforma`, `size_debt`, `run_sensitivity` |
-| **Deal Screener** | GPT-5.1 | Parcel triage scoring (KILL/HOLD/ADVANCE) | `parcel_triage_score`, `hard_filter_check` |
-| **Design** | GPT-5.1 | Site planning, development capacity | `calculate_development_capacity`, `estimate_construction_cost` |
-| **Operations** | GPT-5.1 | Scheduling, budgets, contractor evaluation | `create_schedule`, `track_costs` |
-| **Marketing** | GPT-5.1 | Buyer outreach, offering memos, teasers | `generate_listing`, `create_offering_memo`, `build_buyer_list` |
-| **Tax Strategist** | GPT-5.1 | IRC guidance, 1031 exchanges, depreciation | `lookup_irc_reference`, `web_search` |
-| **Market Intel** | GPT-5.1 | Competitor tracking, absorption, economic indicators | `web_search`, `market_snapshot` |
+| Agent | Model | Role |
+|-------|-------|------|
+| **Coordinator** | GPT-5.2 | Routes requests, synthesizes multi-agent results, manages deal context |
+| **Finance** | GPT-5.2 | Pro formas, debt sizing, IRR/equity analysis |
+| **Legal** | GPT-5.2 | Zoning, entitlements, Louisiana civil law |
+| **Research** | GPT-5.2 | Land scouting, market analysis, comps |
+| **Risk** | GPT-5.1 | Flood, environmental, financial, regulatory risk |
+| **Screener** | GPT-5.1 | Triage scoring (KILL/HOLD/ADVANCE) |
+| **Due Diligence** | GPT-5.1 | Phase checklists, red flags, document tracking |
+| **Entitlements** | GPT-5.1 | Permit tracking, CUP/rezoning paths |
+| **Design** | GPT-5.1 | Site planning, density optimization |
+| **Operations** | GPT-5.1 | Construction scheduling, budgets |
+| **Marketing** | GPT-5.1 | Buyer outreach, leasing strategy |
+| **Tax Strategist** | GPT-5.1 | IRC 1031, depreciation, cost segregation |
+| **Market Intel** | GPT-5.1 | Competitor tracking, absorption trends |
+| **Market Trajectory** | GPT-5.1 | Neighborhood trajectory, permit heatmaps, gentrification indicators |
 
-Agents not needed for v1.0 (Design, Operations, Marketing, Tax, Market Intel) ship with basic prompts and tools — they work in chat but don't have the deep entitlement-specific tooling. They grow over time as you use them and discover what's missing.
+All 14 agents have tools wired via `createConfiguredCoordinator()`. See `docs/claude/architecture.md` for the full agent table and tool counts.
 
 ### The Tools Layer (Entitlement-Specific Capabilities)
 
@@ -484,7 +487,7 @@ Wire minimal tools so agents can do something useful from day one:
 | 8 rigid pipeline phases | **Conversational flow** — agents decide what to do based on what you ask |
 | No conversational interface | **Chat is the home page** |
 | OpenAI Agents SDK deferred to "future" | **OpenAI Agents SDK (TypeScript) adopted now** as the core architecture |
-| All 12 agents rebuilt from scratch | **12 agents ported** from legacy Python prompts + logic |
+| All 12 agents rebuilt from scratch | **14 agents shipped** (12 ported from legacy Python + 2 new: Due Diligence, Market Trajectory) |
 | Old dashboard discarded | **Old CopilotPanel pattern** used as chat prototype |
 
 ---
