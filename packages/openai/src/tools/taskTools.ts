@@ -6,7 +6,7 @@ export const createTask = tool({
   name: "create_task",
   description: "Create a task on a deal (e.g. 'Pre-app meeting with planning dept')",
   parameters: z.object({
-    orgId: z.string().describe("The org ID for security scoping"),
+    orgId: z.string().uuid().describe("The org ID for security scoping"),
     dealId: z.string().describe("The deal this task belongs to"),
     title: z.string().min(1).describe("Task title"),
     description: z.string().nullable().describe("Detailed task description"),
@@ -57,7 +57,7 @@ export const updateTask = tool({
   name: "update_task",
   description: "Update a task's status or details",
   parameters: z.object({
-    orgId: z.string().describe("The org ID for security scoping"),
+    orgId: z.string().uuid().describe("The org ID for security scoping"),
     taskId: z.string().describe("The task ID to update"),
     status: z
       .enum(["TODO", "IN_PROGRESS", "BLOCKED", "DONE", "CANCELED"])
@@ -100,7 +100,7 @@ export const listTasks = tool({
   name: "list_tasks",
   description: "List tasks for a deal, optionally filtered by status",
   parameters: z.object({
-    orgId: z.string().describe("The org ID for security scoping"),
+    orgId: z.string().uuid().describe("The org ID for security scoping"),
     dealId: z.string().describe("The deal ID to list tasks for"),
     status: z
       .enum(["TODO", "IN_PROGRESS", "BLOCKED", "DONE", "CANCELED"])
