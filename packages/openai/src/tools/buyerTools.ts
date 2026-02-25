@@ -6,7 +6,7 @@ export const addBuyer = tool({
   name: "add_buyer",
   description: "Add a new buyer to the database",
   parameters: z.object({
-    orgId: z.string().uuid().describe("The org ID for security scoping"),
+    orgId: z.string().describe("The org ID for security scoping"),
     name: z.string().min(1).describe("Buyer's full name"),
     company: z.string().nullable().describe("Buyer's company name"),
     email: z.string().nullable().describe("Buyer's email address"),
@@ -19,7 +19,7 @@ export const addBuyer = tool({
       .min(1)
       .describe("SKU types this buyer is interested in"),
     jurisdictionInterests: z
-      .array(z.string().uuid())
+      .array(z.string())
       .nullable()
       .describe("Jurisdiction IDs this buyer is interested in"),
     notes: z.string().nullable().describe("Additional notes about the buyer"),
@@ -57,7 +57,7 @@ export const searchBuyers = tool({
   description:
     "Search buyers by SKU interest, jurisdiction interest, buyer type, or name",
   parameters: z.object({
-    orgId: z.string().uuid().describe("The org ID for security scoping"),
+    orgId: z.string().describe("The org ID for security scoping"),
     sku: z
       .enum(["SMALL_BAY_FLEX", "OUTDOOR_STORAGE", "TRUCK_PARKING"])
       .nullable()
@@ -115,9 +115,9 @@ export const logOutreach = tool({
   name: "log_outreach",
   description: "Record a contact attempt with a buyer for a specific deal",
   parameters: z.object({
-    orgId: z.string().uuid().describe("The org ID for security scoping"),
-    dealId: z.string().uuid().describe("The deal this outreach is for"),
-    buyerId: z.string().uuid().describe("The buyer being contacted"),
+    orgId: z.string().describe("The org ID for security scoping"),
+    dealId: z.string().describe("The deal this outreach is for"),
+    buyerId: z.string().describe("The buyer being contacted"),
     channel: z
       .enum(["call", "email", "text", "in_person"])
       .describe("Communication channel used"),

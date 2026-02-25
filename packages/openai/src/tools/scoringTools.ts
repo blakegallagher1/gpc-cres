@@ -6,7 +6,7 @@ export const parcelTriageScore = tool({
   description:
     "Run triage scoring on a parcel to determine KILL/HOLD/ADVANCE decision. Analyzes zoning compatibility, acreage, location, and known risk factors.",
   parameters: z.object({
-    dealId: z.string().uuid().describe("The deal this parcel belongs to"),
+    dealId: z.string().describe("The deal this parcel belongs to"),
     address: z.string().min(1).describe("Parcel address"),
     currentZoning: z
       .string()

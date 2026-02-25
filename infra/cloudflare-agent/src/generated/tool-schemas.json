@@ -1,0 +1,3072 @@
+[
+  {
+    "type": "function",
+    "name": "query_org_sql",
+    "description": "Run a read-only SQL analytics query against the Entitlement OS Postgres database. Use this for counting, grouping, filtering, and joining org-scoped records when a normal lookup tool is insufficient. Strict rules: SELECT/CTE only, allowed tables only, and SQL MUST include the {{org_id}} placeholder for org scoping.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "orgId": {
+          "type": "string",
+          "description": "Organization ID for mandatory data scoping."
+        },
+        "sql": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8000,
+          "description": "Read-only SQL. Must start with SELECT or WITH, no semicolons, and must include {{org_id}} where org scope is applied."
+        },
+        "limit": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Max rows to return after query execution (default 100)."
+        }
+      },
+      "required": [
+        "orgId",
+        "sql",
+        "limit"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "get_deal_context",
+    "description": "Get full context for a deal including parcels, tasks, latest triage, and artifacts",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "orgId": {
+          "type": "string",
+          "description": "The org ID for security scoping"
+        },
+        "dealId": {
+          "type": "string",
+          "description": "The deal ID"
+        }
+      },
+      "required": [
+        "orgId",
+        "dealId"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "list_deals",
+    "description": "List deals with optional filters by status and/or SKU type",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "orgId": {
+          "type": "string",
+          "description": "The org ID for security scoping"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "INTAKE",
+                "TRIAGE_DONE",
+                "PREAPP",
+                "CONCEPT",
+                "NEIGHBORS",
+                "SUBMITTED",
+                "HEARING",
+                "APPROVED",
+                "EXIT_MARKETED",
+                "EXITED",
+                "KILLED"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Filter by deal status"
+        },
+        "sku": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "SMALL_BAY_FLEX",
+                "OUTDOOR_STORAGE",
+                "TRUCK_PARKING"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Filter by SKU type"
+        },
+        "limit": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Maximum number of deals to return (default 20)"
+        }
+      },
+      "required": [
+        "orgId",
+        "status",
+        "sku",
+        "limit"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "create_deal",
+    "description": "Create a new deal with a name, SKU type, and jurisdiction",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "orgId": {
+          "type": "string",
+          "description": "The org ID for security scoping"
+        },
+        "createdBy": {
+          "type": "string",
+          "description": "The user ID creating the deal"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Name of the deal"
+        },
+        "sku": {
+          "type": "string",
+          "enum": [
+            "SMALL_BAY_FLEX",
+            "OUTDOOR_STORAGE",
+            "TRUCK_PARKING"
+          ],
+          "description": "The SKU type for this deal"
+        },
+        "jurisdictionId": {
+          "type": "string",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+          "description": "The jurisdiction this deal falls under"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional notes for the deal"
+        },
+        "targetCloseDate": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional target close date (ISO 8601)"
+        }
+      },
+      "required": [
+        "orgId",
+        "createdBy",
+        "name",
+        "sku",
+        "jurisdictionId",
+        "notes",
+        "targetCloseDate"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "update_deal_status",
+    "description": "Update the status of a deal (e.g. INTAKE -> TRIAGE_DONE)",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "orgId": {
+          "type": "string",
+          "description": "The org ID for security scoping"
+        },
+        "dealId": {
+          "type": "string",
+          "description": "The deal ID to update"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "INTAKE",
+            "TRIAGE_DONE",
+            "PREAPP",
+            "CONCEPT",
+            "NEIGHBORS",
+            "SUBMITTED",
+            "HEARING",
+            "APPROVED",
+            "EXIT_MARKETED",
+            "EXITED",
+            "KILLED"
+          ],
+          "description": "The new deal status"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional notes about the status change"
+        },
+        "confirmed": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Required true for high-impact status transitions"
+        }
+      },
+      "required": [
+        "orgId",
+        "dealId",
+        "status",
+        "notes",
+        "confirmed"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "create_task",
+    "description": "Create a task on a deal (e.g. 'Pre-app meeting with planning dept')",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "orgId": {
+          "type": "string",
+          "description": "The org ID for security scoping"
+        },
+        "dealId": {
+          "type": "string",
+          "description": "The deal this task belongs to"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Task title"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Detailed task description"
+        },
+        "pipelineStep": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8,
+          "description": "Pipeline step (1=Intake, 2=Triage, 3=PreApp, 4=Concept, 5=Neighbors, 6=Submitted, 7=Hearing, 8=Approved)"
+        },
+        "dueAt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional due date (ISO 8601 datetime)"
+        },
+        "ownerUserId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional user ID to assign this task to"
+        }
+      },
+      "required": [
+        "orgId",
+        "dealId",
+        "title",
+        "description",
+        "pipelineStep",
+        "dueAt",
+        "ownerUserId"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "update_task",
+    "description": "Update a task's status or details",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "orgId": {
+          "type": "string",
+          "description": "The org ID for security scoping"
+        },
+        "taskId": {
+          "type": "string",
+          "description": "The task ID to update"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "TODO",
+                "IN_PROGRESS",
+                "BLOCKED",
+                "DONE",
+                "CANCELED"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "New task status"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Updated task title"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Updated task description"
+        },
+        "dueAt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Updated due date (ISO 8601 datetime)"
+        },
+        "ownerUserId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Updated owner user ID"
+        }
+      },
+      "required": [
+        "orgId",
+        "taskId",
+        "status",
+        "title",
+        "description",
+        "dueAt",
+        "ownerUserId"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "list_tasks",
+    "description": "List tasks for a deal, optionally filtered by status",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "orgId": {
+          "type": "string",
+          "description": "The org ID for security scoping"
+        },
+        "dealId": {
+          "type": "string",
+          "description": "The deal ID to list tasks for"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "TODO",
+                "IN_PROGRESS",
+                "BLOCKED",
+                "DONE",
+                "CANCELED"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Filter by task status"
+        }
+      },
+      "required": [
+        "orgId",
+        "dealId",
+        "status"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "search_parcels",
+    "description": "Search for parcels by address. Geocodes the address to coordinates, then searches the Louisiana Property Database for parcels near that location. Returns parcel numbers, owners, addresses, and areas. For a known parcel number, use get_parcel_details instead.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "search_text": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Street address to search for (e.g. '222 St Louis St, Baton Rouge, LA')"
+        },
+        "parish": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Parish name to append to the search for better geocoding accuracy (e.g. 'East Baton Rouge')"
+        },
+        "limit_rows": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Max parcels to return (default 10)"
+        }
+      },
+      "required": [
+        "search_text",
+        "parish",
+        "limit_rows"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "get_parcel_details",
+    "description": "Get full details for a specific parcel by its parcel number (e.g. '001-5096-7'). Returns owner info, address, area, assessed value, and geometry.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "parcel_id": {
+          "type": "string",
+          "description": "The parcel number (e.g. '001-5096-7')"
+        }
+      },
+      "required": [
+        "parcel_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "update_parcel",
+    "description": "Update an existing parcel with enriched data (coordinates, APN, acreage, zoning, etc.). Use this after scanning the property database and getting user approval to associate the findings with the deal.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "orgId": {
+          "type": "string",
+          "description": "The org ID for security scoping"
+        },
+        "parcelId": {
+          "type": "string",
+          "description": "The parcel ID to update"
+        },
+        "apn": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Assessor parcel number"
+        },
+        "lat": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Latitude"
+        },
+        "lng": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Longitude"
+        },
+        "acreage": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Acreage of the parcel"
+        },
+        "currentZoning": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Current zoning code (e.g. A1, C2, M1)"
+        },
+        "futureLandUse": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Future land use designation"
+        },
+        "utilitiesNotes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Notes about utility access"
+        },
+        "floodZone": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "FEMA flood zone code (e.g. X, AE, A)"
+        },
+        "soilsNotes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Summary of soil conditions from screening"
+        },
+        "wetlandsNotes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Summary of wetland status from screening"
+        },
+        "envNotes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Summary of environmental screening (EPA/LDEQ findings)"
+        },
+        "trafficNotes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Summary of traffic/access data from screening"
+        },
+        "propertyDbId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The parcel UUID from the Louisiana Property Database, for cross-reference"
+        }
+      },
+      "required": [
+        "orgId",
+        "parcelId",
+        "apn",
+        "lat",
+        "lng",
+        "acreage",
+        "currentZoning",
+        "futureLandUse",
+        "utilitiesNotes",
+        "floodZone",
+        "soilsNotes",
+        "wetlandsNotes",
+        "envNotes",
+        "trafficNotes",
+        "propertyDbId"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "generate_artifact",
+    "description": "Generate a professional document (PDF or PPTX) for a deal and store it. Supports: TRIAGE_PDF, SUBMISSION_CHECKLIST_PDF, HEARING_DECK_PPTX, IC_DECK_PPTX, EXIT_PACKAGE_PDF, BUYER_TEASER_PDF, INVESTMENT_MEMO_PDF, OFFERING_MEMO_PDF, COMP_ANALYSIS_PDF. The deal must meet the stage prerequisite for the requested type. Returns artifact ID, version, and download URL on success.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "orgId": {
+          "type": "string",
+          "description": "The org ID for security scoping"
+        },
+        "dealId": {
+          "type": "string",
+          "description": "The deal ID to generate artifact for"
+        },
+        "artifactType": {
+          "type": "string",
+          "enum": [
+            "TRIAGE_PDF",
+            "SUBMISSION_CHECKLIST_PDF",
+            "HEARING_DECK_PPTX",
+            "IC_DECK_PPTX",
+            "EXIT_PACKAGE_PDF",
+            "BUYER_TEASER_PDF",
+            "INVESTMENT_MEMO_PDF",
+            "OFFERING_MEMO_PDF",
+            "COMP_ANALYSIS_PDF"
+          ],
+          "description": "Type of artifact to generate"
+        },
+        "comparisonDealIds": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "For COMP_ANALYSIS_PDF only: IDs of deals to compare against. Null for other types."
+        }
+      },
+      "required": [
+        "orgId",
+        "dealId",
+        "artifactType",
+        "comparisonDealIds"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "search_knowledge_base",
+    "description": "Search the firm's historical knowledge base for relevant past deals, analyses, and learnings using semantic similarity. Use this when analyzing a new deal to find patterns from similar past deals, check for precedent in entitlement decisions, reference market analyses, or recall past agent findings. Results include the matched text, source type, similarity score, and temporal relevance. IMPORTANT: Always search the knowledge base before making recommendations to check for relevant precedent and avoid repeating past mistakes.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "Natural language search query describing what you're looking for."
+        },
+        "content_types": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "deal_memo",
+                  "agent_analysis",
+                  "document_extraction",
+                  "market_report",
+                  "user_note",
+                  "outcome_record",
+                  "reasoning_trace"
+                ]
+              }
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional filter by content type. Pass null to search all types. New types: 'outcome_record' for historical deal results, 'reasoning_trace' for past agent reasoning chains."
+        },
+        "limit": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Maximum number of results to return (default 5)."
+        },
+        "deal_context": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "parish": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Parish name for geographic relevance."
+                },
+                "sku_type": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "SKU type for use-case relevance."
+                },
+                "deal_status": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Current deal status for stage relevance."
+                }
+              },
+              "required": [
+                "parish",
+                "sku_type",
+                "deal_status"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional deal context to boost relevance scoring. Providing context helps find more relevant precedents."
+        },
+        "recency_weight": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "none",
+                "moderate",
+                "strong"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "How much to weight recent entries over older ones. 'strong' heavily favors recent data (useful for market conditions). 'none' treats all entries equally (useful for legal/regulatory precedent). Default: 'moderate'."
+        }
+      },
+      "required": [
+        "query",
+        "content_types",
+        "limit",
+        "deal_context",
+        "recency_weight"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "store_knowledge_entry",
+    "description": "Store a learning, analysis conclusion, or reasoning trace in the knowledge base for future reference. Use this when you discover a pattern, reach an important conclusion, or learn something that would be valuable for future deal analyses. This builds the firm's institutional memory over time.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "content_type": {
+          "type": "string",
+          "enum": [
+            "agent_analysis",
+            "market_report",
+            "outcome_record",
+            "reasoning_trace"
+          ],
+          "description": "Type of knowledge being stored."
+        },
+        "title": {
+          "type": "string",
+          "description": "Short descriptive title for this knowledge entry."
+        },
+        "content": {
+          "type": "string",
+          "description": "The knowledge content to store. Be specific and include quantitative data."
+        },
+        "deal_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Associated deal ID, if applicable."
+        },
+        "parish": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Associated parish, if applicable."
+        },
+        "sku_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Associated SKU type, if applicable."
+        },
+        "tags": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Searchable tags for categorization."
+        },
+        "source_agent": {
+          "type": "string",
+          "description": "Name of the agent storing this knowledge."
+        }
+      },
+      "required": [
+        "content_type",
+        "title",
+        "content",
+        "deal_id",
+        "parish",
+        "sku_type",
+        "tags",
+        "source_agent"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "get_shared_context",
+    "description": "Retrieve analysis findings shared by other specialist agents for a deal. Use this at the start of your analysis to check what other agents have already discovered, and periodically during analysis to incorporate new findings. This enables collaborative reasoning where each agent builds on others' work instead of analyzing in isolation.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "deal_id": {
+          "type": "string",
+          "description": "The deal ID to retrieve shared context for."
+        },
+        "categories": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "risk_factor",
+                  "market_insight",
+                  "financial_constraint",
+                  "legal_requirement",
+                  "design_constraint",
+                  "timeline_impact",
+                  "cost_impact",
+                  "opportunity"
+                ]
+              }
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Filter by finding categories. Pass null to get all categories."
+        },
+        "min_confidence": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "high",
+                "medium",
+                "low"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Minimum confidence level to include. 'high' returns only high-confidence findings. Pass null to include all confidence levels."
+        }
+      },
+      "required": [
+        "deal_id",
+        "categories",
+        "min_confidence"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "share_analysis_finding",
+    "description": "Publish an analysis finding to the shared context so other specialist agents can reference it. Use this when you discover something that would be relevant to other agents' analyses — for example, Risk agent discovering flood zone issues that Finance should factor into insurance costs, or Research finding market data that Design should consider for site planning. Include a confidence level and any caveats.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "deal_id": {
+          "type": "string",
+          "description": "The deal ID this finding relates to."
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "risk_factor",
+            "market_insight",
+            "financial_constraint",
+            "legal_requirement",
+            "design_constraint",
+            "timeline_impact",
+            "cost_impact",
+            "opportunity"
+          ],
+          "description": "Category of the finding for routing to relevant agents."
+        },
+        "finding": {
+          "type": "string",
+          "description": "Clear, specific description of the finding. Include quantitative data where available."
+        },
+        "confidence": {
+          "type": "string",
+          "enum": [
+            "high",
+            "medium",
+            "low"
+          ],
+          "description": "Confidence level in this finding based on evidence quality."
+        },
+        "source_agent": {
+          "type": "string",
+          "description": "Name of the agent publishing this finding."
+        },
+        "affected_agents": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "List of agent names that should pay attention to this finding. Pass null to broadcast to all agents."
+        },
+        "evidence_refs": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional evidence reference IDs supporting this finding."
+        }
+      },
+      "required": [
+        "deal_id",
+        "category",
+        "finding",
+        "confidence",
+        "source_agent",
+        "affected_agents",
+        "evidence_refs"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "assess_uncertainty",
+    "description": "Quantify the uncertainty in your current analysis and identify what information would most reduce it. Use this before making final recommendations to ensure you've identified the key unknowns. This drives autonomous information-seeking behavior — the system can then prioritize gathering the most impactful missing data.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "deal_id": {
+          "type": "string",
+          "description": "The deal ID this assessment relates to."
+        },
+        "analysis_area": {
+          "type": "string",
+          "description": "The domain being analyzed (e.g., 'financial_viability', 'entitlement_risk')."
+        },
+        "known_facts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Facts that are established with high confidence."
+        },
+        "unknown_factors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "factor": {
+                "type": "string",
+                "description": "The unknown factor."
+              },
+              "impact": {
+                "type": "string",
+                "enum": [
+                  "critical",
+                  "high",
+                  "medium",
+                  "low"
+                ],
+                "description": "How much this unknown affects the conclusion."
+              },
+              "reducible": {
+                "type": "boolean",
+                "description": "Whether this uncertainty can be reduced with more data/research."
+              },
+              "suggested_action": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "What action would reduce this uncertainty."
+              }
+            },
+            "required": [
+              "factor",
+              "impact",
+              "reducible",
+              "suggested_action"
+            ],
+            "additionalProperties": false
+          },
+          "description": "Factors that are unknown or uncertain."
+        },
+        "overall_confidence": {
+          "type": "number",
+          "description": "Overall confidence in the analysis given current unknowns (0.0 to 1.0)."
+        },
+        "recommendation_robustness": {
+          "type": "string",
+          "enum": [
+            "robust",
+            "sensitive",
+            "fragile"
+          ],
+          "description": "How sensitive the recommendation is to the unknowns. 'robust' = conclusion holds regardless. 'sensitive' = might change with new info. 'fragile' = likely to change."
+        }
+      },
+      "required": [
+        "deal_id",
+        "analysis_area",
+        "known_facts",
+        "unknown_factors",
+        "overall_confidence",
+        "recommendation_robustness"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "request_reanalysis",
+    "description": "Signal that new information has been discovered that may invalidate a previous analysis conclusion, and request targeted re-analysis from the appropriate agent. Use this when your findings contradict or significantly modify another agent's earlier conclusions. This enables iterative refinement and self-correction.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "deal_id": {
+          "type": "string",
+          "description": "The deal ID this request relates to."
+        },
+        "target_agent": {
+          "type": "string",
+          "description": "The agent whose analysis should be re-evaluated."
+        },
+        "original_conclusion": {
+          "type": "string",
+          "description": "The previous conclusion that may need revision."
+        },
+        "new_information": {
+          "type": "string",
+          "description": "The new information that challenges the original conclusion."
+        },
+        "suggested_focus": {
+          "type": "string",
+          "description": "What specific aspect should the re-analysis focus on."
+        },
+        "urgency": {
+          "type": "string",
+          "enum": [
+            "blocking",
+            "important",
+            "informational"
+          ],
+          "description": "How urgently re-analysis is needed. 'blocking' = deal decision cannot proceed without it. 'important' = should be done before final recommendation. 'informational' = nice to have but not critical."
+        }
+      },
+      "required": [
+        "deal_id",
+        "target_agent",
+        "original_conclusion",
+        "new_information",
+        "suggested_focus",
+        "urgency"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "record_deal_outcome",
+    "description": "Record the actual outcome of a deal that was previously scored/triaged. This closes the feedback loop between predictions and reality, enabling the system to learn from experience. Record outcomes when a deal reaches a terminal state (closed successfully, abandoned, or failed). Also record projection accuracy for specific financial metrics.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "deal_id": {
+          "type": "string",
+          "description": "The deal ID whose outcome is being recorded."
+        },
+        "actual_outcome": {
+          "type": "string",
+          "enum": [
+            "SUCCESS",
+            "PARTIAL",
+            "FAILURE"
+          ],
+          "description": "The actual outcome. SUCCESS = deal closed profitably as projected. PARTIAL = deal closed but with significant deviation from projections. FAILURE = deal abandoned or resulted in loss."
+        },
+        "outcome_notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Free-text notes on what drove the outcome."
+        },
+        "projection_actuals": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "metric": {
+                    "type": "string",
+                    "description": "The metric name (e.g., 'rent_growth', 'construction_cost', 'noi', 'exit_cap_rate')."
+                  },
+                  "predicted": {
+                    "type": "number",
+                    "description": "The value that was projected/predicted."
+                  },
+                  "actual": {
+                    "type": "number",
+                    "description": "The actual value observed."
+                  }
+                },
+                "required": [
+                  "metric",
+                  "predicted",
+                  "actual"
+                ],
+                "additionalProperties": false
+              }
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Specific projection vs actual comparisons for financial metrics. Pass null if no specific metric comparisons are available."
+        }
+      },
+      "required": [
+        "deal_id",
+        "actual_outcome",
+        "outcome_notes",
+        "projection_actuals"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "log_reasoning_trace",
+    "description": "Record your reasoning chain for a specific analysis step. Use this to document WHY you reached a conclusion, what alternatives you considered, and what would change your mind. This enables the system to learn from reasoning patterns and helps other agents understand the basis for your findings.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "deal_id": {
+          "type": "string",
+          "description": "The deal ID this reasoning relates to."
+        },
+        "step": {
+          "type": "string",
+          "description": "Short label for this reasoning step (e.g., 'flood_risk_assessment')."
+        },
+        "hypothesis": {
+          "type": "string",
+          "description": "The hypothesis or question being evaluated."
+        },
+        "evidence_for": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Evidence supporting the hypothesis."
+        },
+        "evidence_against": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Evidence contradicting or weakening the hypothesis."
+        },
+        "conclusion": {
+          "type": "string",
+          "description": "Your conclusion based on weighing the evidence."
+        },
+        "confidence": {
+          "type": "number",
+          "description": "Confidence in this conclusion (0.0 to 1.0)."
+        },
+        "assumptions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Key assumptions underlying this conclusion that could be wrong."
+        },
+        "invalidation_triggers": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Specific conditions that would invalidate this conclusion and require re-analysis. Pass null if none identified."
+        }
+      },
+      "required": [
+        "deal_id",
+        "step",
+        "hypothesis",
+        "evidence_for",
+        "evidence_against",
+        "conclusion",
+        "confidence",
+        "assumptions",
+        "invalidation_triggers"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "recommend_entitlement_path",
+    "description": "Recommend an entitlement strategy path with approval probability, timeline, costs, ranked alternatives, and risk flags.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "jurisdiction_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sku": {
+          "type": "string"
+        },
+        "proposed_use": {
+          "type": "string"
+        },
+        "site_constraints": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "risk_tolerance": {
+          "type": "string",
+          "enum": [
+            "conservative",
+            "moderate",
+            "aggressive"
+          ]
+        }
+      },
+      "required": [
+        "jurisdiction_id",
+        "sku",
+        "proposed_use",
+        "site_constraints",
+        "risk_tolerance"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "analyze_comparable_sales",
+    "description": "Analyze comparable sales with time adjustments and return valuation range, recommended offer, and market strength.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "parcel_address": {
+          "type": "string"
+        },
+        "acreage": {
+          "type": "number"
+        },
+        "sku_type": {
+          "type": "string"
+        },
+        "comps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "address": {
+                "type": "string"
+              },
+              "salePrice": {
+                "type": "number"
+              },
+              "acreage": {
+                "type": "number"
+              },
+              "saleDate": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "address",
+              "salePrice",
+              "acreage",
+              "saleDate"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "parcel_address",
+        "acreage",
+        "sku_type",
+        "comps"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "optimize_debt_structure",
+    "description": "Rank debt structures and return conservative/moderate/aggressive options with equity, DSCR, levered IRR, and risk score.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "purchase_price": {
+          "type": "number"
+        },
+        "noi": {
+          "type": "number"
+        },
+        "available_equity": {
+          "type": "number"
+        },
+        "risk_tolerance": {
+          "type": "string",
+          "enum": [
+            "conservative",
+            "moderate",
+            "aggressive"
+          ]
+        },
+        "debt_options": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "lenderType": {
+                "type": "string"
+              },
+              "maxLoan": {
+                "type": "number"
+              },
+              "interestRate": {
+                "type": "number"
+              },
+              "term": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "dscrRequired": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "lenderType",
+              "maxLoan",
+              "interestRate",
+              "term",
+              "dscrRequired"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "purchase_price",
+        "noi",
+        "available_equity",
+        "risk_tolerance",
+        "debt_options"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "estimate_phase_ii_scope",
+    "description": "Estimate Phase II ESA scope, timeline, cost bands, remediation risk, and probable remediation range from Phase I RECs.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "phase_i_recs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "site_acreage": {
+          "type": "number"
+        },
+        "groundwater_depth": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "phase_i_recs",
+        "site_acreage",
+        "groundwater_depth"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "analyze_title_commitment",
+    "description": "Analyze title commitment text and return categorized exceptions, lien severity, easement impact, insurance estimate, and cure plan.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "title_commitment_text": {
+          "type": "string"
+        },
+        "deal_type": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "title_commitment_text",
+        "deal_type"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "generate_zoning_compliance_checklist",
+    "description": "Generate requirement-level zoning compliance matrix with variance counts, likelihood, and aggregate variance timing/cost estimates.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "jurisdiction_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sku": {
+          "type": "string"
+        },
+        "current_zoning": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "site_constraints": {
+          "type": "object",
+          "properties": {
+            "acreage": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "proposed_height": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "parking_spaces": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "far": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "acreage",
+            "proposed_height",
+            "parking_spaces",
+            "far"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "jurisdiction_id",
+        "sku",
+        "current_zoning",
+        "site_constraints"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "predict_entitlement_path",
+    "description": "Predict probability-of-approval and expected time-to-approval for each entitlement strategy path (e.g., by-right, CUP, rezoning, variance) in a jurisdiction. Uses historical precedent outcomes and persists prediction snapshots for auditability. Use this before choosing an entitlement strategy to compare certainty vs speed.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "orgId": {
+          "type": "string",
+          "description": "The org ID for security scoping."
+        },
+        "jurisdictionId": {
+          "type": "string",
+          "description": "Jurisdiction to model."
+        },
+        "dealId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional deal scope filter."
+        },
+        "sku": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "SMALL_BAY_FLEX",
+                "OUTDOOR_STORAGE",
+                "TRUCK_PARKING"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional SKU filter for strategy relevance."
+        },
+        "applicationType": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional application type filter (e.g., CUP, REZONING, VARIANCE)."
+        },
+        "lookbackMonths": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 240
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "How many months of precedents to include (default 36)."
+        },
+        "minSampleSize": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Minimum samples for a strategy path (default 1)."
+        },
+        "includeBelowMinSample": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Whether to include low-sample strategies in output (default true)."
+        },
+        "persistSnapshot": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Whether to persist prediction snapshots (default true)."
+        },
+        "modelVersion": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional model version tag for snapshot lineage."
+        }
+      },
+      "required": [
+        "orgId",
+        "jurisdictionId",
+        "dealId",
+        "sku",
+        "applicationType",
+        "lookbackMonths",
+        "minSampleSize",
+        "includeBelowMinSample",
+        "persistSnapshot",
+        "modelVersion"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "get_entitlement_feature_primitives",
+    "description": "Retrieve entitlement feature primitives from precedent outcomes and graph relationships, including strategy/hearing-body rates, timeline distributions, top risk flags, graph coverage, and calibration diagnostics for confidence quality checks.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "orgId": {
+          "type": "string",
+          "description": "The org ID for security scoping."
+        },
+        "jurisdictionId": {
+          "type": "string",
+          "description": "Jurisdiction to analyze."
+        },
+        "dealId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional deal scope filter."
+        },
+        "sku": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "SMALL_BAY_FLEX",
+                "OUTDOOR_STORAGE",
+                "TRUCK_PARKING"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional SKU filter for strategy relevance."
+        },
+        "applicationType": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional application type filter (e.g., CUP, REZONING, VARIANCE)."
+        },
+        "hearingBody": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional hearing body filter (e.g., Planning Commission, Metro Council)."
+        },
+        "strategyKeys": {
+          "anyOf": [
+            {
+              "maxItems": 200,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              }
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional strategy-path keys to include."
+        },
+        "lookbackMonths": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 240
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "How many months of precedents to include (default 36)."
+        },
+        "minSampleSize": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Minimum records per grouped feature row (default 3)."
+        },
+        "recordLimit": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 5000
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Max precedent records to process (default 1000)."
+        }
+      },
+      "required": [
+        "orgId",
+        "jurisdictionId",
+        "dealId",
+        "sku",
+        "applicationType",
+        "hearingBody",
+        "strategyKeys",
+        "lookbackMonths",
+        "minSampleSize",
+        "recordLimit"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "get_entitlement_intelligence_kpis",
+    "description": "Retrieve entitlement forecast-quality KPIs including median decision timeline, timeline forecast error (MAE), approval calibration gap, and strategy/month trend diagnostics.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "orgId": {
+          "type": "string",
+          "description": "The org ID for security scoping."
+        },
+        "jurisdictionId": {
+          "type": "string",
+          "description": "Jurisdiction to analyze."
+        },
+        "dealId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional deal scope filter."
+        },
+        "sku": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "SMALL_BAY_FLEX",
+                "OUTDOOR_STORAGE",
+                "TRUCK_PARKING"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional SKU filter."
+        },
+        "applicationType": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional application type filter (e.g., CUP, REZONING, VARIANCE)."
+        },
+        "hearingBody": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional hearing body filter (e.g., Planning Commission, Metro Council)."
+        },
+        "strategyKeys": {
+          "anyOf": [
+            {
+              "maxItems": 200,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              }
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional strategy-path keys to include."
+        },
+        "lookbackMonths": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 240
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "How many months of precedent outcomes to include (default 36)."
+        },
+        "snapshotLookbackMonths": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 360
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "How many months of prediction snapshots to include (default lookback*2)."
+        },
+        "minSampleSize": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Minimum records per grouped KPI row (default 1)."
+        },
+        "recordLimit": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 5000
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Max precedent rows to process (default 1000)."
+        }
+      },
+      "required": [
+        "orgId",
+        "jurisdictionId",
+        "dealId",
+        "sku",
+        "applicationType",
+        "hearingBody",
+        "strategyKeys",
+        "lookbackMonths",
+        "snapshotLookbackMonths",
+        "minSampleSize",
+        "recordLimit"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "get_jurisdiction_pack",
+    "description": "Retrieve the current jurisdiction pack. Optionally resolve one section and return structured lineage fields for confidence tracking.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "orgId": {
+          "type": "string",
+          "description": "The org ID for security scoping"
+        },
+        "jurisdiction_id": {
+          "type": "string",
+          "description": "The jurisdiction to look up"
+        },
+        "sku": {
+          "type": "string",
+          "enum": [
+            "SMALL_BAY_FLEX",
+            "OUTDOOR_STORAGE",
+            "TRUCK_PARKING"
+          ],
+          "description": "The parcel use path to resolve the right pack version"
+        },
+        "section": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional section key to extract from the pack JSON."
+        }
+      },
+      "required": [
+        "orgId",
+        "jurisdiction_id",
+        "sku",
+        "section"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "create_tasks",
+    "description": "Create multiple tasks for a deal in one call with duplicate suppression.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "orgId": {
+          "type": "string",
+          "description": "The org ID for security scoping"
+        },
+        "deal_id": {
+          "type": "string",
+          "description": "Deal that owns the tasks"
+        },
+        "tasks": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Task title"
+              },
+              "description": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Optional task details"
+              },
+              "pipeline_step": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 8,
+                "description": "Pipeline step (1..8)"
+              },
+              "due_at": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Due date (ISO 8601)"
+              },
+              "owner_user_id": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Task owner user id, optional"
+              }
+            },
+            "required": [
+              "title",
+              "description",
+              "pipeline_step",
+              "due_at",
+              "owner_user_id"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "orgId",
+        "deal_id",
+        "tasks"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "attach_artifact",
+    "description": "Attach a pre-generated artifact (storage key + metadata) to a deal. If generated_by_run_id is omitted, a completed artifact run is created.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "orgId": {
+          "type": "string",
+          "description": "The org ID for security scoping"
+        },
+        "deal_id": {
+          "type": "string",
+          "description": "Deal ID the artifact belongs to"
+        },
+        "artifact": {
+          "type": "object",
+          "properties": {
+            "artifact_type": {
+              "type": "string",
+              "enum": [
+                "TRIAGE_PDF",
+                "SUBMISSION_CHECKLIST_PDF",
+                "HEARING_DECK_PPTX",
+                "EXIT_PACKAGE_PDF",
+                "BUYER_TEASER_PDF",
+                "INVESTMENT_MEMO_PDF",
+                "OFFERING_MEMO_PDF",
+                "COMP_ANALYSIS_PDF",
+                "IC_DECK_PPTX"
+              ],
+              "description": "Artifact type"
+            },
+            "storage_object_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Storage object key for the artifact file"
+            },
+            "version": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional artifact version override"
+            },
+            "download_url": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional download URL if storage key not provided"
+            },
+            "generated_by_run_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional existing run that produced this artifact"
+            }
+          },
+          "required": [
+            "artifact_type",
+            "storage_object_key",
+            "version",
+            "download_url",
+            "generated_by_run_id"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "orgId",
+        "deal_id",
+        "artifact"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "record_outcome",
+    "description": "Record terminal outcome and optional assumption actuals for one deal.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "orgId": {
+          "type": "string",
+          "description": "The org ID for security scoping"
+        },
+        "created_by": {
+          "type": "string",
+          "description": "User creating this outcome record"
+        },
+        "deal_id": {
+          "type": "string",
+          "description": "Deal to attach outcome to"
+        },
+        "outcome": {
+          "type": "string",
+          "enum": [
+            "SUCCESS",
+            "PARTIAL",
+            "FAILURE"
+          ],
+          "description": "Terminal deal outcome"
+        },
+        "outcome_notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Notes describing outcome rationale"
+        },
+        "projection_actuals": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "metric": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Assumption metric"
+                  },
+                  "predicted": {
+                    "type": "number",
+                    "description": "Predicted value"
+                  },
+                  "actual": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "Actual outcome value"
+                  }
+                },
+                "required": [
+                  "metric",
+                  "predicted",
+                  "actual"
+                ],
+                "additionalProperties": false
+              }
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional actuals for calibration"
+        }
+      },
+      "required": [
+        "orgId",
+        "created_by",
+        "deal_id",
+        "outcome",
+        "outcome_notes",
+        "projection_actuals"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "triage_deal",
+    "description": "Run a quick triage across a deal's parcels and return score, disqualifiers, and evidence gaps.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "orgId": {
+          "type": "string",
+          "description": "The org ID for security scoping"
+        },
+        "deal_id": {
+          "type": "string",
+          "description": "Deal to triage"
+        },
+        "include_parcel_breakdown": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Whether to include per-parcel breakdown"
+        }
+      },
+      "required": [
+        "orgId",
+        "deal_id",
+        "include_parcel_breakdown"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "generate_dd_checklist",
+    "description": "Generate a due diligence checklist with phases, tasks, and required evidence references for a deal or jurisdiction.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "orgId": {
+          "type": "string",
+          "description": "The org ID for security scoping"
+        },
+        "deal_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional deal to contextualize the checklist"
+        },
+        "jurisdiction_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional jurisdiction id"
+        },
+        "scope": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "STANDARD",
+                "EXPEDITED"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Checklist scope"
+        }
+      },
+      "required": [
+        "orgId",
+        "deal_id",
+        "jurisdiction_id",
+        "scope"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "run_underwriting",
+    "description": "Run deterministic underwriting from deal assumptions or direct inputs and return sensitivity outputs.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "orgId": {
+          "type": "string",
+          "description": "The org ID for security scoping"
+        },
+        "deal_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional deal to seed assumptions from stored financial data"
+        },
+        "assumptions": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "purchase_price": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "noi": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "exit_cap_rate": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "hold_years": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "loan_amount": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "interest_rate": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "amortization_years": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "purchase_price",
+                "noi",
+                "exit_cap_rate",
+                "hold_years",
+                "loan_amount",
+                "interest_rate",
+                "amortization_years"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "include_sensitivity": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Whether to generate a small sensitivity table"
+        }
+      },
+      "required": [
+        "orgId",
+        "deal_id",
+        "assumptions",
+        "include_sensitivity"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "summarize_comps",
+    "description": "Summarize nearby comparable sales and return compact market metrics for quick underwriting context.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "orgId": {
+          "type": "string",
+          "description": "The org ID for security scoping"
+        },
+        "address": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Subject parcel address"
+        },
+        "jurisdiction_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Jurisdiction fallback scope"
+        },
+        "parish": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional parish scope"
+        },
+        "radius_miles": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Search radius for comparable sales"
+        },
+        "subject_acreage": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Subject acreage"
+        }
+      },
+      "required": [
+        "orgId",
+        "address",
+        "jurisdiction_id",
+        "parish",
+        "radius_miles",
+        "subject_acreage"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "evaluate_run",
+    "description": "Evaluate a persisted run with basic trust signals and recommendations.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "orgId": {
+          "type": "string",
+          "description": "The org ID for security scoping"
+        },
+        "run_id": {
+          "type": "string",
+          "description": "Run ID to inspect"
+        }
+      },
+      "required": [
+        "orgId",
+        "run_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "screen_zoning",
+    "description": "Screen a parcel for zoning classification. Returns the EBR zoning type (e.g. C2, M1, A1), existing land use, and future land use from EBRGIS data.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "parcel_id": {
+          "type": "string",
+          "description": "The parcel number (e.g. '001-5096-7')"
+        }
+      },
+      "required": [
+        "parcel_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "screen_flood",
+    "description": "Screen a parcel for FEMA flood zone hazards. Returns flood zones that intersect the parcel, SFHA status, and overlap percentages.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "parcel_id": {
+          "type": "string",
+          "description": "The parcel number (e.g. '001-5096-7')"
+        }
+      },
+      "required": [
+        "parcel_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "screen_soils",
+    "description": "Screen a parcel for USDA soil conditions. Returns soil map units, hydrologic groups, and hydric ratings.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "parcel_id": {
+          "type": "string",
+          "description": "The parcel number (e.g. '001-5096-7')"
+        }
+      },
+      "required": [
+        "parcel_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "screen_wetlands",
+    "description": "Screen a parcel for NWI wetlands. Returns wetland areas that intersect the parcel with type and overlap percentages.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "parcel_id": {
+          "type": "string",
+          "description": "The parcel number (e.g. '001-5096-7')"
+        }
+      },
+      "required": [
+        "parcel_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "screen_epa",
+    "description": "Screen a parcel for nearby EPA-regulated facilities (Superfund, RCRA, etc.). Returns facilities within the search radius with distance.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "parcel_id": {
+          "type": "string",
+          "description": "The parcel number (e.g. '001-5096-7')"
+        },
+        "radius_miles": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Search radius in miles (default 1.0)"
+        }
+      },
+      "required": [
+        "parcel_id",
+        "radius_miles"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "screen_traffic",
+    "description": "Screen a parcel for nearby traffic count stations. Returns AADT counts and distances. May return 'not available' if traffic data is not yet loaded.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "parcel_id": {
+          "type": "string",
+          "description": "The parcel number (e.g. '001-5096-7')"
+        },
+        "radius_miles": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Search radius in miles (default 0.5)"
+        }
+      },
+      "required": [
+        "parcel_id",
+        "radius_miles"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "screen_ldeq",
+    "description": "Screen a parcel for nearby LDEQ-permitted facilities. Returns permits within the search radius with distance. May return 'not available' if LDEQ data is not yet loaded.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "parcel_id": {
+          "type": "string",
+          "description": "The parcel number (e.g. '001-5096-7')"
+        },
+        "radius_miles": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Search radius in miles (default 1.0)"
+        }
+      },
+      "required": [
+        "parcel_id",
+        "radius_miles"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "screen_full",
+    "description": "Run a comprehensive site screening on a parcel covering zoning, flood, soils, wetlands, EPA, traffic, and LDEQ. Returns all screening results in one call.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "parcel_id": {
+          "type": "string",
+          "description": "The parcel number (e.g. '001-5096-7')"
+        }
+      },
+      "required": [
+        "parcel_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "consult_finance_specialist",
+    "description": "Consult Finance Agent for focused underwriting/capital-structure questions while the Coordinator retains control.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "input": {
+          "type": "string",
+          "description": "The question or analysis request to pass to the specialist agent"
+        }
+      },
+      "required": [
+        "input"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "consult_risk_specialist",
+    "description": "Consult Risk Agent for focused hazard/compliance/uncertainty checks while the Coordinator retains control.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "input": {
+          "type": "string",
+          "description": "The question or analysis request to pass to the specialist agent"
+        }
+      },
+      "required": [
+        "input"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "consult_legal_specialist",
+    "description": "Consult Legal Agent for focused contract/zoning/legal-risk questions while the Coordinator retains control.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "input": {
+          "type": "string",
+          "description": "The question or analysis request to pass to the specialist agent"
+        }
+      },
+      "required": [
+        "input"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "consult_market_trajectory_specialist",
+    "description": "Consult Market Trajectory Agent for neighborhood growth analysis, permit activity mapping, and gentrification indicator tracking.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "input": {
+          "type": "string",
+          "description": "The question or analysis request to pass to the specialist agent"
+        }
+      },
+      "required": [
+        "input"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "web_search_preview",
+    "search_context_size": "medium"
+  }
+]

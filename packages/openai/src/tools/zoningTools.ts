@@ -197,7 +197,7 @@ export const parishPackLookup = tool({
   description:
     "Retrieve the current parish pack (entitlement playbook) for a jurisdiction and SKU type. Returns the full pack JSON or a specific section if specified.",
   parameters: z.object({
-    orgId: z.string().uuid().describe("The org ID for security scoping"),
+    orgId: z.string().describe("The org ID for security scoping"),
     jurisdictionId: z
       .string()
       .uuid()

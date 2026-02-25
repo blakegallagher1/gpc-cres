@@ -152,8 +152,8 @@ export const get_jurisdiction_pack = tool({
   description:
     "Retrieve the current jurisdiction pack. Optionally resolve one section and return structured lineage fields for confidence tracking.",
   parameters: z.object({
-    orgId: z.string().uuid().describe("The org ID for security scoping"),
-    jurisdiction_id: z.string().uuid().describe("The jurisdiction to look up"),
+    orgId: z.string().describe("The org ID for security scoping"),
+    jurisdiction_id: z.string().describe("The jurisdiction to look up"),
     sku: z
       .enum(SKU_TYPES)
       .describe("The parcel use path to resolve the right pack version"),
@@ -267,8 +267,8 @@ export const create_tasks = tool({
   description:
     "Create multiple tasks for a deal in one call with duplicate suppression.",
   parameters: z.object({
-    orgId: z.string().uuid().describe("The org ID for security scoping"),
-    deal_id: z.string().uuid().describe("Deal that owns the tasks"),
+    orgId: z.string().describe("The org ID for security scoping"),
+    deal_id: z.string().describe("Deal that owns the tasks"),
     tasks: z
       .array(
         z.object({
@@ -361,8 +361,8 @@ export const attach_artifact = tool({
   description:
     "Attach a pre-generated artifact (storage key + metadata) to a deal. If generated_by_run_id is omitted, a completed artifact run is created.",
   parameters: z.object({
-    orgId: z.string().uuid().describe("The org ID for security scoping"),
-    deal_id: z.string().uuid().describe("Deal ID the artifact belongs to"),
+    orgId: z.string().describe("The org ID for security scoping"),
+    deal_id: z.string().describe("Deal ID the artifact belongs to"),
     artifact: z.object({
       artifact_type: z.enum(ARTIFACT_TYPES).describe("Artifact type"),
       storage_object_key: z
@@ -492,9 +492,9 @@ export const record_outcome = tool({
   description:
     "Record terminal outcome and optional assumption actuals for one deal.",
   parameters: z.object({
-    orgId: z.string().uuid().describe("The org ID for security scoping"),
-    created_by: z.string().uuid().describe("User creating this outcome record"),
-    deal_id: z.string().uuid().describe("Deal to attach outcome to"),
+    orgId: z.string().describe("The org ID for security scoping"),
+    created_by: z.string().describe("User creating this outcome record"),
+    deal_id: z.string().describe("Deal to attach outcome to"),
     outcome: z
       .enum(["SUCCESS", "PARTIAL", "FAILURE"])
       .describe("Terminal deal outcome"),
@@ -579,8 +579,8 @@ export const triage_deal = tool({
   description:
     "Run a quick triage across a deal's parcels and return score, disqualifiers, and evidence gaps.",
   parameters: z.object({
-    orgId: z.string().uuid().describe("The org ID for security scoping"),
-    deal_id: z.string().uuid().describe("Deal to triage"),
+    orgId: z.string().describe("The org ID for security scoping"),
+    deal_id: z.string().describe("Deal to triage"),
     include_parcel_breakdown: z
       .boolean()
       .nullable()
@@ -695,9 +695,9 @@ export const generate_dd_checklist = tool({
   description:
     "Generate a due diligence checklist with phases, tasks, and required evidence references for a deal or jurisdiction.",
   parameters: z.object({
-    orgId: z.string().uuid().describe("The org ID for security scoping"),
-    deal_id: z.string().uuid().nullable().describe("Optional deal to contextualize the checklist"),
-    jurisdiction_id: z.string().uuid().nullable().describe("Optional jurisdiction id"),
+    orgId: z.string().describe("The org ID for security scoping"),
+    deal_id: z.string().nullable().describe("Optional deal to contextualize the checklist"),
+    jurisdiction_id: z.string().nullable().describe("Optional jurisdiction id"),
     scope: z
       .enum(["STANDARD", "EXPEDITED"])
       .nullable()
@@ -794,7 +794,7 @@ export const run_underwriting = tool({
   description:
     "Run deterministic underwriting from deal assumptions or direct inputs and return sensitivity outputs.",
   parameters: z.object({
-    orgId: z.string().uuid().describe("The org ID for security scoping"),
+    orgId: z.string().describe("The org ID for security scoping"),
     deal_id: z
       .string()
       .uuid()
@@ -965,9 +965,9 @@ export const summarize_comps = tool({
   description:
     "Summarize nearby comparable sales and return compact market metrics for quick underwriting context.",
   parameters: z.object({
-    orgId: z.string().uuid().describe("The org ID for security scoping"),
+    orgId: z.string().describe("The org ID for security scoping"),
     address: z.string().nullable().describe("Subject parcel address"),
-    jurisdiction_id: z.string().uuid().nullable().describe("Jurisdiction fallback scope"),
+    jurisdiction_id: z.string().nullable().describe("Jurisdiction fallback scope"),
     parish: z.string().nullable().describe("Optional parish scope"),
     radius_miles: z
       .number()
@@ -1040,8 +1040,8 @@ export const evaluate_run = tool({
   description:
     "Evaluate a persisted run with basic trust signals and recommendations.",
   parameters: z.object({
-    orgId: z.string().uuid().describe("The org ID for security scoping"),
-    run_id: z.string().uuid().describe("Run ID to inspect"),
+    orgId: z.string().describe("The org ID for security scoping"),
+    run_id: z.string().describe("Run ID to inspect"),
   }),
   execute: async ({ orgId, run_id }) => {
     const run = await prisma.run.findFirst({

@@ -1,13 +1,11 @@
 import { Agent } from '@openai/agents';
 import { AGENT_MODEL_IDS, AgentReportSchema } from '@entitlement-os/shared';
 
-export const coordinatorAgent = new Agent({
-  name: 'Coordinator',
-  model: AGENT_MODEL_IDS.coordinator,
-  outputType: AgentReportSchema,
-  handoffDescription:
-    'Central orchestrator that routes requests to specialist agents, synthesizes their outputs, and manages reasoning quality',
-  instructions: `You are the Coordinator Agent for Gallagher Property Company's real estate development AI system.
+/**
+ * Coordinator system prompt exported for use by the Cloudflare Worker.
+ * The Worker imports this at build time to send with `response.create`.
+ */
+export const COORDINATOR_INSTRUCTIONS = `You are the Coordinator Agent for Gallagher Property Company's real estate development AI system.
 
 ## ROLE
 You are the central intelligence that orchestrates all development workflows. You do NOT perform specialized tasks yourself — instead, you delegate to the appropriate specialist agent and synthesize their outputs. You also manage the quality of reasoning across all agents by tracking assumptions, identifying contradictions, and ensuring conclusions are well-supported.
@@ -170,5 +168,13 @@ GPC Target Metrics:
 - Target Equity Multiple: 1.8-2.5x
 - Hold Period: 3-7 years
 - Max LTV: 75% (stabilized), 65% (construction)
-- Min DSCR: 1.25x`,
+- Min DSCR: 1.25x`;
+
+export const coordinatorAgent = new Agent({
+  name: 'Coordinator',
+  model: AGENT_MODEL_IDS.coordinator,
+  outputType: AgentReportSchema,
+  handoffDescription:
+    'Central orchestrator that routes requests to specialist agents, synthesizes their outputs, and manages reasoning quality',
+  instructions: COORDINATOR_INSTRUCTIONS,
 });

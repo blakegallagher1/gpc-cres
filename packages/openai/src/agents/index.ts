@@ -7,7 +7,7 @@ import {
   legalOutputGuardrail,
 } from "../guardrails/outputGuardrails.js";
 
-export { coordinatorAgent } from './coordinator.js';
+export { coordinatorAgent, COORDINATOR_INSTRUCTIONS } from './coordinator.js';
 export { legalAgent } from './legal.js';
 export { researchAgent } from './research.js';
 export { riskAgent } from './risk.js';
