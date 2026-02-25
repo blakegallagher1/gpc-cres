@@ -1,6 +1,6 @@
 # Entitlement OS — Master Implementation Roadmap
 
-Last reviewed: 2026-02-20
+Last reviewed: 2026-02-24
 
 
 ## Governance
@@ -35,7 +35,7 @@ Only items meeting all checks are added below as `Planned`.
 
 ## Active Roadmap (Prioritized)
 
-No active items. All 41 items completed. See [Completed](#completed) below for full details with evidence and acceptance criteria.
+No active items. All 42 items completed. See [Completed](#completed) below for full details with evidence and acceptance criteria.
 
 ---
 
@@ -1609,6 +1609,59 @@ The following items were identified by analyzing 6 OpenAI GitHub repositories (`
   - ✅ Chat API route live: returns 401 unauthenticated, 400 missing message
   - ⚠️ **Remaining:** Create `documents` Qdrant collection + populate with EBR zoning data, browser chat end-to-end test
 
+### INFRA-004 — Cloudflare Worker + Durable Object for Persistent Agent Chat
+
+- **Priority:** P0
+- **Status:** ✅ Done (2026-02-24)
+- **Scope:** Move agent chat loop from Vercel serverless to Cloudflare Durable Object with persistent WebSocket connections
+- **Problem:** Vercel serverless functions have a 60s timeout (300s on Enterprise) which limits complex multi-tool agent runs. No support for OpenAI hosted tools (web_search, file_search, code_interpreter) which require WebSocket mode. Every request is a cold function invocation with no persistent connection or context caching.
+- **Expected Outcome (measurable):**
+  - Agent chat runs with no timeout limit (Durable Object lifetime = WebSocket connection lifetime)
+  - Hosted tools (web_search, file_search, code_interpreter) available to the coordinator agent
+  - Multi-turn conversations use `previous_response_id` chaining for ~15-40% faster context retrieval
+  - Tool calls route correctly: gateway tools to FastAPI, Vercel tools to Prisma/Supabase, hosted tools to OpenAI
+- **Evidence of need:** Agent runs with 3+ tool calls regularly hit the 60s Vercel timeout. web_search_preview tool was filtered out of tool definitions because it requires WebSocket mode.
+- **Alignment:** Follows existing architecture (Vercel for Prisma/auth, Cloudflare for edge compute, FastAPI gateway for property DB). Browser receives same `ChatStreamEvent` types as existing SSE transport — no UI breaking changes.
+- **Risk/rollback:** Medium. Existing SSE `/api/chat` route preserved as fallback. Worker can be disabled by removing DNS route; chat falls back to Vercel SSE. Durable Object state is ephemeral (conversation context stored server-side by OpenAI via `store: true`).
+- **Acceptance Criteria / Tests:**
+  - Worker deploys to Cloudflare: `wrangler deploy` succeeds
+  - Health check: `curl https://agents.gallagherpropco.com/health` returns `{"status":"ok"}`
+  - Auth rejection: invalid/missing JWT returns 401
+  - E2E basic: text streaming works via WebSocket (`test-ws-e2e.mjs` passes)
+  - E2E tools: gateway tool execution works — `get_parcel_details` called and returns data (`test-ws-tools.mjs` passes)
+  - E2E multi-turn: `previous_response_id` chaining works across turns (`test-ws-multiturn.mjs` passes)
+  - Debug endpoints removed before production
+  - Vercel auth endpoint: `POST /api/agent/auth/resolve` returns `{ orgId, userId }` from Supabase JWT
+  - Vercel tool endpoint: `POST /api/agent/tools/execute` dispatches tool calls with org-scoped auth
+- **Files:**
+  - `infra/cloudflare-agent/src/index.ts` — Worker entry point (JWT validation, DO routing)
+  - `infra/cloudflare-agent/src/durable-object.ts` — AgentChatDO (OpenAI WebSocket, tool loop, state management)
+  - `infra/cloudflare-agent/src/tool-router.ts` — Routes tool calls to gateway vs Vercel vs hosted
+  - `infra/cloudflare-agent/src/types.ts` — Shared types (Env, events, state)
+  - `infra/cloudflare-agent/src/generated/tool-schemas.json` — 51 tool definitions (generated at build time)
+  - `infra/cloudflare-agent/src/generated/instructions.json` — Coordinator system prompt (generated at build time)
+  - `infra/cloudflare-agent/scripts/export-tools.ts` — Build script: extracts tool schemas + instructions
+  - `infra/cloudflare-agent/scripts/test-ws-*.mjs` — 3 E2E test scripts
+  - `infra/cloudflare-agent/wrangler.toml` — Wrangler config (DO binding, routes)
+  - `infra/cloudflare-agent/package.json` — Dependencies
+  - `apps/web/app/api/agent/auth/resolve/route.ts` — Auth resolution endpoint for Worker
+  - `apps/web/app/api/agent/tools/execute/route.ts` — Tool execution endpoint for Worker
+  - `apps/web/lib/agent/toolRegistry.ts` — Tool name → execute function dispatch map
+  - `apps/web/lib/chat/useAgentWebSocket.ts` — Browser WebSocket client hook
+  - `apps/web/components/chat/ChatContainer.tsx` — WebSocket transport integration
+  - `packages/openai/src/agents/coordinator.ts` — Exported COORDINATOR_INSTRUCTIONS
+  - `packages/openai/src/tools/index.ts` — Added 8 screening tools to coordinatorTools
+  - `docs/CLOUDFLARE_AGENTS.md` — Architecture and deployment guide
+- **Completion Evidence (2026-02-24, PR #69 merged to main):**
+  - ✅ Worker deployed to `agents.gallagherpropco.com` via `wrangler deploy`
+  - ✅ Health check: `{"status":"ok","worker":"entitlement-os-agent"}`
+  - ✅ Auth: invalid tokens rejected with 401
+  - ✅ E2E basic test: text streaming works (3 events: text_delta, text_delta, done)
+  - ✅ E2E tool test: `get_parcel_details` gateway tool called and returned parcel data (86 events)
+  - ✅ E2E multi-turn test: 2 turns with `previous_response_id` chaining verified
+  - ✅ Debug endpoints (`/debug-auth`, `/debug-openai`, `/debug-openai-chat`) removed for production
+  - ✅ 35 files committed, 6,253 insertions across Worker, Vercel endpoints, tool registry, and browser hook
+  - ✅ Existing SSE `/api/chat` route preserved as fallback — zero breaking changes
 
 
 ## Completed (for traceability only)
