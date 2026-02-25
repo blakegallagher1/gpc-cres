@@ -99,6 +99,25 @@ export class AgentChatDO implements DurableObject {
    * -------------------------------------------------------------- */
 
   async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
+    // Recover client WebSocket reference — the Hibernation API evicts the JS
+    // isolate between messages, resetting all instance variables to constructor
+    // defaults. The `ws` parameter IS the accepted WebSocket.
+    this.clientWs = ws;
+
+    // Reload conversation state from storage if lost during hibernation
+    if (!this.conv) {
+      const stored = await this.state.storage.get<ConversationState>("conv");
+      if (stored) {
+        this.conv = stored;
+        this.stateLoaded = true;
+        console.log("[DO] Recovered state from hibernation:", stored.conversationId);
+      } else {
+        console.error("[DO] webSocketMessage but no stored conversation state");
+        this.sendToClient({ type: "error", message: "Session state lost. Please reconnect." });
+        return;
+      }
+    }
+
     if (typeof message !== "string") return;
 
     let parsed: ClientMessage;
@@ -114,12 +133,14 @@ export class AgentChatDO implements DurableObject {
       return;
     }
 
+    console.log("[DO] Received message:", parsed.text.slice(0, 100));
     this.currentDealId = parsed.dealId;
 
     await this.handleUserMessage(parsed.text);
   }
 
   async webSocketClose(ws: WebSocket, code: number, reason: string, wasClean: boolean): Promise<void> {
+    console.log(`[DO] Client WebSocket closed: code=${code}, reason=${reason}, clean=${wasClean}`);
     this.clientWs = null;
     // Clean up OpenAI WS if browser disconnects
     this.closeOpenAI();
@@ -187,8 +208,10 @@ export class AgentChatDO implements DurableObject {
 
     // Ensure OpenAI WebSocket is connected
     if (!this.openaiWs || this.openaiWs.readyState !== WebSocket.OPEN) {
+      console.log("[DO] Connecting to OpenAI WebSocket...");
       const connected = await this.connectOpenAI();
       if (!connected) {
+        console.error("[DO] Failed to connect to OpenAI WebSocket");
         this.sendToClient({
           type: "error",
           message: "Failed to connect to OpenAI. Please try again.",
@@ -196,6 +219,7 @@ export class AgentChatDO implements DurableObject {
         });
         return;
       }
+      console.log("[DO] OpenAI WebSocket connected successfully");
     }
 
     // Build the response.create request (flat structure per OpenAI WebSocket mode docs)
@@ -557,8 +581,24 @@ export class AgentChatDO implements DurableObject {
    * -------------------------------------------------------------- */
 
   private sendToClient(event: WorkerEvent): void {
+    // Primary: use cached reference
     if (this.clientWs && this.clientWs.readyState === WebSocket.OPEN) {
       this.clientWs.send(JSON.stringify(event));
+      return;
+    }
+
+    // Fallback: recover from Hibernation API's WebSocket list
+    const sockets = this.state.getWebSockets();
+    if (sockets.length > 0) {
+      const ws = sockets[0];
+      this.clientWs = ws; // cache for subsequent calls
+      try {
+        ws.send(JSON.stringify(event));
+      } catch (err) {
+        console.error("[DO] Failed to send via recovered WebSocket:", err);
+      }
+    } else {
+      console.warn("[DO] No client WebSocket available, dropping event:", event.type);
     }
   }
 }

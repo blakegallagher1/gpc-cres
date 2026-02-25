@@ -178,9 +178,13 @@ export function ChatContainer() {
     if (!WS_ENABLED) return;
     let cancelled = false;
     const fetchToken = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (!cancelled && data.session?.access_token) {
-        setSupabaseToken(data.session.access_token);
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (!cancelled && data.session?.access_token) {
+          setSupabaseToken(data.session.access_token);
+        }
+      } catch {
+        // Auth session fetch failed — will retry on auth state change
       }
     };
     fetchToken();
@@ -194,6 +198,14 @@ export function ChatContainer() {
       listener.subscription.unsubscribe();
     };
   }, []);
+
+  // Eagerly generate a conversationId for WebSocket mode so the socket connects
+  // before the user sends their first message (new conversation flow)
+  useEffect(() => {
+    if (WS_ENABLED && !conversationIdRef.current) {
+      setConversationState(crypto.randomUUID());
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -265,7 +277,8 @@ export function ChatContainer() {
   const loadConversation = useCallback(
     async (id: string | null) => {
       if (!id) {
-        setConversationState(null);
+        // In WS mode, eagerly generate a new conversationId so the socket reconnects
+        setConversationState(WS_ENABLED ? crypto.randomUUID() : null);
         setCurrentAgent(null);
         setAgentSummary(null);
         const reset = createStreamPresenterState();
