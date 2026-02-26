@@ -54,9 +54,18 @@ export function Header() {
             type="text"
             placeholder="Search agents, runs, workflows..."
             className="h-10 w-full rounded-lg border-0 bg-muted pl-10 pr-20 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            onFocus={() => setSearchFocused(true)}
+            readOnly
+            onFocus={(e) => {
+              setSearchFocused(true);
+              openCommandPalette();
+              e.target.blur();
+            }}
             onBlur={() => setSearchFocused(false)}
             onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                openCommandPalette();
+              }
               if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
                 e.preventDefault();
                 openCommandPalette();
@@ -105,7 +114,13 @@ export function Header() {
         <NotificationFeed />
 
         {/* New Run Button */}
-        <Button className="gap-2" onClick={() => router.push("/")}>
+        <Button
+          className="gap-2"
+          onClick={() => {
+            const newId = crypto.randomUUID();
+            window.location.href = `/?conversationId=${newId}`;
+          }}
+        >
           <Plus className="h-4 w-4" />
           <span>New Run</span>
         </Button>

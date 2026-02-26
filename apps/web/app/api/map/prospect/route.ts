@@ -273,6 +273,17 @@ export async function POST(req: NextRequest) {
     const propertyDbConfig = logPropertyDbRuntimeHealth("/api/map/prospect");
     const shouldUsePropertyDb = Boolean(propertyDbConfig) && !isDevParcelFallbackEnabled();
 
+    console.log(
+      "[prospect] propertyDbConfig:",
+      Boolean(propertyDbConfig),
+      "shouldUsePropertyDb:",
+      shouldUsePropertyDb,
+      "devFallback:",
+      isDevParcelFallbackEnabled(),
+      "searchText:",
+      searchText,
+    );
+
     // Query parcels from each parish (property DB primary)
     const allParcels: Record<string, unknown>[] = [];
     if (shouldUsePropertyDb && propertyDbConfig) {
@@ -290,16 +301,39 @@ export async function POST(req: NextRequest) {
           allParcels.push(...(raw as Record<string, unknown>[]));
         }
       }
+      console.log(
+        "[prospect] property DB returned",
+        allParcels.length,
+        "parcels from",
+        parishes.length,
+        "parishes",
+      );
     }
 
-    // Local/dev fallback when property DB is unavailable or returns nothing
+    // Fallback 1: Load org parcels with search text filter
     if (allParcels.length === 0) {
       const orgParcels = await loadOrgParcels(auth.orgId, searchText);
       allParcels.push(...orgParcels);
+      console.log(
+        "[prospect] org parcels (text-filtered) returned",
+        orgParcels.length,
+      );
     }
 
-    // Ensure deterministic local smoke behavior when auth is disabled in dev:
-    // if both property DB and org-scoped parcel lookup are empty, use seeded parcels.
+    // Fallback 2: If text-filtered search returned nothing and we used a
+    // specific search term, try loading ALL geocoded org parcels so the
+    // polygon filter can do spatial narrowing.
+    if (allParcels.length === 0 && searchText !== "*") {
+      const allOrgParcels = await loadOrgParcels(auth.orgId, "*");
+      allParcels.push(...allOrgParcels);
+      console.log(
+        "[prospect] org parcels (wildcard fallback) returned",
+        allOrgParcels.length,
+      );
+    }
+
+    // Fallback 3: Ensure deterministic local smoke behavior when auth is
+    // disabled in dev — use seeded parcels.
     if (allParcels.length === 0 && isDevParcelFallbackEnabled()) {
       allParcels.push(...mapDevFallbackToProspectRows(searchText));
     }
@@ -311,6 +345,14 @@ export async function POST(req: NextRequest) {
       if (!lat || !lng) return false;
       return pointInPolygon(lat, lng, polygonCoordinates);
     });
+
+    console.log(
+      "[prospect] point-in-polygon:",
+      allParcels.length,
+      "candidates →",
+      filtered.length,
+      "matched",
+    );
 
     if (filtered.length === 0 && isDevParcelFallbackEnabled() && allParcels.length > 0) {
       filtered = allParcels;
