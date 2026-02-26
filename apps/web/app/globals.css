@@ -153,3 +153,103 @@ body {
 .map-cluster-marker {
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9);
 }
+
+/* ──────────────────────────────────────────────────
+   DARK MAP COMMAND CENTER — scoped to .dark + .map-page
+   ────────────────────────────────────────────────── */
+.dark .map-page {
+  /* Surface hierarchy (muted grey-blue, NOT electric/neon) */
+  --map-bg: #1e2230;
+  --map-surface: #252a3a;
+  --map-surface-elevated: #2a2f3e;
+  --map-surface-overlay: rgba(30, 34, 48, 0.95);
+
+  /* Borders */
+  --map-border: #323848;
+  --map-border-subtle: #2a2f3e;
+
+  /* Text */
+  --map-text-primary: #e2e4ea;
+  --map-text-secondary: #9ca0ae;
+  --map-text-muted: #6b7080;
+
+  /* Accents — kept desaturated */
+  --map-accent: #6c8cff;
+  --map-accent-muted: #4a5a8a;
+  --map-accent-surface: rgba(108, 140, 255, 0.08);
+
+  /* Status colors (toned for dark bg) */
+  --map-status-green: #4ade80;
+  --map-status-yellow: #facc15;
+  --map-status-red: #f87171;
+}
+
+.dark .map-page .map-panel {
+  background: var(--map-surface-overlay);
+  border: 1px solid var(--map-border);
+  border-radius: 0.5rem;
+  color: var(--map-text-primary);
+  backdrop-filter: blur(12px);
+}
+
+/* Buttons inside map panels */
+.dark .map-page .map-btn {
+  background: var(--map-surface-elevated);
+  border: 1px solid var(--map-border);
+  color: var(--map-text-secondary);
+  transition: background 0.15s, border-color 0.15s;
+}
+.dark .map-page .map-btn:hover {
+  background: var(--map-border);
+  border-color: var(--map-accent-muted);
+  color: var(--map-text-primary);
+}
+.dark .map-page .map-btn.active {
+  background: var(--map-accent-surface);
+  border-color: var(--map-accent);
+  color: var(--map-accent);
+}
+
+/* Inputs inside map-page */
+.dark .map-page input[type="text"],
+.dark .map-page input[type="search"] {
+  background: var(--map-surface);
+  border-color: var(--map-border);
+  color: var(--map-text-primary);
+}
+.dark .map-page input::placeholder {
+  color: var(--map-text-muted);
+}
+
+/* Map popup override (injected via maplibre gl) */
+.dark .map-page .maplibregl-popup-content {
+  background: var(--map-surface-elevated);
+  color: var(--map-text-primary);
+  border: 1px solid var(--map-border);
+  border-radius: 0.5rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+.dark .map-page .maplibregl-popup-tip {
+  border-top-color: var(--map-surface-elevated);
+}
+
+/* Status bar at bottom of map */
+.dark .map-page .map-status-bar {
+  background: var(--map-surface-overlay);
+  border-top: 1px solid var(--map-border);
+  color: var(--map-text-muted);
+  font-size: 11px;
+  backdrop-filter: blur(8px);
+}
+
+/* Scrollbar inside map panels */
+.dark .map-page ::-webkit-scrollbar {
+  width: 6px;
+}
+.dark .map-page ::-webkit-scrollbar-track {
+  background: transparent;
+}
+.dark .map-page ::-webkit-scrollbar-thumb {
+  background: var(--map-border);
+  border-radius: 3px;
+}

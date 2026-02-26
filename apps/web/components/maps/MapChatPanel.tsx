@@ -27,7 +27,7 @@ type FeatureCollection = {
   features: unknown[];
 };
 
-const PANEL_WIDTH = 380;
+const PANEL_WIDTH = 420;
 
 function tryParseGeoJSON(text: string): FeatureCollection | null {
   if (!text || typeof text !== "string") return null;
@@ -215,23 +215,23 @@ export function MapChatPanel({
 
       {open && (
         <div
-          className="absolute right-0 top-0 z-[999] flex h-full flex-col border-l border-border bg-background shadow-xl"
+          className="absolute right-0 top-0 z-[999] flex h-full flex-col map-panel shadow-xl rounded-none"
           style={{ width: PANEL_WIDTH }}
         >
-          <Card className="flex h-full flex-col rounded-none border-0">
+          <Card className="flex h-full flex-col rounded-none border-0 bg-transparent">
             <div className="flex flex-1 flex-col overflow-hidden">
               <div className="border-b px-4 py-2">
-                <h3 className="text-sm font-semibold">
-                  Market Trajectory Agent
+                <h3 className="text-sm font-semibold map-text-primary">
+                  Market Intelligence
                 </h3>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs map-text-secondary">
                   Path of progress, permit heatmaps, gentrification indicators
                 </p>
-                <p className="mt-1 text-[10px] text-muted-foreground">
+                <p className="mt-1 text-[10px] map-text-muted rounded px-2 py-1 bg-map-accent-surface/30 border border-map-border">
                   Parcels: {parcelCount ?? 0} · Selected: {selectedCount ?? 0}
                 </p>
                 {viewportLabel ? (
-                  <p className="text-[10px] text-muted-foreground">{viewportLabel}</p>
+                  <p className="text-[10px] map-text-muted mt-1">{viewportLabel}</p>
                 ) : null}
               </div>
               <div className="min-h-0 flex-1 overflow-hidden">

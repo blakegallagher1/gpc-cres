@@ -451,49 +451,50 @@ export default function MapPage() {
 
   return (
     <DashboardShell noPadding>
-      <div className="space-y-4 p-6 pb-0">
-        <div>
-          <h1 className="text-2xl font-bold">Parcel Map</h1>
-          <p className="text-sm text-muted-foreground">
-            {statusText}
-            {!polygon && debouncedSearch
-              ? ` • showing matches + nearby parcels (${SURROUNDING_PARCELS_RADIUS_MILES} mi)`
-              : ""}
-          </p>
-        </div>
-        <div className="max-w-md">
-          <form
-            onSubmit={handleSearchSubmit}
-            className="flex items-center gap-2"
-          >
-            <Input
-              value={searchText}
-              onChange={(event) => setSearchText(event.target.value)}
-              onKeyDown={handleSearchKeyDown}
-              placeholder="Search parcel address, deal, or zoning"
-            />
-            <Button
-              type="submit"
-              size="sm"
-              disabled={!searchText.trim()}
-              onClick={submitSearch}
-            >
-              {isSearchLoading ? (
-                <span className="inline-flex items-center gap-2">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  Searching
-                </span>
-              ) : (
-                <>
-                  <Search className="mr-2 h-3.5 w-3.5" />
-                  Search
-                </>
-              )}
-            </Button>
-          </form>
-        </div>
+      <div className="map-page h-screen flex flex-col relative">
         {!loading && (
-          <div className="relative mt-4">
+          <>
+            <div className="absolute top-4 left-4 z-[998] map-panel rounded-lg p-4 max-w-md">
+              <h2 className="text-sm font-semibold map-text-primary mb-2">Parcel Search</h2>
+              <form
+                onSubmit={handleSearchSubmit}
+                className="flex flex-col gap-2"
+              >
+                <Input
+                  value={searchText}
+                  onChange={(event) => setSearchText(event.target.value)}
+                  onKeyDown={handleSearchKeyDown}
+                  placeholder="Search parcel address, deal, or zoning"
+                  className="bg-map-surface border-map-border text-map-text-primary placeholder:text-map-text-muted"
+                />
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={!searchText.trim()}
+                  onClick={submitSearch}
+                  className="map-btn"
+                >
+                  {isSearchLoading ? (
+                    <span className="inline-flex items-center gap-2">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Searching
+                    </span>
+                  ) : (
+                    <>
+                      <Search className="mr-2 h-3.5 w-3.5" />
+                      Search
+                    </>
+                  )}
+                </Button>
+              </form>
+              <p className="text-xs map-text-secondary mt-2">
+                {statusText}
+                {!polygon && debouncedSearch
+                  ? ` • showing matches + nearby parcels (${SURROUNDING_PARCELS_RADIUS_MILES} mi)`
+                  : ""}
+              </p>
+            </div>
+
             <MapChatPanel
               onGeoJsonReceived={setTrajectoryData}
               parcelCount={activeParcels.length}
@@ -509,7 +510,7 @@ export default function MapPage() {
               parcels={activeParcels}
               center={mapCenter}
               zoom={mapZoom}
-              height="calc(100vh - 10rem)"
+              height="100%"
               showTools
               polygon={polygon}
               onPolygonDrawn={(coords) => {
@@ -528,7 +529,7 @@ export default function MapPage() {
               selectedParcelIds={selectedParcelIds}
               trajectoryData={trajectoryData}
             />
-          </div>
+          </>
         )}
       </div>
     </DashboardShell>

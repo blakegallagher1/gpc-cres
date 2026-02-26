@@ -102,3 +102,59 @@ export function geoJsonToPositions(
   }
   return [];
 }
+
+/* ──────────────────────────────────────────────────
+   DARK COMMAND CENTER — base map style + colors
+   ────────────────────────────────────────────────── */
+
+/** CartoDB dark_all raster tiles — used as the default basemap in dark mode. */
+export const DARK_BASE_TILES = [
+  "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
+  "https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
+  "https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
+];
+
+/** Status colors re-tuned for dark backgrounds (higher saturation, lighter). */
+export const DARK_STATUS_COLORS: Record<string, string> = {
+  "prospecting":    "#60a5fa",  // blue-400
+  "under_contract": "#facc15",  // yellow-400
+  "closing":        "#4ade80",  // green-400
+  "exited":         "#059669",  // green-700
+  "killed":         "#f87171",  // red-400
+};
+
+const DARK_DEFAULT_STATUS_COLOR = "#64748b"; // slate-500
+
+/** MapLibre style object for dark mode. Drop-in replacement for the inline style object in MapLibreParcelMap. */
+export function buildDarkStyle(sources: Record<string, unknown>, layers: unknown[]): {
+  version: 8;
+  sources: Record<string, unknown>;
+  layers: unknown[];
+} {
+  return {
+    version: 8,
+    sources: {
+      "dark-carto": {
+        type: "raster",
+        tiles: DARK_BASE_TILES,
+        tileSize: 256,
+        attribution: "© CartoDB © OpenStreetMap",
+      },
+      ...sources,
+    },
+    layers: [
+      {
+        id: "base-dark",
+        type: "raster",
+        source: "dark-carto",
+        layout: { visibility: "visible" },
+      },
+      ...layers,
+    ],
+  };
+}
+
+/** For dark mode: parcel fill colors tuned for dark basemap visibility. */
+export const DARK_PARCEL_FILL_OPACITY = 0.35;
+export const DARK_PARCEL_LINE_OPACITY = 0.9;
+export const DARK_PARCEL_LINE_COLOR_SELECTED = "#ffffff";

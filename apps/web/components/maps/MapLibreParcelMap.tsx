@@ -16,8 +16,14 @@ import {
   DEFAULT_STATUS_COLOR,
   getZoningColor,
   getFloodColor,
+  DARK_BASE_TILES,
+  DARK_STATUS_COLORS,
+  buildDarkStyle,
+  DARK_PARCEL_FILL_OPACITY,
+  DARK_PARCEL_LINE_OPACITY,
+  DARK_PARCEL_LINE_COLOR_SELECTED,
 } from "./mapStyles";
-import { Pencil, Trash2, X } from "lucide-react";
+import { Pencil, Trash2, X, Camera, Maximize2, ChevronDown, ChevronRight } from "lucide-react";
 import { useStableOptions } from "@/lib/hooks/useStableOptions";
 import type { MapParcel } from "./ParcelMap";
 import { SavedGeofences } from "./SavedGeofences";
@@ -140,7 +146,21 @@ function getSavedOverlaysFallback(): {
 }
 
 function statusColorForParcel(parcel: MapParcel): string {
-  return STATUS_COLORS[parcel.dealStatus || ""] || DEFAULT_STATUS_COLOR;
+  const isDark = typeof document !== "undefined" && document.documentElement.classList.contains("dark");
+  const colors = isDark ? DARK_STATUS_COLORS : STATUS_COLORS;
+  const status = parcel.dealStatus || "";
+
+  // Map legacy deal statuses to new format for dark mode
+  let lookupStatus = status;
+  if (isDark) {
+    if (status === "PROSPECTING") lookupStatus = "prospecting";
+    else if (status === "UNDER_CONTRACT") lookupStatus = "under_contract";
+    else if (status === "CLOSING") lookupStatus = "closing";
+    else if (status === "EXITED") lookupStatus = "exited";
+    else if (status === "KILLED") lookupStatus = "killed";
+  }
+
+  return (colors as Record<string, string>)[lookupStatus] || DEFAULT_STATUS_COLOR;
 }
 
 function formatDistance(meters: number): string {
@@ -410,6 +430,17 @@ export function MapLibreParcelMap({
   const boundsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stableMapCallbacks = useStableOptions({ onParcelClick });
   const parcelByIdRef = useRef<Map<string, MapParcel>>(new Map());
+
+  // Dark mode and layer panel collapse states
+  const [isDark, setIsDark] = useState(false);
+  const [parcelsSectionOpen, setParcelsSectionOpen] = useState(true);
+  const [zoningOverlaySectionOpen, setZoningOverlaySectionOpen] = useState(false);
+  const [floodOverlaySectionOpen, setFloodOverlaySectionOpen] = useState(false);
+  const [compsSectionOpen, setCompsSectionOpen] = useState(false);
+  const [heatmapSectionOpen, setHeatmapSectionOpen] = useState(false);
+  const [cursorLng, setCursorLng] = useState<number | null>(null);
+  const [cursorLat, setCursorLat] = useState<number | null>(null);
+  const [currentZoom, setCurrentZoom] = useState(zoom);
 
   const effectiveSelectedIds = useMemo(() => {
     const merged = new Set(selectedParcelIds);
@@ -776,8 +807,20 @@ export function MapLibreParcelMap({
               type: "geojson",
               data: pointSource,
             },
+            "dark-carto": {
+              type: "raster",
+              tiles: DARK_BASE_TILES,
+              tileSize: 256,
+              attribution: "© CartoDB © OpenStreetMap",
+            },
           },
           layers: [
+            {
+              id: "base-dark",
+              type: "raster",
+              source: "dark-carto",
+              layout: { visibility: "visible" },
+            },
             {
               id: "base-streets",
               type: "raster",
@@ -1016,6 +1059,17 @@ export function MapLibreParcelMap({
         map.on("mouseleave", "parcel-points", clearHoverCursor);
         map.on("mouseleave", "parcel-tiles-fill", clearHoverCursor);
 
+        // Track cursor position for status bar
+        map.on("mousemove", (e) => {
+          setCursorLng(Math.round(e.lngLat.lng * 10000) / 10000);
+          setCursorLat(Math.round(e.lngLat.lat * 10000) / 10000);
+        });
+
+        // Track zoom level for status bar
+        map.on("zoomend", () => {
+          setCurrentZoom(Math.round(map.getZoom() * 100) / 100);
+        });
+
         map.on("moveend", () => {
           fitBounds();
           // Debounced viewport bounds update for geometry loading
@@ -1080,8 +1134,9 @@ export function MapLibreParcelMap({
       map.setLayoutProperty("parcels-boundary-line", "visibility", showLayers && showParcelBoundaries ? "visible" : "none");
       map.setLayoutProperty("parcels-zoning-layer", "visibility", showLayers && showZoning ? "visible" : "none");
       map.setLayoutProperty("parcels-flood-layer", "visibility", showLayers && showFlood ? "visible" : "none");
-      map.setLayoutProperty("base-streets", "visibility", baseLayer === "Satellite" ? "none" : "visible");
-      map.setLayoutProperty("base-satellite", "visibility", baseLayer === "Satellite" ? "visible" : "none");
+      map.setLayoutProperty("base-dark", "visibility", isDark ? "visible" : "none");
+      map.setLayoutProperty("base-streets", "visibility", isDark || baseLayer === "Satellite" ? "none" : "visible");
+      map.setLayoutProperty("base-satellite", "visibility", baseLayer === "Satellite" && !isDark ? "visible" : "none");
       map.setLayoutProperty("parcel-points", "visibility", showLayers ? "visible" : "none");
     } catch {}
   }, [
@@ -1095,6 +1150,7 @@ export function MapLibreParcelMap({
     showZoning,
     showFlood,
     baseLayer,
+    isDark,
     effectiveSelectedIds,
   ]);
 
@@ -1136,90 +1192,251 @@ export function MapLibreParcelMap({
   return (
     <div className="relative h-full w-full rounded-lg border">
       <div ref={mapContainerRef} style={{ height, width: "100%", backgroundColor: "#1e2230" }} />
+      {/* Toolbar with screenshot and fullscreen buttons */}
+      {showLayers && (
+        <div className="absolute left-2 top-2 z-10 flex flex-col gap-2 rounded-lg bg-background/95 p-2 shadow-lg dark:bg-slate-900/95">
+          <button
+            type="button"
+            onClick={() => {
+              const canvas = mapRef.current?.getCanvas();
+              if (!canvas) return;
+              const link = document.createElement("a");
+              link.download = `map-export-${new Date().toISOString().slice(0, 19).replace(/[:.]/g, "-")}.png`;
+              link.href = canvas.toDataURL("image/png");
+              link.click();
+            }}
+            className="map-btn flex items-center justify-center p-1.5 rounded transition-colors"
+            title="Screenshot (S)"
+          >
+            <Camera className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const container = mapContainerRef.current;
+              if (!container) return;
+              if (!document.fullscreenElement) {
+                void container.requestFullscreen();
+              } else {
+                void document.exitFullscreen();
+              }
+            }}
+            className="map-btn flex items-center justify-center p-1.5 rounded transition-colors"
+            title="Fullscreen (F)"
+          >
+            <Maximize2 className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Collapsible layer panel */}
       {showLayers && layerPanelOpen && (
         <div
           data-tour="layers-panel"
-          className="absolute left-2 top-2 z-10 rounded-lg bg-white/95 p-2 text-xs shadow-lg"
+          className="absolute left-14 top-2 z-10 w-64 rounded-lg map-panel"
           onPointerDown={(event) => event.stopPropagation()}
         >
-          <div className="mb-2 text-[11px] font-semibold text-gray-600 uppercase">
-            MapLibre Layers
-          </div>
-          <div className="mb-1.5">
-            <label className="flex items-center gap-1.5">
-              <input
-                type="checkbox"
-                checked={showParcelBoundaries}
-                onChange={(event) => setShowParcelBoundaries(event.target.checked)}
-              />
-              <span>Parcel Boundaries</span>
-            </label>
-          </div>
-          <div className="mb-1.5">
-            <label className="flex items-center gap-1.5">
-              <input
-                type="checkbox"
-                checked={showZoning}
-                onChange={(event) => setShowZoning(event.target.checked)}
-              />
-              <span>Zoning Overlay</span>
-            </label>
-          </div>
-          <div className="mb-1.5">
-            <label className="flex items-center gap-1.5">
-              <input
-                type="checkbox"
-                checked={showFlood}
-                onChange={(event) => setShowFlood(event.target.checked)}
-              />
-              <span>Flood Zones</span>
-            </label>
-          </div>
-          <div className="mb-1.5 border-t border-gray-200 pt-1.5 text-[10px] text-gray-500">
-            Base layer
-          </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setBaseLayer("Streets")}
-              className={`rounded px-2 py-1 ${baseLayer === "Streets" ? "bg-blue-600 text-white" : "bg-gray-100"}`}
-            >
-              Streets
-            </button>
-            <button
-              type="button"
-              onClick={() => setBaseLayer("Satellite")}
-              className={`rounded px-2 py-1 ${baseLayer === "Satellite" ? "bg-blue-600 text-white" : "bg-gray-100"}`}
-            >
-              Satellite
-            </button>
-          </div>
-          <div className="mt-2 text-[10px] text-gray-500">
-            Selected: {effectiveSelectedIds.size}
-          </div>
-          {effectiveSelectedIds.size >= 2 && (
-            <button
-              type="button"
-              onClick={() => setCompareOpen(true)}
-              className="mt-1 w-full rounded bg-indigo-600 px-2 py-1 text-[10px] font-medium text-white hover:bg-indigo-700"
-            >
-              Compare Selected ({effectiveSelectedIds.size})
-            </button>
-          )}
-          {(geometryLoading || geometryHealth.failedCount > 0 || geometryHealth.propertyDbUnconfigured) && (
-            <div className="mt-1.5 border-t border-gray-200 pt-1.5 text-[10px] text-amber-600">
-              {geometryLoading
-                ? "Loading parcel shapes…"
-                : geometryHealth.propertyDbUnconfigured
-                  ? "Parcel shapes unavailable (property DB not configured)"
-                  : "Some parcel shapes unavailable"}
+          <div className="space-y-1">
+            {/* Parcels section */}
+            <div className="border-b border-map-border">
+              <button
+                type="button"
+                onClick={() => setParcelsSectionOpen(!parcelsSectionOpen)}
+                className="map-btn w-full flex items-center justify-between px-3 py-2 text-sm font-medium"
+              >
+                <span>Parcels</span>
+                {parcelsSectionOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              </button>
+              {parcelsSectionOpen && (
+                <div className="px-3 py-2 space-y-2 border-t border-map-border">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showParcelBoundaries}
+                      onChange={(event) => setShowParcelBoundaries(event.target.checked)}
+                      className="rounded"
+                    />
+                    <span className="text-xs">Show Boundaries</span>
+                  </label>
+                  {(geometryLoading || geometryHealth.failedCount > 0 || geometryHealth.propertyDbUnconfigured) && (
+                    <div className="text-[10px] text-map-status-yellow">
+                      {geometryLoading
+                        ? "Loading shapes…"
+                        : geometryHealth.propertyDbUnconfigured
+                          ? "Shapes unavailable"
+                          : "Some shapes unavailable"}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-          )}
-          <div className="mt-1.5 border-t border-gray-200 pt-1.5 text-[10px] text-gray-400">
-            <kbd className="rounded border border-gray-200 px-1">L</kbd> toggle ·{" "}
-            <kbd className="rounded border border-gray-200 px-1">F</kbd> fullscreen ·{" "}
-            <kbd className="rounded border border-gray-200 px-1">S</kbd> screenshot ·{" "}
-            <kbd className="rounded border border-gray-200 px-1">D</kbd> draw
+
+            {/* Zoning section */}
+            <div className="border-b border-map-border">
+              <button
+                type="button"
+                onClick={() => setZoningOverlaySectionOpen(!zoningOverlaySectionOpen)}
+                className="map-btn w-full flex items-center justify-between px-3 py-2 text-sm font-medium"
+              >
+                <span>Zoning</span>
+                {zoningOverlaySectionOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              </button>
+              {zoningOverlaySectionOpen && (
+                <div className="px-3 py-2 border-t border-map-border">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showZoning}
+                      onChange={(event) => setShowZoning(event.target.checked)}
+                      className="rounded"
+                    />
+                    <span className="text-xs">Show Overlay</span>
+                  </label>
+                </div>
+              )}
+            </div>
+
+            {/* Flood section */}
+            <div className="border-b border-map-border">
+              <button
+                type="button"
+                onClick={() => setFloodOverlaySectionOpen(!floodOverlaySectionOpen)}
+                className="map-btn w-full flex items-center justify-between px-3 py-2 text-sm font-medium"
+              >
+                <span>Flood Zones</span>
+                {floodOverlaySectionOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              </button>
+              {floodOverlaySectionOpen && (
+                <div className="px-3 py-2 border-t border-map-border">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showFlood}
+                      onChange={(event) => setShowFlood(event.target.checked)}
+                      className="rounded"
+                    />
+                    <span className="text-xs">Show Overlay</span>
+                  </label>
+                </div>
+              )}
+            </div>
+
+            {/* Comps section */}
+            <div className="border-b border-map-border">
+              <button
+                type="button"
+                onClick={() => setCompsSectionOpen(!compsSectionOpen)}
+                className="map-btn w-full flex items-center justify-between px-3 py-2 text-sm font-medium"
+              >
+                <span>Comps</span>
+                {compsSectionOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              </button>
+              {compsSectionOpen && (
+                <div className="px-3 py-2 border-t border-map-border">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showComps}
+                      onChange={(event) => setShowComps(event.target.checked)}
+                      className="rounded"
+                    />
+                    <span className="text-xs">Show Comps</span>
+                  </label>
+                </div>
+              )}
+            </div>
+
+            {/* Heatmap section */}
+            <div className="border-b border-map-border">
+              <button
+                type="button"
+                onClick={() => setHeatmapSectionOpen(!heatmapSectionOpen)}
+                className="map-btn w-full flex items-center justify-between px-3 py-2 text-sm font-medium"
+              >
+                <span>Heatmap</span>
+                {heatmapSectionOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              </button>
+              {heatmapSectionOpen && (
+                <div className="px-3 py-2 border-t border-map-border">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showHeatmap}
+                      onChange={(event) => setShowHeatmap(event.target.checked)}
+                      className="rounded"
+                    />
+                    <span className="text-xs">Show Heatmap</span>
+                  </label>
+                </div>
+              )}
+            </div>
+
+            {/* Base layer section */}
+            <div className="border-b border-map-border px-3 py-2">
+              <div className="text-[10px] font-medium text-map-text-muted mb-2">Base Layer</div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setBaseLayer("Streets")}
+                  className={`map-btn flex-1 px-2 py-1 text-xs font-medium rounded transition-colors ${
+                    baseLayer === "Streets" ? "bg-map-accent text-white" : ""
+                  }`}
+                >
+                  Streets
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBaseLayer("Satellite")}
+                  className={`map-btn flex-1 px-2 py-1 text-xs font-medium rounded transition-colors ${
+                    baseLayer === "Satellite" ? "bg-map-accent text-white" : ""
+                  }`}
+                >
+                  Satellite
+                </button>
+              </div>
+            </div>
+
+            {/* Selected count and compare */}
+            <div className="px-3 py-2">
+              <div className="text-[10px] text-map-text-secondary mb-2">
+                Selected: {effectiveSelectedIds.size}
+              </div>
+              {effectiveSelectedIds.size >= 2 && (
+                <button
+                  type="button"
+                  onClick={() => setCompareOpen(true)}
+                  className="map-btn w-full rounded px-2 py-1 text-[10px] font-medium bg-map-accent text-white hover:opacity-90 transition-opacity"
+                >
+                  Compare ({effectiveSelectedIds.size})
+                </button>
+              )}
+            </div>
+
+            {/* Keyboard shortcuts */}
+            <div className="px-3 py-2 border-t border-map-border text-[10px] text-map-text-muted space-y-1">
+              <div><kbd className="rounded border border-map-border px-1">L</kbd> Panel</div>
+              <div><kbd className="rounded border border-map-border px-1">F</kbd> Fullscreen</div>
+              <div><kbd className="rounded border border-map-border px-1">S</kbd> Screenshot</div>
+              <div><kbd className="rounded border border-map-border px-1">D</kbd> Draw</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Status bar with coordinates and zoom */}
+      {showLayers && (
+        <div className="map-status-bar absolute bottom-0 left-0 z-10 w-full flex items-center justify-between px-3 py-1.5 text-[11px]">
+          <div className="text-map-text-muted">
+            {cursorLng !== null && cursorLat !== null ? (
+              <>
+                {cursorLng.toFixed(4)}, {cursorLat.toFixed(4)}
+              </>
+            ) : (
+              "—"
+            )}
+          </div>
+          <div className="text-map-text-muted">
+            Zoom: {currentZoom.toFixed(2)}
           </div>
         </div>
       )}
