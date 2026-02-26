@@ -118,15 +118,15 @@ MacBook (anywhere)                    Windows PC (BG)
 
 ## Available Commands
 
-From repo root (after configuring `config.sh`):
+From repo root (after configuring `scripts/server/config.sh`):
 
 | Command | Description |
 |---------|-------------|
-| `pnpm server:status` | Docker container status |
-| `pnpm server:restart` | Restart gateway container |
-| `pnpm server:logs` | Tail gateway logs |
-| `pnpm server:deploy` | Deploy updated main.py to gateway |
-| `pnpm server:ssh` | Open SSH session to server |
+| `./scripts/server/status.sh` | Docker container status |
+| `./scripts/server/restart.sh` | Restart gateway container |
+| `./scripts/server/logs.sh` | Tail gateway logs |
+| `./scripts/server/deploy.sh` | Deploy updated main.py to gateway |
+| `./scripts/server/ssh.sh` | Open SSH session to server |
 
 ---
 

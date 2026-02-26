@@ -501,7 +501,7 @@ Wire minimal tools so agents can do something useful from day one:
 | Agents hallucinate parish process details | Parish pack tool returns cited, validated data. Citation validator rejects unsourced claims. Evidence snapshots prove sources existed. |
 | Long-running tasks block chat | Temporal for background work. Agent says "I've kicked that off" and notifies when done. |
 | Tool sprawl (too many tools per agent) | Each agent gets only its relevant tools. Coordinator has handoffs, not tools. Keep tool count per agent under 10. |
-| OpenAI rate limits during heavy use | Retry with backoff in `packages/openai/retry.ts`. Temporal activity retries for background jobs. |
+| OpenAI rate limits during heavy use | Retry with backoff in `packages/openai/src/utils/retry.ts`. Temporal activity retries for background jobs. |
 | Conversation context grows too large | Session-backed compaction + deduplication (`apps/web/lib/chat/session.ts`) plus deal context injection. |
 
 ---

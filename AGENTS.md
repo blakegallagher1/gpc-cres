@@ -490,7 +490,7 @@ Database migrations (Prisma) must follow these safety rules:
 ## Migration Workflow
 ```
 # Generate migration (do NOT apply)
-pnpm db:migrate --create-only
+pnpm -C packages/db run migrate:dev:local --create-only
 
 # Review the generated SQL
 cat packages/db/prisma/migrations/<timestamp>_<name>/migration.sql
@@ -499,7 +499,7 @@ cat packages/db/prisma/migrations/<timestamp>_<name>/migration.sql
 pnpm db:migrate
 
 # Verify
-pnpm db:generate
+pnpm -C packages/db run generate
 pnpm typecheck
 ```
 

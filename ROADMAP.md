@@ -870,7 +870,7 @@ Reason: these were low-priority for current operating goals and can be deferred 
   - `apps/web/components/maps/ParcelMap.tsx`
   - `apps/web/components/maps/MapLibreParcelMap.tsx`
   - `apps/web/components/maps/mapStyles.ts` (if shared tile constants are introduced)
-  - `apps/web/env.example` or `.env.local` documentation note (new/env guidance)
+  - `apps/web/.env.example` or `.env.local` documentation note (new/env guidance)
 - **Open questions before start:**
   - Which base tile provider is preferred (MapTiler vs existing OSM/ESRI mix)?
   - Do we need full-screen "spatial analysis tool stack" parity in phase 1 or can analysis tools be phased-in in stage 2?
@@ -895,11 +895,11 @@ The following items were identified by analyzing 6 OpenAI GitHub repositories (`
   - Tool execution shows real-time status chips (e.g., "Running: search_parcels" → "Completed: 12 results")
   - Agent switch events render as timeline markers in the conversation
   - Zero additional API calls — all data comes from existing stream events
-- **Evidence:** AUI-001 added renderer stubs for `agent_progress`, `agent_switch`, `tool_call` events, but the backend `app/api/chat/route.ts` does not emit these event types into the SSE stream. The SDK produces them — we just need to forward them.
+- **Evidence:** AUI-001 added renderer stubs for `agent_progress`, `agent_switch`, `tool_call` events, but the backend `apps/web/app/api/chat/route.ts` does not emit these event types into the SSE stream. The SDK produces them — we just need to forward them.
 - **Alignment:** Builds directly on AUI-001's structured event renderers. No changes to agent execution pipeline.
 - **Risk/rollback:** Low. SSE event additions are additive — old clients ignore unknown event types. Rollback by removing new SSE event lines from chat route.
 - **Acceptance Criteria / Tests:**
-  1. `app/api/chat/route.ts` subscribes to `RunItemStreamEvent` and `RunAgentUpdatedStreamEvent` from the SDK runner
+  1. `apps/web/app/api/chat/route.ts` subscribes to `RunItemStreamEvent` and `RunAgentUpdatedStreamEvent` from the SDK runner
   2. New SSE event types emitted: `agent_switch` (agent name + model), `tool_start` (tool name + args summary), `tool_end` (tool name + result summary), `handoff` (from → to agent)
   3. Chat UI renders these via existing AUI-001 structured event components
   4. Unit test: synthetic stream with mixed text + tool + agent events renders correctly

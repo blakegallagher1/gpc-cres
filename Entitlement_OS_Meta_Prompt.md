@@ -47,7 +47,7 @@ Reduce the sidebar from 20 items to 10. No functionality is removed — only reo
 
 #### A1. Delete `/deploy`
 
-Remove `apps/web/app/deploy/` entirely. Remove the sidebar entry from `components/layout/Sidebar.tsx`. This page is a localStorage-only mockup with no backend integration.
+Remove `apps/web/app/deploy/` entirely. Remove the sidebar entry from `apps/web/components/layout/Sidebar.tsx`. This page is a localStorage-only mockup with no backend integration.
 
 **Acceptance:** Route gone, sidebar entry gone, no dead imports, typecheck passes.
 
