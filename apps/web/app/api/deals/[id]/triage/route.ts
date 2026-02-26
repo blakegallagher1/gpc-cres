@@ -16,7 +16,7 @@ import type {
   OpportunityScorecard,
   ThroughputRouting,
 } from "@entitlement-os/shared";
-import { supabaseAdmin } from "@/lib/db/supabaseAdmin";
+import { uploadArtifactToGateway } from "@/lib/storage/gatewayStorage";
 import { captureAutomationDispatchError } from "@/lib/automation/sentry";
 import * as Sentry from "@sentry/nextjs";
 
@@ -465,16 +465,16 @@ async function generateTriagePdf(params: TriagePdfParams): Promise<void> {
       filename: rendered.filename,
     });
 
-    const { error: storageError } = await supabaseAdmin.storage
-      .from("deal-room-uploads")
-      .upload(storageObjectKey, Buffer.from(rendered.bytes), {
-        contentType: rendered.contentType,
-        upsert: false,
-      });
-
-    if (storageError) {
-      throw new Error(`Storage upload failed: ${storageError.message}`);
-    }
+    const gwResult = await uploadArtifactToGateway({
+      auth: { orgId, userId: "system" },
+      dealId,
+      artifactType: "TRIAGE_PDF",
+      version: nextVersion,
+      filename: rendered.filename,
+      contentType: rendered.contentType,
+      bytes: Buffer.from(rendered.bytes),
+      generatedByRunId: run.id,
+    });
 
     await prisma.artifact.create({
       data: {
@@ -482,7 +482,7 @@ async function generateTriagePdf(params: TriagePdfParams): Promise<void> {
         dealId,
         artifactType: "TRIAGE_PDF",
         version: nextVersion,
-        storageObjectKey,
+        storageObjectKey: gwResult.storageObjectKey,
         generatedByRunId: run.id,
       },
     });

@@ -130,6 +130,64 @@ export async function uploadEvidenceBytesToGateway(
   return res.json() as Promise<{ objectKey: string }>;
 }
 
+export type UploadDealFileParams = {
+  auth: GatewayAuth;
+  objectKey: string;
+  bytes: Buffer;
+  contentType: string;
+};
+
+export async function uploadDealFileToGateway(
+  params: UploadDealFileParams
+): Promise<{ objectKey: string }> {
+  const formData = new FormData();
+  formData.append("kind", "deal_upload");
+  formData.append("objectKey", params.objectKey);
+  formData.append("contentType", params.contentType);
+  formData.append(
+    "file",
+    new Blob([new Uint8Array(params.bytes)]),
+    params.objectKey.split("/").pop() ?? "file"
+  );
+  const res = await uploadBytesToGateway(formData, params.auth);
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(
+      typeof data?.detail === "string"
+        ? data.detail
+        : data?.error || "Deal file upload failed"
+    );
+  }
+  return res.json() as Promise<{ objectKey: string }>;
+}
+
+export async function deleteObjectFromGateway(
+  objectKey: string,
+  auth: GatewayAuth
+): Promise<void> {
+  const config = getGatewayConfig();
+  if (!config) {
+    throw new Error("Storage API requires LOCAL_API_URL and LOCAL_API_KEY");
+  }
+  const res = await fetch(`${config.url}/storage/delete-object`, {
+    method: "POST",
+    cache: "no-store",
+    headers: {
+      ...gatewayHeaders(config.key, auth),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ objectKey }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(
+      typeof data?.detail === "string"
+        ? data.detail
+        : data?.error || "Object deletion failed"
+    );
+  }
+}
+
 export type GetDownloadUrlParams = {
   auth: GatewayAuth;
   id: string;

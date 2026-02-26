@@ -4,7 +4,7 @@ import { renderArtifactFromSpec } from "@entitlement-os/artifacts";
 import { buildArtifactObjectKey, DEAL_STATUSES, ARTIFACT_TYPES } from "@entitlement-os/shared";
 import type { ArtifactType, DealStatus, ArtifactSpec } from "@entitlement-os/shared";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
-import { supabaseAdmin } from "@/lib/db/supabaseAdmin";
+import { uploadArtifactToGateway } from "@/lib/storage/gatewayStorage";
 import OpenAI from "openai";
 
 // Stage index for prerequisite checks (higher index = later stage)
@@ -179,17 +179,17 @@ export async function POST(
         filename: rendered.filename,
       });
 
-      // Upload to Supabase storage
-      const { error: storageError } = await supabaseAdmin.storage
-        .from("deal-room-uploads")
-        .upload(storageObjectKey, Buffer.from(rendered.bytes), {
-          contentType: rendered.contentType,
-          upsert: false,
-        });
-
-      if (storageError) {
-        throw new Error(`Storage upload failed: ${storageError.message}`);
-      }
+      // Upload to Gateway (B2)
+      const gwResult = await uploadArtifactToGateway({
+        auth: { orgId: auth.orgId, userId: auth.userId },
+        dealId: id,
+        artifactType: aType,
+        version: nextVersion,
+        filename: rendered.filename,
+        contentType: rendered.contentType,
+        bytes: Buffer.from(rendered.bytes),
+        generatedByRunId: run.id,
+      });
 
       // Create artifact record
       const artifact = await prisma.artifact.create({
@@ -198,7 +198,7 @@ export async function POST(
           dealId: id,
           artifactType: aType,
           version: nextVersion,
-          storageObjectKey,
+          storageObjectKey: gwResult.storageObjectKey,
           generatedByRunId: run.id,
         },
       });
