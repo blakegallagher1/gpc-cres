@@ -438,6 +438,7 @@ export function MapLibreParcelMap({
   const [floodOverlaySectionOpen, setFloodOverlaySectionOpen] = useState(false);
   const [compsSectionOpen, setCompsSectionOpen] = useState(false);
   const [heatmapSectionOpen, setHeatmapSectionOpen] = useState(false);
+  const [geofencesSectionOpen, setGeofencesSectionOpen] = useState(false);
   const [cursorLng, setCursorLng] = useState<number | null>(null);
   const [cursorLat, setCursorLat] = useState<number | null>(null);
   const [currentZoom, setCurrentZoom] = useState(zoom);
@@ -1412,6 +1413,28 @@ export function MapLibreParcelMap({
               )}
             </div>
 
+            {/* Saved Geofences section */}
+            {onPolygonDrawn && onPolygonCleared && (
+              <div className="border-b border-map-border">
+                <button
+                  type="button"
+                  onClick={() => setGeofencesSectionOpen(!geofencesSectionOpen)}
+                  className="map-btn w-full flex items-center justify-between px-3 py-2 text-sm font-medium"
+                >
+                  <span>Saved Geofences</span>
+                  {geofencesSectionOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                </button>
+                {geofencesSectionOpen && (
+                  <div className="px-3 py-2 border-t border-map-border">
+                    <SavedGeofences
+                      currentPolygon={polygon}
+                      onApply={(coordinates) => onPolygonDrawn(coordinates)}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Keyboard shortcuts */}
             <div className="px-3 py-2 border-t border-map-border text-[10px] text-map-text-muted space-y-1">
               <div><kbd className="rounded border border-map-border px-1">L</kbd> Panel</div>
@@ -1460,12 +1483,6 @@ export function MapLibreParcelMap({
       )}
       {showTools && (
         <>
-          {onPolygonDrawn && onPolygonCleared && (
-            <SavedGeofences
-              currentPolygon={polygon}
-              onApply={(coordinates) => onPolygonDrawn(coordinates)}
-            />
-          )}
           <MapLibreAnalyticalToolbar
             showComps={showComps}
             setShowComps={setShowComps}
