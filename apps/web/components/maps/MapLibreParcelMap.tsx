@@ -101,6 +101,8 @@ interface MapLibreParcelMapProps {
   onSelectionChange?: (ids: Set<string>) => void;
   /** Called on moveend with map center and zoom. */
   onViewStateChange?: (center: [number, number], zoom: number) => void;
+  /** Optional search UI rendered at the top of the layer panel. */
+  searchSlot?: React.ReactNode;
 }
 
 const ZOOM_LIMIT = 19;
@@ -405,6 +407,7 @@ export function MapLibreParcelMap({
   selectedParcelIds: selectedParcelIdsProp,
   onSelectionChange,
   onViewStateChange,
+  searchSlot,
 }: MapLibreParcelMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -1248,10 +1251,16 @@ export function MapLibreParcelMap({
       {showLayers && layerPanelOpen && (
         <div
           data-tour="layers-panel"
-          className="absolute left-14 top-2 z-10 w-64 rounded-lg map-panel"
+          className="absolute left-14 top-2 z-10 w-64 rounded-lg map-panel max-h-[calc(100vh-6rem)] overflow-y-auto"
           onPointerDown={(event) => event.stopPropagation()}
         >
           <div className="space-y-0">
+            {/* ── SEARCH (injected from parent) ── */}
+            {searchSlot && (
+              <div className="border-b border-map-border px-3 py-3">
+                {searchSlot}
+              </div>
+            )}
             {/* ── BASE LAYERS ── */}
             <div className="border-b border-map-border">
               <button

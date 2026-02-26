@@ -462,47 +462,6 @@ export default function MapPage() {
       <div className="map-page h-screen flex flex-col relative">
         {!loading && (
           <>
-            <div className="absolute top-4 left-4 z-[998] map-panel rounded-lg p-4 max-w-md">
-              <h2 className="text-sm font-semibold map-text-primary mb-2">Parcel Search</h2>
-              <form
-                onSubmit={handleSearchSubmit}
-                className="flex flex-col gap-2"
-              >
-                <Input
-                  value={searchText}
-                  onChange={(event) => setSearchText(event.target.value)}
-                  onKeyDown={handleSearchKeyDown}
-                  placeholder="Search parcel address, deal, or zoning"
-                  className="bg-map-surface border-map-border text-map-text-primary placeholder:text-map-text-muted"
-                />
-                <Button
-                  type="submit"
-                  size="sm"
-                  disabled={!searchText.trim()}
-                  onClick={submitSearch}
-                  className="map-btn"
-                >
-                  {isSearchLoading ? (
-                    <span className="inline-flex items-center gap-2">
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      Searching
-                    </span>
-                  ) : (
-                    <>
-                      <Search className="mr-2 h-3.5 w-3.5" />
-                      Search
-                    </>
-                  )}
-                </Button>
-              </form>
-              <p className="text-xs map-text-secondary mt-2">
-                {statusText}
-                {!polygon && debouncedSearch
-                  ? ` • showing matches + nearby parcels (${SURROUNDING_PARCELS_RADIUS_MILES} mi)`
-                  : ""}
-              </p>
-            </div>
-
             <MapChatPanel
               onGeoJsonReceived={setTrajectoryData}
               parcelCount={activeParcels.length}
@@ -536,6 +495,48 @@ export default function MapPage() {
               }}
               selectedParcelIds={selectedParcelIds}
               trajectoryData={trajectoryData}
+              searchSlot={
+                <>
+                  <h2 className="text-[10px] font-semibold uppercase tracking-wider text-map-text-muted mb-2">Parcel Search</h2>
+                  <form
+                    onSubmit={handleSearchSubmit}
+                    className="flex flex-col gap-1.5"
+                  >
+                    <Input
+                      value={searchText}
+                      onChange={(event) => setSearchText(event.target.value)}
+                      onKeyDown={handleSearchKeyDown}
+                      placeholder="Search parcel address, d..."
+                      className="h-8 text-xs bg-map-surface border-map-border text-map-text-primary placeholder:text-map-text-muted"
+                    />
+                    <Button
+                      type="submit"
+                      size="sm"
+                      disabled={!searchText.trim()}
+                      onClick={submitSearch}
+                      className="map-btn h-7 text-xs"
+                    >
+                      {isSearchLoading ? (
+                        <span className="inline-flex items-center gap-2">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          Searching
+                        </span>
+                      ) : (
+                        <>
+                          <Search className="mr-1.5 h-3 w-3" />
+                          Search
+                        </>
+                      )}
+                    </Button>
+                  </form>
+                  <p className="text-[10px] map-text-secondary mt-1.5">
+                    {statusText}
+                    {!polygon && debouncedSearch
+                      ? ` \u2022 matches + nearby (${SURROUNDING_PARCELS_RADIUS_MILES} mi)`
+                      : ""}
+                  </p>
+                </>
+              }
             />
           </>
         )}

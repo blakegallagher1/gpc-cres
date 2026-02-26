@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Search, Moon, Sun, Plus, Command, Sparkles } from "lucide-react";
 import { useTheme } from "next-themes";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/stores/uiStore";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,8 @@ export function Header() {
   const [searchFocused, setSearchFocused] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
+  const isMapPage = pathname?.startsWith("/map");
 
   const handleSignOut = async () => {
     if (isSigningOut) return;
@@ -99,16 +101,18 @@ export function Header() {
           )}
         </Button>
 
-        {/* Copilot Toggle */}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={toggleCopilot}
-          className="text-muted-foreground"
-          aria-label="Toggle Copilot"
-        >
-          <Sparkles className="h-5 w-5" />
-        </Button>
+        {/* Copilot Toggle — hidden on /map where Map Copilot is used */}
+        {!isMapPage && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleCopilot}
+            className="text-muted-foreground"
+            aria-label="Toggle Copilot"
+          >
+            <Sparkles className="h-5 w-5" />
+          </Button>
+        )}
 
         {/* Notifications */}
         <NotificationFeed />

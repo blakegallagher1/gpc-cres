@@ -39,6 +39,7 @@ interface ParcelMapProps {
   selectedParcelIds?: Set<string>;
   onSelectionChange?: (ids: Set<string>) => void;
   onViewStateChange?: (center: [number, number], zoom: number) => void;
+  searchSlot?: React.ReactNode;
 }
 
 // ---------------------------------------------------------------------------
@@ -62,6 +63,7 @@ export function ParcelMap({
   selectedParcelIds,
   onSelectionChange,
   onViewStateChange,
+  searchSlot,
 }: ParcelMapProps) {
   const mlCenter: [number, number] = useMemo(() => [center[1], center[0]], [center]);
 
@@ -83,6 +85,7 @@ export function ParcelMap({
       selectedParcelIds={selectedParcelIds}
       onSelectionChange={onSelectionChange}
       onViewStateChange={onViewStateChange}
+      searchSlot={searchSlot}
     />
   );
 }

@@ -504,6 +504,11 @@ export function CopilotPanel() {
     setQueryForSuggestion("");
   };
 
+  // Hide the general Copilot on the /map page (Map Copilot replaces it)
+  const isMapPage = pathname?.startsWith("/map");
+
+  if (isMapPage) return null;
+
   return (
     <aside
       className={cn(
