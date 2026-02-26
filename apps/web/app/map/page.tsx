@@ -9,7 +9,7 @@ import {
   useState,
 } from "react";
 import dynamic from "next/dynamic";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Search } from "lucide-react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import type { MapParcel } from "@/components/maps/ParcelMap";
@@ -102,6 +102,7 @@ function toFiniteNumber(...values: Array<unknown>): number | null {
 
 export default function MapPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [parcels, setParcels] = useState<MapParcel[]>([]);
   const [searchParcels, setSearchParcels] = useState<MapParcel[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -116,9 +117,20 @@ export default function MapPage() {
   const [polygonError, setPolygonError] = useState<string | null>(null);
   const [isPolygonLoading, setIsPolygonLoading] = useState(false);
   const [trajectoryData, setTrajectoryData] = useState<{
-  type: "FeatureCollection";
-  features: unknown[];
-} | null>(null);
+    type: "FeatureCollection";
+    features: unknown[];
+  } | null>(null);
+  const [selectedParcelIds, setSelectedParcelIds] = useState<Set<string>>(new Set());
+  const [mapCenter, setMapCenter] = useState<[number, number] | undefined>(() => {
+    const lat = Number(searchParams.get("lat"));
+    const lng = Number(searchParams.get("lng"));
+    if (Number.isFinite(lat) && Number.isFinite(lng)) return [lat, lng];
+    return undefined;
+  });
+  const [mapZoom, setMapZoom] = useState<number | undefined>(() => {
+    const zoom = Number(searchParams.get("z"));
+    return Number.isFinite(zoom) ? zoom : undefined;
+  });
   const authDisabledHint =
     process.env.NODE_ENV !== "production"
       ? " Start the dev server with NEXT_PUBLIC_DISABLE_AUTH=true or sign in."
@@ -309,6 +321,23 @@ export default function MapPage() {
   }, []);
 
   useEffect(() => {
+    const next = new URLSearchParams(searchParams.toString());
+    if (mapCenter) {
+      next.set("lat", mapCenter[0].toFixed(6));
+      next.set("lng", mapCenter[1].toFixed(6));
+    }
+    if (typeof mapZoom === "number") {
+      next.set("z", mapZoom.toFixed(2));
+    }
+    if (selectedParcelIds.size === 1) {
+      next.set("parcel", Array.from(selectedParcelIds)[0]);
+    } else {
+      next.delete("parcel");
+    }
+    router.replace(`/map?${next.toString()}`);
+  }, [mapCenter, mapZoom, selectedParcelIds, router, searchParams]);
+
+  useEffect(() => {
     let active = true;
     async function loadSearchParcels() {
       if (polygon) {
@@ -421,8 +450,8 @@ export default function MapPage() {
   ]);
 
   return (
-    <DashboardShell>
-      <div className="space-y-4">
+    <DashboardShell noPadding>
+      <div className="space-y-4 p-6 pb-0">
         <div>
           <h1 className="text-2xl font-bold">Parcel Map</h1>
           <p className="text-sm text-muted-foreground">
@@ -464,23 +493,41 @@ export default function MapPage() {
           </form>
         </div>
         {!loading && (
-          <div className="relative">
-            <MapChatPanel onGeoJsonReceived={setTrajectoryData} />
+          <div className="relative mt-4">
+            <MapChatPanel
+              onGeoJsonReceived={setTrajectoryData}
+              parcelCount={activeParcels.length}
+              selectedCount={selectedParcelIds.size}
+              viewportLabel={statusText}
+              mapContext={{
+                center: mapCenter ? { lat: mapCenter[0], lng: mapCenter[1] } : null,
+                zoom: mapZoom,
+                selectedParcelIds: Array.from(selectedParcelIds),
+              }}
+            />
             <ParcelMap
-            parcels={activeParcels}
-            height="calc(100vh - 14rem)"
-            showTools
-            polygon={polygon}
-            onPolygonDrawn={(coords) => {
-              setPolygon(coords);
-            }}
-            onPolygonCleared={clearPolygon}
-            onParcelClick={(id) => {
-              const parcel = activeParcels.find((p) => p.id === id);
-              if (parcel?.dealId) router.push(`/deals/${parcel.dealId}`);
-            }}
-            trajectoryData={trajectoryData}
-          />
+              parcels={activeParcels}
+              center={mapCenter}
+              zoom={mapZoom}
+              height="calc(100vh - 10rem)"
+              showTools
+              polygon={polygon}
+              onPolygonDrawn={(coords) => {
+                setPolygon(coords);
+              }}
+              onPolygonCleared={clearPolygon}
+              onParcelClick={(id) => {
+                const parcel = activeParcels.find((p) => p.id === id);
+                if (parcel?.dealId) router.push(`/deals/${parcel.dealId}`);
+              }}
+              onSelectionChange={setSelectedParcelIds}
+              onViewStateChange={(center, zoom) => {
+                setMapCenter(center);
+                setMapZoom(zoom);
+              }}
+              selectedParcelIds={selectedParcelIds}
+              trajectoryData={trajectoryData}
+            />
           </div>
         )}
       </div>

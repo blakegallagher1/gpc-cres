@@ -36,6 +36,9 @@ interface ParcelMapProps {
   trajectoryData?: { type: "FeatureCollection"; features: unknown[] } | null;
   trajectoryVelocityData?: { parcel_id: string; velocity_of_change: number }[] | null;
   highlightParcelIds?: Set<string>;
+  selectedParcelIds?: Set<string>;
+  onSelectionChange?: (ids: Set<string>) => void;
+  onViewStateChange?: (center: [number, number], zoom: number) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -56,6 +59,9 @@ export function ParcelMap({
   trajectoryData = null,
   trajectoryVelocityData = null,
   highlightParcelIds,
+  selectedParcelIds,
+  onSelectionChange,
+  onViewStateChange,
 }: ParcelMapProps) {
   const mlCenter: [number, number] = useMemo(() => [center[1], center[0]], [center]);
 
@@ -74,6 +80,9 @@ export function ParcelMap({
       trajectoryData={trajectoryData}
       trajectoryVelocityData={trajectoryVelocityData}
       highlightParcelIds={highlightParcelIds}
+      selectedParcelIds={selectedParcelIds}
+      onSelectionChange={onSelectionChange}
+      onViewStateChange={onViewStateChange}
     />
   );
 }

@@ -139,3 +139,17 @@ body {
 .agent-active {
   animation: pulse-glow 2s ease-in-out infinite;
 }
+
+/* Prevent white flash before raster/vector tiles load. */
+.maplibregl-map {
+  background-color: #1e2230;
+}
+
+.pinned-measurement-list {
+  max-height: 180px;
+  overflow: auto;
+}
+
+.map-cluster-marker {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9);
+}
