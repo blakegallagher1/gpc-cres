@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { prisma } from "@entitlement-os/db";
-import { logPropertyDbRuntimeHealth } from "@/lib/server/propertyDbEnv";
 import {
   getDevFallbackParcels,
   isDevParcelFallbackEnabled,
   isPrismaConnectivityError,
 } from "@/lib/server/devParcelFallback";
+import { getGatewayConfig } from "@/lib/gateway-proxy";
 
 function mapDevFallbackToProspectRows(searchText: string): Record<string, unknown>[] {
   const matched = getDevFallbackParcels(searchText);
@@ -24,24 +24,30 @@ function mapDevFallbackToProspectRows(searchText: string): Record<string, unknow
   }));
 }
 
-async function propertyRpc(
-  fnName: string,
+// ---------------------------------------------------------------------------
+// Gateway POST — calls FastAPI gateway at api.gallagherpropco.com
+// ---------------------------------------------------------------------------
+
+async function gatewayPost(
+  path: string,
   body: Record<string, unknown>,
-  config: { url: string; key: string } | null,
+  config: { url: string; key: string },
 ): Promise<unknown> {
-  if (!config) return [];
   const { url, key } = config;
-  const res = await fetch(`${url}/rest/v1/rpc/${fnName}`, {
+  const res = await fetch(`${url}${path}`, {
     method: "POST",
     headers: {
-      apikey: key,
       Authorization: `Bearer ${key}`,
+      apikey: key,
       "Content-Type": "application/json",
-      Prefer: "return=representation",
     },
     body: JSON.stringify(body),
   });
-  if (!res.ok) return [];
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    console.error(`[prospect] gateway ${path} error ${res.status}: ${text.slice(0, 200)}`);
+    return [];
+  }
   try {
     return await res.json();
   } catch {
@@ -50,7 +56,68 @@ async function propertyRpc(
 }
 
 // ---------------------------------------------------------------------------
-// Point-in-polygon (ray casting algorithm)
+// Build a PostGIS ST_Contains SQL query for polygon parcel search
+// ---------------------------------------------------------------------------
+
+function buildPolygonSql(
+  polygonCoordinates: number[][][],
+  filters?: {
+    zoningCodes?: string[];
+    minAcreage?: number;
+    maxAcreage?: number;
+    minAssessedValue?: number;
+    maxAssessedValue?: number;
+    excludeFloodZone?: boolean;
+  },
+): string {
+  // Build GeoJSON polygon string for PostGIS
+  const geojson = JSON.stringify({
+    type: "Polygon",
+    coordinates: polygonCoordinates,
+  });
+
+  const whereClauses: string[] = [
+    `ST_Contains(ST_SetSRID(ST_GeomFromGeoJSON('${geojson.replace(/'/g, "''")}'), 4326), geom)`,
+  ];
+
+  if (filters?.zoningCodes?.length) {
+    const escaped = filters.zoningCodes.map((c) => c.replace(/'/g, "''").toUpperCase());
+    const likeConditions = escaped.map((c) => `UPPER(zoning_type) LIKE '%${c}%'`);
+    whereClauses.push(`(${likeConditions.join(" OR ")})`);
+  }
+  if (filters?.minAcreage != null) {
+    whereClauses.push(`(area_sqft / 43560.0) >= ${Number(filters.minAcreage)}`);
+  }
+  if (filters?.maxAcreage != null) {
+    whereClauses.push(`(area_sqft / 43560.0) <= ${Number(filters.maxAcreage)}`);
+  }
+  if (filters?.minAssessedValue != null) {
+    whereClauses.push(`assessed_value >= ${Number(filters.minAssessedValue)}`);
+  }
+  if (filters?.maxAssessedValue != null) {
+    whereClauses.push(`assessed_value <= ${Number(filters.maxAssessedValue)}`);
+  }
+
+  return `
+    SELECT
+      parcel_id AS id,
+      address AS site_address,
+      owner AS owner_name,
+      (area_sqft / 43560.0) AS acreage,
+      zoning_type AS zoning,
+      assessed_value,
+      existing_land_use,
+      ST_Y(ST_Centroid(geom)) AS lat,
+      ST_X(ST_Centroid(geom)) AS lng,
+      'East Baton Rouge' AS parish_name
+    FROM ebr_parcels
+    WHERE ${whereClauses.join(" AND ")}
+    LIMIT 500
+  `.trim();
+}
+
+// ---------------------------------------------------------------------------
+// Point-in-polygon (ray casting — JS fallback for non-gateway parcels)
 // ---------------------------------------------------------------------------
 
 function pointInPolygon(
@@ -58,7 +125,6 @@ function pointInPolygon(
   lng: number,
   polygon: number[][][]
 ): boolean {
-  // Use the outer ring (first ring) of the polygon
   const ring = polygon[0];
   if (!ring || ring.length < 4) return false;
 
@@ -66,7 +132,6 @@ function pointInPolygon(
   const x = lng;
   const y = lat;
   for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    // GeoJSON coordinates are [lng, lat]
     const xi = ring[i][0];
     const yi = ring[i][1];
     const xj = ring[j][0];
@@ -240,73 +305,56 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // Compute bounding box from polygon to determine which parishes to search
-    const coords = polygonCoordinates[0] as number[][];
-    const lats = coords.map((c) => c[1]);
-    const lngs = coords.map((c) => c[0]);
-    const minLat = Math.min(...lats);
-    const maxLat = Math.max(...lats);
-    const minLng = Math.min(...lngs);
-    const maxLng = Math.max(...lngs);
-
-    // Determine center for search text (empty = wildcard)
-    const centerLat = (minLat + maxLat) / 2;
-    const _centerLng = (minLng + maxLng) / 2;
-
-    // Determine parishes based on lat range (rough Louisiana mapping)
-    const parishes: string[] = [];
-    // EBR: ~30.3-30.6, Ascension: ~30.1-30.35, Livingston: ~30.3-30.6 (east),
-    // West BR: ~30.3-30.5 (west of Mississippi), Iberville: ~30.2-30.5
-    if (centerLat >= 30.0 && centerLat <= 30.7) {
-      parishes.push(
-        "East Baton Rouge",
-        "Ascension",
-        "Livingston",
-        "West Baton Rouge",
-        "Iberville"
-      );
-    } else {
-      parishes.push("East Baton Rouge"); // default
-    }
-
     const searchText = sanitizeSearchTerm(filters?.searchText) || "*";
-    const propertyDbConfig = logPropertyDbRuntimeHealth("/api/map/prospect");
-    const shouldUsePropertyDb = Boolean(propertyDbConfig) && !isDevParcelFallbackEnabled();
+    const gatewayConfig = getGatewayConfig();
+    const shouldUseGateway = Boolean(gatewayConfig) && !isDevParcelFallbackEnabled();
 
     console.log(
-      "[prospect] propertyDbConfig:",
-      Boolean(propertyDbConfig),
-      "shouldUsePropertyDb:",
-      shouldUsePropertyDb,
+      "[prospect] gatewayConfig:",
+      Boolean(gatewayConfig),
+      "shouldUseGateway:",
+      shouldUseGateway,
       "devFallback:",
       isDevParcelFallbackEnabled(),
       "searchText:",
       searchText,
     );
 
-    // Query parcels from each parish (property DB primary)
+    // ---------------------------------------------------------------------------
+    // PRIMARY: PostGIS spatial query via FastAPI gateway (/tools/parcels.sql)
+    // Sends the drawn polygon directly to PostGIS ST_Contains — searches the
+    // 198K EBR parcel table with server-side spatial filtering.
+    // ---------------------------------------------------------------------------
     const allParcels: Record<string, unknown>[] = [];
-    if (shouldUsePropertyDb && propertyDbConfig) {
-      for (const parish of parishes) {
-        const raw = await propertyRpc(
-          "api_search_parcels",
-          {
-            search_text: searchText,
-            parish,
-            limit_rows: 200,
-          },
-          propertyDbConfig,
-        );
-        if (Array.isArray(raw)) {
-          allParcels.push(...(raw as Record<string, unknown>[]));
+    let gatewayQueried = false;
+    if (shouldUseGateway && gatewayConfig) {
+      gatewayQueried = true;
+      const sql = buildPolygonSql(polygonCoordinates, {
+        zoningCodes: filters?.zoningCodes,
+        minAcreage: filters?.minAcreage,
+        maxAcreage: filters?.maxAcreage,
+        minAssessedValue: filters?.minAssessedValue,
+        maxAssessedValue: filters?.maxAssessedValue,
+      });
+
+      console.log("[prospect] gateway SQL query:", sql.slice(0, 200), "...");
+
+      const raw = await gatewayPost("/tools/parcels.sql", { sql, limit: 500 }, gatewayConfig);
+
+      if (Array.isArray(raw)) {
+        allParcels.push(...(raw as Record<string, unknown>[]));
+      } else if (raw && typeof raw === "object" && "rows" in (raw as Record<string, unknown>)) {
+        // Gateway may wrap results in { rows: [...] }
+        const rows = (raw as Record<string, unknown>).rows;
+        if (Array.isArray(rows)) {
+          allParcels.push(...(rows as Record<string, unknown>[]));
         }
       }
+
       console.log(
-        "[prospect] property DB returned",
+        "[prospect] gateway returned",
         allParcels.length,
-        "parcels from",
-        parishes.length,
-        "parishes",
+        "parcels via PostGIS ST_Contains",
       );
     }
 
@@ -338,69 +386,93 @@ export async function POST(req: NextRequest) {
       allParcels.push(...mapDevFallbackToProspectRows(searchText));
     }
 
-    // Filter: point-in-polygon
-    let filtered = allParcels.filter((p) => {
-      const lat = Number(p.latitude ?? p.lat ?? 0);
-      const lng = Number(p.longitude ?? p.lng ?? 0);
-      if (!lat || !lng) return false;
-      return pointInPolygon(lat, lng, polygonCoordinates);
-    });
+    // ---------------------------------------------------------------------------
+    // Point-in-polygon filter (JS fallback for non-gateway parcels)
+    // When parcels come from the gateway's PostGIS ST_Contains query, spatial
+    // filtering is already done server-side — skip redundant JS filtering.
+    // For org/Prisma parcels, apply the ray-casting PIP filter.
+    // ---------------------------------------------------------------------------
+    // If the gateway was queried, spatial + filter work is already done server-side.
+    // Only apply JS PIP + filters for fallback (org/Prisma) parcels.
+    const fromGateway = gatewayQueried && allParcels.length > 0;
+    let filtered: Record<string, unknown>[];
 
-    console.log(
-      "[prospect] point-in-polygon:",
-      allParcels.length,
-      "candidates →",
-      filtered.length,
-      "matched",
-    );
+    if (fromGateway) {
+      // Gateway already did spatial filtering via ST_Contains
+      filtered = allParcels;
+      console.log(
+        "[prospect] skipping JS PIP — gateway ST_Contains already filtered",
+        filtered.length,
+        "parcels",
+      );
+    } else {
+      filtered = allParcels.filter((p) => {
+        const lat = Number(p.latitude ?? p.lat ?? 0);
+        const lng = Number(p.longitude ?? p.lng ?? 0);
+        if (!lat || !lng) return false;
+        return pointInPolygon(lat, lng, polygonCoordinates);
+      });
+
+      console.log(
+        "[prospect] point-in-polygon:",
+        allParcels.length,
+        "candidates →",
+        filtered.length,
+        "matched",
+      );
+    }
 
     if (filtered.length === 0 && isDevParcelFallbackEnabled() && allParcels.length > 0) {
       filtered = allParcels;
     }
 
-    // Apply filters
-    const minAcreage = filters?.minAcreage;
-    if (minAcreage != null) {
-      filtered = filtered.filter(
-        (p) => p.acreage != null && Number(p.acreage) >= minAcreage
-      );
-    }
-    const maxAcreage = filters?.maxAcreage;
-    if (maxAcreage != null) {
-      filtered = filtered.filter(
-        (p) => p.acreage != null && Number(p.acreage) <= maxAcreage
-      );
-    }
-    if (filters?.zoningCodes?.length) {
-      const codes = new Set(
-        (filters.zoningCodes as string[]).map((c: string) => c.toUpperCase())
-      );
-      filtered = filtered.filter((p) => {
-        const zoning = String(p.zoning ?? p.zone_code ?? "").toUpperCase();
-        return codes.has(zoning) || [...codes].some((c) => zoning.includes(c));
-      });
-    }
-    if (filters?.excludeFloodZone) {
-      filtered = filtered.filter((p) => {
-        const flood = String(p.flood_zone ?? "").toUpperCase();
-        return !(/ZONE\s*[AV]/.test(flood));
-      });
-    }
-    const minAssessedValue = filters?.minAssessedValue;
-    if (minAssessedValue != null) {
-      filtered = filtered.filter(
-        (p) =>
-          p.assessed_value != null &&
-          Number(p.assessed_value) >= minAssessedValue
-      );
-    }
-    const maxAssessedValue = filters?.maxAssessedValue;
-    if (maxAssessedValue != null) {
-      filtered = filtered.filter(
-        (p) =>
-          p.assessed_value != null &&
-          Number(p.assessed_value) <= maxAssessedValue
-      );
+    // ---------------------------------------------------------------------------
+    // Apply filters — only for non-gateway parcels (gateway SQL already filtered)
+    // ---------------------------------------------------------------------------
+    if (!fromGateway) {
+      const minAcreage = filters?.minAcreage;
+      if (minAcreage != null) {
+        filtered = filtered.filter(
+          (p) => p.acreage != null && Number(p.acreage) >= minAcreage
+        );
+      }
+      const maxAcreage = filters?.maxAcreage;
+      if (maxAcreage != null) {
+        filtered = filtered.filter(
+          (p) => p.acreage != null && Number(p.acreage) <= maxAcreage
+        );
+      }
+      if (filters?.zoningCodes?.length) {
+        const codes = new Set(
+          (filters.zoningCodes as string[]).map((c: string) => c.toUpperCase())
+        );
+        filtered = filtered.filter((p) => {
+          const zoning = String(p.zoning ?? p.zone_code ?? "").toUpperCase();
+          return codes.has(zoning) || [...codes].some((c) => zoning.includes(c));
+        });
+      }
+      if (filters?.excludeFloodZone) {
+        filtered = filtered.filter((p) => {
+          const flood = String(p.flood_zone ?? "").toUpperCase();
+          return !(/ZONE\s*[AV]/.test(flood));
+        });
+      }
+      const minAssessedValue = filters?.minAssessedValue;
+      if (minAssessedValue != null) {
+        filtered = filtered.filter(
+          (p) =>
+            p.assessed_value != null &&
+            Number(p.assessed_value) >= minAssessedValue
+        );
+      }
+      const maxAssessedValue = filters?.maxAssessedValue;
+      if (maxAssessedValue != null) {
+        filtered = filtered.filter(
+          (p) =>
+            p.assessed_value != null &&
+            Number(p.assessed_value) <= maxAssessedValue
+        );
+      }
     }
 
     // Map to response format
