@@ -923,7 +923,7 @@ The following items were identified by analyzing 6 OpenAI GitHub repositories (`
   - Shared stream types in `apps/web/lib/chat/streamEventTypes.ts`
   - UI render path with status chips in `apps/web/components/chat/MessageBubble.tsx`, `apps/web/components/chat/AgentStatusChip.tsx`, `apps/web/components/chat/ToolStatusChip.tsx`
   - Tests updated: `apps/web/lib/chat/__tests__/streamPresenter.test.ts`, `apps/web/lib/chat/__tests__/streamRender.integration.test.tsx`
-  - Verification commands run: `pnpm lint`, `pnpm test` (pass); `pnpm typecheck` and `pnpm build` blocked by pre-existing `apps/worker` type errors unrelated to SDK-001 files.
+  - Verification commands run: `pnpm lint` ✅, `pnpm test` ✅, `pnpm typecheck` ✅, `pnpm build` ✅
 
 ### SDK-002 — Stable Options Hook (React Re-render Prevention)
 
@@ -1059,8 +1059,8 @@ The following items were identified by analyzing 6 OpenAI GitHub repositories (`
   - Verification commands run:
     - `pnpm lint` ✅
     - `pnpm test` ✅
-    - `pnpm typecheck` ⚠️ blocked by pre-existing `apps/worker` type errors unrelated to SDK-004 files
-    - `pnpm build` ⚠️ blocked by the same pre-existing `apps/worker` errors
+    - `pnpm typecheck` ✅
+    - `pnpm build` ✅
 
 ### P2 — Build Next
 
@@ -1116,8 +1116,8 @@ The following items were identified by analyzing 6 OpenAI GitHub repositories (`
   - Verification commands run:
     - `pnpm lint` ✅
     - `pnpm test` ✅
-    - `pnpm typecheck` ⚠️ blocked by pre-existing `apps/worker` type errors unrelated to SDK-005 files
-    - `pnpm build` ⚠️ blocked by the same pre-existing `apps/worker` errors
+    - `pnpm typecheck` ✅
+    - `pnpm build` ✅
 
 ### SDK-006 — Agent Tracing & Observability (SDK-Native Spans)
 
@@ -1169,9 +1169,9 @@ The following items were identified by analyzing 6 OpenAI GitHub repositories (`
     - `apps/web/app/api/chat/route.test.ts` updated to assert tracing setup invocation
   - Verification commands run:
     - `pnpm lint` ✅
-    - `pnpm typecheck` ⚠️ blocked by pre-existing `apps/worker` type errors unrelated to SDK-006 files
+    - `pnpm typecheck` ✅
     - `pnpm test` ✅
-    - `pnpm build` ⚠️ blocked by the same pre-existing `apps/worker` errors
+    - `pnpm build` ✅
 
 ### SDK-007 — Progressive Context Loading (Three-Tier Agent Context)
 
@@ -1220,8 +1220,8 @@ The following items were identified by analyzing 6 OpenAI GitHub repositories (`
   - Verification commands run:
     - `pnpm lint` ✅
     - `pnpm test` ✅
-    - `pnpm typecheck` ⚠️ blocked by pre-existing `apps/worker` type errors unrelated to SDK-007 files
-    - `pnpm build` ⚠️ blocked by the same pre-existing `apps/worker` errors
+    - `pnpm typecheck` ✅
+    - `pnpm build` ✅
 
 ### SDK-008 — Agent-as-Tool Pattern (Specialist Sub-Invocation)
 
@@ -1264,8 +1264,8 @@ The following items were identified by analyzing 6 OpenAI GitHub repositories (`
   - Verification commands run:
     - `pnpm lint` ✅
     - `pnpm test` ✅
-    - `pnpm typecheck` ⚠️ blocked by pre-existing `apps/worker` type errors unrelated to SDK-008 files
-    - `pnpm build` ⚠️ blocked by the same pre-existing `apps/worker` errors
+    - `pnpm typecheck` ✅
+    - `pnpm build` ✅
 
 ### P3 — Future Hardening
 
@@ -1323,8 +1323,8 @@ The following items were identified by analyzing 6 OpenAI GitHub repositories (`
   - Verification commands run:
     - `pnpm lint` ✅
     - `pnpm test` ✅
-    - `pnpm typecheck` ⚠️ blocked by pre-existing `apps/worker` type errors unrelated to SDK-009 files
-    - `pnpm build` ⚠️ blocked by the same pre-existing `apps/worker` errors
+    - `pnpm typecheck` ✅
+    - `pnpm build` ✅
 
 ### SDK-010 — Session Persistence (SDK-Native Conversation Memory)
 
