@@ -1196,7 +1196,7 @@ export function MapLibreParcelMap({
   if (mapError) {
     return (
       <div
-        className="flex h-full w-full items-center justify-center rounded-lg border bg-red-50 text-sm text-red-700"
+        className="flex h-full w-full items-center justify-center rounded-lg border border-map-border bg-red-500/10 text-sm text-red-400"
         style={{ height }}
       >
         <div className="text-center">
@@ -1212,7 +1212,7 @@ export function MapLibreParcelMap({
       <div ref={mapContainerRef} style={{ height, width: "100%", backgroundColor: "#1e2230" }} />
       {/* Toolbar with screenshot and fullscreen buttons */}
       {showLayers && (
-        <div className="absolute left-2 top-2 z-10 flex flex-col gap-2 rounded-lg bg-background/95 p-2 shadow-lg dark:bg-slate-900/95">
+        <div className="absolute left-2 top-2 z-10 flex flex-col gap-2 rounded-lg map-panel p-2 shadow-lg">
           <button
             type="button"
             onClick={() => {
@@ -1728,8 +1728,8 @@ function MapLibreDrawControl({
   }, [drawing, clearDrawing]);
 
   return (
-    <div data-tour="draw-tool" className="absolute left-2 top-2 z-10 mt-10" style={{ marginTop: 10 }}>
-      <div className="flex flex-col rounded-lg border bg-white/95 shadow-lg">
+    <div data-tour="draw-tool" className="absolute left-2 top-24 z-10">
+      <div className="flex flex-col gap-1 rounded-lg map-panel p-1 shadow-lg">
         {!hasPolygon ? (
           <button
             type="button"
@@ -1741,8 +1741,8 @@ function MapLibreDrawControl({
                 setDrawing(true);
               }
             }}
-            className={`flex h-8 w-8 items-center justify-center rounded ${
-              drawing ? "bg-purple-500 text-white" : "bg-white text-gray-700 hover:bg-gray-100"
+            className={`map-btn flex h-8 w-8 items-center justify-center rounded transition-colors ${
+              drawing ? "bg-purple-500 text-white" : ""
             }`}
           >
             <Pencil className="h-4 w-4" />
@@ -1755,7 +1755,7 @@ function MapLibreDrawControl({
               clearDrawing();
               onPolygonCleared();
             }}
-            className="flex h-8 w-8 items-center justify-center rounded bg-white text-red-500 hover:bg-red-50"
+            className="map-btn flex h-8 w-8 items-center justify-center rounded text-red-400 hover:text-red-300"
           >
             <Trash2 className="h-4 w-4" />
           </button>
@@ -1766,7 +1766,7 @@ function MapLibreDrawControl({
               type="button"
               title="Undo last point (Cmd/Ctrl+Z)"
               onClick={undoLastPoint}
-              className="flex h-8 w-8 items-center justify-center rounded border-t border-gray-200 bg-white text-gray-600 hover:bg-gray-100"
+              className="map-btn flex h-8 w-8 items-center justify-center rounded"
             >
               ↶
             </button>
@@ -1774,7 +1774,7 @@ function MapLibreDrawControl({
               type="button"
               title="Finish drawing (or double-click)"
               onClick={finishDrawing}
-              className="flex h-8 w-8 items-center justify-center rounded border-t border-gray-200 bg-green-500 text-white hover:bg-green-600"
+              className="flex h-8 w-8 items-center justify-center rounded bg-green-500 text-white hover:bg-green-600"
             >
               <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M2 8l4 4 8-8" />
@@ -1787,7 +1787,7 @@ function MapLibreDrawControl({
                 clearDrawing();
                 setDrawing(false);
               }}
-              className="flex h-8 w-8 items-center justify-center rounded border-t border-gray-200 bg-white text-gray-500 hover:bg-gray-100"
+              className="map-btn flex h-8 w-8 items-center justify-center rounded"
             >
               <X className="h-4 w-4" />
             </button>
@@ -1974,20 +1974,20 @@ function MapLibreAnalyticalToolbar({
   const [heatmapMenuOpen, setHeatmapMenuOpen] = useState(false);
 
   return (
-    <div data-tour="analytical-toolbar" className="absolute left-3 top-[150px] z-10 flex flex-col gap-1 rounded-lg bg-white/95 p-1 text-sm shadow-lg">
+    <div data-tour="analytical-toolbar" className="absolute left-2 top-40 z-10 flex flex-col gap-1 rounded-lg map-panel p-1 text-sm shadow-lg">
       <button
         title="Toggle Measurements"
         onClick={() =>
           setMeasureMode(measureMode === "off" ? "distance" : "off")
         }
-        className={`h-8 w-8 rounded ${measureMode !== "off" ? "bg-blue-600 text-white" : "bg-white text-gray-700 hover:bg-gray-100"}`}
+        className={`h-8 w-8 rounded ${measureMode !== "off" ? "bg-blue-600 text-white" : "map-btn"}`}
       >
         ✎
       </button>
       <button
         title="Comparable Sales"
         onClick={() => setShowComps((value) => !value)}
-        className={`h-8 w-8 rounded text-xs font-bold ${showComps ? "bg-green-500 text-white" : "bg-white text-gray-700 hover:bg-gray-100"}`}
+        className={`h-8 w-8 rounded text-xs font-bold ${showComps ? "bg-green-500 text-white" : "map-btn"}`}
       >
         $
       </button>
@@ -2002,13 +2002,13 @@ function MapLibreAnalyticalToolbar({
               setHeatmapMenuOpen((value) => !value);
             }
           }}
-          className={`h-8 w-8 rounded ${showHeatmap ? "bg-orange-500 text-white" : "bg-white text-gray-700 hover:bg-gray-100"}`}
+          className={`h-8 w-8 rounded ${showHeatmap ? "bg-orange-500 text-white" : "map-btn"}`}
         >
           ◑
         </button>
         {showHeatmap && heatmapMenuOpen && (
-          <div className="absolute left-9 top-0 z-50 w-48 rounded-lg border bg-white text-xs shadow-xl">
-            <div className="border-b border-gray-100 px-3 py-2 text-[10px] font-semibold uppercase text-gray-400">
+          <div className="absolute left-9 top-0 z-50 w-48 rounded-lg border border-map-border map-panel text-xs shadow-xl">
+            <div className="border-b border-map-border px-3 py-2 text-[10px] font-semibold uppercase text-map-text-muted">
               Heatmap Preset
             </div>
             {HEATMAP_PRESETS.map((preset) => (
@@ -2019,16 +2019,16 @@ function MapLibreAnalyticalToolbar({
                   setActiveHeatmapPreset(preset.key);
                   setHeatmapMenuOpen(false);
                 }}
-                className={`flex w-full flex-col gap-0.5 px-3 py-2 text-left hover:bg-gray-50 ${activeHeatmapPreset === preset.key ? "bg-orange-50" : ""}`}
+                className={`flex w-full flex-col gap-0.5 px-3 py-2 text-left hover:bg-map-surface ${activeHeatmapPreset === preset.key ? "bg-orange-50/10" : ""}`}
               >
-                <span className={`font-medium ${activeHeatmapPreset === preset.key ? "text-orange-700" : "text-gray-700"}`}>
+                <span className={`font-medium ${activeHeatmapPreset === preset.key ? "text-orange-400" : "text-map-text-primary"}`}>
                   {preset.label}
                   {activeHeatmapPreset === preset.key ? " ✓" : ""}
                 </span>
-                <span className="text-[10px] leading-tight text-gray-400">{preset.description}</span>
+                <span className="text-[10px] leading-tight text-map-text-muted">{preset.description}</span>
               </button>
             ))}
-            <div className="border-t border-gray-100 px-3 py-1.5">
+            <div className="border-t border-map-border px-3 py-1.5">
               <button
                 type="button"
                 onClick={() => {
@@ -2046,7 +2046,7 @@ function MapLibreAnalyticalToolbar({
       <button
         title="Drive Time Isochrone"
         onClick={() => setShowIsochrone((value) => !value)}
-        className={`h-8 w-8 rounded ${showIsochrone ? "bg-purple-500 text-white" : "bg-white text-gray-700 hover:bg-gray-100"}`}
+        className={`h-8 w-8 rounded ${showIsochrone ? "bg-purple-500 text-white" : "map-btn"}`}
       >
         ⌖
       </button>
@@ -2282,23 +2282,23 @@ function MapLibreMeasureTool({
 
   return (
     <div
-      className="absolute right-16 top-2 z-10 rounded-md border bg-white/95 p-2 text-xs shadow-lg"
+      className="absolute right-16 top-2 z-10 rounded-md border border-map-border map-panel p-2 text-xs shadow-lg"
       onPointerDown={(event) => event.stopPropagation()}
     >
       <div className="mb-1 flex items-center justify-between gap-1">
-        <div className="text-xs font-semibold uppercase text-gray-600">
+        <div className="text-xs font-semibold uppercase text-map-text-muted">
           {mode === "distance" ? "Distance" : "Area"}
         </div>
         <div className="flex gap-1">
           <button
-            className="rounded px-1 text-gray-500 hover:text-gray-700"
+            className="rounded px-1 text-map-text-muted hover:text-map-text-primary"
             onClick={clear}
             title="Clear"
           >
             ⟲
           </button>
           <button
-            className="rounded px-1 text-gray-500 hover:text-gray-700"
+            className="rounded px-1 text-map-text-muted hover:text-map-text-primary"
             onClick={() => setMode("off")}
             title="Close"
           >
@@ -2306,7 +2306,7 @@ function MapLibreMeasureTool({
           </button>
         </div>
       </div>
-      <div className="text-lg font-bold text-gray-900">
+      <div className="text-lg font-bold text-map-text-primary">
         {mode === "distance"
           ? totalDistance > 0
             ? formatDistance(totalDistance)
@@ -2315,19 +2315,19 @@ function MapLibreMeasureTool({
             ? formatArea(totalArea)
             : `${points.length < 3 ? `${points.length}/3 points` : "Click to add points"}`}
       </div>
-      <div className="mt-1 text-[10px] text-gray-500">
+      <div className="mt-1 text-[10px] text-map-text-muted">
         {mode === "distance" ? "Click map to add waypoints" : "Click map to define area"}
       </div>
       <div className="mt-1 flex gap-1.5">
         <button
           onClick={() => setMode("distance")}
-          className={`rounded px-2 py-0.5 text-[10px] ${mode === "distance" ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-600"}`}
+          className={`rounded px-2 py-0.5 text-[10px] ${mode === "distance" ? "bg-blue-500 text-white" : "bg-map-surface text-map-text-muted"}`}
         >
           Distance
         </button>
         <button
           onClick={() => setMode("area")}
-          className={`rounded px-2 py-0.5 text-[10px] ${mode === "area" ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-600"}`}
+          className={`rounded px-2 py-0.5 text-[10px] ${mode === "area" ? "bg-blue-500 text-white" : "bg-map-surface text-map-text-muted"}`}
         >
           Area
         </button>
@@ -2618,10 +2618,10 @@ function MapLibreCompSaleLayer({
 
   return (
     <div
-      className="absolute right-16 top-2 z-10 rounded-md border bg-white/95 p-2 text-xs shadow-lg"
+      className="absolute right-16 top-2 z-10 rounded-md border border-map-border map-panel p-2 text-xs shadow-lg"
       onPointerDown={(event) => event.stopPropagation()}
     >
-      <div className="font-semibold text-gray-600 uppercase text-[11px]">Comparable Sales</div>
+      <div className="font-semibold text-map-text-muted uppercase text-[11px]">Comparable Sales</div>
       <form
         className="mt-1.5 flex gap-1"
         onSubmit={(event) => {
@@ -2641,7 +2641,7 @@ function MapLibreCompSaleLayer({
           value={searchAddress}
           onChange={(event) => setSearchAddress(event.target.value)}
           placeholder="Address or use map center"
-          className="min-w-0 flex-1 rounded border px-2 py-1 text-xs"
+          className="min-w-0 flex-1 rounded border border-map-border bg-map-surface px-2 py-1 text-xs text-map-text-primary placeholder:text-map-text-muted"
         />
         <button
           type="submit"
@@ -2651,8 +2651,8 @@ function MapLibreCompSaleLayer({
           {loading ? "..." : "Search"}
         </button>
       </form>
-      {searched && <p className="mt-1 text-[10px] text-gray-500">{comps.length} comp{comps.length !== 1 ? "s" : ""} found</p>}
-      <div className="mt-2 flex gap-2 text-[10px] text-gray-500">
+      {searched && <p className="mt-1 text-[10px] text-map-text-muted">{comps.length} comp{comps.length !== 1 ? "s" : ""} found</p>}
+      <div className="mt-2 flex gap-2 text-[10px] text-map-text-muted">
         <span className="flex items-center gap-0.5"><span className="inline-block h-2 w-2 rounded-full bg-green-500" />{" <6mo"}</span>
         <span className="flex items-center gap-0.5"><span className="inline-block h-2 w-2 rounded-full bg-yellow-500" /> 6-12mo</span>
       </div>
@@ -3018,11 +3018,11 @@ function MapLibreIsochroneControl({
 
   return (
     <div
-      className="absolute right-2 bottom-16 z-10 rounded-md border bg-white/95 p-2 text-xs shadow-lg"
+      className="absolute right-2 bottom-16 z-10 rounded-md border border-map-border map-panel p-2 text-xs shadow-lg"
       onPointerDown={(event) => event.stopPropagation()}
     >
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5 text-gray-600 text-[11px] font-semibold uppercase">
+        <div className="flex items-center gap-1.5 text-map-text-muted text-[11px] font-semibold uppercase">
           Drive Time
         </div>
         {(result || clickMode) && (
@@ -3033,7 +3033,7 @@ function MapLibreIsochroneControl({
               setClickMode(false);
               if (mapRef.current) mapRef.current.getCanvas().style.cursor = "";
             }}
-            className="text-gray-400 hover:text-gray-600"
+            className="text-map-text-muted hover:text-map-text-primary"
           >
             ✕
           </button>
@@ -3044,7 +3044,7 @@ function MapLibreIsochroneControl({
           <button
             key={t}
             onClick={() => setMinutes(t)}
-            className={`rounded px-1.5 py-1 text-xs ${minutes === t ? "bg-purple-500 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+            className={`rounded px-1.5 py-1 text-xs ${minutes === t ? "bg-purple-500 text-white" : "bg-map-surface text-map-text-muted hover:bg-map-surface/80"}`}
           >
             {t}m
           </button>
@@ -3062,13 +3062,13 @@ function MapLibreIsochroneControl({
         {loading ? "Computing..." : clickMode ? "Click map to set center" : "Click map to analyze"}
       </button>
       {result && (
-        <div className="mt-1.5 rounded bg-purple-50 px-2 py-1.5 text-xs">
-          <div className="font-semibold text-purple-800">{result.minutes}-min drive area</div>
-          <div className="text-purple-600">{result.parcelCount} parcel{result.parcelCount !== 1 ? "s" : ""} in range</div>
+        <div className="mt-1.5 rounded bg-purple-500/10 px-2 py-1.5 text-xs">
+          <div className="font-semibold text-purple-300">{result.minutes}-min drive area</div>
+          <div className="text-purple-400">{result.parcelCount} parcel{result.parcelCount !== 1 ? "s" : ""} in range</div>
         </div>
       )}
       {error && (
-        <div className="mt-1.5 rounded bg-red-50 px-2 py-1.5 text-xs text-red-700">
+        <div className="mt-1.5 rounded bg-red-500/10 px-2 py-1.5 text-xs text-red-400">
           {error}
         </div>
       )}
