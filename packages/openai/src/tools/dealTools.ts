@@ -907,10 +907,10 @@ export const createDeal = tool({
       .string()
       .uuid()
       .describe("The jurisdiction this deal falls under"),
-    notes: z.string().nullable().describe("Optional notes for the deal"),
+    notes: z.string().optional().nullable().describe("Optional notes for the deal"),
     targetCloseDate: z
       .string()
-      .nullable()
+      .optional().nullable()
       .describe("Optional target close date (ISO 8601)"),
   }),
   execute: async ({
@@ -960,10 +960,10 @@ export const updateDealStatus = tool({
         "KILLED",
       ])
       .describe("The new deal status"),
-    notes: z.string().nullable().describe("Optional notes about the status change"),
+    notes: z.string().optional().nullable().describe("Optional notes about the status change"),
     confirmed: z
       .boolean()
-      .nullable()
+      .optional().nullable()
       .describe("Required true for high-impact status transitions"),
   }),
   needsApproval: true,
@@ -1015,18 +1015,18 @@ export const listDeals = tool({
         "EXITED",
         "KILLED",
       ])
-      .nullable()
+      .optional().nullable()
       .describe("Filter by deal status"),
     sku: z
       .enum(["SMALL_BAY_FLEX", "OUTDOOR_STORAGE", "TRUCK_PARKING"])
-      .nullable()
+      .optional().nullable()
       .describe("Filter by SKU type"),
     limit: z
       .number()
       .int()
       .min(1)
       .max(100)
-      .nullable()
+      .optional().nullable()
       .describe("Maximum number of deals to return (default 20)"),
   }),
   execute: async ({ orgId, status, sku, limit }) => {
@@ -1059,7 +1059,7 @@ export const get_rent_roll = tool({
       .int()
       .min(1)
       .max(30)
-      .nullable()
+      .optional().nullable()
       .describe("Optional hold period override for the lease schedule"),
   }),
   execute: async ({ orgId, dealId, holdYears }) => {
@@ -1253,7 +1253,7 @@ export const stress_test_deal = tool({
     dealId: z.string().describe("The deal ID"),
     includeScenarioIds: z
       .array(z.enum(STRESS_SCENARIO_IDS))
-      .nullable()
+      .optional().nullable()
       .describe(
         "Optional list of scenario IDs to include. Null uses all predefined scenarios.",
       ),
@@ -1344,7 +1344,7 @@ export const model_exit_scenarios = tool({
       .int()
       .min(3)
       .max(10)
-      .nullable()
+      .optional().nullable()
       .describe("Optional max exit year horizon (default 10)."),
   }),
   execute: async ({ orgId, dealId, maxExitYear }) => {
@@ -1467,10 +1467,10 @@ export const recommend_entitlement_path = tool({
   description:
     "Recommend an entitlement strategy path with approval probability, timeline, costs, ranked alternatives, and risk flags.",
   parameters: z.object({
-    jurisdiction_id: z.string().nullable(),
+    jurisdiction_id: z.string().optional().nullable(),
     sku: z.string(),
     proposed_use: z.string(),
-    site_constraints: z.array(z.string()).nullable(),
+    site_constraints: z.array(z.string()).optional().nullable(),
     risk_tolerance: z.enum(["conservative", "moderate", "aggressive"]),
   }),
   execute: async ({
@@ -1788,7 +1788,7 @@ export const estimate_phase_ii_scope = tool({
   parameters: z.object({
     phase_i_recs: z.array(z.string()),
     site_acreage: z.number(),
-    groundwater_depth: z.number().nullable(),
+    groundwater_depth: z.number().optional().nullable(),
   }),
   execute: async ({ phase_i_recs, site_acreage, groundwater_depth }) => {
     const recs = phase_i_recs.map((item) => item.toLowerCase());
@@ -1802,8 +1802,8 @@ export const estimate_phase_ii_scope = tool({
     if (hasVapor) riskScore += 10;
     if (hasSolvent) riskScore += 12;
     if (hasFill) riskScore += 8;
-    if (groundwater_depth !== null && groundwater_depth <= 12) riskScore += 10;
-    if (groundwater_depth !== null && groundwater_depth >= 40) riskScore -= 4;
+    if (groundwater_depth != null && groundwater_depth <= 12) riskScore += 10;
+    if (groundwater_depth != null && groundwater_depth >= 40) riskScore -= 4;
     riskScore = Math.max(10, Math.min(95, riskScore));
 
     const baseCost = 22_000 + Math.max(site_acreage, 0) * 7_000;
@@ -1922,14 +1922,14 @@ export const generate_zoning_compliance_checklist = tool({
   description:
     "Generate requirement-level zoning compliance matrix with variance counts, likelihood, and aggregate variance timing/cost estimates.",
   parameters: z.object({
-    jurisdiction_id: z.string().nullable(),
+    jurisdiction_id: z.string().optional().nullable(),
     sku: z.string(),
-    current_zoning: z.string().nullable(),
+    current_zoning: z.string().optional().nullable(),
     site_constraints: z.object({
-      acreage: z.number().nullable(),
-      proposed_height: z.number().nullable(),
-      parking_spaces: z.number().nullable(),
-      far: z.number().nullable(),
+      acreage: z.number().optional().nullable(),
+      proposed_height: z.number().optional().nullable(),
+      parking_spaces: z.number().optional().nullable(),
+      far: z.number().optional().nullable(),
     }),
   }),
   execute: async ({ jurisdiction_id, sku, current_zoning, site_constraints }) => {
@@ -2005,21 +2005,21 @@ export const addParcelToDeal = tool({
     orgId: z.string().uuid().describe("The org ID for security scoping"),
     dealId: z.string().describe("The deal to attach the parcel to"),
     address: z.string().min(1).describe("Street address of the parcel"),
-    apn: z.string().nullable().describe("Assessor parcel number"),
-    lat: z.number().nullable().describe("Latitude"),
-    lng: z.number().nullable().describe("Longitude"),
-    acreage: z.number().nullable().describe("Acreage of the parcel"),
+    apn: z.string().optional().nullable().describe("Assessor parcel number"),
+    lat: z.number().optional().nullable().describe("Latitude"),
+    lng: z.number().optional().nullable().describe("Longitude"),
+    acreage: z.number().optional().nullable().describe("Acreage of the parcel"),
     currentZoning: z
       .string()
-      .nullable()
+      .optional().nullable()
       .describe("Current zoning code (e.g. A1, C2, M1)"),
     futureLandUse: z
       .string()
-      .nullable()
+      .optional().nullable()
       .describe("Future land use designation"),
     utilitiesNotes: z
       .string()
-      .nullable()
+      .optional().nullable()
       .describe("Notes about utility access"),
   }),
   execute: async ({
@@ -2068,46 +2068,46 @@ export const updateParcel = tool({
   parameters: z.object({
     orgId: z.string().uuid().describe("The org ID for security scoping"),
     parcelId: z.string().describe("The parcel ID to update"),
-    apn: z.string().nullable().describe("Assessor parcel number"),
-    lat: z.number().nullable().describe("Latitude"),
-    lng: z.number().nullable().describe("Longitude"),
-    acreage: z.number().nullable().describe("Acreage of the parcel"),
+    apn: z.string().optional().nullable().describe("Assessor parcel number"),
+    lat: z.number().optional().nullable().describe("Latitude"),
+    lng: z.number().optional().nullable().describe("Longitude"),
+    acreage: z.number().optional().nullable().describe("Acreage of the parcel"),
     currentZoning: z
       .string()
-      .nullable()
+      .optional().nullable()
       .describe("Current zoning code (e.g. A1, C2, M1)"),
     futureLandUse: z
       .string()
-      .nullable()
+      .optional().nullable()
       .describe("Future land use designation"),
     utilitiesNotes: z
       .string()
-      .nullable()
+      .optional().nullable()
       .describe("Notes about utility access"),
     floodZone: z
       .string()
-      .nullable()
+      .optional().nullable()
       .describe("FEMA flood zone code (e.g. X, AE, A)"),
     soilsNotes: z
       .string()
-      .nullable()
+      .optional().nullable()
       .describe("Summary of soil conditions from screening"),
     wetlandsNotes: z
       .string()
-      .nullable()
+      .optional().nullable()
       .describe("Summary of wetland status from screening"),
     envNotes: z
       .string()
-      .nullable()
+      .optional().nullable()
       .describe("Summary of environmental screening (EPA/LDEQ findings)"),
     trafficNotes: z
       .string()
-      .nullable()
+      .optional().nullable()
       .describe("Summary of traffic/access data from screening"),
     propertyDbId: z
       .string()
       .uuid()
-      .nullable()
+      .optional().nullable()
       .describe("The parcel UUID from the Louisiana Property Database, for cross-reference"),
   }),
   execute: async ({

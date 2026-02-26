@@ -158,8 +158,8 @@ export const evidenceSnapshot = tool({
   parameters: z.object({
     orgId: z.string().uuid().describe("The org ID for security scoping"),
     url: z.string().min(1).describe("The URL to snapshot (e.g. https://example.com/page)"),
-    title: z.string().nullable().describe("Optional title for the evidence source"),
-    dealId: z.string().nullable().describe("Optional deal ID to associate the snapshot run with"),
+    title: z.string().optional().nullable().describe("Optional title for the evidence source"),
+    dealId: z.string().optional().nullable().describe("Optional deal ID to associate the snapshot run with"),
   }),
   execute: async ({ orgId, url, title, dealId }) => {
     try {
@@ -318,8 +318,8 @@ export const floodZoneLookup = tool({
       .string()
       .min(1)
       .describe("The street address to check for flood zone"),
-    lat: z.number().nullable().describe("Latitude (unused currently, address search preferred)"),
-    lng: z.number().nullable().describe("Longitude (unused currently, address search preferred)"),
+    lat: z.number().optional().nullable().describe("Latitude (unused currently, address search preferred)"),
+    lng: z.number().optional().nullable().describe("Longitude (unused currently, address search preferred)"),
   }),
   execute: async ({ address, lat, lng }) => {
     try {

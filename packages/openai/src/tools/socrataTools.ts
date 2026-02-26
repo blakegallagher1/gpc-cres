@@ -31,11 +31,11 @@ export const queryBuildingPermits = tool({
     zipCode: z.string().describe("5-digit zip code to search"),
     monthsBack: z
       .number()
-      .nullable()
+      .optional().nullable()
       .describe("Months of history to retrieve (default 12)"),
     permitTypes: z
       .array(z.string())
-      .nullable()
+      .optional().nullable()
       .describe(
         "Optional permit-type filter strings, e.g. ['renovation','new_construction']. " +
           "Defaults to commercial renovation + new construction."
@@ -47,8 +47,8 @@ export const queryBuildingPermits = tool({
     permitTypes,
   }: {
     zipCode: string;
-    monthsBack: number | null;
-    permitTypes: string[] | null;
+    monthsBack?: number | null;
+    permitTypes?: string[] | null;
   }): Promise<string> => {
     const months = monthsBack ?? 12;
     const types = permitTypes ?? ["renovation", "new_construction"];

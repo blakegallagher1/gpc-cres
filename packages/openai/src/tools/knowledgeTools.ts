@@ -36,7 +36,7 @@ export const search_knowledge_base = tool({
           "reasoning_trace",
         ])
       )
-      .nullable()
+      .optional().nullable()
       .describe(
         "Optional filter by content type. Pass null to search all types. " +
         "New types: 'outcome_record' for historical deal results, " +
@@ -44,22 +44,22 @@ export const search_knowledge_base = tool({
       ),
     limit: z
       .number()
-      .nullable()
+      .optional().nullable()
       .describe("Maximum number of results to return (default 5)."),
     deal_context: z
       .object({
-        parish: z.string().nullable().describe("Parish name for geographic relevance."),
-        sku_type: z.string().nullable().describe("SKU type for use-case relevance."),
-        deal_status: z.string().nullable().describe("Current deal status for stage relevance."),
+        parish: z.string().optional().nullable().describe("Parish name for geographic relevance."),
+        sku_type: z.string().optional().nullable().describe("SKU type for use-case relevance."),
+        deal_status: z.string().optional().nullable().describe("Current deal status for stage relevance."),
       })
-      .nullable()
+      .optional().nullable()
       .describe(
         "Optional deal context to boost relevance scoring. " +
         "Providing context helps find more relevant precedents."
       ),
     recency_weight: z
       .enum(["none", "moderate", "strong"])
-      .nullable()
+      .optional().nullable()
       .describe(
         "How much to weight recent entries over older ones. " +
         "'strong' heavily favors recent data (useful for market conditions). " +
@@ -107,19 +107,19 @@ export const store_knowledge_entry = tool({
       .describe("The knowledge content to store. Be specific and include quantitative data."),
     deal_id: z
       .string()
-      .nullable()
+      .optional().nullable()
       .describe("Associated deal ID, if applicable."),
     parish: z
       .string()
-      .nullable()
+      .optional().nullable()
       .describe("Associated parish, if applicable."),
     sku_type: z
       .string()
-      .nullable()
+      .optional().nullable()
       .describe("Associated SKU type, if applicable."),
     tags: z
       .array(z.string())
-      .nullable()
+      .optional().nullable()
       .describe("Searchable tags for categorization."),
     source_agent: z
       .string()

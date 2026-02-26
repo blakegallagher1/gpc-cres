@@ -49,7 +49,7 @@ export const log_reasoning_trace = tool({
       .describe("Key assumptions underlying this conclusion that could be wrong."),
     invalidation_triggers: z
       .array(z.string())
-      .nullable()
+      .optional().nullable()
       .describe(
         "Specific conditions that would invalidate this conclusion " +
         "and require re-analysis. Pass null if none identified."
@@ -105,7 +105,7 @@ export const assess_uncertainty = tool({
             .describe("Whether this uncertainty can be reduced with more data/research."),
           suggested_action: z
             .string()
-            .nullable()
+            .optional().nullable()
             .describe("What action would reduce this uncertainty."),
         })
       )

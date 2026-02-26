@@ -228,14 +228,14 @@ export const searchParcels = tool({
       .describe("Street address to search for (e.g. '222 St Louis St, Baton Rouge, LA')"),
     parish: z
       .string()
-      .nullable()
+      .optional().nullable()
       .describe("Parish name to append to the search for better geocoding accuracy (e.g. 'East Baton Rouge')"),
     limit_rows: z
       .number()
       .int()
       .min(1)
       .max(50)
-      .nullable()
+      .optional().nullable()
       .describe("Max parcels to return (default 10)"),
   }),
   execute: async ({ search_text, parish, limit_rows }) => {
@@ -354,7 +354,7 @@ export const screenEpa = tool({
       .describe("The parcel number (e.g. '001-5096-7')"),
     radius_miles: z
       .number()
-      .nullable()
+      .optional().nullable()
       .describe("Search radius in miles (default 1.0)"),
   }),
   execute: async ({ parcel_id, radius_miles }) => {
@@ -379,7 +379,7 @@ export const screenTraffic = tool({
       .describe("The parcel number (e.g. '001-5096-7')"),
     radius_miles: z
       .number()
-      .nullable()
+      .optional().nullable()
       .describe("Search radius in miles (default 0.5)"),
   }),
   execute: async ({ parcel_id, radius_miles }) => {
@@ -404,7 +404,7 @@ export const screenLdeq = tool({
       .describe("The parcel number (e.g. '001-5096-7')"),
     radius_miles: z
       .number()
-      .nullable()
+      .optional().nullable()
       .describe("Search radius in miles (default 1.0)"),
   }),
   execute: async ({ parcel_id, radius_miles }) => {
@@ -446,14 +446,14 @@ export const queryPropertyDb = tool({
     "This queries the STATEWIDE parcel layer, NOT the internal org deals/parcels table. " +
     "For complex spatial or analytical queries that these filters cannot express, use query_property_db_sql instead.",
   parameters: z.object({
-    zoning: z.string().nullable().describe("Zoning type to filter by (e.g. 'C2', 'M1', 'A1'). Case/hyphen insensitive."),
-    zip: z.string().nullable().describe("ZIP code to filter parcels by (matched in situs address)."),
-    min_acreage: z.number().nullable().describe("Minimum parcel acreage."),
-    max_acreage: z.number().nullable().describe("Maximum parcel acreage."),
-    owner_contains: z.string().nullable().describe("Filter parcels where owner name contains this text (case-insensitive)."),
-    land_use: z.string().nullable().describe("Filter by existing land use classification."),
-    sort: z.string().nullable().describe("Sort order: 'acreage_desc' (default), 'acreage_asc', 'assessed_value_desc', 'address_asc'."),
-    limit: z.number().nullable().describe("Max results to return (default 10, max 100)."),
+    zoning: z.string().optional().nullable().describe("Zoning type to filter by (e.g. 'C2', 'M1', 'A1'). Case/hyphen insensitive."),
+    zip: z.string().optional().nullable().describe("ZIP code to filter parcels by (matched in situs address)."),
+    min_acreage: z.number().optional().nullable().describe("Minimum parcel acreage."),
+    max_acreage: z.number().optional().nullable().describe("Maximum parcel acreage."),
+    owner_contains: z.string().optional().nullable().describe("Filter parcels where owner name contains this text (case-insensitive)."),
+    land_use: z.string().optional().nullable().describe("Filter by existing land use classification."),
+    sort: z.string().optional().nullable().describe("Sort order: 'acreage_desc' (default), 'acreage_asc', 'assessed_value_desc', 'address_asc'."),
+    limit: z.number().optional().nullable().describe("Max results to return (default 10, max 100)."),
   }),
   execute: async (params) => {
     const result = await gatewayPost("/tools/parcels.search", params);
@@ -474,7 +474,7 @@ export const queryPropertyDbSql = tool({
     "Acreage from area_sqft: area_sqft / 43560.0. SELECT only, max 100 rows.",
   parameters: z.object({
     sql: z.string().describe("Read-only SQL query. SELECT/WITH only, no semicolons. Tables: ebr_parcels, fema_flood, soils, wetlands, epa_facilities."),
-    limit: z.number().nullable().describe("Max rows (default 100, max 100)."),
+    limit: z.number().optional().nullable().describe("Max rows (default 100, max 100)."),
   }),
   execute: async (params) => {
     const result = await gatewayPost("/tools/parcels.sql", params);
@@ -531,8 +531,8 @@ export const screenBatch = tool({
     "with parcel_id as key and {status, data, error} for each. Optionally streams real-time progress to browser via conversationId.",
   parameters: z.object({
     parcel_ids: z.array(z.string()).max(20).describe("Array of parcel IDs to screen (max 20). Screened concurrently with limit of 5."),
-    conversationId: z.string().nullable().describe("Optional conversation ID for real-time progress streaming. If provided, operation_progress events are pushed to browser."),
-    operationId: z.string().nullable().describe("Optional operation ID for progress tracking. Generated if not provided."),
+    conversationId: z.string().optional().nullable().describe("Optional conversation ID for real-time progress streaming. If provided, operation_progress events are pushed to browser."),
+    operationId: z.string().optional().nullable().describe("Optional operation ID for progress tracking. Generated if not provided."),
   }),
   execute: async ({ parcel_ids, conversationId: rawConversationId, operationId: rawOperationId }) => {
     const conversationId = rawConversationId ?? "";

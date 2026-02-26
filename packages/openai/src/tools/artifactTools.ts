@@ -59,7 +59,7 @@ export const generate_artifact = tool({
       .describe("Type of artifact to generate"),
     comparisonDealIds: z
       .array(z.string())
-      .nullable()
+      .optional().nullable()
       .describe("For COMP_ANALYSIS_PDF only: IDs of deals to compare against. Null for other types."),
   }),
   execute: async ({ orgId, dealId, artifactType, comparisonDealIds }) => {

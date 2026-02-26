@@ -26,11 +26,11 @@ export const get_historical_accuracy = tool({
   parameters: z.object({
     include_calibration: z
       .boolean()
-      .nullable()
+      .optional().nullable()
       .describe("Whether to include triage calibration data (default true)."),
     include_weight_adaptation: z
       .boolean()
-      .nullable()
+      .optional().nullable()
       .describe("Whether to include adaptive weight adjustments based on outcomes (default true)."),
   }),
   execute: async (params) => {
@@ -70,7 +70,7 @@ export const record_deal_outcome = tool({
       ),
     outcome_notes: z
       .string()
-      .nullable()
+      .optional().nullable()
       .describe("Free-text notes on what drove the outcome."),
     projection_actuals: z
       .array(
@@ -88,7 +88,7 @@ export const record_deal_outcome = tool({
             .describe("The actual value observed."),
         })
       )
-      .nullable()
+      .optional().nullable()
       .describe(
         "Specific projection vs actual comparisons for financial metrics. " +
         "Pass null if no specific metric comparisons are available."

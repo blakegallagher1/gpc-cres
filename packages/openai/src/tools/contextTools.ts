@@ -53,14 +53,14 @@ export const share_analysis_finding = tool({
       .describe("Name of the agent publishing this finding."),
     affected_agents: z
       .array(z.string())
-      .nullable()
+      .optional().nullable()
       .describe(
         "List of agent names that should pay attention to this finding. " +
         "Pass null to broadcast to all agents."
       ),
     evidence_refs: z
       .array(z.string())
-      .nullable()
+      .optional().nullable()
       .describe("Optional evidence reference IDs supporting this finding."),
   }),
   execute: async (params) => {
@@ -107,13 +107,13 @@ export const get_shared_context = tool({
           "opportunity",
         ])
       )
-      .nullable()
+      .optional().nullable()
       .describe(
         "Filter by finding categories. Pass null to get all categories."
       ),
     min_confidence: z
       .enum(["high", "medium", "low"])
-      .nullable()
+      .optional().nullable()
       .describe(
         "Minimum confidence level to include. 'high' returns only high-confidence findings. " +
         "Pass null to include all confidence levels."

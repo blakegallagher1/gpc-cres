@@ -207,7 +207,7 @@ export const parishPackLookup = tool({
       .describe("The SKU type"),
     section: z
       .string()
-      .nullable()
+      .optional().nullable()
       .describe(
         "Optional section to extract (e.g. 'paths', 'fees', 'meeting_cadence', 'application_requirements', 'notice_rules')",
       ),

@@ -9,7 +9,7 @@ export const createTask = tool({
     orgId: z.string().uuid().describe("The org ID for security scoping"),
     dealId: z.string().describe("The deal this task belongs to"),
     title: z.string().min(1).describe("Task title"),
-    description: z.string().nullable().describe("Detailed task description"),
+    description: z.string().optional().nullable().describe("Detailed task description"),
     pipelineStep: z
       .number()
       .int()
@@ -20,12 +20,12 @@ export const createTask = tool({
       ),
     dueAt: z
       .string()
-      .nullable()
+      .optional().nullable()
       .describe("Optional due date (ISO 8601 datetime)"),
     ownerUserId: z
       .string()
       .uuid()
-      .nullable()
+      .optional().nullable()
       .describe("Optional user ID to assign this task to"),
   }),
   execute: async ({ orgId, dealId, title, description, pipelineStep, dueAt, ownerUserId }) => {
@@ -61,18 +61,18 @@ export const updateTask = tool({
     taskId: z.string().describe("The task ID to update"),
     status: z
       .enum(["TODO", "IN_PROGRESS", "BLOCKED", "DONE", "CANCELED"])
-      .nullable()
+      .optional().nullable()
       .describe("New task status"),
-    title: z.string().min(1).nullable().describe("Updated task title"),
-    description: z.string().nullable().describe("Updated task description"),
+    title: z.string().min(1).optional().nullable().describe("Updated task title"),
+    description: z.string().optional().nullable().describe("Updated task description"),
     dueAt: z
       .string()
-      .nullable()
+      .optional().nullable()
       .describe("Updated due date (ISO 8601 datetime)"),
     ownerUserId: z
       .string()
       .uuid()
-      .nullable()
+      .optional().nullable()
       .describe("Updated owner user ID"),
   }),
   execute: async ({ orgId, taskId, status, title, description, dueAt, ownerUserId }) => {
@@ -104,7 +104,7 @@ export const listTasks = tool({
     dealId: z.string().describe("The deal ID to list tasks for"),
     status: z
       .enum(["TODO", "IN_PROGRESS", "BLOCKED", "DONE", "CANCELED"])
-      .nullable()
+      .optional().nullable()
       .describe("Filter by task status"),
   }),
   execute: async ({ orgId, dealId, status }) => {

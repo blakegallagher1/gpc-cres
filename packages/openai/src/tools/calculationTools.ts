@@ -23,15 +23,15 @@ export const calculate_proforma = tool({
     hold_years: z.number().describe("Planned hold period in years"),
     loan_amount: z
       .number()
-      .nullable()
+      .optional().nullable()
       .describe("Loan amount (null for all-equity)"),
     interest_rate: z
       .number()
-      .nullable()
+      .optional().nullable()
       .describe("Annual interest rate (e.g. 0.065 for 6.5%)"),
     amortization_years: z
       .number()
-      .nullable()
+      .optional().nullable()
       .describe("Loan amortization period in years"),
   }),
   execute: async (params) => {
@@ -168,15 +168,15 @@ export const calculate_development_budget = tool({
       .object({
         hard_cost_contingency_pct: z
           .number()
-          .nullable()
+          .optional().nullable()
           .describe("Hard cost contingency percent"),
         soft_cost_contingency_pct: z
           .number()
-          .nullable()
+          .optional().nullable()
           .describe("Soft cost contingency percent"),
         other_cost_contingency_pct: z
           .number()
-          .nullable()
+          .optional().nullable()
           .describe("Other cost contingency percent"),
       })
       .describe("Contingency percentages by category"),
@@ -225,11 +225,11 @@ export const calculate_site_capacity = tool({
     acreage: z.number().describe("Site acreage"),
     lot_coverage_pct: z
       .number()
-      .nullable()
+      .optional().nullable()
       .describe("Maximum lot coverage % (default varies by use)"),
     parking_ratio: z
       .number()
-      .nullable()
+      .optional().nullable()
       .describe("Parking spaces per 1000 SF (default varies by use)"),
     proposed_use: z
       .string()
@@ -238,7 +238,7 @@ export const calculate_site_capacity = tool({
       ),
     setback_ft: z
       .number()
-      .nullable()
+      .optional().nullable()
       .describe("Average setback in feet (default 25)"),
   }),
   execute: async (params) => {
@@ -296,7 +296,7 @@ export const estimate_construction_cost = tool({
       ),
     quality_level: z
       .string()
-      .nullable()
+      .optional().nullable()
       .describe(
         "Construction quality: standard, premium, or value (default standard)",
       ),
@@ -465,11 +465,11 @@ export const estimate_project_timeline = tool({
     current_stage: z.string().describe("Current deal status stage"),
     tasks_remaining: z
       .number()
-      .nullable()
+      .optional().nullable()
       .describe("Number of pending tasks"),
     has_entitlement_approval: z
       .boolean()
-      .nullable()
+      .optional().nullable()
       .describe("Whether entitlements are approved"),
   }),
   execute: async (params) => {
@@ -650,13 +650,13 @@ export const search_comparable_sales = tool({
       .describe("Subject property address to search around"),
     radius_miles: z
       .number()
-      .nullable()
+      .optional().nullable()
       .describe("Search radius in miles (default 5)"),
     proposed_use: z
       .string()
-      .nullable()
+      .optional().nullable()
       .describe("Filter by use type if available"),
-    parish: z.string().nullable().describe("Parish name to search in"),
+    parish: z.string().optional().nullable().describe("Parish name to search in"),
   }),
   execute: async (params) => {
     const { address, parish } = params;
@@ -706,8 +706,8 @@ export const calculate_market_metrics = tool({
     comparables: z
       .array(
         z.object({
-          sale_price: z.number().nullable(),
-          acreage: z.number().nullable(),
+          sale_price: z.number().optional().nullable(),
+          acreage: z.number().optional().nullable(),
         }),
       )
       .describe(
@@ -715,7 +715,7 @@ export const calculate_market_metrics = tool({
       ),
     subject_acreage: z
       .number()
-      .nullable()
+      .optional().nullable()
       .describe("Subject property acreage for implied value"),
   }),
   execute: async (params) => {

@@ -53,20 +53,20 @@ export const query_document_extractions = tool({
     org_id: z.string().describe("The organization ID (for multi-tenant scoping)."),
     doc_type: z
       .enum(DOCUMENT_TYPES)
-      .nullable()
+      .optional().nullable()
       .describe("Filter by document type. Pass null to return all extractions for the deal."),
     min_confidence: z
       .number()
       .min(0)
       .max(1)
-      .nullable()
+      .optional().nullable()
       .describe(
         "Minimum confidence threshold (0-1). Default 0 returns all. Use 0.85 for high-confidence " +
           "data and 0.5 for broader exploratory queries.",
       ),
     reviewed_only: z
       .boolean()
-      .nullable()
+      .optional().nullable()
       .describe(
         "If true, only return extractions that have been human-reviewed. Default false.",
       ),

@@ -18,19 +18,19 @@ export const query_market_data = tool({
       ),
     parish: z
       .string()
-      .nullable()
+      .optional().nullable()
       .describe("Parish name (required for summary/trends, optional for recent)."),
     data_type: z
       .enum(["comp_sale", "listing", "permit", "vacancy", "rent"])
-      .nullable()
+      .optional().nullable()
       .describe("Filter by data type (only used with recent view)."),
     months: z
       .number()
-      .nullable()
+      .optional().nullable()
       .describe("Number of months for trends view (default 12)."),
     limit: z
       .number()
-      .nullable()
+      .optional().nullable()
       .describe("Max records for recent view (default 50)."),
   }),
   execute: async (params) => {

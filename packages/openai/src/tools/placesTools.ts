@@ -38,7 +38,7 @@ export const searchNearbyPlaces = tool({
       ),
     maxResultsPerIndicator: z
       .number()
-      .nullable()
+      .optional().nullable()
       .describe("Cap results per keyword (default 10)"),
   }),
   execute: async ({
@@ -48,7 +48,7 @@ export const searchNearbyPlaces = tool({
   }: {
     zipCode: string;
     indicators: string[];
-    maxResultsPerIndicator: number | null;
+    maxResultsPerIndicator?: number | null;
   }): Promise<string> => {
     if (!GOOGLE_MAPS_API_KEY) {
       return JSON.stringify({ error: "GOOGLE_MAPS_API_KEY is not set" });

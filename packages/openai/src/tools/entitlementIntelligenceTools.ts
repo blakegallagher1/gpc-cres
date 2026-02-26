@@ -577,7 +577,7 @@ function buildEntitlementFeaturePrimitives(params: {
 async function getScopeError(
   orgId: string,
   jurisdictionId: string,
-  dealId: string | null,
+  dealId: string | null | undefined,
 ): Promise<Record<string, unknown> | null> {
   const jurisdiction = await prisma.jurisdiction.findFirst({
     where: { id: jurisdictionId, orgId },
@@ -625,37 +625,37 @@ export const predict_entitlement_path = tool({
   parameters: z.object({
     orgId: z.string().describe("The org ID for security scoping."),
     jurisdictionId: z.string().describe("Jurisdiction to model."),
-    dealId: z.string().nullable().describe("Optional deal scope filter."),
-    sku: skuSchema.nullable().describe("Optional SKU filter for strategy relevance."),
+    dealId: z.string().optional().nullable().describe("Optional deal scope filter."),
+    sku: skuSchema.optional().nullable().describe("Optional SKU filter for strategy relevance."),
     applicationType: z
       .string()
-      .nullable()
+      .optional().nullable()
       .describe("Optional application type filter (e.g., CUP, REZONING, VARIANCE)."),
     lookbackMonths: z
       .number()
       .int()
       .min(1)
       .max(240)
-      .nullable()
+      .optional().nullable()
       .describe("How many months of precedents to include (default 36)."),
     minSampleSize: z
       .number()
       .int()
       .min(1)
       .max(100)
-      .nullable()
+      .optional().nullable()
       .describe("Minimum samples for a strategy path (default 1)."),
     includeBelowMinSample: z
       .boolean()
-      .nullable()
+      .optional().nullable()
       .describe("Whether to include low-sample strategies in output (default true)."),
     persistSnapshot: z
       .boolean()
-      .nullable()
+      .optional().nullable()
       .describe("Whether to persist prediction snapshots (default true)."),
     modelVersion: z
       .string()
-      .nullable()
+      .optional().nullable()
       .describe("Optional model version tag for snapshot lineage."),
   }),
   execute: async ({
@@ -814,41 +814,41 @@ export const get_entitlement_feature_primitives = tool({
   parameters: z.object({
     orgId: z.string().describe("The org ID for security scoping."),
     jurisdictionId: z.string().describe("Jurisdiction to analyze."),
-    dealId: z.string().nullable().describe("Optional deal scope filter."),
-    sku: skuSchema.nullable().describe("Optional SKU filter for strategy relevance."),
+    dealId: z.string().optional().nullable().describe("Optional deal scope filter."),
+    sku: skuSchema.optional().nullable().describe("Optional SKU filter for strategy relevance."),
     applicationType: z
       .string()
-      .nullable()
+      .optional().nullable()
       .describe("Optional application type filter (e.g., CUP, REZONING, VARIANCE)."),
     hearingBody: z
       .string()
-      .nullable()
+      .optional().nullable()
       .describe("Optional hearing body filter (e.g., Planning Commission, Metro Council)."),
     strategyKeys: z
       .array(z.string().min(1).max(120))
       .max(200)
-      .nullable()
+      .optional().nullable()
       .describe("Optional strategy-path keys to include."),
     lookbackMonths: z
       .number()
       .int()
       .min(1)
       .max(240)
-      .nullable()
+      .optional().nullable()
       .describe("How many months of precedents to include (default 36)."),
     minSampleSize: z
       .number()
       .int()
       .min(1)
       .max(100)
-      .nullable()
+      .optional().nullable()
       .describe("Minimum records per grouped feature row (default 3)."),
     recordLimit: z
       .number()
       .int()
       .min(1)
       .max(5000)
-      .nullable()
+      .optional().nullable()
       .describe("Max precedent records to process (default 1000)."),
   }),
   execute: async ({
@@ -1030,48 +1030,48 @@ export const get_entitlement_intelligence_kpis = tool({
   parameters: z.object({
     orgId: z.string().describe("The org ID for security scoping."),
     jurisdictionId: z.string().describe("Jurisdiction to analyze."),
-    dealId: z.string().nullable().describe("Optional deal scope filter."),
-    sku: skuSchema.nullable().describe("Optional SKU filter."),
+    dealId: z.string().optional().nullable().describe("Optional deal scope filter."),
+    sku: skuSchema.optional().nullable().describe("Optional SKU filter."),
     applicationType: z
       .string()
-      .nullable()
+      .optional().nullable()
       .describe("Optional application type filter (e.g., CUP, REZONING, VARIANCE)."),
     hearingBody: z
       .string()
-      .nullable()
+      .optional().nullable()
       .describe("Optional hearing body filter (e.g., Planning Commission, Metro Council)."),
     strategyKeys: z
       .array(z.string().min(1).max(120))
       .max(200)
-      .nullable()
+      .optional().nullable()
       .describe("Optional strategy-path keys to include."),
     lookbackMonths: z
       .number()
       .int()
       .min(1)
       .max(240)
-      .nullable()
+      .optional().nullable()
       .describe("How many months of precedent outcomes to include (default 36)."),
     snapshotLookbackMonths: z
       .number()
       .int()
       .min(1)
       .max(360)
-      .nullable()
+      .optional().nullable()
       .describe("How many months of prediction snapshots to include (default lookback*2)."),
     minSampleSize: z
       .number()
       .int()
       .min(1)
       .max(100)
-      .nullable()
+      .optional().nullable()
       .describe("Minimum records per grouped KPI row (default 1)."),
     recordLimit: z
       .number()
       .int()
       .min(1)
       .max(5000)
-      .nullable()
+      .optional().nullable()
       .describe("Max precedent rows to process (default 1000)."),
   }),
   execute: async ({

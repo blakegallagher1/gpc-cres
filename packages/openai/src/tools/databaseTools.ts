@@ -131,7 +131,7 @@ export const query_org_sql = tool({
       .int()
       .min(1)
       .max(MAX_LIMIT)
-      .nullable()
+      .optional().nullable()
       .describe(`Max rows to return after query execution (default ${DEFAULT_LIMIT}).`),
   }),
   execute: async ({ orgId, sql, limit }) => {

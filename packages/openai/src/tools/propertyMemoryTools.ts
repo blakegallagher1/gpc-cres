@@ -44,15 +44,15 @@ export const recall_property_intelligence = tool({
       ),
     parish: z
       .string()
-      .nullable()
+      .optional().nullable()
       .describe("Optional: filter results to specific parish (e.g. 'East Baton Rouge', 'Ascension')"),
     minScore: z
       .number()
-      .nullable()
+      .optional().nullable()
       .describe("Minimum similarity score (0–1). Default 0.3. Higher = stricter matching."),
     topK: z
       .number()
-      .nullable()
+      .optional().nullable()
       .describe("Number of results to return. Default 5, max 20."),
   }),
   execute: async (params) => {
@@ -95,15 +95,15 @@ export const store_property_finding = tool({
     parish: z.string().describe("Parish name (e.g., 'East Baton Rouge')"),
     zoning: z
       .string()
-      .nullable()
+      .optional().nullable()
       .describe("Zoning designation (e.g., 'C2', 'Industrial', 'M1')"),
     acreage: z
       .number()
-      .nullable()
+      .optional().nullable()
       .describe("Total acreage of the parcel"),
     dealNotes: z
       .string()
-      .nullable()
+      .optional().nullable()
       .describe(
         "Any deal-specific insights (e.g., 'Owner willing to lease', 'Environmental issues pending remediation')"
       ),

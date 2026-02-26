@@ -159,7 +159,7 @@ export const get_jurisdiction_pack = tool({
       .describe("The parcel use path to resolve the right pack version"),
     section: z
       .string()
-      .nullable()
+      .optional().nullable()
       .describe("Optional section key to extract from the pack JSON."),
   }),
   execute: async ({ orgId, jurisdiction_id, sku, section }) => {
@@ -273,18 +273,18 @@ export const create_tasks = tool({
       .array(
         z.object({
           title: z.string().min(1).describe("Task title"),
-          description: z.string().nullable().describe("Optional task details"),
+          description: z.string().optional().nullable().describe("Optional task details"),
           pipeline_step: z
             .number()
             .int()
             .min(1)
             .max(8)
             .describe("Pipeline step (1..8)"),
-          due_at: z.string().nullable().describe("Due date (ISO 8601)"),
+          due_at: z.string().optional().nullable().describe("Due date (ISO 8601)"),
           owner_user_id: z
             .string()
             .uuid()
-            .nullable()
+            .optional().nullable()
             .describe("Task owner user id, optional"),
         }),
       )
@@ -367,22 +367,22 @@ export const attach_artifact = tool({
       artifact_type: z.enum(ARTIFACT_TYPES).describe("Artifact type"),
       storage_object_key: z
         .string()
-        .nullable()
+        .optional().nullable()
         .describe("Storage object key for the artifact file"),
       version: z
         .number()
         .int()
         .min(1)
-        .nullable()
+        .optional().nullable()
         .describe("Optional artifact version override"),
       download_url: z
         .string()
-        .nullable()
+        .optional().nullable()
         .describe("Optional download URL if storage key not provided"),
       generated_by_run_id: z
         .string()
         .uuid()
-        .nullable()
+        .optional().nullable()
         .describe("Optional existing run that produced this artifact"),
     }),
   }),
@@ -498,16 +498,16 @@ export const record_outcome = tool({
     outcome: z
       .enum(["SUCCESS", "PARTIAL", "FAILURE"])
       .describe("Terminal deal outcome"),
-    outcome_notes: z.string().nullable().describe("Notes describing outcome rationale"),
+    outcome_notes: z.string().optional().nullable().describe("Notes describing outcome rationale"),
     projection_actuals: z
       .array(
         z.object({
           metric: z.string().min(1).describe("Assumption metric"),
           predicted: z.number().describe("Predicted value"),
-          actual: z.number().nullable().describe("Actual outcome value"),
+          actual: z.number().optional().nullable().describe("Actual outcome value"),
         }),
       )
-      .nullable()
+      .optional().nullable()
       .describe("Optional actuals for calibration"),
   }),
   execute: async ({ orgId, created_by, deal_id, outcome, outcome_notes, projection_actuals }) => {
@@ -549,7 +549,7 @@ export const record_outcome = tool({
         projectedValue: row.predicted,
         actualValue: row.actual,
         variancePct:
-          row.actual === null
+          row.actual == null
             ? null
             : row.predicted === 0
               ? null
@@ -583,7 +583,7 @@ export const triage_deal = tool({
     deal_id: z.string().describe("Deal to triage"),
     include_parcel_breakdown: z
       .boolean()
-      .nullable()
+      .optional().nullable()
       .describe("Whether to include per-parcel breakdown"),
   }),
   execute: async ({ orgId, deal_id, include_parcel_breakdown }) => {
@@ -696,11 +696,11 @@ export const generate_dd_checklist = tool({
     "Generate a due diligence checklist with phases, tasks, and required evidence references for a deal or jurisdiction.",
   parameters: z.object({
     orgId: z.string().describe("The org ID for security scoping"),
-    deal_id: z.string().nullable().describe("Optional deal to contextualize the checklist"),
-    jurisdiction_id: z.string().nullable().describe("Optional jurisdiction id"),
+    deal_id: z.string().optional().nullable().describe("Optional deal to contextualize the checklist"),
+    jurisdiction_id: z.string().optional().nullable().describe("Optional jurisdiction id"),
     scope: z
       .enum(["STANDARD", "EXPEDITED"])
-      .nullable()
+      .optional().nullable()
       .describe("Checklist scope"),
   }),
   execute: async ({ orgId, deal_id, jurisdiction_id, scope }) => {
@@ -798,22 +798,22 @@ export const run_underwriting = tool({
     deal_id: z
       .string()
       .uuid()
-      .nullable()
+      .optional().nullable()
       .describe("Optional deal to seed assumptions from stored financial data"),
     assumptions: z
       .object({
-        purchase_price: z.number().nullable().optional(),
-        noi: z.number().nullable().optional(),
-        exit_cap_rate: z.number().nullable().optional(),
-        hold_years: z.number().nullable().optional(),
-        loan_amount: z.number().nullable().optional(),
-        interest_rate: z.number().nullable().optional(),
-        amortization_years: z.number().nullable().optional(),
+        purchase_price: z.number().optional().nullable().optional(),
+        noi: z.number().optional().nullable().optional(),
+        exit_cap_rate: z.number().optional().nullable().optional(),
+        hold_years: z.number().optional().nullable().optional(),
+        loan_amount: z.number().optional().nullable().optional(),
+        interest_rate: z.number().optional().nullable().optional(),
+        amortization_years: z.number().optional().nullable().optional(),
       })
-      .nullable(),
+      .optional().nullable(),
     include_sensitivity: z
       .boolean()
-      .nullable()
+      .optional().nullable()
       .describe("Whether to generate a small sensitivity table"),
   }),
   execute: async ({ orgId, deal_id, assumptions, include_sensitivity }) => {
@@ -966,14 +966,14 @@ export const summarize_comps = tool({
     "Summarize nearby comparable sales and return compact market metrics for quick underwriting context.",
   parameters: z.object({
     orgId: z.string().describe("The org ID for security scoping"),
-    address: z.string().nullable().describe("Subject parcel address"),
-    jurisdiction_id: z.string().nullable().describe("Jurisdiction fallback scope"),
-    parish: z.string().nullable().describe("Optional parish scope"),
+    address: z.string().optional().nullable().describe("Subject parcel address"),
+    jurisdiction_id: z.string().optional().nullable().describe("Jurisdiction fallback scope"),
+    parish: z.string().optional().nullable().describe("Optional parish scope"),
     radius_miles: z
       .number()
-      .nullable()
+      .optional().nullable()
       .describe("Search radius for comparable sales"),
-    subject_acreage: z.number().nullable().describe("Subject acreage"),
+    subject_acreage: z.number().optional().nullable().describe("Subject acreage"),
   }),
   execute: async ({ orgId, address, jurisdiction_id, parish, radius_miles, subject_acreage }) => {
     if (!address && !parish && !jurisdiction_id) {
