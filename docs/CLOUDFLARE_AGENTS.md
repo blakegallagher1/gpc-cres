@@ -162,3 +162,122 @@ State persists across WebSocket reconnects via DO transactional storage. After 3
 | OpenAI WS won't connect | Verify `OPENAI_API_KEY` secret; check OpenAI status page |
 | "No org found" from auth/resolve | User may not have an org in Prisma; check Vercel logs |
 | Empty `tool-schemas.json` | The `@entitlement-os/openai` package may not be built; run `npm run build` in the monorepo first |
+
+## Phase 3: Operational Event Streaming (`/push` Endpoint)
+
+The Durable Object exposes a `/push` endpoint to stream operational progress events into active browser sessions. This enables external processes (batch screening, cron jobs, automation handlers) to update the user in real-time without blocking on API responses.
+
+### Event Types
+
+Three new event types for operational streaming:
+
+```typescript
+{ type: "operation_progress"; operationId: string; label: string; pct: number }
+{ type: "operation_done"; operationId: string; label: string; summary: string }
+{ type: "operation_error"; operationId: string; label: string; error: string }
+```
+
+Example: A batch screening job sends progress at 25%, 50%, 75%, then 100% completion.
+
+### Push Endpoint API
+
+**URL**: `https://agents.gallagherpropco.com/{conversationId}/push`
+
+**Method**: `POST`
+
+**Auth**: `Authorization: Bearer ${LOCAL_API_KEY}` (same token used for gateway tools)
+
+**Request Body**:
+```json
+{
+  "conversationId": "uuid",
+  "event": {
+    "type": "operation_progress",
+    "operationId": "screen-batch-123",
+    "label": "Screening parcels for flood risk",
+    "pct": 50
+  }
+}
+```
+
+**Response**:
+- `200 OK`: Event sent to active client
+- `202 Accepted`: No active session (message would be dropped)
+- `404 Not Found`: No conversation found for this ID
+- `401 Unauthorized`: Invalid or missing Bearer token
+
+### Browser Hook Integration
+
+The `useAgentWebSocket` hook automatically handles operation events:
+
+```tsx
+const { sendMessage, status, operations } = useAgentWebSocket({
+  token: supabaseAccessToken,
+  conversationId,
+  onEvent: applyEvent,
+  enabled: true,
+});
+
+// Access active operations
+operations.forEach((op) => {
+  console.log(`${op.label}: ${op.pct}%`);
+});
+```
+
+Operation state is stored in a `Map<operationId, Operation>` and updated as events arrive. The hook also forwards operation events to `onEvent` for UI rendering.
+
+### Example: Batch Screening with Progress
+
+```typescript
+// Backend: push progress as you screen parcels
+async function screenBatch(parcelIds: string[], conversationId: string) {
+  const total = parcelIds.length;
+
+  for (let i = 0; i < parcelIds.length; i++) {
+    const parcel = await screenParcel(parcelIds[i]);
+
+    const pct = Math.floor(((i + 1) / total) * 100);
+    await fetch(`https://agents.gallagherpropco.com/${conversationId}/push`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOCAL_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        conversationId,
+        event: {
+          type: 'operation_progress',
+          operationId: 'screen-batch-1',
+          label: `Screening flood risk (${i + 1}/${total})`,
+          pct,
+        },
+      }),
+    });
+  }
+
+  // Mark complete
+  await fetch(`https://agents.gallagherpropco.com/${conversationId}/push`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${LOCAL_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      conversationId,
+      event: {
+        type: 'operation_done',
+        operationId: 'screen-batch-1',
+        label: 'Screening complete',
+        summary: `Processed ${total} parcels`,
+      },
+    }),
+  });
+}
+```
+
+### Implementation Notes
+
+- The `/push` endpoint validates the Bearer token server-side against `LOCAL_API_KEY` (same as gateway tools)
+- If no active WebSocket is connected for that conversation, the event is dropped (202 response) — no persistence
+- The Hibernation API pattern in `sendToClient()` recovers the WebSocket reference if the isolate was evicted
+- Operation state lives in the React hook (`useAgentWebSocket`) — not persisted to the DO storage (ephemeral UI state)

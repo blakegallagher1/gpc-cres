@@ -58,6 +58,10 @@ export class AgentChatDO implements DurableObject {
       return this.handleWebSocket(request, url);
     }
 
+    if (url.pathname === "/push") {
+      return this.handlePush(request);
+    }
+
     return new Response("Not found", { status: 404 });
   }
 
@@ -92,6 +96,66 @@ export class AgentChatDO implements DurableObject {
     await this.loadState(conversationId, orgId, userId, userToken);
 
     return new Response(null, { status: 101, webSocket: client });
+  }
+
+  /* ----------------------------------------------------------------
+   * Handle /push endpoint for operational event streaming
+   * -------------------------------------------------------------- */
+
+  private async handlePush(request: Request): Promise<Response> {
+    if (request.method !== "POST") {
+      return new Response("Method not allowed", { status: 405 });
+    }
+
+    // Validate Bearer token
+    const authHeader = request.headers.get("Authorization") || "";
+    if (!authHeader.startsWith("Bearer ")) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+
+    const token = authHeader.slice(7);
+    if (token !== this.env.LOCAL_API_KEY) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+
+    // Parse JSON body
+    let body: { conversationId: string; event: WorkerEvent };
+    try {
+      const text = await request.text();
+      body = JSON.parse(text);
+    } catch {
+      return new Response("Invalid JSON body", { status: 400 });
+    }
+
+    const { conversationId, event } = body;
+    if (!conversationId || !event) {
+      return new Response("Missing conversationId or event", { status: 400 });
+    }
+
+    // Ensure we have a conversation state loaded
+    if (!this.conv) {
+      const stored = await this.state.storage.get<ConversationState>("conv");
+      if (!stored || stored.conversationId !== conversationId) {
+        return new Response("No active session for this conversationId", { status: 404 });
+      }
+      this.conv = stored;
+    }
+
+    // Route the event to active client
+    this.sendToClient(event);
+
+    // Return 200 if client is connected, 202 if queued
+    if (this.clientWs && this.clientWs.readyState === WebSocket.OPEN) {
+      return new Response(JSON.stringify({ status: "sent" }), { status: 200, headers: { "Content-Type": "application/json" } });
+    }
+
+    // Check fallback WebSocket list
+    const sockets = this.state.getWebSockets();
+    if (sockets.length > 0) {
+      return new Response(JSON.stringify({ status: "sent" }), { status: 200, headers: { "Content-Type": "application/json" } });
+    }
+
+    return new Response(JSON.stringify({ status: "no_active_session" }), { status: 404, headers: { "Content-Type": "application/json" } });
   }
 
   /* ----------------------------------------------------------------

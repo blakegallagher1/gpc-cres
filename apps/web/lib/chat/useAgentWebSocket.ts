@@ -19,6 +19,15 @@ interface UseAgentWebSocketOptions {
   enabled?: boolean;
 }
 
+interface Operation {
+  id: string;
+  label: string;
+  pct: number;
+  status: "progress" | "done" | "error";
+  summary?: string;
+  error?: string;
+}
+
 interface UseAgentWebSocketReturn {
   /** Send a user message over WebSocket */
   sendMessage: (text: string, dealId?: string) => void;
@@ -26,6 +35,8 @@ interface UseAgentWebSocketReturn {
   status: ConnectionStatus;
   /** Disconnect and clean up */
   disconnect: () => void;
+  /** Active operations */
+  operations: Map<string, Operation>;
 }
 
 /**
@@ -50,9 +61,11 @@ export function useAgentWebSocket({
   enabled = false,
 }: UseAgentWebSocketOptions): UseAgentWebSocketReturn {
   const [status, setStatus] = useState<ConnectionStatus>('disconnected');
+  const [operations, setOperations] = useState<Map<string, Operation>>(new Map());
   const wsRef = useRef<WebSocket | null>(null);
   const onEventRef = useRef(onEvent);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const operationsRef = useRef<Map<string, Operation>>(new Map());
 
   // Keep callback ref fresh without re-triggering connection
   useEffect(() => {
@@ -98,8 +111,52 @@ export function useAgentWebSocket({
 
     ws.onmessage = (event) => {
       try {
-        const data = JSON.parse(event.data) as ChatStreamEvent;
-        onEventRef.current(data);
+        const data = JSON.parse(event.data);
+
+        // Handle operation events
+        if (data.type === 'operation_progress') {
+          const op: Operation = {
+            id: data.operationId,
+            label: data.label,
+            pct: data.pct,
+            status: 'progress',
+          };
+          operationsRef.current.set(data.operationId, op);
+          setOperations(new Map(operationsRef.current));
+          onEventRef.current(data);
+          return;
+        }
+
+        if (data.type === 'operation_done') {
+          const op: Operation = {
+            id: data.operationId,
+            label: data.label,
+            pct: 100,
+            status: 'done',
+            summary: data.summary,
+          };
+          operationsRef.current.set(data.operationId, op);
+          setOperations(new Map(operationsRef.current));
+          onEventRef.current(data);
+          return;
+        }
+
+        if (data.type === 'operation_error') {
+          const op: Operation = {
+            id: data.operationId,
+            label: data.label,
+            pct: 0,
+            status: 'error',
+            error: data.error,
+          };
+          operationsRef.current.set(data.operationId, op);
+          setOperations(new Map(operationsRef.current));
+          onEventRef.current(data);
+          return;
+        }
+
+        // Regular chat events
+        onEventRef.current(data as ChatStreamEvent);
       } catch {
         // Non-JSON message — ignore (could be a ping/pong)
       }
@@ -161,5 +218,5 @@ export function useAgentWebSocket({
     [],
   );
 
-  return { sendMessage, status, disconnect };
+  return { sendMessage, status, disconnect, operations };
 }

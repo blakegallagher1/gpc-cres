@@ -40,7 +40,10 @@ export type WorkerEvent =
   | { type: "tool_end"; name: string; result?: unknown; status?: "completed" | "failed"; toolCallId?: string }
   | { type: "agent_switch"; agentName: string }
   | { type: "error"; message: string; code?: string }
-  | { type: "done"; runId?: string; conversationId?: string };
+  | { type: "done"; runId?: string; conversationId?: string }
+  | { type: "operation_progress"; operationId: string; label: string; pct: number }
+  | { type: "operation_done"; operationId: string; label: string; summary: string }
+  | { type: "operation_error"; operationId: string; label: string; error: string };
 
 /** Tool schema as stored in generated/tool-schemas.json (Responses API flat format) */
 export interface ToolSchema {
