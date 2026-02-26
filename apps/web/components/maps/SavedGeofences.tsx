@@ -54,33 +54,32 @@ export function SavedGeofences({ currentPolygon, onApply }: SavedGeofencesProps)
   };
 
   return (
-    <div data-tour="geofences" className="absolute right-2 top-32 z-10 w-72 rounded-lg border bg-white/95 p-2 text-xs shadow-lg">
-      <div className="text-[11px] font-semibold uppercase text-gray-600">Saved Geofences</div>
-      <div className="mt-1 flex gap-1">
+    <div data-tour="geofences" className="text-xs">
+      <div className="flex gap-1">
         <input
           value={name}
           onChange={(event) => setName(event.target.value)}
           placeholder="Geofence name"
-          className="min-w-0 flex-1 rounded border px-2 py-1"
+          className="min-w-0 flex-1 rounded border border-map-border bg-map-surface px-2 py-1 text-map-text-primary placeholder:text-map-text-muted"
         />
         <button
           type="button"
           disabled={!currentPolygon || !name.trim()}
           onClick={save}
-          className="rounded bg-blue-600 px-2 py-1 text-white disabled:opacity-50"
+          className="rounded bg-map-accent px-2 py-1 text-white text-[10px] font-medium disabled:opacity-40"
         >
           Save
         </button>
       </div>
-      <div className="mt-2 max-h-44 space-y-1 overflow-auto">
-        {loading ? <div className="text-gray-500">Loading...</div> : null}
-        {!loading && items.length === 0 ? <div className="text-gray-500">No saved geofences</div> : null}
+      <div className="mt-1.5 max-h-28 space-y-1 overflow-auto">
+        {loading ? <div className="text-map-text-muted">Loading...</div> : null}
+        {!loading && items.length === 0 ? <div className="text-map-text-muted">No saved geofences</div> : null}
         {items.map((item) => (
-          <div key={item.id} className="flex items-center gap-1 rounded border bg-white px-2 py-1">
+          <div key={item.id} className="flex items-center gap-1 rounded border border-map-border bg-map-surface/50 px-2 py-1">
             <button
               type="button"
               onClick={() => onApply(item.coordinates)}
-              className="min-w-0 flex-1 truncate text-left text-blue-700"
+              className="min-w-0 flex-1 truncate text-left text-map-accent"
               title={item.name}
             >
               {item.name}
@@ -88,9 +87,9 @@ export function SavedGeofences({ currentPolygon, onApply }: SavedGeofencesProps)
             <button
               type="button"
               onClick={() => remove(item.id)}
-              className="rounded border px-1 py-0.5 text-[10px] text-red-600"
+              className="rounded px-1 py-0.5 text-[10px] text-red-400 hover:text-red-300"
             >
-              Delete
+              ×
             </button>
           </div>
         ))}

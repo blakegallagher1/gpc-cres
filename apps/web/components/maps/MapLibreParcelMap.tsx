@@ -23,7 +23,7 @@ import {
   DARK_PARCEL_LINE_OPACITY,
   DARK_PARCEL_LINE_COLOR_SELECTED,
 } from "./mapStyles";
-import { Pencil, Trash2, X, Camera, Maximize2, ChevronDown, ChevronRight } from "lucide-react";
+import { Pencil, Trash2, X, Camera, Maximize2, ChevronDown, ChevronRight, Layers } from "lucide-react";
 import { useStableOptions } from "@/lib/hooks/useStableOptions";
 import type { MapParcel } from "./ParcelMap";
 import { SavedGeofences } from "./SavedGeofences";
@@ -1251,33 +1251,51 @@ export function MapLibreParcelMap({
       {showLayers && layerPanelOpen && (
         <div
           data-tour="layers-panel"
-          className="absolute left-14 top-2 z-10 w-64 rounded-lg map-panel max-h-[calc(100vh-6rem)] overflow-y-auto"
+          className="absolute left-14 top-2 z-10 w-60 rounded-lg map-panel shadow-xl flex flex-col max-h-[calc(100vh-6rem)]"
           onPointerDown={(event) => event.stopPropagation()}
         >
-          <div className="space-y-0">
-            {/* ── SEARCH (injected from parent) ── */}
+          {/* Panel header */}
+          <div className="flex items-center justify-between px-3 py-2 border-b border-map-border shrink-0">
+            <div className="flex items-center gap-1.5">
+              <Layers className="h-3.5 w-3.5 text-map-text-muted" />
+              <span className="text-xs font-semibold text-map-text-primary">Layers</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setLayerPanelOpen(false)}
+              className="map-btn p-0.5 rounded hover:bg-map-surface transition-colors"
+              title="Close panel (L)"
+            >
+              <X className="h-3.5 w-3.5 text-map-text-muted" />
+            </button>
+          </div>
+
+          {/* Scrollable body */}
+          <div className="overflow-y-auto flex-1 min-h-0">
+            {/* SEARCH */}
             {searchSlot && (
-              <div className="border-b border-map-border px-3 py-3">
+              <div className="px-3 py-2.5 border-b border-map-border">
                 {searchSlot}
               </div>
             )}
-            {/* ── BASE LAYERS ── */}
+
+            {/* BASE LAYERS */}
             <div className="border-b border-map-border">
               <button
                 type="button"
                 onClick={() => setBaseSectionOpen(!baseSectionOpen)}
-                className="map-btn w-full flex items-center justify-between px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-map-text-muted"
+                className="map-btn w-full flex items-center justify-between px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-map-text-muted"
               >
                 <span>Base Layers</span>
-                {baseSectionOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                {baseSectionOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
               </button>
               {baseSectionOpen && (
-                <div className="px-3 py-2 border-t border-map-border">
-                  <div className="flex gap-2">
+                <div className="px-3 pb-2">
+                  <div className="flex gap-1.5">
                     <button
                       type="button"
                       onClick={() => setBaseLayer("Streets")}
-                      className={`map-btn flex-1 px-2 py-1 text-xs font-medium rounded transition-colors ${
+                      className={`map-btn flex-1 px-2 py-1 text-[11px] font-medium rounded transition-colors ${
                         baseLayer === "Streets" ? "bg-map-accent text-white" : ""
                       }`}
                     >
@@ -1286,7 +1304,7 @@ export function MapLibreParcelMap({
                     <button
                       type="button"
                       onClick={() => setBaseLayer("Satellite")}
-                      className={`map-btn flex-1 px-2 py-1 text-xs font-medium rounded transition-colors ${
+                      className={`map-btn flex-1 px-2 py-1 text-[11px] font-medium rounded transition-colors ${
                         baseLayer === "Satellite" ? "bg-map-accent text-white" : ""
                       }`}
                     >
@@ -1297,29 +1315,29 @@ export function MapLibreParcelMap({
               )}
             </div>
 
-            {/* ── ANALYSIS LAYERS ── */}
+            {/* ANALYSIS LAYERS */}
             <div className="border-b border-map-border">
               <button
                 type="button"
                 onClick={() => setAnalysisSectionOpen(!analysisSectionOpen)}
-                className="map-btn w-full flex items-center justify-between px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-map-text-muted"
+                className="map-btn w-full flex items-center justify-between px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-map-text-muted"
               >
                 <span>Analysis Layers</span>
-                {analysisSectionOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                {analysisSectionOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
               </button>
               {analysisSectionOpen && (
-                <div className="px-3 py-2 space-y-2 border-t border-map-border">
-                  <label className="flex items-center gap-2 cursor-pointer">
+                <div className="px-3 pb-2 space-y-0.5">
+                  <label className="flex items-center gap-2 cursor-pointer py-0.5">
                     <input
                       type="checkbox"
                       checked={showParcelBoundaries}
                       onChange={(event) => setShowParcelBoundaries(event.target.checked)}
-                      className="rounded"
+                      className="rounded h-3.5 w-3.5 accent-map-accent"
                     />
-                    <span className="text-xs">Parcels</span>
+                    <span className="text-[11px] text-map-text-primary">Parcels</span>
                   </label>
                   {(geometryLoading || geometryHealth.failedCount > 0 || geometryHealth.propertyDbUnconfigured) && (
-                    <div className="text-[10px] text-map-status-yellow ml-6">
+                    <div className="text-[10px] text-map-status-yellow ml-5">
                       {geometryLoading
                         ? "Loading shapes…"
                         : geometryHealth.propertyDbUnconfigured
@@ -1327,101 +1345,101 @@ export function MapLibreParcelMap({
                           : "Some shapes unavailable"}
                     </div>
                   )}
-                  <label className="flex items-center gap-2 cursor-pointer">
+                  <label className="flex items-center gap-2 cursor-pointer py-0.5">
                     <input
                       type="checkbox"
                       checked={showZoning}
                       onChange={(event) => setShowZoning(event.target.checked)}
-                      className="rounded"
+                      className="rounded h-3.5 w-3.5 accent-map-accent"
                     />
-                    <span className="text-xs">Zoning</span>
+                    <span className="text-[11px] text-map-text-primary">Zoning</span>
                   </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
+                  <label className="flex items-center gap-2 cursor-pointer py-0.5">
                     <input
                       type="checkbox"
                       checked={showFlood}
                       onChange={(event) => setShowFlood(event.target.checked)}
-                      className="rounded"
+                      className="rounded h-3.5 w-3.5 accent-map-accent"
                     />
-                    <span className="text-xs">Flood Zones</span>
+                    <span className="text-[11px] text-map-text-primary">Flood Zones</span>
                   </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
+                  <label className="flex items-center gap-2 cursor-pointer py-0.5">
                     <input
                       type="checkbox"
                       checked={showComps}
                       onChange={(event) => setShowComps(event.target.checked)}
-                      className="rounded"
+                      className="rounded h-3.5 w-3.5 accent-map-accent"
                     />
-                    <span className="text-xs">Comps</span>
+                    <span className="text-[11px] text-map-text-primary">Comps</span>
                   </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
+                  <label className="flex items-center gap-2 cursor-pointer py-0.5">
                     <input
                       type="checkbox"
                       checked={showHeatmap}
                       onChange={(event) => setShowHeatmap(event.target.checked)}
-                      className="rounded"
+                      className="rounded h-3.5 w-3.5 accent-map-accent"
                     />
-                    <span className="text-xs">Heatmap</span>
+                    <span className="text-[11px] text-map-text-primary">Heatmap</span>
                   </label>
                 </div>
               )}
             </div>
 
-            {/* ── AI LAYERS ── */}
+            {/* AI LAYERS */}
             <div className="border-b border-map-border">
               <button
                 type="button"
                 onClick={() => setAiSectionOpen(!aiSectionOpen)}
-                className="map-btn w-full flex items-center justify-between px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-map-text-muted"
+                className="map-btn w-full flex items-center justify-between px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-map-text-muted"
               >
                 <span>AI Layers</span>
-                {aiSectionOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                {aiSectionOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
               </button>
               {aiSectionOpen && (
-                <div className="px-3 py-2 border-t border-map-border">
+                <div className="px-3 pb-2">
                   <p className="text-[10px] text-map-text-muted leading-relaxed">
-                    AI-generated overlays from Map Copilot appear here automatically when you run trajectory or heatmap queries.
+                    AI overlays from Map Copilot appear here when you run trajectory or heatmap queries.
                   </p>
                 </div>
               )}
             </div>
 
-            {/* Selected count and compare */}
-            <div className="px-3 py-2">
-              <div className="text-[10px] text-map-text-secondary mb-2">
-                Selected: {effectiveSelectedIds.size}
-              </div>
-              {effectiveSelectedIds.size >= 2 && (
-                <button
-                  type="button"
-                  onClick={() => setCompareOpen(true)}
-                  className="map-btn w-full rounded px-2 py-1 text-[10px] font-medium bg-map-accent text-white hover:opacity-90 transition-opacity"
-                >
-                  Compare ({effectiveSelectedIds.size})
-                </button>
-              )}
-            </div>
-
-            {/* Saved Geofences */}
+            {/* GEOFENCES */}
             {onPolygonDrawn && onPolygonCleared && (
-              <div className="border-b border-map-border">
-                <div className="px-3 py-2">
-                  <div className="text-[10px] font-semibold uppercase tracking-wider text-map-text-muted mb-2">Geofences</div>
-                  <SavedGeofences
-                    currentPolygon={polygon}
-                    onApply={(coordinates) => onPolygonDrawn(coordinates)}
-                  />
-                </div>
+              <div className="border-b border-map-border px-3 py-2">
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-map-text-muted mb-1.5">Geofences</div>
+                <SavedGeofences
+                  currentPolygon={polygon}
+                  onApply={(coordinates) => onPolygonDrawn(coordinates)}
+                />
               </div>
             )}
 
-            {/* Keyboard shortcuts */}
-            <div className="px-3 py-2 border-t border-map-border text-[10px] text-map-text-muted space-y-1">
-              <div><kbd className="rounded border border-map-border px-1">L</kbd> Panel</div>
-              <div><kbd className="rounded border border-map-border px-1">F</kbd> Fullscreen</div>
-              <div><kbd className="rounded border border-map-border px-1">S</kbd> Screenshot</div>
-              <div><kbd className="rounded border border-map-border px-1">D</kbd> Draw</div>
-            </div>
+            {/* SELECTION */}
+            {effectiveSelectedIds.size > 0 && (
+              <div className="border-b border-map-border px-3 py-2">
+                <div className="text-[10px] text-map-text-secondary">
+                  Selected: {effectiveSelectedIds.size}
+                </div>
+                {effectiveSelectedIds.size >= 2 && (
+                  <button
+                    type="button"
+                    onClick={() => setCompareOpen(true)}
+                    className="map-btn w-full mt-1 rounded px-2 py-1 text-[10px] font-medium bg-map-accent text-white hover:opacity-90 transition-opacity"
+                  >
+                    Compare ({effectiveSelectedIds.size})
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Footer: shortcuts */}
+          <div className="px-3 py-1.5 border-t border-map-border flex items-center gap-3 text-[10px] text-map-text-muted shrink-0">
+            <span><kbd className="rounded border border-map-border px-1">L</kbd> Panel</span>
+            <span><kbd className="rounded border border-map-border px-1">F</kbd> Full</span>
+            <span><kbd className="rounded border border-map-border px-1">S</kbd> Snap</span>
+            <span><kbd className="rounded border border-map-border px-1">D</kbd> Draw</span>
           </div>
         </div>
       )}
