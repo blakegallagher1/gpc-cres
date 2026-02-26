@@ -17,6 +17,6 @@ export default defineConfig({
     pool: "threads",
     globals: true,
     setupFiles: ["./test-utils/setup.ts"],
-    exclude: ["e2e/**", "node_modules/**", ".next/**"],
+    exclude: ["e2e/**", "node_modules/**", ".next/**", "**/production-verification*"],
   },
 });
