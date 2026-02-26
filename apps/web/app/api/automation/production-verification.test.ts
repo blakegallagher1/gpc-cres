@@ -3,6 +3,11 @@ import { describe, it, expect, beforeAll } from "vitest";
 /**
  * PRODUCTION VERIFICATION TESTS
  *
+ * These tests hit live infrastructure (api.gallagherpropco.com, qdrant.gallagherpropco.com)
+ * and must NOT run in CI. They are for local production verification only.
+ *
+ * Run locally: LOCAL_API_KEY=... pnpm vitest run production-verification
+ *
  * Tests all 5 features before production deployment:
  * 1. Gateway caching with TTL
  * 2. Batch multi-parcel screening
@@ -19,6 +24,9 @@ import { describe, it, expect, beforeAll } from "vitest";
  * - existing_land_use: I
  */
 
+// Skip entire file in CI — these tests hit live infrastructure
+const isCI = !!process.env.CI;
+
 const GATEWAY_URL = process.env.LOCAL_API_URL || "https://api.gallagherpropco.com";
 const GATEWAY_KEY = process.env.LOCAL_API_KEY || "Y9DgsDrlvfDfitSgfp0YtLwjlvY5ocKnYA_4X11tfkc";
 const VALID_PARCEL_IDS = [
@@ -29,7 +37,7 @@ const VALID_PARCEL_IDS = [
   "021-6741-7", // Walmart
 ];
 
-describe("Production Verification Tests", () => {
+(isCI ? describe.skip : describe)("Production Verification Tests", () => {
   let conversationId: string;
 
   beforeAll(() => {
