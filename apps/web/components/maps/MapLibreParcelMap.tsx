@@ -311,23 +311,23 @@ export function parcelPopupHtml(parcel: MapParcel): string {
   const rows = [
     `<div style="font-weight:600;margin-bottom:2px;">${safeAddress}</div>`,
     safeDealName
-      ? `<div style="color:#6b7280;font-size:11px;">${safeDealName}</div>`
+      ? `<div style="opacity:0.7;font-size:11px;">${safeDealName}</div>`
       : "",
     parcel.acreage != null
-      ? `<div style=\"font-size:11px;\">${Number(parcel.acreage).toFixed(2)} acres</div>`
+      ? `<div style="font-size:11px;">${Number(parcel.acreage).toFixed(2)} acres</div>`
       : "",
     safeDealStatus
-      ? `<div style=\"font-size:11px;\">Status: ${safeDealStatus}</div>`
+      ? `<div style="font-size:11px;">Status: ${safeDealStatus}</div>`
       : "",
     safeZoning
-      ? `<div style=\"font-size:11px;\">Zoning: ${safeZoning}</div>`
+      ? `<div style="font-size:11px;">Zoning: ${safeZoning}</div>`
       : "",
     safeFloodZone
-      ? `<div style=\"font-size:11px;\">Flood: ${safeFloodZone}</div>`
+      ? `<div style="font-size:11px;">Flood: ${safeFloodZone}</div>`
       : "",
-    `<div style="margin-top:6px;padding-top:6px;border-top:1px solid #e5e7eb;display:flex;gap:6px;align-items:center;">
-      <a href="${streetViewUrl}" target="_blank" rel="noopener noreferrer" style="font-size:11px;color:#1d4ed8;text-decoration:none;">Street View</a>
-      <a href="${googleMapsUrl}" target="_blank" rel="noopener noreferrer" style="font-size:11px;color:#374151;text-decoration:none;">Google Maps</a>
+    `<div style="margin-top:6px;padding-top:6px;border-top:1px solid currentColor;opacity:0.3;"></div><div style="display:flex;gap:6px;align-items:center;">
+      <a href="${streetViewUrl}" target="_blank" rel="noopener noreferrer" style="font-size:11px;color:#6c8cff;text-decoration:none;">Street View</a>
+      <a href="${googleMapsUrl}" target="_blank" rel="noopener noreferrer" style="font-size:11px;opacity:0.7;text-decoration:none;">Google Maps</a>
     </div>`,
     `<div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;">
       <button type="button" onclick="window.dispatchEvent(new CustomEvent('map:add-to-deal',{detail:{parcelId:'${safeId}'},bubbles:true}))" style="font-size:11px;padding:3px 8px;border-radius:3px;border:1px solid #6d28d9;background:#7c3aed;color:#fff;cursor:pointer;">+ Deal</button>
@@ -336,7 +336,7 @@ export function parcelPopupHtml(parcel: MapParcel): string {
     </div>`,
   ].filter(Boolean);
 
-  return `<div style="font-size:13px;line-height:1.4;min-width:200px;">${rows.join("")}</div>`;
+  return `<div style="font-size:13px;line-height:1.4;min-width:200px;color:inherit;">${rows.join("")}</div>`;
 }
 
 /** Popup HTML for vector tile parcels (from Martin/PostGIS). */
@@ -360,7 +360,7 @@ export function tileParcelPopupHtml(props: Record<string, unknown>): string {
   const rows = [
     `<div style="font-weight:600;margin-bottom:2px;">${address}</div>`,
     parcelId
-      ? `<div style="color:#6b7280;font-size:11px;">Parcel: ${parcelId}</div>`
+      ? `<div style="opacity:0.7;font-size:11px;">Parcel: ${parcelId}</div>`
       : "",
     owner
       ? `<div style="font-size:11px;">Owner: ${owner}</div>`
@@ -372,11 +372,11 @@ export function tileParcelPopupHtml(props: Record<string, unknown>): string {
       ? `<div style="font-size:11px;">Assessed: $${assessed.toLocaleString()}</div>`
       : "",
     streetViewUrl
-      ? `<div style="margin-top:6px;padding-top:6px;border-top:1px solid #e5e7eb;"><a href="${streetViewUrl}" target="_blank" rel="noopener noreferrer" style="font-size:11px;color:#1d4ed8;text-decoration:none;">Street View</a></div>`
+      ? `<div style="margin-top:6px;padding-top:6px;border-top:1px solid currentColor;opacity:0.2;"></div><div><a href="${streetViewUrl}" target="_blank" rel="noopener noreferrer" style="font-size:11px;color:inherit;opacity:0.8;text-decoration:none;">Street View</a></div>`
       : "",
   ].filter(Boolean);
 
-  return `<div style="font-size:13px;line-height:1.4">${rows.join("")}</div>`;
+  return `<div style="font-size:13px;line-height:1.4;color:inherit">${rows.join("")}</div>`;
 }
 
 function getVelocityColor(score: number): string {
@@ -431,17 +431,31 @@ export function MapLibreParcelMap({
   const stableMapCallbacks = useStableOptions({ onParcelClick });
   const parcelByIdRef = useRef<Map<string, MapParcel>>(new Map());
 
-  // Dark mode and layer panel collapse states
+  // Dark mode detection via MutationObserver
   const [isDark, setIsDark] = useState(false);
-  const [parcelsSectionOpen, setParcelsSectionOpen] = useState(true);
-  const [zoningOverlaySectionOpen, setZoningOverlaySectionOpen] = useState(false);
-  const [floodOverlaySectionOpen, setFloodOverlaySectionOpen] = useState(false);
-  const [compsSectionOpen, setCompsSectionOpen] = useState(false);
-  const [heatmapSectionOpen, setHeatmapSectionOpen] = useState(false);
-  const [geofencesSectionOpen, setGeofencesSectionOpen] = useState(false);
+  useEffect(() => {
+    const check = () => setIsDark(document.documentElement.classList.contains("dark"));
+    check();
+    const observer = new MutationObserver(check);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
+
+  // Collapsible layer panel sections (3-group hierarchy)
+  const [baseSectionOpen, setBaseSectionOpen] = useState(true);
+  const [analysisSectionOpen, setAnalysisSectionOpen] = useState(true);
+  const [aiSectionOpen, setAiSectionOpen] = useState(false);
+
+  // Bottom status bar: live coords + zoom
   const [cursorLng, setCursorLng] = useState<number | null>(null);
   const [cursorLat, setCursorLat] = useState<number | null>(null);
   const [currentZoom, setCurrentZoom] = useState(zoom);
+
+  // Stable ref for onViewStateChange to avoid stale closure in map event handlers
+  const onViewStateChangeRef = useRef(onViewStateChange);
+  useEffect(() => {
+    onViewStateChangeRef.current = onViewStateChange;
+  }, [onViewStateChange]);
 
   const effectiveSelectedIds = useMemo(() => {
     const merged = new Set(selectedParcelIds);
@@ -1083,7 +1097,7 @@ export function MapLibreParcelMap({
               east: b.getEast(),
               north: b.getNorth(),
             });
-            onViewStateChange?.([map.getCenter().lat, map.getCenter().lng], map.getZoom());
+            onViewStateChangeRef.current?.([map.getCenter().lat, map.getCenter().lng], map.getZoom());
           }, 300);
         });
       });
@@ -1135,9 +1149,9 @@ export function MapLibreParcelMap({
       map.setLayoutProperty("parcels-boundary-line", "visibility", showLayers && showParcelBoundaries ? "visible" : "none");
       map.setLayoutProperty("parcels-zoning-layer", "visibility", showLayers && showZoning ? "visible" : "none");
       map.setLayoutProperty("parcels-flood-layer", "visibility", showLayers && showFlood ? "visible" : "none");
-      map.setLayoutProperty("base-dark", "visibility", isDark ? "visible" : "none");
-      map.setLayoutProperty("base-streets", "visibility", isDark || baseLayer === "Satellite" ? "none" : "visible");
-      map.setLayoutProperty("base-satellite", "visibility", baseLayer === "Satellite" && !isDark ? "visible" : "none");
+      map.setLayoutProperty("base-dark", "visibility", isDark && baseLayer !== "Satellite" ? "visible" : "none");
+      map.setLayoutProperty("base-streets", "visibility", !isDark && baseLayer !== "Satellite" ? "visible" : "none");
+      map.setLayoutProperty("base-satellite", "visibility", baseLayer === "Satellite" ? "visible" : "none");
       map.setLayoutProperty("parcel-points", "visibility", showLayers ? "visible" : "none");
     } catch {}
   }, [
@@ -1237,18 +1251,54 @@ export function MapLibreParcelMap({
           className="absolute left-14 top-2 z-10 w-64 rounded-lg map-panel"
           onPointerDown={(event) => event.stopPropagation()}
         >
-          <div className="space-y-1">
-            {/* Parcels section */}
+          <div className="space-y-0">
+            {/* ── BASE LAYERS ── */}
             <div className="border-b border-map-border">
               <button
                 type="button"
-                onClick={() => setParcelsSectionOpen(!parcelsSectionOpen)}
-                className="map-btn w-full flex items-center justify-between px-3 py-2 text-sm font-medium"
+                onClick={() => setBaseSectionOpen(!baseSectionOpen)}
+                className="map-btn w-full flex items-center justify-between px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-map-text-muted"
               >
-                <span>Parcels</span>
-                {parcelsSectionOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                <span>Base Layers</span>
+                {baseSectionOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
               </button>
-              {parcelsSectionOpen && (
+              {baseSectionOpen && (
+                <div className="px-3 py-2 border-t border-map-border">
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setBaseLayer("Streets")}
+                      className={`map-btn flex-1 px-2 py-1 text-xs font-medium rounded transition-colors ${
+                        baseLayer === "Streets" ? "bg-map-accent text-white" : ""
+                      }`}
+                    >
+                      Streets
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBaseLayer("Satellite")}
+                      className={`map-btn flex-1 px-2 py-1 text-xs font-medium rounded transition-colors ${
+                        baseLayer === "Satellite" ? "bg-map-accent text-white" : ""
+                      }`}
+                    >
+                      Satellite
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* ── ANALYSIS LAYERS ── */}
+            <div className="border-b border-map-border">
+              <button
+                type="button"
+                onClick={() => setAnalysisSectionOpen(!analysisSectionOpen)}
+                className="map-btn w-full flex items-center justify-between px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-map-text-muted"
+              >
+                <span>Analysis Layers</span>
+                {analysisSectionOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+              </button>
+              {analysisSectionOpen && (
                 <div className="px-3 py-2 space-y-2 border-t border-map-border">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
@@ -1257,10 +1307,10 @@ export function MapLibreParcelMap({
                       onChange={(event) => setShowParcelBoundaries(event.target.checked)}
                       className="rounded"
                     />
-                    <span className="text-xs">Show Boundaries</span>
+                    <span className="text-xs">Parcels</span>
                   </label>
                   {(geometryLoading || geometryHealth.failedCount > 0 || geometryHealth.propertyDbUnconfigured) && (
-                    <div className="text-[10px] text-map-status-yellow">
+                    <div className="text-[10px] text-map-status-yellow ml-6">
                       {geometryLoading
                         ? "Loading shapes…"
                         : geometryHealth.propertyDbUnconfigured
@@ -1268,22 +1318,6 @@ export function MapLibreParcelMap({
                           : "Some shapes unavailable"}
                     </div>
                   )}
-                </div>
-              )}
-            </div>
-
-            {/* Zoning section */}
-            <div className="border-b border-map-border">
-              <button
-                type="button"
-                onClick={() => setZoningOverlaySectionOpen(!zoningOverlaySectionOpen)}
-                className="map-btn w-full flex items-center justify-between px-3 py-2 text-sm font-medium"
-              >
-                <span>Zoning</span>
-                {zoningOverlaySectionOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-              </button>
-              {zoningOverlaySectionOpen && (
-                <div className="px-3 py-2 border-t border-map-border">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
@@ -1291,24 +1325,8 @@ export function MapLibreParcelMap({
                       onChange={(event) => setShowZoning(event.target.checked)}
                       className="rounded"
                     />
-                    <span className="text-xs">Show Overlay</span>
+                    <span className="text-xs">Zoning</span>
                   </label>
-                </div>
-              )}
-            </div>
-
-            {/* Flood section */}
-            <div className="border-b border-map-border">
-              <button
-                type="button"
-                onClick={() => setFloodOverlaySectionOpen(!floodOverlaySectionOpen)}
-                className="map-btn w-full flex items-center justify-between px-3 py-2 text-sm font-medium"
-              >
-                <span>Flood Zones</span>
-                {floodOverlaySectionOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-              </button>
-              {floodOverlaySectionOpen && (
-                <div className="px-3 py-2 border-t border-map-border">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
@@ -1316,24 +1334,8 @@ export function MapLibreParcelMap({
                       onChange={(event) => setShowFlood(event.target.checked)}
                       className="rounded"
                     />
-                    <span className="text-xs">Show Overlay</span>
+                    <span className="text-xs">Flood Zones</span>
                   </label>
-                </div>
-              )}
-            </div>
-
-            {/* Comps section */}
-            <div className="border-b border-map-border">
-              <button
-                type="button"
-                onClick={() => setCompsSectionOpen(!compsSectionOpen)}
-                className="map-btn w-full flex items-center justify-between px-3 py-2 text-sm font-medium"
-              >
-                <span>Comps</span>
-                {compsSectionOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-              </button>
-              {compsSectionOpen && (
-                <div className="px-3 py-2 border-t border-map-border">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
@@ -1341,24 +1343,8 @@ export function MapLibreParcelMap({
                       onChange={(event) => setShowComps(event.target.checked)}
                       className="rounded"
                     />
-                    <span className="text-xs">Show Comps</span>
+                    <span className="text-xs">Comps</span>
                   </label>
-                </div>
-              )}
-            </div>
-
-            {/* Heatmap section */}
-            <div className="border-b border-map-border">
-              <button
-                type="button"
-                onClick={() => setHeatmapSectionOpen(!heatmapSectionOpen)}
-                className="map-btn w-full flex items-center justify-between px-3 py-2 text-sm font-medium"
-              >
-                <span>Heatmap</span>
-                {heatmapSectionOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-              </button>
-              {heatmapSectionOpen && (
-                <div className="px-3 py-2 border-t border-map-border">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
@@ -1366,35 +1352,29 @@ export function MapLibreParcelMap({
                       onChange={(event) => setShowHeatmap(event.target.checked)}
                       className="rounded"
                     />
-                    <span className="text-xs">Show Heatmap</span>
+                    <span className="text-xs">Heatmap</span>
                   </label>
                 </div>
               )}
             </div>
 
-            {/* Base layer section */}
-            <div className="border-b border-map-border px-3 py-2">
-              <div className="text-[10px] font-medium text-map-text-muted mb-2">Base Layer</div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setBaseLayer("Streets")}
-                  className={`map-btn flex-1 px-2 py-1 text-xs font-medium rounded transition-colors ${
-                    baseLayer === "Streets" ? "bg-map-accent text-white" : ""
-                  }`}
-                >
-                  Streets
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setBaseLayer("Satellite")}
-                  className={`map-btn flex-1 px-2 py-1 text-xs font-medium rounded transition-colors ${
-                    baseLayer === "Satellite" ? "bg-map-accent text-white" : ""
-                  }`}
-                >
-                  Satellite
-                </button>
-              </div>
+            {/* ── AI LAYERS ── */}
+            <div className="border-b border-map-border">
+              <button
+                type="button"
+                onClick={() => setAiSectionOpen(!aiSectionOpen)}
+                className="map-btn w-full flex items-center justify-between px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-map-text-muted"
+              >
+                <span>AI Layers</span>
+                {aiSectionOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+              </button>
+              {aiSectionOpen && (
+                <div className="px-3 py-2 border-t border-map-border">
+                  <p className="text-[10px] text-map-text-muted leading-relaxed">
+                    AI-generated overlays from Map Copilot appear here automatically when you run trajectory or heatmap queries.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Selected count and compare */}
@@ -1413,25 +1393,16 @@ export function MapLibreParcelMap({
               )}
             </div>
 
-            {/* Saved Geofences section */}
+            {/* Saved Geofences */}
             {onPolygonDrawn && onPolygonCleared && (
               <div className="border-b border-map-border">
-                <button
-                  type="button"
-                  onClick={() => setGeofencesSectionOpen(!geofencesSectionOpen)}
-                  className="map-btn w-full flex items-center justify-between px-3 py-2 text-sm font-medium"
-                >
-                  <span>Saved Geofences</span>
-                  {geofencesSectionOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                </button>
-                {geofencesSectionOpen && (
-                  <div className="px-3 py-2 border-t border-map-border">
-                    <SavedGeofences
-                      currentPolygon={polygon}
-                      onApply={(coordinates) => onPolygonDrawn(coordinates)}
-                    />
-                  </div>
-                )}
+                <div className="px-3 py-2">
+                  <div className="text-[10px] font-semibold uppercase tracking-wider text-map-text-muted mb-2">Geofences</div>
+                  <SavedGeofences
+                    currentPolygon={polygon}
+                    onApply={(coordinates) => onPolygonDrawn(coordinates)}
+                  />
+                </div>
               </div>
             )}
 

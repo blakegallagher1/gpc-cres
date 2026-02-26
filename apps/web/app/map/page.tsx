@@ -10,6 +10,7 @@ import {
 } from "react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTheme } from "next-themes";
 import { Loader2, Search } from "lucide-react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import type { MapParcel } from "@/components/maps/ParcelMap";
@@ -103,6 +104,13 @@ function toFiniteNumber(...values: Array<unknown>): number | null {
 export default function MapPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { setTheme } = useTheme();
+
+  // Force dark mode on map page mount
+  useEffect(() => {
+    setTheme("dark");
+  }, [setTheme]);
+
   const [parcels, setParcels] = useState<MapParcel[]>([]);
   const [searchParcels, setSearchParcels] = useState<MapParcel[] | null>(null);
   const [loading, setLoading] = useState(true);

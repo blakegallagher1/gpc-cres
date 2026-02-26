@@ -202,10 +202,10 @@ export function MapChatPanel({
         type="button"
         onClick={() => setOpen((o) => !o)}
         className="absolute right-0 top-4 z-[1000] flex items-center gap-1.5 rounded-l-lg border border-r-0 border-border bg-background px-3 py-2 text-sm font-medium shadow-md transition-colors hover:bg-muted"
-        title={open ? "Close Trajectory Analysis" : "Open Trajectory Analysis"}
+        title={open ? "Close Map Copilot" : "Open Map Copilot"}
       >
         <Map className="h-4 w-4" />
-        Trajectory Analysis
+        Map Copilot
         {open ? (
           <ChevronRight className="h-4 w-4" />
         ) : (
@@ -222,14 +222,19 @@ export function MapChatPanel({
             <div className="flex flex-1 flex-col overflow-hidden">
               <div className="border-b px-4 py-2">
                 <h3 className="text-sm font-semibold map-text-primary">
-                  Market Intelligence
+                  Map Copilot
                 </h3>
                 <p className="text-xs map-text-secondary">
                   Path of progress, permit heatmaps, gentrification indicators
                 </p>
-                <p className="mt-1 text-[10px] map-text-muted rounded px-2 py-1 bg-map-accent-surface/30 border border-map-border">
-                  Parcels: {parcelCount ?? 0} · Selected: {selectedCount ?? 0}
-                </p>
+                <div className="mt-1 flex items-center gap-1.5">
+                  <span className="inline-flex items-center rounded-full bg-emerald-500/20 text-emerald-400 px-2 py-0.5 text-[10px] font-medium">
+                    {parcelCount ?? 0} Parcels
+                  </span>
+                  <span className="inline-flex items-center rounded-full bg-sky-500/20 text-sky-400 px-2 py-0.5 text-[10px] font-medium">
+                    {selectedCount ?? 0} Selected
+                  </span>
+                </div>
                 {viewportLabel ? (
                   <p className="text-[10px] map-text-muted mt-1">{viewportLabel}</p>
                 ) : null}
