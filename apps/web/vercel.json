@@ -1,5 +1,6 @@
 {
   "framework": "nextjs",
+  "installCommand": "pnpm install",
   "buildCommand": "cd ../.. && SENTRY_AUTH_TOKEN=$SENTRY_AUTH_TOKEN bash scripts/vercel-build.sh",
   "crons": [
     {
