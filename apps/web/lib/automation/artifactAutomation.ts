@@ -4,7 +4,7 @@ import {
 } from "@entitlement-os/shared";
 import type { ArtifactSpec, ArtifactType } from "@entitlement-os/shared";
 import { renderArtifactFromSpec } from "@entitlement-os/artifacts";
-import { supabaseAdmin } from "@/lib/db/supabaseAdmin";
+import { uploadArtifactToGateway, systemAuth } from "@/lib/storage/gatewayStorage";
 import { createAutomationTask } from "./notifications";
 import type { AutomationEvent } from "./events";
 
@@ -136,13 +136,16 @@ export async function handleArtifactOnStatusChange(event: AutomationEvent): Prom
         version: nextVersion,
         filename: rendered.filename,
       });
-      const { error: storageError } = await supabaseAdmin.storage
-        .from("deal-room-uploads")
-        .upload(storageObjectKey, Buffer.from(rendered.bytes), {
-          contentType: rendered.contentType,
-          upsert: false,
-        });
-      if (storageError) throw new Error(`Storage upload failed: ${storageError.message}`);
+      const gwResult = await uploadArtifactToGateway({
+        auth: systemAuth(orgId),
+        dealId,
+        artifactType,
+        version: nextVersion,
+        filename: rendered.filename,
+        contentType: rendered.contentType,
+        bytes: Buffer.from(rendered.bytes),
+        generatedByRunId: run.id,
+      });
 
       // DB record
       await prisma.artifact.create({
@@ -151,7 +154,7 @@ export async function handleArtifactOnStatusChange(event: AutomationEvent): Prom
           dealId,
           artifactType,
           version: nextVersion,
-          storageObjectKey,
+          storageObjectKey: gwResult.storageObjectKey,
           generatedByRunId: run.id,
         },
       });
@@ -370,13 +373,16 @@ async function ensureTriagePdfGenerated(dealId: string, orgId: string): Promise<
       version: nextVersion,
       filename: rendered.filename,
     });
-    const { error: storageError } = await supabaseAdmin.storage
-      .from("deal-room-uploads")
-      .upload(storageObjectKey, Buffer.from(rendered.bytes), {
-        contentType: rendered.contentType,
-        upsert: false,
-      });
-    if (storageError) throw new Error(`Storage upload failed: ${storageError.message}`);
+    const gwResult = await uploadArtifactToGateway({
+      auth: systemAuth(orgId),
+      dealId,
+      artifactType: "TRIAGE_PDF",
+      version: nextVersion,
+      filename: rendered.filename,
+      contentType: rendered.contentType,
+      bytes: Buffer.from(rendered.bytes),
+      generatedByRunId: run.id,
+    });
 
     await prisma.artifact.create({
       data: {
@@ -384,7 +390,7 @@ async function ensureTriagePdfGenerated(dealId: string, orgId: string): Promise<
         dealId,
         artifactType: "TRIAGE_PDF",
         version: nextVersion,
-        storageObjectKey,
+        storageObjectKey: gwResult.storageObjectKey,
         generatedByRunId: run.id,
       },
     });

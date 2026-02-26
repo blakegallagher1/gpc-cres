@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
-import { supabaseAdmin } from "@/lib/db/supabaseAdmin";
+import { getDownloadUrlFromGateway } from "@/lib/storage/gatewayStorage";
 
 // GET /api/deals/artifacts/[artifactId]/download — download artifact via signed URL
 export async function GET(
@@ -23,20 +23,13 @@ export async function GET(
       return NextResponse.json({ error: "Artifact not found" }, { status: 404 });
     }
 
-    // Generate a signed URL (5 minute expiry)
-    const { data, error } = await supabaseAdmin.storage
-      .from("deal-room-uploads")
-      .createSignedUrl(artifact.storageObjectKey, 300);
+    const { downloadUrl } = await getDownloadUrlFromGateway({
+      auth: { orgId: auth.orgId, userId: auth.userId },
+      id: artifact.id,
+      type: "artifact",
+    });
 
-    if (error || !data?.signedUrl) {
-      console.error("Failed to create signed URL:", error);
-      return NextResponse.json(
-        { error: "Failed to generate download URL" },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.redirect(data.signedUrl, 302);
+    return NextResponse.redirect(downloadUrl, 302);
   } catch (error) {
     console.error("Error downloading artifact:", error);
     return NextResponse.json(

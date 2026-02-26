@@ -1,6 +1,6 @@
 import { prisma } from "@entitlement-os/db";
 import type { Prisma } from "@entitlement-os/db";
-import { supabaseAdmin } from "@/lib/db/supabaseAdmin";
+import { fetchObjectBytesFromGateway, systemAuth } from "@/lib/storage/gatewayStorage";
 import { getNotificationService } from "./notification.service";
 import { AppError } from "@/lib/errors";
 import OpenAI from "openai";
@@ -727,17 +727,12 @@ export class DocumentProcessingService {
     let extractedText = "";
 
     if (isPdf) {
-      // Download from Supabase Storage
-      const { data, error } = await supabaseAdmin.storage
-        .from("deal-room-uploads")
-        .download(upload.storageObjectKey);
-
-      if (error || !data) {
-        console.error(`[doc-processing] Failed to download ${upload.storageObjectKey}:`, error);
-        throw new AppError("Failed to download upload", "DOWNLOAD_FAILED", 500);
-      }
-
-      const buffer = Buffer.from(await data.arrayBuffer());
+      // Download from Gateway (B2)
+      const arrayBuf = await fetchObjectBytesFromGateway(
+        upload.storageObjectKey,
+        systemAuth(upload.orgId)
+      );
+      const buffer = Buffer.from(arrayBuf);
       extractedText = await extractTextFromPdf(buffer);
 
       if (isScannedPdf(extractedText)) {

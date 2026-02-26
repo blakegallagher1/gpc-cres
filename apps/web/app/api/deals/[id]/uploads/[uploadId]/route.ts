@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
-import { supabaseAdmin } from "@/lib/db/supabaseAdmin";
+import {
+  getDownloadUrlFromGateway,
+  deleteObjectFromGateway,
+} from "@/lib/storage/gatewayStorage";
 
 // GET /api/deals/[id]/uploads/[uploadId] - get signed download URL
 export async function GET(
@@ -23,19 +26,13 @@ export async function GET(
       return NextResponse.json({ error: "Upload not found" }, { status: 404 });
     }
 
-    const { data, error } = await supabaseAdmin.storage
-      .from("deal-room-uploads")
-      .createSignedUrl(upload.storageObjectKey, 300);
+    const { downloadUrl } = await getDownloadUrlFromGateway({
+      auth: { orgId: auth.orgId, userId: auth.userId },
+      id: upload.id,
+      type: "upload",
+    });
 
-    if (error || !data?.signedUrl) {
-      console.error("Signed URL error:", error);
-      return NextResponse.json(
-        { error: "Failed to generate download URL" },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({ url: data.signedUrl });
+    return NextResponse.json({ url: downloadUrl });
   } catch (error) {
     console.error("Error getting upload URL:", error);
     return NextResponse.json(
@@ -65,9 +62,10 @@ export async function DELETE(
       return NextResponse.json({ error: "Upload not found" }, { status: 404 });
     }
 
-    await supabaseAdmin.storage
-      .from("deal-room-uploads")
-      .remove([upload.storageObjectKey]);
+    await deleteObjectFromGateway(upload.storageObjectKey, {
+      orgId: auth.orgId,
+      userId: auth.userId,
+    });
 
     await prisma.upload.delete({ where: { id: uploadId } });
 

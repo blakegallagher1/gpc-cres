@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { buildUploadObjectKey } from "@entitlement-os/shared";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
-import { supabaseAdmin } from "@/lib/db/supabaseAdmin";
+import { uploadDealFileToGateway } from "@/lib/storage/gatewayStorage";
 import { randomUUID } from "crypto";
 import { dispatchEvent } from "@/lib/automation/events";
 import "@/lib/automation/handlers";
@@ -101,72 +101,12 @@ export async function POST(
 
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    const { error: storageError } = await supabaseAdmin.storage
-      .from("deal-room-uploads")
-      .upload(storageObjectKey, buffer, {
-        contentType: file.type || "application/octet-stream",
-        upsert: false,
-      });
-
-    if (storageError && storageError.message === "Bucket not found") {
-      const bucketCreateError = await supabaseAdmin.storage.createBucket("deal-room-uploads", {
-        public: false,
-      });
-
-      if (bucketCreateError.error) {
-        Sentry.captureException(bucketCreateError.error, {
-          tags: {
-            route: "/api/deals/[id]/uploads",
-            method: "POST",
-            stage: "bucket-create",
-          },
-        });
-        await Sentry.flush(5000);
-        console.error("Storage bucket create error:", bucketCreateError.error);
-        return NextResponse.json(
-          { error: "Failed to upload file to storage" },
-          { status: 500 }
-        );
-      }
-
-      const retry = await supabaseAdmin.storage.from("deal-room-uploads").upload(
-        storageObjectKey,
-        buffer,
-        {
-          contentType: file.type || "application/octet-stream",
-          upsert: false,
-        },
-      );
-
-      if (retry.error) {
-        Sentry.captureException(retry.error, {
-          tags: {
-            route: "/api/deals/[id]/uploads",
-            method: "POST",
-            stage: "storage-upload-retry",
-          },
-        });
-        await Sentry.flush(5000);
-        console.error("Storage upload error:", retry.error);
-        return NextResponse.json(
-          { error: "Failed to upload file to storage" },
-          { status: 500 }
-        );
-      }
-    } else if (storageError) {
-      Sentry.captureException(storageError, {
-        tags: {
-          route: "/api/deals/[id]/uploads",
-          method: "POST",
-          stage: "storage-upload",
-        },
-      });
-      await Sentry.flush(5000);
-      return NextResponse.json(
-        { error: "Failed to upload file to storage" },
-        { status: 500 }
-      );
-    }
+    await uploadDealFileToGateway({
+      auth: { orgId: auth.orgId, userId: auth.userId },
+      objectKey: storageObjectKey,
+      bytes: buffer,
+      contentType: file.type || "application/octet-stream",
+    });
 
     const upload = await prisma.upload.create({
       data: {
