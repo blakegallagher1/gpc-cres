@@ -4,8 +4,9 @@ Provides secure API access from Vercel to local backend.
 Runs on port 8000. Postgres (5432) is never exposed to the internet.
 """
 import os
+import uuid as _uuid
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request, HTTPException, Depends, Query
+from fastapi import FastAPI, Request, HTTPException, Depends, Query, UploadFile, File, Form
 from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
@@ -14,7 +15,7 @@ from typing import Optional, AsyncIterator
 from dotenv import load_dotenv
 import secrets
 from admin_router import router as admin_router, set_db_pool as set_admin_db_pool
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import json
 import re
 
@@ -39,6 +40,31 @@ ALLOWED_ORIGINS = [
 if not API_KEYS:
     print("⚠️  WARNING: No API_KEYS set! API is INSECURE!")
     print("⚠️  Set API_KEYS in .env file")
+
+# B2 Storage via S3-compatible API
+B2_S3_ENDPOINT_URL = os.getenv("B2_S3_ENDPOINT_URL", "").rstrip("/")
+B2_ACCESS_KEY_ID = os.getenv("B2_ACCESS_KEY_ID", "")
+B2_SECRET_ACCESS_KEY = os.getenv("B2_SECRET_ACCESS_KEY", "")
+B2_BUCKET = os.getenv("B2_BUCKET", "")
+B2_REGION = os.getenv("B2_REGION", "us-west-004")
+
+_s3_client = None
+
+def _get_s3():
+    """Lazy singleton for boto3 S3 client."""
+    global _s3_client
+    if _s3_client is None:
+        import boto3
+        _s3_client = boto3.client(
+            "s3",
+            endpoint_url=B2_S3_ENDPOINT_URL,
+            aws_access_key_id=B2_ACCESS_KEY_ID,
+            aws_secret_access_key=B2_SECRET_ACCESS_KEY,
+            region_name=B2_REGION,
+        )
+    return _s3_client
+
+MAX_UPLOAD_SIZE = 100 * 1024 * 1024  # 100 MB
 
 # =============================================================================
 # Database Connection Pools
@@ -117,7 +143,7 @@ if ALLOWED_ORIGINS:
         allow_origins=ALLOWED_ORIGINS,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PATCH", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type"],
+        allow_headers=["Authorization", "Content-Type", "X-Org-Id", "X-User-Id"],
     )
 
 
@@ -1696,6 +1722,258 @@ async def get_stats(
         "ok": True,
         "data": dict(row),
     }
+
+
+# =============================================================================
+# B2 Storage Endpoints
+# =============================================================================
+
+
+def _require_tenant(request: Request) -> tuple[str, str]:
+    """Extract and validate X-Org-Id + X-User-Id headers."""
+    org_id = request.headers.get("X-Org-Id", "").strip()
+    user_id = request.headers.get("X-User-Id", "").strip()
+    if not org_id or not user_id:
+        raise HTTPException(400, detail="X-Org-Id and X-User-Id headers required")
+    # Validate UUID format
+    try:
+        _uuid.UUID(org_id)
+        _uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(400, detail="X-Org-Id and X-User-Id must be valid UUIDs")
+    return org_id, user_id
+
+
+def _require_b2():
+    """Ensure B2 is configured, return S3 client."""
+    if not B2_S3_ENDPOINT_URL or not B2_ACCESS_KEY_ID or not B2_BUCKET:
+        raise HTTPException(503, detail="B2 storage not configured")
+    return _get_s3()
+
+
+def _generate_presigned_put_url(object_key: str, content_type: str) -> tuple[str, dict]:
+    """Generate a presigned PUT URL for B2."""
+    s3 = _require_b2()
+    url = s3.generate_presigned_url(
+        "put_object",
+        Params={"Bucket": B2_BUCKET, "Key": object_key, "ContentType": content_type},
+        ExpiresIn=3600,
+    )
+    return url, {"Content-Type": content_type}
+
+
+def _generate_presigned_get_url(object_key: str) -> str:
+    """Generate a presigned GET URL for B2."""
+    s3 = _require_b2()
+    return s3.generate_presigned_url(
+        "get_object",
+        Params={"Bucket": B2_BUCKET, "Key": object_key},
+        ExpiresIn=3600,
+    )
+
+
+def _b2_head_object(object_key: str) -> bool:
+    """Check if object exists in B2."""
+    s3 = _require_b2()
+    try:
+        s3.head_object(Bucket=B2_BUCKET, Key=object_key)
+        return True
+    except Exception:
+        return False
+
+
+@app.post("/storage/upload-bytes")
+async def storage_upload_bytes(
+    request: Request,
+    file: UploadFile = File(...),
+    kind: str = Form(...),
+    objectKey: Optional[str] = Form(None),
+    dealId: Optional[str] = Form(None),
+    artifactType: Optional[str] = Form(None),
+    version: Optional[str] = Form(None),
+    filename: Optional[str] = Form(None),
+    contentType: Optional[str] = Form(None),
+    generatedByRunId: Optional[str] = Form(None),
+    api_key: str = Depends(verify_api_key),
+    conn: asyncpg.Connection = Depends(get_app_db),
+):
+    """
+    Upload bytes to B2 storage.
+    Supports kinds: artifact, evidence_snapshot, evidence_extract, deal_upload.
+    Auth: Bearer token + X-Org-Id + X-User-Id headers.
+    """
+    org_id, user_id = _require_tenant(request)
+    s3 = _require_b2()
+
+    file_bytes = await file.read()
+    if len(file_bytes) > MAX_UPLOAD_SIZE:
+        raise HTTPException(400, detail=f"File too large (max {MAX_UPLOAD_SIZE // (1024*1024)} MB)")
+
+    if kind == "artifact":
+        if not dealId or not artifactType or not filename or not contentType:
+            raise HTTPException(400, detail="artifact upload requires dealId, artifactType, filename, contentType")
+        ver = int(version) if version else 1
+        artifact_id = str(_uuid.uuid4())
+        obj_key = f"{org_id}/{dealId}/artifacts/{artifact_id}/{filename}"
+
+        # Upload to B2
+        s3.put_object(
+            Bucket=B2_BUCKET,
+            Key=obj_key,
+            Body=file_bytes,
+            ContentType=contentType,
+        )
+
+        # Insert DB record
+        await conn.execute(
+            """
+            INSERT INTO uploads (id, deal_id, org_id, kind, filename, content_type, size_bytes,
+                                 storage_object_key, status, uploaded_by)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'confirmed', $9)
+            ON CONFLICT DO NOTHING
+            """,
+            artifact_id, dealId, org_id, artifactType, filename, contentType,
+            len(file_bytes), obj_key, user_id,
+        )
+
+        return {
+            "id": artifact_id,
+            "storageObjectKey": obj_key,
+            "artifactType": artifactType,
+            "version": ver,
+        }
+
+    elif kind in ("evidence_snapshot", "evidence_extract"):
+        if not objectKey or not contentType:
+            raise HTTPException(400, detail="evidence upload requires objectKey, contentType")
+        s3.put_object(
+            Bucket=B2_BUCKET,
+            Key=objectKey,
+            Body=file_bytes,
+            ContentType=contentType,
+        )
+        return {"objectKey": objectKey}
+
+    elif kind == "deal_upload":
+        if not objectKey or not contentType:
+            raise HTTPException(400, detail="deal_upload requires objectKey, contentType")
+        s3.put_object(
+            Bucket=B2_BUCKET,
+            Key=objectKey,
+            Body=file_bytes,
+            ContentType=contentType,
+        )
+        return {"objectKey": objectKey}
+
+    else:
+        raise HTTPException(400, detail=f"Unknown kind: {kind}")
+
+
+@app.get("/storage/object-bytes")
+async def storage_object_bytes(
+    request: Request,
+    key: str = Query(..., description="B2 object key"),
+    api_key: str = Depends(verify_api_key),
+):
+    """
+    Download raw bytes of an object from B2.
+    Auth: Bearer token + X-Org-Id + X-User-Id headers.
+    """
+    org_id, user_id = _require_tenant(request)
+    s3 = _require_b2()
+
+    # Ensure the object key is scoped to the requesting org
+    if not key.startswith(f"{org_id}/"):
+        raise HTTPException(403, detail="Object key does not belong to this org")
+
+    try:
+        resp = s3.get_object(Bucket=B2_BUCKET, Key=key)
+        body = resp["Body"].read()
+        ct = resp.get("ContentType", "application/octet-stream")
+        return Response(content=body, media_type=ct)
+    except s3.exceptions.NoSuchKey:
+        raise HTTPException(404, detail="Object not found")
+    except Exception as e:
+        if "NoSuchKey" in str(e) or "404" in str(e):
+            raise HTTPException(404, detail="Object not found")
+        raise HTTPException(500, detail=f"B2 error: {e}")
+
+
+@app.get("/storage/download-url")
+async def storage_download_url(
+    request: Request,
+    id: str = Query(..., description="Record ID"),
+    type: str = Query(..., description="Record type: upload, artifact, evidence_snapshot, evidence_extract"),
+    api_key: str = Depends(verify_api_key),
+    conn: asyncpg.Connection = Depends(get_app_db),
+):
+    """
+    Generate a presigned download URL for a stored object.
+    Auth: Bearer token + X-Org-Id + X-User-Id headers.
+    """
+    org_id, user_id = _require_tenant(request)
+
+    valid_types = ("upload", "artifact", "evidence_snapshot", "evidence_extract")
+    if type not in valid_types:
+        raise HTTPException(400, detail=f"Invalid type. Must be one of: {', '.join(valid_types)}")
+
+    # Look up the storage_object_key from DB based on type
+    if type in ("upload", "artifact"):
+        row = await conn.fetchrow(
+            "SELECT storage_object_key FROM uploads WHERE id = $1 AND org_id = $2",
+            id, org_id,
+        )
+    elif type == "evidence_snapshot":
+        row = await conn.fetchrow(
+            "SELECT storage_object_key FROM evidence_snapshots WHERE id = $1 AND org_id = $2",
+            id, org_id,
+        )
+    elif type == "evidence_extract":
+        row = await conn.fetchrow(
+            "SELECT text_extract_object_key AS storage_object_key FROM evidence_snapshots WHERE id = $1 AND org_id = $2",
+            id, org_id,
+        )
+    else:
+        row = None
+
+    if not row:
+        raise HTTPException(404, detail=f"{type} not found")
+
+    object_key = row["storage_object_key"]
+    download_url = _generate_presigned_get_url(object_key)
+    expires_at = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+
+    return {"downloadUrl": download_url, "expiresAt": expires_at}
+
+
+@app.post("/storage/delete-object")
+async def storage_delete_object(
+    request: Request,
+    api_key: str = Depends(verify_api_key),
+):
+    """
+    Delete an object from B2 by key.
+    Auth: Bearer token + X-Org-Id + X-User-Id headers.
+    Body: { "objectKey": "org/deal/..." }
+    """
+    org_id, user_id = _require_tenant(request)
+    s3 = _require_b2()
+
+    body = await request.json()
+    object_key = body.get("objectKey", "").strip()
+    if not object_key:
+        raise HTTPException(400, detail="objectKey required")
+
+    # Ensure the object key is scoped to the requesting org
+    if not object_key.startswith(f"{org_id}/"):
+        raise HTTPException(403, detail="Object key does not belong to this org")
+
+    try:
+        s3.delete_object(Bucket=B2_BUCKET, Key=object_key)
+    except Exception as e:
+        raise HTTPException(500, detail=f"B2 delete error: {e}")
+
+    return Response(status_code=204)
 
 
 # =============================================================================
