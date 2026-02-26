@@ -183,27 +183,26 @@ export class PropertyIntelligenceStore {
       // Network error or collection missing — continue to create
     }
 
-    // Create collection with named vectors
+    // Create collection with named dense + sparse vectors
+    // Uses PUT /collections/{name} (Qdrant v1.x standard)
+    // Sparse vectors must be declared under "sparse_vectors", not "vectors"
     const createRes = await fetch(
-      `${this.qdrantUrl}/collections`,
+      `${this.qdrantUrl}/collections/${encodeURIComponent(collectionName)}`,
       {
-        method: "POST",
+        method: "PUT",
         headers,
         body: JSON.stringify({
-          collection_name: collectionName,
           vectors: {
             [config.qdrant.denseVectorName]: {
               size: config.models.embeddingDimensions,
               distance: "Cosine",
             },
-            [config.qdrant.sparseVectorName]: {
-              size: 50000,
-              distance: "Bm25",
-            },
+          },
+          sparse_vectors: {
+            [config.qdrant.sparseVectorName]: {},
           },
           optimizers_config: {
             default_segment_number: 4,
-            timeout_sec: 30,
           },
         }),
       }
