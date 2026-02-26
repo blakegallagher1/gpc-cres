@@ -113,6 +113,36 @@ Only items meeting all checks are added below as `Planned`.
     - `pnpm build`
   - Full repo lint/typecheck/test currently fail on pre-existing unrelated issues outside this change set (details captured in execution log).
 
+### INFRA-005 — Maximize Local Server Utilization (4-Phase Plan)
+
+- **Priority:** P1
+- **Status:** Done (2026-02-26)
+- **Scope:** Expose full capability of the local Windows 11 Docker stack to the agent layer — caching, batch screening, WebSocket push streaming, and Qdrant property intelligence.
+- **Problem:** Four capability gaps existed between what the local Docker stack could do and what the agent layer exposed: every gateway call was a fresh HTTP round-trip (no caching), portfolio screening called `screen_full` N times sequentially, no external process could push real-time status into an active browser session, and agents had no semantic property recall across conversations.
+- **Expected Outcome (measurable):**
+  - Same-parcel gateway calls return from TTL cache (2-3x faster).
+  - `screen_batch` fans out up to 20 parcels at 5 concurrent workers with results keyed by parcel ID.
+  - Any server-side process can push `operation_progress`/`operation_done`/`operation_error` events into the active browser WebSocket session.
+  - Agents can store and semantically recall property screening findings across conversations.
+- **Files Changed:**
+  - `packages/openai/src/tools/propertyDbTools.ts` — TTL cache in `gatewayPost()`, `screen_batch` tool with push streaming
+  - `packages/openai/src/tools/concurrency.ts` — `runWithConcurrency` shared utility
+  - `packages/openai/src/tools/index.ts` — `screen_batch` wired into coordinator/due-diligence/research tool sets
+  - `infra/cloudflare-agent/src/types.ts` — `operation_progress`, `operation_done`, `operation_error` WorkerEvent types
+  - `infra/cloudflare-agent/src/durable-object.ts` — `/push` fetch handler in DO
+  - `infra/cloudflare-agent/src/index.ts` — `/push` routing in Worker entry (regex `/{conversationId}/push`)
+  - `apps/web/lib/chat/useAgentWebSocket.ts` — browser handlers for new `operation_*` event types
+  - `packages/openai/src/agentos/config.ts` — `property_intelligence` collection registered
+  - `packages/openai/src/agentos/memory/property.ts` — `PropertyIntelligenceStore` with `createIfNotExists` guard
+  - `packages/openai/src/tools/propertyMemoryTools.ts` — `recall_property_intelligence` + `store_property_finding` tools
+- **Completion Evidence (2026-02-26):**
+  - ✅ Phase 1 — Gateway caching: 2.62x speedup on cache hits (1,727ms → 659ms), `cacheBust` param verified
+  - ✅ Phase 2 — Batch screening: 3-parcel batch in 150–200ms, results keyed by parcel ID, per-parcel `operation_progress` events pushed, `operation_done` on completion
+  - ✅ Phase 3 — WebSocket push: `/{conversationId}/push` live on `agents.gallagherpropco.com`, progress/done/error events accepted and delivered to active sessions
+  - ✅ Phase 4 — Qdrant property intelligence: Tunnel `qdrant.gallagherpropco.com → http://qdrant:6333` live, Qdrant v1.17.0 responding, `QDRANT_URL` + all `AGENTOS_*` flags deployed to Vercel production, `property_intelligence` collection auto-provisioned on first use
+  - ✅ All 5 production verification tests passed (see `PRODUCTION_VERIFICATION_REPORT.md`)
+  - ✅ Build: `pnpm build` clean, 668/668 tests passing
+
 ---
 
 ## Not Added (did not pass value/risk gate)

@@ -51,6 +51,7 @@ export {
   screenTraffic,
   screenLdeq,
   screenFull,
+  screenBatch,
   queryPropertyDb,
   queryPropertyDbSql,
 } from "./propertyDbTools.js";
@@ -119,6 +120,11 @@ export {
   compare_document_vs_deal_terms,
 } from "./documentTools.js";
 
+export {
+  recall_property_intelligence,
+  store_property_finding,
+} from "./propertyMemoryTools.js";
+
 // --- Agent-specific tool collections ---
 import {
   getDealContext,
@@ -155,6 +161,7 @@ import {
   screenTraffic,
   screenLdeq,
   screenFull,
+  screenBatch,
   queryPropertyDb,
   queryPropertyDbSql,
 } from "./propertyDbTools.js";
@@ -209,6 +216,10 @@ import {
   get_document_extraction_summary,
   compare_document_vs_deal_terms,
 } from "./documentTools.js";
+import {
+  recall_property_intelligence,
+  store_property_finding,
+} from "./propertyMemoryTools.js";
 
 /** Web search tool for Responses API pass-through. */
 export const webSearchPreviewTool = hostedWebSearchPreviewTool;
@@ -261,6 +272,7 @@ export const coordinatorTools = [
   screenTraffic,
   screenLdeq,
   screenFull,
+  screenBatch,
   queryPropertyDb,
   queryPropertyDbSql,
   query_document_extractions,
@@ -296,6 +308,7 @@ export const researchTools = [
   searchParcels,
   getParcelDetails,
   screenFull,
+  screenBatch,
   screenTraffic,
   analyze_comparable_sales,
   query_market_data,
@@ -386,6 +399,7 @@ export const screenerTools = [
   log_reasoning_trace,
   queryPropertyDb,
   queryPropertyDbSql,
+  recall_property_intelligence,
 ];
 
 /** Tools available to the Marketing / Dispositions agent. */
@@ -419,6 +433,7 @@ export const dueDiligenceTools = [
   screenTraffic,
   screenLdeq,
   screenFull,
+  screenBatch,
   estimate_phase_ii_scope,
   search_knowledge_base,
   store_knowledge_entry,
@@ -428,6 +443,8 @@ export const dueDiligenceTools = [
   query_document_extractions,
   get_document_extraction_summary,
   compare_document_vs_deal_terms,
+  recall_property_intelligence,
+  store_property_finding,
 ];
 
 /** Tools available to the Entitlements agent. */

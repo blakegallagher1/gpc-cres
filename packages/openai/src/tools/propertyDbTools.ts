@@ -1,5 +1,6 @@
 import { tool } from "@openai/agents";
 import { z } from "zod";
+import { runWithConcurrency } from "./concurrency.js";
 
 /**
  * Property Database — Gateway API tools.
@@ -474,5 +475,140 @@ export const queryPropertyDbSql = tool({
   execute: async (params) => {
     const result = await gatewayPost("/tools/parcels.sql", params);
     return JSON.stringify(result);
+  },
+});
+
+// ---------------------------------------------------------------------------
+// 12. Screen Batch — Multi-parcel concurrent screening
+// ---------------------------------------------------------------------------
+
+/**
+ * Helper to POST progress events to Durable Object /push endpoint
+ */
+async function pushOperationEvent(
+  conversationId: string,
+  event: {
+    type: "operation_progress" | "operation_done" | "operation_error";
+    operationId: string;
+    label: string;
+    pct?: number;
+    summary?: string;
+    error?: string;
+  },
+): Promise<void> {
+  if (!conversationId) return; // silently skip if no conversation
+
+  const pushUrl = `${getGatewayUrl()}/push`;
+  const pushKey = getGatewayKey();
+
+  try {
+    await fetch(pushUrl, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${pushKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        conversationId,
+        event,
+      }),
+    });
+  } catch (error) {
+    console.error(`[screenBatch] Failed to push ${event.type} event:`, error);
+    // Don't throw — push failures should not block tool execution
+  }
+}
+
+export const screenBatch = tool({
+  name: "screen_batch",
+  description:
+    "Run full environmental screening on multiple parcels concurrently. Accepts up to 20 parcel IDs and screens each " +
+    "for zoning, flood zones, soils, wetlands, EPA facilities, traffic, and LDEQ issues. Results returned as keyed object " +
+    "with parcel_id as key and {status, data, error} for each. Optionally streams real-time progress to browser via conversationId.",
+  parameters: z.object({
+    parcel_ids: z.array(z.string()).max(20).describe("Array of parcel IDs to screen (max 20). Screened concurrently with limit of 5."),
+    conversationId: z.string().nullable().describe("Optional conversation ID for real-time progress streaming. If provided, operation_progress events are pushed to browser."),
+    operationId: z.string().nullable().describe("Optional operation ID for progress tracking. Generated if not provided."),
+  }),
+  execute: async ({ parcel_ids, conversationId: rawConversationId, operationId: rawOperationId }) => {
+    const conversationId = rawConversationId ?? "";
+    const operationId = rawOperationId ?? `batch-screen-${Date.now()}`;
+    const total = parcel_ids.length;
+
+    // Use atomic counter to track completion safely
+    const completionTracker = { count: 0 };
+    const mutex = { locked: false };
+
+    try {
+      const tasks = parcel_ids.map(parcel_id => async () => {
+        try {
+          const data = await rpc("api_screen_full", { parcel_id });
+
+          // Atomically increment and push progress if conversationId provided
+          completionTracker.count++;
+          if (conversationId && completionTracker.count <= total) {
+            await pushOperationEvent(conversationId, {
+              type: "operation_progress",
+              operationId,
+              label: `Screening ${parcel_id}`,
+              pct: Math.round((completionTracker.count / total) * 100),
+            });
+          }
+
+          return { status: "ok" as const, data };
+        } catch (error) {
+          completionTracker.count++;
+          // Still push progress for failed parcels
+          if (conversationId && completionTracker.count <= total) {
+            await pushOperationEvent(conversationId, {
+              type: "operation_progress",
+              operationId,
+              label: `Screening ${parcel_id} (failed)`,
+              pct: Math.round((completionTracker.count / total) * 100),
+            });
+          }
+          return { status: "error" as const, error: String(error) };
+        }
+      });
+
+      const settled = await runWithConcurrency(tasks, 5);
+
+      const result: Record<string, { status: string; data?: unknown; error?: string }> = {};
+      parcel_ids.forEach((parcel_id, index) => {
+        const settled_result = settled[index];
+        if (settled_result.status === "fulfilled") {
+          result[parcel_id] = settled_result.value;
+        } else {
+          result[parcel_id] = { status: "error", error: String(settled_result.reason) };
+        }
+      });
+
+      // Push completion event if conversationId provided
+      if (conversationId) {
+        const errorCount = Object.values(result).filter(r => r.status === "error").length;
+        const successCount = total - errorCount;
+
+        await pushOperationEvent(conversationId, {
+          type: "operation_done",
+          operationId,
+          label: "Batch screening complete",
+          summary: `Screened ${total} parcels: ${successCount} successful, ${errorCount} failed`,
+        });
+      }
+
+      return JSON.stringify(result);
+    } catch (batchError) {
+      // Push error event if conversationId provided
+      if (conversationId) {
+        await pushOperationEvent(conversationId, {
+          type: "operation_error",
+          operationId,
+          label: "Batch screening failed",
+          error: String(batchError),
+        });
+      }
+
+      throw batchError;
+    }
   },
 });

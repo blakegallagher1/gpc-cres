@@ -18,6 +18,19 @@ export default {
       return Response.json({ status: "ok", worker: "entitlement-os-agent" });
     }
 
+    // Route /{conversationId}/push to the Durable Object push handler
+    // Path format: /abc123/push
+    const pushMatch = url.pathname.match(/^\/([^/]+)\/push$/);
+    if (pushMatch) {
+      const conversationId = pushMatch[1];
+      const doId = env.AGENT_CHAT.idFromName(conversationId);
+      const stub = env.AGENT_CHAT.get(doId);
+      // Forward with /push pathname so DO routes correctly
+      const doUrl = new URL(request.url);
+      doUrl.pathname = "/push";
+      return stub.fetch(new Request(doUrl.toString(), request));
+    }
+
     // Only accept WebSocket connections on /ws
     if (url.pathname !== "/ws") {
       return new Response("Not found", { status: 404 });

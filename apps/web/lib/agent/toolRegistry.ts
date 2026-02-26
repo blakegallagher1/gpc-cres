@@ -129,6 +129,10 @@ import {
   predict_entitlement_path,
   get_entitlement_feature_primitives,
   get_entitlement_intelligence_kpis,
+
+  // Property memory tools
+  recall_property_intelligence,
+  store_property_finding,
 } from "@entitlement-os/openai";
 
 type ToolExecuteFn = (
@@ -244,6 +248,8 @@ const TOOLS: Array<{
   predict_entitlement_path,
   get_entitlement_feature_primitives,
   get_entitlement_intelligence_kpis,
+  recall_property_intelligence,
+  store_property_finding,
 ] as Array<{
   name?: string;
   invoke?: (runContext: unknown, input: string, details?: unknown) => Promise<unknown>;

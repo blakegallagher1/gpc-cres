@@ -31,6 +31,7 @@ export type QdrantCollectionConfig = {
   skillTriggers: string;
   domainDocs: string;
   toolSpecs: string;
+  propertyIntelligence: string;
 };
 
 export type AgentOsConfig = {
@@ -161,6 +162,8 @@ function buildConfig(): AgentOsConfig {
           process.env.AGENTOS_QDRANT_COLLECTION_DOMAIN?.trim() || "domain_docs",
         toolSpecs:
           process.env.AGENTOS_QDRANT_COLLECTION_TOOLS?.trim() || "tool_specs",
+        propertyIntelligence:
+          process.env.AGENTOS_QDRANT_COLLECTION_PROPERTY_INTELLIGENCE?.trim() || "property_intelligence",
       },
       denseVectorName: process.env.AGENTOS_QDRANT_DENSE_VECTOR_NAME?.trim() || "dense",
       sparseVectorName: process.env.AGENTOS_QDRANT_SPARSE_VECTOR_NAME?.trim() || "bm25",
