@@ -8,6 +8,10 @@
 //   "remote" (default) — OSM / ESRI tile servers
 //   "local"            — /api/map/tiles/{z}/{x}/{y} placeholder
 //   "auto"             — remote with connectivity check fallback (future)
+//
+// Martin MVT:
+//   NEXT_PUBLIC_MARTIN_TILE_URL   — override full base URL (optional)
+//   defaults to https://tiles.gallagherpropco.com
 // ---------------------------------------------------------------------------
 
 type TileMode = "remote" | "local" | "auto";
@@ -28,6 +32,44 @@ const ESRI_SATELLITE_URL =
   "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
 
 const LOCAL_TILE_URL = "/api/map/tiles/{z}/{x}/{y}";
+
+// ---------------------------------------------------------------------------
+// Martin MVT — tiles.gallagherpropco.com
+// ---------------------------------------------------------------------------
+
+/** Base URL for the Martin tile server (no trailing slash). */
+const MARTIN_BASE_URL =
+  process.env.NEXT_PUBLIC_MARTIN_TILE_URL?.replace(/\/$/, "") ??
+  "https://tiles.gallagherpropco.com";
+
+/**
+ * Returns the Martin MVT tile URL for a specific table/function source.
+ *
+ * Martin URL format:
+ *   https://tiles.gallagherpropco.com/{source_id}/{z}/{x}/{y}
+ *
+ * @param sourceId  The Martin source/function name (e.g. "ebr_parcels")
+ */
+export function getMartinParcelTileUrl(sourceId = "ebr_parcels"): string {
+  return `${MARTIN_BASE_URL}/${sourceId}/{z}/{x}/{y}`;
+}
+
+/**
+ * Returns the Martin tile URL for the full parcel layer with optional
+ * query-string filters forwarded to Martin.
+ *
+ * @param sourceId   Martin source name (default: "ebr_parcels")
+ * @param params     Optional key/value pairs appended as query string
+ */
+export function getMartinParcelTileUrlWithParams(
+  sourceId = "ebr_parcels",
+  params?: Record<string, string>
+): string {
+  const base = `${MARTIN_BASE_URL}/${sourceId}/{z}/{x}/{y}`;
+  if (!params || Object.keys(params).length === 0) return base;
+  const qs = new URLSearchParams(params).toString();
+  return `${base}?${qs}`;
+}
 
 /**
  * Returns an array of street tile URLs (for MapLibre `tiles` array or Leaflet
@@ -59,7 +101,7 @@ export function getLocalFallbackTileUrl(): string {
 
 /**
  * Returns parcel vector tile URL (MVT from get_parcel_mvt).
- * Renders parcel boundaries for the full visible extent.
+ * Prefer getMartinParcelTileUrl() for new code.
  */
 export function getParcelTileUrl(): string {
   if (typeof window !== "undefined") {

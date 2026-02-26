@@ -5,7 +5,12 @@ import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 import { useParcelGeometry, type ViewportBounds } from "./useParcelGeometry";
-import { getStreetTileUrls, getSatelliteTileUrl, getParcelTileUrl } from "./tileUrls";
+import {
+  getStreetTileUrls,
+  getSatelliteTileUrl,
+  getParcelTileUrl,
+  getMartinParcelTileUrl,
+} from "./tileUrls";
 import {
   STATUS_COLORS,
   DEFAULT_STATUS_COLOR,
@@ -15,6 +20,15 @@ import {
 import { Pencil, Trash2, X } from "lucide-react";
 import { useStableOptions } from "@/lib/hooks/useStableOptions";
 import type { MapParcel } from "./ParcelMap";
+import { SavedGeofences } from "./SavedGeofences";
+import { ParcelComparisonSheet } from "./ParcelComparisonSheet";
+import { MapTour } from "./MapTour";
+import {
+  HEATMAP_PRESETS,
+  HEATMAP_PRESET_MAP,
+  type HeatmapPresetKey,
+  type SaleComp,
+} from "./heatmapPresets";
 
 type ParcelFeatureProperties = {
   id: string;
@@ -44,7 +58,7 @@ type CompSale = {
 
 type HeatPointProperties = {
   intensity: number;
-  address: string;
+  address?: string;
 };
 
 type IsochroneResult = {
@@ -75,6 +89,12 @@ interface MapLibreParcelMapProps {
   trajectoryVelocityData?: VelocityParcel[] | null;
   /** Externally controlled highlight (e.g. ProspectMap selectedIds). */
   highlightParcelIds?: Set<string>;
+  /** Externally controlled selected ids. */
+  selectedParcelIds?: Set<string>;
+  /** Called when selection changes. */
+  onSelectionChange?: (ids: Set<string>) => void;
+  /** Called on moveend with map center and zoom. */
+  onViewStateChange?: (center: [number, number], zoom: number) => void;
 }
 
 const ZOOM_LIMIT = 19;
@@ -262,6 +282,11 @@ export function parcelPopupHtml(parcel: MapParcel): string {
   const safeDealStatus = parcel.dealStatus ? escapeHtml(parcel.dealStatus.replace(/_/g, " ")) : null;
   const safeZoning = parcel.currentZoning ? escapeHtml(parcel.currentZoning) : null;
   const safeFloodZone = parcel.floodZone ? escapeHtml(parcel.floodZone) : null;
+  const safeId = escapeHtml(parcel.id);
+  const svLat = parcel.lat.toFixed(6);
+  const svLng = parcel.lng.toFixed(6);
+  const streetViewUrl = `https://www.google.com/maps/@${svLat},${svLng},3a,75y,0h,90t/data=!3m6!1e1`;
+  const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${svLat},${svLng}`;
 
   const rows = [
     `<div style="font-weight:600;margin-bottom:2px;">${safeAddress}</div>`,
@@ -280,9 +305,18 @@ export function parcelPopupHtml(parcel: MapParcel): string {
     safeFloodZone
       ? `<div style=\"font-size:11px;\">Flood: ${safeFloodZone}</div>`
       : "",
+    `<div style="margin-top:6px;padding-top:6px;border-top:1px solid #e5e7eb;display:flex;gap:6px;align-items:center;">
+      <a href="${streetViewUrl}" target="_blank" rel="noopener noreferrer" style="font-size:11px;color:#1d4ed8;text-decoration:none;">Street View</a>
+      <a href="${googleMapsUrl}" target="_blank" rel="noopener noreferrer" style="font-size:11px;color:#374151;text-decoration:none;">Google Maps</a>
+    </div>`,
+    `<div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;">
+      <button type="button" onclick="window.dispatchEvent(new CustomEvent('map:add-to-deal',{detail:{parcelId:'${safeId}'},bubbles:true}))" style="font-size:11px;padding:3px 8px;border-radius:3px;border:1px solid #6d28d9;background:#7c3aed;color:#fff;cursor:pointer;">+ Deal</button>
+      <button type="button" onclick="window.dispatchEvent(new CustomEvent('map:run-triage',{detail:{parcelId:'${safeId}'},bubbles:true}))" style="font-size:11px;padding:3px 8px;border-radius:3px;border:1px solid #b45309;background:#f59e0b;color:#fff;cursor:pointer;">Triage</button>
+      <button type="button" onclick="window.dispatchEvent(new CustomEvent('map:view-comps',{detail:{parcelId:'${safeId}'},bubbles:true}))" style="font-size:11px;padding:3px 8px;border-radius:3px;border:1px solid #0369a1;background:#0284c7;color:#fff;cursor:pointer;">Comps</button>
+    </div>`,
   ].filter(Boolean);
 
-  return `<div style="font-size:13px;line-height:1.4">${rows.join("")}</div>`;
+  return `<div style="font-size:13px;line-height:1.4;min-width:200px;">${rows.join("")}</div>`;
 }
 
 /** Popup HTML for vector tile parcels (from Martin/PostGIS). */
@@ -293,6 +327,15 @@ export function tileParcelPopupHtml(props: Record<string, unknown>): string {
   const areaSqft = typeof props.area_sqft === "number" ? props.area_sqft : null;
   const assessed = typeof props.assessed_value === "number" ? props.assessed_value : null;
   const acreage = areaSqft ? (areaSqft / 43560).toFixed(2) : null;
+  const latRaw = typeof props.lat === "number" ? props.lat : typeof props.latitude === "number" ? props.latitude : null;
+  const lngRaw = typeof props.lng === "number" ? props.lng : typeof props.longitude === "number" ? props.longitude : null;
+  const hasCoords = latRaw != null && lngRaw != null;
+  const svLat = hasCoords ? Number(latRaw).toFixed(6) : null;
+  const svLng = hasCoords ? Number(lngRaw).toFixed(6) : null;
+  const streetViewUrl =
+    svLat && svLng
+      ? `https://www.google.com/maps/@${svLat},${svLng},3a,75y,0h,90t/data=!3m6!1e1`
+      : null;
 
   const rows = [
     `<div style="font-weight:600;margin-bottom:2px;">${address}</div>`,
@@ -307,6 +350,9 @@ export function tileParcelPopupHtml(props: Record<string, unknown>): string {
       : "",
     assessed != null
       ? `<div style="font-size:11px;">Assessed: $${assessed.toLocaleString()}</div>`
+      : "",
+    streetViewUrl
+      ? `<div style="margin-top:6px;padding-top:6px;border-top:1px solid #e5e7eb;"><a href="${streetViewUrl}" target="_blank" rel="noopener noreferrer" style="font-size:11px;color:#1d4ed8;text-decoration:none;">Street View</a></div>`
       : "",
   ].filter(Boolean);
 
@@ -336,6 +382,9 @@ export function MapLibreParcelMap({
   trajectoryData = null,
   trajectoryVelocityData = null,
   highlightParcelIds,
+  selectedParcelIds: selectedParcelIdsProp,
+  onSelectionChange,
+  onViewStateChange,
 }: MapLibreParcelMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -350,9 +399,13 @@ export function MapLibreParcelMap({
   const [showFlood, setShowFlood] = useState<boolean>(() => getSavedOverlaysFallback().flood);
   const [showComps, setShowComps] = useState(false);
   const [showHeatmap, setShowHeatmap] = useState(false);
+  const [activeHeatmapPreset, setActiveHeatmapPreset] = useState<HeatmapPresetKey>("sale_activity");
   const [showIsochrone, setShowIsochrone] = useState(false);
   const [measureMode, setMeasureMode] = useState<"off" | "distance" | "area">("off");
-  const [selectedParcelIds, setSelectedParcelIds] = useState<Set<string>>(new Set());
+  const [layerPanelOpen, setLayerPanelOpen] = useState(true);
+  const [internalSelectedParcelIds, setInternalSelectedParcelIds] = useState<Set<string>>(new Set());
+  const [compareOpen, setCompareOpen] = useState(false);
+  const selectedParcelIds = selectedParcelIdsProp ?? internalSelectedParcelIds;
   const [viewportBounds, setViewportBounds] = useState<ViewportBounds | null>(null);
   const boundsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stableMapCallbacks = useStableOptions({ onParcelClick });
@@ -365,6 +418,10 @@ export function MapLibreParcelMap({
     }
     return merged;
   }, [selectedParcelIds, highlightParcelIds]);
+  const selectedParcelsForCompare = useMemo(
+    () => parcels.filter((parcel) => effectiveSelectedIds.has(parcel.id)),
+    [parcels, effectiveSelectedIds]
+  );
 
   const parcelById = useMemo(() => {
     const map = new Map<string, MapParcel>();
@@ -390,6 +447,105 @@ export function MapLibreParcelMap({
   useEffect(() => {
     parcelByIdRef.current = parcelById;
   }, [parcelById]);
+
+  useEffect(() => {
+    const handleAddToDeal = (event: Event) => {
+      const parcelId = (event as CustomEvent<{ parcelId: string }>).detail?.parcelId;
+      if (!parcelId) return;
+      popupRef.current?.remove();
+      popupRef.current = null;
+      window.location.href = `/deals/new?parcelId=${encodeURIComponent(parcelId)}`;
+    };
+
+    const handleRunTriage = (event: Event) => {
+      const parcelId = (event as CustomEvent<{ parcelId: string }>).detail?.parcelId;
+      if (!parcelId) return;
+      popupRef.current?.remove();
+      popupRef.current = null;
+      window.location.href = `/deals/new?parcelId=${encodeURIComponent(parcelId)}&step=triage`;
+    };
+
+    const handleViewComps = (event: Event) => {
+      const parcelId = (event as CustomEvent<{ parcelId: string }>).detail?.parcelId;
+      if (!parcelId) return;
+      const parcel = parcelByIdRef.current.get(parcelId);
+      const params = new URLSearchParams({ parcelId });
+      if (parcel) {
+        params.set("lat", String(parcel.lat));
+        params.set("lng", String(parcel.lng));
+        if (parcel.address) params.set("address", parcel.address);
+      }
+      window.open(`/comps?${params.toString()}`, "_blank", "noopener,noreferrer");
+    };
+
+    window.addEventListener("map:add-to-deal", handleAddToDeal);
+    window.addEventListener("map:run-triage", handleRunTriage);
+    window.addEventListener("map:view-comps", handleViewComps);
+    return () => {
+      window.removeEventListener("map:add-to-deal", handleAddToDeal);
+      window.removeEventListener("map:run-triage", handleRunTriage);
+      window.removeEventListener("map:view-comps", handleViewComps);
+    };
+  }, []);
+
+  useEffect(() => {
+    const skipTags = new Set(["INPUT", "TEXTAREA", "SELECT"]);
+    const shouldSkip = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) return false;
+      if (skipTags.has(target.tagName.toUpperCase())) return true;
+      return target.isContentEditable;
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (shouldSkip(event)) return;
+      const key = event.key.toUpperCase();
+
+      if (key === "F") {
+        event.preventDefault();
+        const container = mapContainerRef.current;
+        if (!container) return;
+        if (!document.fullscreenElement) {
+          void container.requestFullscreen();
+        } else {
+          void document.exitFullscreen();
+        }
+      }
+
+      if (key === "S") {
+        event.preventDefault();
+        const canvas = mapRef.current?.getCanvas();
+        if (!canvas) return;
+        const link = document.createElement("a");
+        link.download = `map-export-${new Date().toISOString().slice(0, 19).replace(/[:.]/g, "-")}.png`;
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+      }
+
+      if (key === "L") {
+        event.preventDefault();
+        setLayerPanelOpen((open) => !open);
+      }
+
+      if (key === "D") {
+        event.preventDefault();
+        window.dispatchEvent(new CustomEvent("map:activate-draw"));
+      }
+
+      if (key === "ESCAPE") {
+        popupRef.current?.remove();
+        popupRef.current = null;
+        setLayerPanelOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  useEffect(() => {
+    if (onSelectionChange) onSelectionChange(new Set(selectedParcelIds));
+  }, [onSelectionChange, selectedParcelIds]);
 
   const mapCenter: [number, number] = center;
 
@@ -600,7 +756,7 @@ export function MapLibreParcelMap({
             },
             "parcel-tiles": {
               type: "vector",
-              tiles: [getParcelTileUrl()],
+              tiles: [getMartinParcelTileUrl("ebr_parcels") || getParcelTileUrl()],
               minzoom: 10,
               maxzoom: 22,
             },
@@ -790,7 +946,7 @@ export function MapLibreParcelMap({
 
           const isMultiSelect = e.originalEvent?.ctrlKey || e.originalEvent?.metaKey;
           requestAnimationFrame(() => {
-            setSelectedParcelIds((prev) => {
+            setInternalSelectedParcelIds((prev) => {
               const next = new Set(prev);
               if (isMultiSelect) {
                 if (next.has(parcelId)) next.delete(parcelId);
@@ -872,6 +1028,7 @@ export function MapLibreParcelMap({
               east: b.getEast(),
               north: b.getNorth(),
             });
+            onViewStateChange?.([map.getCenter().lat, map.getCenter().lng], map.getZoom());
           }, 300);
         });
       });
@@ -978,9 +1135,10 @@ export function MapLibreParcelMap({
 
   return (
     <div className="relative h-full w-full rounded-lg border">
-      <div ref={mapContainerRef} style={{ height, width: "100%" }} />
-      {showLayers && (
+      <div ref={mapContainerRef} style={{ height, width: "100%", backgroundColor: "#1e2230" }} />
+      {showLayers && layerPanelOpen && (
         <div
+          data-tour="layers-panel"
           className="absolute left-2 top-2 z-10 rounded-lg bg-white/95 p-2 text-xs shadow-lg"
           onPointerDown={(event) => event.stopPropagation()}
         >
@@ -1039,6 +1197,15 @@ export function MapLibreParcelMap({
           <div className="mt-2 text-[10px] text-gray-500">
             Selected: {effectiveSelectedIds.size}
           </div>
+          {effectiveSelectedIds.size >= 2 && (
+            <button
+              type="button"
+              onClick={() => setCompareOpen(true)}
+              className="mt-1 w-full rounded bg-indigo-600 px-2 py-1 text-[10px] font-medium text-white hover:bg-indigo-700"
+            >
+              Compare Selected ({effectiveSelectedIds.size})
+            </button>
+          )}
           {(geometryLoading || geometryHealth.failedCount > 0 || geometryHealth.propertyDbUnconfigured) && (
             <div className="mt-1.5 border-t border-gray-200 pt-1.5 text-[10px] text-amber-600">
               {geometryLoading
@@ -1048,6 +1215,12 @@ export function MapLibreParcelMap({
                   : "Some parcel shapes unavailable"}
             </div>
           )}
+          <div className="mt-1.5 border-t border-gray-200 pt-1.5 text-[10px] text-gray-400">
+            <kbd className="rounded border border-gray-200 px-1">L</kbd> toggle ·{" "}
+            <kbd className="rounded border border-gray-200 px-1">F</kbd> fullscreen ·{" "}
+            <kbd className="rounded border border-gray-200 px-1">S</kbd> screenshot ·{" "}
+            <kbd className="rounded border border-gray-200 px-1">D</kbd> draw
+          </div>
         </div>
       )}
       {showTools && onPolygonDrawn && onPolygonCleared && (
@@ -1070,11 +1243,19 @@ export function MapLibreParcelMap({
       )}
       {showTools && (
         <>
+          {onPolygonDrawn && onPolygonCleared && (
+            <SavedGeofences
+              currentPolygon={polygon}
+              onApply={(coordinates) => onPolygonDrawn(coordinates)}
+            />
+          )}
           <MapLibreAnalyticalToolbar
             showComps={showComps}
             setShowComps={setShowComps}
             showHeatmap={showHeatmap}
             setShowHeatmap={setShowHeatmap}
+            activeHeatmapPreset={activeHeatmapPreset}
+            setActiveHeatmapPreset={setActiveHeatmapPreset}
             showIsochrone={showIsochrone}
             setShowIsochrone={setShowIsochrone}
             measureMode={measureMode}
@@ -1096,6 +1277,7 @@ export function MapLibreParcelMap({
             map={mapRef.current}
             parcels={parcels}
             visible={showHeatmap}
+            presetKey={activeHeatmapPreset}
           />
           <MapLibreIsochroneControl
             map={mapRef.current}
@@ -1104,6 +1286,12 @@ export function MapLibreParcelMap({
           />
         </>
       )}
+      <ParcelComparisonSheet
+        open={compareOpen}
+        parcels={selectedParcelsForCompare}
+        onClose={() => setCompareOpen(false)}
+      />
+      {showTools && mapReady && <MapTour />}
     </div>
   );
 }
@@ -1158,6 +1346,58 @@ function MapLibreDrawControl({
     mapRef.current?.getCanvas().style.cursor && (mapRef.current.getCanvas().style.cursor = "");
     onPolygonDrawn([ring]);
   }, [clearDrawing, onPolygonDrawn]);
+
+  const undoLastPoint = useCallback(() => {
+    if (!drawing) return;
+    if (pointsRef.current.length === 0) return;
+    pointsRef.current.pop();
+    const pts = pointsRef.current;
+    const features: GeoJSON.Feature[] = pts.map((p) => ({
+      type: "Feature" as const,
+      geometry: { type: "Point" as const, coordinates: [p.lng, p.lat] },
+      properties: { kind: "point" },
+    }));
+    if (pts.length >= 2) {
+      features.push({
+        type: "Feature" as const,
+        geometry: {
+          type: "LineString" as const,
+          coordinates: [...pts.map((p) => [p.lng, p.lat]), [pts[0].lng, pts[0].lat]],
+        },
+        properties: { kind: "line" },
+      });
+    }
+    const m = mapRef.current;
+    if (m?.getSource(sourceId)) {
+      (m.getSource(sourceId) as unknown as { setData: (d: GeoJSON.FeatureCollection) => void })?.setData({
+        type: "FeatureCollection",
+        features,
+      });
+    }
+  }, [drawing, sourceId]);
+
+  useEffect(() => {
+    const handleActivateDraw = () => {
+      if (!drawing && !hasPolygon) {
+        clearDrawing();
+        setDrawing(true);
+      }
+    };
+    window.addEventListener("map:activate-draw", handleActivateDraw);
+    return () => window.removeEventListener("map:activate-draw", handleActivateDraw);
+  }, [drawing, hasPolygon, clearDrawing]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!drawing) return;
+      const isUndo = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z";
+      if (!isUndo) return;
+      event.preventDefault();
+      undoLastPoint();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [drawing, undoLastPoint]);
 
   useEffect(() => {
     const m = mapRef.current;
@@ -1256,7 +1496,7 @@ function MapLibreDrawControl({
   }, [drawing, clearDrawing]);
 
   return (
-    <div className="absolute left-2 top-2 z-10 mt-10" style={{ marginTop: 10 }}>
+    <div data-tour="draw-tool" className="absolute left-2 top-2 z-10 mt-10" style={{ marginTop: 10 }}>
       <div className="flex flex-col rounded-lg border bg-white/95 shadow-lg">
         {!hasPolygon ? (
           <button
@@ -1292,6 +1532,14 @@ function MapLibreDrawControl({
           <>
             <button
               type="button"
+              title="Undo last point (Cmd/Ctrl+Z)"
+              onClick={undoLastPoint}
+              className="flex h-8 w-8 items-center justify-center rounded border-t border-gray-200 bg-white text-gray-600 hover:bg-gray-100"
+            >
+              ↶
+            </button>
+            <button
+              type="button"
               title="Finish drawing (or double-click)"
               onClick={finishDrawing}
               className="flex h-8 w-8 items-center justify-center rounded border-t border-gray-200 bg-green-500 text-white hover:bg-green-600"
@@ -1316,7 +1564,7 @@ function MapLibreDrawControl({
       </div>
       {drawing && (
         <div className="mt-1 rounded bg-purple-600/90 px-2 py-1 text-[10px] text-white shadow">
-          Click to add points, double-click to finish
+          Click to add points, double-click to finish, Cmd/Ctrl+Z to undo
         </div>
       )}
     </div>
@@ -1471,6 +1719,8 @@ interface MapLibreAnalyticalToolbarProps {
   setShowComps: (value: boolean | ((value: boolean) => boolean)) => void;
   showHeatmap: boolean;
   setShowHeatmap: (value: boolean | ((value: boolean) => boolean)) => void;
+  activeHeatmapPreset: HeatmapPresetKey;
+  setActiveHeatmapPreset: (key: HeatmapPresetKey) => void;
   showIsochrone: boolean;
   setShowIsochrone: (value: boolean | ((value: boolean) => boolean)) => void;
   measureMode: "off" | "distance" | "area";
@@ -1482,13 +1732,17 @@ function MapLibreAnalyticalToolbar({
   setShowComps,
   showHeatmap,
   setShowHeatmap,
+  activeHeatmapPreset,
+  setActiveHeatmapPreset,
   showIsochrone,
   setShowIsochrone,
   measureMode,
   setMeasureMode,
 }: MapLibreAnalyticalToolbarProps) {
+  const [heatmapMenuOpen, setHeatmapMenuOpen] = useState(false);
+
   return (
-    <div className="absolute left-3 top-[150px] z-10 flex flex-col gap-1 rounded-lg bg-white/95 p-1 text-sm shadow-lg">
+    <div data-tour="analytical-toolbar" className="absolute left-3 top-[150px] z-10 flex flex-col gap-1 rounded-lg bg-white/95 p-1 text-sm shadow-lg">
       <button
         title="Toggle Measurements"
         onClick={() =>
@@ -1505,13 +1759,58 @@ function MapLibreAnalyticalToolbar({
       >
         $
       </button>
-      <button
-        title="Price Heatmap"
-        onClick={() => setShowHeatmap((value) => !value)}
-        className={`h-8 w-8 rounded ${showHeatmap ? "bg-orange-500 text-white" : "bg-white text-gray-700 hover:bg-gray-100"}`}
-      >
-        ◑
-      </button>
+      <div className="relative">
+        <button
+          title="Heatmap"
+          onClick={() => {
+            if (!showHeatmap) {
+              setShowHeatmap(true);
+              setHeatmapMenuOpen(true);
+            } else {
+              setHeatmapMenuOpen((value) => !value);
+            }
+          }}
+          className={`h-8 w-8 rounded ${showHeatmap ? "bg-orange-500 text-white" : "bg-white text-gray-700 hover:bg-gray-100"}`}
+        >
+          ◑
+        </button>
+        {showHeatmap && heatmapMenuOpen && (
+          <div className="absolute left-9 top-0 z-50 w-48 rounded-lg border bg-white text-xs shadow-xl">
+            <div className="border-b border-gray-100 px-3 py-2 text-[10px] font-semibold uppercase text-gray-400">
+              Heatmap Preset
+            </div>
+            {HEATMAP_PRESETS.map((preset) => (
+              <button
+                key={preset.key}
+                type="button"
+                onClick={() => {
+                  setActiveHeatmapPreset(preset.key);
+                  setHeatmapMenuOpen(false);
+                }}
+                className={`flex w-full flex-col gap-0.5 px-3 py-2 text-left hover:bg-gray-50 ${activeHeatmapPreset === preset.key ? "bg-orange-50" : ""}`}
+              >
+                <span className={`font-medium ${activeHeatmapPreset === preset.key ? "text-orange-700" : "text-gray-700"}`}>
+                  {preset.label}
+                  {activeHeatmapPreset === preset.key ? " ✓" : ""}
+                </span>
+                <span className="text-[10px] leading-tight text-gray-400">{preset.description}</span>
+              </button>
+            ))}
+            <div className="border-t border-gray-100 px-3 py-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowHeatmap(false);
+                  setHeatmapMenuOpen(false);
+                }}
+                className="w-full text-left text-[10px] text-red-500 hover:text-red-700"
+              >
+                Hide heatmap
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
       <button
         title="Drive Time Isochrone"
         onClick={() => setShowIsochrone((value) => !value)}
@@ -2133,36 +2432,34 @@ interface MapLibreHeatmapLayerProps {
   map: maplibregl.Map | null;
   parcels: MapParcel[];
   visible: boolean;
+  presetKey?: HeatmapPresetKey;
+  compData?: SaleComp[];
 }
 
-function MapLibreHeatmapLayer({ map, parcels, visible }: MapLibreHeatmapLayerProps) {
+function MapLibreHeatmapLayer({
+  map,
+  parcels,
+  visible,
+  presetKey = "sale_activity",
+  compData,
+}: MapLibreHeatmapLayerProps) {
   const mapRef = useRef(map);
   const sourceId = "maplibre-heatmap-source";
   const layerId = "maplibre-heatmap-layer";
+  const preset = HEATMAP_PRESET_MAP[presetKey];
 
   useEffect(() => {
     mapRef.current = map;
   }, [map]);
 
-  const heatSource = useMemo(() => {
-    const maxAcreage = Math.max(...parcels.map((parcel) => Number(parcel.acreage || 1)), 1);
-    return {
-      type: "FeatureCollection" as const,
-      features: parcels.map(
-        (parcel): GeoJSON.Feature<GeoJSON.Point, HeatPointProperties> => ({
-          type: "Feature",
-          geometry: {
-            type: "Point",
-            coordinates: [parcel.lng, parcel.lat],
-          },
-          properties: {
-            intensity: parcel.acreage ? Number(parcel.acreage) / maxAcreage : 0.3,
-            address: parcel.address,
-          },
-        })
-      ),
-    } as GeoJSON.FeatureCollection<GeoJSON.Point, HeatPointProperties>;
-  }, [parcels]);
+  const heatSource = useMemo(
+    () =>
+      preset.buildSource(parcels, compData) as GeoJSON.FeatureCollection<
+        GeoJSON.Point,
+        HeatPointProperties
+      >,
+    [preset, parcels, compData]
+  );
 
   useEffect(() => {
     const mapInstance = mapRef.current;
@@ -2184,27 +2481,7 @@ function MapLibreHeatmapLayer({ map, parcels, visible }: MapLibreHeatmapLayerPro
         id: layerId,
         type: "heatmap",
         source: sourceId,
-        paint: {
-          "heatmap-weight": ["interpolate", ["linear"], ["get", "intensity"], 0, 0, 1, 1],
-          "heatmap-intensity": 1,
-          "heatmap-color": [
-            "interpolate",
-            ["linear"],
-            ["heatmap-density"],
-            0,
-            "rgba(59, 130, 246,0)",
-            0.2,
-            "rgba(59, 130, 246, 0.45)",
-            0.5,
-            "rgba(34, 211, 238, 0.55)",
-            0.8,
-            "rgba(16, 185, 129, 0.7)",
-            1,
-            "rgba(239, 68, 68, 0.85)",
-          ],
-          "heatmap-radius": 20,
-          "heatmap-opacity": 0.75,
-        },
+        paint: preset.paint,
       });
     } else {
       const source = mapInstance.getSource(sourceId) as
@@ -2214,7 +2491,18 @@ function MapLibreHeatmapLayer({ map, parcels, visible }: MapLibreHeatmapLayerPro
     }
 
     mapInstance.setLayoutProperty(layerId, "visibility", "visible");
-  }, [visible, heatSource]);
+  }, [visible, heatSource, preset]);
+
+  useEffect(() => {
+    const mapInstance = mapRef.current;
+    if (!mapInstance || !visible) return;
+    if (!mapInstance.getLayer(layerId)) return;
+    try {
+      for (const [key, value] of Object.entries(preset.paint ?? {})) {
+        mapInstance.setPaintProperty(layerId, key, value);
+      }
+    } catch {}
+  }, [preset, visible, layerId]);
 
   if (!visible) return null;
   return null;

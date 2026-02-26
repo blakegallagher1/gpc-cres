@@ -64,9 +64,23 @@ function extractGeoJSONFromToolResult(result: unknown): FeatureCollection | null
 
 interface MapChatPanelProps {
   onGeoJsonReceived?: (data: { type: "FeatureCollection"; features: unknown[] }) => void;
+  parcelCount?: number;
+  selectedCount?: number;
+  viewportLabel?: string;
+  mapContext?: {
+    center?: { lat: number; lng: number } | null;
+    zoom?: number;
+    selectedParcelIds?: string[];
+  } | null;
 }
 
-export function MapChatPanel({ onGeoJsonReceived }: MapChatPanelProps) {
+export function MapChatPanel({
+  onGeoJsonReceived,
+  parcelCount,
+  selectedCount,
+  viewportLabel,
+  mapContext,
+}: MapChatPanelProps) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -146,6 +160,7 @@ export function MapChatPanel({ onGeoJsonReceived }: MapChatPanelProps) {
           body: JSON.stringify({
             message: text,
             intent: "market_trajectory",
+            mapContext,
           }),
         });
 
@@ -212,6 +227,12 @@ export function MapChatPanel({ onGeoJsonReceived }: MapChatPanelProps) {
                 <p className="text-xs text-muted-foreground">
                   Path of progress, permit heatmaps, gentrification indicators
                 </p>
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  Parcels: {parcelCount ?? 0} · Selected: {selectedCount ?? 0}
+                </p>
+                {viewportLabel ? (
+                  <p className="text-[10px] text-muted-foreground">{viewportLabel}</p>
+                ) : null}
               </div>
               <div className="min-h-0 flex-1 overflow-hidden">
                 <MessageList

@@ -541,8 +541,6 @@ export const screenBatch = tool({
 
     // Use atomic counter to track completion safely
     const completionTracker = { count: 0 };
-    const mutex = { locked: false };
-
     try {
       const tasks = parcel_ids.map(parcel_id => async () => {
         try {

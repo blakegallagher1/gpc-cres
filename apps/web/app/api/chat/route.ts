@@ -70,6 +70,11 @@ export async function POST(req: NextRequest) {
     conversationId?: string;
     dealId?: string;
     intent?: string;
+    mapContext?: {
+      center?: { lat?: number; lng?: number } | null;
+      zoom?: number;
+      selectedParcelIds?: string[];
+    } | null;
   };
   try {
     body = (await req.json()) as {
@@ -77,12 +82,17 @@ export async function POST(req: NextRequest) {
       conversationId?: string;
       dealId?: string;
       intent?: string;
+      mapContext?: {
+        center?: { lat?: number; lng?: number } | null;
+        zoom?: number;
+        selectedParcelIds?: string[];
+      } | null;
     };
   } catch {
     return Response.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { conversationId: requestedConversationId, dealId, intent } = body;
+  const { conversationId: requestedConversationId, dealId, intent, mapContext } = body;
   const message = (body.message ?? "").trim();
   const correlationId =
     req.headers.get("x-request-id") ?? req.headers.get("idempotency-key") ?? randomUUID();
@@ -102,11 +112,19 @@ export async function POST(req: NextRequest) {
       let doneSent = false;
 
       try {
+        const center = mapContext?.center;
+        const selected = mapContext?.selectedParcelIds ?? [];
+        const mapContextPrefix = center || typeof mapContext?.zoom === "number" || selected.length > 0
+          ? `[Map Context]\ncenter=${center ? `${center.lat ?? "?"},${center.lng ?? "?"}` : "unknown"}\nzoom=${
+              typeof mapContext?.zoom === "number" ? mapContext.zoom.toFixed(2) : "unknown"
+            }\nselectedParcelIds=${selected.length > 0 ? selected.join(",") : "none"}\n[/Map Context]\n\n`
+          : "";
+
         const workflow = await runAgentWorkflow({
           orgId: auth.orgId,
           userId: auth.userId,
           conversationId: requestedConversationId ?? null,
-          message,
+          message: `${mapContextPrefix}${message}`,
           dealId: dealId ?? null,
           runType: "ENRICHMENT",
           maxTurns: 15,
