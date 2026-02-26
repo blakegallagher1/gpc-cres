@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { AddressAutocomplete, type AddressSuggestion } from "@/components/ui/address-autocomplete";
 import {
   Select,
   SelectContent,
@@ -206,10 +207,18 @@ function NewDealForm() {
 
               <div className="space-y-2">
                 <label className="text-sm font-medium">Parcel Address</label>
-                <Input
+                <AddressAutocomplete
                   value={parcelAddress}
-                  onChange={(e) => setParcelAddress(e.target.value)}
-                  placeholder="e.g. 12345 Airline Hwy, Baton Rouge, LA 70817"
+                  onChange={setParcelAddress}
+                  onSelect={(suggestion: AddressSuggestion) => {
+                    setParcelAddress(suggestion.description);
+                    // Auto-generate deal name from the selected address
+                    if (!name) {
+                      const street = suggestion.description.split(",")[0]?.trim();
+                      if (street) setName(street);
+                    }
+                  }}
+                  placeholder="Start typing an address..."
                 />
               </div>
 
