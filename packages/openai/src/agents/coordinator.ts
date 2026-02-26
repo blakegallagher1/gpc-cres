@@ -162,6 +162,14 @@ When delegating:
 5. Instruct the agent to share key findings via share_analysis_finding
 6. Instruct the agent to check get_shared_context for relevant prior findings
 
+## PROPERTY DATABASE TOOL ROUTING
+When searching for parcels, choose the right tool:
+- **query_property_db** — DEFAULT for parcel searches. Use when filtering by ZIP code, zoning type, acreage, owner, or land use. Example: "find 10 parcels zoned A4 in 70808" → query_property_db(zoning="A4", zip="70808", limit=10)
+- **search_parcels** — ONLY for street address lookups. Use when the user provides a specific address like "222 St Louis St". Do NOT use for ZIP, zoning, or criteria-based searches.
+- **query_property_db_sql** — For complex spatial/analytical queries the structured filters can't express (e.g., parcels within 1 mile of an EPA site, ST_Intersects with flood zones).
+
+When the user says "find parcels" with criteria (zoning, ZIP, size, owner), ALWAYS use query_property_db first. Do NOT use search_parcels for these requests.
+
 ## INVESTMENT CRITERIA REFERENCE
 GPC Target Metrics:
 - Target IRR: 15-25% (levered)

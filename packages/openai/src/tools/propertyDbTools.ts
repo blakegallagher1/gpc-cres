@@ -217,7 +217,10 @@ async function geocodeAddress(address: string): Promise<{ lat: number; lng: numb
 export const searchParcels = tool({
   name: "search_parcels",
   description:
-    "Search for parcels by address. Geocodes the address to coordinates, then searches the Louisiana Property Database for parcels near that location. Returns parcel numbers, owners, addresses, and areas. For a known parcel number, use get_parcel_details instead.",
+    "Search for parcels by STREET ADDRESS only (geocodes the address to coordinates, then finds nearby parcels). " +
+    "Only use this when the user provides a specific street address like '222 St Louis St'. " +
+    "Do NOT use this for ZIP code, zoning, acreage, or owner-based searches — use query_property_db instead. " +
+    "For a known parcel number, use get_parcel_details.",
   parameters: z.object({
     search_text: z
       .string()
@@ -437,8 +440,9 @@ export const screenFull = tool({
 export const queryPropertyDb = tool({
   name: "query_property_db",
   description:
-    "Search the Louisiana Property Database (198K+ EBR parcels) with structured filters. " +
-    "Use this for parcel ranking, filtering by zoning/acreage/ZIP/owner, and spatial queries. " +
+    "PRIMARY tool for finding parcels by criteria. Searches 198K+ EBR parcels with structured filters. " +
+    "USE THIS when the user asks to find parcels by: ZIP code, zoning type, acreage range, owner name, or land use. " +
+    "Examples: 'find parcels zoned M1 in 70808', 'large parcels over 5 acres zoned industrial', 'parcels owned by LLC'. " +
     "This queries the STATEWIDE parcel layer, NOT the internal org deals/parcels table. " +
     "For complex spatial or analytical queries that these filters cannot express, use query_property_db_sql instead.",
   parameters: z.object({

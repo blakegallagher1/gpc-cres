@@ -47,6 +47,7 @@
       "properties": {
         "orgId": {
           "type": "string",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
           "description": "The org ID for security scoping"
         },
         "dealId": {
@@ -70,6 +71,7 @@
       "properties": {
         "orgId": {
           "type": "string",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
           "description": "The org ID for security scoping"
         },
         "status": {
@@ -144,6 +146,7 @@
       "properties": {
         "orgId": {
           "type": "string",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
           "description": "The org ID for security scoping"
         },
         "createdBy": {
@@ -213,6 +216,7 @@
       "properties": {
         "orgId": {
           "type": "string",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
           "description": "The org ID for security scoping"
         },
         "dealId": {
@@ -278,6 +282,7 @@
       "properties": {
         "orgId": {
           "type": "string",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
           "description": "The org ID for security scoping"
         },
         "dealId": {
@@ -351,6 +356,7 @@
       "properties": {
         "orgId": {
           "type": "string",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
           "description": "The org ID for security scoping"
         },
         "taskId": {
@@ -443,6 +449,7 @@
       "properties": {
         "orgId": {
           "type": "string",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
           "description": "The org ID for security scoping"
         },
         "dealId": {
@@ -479,7 +486,7 @@
   {
     "type": "function",
     "name": "search_parcels",
-    "description": "Search for parcels by address. Geocodes the address to coordinates, then searches the Louisiana Property Database for parcels near that location. Returns parcel numbers, owners, addresses, and areas. For a known parcel number, use get_parcel_details instead.",
+    "description": "Search for parcels by STREET ADDRESS only (geocodes the address to coordinates, then finds nearby parcels). Only use this when the user provides a specific street address like '222 St Louis St'. Do NOT use this for ZIP code, zoning, acreage, or owner-based searches — use query_property_db instead. For a known parcel number, use get_parcel_details.",
     "parameters": {
       "type": "object",
       "properties": {
@@ -529,7 +536,15 @@
       "type": "object",
       "properties": {
         "parcel_id": {
-          "type": "string",
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            {
+              "type": "string"
+            }
+          ],
           "description": "The parcel number (e.g. '001-5096-7')"
         }
       },
@@ -548,6 +563,7 @@
       "properties": {
         "orgId": {
           "type": "string",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
           "description": "The org ID for security scoping"
         },
         "parcelId": {
@@ -2989,6 +3005,312 @@
       },
       "required": [
         "parcel_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "screen_batch",
+    "description": "Run full environmental screening on multiple parcels concurrently. Accepts up to 20 parcel IDs and screens each for zoning, flood zones, soils, wetlands, EPA facilities, traffic, and LDEQ issues. Results returned as keyed object with parcel_id as key and {status, data, error} for each. Optionally streams real-time progress to browser via conversationId.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "parcel_ids": {
+          "maxItems": 20,
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Array of parcel IDs to screen (max 20). Screened concurrently with limit of 5."
+        },
+        "conversationId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional conversation ID for real-time progress streaming. If provided, operation_progress events are pushed to browser."
+        },
+        "operationId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional operation ID for progress tracking. Generated if not provided."
+        }
+      },
+      "required": [
+        "parcel_ids",
+        "conversationId",
+        "operationId"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "query_property_db",
+    "description": "PRIMARY tool for finding parcels by criteria. Searches 198K+ EBR parcels with structured filters. USE THIS when the user asks to find parcels by: ZIP code, zoning type, acreage range, owner name, or land use. Examples: 'find parcels zoned M1 in 70808', 'large parcels over 5 acres zoned industrial', 'parcels owned by LLC'. This queries the STATEWIDE parcel layer, NOT the internal org deals/parcels table. For complex spatial or analytical queries that these filters cannot express, use query_property_db_sql instead.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "zoning": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Zoning type to filter by (e.g. 'C2', 'M1', 'A1'). Case/hyphen insensitive."
+        },
+        "zip": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "ZIP code to filter parcels by (matched in situs address)."
+        },
+        "min_acreage": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Minimum parcel acreage."
+        },
+        "max_acreage": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Maximum parcel acreage."
+        },
+        "owner_contains": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Filter parcels where owner name contains this text (case-insensitive)."
+        },
+        "land_use": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Filter by existing land use classification."
+        },
+        "sort": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Sort order: 'acreage_desc' (default), 'acreage_asc', 'assessed_value_desc', 'address_asc'."
+        },
+        "limit": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Max results to return (default 10, max 100)."
+        }
+      },
+      "required": [
+        "zoning",
+        "zip",
+        "min_acreage",
+        "max_acreage",
+        "owner_contains",
+        "land_use",
+        "sort",
+        "limit"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "query_property_db_sql",
+    "description": "Run a read-only SQL query against the Louisiana Property Database for advanced spatial or analytical questions. Available tables: ebr_parcels (198K parcels with parcel_id, address, owner, area_sqft, assessed_value, geom, zoning_type, existing_land_use, future_land_use), fema_flood (5.2K flood zone polygons), soils (37K soil units), wetlands (39K wetland polygons), epa_facilities (6.7K facilities). PostGIS functions available: ST_Area, ST_DWithin, ST_Intersects, ST_Contains, ST_Centroid, ST_MakeEnvelope, etc. Acreage from area_sqft: area_sqft / 43560.0. SELECT only, max 100 rows.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "sql": {
+          "type": "string",
+          "description": "Read-only SQL query. SELECT/WITH only, no semicolons. Tables: ebr_parcels, fema_flood, soils, wetlands, epa_facilities."
+        },
+        "limit": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Max rows (default 100, max 100)."
+        }
+      },
+      "required": [
+        "sql",
+        "limit"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "query_document_extractions",
+    "description": "Query structured data extracted from uploaded deal documents (PSAs, leases, appraisals, Phase I ESAs, title commitments, surveys, zoning letters, LOIs, financing commitments, rent rolls, trailing financials, etc.). Use this to pull extracted lease terms, purchase prices, environmental findings, appraisal values, financing terms, or any other document intelligence for a deal. Returns extracted JSON data, confidence score, doc type, filename, and review status for each matching extraction.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "deal_id": {
+          "type": "string",
+          "description": "The deal ID to query document extractions for."
+        },
+        "org_id": {
+          "type": "string",
+          "description": "The organization ID (for multi-tenant scoping)."
+        },
+        "doc_type": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "psa",
+                "phase_i_esa",
+                "financing_commitment",
+                "title_commitment",
+                "survey",
+                "zoning_letter",
+                "appraisal",
+                "lease",
+                "loi",
+                "rent_roll",
+                "trailing_financials",
+                "other"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Filter by document type. Pass null to return all extractions for the deal."
+        },
+        "min_confidence": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Minimum confidence threshold (0-1). Default 0 returns all. Use 0.85 for high-confidence data and 0.5 for broader exploratory queries."
+        },
+        "reviewed_only": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "If true, only return extractions that have been human-reviewed. Default false."
+        }
+      },
+      "required": [
+        "deal_id",
+        "org_id",
+        "doc_type",
+        "min_confidence",
+        "reviewed_only"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "get_document_extraction_summary",
+    "description": "Get a summary of all document extractions for a deal, grouped by document type. Returns extraction counts per type, average confidence, and pending review counts.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "deal_id": {
+          "type": "string",
+          "description": "The deal ID to summarize extractions for."
+        },
+        "org_id": {
+          "type": "string",
+          "description": "The organization ID (for multi-tenant scoping)."
+        }
+      },
+      "required": [
+        "deal_id",
+        "org_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "compare_document_vs_deal_terms",
+    "description": "Compare extracted document data against the deal's stored terms and financial assumptions. Identifies discrepancies between extracted PSA, financing commitment, appraisal, and deal values.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "deal_id": {
+          "type": "string",
+          "description": "The deal ID to compare."
+        },
+        "org_id": {
+          "type": "string",
+          "description": "The organization ID (for multi-tenant scoping)."
+        }
+      },
+      "required": [
+        "deal_id",
+        "org_id"
       ],
       "additionalProperties": false
     }
