@@ -17,6 +17,10 @@ vi.mock("@/lib/auth/resolveAuth", () => ({
   resolveAuth: resolveAuthMock,
 }));
 
+vi.mock("@/lib/gateway-proxy", () => ({
+  getGatewayConfig: vi.fn().mockReturnValue(null),
+}));
+
 vi.mock("@entitlement-os/db", () => ({
   prisma: {
     jurisdiction: {
@@ -40,8 +44,8 @@ describe("PUT /api/map/prospect", () => {
     jurisdictionFindFirstMock.mockReset();
     dealCreateMock.mockReset();
     parcelCreateMock.mockReset();
-    process.env.SUPABASE_URL = "https://example.supabase.co";
-    process.env.SUPABASE_SERVICE_ROLE_KEY = "service-role-key";
+    // Supabase env vars no longer needed after gateway reroute, but keep
+    // for any code paths that may still reference them indirectly.
     ({ PUT } = await import("./route"));
   });
 

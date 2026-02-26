@@ -1,13 +1,18 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { resolveAuthMock, fetchMock } = vi.hoisted(() => ({
+const { resolveAuthMock, fetchMock, getGatewayConfigMock } = vi.hoisted(() => ({
   resolveAuthMock: vi.fn(),
   fetchMock: vi.fn(),
+  getGatewayConfigMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/resolveAuth", () => ({
   resolveAuth: resolveAuthMock,
+}));
+
+vi.mock("@/lib/gateway-proxy", () => ({
+  getGatewayConfig: getGatewayConfigMock,
 }));
 
 const { parcelFindManyMock } = vi.hoisted(() => ({
@@ -33,9 +38,13 @@ describe("POST /api/map/prospect", () => {
     resolveAuthMock.mockReset();
     fetchMock.mockReset();
     parcelFindManyMock.mockReset();
+    getGatewayConfigMock.mockReset();
     vi.stubGlobal("fetch", fetchMock);
-    process.env.SUPABASE_URL = "https://example.supabase.co";
-    process.env.SUPABASE_SERVICE_ROLE_KEY = "service-role-key";
+    // Gateway env vars (used by the route after the PostGIS reroute)
+    getGatewayConfigMock.mockReturnValue({
+      url: "https://api.gallagherpropco.com",
+      key: "test-api-key",
+    });
     ({ POST } = await import("./route"));
   });
 
@@ -96,9 +105,9 @@ describe("POST /api/map/prospect", () => {
     expect(body.parcels[0].address).toBe("123 Main St");
   });
 
-  it("returns org-scoped fallback parcels when property DB env is placeholder", async () => {
-    process.env.SUPABASE_URL = "placeholder";
-    process.env.SUPABASE_SERVICE_ROLE_KEY = "placeholder";
+  it("returns org-scoped fallback parcels when gateway config is unavailable", async () => {
+    // No gateway → falls through to Prisma org parcels
+    getGatewayConfigMock.mockReturnValue(null);
     ({ POST } = await import("./route"));
 
     resolveAuthMock.mockResolvedValue({ userId: "user-1", orgId: "org-1" });
