@@ -219,6 +219,10 @@ const BASE_ALLOWED_TOOLS = [
   "search_parcels",
   "get_parcel_details",
   "evidence_snapshot",
+  "store_memory",
+  "get_entity_truth",
+  "get_entity_memory",
+  "record_memory_event",
 ];
 
 const TOOL_POLICY_BY_INTENT: Record<string, ToolPolicy> = {

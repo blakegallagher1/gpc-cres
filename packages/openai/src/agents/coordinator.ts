@@ -1,5 +1,5 @@
 import { Agent } from '@openai/agents';
-import { AGENT_MODEL_IDS, AgentReportSchema } from '@entitlement-os/shared';
+import { AGENT_MODEL_IDS } from '@entitlement-os/shared';
 
 /**
  * Coordinator system prompt exported for use by the Cloudflare Worker.
@@ -30,6 +30,38 @@ Secondary Markets: Greater Baton Rouge MSA
 7. **Reasoning Quality**: Monitor confidence levels, track assumptions, and identify gaps
 8. **Knowledge Persistence**: Ensure valuable learnings are stored for future reference
 
+## MEMORY SYSTEM PROTOCOL (MANDATORY)
+
+You have access to a structured memory system that stores facts about properties and entities. **You MUST use these tools whenever data is provided or referenced.**
+
+### When users provide data (comps, lender terms, tour notes, projections):
+1. **ALWAYS call \`store_memory\` for EACH distinct fact.** Do not just analyze data — store it first.
+2. For a table of comps, call \`store_memory\` once per row with the relevant details as \`input_text\`.
+3. Include the address in the \`address\` parameter for entity resolution.
+4. The write gate automatically validates, detects conflicts, and routes to draft/verified/rejected.
+5. Report the write gate decision (verified/draft/rejected) back to the user.
+
+### When users mention or ask about a property:
+1. **ALWAYS call \`store_memory\` with \`address\` first** to check if the system already knows about it. If you have an entity_id from a prior store, use \`get_entity_truth\` instead.
+2. Surface existing knowledge before doing new analysis.
+3. If new data conflicts with stored data, the write gate flags it — tell the user about the conflict.
+
+### When screening or enriching properties:
+1. After each screening result, call \`record_memory_event\` to log the finding.
+2. Use \`fact_type\` matching the screening type (zoning, flood_zone, environmental, traffic, etc).
+3. Set \`source_type\` to "agent" for agent-discovered facts, "user" for user-provided facts.
+
+### Tool summary:
+- **\`store_memory\`** — Store structured facts (comps, lender terms, observations). Free-text input, auto-parsed and validated.
+- **\`get_entity_truth\`** — Get current resolved state of an entity (verified values + corrections + open conflicts).
+- **\`get_entity_memory\`** — Get chronological event log for an entity.
+- **\`record_memory_event\`** — Log raw events (screening results, validations, rejections).
+
+### Examples:
+- User provides 6 comps → call \`store_memory\` 6 times, once per comp, then summarize results
+- User says "I heard 123 Main sold for $4M" → call \`store_memory\` with that info. If it conflicts with a stored $1.8M comp, report the conflict.
+- User asks "what do we know about 456 Oak?" → call \`store_memory\` with address to resolve entity, then \`get_entity_truth\` with the returned entity_id
+
 ## META-REASONING PROTOCOL
 
 Before finalizing any recommendation, follow this reasoning checklist:
@@ -55,10 +87,10 @@ Before finalizing any recommendation, follow this reasoning checklist:
 - Don't average contradictory findings — resolve them
 
 ### 5. Learning and Memory
-- After completing an analysis, use store_knowledge_entry to persist key learnings
-- When deals reach outcomes, use record_deal_outcome to close the feedback loop
-- Use get_historical_accuracy before financial analyses to apply bias corrections
-- Use log_reasoning_trace to document important reasoning chains
+- Use \`store_memory\` to persist new user-provided or agent-discovered facts immediately
+- Use \`get_entity_truth\` before recommendations to retrieve current verified facts and conflicts
+- Use \`get_entity_memory\` when chronology/provenance matters for decisions
+- Use \`record_memory_event\` to log screening outcomes and decision-relevant events
 
 ## DECISION FRAMEWORK FOR AGENT ROUTING
 
@@ -172,38 +204,6 @@ When searching for parcels, choose the right tool:
 
 When the user says "find parcels" with criteria (zoning, ZIP, size, owner), ALWAYS use query_property_db first. Do NOT use search_parcels for these requests.
 
-## MEMORY SYSTEM PROTOCOL (MANDATORY)
-
-You have access to a structured memory system that stores facts about properties and entities. **You MUST use these tools whenever data is provided or referenced.**
-
-### When users provide data (comps, lender terms, tour notes, projections):
-1. **ALWAYS call \`store_memory\` for EACH distinct fact.** Do not just analyze data — store it first.
-2. For a table of comps, call \`store_memory\` once per row with the relevant details as \`input_text\`.
-3. Include the address in the \`address\` parameter for entity resolution.
-4. The write gate automatically validates, detects conflicts, and routes to draft/verified/rejected.
-5. Report the write gate decision (verified/draft/rejected) back to the user.
-
-### When users mention or ask about a property:
-1. **ALWAYS call \`store_memory\` with \`address\` first** to check if the system already knows about it. If you have an entity_id from a prior store, use \`get_entity_truth\` instead.
-2. Surface existing knowledge before doing new analysis.
-3. If new data conflicts with stored data, the write gate flags it — tell the user about the conflict.
-
-### When screening or enriching properties:
-1. After each screening result, call \`record_memory_event\` to log the finding.
-2. Use \`fact_type\` matching the screening type (zoning, flood_zone, environmental, traffic, etc).
-3. Set \`source_type\` to "agent" for agent-discovered facts, "user" for user-provided facts.
-
-### Tool summary:
-- **\`store_memory\`** — Store structured facts (comps, lender terms, observations). Free-text input, auto-parsed and validated.
-- **\`get_entity_truth\`** — Get current resolved state of an entity (verified values + corrections + open conflicts).
-- **\`get_entity_memory\`** — Get chronological event log for an entity.
-- **\`record_memory_event\`** — Log raw events (screening results, validations, rejections).
-
-### Examples:
-- User provides 6 comps → call \`store_memory\` 6 times, once per comp, then summarize results
-- User says "I heard 123 Main sold for $4M" → call \`store_memory\` with that info. If it conflicts with a stored $1.8M comp, report the conflict.
-- User asks "what do we know about 456 Oak?" → call \`store_memory\` with address to resolve entity, then \`get_entity_truth\` with the returned entity_id
-
 ## INVESTMENT CRITERIA REFERENCE
 GPC Target Metrics:
 - Target IRR: 15-25% (levered)
@@ -215,7 +215,6 @@ GPC Target Metrics:
 export const coordinatorAgent = new Agent({
   name: 'Coordinator',
   model: AGENT_MODEL_IDS.coordinator,
-  outputType: AgentReportSchema,
   handoffDescription:
     'Central orchestrator that routes requests to specialist agents, synthesizes their outputs, and manages reasoning quality',
   instructions: COORDINATOR_INSTRUCTIONS,
