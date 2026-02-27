@@ -14,6 +14,15 @@ function isAuthDisabledForLocalDev(): boolean {
   return process.env.NEXT_PUBLIC_DISABLE_AUTH === "true";
 }
 
+function getInternalToolAuthToken(): string {
+  return (
+    process.env.MEMORY_TOOL_SERVICE_TOKEN?.trim() ??
+    process.env.COORDINATOR_TOOL_SERVICE_TOKEN?.trim() ??
+    process.env.LOCAL_API_KEY?.trim() ??
+    ""
+  );
+}
+
 function getDisabledAuthFallbackOrgId(): string {
   return (
     process.env.E2E_ORG_ID ||
@@ -72,6 +81,34 @@ export async function resolveAuth(): Promise<{
       const tokenFromHeader = authHeader?.toLowerCase().startsWith("bearer ")
         ? authHeader.slice("bearer ".length).trim()
         : null;
+      const agentToolAuthMode = headersStore.get("x-agent-tool-auth");
+      const agentOrgId = headersStore.get("x-agent-org-id");
+      const agentUserId = headersStore.get("x-agent-user-id");
+
+      const internalToken = getInternalToolAuthToken();
+      if (
+        tokenFromHeader &&
+        internalToken &&
+        tokenFromHeader === internalToken &&
+        agentToolAuthMode === "coordinator-memory" &&
+        typeof agentOrgId === "string" &&
+        typeof agentUserId === "string" &&
+        agentOrgId.length > 0 &&
+        agentUserId.length > 0
+      ) {
+        const membership = await prisma.orgMembership.findFirst({
+          where: {
+            userId: agentUserId,
+            orgId: agentOrgId,
+          },
+          orderBy: { createdAt: "asc" },
+          select: { orgId: true },
+        });
+        if (membership) {
+          return { userId: agentUserId, orgId: agentOrgId };
+        }
+        return null;
+      }
 
       const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
         cookies: {

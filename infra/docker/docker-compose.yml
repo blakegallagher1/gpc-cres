@@ -5,6 +5,7 @@ services:
   postgres:
     image: pgvector/pgvector:pg16
     container_name: entitlement-os-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -23,6 +24,7 @@ services:
   temporal-postgres:
     image: postgres:16
     container_name: entitlement-os-temporal-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_USER: temporal
       POSTGRES_PASSWORD: temporal
@@ -40,6 +42,7 @@ services:
   temporal:
     image: temporalio/auto-setup:1.24.2
     container_name: entitlement-os-temporal
+    restart: unless-stopped
     depends_on:
       temporal-postgres:
         condition: service_healthy
@@ -64,6 +67,7 @@ services:
   temporal-ui:
     image: temporalio/ui:2.32.0
     container_name: entitlement-os-temporal-ui
+    restart: unless-stopped
     depends_on:
       temporal:
         condition: service_healthy

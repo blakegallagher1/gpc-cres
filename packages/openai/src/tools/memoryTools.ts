@@ -1,6 +1,53 @@
 import { tool } from "@openai/agents";
 import { z } from "zod";
 
+type MemoryToolContext = {
+  orgId?: unknown;
+  userId?: unknown;
+};
+
+type MemoryToolHeaders = Record<string, string>;
+
+function getInternalMemoryToolToken(): string {
+  return (
+    process.env.MEMORY_TOOL_SERVICE_TOKEN?.trim() ??
+    process.env.LOCAL_API_KEY?.trim() ??
+    process.env.COORDINATOR_TOOL_SERVICE_TOKEN?.trim() ??
+    ""
+  );
+}
+
+function sanitizeMemoryToolContext(context: unknown): {
+  orgId?: string;
+  userId?: string;
+} {
+  const typedContext = context as MemoryToolContext | undefined;
+  return {
+    orgId: typeof typedContext?.orgId === "string" && typedContext.orgId.length > 0
+      ? typedContext.orgId
+      : undefined,
+    userId: typeof typedContext?.userId === "string" && typedContext.userId.length > 0
+      ? typedContext.userId
+      : undefined,
+  };
+}
+
+function buildMemoryToolHeaders(context?: unknown): MemoryToolHeaders {
+  const headers: MemoryToolHeaders = { "Content-Type": "application/json" };
+  const token = getInternalMemoryToolToken();
+  const { orgId, userId } = sanitizeMemoryToolContext(context);
+  if (!token || !orgId || !userId) {
+    return headers;
+  }
+
+  headers.Authorization = `Bearer ${token}`;
+  headers["x-agent-tool-auth"] = "coordinator-memory";
+  headers["x-agent-org-id"] = orgId;
+  headers["x-agent-user-id"] = userId;
+
+  return headers;
+}
+
 const factTypeValues = [
   "zoning",
   "flood_zone",
@@ -65,7 +112,7 @@ export const record_memory_event = tool({
       .nullable()
       .describe("Event status. Defaults to attempted"),
   }),
-  execute: async (params) => {
+  execute: async (params, context) => {
     try {
       const baseUrl =
         process.env.NEXT_PUBLIC_APP_URL ??
@@ -77,7 +124,7 @@ export const record_memory_event = tool({
 
       const resp = await fetch(`${url}/api/memory/events`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: buildMemoryToolHeaders(context),
         body: JSON.stringify({
           address: params.address,
           parcelId: params.parcel_id,
@@ -134,7 +181,7 @@ export const get_entity_memory = tool({
       .nullable()
       .describe("Max number of events to return. Default 50, max 100"),
   }),
-  execute: async (params) => {
+  execute: async (params, context) => {
     try {
       const baseUrl =
         process.env.NEXT_PUBLIC_APP_URL ??
@@ -151,7 +198,7 @@ export const get_entity_memory = tool({
 
       const resp = await fetch(
         `${url}/api/entities/${params.entity_id}/memory?${searchParams}`,
-        { headers: { "Content-Type": "application/json" } },
+        { headers: buildMemoryToolHeaders(context) },
       );
 
       if (!resp.ok) {
@@ -210,7 +257,7 @@ export const store_memory = tool({
       .nullable()
       .describe("Entity type: property, market, lender, contact. Defaults to property"),
   }),
-  execute: async (params) => {
+  execute: async (params, context) => {
     try {
       const baseUrl =
         process.env.NEXT_PUBLIC_APP_URL ??
@@ -222,7 +269,7 @@ export const store_memory = tool({
 
       const resp = await fetch(`${url}/api/memory/write`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: buildMemoryToolHeaders(context),
         body: JSON.stringify({
           input_text: params.input_text,
           address: params.address,
@@ -270,7 +317,7 @@ export const get_entity_truth = tool({
       .string()
       .describe("The internal entity ID to get the truth view for"),
   }),
-  execute: async (params) => {
+  execute: async (params, context) => {
     try {
       const baseUrl =
         process.env.NEXT_PUBLIC_APP_URL ??
@@ -282,7 +329,7 @@ export const get_entity_truth = tool({
 
       const resp = await fetch(
         `${url}/api/entities/${params.entity_id}/truth`,
-        { headers: { "Content-Type": "application/json" } },
+        { headers: buildMemoryToolHeaders(context) },
       );
 
       if (!resp.ok) {

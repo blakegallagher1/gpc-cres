@@ -51,6 +51,8 @@ describe("resolveAuth", () => {
   let originalDisableAuth: string | undefined;
   let originalE2eOrgId: string | undefined;
   let originalE2eUserId: string | undefined;
+  let originalMemoryToolServiceToken: string | undefined;
+  let originalCoordinatorToolServiceToken: string | undefined;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -60,6 +62,8 @@ describe("resolveAuth", () => {
     originalDisableAuth = process.env.NEXT_PUBLIC_DISABLE_AUTH;
     originalE2eOrgId = process.env.E2E_ORG_ID;
     originalE2eUserId = process.env.E2E_USER_ID;
+    originalMemoryToolServiceToken = process.env.MEMORY_TOOL_SERVICE_TOKEN;
+    originalCoordinatorToolServiceToken = process.env.COORDINATOR_TOOL_SERVICE_TOKEN;
 
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
@@ -112,6 +116,45 @@ describe("resolveAuth", () => {
     } else {
       process.env.E2E_USER_ID = originalE2eUserId;
     }
+
+    if (originalMemoryToolServiceToken === undefined) {
+      delete process.env.MEMORY_TOOL_SERVICE_TOKEN;
+    } else {
+      process.env.MEMORY_TOOL_SERVICE_TOKEN = originalMemoryToolServiceToken;
+    }
+
+    if (originalCoordinatorToolServiceToken === undefined) {
+      delete process.env.COORDINATOR_TOOL_SERVICE_TOKEN;
+    } else {
+      process.env.COORDINATOR_TOOL_SERVICE_TOKEN = originalCoordinatorToolServiceToken;
+    }
+  });
+
+  it("accepts coordinator-memory internal headers with a valid service token", async () => {
+    process.env.MEMORY_TOOL_SERVICE_TOKEN = "coordinator-service-key";
+    headersMock.mockResolvedValue({
+      get: vi.fn((name: string) => {
+        if (name === "authorization") return "Bearer coordinator-service-key";
+        if (name === "x-agent-tool-auth") return "coordinator-memory";
+        if (name === "x-agent-org-id") return "org-memory";
+        if (name === "x-agent-user-id") return "user-memory";
+        return null;
+      }),
+    });
+    prismaMock.orgMembership.findFirst.mockResolvedValue({ orgId: "org-memory" });
+
+    const auth = await resolveAuth();
+
+    expect(auth).toEqual({
+      userId: "user-memory",
+      orgId: "org-memory",
+    });
+    expect(prismaMock.orgMembership.findFirst).toHaveBeenCalledWith({
+      where: { userId: "user-memory", orgId: "org-memory" },
+      orderBy: { createdAt: "asc" },
+      select: { orgId: true },
+    });
+    expect(getUserMock).not.toHaveBeenCalled();
   });
 
   it("returns auth for the oldest membership on happy path", async () => {
