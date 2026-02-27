@@ -13,7 +13,7 @@ export type CreateStrictJsonResponseParams = {
   input: OpenAI.Responses.ResponseCreateParams["input"];
   jsonSchema: OpenAiJsonSchema;
   tools?: OpenAI.Responses.ResponseCreateParams["tools"];
-  reasoning?: OpenAI.Responses.ResponseCreateParams["reasoning"];
+  reasoning?: OpenAI.Responses.ResponseCreateParams["reasoning"] | null;
   previousResponseId?: string | null;
   contextManagement?: {
     strategy: "compaction";
@@ -128,12 +128,14 @@ export async function createStrictJsonResponse<T>(
       : undefined);
 
   const reasoning =
-    params.reasoning ??
-    (config.enabled
-      ? ({
-          effort: config.models.reasoningEffort,
-        } as OpenAI.Responses.ResponseCreateParams["reasoning"])
-      : undefined);
+    params.reasoning === null
+      ? undefined
+      : params.reasoning ??
+        (config.enabled
+          ? ({
+              effort: config.models.reasoningEffort,
+            } as OpenAI.Responses.ResponseCreateParams["reasoning"])
+          : undefined);
 
   const response = (await withExponentialBackoff(
     async () => {

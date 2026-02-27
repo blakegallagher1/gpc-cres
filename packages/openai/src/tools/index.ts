@@ -125,6 +125,13 @@ export {
   store_property_finding,
 } from "./propertyMemoryTools.js";
 
+export {
+  record_memory_event,
+  get_entity_memory,
+  store_memory,
+  get_entity_truth,
+} from "./memoryTools.js";
+
 // --- Agent-specific tool collections ---
 import {
   getDealContext,
@@ -220,6 +227,12 @@ import {
   recall_property_intelligence,
   store_property_finding,
 } from "./propertyMemoryTools.js";
+import {
+  record_memory_event,
+  get_entity_memory,
+  store_memory,
+  get_entity_truth,
+} from "./memoryTools.js";
 
 /** Web search tool for Responses API pass-through. */
 export const webSearchPreviewTool = hostedWebSearchPreviewTool;
@@ -278,6 +291,10 @@ export const coordinatorTools = [
   query_document_extractions,
   get_document_extraction_summary,
   compare_document_vs_deal_terms,
+  record_memory_event,
+  get_entity_memory,
+  store_memory,
+  get_entity_truth,
 ];
 
 /** Tools available to the Legal / Entitlements agent. */

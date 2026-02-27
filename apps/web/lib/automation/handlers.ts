@@ -10,6 +10,7 @@ import { handleArtifactOnStatusChange, handleTriageArtifactNotification } from "
 import { handleEntitlementStrategyAutopilot } from "./entitlementStrategy";
 import { handleKnowledgeCapture } from "./knowledgeCapture";
 import { handleFinancialInit } from "./financialInit";
+import { handleOutcomeCapture } from "./outcomeCapture";
 
 /**
  * Register all automation event handlers.
@@ -58,6 +59,9 @@ export function ensureHandlersRegistered(): void {
 
   // #E5 Automated Knowledge Capture: persist terminal deal learnings
   registerHandler("deal.statusChanged", handleKnowledgeCapture);
+
+  // #MEM-003 Calibration v1: snapshot outcomes + ingest calibration records
+  registerHandler("deal.statusChanged", handleOutcomeCapture);
 }
 
 // Auto-register on import

@@ -33,4 +33,10 @@ export type {
   TrajectoryLog,
   ToolSpec,
   EvalResult,
+  InternalEntity,
+  MemoryEventLog,
+  MemorySourceRegistry,
+  MemoryDraft,
+  MemoryVerified,
+  MemoryRejected,
 } from "@prisma/client";

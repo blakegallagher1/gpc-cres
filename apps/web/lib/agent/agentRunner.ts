@@ -17,6 +17,7 @@ import {
 } from "@entitlement-os/shared";
 import { PrismaChatSession } from "@/lib/chat/session";
 import { buildPreferenceContext } from "@/lib/services/preferenceService";
+import { buildMemoryContext } from "@/lib/services/memoryContextBuilder";
 
 const LOCAL_LEASE_GRACE_MS = 15 * 60 * 1000;
 const LOCAL_LEASE_WAIT_MS = 60_000 * 10;
@@ -620,6 +621,38 @@ export async function runAgentWorkflow(params: AgentRunInput) {
 
   const preferenceContext = await buildPreferenceContext(orgId, userId);
 
+  let memoryBlock = "";
+  if (message && dealId) {
+    try {
+      const dealParcels = await prisma.parcel.findMany({
+        where: { dealId, orgId },
+        select: { id: true, address: true },
+        take: 1,
+      });
+      if (dealParcels.length > 0) {
+        const parcel = dealParcels[0];
+        const internalEntity = await prisma.internalEntity.findFirst({
+          where: { orgId, parcelId: parcel.id },
+          select: { id: true },
+        });
+        if (internalEntity) {
+          const memCtx = await buildMemoryContext({
+            userMessage: message,
+            entityId: internalEntity.id,
+            orgId,
+            address: parcel.address ?? undefined,
+            parcelId: parcel.id,
+          });
+          if (memCtx) {
+            memoryBlock = memCtx.contextBlock;
+          }
+        }
+      }
+    } catch {
+      // Memory context is best-effort; never block the chat flow
+    }
+  }
+
   const systemContext = [
     buildSystemContext(orgId, userId, dealId, jurisdictionId, sku, preferenceContext),
     buildJurisdictionContext(jurisdictionContext),
@@ -634,6 +667,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
           `SKU: ${contextDeal.sku}`,
         ].join("\n")
       : "",
+    memoryBlock,
   ]
     .filter(Boolean)
     .join("\n\n");

@@ -249,6 +249,15 @@ model Org {
   trajectoryLogs                 TrajectoryLog[]
   toolSpecs                      ToolSpec[]
   evalResults                    EvalResult[]
+  internalEntities               InternalEntity[]
+  memoryEventLogs                MemoryEventLog[]
+  memorySourceRegistries         MemorySourceRegistry[]
+  memoryFeedback                 MemoryFeedback[]
+  causalImpactTraces             CausalImpactTrace[]
+  innovationQueue                InnovationQueue[]
+  counterfactualDealLogs         CounterfactualDealLog[]
+  entityCollisionAlerts          EntityCollisionAlert[]
+  driftFreezeStates              DriftFreezeState[]
 
   @@map("orgs")
 }
@@ -381,6 +390,7 @@ model Deal {
   entitlementGraphNodes          EntitlementGraphNode[]
   entitlementOutcomePrecedents   EntitlementOutcomePrecedent[]
   entitlementPredictionSnapshots EntitlementPredictionSnapshot[]
+  counterfactualLogs             CounterfactualDealLog[]
 
   @@index([orgId])
   @@index([jurisdictionId])
@@ -1164,6 +1174,7 @@ model EntitlementPredictionSnapshot {
 model DealOutcome {
   id                     String    @id @default(uuid()) @db.Uuid
   dealId                 String    @unique @map("deal_id") @db.Uuid
+  entityId               String?   @map("entity_id") @db.Uuid
   actualPurchasePrice    Decimal?  @map("actual_purchase_price") @db.Decimal(14, 2)
   actualNoiYear1         Decimal?  @map("actual_noi_year1") @db.Decimal(14, 2)
   actualExitPrice        Decimal?  @map("actual_exit_price") @db.Decimal(14, 2)
@@ -1174,14 +1185,18 @@ model DealOutcome {
   exitType               String?   @map("exit_type") @db.Text // sale|refinance|1031|other
   killReason             String?   @map("kill_reason") @db.Text
   killWasCorrect         Boolean?  @map("kill_was_correct")
+  finalMetrics           Json?     @map("final_metrics") @db.JsonB
+  projectionSnapshot     Json?     @map("projection_snapshot") @db.JsonB
   notes                  String?   @db.Text
   createdBy              String    @map("created_by") @db.Uuid
   createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  internalEntity InternalEntity? @relation("DealOutcomes", fields: [entityId], references: [id])
 
   @@index([dealId])
+  @@index([entityId])
   @@map("deal_outcomes")
 }
 
@@ -1686,4 +1701,308 @@ model EvalResult {
   @@index([trajectoryLogId])
   @@index([overallScore])
   @@map("eval_results")
+}
+
+model InternalEntity {
+  id               String   @id @default(uuid()) @db.Uuid
+  orgId            String   @map("org_id") @db.Uuid
+  canonicalAddress String?  @map("canonical_address") @db.Text
+  parcelId         String?  @map("parcel_id") @db.Text
+  type             String   @default("property") @db.Text
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  org             Org              @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  memoryEventLogs MemoryEventLog[]
+  draftMemories    MemoryDraft[]    @relation("DraftMemories")
+  verifiedMemories MemoryVerified[] @relation("VerifiedMemories")
+  rejectedMemories MemoryRejected[] @relation("RejectedMemories")
+  dealOutcomes          DealOutcome[]          @relation("DealOutcomes")
+  causalImpactTraces    CausalImpactTrace[]    @relation("EntityCausalTraces")
+  innovationQueue       InnovationQueue[]      @relation("EntityInnovationQueue")
+  entityCollisionAlerts EntityCollisionAlert[] @relation("EntityCollisionAlerts")
+
+  @@unique([orgId, canonicalAddress])
+  @@index([parcelId])
+  @@index([type])
+  @@map("internal_entities")
+}
+
+model MemoryEventLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  orgId        String   @map("org_id") @db.Uuid
+  entityId     String   @map("entity_id") @db.Uuid
+  dealId       String?  @map("deal_id") @db.Uuid
+  threadId     String?  @map("thread_id") @db.Text
+  userId       String?  @map("user_id") @db.Uuid
+  sourceType   String   @map("source_type") @db.Text
+  factType     String   @map("fact_type") @db.Text
+  payloadJson  Json     @map("payload_json") @db.JsonB
+  status       String   @db.Text
+  conflictFlag Boolean  @default(false) @map("conflict_flag")
+  timestamp    DateTime @default(now()) @db.Timestamptz(6)
+  requestId    String   @map("request_id") @db.Text
+  modelTraceId String?  @map("model_trace_id") @db.Text
+  toolName     String?  @map("tool_name") @db.Text
+  latencyMs    Int?     @map("latency_ms")
+  tokenUsage   Int?     @map("token_usage")
+  costUsd        Float?   @map("cost_usd") @db.DoublePrecision
+  causalMetadata Json?    @map("causal_metadata") @db.JsonB
+
+  org    Org            @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  entity InternalEntity @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@index([entityId])
+  @@index([dealId])
+  @@index([requestId])
+  @@index([status])
+  @@index([timestamp])
+  @@index([factType])
+  @@index([sourceType])
+  @@map("memory_event_log")
+}
+
+model CalibrationSegment {
+  id               String   @id @default(uuid()) @db.Uuid
+  orgId            String   @map("org_id")
+  propertyType     String   @map("property_type")
+  market           String
+  strategy         String
+  leverageBand     String   @map("leverage_band")
+  vintageYear      Int      @map("vintage_year")
+  noiBias          Float?   @map("noi_bias")
+  rehabBias        Float?   @map("rehab_bias")
+  exitCapBias      Float?   @map("exit_cap_bias")
+  leaseUpBias      Float?   @map("lease_up_bias")
+  sampleN          Int      @default(0) @map("sample_n")
+  variance         Float?
+  mae              Float?
+  lastUpdated      DateTime @default(now()) @map("last_updated") @db.Timestamptz(6)
+
+  records          CalibrationRecord[]
+
+  @@map("CalibrationSegment")
+  @@unique([propertyType, market, strategy, leverageBand, vintageYear], map: "uq_calibration_segment")
+}
+
+model MemorySourceRegistry {
+  id          String   @id @default(uuid()) @db.Uuid
+  orgId       String   @map("org_id") @db.Uuid
+  sourceKey   String   @unique @map("source_key") @db.Text
+  label       String   @db.Text
+  reliability Float    @default(0.5) @db.DoublePrecision
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  org Org @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@map("memory_source_registry")
+}
+
+model MemoryDraft {
+  id              String   @id @default(uuid()) @db.Uuid
+  orgId           String   @map("org_id") @db.Uuid
+  entityId        String   @map("entity_id") @db.Uuid
+  factType        String   @map("fact_type") @db.Text
+  sourceType      String   @map("source_type") @db.Text
+  economicWeight  Float    @map("economic_weight") @db.DoublePrecision
+  volatilityClass String   @map("volatility_class") @db.Text
+  payloadJson     Json     @map("payload_json") @db.JsonB
+  conflictFlag    Boolean  @default(false) @map("conflict_flag")
+  requestId       String   @map("request_id") @db.Text
+  eventLogId      String   @map("event_log_id") @db.Uuid
+  tier              Int      @default(1)
+  confidenceVector  Json?    @map("confidence_vector") @db.JsonB
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  entity InternalEntity @relation("DraftMemories", fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@index([entityId], map: "idx_draft_entity")
+  @@index([factType], map: "idx_draft_fact_type")
+  @@index([tier], map: "idx_draft_tier")
+  @@map("MemoryDraft")
+}
+
+model MemoryVerified {
+  id              String   @id @default(uuid()) @db.Uuid
+  orgId           String   @map("org_id") @db.Uuid
+  entityId        String   @map("entity_id") @db.Uuid
+  factType        String   @map("fact_type") @db.Text
+  sourceType      String   @map("source_type") @db.Text
+  economicWeight  Float    @map("economic_weight") @db.DoublePrecision
+  volatilityClass String   @map("volatility_class") @db.Text
+  payloadJson     Json     @map("payload_json") @db.JsonB
+  requestId       String   @map("request_id") @db.Text
+  eventLogId      String   @map("event_log_id") @db.Uuid
+  tier              Int      @default(1)
+  confidenceVector  Json?    @map("confidence_vector") @db.JsonB
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  entity InternalEntity @relation("VerifiedMemories", fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@index([entityId], map: "idx_verified_entity")
+  @@index([factType], map: "idx_verified_fact_type")
+  @@index([tier], map: "idx_verified_tier")
+  @@map("MemoryVerified")
+}
+
+model MemoryRejected {
+  id              String   @id @default(uuid()) @db.Uuid
+  orgId           String   @map("org_id") @db.Uuid
+  entityId        String   @map("entity_id") @db.Uuid
+  factType        String   @map("fact_type") @db.Text
+  sourceType      String   @map("source_type") @db.Text
+  payloadJson     Json     @map("payload_json") @db.JsonB
+  rejectionReason String   @map("rejection_reason") @db.Text
+  requestId       String   @map("request_id") @db.Text
+  eventLogId      String   @map("event_log_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  entity InternalEntity @relation("RejectedMemories", fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@index([entityId], map: "idx_rejected_entity")
+  @@map("MemoryRejected")
+}
+
+model CalibrationRecord {
+  id              String   @id @default(uuid()) @db.Uuid
+  orgId           String   @map("org_id")
+  segmentId       String   @map("segment_id") @db.Uuid
+  dealOutcomeId   String   @map("deal_outcome_id") @db.Uuid
+  metricKey       String   @map("metric_key")
+  projectedValue  Float    @map("projected_value")
+  actualValue     Float    @map("actual_value")
+  delta           Float
+  volatilityClass String   @map("volatility_class")
+  effectiveWeight Float    @map("effective_weight")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  segment   CalibrationSegment @relation(fields: [segmentId], references: [id])
+
+  @@map("CalibrationRecord")
+  @@index([segmentId], map: "idx_cal_record_segment")
+}
+
+model MemoryFeedback {
+  id        String   @id @default(uuid()) @db.Uuid
+  orgId     String   @map("org_id") @db.Uuid
+  requestId String   @map("request_id") @db.Text
+  memoryId  String   @map("memory_id") @db.Uuid
+  positive  Boolean
+  userId    String?  @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  org Org @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([requestId], map: "idx_feedback_request")
+  @@index([memoryId], map: "idx_feedback_memory")
+  @@map("memory_feedback")
+}
+
+model CausalImpactTrace {
+  id              String   @id @default(uuid()) @db.Uuid
+  orgId           String   @map("org_id") @db.Uuid
+  entityId        String   @map("entity_id") @db.Uuid
+  originEventId   String   @map("origin_event_id") @db.Uuid
+  sourceDomain    String   @map("source_domain") @db.Text
+  targetDomain    String   @map("target_domain") @db.Text
+  impactDelta     Float    @map("impact_delta") @db.DoublePrecision
+  impactCap       Float    @map("impact_cap") @db.DoublePrecision
+  clampedDelta    Float    @map("clamped_delta") @db.DoublePrecision
+  propagationPath Json     @map("propagation_path") @db.JsonB
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  org    Org            @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  entity InternalEntity @relation("EntityCausalTraces", fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@index([entityId], map: "idx_causal_trace_entity")
+  @@index([originEventId], map: "idx_causal_trace_origin")
+  @@index([sourceDomain, targetDomain], map: "idx_causal_trace_domains")
+  @@map("causal_impact_traces")
+}
+
+model InnovationQueue {
+  id               String   @id @default(uuid()) @db.Uuid
+  orgId            String   @map("org_id") @db.Uuid
+  entityId         String   @map("entity_id") @db.Uuid
+  memoryVerifiedId String?  @map("memory_verified_id") @db.Uuid
+  memoryDraftId    String?  @map("memory_draft_id") @db.Uuid
+  factType         String   @map("fact_type") @db.Text
+  sourceReliability Float   @map("source_reliability") @db.DoublePrecision
+  agreementScore   Float    @map("agreement_score") @db.DoublePrecision
+  noveltyReason    String   @map("novelty_reason") @db.Text
+  status           String   @default("pending") @db.Text
+  reviewedBy       String?  @map("reviewed_by") @db.Uuid
+  reviewedAt       DateTime? @map("reviewed_at") @db.Timestamptz(6)
+  reviewDecision   String?  @map("review_decision") @db.Text
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  org    Org            @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  entity InternalEntity @relation("EntityInnovationQueue", fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@index([entityId], map: "idx_innovation_entity")
+  @@index([status], map: "idx_innovation_status")
+  @@map("innovation_queue")
+}
+
+model CounterfactualDealLog {
+  id               String   @id @default(uuid()) @db.Uuid
+  orgId            String   @map("org_id") @db.Uuid
+  dealId           String   @map("deal_id") @db.Uuid
+  outcome          String   @db.Text
+  rejectionReason  String?  @map("rejection_reason") @db.Text
+  stageAtClose     String   @map("stage_at_close") @db.Text
+  projectionSnapshot Json?  @map("projection_snapshot") @db.JsonB
+  actualMetrics    Json?    @map("actual_metrics") @db.JsonB
+  lessonsLearned   String?  @map("lessons_learned") @db.Text
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  org  Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([dealId], map: "idx_counterfactual_deal")
+  @@index([outcome], map: "idx_counterfactual_outcome")
+  @@map("counterfactual_deal_logs")
+}
+
+model EntityCollisionAlert {
+  id            String   @id @default(uuid()) @db.Uuid
+  orgId         String   @map("org_id") @db.Uuid
+  entityIdA     String   @map("entity_id_a") @db.Uuid
+  entityIdB     String   @map("entity_id_b") @db.Uuid
+  similarity    Float    @db.DoublePrecision
+  addressA      String   @map("address_a") @db.Text
+  addressB      String   @map("address_b") @db.Text
+  status        String   @default("pending") @db.Text
+  resolvedBy    String?  @map("resolved_by") @db.Uuid
+  resolvedAt    DateTime? @map("resolved_at") @db.Timestamptz(6)
+  resolution    String?  @db.Text
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  org     Org            @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  entityA InternalEntity @relation("EntityCollisionAlerts", fields: [entityIdA], references: [id], onDelete: Cascade)
+
+  @@index([entityIdA], map: "idx_collision_entity_a")
+  @@index([entityIdB], map: "idx_collision_entity_b")
+  @@index([status], map: "idx_collision_status")
+  @@map("entity_collision_alerts")
+}
+
+model DriftFreezeState {
+  id               String   @id @default(uuid()) @db.Uuid
+  orgId            String   @map("org_id") @db.Uuid
+  segmentId        String   @map("segment_id") @db.Uuid
+  frozen           Boolean  @default(false)
+  consecutiveWorsenings Int @default(0) @map("consecutive_worsenings")
+  lastMae          Float?   @map("last_mae") @db.DoublePrecision
+  previousMae      Float?   @map("previous_mae") @db.DoublePrecision
+  frozenAt         DateTime? @map("frozen_at") @db.Timestamptz(6)
+  unfrozenAt       DateTime? @map("unfrozen_at") @db.Timestamptz(6)
+  unfrozenBy       String?  @map("unfrozen_by") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  org Org @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, segmentId], map: "uq_drift_freeze_segment")
+  @@map("drift_freeze_states")
 }

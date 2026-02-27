@@ -24,10 +24,17 @@ export function zodToOpenAiJsonSchema(name: string, schema: z.ZodTypeAny): OpenA
   };
 }
 
-/** Recursively set additionalProperties: false on all object schemas. */
+/** Keys that OpenAI Structured Outputs does not permit. */
+const DISALLOWED_KEYS = new Set(["propertyNames", "format"]);
+
+/** Recursively set additionalProperties: false on all object schemas and strip disallowed keys. */
 function addAdditionalPropertiesFalse(obj: unknown): void {
   if (!obj || typeof obj !== "object") return;
   const record = obj as Record<string, unknown>;
+  // Strip keys that OpenAI rejects
+  for (const key of DISALLOWED_KEYS) {
+    delete record[key];
+  }
   if (record.type === "object" && record.properties) {
     record.additionalProperties = false;
   }
