@@ -1496,6 +1496,10 @@ export async function executeAgentWorkflow(
         const toolName = getToolName(toolPayload) ?? getToolName(current);
         if (toolName) {
           state.toolsInvoked.add(toolName);
+          console.log(`[agent-tool] ${toolName} invoked (run=${dbRun.id})`);
+          if (toolName.startsWith("store_memory") || toolName.startsWith("get_entity") || toolName === "record_memory_event") {
+            console.log(`[memory-tool] ✓ ${toolName} called — memory system is active`);
+          }
           const output = extractToolOutput(toolPayload) ?? extractToolOutput(current);
           const args = extractToolArgs(toolPayload) ?? extractToolArgs(current);
           const toolCallId = extractToolCallId(toolPayload) ?? extractToolCallId(current);
@@ -1863,8 +1867,14 @@ export async function executeAgentWorkflow(
       ? 0.25
       : confidenceCandidate ?? (state.toolErrorMessages.length > 0 ? 0.45 : 0.72);
 
+    const sortedToolsInvoked = [...state.toolsInvoked].sort();
+    const memoryToolsUsed = sortedToolsInvoked.filter(
+      (t) => t === "store_memory" || t === "get_entity_truth" || t === "get_entity_memory" || t === "record_memory_event",
+    );
+    console.log(`[agent-run-complete] run=${dbRun.id} status=${status} tools=[${sortedToolsInvoked.join(",")}] memoryTools=[${memoryToolsUsed.join(",") || "NONE"}] intent=${queryIntent}`);
+
     const trust: AgentTrustEnvelope = {
-      toolsInvoked: [...state.toolsInvoked].sort(),
+      toolsInvoked: sortedToolsInvoked,
       packVersionsUsed: [...state.packVersionsUsed].sort(),
       evidenceCitations: normalizedEvidenceCitations,
       evidenceHash,
