@@ -36,8 +36,8 @@ describe("detectCollisions", () => {
 
   it("detects highly similar addresses", async () => {
     prismaMock.internalEntity.findMany.mockResolvedValue([
-      { id: "e1", address: "123 Main Street" },
-      { id: "e2", address: "123 Main St" },
+      { id: "e1", canonicalAddress: "123 Main Street" },
+      { id: "e2", canonicalAddress: "123 Main St" },
     ]);
 
     const alerts = await detectCollisions(ORG_ID);
@@ -50,8 +50,8 @@ describe("detectCollisions", () => {
 
   it("does not flag very different addresses", async () => {
     prismaMock.internalEntity.findMany.mockResolvedValue([
-      { id: "e1", address: "123 Main Street, Baton Rouge" },
-      { id: "e2", address: "999 Elm Avenue, New Orleans" },
+      { id: "e1", canonicalAddress: "123 Main Street, Baton Rouge" },
+      { id: "e2", canonicalAddress: "999 Elm Avenue, New Orleans" },
     ]);
 
     const alerts = await detectCollisions(ORG_ID);
@@ -61,9 +61,9 @@ describe("detectCollisions", () => {
 
   it("skips entities without addresses", async () => {
     prismaMock.internalEntity.findMany.mockResolvedValue([
-      { id: "e1", address: "123 Main Street" },
-      { id: "e2", address: null },
-      { id: "e3", address: "" },
+      { id: "e1", canonicalAddress: "123 Main Street" },
+      { id: "e2", canonicalAddress: null },
+      { id: "e3", canonicalAddress: "" },
     ]);
 
     const alerts = await detectCollisions(ORG_ID);

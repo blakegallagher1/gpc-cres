@@ -37,9 +37,9 @@ export async function logCounterfactual(
       outcome: entry.outcome,
       rejectionReason: entry.rejectionReason ?? null,
       stageAtClose: entry.stageAtClose,
-      projectionSnapshot: (entry.projectionSnapshot as Prisma.InputJsonValue) ?? undefined,
-      actualMetrics: (entry.actualMetrics as Prisma.InputJsonValue) ?? undefined,
-      lessonsLearned: entry.lessonsLearned ?? undefined,
+      projectionSnapshot: (entry.projectionSnapshot as Prisma.InputJsonValue) ?? null,
+      actualMetrics: (entry.actualMetrics as Prisma.InputJsonValue) ?? null,
+      lessonsLearned: entry.lessonsLearned ?? null,
     },
   });
 
