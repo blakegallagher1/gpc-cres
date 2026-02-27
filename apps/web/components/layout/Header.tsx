@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search, Moon, Sun, Plus, Command, Sparkles } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useRouter, usePathname } from "next/navigation";
@@ -15,6 +15,8 @@ export function Header() {
   const { theme, setTheme } = useTheme();
   const { sidebarCollapsed, openCommandPalette, toggleCopilot } = useUIStore();
   const [searchFocused, setSearchFocused] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
@@ -94,7 +96,9 @@ export function Header() {
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
           className="text-muted-foreground"
         >
-          {theme === "dark" ? (
+          {!mounted ? (
+            <span className="h-5 w-5" />
+          ) : theme === "dark" ? (
             <Sun className="h-5 w-5" />
           ) : (
             <Moon className="h-5 w-5" />

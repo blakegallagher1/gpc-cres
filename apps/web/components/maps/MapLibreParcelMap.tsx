@@ -1708,7 +1708,11 @@ function MapLibreDrawControl({
       finishDrawing();
     };
 
-    setup();
+    if (m.isStyleLoaded()) {
+      setup();
+    } else {
+      m.once("style.load", setup);
+    }
     if (drawing) {
       m.getCanvas().style.cursor = "crosshair";
       m.on("click", clickHandler);
@@ -1716,8 +1720,10 @@ function MapLibreDrawControl({
       return () => {
         m.off("click", clickHandler);
         m.off("dblclick", dblClickHandler);
+        m.off("style.load", setup);
       };
     }
+    return () => { m.off("style.load", setup); };
   }, [drawing, finishDrawing]);
 
   useEffect(() => {
@@ -2252,11 +2258,16 @@ function MapLibreMeasureTool({
       recalculate(next);
     };
 
-    setup();
+    if (mapInstance.isStyleLoaded()) {
+      setup();
+    } else {
+      mapInstance.once("style.load", setup);
+    }
     mapInstance.on("click", clickHandler);
 
     return () => {
       mapInstance.off("click", clickHandler);
+      mapInstance.off("style.load", setup);
       if (mode === "off") {
         const source = mapInstance.getSource(sourceId) as
           | { setData: (data: GeoJSON.FeatureCollection) => void }
@@ -2488,84 +2499,85 @@ function MapLibreCompSaleLayer({
       return;
     }
 
-    if (!mapInstance.getSource(sourceId)) {
-      mapInstance.addSource(sourceId, {
-        type: "geojson",
-        data: compSource,
-      });
-      mapInstance.addLayer({
-        id: layerId,
-        type: "circle",
-        source: sourceId,
-        paint: {
-          "circle-color": ["get", "color"],
-          "circle-radius": ["max", 6, ["to-number", ["get", "radius"]]],
-          "circle-stroke-color": "#ffffff",
-          "circle-stroke-width": 2,
-          "circle-opacity": ["get", "opacity"],
-          "circle-stroke-opacity": 0.9,
-        },
-      });
-      mapInstance.addLayer({
-        id: labelLayerId,
-        type: "symbol",
-        source: sourceId,
-        layout: {
-          "text-field": ["get", "label"],
-          "text-size": 11,
-          "text-offset": [0, -1.4],
-          "text-anchor": "top",
-          "text-allow-overlap": false,
-        },
-        paint: {
-          "text-color": "#1f2937",
-          "text-halo-color": "#ffffff",
-          "text-halo-width": 1.2,
-          "text-opacity": 0.95,
-        },
-      });
+    const setupComps = () => {
+      if (!mapInstance.getSource(sourceId)) {
+        mapInstance.addSource(sourceId, {
+          type: "geojson",
+          data: compSource,
+        });
+        mapInstance.addLayer({
+          id: layerId,
+          type: "circle",
+          source: sourceId,
+          paint: {
+            "circle-color": ["get", "color"],
+            "circle-radius": ["max", 6, ["to-number", ["get", "radius"]]],
+            "circle-stroke-color": "#ffffff",
+            "circle-stroke-width": 2,
+            "circle-opacity": ["get", "opacity"],
+            "circle-stroke-opacity": 0.9,
+          },
+        });
+        mapInstance.addLayer({
+          id: labelLayerId,
+          type: "symbol",
+          source: sourceId,
+          layout: {
+            "text-field": ["get", "label"],
+            "text-size": 11,
+            "text-offset": [0, -1.4],
+            "text-anchor": "top",
+            "text-allow-overlap": false,
+          },
+          paint: {
+            "text-color": "#1f2937",
+            "text-halo-color": "#ffffff",
+            "text-halo-width": 1.2,
+            "text-opacity": 0.95,
+          },
+        });
 
-      const onCompClick = (event: maplibregl.MapLayerMouseEvent) => {
-        const feature = event.features?.[0];
-        const props = feature?.properties as
-          | (Record<string, string | number | null> & {
-              id?: string;
-            })
-          | undefined;
-        if (!props) return;
+        const onCompClick = (event: maplibregl.MapLayerMouseEvent) => {
+          const feature = event.features?.[0];
+          const props = feature?.properties as
+            | (Record<string, string | number | null> & {
+                id?: string;
+              })
+            | undefined;
+          if (!props) return;
 
-        const comp: CompSale = {
-          id: String(props.id || ""),
-          address: String(props.address || "Unknown"),
-          lat: event.lngLat.lat,
-          lng: event.lngLat.lng,
-          salePrice: toFiniteNumber(props.salePrice),
-          saleDate: typeof props.saleDate === "string" ? props.saleDate : null,
-          acreage: toFiniteNumber(props.acreage),
-          pricePerAcre: toFiniteNumber(props.pricePerAcre),
-          pricePerSf: toFiniteNumber(props.pricePerSf),
-          useType: typeof props.useType === "string" ? props.useType : null,
-        };
+          const comp: CompSale = {
+            id: String(props.id || ""),
+            address: String(props.address || "Unknown"),
+            lat: event.lngLat.lat,
+            lng: event.lngLat.lng,
+            salePrice: toFiniteNumber(props.salePrice),
+            saleDate: typeof props.saleDate === "string" ? props.saleDate : null,
+            acreage: toFiniteNumber(props.acreage),
+            pricePerAcre: toFiniteNumber(props.pricePerAcre),
+            pricePerSf: toFiniteNumber(props.pricePerSf),
+            useType: typeof props.useType === "string" ? props.useType : null,
+          };
 
-        popupRef.current?.remove();
-        const safeAddress = escapeHtml(comp.address);
-        const safeSalePrice = comp.salePrice != null ? escapeHtml(formatCurrency(comp.salePrice)) : null;
-        const safePricePerAcre = comp.pricePerAcre != null
-          ? escapeHtml(formatCurrency(comp.pricePerAcre))
-          : null;
-        const safePricePerSf = comp.pricePerSf != null
-          ? escapeHtml(comp.pricePerSf.toFixed(2))
-          : null;
-        const safeAcreage = comp.acreage != null ? escapeHtml(comp.acreage.toFixed(2)) : null;
-        const safeSaleDate = comp.saleDate != null
-          ? escapeHtml(new Date(comp.saleDate).toLocaleDateString())
-          : null;
-        const safeRecency = comp.saleDate != null ? escapeHtml(getRecencyLabel(comp.saleDate)) : null;
-        const safeUseType = comp.useType ? escapeHtml(comp.useType) : null;
+          popupRef.current?.remove();
+          const safeAddress = escapeHtml(comp.address);
+          const safeSalePrice = comp.salePrice != null ? escapeHtml(formatCurrency(comp.salePrice)) : null;
+          const safePricePerAcre = comp.pricePerAcre != null
+            ? escapeHtml(formatCurrency(comp.pricePerAcre))
+            : null;
+          const safePricePerSf = comp.pricePerSf != null
+            ? escapeHtml(comp.pricePerSf.toFixed(2))
+            : null;
+          const safeAcreage = comp.acreage != null ? escapeHtml(comp.acreage.toFixed(2)) : null;
+          const safeSaleDate = comp.saleDate != null
+            ? escapeHtml(new Date(comp.saleDate).toLocaleDateString())
+            : null;
+          const safeRecency = comp.saleDate != null ? escapeHtml(getRecencyLabel(comp.saleDate)) : null;
+          const safeUseType = comp.useType ? escapeHtml(comp.useType) : null;
 
-        popupRef.current = new maplibregl.Popup({ closeOnClick: true })
-          .setLngLat([event.lngLat.lng, event.lngLat.lat])
-          .setHTML(`<div style="font-size:13px;line-height:1.4">
+          popupRef.current = new maplibregl.Popup({ closeOnClick: true })
+            .setLngLat([event.lngLat.lng, event.lngLat.lat])
+            .setHTML(`<div style="font-size:13px;line-height:1.4">
             <div style="font-weight:600;margin-bottom:2px;">${safeAddress}</div>
             ${safeSalePrice != null ? `<div style="font-size:14px;font-weight:700;color:#1e40af;">${safeSalePrice}</div>` : ""}
             ${safePricePerAcre != null ? `<div style="font-size:11px;">${safePricePerAcre} / acre</div>` : ""}
@@ -2574,37 +2586,48 @@ function MapLibreCompSaleLayer({
             ${safeSaleDate != null ? `<div style="font-size:11px;color:#6b7280;">Sold: ${safeSaleDate}${safeRecency ? ` (${safeRecency})` : ""}</div>` : ""}
             ${safeUseType ? `<div style="font-size:11px;color:#6b7280;">Use: ${safeUseType}</div>` : ""}
           </div>`)
-          .addTo(mapInstance);
-      };
+            .addTo(mapInstance);
+        };
 
-      mapInstance.on("click", layerId, onCompClick);
-      mapInstance.on("click", labelLayerId, onCompClick);
-      mapInstance.on("mouseenter", layerId, () => {
-        mapInstance.getCanvas().style.cursor = "pointer";
-      });
-      mapInstance.on("mouseenter", labelLayerId, () => {
-        mapInstance.getCanvas().style.cursor = "pointer";
-      });
-      mapInstance.on("mouseleave", layerId, () => {
-        mapInstance.getCanvas().style.cursor = "";
-      });
-      mapInstance.on("mouseleave", labelLayerId, () => {
-        mapInstance.getCanvas().style.cursor = "";
-      });
+        mapInstance.on("click", layerId, onCompClick);
+        mapInstance.on("click", labelLayerId, onCompClick);
+        mapInstance.on("mouseenter", layerId, () => {
+          mapInstance.getCanvas().style.cursor = "pointer";
+        });
+        mapInstance.on("mouseenter", labelLayerId, () => {
+          mapInstance.getCanvas().style.cursor = "pointer";
+        });
+        mapInstance.on("mouseleave", layerId, () => {
+          mapInstance.getCanvas().style.cursor = "";
+        });
+        mapInstance.on("mouseleave", labelLayerId, () => {
+          mapInstance.getCanvas().style.cursor = "";
+        });
+      } else {
+        const source = mapInstance.getSource(sourceId) as
+          | { setData: (data: GeoJSON.FeatureCollection) => void }
+          | undefined;
+        source?.setData(compSource);
+      }
+      if (mapInstance.getLayer(layerId)) {
+        mapInstance.setLayoutProperty(layerId, "visibility", "visible");
+      }
+      if (mapInstance.getLayer(labelLayerId)) {
+        mapInstance.setLayoutProperty(labelLayerId, "visibility", "visible");
+      }
+    };
+
+    if (mapInstance.isStyleLoaded()) {
+      setupComps();
     } else {
-      const source = mapInstance.getSource(sourceId) as
-        | { setData: (data: GeoJSON.FeatureCollection) => void }
-        | undefined;
-      source?.setData(compSource);
-    }
-    mapInstance.setLayoutProperty(layerId, "visibility", "visible");
-    if (mapInstance.getLayer(labelLayerId)) {
-      mapInstance.setLayoutProperty(labelLayerId, "visibility", "visible");
+      mapInstance.once("style.load", setupComps);
     }
 
     if (visible && centerLat != null && centerLng != null && !searched) {
       searchComps(centerLat, centerLng);
     }
+
+    return () => { mapInstance.off("style.load", setupComps); };
   }, [centerLat, centerLng, compSource, clear, visible, map, searched, searchComps]);
 
   useEffect(() => {
@@ -2704,25 +2727,36 @@ function MapLibreHeatmapLayer({
       return;
     }
 
-    if (!mapInstance.getSource(sourceId)) {
-      mapInstance.addSource(sourceId, {
-        type: "geojson",
-        data: heatSource,
-      });
-      mapInstance.addLayer({
-        id: layerId,
-        type: "heatmap",
-        source: sourceId,
-        paint: preset.paint,
-      });
+    const setupHeat = () => {
+      if (!mapInstance.getSource(sourceId)) {
+        mapInstance.addSource(sourceId, {
+          type: "geojson",
+          data: heatSource,
+        });
+        mapInstance.addLayer({
+          id: layerId,
+          type: "heatmap",
+          source: sourceId,
+          paint: preset.paint,
+        });
+      } else {
+        const source = mapInstance.getSource(sourceId) as
+          | { setData: (data: GeoJSON.FeatureCollection) => void }
+          | undefined;
+        source?.setData(heatSource);
+      }
+      if (mapInstance.getLayer(layerId)) {
+        mapInstance.setLayoutProperty(layerId, "visibility", "visible");
+      }
+    };
+
+    if (mapInstance.isStyleLoaded()) {
+      setupHeat();
     } else {
-      const source = mapInstance.getSource(sourceId) as
-        | { setData: (data: GeoJSON.FeatureCollection) => void }
-        | undefined;
-      source?.setData(heatSource);
+      mapInstance.once("style.load", setupHeat);
     }
 
-    mapInstance.setLayoutProperty(layerId, "visibility", "visible");
+    return () => { mapInstance.off("style.load", setupHeat); };
   }, [visible, heatSource, preset]);
 
   useEffect(() => {
@@ -2903,58 +2937,67 @@ function MapLibreIsochroneControl({
       return;
     }
 
-    if (!mapInstance.getSource(sourceId)) {
-      mapInstance.addSource(sourceId, {
-        type: "geojson",
-        data: { type: "FeatureCollection", features: [] },
-      });
-      mapInstance.addLayer({
-        id: fillId,
-        type: "fill",
-        source: sourceId,
-        paint: {
-          "fill-color": "#7c3aed",
-          "fill-opacity": 0.12,
-        },
-      });
-      mapInstance.addLayer({
-        id: lineId,
-        type: "line",
-        source: sourceId,
-        paint: {
-          "line-color": "#7c3aed",
-          "line-width": 2,
-          "line-opacity": 0.8,
-        },
-      });
-
-      if (!mapInstance.getSource(centerSourceId)) {
-        mapInstance.addSource(centerSourceId, {
+    const setupIsochrone = () => {
+      if (!mapInstance.getSource(sourceId)) {
+        mapInstance.addSource(sourceId, {
           type: "geojson",
-          data: {
-            type: "FeatureCollection",
-            features: [],
+          data: { type: "FeatureCollection", features: [] },
+        });
+        mapInstance.addLayer({
+          id: fillId,
+          type: "fill",
+          source: sourceId,
+          paint: {
+            "fill-color": "#7c3aed",
+            "fill-opacity": 0.12,
           },
         });
         mapInstance.addLayer({
-          id: centerLayerId,
-          type: "circle",
-          source: centerSourceId,
+          id: lineId,
+          type: "line",
+          source: sourceId,
           paint: {
-            "circle-color": "#7c3aed",
-            "circle-radius": 6,
-            "circle-stroke-color": "#ffffff",
-            "circle-stroke-width": 2,
+            "line-color": "#7c3aed",
+            "line-width": 2,
+            "line-opacity": 0.8,
           },
         });
+
+        if (!mapInstance.getSource(centerSourceId)) {
+          mapInstance.addSource(centerSourceId, {
+            type: "geojson",
+            data: {
+              type: "FeatureCollection",
+              features: [],
+            },
+          });
+          mapInstance.addLayer({
+            id: centerLayerId,
+            type: "circle",
+            source: centerSourceId,
+            paint: {
+              "circle-color": "#7c3aed",
+              "circle-radius": 6,
+              "circle-stroke-color": "#ffffff",
+              "circle-stroke-width": 2,
+            },
+          });
+        }
       }
 
+      mapInstance.off("click", handleMapClick);
+      mapInstance.on("click", handleMapClick);
+    };
+
+    if (mapInstance.isStyleLoaded()) {
+      setupIsochrone();
+    } else {
+      mapInstance.once("style.load", setupIsochrone);
     }
 
-    mapInstance.off("click", handleMapClick);
-    mapInstance.on("click", handleMapClick);
     return () => {
       mapInstance.off("click", handleMapClick);
+      mapInstance.off("style.load", setupIsochrone);
     };
   }, [visible, compute, clearResult]);
 
