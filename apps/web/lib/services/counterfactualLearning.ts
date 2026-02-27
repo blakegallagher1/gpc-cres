@@ -1,6 +1,6 @@
 import "server-only";
 
-import { prisma } from "@entitlement-os/db";
+import { prisma, Prisma } from "@entitlement-os/db";
 
 /**
  * Counterfactual learning — logs passed/lost deals with rejection taxonomy
@@ -37,9 +37,9 @@ export async function logCounterfactual(
       outcome: entry.outcome,
       rejectionReason: entry.rejectionReason ?? null,
       stageAtClose: entry.stageAtClose,
-      projectionSnapshot: entry.projectionSnapshot ?? null,
-      actualMetrics: entry.actualMetrics ?? null,
-      lessonsLearned: entry.lessonsLearned ?? null,
+      projectionSnapshot: (entry.projectionSnapshot as Prisma.InputJsonValue) ?? undefined,
+      actualMetrics: (entry.actualMetrics as Prisma.InputJsonValue) ?? undefined,
+      lessonsLearned: entry.lessonsLearned ?? undefined,
     },
   });
 

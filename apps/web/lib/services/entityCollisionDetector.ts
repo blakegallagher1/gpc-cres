@@ -80,13 +80,13 @@ export async function detectCollisions(
 ): Promise<CollisionAlert[]> {
   const entities = await prisma.internalEntity.findMany({
     where: { orgId },
-    select: { id: true, address: true },
+    select: { id: true, canonicalAddress: true },
     orderBy: { createdAt: "asc" },
     take: 500, // Cap to prevent quadratic blowup on large orgs
   });
 
   const withAddress = entities.filter(
-    (e): e is typeof e & { address: string } => !!e.address,
+    (e): e is typeof e & { canonicalAddress: string } => !!e.canonicalAddress,
   );
 
   const alerts: CollisionAlert[] = [];
@@ -98,16 +98,16 @@ export async function detectCollisions(
       const b = withAddress[j];
 
       const sim = similarity(
-        normalizeAddress(a.address),
-        normalizeAddress(b.address),
+        normalizeAddress(a.canonicalAddress),
+        normalizeAddress(b.canonicalAddress),
       );
 
       if (sim >= SIMILARITY_THRESHOLD) {
         alerts.push({
           entityIdA: a.id,
           entityIdB: b.id,
-          addressA: a.address,
-          addressB: b.address,
+          addressA: a.canonicalAddress,
+          addressB: b.canonicalAddress,
           similarity: sim,
         });
       }
