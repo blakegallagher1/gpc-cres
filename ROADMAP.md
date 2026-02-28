@@ -159,6 +159,25 @@ Reason: these were low-priority for current operating goals and can be deferred 
 
 ## Completed
 
+### R-006 — Supabase Client Surface Reduction (P1)
+
+- **Priority:** P1
+- **Status:** Done (2026-02-28)
+- **Scope:** Remove non-auth Supabase SDK usage from web app surfaces.
+- **Problem:** Product features still depended on direct Supabase client reads/realtime/storage, which diverged from the local DB + gateway storage architecture and increased operational complexity.
+- **Expected Outcome (measurable):**
+  - `apps/web/components/notifications/NotificationFeed.tsx` no longer uses Supabase Realtime.
+  - `apps/web/app/screening/intake/page.tsx` no longer uploads via Supabase Storage.
+  - Legacy direct-query adapters in `apps/web/lib/data/` removed.
+- **Evidence of need:** Runtime inventory identified the remaining non-auth Supabase usage limited to notifications realtime, screening intake uploads, and unused legacy data adapters.
+- **Alignment:** Keeps Supabase for auth/session flows while moving product behavior to existing API polling and backend pathways; no org-scope or auth boundary weakening.
+- **Risk/rollback:** Low-medium; notification delivery becomes poll-based only, and screening intake document uploads are disabled in this form during storage migration. Rollback by restoring the removed Supabase integrations.
+- **Acceptance Criteria / Tests:**
+  - Remove Supabase import + realtime subscription from `NotificationFeed`.
+  - Remove Supabase storage upload flow from screening intake page.
+  - Delete unused `apps/web/lib/data/agents.ts`, `apps/web/lib/data/workflows.ts`, and `apps/web/lib/data/runs.ts`.
+  - Verification gate passes: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`.
+
 ### AOS-001 — AgentOS Upgrade Foundation (P0)
 
 - **Priority:** P0
