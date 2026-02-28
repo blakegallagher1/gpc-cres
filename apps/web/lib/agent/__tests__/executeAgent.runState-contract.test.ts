@@ -12,8 +12,8 @@ vi.mock("@entitlement-os/db", () => ({
 
 vi.mock("@openai/agents", () => ({
   run: vi.fn(),
-  user: vi.fn(),
-  assistant: vi.fn(),
+  user: vi.fn((value: unknown) => value),
+  assistant: vi.fn((value: unknown) => value),
 }));
 
 vi.mock("@entitlement-os/openai", () => ({
@@ -117,6 +117,16 @@ const VALID_REPORT = {
 
 const SOURCE_RUN_ID = "run-contract";
 const NORMALIZED_RUN_ID = toDatabaseRunId(SOURCE_RUN_ID);
+
+function makeAsyncEventStream(events: unknown[]): AsyncIterable<unknown> {
+  return {
+    async *[Symbol.asyncIterator]() {
+      for (const event of events) {
+        yield event;
+      }
+    },
+  };
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -393,5 +403,133 @@ describe("executeAgentWorkflow", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("retries with a memory reminder when property-fact input has no store_memory calls", async () => {
+    const { prisma } = await vi.importMock("@entitlement-os/db");
+    const openAiAgents = await vi.importMock("@openai/agents");
+    const { run } = openAiAgents as {
+      run: ReturnType<typeof vi.fn>;
+      user: ReturnType<typeof vi.fn>;
+      assistant: ReturnType<typeof vi.fn>;
+    };
+
+    prisma.run.findUnique.mockResolvedValue(null);
+    prisma.run.upsert.mockResolvedValue({
+      id: NORMALIZED_RUN_ID,
+      status: "running",
+      inputHash: "input-hash",
+      outputJson: null,
+      openaiResponseId: null,
+      startedAt: new Date("2025-01-01T00:00:00.000Z"),
+      finishedAt: null,
+    });
+    (run as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      finalOutput: JSON.stringify(VALID_REPORT),
+      lastResponseId: "openai-response-id",
+    });
+    (run as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      finalOutput: JSON.stringify(VALID_REPORT),
+      lastResponseId: "openai-response-id-reminder",
+    });
+    prisma.run.update.mockResolvedValue({ status: "succeeded" });
+
+    await executeAgentWorkflow({
+      orgId: "org-test",
+      userId: "user-test",
+      conversationId: "conversation-test",
+      runId: SOURCE_RUN_ID,
+      input: [{ role: "user", content: "Here are comps for 123 Main St: $1.2M sale." }],
+      runType: "ENRICHMENT",
+      correlationId: "corr-local",
+    });
+
+    expect(run).toHaveBeenCalledTimes(2);
+    expect(
+      (run as ReturnType<typeof vi.fn>).mock.calls[1]?.[1],
+    ).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("You were provided property data"),
+      ]),
+    );
+
+    const updateCall = prisma.run.update.mock.calls[0][0];
+    const outputJson = updateCall.data.outputJson as Record<string, unknown>;
+    expect(outputJson.toolFailures).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("runtime_memory_enforcement"),
+      ]),
+    );
+    expect(outputJson.evidenceRetryPolicy).toEqual(
+      expect.objectContaining({
+        enabled: true,
+        missingEvidenceCount: 1,
+      }),
+    );
+  });
+
+  it("does not retry when store_memory is called during the first attempt", async () => {
+    const { prisma } = await vi.importMock("@entitlement-os/db");
+    const openAiAgents = await vi.importMock("@openai/agents");
+    const { run } = openAiAgents as {
+      run: ReturnType<typeof vi.fn>;
+      user: ReturnType<typeof vi.fn>;
+      assistant: ReturnType<typeof vi.fn>;
+    };
+
+    prisma.run.findUnique.mockResolvedValue(null);
+    prisma.run.upsert.mockResolvedValue({
+      id: NORMALIZED_RUN_ID,
+      status: "running",
+      inputHash: "input-hash",
+      outputJson: null,
+      openaiResponseId: null,
+      startedAt: new Date("2025-01-01T00:00:00.000Z"),
+      finishedAt: null,
+    });
+    (run as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      makeAsyncEventStream([
+        {
+          type: "raw_model_stream_event",
+          data: { delta: JSON.stringify(VALID_REPORT) },
+        },
+        {
+          type: "run_item_stream_event",
+          item: {
+            type: "tool_result",
+            name: "store_memory",
+            output: { stored: true },
+          },
+        },
+      ]),
+    );
+    prisma.run.update.mockResolvedValue({ status: "succeeded" });
+
+    await executeAgentWorkflow({
+      orgId: "org-test",
+      userId: "user-test",
+      conversationId: "conversation-test",
+      runId: SOURCE_RUN_ID,
+      input: [{ role: "user", content: "Here are 3 comps for 123 Main St: $800K sale." }],
+      runType: "ENRICHMENT",
+      correlationId: "corr-local",
+    });
+
+    expect(run).toHaveBeenCalledTimes(1);
+
+    const updateCall = prisma.run.update.mock.calls[0][0];
+    const outputJson = updateCall.data.outputJson as Record<string, unknown>;
+    expect(outputJson.toolFailures).not.toEqual(
+      expect.arrayContaining([expect.stringContaining("runtime_memory_enforcement")]),
+    );
+    expect(
+      Array.isArray(outputJson.toolFailures) ? outputJson.toolFailures.length : undefined,
+    ).toBe(0);
+    expect(outputJson.evidenceRetryPolicy).toEqual(
+      expect.objectContaining({
+        enabled: false,
+        missingEvidenceCount: 0,
+      }),
+    );
   });
 });

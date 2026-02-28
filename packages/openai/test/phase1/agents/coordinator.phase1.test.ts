@@ -4,6 +4,13 @@ import { coordinatorAgent, createConfiguredCoordinator, specialistAgents } from 
 import { coordinatorTools } from "../../../src/tools/index.js";
 
 describe("Phase 1 Agent Pack :: coordinator", () => {
+  const memoryTools = [
+    "record_memory_event",
+    "get_entity_memory",
+    "store_memory",
+    "get_entity_truth",
+  ];
+
   it("[MATRIX:agent:coordinator][PACK:handoff] verifies specialist handoff routing and contradiction resolution", () => {
     const configured = createConfiguredCoordinator();
     const configuredHandoffs = configured.handoffs ?? [];
@@ -78,6 +85,30 @@ describe("Phase 1 Agent Pack :: coordinator", () => {
     expect(configured.outputType).toBe("text");
   });
 
+  it("[MATRIX:agent:coordinator][PACK:memory-tools] exposes memory tools in coordinator tool collections", () => {
+    const configured = createConfiguredCoordinator();
+    const configuredToolNames = new Set(
+      (configured.tools ?? [])
+        .map((tool) =>
+          "name" in (tool as object) ? (tool as { name?: string }).name : undefined,
+        )
+        .filter((name): name is string => Boolean(name)),
+    );
+
+    const coordinatorToolNames = new Set(
+      coordinatorTools
+        .map((tool) =>
+          "name" in (tool as object) ? (tool as { name?: string }).name : undefined,
+        )
+        .filter((name): name is string => Boolean(name)),
+    );
+
+    for (const toolName of memoryTools) {
+      expect(coordinatorToolNames.has(toolName)).toBe(true);
+      expect(configuredToolNames.has(toolName)).toBe(true);
+    }
+  });
+
   it("[MATRIX:agent:coordinator][PACK:contract] validates structured output schema and required evidence fields", () => {
     const instructionText = coordinatorAgent.instructions;
 
@@ -92,5 +123,13 @@ describe("Phase 1 Agent Pack :: coordinator", () => {
     expect(instructionText.includes("consult_finance_specialist")).toBe(true);
     expect(instructionText.includes("consult_risk_specialist")).toBe(true);
     expect(instructionText.includes("consult_legal_specialist")).toBe(true);
+  });
+
+  it("[MATRIX:agent:coordinator][PACK:memory-protocol] hardens memory tool protocol in instructions", () => {
+    const instructionText = coordinatorAgent.instructions;
+
+    expect(instructionText.includes("You MUST use these tools whenever data is provided or referenced")).toBe(true);
+    expect(instructionText.includes("ALWAYS call `store_memory` for EACH distinct fact BEFORE any analysis text")).toBe(true);
+    expect(instructionText.includes("runtime enforcement")).toBe(false);
   });
 });

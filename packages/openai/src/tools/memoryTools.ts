@@ -1,11 +1,6 @@
 import { tool } from "@openai/agents";
 import { z } from "zod";
 
-type MemoryToolContext = {
-  orgId?: unknown;
-  userId?: unknown;
-};
-
 type MemoryToolHeaders = Record<string, string>;
 
 function getInternalMemoryToolToken(): string {

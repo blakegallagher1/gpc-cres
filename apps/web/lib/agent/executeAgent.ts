@@ -46,6 +46,30 @@ import { unifiedRetrieval } from "./retrievalAdapter";
 const DATA_AGENT_RETRIEVAL_LIMIT = 6;
 const DB_UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+const MEMORY_TOOL_NAMES = new Set([
+  "store_memory",
+  "get_entity_memory",
+  "get_entity_truth",
+  "record_memory_event",
+]);
+const PROPERTY_DATA_HINT_RE = /\b(?:comp|comps|sale|sales|sold|sold for|price|prices|noi|cap rate|cap-rate|lender|tour|correction|corrections|listing|offer|asking|bought|purchased|rent|rental|valuation|cap|value)\b/i;
+const PROPERTY_ADDRESS_RE = /\b\d{1,6}\s+[a-z0-9.'"\-]+\s+(?:st|street|ave|avenue|blvd|boulevard|rd|road|dr|drive|ln|lane|ct|court|pl|place|pkwy|parkway|hwy|highway|trl|trail|way|terr|terrace|cir|circle|ct\.|st\.|ave\.|blvd\.|rd\.|dr\.|ln\.|pl\.|hwy\.)\b/i;
+const PROPERTY_NUMERIC_FACT_RE = /\$[\d][\d,.]*\s*(?:[kKmM]|million|thousand)?\b|\b\d+(?:\.\d+)?\s*%/;
+const PROPERTY_DATA_TABLE_RE = /\n\s*(?:\||\*|[-+•])[\s\S]*?(?:\$|%|\b\d+\s*(?:acres?|units?|b\s*dr))[\s\S]*?(?:\n|$)/i;
+const PROPERTY_DATA_HEADER_RE = /\b(?:here are|here's|input|ingest|storing|table of)\b.*\b(?:comps?|sales?|properties?|parcels?)\b/i;
+
+function shouldRequireStoreMemory(firstUserInput: unknown): boolean {
+  if (typeof firstUserInput !== "string") return false;
+  const text = firstUserInput.trim();
+  if (text.length < 8) return false;
+  const hasPropertyDataHint = PROPERTY_DATA_HINT_RE.test(text);
+  const hasAddress = PROPERTY_ADDRESS_RE.test(text);
+  const hasNumericFact = PROPERTY_NUMERIC_FACT_RE.test(text);
+  const hasDataTable = PROPERTY_DATA_TABLE_RE.test(text);
+  const hasDataHeader = PROPERTY_DATA_HEADER_RE.test(text.toLowerCase());
+  return hasDataHeader || ((hasPropertyDataHint && (hasAddress || hasNumericFact || hasDataTable)));
+}
+
 function normalizeOpenAiConversationId(value: unknown): string | undefined {
   return typeof value === "string" && value.startsWith("conv") ? value : undefined;
 }
@@ -179,6 +203,7 @@ export function toDatabaseRunId(runId: string): string {
 const MISSING_EVIDENCE_RETRY_THRESHOLD = 3;
 const MISSING_EVIDENCE_RETRY_MAX_ATTEMPTS = 3;
 const MISSING_EVIDENCE_RETRY_MODE = "missing-evidence-policy";
+const MEMORY_ENFORCEMENT_MAX_RETRIES = 1;
 
 type ToolEventState = {
   toolsInvoked: Set<string>;
@@ -188,6 +213,22 @@ type ToolEventState = {
   toolErrorMessages: string[];
   hadOutputText: boolean;
 };
+
+type AgentRunAttemptState = {
+  agentRunResult: unknown | null;
+  finalOutputRaw: unknown;
+  finalText: string;
+  pendingApprovalState: {
+    serializedRunState: string;
+    queryIntent: string;
+    toolCallId: string | null;
+    toolName: string | null;
+  } | null;
+};
+
+type AgentRunInput =
+  | ReturnType<typeof buildAgentInputItems>
+  | RunState<unknown, ReturnType<typeof createIntentAwareCoordinator>>;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -1313,6 +1354,19 @@ export async function executeAgentWorkflow(
             ) as Agent["tools"],
           })
         : baseCoordinator;
+    const configuredToolNames = (coordinator.tools ?? [])
+      .map((tool) => getToolName(tool))
+      .filter((name): name is string => typeof name === "string" && name.length > 0);
+    const configuredMemoryTools = configuredToolNames.filter(
+      (name) =>
+        name === "store_memory" ||
+        name === "get_entity_truth" ||
+        name === "get_entity_memory" ||
+        name === "record_memory_event",
+    );
+    console.log(
+      `[agent-run-start] run=${dbRun.id} intent=${queryIntent} tools=[${configuredToolNames.join(",")}] memoryTools=[${configuredMemoryTools.join(",") || "NONE"}]`,
+    );
     emit({ type: "agent_switch", agentName: "Coordinator" });
 
     let runInput: ReturnType<typeof buildAgentInputItems> | RunState<
@@ -1381,243 +1435,332 @@ export async function executeAgentWorkflow(
         sku: params.sku ?? null,
       },
     } as Parameters<typeof run>[2];
-
-    const result = await run(
-      coordinator,
-      runInput,
-      runOptions,
+    const coordinatorToolNames = (coordinator.tools ?? [])
+      .map((tool) => getToolDefinitionName(tool))
+      .filter((name): name is string => Boolean(name));
+    const memoryToolsPresent = coordinatorToolNames.filter((name) => MEMORY_TOOL_NAMES.has(name));
+    const missingMemoryTools = [...MEMORY_TOOL_NAMES].filter((name) => !memoryToolsPresent.includes(name));
+    console.log(
+      `[agent-run-tools] run=${dbRun.id} intent=${queryIntent} toolCount=${coordinatorToolNames.length} tools=${coordinatorToolNames.join(",")}`,
     );
-    agentRunResult = result;
-    if (
-      isRecord(result) &&
-      isRecord(result.state) &&
-      typeof (result.state as { toString?: unknown }).toString === "function"
-    ) {
-      try {
-        const serialized = (result.state as { toString: () => string }).toString();
-        if (serialized.length > 0) {
-          latestSerializedRunState = serialized;
+    console.log(
+      `[agent-run-tools] run=${dbRun.id} memoryToolsPresent=${memoryToolsPresent.join(",") || "none"} ` +
+        `memoryToolsMissing=${missingMemoryTools.join(",") || "none"}`,
+    );
+
+    const runAttempt = async (
+      attemptInput: AgentRunInput,
+      label: string,
+    ): Promise<AgentRunAttemptState> => {
+      let attemptResult: unknown = null;
+      let finalOutputRaw: unknown = undefined;
+      let attemptText = "";
+      let attemptPendingApprovalState: AgentRunAttemptState["pendingApprovalState"] = null;
+
+      const result = await run(
+        coordinator,
+        attemptInput,
+        runOptions,
+      );
+      attemptResult = result;
+      if (
+        isRecord(result) &&
+        isRecord(result.state) &&
+        typeof (result.state as { toString?: unknown }).toString === "function"
+      ) {
+        try {
+          const serialized = (result.state as { toString: () => string }).toString();
+          if (serialized.length > 0) {
+            latestSerializedRunState = serialized;
+          }
+        } catch {
+          // ignore serialization extraction failures
         }
-      } catch {
-        // ignore serialization extraction failures
       }
-    }
 
-    if (isAsyncIterable(result)) {
-      for await (const event of result) {
-        const current = isRecord(event) ? (event as Record<string, unknown>) : null;
-        if (!current) continue;
-        const eventType = current.type;
-        if (typeof eventType !== "string") continue;
+      if (isAsyncIterable(result)) {
+        for await (const event of result) {
+          const current = isRecord(event) ? (event as Record<string, unknown>) : null;
+          if (!current) continue;
+          const eventType = current.type;
+          if (typeof eventType !== "string") continue;
 
-        const item = isRecord(current.item) ? (current.item as Record<string, unknown>) : null;
-        const itemType =
-          item && typeof item.type === "string"
-            ? item.type.toLowerCase()
-            : "";
-        const eventTypeLower = eventType.toLowerCase();
+          const item = isRecord(current.item) ? (current.item as Record<string, unknown>) : null;
+          const itemType =
+            item && typeof item.type === "string"
+              ? item.type.toLowerCase()
+              : "";
+          const eventTypeLower = eventType.toLowerCase();
 
-        if (eventType === "agent_updated_stream_event") {
-          const agentName =
-            isRecord(current.agent) && typeof current.agent?.["name"] === "string"
-              ? (current.agent?.["name"] as string)
-              : "Coordinator";
-          lastAgentName = agentName;
-          emit({ type: "agent_switch", agentName });
-          continue;
-        }
-
-        const handoff =
-          extractHandoff(current) ??
-          (item ? extractHandoff(item) : null);
-        const isHandoffEvent =
-          eventTypeLower.includes("handoff") || itemType.includes("handoff");
-        if (isHandoffEvent && handoff?.to) {
-          const fromAgent = handoff.from ?? lastAgentName;
-          const toAgent = handoff.to;
-          lastAgentName = toAgent;
-          emit({
-            type: "handoff",
-            from: fromAgent,
-            to: toAgent,
-            fromAgent,
-            toAgent,
-          });
-          emit({ type: "agent_switch", agentName: toAgent });
-          continue;
-        }
-
-        if (eventType === "raw_model_stream_event") {
-          const data = current.data;
-          if (isRecord(data)) {
-            const delta =
-              typeof data.delta === "string" ? data.delta : undefined;
-            if (delta) {
-              finalText += delta;
-              state.hadOutputText = true;
-              emit({ type: "text_delta", content: delta });
-            }
+          if (eventType === "agent_updated_stream_event") {
+            const agentName =
+              isRecord(current.agent) && typeof current.agent?.["name"] === "string"
+                ? (current.agent?.["name"] as string)
+                : "Coordinator";
+            lastAgentName = agentName;
+            emit({ type: "agent_switch", agentName });
+            continue;
           }
-          continue;
-        }
 
-        if (
-          eventTypeLower === "run_item_stream_event" &&
-          typeof current.name === "string" &&
-          current.name === "tool_approval_requested"
-        ) {
-          const approvalItem = item ?? current;
-          const toolName =
-            getToolName(approvalItem) ??
-            (typeof approvalItem.toolName === "string"
-              ? approvalItem.toolName
-              : typeof approvalItem.name === "string"
-                ? approvalItem.name
-                : "tool");
-          const toolCallId = extractApprovalItemToolCallId(approvalItem);
-          const args = extractApprovalItemArgs(approvalItem);
-          emit({
-            type: "tool_approval_requested",
-            name: toolName,
-            args,
-            toolCallId,
-            runId: dbRun.id,
-          });
-          continue;
-        }
-
-        const toolPayload = item ?? current;
-        const serializedCandidate =
-          extractSerializedRunStateCandidate(current) ??
-          (item ? extractSerializedRunStateCandidate(item) : null);
-        if (serializedCandidate) {
-          latestSerializedRunState = serializedCandidate;
-        }
-        const toolName = getToolName(toolPayload) ?? getToolName(current);
-        if (toolName) {
-          state.toolsInvoked.add(toolName);
-          console.log(`[agent-tool] ${toolName} invoked (run=${dbRun.id})`);
-          if (toolName.startsWith("store_memory") || toolName.startsWith("get_entity") || toolName === "record_memory_event") {
-            console.log(`[memory-tool] ✓ ${toolName} called — memory system is active`);
-          }
-          const output = extractToolOutput(toolPayload) ?? extractToolOutput(current);
-          const args = extractToolArgs(toolPayload) ?? extractToolArgs(current);
-          const toolCallId = extractToolCallId(toolPayload) ?? extractToolCallId(current);
-          const indicatesToolStart =
-            eventTypeLower.includes("tool_called") ||
-            (itemType.includes("tool_call") && !itemType.includes("output"));
-          const indicatesToolEnd =
-            eventTypeLower.includes("tool_result") ||
-            eventTypeLower.includes("tool_output") ||
-            itemType.includes("tool_result") ||
-            itemType.includes("tool_output");
-
-          if (indicatesToolStart && output === null) {
+          const handoff =
+            extractHandoff(current) ??
+            (item ? extractHandoff(item) : null);
+          const isHandoffEvent =
+            eventTypeLower.includes("handoff") || itemType.includes("handoff");
+          if (isHandoffEvent && handoff?.to) {
+            const fromAgent = handoff.from ?? lastAgentName;
+            const toAgent = handoff.to;
+            lastAgentName = toAgent;
             emit({
-              type: "tool_start",
+              type: "handoff",
+              from: fromAgent,
+              to: toAgent,
+              fromAgent,
+              toAgent,
+            });
+            emit({ type: "agent_switch", agentName: toAgent });
+            continue;
+          }
+
+          if (eventType === "raw_model_stream_event") {
+            const data = current.data;
+            if (isRecord(data)) {
+              const delta =
+                typeof data.delta === "string" ? data.delta : undefined;
+              if (delta) {
+                attemptText += delta;
+                state.hadOutputText = true;
+                emit({ type: "text_delta", content: delta });
+              }
+            }
+            continue;
+          }
+
+          if (
+            eventTypeLower === "run_item_stream_event" &&
+            typeof current.name === "string" &&
+            current.name === "tool_approval_requested"
+          ) {
+            const approvalItem = item ?? current;
+            const toolName =
+              getToolName(approvalItem) ??
+              (typeof approvalItem.toolName === "string"
+                ? approvalItem.toolName
+                : typeof approvalItem.name === "string"
+                  ? approvalItem.name
+                  : "tool");
+            const toolCallId = extractApprovalItemToolCallId(approvalItem);
+            const args = extractApprovalItemArgs(approvalItem);
+            emit({
+              type: "tool_approval_requested",
               name: toolName,
               args,
               toolCallId,
+              runId: dbRun.id,
             });
+            continue;
           }
 
-          if (output !== null) {
-            const trimmedOutput = maybeTrimToolOutput(output);
-            emit({
-              type: "tool_end",
-              name: toolName,
-              result: trimmedOutput.value,
-              status: "completed",
-              toolCallId,
-            });
-            collectToolOutputSignals(toolName, output, state);
-            await persistCheckpoint({
-              kind: "tool_completion",
-              toolName,
-              toolCallId,
-              partialOutput: finalText,
-            });
-          } else if (indicatesToolEnd) {
-            emit({
-              type: "tool_end",
-              name: toolName,
-              status: "completed",
-              toolCallId,
-            });
-            await persistCheckpoint({
-              kind: "tool_completion",
-              toolName,
-              toolCallId,
-              partialOutput: finalText,
-            });
+          const toolPayload = item ?? current;
+          const serializedCandidate =
+            extractSerializedRunStateCandidate(current) ??
+            (item ? extractSerializedRunStateCandidate(item) : null);
+          if (serializedCandidate) {
+            latestSerializedRunState = serializedCandidate;
           }
-          continue;
+          const toolName = getToolName(toolPayload) ?? getToolName(current);
+          if (toolName) {
+            state.toolsInvoked.add(toolName);
+            console.log(`[agent-tool] ${toolName} invoked (run=${dbRun.id}, attempt=${label})`);
+            if (
+              toolName === "store_memory" ||
+              toolName.startsWith("get_entity") ||
+              toolName === "record_memory_event"
+            ) {
+              console.log(`[memory-tool] ✓ ${toolName} called — memory system is active`);
+            }
+            const output = extractToolOutput(toolPayload) ?? extractToolOutput(current);
+            const args = extractToolArgs(toolPayload) ?? extractToolArgs(current);
+            const toolCallId = extractToolCallId(toolPayload) ?? extractToolCallId(current);
+            const indicatesToolStart =
+              eventTypeLower.includes("tool_called") ||
+              (itemType.includes("tool_call") && !itemType.includes("output"));
+            const indicatesToolEnd =
+              eventTypeLower.includes("tool_result") ||
+              eventTypeLower.includes("tool_output") ||
+              itemType.includes("tool_result") ||
+              itemType.includes("tool_output");
+
+            if (indicatesToolStart && output === null) {
+              emit({
+                type: "tool_start",
+                name: toolName,
+                args,
+                toolCallId,
+              });
+            }
+
+            if (output !== null) {
+              const trimmedOutput = maybeTrimToolOutput(output);
+              emit({
+                type: "tool_end",
+                name: toolName,
+                result: trimmedOutput.value,
+                status: "completed",
+                toolCallId,
+              });
+              collectToolOutputSignals(toolName, output, state);
+              await persistCheckpoint({
+                kind: "tool_completion",
+                toolName,
+                toolCallId,
+                partialOutput: attemptText,
+              });
+            } else if (indicatesToolEnd) {
+              emit({
+                type: "tool_end",
+                name: toolName,
+                status: "completed",
+                toolCallId,
+              });
+              await persistCheckpoint({
+                kind: "tool_completion",
+                toolName,
+                toolCallId,
+                partialOutput: attemptText,
+              });
+            }
+            continue;
+          }
+
+          if (eventType === "error" && typeof current.error === "string") {
+            errorMessage = current.error;
+            state.missingEvidence.add(`Agent error: ${current.error}`);
+          }
         }
-
-        if (eventType === "error" && typeof current.error === "string") {
-          errorMessage = current.error;
-          state.missingEvidence.add(`Agent error: ${current.error}`);
+      } else if (isRecord(attemptResult) && "finalOutput" in attemptResult) {
+        const finalOutputText = sanitizeOutputText(
+          (attemptResult as { finalOutput: unknown }).finalOutput as unknown,
+        );
+        if (finalOutputText.length > 0) {
+          attemptText = finalOutputText;
+          state.hadOutputText = true;
+          emit({ type: "text_delta", content: finalOutputText });
         }
       }
-    } else if (isRecord(agentRunResult) && "finalOutput" in agentRunResult) {
-      const finalOutputText = sanitizeOutputText(agentRunResult.finalOutput as unknown);
-      if (finalOutputText.length > 0) {
-        finalText = finalOutputText;
-        state.hadOutputText = true;
-        emit({ type: "text_delta", content: finalOutputText });
+
+      if (isRecord(attemptResult) && "finalOutput" in attemptResult) {
+        finalOutputRaw = (attemptResult as { finalOutput: unknown }).finalOutput;
+      }
+
+      if (!state.hadOutputText && finalOutputRaw !== undefined) {
+        attemptText = sanitizeOutputText(finalOutputRaw);
+        if (attemptText.length > 0) {
+          state.hadOutputText = true;
+        }
+      }
+
+      if (!state.hadOutputText && attemptText.length > 0) {
+        emit({ type: "text_delta", content: attemptText });
+      }
+
+      if (
+        attemptResult !== null &&
+        isRecord(attemptResult) &&
+        typeof attemptResult.lastResponseId === "string"
+      ) {
+        openaiResponseId = attemptResult.lastResponseId;
+      }
+
+      if (
+        isRecord(attemptResult) &&
+        Array.isArray(attemptResult.interruptions) &&
+        attemptResult.interruptions.length > 0 &&
+        isRecord(attemptResult.state) &&
+        typeof (attemptResult.state as { toString?: unknown }).toString === "function"
+      ) {
+        const interruptions = attemptResult.interruptions as Array<Record<string, unknown>>;
+        const first = interruptions[0] ?? {};
+        const interruptedToolName =
+          typeof first.name === "string"
+            ? first.name
+            : typeof first.toolName === "string"
+              ? first.toolName
+              : getToolName(first) ?? null;
+        const toolCallId = extractApprovalItemToolCallId(first);
+        const serializedRunState = (attemptResult.state as { toString: () => string }).toString();
+        attemptPendingApprovalState = {
+          serializedRunState,
+          queryIntent,
+          toolCallId,
+          toolName: interruptedToolName,
+        };
+        latestSerializedRunState = serializedRunState;
+      }
+
+      return {
+        agentRunResult: attemptResult,
+        finalOutputRaw,
+        finalText: attemptText,
+        pendingApprovalState: attemptPendingApprovalState,
+      };
+    };
+
+    const primaryAttempt = await runAttempt(runInput, "primary");
+    agentRunResult = primaryAttempt.agentRunResult;
+    let finalOutputRaw = primaryAttempt.finalOutputRaw;
+    finalText = primaryAttempt.finalText;
+    pendingApprovalState = primaryAttempt.pendingApprovalState;
+    status = "succeeded";
+
+    if (!params.resumedRunState && !pendingApprovalState) {
+      let enforcementAttempt = 0;
+      let enforcementAttempted = false;
+      while (
+        shouldRequireStoreMemory(firstUserInput) &&
+        !state.toolsInvoked.has("store_memory") &&
+        enforcementAttempt < MEMORY_ENFORCEMENT_MAX_RETRIES
+      ) {
+        enforcementAttempt += 1;
+        enforcementAttempted = true;
+        const reminder = "You were provided property data, but you did not call `store_memory`. " +
+          "Before you answer, you must call `store_memory` for each factual input item first (one call per property fact), " +
+          "then return your analysis.";
+        const enforcementResult = await runAttempt(
+          [
+            ...buildAgentInputItems(params.input),
+            userMessage(reminder),
+          ],
+          "memory-enforcement",
+        );
+        if (state.toolsInvoked.has("store_memory")) {
+          agentRunResult = enforcementResult.agentRunResult;
+          finalOutputRaw = enforcementResult.finalOutputRaw;
+          finalText = enforcementResult.finalText;
+          pendingApprovalState = enforcementResult.pendingApprovalState;
+          break;
+        }
+        console.warn(
+          `[agent-memory-enforcement] run=${dbRun.id} did not observe store_memory on attempt ${enforcementAttempt}; retrying=${enforcementAttempt < MEMORY_ENFORCEMENT_MAX_RETRIES}`,
+        );
+      }
+
+      if (enforcementAttempted && !state.toolsInvoked.has("store_memory")) {
+        state.toolErrorMessages.push(
+          "runtime_memory_enforcement: coordinator failed to call store_memory for property-fact input",
+        );
+        state.missingEvidence.add(
+          "Coordinator did not invoke store_memory after property-fact input even after enforcement attempt.",
+        );
       }
     }
 
-    const finalOutputRaw = isRecord(agentRunResult) && "finalOutput" in agentRunResult
-      ? (agentRunResult.finalOutput as unknown)
-      : undefined;
-    if (!state.hadOutputText && finalOutputRaw !== undefined) {
-      finalText = sanitizeOutputText(finalOutputRaw);
-      if (finalText.length > 0) {
-        state.hadOutputText = true;
-      }
+    if (finalOutputRaw === undefined && finalText.length > 0) {
+      finalOutputRaw = finalText;
     }
 
     if (!state.hadOutputText && finalText.length > 0) {
       emit({ type: "text_delta", content: finalText });
-    }
-
-    if (
-      agentRunResult !== null &&
-      isRecord(agentRunResult) &&
-      typeof agentRunResult.lastResponseId === "string"
-    ) {
-      openaiResponseId = agentRunResult.lastResponseId;
-    }
-    status = "succeeded";
-
-    if (
-      isRecord(agentRunResult) &&
-      Array.isArray(agentRunResult.interruptions) &&
-      agentRunResult.interruptions.length > 0 &&
-      isRecord(agentRunResult.state) &&
-      typeof (agentRunResult.state as { toString?: unknown }).toString === "function"
-    ) {
-      const interruptions = agentRunResult.interruptions as Array<Record<string, unknown>>;
-      const first = interruptions[0] ?? {};
-      const toolName =
-        typeof first.name === "string"
-          ? first.name
-          : typeof first.toolName === "string"
-            ? first.toolName
-            : getToolName(first) ?? null;
-      const toolCallId = extractApprovalItemToolCallId(first);
-      const serializedRunState = (
-        agentRunResult.state as { toString: () => string }
-      ).toString();
-      pendingApprovalState = {
-        serializedRunState,
-        queryIntent,
-        toolCallId,
-        toolName,
-      };
-      latestSerializedRunState = serializedRunState;
-      status = "running";
     }
   } catch (error) {
     status = "failed";
