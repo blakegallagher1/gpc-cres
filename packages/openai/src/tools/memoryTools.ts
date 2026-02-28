@@ -21,13 +21,20 @@ function sanitizeMemoryToolContext(context: unknown): {
   orgId?: string;
   userId?: string;
 } {
-  const typedContext = context as MemoryToolContext | undefined;
+  // The OpenAI Agents SDK wraps user context in RunContext<T>.
+  // Tool execute functions receive RunContext where the actual user-provided
+  // context object lives at RunContext.context (the .context property).
+  // Unwrap if needed so we can access orgId/userId.
+  let raw = context as Record<string, unknown> | undefined;
+  if (raw && typeof raw === "object" && "context" in raw && typeof raw.context === "object" && raw.context !== null) {
+    raw = raw.context as Record<string, unknown>;
+  }
   return {
-    orgId: typeof typedContext?.orgId === "string" && typedContext.orgId.length > 0
-      ? typedContext.orgId
+    orgId: typeof raw?.orgId === "string" && raw.orgId.length > 0
+      ? raw.orgId
       : undefined,
-    userId: typeof typedContext?.userId === "string" && typedContext.userId.length > 0
-      ? typedContext.userId
+    userId: typeof raw?.userId === "string" && raw.userId.length > 0
+      ? raw.userId
       : undefined,
   };
 }
