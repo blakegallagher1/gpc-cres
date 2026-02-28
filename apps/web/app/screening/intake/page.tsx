@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, type ChangeEvent, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { UploadCloud, FileText } from "lucide-react";
+import { UploadCloud } from "lucide-react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +10,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { BACKEND_URL_ERROR_MESSAGE, getBackendBaseUrl } from "@/lib/backendConfig";
-import { supabase } from "@/lib/db/supabase";
 import { toast } from "sonner";
 
 type IntakeFormState = {
@@ -38,53 +37,23 @@ export default function ScreeningIntakePage() {
     contact: "",
     notes: "",
   });
-  const [files, setFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
-  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const nextFiles = Array.from(event.target.files || []);
-    setFiles(nextFiles);
-  };
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!form.address.trim() || !form.broker.trim() || !form.propertyType.trim()) {
+      toast.error("Address, broker, and property type are required.");
+      return;
+    }
 
-const handleSubmit = async (event: FormEvent) => {
-  event.preventDefault();
-  if (!form.address.trim() || !form.broker.trim() || !form.propertyType.trim()) {
-    toast.error("Address, broker, and property type are required.");
-    return;
-  }
+    const backendUrl = getBackendBaseUrl();
+    if (!backendUrl) {
+      toast.error(BACKEND_URL_ERROR_MESSAGE);
+      return;
+    }
 
-  const backendUrl = getBackendBaseUrl();
-  if (!backendUrl) {
-    toast.error(BACKEND_URL_ERROR_MESSAGE);
-    return;
-  }
-
-  setSubmitting(true);
-  try {
-      const documents = [];
-      for (const file of files) {
-        const storagePath = `screening/${Date.now()}-${file.name}`;
-        const { error: uploadError } = await supabase.storage
-          .from("deal-room-uploads")
-          .upload(storagePath, file, { upsert: true });
-
-        if (uploadError) {
-          throw uploadError;
-        }
-
-        const { data: publicUrl } = supabase.storage
-          .from("deal-room-uploads")
-          .getPublicUrl(storagePath);
-
-        documents.push({
-          file_name: file.name,
-          document_type: "offering_memo",
-          storage_path: storagePath,
-          storage_url: publicUrl.publicUrl,
-          mime_type: file.type,
-        });
-      }
-
+    setSubmitting(true);
+    try {
       const response = await fetch(`${backendUrl}/screening/intake`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -97,7 +66,7 @@ const handleSubmit = async (event: FormEvent) => {
           square_feet: form.squareFeet ? Number(form.squareFeet) : undefined,
           source: form.source || undefined,
           contact: form.contact || undefined,
-          documents,
+          documents: [],
           metadata: form.notes ? { notes: form.notes } : {},
         }),
       });
@@ -126,7 +95,7 @@ const handleSubmit = async (event: FormEvent) => {
         <div>
           <h1 className="text-2xl font-bold">New Screening Intake</h1>
           <p className="text-sm text-muted-foreground">
-            Upload the OM and model, then capture the headline details for screening.
+            Capture the headline details for screening. Document upload is handled after intake.
           </p>
         </div>
 
@@ -237,25 +206,10 @@ const handleSubmit = async (event: FormEvent) => {
               <CardTitle className="text-base">Upload Documents</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Label className="text-sm text-muted-foreground">
-                Upload the OM PDF and any Excel model (optional).
-              </Label>
-              <Input
-                type="file"
-                multiple
-                onChange={handleFileChange}
-                accept=".pdf,.xlsx,.xls,.csv"
-              />
-              {files.length > 0 && (
-                <div className="space-y-2 text-sm text-muted-foreground">
-                  {files.map((file) => (
-                    <div key={file.name} className="flex items-center gap-2">
-                      <FileText className="h-4 w-4" />
-                      {file.name}
-                    </div>
-                  ))}
-                </div>
-              )}
+              <p className="text-sm text-muted-foreground">
+                Document uploads in this intake form are disabled while we migrate storage fully off
+                Supabase. Use the deal documents workflow after intake creation.
+              </p>
             </CardContent>
           </Card>
 

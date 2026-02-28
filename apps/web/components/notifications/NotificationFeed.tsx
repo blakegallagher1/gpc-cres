@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNotificationStore } from "@/stores/notificationStore";
-import { supabase } from "@/lib/db/supabase";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -106,7 +105,6 @@ export function NotificationFeed() {
     markOneRead,
     dismissOne,
     markAllRead,
-    addRealtime,
   } = useNotificationStore();
 
   const hasFetched = useRef(false);
@@ -156,41 +154,6 @@ export function NotificationFeed() {
       hasFetched.current = false;
     }
   }, [feedOpen, fetchNotifications]);
-
-  // Supabase Realtime subscription
-  useEffect(() => {
-    const channel = supabase
-      .channel("notifications-realtime")
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "notifications",
-        },
-        (payload) => {
-          const row = payload.new as Record<string, unknown>;
-          addRealtime({
-            id: row.id as string,
-            type: row.type as string,
-            title: row.title as string,
-            body: row.body as string,
-            priority: row.priority as string,
-            readAt: null,
-            dismissedAt: null,
-            actionUrl: (row.action_url as string) ?? null,
-            sourceAgent: (row.source_agent as string) ?? null,
-            createdAt: row.created_at as string,
-            deal: null,
-          });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [addRealtime]);
 
   const handleMarkRead = async (id: string) => {
     markOneRead(id);
