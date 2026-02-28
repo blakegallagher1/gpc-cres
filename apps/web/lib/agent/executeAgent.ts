@@ -212,6 +212,7 @@ type ToolEventState = {
   missingEvidence: Set<string>;
   toolErrorMessages: string[];
   hadOutputText: boolean;
+  memoryConflictSummaries: string[];
 };
 
 type AgentRunAttemptState = {
@@ -771,6 +772,31 @@ function collectToolOutputSignals(
       state.missingEvidence.add(`${toolName}: ${asRecord.error}`);
     }
   }
+
+  if (toolName === "store_memory") {
+    const decision = typeof asRecord.decision === "string" ? asRecord.decision.toLowerCase() : "";
+    const reasons = Array.isArray(asRecord.reasons)
+      ? asRecord.reasons.filter((entry): entry is string => typeof entry === "string")
+      : [];
+    const hasConflictReason = reasons.some((reason) => /conflict/i.test(reason));
+    if (decision === "draft" && hasConflictReason) {
+      const structured = isRecord(asRecord.structuredMemoryWrite)
+        ? (asRecord.structuredMemoryWrite as Record<string, unknown>)
+        : null;
+      const payload = structured && isRecord(structured.payload)
+        ? (structured.payload as Record<string, unknown>)
+        : null;
+      const saleDate = typeof payload?.sale_date === "string" ? payload.sale_date : null;
+      const salePrice = typeof payload?.sale_price === "number" ? payload.sale_price : null;
+      const entityId = typeof structured?.entity_id === "string" ? structured.entity_id : null;
+      const summaryParts: string[] = [];
+      if (entityId) summaryParts.push(`entity ${entityId}`);
+      summaryParts.push(reasons.join("; "));
+      if (saleDate) summaryParts.push(`sale_date=${saleDate}`);
+      if (salePrice !== null) summaryParts.push(`sale_price=${salePrice}`);
+      state.memoryConflictSummaries.push(summaryParts.join(" | "));
+    }
+  }
 }
 
 function finalizeMissingEvidence(state: ToolEventState): string[] {
@@ -799,6 +825,36 @@ function finalizeMissingEvidence(state: ToolEventState): string[] {
     state.missingEvidence.add("Tool outputs did not include evidence snapshots/citations.");
   }
   return [...state.missingEvidence];
+}
+
+function buildRuntimeClockContextMessage(now = new Date()): string {
+  const utcIso = now.toISOString();
+  const batonRougeDate = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Chicago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
+  const batonRougeTime = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Chicago",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+    timeZoneName: "short",
+  }).format(now);
+  return `Runtime Clock Context (authoritative): current UTC timestamp is ${utcIso}. ` +
+    `Current Baton Rouge local date/time (America/Chicago) is ${batonRougeDate} ${batonRougeTime}. ` +
+    "When reasoning about \"today\", \"future\", or relative dates, use this runtime clock context.";
+}
+
+function shouldRequireConflictConfirmation(text: string, state: ToolEventState): boolean {
+  if (state.memoryConflictSummaries.length === 0) return false;
+  const normalized = text.toLowerCase();
+  const hasConfirmationLanguage =
+    /confirm|which (?:value|price).*(?:correct)|reconcile|please verify|verify which/i.test(normalized);
+  const hasConflictLanguage = /conflict|draft|stored as draft/i.test(normalized);
+  return !(hasConfirmationLanguage && hasConflictLanguage);
 }
 
 function buildVerificationSteps(missingEvidence: string[]): string[] {
@@ -1205,6 +1261,7 @@ export async function executeAgentWorkflow(
     missingEvidence: new Set(),
     toolErrorMessages: [],
     hadOutputText: false,
+    memoryConflictSummaries: [],
   };
   const trajectoryRecorder = createTrajectoryRecorder();
 
@@ -1372,7 +1429,10 @@ export async function executeAgentWorkflow(
     let runInput: ReturnType<typeof buildAgentInputItems> | RunState<
       unknown,
       ReturnType<typeof createIntentAwareCoordinator>
-    > = buildAgentInputItems(params.input);
+    > = [
+      userMessage(buildRuntimeClockContextMessage()),
+      ...buildAgentInputItems(params.input),
+    ];
     if (params.resumedRunState) {
       latestSerializedRunState = params.resumedRunState;
       const resumedState = await RunState.fromString(
@@ -1728,6 +1788,7 @@ export async function executeAgentWorkflow(
           "then return your analysis.";
         const enforcementResult = await runAttempt(
           [
+            userMessage(buildRuntimeClockContextMessage()),
             ...buildAgentInputItems(params.input),
             userMessage(reminder),
           ],
@@ -1752,6 +1813,32 @@ export async function executeAgentWorkflow(
         state.missingEvidence.add(
           "Coordinator did not invoke store_memory after property-fact input even after enforcement attempt.",
         );
+      }
+
+      let conflictEnforcementAttempt = 0;
+      while (
+        !pendingApprovalState &&
+        shouldRequireConflictConfirmation(finalText, state) &&
+        conflictEnforcementAttempt < MEMORY_ENFORCEMENT_MAX_RETRIES
+      ) {
+        conflictEnforcementAttempt += 1;
+        const conflictSummary = state.memoryConflictSummaries[0] ?? "stored draft conflict";
+        const reminder =
+          "You just stored memory as draft because of a conflict. " +
+          `Conflict summary: ${conflictSummary}. ` +
+          "Before ending your response, explicitly ask the user to confirm which value is correct and state that the new claim is stored as draft pending confirmation.";
+        const enforcementResult = await runAttempt(
+          [
+            userMessage(buildRuntimeClockContextMessage()),
+            ...buildAgentInputItems(params.input),
+            userMessage(reminder),
+          ],
+          "conflict-enforcement",
+        );
+        agentRunResult = enforcementResult.agentRunResult;
+        finalOutputRaw = enforcementResult.finalOutputRaw;
+        finalText = enforcementResult.finalText;
+        pendingApprovalState = enforcementResult.pendingApprovalState;
       }
     }
 

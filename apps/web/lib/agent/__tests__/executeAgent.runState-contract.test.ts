@@ -532,4 +532,74 @@ describe("executeAgentWorkflow", () => {
       }),
     );
   });
+
+  it("retries with a conflict reminder when store_memory returns draft conflict without confirmation text", async () => {
+    const { prisma } = await vi.importMock("@entitlement-os/db");
+    const openAiAgents = await vi.importMock("@openai/agents");
+    const { run } = openAiAgents as {
+      run: ReturnType<typeof vi.fn>;
+      user: ReturnType<typeof vi.fn>;
+      assistant: ReturnType<typeof vi.fn>;
+    };
+
+    prisma.run.findUnique.mockResolvedValue(null);
+    prisma.run.upsert.mockResolvedValue({
+      id: NORMALIZED_RUN_ID,
+      status: "running",
+      inputHash: "input-hash",
+      outputJson: null,
+      openaiResponseId: null,
+      startedAt: new Date("2025-01-01T00:00:00.000Z"),
+      finishedAt: null,
+    });
+    (run as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      makeAsyncEventStream([
+        {
+          type: "raw_model_stream_event",
+          data: { delta: "Thanks, got it." },
+        },
+        {
+          type: "run_item_stream_event",
+          item: {
+            type: "tool_result",
+            name: "store_memory",
+            output: {
+              stored: true,
+              decision: "draft",
+              reasons: ["Conflict detected on keys: sale_price"],
+              structuredMemoryWrite: {
+                entity_id: "ef0ebf0c-ceee-4b92-86b4-07db6f6bef63",
+                payload: { sale_date: "2026-02-23", sale_price: 3000000 },
+              },
+            },
+          },
+        },
+      ]),
+    );
+    (run as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      finalOutput: JSON.stringify(VALID_REPORT),
+      lastResponseId: "openai-response-id-reminder",
+    });
+    prisma.run.update.mockResolvedValue({ status: "succeeded" });
+
+    await executeAgentWorkflow({
+      orgId: "org-test",
+      userId: "user-test",
+      conversationId: "conversation-test",
+      runId: SOURCE_RUN_ID,
+      input: [{ role: "user", content: "6150 Hwy 73 sold for $3,000,000 on 2/23/26." }],
+      runType: "ENRICHMENT",
+      correlationId: "corr-local",
+    });
+
+    expect(run).toHaveBeenCalledTimes(2);
+    expect((run as ReturnType<typeof vi.fn>).mock.calls[0]?.[1]).toEqual(
+      expect.arrayContaining([expect.stringContaining("Runtime Clock Context (authoritative)")]),
+    );
+    expect((run as ReturnType<typeof vi.fn>).mock.calls[1]?.[1]).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("stored memory as draft because of a conflict"),
+      ]),
+    );
+  });
 });
