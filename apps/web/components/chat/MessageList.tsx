@@ -32,12 +32,12 @@ export function MessageList({
     return (
       <div className="flex h-full flex-col items-center justify-center px-6">
         <div className="flex flex-col items-center gap-4 text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-muted">
-            <MessageCircle className="h-8 w-8 text-muted-foreground" />
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-neutral-200 bg-white/80 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+            <MessageCircle className="h-8 w-8 text-neutral-500 dark:text-neutral-400" />
           </div>
           <div className="max-w-sm space-y-2">
             <h3 className="text-lg font-semibold">Start a conversation</h3>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-neutral-600 dark:text-neutral-400">
               Ask about parcels, deals, zoning, or anything CRE. Your AI agents are
               standing by.
             </p>
@@ -52,7 +52,7 @@ export function MessageList({
               <button
                 key={suggestion}
                 onClick={() => onSuggestionClick?.(suggestion)}
-                className="rounded-full border bg-card px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
               >
                 {suggestion}
               </button>
@@ -65,7 +65,7 @@ export function MessageList({
 
   return (
     <div ref={containerRef} className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-3xl space-y-4 px-4 py-6">
+      <div className="mx-auto w-full max-w-4xl space-y-5 px-4 py-6 sm:px-6">
         {messages.map((msg) => (
           <MessageBubble
             key={msg.id}
@@ -81,7 +81,7 @@ export function MessageList({
             <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-slate-700 to-slate-900 dark:from-slate-500 dark:to-slate-700">
               <span className="text-xs font-semibold text-white">G</span>
             </div>
-            <div className="rounded-2xl border bg-card px-4 py-3">
+            <div className="rounded-2xl border border-neutral-200 bg-white/95 px-4 py-3 shadow-sm dark:border-neutral-700 dark:bg-neutral-900/95">
               <div className="flex items-center gap-1">
                 <span className={cn('h-1.5 w-1.5 rounded-full bg-muted-foreground/60 animate-bounce')} style={{ animationDelay: '0ms' }} />
                 <span className={cn('h-1.5 w-1.5 rounded-full bg-muted-foreground/60 animate-bounce')} style={{ animationDelay: '150ms' }} />

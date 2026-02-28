@@ -2,6 +2,7 @@
 
 import type { ComponentType } from 'react';
 import type { ReactNode } from 'react';
+import { motion } from 'framer-motion';
 import {
   AlertTriangle,
   ClipboardCopy,
@@ -44,7 +45,7 @@ interface MessageBubbleProps {
 
 function ToolResultCard({ name, result }: { name: string; result: unknown }) {
   return (
-    <div className="my-2 rounded-lg border bg-background/90 px-3 py-2 text-xs">
+    <div className="my-2 rounded-lg border border-neutral-200 bg-white/90 px-3 py-2 text-xs dark:border-neutral-700 dark:bg-neutral-900">
       <div className="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
         <FileText className="h-3.5 w-3.5" />
         <span>{name}</span>
@@ -112,7 +113,7 @@ function EventHeader({
   rightAction?: ReactNode;
 }) {
   return (
-    <div className="mb-1 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+    <div className="mb-1 flex items-center justify-between gap-2 text-xs text-neutral-500 dark:text-neutral-400">
       <span>
         <span className="font-semibold text-foreground">{title}</span>
         {agentName ? ` · ${agentName}` : ''}
@@ -177,7 +178,7 @@ function MessageActions({
       <button
         type="button"
         onClick={onCopy}
-        className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-muted-foreground hover:bg-muted"
+        className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-neutral-600 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
       >
         <ClipboardCopy className="h-3 w-3" />
         Copy
@@ -187,7 +188,7 @@ function MessageActions({
         <button
           type="button"
           onClick={onReopen}
-          className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-muted-foreground hover:bg-muted"
+          className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-neutral-600 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
         >
           <RefreshCcw className="h-3 w-3" />
           Reopen
@@ -198,7 +199,7 @@ function MessageActions({
         <button
           type="button"
           onClick={onCopyLink}
-          className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-muted-foreground hover:bg-muted"
+          className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-neutral-600 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
         >
           <LinkIcon className="h-3 w-3" />
           Share link
@@ -209,7 +210,7 @@ function MessageActions({
         <button
           type="button"
           onClick={onOpenSource}
-          className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-muted-foreground hover:bg-muted"
+          className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-neutral-600 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
         >
           <ExternalLink className="h-3 w-3" />
           Open source
@@ -231,7 +232,7 @@ function renderSystemContent(
 
   if (eventKind === 'agent_progress' && message.agentName) {
     return (
-      <div className="rounded-lg border bg-indigo-50 p-3 text-sm text-indigo-950 dark:bg-indigo-950/20 dark:text-indigo-100">
+      <div className="rounded-xl border border-indigo-200 bg-indigo-50/80 p-3 text-sm text-indigo-950 dark:border-indigo-900 dark:bg-indigo-950/30 dark:text-indigo-100">
         <EventHeader
           title="Agent Progress"
           agentName={message.agentName}
@@ -258,7 +259,7 @@ function renderSystemContent(
 
   if (eventKind === 'agent_switch' && message.agentName) {
     return (
-      <div className="rounded-lg border bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:bg-amber-950/20 dark:text-amber-100">
+      <div className="rounded-xl border border-amber-200 bg-amber-50/80 px-3 py-2 text-sm text-amber-950 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
         <EventHeader
           title="Agent Switched"
           agentName={message.agentName}
@@ -276,7 +277,7 @@ function renderSystemContent(
   if (eventKind === 'handoff') {
     const handoffTarget = message.agentName ?? 'Specialist';
     return (
-      <div className="rounded-lg border bg-indigo-50 px-3 py-2 text-sm text-indigo-950 dark:bg-indigo-950/20 dark:text-indigo-100">
+      <div className="rounded-xl border border-indigo-200 bg-indigo-50/80 px-3 py-2 text-sm text-indigo-950 dark:border-indigo-900 dark:bg-indigo-950/30 dark:text-indigo-100">
         <EventHeader
           title="Agent Handoff"
           agentName={message.agentName}
@@ -295,7 +296,7 @@ function renderSystemContent(
     const toolName = message.toolCalls?.[0]?.name ?? message.agentName ?? 'tool';
     const status = eventKind === 'tool_start' ? 'running' : 'completed';
     return (
-      <div className="rounded-lg border bg-slate-50 px-3 py-2 text-sm text-slate-900 dark:bg-slate-900/30 dark:text-slate-100">
+      <div className="rounded-xl border border-slate-200 bg-slate-50/90 px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900/30 dark:text-slate-100">
         <EventHeader
           title={eventKind === 'tool_start' ? 'Tool Started' : 'Tool Completed'}
           rightAction={Icon ? <Icon className="h-3 w-3" /> : undefined}
@@ -320,7 +321,7 @@ function renderSystemContent(
     const args = message.toolCalls?.[0]?.args;
 
     return (
-      <div className="rounded-lg border bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:bg-amber-950/20 dark:text-amber-100">
+      <div className="rounded-xl border border-amber-200 bg-amber-50/80 px-3 py-2 text-sm text-amber-950 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
         <EventHeader
           title="Tool Approval Required"
           rightAction={Icon ? <Icon className="h-3 w-3" /> : undefined}
@@ -345,7 +346,7 @@ function renderSystemContent(
     const agent = message.trust?.lastAgentName ?? message.agentName ?? 'Coordinator';
 
     return (
-      <div className="rounded-lg border bg-emerald-50 p-3 text-sm text-emerald-950 dark:bg-emerald-950/20 dark:text-emerald-100">
+      <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-3 text-sm text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100">
         <EventHeader
           title="Agent Summary"
           agentName={agent}
@@ -377,7 +378,7 @@ function renderSystemContent(
 
   if (eventKind === 'error') {
     return (
-      <div className="rounded-lg border bg-rose-50 px-3 py-2 text-sm text-rose-950 dark:bg-rose-950/20 dark:text-rose-100">
+      <div className="rounded-xl border border-rose-200 bg-rose-50/80 px-3 py-2 text-sm text-rose-950 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-100">
         <EventHeader title="Agent Error" rightAction={Icon ? <Icon className="h-3 w-3" /> : undefined} />
         <p className="text-xs">{message.content}</p>
         <MessageActions conversationId={conversationId} messageId={message.id} message={message} />
@@ -387,7 +388,7 @@ function renderSystemContent(
 
   if (eventKind === 'tool_result') {
     return (
-      <div className="rounded-lg border bg-violet-50 p-3 text-sm text-violet-950 dark:bg-violet-950/20 dark:text-violet-100">
+      <div className="rounded-xl border border-violet-200 bg-violet-50/80 p-3 text-sm text-violet-950 dark:border-violet-900 dark:bg-violet-950/30 dark:text-violet-100">
         <EventHeader title="Tool Result" rightAction={Icon ? <Icon className="h-3 w-3" /> : undefined} />
         <ToolResultCard
           name={message.agentName ?? 'tool'}
@@ -412,7 +413,12 @@ export function MessageBubble({
   const systemContent = renderSystemContent(message, conversationId, onToolApprovalEvents);
 
   return (
-    <div className={cn('flex w-full gap-3', isUser ? 'justify-end' : 'justify-start')}>
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2, ease: 'easeOut' }}
+      className={cn('flex w-full gap-3', isUser ? 'justify-end' : 'justify-start')}
+    >
       {!isUser ? (
         <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-slate-700 to-slate-900 dark:from-slate-500 dark:to-slate-700">
           <span className="text-xs font-semibold text-white">G</span>
@@ -421,7 +427,7 @@ export function MessageBubble({
         <ClipboardList className="mt-2 h-7 w-7 shrink-0 text-muted-foreground" />
       )}
 
-      <div className={cn('max-w-[82%] space-y-1', isUser && 'items-end')}>
+      <div className={cn('max-w-[84%] space-y-1', isUser && 'items-end')}>
         {!isSystemEvent && !isUser && message.agentName && (
           <div className="flex items-center gap-1.5 pb-0.5">
             <span
@@ -442,18 +448,20 @@ export function MessageBubble({
           <>
             <div
               className={cn(
-                'rounded-2xl px-4 py-2.5 text-sm leading-relaxed',
+                'rounded-2xl border px-4 py-3 text-sm leading-relaxed shadow-sm',
                 isUser
-                  ? 'bg-primary text-primary-foreground'
-                  : 'border bg-card text-card-foreground',
+                  ? 'border-black bg-black text-white'
+                  : 'border-neutral-200 bg-white/95 text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900/95 dark:text-neutral-100',
               )}
             >
-              <div className="flex items-start justify-between gap-2">
-                <p className="whitespace-pre-wrap break-words">
-                  {message.content}
-                </p>
-                {!hasEvent ? <MessageActions conversationId={conversationId} messageId={message.id} message={message} /> : null}
-              </div>
+              <p className="whitespace-pre-wrap break-words">{message.content}</p>
+              {!hasEvent ? (
+                <MessageActions
+                  conversationId={conversationId}
+                  messageId={message.id}
+                  message={message}
+                />
+              ) : null}
             </div>
 
             {Array.isArray(message.toolCalls) && message.toolCalls.length > 0 ? (
@@ -496,7 +504,7 @@ export function MessageBubble({
           </>
         )}
 
-        <p className={cn('text-[10px] text-muted-foreground/60', isUser ? 'text-right' : 'text-left')}>
+        <p className={cn('text-[10px] text-neutral-500/80 dark:text-neutral-500', isUser ? 'text-right' : 'text-left')}>
           {formatDateDisplay(message.createdAt)}
         </p>
       </div>
@@ -506,6 +514,6 @@ export function MessageBubble({
           <span className="text-xs font-semibold text-white">U</span>
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }

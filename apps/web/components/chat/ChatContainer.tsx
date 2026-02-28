@@ -519,7 +519,7 @@ export function ChatContainer() {
   });
 
   return (
-    <div className="relative flex h-[calc(100vh-4rem)] overflow-hidden">
+    <div className="relative flex h-[calc(100vh-4rem)] overflow-hidden bg-gradient-to-b from-slate-100 via-white to-slate-100/70 dark:from-neutral-950 dark:via-black dark:to-neutral-950">
       <ConversationSidebar
         conversations={conversations}
         activeConversationId={conversationId}
@@ -532,55 +532,57 @@ export function ChatContainer() {
         recentConversationIds={recentConversationIds}
       />
 
-      <div className="flex flex-1 flex-col">
-        <div className="flex items-center justify-between border-b px-4 py-2">
-          <DealSelector
-            selectedDealId={selectedDealId}
-            onSelect={setSelectedDealId}
-          />
-          <span className="text-xs text-muted-foreground">{messageSectionTitle}</span>
-        </div>
+      <div className="flex flex-1 flex-col p-3 sm:p-5">
+        <div className="flex h-full flex-col overflow-hidden rounded-[1.75rem] border border-neutral-200/70 bg-white/70 shadow-2xl backdrop-blur-xl dark:border-neutral-800/70 dark:bg-neutral-900/65">
+          <div className="flex items-center justify-between border-b border-neutral-200/70 px-4 py-3 dark:border-neutral-800/70">
+            <DealSelector
+              selectedDealId={selectedDealId}
+              onSelect={setSelectedDealId}
+            />
+            <span className="text-xs text-muted-foreground">{messageSectionTitle}</span>
+          </div>
 
-        {currentAgent && <AgentIndicator agentName={currentAgent} />}
+          {currentAgent && <AgentIndicator agentName={currentAgent} />}
 
-        {agentSummary && AUI_MESSAGE_ENHANCEMENTS ? (
-          <div className="border-b px-4 py-3">
-            <AgentStatePanel
-              lastAgentName={agentSummary.lastAgentName ?? currentAgent ?? 'Coordinator'}
-              plan={agentSummary.verificationSteps}
-              confidence={agentSummary.confidence}
-              missingEvidence={agentSummary.missingEvidence ?? []}
-              verificationSteps={agentSummary.verificationSteps ?? []}
-              evidenceCitations={agentSummary.evidenceCitations ?? []}
-              toolsInvoked={agentSummary.toolsInvoked ?? []}
-              packVersionsUsed={agentSummary.packVersionsUsed ?? []}
-              proofChecks={agentSummary.proofChecks ?? []}
-              retryAttempts={agentSummary.retryAttempts}
-              retryMaxAttempts={agentSummary.retryMaxAttempts}
-              retryMode={agentSummary.retryMode}
-              fallbackLineage={agentSummary.fallbackLineage}
-              fallbackReason={agentSummary.fallbackReason}
-              toolFailureDetails={agentSummary.toolFailures}
-              errorSummary={agentSummary.errorSummary ?? null}
+          {agentSummary && AUI_MESSAGE_ENHANCEMENTS ? (
+            <div className="border-b border-neutral-200/70 px-4 py-3 dark:border-neutral-800/70">
+              <AgentStatePanel
+                lastAgentName={agentSummary.lastAgentName ?? currentAgent ?? 'Coordinator'}
+                plan={agentSummary.verificationSteps}
+                confidence={agentSummary.confidence}
+                missingEvidence={agentSummary.missingEvidence ?? []}
+                verificationSteps={agentSummary.verificationSteps ?? []}
+                evidenceCitations={agentSummary.evidenceCitations ?? []}
+                toolsInvoked={agentSummary.toolsInvoked ?? []}
+                packVersionsUsed={agentSummary.packVersionsUsed ?? []}
+                proofChecks={agentSummary.proofChecks ?? []}
+                retryAttempts={agentSummary.retryAttempts}
+                retryMaxAttempts={agentSummary.retryMaxAttempts}
+                retryMode={agentSummary.retryMode}
+                fallbackLineage={agentSummary.fallbackLineage}
+                fallbackReason={agentSummary.fallbackReason}
+                toolFailureDetails={agentSummary.toolFailures}
+                errorSummary={agentSummary.errorSummary ?? null}
+              />
+            </div>
+          ) : null}
+
+          <div className="flex-1 overflow-hidden">
+            <MessageList
+              messages={visibleMessages}
+              isStreaming={isStreaming}
+              conversationId={conversationId}
+              onSuggestionClick={stableMessageListOptions.onSuggestionClick}
+              onToolApprovalEvents={handleToolApprovalEvents}
             />
           </div>
-        ) : null}
 
-        <div className="flex-1 overflow-hidden">
-          <MessageList
-            messages={visibleMessages}
+          <ChatInput
+            onSend={stableChatInputOptions.onSend}
             isStreaming={isStreaming}
-            conversationId={conversationId}
-            onSuggestionClick={stableMessageListOptions.onSuggestionClick}
-            onToolApprovalEvents={handleToolApprovalEvents}
+            onStop={stableChatInputOptions.onStop}
           />
         </div>
-
-        <ChatInput
-          onSend={stableChatInputOptions.onSend}
-          isStreaming={isStreaming}
-          onStop={stableChatInputOptions.onStop}
-        />
       </div>
     </div>
   );

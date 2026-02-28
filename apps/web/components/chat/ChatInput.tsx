@@ -79,20 +79,20 @@ export function ChatInput({ onSend, isStreaming, onStop }: ChatInputProps) {
 
   return (
     <form
-      className="border-t bg-background px-4 py-3"
+      className="border-t border-neutral-200/70 bg-white/80 px-4 py-4 dark:border-neutral-800/70 dark:bg-neutral-950/70"
       onSubmit={handleFormSubmit}
     >
-      <div className="mx-auto flex max-w-3xl items-end gap-2">
+      <div className="mx-auto flex w-full max-w-4xl items-end gap-3 rounded-full border border-neutral-200 bg-neutral-100/90 px-3 py-2 shadow-sm dark:border-neutral-700 dark:bg-neutral-900/80">
         <div className="relative flex-1">
           <textarea
             ref={textareaRef}
             value={draft}
             rows={1}
-            placeholder="Ask about parcels, deals, zoning..."
+            placeholder="Ask something complex..."
             className={cn(
-              'w-full resize-none rounded-xl border bg-muted/50 px-4 py-3 pr-12 text-sm',
-              'placeholder:text-muted-foreground/60',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              'w-full resize-none bg-transparent px-3 py-2 text-sm',
+              'placeholder:text-neutral-500',
+              'focus-visible:outline-none',
               'disabled:cursor-not-allowed disabled:opacity-50'
             )}
             onChange={handleChange}
@@ -109,25 +109,27 @@ export function ChatInput({ onSend, isStreaming, onStop }: ChatInputProps) {
 
         {isStreaming ? (
           <Button
-            size="icon"
+            size="sm"
             variant="destructive"
-            className="h-10 w-10 shrink-0 rounded-xl"
+            className="h-10 shrink-0 rounded-full px-4"
             onClick={onStop}
           >
             <Square className="h-4 w-4" />
+            <span className="ml-2">Stop</span>
           </Button>
         ) : (
           <Button
-            size="icon"
-            className="h-10 w-10 shrink-0 rounded-xl"
+            size="sm"
+            className="h-10 shrink-0 rounded-full px-5"
             type="submit"
           >
-            <ArrowUp className="h-4 w-4" />
+            <ArrowUp className="mr-1.5 h-4 w-4" />
+            Send
           </Button>
         )}
       </div>
 
-      <p className="mx-auto mt-1.5 max-w-3xl text-center text-[10px] text-muted-foreground/50">
+      <p className="mx-auto mt-2 max-w-4xl text-center text-[10px] text-muted-foreground/60">
         AI agents may make mistakes. Always verify critical data.
       </p>
     </form>
