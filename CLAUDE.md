@@ -77,6 +77,7 @@ The same protocol applies to every future agent session to avoid ad-hoc implemen
 
 For architecture, conventions, workflows, and reference details, see:
 - `/docs/claude/architecture.md` — Tech stack, agents, data model, automation, local API
+- `/docs/claude/backend.md` — FastAPI gateway, endpoint inventory, Docker Compose, DB pools
 - `/docs/claude/conventions.md` — Code style, naming, patterns
 - `/docs/claude/workflows.md` — Agent tool wiring, event dispatch, property DB search, Vercel deploy
 - `/docs/claude/reference.md` — Build commands, env vars, CI/CD, gotchas

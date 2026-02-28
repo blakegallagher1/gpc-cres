@@ -259,7 +259,7 @@ export class PropertyIntelligenceStore {
     }
 
     // Upsert to Qdrant
-    await fetch(
+    const upsertRes = await fetch(
       `${this.qdrantUrl}/collections/${encodeURIComponent(config.qdrant.collections.propertyIntelligence)}/points`,
       {
         method: "PUT",
@@ -290,6 +290,10 @@ export class PropertyIntelligenceStore {
         }),
       }
     );
+
+    if (!upsertRes.ok) {
+      throw new Error(`Qdrant upsert failed: ${upsertRes.status}`);
+    }
 
     return pointId;
   }

@@ -1,6 +1,6 @@
 # Backend: Local Property DB + FastAPI Gateway
 
-Last synced with `infra/local-api/main.py`: 2026-02-22
+Last synced with `infra/local-api/main.py`: 2026-02-28
 
 ## Architecture (verified 2026-02-22)
 
@@ -111,6 +111,7 @@ All screening endpoints: `POST`, auth required, body `{parcel_id}`, resolve parc
 | `/tools/screen.traffic` | `api_screen_traffic(uuid, radius)` | `radius_miles` (default 0.5) |
 | `/tools/screen.ldeq` | `api_screen_ldeq(uuid, radius)` | `radius_miles` (default 1.0) |
 | `/tools/screen.full` | `api_screen_full(uuid)` | — (runs all 6 screens) |
+| `/api/screening/zoning` | Zoning district lookup | `parcel_id` |
 
 ## Vercel Integration
 

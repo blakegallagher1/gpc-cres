@@ -11,7 +11,7 @@ pnpm build                   # Build all packages + apps
 pnpm dev                     # Dev mode (all packages parallel)
 pnpm typecheck               # Type-check all packages
 pnpm lint                    # Lint all packages
-pnpm test                    # Test all packages (vitest + jest in apps/web)
+pnpm test                    # Test all packages (vitest)
 
 # Database (Prisma)
 pnpm db:migrate              # Run migrations (dev)
@@ -51,8 +51,11 @@ TEMPORAL_ADDRESS, TEMPORAL_NAMESPACE, TEMPORAL_TASK_QUEUE
 ```
 NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY,
 OPENAI_API_KEY, ALLOWED_LOGIN_EMAILS,
-LOCAL_API_URL, LOCAL_API_KEY, CRON_SECRET,
-SOCRATA_BASE_URL, SOCRATA_APP_TOKEN, GOOGLE_MAPS_API_KEY
+LOCAL_API_URL, LOCAL_API_KEY, CRON_SECRET, GATEWAY_SERVICE_USER_ID,
+QDRANT_URL,
+SOCRATA_BASE_URL, SOCRATA_APP_TOKEN, GOOGLE_MAPS_API_KEY,
+NEXT_PUBLIC_SENTRY_DSN, SENTRY_DSN, SENTRY_AGENTS_DSN,
+AGENT_SESSION_IDLE_TIMEOUT_MS, AGENT_SESSION_MAX_DURATION_MS
 ```
 
 **Note:** `LOCAL_API_URL` can point to either subdomain depending on usage context:

@@ -8,7 +8,7 @@
 | UI | React + shadcn/ui + Radix + Tailwind | 19.0.0 |
 | State | Zustand | 4.5.5 |
 | Data Fetching | SWR | 2.4.0 |
-| Agent SDK | @openai/agents (TypeScript) | 0.1.0 |
+| Agent SDK | @openai/agents (TypeScript) | 0.4.15 |
 | ORM | Prisma | 6.4.1 |
 | Database | PostgreSQL via Supabase | 16 |
 | Auth | Supabase Auth (Google OAuth + email) | 2.93.3 |
@@ -33,7 +33,7 @@ entitlement-os/
 │   └── worker/              # Temporal worker (parked for v2)
 ├── packages/
 │   ├── db/                  # Prisma schema, client, migrations, seed
-│   ├── openai/              # 13 agents + ~26 tools + retry/response utils
+│   ├── openai/              # 13 agents + ~28 tools + retry/response utils
 │   ├── shared/              # Zod schemas, enums, JSON schema utils
 │   ├── evidence/            # URL snapshot, text extraction, hash comparison
 │   └── artifacts/           # PDF + PPTX generation via Playwright + pptxgenjs

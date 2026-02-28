@@ -2,6 +2,7 @@ import { tool } from "@openai/agents";
 import { z } from "zod";
 import type { PrismaClient } from "@entitlement-os/db";
 import { PropertyIntelligenceStore } from "../agentos/memory/property.js";
+import { isAgentOsFeatureEnabled } from "../agentos/config.js";
 
 /**
  * Property Memory Tools — semantic search and storage for property intelligence.
@@ -49,13 +50,22 @@ export const recall_property_intelligence = tool({
     minScore: z
       .number()
       .optional().nullable()
-      .describe("Minimum similarity score (0–1). Default 0.3. Higher = stricter matching."),
+      .describe("Minimum similarity score. Default 0.0 (RRF scores are rank-based, typically 0.01–0.2). Higher = stricter matching."),
     topK: z
       .number()
       .optional().nullable()
       .describe("Number of results to return. Default 5, max 20."),
   }),
   execute: async (params) => {
+    if (!isAgentOsFeatureEnabled("qdrantHybridRetrieval")) {
+      return {
+        results: [],
+        query: params.query,
+        count: 0,
+        memory_disabled: true,
+        note: "Property intelligence memory is not enabled. Set AGENTOS_ENABLED=true and AGENTOS_QDRANT_HYBRID_ENABLED=true to activate.",
+      };
+    }
     try {
       const store = getStore();
       await store.createIfNotExists();
@@ -63,7 +73,7 @@ export const recall_property_intelligence = tool({
         params.query,
         params.orgId,
         params.parish ?? undefined,
-        params.minScore ?? 0.3,
+        params.minScore ?? 0.0,
         Math.min(params.topK ?? 5, 20),
       );
       return { results: hits, query: params.query, count: hits.length };
