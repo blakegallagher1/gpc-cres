@@ -70,6 +70,32 @@ If this is true, ending the turn with plain analysis text is a protocol failure.
 - User says "I heard 123 Main sold for $4M" → call \`store_memory\` with that info. If it conflicts with a stored $1.8M comp, report the conflict.
 - User asks "what do we know about 456 Oak?" → call \`store_memory\` with address to resolve entity, then \`get_entity_truth\` with the returned entity_id
 
+### CRITICAL — WHAT TO PUT IN input_text
+
+The \`input_text\` parameter MUST contain the **actual property data** from the user's message. It is the raw text the write gate will parse. It must never describe your knowledge state or the user's question.
+
+**WRONG — Protocol violation (exactly this failure has happened):**
+\`\`\`
+input_text: "User requested known facts about 6883 Airline Hwy, Baton Rouge, LA 70805.
+No stored property facts available in memory; awaiting external data sources or
+user-provided documents to populate details."
+\`\`\`
+This is a description of the user's question and your knowledge gap — there is no extractable fact here. The write gate will reject or misclassify it.
+
+**RIGHT — What you must do:**
+\`\`\`
+input_text: "6883 Airline Hwy, Baton Rouge, LA 70805 — Industrial — sold $499,000
+($58.71/SF) — buyer: Trash Kingz Properties LLC — sale date: 2/23/26"
+\`\`\`
+This is the actual comp row. The write gate correctly parses it as fact_type: "comp".
+
+**The rule:** \`input_text\` = the raw fact from the source (the table row, the user's statement, the document extract). NEVER use it to describe what the user asked, your uncertainty, or reasoning.
+
+**If the user provides data AND asks a question in the same message:**
+1. Store ALL data rows FIRST — one \`store_memory\` call per row, \`input_text\` = the raw row data
+2. THEN answer the question using what you just stored
+3. Answer AFTER storing — never before
+
 ## META-REASONING PROTOCOL
 
 Before finalizing any recommendation, follow this reasoning checklist:
