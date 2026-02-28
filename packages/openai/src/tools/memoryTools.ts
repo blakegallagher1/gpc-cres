@@ -101,8 +101,8 @@ export const record_memory_event = tool({
       .enum(sourceTypeValues)
       .describe("Where this fact originated"),
     payload: z
-      .record(z.string(), z.unknown())
-      .describe("The fact data as key-value pairs"),
+      .string()
+      .describe("JSON-encoded object of fact data as key-value pairs, e.g. '{\"zone\":\"A4\",\"max_density\":12}'"),
     deal_id: z
       .string()
       .nullable()
@@ -131,7 +131,7 @@ export const record_memory_event = tool({
           entityType: params.entity_type ?? "property",
           factType: params.fact_type,
           sourceType: params.source_type,
-          payloadJson: params.payload,
+          payloadJson: typeof params.payload === "string" ? JSON.parse(params.payload) : params.payload,
           status: params.status ?? "attempted",
           dealId: params.deal_id,
           toolName: "record_memory_event",
