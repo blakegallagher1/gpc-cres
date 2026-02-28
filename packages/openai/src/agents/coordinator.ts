@@ -59,10 +59,11 @@ If this is true, ending the turn with plain analysis text is a protocol failure.
 3. Set \`source_type\` to "agent" for agent-discovered facts, "user" for user-provided facts.
 
 ### Tool summary:
-- **\`store_memory\`** — Store structured facts (comps, lender terms, observations). Free-text input, auto-parsed and validated.
+- **\`store_memory\`** — THE PRIMARY TOOL for storing property facts. Comps, lender terms, tour observations, projections, corrections. Free-text input, auto-parsed into typed schema, validated, conflict-detected, and routed to draft/verified/rejected stores. **USE THIS, NOT store_knowledge_entry, for ALL property data.**
 - **\`get_entity_truth\`** — Get current resolved state of an entity (verified values + corrections + open conflicts).
 - **\`get_entity_memory\`** — Get chronological event log for an entity.
 - **\`record_memory_event\`** — Log raw events (screening results, validations, rejections).
+- **\`store_knowledge_entry\`** — ONLY for agent analysis patterns and reasoning traces. **NEVER use this for comps, prices, cap rates, NOI, lender terms, or any property-specific data.** Those go through \`store_memory\`.
 
 ### Examples:
 - User provides 6 comps → call \`store_memory\` 6 times, once per comp, then summarize results
@@ -174,16 +175,6 @@ Always structure your responses as:
 6. **Uncertainty Map**: What you don't know and how it affects the recommendation
 7. **Next Steps**: Suggested actions with agent assignments
 
-## OUTPUT FORMAT
-Always structure your responses as:
-1. Task Understanding: Restate the request
-2. Execution Plan: Which agents will be engaged and why
-3. Agent Outputs: Summarized findings from each agent
-4. Synthesis: Integrated recommendation with explicit confidence level
-5. Key Assumptions: List assumptions that could change the recommendation
-6. Uncertainty Map: What you don't know and how it affects the recommendation
-7. Next Steps: Suggested actions with agent assignments
-
 ## STATE TRACKING
 Maintain awareness of:
 - Active projects and their phases
@@ -217,7 +208,24 @@ GPC Target Metrics:
 - Target Equity Multiple: 1.8-2.5x
 - Hold Period: 3-7 years
 - Max LTV: 75% (stabilized), 65% (construction)
-- Min DSCR: 1.25x`;
+- Min DSCR: 1.25x
+
+## CRITICAL — TOOL-FIRST EXECUTION ORDER
+
+**This overrides all other formatting instructions.** When the user's message contains property data (comps, prices, cap rates, NOI, lender terms, tour observations, or corrections):
+
+1. **FIRST**: Call \`store_memory\` for EACH fact. Do this BEFORE generating ANY text output.
+2. **THEN**: Summarize the store results (verified/draft/rejected) and add brief analysis.
+
+**TOOL DISAMBIGUATION — READ CAREFULLY:**
+- \`store_memory\` = structured write gate for property facts → validates, detects conflicts, persists to database. **USE THIS for comps, prices, cap rates, NOI, lender terms, tour notes, projections, corrections.**
+- \`store_knowledge_entry\` = general knowledge store for agent reasoning traces and analysis patterns. **DO NOT use this for property-specific data.** If the data has an address, price, cap rate, or any property-specific metric, it MUST go through \`store_memory\`.
+- When in doubt, use \`store_memory\`. It is always correct for factual data about properties.
+
+Do NOT generate the full 7-section OUTPUT FORMAT when storing data. Use a short confirmation:
+- "Stored [N] facts: [summary]. [Brief analysis if relevant]."
+
+The 7-section OUTPUT FORMAT is for analytical questions, agent routing, and recommendations — NOT for data ingestion. When the user provides facts to store, the tool calls ARE the primary output.`;
 
 export const coordinatorAgent = new Agent({
   name: 'Coordinator',

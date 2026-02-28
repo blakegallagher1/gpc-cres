@@ -130,9 +130,23 @@ import {
   get_entitlement_feature_primitives,
   get_entitlement_intelligence_kpis,
 
+  // Document tools
+  query_document_extractions,
+  get_document_extraction_summary,
+  compare_document_vs_deal_terms,
+
   // Property memory tools
   recall_property_intelligence,
   store_property_finding,
+
+  // Memory tools (Phase 1 write gate)
+  record_memory_event,
+  get_entity_memory,
+  store_memory,
+  get_entity_truth,
+
+  // Batch screening
+  screenBatch,
 } from "@entitlement-os/openai";
 
 type ToolExecuteFn = (
@@ -158,7 +172,10 @@ function wrapTool(agentTool: {
     }
     // Inject orgId into args — most tools need it for multi-tenant scoping
     const enrichedArgs = { ...args, orgId: context.orgId };
-    return agentTool.invoke({}, JSON.stringify(enrichedArgs), {});
+    // Pass auth context as RunContext so memory tools can extract orgId/userId
+    // for their internal HTTP calls (buildMemoryToolHeaders expects { context: { orgId, userId } })
+    const runContext = { context: { orgId: context.orgId, userId: context.userId } };
+    return agentTool.invoke(runContext, JSON.stringify(enrichedArgs), {});
   };
 }
 
@@ -250,6 +267,14 @@ const TOOLS: Array<{
   get_entitlement_intelligence_kpis,
   recall_property_intelligence,
   store_property_finding,
+  query_document_extractions,
+  get_document_extraction_summary,
+  compare_document_vs_deal_terms,
+  record_memory_event,
+  get_entity_memory,
+  store_memory,
+  get_entity_truth,
+  screenBatch,
 ] as Array<{
   name?: string;
   invoke?: (runContext: unknown, input: string, details?: unknown) => Promise<unknown>;

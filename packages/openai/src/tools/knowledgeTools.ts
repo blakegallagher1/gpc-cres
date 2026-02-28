@@ -86,10 +86,10 @@ export const search_knowledge_base = tool({
 export const store_knowledge_entry = tool({
   name: "store_knowledge_entry",
   description:
-    "Store a learning, analysis conclusion, or reasoning trace in the knowledge base " +
-    "for future reference. Use this when you discover a pattern, reach an important " +
-    "conclusion, or learn something that would be valuable for future deal analyses. " +
-    "This builds the firm's institutional memory over time.",
+    "Store an agent analysis pattern, reasoning trace, or general conclusion in the knowledge base. " +
+    "NOT for property-specific facts (comps, prices, cap rates, NOI, lender terms, tour notes) — " +
+    "use store_memory for those. This tool is for meta-level insights, analytical patterns, and " +
+    "reasoning chains that inform future deal analyses.",
   parameters: z.object({
     content_type: z
       .enum([

@@ -791,6 +791,259 @@
   },
   {
     "type": "function",
+    "name": "record_memory_event",
+    "description": "Record a memory event (fact discovery, validation, or rejection) for a property or entity. Every screening result, user confirmation, or data conflict should be logged as a memory event. Provide either an address or parcel_id to identify the entity.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "address": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Street address of the property (used for entity resolution if no entity_id)"
+        },
+        "parcel_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Parcel ID from property database"
+        },
+        "entity_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Entity type: property, market, lender, contact. Defaults to property"
+        },
+        "fact_type": {
+          "type": "string",
+          "enum": [
+            "zoning",
+            "flood_zone",
+            "environmental",
+            "traffic",
+            "ownership",
+            "valuation",
+            "lease_terms",
+            "entitlement",
+            "market_comp",
+            "contact",
+            "general"
+          ],
+          "description": "Category of fact being recorded"
+        },
+        "source_type": {
+          "type": "string",
+          "enum": [
+            "agent",
+            "user",
+            "system",
+            "external_api",
+            "document",
+            "cron"
+          ],
+          "description": "Where this fact originated"
+        },
+        "payload": {
+          "type": "string",
+          "description": "JSON-encoded object of fact data as key-value pairs, e.g. '{\"zone\":\"A4\",\"max_density\":12}'"
+        },
+        "deal_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Associated deal ID if applicable"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "attempted",
+                "accepted",
+                "rejected",
+                "conflicted"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Event status. Defaults to attempted"
+        }
+      },
+      "required": [
+        "address",
+        "parcel_id",
+        "entity_type",
+        "fact_type",
+        "source_type",
+        "payload",
+        "deal_id",
+        "status"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "get_entity_memory",
+    "description": "Retrieve the memory event history for an entity (property, market, lender, etc). Returns chronological events showing what the system has discovered, validated, or rejected. Use this before screening a property to avoid redundant work.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "entity_id": {
+          "type": "string",
+          "description": "The internal entity ID to look up memory for"
+        },
+        "fact_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Filter by fact type (zoning, flood_zone, environmental, etc)"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Filter by status (attempted, accepted, rejected, conflicted)"
+        },
+        "limit": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Max number of events to return. Default 50, max 100"
+        }
+      },
+      "required": [
+        "entity_id",
+        "fact_type",
+        "status",
+        "limit"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "store_memory",
+    "description": "Store a structured memory about a property or entity. Accepts free-text input which is parsed into a typed schema (comp, lender_term, tour_observation, projection, correction). The write gate validates the input, detects conflicts with existing verified data, and routes to draft (conflicting), verified (clean), or rejected (invalid) stores. Provide at least one of address, parcel_id, or entity_id to identify the entity.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "input_text": {
+          "type": "string",
+          "description": "Free-text description of the fact to store (e.g., '123 Main sold for $2.5M, 6.5% cap, NOI $162,500')"
+        },
+        "address": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Street address of the property"
+        },
+        "parcel_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Parcel ID from property database"
+        },
+        "entity_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Internal entity ID if already known"
+        },
+        "entity_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Entity type: property, market, lender, contact. Defaults to property"
+        }
+      },
+      "required": [
+        "input_text",
+        "address",
+        "parcel_id",
+        "entity_id",
+        "entity_type"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "get_entity_truth",
+    "description": "Get the current truth view for an entity. Returns the resolved state of all verified memories with corrections applied, plus any open conflicts from draft records. Use this to understand the current known state of a property before making decisions.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "entity_id": {
+          "type": "string",
+          "description": "The internal entity ID to get the truth view for"
+        }
+      },
+      "required": [
+        "entity_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
     "name": "search_knowledge_base",
     "description": "Search the firm's historical knowledge base for relevant past deals, analyses, and learnings using semantic similarity. Use this when analyzing a new deal to find patterns from similar past deals, check for precedent in entitlement decisions, reference market analyses, or recall past agent findings. Results include the matched text, source type, similarity score, and temporal relevance. IMPORTANT: Always search the knowledge base before making recommendations to check for relevant precedent and avoid repeating past mistakes.",
     "parameters": {
@@ -873,12 +1126,12 @@
                   "description": "Current deal status for stage relevance."
                 }
               },
+              "additionalProperties": false,
               "required": [
                 "parish",
                 "sku_type",
                 "deal_status"
-              ],
-              "additionalProperties": false
+              ]
             },
             {
               "type": "null"
@@ -916,7 +1169,7 @@
   {
     "type": "function",
     "name": "store_knowledge_entry",
-    "description": "Store a learning, analysis conclusion, or reasoning trace in the knowledge base for future reference. Use this when you discover a pattern, reach an important conclusion, or learn something that would be valuable for future deal analyses. This builds the firm's institutional memory over time.",
+    "description": "Store an agent analysis pattern, reasoning trace, or general conclusion in the knowledge base. NOT for property-specific facts (comps, prices, cap rates, NOI, lender terms, tour notes) — use store_memory for those. This tool is for meta-level insights, analytical patterns, and reasoning chains that inform future deal analyses.",
     "parameters": {
       "type": "object",
       "properties": {
@@ -1744,13 +1997,13 @@
               ]
             }
           },
+          "additionalProperties": false,
           "required": [
             "acreage",
             "proposed_height",
             "parking_spaces",
             "far"
-          ],
-          "additionalProperties": false
+          ]
         }
       },
       "required": [
@@ -3151,6 +3404,7 @@
           "description": "Max results to return (default 10, max 100)."
         }
       },
+      "additionalProperties": false,
       "required": [
         "zoning",
         "zip",
@@ -3160,8 +3414,7 @@
         "land_use",
         "sort",
         "limit"
-      ],
-      "additionalProperties": false
+      ]
     }
   },
   {

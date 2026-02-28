@@ -251,6 +251,10 @@ export const coordinatorTools = [
   getParcelDetails,
   updateParcel,
   generate_artifact,
+  record_memory_event,
+  get_entity_memory,
+  store_memory,
+  get_entity_truth,
   search_knowledge_base,
   store_knowledge_entry,
   get_shared_context,
@@ -291,10 +295,6 @@ export const coordinatorTools = [
   query_document_extractions,
   get_document_extraction_summary,
   compare_document_vs_deal_terms,
-  record_memory_event,
-  get_entity_memory,
-  store_memory,
-  get_entity_truth,
 ];
 
 /** Tools available to the Legal / Entitlements agent. */
