@@ -212,6 +212,7 @@ type ToolEventState = {
   missingEvidence: Set<string>;
   toolErrorMessages: string[];
   hadOutputText: boolean;
+  didEmitTextDelta: boolean;
   memoryConflictSummaries: string[];
 };
 
@@ -1261,6 +1262,7 @@ export async function executeAgentWorkflow(
     missingEvidence: new Set(),
     toolErrorMessages: [],
     hadOutputText: false,
+    didEmitTextDelta: false,
     memoryConflictSummaries: [],
   };
   const trajectoryRecorder = createTrajectoryRecorder();
@@ -1511,6 +1513,7 @@ export async function executeAgentWorkflow(
     const runAttempt = async (
       attemptInput: AgentRunInput,
       label: string,
+      streamText: boolean,
     ): Promise<AgentRunAttemptState> => {
       let attemptResult: unknown = null;
       let finalOutputRaw: unknown = undefined;
@@ -1590,7 +1593,10 @@ export async function executeAgentWorkflow(
               if (delta) {
                 attemptText += delta;
                 state.hadOutputText = true;
-                emit({ type: "text_delta", content: delta });
+                if (streamText) {
+                  state.didEmitTextDelta = true;
+                  emit({ type: "text_delta", content: delta });
+                }
               }
             }
             continue;
@@ -1705,7 +1711,10 @@ export async function executeAgentWorkflow(
         if (finalOutputText.length > 0) {
           attemptText = finalOutputText;
           state.hadOutputText = true;
-          emit({ type: "text_delta", content: finalOutputText });
+          if (streamText) {
+            state.didEmitTextDelta = true;
+            emit({ type: "text_delta", content: finalOutputText });
+          }
         }
       }
 
@@ -1721,7 +1730,10 @@ export async function executeAgentWorkflow(
       }
 
       if (!state.hadOutputText && attemptText.length > 0) {
-        emit({ type: "text_delta", content: attemptText });
+        if (streamText) {
+          state.didEmitTextDelta = true;
+          emit({ type: "text_delta", content: attemptText });
+        }
       }
 
       if (
@@ -1766,7 +1778,8 @@ export async function executeAgentWorkflow(
       };
     };
 
-    const primaryAttempt = await runAttempt(runInput, "primary");
+    const deferTextUntilFinal = shouldRequireStoreMemory(firstUserInput);
+    const primaryAttempt = await runAttempt(runInput, "primary", !deferTextUntilFinal);
     agentRunResult = primaryAttempt.agentRunResult;
     let finalOutputRaw = primaryAttempt.finalOutputRaw;
     finalText = primaryAttempt.finalText;
@@ -1793,6 +1806,7 @@ export async function executeAgentWorkflow(
             userMessage(reminder),
           ],
           "memory-enforcement",
+          false,
         );
         if (state.toolsInvoked.has("store_memory")) {
           agentRunResult = enforcementResult.agentRunResult;
@@ -1834,6 +1848,7 @@ export async function executeAgentWorkflow(
             userMessage(reminder),
           ],
           "conflict-enforcement",
+          false,
         );
         agentRunResult = enforcementResult.agentRunResult;
         finalOutputRaw = enforcementResult.finalOutputRaw;
@@ -1846,7 +1861,8 @@ export async function executeAgentWorkflow(
       finalOutputRaw = finalText;
     }
 
-    if (!state.hadOutputText && finalText.length > 0) {
+    if ((!state.didEmitTextDelta || deferTextUntilFinal) && finalText.length > 0) {
+      state.didEmitTextDelta = true;
       emit({ type: "text_delta", content: finalText });
     }
   } catch (error) {

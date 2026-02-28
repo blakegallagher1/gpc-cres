@@ -541,6 +541,9 @@ describe("executeAgentWorkflow", () => {
       user: ReturnType<typeof vi.fn>;
       assistant: ReturnType<typeof vi.fn>;
     };
+    const enforcedReply =
+      "I found a conflict with prior stored data for this address. Please confirm which sale price is correct. I stored the new claim as draft pending your confirmation.";
+    const events: Array<{ type: string; content?: string }> = [];
 
     prisma.run.findUnique.mockResolvedValue(null);
     prisma.run.upsert.mockResolvedValue({
@@ -577,7 +580,7 @@ describe("executeAgentWorkflow", () => {
       ]),
     );
     (run as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      finalOutput: JSON.stringify(VALID_REPORT),
+      finalOutput: enforcedReply,
       lastResponseId: "openai-response-id-reminder",
     });
     prisma.run.update.mockResolvedValue({ status: "succeeded" });
@@ -590,6 +593,11 @@ describe("executeAgentWorkflow", () => {
       input: [{ role: "user", content: "6150 Hwy 73 sold for $3,000,000 on 2/23/26." }],
       runType: "ENRICHMENT",
       correlationId: "corr-local",
+      onEvent: (event) => {
+        if (event.type === "text_delta") {
+          events.push({ type: event.type, content: event.content });
+        }
+      },
     });
 
     expect(run).toHaveBeenCalledTimes(2);
@@ -601,5 +609,7 @@ describe("executeAgentWorkflow", () => {
         expect.stringContaining("stored memory as draft because of a conflict"),
       ]),
     );
+    expect(events.map((event) => event.content).join(" ")).toContain(enforcedReply);
+    expect(events.map((event) => event.content).join(" ")).not.toContain("Thanks, got it.");
   });
 });
