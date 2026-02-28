@@ -53,10 +53,43 @@ const MEMORY_TOOL_NAMES = new Set([
   "record_memory_event",
 ]);
 const PROPERTY_DATA_HINT_RE = /\b(?:comp|comps|sale|sales|sold|sold for|price|prices|noi|cap rate|cap-rate|lender|tour|correction|corrections|listing|offer|asking|bought|purchased|rent|rental|valuation|cap|value)\b/i;
-const PROPERTY_ADDRESS_RE = /\b\d{1,6}\s+[a-z0-9.'"\-]+\s+(?:st|street|ave|avenue|blvd|boulevard|rd|road|dr|drive|ln|lane|ct|court|pl|place|pkwy|parkway|hwy|highway|trl|trail|way|terr|terrace|cir|circle|ct\.|st\.|ave\.|blvd\.|rd\.|dr\.|ln\.|pl\.|hwy\.)\b/i;
+const PROPERTY_ADDRESS_RE = /\b\d{1,6}\s+[a-z0-9.'"\-]+(?:\s+[a-z0-9.'"\-]+){0,6}\s+(?:st|street|ave|avenue|blvd|boulevard|rd|road|dr|drive|ln|lane|ct|court|pl|place|pkwy|parkway|hwy|highway|trl|trail|way|terr|terrace|cir|circle|ct\.|st\.|ave\.|blvd\.|rd\.|dr\.|ln\.|pl\.|hwy\.)\b/i;
 const PROPERTY_NUMERIC_FACT_RE = /\$[\d][\d,.]*\s*(?:[kKmM]|million|thousand)?\b|\b\d+(?:\.\d+)?\s*%/;
 const PROPERTY_DATA_TABLE_RE = /\n\s*(?:\||\*|[-+•])[\s\S]*?(?:\$|%|\b\d+\s*(?:acres?|units?|b\s*dr))[\s\S]*?(?:\n|$)/i;
 const PROPERTY_DATA_HEADER_RE = /\b(?:here are|here's|input|ingest|storing|table of)\b.*\b(?:comps?|sales?|properties?|parcels?)\b/i;
+const PROPERTY_RECALL_QUERY_RE =
+  /\b(?:tell me about|what do we know about|what do you know about|anything on|anything about|details on|details about|history on|history about|profile for|profile on|what's on file for)\b/i;
+const ADDRESS_SIGNATURE_RE =
+  /\b(\d{1,6})\s+([a-z0-9.'"\-\s]+?)\s+(street|st|avenue|ave|boulevard|blvd|road|rd|drive|dr|lane|ln|court|ct|place|pl|parkway|pkwy|highway|hwy|trail|trl|way|terrace|terr|circle|cir)\b/i;
+const ADDRESS_SUFFIX_CANONICAL: Record<string, string> = {
+  st: "street",
+  street: "street",
+  ave: "avenue",
+  avenue: "avenue",
+  blvd: "boulevard",
+  boulevard: "boulevard",
+  rd: "road",
+  road: "road",
+  dr: "drive",
+  drive: "drive",
+  ln: "lane",
+  lane: "lane",
+  ct: "court",
+  court: "court",
+  pl: "place",
+  place: "place",
+  pkwy: "parkway",
+  parkway: "parkway",
+  hwy: "highway",
+  highway: "highway",
+  trl: "trail",
+  trail: "trail",
+  way: "way",
+  terr: "terrace",
+  terrace: "terrace",
+  cir: "circle",
+  circle: "circle",
+};
 
 function shouldRequireStoreMemory(firstUserInput: unknown): boolean {
   if (typeof firstUserInput !== "string") return false;
@@ -68,6 +101,47 @@ function shouldRequireStoreMemory(firstUserInput: unknown): boolean {
   const hasDataTable = PROPERTY_DATA_TABLE_RE.test(text);
   const hasDataHeader = PROPERTY_DATA_HEADER_RE.test(text.toLowerCase());
   return hasDataHeader || ((hasPropertyDataHint && (hasAddress || hasNumericFact || hasDataTable)));
+}
+
+function shouldRequireAddressMemoryLookup(firstUserInput: unknown): boolean {
+  if (typeof firstUserInput !== "string") return false;
+  const text = firstUserInput.trim();
+  if (text.length < 8) return false;
+  if (shouldRequireStoreMemory(text)) return false;
+  return PROPERTY_ADDRESS_RE.test(text) && PROPERTY_RECALL_QUERY_RE.test(text);
+}
+
+function normalizeAddressComparable(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[.,]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractAddressSignature(address: string): string | null {
+  const normalized = normalizeAddressComparable(address);
+  const match = normalized.match(ADDRESS_SIGNATURE_RE);
+  if (!match) return null;
+  const houseNumber = match[1]?.trim();
+  const streetName = match[2]?.replace(/['"]/g, " ").replace(/\s+/g, " ").trim();
+  const suffixRaw = match[3]?.replace(/\./g, "").trim();
+  const suffix = suffixRaw ? ADDRESS_SUFFIX_CANONICAL[suffixRaw] : undefined;
+  if (!houseNumber || !streetName || !suffix) return null;
+  return `${houseNumber} ${streetName} ${suffix}`;
+}
+
+function isMaterialAddressMismatch(requestedAddress: string, returnedAddress: string): boolean {
+  const requestedSignature = extractAddressSignature(requestedAddress);
+  const returnedSignature = extractAddressSignature(returnedAddress);
+  if (requestedSignature && returnedSignature) {
+    return requestedSignature !== returnedSignature;
+  }
+
+  const requested = normalizeAddressComparable(requestedAddress);
+  const returned = normalizeAddressComparable(returnedAddress);
+  if (requested.length === 0 || returned.length === 0) return false;
+  return !requested.includes(returned) && !returned.includes(requested);
 }
 
 function normalizeOpenAiConversationId(value: unknown): string | undefined {
@@ -214,6 +288,7 @@ type ToolEventState = {
   hadOutputText: boolean;
   didEmitTextDelta: boolean;
   memoryConflictSummaries: string[];
+  parcelAddressMismatchSummaries: string[];
 };
 
 type AgentRunAttemptState = {
@@ -703,6 +778,7 @@ function collectToolOutputSignals(
   toolName: string,
   output: unknown,
   state: ToolEventState,
+  args?: Record<string, unknown>,
 ) {
   let parsed: unknown = output;
   if (typeof output === "string") {
@@ -798,6 +874,28 @@ function collectToolOutputSignals(
       state.memoryConflictSummaries.push(summaryParts.join(" | "));
     }
   }
+
+  if (toolName === "search_parcels") {
+    const requestedAddress =
+      args && typeof args.search_text === "string"
+        ? args.search_text.trim()
+        : "";
+    const parcels = Array.isArray(asRecord.parcels) ? asRecord.parcels : [];
+    const firstParcel = parcels[0];
+    const returnedAddress =
+      isRecord(firstParcel) && typeof firstParcel.address === "string"
+        ? firstParcel.address.trim()
+        : "";
+    if (
+      requestedAddress.length > 0 &&
+      returnedAddress.length > 0 &&
+      isMaterialAddressMismatch(requestedAddress, returnedAddress)
+    ) {
+      state.parcelAddressMismatchSummaries.push(
+        `requested=${requestedAddress} | returned=${returnedAddress}`,
+      );
+    }
+  }
 }
 
 function finalizeMissingEvidence(state: ToolEventState): string[] {
@@ -856,6 +954,34 @@ function shouldRequireConflictConfirmation(text: string, state: ToolEventState):
     /confirm|which (?:value|price).*(?:correct)|reconcile|please verify|verify which/i.test(normalized);
   const hasConflictLanguage = /conflict|draft|stored as draft/i.test(normalized);
   return !(hasConfirmationLanguage && hasConflictLanguage);
+}
+
+function shouldRequireParcelMismatchGuardrail(text: string, state: ToolEventState): boolean {
+  if (state.parcelAddressMismatchSummaries.length === 0) return false;
+  const normalized = normalizeAddressComparable(text);
+  const hasNearBySubstitutionLanguage = /\b(?:closest|nearby|adjacent|same vicinity)\b/i.test(
+    text,
+  );
+  const citesMismatchedAddress = state.parcelAddressMismatchSummaries.some((summary) => {
+    const returnedRaw = summary.split("|").find((part) => part.includes("returned="));
+    const returnedAddress = returnedRaw?.replace(/^.*returned=/, "").trim();
+    if (!returnedAddress || returnedAddress.length === 0) return false;
+    const returnedComparable = normalizeAddressComparable(returnedAddress);
+    const returnedSignature = extractAddressSignature(returnedAddress);
+    if (returnedSignature && normalized.includes(normalizeAddressComparable(returnedSignature))) {
+      return true;
+    }
+    return normalized.includes(returnedComparable);
+  });
+  return hasNearBySubstitutionLanguage || citesMismatchedAddress;
+}
+
+function hasAddressMemoryLookup(state: ToolEventState): boolean {
+  return (
+    state.toolsInvoked.has("store_memory") ||
+    state.toolsInvoked.has("get_entity_truth") ||
+    state.toolsInvoked.has("get_entity_memory")
+  );
 }
 
 function buildVerificationSteps(missingEvidence: string[]): string[] {
@@ -1264,6 +1390,7 @@ export async function executeAgentWorkflow(
     hadOutputText: false,
     didEmitTextDelta: false,
     memoryConflictSummaries: [],
+    parcelAddressMismatchSummaries: [],
   };
   const trajectoryRecorder = createTrajectoryRecorder();
 
@@ -1675,7 +1802,7 @@ export async function executeAgentWorkflow(
                 status: "completed",
                 toolCallId,
               });
-              collectToolOutputSignals(toolName, output, state);
+              collectToolOutputSignals(toolName, output, state, args);
               await persistCheckpoint({
                 kind: "tool_completion",
                 toolName,
@@ -1778,7 +1905,9 @@ export async function executeAgentWorkflow(
       };
     };
 
-    const deferTextUntilFinal = shouldRequireStoreMemory(firstUserInput);
+    const requireStoreMemory = shouldRequireStoreMemory(firstUserInput);
+    const requireAddressMemoryLookup = shouldRequireAddressMemoryLookup(firstUserInput);
+    const deferTextUntilFinal = requireStoreMemory || requireAddressMemoryLookup;
     const primaryAttempt = await runAttempt(runInput, "primary", !deferTextUntilFinal);
     agentRunResult = primaryAttempt.agentRunResult;
     let finalOutputRaw = primaryAttempt.finalOutputRaw;
@@ -1790,7 +1919,7 @@ export async function executeAgentWorkflow(
       let enforcementAttempt = 0;
       let enforcementAttempted = false;
       while (
-        shouldRequireStoreMemory(firstUserInput) &&
+        requireStoreMemory &&
         !state.toolsInvoked.has("store_memory") &&
         enforcementAttempt < MEMORY_ENFORCEMENT_MAX_RETRIES
       ) {
@@ -1829,6 +1958,50 @@ export async function executeAgentWorkflow(
         );
       }
 
+      let lookupEnforcementAttempt = 0;
+      let lookupEnforcementAttempted = false;
+      while (
+        requireAddressMemoryLookup &&
+        !hasAddressMemoryLookup(state) &&
+        lookupEnforcementAttempt < MEMORY_ENFORCEMENT_MAX_RETRIES
+      ) {
+        lookupEnforcementAttempt += 1;
+        lookupEnforcementAttempted = true;
+        const reminder =
+          "The user asked about a specific property address. " +
+          "Before answering, query memory first: call `store_memory` with the address to resolve identity, " +
+          "then call `get_entity_truth` (or `get_entity_memory`) and answer from that memory context. " +
+          "Do not substitute a nearby parcel as if it were the same property.";
+        const enforcementResult = await runAttempt(
+          [
+            userMessage(buildRuntimeClockContextMessage()),
+            ...buildAgentInputItems(params.input),
+            userMessage(reminder),
+          ],
+          "memory-lookup-enforcement",
+          false,
+        );
+        agentRunResult = enforcementResult.agentRunResult;
+        finalOutputRaw = enforcementResult.finalOutputRaw;
+        finalText = enforcementResult.finalText;
+        pendingApprovalState = enforcementResult.pendingApprovalState;
+        if (hasAddressMemoryLookup(state)) {
+          break;
+        }
+        console.warn(
+          `[agent-memory-lookup-enforcement] run=${dbRun.id} did not observe address memory lookup on attempt ${lookupEnforcementAttempt}; retrying=${lookupEnforcementAttempt < MEMORY_ENFORCEMENT_MAX_RETRIES}`,
+        );
+      }
+
+      if (lookupEnforcementAttempted && !hasAddressMemoryLookup(state)) {
+        state.toolErrorMessages.push(
+          "runtime_memory_lookup_enforcement: coordinator failed to query memory for address recall request",
+        );
+        state.missingEvidence.add(
+          "Coordinator did not invoke memory lookup tools for an address recall request after enforcement attempt.",
+        );
+      }
+
       let conflictEnforcementAttempt = 0;
       while (
         !pendingApprovalState &&
@@ -1848,6 +2021,35 @@ export async function executeAgentWorkflow(
             userMessage(reminder),
           ],
           "conflict-enforcement",
+          false,
+        );
+        agentRunResult = enforcementResult.agentRunResult;
+        finalOutputRaw = enforcementResult.finalOutputRaw;
+        finalText = enforcementResult.finalText;
+        pendingApprovalState = enforcementResult.pendingApprovalState;
+      }
+
+      let parcelMismatchEnforcementAttempt = 0;
+      while (
+        !pendingApprovalState &&
+        shouldRequireParcelMismatchGuardrail(finalText, state) &&
+        parcelMismatchEnforcementAttempt < MEMORY_ENFORCEMENT_MAX_RETRIES
+      ) {
+        parcelMismatchEnforcementAttempt += 1;
+        const mismatchSummary =
+          state.parcelAddressMismatchSummaries[0] ?? "address mismatch detected";
+        const reminder =
+          "A parcel search returned a non-exact address match. " +
+          `Mismatch summary: ${mismatchSummary}. ` +
+          "Do NOT present nearby parcel details as the requested property. " +
+          "Explicitly state the address mismatch and ask the user to confirm the exact address or parcel_id.";
+        const enforcementResult = await runAttempt(
+          [
+            userMessage(buildRuntimeClockContextMessage()),
+            ...buildAgentInputItems(params.input),
+            userMessage(reminder),
+          ],
+          "parcel-mismatch-enforcement",
           false,
         );
         agentRunResult = enforcementResult.agentRunResult;
