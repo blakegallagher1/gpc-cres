@@ -612,4 +612,143 @@ describe("executeAgentWorkflow", () => {
     expect(events.map((event) => event.content).join(" ")).toContain(enforcedReply);
     expect(events.map((event) => event.content).join(" ")).not.toContain("Thanks, got it.");
   });
+
+  it("retries with an address-memory reminder when address recall input has no memory lookup calls", async () => {
+    const { prisma } = await vi.importMock("@entitlement-os/db");
+    const openAiAgents = await vi.importMock("@openai/agents");
+    const { run } = openAiAgents as {
+      run: ReturnType<typeof vi.fn>;
+      user: ReturnType<typeof vi.fn>;
+      assistant: ReturnType<typeof vi.fn>;
+    };
+
+    prisma.run.findUnique.mockResolvedValue(null);
+    prisma.run.upsert.mockResolvedValue({
+      id: NORMALIZED_RUN_ID,
+      status: "running",
+      inputHash: "input-hash",
+      outputJson: null,
+      openaiResponseId: null,
+      startedAt: new Date("2025-01-01T00:00:00.000Z"),
+      finishedAt: null,
+    });
+    (run as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      finalOutput: JSON.stringify(VALID_REPORT),
+      lastResponseId: "openai-response-id-primary",
+    });
+    (run as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      finalOutput: JSON.stringify(VALID_REPORT),
+      lastResponseId: "openai-response-id-reminder",
+    });
+    prisma.run.update.mockResolvedValue({ status: "succeeded" });
+
+    await executeAgentWorkflow({
+      orgId: "org-test",
+      userId: "user-test",
+      conversationId: "conversation-test",
+      runId: SOURCE_RUN_ID,
+      input: [{ role: "user", content: "Tell me about 10555 Old Hammond Hwy, Baton Rouge, LA 70816." }],
+      runType: "ENRICHMENT",
+      correlationId: "corr-local",
+    });
+
+    expect(run).toHaveBeenCalledTimes(2);
+    expect((run as ReturnType<typeof vi.fn>).mock.calls[1]?.[1]).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("The user asked about a specific property address"),
+      ]),
+    );
+
+    const updateCall = prisma.run.update.mock.calls[0][0];
+    const outputJson = updateCall.data.outputJson as Record<string, unknown>;
+    expect(outputJson.toolFailures).toEqual(
+      expect.arrayContaining([expect.stringContaining("runtime_memory_lookup_enforcement")]),
+    );
+  });
+
+  it("retries with parcel mismatch guardrail when response substitutes a nearby parcel address", async () => {
+    const { prisma } = await vi.importMock("@entitlement-os/db");
+    const openAiAgents = await vi.importMock("@openai/agents");
+    const { run } = openAiAgents as {
+      run: ReturnType<typeof vi.fn>;
+      user: ReturnType<typeof vi.fn>;
+      assistant: ReturnType<typeof vi.fn>;
+    };
+    const enforcedReply =
+      "I could not find an exact parcel match for 10555 Old Hammond Hwy, Baton Rouge, LA 70816. " +
+      "I will not attribute nearby parcel records to this address. Please confirm the exact parcel_id or address variant.";
+    const events: Array<{ type: string; content?: string }> = [];
+
+    prisma.run.findUnique.mockResolvedValue(null);
+    prisma.run.upsert.mockResolvedValue({
+      id: NORMALIZED_RUN_ID,
+      status: "running",
+      inputHash: "input-hash",
+      outputJson: null,
+      openaiResponseId: null,
+      startedAt: new Date("2025-01-01T00:00:00.000Z"),
+      finishedAt: null,
+    });
+    (run as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      makeAsyncEventStream([
+        {
+          type: "raw_model_stream_event",
+          data: { delta: "The closest adjacent parcel is 10202 Jefferson Hwy." },
+        },
+        {
+          type: "run_item_stream_event",
+          item: {
+            type: "tool_result",
+            name: "get_entity_truth",
+            output: { truth: {} },
+          },
+        },
+        {
+          type: "run_item_stream_event",
+          item: {
+            type: "tool_result",
+            name: "search_parcels",
+            arguments: { search_text: "10555 Old Hammond Hwy, Baton Rouge, LA 70816" },
+            output: {
+              ok: true,
+              parcels: [
+                {
+                  address: "10202 Jefferson Hwy, Ste B-2",
+                },
+              ],
+            },
+          },
+        },
+      ]),
+    );
+    (run as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      finalOutput: enforcedReply,
+      lastResponseId: "openai-response-id-reminder",
+    });
+    prisma.run.update.mockResolvedValue({ status: "succeeded" });
+
+    await executeAgentWorkflow({
+      orgId: "org-test",
+      userId: "user-test",
+      conversationId: "conversation-test",
+      runId: SOURCE_RUN_ID,
+      input: [{ role: "user", content: "Tell me about 10555 Old Hammond Hwy, Baton Rouge, LA 70816." }],
+      runType: "ENRICHMENT",
+      correlationId: "corr-local",
+      onEvent: (event) => {
+        if (event.type === "text_delta") {
+          events.push({ type: event.type, content: event.content });
+        }
+      },
+    });
+
+    expect(run).toHaveBeenCalledTimes(2);
+    expect((run as ReturnType<typeof vi.fn>).mock.calls[1]?.[1]).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("A parcel search returned a non-exact address match"),
+      ]),
+    );
+    expect(events.map((event) => event.content).join(" ")).toContain(enforcedReply);
+    expect(events.map((event) => event.content).join(" ")).not.toContain("closest adjacent parcel");
+  });
 });
