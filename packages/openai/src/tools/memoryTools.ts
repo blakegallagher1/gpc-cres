@@ -305,6 +305,63 @@ export const store_memory = tool({
 });
 
 /**
+ * Read-only entity lookup by address or parcel_id.
+ * Returns the entity_id and truth view WITHOUT writing anything to the database.
+ * Use this when the user asks about a property. Use store_memory ONLY when the
+ * user provides actual fact data (comps, lender terms, tour notes, etc.).
+ */
+export const lookup_entity_by_address = tool({
+  name: "lookup_entity_by_address",
+  description:
+    "Look up what the system knows about a property by address or parcel_id. " +
+    "Returns entity_id and current truth view (verified facts, open conflicts, corrections). " +
+    "READ-ONLY — does not write anything to the database. " +
+    "Use this instead of store_memory when the user asks about a property without providing new data.",
+  parameters: z.object({
+    address: z
+      .string()
+      .nullable()
+      .describe("Street address of the property (e.g. '2550 Cedarcrest Ave, Baton Rouge, LA 70816')"),
+    parcel_id: z
+      .string()
+      .nullable()
+      .describe("Parcel ID from property database"),
+  }),
+  execute: async (params, context) => {
+    try {
+      const baseUrl =
+        process.env.NEXT_PUBLIC_APP_URL ??
+        process.env.VERCEL_URL ??
+        "http://localhost:3000";
+      const url = baseUrl.startsWith("http")
+        ? baseUrl
+        : `https://${baseUrl}`;
+
+      const searchParams = new URLSearchParams();
+      if (params.address) searchParams.set("address", params.address);
+      if (params.parcel_id) searchParams.set("parcel_id", params.parcel_id);
+
+      const resp = await fetch(
+        `${url}/api/entities/lookup?${searchParams}`,
+        { headers: buildMemoryToolHeaders(context) },
+      );
+
+      if (!resp.ok) {
+        const errBody = await resp.text();
+        return { found: false, error: `API error ${resp.status}: ${errBody}` };
+      }
+
+      return await resp.json();
+    } catch (err) {
+      return {
+        found: false,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
+  },
+});
+
+/**
  * Get the current truth view for an entity — the resolved state of all verified
  * memories, corrections, and open conflicts.
  */

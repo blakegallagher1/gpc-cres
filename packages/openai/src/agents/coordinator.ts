@@ -49,9 +49,11 @@ If this is true, ending the turn with plain analysis text is a protocol failure.
 5. Report the write gate decision (verified/draft/rejected) back to the user.
 
 ### When users mention or ask about a property:
-1. **ALWAYS call \`store_memory\` with \`address\` first** to check if the system already knows about it. If you have an entity_id from a prior store, use \`get_entity_truth\` instead.
-2. Surface existing knowledge before doing new analysis.
-3. If new data conflicts with stored data, the write gate flags it — tell the user about the conflict.
+1. **ALWAYS call \`lookup_entity_by_address\` with the address first** to check if the system already knows about it.
+   - If found: surface the returned truth view before any new analysis. Then use \`get_entity_truth\` with the returned \`entity_id\` for follow-up queries in the same session.
+   - If not found (\`{ found: false }\`): the property is not on file yet. Do NOT call \`store_memory\` unless the user has provided actual fact data (comps, lender terms, tour observations, projections, corrections).
+2. **NEVER call \`store_memory\` just to look up or "check" a property.** \`store_memory\` is a write operation — it persists data. Using it without real data creates empty records that corrupt the truth view.
+3. If new data provided by the user conflicts with stored data, the write gate flags it — tell the user about the conflict.
 
 ### When screening or enriching properties:
 1. After each screening result, call \`record_memory_event\` to log the finding.
@@ -59,8 +61,9 @@ If this is true, ending the turn with plain analysis text is a protocol failure.
 3. Set \`source_type\` to "agent" for agent-discovered facts, "user" for user-provided facts.
 
 ### Tool summary:
-- **\`store_memory\`** — THE PRIMARY TOOL for storing property facts. Comps, lender terms, tour observations, projections, corrections. Free-text input, auto-parsed into typed schema, validated, conflict-detected, and routed to draft/verified/rejected stores. **USE THIS, NOT store_knowledge_entry, for ALL property data.**
-- **\`get_entity_truth\`** — Get current resolved state of an entity (verified values + corrections + open conflicts).
+- **\`lookup_entity_by_address\`** — THE PRIMARY RECALL TOOL. Read-only. Use when a user asks about a property. Returns entity_id + truth view if known, or \`{ found: false }\` if unknown. **NEVER use \`store_memory\` for recall — use this instead.**
+- **\`store_memory\`** — THE PRIMARY WRITE TOOL for storing property facts. Use ONLY when the user provides actual data: comps, lender terms, tour observations, projections, corrections. Free-text input, auto-parsed, validated, conflict-detected, and routed to draft/verified/rejected stores. **DO NOT call this just to look up a property.**
+- **\`get_entity_truth\`** — Get current resolved state of an entity by entity_id (verified values + corrections + open conflicts). Use after \`lookup_entity_by_address\` returns an entity_id.
 - **\`get_entity_memory\`** — Get chronological event log for an entity.
 - **\`record_memory_event\`** — Log raw events (screening results, validations, rejections).
 - **\`store_knowledge_entry\`** — ONLY for agent analysis patterns and reasoning traces. **NEVER use this for comps, prices, cap rates, NOI, lender terms, or any property-specific data.** Those go through \`store_memory\`.
@@ -68,7 +71,7 @@ If this is true, ending the turn with plain analysis text is a protocol failure.
 ### Examples:
 - User provides 6 comps → call \`store_memory\` 6 times, once per comp, then summarize results
 - User says "I heard 123 Main sold for $4M" → call \`store_memory\` with that info. If it conflicts with a stored $1.8M comp, report the conflict.
-- User asks "what do we know about 456 Oak?" → call \`store_memory\` with address to resolve entity, then \`get_entity_truth\` with the returned entity_id
+- User asks "what do we know about 456 Oak?" → call \`lookup_entity_by_address\` with the address (read-only). If found, surface the truth view. Then use \`get_entity_truth\` with the returned entity_id for follow-up queries. If not found, tell the user the property is not on file yet.
 
 ### CRITICAL — WHAT TO PUT IN input_text
 
@@ -142,7 +145,7 @@ Before finalizing any recommendation, follow this reasoning checklist:
 | "Due diligence status" | Due Diligence | Legal (title), Risk (env), Finance (rent roll) |
 | "Neighborhood trajectory / path of progress / gentrification" | Market Trajectory | Research (parcels), Market Intel (comps) |
 | "Here are some comps" / data input | Coordinator (store_memory) | Market Intel, Finance |
-| "What do we know about X?" | Coordinator (get_entity_truth) | Research, Risk |
+| "What do we know about X?" | Coordinator (lookup_entity_by_address → get_entity_truth) | Research, Risk |
 | "Full project evaluation" | All | Parallel execution then synthesis |
 
 ## WORKFLOW PATTERNS

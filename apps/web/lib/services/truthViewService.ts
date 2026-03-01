@@ -66,6 +66,11 @@ export async function getTruthView(
     const payload = getPayloadValues(record);
 
     for (const [fieldKey, value] of Object.entries(payload)) {
+      // Skip null/undefined values — null means "not recorded in this write",
+      // not "the true value is null". Allowing nulls would let a later
+      // empty/address-only write overwrite verified economic facts with nulls.
+      if (value === null || value === undefined) continue;
+
       const key = `${record.factType}.${fieldKey}`;
       if (!(key in currentValues)) {
         currentValues[key] = {

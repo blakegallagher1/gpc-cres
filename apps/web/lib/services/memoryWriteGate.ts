@@ -7,6 +7,7 @@ import {
   memoryWriteJsonSchema,
   type MemoryWrite,
   type CorrectionPayload,
+  type CompPayload,
 } from "@/lib/schemas/memoryWrite";
 import { detectConflicts } from "./conflictDetection";
 import { applyCorrection } from "./correctionService";
@@ -111,6 +112,61 @@ export async function memoryWriteGate(
     }
 
     const structuredWrite = parsed.data;
+
+    // Guard: reject comp writes where all economic fields are null.
+    // This happens when the LLM parses an address-only string (no real comp data)
+    // and produces a CompPayload with every nullable field set to null.
+    // Storing such a record would overwrite verified truth with nulls.
+    if (structuredWrite.fact_type === "comp") {
+      const p = structuredWrite.payload as CompPayload;
+      const hasEconomicData = [
+        p.sale_price,
+        p.cap_rate,
+        p.noi,
+        p.price_per_unit,
+        p.pad_count,
+        p.sale_date,
+      ].some((v) => v !== null && v !== undefined);
+
+      if (!hasEconomicData) {
+        const rejectionReason =
+          "Comp write rejected: input_text contains no economic data " +
+          "(sale_price, cap_rate, noi, price_per_unit, pad_count, sale_date all null). " +
+          "Use lookup_entity_by_address to recall existing facts, or provide actual comp data in input_text.";
+        addReason(reasons, rejectionReason);
+
+        const eventLog = await eventService.recordEvent({
+          orgId,
+          entityId,
+          sourceType: "agent",
+          factType: "comp",
+          payloadJson: { inputText, outputJson: structuredWrite, rejectionReason },
+          status: "rejected",
+          toolName: "memory_write_gate",
+        });
+
+        await prisma.memoryRejected.create({
+          data: {
+            orgId,
+            entityId,
+            factType: "comp",
+            sourceType: structuredWrite.source_type,
+            payloadJson: { inputText, outputJson: structuredWrite } as Prisma.InputJsonValue,
+            rejectionReason,
+            requestId,
+            eventLogId: eventLog.id,
+          },
+        });
+
+        return {
+          decision: "rejected",
+          structuredMemoryWrite: null,
+          reasons,
+          eventLogId: eventLog.id,
+        };
+      }
+    }
+
     structuredWrite.entity_id = entityId;
     const eventLog = await eventService.recordEvent({
       orgId,
