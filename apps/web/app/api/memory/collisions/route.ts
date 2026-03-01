@@ -3,10 +3,10 @@ import { auth } from '@/lib/auth';
 import { db } from '@gpc/db';
 
 /**
- * GET /api/memory/innovation-queue
+ * GET /api/memory/collisions
  * 
- * Retrieve pending innovation queue items for review.
- * These are novel data points that significantly differ from existing knowledge.
+ * Retrieve pending collision alerts for an organization.
+ * These represent conflicting data points that need resolution.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -15,7 +15,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get orgId from query params
     const { searchParams } = new URL(request.url);
     const orgId = searchParams.get('orgId');
 
@@ -40,23 +39,23 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Fetch pending innovation queue items
-    const items = await db.innovationQueue.findMany({
+    // Fetch collision alerts
+    const alerts = await db.entityCollisionAlert.findMany({
       where: {
         orgId,
         status: 'pending',
       },
       include: {
-        entity: true,
+        entityA: true,
       },
       orderBy: {
-        createdAt: 'desc',
+        similarity: 'desc',
       },
     });
 
-    return NextResponse.json({ items });
+    return NextResponse.json({ alerts });
   } catch (error) {
-    console.error('[Innovation Queue API Error]', error);
+    console.error('[Collisions API Error]', error);
     return NextResponse.json(
       {
         error: 'Internal server error',
@@ -68,9 +67,9 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * POST /api/memory/innovation-queue/review
+ * POST /api/memory/collisions/resolve
  * 
- * Review and approve/reject an innovation queue item.
+ * Resolve a collision alert by choosing a resolution strategy.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -80,9 +79,9 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { itemId, decision, orgId } = body;
+    const { alertId, resolution, orgId } = body;
 
-    if (!itemId || !decision || !['approved', 'rejected'].includes(decision)) {
+    if (!alertId || !resolution) {
       return NextResponse.json(
         { error: 'Invalid request body' },
         { status: 400 }
@@ -103,20 +102,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Update innovation queue item
-    const updated = await db.innovationQueue.update({
-      where: { id: itemId },
+    // Update collision alert
+    const updated = await db.entityCollisionAlert.update({
+      where: { id: alertId },
       data: {
-        status: decision,
-        reviewedBy: session.user.id,
-        reviewedAt: new Date(),
-        reviewDecision: decision,
+        status: 'resolved',
+        resolvedBy: session.user.id,
+        resolvedAt: new Date(),
+        resolution,
       },
     });
 
-    return NextResponse.json({ item: updated });
+    return NextResponse.json({ alert: updated });
   } catch (error) {
-    console.error('[Innovation Queue Review API Error]', error);
+    console.error('[Collision Resolution API Error]', error);
     return NextResponse.json(
       {
         error: 'Internal server error',
