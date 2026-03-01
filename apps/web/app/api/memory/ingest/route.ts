@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
 import { db } from '@gpc/db';
 import { MemoryIngestionService } from '@gpc/server/services/memory-ingestion.service';
 import { MemoryIngestionRequestSchema } from '@gpc/shared/types/memory';
 import { v4 as uuidv4 } from 'uuid';
+import { auth } from '@clerk/nextjs/server';
 
 /**
  * POST /api/memory/ingest
@@ -15,8 +15,8 @@ import { v4 as uuidv4 } from 'uuid';
 export async function POST(request: NextRequest) {
   try {
     // Auth check
-    const session = await auth();
-    if (!session?.user?.id) {
+    const { userId } = await auth();
+    if (!userId) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     // Inject userId and generate requestId if not provided
     const enrichedBody = {
       ...body,
-      userId: session.user.id,
+      userId,
       requestId: body.requestId || uuidv4(),
     };
 
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
       where: {
         orgId_userId: {
           orgId: ingestionRequest.orgId,
-          userId: session.user.id,
+          userId,
         },
       },
     });

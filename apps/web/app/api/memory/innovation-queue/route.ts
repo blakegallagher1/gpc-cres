@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
 import { db } from '@gpc/db';
+import { auth } from '@clerk/nextjs/server';
 
 /**
  * GET /api/memory/innovation-queue
@@ -10,8 +10,8 @@ import { db } from '@gpc/db';
  */
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
+    const { userId } = await auth();
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
       where: {
         orgId_userId: {
           orgId,
-          userId: session.user.id,
+          userId,
         },
       },
     });
@@ -74,8 +74,8 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
+    const { userId } = await auth();
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
       where: {
         orgId_userId: {
           orgId,
-          userId: session.user.id,
+          userId,
         },
       },
     });
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
       where: { id: itemId },
       data: {
         status: decision,
-        reviewedBy: session.user.id,
+        reviewedBy: userId,
         reviewedAt: new Date(),
         reviewDecision: decision,
       },

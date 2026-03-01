@@ -11,3 +11,4 @@ export * from "./evidence.js";
 export * from "./openaiModels.js";
 export * from "./telemetry/dataAgent.js";
 export * from "./financialModelCalculations.js";
+export * from "./types/memory.js";

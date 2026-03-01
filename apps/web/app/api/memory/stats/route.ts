@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
 import { db } from '@gpc/db';
+import { auth } from '@clerk/nextjs/server';
 
 /**
  * GET /api/memory/stats
@@ -15,8 +15,8 @@ import { db } from '@gpc/db';
  */
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
+    const { userId } = await auth();
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
       where: {
         orgId_userId: {
           orgId,
-          userId: session.user.id,
+          userId,
         },
       },
     });

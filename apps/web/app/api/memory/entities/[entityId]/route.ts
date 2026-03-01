@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
 import { db } from '@gpc/db';
+import { auth } from '@clerk/nextjs/server';
 
 /**
  * GET /api/memory/entities/[entityId]
@@ -13,8 +13,8 @@ export async function GET(
   { params }: { params: { entityId: string } }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
+    const { userId } = await auth();
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -37,7 +37,7 @@ export async function GET(
       where: {
         orgId_userId: {
           orgId: entity.orgId,
-          userId: session.user.id,
+          userId,
         },
       },
     });
