@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@entitlement-os/db';
-import { MemoryIngestionService } from '@gpc/server/services/memory-ingestion.service';
+import { MemoryIngestionService } from '@/lib/services/memoryIngestion.service';
 import { MemoryIngestionRequestSchema } from '@entitlement-os/shared';
-import { v4 as uuidv4 } from 'uuid';
 import { resolveAuth } from '@/lib/auth/resolveAuth';
 
 /**
@@ -33,7 +32,7 @@ export async function POST(request: NextRequest) {
       ...body,
       userId,
       orgId: body.orgId || orgId,
-      requestId: body.requestId || uuidv4(),
+      requestId: body.requestId || crypto.randomUUID(),
     };
 
     // Validate request

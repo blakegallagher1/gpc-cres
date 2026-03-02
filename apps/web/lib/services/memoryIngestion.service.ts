@@ -1,3 +1,4 @@
+import "server-only";
 import { prisma } from '@entitlement-os/db';
 import type { Prisma } from '@entitlement-os/db';
 import type {
@@ -5,13 +6,11 @@ import type {
   MemoryIngestionRequest,
   MemoryIngestionResult,
   EntityResolutionResult,
-  VolatilityClass,
 } from '@entitlement-os/shared';
 import {
   FACT_TYPE_VOLATILITY,
   calculateEconomicWeight,
 } from '@entitlement-os/shared';
-import { v4 as uuidv4 } from 'uuid';
 
 // ============================================================================
 // Entity Resolution
@@ -56,7 +55,7 @@ export class EntityResolutionService {
       };
     }
 
-    // Try fuzzy match (addresses within edit distance)
+    // Try fuzzy match (pg_trgm similarity — O(log n) via GIN index)
     const fuzzyMatch = await this.findFuzzyMatch(params.orgId, canonicalAddress);
     if (fuzzyMatch && fuzzyMatch.score > 0.85) {
       return {
@@ -71,7 +70,7 @@ export class EntityResolutionService {
     // Create new entity
     const newEntity = await prisma.internalEntity.create({
       data: {
-        id: uuidv4(),
+        id: crypto.randomUUID(),
         orgId: params.orgId,
         canonicalAddress,
         type: 'property',
@@ -97,7 +96,7 @@ export class EntityResolutionService {
     zip?: string;
   }): string {
     const { address, city, state, zip } = params;
-    
+
     // Basic normalization: uppercase, trim, standardize abbrev
     let normalized = address.toUpperCase().trim()
       .replace(/\bSTREET\b/gi, 'ST')
@@ -147,18 +146,6 @@ export class EntityResolutionService {
       address: best.canonical_address,
       score: Number(best.similarity),
     };
-  }
-
-  /**
-   * @deprecated Replaced by pg_trgm SQL similarity() in findFuzzyMatch().
-   * Kept temporarily to avoid breaking callers; will be removed in next cleanup.
-   */
-  private static similarity(s1: string, s2: string): number {
-    const set1 = new Set(s1.split(' '));
-    const set2 = new Set(s2.split(' '));
-    const intersection = new Set([...set1].filter((x) => set2.has(x)));
-    const union = new Set([...set1, ...set2]);
-    return intersection.size / union.size;
   }
 }
 
@@ -254,7 +241,7 @@ export class MemoryIngestionService {
             // Create event log entry
             const eventLog = await prisma.memoryEventLog.create({
               data: {
-                id: uuidv4(),
+                id: crypto.randomUUID(),
                 orgId: request.orgId,
                 entityId: entityResolution.entityId,
                 dealId: request.dealId ?? null,
@@ -273,7 +260,7 @@ export class MemoryIngestionService {
             if (request.autoVerify) {
               const verified = await prisma.memoryVerified.create({
                 data: {
-                  id: uuidv4(),
+                  id: crypto.randomUUID(),
                   orgId: request.orgId,
                   entityId: entityResolution.entityId,
                   factType: fact.factType,
@@ -291,7 +278,7 @@ export class MemoryIngestionService {
             } else {
               const draft = await prisma.memoryDraft.create({
                 data: {
-                  id: uuidv4(),
+                  id: crypto.randomUUID(),
                   orgId: request.orgId,
                   entityId: entityResolution.entityId,
                   factType: fact.factType,
@@ -336,7 +323,7 @@ export class MemoryIngestionService {
             if (isNovel) {
               await prisma.innovationQueue.create({
                 data: {
-                  id: uuidv4(),
+                  id: crypto.randomUUID(),
                   orgId: request.orgId,
                   entityId: entityResolution.entityId,
                   factType: fact.factType,
@@ -401,9 +388,9 @@ export class MemoryIngestionService {
    */
   private static decomposeCompToFacts(comp: CompData): Array<{
     factType: string;
-    payload: Record<string, any>;
+    payload: Record<string, unknown>;
   }> {
-    const facts: Array<{ factType: string; payload: Record<string, any> }> = [];
+    const facts: Array<{ factType: string; payload: Record<string, unknown> }> = [];
 
     // Property characteristics
     if (comp.buildingSizeSf) {
@@ -506,9 +493,8 @@ export class MemoryIngestionService {
     orgId: string;
     entityId: string;
     factType: string;
-    newValue: Record<string, any>;
+    newValue: Record<string, unknown>;
   }): Promise<boolean> {
-    // Simplified: check if an existing verified fact has a different value
     const existing = await prisma.memoryVerified.findFirst({
       where: {
         orgId: params.orgId,
@@ -521,7 +507,7 @@ export class MemoryIngestionService {
     if (!existing) return false;
 
     // For numeric facts, check if difference > threshold
-    const existingValue = (existing.payloadJson as any)?.value;
+    const existingValue = (existing.payloadJson as Record<string, unknown>)?.value;
     const newVal = params.newValue.value;
 
     if (typeof existingValue === 'number' && typeof newVal === 'number') {
@@ -540,9 +526,8 @@ export class MemoryIngestionService {
     orgId: string;
     entityId: string;
     factType: string;
-    newValue: Record<string, any>;
+    newValue: Record<string, unknown>;
   }): Promise<boolean> {
-    // Simplified: if there are existing facts and new value differs significantly
     const existing = await prisma.memoryVerified.findMany({
       where: {
         orgId: params.orgId,
@@ -553,7 +538,6 @@ export class MemoryIngestionService {
 
     if (existing.length === 0) return false;
 
-    // For now, use same collision logic
     return this.detectCollision(params);
   }
 }

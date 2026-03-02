@@ -185,6 +185,7 @@ export const FACT_TYPE_VOLATILITY: Record<string, VolatilityClass> = {
   lease_term: 'dynamic',
   transaction_date: 'dynamic',
   broker_notes: 'volatile',
+  transaction_parties: 'dynamic',
 };
 
 // Economic weight based on property type and deal stage

@@ -131,6 +131,7 @@ export {
   store_memory,
   get_entity_truth,
   lookup_entity_by_address,
+  ingest_comps,
 } from "./memoryTools.js";
 
 // --- Agent-specific tool collections ---
@@ -234,6 +235,7 @@ import {
   store_memory,
   get_entity_truth,
   lookup_entity_by_address,
+  ingest_comps,
 } from "./memoryTools.js";
 
 /** Web search tool for Responses API pass-through. */
@@ -258,6 +260,7 @@ export const coordinatorTools = [
   store_memory,
   get_entity_truth,
   lookup_entity_by_address,
+  ingest_comps,
   search_knowledge_base,
   store_knowledge_entry,
   get_shared_context,

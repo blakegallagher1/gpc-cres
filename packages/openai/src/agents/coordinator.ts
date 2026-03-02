@@ -67,9 +67,12 @@ If this is true, ending the turn with plain analysis text is a protocol failure.
 - **\`get_entity_memory\`** — Get chronological event log for an entity.
 - **\`record_memory_event\`** — Log raw events (screening results, validations, rejections).
 - **\`store_knowledge_entry\`** — ONLY for agent analysis patterns and reasoning traces. **NEVER use this for comps, prices, cap rates, NOI, lender terms, or any property-specific data.** Those go through \`store_memory\`.
+- **\`ingest_comps\`** — Batch-ingest structured comp records directly into the memory system. Use when the user provides a **structured table** of comps with explicit fields (address, city, state, property type, transaction type, sale price, buyer, seller, cap rate, etc.). Bypasses free-text parsing for clean, machine-readable data. Prefer \`store_memory\` for conversational or ambiguous comp data; use \`ingest_comps\` when you have clearly structured rows with known fields.
+- **\`search_knowledge_base\`** — Semantic search over institutional knowledge: past deal analyses, agent reasoning traces, outcome records, and stored findings. Use BEFORE making recommendations to check for relevant precedent.
 
 ### Examples:
-- User provides 6 comps → call \`store_memory\` 6 times, once per comp, then summarize results
+- User provides 6 comps in conversation prose → call \`store_memory\` 6 times, once per comp, then summarize results
+- User pastes a structured CSV/table with address, city, state, price, buyer, seller columns → call \`ingest_comps\` once with all rows in the \`comps\` array. Report the verified/draft/collision counts.
 - User says "I heard 123 Main sold for $4M" → call \`store_memory\` with that info. If it conflicts with a stored $1.8M comp, report the conflict.
 - User asks "what do we know about 456 Oak?" → call \`lookup_entity_by_address\` with the address (read-only). If found, surface the truth view. Then use \`get_entity_truth\` with the returned entity_id for follow-up queries. If not found, tell the user the property is not on file yet.
 
@@ -144,7 +147,8 @@ Before finalizing any recommendation, follow this reasoning checklist:
 | "Screen this deal" | Deal Screener | Research (data), Risk (flood/env), Finance (numbers) |
 | "Due diligence status" | Due Diligence | Legal (title), Risk (env), Finance (rent roll) |
 | "Neighborhood trajectory / path of progress / gentrification" | Market Trajectory | Research (parcels), Market Intel (comps) |
-| "Here are some comps" / data input | Coordinator (store_memory) | Market Intel, Finance |
+| "Here are some comps" / conversational comp data | Coordinator (store_memory) | Market Intel, Finance |
+| "Here are some comps" / structured table with explicit fields | Coordinator (ingest_comps) | Market Intel, Finance |
 | "What do we know about X?" | Coordinator (lookup_entity_by_address → get_entity_truth) | Research, Risk |
 | "Full project evaluation" | All | Parallel execution then synthesis |
 

@@ -1,5 +1,6 @@
 import { tool } from "@openai/agents";
 import { z } from "zod";
+import { buildMemoryToolHeaders } from "./memoryTools";
 
 /**
  * search_knowledge_base — searches the firm's historical knowledge base using
@@ -67,15 +68,29 @@ export const search_knowledge_base = tool({
         "Default: 'moderate'."
       ),
   }),
-  execute: async (params) => {
-    return JSON.stringify({
-      _knowledgeSearch: true,
-      query: params.query,
-      contentTypes: params.content_types ?? null,
-      limit: params.limit ?? 5,
-      dealContext: params.deal_context ?? null,
-      recencyWeight: params.recency_weight ?? "moderate",
-    });
+  execute: async (params, context) => {
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? process.env.VERCEL_URL ?? "http://localhost:3000";
+      const url = baseUrl.startsWith("http") ? baseUrl : `https://${baseUrl}`;
+      const qs = new URLSearchParams({ view: "search", q: params.query });
+      if (params.limit) qs.set("limit", String(params.limit));
+      if (params.content_types?.length) qs.set("types", params.content_types.join(","));
+      const resp = await fetch(`${url}/api/knowledge?${qs.toString()}`, {
+        method: "GET",
+        headers: buildMemoryToolHeaders(context),
+      });
+      if (!resp.ok) {
+        const errBody = await resp.text();
+        return `Knowledge search failed: ${resp.status} ${errBody}`;
+      }
+      const data = await resp.json() as { results?: unknown[] };
+      if (!data.results || data.results.length === 0) {
+        return "No relevant knowledge found for this query.";
+      }
+      return JSON.stringify(data.results);
+    } catch (err) {
+      return `Knowledge search error: ${err instanceof Error ? err.message : String(err)}`;
+    }
   },
 });
 
@@ -125,18 +140,39 @@ export const store_knowledge_entry = tool({
       .string()
       .describe("Name of the agent storing this knowledge."),
   }),
-  execute: async (params) => {
-    return JSON.stringify({
-      _knowledgeStore: true,
-      contentType: params.content_type,
-      title: params.title,
-      content: params.content,
-      dealId: params.deal_id ?? null,
-      parish: params.parish ?? null,
-      skuType: params.sku_type ?? null,
-      tags: params.tags ?? [],
-      sourceAgent: params.source_agent,
-      timestamp: new Date().toISOString(),
-    });
+  execute: async (params, context) => {
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? process.env.VERCEL_URL ?? "http://localhost:3000";
+      const url = baseUrl.startsWith("http") ? baseUrl : `https://${baseUrl}`;
+      const sourceId = `${params.source_agent}:${params.title.slice(0, 60).replace(/\s+/g, "-").toLowerCase()}`;
+      const contentText = `${params.title}\n\n${params.content}`;
+      const resp = await fetch(`${url}/api/knowledge`, {
+        method: "POST",
+        headers: buildMemoryToolHeaders(context),
+        body: JSON.stringify({
+          action: "ingest",
+          contentType: params.content_type,
+          sourceId,
+          contentText,
+          metadata: {
+            title: params.title,
+            dealId: params.deal_id ?? null,
+            parish: params.parish ?? null,
+            skuType: params.sku_type ?? null,
+            tags: params.tags ?? [],
+            sourceAgent: params.source_agent,
+          },
+        }),
+      });
+      if (!resp.ok) {
+        const errBody = await resp.text();
+        return `Knowledge store failed: ${resp.status} ${errBody}`;
+      }
+      const data = await resp.json() as { chunks?: number };
+      const chunks = data.chunks ?? 1;
+      return `Stored "${params.title}" (${chunks} chunk${chunks !== 1 ? "s" : ""}).`;
+    } catch (err) {
+      return `Knowledge store error: ${err instanceof Error ? err.message : String(err)}`;
+    }
   },
 });

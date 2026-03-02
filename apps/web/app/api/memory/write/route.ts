@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { resolveEntityId } from "@/lib/services/entityResolution";
 import { memoryWriteGate } from "@/lib/services/memoryWriteGate";
+import { ingestKnowledge } from "@/lib/services/knowledgeBase.service";
 
 const ADDRESS_WITH_CITY_STATE_ZIP_RE =
   /\b\d{1,6}\s+[A-Za-z0-9.'\- ]+?\s(?:Street|St\.?|Avenue|Ave\.?|Boulevard|Blvd\.?|Road|Rd\.?|Drive|Dr\.?|Lane|Ln\.?|Court|Ct\.?|Place|Pl\.?|Parkway|Pkwy\.?|Highway|Hwy\.?|Trail|Trl\.?|Way|Terrace|Terr\.?|Circle|Cir\.?)\s*,\s*[A-Za-z .'-]+,\s*[A-Z]{2}\s+\d{5}\b/i;
@@ -65,6 +66,17 @@ export async function POST(req: NextRequest) {
       address: effectiveAddress ?? undefined,
       parcelId: parcel_id ?? undefined,
     });
+
+    // Auto-embed verified facts into semantic knowledge base for future recall
+    if (result.decision === "verified" && result.recordId && result.structuredMemoryWrite) {
+      const factType = result.structuredMemoryWrite.fact_type;
+      const contentText = `${factType}: ${JSON.stringify(result.structuredMemoryWrite)}`;
+      ingestKnowledge("agent_analysis", result.recordId, contentText, {
+        entityId: resolvedEntityId ?? undefined,
+        factType,
+        orgId: auth.orgId,
+      }).catch(() => {});
+    }
 
     return NextResponse.json(result, { status: 201 });
   } catch (error) {

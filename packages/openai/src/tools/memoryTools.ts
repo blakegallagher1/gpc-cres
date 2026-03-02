@@ -34,7 +34,7 @@ function sanitizeMemoryToolContext(context: unknown): {
   };
 }
 
-function buildMemoryToolHeaders(context?: unknown): MemoryToolHeaders {
+export function buildMemoryToolHeaders(context?: unknown): MemoryToolHeaders {
   const headers: MemoryToolHeaders = { "Content-Type": "application/json" };
   const token = getInternalMemoryToolToken();
   const { orgId, userId } = sanitizeMemoryToolContext(context);
@@ -401,6 +401,161 @@ export const get_entity_truth = tool({
       return {
         error: err instanceof Error ? err.message : String(err),
       };
+    }
+  },
+});
+
+/**
+ * ingest_comps — batch-ingest structured comp records directly into the memory
+ * system, bypassing free-text parsing. Use when the user provides a table of
+ * comps with structured data (address, sale price, buyer, seller, cap rate, etc.).
+ */
+export const ingest_comps = tool({
+  name: "ingest_comps",
+  description:
+    "Batch-ingest structured comp records into the memory system. Use when the user provides " +
+    "a table or list of comps with known fields (address, sale price, buyer, seller, cap rate, etc.). " +
+    "Each comp is entity-resolved, duplicate-checked, and stored in draft or verified memory. " +
+    "Returns a summary of how many comps were stored, skipped as duplicates, or flagged as collisions.",
+  parameters: z.object({
+    comps: z
+      .array(
+        z.object({
+          address: z.string().describe("Street address of the property"),
+          city: z.string().describe("City"),
+          state: z.string().describe("State abbreviation, e.g. LA"),
+          zip: z.string().nullable().describe("ZIP code"),
+          property_type: z
+            .enum([
+              "industrial_flex",
+              "cold_storage",
+              "outdoor_storage",
+              "truck_terminal",
+              "distribution_center",
+              "warehouse",
+              "manufacturing",
+              "mixed_use",
+            ])
+            .describe("Property type"),
+          transaction_type: z
+            .enum(["sale", "lease", "listing"])
+            .describe("Type of transaction"),
+          sale_price: z.number().nullable().describe("Sale price in dollars"),
+          price_per_sf: z.number().nullable().describe("Price per square foot"),
+          cap_rate: z
+            .number()
+            .nullable()
+            .describe("Cap rate as decimal, e.g. 0.065 for 6.5%"),
+          building_size_sf: z
+            .number()
+            .nullable()
+            .describe("Building size in square feet"),
+          land_size_acres: z.number().nullable().describe("Land size in acres"),
+          year_built: z.number().nullable().describe("Year built"),
+          transaction_date: z
+            .string()
+            .nullable()
+            .describe("Transaction date as ISO 8601 string or YYYY-MM-DD"),
+          lease_rate: z
+            .number()
+            .nullable()
+            .describe("Lease rate per SF per year"),
+          lease_term: z.number().nullable().describe("Lease term in months"),
+          buyer: z.string().nullable().describe("Buyer name"),
+          seller: z.string().nullable().describe("Seller name"),
+          broker_notes: z.string().nullable().describe("Broker notes or comments"),
+          source: z
+            .enum([
+              "loopnet",
+              "costar",
+              "crexi",
+              "rca",
+              "broker_package",
+              "tax_assessor",
+              "manual_entry",
+              "api_integration",
+            ])
+            .describe("Data source"),
+        }),
+      )
+      .describe("Array of comp records to ingest"),
+    auto_verify: z
+      .boolean()
+      .nullable()
+      .describe(
+        "If true, store comps as verified immediately. Default false (stored as draft pending review).",
+      ),
+  }),
+  execute: async (params, context) => {
+    try {
+      const baseUrl =
+        process.env.NEXT_PUBLIC_APP_URL ??
+        process.env.VERCEL_URL ??
+        "http://localhost:3000";
+      const url = baseUrl.startsWith("http") ? baseUrl : `https://${baseUrl}`;
+
+      // Map tool params to MemoryIngestionRequest shape
+      const comps = params.comps.map((c) => ({
+        address: c.address,
+        city: c.city,
+        state: c.state,
+        zip: c.zip ?? undefined,
+        propertyType: c.property_type,
+        transactionType: c.transaction_type,
+        salePrice: c.sale_price ?? undefined,
+        pricePerSf: c.price_per_sf ?? undefined,
+        capRate: c.cap_rate ?? undefined,
+        buildingSizeSf: c.building_size_sf ?? undefined,
+        landSizeAcres: c.land_size_acres ?? undefined,
+        yearBuilt: c.year_built ?? undefined,
+        transactionDate: c.transaction_date ?? undefined,
+        leaseRate: c.lease_rate ?? undefined,
+        leaseTerm: c.lease_term ?? undefined,
+        buyer: c.buyer ?? undefined,
+        seller: c.seller ?? undefined,
+        brokerNotes: c.broker_notes ?? undefined,
+        source: c.source,
+      }));
+
+      const resp = await fetch(`${url}/api/memory/ingest`, {
+        method: "POST",
+        headers: buildMemoryToolHeaders(context),
+        body: JSON.stringify({
+          comps,
+          autoVerify: params.auto_verify ?? false,
+          sourceType: "manual_entry",
+        }),
+      });
+
+      if (!resp.ok) {
+        const errBody = await resp.text();
+        return `Comp ingest failed: ${resp.status} ${errBody}`;
+      }
+
+      const result = await resp.json() as {
+        totalComps: number;
+        newEntities: number;
+        duplicatesSkipped: number;
+        draftsCreated: number;
+        verifiedCreated: number;
+        collisionsDetected: number;
+        errors: Array<{ compIndex: number; message: string }>;
+      };
+
+      const parts: string[] = [
+        `Ingested ${result.totalComps} comp(s):`,
+        `  • ${result.verifiedCreated} verified, ${result.draftsCreated} draft`,
+        `  • ${result.newEntities} new entities, ${result.duplicatesSkipped} duplicates skipped`,
+      ];
+      if (result.collisionsDetected > 0) {
+        parts.push(`  • ⚠️ ${result.collisionsDetected} collision(s) detected — review flagged facts`);
+      }
+      if (result.errors.length > 0) {
+        parts.push(`  • ❌ ${result.errors.length} error(s): ${result.errors.map((e) => e.message).join("; ")}`);
+      }
+      return parts.join("\n");
+    } catch (err) {
+      return `Comp ingest error: ${err instanceof Error ? err.message : String(err)}`;
     }
   },
 });
