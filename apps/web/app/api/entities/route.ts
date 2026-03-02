@@ -6,18 +6,26 @@ export async function GET(request: NextRequest) {
   const auth = await resolveAuth();
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const entities = await prisma.entity.findMany({
-    where: { orgId: auth.orgId },
-    include: {
-      parent: { select: { id: true, name: true } },
-      children: { select: { id: true, name: true } },
-      deals: { include: { deal: { select: { id: true, name: true } } } },
-      _count: { select: { taxEvents: true } },
-    },
-    orderBy: { createdAt: "asc" },
-  });
+  try {
+    const entities = await prisma.entity.findMany({
+      where: { orgId: auth.orgId },
+      include: {
+        parent: { select: { id: true, name: true } },
+        children: { select: { id: true, name: true } },
+        deals: { include: { deal: { select: { id: true, name: true } } } },
+        _count: { select: { taxEvents: true } },
+      },
+      orderBy: { createdAt: "asc" },
+    });
 
-  return NextResponse.json({ entities });
+    return NextResponse.json({ entities });
+  } catch (error) {
+    console.error("[Entities GET] Failed:", error);
+    return NextResponse.json(
+      { error: "Failed to load entities", entities: [] },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(request: NextRequest) {

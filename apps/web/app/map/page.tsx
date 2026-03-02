@@ -130,13 +130,19 @@ export default function MapPage() {
   } | null>(null);
   const [selectedParcelIds, setSelectedParcelIds] = useState<Set<string>>(new Set());
   const [mapCenter, setMapCenter] = useState<[number, number]>(() => {
-    const lat = Number(searchParams.get("lat"));
-    const lng = Number(searchParams.get("lng"));
-    if (Number.isFinite(lat) && Number.isFinite(lng)) return [lat, lng];
+    const latStr = searchParams.get("lat");
+    const lngStr = searchParams.get("lng");
+    if (latStr != null && lngStr != null) {
+      const lat = Number(latStr);
+      const lng = Number(lngStr);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) return [lat, lng];
+    }
     return [30.4515, -91.1871]; // Baton Rouge default
   });
   const [mapZoom, setMapZoom] = useState<number | undefined>(() => {
-    const zoom = Number(searchParams.get("z"));
+    const zStr = searchParams.get("z");
+    if (zStr == null) return undefined;
+    const zoom = Number(zStr);
     return Number.isFinite(zoom) ? zoom : undefined;
   });
   const authDisabledHint =

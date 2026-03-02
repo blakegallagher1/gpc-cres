@@ -18,8 +18,17 @@ export function isMissingOrPlaceholder(value: string | undefined): boolean {
 }
 
 export function getPropertyDbConfigOrNull(): PropertyDbConfig | null {
-  const url = (process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL)?.trim();
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  // Prefer LA Property DB env vars (separate Supabase instance with parcels/screening data).
+  // Fall back to main Supabase URL only for local dev where both DBs may share the same instance.
+  const url = (
+    process.env.LA_PROPERTY_DB_URL ??
+    process.env.SUPABASE_URL ??
+    process.env.NEXT_PUBLIC_SUPABASE_URL
+  )?.trim();
+  const key = (
+    process.env.LA_PROPERTY_DB_KEY ??
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  )?.trim();
   if (!url || !key) return null;
   if (isMissingOrPlaceholder(url) || isMissingOrPlaceholder(key)) return null;
   return { url, key };
@@ -29,7 +38,7 @@ export function requirePropertyDbConfig(routeTag: string): PropertyDbConfig {
   const config = getPropertyDbConfigOrNull();
   if (!config) {
     throw new Error(
-      `[${routeTag}] Missing required SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY.`,
+      `[${routeTag}] Missing required LA_PROPERTY_DB_URL/LA_PROPERTY_DB_KEY (or SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY fallback).`,
     );
   }
   return config;

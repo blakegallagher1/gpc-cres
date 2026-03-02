@@ -55,11 +55,22 @@ export default function WealthPage() {
 
   const isLoading = entitiesLoading;
 
+  // Map DB uppercase enum → mixed-case WealthEntity["type"]
+  const normalizeEntityType = (raw: string): WealthEntity["type"] => {
+    const map: Record<string, WealthEntity["type"]> = {
+      LLC: "LLC",
+      TRUST: "Trust",
+      CORP: "Corp",
+      INDIVIDUAL: "Individual",
+    };
+    return map[raw] ?? map[raw.toUpperCase()] ?? "LLC";
+  };
+
   // Map API entities to component format
   const entities: WealthEntity[] = (entitiesData?.entities ?? []).map((e) => ({
     id: e.id,
     name: e.name,
-    type: e.entityType as WealthEntity["type"],
+    type: normalizeEntityType(e.entityType),
     parentId: e.parentId,
     ownershipPct: Number(e.ownershipPct),
     taxId: e.taxId ?? undefined,
