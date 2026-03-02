@@ -270,68 +270,73 @@ export default async function PortfolioRoute({ searchParams = {} }: PortfolioRou
   const activeTab: PortfolioPageTab =
     tab === "outcomes" ? "outcomes" : tab === "buyers" ? "buyers" : "analytics";
 
-  const baseUrl = await getApiBaseUrl();
-  const cookie = await getCookieHeader();
+  try {
+    const baseUrl = await getApiBaseUrl();
+    const cookie = await getCookieHeader();
 
-  if (activeTab === "analytics") {
-    const portfolioPromise = fetchJson<PortfolioPayload>(`${baseUrl}/api/portfolio`, cookie);
-    const analyticsPromise = fetchJson<PortfolioSummary>(
-      `${baseUrl}/api/portfolio/analytics`,
-      cookie,
-    );
-    const concentrationPromise = fetchJson<ConcentrationAnalysis>(
-      `${baseUrl}/api/portfolio/concentration`,
-      cookie,
-    );
-    const debtMaturityPromise = fetchJson<DebtMaturityWallData>(
-      `${baseUrl}/api/portfolio/debt-maturity`,
-      cookie,
-    );
-    const velocityPromise = fetchJson<DealVelocityAnalytics>(
-      `${baseUrl}/api/portfolio/velocity`,
-      cookie,
-    );
-    const capitalDeploymentPromise = fetchJson<CapitalDeploymentAnalytics>(
-      `${baseUrl}/api/portfolio/capital-deployment`,
+    if (activeTab === "analytics") {
+      const portfolioPromise = fetchJson<PortfolioPayload>(`${baseUrl}/api/portfolio`, cookie);
+      const analyticsPromise = fetchJson<PortfolioSummary>(
+        `${baseUrl}/api/portfolio/analytics`,
+        cookie,
+      );
+      const concentrationPromise = fetchJson<ConcentrationAnalysis>(
+        `${baseUrl}/api/portfolio/concentration`,
+        cookie,
+      );
+      const debtMaturityPromise = fetchJson<DebtMaturityWallData>(
+        `${baseUrl}/api/portfolio/debt-maturity`,
+        cookie,
+      );
+      const velocityPromise = fetchJson<DealVelocityAnalytics>(
+        `${baseUrl}/api/portfolio/velocity`,
+        cookie,
+      );
+      const capitalDeploymentPromise = fetchJson<CapitalDeploymentAnalytics>(
+        `${baseUrl}/api/portfolio/capital-deployment`,
+        cookie,
+      );
+
+      return (
+        <Suspense fallback={<PortfolioFallback />}>
+          <PortfolioAnalyticsSection
+            activeTab={activeTab}
+            portfolioPromise={portfolioPromise}
+            analyticsPromise={analyticsPromise}
+            concentrationPromise={concentrationPromise}
+            debtMaturityPromise={debtMaturityPromise}
+            velocityPromise={velocityPromise}
+            capitalDeploymentPromise={capitalDeploymentPromise}
+          />
+        </Suspense>
+      );
+    }
+
+    if (activeTab === "outcomes") {
+      const outcomePromise = fetchJson<OutcomeSummary>(
+        `${baseUrl}/api/outcomes?view=summary`,
+        cookie,
+      );
+
+      return (
+        <Suspense fallback={<PortfolioFallback />}>
+          <PortfolioOutcomesSection activeTab={activeTab} outcomePromise={outcomePromise} />
+        </Suspense>
+      );
+    }
+
+    const buyersPromise = fetchJson<BuyersResponse>(
+      `${baseUrl}/api/buyers?withDeals=true`,
       cookie,
     );
 
     return (
       <Suspense fallback={<PortfolioFallback />}>
-        <PortfolioAnalyticsSection
-          activeTab={activeTab}
-          portfolioPromise={portfolioPromise}
-          analyticsPromise={analyticsPromise}
-          concentrationPromise={concentrationPromise}
-          debtMaturityPromise={debtMaturityPromise}
-          velocityPromise={velocityPromise}
-          capitalDeploymentPromise={capitalDeploymentPromise}
-        />
+        <PortfolioBuyersSection activeTab={activeTab} buyersPromise={buyersPromise} />
       </Suspense>
     );
+  } catch (error) {
+    console.error("[Portfolio] Page render failed:", error);
+    return <PortfolioFallback />;
   }
-
-  if (activeTab === "outcomes") {
-    const outcomePromise = fetchJson<OutcomeSummary>(
-      `${baseUrl}/api/outcomes?view=summary`,
-      cookie,
-    );
-
-    return (
-      <Suspense fallback={<PortfolioFallback />}>
-        <PortfolioOutcomesSection activeTab={activeTab} outcomePromise={outcomePromise} />
-      </Suspense>
-    );
-  }
-
-  const buyersPromise = fetchJson<BuyersResponse>(
-    `${baseUrl}/api/buyers?withDeals=true`,
-    cookie,
-  );
-
-  return (
-    <Suspense fallback={<PortfolioFallback />}>
-      <PortfolioBuyersSection activeTab={activeTab} buyersPromise={buyersPromise} />
-    </Suspense>
-  );
 }

@@ -726,7 +726,11 @@ export async function GET(_request: NextRequest) {
 
       parsed.openaiResponseId = run.openaiResponseId;
       const confidence = parsed.confidence;
-      if (typeof confidence === "number") {
+      const isDecisionRun =
+        run.runType === "TRIAGE" ||
+        run.runType === "ENRICHMENT" ||
+        run.runType === "ADVANCEMENT_CHECK";
+      if (typeof confidence === "number" && isDecisionRun) {
         totals.confidenceSamples += 1;
         totals.confidenceSum += confidence;
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prismaRead } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
-import { logPropertyDbRuntimeHealth, requirePropertyDbConfig } from "@/lib/server/propertyDbEnv";
+import { logPropertyDbRuntimeHealth } from "@/lib/server/propertyDbEnv";
 import {
   getDevFallbackParcels,
   isDevParcelFallbackEnabled,
@@ -314,14 +314,17 @@ async function propertyRpc(
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
   try {
-    const { url, key } = requirePropertyDbConfig("parcels-route");
-    const res = await fetch(`${url}/rest/v1/rpc/${fnName}`, {
+    const url = process.env.LOCAL_API_URL?.trim();
+    const key = process.env.LOCAL_API_KEY?.trim();
+    if (!url || !key) {
+      console.warn("[propertyRpc] Missing LOCAL_API_URL or LOCAL_API_KEY");
+      return [];
+    }
+    const res = await fetch(`${url}/property-db/rpc/${fnName}`, {
       method: "POST",
       headers: {
-        apikey: key,
         Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",
-        Prefer: "return=representation",
       },
       body: JSON.stringify(body),
       signal: controller.signal,

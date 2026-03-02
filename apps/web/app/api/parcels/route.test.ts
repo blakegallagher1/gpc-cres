@@ -19,6 +19,16 @@ vi.mock("@entitlement-os/db", () => ({
   },
 }));
 
+vi.mock("@/lib/server/propertyDbEnv", () => ({
+  logPropertyDbRuntimeHealth: vi.fn(),
+}));
+
+vi.mock("@/lib/server/devParcelFallback", () => ({
+  getDevFallbackParcels: vi.fn().mockReturnValue([]),
+  isDevParcelFallbackEnabled: vi.fn().mockReturnValue(false),
+  isPrismaConnectivityError: vi.fn().mockReturnValue(false),
+}));
+
 describe("GET /api/parcels", () => {
   let GET: typeof import("./route").GET;
 
@@ -28,8 +38,8 @@ describe("GET /api/parcels", () => {
     findManyMock.mockReset();
     fetchMock.mockReset();
     vi.stubGlobal("fetch", fetchMock);
-    process.env.SUPABASE_URL = "https://example.supabase.co";
-    process.env.SUPABASE_SERVICE_ROLE_KEY = "test-key";
+    process.env.LOCAL_API_URL = "http://property-db.test";
+    process.env.LOCAL_API_KEY = "test-key";
   });
 
   it("returns 401 when unauthenticated", async () => {
@@ -237,10 +247,10 @@ describe("GET /api/parcels", () => {
     expect(body.parcels[0].lng).toBeTypeOf("number");
   });
 
-  it("uses SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY for property-db fallback", async () => {
+  it("uses LOCAL_API_URL and LOCAL_API_KEY for property-db fallback", async () => {
     ({ GET } = await import("./route"));
-    process.env.SUPABASE_URL = "https://fallback.supabase.co";
-    process.env.SUPABASE_SERVICE_ROLE_KEY = "service-role-key";
+    process.env.LOCAL_API_URL = "http://property-db.test";
+    process.env.LOCAL_API_KEY = "service-role-key";
     resolveAuthMock.mockResolvedValue({
       userId: "99999999-9999-4999-8999-999999999999",
       orgId: "11111111-1111-4111-8111-111111111111",
@@ -285,11 +295,10 @@ describe("GET /api/parcels", () => {
     expect(fetchMock).toHaveBeenCalled();
   });
 
-  it("uses NEXT_PUBLIC_SUPABASE_URL when SUPABASE_URL is unset", async () => {
+  it("uses LOCAL_API_URL for property-db when set", async () => {
     ({ GET } = await import("./route"));
-    delete process.env.SUPABASE_URL;
-    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://fallback.supabase.co";
-    process.env.SUPABASE_SERVICE_ROLE_KEY = "service-role-key";
+    process.env.LOCAL_API_URL = "http://property-db.test";
+    process.env.LOCAL_API_KEY = "service-role-key";
     resolveAuthMock.mockResolvedValue({
       userId: "99999999-9999-4999-8999-999999999999",
       orgId: "11111111-1111-4111-8111-111111111111",
@@ -334,10 +343,10 @@ describe("GET /api/parcels", () => {
     expect(fetchMock).toHaveBeenCalled();
   });
 
-  it("still returns empty fallback when SUPABASE env are placeholders", async () => {
+  it("still returns empty fallback when LOCAL_API env are missing", async () => {
     ({ GET } = await import("./route"));
-    process.env.SUPABASE_URL = "placeholder";
-    process.env.SUPABASE_SERVICE_ROLE_KEY = "placeholder";
+    delete process.env.LOCAL_API_URL;
+    delete process.env.LOCAL_API_KEY;
     resolveAuthMock.mockResolvedValue({
       userId: "99999999-9999-4999-8999-999999999999",
       orgId: "11111111-1111-4111-8111-111111111111",

@@ -467,7 +467,11 @@ export const queryPropertyDb = tool({
     limit: z.number().optional().nullable().describe("Max results to return (default 10, max 100)."),
   }),
   execute: async (params) => {
-    const result = await gatewayPost("/tools/parcels.search", params);
+    // Strip null/undefined params — gateway treats null as an explicit filter
+    const cleaned = Object.fromEntries(
+      Object.entries(params).filter(([, v]) => v != null)
+    );
+    const result = await gatewayPost("/tools/parcels.search", cleaned);
     return JSON.stringify(result);
   },
 });

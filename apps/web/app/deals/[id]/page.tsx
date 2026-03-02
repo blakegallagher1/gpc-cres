@@ -532,7 +532,6 @@ export default function DealDetailPage() {
             </TabsTrigger>
             <TabsTrigger value="buyers">Buyers</TabsTrigger>
             <TabsTrigger value="room">Room</TabsTrigger>
-            <TabsTrigger value="collaborate">Collaborate</TabsTrigger>
           </TabsList>
 
           {/* Overview Tab */}
@@ -1336,28 +1335,6 @@ export default function DealDetailPage() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="collaborate">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Deal Room</CardTitle>
-                <CardDescription>
-                  Messaging, shared documents, and team coordination workspace.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <p className="text-sm text-muted-foreground">
-                    Shared notes and collaboration feed for this deal.
-                  </p>
-                  <CollaborativeMemo
-                    roomId={deal.id}
-                    artifactId={deal.id}
-                    initialContent={`# ${deal.name} Collaboration Room`}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
         </Tabs>
       </div>
     </DashboardShell>

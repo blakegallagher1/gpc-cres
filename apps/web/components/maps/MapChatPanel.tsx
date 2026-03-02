@@ -201,7 +201,7 @@ export function MapChatPanel({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="absolute right-0 top-4 z-[1000] flex items-center gap-1.5 rounded-l-lg border border-r-0 border-border bg-background px-3 py-2 text-sm font-medium shadow-md transition-colors hover:bg-muted"
+        className="absolute right-0 top-4 z-30 flex items-center gap-1.5 rounded-l-lg border border-r-0 border-border bg-background px-3 py-2 text-sm font-medium shadow-md transition-colors hover:bg-muted"
         title={open ? "Close Map Copilot" : "Open Map Copilot"}
       >
         <Map className="h-4 w-4" />
@@ -215,7 +215,7 @@ export function MapChatPanel({
 
       {open && (
         <div
-          className="absolute right-0 top-0 z-[999] flex h-full flex-col map-panel shadow-xl rounded-none"
+          className="absolute right-0 top-0 z-20 flex h-full flex-col map-panel shadow-xl rounded-none"
           style={{ width: PANEL_WIDTH }}
         >
           <Card className="flex h-full flex-col rounded-none border-0 bg-transparent">
