@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@gpc/db';
-import { auth } from '@clerk/nextjs/server';
+import { prisma } from '@entitlement-os/db';
+import { resolveAuth } from '@/lib/auth/resolveAuth';
 
 /**
  * GET /api/memory/collisions
@@ -10,37 +10,15 @@ import { auth } from '@clerk/nextjs/server';
  */
 export async function GET(request: NextRequest) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
+    const authResult = await resolveAuth();
+    if (!authResult) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { searchParams } = new URL(request.url);
-    const orgId = searchParams.get('orgId');
-
-    if (!orgId) {
-      return NextResponse.json(
-        { error: 'Missing orgId parameter' },
-        { status: 400 }
-      );
-    }
-
-    // Verify membership
-    const membership = await db.orgMembership.findUnique({
-      where: {
-        orgId_userId: {
-          orgId,
-          userId,
-        },
-      },
-    });
-
-    if (!membership) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    const { userId, orgId } = authResult;
 
     // Fetch collision alerts
-    const alerts = await db.entityCollisionAlert.findMany({
+    const alerts = await prisma.entityCollisionAlert.findMany({
       where: {
         orgId,
         status: 'pending',
@@ -73,13 +51,15 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
+    const authResult = await resolveAuth();
+    if (!authResult) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const { userId, orgId } = authResult;
+
     const body = await request.json();
-    const { alertId, resolution, orgId } = body;
+    const { alertId, resolution } = body;
 
     if (!alertId || !resolution) {
       return NextResponse.json(
@@ -88,22 +68,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify membership
-    const membership = await db.orgMembership.findUnique({
-      where: {
-        orgId_userId: {
-          orgId,
-          userId,
-        },
-      },
-    });
-
-    if (!membership) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
     // Update collision alert
-    const updated = await db.entityCollisionAlert.update({
+    const updated = await prisma.entityCollisionAlert.update({
       where: { id: alertId },
       data: {
         status: 'resolved',

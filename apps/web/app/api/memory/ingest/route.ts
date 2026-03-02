@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@gpc/db';
+import { prisma } from '@entitlement-os/db';
 import { MemoryIngestionService } from '@gpc/server/services/memory-ingestion.service';
-import { MemoryIngestionRequestSchema } from '@gpc/shared/types/memory';
+import { MemoryIngestionRequestSchema } from '@entitlement-os/shared';
 import { v4 as uuidv4 } from 'uuid';
-import { auth } from '@clerk/nextjs/server';
+import { resolveAuth } from '@/lib/auth/resolveAuth';
 
 /**
  * POST /api/memory/ingest
@@ -15,21 +15,24 @@ import { auth } from '@clerk/nextjs/server';
 export async function POST(request: NextRequest) {
   try {
     // Auth check
-    const { userId } = await auth();
-    if (!userId) {
+    const authResult = await resolveAuth();
+    if (!authResult) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
+    const { userId, orgId } = authResult;
+
     // Parse request body
     const body = await request.json();
     
-    // Inject userId and generate requestId if not provided
+    // Inject userId, orgId, and generate requestId if not provided
     const enrichedBody = {
       ...body,
       userId,
+      orgId: body.orgId || orgId,
       requestId: body.requestId || uuidv4(),
     };
 
@@ -39,7 +42,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error: 'Invalid request',
-          details: validationResult.error.errors,
+          details: validationResult.error.issues,
         },
         { status: 400 }
       );
@@ -47,21 +50,21 @@ export async function POST(request: NextRequest) {
 
     const ingestionRequest = validationResult.data;
 
-    // Verify user has access to org
-    const membership = await db.orgMembership.findUnique({
-      where: {
-        orgId_userId: {
+    // Verify user has access to the requested org
+    if (ingestionRequest.orgId !== orgId) {
+      const membership = await prisma.orgMembership.findFirst({
+        where: {
           orgId: ingestionRequest.orgId,
           userId,
         },
-      },
-    });
+      });
 
-    if (!membership) {
-      return NextResponse.json(
-        { error: 'Forbidden: User not member of org' },
-        { status: 403 }
-      );
+      if (!membership) {
+        return NextResponse.json(
+          { error: 'Forbidden: User not member of org' },
+          { status: 403 }
+        );
+      }
     }
 
     // Execute ingestion

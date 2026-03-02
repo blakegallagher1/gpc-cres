@@ -1,17 +1,17 @@
-import { db } from '@gpc/db';
+import { prisma } from '@entitlement-os/db';
+import type { Prisma } from '@entitlement-os/db';
 import type {
   CompData,
   MemoryIngestionRequest,
   MemoryIngestionResult,
   EntityResolutionResult,
   VolatilityClass,
-} from '@gpc/shared/types/memory';
+} from '@entitlement-os/shared';
 import {
   FACT_TYPE_VOLATILITY,
   calculateEconomicWeight,
-} from '@gpc/shared/types/memory';
+} from '@entitlement-os/shared';
 import { v4 as uuidv4 } from 'uuid';
-import { Prisma } from '@gpc/db';
 
 // ============================================================================
 // Entity Resolution
@@ -37,7 +37,7 @@ export class EntityResolutionService {
     });
 
     // Try exact match first
-    const existing = await db.internalEntity.findUnique({
+    const existing = await prisma.internalEntity.findUnique({
       where: {
         orgId_canonicalAddress: {
           orgId: params.orgId,
@@ -69,7 +69,7 @@ export class EntityResolutionService {
     }
 
     // Create new entity
-    const newEntity = await db.internalEntity.create({
+    const newEntity = await prisma.internalEntity.create({
       data: {
         id: uuidv4(),
         orgId: params.orgId,
@@ -124,7 +124,7 @@ export class EntityResolutionService {
   ): Promise<{ entityId: string; address: string; score: number } | null> {
     // Simple implementation: fetch all entities and compute similarity
     // In production, use PostgreSQL pg_trgm extension or similar
-    const entities = await db.internalEntity.findMany({
+    const entities = await prisma.internalEntity.findMany({
       where: { orgId, type: 'property' },
       select: { id: true, canonicalAddress: true },
     });
@@ -248,7 +248,7 @@ export class MemoryIngestionService {
             const volatilityClass = FACT_TYPE_VOLATILITY[fact.factType] || 'dynamic';
 
             // Create event log entry
-            const eventLog = await db.memoryEventLog.create({
+            const eventLog = await prisma.memoryEventLog.create({
               data: {
                 id: uuidv4(),
                 orgId: request.orgId,
@@ -267,7 +267,7 @@ export class MemoryIngestionService {
 
             // Store in Draft or Verified table
             if (request.autoVerify) {
-              const verified = await db.memoryVerified.create({
+              const verified = await prisma.memoryVerified.create({
                 data: {
                   id: uuidv4(),
                   orgId: request.orgId,
@@ -285,7 +285,7 @@ export class MemoryIngestionService {
               result.verifiedMemoryIds.push(verified.id);
               result.verifiedCreated++;
             } else {
-              const draft = await db.memoryDraft.create({
+              const draft = await prisma.memoryDraft.create({
                 data: {
                   id: uuidv4(),
                   orgId: request.orgId,
@@ -330,7 +330,7 @@ export class MemoryIngestionService {
             });
 
             if (isNovel) {
-              await db.innovationQueue.create({
+              await prisma.innovationQueue.create({
                 data: {
                   id: uuidv4(),
                   orgId: request.orgId,
@@ -374,7 +374,7 @@ export class MemoryIngestionService {
   }): Promise<boolean> {
     // Check if sale_price fact exists with same date and price
     if (params.comp.transactionType === 'sale' && params.comp.salePrice) {
-      const existing = await db.memoryVerified.findFirst({
+      const existing = await prisma.memoryVerified.findFirst({
         where: {
           orgId: params.orgId,
           entityId: params.entityId,
@@ -497,7 +497,7 @@ export class MemoryIngestionService {
     newValue: Record<string, any>;
   }): Promise<boolean> {
     // Simplified: check if an existing verified fact has a different value
-    const existing = await db.memoryVerified.findFirst({
+    const existing = await prisma.memoryVerified.findFirst({
       where: {
         orgId: params.orgId,
         entityId: params.entityId,
@@ -531,7 +531,7 @@ export class MemoryIngestionService {
     newValue: Record<string, any>;
   }): Promise<boolean> {
     // Simplified: if there are existing facts and new value differs significantly
-    const existing = await db.memoryVerified.findMany({
+    const existing = await prisma.memoryVerified.findMany({
       where: {
         orgId: params.orgId,
         entityId: params.entityId,

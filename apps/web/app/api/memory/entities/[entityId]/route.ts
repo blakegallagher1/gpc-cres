@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@gpc/db';
-import { auth } from '@clerk/nextjs/server';
+import { prisma } from '@entitlement-os/db';
+import { resolveAuth } from '@/lib/auth/resolveAuth';
 
 /**
  * GET /api/memory/entities/[entityId]
@@ -10,18 +10,19 @@ import { auth } from '@clerk/nextjs/server';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { entityId: string } }
+  { params }: { params: Promise<{ entityId: string }> }
 ) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
+    const authResult = await resolveAuth();
+    if (!authResult) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { entityId } = params;
+    const { userId, orgId } = authResult;
+    const { entityId } = await params;
 
     // Fetch entity with org check
-    const entity = await db.internalEntity.findUnique({
+    const entity = await prisma.internalEntity.findUnique({
       where: { id: entityId },
     });
 
@@ -32,17 +33,8 @@ export async function GET(
       );
     }
 
-    // Verify user has access to org
-    const membership = await db.orgMembership.findUnique({
-      where: {
-        orgId_userId: {
-          orgId: entity.orgId,
-          userId,
-        },
-      },
-    });
-
-    if (!membership) {
+    // Verify entity belongs to user's org
+    if (entity.orgId !== orgId) {
       return NextResponse.json(
         { error: 'Forbidden' },
         { status: 403 }
@@ -51,15 +43,15 @@ export async function GET(
 
     // Fetch all memory facts
     const [drafts, verified, collisionAlerts, eventLogs] = await Promise.all([
-      db.memoryDraft.findMany({
+      prisma.memoryDraft.findMany({
         where: { entityId },
         orderBy: { createdAt: 'desc' },
       }),
-      db.memoryVerified.findMany({
+      prisma.memoryVerified.findMany({
         where: { entityId },
         orderBy: { createdAt: 'desc' },
       }),
-      db.entityCollisionAlert.findMany({
+      prisma.entityCollisionAlert.findMany({
         where: {
           OR: [
             { entityIdA: entityId },
@@ -68,7 +60,7 @@ export async function GET(
           status: 'pending',
         },
       }),
-      db.memoryEventLog.findMany({
+      prisma.memoryEventLog.findMany({
         where: { entityId },
         orderBy: { timestamp: 'desc' },
         take: 50,

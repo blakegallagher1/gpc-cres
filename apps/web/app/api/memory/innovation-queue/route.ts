@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@gpc/db';
-import { auth } from '@clerk/nextjs/server';
+import { prisma } from '@entitlement-os/db';
+import { resolveAuth } from '@/lib/auth/resolveAuth';
 
 /**
  * GET /api/memory/innovation-queue
@@ -10,38 +10,15 @@ import { auth } from '@clerk/nextjs/server';
  */
 export async function GET(request: NextRequest) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
+    const authResult = await resolveAuth();
+    if (!authResult) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get orgId from query params
-    const { searchParams } = new URL(request.url);
-    const orgId = searchParams.get('orgId');
-
-    if (!orgId) {
-      return NextResponse.json(
-        { error: 'Missing orgId parameter' },
-        { status: 400 }
-      );
-    }
-
-    // Verify membership
-    const membership = await db.orgMembership.findUnique({
-      where: {
-        orgId_userId: {
-          orgId,
-          userId,
-        },
-      },
-    });
-
-    if (!membership) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    const { userId, orgId } = authResult;
 
     // Fetch pending innovation queue items
-    const items = await db.innovationQueue.findMany({
+    const items = await prisma.innovationQueue.findMany({
       where: {
         orgId,
         status: 'pending',
@@ -74,13 +51,15 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
+    const authResult = await resolveAuth();
+    if (!authResult) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const { userId, orgId } = authResult;
+
     const body = await request.json();
-    const { itemId, decision, orgId } = body;
+    const { itemId, decision } = body;
 
     if (!itemId || !decision || !['approved', 'rejected'].includes(decision)) {
       return NextResponse.json(
@@ -89,22 +68,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify membership
-    const membership = await db.orgMembership.findUnique({
-      where: {
-        orgId_userId: {
-          orgId,
-          userId,
-        },
-      },
-    });
-
-    if (!membership) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
     // Update innovation queue item
-    const updated = await db.innovationQueue.update({
+    const updated = await prisma.innovationQueue.update({
       where: { id: itemId },
       data: {
         status: decision,

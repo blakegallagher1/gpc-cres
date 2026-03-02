@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@gpc/db';
-import { auth } from '@clerk/nextjs/server';
+import { prisma } from '@entitlement-os/db';
+import { resolveAuth } from '@/lib/auth/resolveAuth';
 
 /**
  * GET /api/memory/stats
@@ -15,43 +15,21 @@ import { auth } from '@clerk/nextjs/server';
  */
 export async function GET(request: NextRequest) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
+    const authResult = await resolveAuth();
+    if (!authResult) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { searchParams } = new URL(request.url);
-    const orgId = searchParams.get('orgId');
-
-    if (!orgId) {
-      return NextResponse.json(
-        { error: 'Missing orgId parameter' },
-        { status: 400 }
-      );
-    }
-
-    // Verify membership
-    const membership = await db.orgMembership.findUnique({
-      where: {
-        orgId_userId: {
-          orgId,
-          userId,
-        },
-      },
-    });
-
-    if (!membership) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    const { userId, orgId } = authResult;
 
     // Fetch stats in parallel
     const [entitiesCount, verifiedCount, draftsCount, collisionsCount, innovationCount, recentEvents] = await Promise.all([
-      db.internalEntity.count({ where: { orgId, type: 'property' } }),
-      db.memoryVerified.count({ where: { orgId } }),
-      db.memoryDraft.count({ where: { orgId } }),
-      db.entityCollisionAlert.count({ where: { orgId, status: 'pending' } }),
-      db.innovationQueue.count({ where: { orgId, status: 'pending' } }),
-      db.memoryEventLog.count({
+      prisma.internalEntity.count({ where: { orgId, type: 'property' } }),
+      prisma.memoryVerified.count({ where: { orgId } }),
+      prisma.memoryDraft.count({ where: { orgId } }),
+      prisma.entityCollisionAlert.count({ where: { orgId, status: 'pending' } }),
+      prisma.innovationQueue.count({ where: { orgId, status: 'pending' } }),
+      prisma.memoryEventLog.count({
         where: {
           orgId,
           timestamp: {
@@ -62,7 +40,7 @@ export async function GET(request: NextRequest) {
     ]);
 
     // Fetch fact type breakdown
-    const factTypeBreakdown = await db.memoryVerified.groupBy({
+    const factTypeBreakdown = await prisma.memoryVerified.groupBy({
       by: ['factType'],
       where: { orgId },
       _count: true,

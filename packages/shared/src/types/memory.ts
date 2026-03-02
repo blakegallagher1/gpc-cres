@@ -246,7 +246,7 @@ export const MemoryEventLogEntrySchema = z.object({
   
   sourceType: z.string(),
   factType: z.string(),
-  payloadJson: z.record(z.any()),
+  payloadJson: z.record(z.string(), z.any()),
   
   status: z.enum(['draft', 'verified', 'rejected', 'pending_review']),
   conflictFlag: z.boolean().default(false),
@@ -259,7 +259,7 @@ export const MemoryEventLogEntrySchema = z.object({
   tokenUsage: z.number().int().nonnegative().optional(),
   costUsd: z.number().nonnegative().optional(),
   
-  causalMetadata: z.record(z.any()).optional(),
+  causalMetadata: z.record(z.string(), z.any()).optional(),
 });
 
 export type MemoryEventLogEntry = z.infer<typeof MemoryEventLogEntrySchema>;
