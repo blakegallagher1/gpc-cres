@@ -93,3 +93,6 @@ output/playwright-*.png
 
 # Local parcel import drops
 parcel_data_updated/
+
+# Git worktrees
+.worktrees/
