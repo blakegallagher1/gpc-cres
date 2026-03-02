@@ -2,45 +2,26 @@ import { NextRequest, NextResponse } from "next/server";
 import { z, ZodError } from "zod";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 
-function isMissingOrPlaceholder(value: string | undefined): boolean {
-  const normalized = (value ?? "").trim().toLowerCase();
-  return (
-    normalized.length === 0 ||
-    normalized === "undefined" ||
-    normalized === "null" ||
-    normalized === "placeholder" ||
-    normalized.includes("placeholder")
-  );
-}
-
-function getPropertyDbConfig(): { url: string; key: string } | null {
-  const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
+function getGatewayConfig(): { url: string; key: string } | null {
+  const url = process.env.LOCAL_API_URL?.trim();
+  const key = process.env.LOCAL_API_KEY?.trim();
   if (!url || !key) return null;
-
-  if (isMissingOrPlaceholder(url) || isMissingOrPlaceholder(key)) {
-    return null;
-  }
-
-  return { url: url.trim(), key: key.trim() };
+  return { url, key };
 }
 
 async function propertyRpc(
   fnName: string,
   body: Record<string, unknown>
 ): Promise<unknown> {
-  const config = getPropertyDbConfig();
+  const config = getGatewayConfig();
   if (!config) return [];
 
   const { url, key } = config;
-  const res = await fetch(`${url}/rest/v1/rpc/${fnName}`, {
+  const res = await fetch(`${url}/property-db/rpc/${fnName}`, {
     method: "POST",
     headers: {
-      apikey: key,
       Authorization: `Bearer ${key}`,
       "Content-Type": "application/json",
-      Prefer: "return=representation",
     },
     body: JSON.stringify(body),
   });

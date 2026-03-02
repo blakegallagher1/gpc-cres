@@ -180,10 +180,9 @@ async function fetchExistingSourceKeys(
     const slice = sourceKeys.slice(i, i + 250);
     if (slice.length === 0) continue;
     const encoded = slice.map((value) => `"${value.replace(/"/g, '\\"')}"`).join(",");
-    const url = `${propertyDbUrl}/rest/v1/parcels?select=source_key&source_key=in.(${encodeURIComponent(encoded)})`;
+    const url = `${propertyDbUrl}/property-db/rest/v1/parcels?select=source_key&source_key=in.(${encodeURIComponent(encoded)})`;
     const res = await fetch(url, {
       headers: {
-        apikey: propertyDbKey,
         Authorization: `Bearer ${propertyDbKey}`,
       },
     });
@@ -213,11 +212,10 @@ async function insertRows(
   for (let i = 0; i < rows.length; i += batchSize) {
     const batch = rows.slice(i, i + batchSize);
     const res = await fetch(
-      `${propertyDbUrl}/rest/v1/parcels?on_conflict=source_key`,
+      `${propertyDbUrl}/property-db/rest/v1/parcels?on_conflict=source_key`,
       {
         method: "POST",
         headers: {
-          apikey: propertyDbKey,
           Authorization: `Bearer ${propertyDbKey}`,
           "Content-Type": "application/json",
           Prefer: "resolution=merge-duplicates,return=minimal",
@@ -240,15 +238,13 @@ async function insertRows(
 
 async function main() {
   const { apply, dataDir, reportDir, batchSize } = parseArgs(process.argv.slice(2));
-  const propertyDbUrl =
-    process.env.SUPABASE_URL?.trim() ||
-    process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const propertyDbUrl = process.env.LOCAL_API_URL?.trim();
   if (!propertyDbUrl) {
     throw new Error(
-      "[parcel-backfill] Missing SUPABASE_URL or NEXT_PUBLIC_SUPABASE_URL.",
+      "[parcel-backfill] Missing LOCAL_API_URL.",
     );
   }
-  const propertyDbKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
+  const propertyDbKey = requireEnv("LOCAL_API_KEY");
 
   const absoluteDataDir = path.resolve(process.cwd(), dataDir);
   const files = (await readdir(absoluteDataDir))

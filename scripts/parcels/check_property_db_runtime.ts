@@ -1,34 +1,12 @@
-function isPlaceholder(value: string | undefined): boolean {
-  const normalized = (value ?? "").trim().toLowerCase();
-  return (
-    normalized.length === 0 ||
-    normalized === "placeholder" ||
-    normalized === "***" ||
-    normalized === "undefined" ||
-    normalized === "null" ||
-    normalized.includes("placeholder")
-  );
-}
-
-function requireHealthyEnv(name: string): string {
-  const value = process.env[name]?.trim();
-  if (isPlaceholder(value)) {
-    throw new Error(`[property-db-check] ${name} is missing or placeholder.`);
-  }
-  return value!;
-}
-
 async function main() {
-  const url =
-    process.env.SUPABASE_URL?.trim() ||
-    process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
-    "";
-  if (isPlaceholder(url)) {
-    throw new Error(
-      "[property-db-check] SUPABASE_URL or NEXT_PUBLIC_SUPABASE_URL is missing or placeholder.",
-    );
+  const url = process.env.LOCAL_API_URL?.trim();
+  if (!url) {
+    throw new Error("[property-db-check] Missing LOCAL_API_URL.");
   }
-  const key = requireHealthyEnv("SUPABASE_SERVICE_ROLE_KEY");
+  const key = process.env.LOCAL_API_KEY?.trim();
+  if (!key) {
+    throw new Error("[property-db-check] Missing LOCAL_API_KEY.");
+  }
 
   const host = (() => {
     try {
@@ -38,13 +16,11 @@ async function main() {
     }
   })();
 
-  const res = await fetch(`${url}/rest/v1/rpc/api_search_parcels`, {
+  const res = await fetch(`${url}/property-db/rpc/api_search_parcels`, {
     method: "POST",
     headers: {
-      apikey: key,
       Authorization: `Bearer ${key}`,
       "Content-Type": "application/json",
-      Prefer: "return=representation",
     },
     body: JSON.stringify({
       search_text: "*",

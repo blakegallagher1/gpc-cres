@@ -2,12 +2,13 @@ import { prisma } from "@entitlement-os/db";
 import type { Prisma } from "@entitlement-os/db";
 import { getNotificationService } from "@/lib/services/notification.service";
 
-function requirePropertyDbEnv(value: string | undefined, name: string): string {
-  const normalized = value?.trim();
-  if (!normalized) {
-    throw new Error(`[opportunity-scanner-job] Missing required ${name}.`);
+function getGatewayConfig(): { url: string; key: string } {
+  const url = process.env.LOCAL_API_URL?.trim();
+  const key = process.env.LOCAL_API_KEY?.trim();
+  if (!url || !key) {
+    throw new Error("[opportunity-scanner-job] Missing LOCAL_API_URL or LOCAL_API_KEY");
   }
-  return normalized;
+  return { url, key };
 }
 
 export interface JobResult {
@@ -42,21 +43,12 @@ async function propertyDbRpc(
   fnName: string,
   body: Record<string, unknown>
 ): Promise<unknown> {
-  const propertyDbUrl = requirePropertyDbEnv(
-    process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL,
-    "SUPABASE_URL",
-  );
-  const propertyDbKey = requirePropertyDbEnv(
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
-    "SUPABASE_SERVICE_ROLE_KEY",
-  );
-  const res = await fetch(`${propertyDbUrl}/rest/v1/rpc/${fnName}`, {
+  const { url, key } = getGatewayConfig();
+  const res = await fetch(`${url}/property-db/rpc/${fnName}`, {
     method: "POST",
     headers: {
-      apikey: propertyDbKey,
-      Authorization: `Bearer ${propertyDbKey}`,
+      Authorization: `Bearer ${key}`,
       "Content-Type": "application/json",
-      Prefer: "return=representation",
     },
     body: JSON.stringify(body),
   });

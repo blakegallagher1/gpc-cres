@@ -2,36 +2,22 @@ import { prisma } from "@entitlement-os/db";
 import type { Prisma } from "@entitlement-os/db";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 
-function requirePropertyDbEnv(value: string | undefined, name: string): string {
-  const normalized = value?.trim();
-  if (!normalized) {
-    throw new Error(`[saved-search-service] Missing required ${name}.`);
+function getGatewayConfig(): { url: string; key: string } {
+  const url = process.env.LOCAL_API_URL?.trim();
+  const key = process.env.LOCAL_API_KEY?.trim();
+  if (!url || !key) {
+    throw new Error("[saved-search-service] Missing LOCAL_API_URL or LOCAL_API_KEY");
   }
-  return normalized;
-}
-
-function getPropertyDbConfig(): { url: string; key: string } {
-  return {
-    url: requirePropertyDbEnv(
-      process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL,
-      "SUPABASE_URL",
-    ),
-    key: requirePropertyDbEnv(
-      process.env.SUPABASE_SERVICE_ROLE_KEY,
-      "SUPABASE_SERVICE_ROLE_KEY",
-    ),
-  };
+  return { url, key };
 }
 
 async function propertyDbRpc(fnName: string, body: Record<string, unknown>): Promise<unknown> {
-  const { url, key } = getPropertyDbConfig();
-  const res = await fetch(`${url}/rest/v1/rpc/${fnName}`, {
+  const { url, key } = getGatewayConfig();
+  const res = await fetch(`${url}/property-db/rpc/${fnName}`, {
     method: "POST",
     headers: {
-      apikey: key,
       Authorization: `Bearer ${key}`,
       "Content-Type": "application/json",
-      Prefer: "return=representation",
     },
     body: JSON.stringify(body),
   });

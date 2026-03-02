@@ -17,8 +17,8 @@ const USER_ID = "99999999-9999-4999-8999-999999999999";
 describe("GET /api/map/comps", () => {
   const fetchMock = vi.fn();
   const priorEnv = {
-    url: process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL,
-    key: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    url: process.env.LOCAL_API_URL,
+    key: process.env.LOCAL_API_KEY,
   };
 
   beforeEach(() => {
@@ -26,14 +26,14 @@ describe("GET /api/map/comps", () => {
     fetchMock.mockReset();
     vi.stubGlobal("fetch", fetchMock);
 
-    // Route short-circuits RPC calls if env is missing/placeholder.
-    process.env.SUPABASE_URL = "http://property-db.test";
-    process.env.SUPABASE_SERVICE_ROLE_KEY = "test-key";
+    // Route short-circuits RPC calls if env is missing.
+    process.env.LOCAL_API_URL = "http://property-db.test";
+    process.env.LOCAL_API_KEY = "test-key";
   });
 
   afterEach(() => {
-    process.env.SUPABASE_URL = priorEnv.url;
-    process.env.SUPABASE_SERVICE_ROLE_KEY = priorEnv.key;
+    process.env.LOCAL_API_URL = priorEnv.url;
+    process.env.LOCAL_API_KEY = priorEnv.key;
   });
 
   it("returns 401 when unauthenticated", async () => {
