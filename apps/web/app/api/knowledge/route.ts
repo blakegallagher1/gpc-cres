@@ -32,18 +32,18 @@ export async function GET(req: NextRequest) {
           ? (searchParams.get("types")!.split(",") as KnowledgeContentType[])
           : undefined;
         const limit = Number(searchParams.get("limit") ?? 5);
-        const results = await searchKnowledgeBase(query, contentTypes, limit);
+        const results = await searchKnowledgeBase(auth.orgId, query, contentTypes, limit);
         return NextResponse.json({ results });
       }
       case "recent": {
         const contentType = searchParams.get("type") as KnowledgeContentType | null;
         const limit = Number(searchParams.get("limit") ?? 20);
-        const entries = await getRecentEntries(limit, contentType ?? undefined);
+        const entries = await getRecentEntries(auth.orgId, limit, contentType ?? undefined);
         return NextResponse.json({ entries });
       }
       case "stats":
       default: {
-        const stats = await getKnowledgeStats();
+        const stats = await getKnowledgeStats(auth.orgId);
         return NextResponse.json(stats);
       }
     }
@@ -76,6 +76,7 @@ export async function POST(req: NextRequest) {
           );
         }
         const ids = await ingestKnowledge(
+          auth.orgId,
           contentType as KnowledgeContentType,
           sourceId,
           contentText,
@@ -91,7 +92,7 @@ export async function POST(req: NextRequest) {
             { status: 400 }
           );
         }
-        const deleted = await deleteKnowledge(sourceId);
+        const deleted = await deleteKnowledge(auth.orgId, sourceId);
         return NextResponse.json({ deleted });
       }
       default:

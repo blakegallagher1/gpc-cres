@@ -253,10 +253,11 @@ export async function handleKnowledgeCapture(event: AutomationEvent): Promise<vo
   };
 
   if (AUTOMATION_CONFIG.knowledgeCapture.dedupeBeforeWrite) {
-    await deleteKnowledge(sourceId);
+    await deleteKnowledge(deal.orgId, sourceId);
   }
 
   await ingestKnowledge(
+    deal.orgId,
     "outcome_record" as KnowledgeContentType,
     sourceId,
     content,

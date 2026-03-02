@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
     if (result.decision === "verified" && result.recordId && result.structuredMemoryWrite) {
       const factType = result.structuredMemoryWrite.fact_type;
       const contentText = `${factType}: ${JSON.stringify(result.structuredMemoryWrite)}`;
-      ingestKnowledge("agent_analysis", result.recordId, contentText, {
+      ingestKnowledge(auth.orgId, "agent_analysis", result.recordId, contentText, {
         entityId: resolvedEntityId ?? undefined,
         factType,
         orgId: auth.orgId,

@@ -1027,6 +1027,7 @@ model OpportunityMatch {
 
 model KnowledgeEmbedding {
   id          String                       @id @default(uuid()) @db.Uuid
+  orgId       String                       @map("org_id") @db.Uuid
   contentType String                       @map("content_type") @db.Text // deal_memo|agent_analysis|document_extraction|market_report|user_note
   sourceId    String                       @map("source_id") @db.Text // polymorphic reference
   contentText String                       @map("content_text") @db.Text
@@ -1035,6 +1036,7 @@ model KnowledgeEmbedding {
   createdAt   DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime                     @updatedAt @map("updated_at") @db.Timestamptz(6)
 
+  @@index([orgId])
   @@index([contentType])
   @@index([sourceId])
   @@map("knowledge_embeddings")

@@ -86,6 +86,7 @@ function chunkText(text: string): string[] {
 // ---------------------------------------------------------------------------
 
 export async function ingestKnowledge(
+  orgId: string,
   contentType: KnowledgeContentType,
   sourceId: string,
   contentText: string,
@@ -106,9 +107,10 @@ export async function ingestKnowledge(
 
     // Use raw SQL for vector insertion
     const result = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
-      `INSERT INTO knowledge_embeddings (id, content_type, source_id, content_text, embedding, metadata, created_at, updated_at)
-       VALUES (gen_random_uuid(), $1, $2, $3, $4::vector(1536), $5::jsonb, NOW(), NOW())
+      `INSERT INTO knowledge_embeddings (id, org_id, content_type, source_id, content_text, embedding, metadata, created_at, updated_at)
+       VALUES (gen_random_uuid(), $1::uuid, $2, $3, $4, $5::vector(1536), $6::jsonb, NOW(), NOW())
        RETURNING id::text`,
+      orgId,
       contentType,
       sourceId,
       chunk,
@@ -122,9 +124,10 @@ export async function ingestKnowledge(
   return ids;
 }
 
-export async function deleteKnowledge(sourceId: string): Promise<number> {
+export async function deleteKnowledge(orgId: string, sourceId: string): Promise<number> {
   const result = await prisma.$executeRawUnsafe(
-    `DELETE FROM knowledge_embeddings WHERE source_id = $1`,
+    `DELETE FROM knowledge_embeddings WHERE org_id = $1::uuid AND source_id = $2`,
+    orgId,
     sourceId
   );
   return result;
@@ -135,6 +138,7 @@ export async function deleteKnowledge(sourceId: string): Promise<number> {
 // ---------------------------------------------------------------------------
 
 export async function searchKnowledgeBase(
+  orgId: string,
   query: string,
   contentTypes?: KnowledgeContentType[],
   limit = 5
@@ -143,11 +147,11 @@ export async function searchKnowledgeBase(
   const embeddingStr = `[${embedding.join(",")}]`;
 
   let sql: string;
-  const params: unknown[] = [embeddingStr, limit];
+  const params: unknown[] = [orgId, embeddingStr, limit];
 
   if (contentTypes && contentTypes.length > 0) {
     // Build parameterized IN clause
-    const placeholders = contentTypes.map((_, i) => `$${i + 3}`).join(", ");
+    const placeholders = contentTypes.map((_, i) => `$${i + 4}`).join(", ");
     sql = `
       SELECT
         id::text,
@@ -155,12 +159,12 @@ export async function searchKnowledgeBase(
         source_id AS "sourceId",
         content_text AS "contentText",
         metadata,
-        1 - (embedding <=> $1::vector(1536)) AS similarity,
+        1 - (embedding <=> $2::vector(1536)) AS similarity,
         created_at AS "createdAt"
       FROM knowledge_embeddings
-      WHERE content_type IN (${placeholders})
-      ORDER BY embedding <=> $1::vector(1536)
-      LIMIT $2
+      WHERE org_id = $1::uuid AND content_type IN (${placeholders})
+      ORDER BY embedding <=> $2::vector(1536)
+      LIMIT $3
     `;
     params.push(...contentTypes);
   } else {
@@ -171,11 +175,12 @@ export async function searchKnowledgeBase(
         source_id AS "sourceId",
         content_text AS "contentText",
         metadata,
-        1 - (embedding <=> $1::vector(1536)) AS similarity,
+        1 - (embedding <=> $2::vector(1536)) AS similarity,
         created_at AS "createdAt"
       FROM knowledge_embeddings
-      ORDER BY embedding <=> $1::vector(1536)
-      LIMIT $2
+      WHERE org_id = $1::uuid
+      ORDER BY embedding <=> $2::vector(1536)
+      LIMIT $3
     `;
   }
 
@@ -208,14 +213,15 @@ export async function searchKnowledgeBase(
 // Listing / Stats
 // ---------------------------------------------------------------------------
 
-export async function getKnowledgeStats(): Promise<{
+export async function getKnowledgeStats(orgId: string): Promise<{
   total: number;
   byType: Record<string, number>;
 }> {
   const counts = await prisma.$queryRawUnsafe<
     Array<{ content_type: string; count: string }>
   >(
-    `SELECT content_type, COUNT(*) as count FROM knowledge_embeddings GROUP BY content_type ORDER BY count DESC`
+    `SELECT content_type, COUNT(*) as count FROM knowledge_embeddings WHERE org_id = $1::uuid GROUP BY content_type ORDER BY count DESC`,
+    orgId
   );
 
   const total = counts.reduce((s, c) => s + Number(c.count), 0);
@@ -228,20 +234,21 @@ export async function getKnowledgeStats(): Promise<{
 }
 
 export async function getRecentEntries(
+  orgId: string,
   limit = 20,
   contentType?: KnowledgeContentType
 ): Promise<KnowledgeEntry[]> {
   let sql: string;
-  const params: unknown[] = [limit];
+  const params: unknown[] = [orgId, limit];
 
   if (contentType) {
     sql = `
       SELECT id::text, content_type AS "contentType", source_id AS "sourceId",
              content_text AS "contentText", metadata, created_at AS "createdAt"
       FROM knowledge_embeddings
-      WHERE content_type = $2
+      WHERE org_id = $1::uuid AND content_type = $3
       ORDER BY created_at DESC
-      LIMIT $1
+      LIMIT $2
     `;
     params.push(contentType);
   } else {
@@ -249,8 +256,9 @@ export async function getRecentEntries(
       SELECT id::text, content_type AS "contentType", source_id AS "sourceId",
              content_text AS "contentText", metadata, created_at AS "createdAt"
       FROM knowledge_embeddings
+      WHERE org_id = $1::uuid
       ORDER BY created_at DESC
-      LIMIT $1
+      LIMIT $2
     `;
   }
 
