@@ -3,6 +3,8 @@ import { prisma } from '@entitlement-os/db';
 import { MemoryIngestionService } from '@/lib/services/memoryIngestion.service';
 import { MemoryIngestionRequestSchema } from '@entitlement-os/shared';
 import { resolveAuth } from '@/lib/auth/resolveAuth';
+import { extractParishFromAddress } from '@/lib/services/compToMarket';
+import { addMarketDataPoint } from '@/lib/services/marketMonitor.service';
 
 /**
  * POST /api/memory/ingest
@@ -68,6 +70,40 @@ export async function POST(request: NextRequest) {
 
     // Execute ingestion
     const result = await MemoryIngestionService.ingestComps(ingestionRequest);
+
+    // Bridge verified comps to Market Intel page (MarketDataPoint table)
+    if (ingestionRequest.autoVerify && result.verifiedCreated > 0) {
+      const erroredIndexes = new Set(result.errors.map((e) => e.compIndex));
+      for (let i = 0; i < ingestionRequest.comps.length; i++) {
+        if (erroredIndexes.has(i)) continue;
+        const comp = ingestionRequest.comps[i];
+        const fullAddress = [comp.address, comp.city, `${comp.state} ${comp.zip ?? ""}`]
+          .filter(Boolean)
+          .join(", ")
+          .trim();
+        const parish =
+          extractParishFromAddress(fullAddress) ?? "East Baton Rouge";
+        const data: Record<string, unknown> = {
+          address: fullAddress || null,
+          sale_price: comp.salePrice ?? null,
+          price_psf: comp.pricePerSf ?? null,
+          cap_rate: comp.capRate ?? null,
+          property_type: comp.propertyType ?? null,
+          buyer: comp.buyer ?? null,
+          seller: comp.seller ?? null,
+        };
+        const observedAt = comp.transactionDate
+          ? new Date(comp.transactionDate)
+          : undefined;
+        addMarketDataPoint(
+          parish,
+          "comp_sale",
+          `memory:${ingestionRequest.sourceType}`,
+          data,
+          observedAt
+        ).catch(() => {});
+      }
+    }
 
     // Return result
     return NextResponse.json(result, { status: result.success ? 200 : 207 });

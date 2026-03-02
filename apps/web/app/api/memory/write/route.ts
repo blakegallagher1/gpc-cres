@@ -3,6 +3,7 @@ import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { resolveEntityId } from "@/lib/services/entityResolution";
 import { memoryWriteGate } from "@/lib/services/memoryWriteGate";
 import { ingestKnowledge } from "@/lib/services/knowledgeBase.service";
+import { bridgeCompToMarket } from "@/lib/services/compToMarket";
 
 const ADDRESS_WITH_CITY_STATE_ZIP_RE =
   /\b\d{1,6}\s+[A-Za-z0-9.'\- ]+?\s(?:Street|St\.?|Avenue|Ave\.?|Boulevard|Blvd\.?|Road|Rd\.?|Drive|Dr\.?|Lane|Ln\.?|Court|Ct\.?|Place|Pl\.?|Parkway|Pkwy\.?|Highway|Hwy\.?|Trail|Trl\.?|Way|Terrace|Terr\.?|Circle|Cir\.?)\s*,\s*[A-Za-z .'-]+,\s*[A-Z]{2}\s+\d{5}\b/i;
@@ -76,6 +77,9 @@ export async function POST(req: NextRequest) {
         factType,
         orgId: auth.orgId,
       }).catch(() => {});
+
+      // Bridge verified comps to Market Intel page (MarketDataPoint table)
+      bridgeCompToMarket(result.structuredMemoryWrite, effectiveAddress);
     }
 
     return NextResponse.json(result, { status: 201 });
