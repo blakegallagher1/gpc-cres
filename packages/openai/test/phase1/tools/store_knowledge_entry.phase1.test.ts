@@ -21,8 +21,8 @@ describe("Phase 1 Tool Pack :: store_knowledge_entry", () => {
   it("[MATRIX:tool:store_knowledge_entry][PACK:security] validates auth, org scoping, and cross-tenant access protections", () => {
     const source = readRepoSource("packages/openai/src/tools/knowledgeTools.ts");
 
-    // Current implementation returns a storage envelope and defers persistence to server routes.
-    expect(source.includes("_knowledgeStore: true")).toBe(true);
+    // Persistence deferred to server route via POST /api/knowledge with auth headers
+    expect(source.includes("buildMemoryToolHeaders(context)")).toBe(true);
     expect(source.includes("sourceAgent: params.source_agent")).toBe(true);
     expect(source.includes("prisma.")).toBe(false);
   });
@@ -30,7 +30,8 @@ describe("Phase 1 Tool Pack :: store_knowledge_entry", () => {
   it("[MATRIX:tool:store_knowledge_entry][PACK:idempotency] validates retry safety and duplicate-write prevention behavior", () => {
     const source = readRepoSource("packages/openai/src/tools/knowledgeTools.ts");
     expect(source.includes("tags: params.tags ?? []")).toBe(true);
-    expect(source.includes("timestamp: new Date().toISOString()")).toBe(true);
-    expect(source.includes("return JSON.stringify({")).toBe(true);
+    // sourceId derived from agent name + title ensures deduplication on retry
+    expect(source.includes("sourceId")).toBe(true);
+    expect(source.includes("action: \"ingest\"")).toBe(true);
   });
 });

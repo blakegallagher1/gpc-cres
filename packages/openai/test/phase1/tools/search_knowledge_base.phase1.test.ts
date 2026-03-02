@@ -20,13 +20,15 @@ describe("Phase 1 Tool Pack :: search_knowledge_base", () => {
 
     expect(source.includes("content_types")).toBe(true);
     expect(source.includes("deal_context")).toBe(true);
-    expect(source.includes("_knowledgeSearch: true")).toBe(true);
+    // Auth headers forwarded via buildMemoryToolHeaders
+    expect(source.includes("buildMemoryToolHeaders(context)")).toBe(true);
   });
 
   it("[MATRIX:tool:search_knowledge_base][PACK:idempotency] validates retry safety and duplicate-write prevention behavior", () => {
     const source = readRepoSource("packages/openai/src/tools/knowledgeTools.ts");
-    expect(source.includes("limit: params.limit ?? 5")).toBe(true);
-    expect(source.includes("recencyWeight: params.recency_weight ?? \"moderate\"")).toBe(true);
-    expect(source.includes("return JSON.stringify({")).toBe(true);
+    // Search is a read-only GET request — inherently idempotent
+    expect(source.includes("method: \"GET\"")).toBe(true);
+    expect(source.includes("/api/knowledge")).toBe(true);
+    expect(source.includes("JSON.stringify(data.results)")).toBe(true);
   });
 });

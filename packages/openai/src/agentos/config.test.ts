@@ -59,8 +59,8 @@ describe("agentos config", () => {
 
     expect(config.enabled).toBe(false);
     expect(config.models.agent).toBe("gpt-5.2");
-    expect(config.models.embedding).toBe("text-embedding-3-large");
-    expect(config.models.embeddingDimensions).toBe(1536);
+    expect(config.models.embedding).toBe("pplx-embed-v1-4b");
+    expect(config.models.embeddingDimensions).toBe(2560);
     expect(config.models.reasoningEffort).toBe("low");
     expect(config.models.reasoningEffortCritic).toBe("high");
     expect(config.models.reasoningEffortReflection).toBe("low");
