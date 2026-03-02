@@ -512,7 +512,11 @@ export async function GET(request: NextRequest) {
       console.warn("[/api/parcels] prisma unavailable, using fallbacks");
     }
 
-    if (parcels.length > 0 || (!hasCoords && !prismaUnavailable)) {
+    const shouldReturnOrgParcels =
+      parcels.length > 0 ||
+      (!hasCoords && !prismaUnavailable && searchText.length === 0);
+
+    if (shouldReturnOrgParcels) {
       logParcelsDevPayload("org", {
         hasCoords,
         searchText,

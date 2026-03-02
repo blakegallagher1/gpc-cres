@@ -295,6 +295,15 @@ export default function MapPage() {
   const isSearchActive = debouncedSearch.trim().length > 0;
   const hasNoSearchResults =
     isSearchActive && searchParcels !== null && searchParcels.length === 0;
+  const searchMatchCount = searchParcels?.length ?? 0;
+  const nearbyParcelCount = useMemo(() => {
+    if (!isSearchActive || !searchParcels || searchParcels.length === 0) return 0;
+    const matchIds = new Set(searchParcels.map((parcel) => parcel.id));
+    return visibleParcels.reduce(
+      (count, parcel) => (matchIds.has(parcel.id) ? count : count + 1),
+      0,
+    );
+  }, [isSearchActive, searchParcels, visibleParcels]);
 
   const activeParcels = useMemo(() => {
     if (polygon) return polygonParcels ?? [];
@@ -366,6 +375,7 @@ export default function MapPage() {
         setIsSearchLoading(false);
         return;
       }
+      setLoadError(null);
       try {
         const qs = new URLSearchParams({
           hasCoords: "true",
@@ -397,8 +407,10 @@ export default function MapPage() {
         }
         setSearchParcels(mapped);
       } catch {
-        if (active) setSearchParcels([]);
-        setLoadError("Search failed. Please try again.");
+        if (active) {
+          setSearchParcels([]);
+          setLoadError("Search failed. Please try again.");
+        }
       } finally {
         if (active) {
           setIsSearchLoading(false);
@@ -537,8 +549,8 @@ export default function MapPage() {
                   </form>
                   <p className="text-[10px] map-text-secondary mt-1.5">
                     {statusText}
-                    {!polygon && debouncedSearch
-                      ? ` \u2022 matches + nearby (${SURROUNDING_PARCELS_RADIUS_MILES} mi)`
+                    {!polygon && debouncedSearch && !loadError
+                      ? ` \u2022 ${searchMatchCount} matches \u2022 ${nearbyParcelCount} nearby (${SURROUNDING_PARCELS_RADIUS_MILES} mi)`
                       : ""}
                   </p>
                 </>
