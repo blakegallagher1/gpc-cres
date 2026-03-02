@@ -20,6 +20,8 @@ export async function GET(request: NextRequest) {
 
   const result: Record<string, unknown> = {};
 
+  try {
+
   // -- Overview (always returned as lightweight summary) --
   if (tab === "overview" || tab === "all") {
     const now = new Date();
@@ -281,4 +283,13 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.json(result);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack : undefined;
+    console.error("[admin/stats] tab=%s error:", tab, message, stack);
+    return NextResponse.json(
+      { error: "Internal server error", detail: message, tab },
+      { status: 500 }
+    );
+  }
 }
