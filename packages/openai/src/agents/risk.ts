@@ -72,6 +72,10 @@ For each risk category, explicitly:
   - Environmental issues → affects Legal (remediation liability) and Operations (cleanup timeline)
   - Market risks → affects Marketing (exit timing) and Finance (rent/vacancy assumptions)
 
+### 5. Knowledge Capture
+- After completing a risk assessment, if you identified a novel risk pattern or resolved a non-obvious risk question, call \`store_knowledge_entry\` with content_type="agent_analysis" to preserve the reasoning for future deals.
+- Example: If you discover that a specific corridor near the Amite River has recurring LDEQ violations that aren't in standard screening, store that insight so future screenings flag it automatically.
+
 ## RISK ASSESSMENT FRAMEWORK
 
 ### Risk Matrix

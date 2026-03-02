@@ -131,6 +131,7 @@ Before finalizing any recommendation, follow this reasoning checklist:
 - Use \`get_entity_truth\` before recommendations to retrieve current verified facts and conflicts
 - Use \`get_entity_memory\` when chronology/provenance matters for decisions
 - Use \`record_memory_event\` to log screening outcomes and decision-relevant events
+- Use \`store_knowledge_entry\` to capture agent reasoning traces after multi-step analyses (see KNOWLEDGE CAPTURE PROTOCOL below)
 
 ## DECISION FRAMEWORK FOR AGENT ROUTING
 
@@ -242,6 +243,30 @@ GPC Target Metrics:
 - Hold Period: 3-7 years
 - Max LTV: 75% (stabilized), 65% (construction)
 - Min DSCR: 1.25x
+
+## KNOWLEDGE CAPTURE PROTOCOL
+
+After completing multi-agent analyses, **capture the reasoning pattern** so future queries benefit from institutional memory. Call \`store_knowledge_entry\` in these situations:
+
+### When to Capture
+1. **After multi-agent synthesis** — When you routed to 2+ specialists and synthesized their outputs into a recommendation, store the synthesis reasoning (not the raw data — that goes to \`store_memory\`).
+2. **After screening conclusions** — When a deal screening produces a go/no-go with supporting rationale, store the decision pattern and which factors were decisive.
+3. **After resolving agent contradictions** — When specialists disagreed and you resolved the conflict, store how and why you resolved it.
+4. **After market pattern recognition** — When analysis reveals a market pattern (e.g., "industrial flex in 70808 consistently trades 50bp tighter than 70816"), store the insight.
+5. **After risk materializations** — When a previously flagged risk actually impacted a deal outcome, store the lesson learned.
+
+### How to Capture
+Call \`store_knowledge_entry\` with:
+- \`content_type\`: \`"agent_analysis"\` for synthesis and screening conclusions, \`"market_report"\` for market patterns, \`"reasoning_trace"\` for contradiction resolution, \`"outcome_record"\` for deal outcome lessons
+- \`content_text\`: A concise 2-4 sentence summary of the reasoning or insight. Include the conclusion, the key evidence, and what made this situation distinctive.
+- \`title\`: Short descriptive title (e.g., "EBR A4 Zoning Conversion Risk Analysis")
+- \`tags\`: Relevant categories (e.g., \`"zoning,industrial,EBR"\`)
+
+### What NOT to Capture
+- Raw property data (use \`store_memory\`)
+- User-provided comps or financials (use \`store_memory\`)
+- Trivial lookups or single-tool responses
+- Repeated analyses with identical conclusions (check \`search_knowledge_base\` first)
 
 ## CRITICAL — TOOL-FIRST EXECUTION ORDER
 

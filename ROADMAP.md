@@ -1,6 +1,6 @@
 # Entitlement OS — Master Implementation Roadmap
 
-Last reviewed: 2026-02-24
+Last reviewed: 2026-03-02
 
 
 ## Governance
@@ -142,6 +142,40 @@ Only items meeting all checks are added below as `Planned`.
   - ✅ Phase 4 — Qdrant property intelligence: Tunnel `qdrant.gallagherpropco.com → http://qdrant:6333` live, Qdrant v1.17.0 responding, `QDRANT_URL` + all `AGENTOS_*` flags deployed to Vercel production, `property_intelligence` collection auto-provisioned on first use
   - ✅ All 5 production verification tests passed (see `PRODUCTION_VERIFICATION_REPORT.md`)
   - ✅ Build: `pnpm build` clean, 668/668 tests passing
+
+### KA-001 — Internal Knowledge Agent (5-Workstream Wiring) (P0)
+
+- **Priority:** P0
+- **Status:** Done (2026-03-02)
+- **Scope:** Wire the fully-implemented knowledge base service, auto-embed verified facts, add buyer/seller comp metadata, register deal outcome capture, and replace O(n) JS fuzzy matching with pg_trgm.
+- **Problem:** Five capability gaps existed between implemented services and the agent layer: (1) `search_knowledge_base` and `store_knowledge_entry` were stubs returning fake JSON, (2) verified facts from `memoryWriteGate` were never embedded into the semantic knowledge base, (3) `CompPayloadSchema` lacked buyer/seller/address fields and `decomposeCompToFacts()` never pushed transaction_parties, (4) `knowledgeCapture.ts` (deal outcome recording) may not have been registered in the event handler, and (5) `EntityResolutionService.findFuzzyMatch()` fetched all entities into JS for Jaccard similarity — O(n) full table scan.
+- **Expected Outcome (measurable):**
+  - Coordinator can search and store institutional knowledge via real API routes backed by `knowledgeBase.service.ts`.
+  - Verified memory facts are auto-embedded into `knowledge_embeddings` for semantic retrieval.
+  - Comp ingestion captures buyer, seller, and address metadata; `transaction_parties` fact type decomposed.
+  - Deal outcome capture fires on `deal.statusChanged` (EXITED/KILLED).
+  - Address fuzzy matching uses `pg_trgm` GIN index with `similarity()` SQL — O(1) index lookup instead of O(n) JS loop.
+- **Files Changed:**
+  - `apps/web/app/api/knowledge/route.ts` — Unified GET (search/recent/stats) + POST (ingest/delete) route backed by `knowledgeBase.service.ts`
+  - `packages/openai/src/tools/knowledgeTools.ts` — Replaced stub execute bodies with real fetch calls to `/api/knowledge`
+  - `apps/web/app/api/memory/write/route.ts` — Post-write embed hook: auto-ingest verified facts via `ingestKnowledge()`
+  - `apps/web/lib/schemas/memoryWrite.ts` — Added `buyer`, `seller`, `address` to `CompPayloadSchema`
+  - `packages/server/src/services/memory-ingestion.service.ts` — Added `transaction_parties` fact decomposition + replaced `findFuzzyMatch()` with `similarity()` SQL
+  - `packages/shared/src/types/memory.ts` — Added `transaction_parties: 'dynamic'` to `FACT_TYPE_VOLATILITY`
+  - `packages/openai/src/tools/memoryTools.ts` — Added `ingest_comps` tool
+  - `packages/openai/src/agents/coordinator.ts` — Added `ingest_comps` to tool summary + routing
+  - `apps/web/lib/automation/handlers.ts` — Verified `handleKnowledgeCapture` registration
+  - `packages/db/prisma/migrations/20260303000000_add_pg_trgm_entity_address/migration.sql` — `CREATE EXTENSION pg_trgm` + GIN index on `InternalEntity.canonicalAddress`
+  - `packages/db/prisma/migrations/20260303100000_add_org_id_to_knowledge_embeddings/migration.sql` — `knowledge_embeddings` table with `org_id`, pgvector(1536), indexes
+  - `infra/docker/Dockerfile.postgres` — Custom PostGIS + pgvector image for production
+- **Completion Evidence (2026-03-02):**
+  - ✅ WS1 — Knowledge tools wired: `search_knowledge_base` and `store_knowledge_entry` call real `/api/knowledge` route with `buildMemoryToolHeaders()` auth
+  - ✅ WS2 — Auto-embed verified facts: post-write hook in `/api/memory/write` calls `ingestKnowledge()` on `decision === "verified"`
+  - ✅ WS3 — Comp schema + ingest_comps: `CompPayloadSchema` has buyer/seller/address, `decomposeCompToFacts()` emits `transaction_parties`, `ingest_comps` tool wired to coordinator
+  - ✅ WS4 — Deal outcome capture: `handleKnowledgeCapture` registered in `handlers.ts` for `deal.statusChanged`
+  - ✅ WS5 — pg_trgm fuzzy matching: Extension v1.6 installed on production, GIN index `idx_internal_entities_address_trgm` verified, `findFuzzyMatch()` uses `similarity()` SQL with 0.3 pre-filter
+  - ✅ Production DB: `knowledge_embeddings` table created with pgvector, `pg_trgm` extension + GIN index deployed
+  - ✅ Build: `pnpm build` clean, 1,331/1,331 tests passing
 
 ---
 

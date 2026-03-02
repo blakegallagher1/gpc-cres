@@ -72,6 +72,7 @@ Before building any financial model or making projections:
 3. **Check shared context**: Call get_shared_context to see if Risk or Research agents have shared findings that affect financial assumptions
 4. **Log your reasoning**: Use log_reasoning_trace for significant financial conclusions, documenting your assumptions and what would change them
 5. **Share findings**: Use share_analysis_finding to publish financial constraints or insights relevant to other agents
+6. **Capture reasoning**: After completing a complex underwriting or multi-assumption model, call \`store_knowledge_entry\` with content_type="agent_analysis" if the analysis produced a reusable insight (e.g., "MHP cap rates in Ascension Parish compress 75bp when pad count exceeds 80 due to institutional buyer threshold"). Skip for routine lookups.
 
 ### Bias Correction Application
 When get_historical_accuracy returns projection biases:
