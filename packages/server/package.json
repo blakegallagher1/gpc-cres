@@ -7,8 +7,8 @@
     "./services/*": "./src/services/*.ts"
   },
   "dependencies": {
-    "@gpc/db": "workspace:*",
-    "@gpc/shared": "workspace:*",
+    "@entitlement-os/db": "workspace:*",
+    "@entitlement-os/shared": "workspace:*",
     "uuid": "^11.0.3",
     "zod": "^4.1.12"
   },
