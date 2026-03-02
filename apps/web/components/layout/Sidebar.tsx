@@ -16,6 +16,7 @@ import {
   Crosshair,
   Activity,
   BarChart3,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/stores/uiStore";
@@ -63,6 +64,12 @@ const navGroups: NavGroup[] = [
     items: [
       { id: "reference", href: "/reference", icon: FileSearch, label: "Reference Data" },
       { id: "market-settings", href: "/market", icon: BarChart3, label: "Market Intel" },
+    ],
+  },
+  {
+    label: "Admin",
+    items: [
+      { id: "admin", href: "/admin", icon: Shield, label: "Admin" },
     ],
   },
 ];
