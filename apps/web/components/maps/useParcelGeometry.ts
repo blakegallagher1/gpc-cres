@@ -242,11 +242,14 @@ export function useParcelGeometry(
               unauthorized: prev.unauthorized || res.status === 401 || errorCode === "UNAUTHORIZED",
               rateLimited: prev.rateLimited || res.status === 429 || errorCode === "RATE_LIMITED",
               propertyDbUnconfigured:
-                prev.propertyDbUnconfigured || errorCode === "PROPERTY_DB_UNCONFIGURED",
+                prev.propertyDbUnconfigured ||
+                errorCode === "PROPERTY_DB_UNCONFIGURED" ||
+                errorCode === "GATEWAY_UNCONFIGURED",
               upstreamError:
                 prev.upstreamError ||
                 errorCode === "UPSTREAM_ERROR" ||
-                errorCode === "PROPERTY_DB_UNCONFIGURED",
+                errorCode === "PROPERTY_DB_UNCONFIGURED" ||
+                errorCode === "GATEWAY_UNCONFIGURED",
               lastErrorCode: errorCode,
               lastErrorMessage: errorMessage,
               lastRequestId: json.request_id ?? null,
