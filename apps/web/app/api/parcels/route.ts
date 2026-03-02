@@ -326,7 +326,11 @@ async function propertyRpc(
       body: JSON.stringify(body),
       signal: controller.signal,
     });
-    if (!res.ok) return [];
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => "");
+      console.warn(`[propertyRpc] ${fnName} failed: ${res.status} ${errBody.slice(0, 300)}`);
+      return [];
+    }
     let parsed: unknown[] = [];
     let text = "";
     try {
@@ -352,7 +356,8 @@ async function propertyRpc(
     }
 
     return [];
-  } catch {
+  } catch (err) {
+    console.warn(`[propertyRpc] ${fnName} exception:`, err instanceof Error ? err.message : err);
     return [];
   } finally {
     clearTimeout(timeout);
@@ -516,61 +521,43 @@ async function searchPropertyDbParcels(
   const candidates = buildRpcSearchTerms(fallback);
   const limit = Math.max(80, Math.min(limitRows, 250));
 
+  // api_search_parcels signature: (search_text text, parish text DEFAULT NULL, limit_rows int DEFAULT 25)
   const searchCalls: Array<() => Promise<unknown[]>> = [];
-  const addSearchCalls = (query: string, withAltNames = true) => {
-    searchCalls.push(
-      () => propertyRpc("api_search_parcels", {
-        search_text: query,
-        ...(parish ? { parish } : {}),
-        limit_rows: limit,
-      }),
-      () => propertyRpc("api_search_parcels", {
-        p_search_text: query,
-        ...(parish ? { p_parish: parish } : {}),
-        p_limit: limit,
-      }),
-    );
 
-    if (withAltNames) {
+  for (const candidate of candidates) {
+    if (candidate) {
       searchCalls.push(
         () => propertyRpc("api_search_parcels", {
-          search_query: query,
-          ...(parish ? { parish } : {}),
-          limit_rows: limit,
-        }),
-        () => propertyRpc("api_search_parcels", {
-          q: query,
-          ...(parish ? { parish } : {}),
-          p_limit: limit,
-        }),
-        () => propertyRpc("api_search_parcels", {
-          query: query,
-          ...(parish ? { parish } : {}),
-          limit: limit,
-        }),
-        () => propertyRpc("api_search_parcels", {
-          query_text: query,
-          ...(parish ? { parish } : {}),
-          limit_rows: limit,
-        }),
-        () => propertyRpc("api_search_parcels", {
-          search_term: query,
+          search_text: candidate,
           ...(parish ? { parish } : {}),
           limit_rows: limit,
         }),
       );
     }
-  };
-
-  for (const candidate of candidates) {
-    if (candidate) {
-      addSearchCalls(candidate);
-    }
   }
 
   if (fallback !== "*") {
-    addSearchCalls(fallback.toLowerCase(), false);
-    addSearchCalls(fallback.toUpperCase(), false);
+    // Also try lowercase/uppercase variants if not already in candidates
+    const lc = fallback.toLowerCase();
+    const uc = fallback.toUpperCase();
+    if (!candidates.includes(lc)) {
+      searchCalls.push(
+        () => propertyRpc("api_search_parcels", {
+          search_text: lc,
+          ...(parish ? { parish } : {}),
+          limit_rows: limit,
+        }),
+      );
+    }
+    if (!candidates.includes(uc)) {
+      searchCalls.push(
+        () => propertyRpc("api_search_parcels", {
+          search_text: uc,
+          ...(parish ? { parish } : {}),
+          limit_rows: limit,
+        }),
+      );
+    }
     searchCalls.push(() => propertyRpc("api_get_parcel", { parcel_id: fallback }));
   }
 

@@ -155,27 +155,39 @@ async function PortfolioAnalyticsSection({
     return null;
   }
 
-  const [portfolio, analytics, concentration, debtMaturity, velocityMetrics, capitalDeployment] =
-    await Promise.all([
-      portfolioPromise,
-      analyticsPromise,
-      concentrationPromise,
-      debtMaturityPromise,
-      velocityPromise,
-      capitalDeploymentPromise,
-    ]);
+  try {
+    const [portfolio, analytics, concentration, debtMaturity, velocityMetrics, capitalDeployment] =
+      await Promise.all([
+        portfolioPromise,
+        analyticsPromise,
+        concentrationPromise,
+        debtMaturityPromise,
+        velocityPromise,
+        capitalDeploymentPromise,
+      ]);
 
-  return (
-    <PortfolioPage
-      initialPortfolio={portfolio}
-      initialAnalytics={analytics}
-      initialConcentration={concentration}
-      initialDebtMaturity={debtMaturity}
-      initialVelocityMetrics={velocityMetrics}
-      initialCapitalDeployment={capitalDeployment}
-      initialActiveTab="analytics"
-    />
-  );
+    return (
+      <PortfolioPage
+        initialPortfolio={portfolio}
+        initialAnalytics={analytics}
+        initialConcentration={concentration}
+        initialDebtMaturity={debtMaturity}
+        initialVelocityMetrics={velocityMetrics}
+        initialCapitalDeployment={capitalDeployment}
+        initialActiveTab="analytics"
+      />
+    );
+  } catch (error) {
+    console.error("[Portfolio] Analytics section failed:", error);
+    return (
+      <DashboardShell>
+        <div className="flex flex-col items-center justify-center gap-2 p-12 text-muted-foreground">
+          <p className="text-lg font-medium">Unable to load portfolio analytics</p>
+          <p className="text-sm">One or more data sources failed. Try refreshing the page.</p>
+        </div>
+      </DashboardShell>
+    );
+  }
 }
 
 async function PortfolioOutcomesSection({
@@ -189,9 +201,20 @@ async function PortfolioOutcomesSection({
     return null;
   }
 
-  const outcomeSummary = await outcomePromise;
-
-  return <PortfolioPage initialOutcomeSummary={outcomeSummary} initialActiveTab="outcomes" />;
+  try {
+    const outcomeSummary = await outcomePromise;
+    return <PortfolioPage initialOutcomeSummary={outcomeSummary} initialActiveTab="outcomes" />;
+  } catch (error) {
+    console.error("[Portfolio] Outcomes section failed:", error);
+    return (
+      <DashboardShell>
+        <div className="flex flex-col items-center justify-center gap-2 p-12 text-muted-foreground">
+          <p className="text-lg font-medium">Unable to load outcome data</p>
+          <p className="text-sm">The outcomes API failed. Try refreshing the page.</p>
+        </div>
+      </DashboardShell>
+    );
+  }
 }
 
 async function PortfolioBuyersSection({
@@ -205,9 +228,20 @@ async function PortfolioBuyersSection({
     return null;
   }
 
-  const buyersResponse = await buyersPromise;
-
-  return <PortfolioPage initialBuyersResponse={buyersResponse} initialActiveTab="buyers" />;
+  try {
+    const buyersResponse = await buyersPromise;
+    return <PortfolioPage initialBuyersResponse={buyersResponse} initialActiveTab="buyers" />;
+  } catch (error) {
+    console.error("[Portfolio] Buyers section failed:", error);
+    return (
+      <DashboardShell>
+        <div className="flex flex-col items-center justify-center gap-2 p-12 text-muted-foreground">
+          <p className="text-lg font-medium">Unable to load buyer data</p>
+          <p className="text-sm">The buyers API failed. Try refreshing the page.</p>
+        </div>
+      </DashboardShell>
+    );
+  }
 }
 
 function PortfolioFallback() {

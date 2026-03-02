@@ -120,7 +120,10 @@ export async function rpc(fnName: string, body: Record<string, unknown>): Promis
         ? `${normalizedSearchText}, ${parish} Parish, Louisiana`
         : `${normalizedSearchText}, Louisiana`;
       const geo = await geocodeAddress(geocodeQuery);
-      if (!geo) return { error: "Could not geocode address. Ensure GOOGLE_MAPS_API_KEY is set." };
+      if (!geo) return {
+        error: "Could not geocode address. Try the query_property_db tool with structured filters (zip, zoning, owner name) instead.",
+        suggestion: "Use query_property_db tool with structured filters",
+      };
       return gatewayPost("/tools/parcel.point", {
         lat: geo.lat,
         lng: geo.lng,
@@ -208,7 +211,15 @@ async function geocodeAddress(address: string): Promise<{ lat: number; lng: numb
     const result = await geocodeGoogle(address, googleKey);
     if (result) return result;
   }
-  return geocodeNominatim(address);
+  const nominatimResult = await geocodeNominatim(address);
+  if (nominatimResult) return nominatimResult;
+
+  // Fallback: try a simplified query (strip street number, keep road + city/state)
+  const simplified = address.replace(/^\d+\s+/, "").trim();
+  if (simplified !== address && simplified.length > 3) {
+    return geocodeNominatim(simplified);
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------

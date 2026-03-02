@@ -26,17 +26,27 @@ export function AuthGuard({ children }: AuthGuardProps) {
     };
 
     const checkSession = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (!isMounted) return;
-      if (!data.session) {
+      try {
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("Session check timed out")), 5000)
+        );
+        const { data } = await Promise.race([sessionPromise, timeoutPromise]);
+        if (!isMounted) return;
+        if (!data.session) {
+          router.replace("/login");
+          return;
+        }
+        if (!isEmailAllowed(data.session.user?.email)) {
+          await handleUnauthorized();
+          return;
+        }
+        setIsReady(true);
+      } catch (error) {
+        console.error("[AuthGuard] Session check failed:", error);
+        if (!isMounted) return;
         router.replace("/login");
-        return;
       }
-      if (!isEmailAllowed(data.session.user?.email)) {
-        await handleUnauthorized();
-        return;
-      }
-      setIsReady(true);
     };
 
     checkSession();

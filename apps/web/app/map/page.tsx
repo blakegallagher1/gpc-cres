@@ -129,11 +129,11 @@ export default function MapPage() {
     features: unknown[];
   } | null>(null);
   const [selectedParcelIds, setSelectedParcelIds] = useState<Set<string>>(new Set());
-  const [mapCenter, setMapCenter] = useState<[number, number] | undefined>(() => {
+  const [mapCenter, setMapCenter] = useState<[number, number]>(() => {
     const lat = Number(searchParams.get("lat"));
     const lng = Number(searchParams.get("lng"));
     if (Number.isFinite(lat) && Number.isFinite(lng)) return [lat, lng];
-    return undefined;
+    return [30.4515, -91.1871]; // Baton Rouge default
   });
   const [mapZoom, setMapZoom] = useState<number | undefined>(() => {
     const zoom = Number(searchParams.get("z"));
