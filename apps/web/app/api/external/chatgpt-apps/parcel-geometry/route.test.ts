@@ -3,19 +3,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   resolveAuthMock,
   checkRateLimitMock,
-  propertyDbRpcMock,
   isDevParcelFallbackEnabledMock,
   getDevFallbackParcelByPropertyDbIdMock,
-  getPropertyDbConfigOrNullMock,
-  logPropertyDbRuntimeHealthMock,
+  fetchMock,
 } = vi.hoisted(() => ({
   resolveAuthMock: vi.fn(),
   checkRateLimitMock: vi.fn(),
-  propertyDbRpcMock: vi.fn(),
   isDevParcelFallbackEnabledMock: vi.fn(),
   getDevFallbackParcelByPropertyDbIdMock: vi.fn(),
-  getPropertyDbConfigOrNullMock: vi.fn(),
-  logPropertyDbRuntimeHealthMock: vi.fn(),
+  fetchMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/resolveAuth", () => ({
@@ -26,50 +22,53 @@ vi.mock("@/lib/server/rateLimiter", () => ({
   checkRateLimit: checkRateLimitMock,
 }));
 
-vi.mock("@entitlement-os/openai", () => ({
-  propertyDbRpc: propertyDbRpcMock,
-}));
-
 vi.mock("@/lib/server/devParcelFallback", () => ({
   isDevParcelFallbackEnabled: isDevParcelFallbackEnabledMock,
   getDevFallbackParcelByPropertyDbId: getDevFallbackParcelByPropertyDbIdMock,
 }));
 
-vi.mock("@/lib/server/propertyDbEnv", () => ({
-  getPropertyDbConfigOrNull: getPropertyDbConfigOrNullMock,
-  logPropertyDbRuntimeHealth: logPropertyDbRuntimeHealthMock,
-}));
-
 vi.mock("@sentry/nextjs", () => ({
-  withScope: vi.fn((cb: (scope: { setTags: vi.Mock; setContext: vi.Mock }) => void) => {
-    cb({
-      setTags: vi.fn(),
-      setContext: vi.fn(),
-    });
+  withScope: vi.fn((cb: (scope: { setTags: ReturnType<typeof vi.fn>; setContext: ReturnType<typeof vi.fn> }) => void) => {
+    cb({ setTags: vi.fn(), setContext: vi.fn() });
   }),
   captureException: vi.fn(),
 }));
+
+const POLYGON_GEOMETRY = {
+  type: "Polygon",
+  coordinates: [[[-91.2, 30.3], [-91.1, 30.3], [-91.1, 30.4], [-91.2, 30.4], [-91.2, 30.3]]],
+};
+
+function makeJsonResponse(data: unknown, status = 200): Response {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    json: () => Promise.resolve(data),
+    text: () => Promise.resolve(""),
+  } as unknown as Response;
+}
 
 describe("POST /api/external/chatgpt-apps/parcel-geometry", () => {
   let POST: typeof import("./route").POST;
 
   beforeEach(async () => {
     vi.resetModules();
+    vi.stubGlobal("fetch", fetchMock);
+
     resolveAuthMock.mockReset();
     checkRateLimitMock.mockReset();
-    propertyDbRpcMock.mockReset();
     isDevParcelFallbackEnabledMock.mockReset();
     getDevFallbackParcelByPropertyDbIdMock.mockReset();
-    getPropertyDbConfigOrNullMock.mockReset();
-    logPropertyDbRuntimeHealthMock.mockReturnValue(null);
+    fetchMock.mockReset();
+
     resolveAuthMock.mockResolvedValue({ userId: "user-1", orgId: "org-1" });
     checkRateLimitMock.mockReturnValue(true);
     isDevParcelFallbackEnabledMock.mockReturnValue(false);
     getDevFallbackParcelByPropertyDbIdMock.mockReturnValue(null);
-    getPropertyDbConfigOrNullMock.mockReturnValue({
-      url: "https://property-db.example.supabase.co",
-      key: "service-role-key",
-    });
+
+    process.env.LOCAL_API_URL = "https://api.gallagherpropco.com";
+    process.env.LOCAL_API_KEY = "test-gateway-key";
+
     ({ POST } = await import("./route"));
   });
 
@@ -94,23 +93,20 @@ describe("POST /api/external/chatgpt-apps/parcel-geometry", () => {
     expect(res.status).toBe(400);
   });
 
-  it("returns geometry payload from Supabase property DB", async () => {
-    propertyDbRpcMock.mockImplementation(async (fnName: string, body: Record<string, unknown>) => {
-      if (fnName === "api_get_parcel") {
-        return [
-          {
-            id: "abc-123",
-            geom_simplified: {
-              type: "Polygon",
-              coordinates: [[[-91.2, 30.3], [-91.1, 30.3], [-91.1, 30.4], [-91.2, 30.4], [-91.2, 30.3]]],
-            },
-            bbox: [-91.2, 30.3, -91.1, 30.4],
-            area_sqft: 1200,
-          },
-        ];
-      }
-      return [];
-    });
+  it("returns geometry payload from gateway", async () => {
+    fetchMock.mockResolvedValue(
+      makeJsonResponse({
+        ok: true,
+        data: {
+          geom_simplified: POLYGON_GEOMETRY,
+          bbox: [-91.2, 30.3, -91.1, 30.4],
+          area_sqft: 1200,
+          centroid: { lat: 30.35, lng: -91.15 },
+          srid: 4326,
+          dataset_version: "gateway",
+        },
+      }),
+    );
 
     const res = await POST(
       new Request("http://localhost/api/external/chatgpt-apps/parcel-geometry", {
@@ -154,11 +150,12 @@ describe("POST /api/external/chatgpt-apps/parcel-geometry", () => {
     expect(body.ok).toBe(true);
     expect(body.data).toHaveProperty("geom_simplified");
     expect(body.data.dataset_version).toBe("dev-fallback");
-    expect(propertyDbRpcMock).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("returns 503 with PROPERTY_DB_UNCONFIGURED when property DB env is missing", async () => {
-    getPropertyDbConfigOrNullMock.mockReturnValue(null);
+  it("returns 503 with GATEWAY_UNCONFIGURED when gateway env is missing", async () => {
+    delete process.env.LOCAL_API_URL;
+    delete process.env.LOCAL_API_KEY;
 
     const res = await POST(
       new Request("http://localhost/api/external/chatgpt-apps/parcel-geometry", {
@@ -170,35 +167,29 @@ describe("POST /api/external/chatgpt-apps/parcel-geometry", () => {
 
     expect(res.status).toBe(503);
     expect(body.ok).toBe(false);
-    expect(body.error?.code).toBe("PROPERTY_DB_UNCONFIGURED");
-    expect(propertyDbRpcMock).not.toHaveBeenCalled();
+    expect(body.error?.code).toBe("GATEWAY_UNCONFIGURED");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("returns 200 when property-db geometry is wrapped as FeatureCollection", async () => {
-    propertyDbRpcMock.mockImplementation(async (fnName: string) => {
-      if (fnName === "api_get_parcel") {
-        return [
-          {
-            id: "abc-123",
-            geom_simplified: {
-              type: "FeatureCollection",
-              features: [
-                {
-                  type: "Feature",
-                  geometry: {
-                    type: "Polygon",
-                    coordinates: [[[-91.2, 30.3], [-91.1, 30.3], [-91.1, 30.4], [-91.2, 30.4], [-91.2, 30.3]]],
-                  },
-                },
-              ],
-            },
-            bbox: [-91.2, 30.3, -91.1, 30.4],
-            area_sqft: 1200,
+  it("returns 200 when gateway geometry is wrapped as FeatureCollection", async () => {
+    fetchMock.mockResolvedValue(
+      makeJsonResponse({
+        ok: true,
+        data: {
+          geom_simplified: {
+            type: "FeatureCollection",
+            features: [
+              {
+                type: "Feature",
+                geometry: POLYGON_GEOMETRY,
+              },
+            ],
           },
-        ];
-      }
-      return [];
-    });
+          bbox: [-91.2, 30.3, -91.1, 30.4],
+          area_sqft: 1200,
+        },
+      }),
+    );
 
     const res = await POST(
       new Request("http://localhost/api/external/chatgpt-apps/parcel-geometry", {
@@ -213,8 +204,8 @@ describe("POST /api/external/chatgpt-apps/parcel-geometry", () => {
     expect(body.data?.geom_simplified).toContain("\"Polygon\"");
   });
 
-  it("returns 404 when parcel not found in property DB", async () => {
-    propertyDbRpcMock.mockResolvedValue([]);
+  it("returns 404 when parcel not found in gateway", async () => {
+    fetchMock.mockResolvedValue(makeJsonResponse({ ok: false }, 404));
 
     const res = await POST(
       new Request("http://localhost/api/external/chatgpt-apps/parcel-geometry", {
