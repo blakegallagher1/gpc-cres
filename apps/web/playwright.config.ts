@@ -1,4 +1,9 @@
 import { defineConfig } from "@playwright/test";
+import { config } from "dotenv";
+import { resolve } from "path";
+
+// Load root .env so DATABASE_URL and other server vars are available
+config({ path: resolve(__dirname, "../../.env") });
 
 export default defineConfig({
   testDir: "./e2e",
@@ -10,6 +15,7 @@ export default defineConfig({
   webServer: {
     command: "npm run dev",
     env: {
+      ...process.env,
       NEXT_PUBLIC_E2E: "true",
       NEXT_PUBLIC_DISABLE_AUTH: "true",
     },
