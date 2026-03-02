@@ -307,103 +307,38 @@ function normalizeRpcRows(value: unknown): Record<string, unknown>[] {
   return [];
 }
 
-async function propertyRpc(
-  fnName: string,
-  body: Record<string, unknown>,
-): Promise<unknown[]> {
+async function gatewaySearchParcels(q: string, limit: number): Promise<unknown[]> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
   try {
     const url = process.env.LOCAL_API_URL?.trim();
     const key = process.env.LOCAL_API_KEY?.trim();
     if (!url || !key) {
-      console.warn("[propertyRpc] Missing LOCAL_API_URL or LOCAL_API_KEY");
+      console.warn("[gatewaySearchParcels] Missing LOCAL_API_URL or LOCAL_API_KEY");
       return [];
     }
-    const res = await fetch(`${url}/property-db/rpc/${fnName}`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${key}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
+    const params = new URLSearchParams({ q, limit: String(limit) });
+    const res = await fetch(`${url}/api/parcels/search?${params}`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${key}` },
       signal: controller.signal,
     });
     if (!res.ok) {
       const errBody = await res.text().catch(() => "");
-      console.warn(`[propertyRpc] ${fnName} failed: ${res.status} ${errBody.slice(0, 300)}`);
+      console.warn(`[gatewaySearchParcels] failed: ${res.status} ${errBody.slice(0, 300)}`);
       return [];
     }
-    let parsed: unknown[] = [];
-    let text = "";
-    try {
-      text = await res.text();
-      if (text) {
-        parsed = parseRpcResponseArray(text);
-        if (parsed.length > 0) {
-          return parsed;
-        }
-      }
-    } catch (textError) {
-      console.error("Failed reading parcel rpc text response", textError);
-    }
-
-    try {
-      const fallback = text ? await res.clone().json() : await res.json();
-      const fallbackRows = normalizeRpcRows(fallback);
-      if (fallbackRows.length > 0) {
-        return fallbackRows;
-      }
-    } catch {
-      // ignore; fallback response may only be text
-    }
-
-    return [];
+    const text = await res.text().catch(() => "");
+    if (!text) return [];
+    return parseRpcResponseArray(text);
   } catch (err) {
-    console.warn(`[propertyRpc] ${fnName} exception:`, err instanceof Error ? err.message : err);
+    console.warn("[gatewaySearchParcels] exception:", err instanceof Error ? err.message : err);
     return [];
   } finally {
     clearTimeout(timeout);
   }
 }
 
-function buildRpcSearchTerms(rawText: string): string[] {
-  const normalized = canonicalizeAddressLikeText(rawText);
-  if (!normalized) return ["*"];
-
-  const terms = new Set<string>([
-    rawText.trim(),
-    normalized,
-    normalized.toLowerCase(),
-    normalized.toUpperCase(),
-    ...normalizeParcelCandidate(normalized),
-  ]);
-  return Array.from(terms).filter(Boolean);
-}
-
-function mergeRpcResultRows(values: unknown[][]): Record<string, unknown>[] {
-  const deduped = new Map<string, Record<string, unknown>>();
-
-  for (const rows of values) {
-    for (const row of rows) {
-      if (!row || typeof row !== "object") continue;
-      const record = row as Record<string, unknown>;
-      const normalizedId = String(
-        record.id ??
-          record.parcel_uid ??
-          record.parcel_id ??
-          record.parcel_number ??
-          record.property_id ??
-          `${record.site_address ?? ""}-${record.latitude ?? ""}-${record.longitude ?? ""}`,
-      );
-      if (!deduped.has(normalizedId)) {
-        deduped.set(normalizedId, record);
-      }
-    }
-  }
-
-  return Array.from(deduped.values());
-}
 
 async function runWithConcurrency<T>(
   tasks: Array<() => Promise<T>>,
@@ -517,61 +452,12 @@ function matchesSearchQuery(
 
 async function searchPropertyDbParcels(
   searchText: string,
-  parish?: string,
+  _parish?: string,
   limitRows: number = 120,
 ): Promise<unknown[]> {
-  const fallback = searchText.trim().length > 0 ? searchText.trim() : "*";
-  const candidates = buildRpcSearchTerms(fallback);
+  const q = searchText.trim() || "*";
   const limit = Math.max(80, Math.min(limitRows, 250));
-
-  // api_search_parcels signature: (search_text text, parish text DEFAULT NULL, limit_rows int DEFAULT 25)
-  const searchCalls: Array<() => Promise<unknown[]>> = [];
-
-  for (const candidate of candidates) {
-    if (candidate) {
-      searchCalls.push(
-        () => propertyRpc("api_search_parcels", {
-          search_text: candidate,
-          ...(parish ? { parish } : {}),
-          limit_rows: limit,
-        }),
-      );
-    }
-  }
-
-  if (fallback !== "*") {
-    // Also try lowercase/uppercase variants if not already in candidates
-    const lc = fallback.toLowerCase();
-    const uc = fallback.toUpperCase();
-    if (!candidates.includes(lc)) {
-      searchCalls.push(
-        () => propertyRpc("api_search_parcels", {
-          search_text: lc,
-          ...(parish ? { parish } : {}),
-          limit_rows: limit,
-        }),
-      );
-    }
-    if (!candidates.includes(uc)) {
-      searchCalls.push(
-        () => propertyRpc("api_search_parcels", {
-          search_text: uc,
-          ...(parish ? { parish } : {}),
-          limit_rows: limit,
-        }),
-      );
-    }
-    searchCalls.push(() => propertyRpc("api_get_parcel", { parcel_id: fallback }));
-  }
-
-  const settled = await runWithConcurrency(searchCalls, 5);
-  const results = settled
-    .filter(
-      (result): result is PromiseFulfilledResult<unknown[]> =>
-        result.status === "fulfilled",
-    )
-    .map((result) => result.value);
-  return mergeRpcResultRows(results);
+  return gatewaySearchParcels(q, limit);
 }
 
 // GET /api/parcels - list parcels across all deals
