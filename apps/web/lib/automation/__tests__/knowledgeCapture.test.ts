@@ -110,14 +110,16 @@ describe("handleKnowledgeCapture", () => {
     });
 
     expect(knowledgeMock.deleteKnowledge).toHaveBeenCalledWith(
+      "org-1",
       "deal-outcome:deal-1:exited",
     );
     expect(knowledgeMock.ingestKnowledge).toHaveBeenCalledTimes(1);
-    expect(knowledgeMock.ingestKnowledge.mock.calls[0][0]).toBe("outcome_record");
-    expect(knowledgeMock.ingestKnowledge.mock.calls[0][1]).toBe(
+    expect(knowledgeMock.ingestKnowledge.mock.calls[0][0]).toBe("org-1");
+    expect(knowledgeMock.ingestKnowledge.mock.calls[0][1]).toBe("outcome_record");
+    expect(knowledgeMock.ingestKnowledge.mock.calls[0][2]).toBe(
       "deal-outcome:deal-1:exited",
     );
-    const content = knowledgeMock.ingestKnowledge.mock.calls[0][2] as string;
+    const content = knowledgeMock.ingestKnowledge.mock.calls[0][3] as string;
     expect(content).toContain("Predicted vs Actual");
     expect(content).toContain("Predicted IRR");
     expect(content).toContain("Actual IRR");
@@ -155,7 +157,8 @@ describe("handleKnowledgeCapture", () => {
     });
 
     expect(knowledgeMock.ingestKnowledge).toHaveBeenCalledTimes(1);
-    expect(knowledgeMock.ingestKnowledge.mock.calls[0][1]).toBe(
+    expect(knowledgeMock.ingestKnowledge.mock.calls[0][0]).toBe("org-1");
+    expect(knowledgeMock.ingestKnowledge.mock.calls[0][2]).toBe(
       "deal-outcome:deal-2:killed",
     );
   });
