@@ -1,0 +1,7 @@
+FROM postgis/postgis:15-3.3
+
+# Install pgvector extension for vector similarity search
+# The PGDG apt repo (already present in the base image) ships postgresql-15-pgvector
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends postgresql-15-pgvector \
+    && rm -rf /var/lib/apt/lists/*

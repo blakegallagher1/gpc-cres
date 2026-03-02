@@ -3,7 +3,10 @@ name: entitlement-os
 services:
   # Application Postgres (system-of-record)
   postgres:
-    image: pgvector/pgvector:pg16
+    build:
+      context: .
+      dockerfile: Dockerfile.postgres
+    image: entitlement-os-postgres:pg15-postgis-pgvector
     container_name: entitlement-os-postgres
     restart: unless-stopped
     environment:
