@@ -20,7 +20,7 @@ export async function DELETE(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  await prisma.memoryVerified.delete({ where: { id } });
+  await prisma.memoryVerified.deleteMany({ where: { id, orgId: auth.orgId } });
 
   return NextResponse.json({ success: true });
 }

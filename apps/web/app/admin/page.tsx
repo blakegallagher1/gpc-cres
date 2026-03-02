@@ -41,9 +41,26 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState("overview");
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const [contentType, setContentType] = useState("");
+  const [memorySubTab, setMemorySubTab] = useState<"facts" | "entities">("facts");
+
+  // Reset page when switching tabs or changing filters
+  function handleTabChange(tab: string) {
+    setActiveTab(tab);
+    setPage(1);
+    setSearch("");
+    setContentType("");
+  }
+
+  const params = new URLSearchParams({ tab: activeTab, page: String(page) });
+  if (search) params.set("search", search);
+  if (contentType) params.set("contentType", contentType);
+  if (activeTab === "memory") params.set("subTab", memorySubTab);
 
   const { data, isLoading, error, mutate } = useSWR(
-    `/api/admin/stats?tab=${activeTab}`,
+    `/api/admin/stats?${params.toString()}`,
     fetcher,
     {
       refreshInterval: 30_000,
@@ -64,7 +81,7 @@ export default function AdminPage() {
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <Tabs value={activeTab} onValueChange={handleTabChange}>
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="knowledge">Knowledge</TabsTrigger>
@@ -77,13 +94,36 @@ export default function AdminPage() {
             <OverviewTab data={data?.overview} isLoading={isLoading} />
           </TabsContent>
           <TabsContent value="knowledge">
-            <KnowledgeTab data={data?.knowledge} isLoading={isLoading} mutate={mutate} />
+            <KnowledgeTab
+              data={data?.knowledge}
+              isLoading={isLoading}
+              mutate={mutate}
+              page={page}
+              onPageChange={setPage}
+              search={search}
+              onSearchChange={(v) => { setSearch(v); setPage(1); }}
+              contentType={contentType}
+              onContentTypeChange={(v) => { setContentType(v); setPage(1); }}
+            />
           </TabsContent>
           <TabsContent value="memory">
-            <MemoryTab data={data?.memory} isLoading={isLoading} mutate={mutate} />
+            <MemoryTab
+              data={data?.memory}
+              isLoading={isLoading}
+              mutate={mutate}
+              page={page}
+              onPageChange={setPage}
+              subTab={memorySubTab}
+              onSubTabChange={(v) => { setMemorySubTab(v); setPage(1); }}
+            />
           </TabsContent>
           <TabsContent value="agents">
-            <AgentsTab data={data?.agents} isLoading={isLoading} />
+            <AgentsTab
+              data={data?.agents}
+              isLoading={isLoading}
+              page={page}
+              onPageChange={setPage}
+            />
           </TabsContent>
           <TabsContent value="system">
             <SystemTab data={data?.system} isLoading={isLoading} />

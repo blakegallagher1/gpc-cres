@@ -45,6 +45,12 @@ interface Props {
   data: KnowledgeData | undefined;
   isLoading: boolean;
   mutate: KeyedMutator<Record<string, unknown>>;
+  page: number;
+  onPageChange: (page: number) => void;
+  search: string;
+  onSearchChange: (search: string) => void;
+  contentType: string;
+  onContentTypeChange: (contentType: string) => void;
 }
 
 function formatRelativeTime(dateStr: string): string {
@@ -57,7 +63,7 @@ function formatRelativeTime(dateStr: string): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
-export default function KnowledgeTab({ data, isLoading, mutate }: Props) {
+export default function KnowledgeTab({ data, isLoading, mutate, page, onPageChange, search, onSearchChange, contentType, onContentTypeChange }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -117,6 +123,23 @@ export default function KnowledgeTab({ data, isLoading, mutate }: Props) {
     <div className="space-y-4 pt-4">
       {/* Controls */}
       <div className="flex items-center gap-3 flex-wrap">
+        <Input
+          placeholder="Search content..."
+          value={search}
+          onChange={(e) => onSearchChange(e.target.value)}
+          className="w-48"
+        />
+        <Select value={contentType || "all"} onValueChange={(v) => onContentTypeChange(v === "all" ? "" : v)}>
+          <SelectTrigger className="w-[160px]">
+            <SelectValue placeholder="All types" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All types</SelectItem>
+            {data.contentTypes.map((ct) => (
+              <SelectItem key={ct} value={ct}>{ct}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <span className="text-sm text-muted-foreground">
           {data.total.toLocaleString()} entries
         </span>
@@ -217,13 +240,13 @@ export default function KnowledgeTab({ data, isLoading, mutate }: Props) {
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            Page {data.page} of {totalPages}
+            Page {page} of {totalPages}
           </p>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled={data.page <= 1}>
+            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="sm" disabled={data.page >= totalPages}>
+            <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => onPageChange(page + 1)}>
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>

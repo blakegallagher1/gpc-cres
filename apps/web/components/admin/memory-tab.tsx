@@ -14,7 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Trash2 } from "lucide-react";
+import { Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import type { KeyedMutator } from "swr";
 
 interface VerifiedFactRow {
@@ -51,6 +51,10 @@ interface Props {
   data: MemoryData | undefined;
   isLoading: boolean;
   mutate: KeyedMutator<Record<string, unknown>>;
+  page: number;
+  onPageChange: (page: number) => void;
+  subTab: "facts" | "entities";
+  onSubTabChange: (subTab: "facts" | "entities") => void;
 }
 
 function formatRelativeTime(dateStr: string): string {
@@ -69,8 +73,7 @@ function confidenceColor(weight: number): string {
   return "bg-red-500";
 }
 
-export default function MemoryTab({ data, isLoading, mutate }: Props) {
-  const [subTab, setSubTab] = useState<"facts" | "entities">("facts");
+export default function MemoryTab({ data, isLoading, mutate, page, onPageChange, subTab, onSubTabChange }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -110,14 +113,14 @@ export default function MemoryTab({ data, isLoading, mutate }: Props) {
         <Button
           variant={subTab === "facts" ? "default" : "outline"}
           size="sm"
-          onClick={() => setSubTab("facts")}
+          onClick={() => onSubTabChange("facts")}
         >
           Verified Facts
         </Button>
         <Button
           variant={subTab === "entities" ? "default" : "outline"}
           size="sm"
-          onClick={() => setSubTab("entities")}
+          onClick={() => onSubTabChange("entities")}
         >
           Entities
         </Button>
@@ -248,6 +251,27 @@ export default function MemoryTab({ data, isLoading, mutate }: Props) {
           </CardContent>
         </Card>
       )}
+
+      {/* Pagination */}
+      {(() => {
+        const totalPages = Math.ceil(data.total / 25);
+        if (totalPages <= 1) return null;
+        return (
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              Page {page} of {totalPages}
+            </p>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => onPageChange(page + 1)}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

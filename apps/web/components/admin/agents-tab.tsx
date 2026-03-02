@@ -21,7 +21,8 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
-import { Bot, CheckCircle, Clock, Zap } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Bot, CheckCircle, ChevronLeft, ChevronRight, Clock, Zap } from "lucide-react";
 
 interface RunRow {
   id: string;
@@ -45,6 +46,8 @@ interface AgentsData {
 interface Props {
   data: AgentsData | undefined;
   isLoading: boolean;
+  page: number;
+  onPageChange: (page: number) => void;
 }
 
 function statusBadge(status: string) {
@@ -68,7 +71,7 @@ function formatRelativeTime(dateStr: string): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
-export default function AgentsTab({ data, isLoading }: Props) {
+export default function AgentsTab({ data, isLoading, page, onPageChange }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   if (isLoading || !data) {
@@ -192,6 +195,27 @@ export default function AgentsTab({ data, isLoading }: Props) {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Pagination */}
+      {(() => {
+        const totalPages = Math.ceil(data.total / 25);
+        if (totalPages <= 1) return null;
+        return (
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              Page {page} of {totalPages}
+            </p>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => onPageChange(page + 1)}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
