@@ -30,6 +30,7 @@ All services use a single PostgreSQL database (`entitlement_os` on `entitlement-
 | qdrant | Vector search | 6333 |
 | cloudflared | Tunnel | — |
 | pgadmin | DB admin UI | 5050 |
+| codex-server | Codex app-server + MCP | 8765, 8787 |
 
 ---
 
@@ -111,6 +112,7 @@ MacBook (anywhere)                    Windows PC (BG)
      │                                      │  entitlement-db :5432
      │                                      │  gateway :8000
      │                                      │  martin :3000
+     │                                      │  codex-server :8765 / :8787
      │                                      │
 ```
 
