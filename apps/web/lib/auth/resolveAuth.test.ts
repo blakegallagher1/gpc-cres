@@ -25,7 +25,7 @@ describe("resolveAuth", () => {
     getTokenMock.mockReset();
     prismaMock.orgMembership.findFirst.mockReset();
 
-    process.env.NEXTAUTH_SECRET = "test-secret-32chars-minimum-len";
+    process.env.AUTH_SECRET = "test-secret-32chars-minimum-len";
     delete process.env.NEXT_PUBLIC_DISABLE_AUTH;
     delete process.env.AGENT_TOOL_INTERNAL_TOKEN;
 

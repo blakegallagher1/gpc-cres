@@ -47,7 +47,7 @@ export async function resolveAuth(request?: Request): Promise<AuthResult | null>
     return null;
   }
 
-  const secret = process.env.NEXTAUTH_SECRET;
+  const secret = process.env.AUTH_SECRET;
   if (!secret) return null;
 
   // 3. Unified token path — getToken handles both cookies and Authorization Bearer.

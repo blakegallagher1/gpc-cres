@@ -11,7 +11,7 @@ const REQUIRED_ENV_VARS = [
   "OPENAI_MINI_MODEL",
   "PERPLEXITY_API_KEY",
   "PERPLEXITY_MODEL",
-  "NEXTAUTH_SECRET",
+  "AUTH_SECRET",
   "LOCAL_API_URL",
   "LOCAL_API_KEY",
   "DATABASE_URL",
@@ -79,7 +79,7 @@ async function isAuthorized(request: NextRequest) {
 
   const token = await getToken({
     req: request,
-    secret: process.env.NEXTAUTH_SECRET,
+    secret: process.env.AUTH_SECRET,
   });
   if (!token?.userId) {
     return false;

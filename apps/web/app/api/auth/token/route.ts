@@ -9,7 +9,7 @@ import { getToken, encode } from "next-auth/jwt";
  * a Bearer token it can verify.
  */
 export async function GET(request: NextRequest) {
-  const secret = process.env.NEXTAUTH_SECRET;
+  const secret = process.env.AUTH_SECRET;
   if (!secret) {
     return NextResponse.json(
       { error: "Auth not configured" },
