@@ -637,19 +637,15 @@ export default function CodexAdminPage() {
         addUserMessage(trimmedMessage);
         setTurnState("in_progress");
         setIsWaitingForFirstItem(true);
-        await send({
-          jsonrpc: "2.0",
-          method: "turn/start",
-          params: {
-            threadId: response.threadId,
-            input: makeTurnInput(trimmedMessage),
-            cwd: null,
-            approvalPolicy: null,
-            sandboxPolicy: null,
-            model: null,
-            effort: null,
-            summary: null,
-          },
+        await sendRequest("turn/start", {
+          threadId: response.threadId,
+          input: makeTurnInput(trimmedMessage),
+          cwd: null,
+          approvalPolicy: null,
+          sandboxPolicy: null,
+          model: null,
+          effort: null,
+          summary: null,
         });
       } catch (error) {
         addErrorMessage(error instanceof Error ? error.message : "Failed to start thread");
@@ -787,19 +783,15 @@ export default function CodexAdminPage() {
       setIsWaitingForFirstItem(true);
       addUserMessage(trimmed);
       try {
-        await send({
-          jsonrpc: "2.0",
-          method: "turn/start",
-          params: {
-            threadId: activeThreadId,
-            input: makeTurnInput(trimmed),
-            cwd: null,
-            approvalPolicy: null,
-            sandboxPolicy: null,
-            model: null,
-            effort: null,
-            summary: null,
-          },
+        await sendRequest("turn/start", {
+          threadId: activeThreadId,
+          input: makeTurnInput(trimmed),
+          cwd: null,
+          approvalPolicy: null,
+          sandboxPolicy: null,
+          model: null,
+          effort: null,
+          summary: null,
         });
       } catch (error) {
         setTurnState("idle");

@@ -592,6 +592,7 @@ export async function GET(request: NextRequest) {
       "Content-Type": "text/event-stream",
       Connection: "keep-alive",
       "Cache-Control": "no-cache",
+      "X-Accel-Buffering": "no",
     },
   });
 }
