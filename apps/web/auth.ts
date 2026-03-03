@@ -5,6 +5,11 @@ import { timingSafeEqual } from "node:crypto";
 import { prisma } from "@entitlement-os/db";
 import { isEmailAllowed } from "@/lib/auth/allowedEmails";
 
+const ENABLE_BREAK_GLASS_FALLBACK =
+  process.env.AUTH_ENABLE_CREDENTIALS_FALLBACK === "true";
+
+let hasWarnedAboutFallback = false;
+
 function equalsConstantTime(a: string, b: string): boolean {
   const aBuf = Buffer.from(a);
   const bBuf = Buffer.from(b);
@@ -18,8 +23,19 @@ async function isValidPassword(password: string, passwordHash?: string | null): 
     if (matchesHash) return true;
   }
 
+  if (!ENABLE_BREAK_GLASS_FALLBACK) {
+    return false;
+  }
+
   const fallback = process.env.AUTH_CREDENTIALS_FALLBACK_PASSWORD;
   if (!fallback) return false;
+
+  if (!hasWarnedAboutFallback) {
+    console.warn(
+      "[auth] break-glass fallback password path is enabled. Disable AUTH_ENABLE_CREDENTIALS_FALLBACK after incident recovery.",
+    );
+    hasWarnedAboutFallback = true;
+  }
 
   return equalsConstantTime(password, fallback);
 }
