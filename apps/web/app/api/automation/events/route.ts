@@ -9,7 +9,7 @@ import {
 } from "@/lib/services/automationEvent.service";
 
 export async function GET(req: NextRequest) {
-  const auth = await resolveAuth();
+  const auth = await resolveAuth(req);
   if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

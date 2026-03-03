@@ -17,7 +17,7 @@ const IsochroneRequestSchema = z.object({
  * then connects the endpoints to form an approximate polygon.
  */
 export async function POST(req: NextRequest) {
-  const auth = await resolveAuth();
+  const auth = await resolveAuth(req);
   if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

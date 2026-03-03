@@ -1,13 +1,13 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { DailyBriefingService } from "@/lib/services/daily-briefing.service";
 
 const service = new DailyBriefingService();
 
 // GET /api/intelligence/daily-briefing
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const auth = await resolveAuth();
+    const auth = await resolveAuth(request);
     if (!auth) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

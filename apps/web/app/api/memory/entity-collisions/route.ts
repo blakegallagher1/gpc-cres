@@ -3,9 +3,9 @@ import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { getPendingCollisions, resolveCollision } from "@/lib/services/entityCollisionDetector";
 
 // GET /api/memory/entity-collisions — Get pending collision alerts
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const auth = await resolveAuth();
+    const auth = await resolveAuth(req);
     if (!auth) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -24,7 +24,7 @@ export async function GET() {
 // POST /api/memory/entity-collisions — Resolve a collision alert
 export async function POST(req: NextRequest) {
   try {
-    const auth = await resolveAuth();
+    const auth = await resolveAuth(req);
     if (!auth) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

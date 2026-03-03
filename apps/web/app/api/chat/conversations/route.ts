@@ -1,10 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 
 // GET /api/chat/conversations — list conversations for the current user's org
-export async function GET() {
-  const auth = await resolveAuth();
+export async function GET(request: NextRequest) {
+  const auth = await resolveAuth(request);
   if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

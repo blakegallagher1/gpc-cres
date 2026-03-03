@@ -28,8 +28,8 @@ const TriggerSchema = z.object({
   targetUsers: z.array(z.string().uuid()).optional(),
 });
 
-export async function GET() {
-  const auth = await resolveAuth();
+export async function GET(request: NextRequest) {
+  const auth = await resolveAuth(request);
   if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -47,7 +47,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await resolveAuth();
+  const auth = await resolveAuth(request);
   if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

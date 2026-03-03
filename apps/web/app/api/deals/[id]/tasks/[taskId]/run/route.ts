@@ -33,7 +33,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; taskId: string }> },
 ) {
-  const auth = await resolveAuth();
+  const auth = await resolveAuth(request);
   if (!auth) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }

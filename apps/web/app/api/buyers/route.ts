@@ -6,7 +6,7 @@ import type { Prisma } from "@entitlement-os/db";
 // GET /api/buyers - list buyers for the org
 export async function GET(request: NextRequest) {
   try {
-    const auth = await resolveAuth();
+    const auth = await resolveAuth(request);
     if (!auth) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -138,7 +138,7 @@ export async function GET(request: NextRequest) {
 // POST /api/buyers - create a new buyer
 export async function POST(request: NextRequest) {
   try {
-    const auth = await resolveAuth();
+    const auth = await resolveAuth(request);
     if (!auth) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 
 /**
@@ -8,9 +8,9 @@ import { resolveAuth } from "@/lib/auth/resolveAuth";
  * Called by the Cloudflare Worker during WebSocket setup to validate
  * org membership without duplicating the Prisma lookup.
  */
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
-    const auth = await resolveAuth();
+    const auth = await resolveAuth(request);
     if (!auth) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -25,9 +25,9 @@ export async function POST() {
 }
 
 /** Support GET for simpler Worker integration */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const auth = await resolveAuth();
+    const auth = await resolveAuth(request);
     if (!auth) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 
@@ -107,8 +107,8 @@ function isMissingEntitlementPathsTableError(error: unknown): boolean {
   return typeof table === "string" && table.includes("entitlement_paths");
 }
 
-export async function GET() {
-  const auth = await resolveAuth();
+export async function GET(request: NextRequest) {
+  const auth = await resolveAuth(request);
   if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

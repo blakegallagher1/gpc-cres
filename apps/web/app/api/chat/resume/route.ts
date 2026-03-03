@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "runId is required." }, { status: 400 });
   }
 
-  const auth = await resolveAuth();
+  const auth = await resolveAuth(req);
   if (!auth) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }

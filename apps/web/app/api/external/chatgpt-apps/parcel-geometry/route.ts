@@ -228,7 +228,7 @@ export async function POST(request: Request) {
     const isProd = process.env.NODE_ENV === "production";
     const devFallbackMode = isDevParcelFallbackEnabled();
 
-    const auth = await resolveAuth();
+    const auth = await resolveAuth(request);
     if (!auth) {
       return NextResponse.json(
         { ok: false, request_id: requestId, error: { code: "UNAUTHORIZED", message: "Unauthorized" } },

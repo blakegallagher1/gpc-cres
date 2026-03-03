@@ -11,7 +11,7 @@ import {
 import type { DealStatus } from "@entitlement-os/shared";
 
 export async function GET(req: NextRequest) {
-  const auth = await resolveAuth();
+  const auth = await resolveAuth(req);
   if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await resolveAuth();
+  const auth = await resolveAuth(req);
   if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  const auth = await resolveAuth();
+  const auth = await resolveAuth(req);
   if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

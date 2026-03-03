@@ -16,7 +16,7 @@ import { addMarketDataPoint } from '@/lib/services/marketMonitor.service';
 export async function POST(request: NextRequest) {
   try {
     // Auth check
-    const authResult = await resolveAuth();
+    const authResult = await resolveAuth(request);
     if (!authResult) {
       return NextResponse.json(
         { error: 'Unauthorized' },

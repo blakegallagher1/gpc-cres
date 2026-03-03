@@ -602,9 +602,9 @@ function parseSourceIngestionOffenders(
 }
 
 // GET /api/runs/dashboard - aggregate run state metrics for agent dashboard
-export async function GET(_request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
-    const auth = await resolveAuth();
+    const auth = await resolveAuth(request);
     if (!auth) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

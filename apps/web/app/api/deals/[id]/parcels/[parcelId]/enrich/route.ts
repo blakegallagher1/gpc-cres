@@ -17,7 +17,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; parcelId: string }> }
 ) {
-  const auth = await resolveAuth();
+  const auth = await resolveAuth(request);
   if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

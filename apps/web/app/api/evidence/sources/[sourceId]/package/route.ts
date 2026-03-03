@@ -60,7 +60,7 @@ export async function GET(
   { params }: { params: Promise<{ sourceId: string }> },
 ) {
   try {
-    const auth = await resolveAuth();
+    const auth = await resolveAuth(request);
     if (!auth) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

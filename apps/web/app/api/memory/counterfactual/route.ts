@@ -9,7 +9,7 @@ import {
 // GET /api/memory/counterfactual — Get counterfactual deal logs + outcome summary
 export async function GET(req: NextRequest) {
   try {
-    const auth = await resolveAuth();
+    const auth = await resolveAuth(req);
     if (!auth) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
 // POST /api/memory/counterfactual — Log a counterfactual deal outcome
 export async function POST(req: NextRequest) {
   try {
-    const auth = await resolveAuth();
+    const auth = await resolveAuth(req);
     if (!auth) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

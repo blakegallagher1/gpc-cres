@@ -1,13 +1,13 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { NotificationService } from "@/lib/services/notification.service";
 
 const service = new NotificationService();
 
 // POST /api/notifications/mark-all-read
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
-    const auth = await resolveAuth();
+    const auth = await resolveAuth(request);
     if (!auth) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

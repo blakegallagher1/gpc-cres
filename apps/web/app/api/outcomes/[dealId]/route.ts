@@ -12,7 +12,7 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ dealId: string }> }
 ) {
-  const auth = await resolveAuth();
+  const auth = await resolveAuth(request);
   if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -38,7 +38,7 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ dealId: string }> }
 ) {
-  const auth = await resolveAuth();
+  const auth = await resolveAuth(request);
   if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

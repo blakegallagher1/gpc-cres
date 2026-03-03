@@ -125,7 +125,7 @@ function buildFreshnessSignals(
 // GET /api/evidence - list evidence sources
 export async function GET(request: NextRequest) {
   try {
-    const auth = await resolveAuth();
+    const auth = await resolveAuth(request);
     if (!auth) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

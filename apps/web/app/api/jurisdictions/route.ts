@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 
@@ -13,9 +13,9 @@ function daysSince(value: Date): number {
 }
 
 // GET /api/jurisdictions - list jurisdictions for the org
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const auth = await resolveAuth();
+    const auth = await resolveAuth(request);
     if (!auth) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

@@ -18,7 +18,7 @@ function extractAddressFromInputText(inputText: string): string | null {
 // POST /api/memory/write — Submit free-text memory through the write gate
 export async function POST(req: NextRequest) {
   try {
-    const auth = await resolveAuth();
+    const auth = await resolveAuth(req);
     if (!auth) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

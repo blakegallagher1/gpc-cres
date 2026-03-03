@@ -36,7 +36,7 @@ const DealBulkActionSchema = z.discriminatedUnion("action", [
 // GET /api/deals - proxy to local FastAPI (production) or Prisma (local dev fallback)
 export async function GET(request: NextRequest) {
   try {
-    const auth = await resolveAuth();
+    const auth = await resolveAuth(request);
     if (!auth) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -156,7 +156,7 @@ export async function GET(request: NextRequest) {
 // POST /api/deals - create a new deal (proxy to FastAPI when LOCAL_API_URL set)
 export async function POST(request: NextRequest) {
   try {
-    const auth = await resolveAuth();
+    const auth = await resolveAuth(request);
     if (!auth) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -250,7 +250,7 @@ export async function POST(request: NextRequest) {
 // PATCH /api/deals — bulk actions for list of deals (proxy to FastAPI when LOCAL_API_URL set)
 export async function PATCH(request: NextRequest) {
   try {
-    const auth = await resolveAuth();
+    const auth = await resolveAuth(request);
     if (!auth) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

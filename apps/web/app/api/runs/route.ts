@@ -71,7 +71,7 @@ function readSummaryFromOutputJson(outputJson: unknown): {
 // GET /api/runs - list runs for org (workflow runs)
 export async function GET(request: NextRequest) {
   try {
-    const auth = await resolveAuth();
+    const auth = await resolveAuth(request);
     if (!auth) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

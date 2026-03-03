@@ -9,12 +9,12 @@ import { toolRegistry } from "@/lib/agent/toolRegistry";
  *
  * Executes a tool on behalf of the Cloudflare Worker.
  * Auth is validated server-side via the forwarded Supabase JWT —
- * orgId/userId come from resolveAuth(), never from the request body.
+ * orgId/userId come from resolveAuth(req), never from the request body.
  */
 export async function POST(req: NextRequest) {
   let auth;
   try {
-    auth = await resolveAuth();
+    auth = await resolveAuth(req);
   } catch (err) {
     console.error("[tools/execute] resolveAuth error:", err);
     return NextResponse.json(

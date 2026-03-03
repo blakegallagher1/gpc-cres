@@ -3,7 +3,7 @@ import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { getPortfolioStressTest } from "@/lib/services/portfolioAnalytics.service";
 
 export async function POST(req: NextRequest) {
-  const auth = await resolveAuth();
+  const auth = await resolveAuth(req);
   if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

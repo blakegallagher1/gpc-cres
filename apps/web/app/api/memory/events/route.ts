@@ -6,7 +6,7 @@ import { getMemoryEventService } from "@/lib/services/memoryEventService";
 // POST /api/memory/events — Record a memory event
 export async function POST(req: NextRequest) {
   try {
-    const auth = await resolveAuth();
+    const auth = await resolveAuth(req);
     if (!auth) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
 // GET /api/memory/events — Get event stats
 export async function GET(req: NextRequest) {
   try {
-    const auth = await resolveAuth();
+    const auth = await resolveAuth(req);
     if (!auth) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
