@@ -21,10 +21,6 @@ import {
 } from "../_lib/codex-rpc";
 import { API_ROUTE_PATH, RECONNECT_BACKOFF_MS } from "../_lib/constants";
 
-/**
- * Relay connection lifecycle events sent as SSE frames from the server.
- * These are NOT Codex protocol messages — they track the relay ↔ upstream WS state.
- */
 interface RelayConnectionEvent {
   jsonrpc: "2.0";
   method: "connection";
@@ -35,15 +31,17 @@ interface RelayConnectionEvent {
 }
 
 function isRelayConnectionEvent(data: unknown): data is RelayConnectionEvent {
-  if (typeof data !== "object" || data === null) return false;
+  if (typeof data !== "object" || data === null) {
+    return false;
+  }
   const obj = data as Record<string, unknown>;
-  if (obj.jsonrpc !== "2.0" || obj.method !== "connection") return false;
-  const params = obj.params;
-  return (
-    typeof params === "object" &&
-    params !== null &&
-    typeof (params as Record<string, unknown>).type === "string"
-  );
+  if (obj.jsonrpc !== "2.0" || obj.method !== "connection") {
+    return false;
+  }
+  if (typeof obj.params !== "object" || obj.params === null) {
+    return false;
+  }
+  return typeof (obj.params as Record<string, unknown>).type === "string";
 }
 
 export type CodexConnectionStatus =
@@ -76,6 +74,7 @@ export interface UseCodexSocketResult {
 
 type RelayPayload = JsonRpcIncomingMessage | JsonRpcNotification<unknown>;
 const INITIALIZE_RESPONSE_ID = "init";
+const FALLBACK_RELAY_URL = "/api/admin/codex";
 
 function createPendingState(): PendingResponseState<unknown> {
   return {
@@ -85,8 +84,8 @@ function createPendingState(): PendingResponseState<unknown> {
   };
 }
 
-function useIsWebSocketRelay(): boolean {
-  return API_ROUTE_PATH.startsWith("ws://") || API_ROUTE_PATH.startsWith("wss://");
+function isWebSocketRelay(url: string): boolean {
+  return url.startsWith("ws://") || url.startsWith("wss://");
 }
 
 export function useCodexSocket({
@@ -100,16 +99,19 @@ export function useCodexSocket({
 }): UseCodexSocketResult {
   const [status, setStatus] = useState<CodexConnectionStatus>("idle");
   const [connectionError, setConnectionError] = useState<string | null>(null);
+
   const eventSourceRef = useRef<EventSource | null>(null);
   const webSocketRef = useRef<WebSocket | null>(null);
   const shouldRunRef = useRef(false);
-  const handshakeReadyRef = useRef(false);
-  const outboundQueueRef = useRef<RelayPayload[]>([]);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttemptRef = useRef(0);
+  const handshakeReadyRef = useRef(false);
+  const outboundQueueRef = useRef<RelayPayload[]>([]);
   const pendingRef = useRef(new Map<CodexJsonRpcId, PendingResponseState<unknown>>());
   const handlersRef = useRef(handlers);
-  const useWebSocketRelay = useIsWebSocketRelay();
+  const activeRelayUrlRef = useRef(API_ROUTE_PATH);
+  const fallbackAttemptedRef = useRef(false);
+  const connectRef = useRef<(() => Promise<void>) | null>(null);
 
   useEffect(() => {
     handlersRef.current = handlers;
@@ -141,57 +143,6 @@ export function useCodexSocket({
     pendingRef.current.clear();
   }, []);
 
-  const sendPayload = useCallback(
-    async (payload: RelayPayload) => {
-      if (useWebSocketRelay) {
-        const activeSocket = webSocketRef.current;
-        if (!activeSocket || activeSocket.readyState !== WebSocket.OPEN) {
-          throw new Error("Relay WebSocket is not connected");
-        }
-
-        activeSocket.send(JSON.stringify(payload));
-        return;
-      }
-
-      const response = await fetch(API_ROUTE_PATH, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({
-          connectionId,
-          payload,
-        }),
-      });
-
-      if (!response.ok) {
-        const message = await response.text();
-        throw new Error(message || `Failed to send request (${response.status})`);
-      }
-    },
-    [connectionId, useWebSocketRelay],
-  );
-
-  const flushQueuedPayloads = useCallback(async () => {
-    if (!handshakeReadyRef.current) {
-      return;
-    }
-
-    if (outboundQueueRef.current.length === 0) {
-      return;
-    }
-
-    const queued = outboundQueueRef.current.splice(0, outboundQueueRef.current.length);
-    for (const queuedPayload of queued) {
-      try {
-        await sendPayload(queuedPayload);
-      } catch {
-        outboundQueueRef.current.unshift(queuedPayload);
-        return;
-      }
-    }
-  }, [sendPayload]);
-
   const handleRelayPayload = useCallback((rawPayload: string) => {
     let parsed: unknown;
     try {
@@ -201,22 +152,24 @@ export function useCodexSocket({
     }
 
     if (isRelayConnectionEvent(parsed)) {
-      const { type: connType, message: connMsg } = parsed.params;
-      if (connType === "upstream_open") {
+      const { type, message } = parsed.params;
+      if (type === "upstream_open") {
         setStatus("connected");
         setConnectionError(null);
         handlersRef.current.onConnected?.();
-      } else if (connType === "upstream_error") {
-        setConnectionError(connMsg ?? "Upstream connection error");
-        handlersRef.current.onConnectionError?.(connMsg ?? "Upstream connection error");
-      } else if (connType === "upstream_closed") {
-        setConnectionError(connMsg ?? "Upstream connection closed");
-        handlersRef.current.onConnectionError?.(connMsg ?? "Upstream connection closed");
-      } else if (connType === "error") {
-        setConnectionError(connMsg ?? "Relay error");
-        handlersRef.current.onConnectionError?.(connMsg ?? "Relay error");
+      } else if (type === "upstream_error") {
+        const text = message ?? "Upstream connection error";
+        setConnectionError(text);
+        handlersRef.current.onConnectionError?.(text);
+      } else if (type === "upstream_closed") {
+        const text = message ?? "Upstream connection closed";
+        setConnectionError(text);
+        handlersRef.current.onConnectionError?.(text);
+      } else if (type === "error") {
+        const text = message ?? "Relay error";
+        setConnectionError(text);
+        handlersRef.current.onConnectionError?.(text);
       }
-
       return;
     }
 
@@ -230,7 +183,6 @@ export function useCodexSocket({
       if (pending) {
         clearTimeout(pending.timer);
         pendingRef.current.delete(message.id);
-
         if (message.error) {
           pending.reject(rpcErrorFromCodexResponse(message.error));
         } else {
@@ -242,7 +194,6 @@ export function useCodexSocket({
         handshakeReadyRef.current = true;
         void flushQueuedPayloads();
       }
-
       handlersRef.current.onResponse(message);
       return;
     }
@@ -253,24 +204,82 @@ export function useCodexSocket({
   }, []);
 
   const scheduleReconnect = useCallback(() => {
-    const currentAttempt = reconnectAttemptRef.current;
-    if (currentAttempt >= RECONNECT_BACKOFF_MS.length) {
+    const attempt = reconnectAttemptRef.current;
+    if (attempt >= RECONNECT_BACKOFF_MS.length) {
       setStatus("failed");
       setConnectionError("Unable to reconnect to Codex relay after multiple attempts.");
       handlersRef.current.onConnectionError?.("Unable to reconnect. Retry manually.");
       return;
     }
 
-    const delay = RECONNECT_BACKOFF_MS[currentAttempt];
-    reconnectAttemptRef.current += 1;
+    const delay = RECONNECT_BACKOFF_MS[attempt];
+    reconnectAttemptRef.current = attempt + 1;
     setStatus("reconnecting");
     setConnectionError(`Reconnecting in ${Math.round(delay / 1000)}s...`);
 
     reconnectTimerRef.current = setTimeout(() => {
       reconnectTimerRef.current = null;
-      void connect();
+      if (shouldRunRef.current) {
+        void (connectRef.current ? connectRef.current() : Promise.resolve());
+      }
     }, delay);
   }, []);
+
+  const useFallbackRelay = useCallback(() => {
+    if (activeRelayUrlRef.current === FALLBACK_RELAY_URL) {
+      return false;
+    }
+    fallbackAttemptedRef.current = true;
+    activeRelayUrlRef.current = FALLBACK_RELAY_URL;
+    return true;
+  }, []);
+
+  const sendPayload = useCallback(
+    async (payload: RelayPayload) => {
+      if (isWebSocketRelay(activeRelayUrlRef.current)) {
+        const relay = webSocketRef.current;
+        if (!relay || relay.readyState !== WebSocket.OPEN) {
+          throw new Error("Relay WebSocket is not connected");
+        }
+        relay.send(JSON.stringify(payload));
+        return;
+      }
+
+      const response = await fetch(activeRelayUrlRef.current, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          connectionId,
+          payload,
+        }),
+      });
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || `Failed to send request (${response.status})`);
+      }
+    },
+    [connectionId],
+  );
+
+  const flushQueuedPayloads = useCallback(async () => {
+    if (!handshakeReadyRef.current) {
+      return;
+    }
+    if (outboundQueueRef.current.length === 0) {
+      return;
+    }
+    const queued = outboundQueueRef.current.splice(0, outboundQueueRef.current.length);
+    for (const payload of queued) {
+      try {
+        await sendPayload(payload);
+      } catch {
+        outboundQueueRef.current.unshift(payload);
+        return;
+      }
+    }
+  }, [sendPayload]);
 
   const connect = useCallback(async () => {
     if (!shouldRunRef.current) {
@@ -278,35 +287,19 @@ export function useCodexSocket({
     }
 
     handshakeReadyRef.current = false;
-    outboundQueueRef.current = [];
-
     clearReconnectTimer();
     closeTransports();
-
     setStatus((current) => (current === "idle" ? "connecting" : "reconnecting"));
     setConnectionError(null);
 
-    if (useWebSocketRelay) {
-      const url = `${API_ROUTE_PATH}?connectionId=${encodeURIComponent(connectionId)}`;
-      const socket = new WebSocket(url);
+    const relayUrl = activeRelayUrlRef.current;
+    const relayIsWs = relayUrl.startsWith("ws://") || relayUrl.startsWith("wss://");
+
+    if (relayIsWs) {
+      const socket = new WebSocket(`${relayUrl}?connectionId=${encodeURIComponent(connectionId)}`);
       webSocketRef.current = socket;
 
-      socket.onopen = () => {
-        reconnectAttemptRef.current = 0;
-        setConnectionError(null);
-      };
-
-      socket.onmessage = (event) => {
-        if (typeof event.data !== "string") {
-          return;
-        }
-
-        handleRelayPayload(event.data);
-      };
-
       const handleSocketFailure = () => {
-        handlersRef.current.onConnectionError?.("Connection to admin Codex relay lost");
-
         if (!shouldRunRef.current) {
           setStatus("idle");
           setConnectionError(null);
@@ -314,7 +307,30 @@ export function useCodexSocket({
           return;
         }
 
+        handlersRef.current.onConnectionError?.("Connection to admin Codex relay lost");
+
+        if (relayUrl.startsWith("ws://") || relayUrl.startsWith("wss://")) {
+          if (!fallbackAttemptedRef.current && useFallbackRelay()) {
+            setConnectionError("Primary relay unavailable. Falling back to API relay.");
+            closeTransports();
+            setStatus("reconnecting");
+            void connectRef.current?.();
+            return;
+          }
+        }
+
         scheduleReconnect();
+      };
+
+      socket.onopen = () => {
+        reconnectAttemptRef.current = 0;
+        setConnectionError(null);
+      };
+
+      socket.onmessage = (event) => {
+        if (typeof event.data === "string") {
+          handleRelayPayload(event.data);
+        }
       };
 
       socket.onerror = () => {
@@ -324,19 +340,16 @@ export function useCodexSocket({
       socket.onclose = () => {
         handleSocketFailure();
       };
-
       return;
     }
 
-    const url = `${API_ROUTE_PATH}?connectionId=${encodeURIComponent(connectionId)}`;
-    const source = new EventSource(url);
+    const source = new EventSource(`${relayUrl}?connectionId=${encodeURIComponent(connectionId)}`);
     eventSourceRef.current = source;
 
     source.onopen = () => {
       reconnectAttemptRef.current = 0;
       setConnectionError(null);
-      // Don't set "connected" yet — the upstream WebSocket may still be CONNECTING.
-      // Status transitions to "connected" only when the server sends upstream_open.
+      // Don't set connected yet; wait for upstream_open connection event.
     };
 
     source.onmessage = (event) => {
@@ -357,7 +370,11 @@ export function useCodexSocket({
 
       scheduleReconnect();
     };
-  }, [clearReconnectTimer, closeTransports, connectionId, handleRelayPayload, scheduleReconnect, useWebSocketRelay]);
+  }, [closeTransports, clearReconnectTimer, connectionId, handleRelayPayload, scheduleReconnect, useFallbackRelay]);
+
+  useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
 
   const sendToRelay = useCallback(
     async (payload: RelayPayload) => {
@@ -365,7 +382,6 @@ export function useCodexSocket({
         outboundQueueRef.current.push(payload);
         return;
       }
-
       await sendPayload(payload);
     },
     [sendPayload],
@@ -407,23 +423,25 @@ export function useCodexSocket({
         throw error;
       }
 
-      const result = (await promise) as CodexClientResultByMethod[M];
-      return result;
+      return (await promise) as CodexClientResultByMethod[M];
     },
     [sendToRelay],
   );
 
-  const resetConnectionError = useCallback(() => {
-    setConnectionError(null);
-  }, []);
-
   const reconnect = useCallback(() => {
     clearReconnectTimer();
     reconnectAttemptRef.current = 0;
-    resetConnectionError();
+    reconnectTimerRef.current = null;
+    setStatus((prev) => (prev === "idle" ? "reconnecting" : prev));
+    setConnectionError(null);
+    fallbackAttemptedRef.current = false;
     rejectAllPending(new Error("Reconnecting"));
-    void connect();
-  }, [clearReconnectTimer, connect, rejectAllPending, resetConnectionError]);
+    void connectRef.current?.();
+  }, [clearReconnectTimer, rejectAllPending]);
+
+  const resetConnectionError = useCallback(() => {
+    setConnectionError(null);
+  }, []);
 
   useEffect(() => {
     shouldRunRef.current = enabled;
@@ -437,6 +455,9 @@ export function useCodexSocket({
       return;
     }
 
+    activeRelayUrlRef.current = API_ROUTE_PATH;
+    fallbackAttemptedRef.current = false;
+    resetConnectionError();
     void connect();
 
     return () => {
@@ -447,7 +468,7 @@ export function useCodexSocket({
       setStatus("idle");
       setConnectionError(null);
     };
-  }, [clearReconnectTimer, closeTransports, connect, enabled, rejectAllPending]);
+  }, [clearReconnectTimer, closeTransports, connect, enabled, rejectAllPending, resetConnectionError]);
 
   const statusText = {
     idle: "Disconnected",
