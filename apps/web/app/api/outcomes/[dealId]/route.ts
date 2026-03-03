@@ -9,10 +9,10 @@ import {
 } from "@/lib/services/outcomeTracking.service";
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ dealId: string }> }
 ) {
-  const auth = await resolveAuth(request);
+  const auth = await resolveAuth(req);
   if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

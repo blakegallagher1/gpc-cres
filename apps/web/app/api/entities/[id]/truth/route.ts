@@ -4,7 +4,7 @@ import { getTruthView } from "@/lib/services/truthViewService";
 
 // GET /api/entities/[id]/truth — Get the current truth view for an entity
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {

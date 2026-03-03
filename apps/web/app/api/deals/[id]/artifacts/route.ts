@@ -240,7 +240,7 @@ export async function POST(
 
 // GET /api/deals/[id]/artifacts — list artifacts for a deal
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {

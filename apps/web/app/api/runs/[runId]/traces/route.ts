@@ -28,7 +28,7 @@ function toJsonRecord(value: unknown): Record<string, unknown> | null {
 
 // GET /api/runs/[runId]/traces - trace list (best-effort; returns [] if traces table is unavailable)
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ runId: string }> },
 ) {
   try {

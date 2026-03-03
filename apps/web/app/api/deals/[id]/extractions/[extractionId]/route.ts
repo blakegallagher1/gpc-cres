@@ -13,7 +13,7 @@ import {
 
 // GET /api/deals/[id]/extractions/[extractionId] — get single extraction
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string; extractionId: string }> }
 ) {
   try {

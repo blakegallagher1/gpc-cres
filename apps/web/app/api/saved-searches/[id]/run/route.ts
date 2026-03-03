@@ -7,7 +7,7 @@ const service = new SavedSearchService();
 
 // POST /api/saved-searches/[id]/run — manually execute a saved search
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {

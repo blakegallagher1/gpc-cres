@@ -3,7 +3,7 @@ import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { get1031Matches } from "@/lib/services/portfolioAnalytics.service";
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ dealId: string }> }
 ) {
   const auth = await resolveAuth(req);

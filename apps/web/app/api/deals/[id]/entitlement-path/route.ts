@@ -151,7 +151,7 @@ async function authorizeDeal(
 }
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const auth = await resolveAuth(request);
@@ -264,7 +264,7 @@ async function handleUpsertEntitlementPath(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const auth = await resolveAuth(request);

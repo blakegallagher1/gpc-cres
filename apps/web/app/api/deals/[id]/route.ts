@@ -20,7 +20,7 @@ function daysSince(value: Date): number {
 
 // GET /api/deals/[id] - get a single deal with related data
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -261,7 +261,7 @@ export async function PATCH(
 
 // DELETE /api/deals/[id] - delete a deal
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {

@@ -4,7 +4,7 @@ import { resolveAuth } from "@/lib/auth/resolveAuth";
 
 // GET /api/runs/[runId] - run details (org-scoped)
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ runId: string }> },
 ) {
   try {
@@ -68,7 +68,7 @@ export async function GET(
 
 // DELETE /api/runs/[runId] - delete run (org-scoped)
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ runId: string }> },
 ) {
   try {

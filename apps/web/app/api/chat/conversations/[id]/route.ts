@@ -4,7 +4,7 @@ import { resolveAuth } from "@/lib/auth/resolveAuth";
 
 // GET /api/chat/conversations/[id] — get a conversation with all messages
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const auth = await resolveAuth(req);
@@ -63,7 +63,7 @@ export async function GET(
 
 // DELETE /api/chat/conversations/[id] — delete a conversation
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const auth = await resolveAuth(req);

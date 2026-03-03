@@ -11,7 +11,7 @@ export interface SavedScenario {
 
 // GET /api/deals/[id]/scenarios — load saved scenarios
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {

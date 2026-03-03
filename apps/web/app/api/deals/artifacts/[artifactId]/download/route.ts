@@ -5,7 +5,7 @@ import { getDownloadUrlFromGateway } from "@/lib/storage/gatewayStorage";
 
 // GET /api/deals/artifacts/[artifactId]/download — download artifact via signed URL
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ artifactId: string }> }
 ) {
   try {

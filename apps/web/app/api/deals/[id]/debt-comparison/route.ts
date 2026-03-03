@@ -4,7 +4,7 @@ import { resolveAuth } from "@/lib/auth/resolveAuth";
 
 // GET /api/deals/[id]/debt-comparison — load saved loan structures
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {

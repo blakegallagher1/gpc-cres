@@ -18,7 +18,7 @@ function getExtractionStatus(
 
 // GET /api/deals/[id]/extractions — list all document extractions for a deal
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {

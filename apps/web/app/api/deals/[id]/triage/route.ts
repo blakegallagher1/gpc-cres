@@ -159,7 +159,7 @@ async function syncTriageRisks(params: {
 }
 
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -294,7 +294,7 @@ export async function POST(
 
 // GET /api/deals/[id]/triage - get latest triage result
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {

@@ -8,7 +8,7 @@ import {
 
 // GET /api/deals/[id]/uploads/[uploadId] - get signed download URL
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string; uploadId: string }> }
 ) {
   try {
@@ -44,7 +44,7 @@ export async function GET(
 
 // DELETE /api/deals/[id]/uploads/[uploadId] - delete an upload
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string; uploadId: string }> }
 ) {
   try {

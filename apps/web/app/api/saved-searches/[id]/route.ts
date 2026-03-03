@@ -7,7 +7,7 @@ const service = new SavedSearchService();
 
 // GET /api/saved-searches/[id] — get a saved search with its matches
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -67,7 +67,7 @@ export async function PATCH(
 
 // DELETE /api/saved-searches/[id] — delete a saved search
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {

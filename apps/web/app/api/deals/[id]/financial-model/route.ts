@@ -349,7 +349,7 @@ async function authorizeDeal(
 
 // GET /api/deals/[id]/financial-model — load saved assumptions + rent roll + budget
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const auth = await resolveAuth(request);

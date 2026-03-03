@@ -7,7 +7,7 @@ import { captureAutomationDispatchError } from "@/lib/automation/sentry";
 
 // GET /api/deals/[id]/tasks
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {

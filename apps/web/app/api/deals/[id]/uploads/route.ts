@@ -11,7 +11,7 @@ import * as Sentry from "@sentry/nextjs";
 
 // GET /api/deals/[id]/uploads - list uploads for a deal
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {

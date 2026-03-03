@@ -11,7 +11,7 @@ interface ActivityItem {
 
 // GET /api/deals/[id]/activity
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
