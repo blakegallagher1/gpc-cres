@@ -86,8 +86,9 @@ export default function AdminPage() {
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="knowledge">Knowledge</TabsTrigger>
             <TabsTrigger value="memory">Memory</TabsTrigger>
-            <TabsTrigger value="agents">Agents</TabsTrigger>
-            <TabsTrigger value="system">System</TabsTrigger>
+          <TabsTrigger value="agents">Agents</TabsTrigger>
+          <TabsTrigger value="codex">Codex</TabsTrigger>
+          <TabsTrigger value="system">System</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview">
@@ -124,6 +125,27 @@ export default function AdminPage() {
               page={page}
               onPageChange={setPage}
             />
+          </TabsContent>
+          <TabsContent value="codex">
+            <div className="grid gap-4">
+              <div className="rounded-lg border border-border/60 bg-card p-3 text-sm text-muted-foreground">
+                Codex chat is embedded below. Use "Open full page" to switch to a standalone layout.
+              </div>
+              <a
+                className="w-fit rounded-md border border-border bg-muted px-3 py-1.5 text-sm text-foreground transition hover:bg-muted/80"
+                href="/admin/codex"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open full page
+              </a>
+              <iframe
+                src="/admin/codex"
+                title="Codex Admin Chat"
+                className="h-[75vh] min-h-[560px] w-full rounded-lg border border-border bg-black"
+                allow="clipboard-write"
+              />
+            </div>
           </TabsContent>
           <TabsContent value="system">
             <SystemTab data={data?.system} isLoading={isLoading} />
