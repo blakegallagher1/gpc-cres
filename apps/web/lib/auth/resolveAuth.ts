@@ -2,6 +2,7 @@ import "server-only";
 import { getToken } from "next-auth/jwt";
 import type { NextRequest } from "next/server";
 import { prisma } from "@entitlement-os/db";
+import { auth } from "@/auth";
 
 export type AuthResult = { userId: string; orgId: string };
 
@@ -14,7 +15,15 @@ export async function resolveAuth(request?: Request): Promise<AuthResult | null>
     return { userId: "dev-user", orgId: "dev-org" };
   }
 
-  if (!request) return null;
+  if (!request) {
+    const session = await auth();
+    const userId = session?.user?.id;
+    const orgId = (session?.user as { orgId?: string } | undefined)?.orgId;
+    if (userId && orgId) {
+      return { userId, orgId };
+    }
+    return null;
+  }
 
   const agentToolAuthMode = request.headers.get("x-agent-tool-auth");
   const agentOrgId = request.headers.get("x-agent-org-id");

@@ -9,6 +9,8 @@ const { getTokenMock, prismaMock } = vi.hoisted(() => ({
   },
 }));
 
+const authMock = vi.fn();
+
 vi.mock("next-auth/jwt", () => ({
   getToken: getTokenMock,
 }));
@@ -17,12 +19,17 @@ vi.mock("@entitlement-os/db", () => ({
   prisma: prismaMock,
 }));
 
+vi.mock("@/auth", () => ({
+  auth: authMock,
+}));
+
 describe("resolveAuth", () => {
   let resolveAuth: typeof import("./resolveAuth").resolveAuth;
 
   beforeEach(async () => {
     vi.resetModules();
     getTokenMock.mockReset();
+    authMock.mockReset();
     prismaMock.orgMembership.findFirst.mockReset();
 
     process.env.AUTH_SECRET = "test-secret-32chars-minimum-len";
@@ -32,9 +39,22 @@ describe("resolveAuth", () => {
     ({ resolveAuth } = await import("./resolveAuth"));
   });
 
-  it("returns null when called with no request", async () => {
+  it("returns null when called with no request and no session", async () => {
+    authMock.mockResolvedValue(null);
     const result = await resolveAuth();
     expect(result).toBeNull();
+  });
+
+  it("returns userId and orgId from auth() when called with no request", async () => {
+    authMock.mockResolvedValue({
+      user: {
+        id: "user-session",
+        orgId: "org-session",
+      },
+    });
+
+    const result = await resolveAuth();
+    expect(result).toEqual({ userId: "user-session", orgId: "org-session" });
   });
 
   it("returns dev user when NEXT_PUBLIC_DISABLE_AUTH=true in test env", async () => {
