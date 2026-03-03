@@ -10,6 +10,7 @@ import {
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+export const maxDuration = 300;
 
 const INITIALIZE_MESSAGE_ID = "init";
 const HANDSHAKE_WAIT_MS = 50;
