@@ -14,6 +14,7 @@ export const runtime = "nodejs";
 const INITIALIZE_MESSAGE_ID = "init";
 const HANDSHAKE_WAIT_MS = 50;
 const UPSTREAM_OPEN_WAIT_MS = 3_000;
+const TEARDOWN_GRACE_MS = 200;
 const LOG_PREFIX = "[codex-relay]";
 
 interface RelayPayload {
@@ -51,19 +52,21 @@ function isAuthBypassedForLocalDev(): boolean {
   return process.env.NEXT_PUBLIC_DISABLE_AUTH === "true";
 }
 
+/** Always-on structured logging for relay lifecycle events. */
 function logRelay(connectionId: string, event: string, detail?: unknown) {
-  const debugEnabled =
-    process.env.CODEX_RELAY_DEBUG === "true" || process.env.NODE_ENV === "development";
-
-  if (!debugEnabled) {
-    return;
-  }
-
   if (detail !== undefined) {
     console.log(`${LOG_PREFIX} [${connectionId}] ${event}`, detail);
     return;
   }
   console.log(`${LOG_PREFIX} [${connectionId}] ${event}`);
+}
+
+/** Debug-only logging for verbose message content and stale-relay guards. */
+function logRelayVerbose(connectionId: string, event: string, detail?: unknown) {
+  if (process.env.CODEX_RELAY_DEBUG !== "true" && process.env.NODE_ENV !== "development") {
+    return;
+  }
+  logRelay(connectionId, event, detail);
 }
 
 function summarizeWsPayload(raw: MessageEvent["data"]): string {
@@ -234,7 +237,7 @@ function enqueueConnectionState(
   } catch (error) {
     // SSE disconnect races can close the stream while ws callbacks are still firing.
     connection.controller = null;
-    logRelay(connection.connectionId, "sse_enqueue_failed", error);
+    logRelayVerbose(connection.connectionId, "sse_enqueue_failed", error);
   }
 }
 
@@ -253,7 +256,7 @@ function cleanupRelay(
   }
 
   if (options?.expectedRelay && relay !== options.expectedRelay) {
-    logRelay(connectionId, "cleanup_skipped_stale", options.reason);
+    logRelayVerbose(connectionId, "cleanup_skipped_stale", options.reason);
     return;
   }
 
@@ -277,7 +280,7 @@ function cleanupRelay(
     try {
       upstream.close(1000, "Relay connection closed");
     } catch (error) {
-      logRelay(connectionId, "upstream_close_failed", error);
+      logRelayVerbose(connectionId, "upstream_close_failed", error);
     }
   }
   relay.upstream = undefined;
@@ -306,7 +309,7 @@ function connectUpstream(connectionId: string) {
   upstream.addEventListener("open", () => {
     const activeRelay = relayConnections.get(connectionId);
     if (!activeRelay || activeRelay.upstream !== upstream || !activeRelay.controller) {
-      logRelay(connectionId, "upstream_open_ignored_stale");
+      logRelayVerbose(connectionId, "upstream_open_ignored_stale");
       return;
     }
 
@@ -324,7 +327,7 @@ function connectUpstream(connectionId: string) {
 
     setTimeout(() => {
       if (upstream.readyState !== WebSocket.OPEN) {
-        logRelay(connectionId, "skip_initialized_notification_not_open", {
+        logRelayVerbose(connectionId, "skip_initialized_notification_not_open", {
           readyState: upstream.readyState,
         });
         return;
@@ -342,11 +345,11 @@ function connectUpstream(connectionId: string) {
   upstream.addEventListener("message", (event) => {
     const relayForMessage = relayConnections.get(connectionId);
     if (!relayForMessage || relayForMessage.upstream !== upstream || !relayForMessage.controller) {
-      logRelay(connectionId, "upstream_message_ignored_stale");
+      logRelayVerbose(connectionId, "upstream_message_ignored_stale");
       return;
     }
 
-    logRelay(connectionId, "upstream_message", summarizeWsPayload(event.data));
+    logRelayVerbose(connectionId, "upstream_message", summarizeWsPayload(event.data));
     const parsed = parseWsMessage(event.data);
     const payload = parsed ?? (typeof event.data === "string" ? event.data : null);
     if (payload !== null) {
@@ -354,7 +357,7 @@ function connectUpstream(connectionId: string) {
         relayForMessage.controller.enqueue(toSseFrame(payload));
       } catch (error) {
         relayForMessage.controller = null;
-        logRelay(connectionId, "sse_enqueue_message_failed", error);
+        logRelayVerbose(connectionId, "sse_enqueue_message_failed", error);
       }
       if (parsed && typeof parsed === "object" && parsed !== null) {
         const parsedRecord = parsed as Record<string, unknown>;
@@ -373,28 +376,35 @@ function connectUpstream(connectionId: string) {
       wasClean: event.wasClean,
     });
     if (!relayForClose || relayForClose.upstream !== upstream) {
-      logRelay(connectionId, "upstream_close_ignored_stale");
+      logRelayVerbose(connectionId, "upstream_close_ignored_stale");
       return;
     }
     if (relayForClose.controller) {
-      enqueueConnectionState(relayForClose, "upstream_closed");
+      const closeDetail = event.reason
+        ? `Upstream closed: code ${event.code} — ${event.reason}`
+        : `Upstream closed: code ${event.code}`;
+      enqueueConnectionState(relayForClose, "upstream_closed", closeDetail);
     }
-    cleanupRelay(connectionId, {
-      expectedRelay: relayForClose,
-      reason: "upstream_close",
-      closeUpstream: false,
-    });
+    // Grace period: keep SSE alive briefly so the client receives the state
+    // event before the stream terminates and triggers onerror → reconnect.
+    setTimeout(() => {
+      cleanupRelay(connectionId, {
+        expectedRelay: relayForClose,
+        reason: "upstream_close",
+        closeUpstream: false,
+      });
+    }, TEARDOWN_GRACE_MS);
   });
 
   upstream.addEventListener("error", (event) => {
     const relayForError = relayConnections.get(connectionId);
     logRelay(connectionId, "upstream_error", event);
     if (!relayForError || relayForError.upstream !== upstream) {
-      logRelay(connectionId, "upstream_error_ignored_stale");
+      logRelayVerbose(connectionId, "upstream_error_ignored_stale");
       return;
     }
     if (relayForError.controller) {
-      enqueueConnectionState(relayForError, "upstream_error");
+      enqueueConnectionState(relayForError, "upstream_error", "WebSocket error connecting to upstream");
     }
   });
 }
@@ -581,7 +591,7 @@ export async function POST(request: NextRequest) {
 
   try {
     relay.upstream.send(JSON.stringify(body.payload));
-    logRelay(body.connectionId, "post_relayed", {
+    logRelayVerbose(body.connectionId, "post_relayed", {
       method:
         typeof body.payload === "object" &&
         body.payload !== null &&

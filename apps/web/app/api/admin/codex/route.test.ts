@@ -279,4 +279,105 @@ describe("/api/admin/codex relay route", () => {
     expect(res.status).toBe(401);
     expect(body).toEqual({ error: "Unauthorized" });
   });
+
+  // ---- SSE stream event helpers ----
+
+  function parseSseEvents(text: string): Record<string, unknown>[] {
+    return text
+      .split("\n\n")
+      .filter((chunk) => chunk.trim().length > 0)
+      .map((chunk) => {
+        const dataLine = chunk.replace(/^data: /, "");
+        return JSON.parse(dataLine) as Record<string, unknown>;
+      });
+  }
+
+  it("emits error state when CODEX_APP_SERVER_URL is not set", async () => {
+    delete process.env.CODEX_APP_SERVER_URL;
+
+    const req = new NextRequest("http://localhost/api/admin/codex?connectionId=missing-env");
+    const res = await GET(req);
+
+    expect(res.status).toBe(200);
+
+    const text = await res.text();
+    const events = parseSseEvents(text);
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      jsonrpc: "2.0",
+      method: "connection",
+      params: {
+        type: "error",
+      },
+    });
+    expect((events[0].params as Record<string, unknown>).message).toContain(
+      "CODEX_APP_SERVER_URL",
+    );
+  });
+
+  it("includes close code and reason in upstream_closed state event", async () => {
+    vi.useFakeTimers();
+
+    const req = new NextRequest("http://localhost/api/admin/codex?connectionId=close-detail");
+    const res = await GET(req);
+
+    expect(res.status).toBe(200);
+    expect(MockWebSocket.instances).toHaveLength(1);
+
+    const ws = MockWebSocket.instances[0];
+    ws.open();
+    ws.close(1006, "connection lost");
+
+    // Advance past TEARDOWN_GRACE_MS (200ms) and HANDSHAKE_WAIT_MS (50ms)
+    await vi.advanceTimersByTimeAsync(250);
+
+    const text = await res.text();
+    const events = parseSseEvents(text);
+
+    const closedEvent = events.find(
+      (e) =>
+        e.method === "connection" &&
+        (e.params as Record<string, unknown>)?.type === "upstream_closed",
+    );
+
+    expect(closedEvent).toBeDefined();
+    const message = (closedEvent!.params as Record<string, unknown>).message as string;
+    expect(message).toContain("1006");
+    expect(message).toContain("connection lost");
+  });
+
+  it("returns 409 when POST times out waiting for upstream open", async () => {
+    vi.useFakeTimers();
+
+    const connectionId = "post-timeout";
+    const streamReq = new NextRequest(
+      `http://localhost/api/admin/codex?connectionId=${connectionId}`,
+    );
+    await GET(streamReq);
+
+    expect(MockWebSocket.instances).toHaveLength(1);
+
+    // Don't open the WebSocket — leave it in CONNECTING state
+    const postPromise = POST(
+      makePostRequest({
+        connectionId,
+        payload: {
+          jsonrpc: "2.0",
+          id: 456,
+          method: "thread/list",
+          params: { includeArchived: false },
+        },
+      }),
+    );
+
+    // Advance past UPSTREAM_OPEN_WAIT_MS (3_000ms)
+    await vi.advanceTimersByTimeAsync(3_100);
+
+    const postRes = await postPromise;
+    expect(postRes.status).toBe(409);
+
+    const body = await postRes.json();
+    expect(body.error).toBe("Relay connection unavailable");
+  });
 });

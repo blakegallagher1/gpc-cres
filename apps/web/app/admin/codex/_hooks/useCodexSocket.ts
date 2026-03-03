@@ -178,12 +178,15 @@ export function useCodexSocket({
         } else if (connType === "upstream_error") {
           setConnectionError(connMsg ?? "Upstream connection error");
           handlersRef.current.onConnectionError?.(connMsg ?? "Upstream connection error");
+        } else if (connType === "upstream_closed") {
+          setConnectionError(connMsg ?? "Upstream connection closed");
+          handlersRef.current.onConnectionError?.(connMsg ?? "Upstream connection closed");
         } else if (connType === "error") {
           setConnectionError(connMsg ?? "Relay error");
           handlersRef.current.onConnectionError?.(connMsg ?? "Relay error");
         }
-        // "connected" (SSE established) and "upstream_closed" are informational —
-        // the SSE stream closing triggers onerror → scheduleReconnect automatically.
+        // "connected" (SSE established) is informational — no status change needed.
+        // SSE stream closing still triggers onerror → scheduleReconnect automatically.
         return;
       }
 
