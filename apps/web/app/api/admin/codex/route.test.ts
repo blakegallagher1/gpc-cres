@@ -1,31 +1,23 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const {
-  resolveAuthMock,
-  findUserMock,
-} = vi.hoisted(() => ({
-  resolveAuthMock: vi.fn(),
-  findUserMock: vi.fn(),
+const { authMock } = vi.hoisted(() => ({
+  authMock: vi.fn(),
 }));
 
-vi.mock("@/lib/auth/resolveAuth", () => ({
-  resolveAuth: resolveAuthMock,
-}));
-
-vi.mock("@entitlement-os/db", () => ({
-  prisma: {
-    user: {
-      findUnique: findUserMock,
-    },
-  },
+vi.mock("@/auth", () => ({
+  auth: authMock,
 }));
 
 import { GET, POST } from "./route";
 
-const TEST_AUTH = {
-  userId: "11111111-1111-4111-8111-111111111111",
-  orgId: "22222222-2222-4222-8222-222222222222",
+const TEST_SESSION = {
+  user: {
+    id: "11111111-1111-4111-8111-111111111111",
+    email: "blake@gallagherpropco.com",
+    orgId: "22222222-2222-4222-8222-222222222222",
+  },
+  expires: new Date(Date.now() + 86_400_000).toISOString(),
 };
 
 class MockWebSocket extends EventTarget {
@@ -81,8 +73,7 @@ const originalWebSocket = globalThis.WebSocket;
 const originalEnv = { ...process.env };
 
 function setDefaultAuthMocks() {
-  resolveAuthMock.mockResolvedValue(TEST_AUTH);
-  findUserMock.mockResolvedValue({ email: "blake@gallagherpropco.com" });
+  authMock.mockResolvedValue(TEST_SESSION);
 }
 
 function makePostRequest(body: unknown) {
@@ -132,7 +123,7 @@ describe("/api/admin/codex relay route", () => {
   });
 
   it("returns 401 when unauthenticated", async () => {
-    resolveAuthMock.mockResolvedValue(null);
+    authMock.mockResolvedValue(null);
 
     const req = new NextRequest("http://localhost/api/admin/codex?connectionId=unauth");
     const res = await GET(req);
@@ -143,7 +134,14 @@ describe("/api/admin/codex relay route", () => {
   });
 
   it("returns 403 when authenticated user is not admin", async () => {
-    findUserMock.mockResolvedValue({ email: "viewer@example.com" });
+    authMock.mockResolvedValue({
+      user: {
+        id: "33333333-3333-4333-8333-333333333333",
+        email: "viewer@example.com",
+        orgId: "44444444-4444-4444-8444-444444444444",
+      },
+      expires: new Date(Date.now() + 86_400_000).toISOString(),
+    });
 
     const req = new NextRequest("http://localhost/api/admin/codex?connectionId=forbidden");
     const res = await GET(req);
@@ -247,12 +245,38 @@ describe("/api/admin/codex relay route", () => {
   });
 
   it("allows default allowlisted login email", async () => {
-    findUserMock.mockResolvedValue({ email: "blake@gallagherpropco.com" });
-
     const req = new NextRequest("http://localhost/api/admin/codex?connectionId=allowlisted-email");
     const res = await GET(req);
 
     expect(res.status).toBe(200);
     expect(MockWebSocket.instances).toHaveLength(1);
+  });
+
+  it("returns 401 when session has no user", async () => {
+    authMock.mockResolvedValue({ expires: new Date().toISOString() });
+
+    const req = new NextRequest("http://localhost/api/admin/codex?connectionId=no-user");
+    const res = await GET(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(401);
+    expect(body).toEqual({ error: "Unauthorized" });
+  });
+
+  it("returns 401 when session user has no orgId", async () => {
+    authMock.mockResolvedValue({
+      user: {
+        id: "11111111-1111-4111-8111-111111111111",
+        email: "blake@gallagherpropco.com",
+      },
+      expires: new Date(Date.now() + 86_400_000).toISOString(),
+    });
+
+    const req = new NextRequest("http://localhost/api/admin/codex?connectionId=no-orgid");
+    const res = await GET(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(401);
+    expect(body).toEqual({ error: "Unauthorized" });
   });
 });

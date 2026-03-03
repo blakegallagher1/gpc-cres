@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@entitlement-os/db";
-import { resolveAuth } from "@/lib/auth/resolveAuth";
+import { auth } from "@/auth";
 import { isEmailAllowed } from "@/lib/auth/allowedEmails";
 import {
   CLIENT_INFO,
@@ -98,25 +97,22 @@ async function resolveAdminAuth(): Promise<AdminAuthState> {
     };
   }
 
-  const auth = await resolveAuth();
-  if (!auth) {
+  const session = await auth();
+  if (!session?.user) {
     return { status: "unauthenticated" };
   }
 
-  const user = await prisma.user.findUnique({
-    where: {
-      id: auth.userId,
-    },
-    select: {
-      email: true,
-    },
-  });
-
-  if (!isEmailAllowed(user?.email ?? null)) {
+  if (!isEmailAllowed(session.user.email)) {
     return { status: "forbidden" };
   }
 
-  return { status: "authorized", auth };
+  const userId = session.user.id;
+  const orgId = (session.user as unknown as { orgId?: string }).orgId;
+  if (!userId || !orgId) {
+    return { status: "unauthenticated" };
+  }
+
+  return { status: "authorized", auth: { userId, orgId } };
 }
 
 function parsePostBody(raw: unknown): RelayPayload | null {

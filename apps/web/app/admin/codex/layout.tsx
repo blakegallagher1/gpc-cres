@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
-import { prisma } from "@entitlement-os/db";
-import { resolveAuth } from "@/lib/auth/resolveAuth";
+import { auth } from "@/auth";
 import { isEmailAllowed } from "@/lib/auth/allowedEmails";
 
 interface AdminCodexLayoutProps {
@@ -16,8 +15,8 @@ export default async function AdminCodexLayout({ children }: AdminCodexLayoutPro
     return <>{children}</>;
   }
 
-  const auth = await resolveAuth();
-  if (!auth) {
+  const session = await auth();
+  if (!session?.user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-950 text-gray-200">
         <div className="max-w-lg rounded-md border border-red-700/60 bg-gray-900 p-6 text-center">
@@ -28,18 +27,7 @@ export default async function AdminCodexLayout({ children }: AdminCodexLayoutPro
     );
   }
 
-  const user = await prisma.user.findUnique({
-    where: {
-      id: auth.userId,
-    },
-    select: {
-      email: true,
-    },
-  });
-
-  const isAdmin = isEmailAllowed(user?.email ?? null);
-
-  if (!isAdmin) {
+  if (!isEmailAllowed(session.user.email)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-950 text-gray-200">
         <div className="max-w-lg rounded-md border border-amber-600/70 bg-gray-900 p-6 text-center">

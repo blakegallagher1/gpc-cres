@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { NotificationService } from "@/lib/services/notification.service";
 import { isSchemaDriftError } from "@/lib/api/prismaSchemaFallback";
@@ -7,9 +7,9 @@ import * as Sentry from "@sentry/nextjs";
 const service = new NotificationService();
 
 // GET /api/notifications/unread-count — lightweight polling endpoint
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const auth = await resolveAuth();
+    const auth = await resolveAuth(request);
     if (!auth) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
