@@ -30,6 +30,10 @@ import {
   type ThreadResumeResult,
   type ThreadStartResult,
   type TurnDiffFile,
+  type TurnCompletedParams,
+  type AgentMessageDeltaParams,
+  type CommandExecutionOutputParams,
+  type FileChangeOutputParams,
 } from "./_lib/codex-protocol";
 import { useApprovals } from "./_hooks/useApprovals";
 import { useCodexSocket } from "./_hooks/useCodexSocket";
@@ -38,12 +42,17 @@ import { useThreads } from "./_hooks/useThreads";
 type TurnWorkflowState = "idle" | "in_progress" | "waiting_on_approval";
 
 type ApprovalAction = "accept" | "acceptForSession" | "decline" | "cancel";
+const NO_THREAD_ID = "none";
 
 function createId(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
   }
   return `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
+}
+
+function isValidThreadId(threadId: string | null): threadId is string {
+  return Boolean(threadId && threadId !== NO_THREAD_ID);
 }
 
 function getErrorMessage(error?: {
@@ -72,6 +81,122 @@ function computeTurnStatusMessage(
     return "waiting on approval";
   }
   return "idle";
+}
+
+function makeTurnInput(text: string): Array<{ type: "text"; text: string }> {
+  return [{ type: "text", text }];
+}
+
+function parseUnifiedDiff(diff: string): TurnDiffFile[] {
+  const files: TurnDiffFile[] = [];
+  let current: TurnDiffFile | null = null;
+  const lines = diff.replace(/\r/g, "").split("\n");
+
+  for (const line of lines) {
+    if (line.startsWith("diff --git ")) {
+      if (current) {
+        files.push(current);
+      }
+      const fileMatch = line.match(/ b\/(.+)$/);
+      current = {
+        path: fileMatch?.[1] ?? "unknown",
+        lines: [],
+      };
+      continue;
+    }
+
+    if (!current && line.startsWith("+++ b/")) {
+      current = {
+        path: line.replace("+++ b/", ""),
+        lines: [],
+      };
+      continue;
+    }
+
+    if (current) {
+      current.lines.push(line);
+    }
+  }
+
+  if (current) {
+    files.push(current);
+  }
+
+  return files;
+}
+
+function normalizePlanSteps(params: {
+  steps?: PlanStep[];
+  plan?: Array<{ step: string; status: "pending" | "in_progress" | "completed" }>;
+}): PlanStep[] {
+  if (Array.isArray(params.steps)) {
+    return params.steps;
+  }
+
+  if (!Array.isArray(params.plan)) {
+    return [];
+  }
+
+  return params.plan.map((entry, index) => ({
+    id: `${index}-${entry.step}`,
+    text: entry.step,
+    completed: entry.status === "completed",
+  }));
+}
+
+function resolveTurnStartedId(params: {
+  turnId?: string;
+  turn?: { id: string };
+}): string | null {
+  return params.turnId ?? params.turn?.id ?? null;
+}
+
+function resolveTurnCompletedState(params: TurnCompletedParams): {
+  turnId: string | null;
+  status: "completed" | "failed" | "inProgress" | "interrupted";
+  error?: { message?: string; codexErrorInfo?: string };
+} {
+  const nested = params.turn;
+  const status = nested?.status ?? params.status ?? "completed";
+  const turnId = nested?.id ?? params.turnId ?? null;
+  return {
+    turnId,
+    status,
+    error: nested?.error ?? params.error,
+  };
+}
+
+function resolveAgentDeltaItemId(params: AgentMessageDeltaParams): string | null {
+  return params.item?.id ?? params.itemId ?? null;
+}
+
+function resolveCommandOutputItemId(params: CommandExecutionOutputParams): string | null {
+  return params.item?.id ?? params.itemId ?? null;
+}
+
+function resolveCommandOutputText(params: CommandExecutionOutputParams): string {
+  return params.output ?? params.delta ?? "";
+}
+
+function resolveFileChangeOutputItemId(params: FileChangeOutputParams): string | null {
+  return params.item?.id ?? params.itemId ?? null;
+}
+
+function resolveFileChangeOutputText(params: FileChangeOutputParams): string {
+  return params.output ?? params.delta ?? "";
+}
+
+function normalizeFileChangeEntries(item: {
+  files?: Array<{ path: string; diff: string }>;
+  changes?: Array<{ path: string; diff: string }>;
+}): Array<{ path: string; diff: string }> {
+  if (Array.isArray(item.files)) {
+    return item.files.map((entry) => ({ path: entry.path, diff: entry.diff }));
+  }
+  if (Array.isArray(item.changes)) {
+    return item.changes.map((entry) => ({ path: entry.path, diff: entry.diff }));
+  }
+  return [];
 }
 
 export default function CodexAdminPage() {
@@ -267,7 +392,7 @@ export default function CodexAdminPage() {
   );
 
   const setModelForThread = useCallback((thread: string | null) => {
-    if (thread) {
+    if (isValidThreadId(thread)) {
       setActiveThreadId(thread);
       if (typeof window !== "undefined") {
         window.localStorage.setItem(ACTIVE_THREAD_STORAGE_KEY, thread);
@@ -302,22 +427,32 @@ export default function CodexAdminPage() {
         const message = notification as CodexServerNotification & { method: string; params: Record<string, unknown> };
 
         switch (message.method) {
-          case "turn/start": {
-            const params = message as Extract<CodexServerNotification, { method: "turn/start" }>;
-            setActiveTurnId(params.params.turnId);
+          case "turn/start":
+          case "turn/started": {
+            const params = message as { params: { turnId?: string; turn?: { id: string } } };
+            const turnId = resolveTurnStartedId(params.params);
+            if (turnId) {
+              setActiveTurnId(turnId);
+              addSystemMessage(`Turn started (${turnId})`);
+            }
             setTurnState("in_progress");
             setIsWaitingForFirstItem(true);
             setDiffFiles([]);
-            addSystemMessage(`Turn started (${params.params.turnId})`);
             break;
           }
           case "turn/completed": {
             const params = message as Extract<CodexServerNotification, { method: "turn/completed" }>;
+            const resolved = resolveTurnCompletedState(params.params);
             setIsWaitingForFirstItem(false);
-            setActiveTurnId((turnId) => (turnId === params.params.turnId ? null : turnId));
+            setActiveTurnId((turnId) => {
+              if (!resolved.turnId) {
+                return null;
+              }
+              return turnId === resolved.turnId ? null : turnId;
+            });
             setIsSteering(false);
-            if (params.params.status === "failed") {
-              addErrorMessage(getErrorMessage(params.params.error));
+            if (resolved.status === "failed") {
+              addErrorMessage(getErrorMessage(resolved.error));
               setTurnState("idle");
             } else if (approvalCount > 0) {
               setTurnState("waiting_on_approval");
@@ -347,7 +482,7 @@ export default function CodexAdminPage() {
             if (params.params.item.type === "fileChange") {
               upsertFileChangeMessage(
                 params.params.item.id,
-                params.params.item.files.map((entry) => ({ path: entry.path, diff: entry.diff })),
+                normalizeFileChangeEntries(params.params.item),
                 "pending",
               );
             }
@@ -361,32 +496,54 @@ export default function CodexAdminPage() {
             }
 
             if (params.params.item.type === "commandExecution") {
-              const status = params.params.item.status === "declined" ? "failed" : "completed";
-              completeCommand(params.params.item.id, status, params.params.item.exitCode ?? null);
+              const status =
+                params.params.item.status === "failed" || params.params.item.status === "declined"
+                  ? "failed"
+                  : "completed";
+              completeCommand(
+                params.params.item.id,
+                status,
+                params.params.item.exitCode ?? null,
+              );
               return;
             }
 
             if (params.params.item.type === "fileChange") {
-              const status = params.params.item.status === "declined" ? "declined" : "applied";
+              const status =
+                params.params.item.status === "declined" || params.params.item.status === "failed"
+                  ? "declined"
+                  : "applied";
               completeFileChange(params.params.item.id, status);
             }
             break;
           }
           case "item/agentMessage/delta": {
             const params = message as Extract<CodexServerNotification, { method: "item/agentMessage/delta" }>;
-            upsertAgentMessage(params.params.item.id, params.params.delta, true);
+            const itemId = resolveAgentDeltaItemId(params.params);
+            if (!itemId) {
+              break;
+            }
+            upsertAgentMessage(itemId, params.params.delta, true);
             break;
           }
           case "item/commandExecution/outputDelta": {
             const params = message as Extract<CodexServerNotification, { method: "item/commandExecution/outputDelta" }>;
-            updateCommandOutput(params.params.item.id, params.params.output);
+            const itemId = resolveCommandOutputItemId(params.params);
+            if (!itemId) {
+              break;
+            }
+            updateCommandOutput(itemId, resolveCommandOutputText(params.params));
             break;
           }
           case "item/fileChange/outputDelta": {
             const params = message as Extract<CodexServerNotification, { method: "item/fileChange/outputDelta" }>;
-            const output = params.params.output;
+            const output = resolveFileChangeOutputText(params.params);
+            const itemId = resolveFileChangeOutputItemId(params.params);
+            if (!itemId) {
+              break;
+            }
             upsertFileChangeMessage(
-              params.params.item.id,
+              itemId,
               output ? [{ path: "(unified output)", diff: output }] : [],
               "pending",
             );
@@ -409,12 +566,21 @@ export default function CodexAdminPage() {
           }
           case "turn/diff/updated": {
             const params = message as Extract<CodexServerNotification, { method: "turn/diff/updated" }>;
-            setDiffFiles(params.params.files);
+            if (Array.isArray(params.params.files)) {
+              setDiffFiles(params.params.files);
+            } else if (typeof params.params.diff === "string") {
+              setDiffFiles(parseUnifiedDiff(params.params.diff));
+            }
             break;
           }
           case "turn/plan/updated": {
             const params = message as Extract<CodexServerNotification, { method: "turn/plan/updated" }>;
-            setPlanSteps(params.params.steps);
+            setPlanSteps(normalizePlanSteps(params.params));
+            break;
+          }
+          case "error": {
+            const params = message as Extract<CodexServerNotification, { method: "error" }>;
+            addErrorMessage(getErrorMessage(params.params.error));
             break;
           }
           default:
@@ -471,9 +637,19 @@ export default function CodexAdminPage() {
         addUserMessage(trimmedMessage);
         setTurnState("in_progress");
         setIsWaitingForFirstItem(true);
-        await sendRequest("turn/start", {
-          threadId: response.threadId,
-          message: trimmedMessage,
+        await send({
+          jsonrpc: "2.0",
+          method: "turn/start",
+          params: {
+            threadId: response.threadId,
+            input: makeTurnInput(trimmedMessage),
+            cwd: null,
+            approvalPolicy: null,
+            sandboxPolicy: null,
+            model: null,
+            effort: null,
+            summary: null,
+          },
         });
       } catch (error) {
         addErrorMessage(error instanceof Error ? error.message : "Failed to start thread");
@@ -541,7 +717,16 @@ export default function CodexAdminPage() {
         return;
       }
 
-      const payload = { action };
+      const payload =
+        action === "acceptForSession"
+          ? activeApproval.kind === "commandExecution"
+            ? { decision: "accept", acceptSettings: { forSession: true } }
+            : { decision: "accept" }
+          : action === "accept"
+            ? { decision: "accept" }
+            : action === "decline"
+              ? { decision: "decline" }
+              : { decision: "cancel" };
       send(buildResponseResult(activeApproval.requestId, payload));
       popCurrent();
 
@@ -569,7 +754,7 @@ export default function CodexAdminPage() {
     setStatusError(null);
 
     if (turnState === "in_progress" && activeTurnId && !isSteering) {
-      if (!activeThreadId) {
+      if (!isValidThreadId(activeThreadId)) {
         setStatusError("No active thread to steer.");
         return;
       }
@@ -578,11 +763,15 @@ export default function CodexAdminPage() {
       setTurnState("in_progress");
       setStatusError(null);
       try {
-        await sendRequest("turn/steer", {
-          threadId: activeThreadId,
-          turnId: activeTurnId,
-          expectedTurnId: activeTurnId,
-          message: trimmed,
+        await send({
+          jsonrpc: "2.0",
+          method: "turn/steer",
+          params: {
+            threadId: activeThreadId,
+            turnId: activeTurnId,
+            expectedTurnId: activeTurnId,
+            input: makeTurnInput(trimmed),
+          },
         });
         addSystemMessage("Steering active turn...");
       } catch (error) {
@@ -593,14 +782,24 @@ export default function CodexAdminPage() {
       return;
     }
 
-    if (activeThreadId) {
+    if (isValidThreadId(activeThreadId)) {
       setTurnState("in_progress");
       setIsWaitingForFirstItem(true);
       addUserMessage(trimmed);
       try {
-        await sendRequest("turn/start", {
-          threadId: activeThreadId,
-          message: trimmed,
+        await send({
+          jsonrpc: "2.0",
+          method: "turn/start",
+          params: {
+            threadId: activeThreadId,
+            input: makeTurnInput(trimmed),
+            cwd: null,
+            approvalPolicy: null,
+            sandboxPolicy: null,
+            model: null,
+            effort: null,
+            summary: null,
+          },
         });
       } catch (error) {
         setTurnState("idle");
@@ -640,23 +839,25 @@ export default function CodexAdminPage() {
     [activeApproval, sendApproval, startNewThread],
   );
 
-  const connectionRestoredRef = useRef(false);
+  const wasConnectedRef = useRef(false);
 
   useEffect(() => {
     if (!isConnected) {
-      connectionRestoredRef.current = false;
+      wasConnectedRef.current = false;
       return;
     }
 
-    if (connectionRestoredRef.current) {
+    const didReconnect = wasConnectedRef.current === false;
+    wasConnectedRef.current = true;
+
+    if (!didReconnect) {
       return;
     }
 
-    if (!activeThreadId) {
+    if (!isValidThreadId(activeThreadId)) {
       return;
     }
 
-    connectionRestoredRef.current = true;
     void resumeExistingThread(activeThreadId);
   }, [activeThreadId, isConnected, resumeExistingThread]);
 
@@ -698,7 +899,7 @@ export default function CodexAdminPage() {
 
   useEffect(() => {
     const saved = typeof window === "undefined" ? null : window.localStorage.getItem(ACTIVE_THREAD_STORAGE_KEY);
-    if (saved) {
+    if (isValidThreadId(saved)) {
       setModelForThread(saved);
     }
   }, [setModelForThread]);

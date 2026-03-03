@@ -7,13 +7,9 @@ diff/status updates in a two-panel layout.
 
 ## What it does
 - Renders a realtime chat UI for Codex turns.
-- Uses a server relay API in this feature package:
+- Uses the server relay API in this feature package:
   - `apps/web/app/api/admin/codex/route.ts`
-  - Client connects over SSE and sends JSON-RPC payloads over `POST` to the relay.
-- Supports a Worker+Durable Object relay endpoint for production reliability:
-  - Set `NEXT_PUBLIC_CODEX_RELAY_URL` to `wss://agents.gallagherpropco.com/codex`.
-  - The worker receives browser WebSocket connections and relays them to upstream Codex via `CODEX_APP_SERVER_URL`.
-  - Avoid `codex-controller.gallagherpropco.com` for this path because Cloudflare Access blocks direct unauthenticated websocket handshakes.
+  - Client connects over SSE and sends JSON-RPC payloads over `POST` to `/api/admin/codex`.
 - Enforces admin-only access via `layout.tsx`:
   - Credentials session via NextAuth + email allowlist (`isEmailAllowed`).
 - Supports thread controls:
@@ -44,20 +40,6 @@ diff/status updates in a two-panel layout.
 ## Environment variables
 - `CODEX_APP_SERVER_URL`
   - Full WebSocket URL for the external App Server (for example `wss://codex.yourdomain.com`).
-- `NEXT_PUBLIC_CODEX_RELAY_URL`
-  - Route the browser uses to connect to the relay.
-  - Local/dev: `/api/admin/codex` (SSE+POST relay).
-  - Worker relay: `wss://agents.gallagherpropco.com/codex`.
-  - `codex-controller.gallagherpropco.com` is intentionally not used for websocket handoff.
-    If that host is still set in an environment by mistake, the UI falls back to
-    `wss://agents.gallagherpropco.com/codex` on `*.gallagherpropco.com`.
-  - If unset in production, the UI now defaults to `wss://agents.gallagherpropco.com/codex` for
-    `*.gallagherpropco.com` hosts.
-- `NEXT_PUBLIC_CODEX_RELAY_URL`
-  - Optional explicit relay URL override. If omitted on `*.gallagherpropco.com`, defaults to `wss://agents.gallagherpropco.com/codex`.
-  - If you pass `https://agents.gallagherpropco.com/codex`, it is automatically normalized to `wss://...` for websocket transport.
-  - If you pass `wss://agents.gallagherpropco.com` (without path), it is normalized to `wss://agents.gallagherpropco.com/codex`.
-  - `codex-controller.gallagherpropco.com` is intentionally not used and is redirected to the worker relay.
 - `NEXT_PUBLIC_DISABLE_AUTH` (optional, local dev only)
   - Set to `true` to bypass auth checks entirely on `/admin/codex`.
   - Never enable this in production.

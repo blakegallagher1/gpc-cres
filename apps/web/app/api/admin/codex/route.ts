@@ -14,8 +14,15 @@ export const runtime = "nodejs";
 const INITIALIZE_MESSAGE_ID = "init";
 const HANDSHAKE_WAIT_MS = 50;
 const UPSTREAM_OPEN_WAIT_MS = 3_000;
+const RELAY_AVAILABLE_WAIT_MS = 3_000;
+const RELAY_AVAILABLE_POLL_MS = 100;
 const TEARDOWN_GRACE_MS = 200;
+const SSE_HEARTBEAT_INTERVAL_MS = 15_000;
 const LOG_PREFIX = "[codex-relay]";
+const WS_CONNECTING = 0;
+const WS_OPEN = 1;
+
+type UpstreamWebSocket = WebSocket;
 
 interface RelayPayload {
   connectionId: string;
@@ -24,10 +31,11 @@ interface RelayPayload {
 
 interface RelayConnection {
   connectionId: string;
-  upstream?: WebSocket;
+  upstream?: UpstreamWebSocket;
   controller?: ReadableStreamDefaultController<Uint8Array> | null;
   encoder: TextEncoder;
   initializedAt: number;
+  heartbeatTimer?: ReturnType<typeof setInterval> | null;
 }
 
 type AdminAuthState =
@@ -69,7 +77,7 @@ function logRelayVerbose(connectionId: string, event: string, detail?: unknown) 
   logRelay(connectionId, event, detail);
 }
 
-function summarizeWsPayload(raw: MessageEvent["data"]): string {
+function summarizeWsPayload(raw: unknown): string {
   if (typeof raw === "string") {
     return raw.length > 200 ? `${raw.slice(0, 200)}...` : raw;
   }
@@ -171,7 +179,7 @@ function parseUpstreamText(raw: string | Buffer | ArrayBuffer | null): unknown |
   return null;
 }
 
-function parseWsMessage(raw: MessageEvent["data"]): unknown | null {
+function parseWsMessage(raw: unknown): unknown | null {
   if (typeof raw === "string") {
     return parseUpstreamText(raw);
   }
@@ -193,6 +201,10 @@ function parseWsMessage(raw: MessageEvent["data"]): unknown | null {
 
 function toSseFrame(payload: unknown): Uint8Array {
   return encoder.encode(`data: ${JSON.stringify(payload)}\n\n`);
+}
+
+function toSseKeepAlive(): Uint8Array {
+  return encoder.encode(": keep-alive\n\n");
 }
 
 function buildInitializeNotification(): JsonRpcNotification {
@@ -270,12 +282,16 @@ function cleanupRelay(
     }
   }
   relay.controller = null;
+  if (relay.heartbeatTimer) {
+    clearInterval(relay.heartbeatTimer);
+    relay.heartbeatTimer = null;
+  }
 
   const upstream = relay.upstream;
   if (
     options?.closeUpstream !== false &&
     upstream &&
-    (upstream.readyState === WebSocket.OPEN || upstream.readyState === WebSocket.CONNECTING)
+    (upstream.readyState === WS_OPEN || upstream.readyState === WS_CONNECTING)
   ) {
     try {
       upstream.close(1000, "Relay connection closed");
@@ -298,11 +314,11 @@ function connectUpstream(connectionId: string) {
     throw new Error("Relay not registered");
   }
 
-  if (relay.upstream && relay.upstream.readyState === WebSocket.OPEN) {
+  if (relay.upstream && relay.upstream.readyState === WS_OPEN) {
     return;
   }
 
-  const upstream = new globalThis.WebSocket(appServerUrl);
+  const upstream = new WebSocket(appServerUrl);
   relay.upstream = upstream;
   logRelay(connectionId, "upstream_connecting", { appServerUrl });
 
@@ -326,7 +342,7 @@ function connectUpstream(connectionId: string) {
     }
 
     setTimeout(() => {
-      if (upstream.readyState !== WebSocket.OPEN) {
+      if (upstream.readyState !== WS_OPEN) {
         logRelayVerbose(connectionId, "skip_initialized_notification_not_open", {
           readyState: upstream.readyState,
         });
@@ -349,39 +365,48 @@ function connectUpstream(connectionId: string) {
       return;
     }
 
-    logRelayVerbose(connectionId, "upstream_message", summarizeWsPayload(event.data));
-    const parsed = parseWsMessage(event.data);
-    const payload = parsed ?? (typeof event.data === "string" ? event.data : null);
-    if (payload !== null) {
-      try {
-        relayForMessage.controller.enqueue(toSseFrame(payload));
-      } catch (error) {
-        relayForMessage.controller = null;
-        logRelayVerbose(connectionId, "sse_enqueue_message_failed", error);
+    const processEventData = async () => {
+      let rawData: unknown = event.data;
+      if (rawData instanceof Blob) {
+        rawData = await rawData.text();
       }
-      if (parsed && typeof parsed === "object" && parsed !== null) {
-        const parsedRecord = parsed as Record<string, unknown>;
-        if (parsedRecord.id === INITIALIZE_MESSAGE_ID) {
-          logRelay(connectionId, "received_initialize_response", parsed);
+
+      logRelayVerbose(connectionId, "upstream_message", summarizeWsPayload(rawData));
+      const parsed = parseWsMessage(rawData);
+      const payload = parsed ?? (typeof rawData === "string" ? rawData : null);
+      if (payload !== null) {
+        try {
+          relayForMessage.controller?.enqueue(toSseFrame(payload));
+        } catch (error) {
+          relayForMessage.controller = null;
+          logRelayVerbose(connectionId, "sse_enqueue_message_failed", error);
+        }
+        if (parsed && typeof parsed === "object" && parsed !== null) {
+          const parsedRecord = parsed as Record<string, unknown>;
+          if (parsedRecord.id === INITIALIZE_MESSAGE_ID) {
+            logRelay(connectionId, "received_initialize_response", parsed);
+          }
         }
       }
-    }
+    };
+
+    void processEventData();
   });
 
   upstream.addEventListener("close", (event) => {
     const relayForClose = relayConnections.get(connectionId);
+    const reason = event.reason ?? "";
     logRelay(connectionId, "upstream_close", {
       code: event.code,
-      reason: event.reason,
-      wasClean: event.wasClean,
+      reason,
     });
     if (!relayForClose || relayForClose.upstream !== upstream) {
       logRelayVerbose(connectionId, "upstream_close_ignored_stale");
       return;
     }
     if (relayForClose.controller) {
-      const closeDetail = event.reason
-        ? `Upstream closed: code ${event.code} — ${event.reason}`
+      const closeDetail = reason
+        ? `Upstream closed: code ${event.code} - ${reason}`
         : `Upstream closed: code ${event.code}`;
       enqueueConnectionState(relayForClose, "upstream_closed", closeDetail);
     }
@@ -412,24 +437,24 @@ function connectUpstream(connectionId: string) {
 function waitForUpstreamOpen(
   connectionId: string,
   relay: RelayConnection,
-): Promise<WebSocket | null> {
+): Promise<UpstreamWebSocket | null> {
   const upstream = relay.upstream;
   if (!upstream) {
     return Promise.resolve(null);
   }
 
-  if (upstream.readyState === WebSocket.OPEN) {
+  if (upstream.readyState === WS_OPEN) {
     return Promise.resolve(upstream);
   }
 
-  if (upstream.readyState !== WebSocket.CONNECTING) {
+  if (upstream.readyState !== WS_CONNECTING) {
     return Promise.resolve(null);
   }
 
-  return new Promise<WebSocket | null>((resolve) => {
+  return new Promise<UpstreamWebSocket | null>((resolve) => {
     let done = false;
 
-    const finish = (value: WebSocket | null) => {
+    const finish = (value: UpstreamWebSocket | null) => {
       if (done) {
         return;
       }
@@ -471,6 +496,30 @@ function waitForUpstreamOpen(
   });
 }
 
+function waitForRelayConnection(connectionId: string): Promise<RelayConnection | undefined> {
+  const existingRelay = relayConnections.get(connectionId);
+  if (existingRelay) {
+    return Promise.resolve(existingRelay);
+  }
+
+  return new Promise<RelayConnection | undefined>((resolve) => {
+    const startedAt = Date.now();
+    const timer = setInterval(() => {
+      const relay = relayConnections.get(connectionId);
+      if (relay) {
+        clearInterval(timer);
+        resolve(relay);
+        return;
+      }
+
+      if (Date.now() - startedAt >= RELAY_AVAILABLE_WAIT_MS) {
+        clearInterval(timer);
+        resolve(undefined);
+      }
+    }, RELAY_AVAILABLE_POLL_MS);
+  });
+}
+
 export async function GET(request: NextRequest) {
   const auth = await resolveAdminAuth();
   if (auth.status === "unauthenticated") {
@@ -501,6 +550,7 @@ export async function GET(request: NextRequest) {
         controller,
         encoder,
         initializedAt: Date.now(),
+        heartbeatTimer: null,
       };
       streamRelay = connection;
       relayConnections.set(connectionId, connection);
@@ -508,6 +558,17 @@ export async function GET(request: NextRequest) {
       try {
         connectUpstream(connectionId);
         enqueueConnectionState(connection, "connected");
+        connection.heartbeatTimer = setInterval(() => {
+          if (!connection.controller) {
+            return;
+          }
+          try {
+            connection.controller.enqueue(toSseKeepAlive());
+          } catch (error) {
+            connection.controller = null;
+            logRelayVerbose(connection.connectionId, "sse_keep_alive_failed", error);
+          }
+        }, SSE_HEARTBEAT_INTERVAL_MS);
       } catch (error) {
         const message = error instanceof Error ? error.message : "Relay failed";
         enqueueConnectionState(connection, "error", message);
@@ -554,7 +615,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
 
-  const relay = relayConnections.get(body.connectionId);
+  let relay = relayConnections.get(body.connectionId);
+  if (!relay) {
+    relay = await waitForRelayConnection(body.connectionId);
+  }
   if (!relay?.upstream) {
     logRelay(body.connectionId, "post_rejected_upstream_unavailable", {
       hasRelay: Boolean(relay),
@@ -570,11 +634,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Relay connection unavailable" }, { status: 409 });
   }
 
-  if (relay.upstream.readyState === WebSocket.CONNECTING) {
+  if (relay.upstream.readyState === WS_CONNECTING) {
     await waitForUpstreamOpen(body.connectionId, relay);
   }
 
-  if (!relay.upstream || relay.upstream.readyState !== WebSocket.OPEN) {
+  if (!relay.upstream || relay.upstream.readyState !== WS_OPEN) {
     logRelay(body.connectionId, "post_rejected_upstream_not_open", {
       hasRelay: true,
       readyState: relay.upstream?.readyState ?? null,

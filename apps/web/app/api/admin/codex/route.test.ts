@@ -1,9 +1,98 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { authMock } = vi.hoisted(() => ({
-  authMock: vi.fn(),
-}));
+const { authMock, MockWebSocket } = vi.hoisted(() => {
+  class MockWebSocketImpl {
+    static instances: MockWebSocketImpl[] = [];
+
+    static readonly CONNECTING = 0;
+
+    static readonly OPEN = 1;
+
+    static readonly CLOSING = 2;
+
+    static readonly CLOSED = 3;
+
+    readonly sent: string[] = [];
+
+    readyState = MockWebSocketImpl.CONNECTING;
+
+    private listeners = new Map<string, Set<(event?: unknown) => void>>();
+
+    constructor(public readonly url: string) {
+      MockWebSocketImpl.instances.push(this);
+    }
+
+    addEventListener(event: string, listener: (event?: unknown) => void) {
+      const set = this.listeners.get(event) ?? new Set();
+      set.add(listener);
+      this.listeners.set(event, set);
+    }
+
+    removeEventListener(event: string, listener: (event?: unknown) => void) {
+      this.listeners.get(event)?.delete(listener);
+    }
+
+    private emit(event: string, payload?: unknown) {
+      for (const listener of this.listeners.get(event) ?? []) {
+        listener(payload);
+      }
+    }
+
+    private emitOnce(event: string, payload?: unknown) {
+      for (const listener of [...(this.listeners.get(event) ?? [])]) {
+        listener(payload);
+      }
+    }
+
+    on(event: string, listener: (...args: unknown[]) => void) {
+      this.addEventListener(event, (payload) => listener(payload));
+    }
+
+    once(event: string, listener: (...args: unknown[]) => void) {
+      const wrapped = (payload?: unknown) => {
+        this.removeEventListener(event, wrapped);
+        listener(payload);
+      };
+      this.addEventListener(event, wrapped);
+    }
+
+    off(event: string, listener: (...args: unknown[]) => void) {
+      this.removeEventListener(event, (payload) => listener(payload));
+    }
+
+    send(data: string) {
+      this.sent.push(data);
+    }
+
+    open() {
+      this.readyState = MockWebSocketImpl.OPEN;
+      this.emitOnce("open", { type: "open" });
+    }
+
+    emitMessage(data: unknown) {
+      this.emitOnce("message", { data });
+    }
+
+    close(code = 1000, reason = "") {
+      this.readyState = MockWebSocketImpl.CLOSED;
+      this.emitOnce("close", { code, reason });
+    }
+
+    emitError(error: unknown) {
+      this.emitOnce("error", { error });
+    }
+
+    static reset() {
+      this.instances = [];
+    }
+  }
+
+  return {
+    authMock: vi.fn(),
+    MockWebSocket: MockWebSocketImpl,
+  };
+});
 
 vi.mock("@/auth", () => ({
   auth: authMock,
@@ -20,57 +109,8 @@ const TEST_SESSION = {
   expires: new Date(Date.now() + 86_400_000).toISOString(),
 };
 
-class MockWebSocket extends EventTarget {
-  static instances: MockWebSocket[] = [];
-
-  static readonly CONNECTING = 0;
-
-  static readonly OPEN = 1;
-
-  static readonly CLOSING = 2;
-
-  static readonly CLOSED = 3;
-
-  readonly sent: string[] = [];
-
-  readyState = MockWebSocket.CONNECTING;
-
-  constructor(public readonly url: string) {
-    super();
-    MockWebSocket.instances.push(this);
-  }
-
-  send(data: string) {
-    this.sent.push(data);
-  }
-
-  open() {
-    this.readyState = MockWebSocket.OPEN;
-    this.dispatchEvent(new Event("open"));
-  }
-
-  emitMessage(data: unknown) {
-    const event = Object.assign(new Event("message"), { data });
-    this.dispatchEvent(event);
-  }
-
-  close(code = 1000, reason = "") {
-    this.readyState = MockWebSocket.CLOSED;
-    const event = Object.assign(new Event("close"), {
-      code,
-      reason,
-      wasClean: true,
-    });
-    this.dispatchEvent(event);
-  }
-
-  static reset() {
-    this.instances = [];
-  }
-}
-
-const originalWebSocket = globalThis.WebSocket;
 const originalEnv = { ...process.env };
+const originalWebSocket = globalThis.WebSocket;
 
 function setDefaultAuthMocks() {
   authMock.mockResolvedValue(TEST_SESSION);
@@ -91,18 +131,13 @@ describe("/api/admin/codex relay route", () => {
     MockWebSocket.reset();
     vi.clearAllMocks();
     vi.useRealTimers();
+    globalThis.WebSocket = MockWebSocket as unknown as typeof WebSocket;
 
     process.env.CODEX_APP_SERVER_URL = "ws://127.0.0.1:8765";
     process.env.NEXT_PUBLIC_DISABLE_AUTH = "false";
     delete process.env.CODEX_RELAY_DEBUG;
 
     setDefaultAuthMocks();
-
-    Object.defineProperty(globalThis, "WebSocket", {
-      configurable: true,
-      writable: true,
-      value: MockWebSocket,
-    });
   });
 
   afterEach(() => {
@@ -112,12 +147,7 @@ describe("/api/admin/codex relay route", () => {
       }
     });
     Object.assign(process.env, originalEnv);
-
-    Object.defineProperty(globalThis, "WebSocket", {
-      configurable: true,
-      writable: true,
-      value: originalWebSocket,
-    });
+    globalThis.WebSocket = originalWebSocket;
 
     vi.useRealTimers();
   });
@@ -379,5 +409,38 @@ describe("/api/admin/codex relay route", () => {
 
     const body = await postRes.json();
     expect(body.error).toBe("Relay connection unavailable");
+  });
+
+  it("waits briefly for relay registration before rejecting POST", async () => {
+    vi.useFakeTimers();
+
+    const connectionId = "relay-available-late";
+    const postPromise = POST(
+      makePostRequest({
+        connectionId,
+        payload: {
+          jsonrpc: "2.0",
+          id: 789,
+          method: "thread/list",
+          params: { includeArchived: false },
+        },
+      }),
+    );
+
+    await vi.advanceTimersByTimeAsync(200);
+
+    const streamReq = new NextRequest(
+      `http://localhost/api/admin/codex?connectionId=${connectionId}`,
+    );
+    const streamRes = await GET(streamReq);
+    expect(streamRes.status).toBe(200);
+    expect(MockWebSocket.instances).toHaveLength(1);
+
+    const ws = MockWebSocket.instances[0];
+    ws.open();
+    await vi.advanceTimersByTimeAsync(200);
+
+    const postRes = await postPromise;
+    expect(postRes.status).toBe(204);
   });
 });
