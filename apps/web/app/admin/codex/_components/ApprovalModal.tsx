@@ -53,9 +53,10 @@ export function ApprovalModal({ approval, onAction }: ApprovalModalProps) {
           <div className="space-y-2 text-xs">
             <p className="text-gray-300">Command execution request</p>
             <pre className="rounded border border-amber-600/40 bg-black/60 p-2 font-mono text-xs text-gray-200 whitespace-pre-wrap">
-              {approval.command}
+              {approval.command && approval.command.length > 0 ? approval.command : "(command details not provided by server)"}
             </pre>
             <p className="text-gray-400">cwd: {approval.cwd}</p>
+            {approval.reason ? <p className="text-gray-400">reason: {approval.reason}</p> : null}
           </div>
         ) : (
           <div className="space-y-2 text-xs">
@@ -73,6 +74,7 @@ export function ApprovalModal({ approval, onAction }: ApprovalModalProps) {
                 );
               })}
             </div>
+            {approval.reason ? <p className="text-xs text-gray-400">reason: {approval.reason}</p> : null}
             <p className="text-xs text-gray-400">Preview: {filePreviews.slice(0, 10).join(" ")}</p>
           </div>
         )}

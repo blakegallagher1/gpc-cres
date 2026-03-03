@@ -64,14 +64,37 @@ export interface TurnDiffFile {
 }
 
 export interface ThreadStartParams {
-  model: string;
-  cwd: string;
-  approvalPolicy: "onRequest";
-  sandboxPolicy: {
-    type: "workspaceWrite";
+  model: string | null;
+  modelProvider?: string | null;
+  cwd?: string | null;
+  approvalPolicy:
+    | "untrusted"
+    | "on-failure"
+    | "on-request"
+    | "reject"
+    | "never"
+    | "onRequest";
+  sandboxPolicy?: {
+    type:
+      | "workspace-write"
+      | "danger-full-access"
+      | "read-only"
+      | "workspaceWrite";
     writableRoots: string[];
     networkAccess: boolean;
+    excludeTmpdirEnvVar?: boolean;
+    excludeSlashTmp?: boolean;
   };
+  sandbox?: {
+    type: "dangerFullAccess" | "readOnly" | "workspaceWrite";
+    writableRoots?: string[];
+    networkAccess?: boolean;
+    excludeTmpdirEnvVar?: boolean;
+    excludeSlashTmp?: boolean;
+  } | null;
+  config?: Record<string, unknown> | null;
+  baseInstructions?: string | null;
+  developerInstructions?: string | null;
 }
 
 export interface ThreadResumeParams {
@@ -88,8 +111,8 @@ export interface ThreadArchiveParams {
 
 export interface ThreadStartResult {
   threadId: string;
-  model: string;
-  createdAt: string;
+  model: string | null;
+  createdAt?: string;
 }
 
 export interface ThreadResumeResult {
@@ -119,19 +142,35 @@ export interface ThreadArchiveResult {
 
 export interface TurnStartParams {
   threadId: string;
-  message: string;
+  input: Array<{
+    type: "text";
+    text: string;
+  }>;
+  cwd?: string | null;
+  approvalPolicy?: "unlessTrusted" | "onFailure" | "onRequest" | "never" | null;
+  sandboxPolicy?: ThreadStartParams["sandboxPolicy"] | null;
+  model?: string | null;
+  effort?: "low" | "medium" | "high" | null;
+  summary?: "auto" | "detailed" | null;
 }
 
 export interface TurnSteerParams {
   threadId: string;
   turnId: string;
   expectedTurnId: string;
-  message: string;
+  input: Array<{
+    type: "text";
+    text: string;
+  }>;
 }
 
 export interface TurnStartedParams {
   threadId: string;
   turnId: string;
+  turn?: {
+    id: string;
+    status?: "completed" | "failed" | "inProgress" | "interrupted";
+  };
 }
 
 export interface CodexErrorInfo {
@@ -141,9 +180,14 @@ export interface CodexErrorInfo {
 
 export interface TurnCompletedParams {
   threadId: string;
-  turnId: string;
-  status: "completed" | "failed";
+  turnId?: string;
+  status?: "completed" | "failed" | "inProgress" | "interrupted";
   error?: CodexErrorInfo;
+  turn?: {
+    id: string;
+    status: "completed" | "failed" | "inProgress" | "interrupted";
+    error?: CodexErrorInfo;
+  };
 }
 
 export interface PlanStep {
@@ -155,13 +199,19 @@ export interface PlanStep {
 export interface TurnPlanUpdatedParams {
   threadId: string;
   turnId: string;
-  steps: PlanStep[];
+  steps?: PlanStep[];
+  plan?: Array<{
+    step: string;
+    status: "pending" | "in_progress" | "completed";
+  }>;
+  explanation?: string | null;
 }
 
 export interface TurnDiffUpdatedParams {
   threadId: string;
   turnId: string;
-  files: TurnDiffFile[];
+  files?: TurnDiffFile[];
+  diff?: string;
 }
 
 export interface BaseItem {
@@ -176,6 +226,8 @@ export interface CommandExecutionItem extends BaseItem {
   type: "commandExecution";
   command: string;
   cwd: string;
+  status?: "inProgress" | "completed" | "failed" | "declined";
+  exitCode?: number | null;
 }
 
 export interface FileChangeChunk {
@@ -185,7 +237,9 @@ export interface FileChangeChunk {
 
 export interface FileChangeItem extends BaseItem {
   type: "fileChange";
-  files: FileChangeChunk[];
+  files?: FileChangeChunk[];
+  changes?: FileChangeChunk[];
+  status?: "inProgress" | "completed" | "failed" | "declined";
 }
 
 export type CodexItem = AgentMessageItem | CommandExecutionItem | FileChangeItem;
@@ -200,7 +254,7 @@ export interface ItemCompletedParams {
   threadId: string;
   turnId: string;
   item: CodexItem & {
-    status: "completed" | "failed" | "declined";
+    status: "completed" | "failed" | "declined" | "inProgress";
     exitCode?: number | null;
   };
 }
@@ -208,29 +262,36 @@ export interface ItemCompletedParams {
 export interface AgentMessageDeltaParams {
   threadId: string;
   turnId: string;
-  item: AgentMessageItem;
+  itemId?: string;
+  item?: AgentMessageItem;
   delta: string;
 }
 
 export interface CommandExecutionOutputParams {
   threadId: string;
   turnId: string;
-  item: CommandExecutionItem;
-  output: string;
+  itemId?: string;
+  item?: CommandExecutionItem;
+  output?: string;
+  delta?: string;
 }
 
 export interface FileChangeOutputParams {
   threadId: string;
   turnId: string;
-  item: FileChangeItem;
-  output: string;
+  itemId?: string;
+  item?: FileChangeItem;
+  output?: string;
+  delta?: string;
 }
 
 export interface CommandExecutionApprovalParams {
   requestId: CodexJsonRpcId;
   threadId: string;
   turnId: string;
-  item: {
+  itemId?: string;
+  reason?: string | null;
+  item?: {
     id: string;
     type: "commandExecution";
     command: string;
@@ -242,10 +303,19 @@ export interface FileChangeApprovalParams {
   requestId: CodexJsonRpcId;
   threadId: string;
   turnId: string;
-  item: {
+  itemId?: string;
+  reason?: string | null;
+  item?: {
     id: string;
     type: "fileChange";
     files: FileChangeChunk[];
+  };
+}
+
+export interface TurnStartResult {
+  turn?: {
+    id: string;
+    status?: "completed" | "failed" | "inProgress" | "interrupted";
   };
 }
 
@@ -274,13 +344,16 @@ export type CodexClientResultByMethod = {
   "thread/resume": ThreadResumeResult;
   "thread/list": ThreadListResult;
   "thread/archive": ThreadArchiveResult;
-  "turn/start": TurnStartedParams;
+  "turn/start": TurnStartResult;
   "turn/steer": TurnStartedParams;
 };
 
 export type CodexServerNotificationMethod =
   | "initialized"
+  | "error"
+  | "thread/started"
   | "turn/start"
+  | "turn/started"
   | "turn/completed"
   | "item/started"
   | "item/completed"
@@ -295,7 +368,20 @@ export type CodexServerNotificationMethod =
 
 export type CodexServerNotification =
   | { method: "initialized"; params: Record<string, never> }
+  | {
+      method: "error";
+      params: {
+        threadId?: string;
+        turnId?: string;
+        error: {
+          message: string;
+          codexErrorInfo?: string;
+        };
+      };
+    }
+  | { method: "thread/started"; params: { thread?: { id: string } } }
   | { method: "turn/start"; params: TurnStartedParams }
+  | { method: "turn/started"; params: TurnStartedParams }
   | { method: "turn/completed"; params: TurnCompletedParams }
   | { method: "item/started"; params: ItemStartedParams }
   | { method: "item/completed"; params: ItemCompletedParams }
@@ -334,7 +420,7 @@ export function parseCodexMessage(raw: unknown): JsonRpcIncomingMessage | null {
     return null;
   }
 
-  if (raw.jsonrpc !== "2.0") {
+  if (typeof raw.jsonrpc !== "undefined" && raw.jsonrpc !== "2.0") {
     return null;
   }
 
@@ -345,14 +431,14 @@ export function parseCodexMessage(raw: unknown): JsonRpcIncomingMessage | null {
         jsonrpc: "2.0",
         id,
         method: raw.method,
-        params: raw.params,
+        params: raw.params ?? {},
       };
     }
 
     return {
       jsonrpc: "2.0",
       method: raw.method,
-      params: raw.params,
+      params: raw.params ?? {},
     };
   }
 

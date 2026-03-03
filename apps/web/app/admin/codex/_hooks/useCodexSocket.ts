@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  CLIENT_INFO,
   isCodexNotification,
   isCodexResponse,
   type CodexClientMethod,
@@ -9,6 +10,7 @@ import {
   type CodexClientResultByMethod,
   type CodexJsonRpcId,
   type JsonRpcIncomingMessage,
+  type JsonRpcRequest,
   type JsonRpcNotification,
   type JsonRpcResponseEnvelope,
   parseCodexMessage,
@@ -44,6 +46,10 @@ function isRelayConnectionEvent(data: unknown): data is RelayConnectionEvent {
   return typeof (obj.params as Record<string, unknown>).type === "string";
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 export type CodexConnectionStatus =
   | "idle"
   | "connecting"
@@ -75,8 +81,16 @@ export interface UseCodexSocketResult {
 type RelayPayload = JsonRpcIncomingMessage | JsonRpcNotification<unknown>;
 const INITIALIZE_RESPONSE_ID = "init";
 const FALLBACK_RELAY_URL = "/api/admin/codex";
+const INITIALIZED_NOTIFICATION_DELAY_MS = 50;
 const HANDSHAKE_TIMEOUT_MS = 8_000;
-const REQUEST_TIMEOUT_MS = 45_000;
+const REQUEST_TIMEOUT_MS = 120_000;
+const RELAY_POST_RETRY_ATTEMPTS = 10;
+const RELAY_POST_RETRY_DELAY_MS = 150;
+const ENABLE_WS_TO_API_FALLBACK = false;
+
+function getRequestIdKey(id: CodexJsonRpcId): string {
+  return String(id);
+}
 
 function createPendingState(): PendingResponseState<unknown> {
   return {
@@ -88,6 +102,73 @@ function createPendingState(): PendingResponseState<unknown> {
 
 function isWebSocketRelay(url: string): boolean {
   return url.startsWith("ws://") || url.startsWith("wss://");
+}
+
+function buildInitializeRequestPayload(): JsonRpcIncomingMessage {
+  return {
+    jsonrpc: "2.0",
+    id: INITIALIZE_RESPONSE_ID,
+    method: "initialize",
+    params: {
+      clientInfo: CLIENT_INFO,
+    },
+  };
+}
+
+function buildInitializedNotificationPayload(): JsonRpcNotification<Record<string, never>> {
+  return {
+    jsonrpc: "2.0",
+    method: "initialized",
+    params: {},
+  };
+}
+
+async function readMessageDataAsText(data: unknown): Promise<string | null> {
+  if (typeof data === "string") {
+    return data;
+  }
+
+  if (data instanceof Blob) {
+    return await data.text();
+  }
+
+  if (data instanceof ArrayBuffer) {
+    return new TextDecoder().decode(new Uint8Array(data));
+  }
+
+  if (ArrayBuffer.isView(data)) {
+    return new TextDecoder().decode(
+      new Uint8Array(data.buffer, data.byteOffset, data.byteLength),
+    );
+  }
+
+  return null;
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
+function extractErrorMessage(raw: string, fallbackStatus: number): string {
+  try {
+    const parsed = JSON.parse(raw) as { error?: unknown; detail?: unknown };
+    if (typeof parsed.error === "string" && parsed.error.trim().length > 0) {
+      return parsed.error;
+    }
+    if (typeof parsed.detail === "string" && parsed.detail.trim().length > 0) {
+      return parsed.detail;
+    }
+  } catch {
+    // not JSON
+  }
+
+  if (raw.trim().length > 0) {
+    return raw;
+  }
+
+  return `Failed to send request (${fallbackStatus})`;
 }
 
 export function useCodexSocket({
@@ -108,8 +189,9 @@ export function useCodexSocket({
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttemptRef = useRef(0);
   const handshakeReadyRef = useRef(false);
+  const upstreamReadyRef = useRef(false);
   const outboundQueueRef = useRef<RelayPayload[]>([]);
-  const pendingRef = useRef(new Map<CodexJsonRpcId, PendingResponseState<unknown>>());
+  const pendingRef = useRef(new Map<string, PendingResponseState<unknown>>());
   const handlersRef = useRef(handlers);
   const activeRelayUrlRef = useRef(API_ROUTE_PATH);
   const fallbackAttemptedRef = useRef(false);
@@ -167,6 +249,7 @@ export function useCodexSocket({
 
       if (
         (activeRelayUrlRef.current.startsWith("ws://") || activeRelayUrlRef.current.startsWith("wss://"))
+        && ENABLE_WS_TO_API_FALLBACK
         && !fallbackAttemptedRef.current
         && useFallbackRelay()
       ) {
@@ -192,9 +275,11 @@ export function useCodexSocket({
     if (isRelayConnectionEvent(parsed)) {
       const { type, message } = parsed.params;
       if (type === "upstream_open") {
-        setStatus("connected");
+        upstreamReadyRef.current = true;
+        if (status !== "reconnecting") {
+          setStatus("connecting");
+        }
         setConnectionError(null);
-        handlersRef.current.onConnected?.();
         clearHandshakeTimer();
       } else if (type === "upstream_error") {
         const text = message ?? "Upstream connection error";
@@ -218,10 +303,10 @@ export function useCodexSocket({
     }
 
     if (isCodexResponse(message)) {
-      const pending = pendingRef.current.get(message.id);
+      const pending = pendingRef.current.get(getRequestIdKey(message.id));
       if (pending) {
         clearTimeout(pending.timer);
-        pendingRef.current.delete(message.id);
+        pendingRef.current.delete(getRequestIdKey(message.id));
         if (message.error) {
           pending.reject(rpcErrorFromCodexResponse(message.error));
         } else {
@@ -229,17 +314,43 @@ export function useCodexSocket({
         }
       }
 
-      if (String(message.id) === INITIALIZE_RESPONSE_ID) {
+      if (getRequestIdKey(message.id) === INITIALIZE_RESPONSE_ID) {
         handshakeReadyRef.current = true;
         clearHandshakeTimer();
+        setStatus("connected");
+        setConnectionError(null);
+        handlersRef.current.onConnected?.();
         void flushQueuedPayloads();
       }
       handlersRef.current.onResponse(message);
       return;
     }
 
-    if (isCodexNotification(message)) {
-      handlersRef.current.onNotification(message);
+    if ("method" in message) {
+      const rpcMessage = message as JsonRpcNotification<unknown> | JsonRpcIncomingMessage;
+
+      if ("id" in message) {
+        const requestMessage = message as JsonRpcRequest<unknown>;
+        const rawParams = isRecord(requestMessage.params) ? requestMessage.params : {};
+        const params =
+          Object.prototype.hasOwnProperty.call(rawParams, "requestId")
+            ? rawParams
+            : {
+                ...rawParams,
+                requestId: requestMessage.id,
+              };
+
+        handlersRef.current.onNotification({
+          jsonrpc: "2.0",
+          method: requestMessage.method,
+          params,
+        });
+        return;
+      }
+
+      if (isCodexNotification(rpcMessage)) {
+        handlersRef.current.onNotification(rpcMessage);
+      }
     }
   }, []);
 
@@ -295,10 +406,46 @@ export function useCodexSocket({
           payload,
         }),
       });
-      if (!response.ok) {
-        const message = await response.text();
-        throw new Error(message || `Failed to send request (${response.status})`);
+      if (response.ok) {
+        return;
       }
+
+      const raw = await response.text();
+      const parsedError = extractErrorMessage(raw, response.status);
+
+      const isTransientRelayUnavailable =
+        response.status === 409 &&
+        parsedError === "Relay connection unavailable";
+
+      if (isTransientRelayUnavailable) {
+        for (let attempt = 0; attempt < RELAY_POST_RETRY_ATTEMPTS; attempt += 1) {
+          await delay(RELAY_POST_RETRY_DELAY_MS);
+          const retryResponse = await fetch(activeRelayUrlRef.current, {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+            },
+            body: JSON.stringify({
+              connectionId,
+              payload,
+            }),
+          });
+          if (retryResponse.ok) {
+            return;
+          }
+          const retryRaw = await retryResponse.text();
+          const retryMessage = extractErrorMessage(retryRaw, retryResponse.status);
+          const retryRelayUnavailable =
+            retryResponse.status === 409 && retryMessage === "Relay connection unavailable";
+          if (!retryRelayUnavailable) {
+            throw new Error(retryMessage);
+          }
+        }
+
+        throw new Error("Connection to admin Codex relay lost");
+      }
+
+      throw new Error(parsedError);
     },
     [connectionId],
   );
@@ -337,7 +484,10 @@ export function useCodexSocket({
     const relayIsWs = relayUrl.startsWith("ws://") || relayUrl.startsWith("wss://");
 
     if (relayIsWs) {
-      const socket = new WebSocket(`${relayUrl}?connectionId=${encodeURIComponent(connectionId)}`);
+      const socketUrl = relayUrl.startsWith("/api/")
+        ? `${relayUrl}?connectionId=${encodeURIComponent(connectionId)}`
+        : relayUrl;
+      const socket = new WebSocket(socketUrl);
       webSocketRef.current = socket;
 
       const handleSocketFailure = () => {
@@ -345,13 +495,15 @@ export function useCodexSocket({
           setStatus("idle");
           setConnectionError(null);
           clearHandshakeTimer();
+          rejectAllPending(new Error("Codex relay disconnected"));
           handlersRef.current.onDisconnected?.();
           return;
         }
 
         handlersRef.current.onConnectionError?.("Connection to admin Codex relay lost");
+        rejectAllPending(new Error("Connection to admin Codex relay lost"));
 
-        if (relayUrl.startsWith("ws://") || relayUrl.startsWith("wss://")) {
+        if (ENABLE_WS_TO_API_FALLBACK && (relayUrl.startsWith("ws://") || relayUrl.startsWith("wss://"))) {
           if (!fallbackAttemptedRef.current && useFallbackRelay()) {
             setConnectionError("Primary relay unavailable. Falling back to API relay.");
             closeTransports();
@@ -367,6 +519,27 @@ export function useCodexSocket({
       socket.onopen = () => {
         reconnectAttemptRef.current = 0;
         setConnectionError(null);
+
+        if (!socketUrl.startsWith("/api/")) {
+          try {
+            socket.send(JSON.stringify(buildInitializeRequestPayload()));
+          } catch {
+            triggerFailFastReconnect("Failed to send Codex initialize handshake");
+            return;
+          }
+
+          setTimeout(() => {
+            if (socket.readyState !== WebSocket.OPEN) {
+              return;
+            }
+            try {
+              socket.send(JSON.stringify(buildInitializedNotificationPayload()));
+            } catch {
+              triggerFailFastReconnect("Failed to send Codex initialized notification");
+            }
+          }, INITIALIZED_NOTIFICATION_DELAY_MS);
+        }
+
         handshakeTimeoutRef.current = setTimeout(() => {
           if (!handshakeReadyRef.current) {
             triggerFailFastReconnect("Codex websocket handshake timed out");
@@ -375,9 +548,13 @@ export function useCodexSocket({
       };
 
       socket.onmessage = (event) => {
-        if (typeof event.data === "string") {
-          handleRelayPayload(event.data);
-        }
+        void (async () => {
+          const text = await readMessageDataAsText(event.data);
+          if (!text) {
+            return;
+          }
+          handleRelayPayload(text);
+        })();
       };
 
       socket.onerror = () => {
@@ -411,6 +588,7 @@ export function useCodexSocket({
     source.onerror = () => {
       clearHandshakeTimer();
       handlersRef.current.onConnectionError?.("Connection to admin Codex relay lost");
+      rejectAllPending(new Error("Connection to admin Codex relay lost"));
       source.close();
       eventSourceRef.current = null;
 
@@ -429,6 +607,7 @@ export function useCodexSocket({
     clearReconnectTimer,
     connectionId,
     handleRelayPayload,
+    rejectAllPending,
     scheduleReconnect,
     triggerFailFastReconnect,
     useFallbackRelay,
@@ -471,18 +650,17 @@ export function useCodexSocket({
       });
 
       pendingState.timer = setTimeout(() => {
-        pendingRef.current.delete(requestId);
-        pendingState.reject(new Error("Codex request timed out"));
-        triggerFailFastReconnect("Codex request timed out");
+        pendingRef.current.delete(getRequestIdKey(requestId));
+        pendingState.reject(new Error(`Codex request timed out (${method})`));
       }, REQUEST_TIMEOUT_MS);
 
-      pendingRef.current.set(requestId, pendingState);
+      pendingRef.current.set(getRequestIdKey(requestId), pendingState);
 
       try {
         await sendToRelay(request);
       } catch (error) {
         clearTimeout(pendingState.timer);
-        pendingRef.current.delete(requestId);
+        pendingRef.current.delete(getRequestIdKey(requestId));
         throw error;
       }
 
