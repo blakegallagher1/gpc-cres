@@ -75,6 +75,8 @@ export interface UseCodexSocketResult {
 type RelayPayload = JsonRpcIncomingMessage | JsonRpcNotification<unknown>;
 const INITIALIZE_RESPONSE_ID = "init";
 const FALLBACK_RELAY_URL = "/api/admin/codex";
+const HANDSHAKE_TIMEOUT_MS = 8_000;
+const REQUEST_TIMEOUT_MS = 45_000;
 
 function createPendingState(): PendingResponseState<unknown> {
   return {
@@ -112,6 +114,7 @@ export function useCodexSocket({
   const activeRelayUrlRef = useRef(API_ROUTE_PATH);
   const fallbackAttemptedRef = useRef(false);
   const connectRef = useRef<(() => Promise<void>) | null>(null);
+  const handshakeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     handlersRef.current = handlers;
@@ -121,6 +124,13 @@ export function useCodexSocket({
     if (reconnectTimerRef.current) {
       clearTimeout(reconnectTimerRef.current);
       reconnectTimerRef.current = null;
+    }
+  }, []);
+
+  const clearHandshakeTimer = useCallback(() => {
+    if (handshakeTimeoutRef.current) {
+      clearTimeout(handshakeTimeoutRef.current);
+      handshakeTimeoutRef.current = null;
     }
   }, []);
 
@@ -143,6 +153,34 @@ export function useCodexSocket({
     pendingRef.current.clear();
   }, []);
 
+  const triggerFailFastReconnect = useCallback(
+    (message: string) => {
+      if (!shouldRunRef.current) {
+        return;
+      }
+
+      clearHandshakeTimer();
+      clearReconnectTimer();
+      setConnectionError(message);
+      handlersRef.current.onConnectionError?.(message);
+      rejectAllPending(new Error(message));
+
+      if (
+        (activeRelayUrlRef.current.startsWith("ws://") || activeRelayUrlRef.current.startsWith("wss://"))
+        && !fallbackAttemptedRef.current
+        && useFallbackRelay()
+      ) {
+        setStatus("reconnecting");
+        closeTransports();
+        void connectRef.current?.();
+        return;
+      }
+
+      scheduleReconnect();
+    },
+    [],
+  );
+
   const handleRelayPayload = useCallback((rawPayload: string) => {
     let parsed: unknown;
     try {
@@ -157,6 +195,7 @@ export function useCodexSocket({
         setStatus("connected");
         setConnectionError(null);
         handlersRef.current.onConnected?.();
+        clearHandshakeTimer();
       } else if (type === "upstream_error") {
         const text = message ?? "Upstream connection error";
         setConnectionError(text);
@@ -192,6 +231,7 @@ export function useCodexSocket({
 
       if (String(message.id) === INITIALIZE_RESPONSE_ID) {
         handshakeReadyRef.current = true;
+        clearHandshakeTimer();
         void flushQueuedPayloads();
       }
       handlersRef.current.onResponse(message);
@@ -287,6 +327,7 @@ export function useCodexSocket({
     }
 
     handshakeReadyRef.current = false;
+    clearHandshakeTimer();
     clearReconnectTimer();
     closeTransports();
     setStatus((current) => (current === "idle" ? "connecting" : "reconnecting"));
@@ -303,6 +344,7 @@ export function useCodexSocket({
         if (!shouldRunRef.current) {
           setStatus("idle");
           setConnectionError(null);
+          clearHandshakeTimer();
           handlersRef.current.onDisconnected?.();
           return;
         }
@@ -325,6 +367,11 @@ export function useCodexSocket({
       socket.onopen = () => {
         reconnectAttemptRef.current = 0;
         setConnectionError(null);
+        handshakeTimeoutRef.current = setTimeout(() => {
+          if (!handshakeReadyRef.current) {
+            triggerFailFastReconnect("Codex websocket handshake timed out");
+          }
+        }, HANDSHAKE_TIMEOUT_MS);
       };
 
       socket.onmessage = (event) => {
@@ -350,6 +397,11 @@ export function useCodexSocket({
       reconnectAttemptRef.current = 0;
       setConnectionError(null);
       // Don't set connected yet; wait for upstream_open connection event.
+      handshakeTimeoutRef.current = setTimeout(() => {
+        if (!handshakeReadyRef.current) {
+          triggerFailFastReconnect("Codex relay connection timed out");
+        }
+      }, HANDSHAKE_TIMEOUT_MS);
     };
 
     source.onmessage = (event) => {
@@ -357,6 +409,7 @@ export function useCodexSocket({
     };
 
     source.onerror = () => {
+      clearHandshakeTimer();
       handlersRef.current.onConnectionError?.("Connection to admin Codex relay lost");
       source.close();
       eventSourceRef.current = null;
@@ -370,7 +423,16 @@ export function useCodexSocket({
 
       scheduleReconnect();
     };
-  }, [closeTransports, clearReconnectTimer, connectionId, handleRelayPayload, scheduleReconnect, useFallbackRelay]);
+  }, [
+    clearHandshakeTimer,
+    closeTransports,
+    clearReconnectTimer,
+    connectionId,
+    handleRelayPayload,
+    scheduleReconnect,
+    triggerFailFastReconnect,
+    useFallbackRelay,
+  ]);
 
   useEffect(() => {
     connectRef.current = connect;
@@ -391,7 +453,7 @@ export function useCodexSocket({
     (payload: JsonRpcIncomingMessage | JsonRpcNotification<unknown>) => {
       return sendToRelay(payload);
     },
-    [sendToRelay],
+    [sendToRelay, triggerFailFastReconnect],
   );
 
   const sendRequest = useCallback(
@@ -411,7 +473,8 @@ export function useCodexSocket({
       pendingState.timer = setTimeout(() => {
         pendingRef.current.delete(requestId);
         pendingState.reject(new Error("Codex request timed out"));
-      }, 45_000);
+        triggerFailFastReconnect("Codex request timed out");
+      }, REQUEST_TIMEOUT_MS);
 
       pendingRef.current.set(requestId, pendingState);
 
@@ -430,6 +493,7 @@ export function useCodexSocket({
 
   const reconnect = useCallback(() => {
     clearReconnectTimer();
+    clearHandshakeTimer();
     reconnectAttemptRef.current = 0;
     reconnectTimerRef.current = null;
     setStatus((prev) => (prev === "idle" ? "reconnecting" : prev));
@@ -437,7 +501,7 @@ export function useCodexSocket({
     fallbackAttemptedRef.current = false;
     rejectAllPending(new Error("Reconnecting"));
     void connectRef.current?.();
-  }, [clearReconnectTimer, rejectAllPending]);
+  }, [clearReconnectTimer, clearHandshakeTimer, rejectAllPending]);
 
   const resetConnectionError = useCallback(() => {
     setConnectionError(null);
@@ -448,6 +512,7 @@ export function useCodexSocket({
 
     if (!enabled) {
       clearReconnectTimer();
+      clearHandshakeTimer();
       closeTransports();
       rejectAllPending(new Error("Codex relay disconnected"));
       setStatus("idle");
@@ -463,12 +528,21 @@ export function useCodexSocket({
     return () => {
       shouldRunRef.current = false;
       clearReconnectTimer();
+      clearHandshakeTimer();
       closeTransports();
       rejectAllPending(new Error("Codex relay disconnected"));
       setStatus("idle");
       setConnectionError(null);
     };
-  }, [clearReconnectTimer, closeTransports, connect, enabled, rejectAllPending, resetConnectionError]);
+  }, [
+    clearHandshakeTimer,
+    clearReconnectTimer,
+    closeTransports,
+    connect,
+    enabled,
+    rejectAllPending,
+    resetConnectionError,
+  ]);
 
   const statusText = {
     idle: "Disconnected",
