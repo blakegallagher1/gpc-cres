@@ -456,7 +456,7 @@ async function searchPropertyDbParcels(
   limitRows: number = 120,
 ): Promise<unknown[]> {
   const q = searchText.trim() || "*";
-  const limit = Math.max(80, Math.min(limitRows, 250));
+  const limit = Math.min(limitRows, 100);
   return gatewaySearchParcels(q, limit);
 }
 
