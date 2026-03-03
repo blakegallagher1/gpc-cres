@@ -17,14 +17,14 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const token = await getToken({ req: request, secret });
+  const useSecureCookies =
+    request.url.startsWith("https://") ||
+    process.env.NODE_ENV === "production";
+  const token = await getToken({ req: request, secret, secureCookie: useSecureCookies });
   if (!token) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  // Salt must match the cookie name NextAuth uses (same value getToken reads)
-  const useSecureCookies = process.env.NEXTAUTH_URL?.startsWith("https://")
-    ?? process.env.NODE_ENV === "production";
   const salt = useSecureCookies
     ? "__Secure-authjs.session-token"
     : "authjs.session-token";

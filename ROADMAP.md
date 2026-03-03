@@ -35,6 +35,20 @@ Only items meeting all checks are added below as `Planned`.
 
 ## Active Roadmap (Prioritized)
 
+### MEM-001 — Coordinator Memory Tool Invocation Fix (P0)
+
+- **Priority:** P0
+- **Status:** Done (2026-03-02)
+- **Scope:** Fix root causes preventing the coordinator from invoking memory tools during chat
+- **Problem:** Coordinator model did not invoke `lookup_entity_by_address` or `ingest_comps` because `filterToolsForIntent` stripped them (not in BASE_ALLOWED_TOOLS). Enforcement reminder incorrectly told the model to call `store_memory` for lookups.
+- **Root causes fixed:**
+  1. `lookup_entity_by_address` and `ingest_comps` added to BASE_ALLOWED_TOOLS
+  2. `hasAddressMemoryLookup` now counts `lookup_entity_by_address` (primary recall tool)
+  3. Enforcement reminder corrected: use `lookup_entity_by_address` for lookups, never `store_memory`
+  4. `/api/entities/lookup` now passes request to `resolveAuth(req)` for agent-tool auth
+  5. `resolveAuth` accepts MEMORY_TOOL_SERVICE_TOKEN, LOCAL_API_KEY, COORDINATOR_TOOL_SERVICE_TOKEN for coordinator-memory bypass
+- **Evidence:** Deployed to production. Manual verification: send "What do we know about 6883 Airline Hwy, Baton Rouge, LA 70805?" and confirm `lookup_entity_by_address` is invoked (check Vercel logs for `[agent-tool] lookup_entity_by_address`).
+
 ### GATE-001 — Repository Verification Gate Stabilization Baseline Cleanup (P0)
 
 - **Priority:** P0

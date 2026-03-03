@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,6 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
 function LoginContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -24,6 +23,7 @@ function LoginContent() {
       {
         unauthorized: "This account is not approved for access.",
         auth_unavailable: "Auth service unavailable. Please try again.",
+        CredentialsSignin: "Invalid email or password. Please try again.",
       }[errorCode] || "Unable to sign in. Please try again.";
 
     toast.error(message);
@@ -34,20 +34,18 @@ function LoginContent() {
     setIsSubmitting(true);
 
     try {
-      const result = await signIn("credentials", {
+      const nextParam = searchParams?.get("next");
+      const callbackUrl =
+        typeof nextParam === "string" && nextParam.startsWith("/")
+          ? nextParam
+          : "/";
+      await signIn("credentials", {
         email: email.trim().toLowerCase(),
         password,
-        redirect: false,
+        redirect: true,
+        callbackUrl,
       });
-
-      if (!result || result.error) {
-        toast.error("Invalid email or password. Please try again.");
-        return;
-      }
-
-      toast.success("Signed in successfully");
-      router.push("/");
-      router.refresh();
+      // redirect: true causes full server redirect on success or error; we only reach here on network failure
     } catch {
       toast.error("Login failed. Please try again.");
     } finally {

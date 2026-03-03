@@ -74,9 +74,13 @@ export async function middleware(request: NextRequest) {
     // Allow public paths unconditionally
     const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
 
+    const secureCookie =
+      request.url.startsWith("https://") ||
+      process.env.NODE_ENV === "production";
     const token = await getToken({
       req: request,
       secret: process.env.AUTH_SECRET,
+      secureCookie,
     });
 
     if (isPublic) {

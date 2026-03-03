@@ -19,19 +19,27 @@ export async function resolveAuth(request?: Request): Promise<AuthResult | null>
   const agentToolAuthMode = request.headers.get("x-agent-tool-auth");
   const agentOrgId = request.headers.get("x-agent-org-id");
   const agentUserId = request.headers.get("x-agent-user-id");
-  const internalToken = process.env.AGENT_TOOL_INTERNAL_TOKEN;
   const authHeader = request.headers.get("authorization") ?? "";
   const tokenFromHeader = authHeader.startsWith("Bearer ")
     ? authHeader.slice(7).trim()
     : null;
 
+  // Accepted tokens for coordinator-memory (memory tools use MEMORY_TOOL_SERVICE_TOKEN etc.)
+  const acceptedTokens = [
+    process.env.AGENT_TOOL_INTERNAL_TOKEN,
+    process.env.MEMORY_TOOL_SERVICE_TOKEN,
+    process.env.LOCAL_API_KEY,
+    process.env.COORDINATOR_TOOL_SERVICE_TOKEN,
+  ]
+    .filter((t): t is string => typeof t === "string" && t.trim().length > 0)
+    .map((t) => t.trim());
+
   // 2. Coordinator-memory bypass — Prisma-only path, no token verification.
   //    This path is used by the AI coordinator for memory operations.
-  //    Preserved verbatim from original implementation.
   if (
     tokenFromHeader &&
-    internalToken &&
-    tokenFromHeader === internalToken &&
+    acceptedTokens.length > 0 &&
+    acceptedTokens.includes(tokenFromHeader) &&
     agentToolAuthMode === "coordinator-memory" &&
     typeof agentOrgId === "string" &&
     typeof agentUserId === "string" &&
@@ -53,9 +61,13 @@ export async function resolveAuth(request?: Request): Promise<AuthResult | null>
   // 3. Unified token path — getToken handles both cookies and Authorization Bearer.
   //    For browser requests, it reads the session cookie.
   //    For Cloudflare Worker requests, it reads the Authorization header.
+  const reqUrl = (request as NextRequest).url ?? "";
+  const secureCookie =
+    reqUrl.startsWith("https://") || process.env.NODE_ENV === "production";
   const token = await getToken({
     req: request as NextRequest,
     secret,
+    secureCookie,
   });
   if (token?.userId && token?.orgId) {
     return {

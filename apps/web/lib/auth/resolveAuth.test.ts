@@ -57,6 +57,7 @@ describe("resolveAuth", () => {
     expect(getTokenMock).toHaveBeenCalledWith({
       req: expect.anything(),
       secret: "test-secret-32chars-minimum-len",
+      secureCookie: false,
     });
   });
 
@@ -70,6 +71,7 @@ describe("resolveAuth", () => {
     expect(getTokenMock).toHaveBeenCalledWith({
       req: expect.anything(),
       secret: "test-secret-32chars-minimum-len",
+      secureCookie: false,
     });
   });
 

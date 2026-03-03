@@ -51,6 +51,7 @@ const MEMORY_TOOL_NAMES = new Set([
   "get_entity_memory",
   "get_entity_truth",
   "record_memory_event",
+  "lookup_entity_by_address",
 ]);
 const PROPERTY_DATA_HINT_RE = /\b(?:comp|comps|sale|sales|sold|sold for|price|prices|noi|cap rate|cap-rate|lender|tour|correction|corrections|listing|offer|asking|bought|purchased|rent|rental|valuation|cap|value)\b/i;
 const PROPERTY_ADDRESS_RE = /\b\d{1,6}\s+[a-z0-9.'"\-]+(?:\s+[a-z0-9.'"\-]+){0,6}\s+(?:st|street|ave|avenue|blvd|boulevard|rd|road|dr|drive|ln|lane|ct|court|pl|place|pkwy|parkway|hwy|highway|trl|trail|way|terr|terrace|cir|circle|ct\.|st\.|ave\.|blvd\.|rd\.|dr\.|ln\.|pl\.|hwy\.)\b/i;
@@ -341,6 +342,8 @@ const BASE_ALLOWED_TOOLS = [
   "get_entity_truth",
   "get_entity_memory",
   "record_memory_event",
+  "lookup_entity_by_address",
+  "ingest_comps",
 ];
 
 const TOOL_POLICY_BY_INTENT: Record<string, ToolPolicy> = {
@@ -978,6 +981,7 @@ function shouldRequireParcelMismatchGuardrail(text: string, state: ToolEventStat
 
 function hasAddressMemoryLookup(state: ToolEventState): boolean {
   return (
+    state.toolsInvoked.has("lookup_entity_by_address") ||
     state.toolsInvoked.has("store_memory") ||
     state.toolsInvoked.has("get_entity_truth") ||
     state.toolsInvoked.has("get_entity_memory")
@@ -1548,7 +1552,8 @@ export async function executeAgentWorkflow(
         name === "store_memory" ||
         name === "get_entity_truth" ||
         name === "get_entity_memory" ||
-        name === "record_memory_event",
+        name === "record_memory_event" ||
+        name === "lookup_entity_by_address",
     );
     console.log(
       `[agent-run-start] run=${dbRun.id} intent=${queryIntent} tools=[${configuredToolNames.join(",")}] memoryTools=[${configuredMemoryTools.join(",") || "NONE"}]`,
@@ -1969,9 +1974,9 @@ export async function executeAgentWorkflow(
         lookupEnforcementAttempted = true;
         const reminder =
           "The user asked about a specific property address. " +
-          "Before answering, query memory first: call `store_memory` with the address to resolve identity, " +
-          "then call `get_entity_truth` (or `get_entity_memory`) and answer from that memory context. " +
-          "Do not substitute a nearby parcel as if it were the same property.";
+          "Before answering, call `lookup_entity_by_address` with the address to check if the system knows about it. " +
+          "If found, use `get_entity_truth` with the returned entity_id. If not found, tell the user the property is not on file. " +
+          "Do NOT call `store_memory` for lookups — that is a write operation. Do not substitute a nearby parcel as if it were the same property.";
         const enforcementResult = await runAttempt(
           [
             userMessage(buildRuntimeClockContextMessage()),

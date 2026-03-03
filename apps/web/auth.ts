@@ -42,6 +42,7 @@ async function isValidPassword(password: string, passwordHash?: string | null): 
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   debug: process.env.NODE_ENV !== "production",
+  trustHost: true,
   providers: [
     Credentials({
       credentials: {
