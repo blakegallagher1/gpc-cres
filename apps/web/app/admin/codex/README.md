@@ -48,11 +48,16 @@ diff/status updates in a two-panel layout.
   - Route the browser uses to connect to the relay.
   - Local/dev: `/api/admin/codex` (SSE+POST relay).
   - Worker relay: `wss://agents.gallagherpropco.com/codex`.
+  - `codex-controller.gallagherpropco.com` is intentionally not used for websocket handoff.
+    If that host is still set in an environment by mistake, the UI falls back to
+    `wss://agents.gallagherpropco.com/codex` on `*.gallagherpropco.com`.
   - If unset in production, the UI now defaults to `wss://agents.gallagherpropco.com/codex` for
     `*.gallagherpropco.com` hosts.
-- `ALLOWED_LOGIN_EMAILS` (optional)
-  - Comma-separated email allowlist used by credentials login and `/admin/codex` auth.
-  - If unset, app defaults from `apps/web/lib/auth/allowedEmails.ts`.
+- `NEXT_PUBLIC_CODEX_RELAY_URL`
+  - Optional explicit relay URL override. If omitted on `*.gallagherpropco.com`, defaults to `wss://agents.gallagherpropco.com/codex`.
+  - If you pass `https://agents.gallagherpropco.com/codex`, it is automatically normalized to `wss://...` for websocket transport.
+  - If you pass `wss://agents.gallagherpropco.com` (without path), it is normalized to `wss://agents.gallagherpropco.com/codex`.
+  - `codex-controller.gallagherpropco.com` is intentionally not used and is redirected to the worker relay.
 - `NEXT_PUBLIC_DISABLE_AUTH` (optional, local dev only)
   - Set to `true` to bypass auth checks entirely on `/admin/codex`.
   - Never enable this in production.
@@ -67,10 +72,9 @@ diff/status updates in a two-panel layout.
    - `CODEX_APP_SERVER_URL`.
    - For local mock testing, use:
      - `CODEX_APP_SERVER_URL=ws://127.0.0.1:8765`
-     - `ALLOWED_LOGIN_EMAILS=blake@gallagherpropco.com`
      - `NEXT_PUBLIC_DISABLE_AUTH=true`
      - `DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54323/entitlementos`
-   - Ensure you are signed in as an admin user.
+    - Ensure you are signed in as an admin user.
 3. Open `/admin/codex` in the browser.
 4. Start a thread and send:
    - `What files are in the root of this repo?`
@@ -94,7 +98,7 @@ Use this flow for `CredentialsSignin` or `/admin/codex` forbidden states:
    - `password_hash` is present and valid bcrypt hash.
    - User has at least one `org_membership` row.
 3. Verify allowlist gate:
-   - User email is in `ALLOWED_LOGIN_EMAILS`, or in `DEFAULT_ALLOWED_EMAILS` from `apps/web/lib/auth/allowedEmails.ts`.
+  - User email is in `DEFAULT_ALLOWED_EMAILS` from `apps/web/lib/auth/allowedEmails.ts` (currently `isEmailAllowed`).
 4. Inspect Vercel function logs for `[auth]` messages:
    - `missing email or password`
    - `email not allowed`

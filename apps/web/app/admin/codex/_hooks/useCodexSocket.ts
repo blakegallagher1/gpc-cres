@@ -74,6 +74,9 @@ export interface UseCodexSocketResult {
   connectionError: string | null;
 }
 
+type RelayPayload = JsonRpcIncomingMessage | JsonRpcNotification<unknown>;
+const INITIALIZE_RESPONSE_ID = "init";
+
 function createPendingState(): PendingResponseState<unknown> {
   return {
     resolve: () => undefined,
@@ -100,6 +103,8 @@ export function useCodexSocket({
   const eventSourceRef = useRef<EventSource | null>(null);
   const webSocketRef = useRef<WebSocket | null>(null);
   const shouldRunRef = useRef(false);
+  const handshakeReadyRef = useRef(false);
+  const outboundQueueRef = useRef<RelayPayload[]>([]);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttemptRef = useRef(0);
   const pendingRef = useRef(new Map<CodexJsonRpcId, PendingResponseState<unknown>>());
@@ -135,6 +140,57 @@ export function useCodexSocket({
     }
     pendingRef.current.clear();
   }, []);
+
+  const sendPayload = useCallback(
+    async (payload: RelayPayload) => {
+      if (useWebSocketRelay) {
+        const activeSocket = webSocketRef.current;
+        if (!activeSocket || activeSocket.readyState !== WebSocket.OPEN) {
+          throw new Error("Relay WebSocket is not connected");
+        }
+
+        activeSocket.send(JSON.stringify(payload));
+        return;
+      }
+
+      const response = await fetch(API_ROUTE_PATH, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          connectionId,
+          payload,
+        }),
+      });
+
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || `Failed to send request (${response.status})`);
+      }
+    },
+    [connectionId, useWebSocketRelay],
+  );
+
+  const flushQueuedPayloads = useCallback(async () => {
+    if (!handshakeReadyRef.current) {
+      return;
+    }
+
+    if (outboundQueueRef.current.length === 0) {
+      return;
+    }
+
+    const queued = outboundQueueRef.current.splice(0, outboundQueueRef.current.length);
+    for (const queuedPayload of queued) {
+      try {
+        await sendPayload(queuedPayload);
+      } catch {
+        outboundQueueRef.current.unshift(queuedPayload);
+        return;
+      }
+    }
+  }, [sendPayload]);
 
   const handleRelayPayload = useCallback((rawPayload: string) => {
     let parsed: unknown;
@@ -182,6 +238,11 @@ export function useCodexSocket({
         }
       }
 
+      if (String(message.id) === INITIALIZE_RESPONSE_ID) {
+        handshakeReadyRef.current = true;
+        void flushQueuedPayloads();
+      }
+
       handlersRef.current.onResponse(message);
       return;
     }
@@ -215,6 +276,9 @@ export function useCodexSocket({
     if (!shouldRunRef.current) {
       return;
     }
+
+    handshakeReadyRef.current = false;
+    outboundQueueRef.current = [];
 
     clearReconnectTimer();
     closeTransports();
@@ -296,34 +360,15 @@ export function useCodexSocket({
   }, [clearReconnectTimer, closeTransports, connectionId, handleRelayPayload, scheduleReconnect, useWebSocketRelay]);
 
   const sendToRelay = useCallback(
-    async (payload: JsonRpcIncomingMessage | JsonRpcNotification<unknown>) => {
-      if (useWebSocketRelay) {
-        const activeSocket = webSocketRef.current;
-        if (!activeSocket || activeSocket.readyState !== WebSocket.OPEN) {
-          throw new Error("Relay WebSocket is not connected");
-        }
-
-        activeSocket.send(JSON.stringify(payload));
+    async (payload: RelayPayload) => {
+      if (!handshakeReadyRef.current) {
+        outboundQueueRef.current.push(payload);
         return;
       }
 
-      const response = await fetch(API_ROUTE_PATH, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({
-          connectionId,
-          payload,
-        }),
-      });
-
-      if (!response.ok) {
-        const message = await response.text();
-        throw new Error(message || `Failed to send request (${response.status})`);
-      }
+      await sendPayload(payload);
     },
-    [connectionId, useWebSocketRelay],
+    [sendPayload],
   );
 
   const send = useCallback(
