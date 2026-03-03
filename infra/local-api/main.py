@@ -951,7 +951,7 @@ async def tools_parcels_sql(
 async def search_parcels(
     q: str = Query(..., description="Search text (address, owner, parcel ID)"),
     parish: Optional[str] = Query(None, description="Filter by parish"),
-    limit: int = Query(25, ge=1, le=100, description="Max results"),
+    limit: int = Query(25, ge=1, le=250, description="Max results"),
     api_key: str = Depends(verify_api_key),
     conn: asyncpg.Connection = Depends(get_db),
 ):
