@@ -5,12 +5,14 @@
 /** Env bindings declared in wrangler.toml + secrets */
 export interface Env {
   AGENT_CHAT: DurableObjectNamespace;
+  CODEX_RELAY: DurableObjectNamespace;
   OPENAI_API_KEY: string;
   LOCAL_API_KEY: string;
   LOCAL_API_URL: string;
   SUPABASE_URL: string;
   SUPABASE_ANON_KEY: string;
   VERCEL_URL: string;
+  CODEX_APP_SERVER_URL: string;
 }
 
 /** State persisted in the Durable Object transactional KV store */

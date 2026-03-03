@@ -8,6 +8,7 @@
 import type { Env } from "./types";
 
 export { AgentChatDO } from "./durable-object";
+export { CodexRelayDO } from "./codex-relay-do";
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -28,6 +29,19 @@ export default {
       // Forward with /push pathname so DO routes correctly
       const doUrl = new URL(request.url);
       doUrl.pathname = "/push";
+      return stub.fetch(new Request(doUrl.toString(), request));
+    }
+
+    if (url.pathname === "/codex") {
+      const connectionId = url.searchParams.get("connectionId")?.trim();
+      if (!connectionId) {
+        return new Response("Missing connectionId", { status: 400 });
+      }
+
+      const doId = env.CODEX_RELAY.idFromName(connectionId);
+      const stub = env.CODEX_RELAY.get(doId);
+      const doUrl = new URL(request.url);
+      doUrl.pathname = "/codex";
       return stub.fetch(new Request(doUrl.toString(), request));
     }
 

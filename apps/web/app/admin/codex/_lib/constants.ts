@@ -1,4 +1,19 @@
-export const API_ROUTE_PATH = "/api/admin/codex";
+function resolveDefaultRelayUrl(): string {
+  if (process.env.NEXT_PUBLIC_CODEX_RELAY_URL) {
+    return process.env.NEXT_PUBLIC_CODEX_RELAY_URL.trim();
+  }
+
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname;
+    if (host.includes("gallagherpropco.com")) {
+      return "wss://agents.gallagherpropco.com/codex";
+    }
+  }
+
+  return "/api/admin/codex";
+}
+
+export const API_ROUTE_PATH = resolveDefaultRelayUrl();
 
 export const ACTIVE_THREAD_STORAGE_KEY = "admin.codex.activeThreadId";
 

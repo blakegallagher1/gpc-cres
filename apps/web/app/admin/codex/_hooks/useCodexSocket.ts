@@ -39,10 +39,19 @@ function isRelayConnectionEvent(data: unknown): data is RelayConnectionEvent {
   const obj = data as Record<string, unknown>;
   if (obj.jsonrpc !== "2.0" || obj.method !== "connection") return false;
   const params = obj.params;
-  return typeof params === "object" && params !== null && typeof (params as Record<string, unknown>).type === "string";
+  return (
+    typeof params === "object" &&
+    params !== null &&
+    typeof (params as Record<string, unknown>).type === "string"
+  );
 }
 
-export type CodexConnectionStatus = "idle" | "connecting" | "connected" | "reconnecting" | "failed";
+export type CodexConnectionStatus =
+  | "idle"
+  | "connecting"
+  | "connected"
+  | "reconnecting"
+  | "failed";
 
 export interface UseCodexSocketHandlers {
   onNotification: (message: JsonRpcIncomingMessage) => void;
@@ -73,6 +82,10 @@ function createPendingState(): PendingResponseState<unknown> {
   };
 }
 
+function useIsWebSocketRelay(): boolean {
+  return API_ROUTE_PATH.startsWith("ws://") || API_ROUTE_PATH.startsWith("wss://");
+}
+
 export function useCodexSocket({
   connectionId,
   handlers,
@@ -85,11 +98,13 @@ export function useCodexSocket({
   const [status, setStatus] = useState<CodexConnectionStatus>("idle");
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const webSocketRef = useRef<WebSocket | null>(null);
   const shouldRunRef = useRef(false);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttemptRef = useRef(0);
   const pendingRef = useRef(new Map<CodexJsonRpcId, PendingResponseState<unknown>>());
   const handlersRef = useRef(handlers);
+  const useWebSocketRelay = useIsWebSocketRelay();
 
   useEffect(() => {
     handlersRef.current = handlers;
@@ -102,10 +117,14 @@ export function useCodexSocket({
     }
   }, []);
 
-  const closeEventSource = useCallback(() => {
+  const closeTransports = useCallback(() => {
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
       eventSourceRef.current = null;
+    }
+    if (webSocketRef.current) {
+      webSocketRef.current.close();
+      webSocketRef.current = null;
     }
   }, []);
 
@@ -115,6 +134,61 @@ export function useCodexSocket({
       pending.reject(error);
     }
     pendingRef.current.clear();
+  }, []);
+
+  const handleRelayPayload = useCallback((rawPayload: string) => {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(rawPayload);
+    } catch {
+      return;
+    }
+
+    if (isRelayConnectionEvent(parsed)) {
+      const { type: connType, message: connMsg } = parsed.params;
+      if (connType === "upstream_open") {
+        setStatus("connected");
+        setConnectionError(null);
+        handlersRef.current.onConnected?.();
+      } else if (connType === "upstream_error") {
+        setConnectionError(connMsg ?? "Upstream connection error");
+        handlersRef.current.onConnectionError?.(connMsg ?? "Upstream connection error");
+      } else if (connType === "upstream_closed") {
+        setConnectionError(connMsg ?? "Upstream connection closed");
+        handlersRef.current.onConnectionError?.(connMsg ?? "Upstream connection closed");
+      } else if (connType === "error") {
+        setConnectionError(connMsg ?? "Relay error");
+        handlersRef.current.onConnectionError?.(connMsg ?? "Relay error");
+      }
+
+      return;
+    }
+
+    const message = parseCodexMessage(parsed);
+    if (!message) {
+      return;
+    }
+
+    if (isCodexResponse(message)) {
+      const pending = pendingRef.current.get(message.id);
+      if (pending) {
+        clearTimeout(pending.timer);
+        pendingRef.current.delete(message.id);
+
+        if (message.error) {
+          pending.reject(rpcErrorFromCodexResponse(message.error));
+        } else {
+          pending.resolve(message.result as unknown);
+        }
+      }
+
+      handlersRef.current.onResponse(message);
+      return;
+    }
+
+    if (isCodexNotification(message)) {
+      handlersRef.current.onNotification(message);
+    }
   }, []);
 
   const scheduleReconnect = useCallback(() => {
@@ -143,10 +217,52 @@ export function useCodexSocket({
     }
 
     clearReconnectTimer();
-    closeEventSource();
+    closeTransports();
 
     setStatus((current) => (current === "idle" ? "connecting" : "reconnecting"));
     setConnectionError(null);
+
+    if (useWebSocketRelay) {
+      const url = `${API_ROUTE_PATH}?connectionId=${encodeURIComponent(connectionId)}`;
+      const socket = new WebSocket(url);
+      webSocketRef.current = socket;
+
+      socket.onopen = () => {
+        reconnectAttemptRef.current = 0;
+        setConnectionError(null);
+      };
+
+      socket.onmessage = (event) => {
+        if (typeof event.data !== "string") {
+          return;
+        }
+
+        handleRelayPayload(event.data);
+      };
+
+      const handleSocketFailure = () => {
+        handlersRef.current.onConnectionError?.("Connection to admin Codex relay lost");
+
+        if (!shouldRunRef.current) {
+          setStatus("idle");
+          setConnectionError(null);
+          handlersRef.current.onDisconnected?.();
+          return;
+        }
+
+        scheduleReconnect();
+      };
+
+      socket.onerror = () => {
+        handleSocketFailure();
+      };
+
+      socket.onclose = () => {
+        handleSocketFailure();
+      };
+
+      return;
+    }
 
     const url = `${API_ROUTE_PATH}?connectionId=${encodeURIComponent(connectionId)}`;
     const source = new EventSource(url);
@@ -160,61 +276,7 @@ export function useCodexSocket({
     };
 
     source.onmessage = (event) => {
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(event.data);
-      } catch {
-        return;
-      }
-
-      // Handle relay ↔ upstream lifecycle events before Codex protocol parsing.
-      // These gate the "connected" status so POSTs only fire after the upstream WS is OPEN.
-      if (isRelayConnectionEvent(parsed)) {
-        const { type: connType, message: connMsg } = parsed.params;
-        if (connType === "upstream_open") {
-          setStatus("connected");
-          setConnectionError(null);
-          handlersRef.current.onConnected?.();
-        } else if (connType === "upstream_error") {
-          setConnectionError(connMsg ?? "Upstream connection error");
-          handlersRef.current.onConnectionError?.(connMsg ?? "Upstream connection error");
-        } else if (connType === "upstream_closed") {
-          setConnectionError(connMsg ?? "Upstream connection closed");
-          handlersRef.current.onConnectionError?.(connMsg ?? "Upstream connection closed");
-        } else if (connType === "error") {
-          setConnectionError(connMsg ?? "Relay error");
-          handlersRef.current.onConnectionError?.(connMsg ?? "Relay error");
-        }
-        // "connected" (SSE established) is informational — no status change needed.
-        // SSE stream closing still triggers onerror → scheduleReconnect automatically.
-        return;
-      }
-
-      const message = parseCodexMessage(parsed);
-      if (!message) {
-        return;
-      }
-
-      if (isCodexResponse(message)) {
-        const pending = pendingRef.current.get(message.id);
-        if (pending) {
-          clearTimeout(pending.timer);
-          pendingRef.current.delete(message.id);
-
-          if (message.error) {
-            pending.reject(rpcErrorFromCodexResponse(message.error));
-          } else {
-            pending.resolve(message.result as unknown);
-          }
-        }
-
-        handlersRef.current.onResponse(message);
-        return;
-      }
-
-      if (isCodexNotification(message)) {
-        handlersRef.current.onNotification(message);
-      }
+      handleRelayPayload(event.data);
     };
 
     source.onerror = () => {
@@ -231,15 +293,20 @@ export function useCodexSocket({
 
       scheduleReconnect();
     };
-  }, [
-    clearReconnectTimer,
-    closeEventSource,
-    connectionId,
-    scheduleReconnect,
-  ]);
+  }, [clearReconnectTimer, closeTransports, connectionId, handleRelayPayload, scheduleReconnect, useWebSocketRelay]);
 
   const sendToRelay = useCallback(
     async (payload: JsonRpcIncomingMessage | JsonRpcNotification<unknown>) => {
+      if (useWebSocketRelay) {
+        const activeSocket = webSocketRef.current;
+        if (!activeSocket || activeSocket.readyState !== WebSocket.OPEN) {
+          throw new Error("Relay WebSocket is not connected");
+        }
+
+        activeSocket.send(JSON.stringify(payload));
+        return;
+      }
+
       const response = await fetch(API_ROUTE_PATH, {
         method: "POST",
         headers: {
@@ -256,7 +323,7 @@ export function useCodexSocket({
         throw new Error(message || `Failed to send request (${response.status})`);
       }
     },
-    [connectionId],
+    [connectionId, useWebSocketRelay],
   );
 
   const send = useCallback(
@@ -318,7 +385,7 @@ export function useCodexSocket({
 
     if (!enabled) {
       clearReconnectTimer();
-      closeEventSource();
+      closeTransports();
       rejectAllPending(new Error("Codex relay disconnected"));
       setStatus("idle");
       setConnectionError(null);
@@ -330,12 +397,12 @@ export function useCodexSocket({
     return () => {
       shouldRunRef.current = false;
       clearReconnectTimer();
-      closeEventSource();
+      closeTransports();
       rejectAllPending(new Error("Codex relay disconnected"));
       setStatus("idle");
       setConnectionError(null);
     };
-  }, [clearReconnectTimer, closeEventSource, connect, enabled, rejectAllPending]);
+  }, [clearReconnectTimer, closeTransports, connect, enabled, rejectAllPending]);
 
   const statusText = {
     idle: "Disconnected",
