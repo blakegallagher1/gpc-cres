@@ -4,15 +4,14 @@ import { NextRequest } from "next/server";
 vi.mock("@entitlement-os/db", () => ({
   prisma: {
     $queryRawUnsafe: vi.fn(),
+    orgMembership: {
+      findFirst: vi.fn().mockResolvedValue(null),
+    },
   },
 }));
 
-vi.mock("@supabase/ssr", () => ({
-  createServerClient: vi.fn(() => ({
-    auth: {
-      getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
-    },
-  })),
+vi.mock("next-auth/jwt", () => ({
+  getToken: vi.fn().mockResolvedValue(null),
 }));
 
 describe("GET /api/health/detailed", () => {
@@ -54,46 +53,20 @@ describe("GET /api/health/detailed", () => {
 
   it("returns 401 when unauthorized", async () => {
     delete process.env.HEALTHCHECK_TOKEN;
-    const previousPublicUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const previousPublicAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    const previousUrl = process.env.SUPABASE_URL;
-    const previousAnonKey = process.env.SUPABASE_ANON_KEY;
-    delete process.env.NEXT_PUBLIC_SUPABASE_URL;
-    delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    delete process.env.SUPABASE_URL;
-    delete process.env.SUPABASE_ANON_KEY;
+    delete process.env.VERCEL_ACCESS_TOKEN;
 
     try {
       const { GET } = await import("@/app/api/health/detailed/route");
-      const { createServerClient } = await import("@supabase/ssr");
+      const { getToken } = await import("next-auth/jwt");
 
       const response = await GET(
         new NextRequest("http://localhost/api/health/detailed")
       );
 
       expect(response.status).toBe(401);
-      expect(createServerClient).not.toHaveBeenCalled();
+      expect(getToken).toHaveBeenCalled();
     } finally {
-      if (previousPublicUrl === undefined) {
-        delete process.env.NEXT_PUBLIC_SUPABASE_URL;
-      } else {
-        process.env.NEXT_PUBLIC_SUPABASE_URL = previousPublicUrl;
-      }
-      if (previousPublicAnonKey === undefined) {
-        delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-      } else {
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = previousPublicAnonKey;
-      }
-      if (previousUrl === undefined) {
-        delete process.env.SUPABASE_URL;
-      } else {
-        process.env.SUPABASE_URL = previousUrl;
-      }
-      if (previousAnonKey === undefined) {
-        delete process.env.SUPABASE_ANON_KEY;
-      } else {
-        process.env.SUPABASE_ANON_KEY = previousAnonKey;
-      }
+      process.env.HEALTHCHECK_TOKEN = "health-token";
     }
   });
 });

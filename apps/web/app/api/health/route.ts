@@ -1,8 +1,7 @@
 import crypto from "crypto";
 import { NextResponse, type NextRequest } from "next/server";
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { getToken } from "next-auth/jwt";
 import { prisma } from "@entitlement-os/db";
-import { resolveSupabaseAnonKey, resolveSupabaseUrl } from "@/lib/db/supabaseEnv";
 import { getPropertyDbConfigOrNull } from "@/lib/server/propertyDbEnv";
 
 const REQUIRED_ENV_VARS = [
@@ -12,9 +11,9 @@ const REQUIRED_ENV_VARS = [
   "OPENAI_MINI_MODEL",
   "PERPLEXITY_API_KEY",
   "PERPLEXITY_MODEL",
-  "SUPABASE_URL",
-  "SUPABASE_SERVICE_ROLE_KEY",
-  "SUPABASE_ANON_KEY",
+  "NEXTAUTH_SECRET",
+  "LOCAL_API_URL",
+  "LOCAL_API_KEY",
   "DATABASE_URL",
   "GOOGLE_MAPS_API_KEY",
   "GOOGLE_PLACES_API_KEY",
@@ -40,8 +39,6 @@ const REQUIRED_ENV_VARS = [
   "VERCEL_USER_ID",
   "VERCEL_TEAM_ID",
   "VERCEL_TEAM_URL",
-  "NEXT_PUBLIC_SUPABASE_URL",
-  "NEXT_PUBLIC_SUPABASE_ANON_KEY",
 ];
 
 function getBearerToken(request: NextRequest) {
@@ -54,29 +51,6 @@ function getBearerToken(request: NextRequest) {
     return null;
   }
   return token.trim();
-}
-
-function createSupabaseServerClient(request: NextRequest) {
-  const supabaseUrl = resolveSupabaseUrl();
-  const supabaseAnonKey = resolveSupabaseAnonKey();
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    return null;
-  }
-
-  return createServerClient(
-    supabaseUrl,
-    supabaseAnonKey,
-    {
-      cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value;
-        },
-        set(_name: string, _value: string, _options: CookieOptions) {},
-        remove(_name: string, _options: CookieOptions) {},
-      },
-    }
-  );
 }
 
 function timingSafeTokenMatch(a: string, b: string): boolean {
@@ -103,21 +77,16 @@ async function isAuthorized(request: NextRequest) {
     return true;
   }
 
-  const supabase = createSupabaseServerClient(request);
-  if (!supabase) {
-    return false;
-  }
-
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  if (!session?.user?.id) {
+  const token = await getToken({
+    req: request,
+    secret: process.env.NEXTAUTH_SECRET,
+  });
+  if (!token?.userId) {
     return false;
   }
 
   const membership = await prisma.orgMembership.findFirst({
-    where: { userId: session.user.id },
+    where: { userId: token.userId as string },
     select: { orgId: true },
   });
   return Boolean(membership?.orgId);
@@ -137,17 +106,14 @@ export async function GET(request: NextRequest) {
   let propertyDbReachable: boolean | null = null;
   if (propertyDbConfig) {
     try {
+      const adminKey = process.env.ADMIN_API_KEY?.trim();
       const res = await fetch(
-        `${propertyDbConfig.url}/rest/v1/rpc/api_search_parcels`,
+        `${propertyDbConfig.url}/admin/health`,
         {
-          method: "POST",
           headers: {
-            apikey: propertyDbConfig.key,
-            Authorization: `Bearer ${propertyDbConfig.key}`,
-            "Content-Type": "application/json",
-            Prefer: "return=representation",
+            Authorization: `Bearer ${adminKey ?? propertyDbConfig.key}`,
           },
-          body: JSON.stringify({ search_text: "*", limit_rows: 1 }),
+          signal: AbortSignal.timeout(5000),
         },
       );
       propertyDbReachable = res.ok;

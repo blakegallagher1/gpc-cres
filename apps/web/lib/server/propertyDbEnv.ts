@@ -1,7 +1,9 @@
-type PropertyDbConfig = {
+import "server-only";
+
+export interface GatewayConfig {
   url: string;
   key: string;
-};
+}
 
 const loggedHealthChecks = new Set<string>();
 
@@ -17,28 +19,26 @@ export function isMissingOrPlaceholder(value: string | undefined): boolean {
   );
 }
 
-export function getPropertyDbConfigOrNull(): PropertyDbConfig | null {
-  // Prefer LA Property DB env vars (separate Supabase instance with parcels/screening data).
-  // Fall back to main Supabase URL only for local dev where both DBs may share the same instance.
-  const url = (
-    process.env.LA_PROPERTY_DB_URL ??
-    process.env.SUPABASE_URL ??
-    process.env.NEXT_PUBLIC_SUPABASE_URL
-  )?.trim();
-  const key = (
-    process.env.LA_PROPERTY_DB_KEY ??
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  )?.trim();
+/**
+ * Returns the local FastAPI gateway config, or null if not configured.
+ * Reads LOCAL_API_URL / LOCAL_API_KEY env vars.
+ */
+export function getPropertyDbConfigOrNull(): GatewayConfig | null {
+  const url = process.env.LOCAL_API_URL?.trim();
+  const key = process.env.LOCAL_API_KEY?.trim();
   if (!url || !key) return null;
   if (isMissingOrPlaceholder(url) || isMissingOrPlaceholder(key)) return null;
   return { url, key };
 }
 
-export function requirePropertyDbConfig(routeTag: string): PropertyDbConfig {
+/**
+ * Returns the gateway config, or throws if not configured.
+ */
+export function requireGatewayConfig(routeTag: string): GatewayConfig {
   const config = getPropertyDbConfigOrNull();
   if (!config) {
     throw new Error(
-      `[${routeTag}] Missing required LA_PROPERTY_DB_URL/LA_PROPERTY_DB_KEY (or SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY fallback).`,
+      `[${routeTag}] LOCAL_API_URL and LOCAL_API_KEY must be set for property DB access`,
     );
   }
   return config;
@@ -52,7 +52,7 @@ function hostFromUrl(rawUrl: string): string {
   }
 }
 
-export function logPropertyDbRuntimeHealth(routeTag: string): PropertyDbConfig | null {
+export function logPropertyDbRuntimeHealth(routeTag: string): GatewayConfig | null {
   const config = getPropertyDbConfigOrNull();
   const key = `${routeTag}:${config ? "ok" : "invalid"}`;
   if (loggedHealthChecks.has(key)) {

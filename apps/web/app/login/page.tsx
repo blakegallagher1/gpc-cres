@@ -2,12 +2,11 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { signIn } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { supabase } from "@/lib/db/supabase";
-import { isEmailAllowed } from "@/lib/auth/allowedEmails";
 import { toast } from "sonner";
 
 function LoginContent() {
@@ -24,9 +23,7 @@ function LoginContent() {
     const message =
       {
         unauthorized: "This account is not approved for access.",
-        oauth: "Google sign-in failed. Please try again.",
-        missing_code: "Login expired. Please try again.",
-        missing_supabase_config: "Auth is not configured yet. Contact support.",
+        auth_unavailable: "Auth service unavailable. Please try again.",
       }[errorCode] || "Unable to sign in. Please try again.";
 
     toast.error(message);
@@ -36,22 +33,26 @@ function LoginContent() {
     event.preventDefault();
     setIsSubmitting(true);
 
-    if (!isEmailAllowed(email)) {
+    try {
+      const result = await signIn("credentials", {
+        email: email.trim().toLowerCase(),
+        password,
+        redirect: false,
+      });
+
+      if (!result || result.error) {
+        toast.error("Invalid email or password. Please try again.");
+        return;
+      }
+
+      toast.success("Signed in successfully");
+      router.push("/");
+      router.refresh();
+    } catch {
+      toast.error("Login failed. Please try again.");
+    } finally {
       setIsSubmitting(false);
-      toast.error("This account is not approved for access.");
-      return;
     }
-
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setIsSubmitting(false);
-
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-
-    toast.success("Signed in successfully");
-    router.replace("/");
   };
 
   return (

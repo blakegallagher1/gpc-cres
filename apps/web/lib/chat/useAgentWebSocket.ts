@@ -9,7 +9,7 @@ const AGENT_WS_URL =
 type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 
 interface UseAgentWebSocketOptions {
-  /** Supabase access token (JWT) */
+  /** NextAuth JWT for WebSocket authentication */
   token: string | null;
   /** Current conversation ID (null = new conversation) */
   conversationId: string | null;
@@ -48,7 +48,7 @@ interface UseAgentWebSocketReturn {
  *
  * Usage:
  *   const { sendMessage, status } = useAgentWebSocket({
- *     token: supabaseAccessToken,
+ *     token: nextAuthJwt,
  *     conversationId,
  *     onEvent: applyEvent,
  *     enabled: true,

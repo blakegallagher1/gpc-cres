@@ -263,10 +263,10 @@ model Org {
 }
 
 model User {
-  // Must match Supabase auth user id.
-  id        String   @id @db.Uuid
-  email     String   @db.Text
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  id           String   @id @db.Uuid
+  email        String   @db.Text
+  passwordHash String?  @db.Text @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   memberships              OrgMembership[]
   dealsCreated             Deal[]                   @relation("deal_created_by")

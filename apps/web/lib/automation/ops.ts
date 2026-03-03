@@ -67,9 +67,9 @@ export interface HealthCheckResult {
  */
 const CRITICAL_ENV_VARS = [
   "DATABASE_URL",
-  "NEXT_PUBLIC_SUPABASE_URL",
-  "NEXT_PUBLIC_SUPABASE_ANON_KEY",
-  "SUPABASE_SERVICE_ROLE_KEY",
+  "NEXTAUTH_SECRET",
+  "LOCAL_API_URL",
+  "LOCAL_API_KEY",
   "OPENAI_API_KEY",
 ] as const;
 

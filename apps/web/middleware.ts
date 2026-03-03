@@ -1,8 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
-import { resolveSupabaseAnonKey, resolveSupabaseUrl } from "@/lib/db/supabaseEnv";
+import { getToken } from "next-auth/jwt";
 
-const publicRoutes = ["/login", "/signup"];
+// Routes that do NOT require authentication
+const PUBLIC_PATHS = [
+  "/login",
+  "/signup",
+  "/api/auth",      // NextAuth internal routes
+  "/api/health",    // Health check (public)
+  "/api/external/", // ChatGPT plugin routes (auth inside)
+];
 
 function getAllowedOrigins(): Set<string> {
   const env = process.env.ALLOWED_CORS_ORIGINS;
@@ -32,7 +38,6 @@ function setCorsHeaders(
     requestedHeaders ?? "Content-Type, Authorization",
   );
 
-  // Ensure caches don't incorrectly share a response across origins.
   res.headers.set("Vary", "Origin");
 }
 
@@ -52,79 +57,46 @@ function handleApiCors(req: NextRequest): NextResponse {
   return res;
 }
 
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
   try {
+    // API routes: handle CORS only (auth is checked per-route by resolveAuth)
     if (pathname.startsWith("/api/")) {
       return handleApiCors(request);
     }
 
-    const response = NextResponse.next();
-    const supabaseUrl = resolveSupabaseUrl();
-    const supabaseAnonKey = resolveSupabaseAnonKey();
-    const hasSupabaseConfig =
-      Boolean(supabaseUrl && supabaseAnonKey) &&
-      supabaseUrl !== "undefined" &&
-      supabaseUrl !== "null" &&
-      supabaseAnonKey !== "undefined" &&
-      supabaseAnonKey !== "null";
-
+    // Dev bypass — never active in production
     if (process.env.NEXT_PUBLIC_DISABLE_AUTH === "true") {
-      return response;
+      return NextResponse.next();
     }
 
-    // Avoid crashing middleware when auth env is missing; keep public routes reachable.
-    if (!hasSupabaseConfig) {
-      if (publicRoutes.includes(pathname)) {
-        return response;
+    // Allow public paths unconditionally
+    const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
+
+    const token = await getToken({
+      req: request,
+      secret: process.env.NEXTAUTH_SECRET,
+    });
+
+    if (isPublic) {
+      // Logged-in users on /login → redirect home
+      if (pathname.startsWith("/login") && token) {
+        return NextResponse.redirect(new URL("/", request.url));
       }
+      return NextResponse.next();
+    }
+
+    // Protected route — must have valid session
+    if (!token) {
       const loginUrl = new URL("/login", request.url);
-      loginUrl.searchParams.set("error", "missing_supabase_config");
+      loginUrl.searchParams.set("next", pathname);
       return NextResponse.redirect(loginUrl);
     }
 
-    const supabase = createServerClient(
-      supabaseUrl!,
-      supabaseAnonKey!,
-      {
-        cookies: {
-          get(name: string) {
-            return request.cookies.get(name)?.value;
-          },
-          set(name: string, value: string, options: CookieOptions) {
-            response.cookies.set({ name, value, ...options });
-          },
-          remove(name: string, options: CookieOptions) {
-            // Avoid persisting an empty-string auth cookie: Supabase SSR can later
-            // attempt JSON.parse("") and throw on subsequent requests.
-            try {
-              response.cookies.delete(name);
-            } catch {
-              response.cookies.set({ name, value: "", ...options, maxAge: 0 });
-            }
-          },
-        },
-      }
-    );
-
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    if (publicRoutes.includes(pathname)) {
-      if (session) {
-        return NextResponse.redirect(new URL("/", request.url));
-      }
-      return response;
-    }
-
-    if (!session) {
-      return NextResponse.redirect(new URL("/login", request.url));
-    }
-
-    return response;
+    return NextResponse.next();
   } catch (error) {
-    console.error("[proxy]", error);
+    console.error("[middleware]", error);
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }

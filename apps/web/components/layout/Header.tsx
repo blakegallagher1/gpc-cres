@@ -7,7 +7,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/stores/uiStore";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/lib/db/supabase";
+import { signOut } from "next-auth/react";
 import { toast } from "sonner";
 import { NotificationFeed } from "@/components/notifications/NotificationFeed";
 
@@ -26,16 +26,14 @@ export function Header() {
     if (isSigningOut) return;
     setIsSigningOut(true);
 
-    const { error } = await supabase.auth.signOut();
-    setIsSigningOut(false);
-
-    if (error) {
-      toast.error(error.message);
-      return;
+    try {
+      await signOut({ redirectTo: "/login" });
+      toast.success("Signed out");
+    } catch {
+      toast.error("Sign out failed. Please try again.");
+    } finally {
+      setIsSigningOut(false);
     }
-
-    toast.success("Signed out");
-    router.replace("/login");
   };
 
   return (

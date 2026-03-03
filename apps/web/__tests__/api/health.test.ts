@@ -1,12 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-vi.mock("@supabase/ssr", () => ({
-  createServerClient: vi.fn(() => ({
-    auth: {
-      getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
+vi.mock("next-auth/jwt", () => ({
+  getToken: vi.fn().mockResolvedValue(null),
+}));
+
+vi.mock("@entitlement-os/db", () => ({
+  prisma: {
+    orgMembership: {
+      findFirst: vi.fn().mockResolvedValue(null),
     },
-  })),
+  },
 }));
 
 describe("GET /api/health", () => {
@@ -14,50 +18,22 @@ describe("GET /api/health", () => {
     vi.clearAllMocks();
   });
 
-  it("returns 401 without creating supabase client when supabase env is missing", async () => {
-    const previousPublicUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const previousPublicAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    const previousUrl = process.env.SUPABASE_URL;
-    const previousAnonKey = process.env.SUPABASE_ANON_KEY;
+  it("returns 401 when no auth token or session present", async () => {
     const previousHealthToken = process.env.HEALTHCHECK_TOKEN;
     const previousVercelAccessToken = process.env.VERCEL_ACCESS_TOKEN;
 
-    delete process.env.NEXT_PUBLIC_SUPABASE_URL;
-    delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    delete process.env.SUPABASE_URL;
-    delete process.env.SUPABASE_ANON_KEY;
     delete process.env.HEALTHCHECK_TOKEN;
     delete process.env.VERCEL_ACCESS_TOKEN;
 
     try {
       const { GET } = await import("@/app/api/health/route");
-      const { createServerClient } = await import("@supabase/ssr");
+      const { getToken } = await import("next-auth/jwt");
 
       const response = await GET(new NextRequest("http://localhost/api/health"));
 
       expect(response.status).toBe(401);
-      expect(createServerClient).not.toHaveBeenCalled();
+      expect(getToken).toHaveBeenCalled();
     } finally {
-      if (previousPublicUrl === undefined) {
-        delete process.env.NEXT_PUBLIC_SUPABASE_URL;
-      } else {
-        process.env.NEXT_PUBLIC_SUPABASE_URL = previousPublicUrl;
-      }
-      if (previousPublicAnonKey === undefined) {
-        delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-      } else {
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = previousPublicAnonKey;
-      }
-      if (previousUrl === undefined) {
-        delete process.env.SUPABASE_URL;
-      } else {
-        process.env.SUPABASE_URL = previousUrl;
-      }
-      if (previousAnonKey === undefined) {
-        delete process.env.SUPABASE_ANON_KEY;
-      } else {
-        process.env.SUPABASE_ANON_KEY = previousAnonKey;
-      }
       if (previousHealthToken === undefined) {
         delete process.env.HEALTHCHECK_TOKEN;
       } else {
@@ -71,13 +47,13 @@ describe("GET /api/health", () => {
     }
   });
 
-  it("authorizes with x-health-token without calling supabase", async () => {
+  it("authorizes with x-health-token without calling getToken", async () => {
     const previousHealthToken = process.env.HEALTHCHECK_TOKEN;
     process.env.HEALTHCHECK_TOKEN = "health-token";
 
     try {
       const { GET } = await import("@/app/api/health/route");
-      const { createServerClient } = await import("@supabase/ssr");
+      const { getToken } = await import("next-auth/jwt");
 
       const response = await GET(
         new NextRequest("http://localhost/api/health", {
@@ -86,7 +62,7 @@ describe("GET /api/health", () => {
       );
 
       expect(response.status).not.toBe(401);
-      expect(createServerClient).not.toHaveBeenCalled();
+      expect(getToken).not.toHaveBeenCalled();
     } finally {
       if (previousHealthToken === undefined) {
         delete process.env.HEALTHCHECK_TOKEN;

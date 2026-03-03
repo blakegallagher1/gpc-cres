@@ -1,177 +1,68 @@
-import { cookies } from "next/headers";
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import "server-only";
+import { getToken } from "next-auth/jwt";
+import type { NextRequest } from "next/server";
 import { prisma } from "@entitlement-os/db";
-import * as Sentry from "@sentry/nextjs";
-import { headers } from "next/headers";
-import { resolveSupabaseAnonKey, resolveSupabaseUrl } from "@/lib/db/supabaseEnv";
 
-let hasLoggedMissingDatabaseUrl = false;
-const DEFAULT_E2E_ORG_ID = "00000000-0000-0000-0000-000000000001";
-const DEFAULT_E2E_USER_ID = "00000000-0000-0000-0000-000000000002";
+export type AuthResult = { userId: string; orgId: string };
 
-function isAuthDisabledForLocalDev(): boolean {
-  if (process.env.NODE_ENV === "production") return false;
-  return process.env.NEXT_PUBLIC_DISABLE_AUTH === "true";
-}
+export async function resolveAuth(request?: Request): Promise<AuthResult | null> {
+  // 1. Dev bypass — never active in production
+  if (
+    process.env.NEXT_PUBLIC_DISABLE_AUTH === "true" &&
+    process.env.NODE_ENV !== "production"
+  ) {
+    return { userId: "dev-user", orgId: "dev-org" };
+  }
 
-function getInternalToolAuthToken(): string {
-  return (
-    process.env.MEMORY_TOOL_SERVICE_TOKEN?.trim() ??
-    process.env.COORDINATOR_TOOL_SERVICE_TOKEN?.trim() ??
-    process.env.LOCAL_API_KEY?.trim() ??
-    ""
-  );
-}
+  if (!request) return null;
 
-function getDisabledAuthFallbackOrgId(): string {
-  return (
-    process.env.E2E_ORG_ID ||
-    process.env.NEXT_PUBLIC_E2E_ORG_ID ||
-    DEFAULT_E2E_ORG_ID
-  );
-}
+  const agentToolAuthMode = request.headers.get("x-agent-tool-auth");
+  const agentOrgId = request.headers.get("x-agent-org-id");
+  const agentUserId = request.headers.get("x-agent-user-id");
+  const internalToken = process.env.AGENT_TOOL_INTERNAL_TOKEN;
+  const authHeader = request.headers.get("authorization") ?? "";
+  const tokenFromHeader = authHeader.startsWith("Bearer ")
+    ? authHeader.slice(7).trim()
+    : null;
 
-function getDisabledAuthFallbackUserId(): string {
-  return (
-    process.env.E2E_USER_ID ||
-    process.env.NEXT_PUBLIC_E2E_USER_ID ||
-    DEFAULT_E2E_USER_ID
-  );
-}
+  // 2. Coordinator-memory bypass — Prisma-only path, no token verification.
+  //    This path is used by the AI coordinator for memory operations.
+  //    Preserved verbatim from original implementation.
+  if (
+    tokenFromHeader &&
+    internalToken &&
+    tokenFromHeader === internalToken &&
+    agentToolAuthMode === "coordinator-memory" &&
+    typeof agentOrgId === "string" &&
+    typeof agentUserId === "string" &&
+    agentOrgId.length > 0 &&
+    agentUserId.length > 0
+  ) {
+    const membership = await prisma.orgMembership.findFirst({
+      where: { userId: agentUserId, orgId: agentOrgId },
+      orderBy: { createdAt: "asc" },
+      select: { orgId: true },
+    });
+    if (membership) return { userId: agentUserId, orgId: agentOrgId };
+    return null;
+  }
 
-/**
- * Resolve Supabase auth from request cookies.
- * Returns the authenticated user ID and their org ID, or null if unauthenticated.
- */
-export async function resolveAuth(): Promise<{
-  userId: string;
-  orgId: string;
-} | null> {
-  return Sentry.startSpan(
-    {
-      name: "supabase.resolve_auth",
-      op: "auth.resolve",
-    },
-    async () => {
-      if (isAuthDisabledForLocalDev()) {
-        return {
-          userId: getDisabledAuthFallbackUserId(),
-          orgId: getDisabledAuthFallbackOrgId(),
-        };
-      }
+  const secret = process.env.NEXTAUTH_SECRET;
+  if (!secret) return null;
 
-      const supabaseUrl = resolveSupabaseUrl() ?? "";
-      const supabaseAnonKey = resolveSupabaseAnonKey() ?? "";
-      const databaseUrl = process.env.DATABASE_URL || "";
+  // 3. Unified token path — getToken handles both cookies and Authorization Bearer.
+  //    For browser requests, it reads the session cookie.
+  //    For Cloudflare Worker requests, it reads the Authorization header.
+  const token = await getToken({
+    req: request as NextRequest,
+    secret,
+  });
+  if (token?.userId && token?.orgId) {
+    return {
+      userId: token.userId as string,
+      orgId: token.orgId as string,
+    };
+  }
 
-      if (!supabaseUrl || !supabaseAnonKey) return null;
-      if (!databaseUrl) {
-        if (!hasLoggedMissingDatabaseUrl) {
-          hasLoggedMissingDatabaseUrl = true;
-          console.error(
-            "[resolveAuth] Missing DATABASE_URL; skipping auth database lookup.",
-          );
-        }
-        return null;
-      }
-
-      const cookieStore = await cookies();
-      const headersStore = await headers();
-      const authHeader = headersStore.get("authorization");
-      const tokenFromHeader = authHeader?.toLowerCase().startsWith("bearer ")
-        ? authHeader.slice("bearer ".length).trim()
-        : null;
-      const agentToolAuthMode = headersStore.get("x-agent-tool-auth");
-      const agentOrgId = headersStore.get("x-agent-org-id");
-      const agentUserId = headersStore.get("x-agent-user-id");
-
-      const internalToken = getInternalToolAuthToken();
-      if (
-        tokenFromHeader &&
-        internalToken &&
-        tokenFromHeader === internalToken &&
-        agentToolAuthMode === "coordinator-memory" &&
-        typeof agentOrgId === "string" &&
-        typeof agentUserId === "string" &&
-        agentOrgId.length > 0 &&
-        agentUserId.length > 0
-      ) {
-        const membership = await prisma.orgMembership.findFirst({
-          where: {
-            userId: agentUserId,
-            orgId: agentOrgId,
-          },
-          orderBy: { createdAt: "asc" },
-          select: { orgId: true },
-        });
-        if (membership) {
-          return { userId: agentUserId, orgId: agentOrgId };
-        }
-        return null;
-      }
-
-      const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-          set(name: string, value: string, options: CookieOptions) {
-            cookieStore.set({ name, value, ...options });
-          },
-          remove(name: string, options: CookieOptions) {
-            // Supabase SSR expects auth cookies to be truly removed.
-            // Leaving an empty-string cookie can trigger JSON.parse("") inside the
-            // Supabase client, causing 500s on otherwise-unauthenticated requests.
-            try {
-              // Next.js cookies() supports delete(name) in modern versions.
-              cookieStore.delete(name);
-            } catch {
-              cookieStore.set({ name, value: "", ...options, maxAge: 0 });
-            }
-          },
-        },
-      });
-
-      if (tokenFromHeader) {
-        const {
-          data: { user },
-          error: tokenError,
-        } = await supabase.auth.getUser(tokenFromHeader);
-
-        if (user) {
-          const membership = await prisma.orgMembership.findFirst({
-            where: { userId: user.id },
-            orderBy: { createdAt: "asc" },
-            select: { orgId: true },
-          });
-
-          if (membership) {
-            return { userId: user.id, orgId: membership.orgId };
-          }
-          return null;
-        }
-
-        if (tokenError) {
-          Sentry.captureException(tokenError, {
-            tags: { route: "auth.resolve", authMode: "bearer" },
-          });
-        }
-      }
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return null;
-
-      // Look up org membership for this user
-      let membership = await prisma.orgMembership.findFirst({
-        where: { userId: user.id },
-        orderBy: { createdAt: "asc" },
-        select: { orgId: true },
-      });
-      if (!membership) return null;
-
-      return { userId: user.id, orgId: membership.orgId };
-    },
-  );
+  return null;
 }

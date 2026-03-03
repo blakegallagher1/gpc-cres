@@ -27,7 +27,6 @@ import {
   type StreamPresenterState,
 } from '@/lib/chat/streamPresenter';
 import { useAgentWebSocket } from '@/lib/chat/useAgentWebSocket';
-import { supabase } from '@/lib/db/supabase';
 
 type RawConversationMessage = {
   id?: unknown;
@@ -158,7 +157,7 @@ export function ChatContainer() {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [isLoadingConversations, setIsLoadingConversations] = useState(false);
 
-  const [supabaseToken, setSupabaseToken] = useState<string | null>(null);
+  const [authToken, setAuthToken] = useState<string | null>(null);
 
   const [presenterState, setPresenterState] = useState<StreamPresenterState>(
     createStreamPresenterState(),
@@ -173,30 +172,24 @@ export function ChatContainer() {
     presenterRef.current = presenterState;
   }, [presenterState]);
 
-  // Fetch Supabase JWT for WebSocket auth
+  // Fetch NextAuth JWT for WebSocket auth
   useEffect(() => {
     if (!WS_ENABLED) return;
     let cancelled = false;
     const fetchToken = async () => {
       try {
-        const { data } = await supabase.auth.getSession();
-        if (!cancelled && data.session?.access_token) {
-          setSupabaseToken(data.session.access_token);
+        const res = await fetch('/api/auth/token');
+        if (!res.ok) return;
+        const body = (await res.json()) as { token?: string };
+        if (!cancelled && body.token) {
+          setAuthToken(body.token);
         }
       } catch {
-        // Auth session fetch failed — will retry on auth state change
+        // Token fetch failed — WebSocket will connect once token is available
       }
     };
     fetchToken();
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!cancelled) {
-        setSupabaseToken(session?.access_token ?? null);
-      }
-    });
-    return () => {
-      cancelled = true;
-      listener.subscription.unsubscribe();
-    };
+    return () => { cancelled = true; };
   }, []);
 
   // Eagerly generate a conversationId for WebSocket mode so the socket connects
@@ -385,7 +378,7 @@ export function ChatContainer() {
 
   // WebSocket transport (Cloudflare Agent Worker)
   const { sendMessage: wsSendMessage } = useAgentWebSocket({
-    token: supabaseToken,
+    token: authToken,
     conversationId,
     onEvent: applyEvent,
     enabled: WS_ENABLED,

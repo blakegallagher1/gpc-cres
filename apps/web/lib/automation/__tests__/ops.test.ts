@@ -170,9 +170,9 @@ describe("ops", () => {
 
     it('should return "ok" when all critical vars are present', () => {
       process.env.DATABASE_URL = "postgresql://localhost/test";
-      process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-key";
-      process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-key";
+      process.env.NEXTAUTH_SECRET = "test-secret";
+      process.env.LOCAL_API_URL = "http://localhost:8000";
+      process.env.LOCAL_API_KEY = "test-api-key";
       process.env.OPENAI_API_KEY = "sk-test";
 
       const result = evaluateHealth();
@@ -183,9 +183,9 @@ describe("ops", () => {
 
     it('should return "down" when DATABASE_URL is missing', () => {
       delete process.env.DATABASE_URL;
-      process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-key";
-      process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-key";
+      process.env.NEXTAUTH_SECRET = "test-secret";
+      process.env.LOCAL_API_URL = "http://localhost:8000";
+      process.env.LOCAL_API_KEY = "test-api-key";
       process.env.OPENAI_API_KEY = "sk-test";
 
       const result = evaluateHealth();
@@ -195,9 +195,9 @@ describe("ops", () => {
 
     it('should return "down" when OPENAI_API_KEY is missing', () => {
       process.env.DATABASE_URL = "postgresql://localhost/test";
-      process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-key";
-      process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-key";
+      process.env.NEXTAUTH_SECRET = "test-secret";
+      process.env.LOCAL_API_URL = "http://localhost:8000";
+      process.env.LOCAL_API_KEY = "test-api-key";
       delete process.env.OPENAI_API_KEY;
 
       const result = evaluateHealth();
@@ -207,9 +207,9 @@ describe("ops", () => {
 
     it('should return "degraded" when non-critical vars missing', () => {
       process.env.DATABASE_URL = "postgresql://localhost/test";
-      delete process.env.NEXT_PUBLIC_SUPABASE_URL;
-      delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-      delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+      delete process.env.NEXTAUTH_SECRET;
+      delete process.env.LOCAL_API_URL;
+      delete process.env.LOCAL_API_KEY;
       process.env.OPENAI_API_KEY = "sk-test";
 
       const result = evaluateHealth();
@@ -219,9 +219,9 @@ describe("ops", () => {
 
     it("should include ISO timestamp", () => {
       process.env.DATABASE_URL = "postgresql://localhost/test";
-      process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-key";
-      process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-key";
+      process.env.NEXTAUTH_SECRET = "test-secret";
+      process.env.LOCAL_API_URL = "http://localhost:8000";
+      process.env.LOCAL_API_KEY = "test-api-key";
       process.env.OPENAI_API_KEY = "sk-test";
 
       const result = evaluateHealth();

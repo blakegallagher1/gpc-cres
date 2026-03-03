@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import * as Sentry from "@sentry/nextjs";
 import { ThemeProvider } from "@/components/providers/theme-provider";
+import { AuthSessionProvider } from "@/components/providers/session-provider";
 import { Toaster } from "@/components/ui/sonner";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -21,6 +22,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
+        <AuthSessionProvider>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
@@ -43,6 +45,7 @@ export default function RootLayout({
           </Sentry.ErrorBoundary>
           <Toaster position="bottom-right" />
         </ThemeProvider>
+        </AuthSessionProvider>
       </body>
     </html>
   );
