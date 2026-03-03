@@ -26,6 +26,8 @@ All routes go through the single tunnel. Configure in: Tunnels → gpc-hp-tunnel
 | `tiles` | gallagherpropco.com | HTTP | localhost:3000 | Martin MVT tiles |
 | `ssh` | gallagherpropco.com | SSH | host.docker.internal:22 | Remote SSH to Windows PC |
 | `db` | gallagherpropco.com | TCP | entitlement-db:5432 | PostgreSQL (Cloudflare Access protected) |
+| `codex` | gallagherpropco.com | HTTP | localhost:8765 | Codex app-server (WebSocket) |
+| `codex-mcp` | gallagherpropco.com | HTTP | localhost:8787 | Codex MCP controller (ChatGPT) |
 | `agents` | gallagherpropco.com | — | Cloudflare Worker | Agent WebSocket chat (NOT a tunnel route — CF Worker route) |
 
 **Public URLs:**
@@ -34,6 +36,8 @@ All routes go through the single tunnel. Configure in: Tunnels → gpc-hp-tunnel
 - `https://agents.gallagherpropco.com` — WebSocket agent chat (Cloudflare Worker, not tunnel)
 - `ssh.gallagherpropco.com` — SSH (via `cloudflared access ssh`)
 - `db.gallagherpropco.com` — PostgreSQL (via `cloudflared access tcp`, Access-gated)
+- `wss://codex.gallagherpropco.com` — Codex app-server WebSocket
+- `https://codex-mcp.gallagherpropco.com` — Codex MCP controller (ChatGPT)
 
 ---
 
@@ -47,6 +51,8 @@ If tunnel uses CNAME routing, subdomains may auto-resolve. Otherwise add CNAME r
 | tiles | CNAME | 9f7fb0d6-ecb1-4b98-b523-9a60013187b7.cfargotunnel.com | Proxied |
 | ssh | CNAME | 9f7fb0d6-ecb1-4b98-b523-9a60013187b7.cfargotunnel.com | Proxied |
 | db | CNAME | 9f7fb0d6-ecb1-4b98-b523-9a60013187b7.cfargotunnel.com | Proxied |
+| codex | CNAME | 9f7fb0d6-ecb1-4b98-b523-9a60013187b7.cfargotunnel.com | Proxied |
+| codex-mcp | CNAME | 9f7fb0d6-ecb1-4b98-b523-9a60013187b7.cfargotunnel.com | Proxied |
 | agents | CNAME | entitlement-os-agent.gallagherpropco.workers.dev | Proxied |
 
 ---
