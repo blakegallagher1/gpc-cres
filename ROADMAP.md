@@ -127,6 +127,123 @@ Only items meeting all checks are added below as `Planned`.
     - `pnpm build`
   - Full repo lint/typecheck/test currently fail on pre-existing unrelated issues outside this change set (details captured in execution log).
 
+### EOS-SKL-001 — Skills + Shell + Compaction Architecture
+
+- **Priority:** P0
+- **Status:** In Progress
+- **Scope:** Modularize large guidance docs into on-demand Skills, add shell-backed compute workflows, and enable default server-side compaction with response chaining.
+- **Problem:** Monolithic prompt docs and non-compacted response context increase token waste and reduce context reliability for long entitlement workflows.
+- **Execution Gate Status (2026-03-04):**
+  - **Phase 1 (Skills Artifacts):** PASS — required markdown structure, routing criteria, examples, and validation sections present.
+  - **Phase 2 (Shell Workflows):** PASS — `pnpm --filter @entitlement-os/openai test -- src/__tests__/shell.test.ts` passes.
+  - **Phase 3A/3C (Responses Compaction + Chaining):** FAIL — `pnpm --filter @entitlement-os/openai test -- src/__tests__/compaction.test.ts` fails 3 tests (contract mismatch around chaining and response id mapping).
+  - **Phase 3B (Temporal Chain State):** BLOCKED — workflow-level chaining persistence is not yet implemented in `apps/worker` multi-step AI sequences.
+  - **Phase 4 (Integration Docs):** PASS — `AGENTS.md`, `CLAUDE.md`, `.cursor/rules/backend.mdc`, and `docs/SKILLS_ARCHITECTURE.md` are present.
+  - **Verification Sequence (5 steps):**
+    - `pnpm lint` currently fails in `packages/openai` for test files not included in `tsconfig` project service (`src/__tests__/compaction.test.ts`, `src/__tests__/shell.test.ts`).
+    - `pnpm typecheck` passes.
+    - `pnpm test` fails with the same 3 compaction tests.
+    - `pnpm build` passes.
+    - `git diff --stat` confirms intended surface edits in `AGENTS.md`, `CLAUDE.md`, `.cursor/rules/backend.mdc`, and `packages/db/src/gateway-adapter.ts`; `packages/openai` and `skills/` feature files are staged as untracked changes.
+- **Failure Root Cause:**
+  - `packages/openai/src/__tests__/compaction.test.ts` still asserts legacy request/response names (`previous_response_id`, `response_id`, and legacy `context_management` shape) while current wrapper behavior passes continuation via `buildResponseContinuationParams` and returns `responseId` from `OpenAI.Responses.Response`.
+  - `packages/openai` lint uses `eslint src --max-warnings=0` and the new/updated test files under `src/__tests__` are not present in the project's tsconfig include set.
+- **Evidence (2026-03-04):**
+  - Gate script: `python3 - <<'PY' ... Phase1 gate: PASS`.
+  - Shell test command output: `✓ src/__tests__/shell.test.ts (7 tests) 49ms`.
+  - Compaction test command output: `3 tests failed` in `src/__tests__/compaction.test.ts`.
+- **Expected Outcome (measurable):**
+  - `skills/` includes one `README.md`, 6 core SKILL docs, and 7 entitlement phase SKILL files.
+  - Shell workflows execute compute-heavy CRE tasks with narrowly scoped network allowlists.
+  - Compaction is default-on in Responses calls; `response_id` and `previous_response_id` are preserved for chaining.
+- **Evidence of need:** Current Entitlement OS phase execution and openai wrapper contract require lower-context, sequence-safe chaining for long-horizon multi-step runs.
+- **Alignment:** Preserves org scoping, auth, and strict JSON validation while shifting to on-demand domain instructions and safer shell/network posture.
+- **Risk/rollback:** Medium — response call contract and workflow orchestration are newly introduced; rollback by reverting shell/compaction modules and preserving previous wrapper behavior.
+- **Acceptance Criteria / Tests:**
+  - [ ] `skills/` directory exists with:
+    - `skills/README.md`
+    - `skills/underwriting/SKILL.md`
+    - `skills/entitlement-os/SKILL.md`
+    - `skills/entitlement-os/phases/phase-a-discovery.md`
+    - `skills/entitlement-os/phases/phase-b-zoning-analysis.md`
+    - `skills/entitlement-os/phases/phase-c-financial-modeling.md`
+    - `skills/entitlement-os/phases/phase-d-risk-assessment.md`
+    - `skills/entitlement-os/phases/phase-e-offer-generation.md`
+    - `skills/entitlement-os/phases/phase-f-due-diligence.md`
+    - `skills/entitlement-os/phases/phase-g-closing.md`
+    - `skills/market-trajectory/SKILL.md`
+    - `skills/property-report/SKILL.md`
+    - `skills/data-extraction/SKILL.md`
+    - `skills/parcel-ops/SKILL.md`
+  - [ ] `docs/SKILLS_ARCHITECTURE.md` exists and documents routing/compaction model.
+  - [ ] `packages/openai/src/network-policies.ts` exists with named policy constants.
+  - [ ] `packages/openai/src/shell.ts` and `packages/openai/src/shell-workflows/` provide safe workflow execution with filesystem artifacts.
+  - [ ] `packages/openai/src/__tests__/shell.test.ts` and `packages/openai/src/__tests__/compaction.test.ts` verify new behavior.
+  - [ ] `AGENTS.md` includes section 17 for skills, shell, and compaction.
+  - [ ] `CLAUDE.md` includes skill routing instructions.
+  - [ ] Compaction defaults and chaining are enabled in `packages/openai/src/responses.ts` and stored in Temporal-facing workflow state.
+  - [ ] Final verification protocol passes:
+    - `pnpm lint`
+    - `pnpm typecheck`
+    - `pnpm test`
+    - `pnpm build`
+- **Evidence (2026-03-04):**
+  - `AGENTS.md`, `CLAUDE.md`, and `.cursor/rules/backend.mdc` updated.
+  - `skills/` and shell modules are present in this branch.
+  - Outstanding open items: `packages/openai/src/responses.ts` contract and `apps/worker` chain-state persistence are still pending.
+
+### MOD-001 — API Unification: Remove chat.completions (P0-A)
+
+- **Priority:** P0
+- **Status:** Done (2026-03-04)
+- **Problem:** 5 `chat.completions.create` calls remained across artifact generation, document processing, and daily briefing services, fragmenting the OpenAI integration pattern.
+- **Evidence:** `rg "chat.completions.create" apps/ packages/` returned 5 matches pre-migration.
+- **Expected Outcome:** Zero `chat.completions.create` references; all LLM calls use Responses API via shared wrappers.
+- **Acceptance:** `rg "chat.completions.create" apps/ packages/` returns zero matches.
+- **Files Changed:** `packages/openai/src/responses.ts` (added `createTextResponse` wrapper), `apps/web/lib/services/daily-briefing.service.ts`, `apps/web/lib/services/documentProcessing.service.ts`, `apps/web/app/api/deals/[id]/artifacts/route.ts`, `packages/openai/src/tools/artifactTools.ts`
+- **Evidence (2026-03-04):** `rg "chat.completions.create" apps/ packages/` → zero matches. All 5 call sites migrated to `createTextResponse`.
+
+### MOD-002 — Tool Catalog + Consult Execution (P0-B)
+
+- **Priority:** P0
+- **Status:** Done (2026-03-04)
+- **Problem:** No canonical tool metadata registry; consult tools returned stubs instead of real specialist output.
+- **Evidence:** `rg "not yet wired" apps/web/lib/agent/toolRegistry.ts` returned 4 stub matches.
+- **Expected Outcome:** Single-source tool catalog with routing/risk/quota metadata; consult tools execute real specialist agents.
+- **Acceptance:** Tool catalog module exists; `rg "not yet wired" toolRegistry.ts` returns zero matches; consult tools call `createIntentAwareCoordinator` + `run`.
+- **Files Changed:** `packages/openai/src/tools/toolCatalog.ts` (new), `packages/openai/src/tools/index.ts`, `apps/web/lib/agent/toolRegistry.ts`
+- **Evidence (2026-03-04):** Stubs removed, consult tools now lazy-import `createIntentAwareCoordinator` and execute specialist agents with `maxTurns: 3`.
+
+### MOD-003 — Hosted Tools Quota Enforcement (P1-A)
+
+- **Priority:** P1
+- **Status:** Done (2026-03-04)
+- **Problem:** No per-conversation limit enforcement on metered hosted tools (web_search_preview); could exhaust API budget.
+- **Evidence:** `AUTOMATION_CONFIG.hostedTools.webSearchMaxCallsPerConversation = 10` existed but was not enforced.
+- **Expected Outcome:** Quota module tracks and rejects calls exceeding configured limits; clear failure events on quota exceeded.
+- **Acceptance:** `checkHostedToolQuota` function enforces limits; `_resetAllQuotas` available for testing; module exported from `@entitlement-os/openai`.
+- **Files Changed:** `packages/openai/src/tools/hostedToolQuota.ts` (new), `packages/openai/src/tools/index.ts`
+
+### MOD-004 — MCP Gateway Adapter (P1-B)
+
+- **Priority:** P1
+- **Status:** Done (2026-03-04)
+- **Problem:** Gateway tool routing is hardcoded; no path to MCP-based tool serving.
+- **Evidence:** All gateway tools routed via direct HTTP POST with no abstraction layer.
+- **Expected Outcome:** MCP adapter with `OPENAI_MCP_GATEWAY_ENABLED` feature flag; direct gateway fallback when disabled; auth boundary preserved.
+- **Acceptance:** `isMcpGatewayEnabled()`, `buildMcpServerTool()`, `resolveToolTransport()` functions exist; MCP server URL allowlist enforced.
+- **Files Changed:** `packages/openai/src/tools/mcpGatewayAdapter.ts` (new), `packages/openai/src/tools/index.ts`
+
+### MOD-005 — Stream/Transport Event Unification (P2)
+
+- **Priority:** P2
+- **Status:** Done (2026-03-04)
+- **Problem:** Stream event types duplicated across SSE (`streamEventTypes.ts`) and WS (`types.ts`) paths with mismatched field definitions.
+- **Evidence:** `WorkerEvent` in CF Worker types lacked `tool_approval_requested`, `handoff`, `agent_progress` events present in SSE path.
+- **Expected Outcome:** Single canonical event contract in shared package used by both transports.
+- **Acceptance:** `packages/shared/src/types/streamEvents.ts` exists with `UniversalStreamEvent` and `AgentStreamEvent` union types; `UNIVERSAL_EVENT_TYPES` set exported.
+- **Files Changed:** `packages/shared/src/types/streamEvents.ts` (new), `packages/shared/src/index.ts`
+
 ### INFRA-005 — Maximize Local Server Utilization (4-Phase Plan)
 
 - **Priority:** P1
