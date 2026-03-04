@@ -12,9 +12,9 @@ const CompPayloadSchema = z.object({
   market: z.string(),
   sale_date: z.string().nullable(),
   source_url: z.string().nullable(),
-  buyer: z.string().nullable().optional(),
-  seller: z.string().nullable().optional(),
-  address: z.string().nullable().optional(),
+  buyer: z.string().nullable(),
+  seller: z.string().nullable(),
+  address: z.string().nullable(),
 });
 
 const LenderTermPayloadSchema = z.object({
