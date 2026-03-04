@@ -9,13 +9,13 @@ const TOOL_TIMEOUT_MS = 30_000;
 /** Gateway tool name → endpoint path */
 const GATEWAY_TOOLS: Record<string, string> = {
   get_parcel_details: "/tools/parcel.lookup",
-  screen_flood: "/tools/screen.flood",
-  screen_soils: "/tools/screen.soils",
-  screen_wetlands: "/tools/screen.wetlands",
-  screen_epa: "/tools/screen.epa",
-  screen_traffic: "/tools/screen.traffic",
-  screen_ldeq: "/tools/screen.ldeq",
-  screen_full: "/tools/screen.full",
+  screen_flood: "/api/screening/flood",
+  screen_soils: "/api/screening/soils",
+  screen_wetlands: "/api/screening/wetlands",
+  screen_epa: "/api/screening/epa",
+  screen_traffic: "/api/screening/traffic",
+  screen_ldeq: "/api/screening/ldeq",
+  screen_full: "/api/screening/full",
   query_property_db: "/tools/parcels.search",
   query_property_db_sql: "/tools/parcels.sql",
   // screen_zoning: no gateway endpoint — routes to Vercel

@@ -29,6 +29,7 @@ const isCI = !!process.env.CI;
 
 const GATEWAY_URL = process.env.LOCAL_API_URL || "https://api.gallagherpropco.com";
 const GATEWAY_KEY = process.env.LOCAL_API_KEY || "Y9DgsDrlvfDfitSgfp0YtLwjlvY5ocKnYA_4X11tfkc";
+const AGENTS_URL = process.env.AGENTS_URL || "https://agents.gallagherpropco.com";
 const VALID_PARCEL_IDS = [
   "308-4646-1", // Amazon
   "024-0104-5", // Recreation & Park
@@ -96,9 +97,13 @@ const VALID_PARCEL_IDS = [
       console.log(`\n[TEST 2] Screening ${VALID_PARCEL_IDS.length} parcels in batch mode...`);
 
       const start = Date.now();
-      const response = await gatewayPost("/tools/screen_batch", {
-        parcelIds: VALID_PARCEL_IDS,
-        conversationId,
+      const response = await apiPost("/api/agent/tools/execute", {
+        toolName: "screen_batch",
+        arguments: {
+          parcel_ids: VALID_PARCEL_IDS,
+          conversationId,
+        },
+        context: { conversationId },
       });
       const elapsed = Date.now() - start;
       console.log(`  Batch completed in ${elapsed}ms`);
@@ -222,9 +227,13 @@ const VALID_PARCEL_IDS = [
       const operationId = `error-test-${Date.now()}`;
 
       console.log(`  Screening ${invalidIds.length} invalid parcel IDs...`);
-      const response = await gatewayPost("/tools/screen_batch", {
-        parcelIds: invalidIds,
-        conversationId,
+      const response = await apiPost("/api/agent/tools/execute", {
+        toolName: "screen_batch",
+        arguments: {
+          parcel_ids: invalidIds,
+          conversationId,
+        },
+        context: { conversationId },
       });
 
       expect(response).toBeDefined();
@@ -301,7 +310,7 @@ async function pushEvent(
   conversationId: string,
   event: Record<string, any>
 ): Promise<Record<string, any>> {
-  const response = await fetch(`${GATEWAY_URL}/${conversationId}/push`, {
+  const response = await fetch(`${AGENTS_URL}/${conversationId}/push`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

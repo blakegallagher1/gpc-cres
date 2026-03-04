@@ -1,6 +1,7 @@
 name = "entitlement-os-agent"
 main = "src/index.ts"
 compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
 
 routes = [
   { pattern = "agents.gallagherpropco.com/*", zone_id = "ae43d9f313e1eb6f017bb198cd114b33" }
@@ -20,6 +21,9 @@ new_sqlite_classes = ["AgentChatDO"]
 tag = "v2"
 new_sqlite_classes = ["CodexRelayDO"]
 
+[[hyperdrive]]
+binding = "HYPERDRIVE"
+id = "ebd13ab7df60414d9ba8244299467e5e"
 
 # Secrets (set via `wrangler secret put`):
 # OPENAI_API_KEY

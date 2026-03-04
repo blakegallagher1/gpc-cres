@@ -6,6 +6,7 @@ import { prisma } from "@entitlement-os/db";
 
 export interface AutomationEventRecord {
   id: string;
+  orgId: string;
   dealId: string | null;
   handlerName: string;
   eventType: string;
@@ -41,6 +42,7 @@ export interface AutomationStats {
 // ---------------------------------------------------------------------------
 
 export async function startEvent(
+  orgId: string,
   handlerName: string,
   eventType: string,
   dealId?: string | null,
@@ -48,6 +50,7 @@ export async function startEvent(
 ): Promise<string> {
   const event = await prisma.automationEvent.create({
     data: {
+      orgId,
       handlerName,
       eventType,
       dealId: dealId ?? null,
@@ -113,17 +116,22 @@ export async function failEvent(
 }
 
 export async function getRecentEvents(
+  orgId: string,
   limit = 50,
   dealId?: string
 ): Promise<AutomationEventRecord[]> {
+  const where: { orgId: string; dealId?: string } = { orgId };
+  if (dealId) where.dealId = dealId;
+
   const events = await prisma.automationEvent.findMany({
-    where: dealId ? { dealId } : undefined,
+    where,
     orderBy: { startedAt: "desc" },
     take: limit,
   });
 
   return events.map((e) => ({
     id: e.id,
+    orgId: e.orgId,
     dealId: e.dealId,
     handlerName: e.handlerName,
     eventType: e.eventType,
@@ -137,12 +145,12 @@ export async function getRecentEvents(
   }));
 }
 
-export async function getAutomationStats(): Promise<AutomationStats> {
+export async function getAutomationStats(orgId: string): Promise<AutomationStats> {
   const startOfDay = new Date();
   startOfDay.setHours(0, 0, 0, 0);
 
   const todayEvents = await prisma.automationEvent.findMany({
-    where: { startedAt: { gte: startOfDay } },
+    where: { orgId, startedAt: { gte: startOfDay } },
     select: { status: true, durationMs: true },
   });
 
@@ -153,7 +161,7 @@ export async function getAutomationStats(): Promise<AutomationStats> {
     .filter((d): d is number => d !== null);
 
   const failuresRequiringAttention = await prisma.automationEvent.count({
-    where: { status: "failed", completedAt: { gte: startOfDay } },
+    where: { orgId, status: "failed", completedAt: { gte: startOfDay } },
   });
 
   return {
@@ -183,12 +191,12 @@ const ALL_HANDLERS = [
   "ops",
 ];
 
-export async function getHandlerHealth(): Promise<HandlerHealth[]> {
+export async function getHandlerHealth(orgId: string): Promise<HandlerHealth[]> {
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
   const events = await prisma.automationEvent.findMany({
-    where: { startedAt: { gte: sevenDaysAgo } },
+    where: { orgId, startedAt: { gte: sevenDaysAgo } },
     select: {
       handlerName: true,
       status: true,
@@ -268,15 +276,16 @@ export async function getHandlerHealth(): Promise<HandlerHealth[]> {
   });
 }
 
-export async function getFailedEvents(limit = 20): Promise<AutomationEventRecord[]> {
+export async function getFailedEvents(orgId: string, limit = 20): Promise<AutomationEventRecord[]> {
   const events = await prisma.automationEvent.findMany({
-    where: { status: "failed" },
+    where: { orgId, status: "failed" },
     orderBy: { startedAt: "desc" },
     take: limit,
   });
 
   return events.map((e) => ({
     id: e.id,
+    orgId: e.orgId,
     dealId: e.dealId,
     handlerName: e.handlerName,
     eventType: e.eventType,

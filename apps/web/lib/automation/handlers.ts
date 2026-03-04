@@ -45,6 +45,9 @@ export function ensureHandlersRegistered(): void {
   registerHandler("triage.completed", handleTriageBuyerMatch);
 
   // #1 Deal Intake: auto-create deals from incoming inquiries
+  // intake.received: Future email/webhook integration hook.
+  // Handler is registered but no API route or job dispatches this event yet.
+  // To enable: implement email parser → dispatchEvent({ type: "intake.received", ... })
   registerHandler("intake.received", handleIntakeReceived);
 
   // #9 Artifact Auto-Generation: BUYER_TEASER on EXIT_MARKETED + triage notification

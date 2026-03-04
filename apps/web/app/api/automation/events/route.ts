@@ -30,22 +30,24 @@ export async function GET(req: NextRequest) {
     failures: { events: [] },
   };
 
+  const orgId = auth.orgId;
+
   try {
     switch (view) {
       case "feed": {
-        const events = await getRecentEvents(50, dealId);
+        const events = await getRecentEvents(orgId, 50, dealId);
         return NextResponse.json({ events });
       }
       case "stats": {
-        const stats = await getAutomationStats();
+        const stats = await getAutomationStats(orgId);
         return NextResponse.json(stats);
       }
       case "health": {
-        const health = await getHandlerHealth();
+        const health = await getHandlerHealth(orgId);
         return NextResponse.json({ handlers: health });
       }
       case "failures": {
-        const failures = await getFailedEvents();
+        const failures = await getFailedEvents(orgId);
         return NextResponse.json({ events: failures });
       }
       default:

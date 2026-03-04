@@ -48,6 +48,7 @@ export async function dispatchEvent(event: AutomationEvent): Promise<void> {
       try {
         const svc = await import("@/lib/services/automationEvent.service");
         eventId = await svc.startEvent(
+          orgId,
           handlerName,
           event.type,
           dealId,

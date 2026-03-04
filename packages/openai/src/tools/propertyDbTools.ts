@@ -29,6 +29,13 @@ function getGatewayKey(): string {
   return key;
 }
 
+function getAgentsUrl(): string {
+  if (process.env.AGENTS_URL) return process.env.AGENTS_URL.trim();
+  const wsUrl = process.env.NEXT_PUBLIC_AGENT_WS_URL?.trim();
+  if (wsUrl) return wsUrl.replace(/^wss:\/\//, "https://").replace(/^ws:\/\//, "http://");
+  return "https://agents.gallagherpropco.com";
+}
+
 const MAX_RETRIES = 3;
 
 function parseRetryMs(header: string | null): number | null {
@@ -517,7 +524,7 @@ async function pushOperationEvent(
 ): Promise<void> {
   if (!conversationId) return; // silently skip if no conversation
 
-  const pushUrl = `${getGatewayUrl()}/push`;
+  const pushUrl = `${getAgentsUrl()}/${conversationId}/push`;
   const pushKey = getGatewayKey();
 
   try {

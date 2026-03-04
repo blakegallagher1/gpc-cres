@@ -57,8 +57,8 @@ export const queryBuildingPermits = tool({
     sinceDate.setMonth(sinceDate.getMonth() - months);
     const sinceISO = sinceDate.toISOString().slice(0, 10);
 
-    // Build SoQL query — resource ID is portal-specific; replace
-    // PLACEHOLDER_DATASET_ID with the real EBR building-permits dataset ID.
+    // Build SoQL query — resource ID is portal-specific; read from env var
+    const datasetId = process.env.SOCRATA_EBR_PERMITS_DATASET_ID || "PLACEHOLDER_DATASET_ID";
     const typeFilter = types.map((t) => `'${t}'`).join(",");
     const soql =
       `$where=zipcode='${zipCode}' ` +
@@ -72,7 +72,7 @@ export const queryBuildingPermits = tool({
     if (APP_TOKEN) headers["X-App-Token"] = APP_TOKEN;
 
     try {
-      const url = `${SOCRATA_BASE_URL}/PLACEHOLDER_DATASET_ID.json?${soql}`;
+      const url = `${SOCRATA_BASE_URL}/${datasetId}.json?${soql}`;
 
       const res = await fetch(url, {
         headers,

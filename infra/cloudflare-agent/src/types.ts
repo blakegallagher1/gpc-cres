@@ -6,6 +6,7 @@
 export interface Env {
   AGENT_CHAT: DurableObjectNamespace;
   CODEX_RELAY: DurableObjectNamespace;
+  HYPERDRIVE: Hyperdrive;
   OPENAI_API_KEY: string;
   LOCAL_API_KEY: string;
   LOCAL_API_URL: string;

@@ -18,6 +18,7 @@ set -e
 GATEWAY_URL="${LOCAL_API_URL:-https://api.gallagherpropco.com}"
 GATEWAY_KEY="${LOCAL_API_KEY:-Y9DgsDrlvfDfitSgfp0YtLwjlvY5ocKnYA_4X11tfkc}"
 VERCEL_URL="${NEXT_PUBLIC_VERCEL_URL:-http://localhost:3000}"
+AGENTS_URL="${AGENTS_URL:-https://agents.gallagherpropco.com}"
 CONVERSATION_ID="test-$(date +%s)"
 
 # Test parcel IDs (valid parcels from EBR)
@@ -98,12 +99,15 @@ log_test "Batch Multi-Parcel Screening"
 echo "Screening ${#VALID_PARCELS[@]} parcels in batch mode..."
 
 START=$(date +%s%N)
-BATCH_RESPONSE=$(curl -s -X POST "$GATEWAY_URL/tools/screen_batch" \
+BATCH_RESPONSE=$(curl -s -X POST "$VERCEL_URL/api/agent/tools/execute" \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $GATEWAY_KEY" \
   -d "{
-    \"parcelIds\": [\"${VALID_PARCELS[0]}\", \"${VALID_PARCELS[1]}\", \"${VALID_PARCELS[2]}\"],
-    \"conversationId\": \"$CONVERSATION_ID\"
+    \"toolName\": \"screen_batch\",
+    \"arguments\": {
+      \"parcel_ids\": [\"${VALID_PARCELS[0]}\", \"${VALID_PARCELS[1]}\", \"${VALID_PARCELS[2]}\"],
+      \"conversationId\": \"$CONVERSATION_ID\"
+    },
+    \"context\": {\"conversationId\": \"$CONVERSATION_ID\"}
   }")
 END=$(date +%s%N)
 ELAPSED=$(( (END - START) / 1000000 ))
@@ -137,7 +141,7 @@ PUSH_SUCCESS=0
 
 # Push progress events
 for PCT in 0 25 50 75 100; do
-    PUSH_RESPONSE=$(curl -s -X POST "$GATEWAY_URL/$CONVERSATION_ID/push" \
+    PUSH_RESPONSE=$(curl -s -X POST "$AGENTS_URL/$CONVERSATION_ID/push" \
       -H "Content-Type: application/json" \
       -H "Authorization: Bearer $GATEWAY_KEY" \
       -d "{
@@ -158,7 +162,7 @@ for PCT in 0 25 50 75 100; do
 done
 
 # Push done event
-DONE_RESPONSE=$(curl -s -X POST "$GATEWAY_URL/$CONVERSATION_ID/push" \
+DONE_RESPONSE=$(curl -s -X POST "$AGENTS_URL/$CONVERSATION_ID/push" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $GATEWAY_KEY" \
   -d "{
@@ -200,12 +204,15 @@ fi
 log_test "Error Handling with Invalid Parcel IDs"
 echo "Screening ${#INVALID_PARCELS[@]} invalid parcel IDs..."
 
-ERROR_BATCH=$(curl -s -X POST "$GATEWAY_URL/tools/screen_batch" \
+ERROR_BATCH=$(curl -s -X POST "$VERCEL_URL/api/agent/tools/execute" \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $GATEWAY_KEY" \
   -d "{
-    \"parcelIds\": [\"${INVALID_PARCELS[0]}\", \"${INVALID_PARCELS[1]}\", \"${INVALID_PARCELS[2]}\"],
-    \"conversationId\": \"$CONVERSATION_ID\"
+    \"toolName\": \"screen_batch\",
+    \"arguments\": {
+      \"parcel_ids\": [\"${INVALID_PARCELS[0]}\", \"${INVALID_PARCELS[1]}\", \"${INVALID_PARCELS[2]}\"],
+      \"conversationId\": \"$CONVERSATION_ID\"
+    },
+    \"context\": {\"conversationId\": \"$CONVERSATION_ID\"}
   }")
 
 ERROR_COUNT=$(echo "$ERROR_BATCH" | jq '[.results[] | select(.status=="error")] | length' 2>/dev/null)

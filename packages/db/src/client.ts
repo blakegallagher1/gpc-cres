@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { createGatewayAdapterFactory } from "./gateway-adapter";
 
 declare const globalThis: typeof global & {
   __ENTITLEMENT_OS_PRISMA__?: PrismaClient;
@@ -32,6 +33,22 @@ function withPoolParams(url: string): string {
 }
 
 function createPrismaClient(url: string | null): PrismaClient {
+  // Gateway adapter mode: route queries over HTTPS to Cloudflare Worker + Hyperdrive
+  const gatewayUrl = process.env.GATEWAY_DATABASE_URL?.trim();
+  const gatewayKey = process.env.LOCAL_API_KEY?.trim();
+
+  if (gatewayUrl && gatewayKey) {
+    const adapter = createGatewayAdapterFactory(gatewayUrl, gatewayKey);
+    return new PrismaClient({
+      adapter,
+      log:
+        process.env.NODE_ENV === "production"
+          ? ["error", "warn"]
+          : ["error", "warn"],
+    });
+  }
+
+  // Direct TCP mode: standard Prisma connection (local dev)
   return new PrismaClient({
     datasources: url ? { db: { url } } : undefined,
     log:
@@ -43,24 +60,6 @@ function createPrismaClient(url: string | null): PrismaClient {
 
 const runtimeDatabaseUrl = normalizeDbUrl(process.env.DATABASE_URL);
 const pooledDatabaseUrl = runtimeDatabaseUrl ? withPoolParams(runtimeDatabaseUrl) : null;
-
-// Guardrail: serverless must use Supavisor (port 6543), not Session Mode (5432)
-if (
-  process.env.NODE_ENV === "production" &&
-  pooledDatabaseUrl
-) {
-  try {
-    const u = new URL(pooledDatabaseUrl);
-    const port = u.port || (u.protocol === "postgresql:" ? "5432" : "");
-    if (port === "5432") {
-      console.warn(
-        "[db] DATABASE_URL uses port 5432 (Session Mode). Serverless should use port 6543 (Supavisor Transaction Mode) to avoid connection exhaustion."
-      );
-    }
-  } catch {
-    /* ignore parse errors */
-  }
-}
 
 export const prisma: PrismaClient = globalThis.__ENTITLEMENT_OS_PRISMA__ ?? createPrismaClient(pooledDatabaseUrl);
 

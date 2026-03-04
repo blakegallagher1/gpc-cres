@@ -298,6 +298,13 @@ for (const t of TOOLS) {
  * in the Agents SDK. For the Worker, these route to Vercel which re-invokes the
  * specialist agent via createConfiguredCoordinator(). This is a simplified version
  * that runs the specialist agent for a single turn.
+ *
+ * DEFERRED TO v2: Specialist agent invocation via CF Worker requires deep
+ * openai/agents SDK integration to support nested agent.asTool() calls in
+ * the streaming context. Current stub returns "not yet wired" response.
+ * Implementation path: (1) Upgrade agents SDK to support tool nesting,
+ * (2) Add specialist agent ref to Worker DO state, (3) Route to specialist
+ * coordinator on Vercel with streaming relay. See ROADMAP.md for sequencing.
  */
 // Consult tools placeholder — implemented as pass-through to the existing
 // agent workflow when the Worker calls /api/agent/tools/execute with these names.

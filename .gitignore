@@ -96,3 +96,5 @@ parcel_data_updated/
 
 # Git worktrees
 .worktrees/
+
+apps/web/tsconfig.tsbuildinfo
