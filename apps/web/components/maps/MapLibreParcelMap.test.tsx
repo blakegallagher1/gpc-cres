@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  computeNextSelection,
   getGeoJsonSourceSafe,
   parcelPopupHtml,
   setGeoJsonSourceDataSafe,
@@ -122,5 +123,27 @@ describe("safe GeoJSON source helpers", () => {
     });
 
     expect(ok).toBe(false);
+  });
+});
+
+describe("computeNextSelection", () => {
+  it("sets a single selection on plain click", () => {
+    const next = computeNextSelection(new Set(["parcel-a"]), "parcel-b", false);
+    expect(Array.from(next)).toEqual(["parcel-b"]);
+  });
+
+  it("adds a second parcel on multi-select click", () => {
+    const next = computeNextSelection(new Set(["parcel-a"]), "parcel-b", true);
+    expect(Array.from(next).sort()).toEqual(["parcel-a", "parcel-b"]);
+  });
+
+  it("toggles selected parcel off on multi-select click", () => {
+    const next = computeNextSelection(new Set(["parcel-a", "parcel-b"]), "parcel-b", true);
+    expect(Array.from(next)).toEqual(["parcel-a"]);
+  });
+
+  it("preserves insertion order for additive multi-select", () => {
+    const next = computeNextSelection(new Set(["parcel-a", "parcel-c"]), "parcel-b", true);
+    expect(Array.from(next)).toEqual(["parcel-a", "parcel-c", "parcel-b"]);
   });
 });

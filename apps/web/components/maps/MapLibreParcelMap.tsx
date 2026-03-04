@@ -328,6 +328,23 @@ export function setGeoJsonSourceDataSafe(
   }
 }
 
+export function computeNextSelection(
+  currentSelection: ReadonlySet<string>,
+  parcelId: string,
+  isMultiSelect: boolean
+): Set<string> {
+  const next = new Set(currentSelection);
+  if (isMultiSelect) {
+    if (next.has(parcelId)) next.delete(parcelId);
+    else next.add(parcelId);
+    return next;
+  }
+
+  next.clear();
+  next.add(parcelId);
+  return next;
+}
+
 export function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -468,6 +485,9 @@ export function MapLibreParcelMap({
   const [internalSelectedParcelIds, setInternalSelectedParcelIds] = useState<Set<string>>(new Set());
   const [compareOpen, setCompareOpen] = useState(false);
   const selectedParcelIds = selectedParcelIdsProp ?? internalSelectedParcelIds;
+  const selectedParcelIdsRef = useRef<Set<string>>(selectedParcelIds);
+  const onSelectionChangeRef = useRef(onSelectionChange);
+  const isSelectionControlledRef = useRef(selectedParcelIdsProp !== undefined);
   const [viewportBounds, setViewportBounds] = useState<ViewportBounds | null>(null);
   const boundsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stableMapCallbacks = useStableOptions({ onParcelClick });
@@ -498,6 +518,25 @@ export function MapLibreParcelMap({
   useEffect(() => {
     onViewStateChangeRef.current = onViewStateChange;
   }, [onViewStateChange]);
+
+  useEffect(() => {
+    selectedParcelIdsRef.current = selectedParcelIds;
+  }, [selectedParcelIds]);
+
+  useEffect(() => {
+    onSelectionChangeRef.current = onSelectionChange;
+    isSelectionControlledRef.current = selectedParcelIdsProp !== undefined;
+  }, [onSelectionChange, selectedParcelIdsProp]);
+
+  const updateSelection = useCallback((parcelId: string, isMultiSelect: boolean) => {
+    const next = computeNextSelection(selectedParcelIdsRef.current, parcelId, isMultiSelect);
+    selectedParcelIdsRef.current = next;
+    if (isSelectionControlledRef.current) {
+      onSelectionChangeRef.current?.(next);
+      return;
+    }
+    setInternalSelectedParcelIds(next);
+  }, []);
 
   const effectiveSelectedIds = useMemo(() => {
     const merged = new Set(selectedParcelIds);
@@ -630,10 +669,6 @@ export function MapLibreParcelMap({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
-
-  useEffect(() => {
-    if (onSelectionChange) onSelectionChange(new Set(selectedParcelIds));
-  }, [onSelectionChange, selectedParcelIds]);
 
   const mapCenter: [number, number] = center;
 
@@ -1045,19 +1080,7 @@ export function MapLibreParcelMap({
           if (!parcelId) return;
 
           const isMultiSelect = e.originalEvent?.ctrlKey || e.originalEvent?.metaKey;
-          requestAnimationFrame(() => {
-            setInternalSelectedParcelIds((prev) => {
-              const next = new Set(prev);
-              if (isMultiSelect) {
-                if (next.has(parcelId)) next.delete(parcelId);
-                else next.add(parcelId);
-              } else {
-                next.clear();
-                next.add(parcelId);
-              }
-              return next;
-            });
-          });
+          updateSelection(parcelId, isMultiSelect);
 
           stableMapCallbacks.onParcelClick?.(parcelId);
 
@@ -1160,29 +1183,15 @@ export function MapLibreParcelMap({
         mapRef.current = null;
       }
     };
-  }, []);
+  }, [updateSelection]);
 
   useEffect(() => {
     if (!mapRef.current || !mapReady) return;
     const map = mapRef.current;
-
-    const boundaryLayer = map.getSource("parcel-boundary-source") as
-      | { setData: (data: GeoJSON.FeatureCollection) => void }
-      | undefined;
-    const zoningLayer = map.getSource("parcel-zoning-source") as
-      | { setData: (data: GeoJSON.FeatureCollection) => void }
-      | undefined;
-    const floodLayer = map.getSource("parcel-flood-source") as
-      | { setData: (data: GeoJSON.FeatureCollection) => void }
-      | undefined;
-    const pointLayer = map.getSource("parcel-point-source") as
-      | { setData: (data: GeoJSON.FeatureCollection) => void }
-      | undefined;
-
-    boundaryLayer?.setData(boundarySource);
-    zoningLayer?.setData(zoningSource);
-    floodLayer?.setData(floodSource);
-    pointLayer?.setData(pointSource);
+    setGeoJsonSourceDataSafe(map, "parcel-boundary-source", boundarySource);
+    setGeoJsonSourceDataSafe(map, "parcel-zoning-source", zoningSource);
+    setGeoJsonSourceDataSafe(map, "parcel-flood-source", floodSource);
+    setGeoJsonSourceDataSafe(map, "parcel-point-source", pointSource);
 
     try {
       map.setLayoutProperty("parcel-tiles-fill", "visibility", showLayers && showParcelBoundaries ? "visible" : "none");
@@ -1970,18 +1979,16 @@ function MapLibreTrajectoryLayer({
     if (!m || !mapReady) return;
 
     if (!hasData) {
-      if (m.getSource(sourceId)) {
-        (m.getSource(sourceId) as unknown as { setData: (d: GeoJSON.FeatureCollection) => void })?.setData({
-          type: "FeatureCollection",
-          features: [],
-        });
-      }
+      setGeoJsonSourceDataSafe(m, sourceId, {
+        type: "FeatureCollection",
+        features: [],
+      });
       return;
     }
 
     const data = trajectoryData as GeoJSON.FeatureCollection;
 
-    if (!m.getSource(sourceId)) {
+    if (!getGeoJsonSourceSafe(m, sourceId)) {
       m.addSource(sourceId, { type: "geojson", data });
       m.addLayer({
         id: fillId,
@@ -2014,7 +2021,7 @@ function MapLibreTrajectoryLayer({
         },
       });
     } else {
-      (m.getSource(sourceId) as unknown as { setData: (d: GeoJSON.FeatureCollection) => void })?.setData(data);
+      setGeoJsonSourceDataSafe(m, sourceId, data);
     }
   }, [mapReady, hasData, trajectoryData]);
 
@@ -2154,10 +2161,7 @@ function MapLibreMeasureTool({
     setPoints([]);
     setTotalDistance(0);
     setTotalArea(0);
-    const source = mapRef.current?.getSource(sourceId) as
-      | { setData: (data: GeoJSON.FeatureCollection) => void }
-      | undefined;
-    source?.setData({
+    setGeoJsonSourceDataSafe(mapRef.current, sourceId, {
       type: "FeatureCollection",
       features: [],
     });
@@ -2264,7 +2268,7 @@ function MapLibreMeasureTool({
     const setup = () => {
       mapLoadedRef.current = true;
 
-      if (!mapInstance.getSource(sourceId)) {
+      if (!getGeoJsonSourceSafe(mapInstance, sourceId)) {
         mapInstance.addSource(sourceId, {
           type: "geojson",
           data: {
@@ -2309,10 +2313,7 @@ function MapLibreMeasureTool({
         });
       }
 
-      const source = mapInstance.getSource(sourceId) as
-        | { setData: (data: GeoJSON.FeatureCollection) => void }
-        | undefined;
-      source?.setData(buildFeatures(points));
+      setGeoJsonSourceDataSafe(mapInstance, sourceId, buildFeatures(points));
       recalculate(points);
     };
 
@@ -2320,10 +2321,7 @@ function MapLibreMeasureTool({
       if (mode === "off" || !mapLoadedRef.current) return;
       const next = [...points, event.lngLat];
       setPoints(next);
-      const source = mapInstance.getSource(sourceId) as
-        | { setData: (data: GeoJSON.FeatureCollection) => void }
-        | undefined;
-      source?.setData(buildFeatures(next));
+      setGeoJsonSourceDataSafe(mapInstance, sourceId, buildFeatures(next));
       recalculate(next);
     };
 
@@ -2338,10 +2336,7 @@ function MapLibreMeasureTool({
       mapInstance.off("click", clickHandler);
       mapInstance.off("style.load", setup);
       if (mode === "off") {
-        const source = mapInstance.getSource(sourceId) as
-          | { setData: (data: GeoJSON.FeatureCollection) => void }
-          | undefined;
-        source?.setData({
+        setGeoJsonSourceDataSafe(mapInstance, sourceId, {
           type: "FeatureCollection",
           features: [],
         });
@@ -2463,10 +2458,7 @@ function MapLibreCompSaleLayer({
     setComps([]);
     setSearched(false);
     setSearchAddress("");
-    const source = mapRef.current?.getSource(sourceId) as
-      | { setData: (data: GeoJSON.FeatureCollection) => void }
-      | undefined;
-    source?.setData({
+    setGeoJsonSourceDataSafe(mapRef.current, sourceId, {
       type: "FeatureCollection",
       features: [],
     });
@@ -2555,10 +2547,10 @@ function MapLibreCompSaleLayer({
     if (!mapInstance) return;
 
     if (!visible) {
-      const source = mapInstance.getSource(sourceId) as
-        | { setData: (data: GeoJSON.FeatureCollection) => void }
-        | undefined;
-      source?.setData({ type: "FeatureCollection", features: [] });
+      setGeoJsonSourceDataSafe(mapInstance, sourceId, {
+        type: "FeatureCollection",
+        features: [],
+      });
       if (mapInstance.getLayer(layerId)) {
         mapInstance.setLayoutProperty(layerId, "visibility", "none");
       }
@@ -2569,7 +2561,7 @@ function MapLibreCompSaleLayer({
     }
 
     const setupComps = () => {
-      if (!mapInstance.getSource(sourceId)) {
+      if (!getGeoJsonSourceSafe(mapInstance, sourceId)) {
         mapInstance.addSource(sourceId, {
           type: "geojson",
           data: compSource,
@@ -2673,10 +2665,7 @@ function MapLibreCompSaleLayer({
           mapInstance.getCanvas().style.cursor = "";
         });
       } else {
-        const source = mapInstance.getSource(sourceId) as
-          | { setData: (data: GeoJSON.FeatureCollection) => void }
-          | undefined;
-        source?.setData(compSource);
+        setGeoJsonSourceDataSafe(mapInstance, sourceId, compSource);
       }
       if (mapInstance.getLayer(layerId)) {
         mapInstance.setLayoutProperty(layerId, "visibility", "visible");
@@ -2799,7 +2788,7 @@ function MapLibreHeatmapLayer({
     }
 
     const setupHeat = () => {
-      if (!mapInstance.getSource(sourceId)) {
+      if (!getGeoJsonSourceSafe(mapInstance, sourceId)) {
         mapInstance.addSource(sourceId, {
           type: "geojson",
           data: heatSource,
@@ -2811,10 +2800,7 @@ function MapLibreHeatmapLayer({
           paint: preset.paint,
         });
       } else {
-        const source = mapInstance.getSource(sourceId) as
-          | { setData: (data: GeoJSON.FeatureCollection) => void }
-          | undefined;
-        source?.setData(heatSource);
+        setGeoJsonSourceDataSafe(mapInstance, sourceId, heatSource);
       }
       if (mapInstance.getLayer(layerId)) {
         mapInstance.setLayoutProperty(layerId, "visibility", "visible");
@@ -2975,10 +2961,7 @@ function MapLibreIsochroneControl({
       if (!visibleRef.current || !clickModeRef.current) return;
       compute(event.lngLat.lat, event.lngLat.lng, minutesRef.current);
 
-      const centerSource = mapInstance.getSource(centerSourceId) as
-        | { setData: (data: GeoJSON.FeatureCollection) => void }
-        | undefined;
-      centerSource?.setData({
+      setGeoJsonSourceDataSafe(mapInstance, centerSourceId, {
         type: "FeatureCollection",
         features: [
           {
@@ -3011,7 +2994,7 @@ function MapLibreIsochroneControl({
     }
 
     const setupIsochrone = () => {
-      if (!mapInstance.getSource(sourceId)) {
+      if (!getGeoJsonSourceSafe(mapInstance, sourceId)) {
         mapInstance.addSource(sourceId, {
           type: "geojson",
           data: { type: "FeatureCollection", features: [] },
@@ -3036,7 +3019,7 @@ function MapLibreIsochroneControl({
           },
         });
 
-        if (!mapInstance.getSource(centerSourceId)) {
+        if (!getGeoJsonSourceSafe(mapInstance, centerSourceId)) {
           mapInstance.addSource(centerSourceId, {
             type: "geojson",
             data: {
@@ -3076,12 +3059,8 @@ function MapLibreIsochroneControl({
 
   useEffect(() => {
     const mapInstance = mapRef.current;
-    const source = mapInstance?.getSource(sourceId) as
-      | { setData: (data: GeoJSON.FeatureCollection) => void }
-      | undefined;
-    const centerSource = mapInstance?.getSource(centerSourceId) as
-      | { setData: (data: GeoJSON.FeatureCollection) => void }
-      | undefined;
+    const source = getGeoJsonSourceSafe(mapInstance, sourceId);
+    const centerSource = getGeoJsonSourceSafe(mapInstance, centerSourceId);
     const layerSource = mapInstance?.getLayer(fillId);
 
     if (!mapInstance) return;
