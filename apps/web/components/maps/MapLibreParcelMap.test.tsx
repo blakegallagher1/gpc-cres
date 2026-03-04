@@ -1,5 +1,9 @@
-import { describe, expect, it } from "vitest";
-import { parcelPopupHtml } from "./MapLibreParcelMap";
+import { describe, expect, it, vi } from "vitest";
+import {
+  getGeoJsonSourceSafe,
+  parcelPopupHtml,
+  setGeoJsonSourceDataSafe,
+} from "./MapLibreParcelMap";
 import type { MapParcel } from "./ParcelMap";
 
 const baseParcel: MapParcel = {
@@ -61,5 +65,62 @@ describe("parcelPopupHtml sanitization", () => {
     expect(html).not.toContain("Zoning:");
     expect(html).not.toContain("Flood:");
     expect(html).not.toContain("acres");
+  });
+});
+
+describe("safe GeoJSON source helpers", () => {
+  it("returns null when style is not loaded", () => {
+    const getSource = vi.fn();
+    const map = {
+      isStyleLoaded: () => false,
+      getSource,
+    };
+
+    expect(getGeoJsonSourceSafe(map, "draw-polygon-source")).toBeNull();
+    expect(getSource).not.toHaveBeenCalled();
+  });
+
+  it("swallows map.getSource style-transition errors", () => {
+    const map = {
+      isStyleLoaded: () => true,
+      getSource: vi.fn(() => {
+        throw new TypeError("Cannot read properties of undefined (reading 'getSource')");
+      }),
+    };
+
+    expect(getGeoJsonSourceSafe(map, "draw-polygon-source")).toBeNull();
+  });
+
+  it("sets source data when source exists", () => {
+    const setData = vi.fn();
+    const map = {
+      isStyleLoaded: () => true,
+      getSource: vi.fn(() => ({ setData })),
+    };
+
+    const ok = setGeoJsonSourceDataSafe(map, "draw-polygon-source", {
+      type: "FeatureCollection",
+      features: [],
+    });
+
+    expect(ok).toBe(true);
+    expect(setData).toHaveBeenCalledWith({
+      type: "FeatureCollection",
+      features: [],
+    });
+  });
+
+  it("returns false when source is unavailable", () => {
+    const map = {
+      isStyleLoaded: () => true,
+      getSource: vi.fn(() => undefined),
+    };
+
+    const ok = setGeoJsonSourceDataSafe(map, "draw-polygon-source", {
+      type: "FeatureCollection",
+      features: [],
+    });
+
+    expect(ok).toBe(false);
   });
 });
