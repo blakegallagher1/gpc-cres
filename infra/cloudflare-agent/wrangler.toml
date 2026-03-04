@@ -20,13 +20,10 @@ new_sqlite_classes = ["AgentChatDO"]
 tag = "v2"
 new_sqlite_classes = ["CodexRelayDO"]
 
-[vars]
-SUPABASE_URL = "https://yjddspdbxuseowxndrak.supabase.co"
 
 # Secrets (set via `wrangler secret put`):
 # OPENAI_API_KEY
 # LOCAL_API_KEY
 # LOCAL_API_URL        (e.g. https://api.gallagherpropco.com)
-# SUPABASE_ANON_KEY
 # VERCEL_URL           (e.g. https://gallagherpropco.com)
 # CODEX_APP_SERVER_URL (e.g. ws://codex-gateway-host:8765)

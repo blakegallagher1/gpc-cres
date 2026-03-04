@@ -36,7 +36,7 @@ Last reviewed: 2026-02-25
 - Scope all DB queries with `orgId` for multi-tenant isolation
 - Dispatch automation events with `.catch(() => {})` — fire-and-forget, never blocks API response
 - Import `@/lib/automation/handlers` at top of any API route that dispatches events (ensures handler registration)
-- Use `import "server-only"` in modules that touch Supabase service-role keys — prevents client-side bundling
+- Use `import "server-only"` in modules that touch server-only secrets — prevents client-side bundling
 - Force-add `apps/web/lib/` files to git — root `.gitignore` has `lib/` pattern
 - Delete `apps/web/.next/` before CLI deploys to avoid FUNCTION_PAYLOAD_TOO_LARGE
 - Use `--archive=tgz` for Vercel CLI deploys (>15K files)
@@ -47,7 +47,7 @@ Last reviewed: 2026-02-25
 - Don't auto-advance deals past TRIAGE_DONE — all post-triage status transitions require human approval (see `gates.ts`)
 - Don't auto-send buyer outreach emails — `buyerOutreach.neverAutoSend` is `true`; handlers only create review tasks
 - Don't call `dispatchEvent()` without `.catch(() => {})` — unhandled promise rejections crash the route
-- Don't prefix Supabase service-role keys with `NEXT_PUBLIC_` — they are server-only secrets
+- Don't prefix server-only secrets with `NEXT_PUBLIC_` — they must stay server-side only
 - Don't use `any` type — use `Record<string, unknown>` for dynamic objects
 
 ## ROADMAP-FIRST IMPLEMENTATION PROTOCOL (MANDATORY)

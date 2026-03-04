@@ -3,7 +3,7 @@
 Last reviewed: 2026-02-19
 
 
-Next.js + Temporal + Prisma/Supabase + OpenAI agent runtime for entitlement workflows, chat orchestration, memory, and evidence-backed automation.
+Next.js + Temporal + Prisma + OpenAI agent runtime for entitlement workflows, chat orchestration, memory, and evidence-backed automation.
 
 ## Core capabilities
 
@@ -42,16 +42,16 @@ pnpm build
 ## Security and tenant isolation baseline
 
 - All API routes must authenticate session, verify org membership, and scope DB access by `org_id`.
-- Property DB uses main Supabase credentials (`SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`).
+- Property DB uses local PostgreSQL (Docker Compose) with Prisma ORM.
 - Route errors must follow generic client-safe responses (`400` validation, `401/403` auth, `500` internal) while logging server-side details only.
 - Map popup/user-facing HTML content must sanitize user-sourced values before insertion.
 
 ## Required runtime envs (minimum)
 
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
+- `DATABASE_URL` (local PostgreSQL)
 - `OPENAI_API_KEY`
+- `AUTH_SECRET` (NextAuth session signing)
+- `LOCAL_API_URL` + `LOCAL_API_KEY` (gateway for storage/parcel data)
 
 ## Parcel geometry fallback contract
 
@@ -65,4 +65,4 @@ The map/parcel geometry pipeline uses this order:
 - Runtime/API contracts: `docs/chat-runtime.md`
 - Architecture specification: `docs/SPEC.md`
 - Current implementation roadmap/status: `ROADMAP.md`
-- Supabase Pro implementation checklist: `docs/SUPABASE_PRO_CHECKLIST.md`
+- Legacy Supabase Pro checklist (archived): `docs/SUPABASE_PRO_CHECKLIST.md`

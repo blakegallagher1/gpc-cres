@@ -30,8 +30,8 @@ Current implementation status against `Entitlement_OS_Meta_Prompt.md`:
 - Phases `A` through `G` are completed and integrated.
 - Phase `H` verification gate completed: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build` all pass.
 - Security hardening pass completed across tenant isolation, org scoping, map XSS sanitization, auth consistency, and error normalization.
-- Property DB and Supabase env initialization paths now enforce fail-fast behavior for missing/placeholder credentials.
-- Supabase Pro code-side optimizations are wired (read replica/direct URL toggles, pooling params, custom-domain env support); dashboard-only actions remain operational tasks.
+- Property DB initialization path enforces fail-fast behavior for missing/placeholder credentials.
+- Supabase fully removed; auth uses NextAuth with local DB credentials, storage uses B2 via gateway.
 - Formal compliance evidence is captured in:
   - `docs/ENTITLEMENT_OS_META_AUDIT_2026-02-17.md`
   - `ROADMAP.md` item `EOS-001`
@@ -163,7 +163,7 @@ Codex MUST:
 
 - Follow security invariants.
 - Enforce org_id scoping.
-- Maintain Supabase auth checks.
+- Maintain NextAuth session checks.
 - Preserve citation completeness.
 - Preserve evidence hashing determinism.
 - Maintain idempotency.
@@ -212,13 +212,13 @@ Never modify legacy/python unless explicitly instructed.
 All DB rows are scoped by org_id.
 
 Every API route must:
-1. Authenticate Supabase session.
+1. Authenticate session (NextAuth JWT).
 2. Confirm org membership.
 3. Scope all queries by org_id.
 
-Supabase Storage:
-- Private buckets only.
-- Access via signed URLs only.
+File Storage (B2 via Gateway):
+- Private storage only.
+- Access via gateway signed URLs only.
 
 Secrets:
 - Never committed.
@@ -538,12 +538,8 @@ gate BEFORE reporting success or moving to the next task.
 
 4. **Build** — `pnpm build`
    - Full monorepo build must succeed.
-   - If build fails on missing env vars (e.g., Supabase keys),
-     provide stub env vars for the build step only:
+   - If build fails on missing env vars, provide stub env vars for the build step only:
      ```
-     NEXT_PUBLIC_SUPABASE_URL=https://placeholder.supabase.co \
-     NEXT_PUBLIC_SUPABASE_ANON_KEY=placeholder \
-     SUPABASE_SERVICE_ROLE_KEY=placeholder \
      OPENAI_API_KEY=placeholder \
      pnpm build
      ```
@@ -752,13 +748,9 @@ The Prisma migration chain references tables (`internal_entities`, `memory_event
 
 ### Build with placeholder env vars
 
-The build requires Supabase and OpenAI keys. Use stub values per `CLAUDE.md`:
+The build may require an OpenAI key. Use stub values:
 ```bash
-NEXT_PUBLIC_SUPABASE_URL=https://placeholder.supabase.co \
-NEXT_PUBLIC_SUPABASE_ANON_KEY=placeholder \
-SUPABASE_SERVICE_ROLE_KEY=placeholder \
-OPENAI_API_KEY=sk-placeholder \
-pnpm build
+OPENAI_API_KEY=sk-placeholder pnpm build
 ```
 
 ### Pre-existing issues (as of 2026-03-04)
