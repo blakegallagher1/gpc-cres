@@ -3,16 +3,26 @@
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Download, FileText, Loader2, Plus } from "lucide-react";
+import {
+  Download,
+  FileText,
+  Loader2,
+  Plus,
+  Presentation,
+  ClipboardCheck,
+  BookOpen,
+  Eye,
+  Package,
+} from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 const artifactTypeLabels: Record<string, string> = {
   TRIAGE_PDF: "Triage Report",
@@ -25,6 +35,22 @@ const artifactTypeLabels: Record<string, string> = {
   OFFERING_MEMO_PDF: "Offering Memorandum",
   COMP_ANALYSIS_PDF: "Comparative Analysis",
 };
+
+const artifactTypeConfig: Record<string, { icon: React.ElementType; bg: string; iconColor: string }> = {
+  TRIAGE_PDF: { icon: FileText, bg: "bg-blue-500/10 dark:bg-blue-500/15", iconColor: "text-blue-600 dark:text-blue-400" },
+  SUBMISSION_CHECKLIST_PDF: { icon: ClipboardCheck, bg: "bg-emerald-500/10 dark:bg-emerald-500/15", iconColor: "text-emerald-600 dark:text-emerald-400" },
+  HEARING_DECK_PPTX: { icon: Presentation, bg: "bg-purple-500/10 dark:bg-purple-500/15", iconColor: "text-purple-600 dark:text-purple-400" },
+  IC_DECK_PPTX: { icon: Presentation, bg: "bg-purple-500/10 dark:bg-purple-500/15", iconColor: "text-purple-600 dark:text-purple-400" },
+  EXIT_PACKAGE_PDF: { icon: FileText, bg: "bg-slate-500/10 dark:bg-slate-500/15", iconColor: "text-slate-600 dark:text-slate-400" },
+  BUYER_TEASER_PDF: { icon: Eye, bg: "bg-amber-500/10 dark:bg-amber-500/15", iconColor: "text-amber-600 dark:text-amber-400" },
+  INVESTMENT_MEMO_PDF: { icon: BookOpen, bg: "bg-indigo-500/10 dark:bg-indigo-500/15", iconColor: "text-indigo-600 dark:text-indigo-400" },
+  OFFERING_MEMO_PDF: { icon: BookOpen, bg: "bg-indigo-500/10 dark:bg-indigo-500/15", iconColor: "text-indigo-600 dark:text-indigo-400" },
+  COMP_ANALYSIS_PDF: { icon: FileText, bg: "bg-cyan-500/10 dark:bg-cyan-500/15", iconColor: "text-cyan-600 dark:text-cyan-400" },
+};
+
+function getArtifactConfig(type: string) {
+  return artifactTypeConfig[type] ?? { icon: FileText, bg: "bg-slate-500/10", iconColor: "text-slate-500" };
+}
 
 // Deal statuses ordered by progression
 const STATUS_ORDER = [
@@ -139,40 +165,63 @@ export function ArtifactList({ artifacts, dealId, dealStatus, onArtifactGenerate
       )}
 
       {artifacts.length === 0 ? (
-        <p className="py-8 text-center text-sm text-muted-foreground">
-          No artifacts generated yet. Run triage or generate documents to see them here.
-        </p>
+        <div className="rounded-xl border-2 border-dashed border-muted-foreground/20 p-10 text-center">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-muted/50">
+            <Package className="h-6 w-6 text-muted-foreground" />
+          </div>
+          <p className="font-mono text-sm font-medium text-foreground">No artifacts yet</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Artifacts unlock as your deal progresses through stages.
+          </p>
+        </div>
       ) : (
-        artifacts.map((artifact) => (
-          <Card key={artifact.id}>
-            <CardContent className="flex items-center justify-between p-4">
-              <div className="flex items-center gap-3">
-                <FileText className="h-5 w-5 text-muted-foreground" />
-                <div>
+        <div className="space-y-2">
+          {artifacts.map((artifact) => {
+            const config = getArtifactConfig(artifact.artifactType);
+            const ArtifactIcon = config.icon;
+            const isGenerating = generating === artifact.artifactType;
+
+            return (
+              <div
+                key={artifact.id}
+                className={cn(
+                  "flex items-center gap-4 rounded-lg border p-4 transition-all hover:-translate-y-px hover:shadow-md",
+                  isGenerating && "animate-pulse border-amber-500/30",
+                )}
+              >
+                {/* Type icon */}
+                <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-lg", config.bg)}>
+                  <ArtifactIcon className={cn("h-5 w-5", config.iconColor)} />
+                </div>
+
+                {/* Info */}
+                <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium">
                     {artifactTypeLabels[artifact.artifactType] ?? artifact.artifactType}
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    Version {artifact.version} -- {formatDate(artifact.createdAt)}
+                  <p className="font-mono text-xs text-muted-foreground">
+                    v{artifact.version} · {formatDate(artifact.createdAt)}
                   </p>
                 </div>
+
+                {/* Version badge + download */}
+                <div className="flex shrink-0 items-center gap-2">
+                  <Badge variant="outline" className="font-mono text-xs">
+                    v{artifact.version}
+                  </Badge>
+                  <Button variant="ghost" size="icon" className="h-9 w-9" asChild>
+                    <a
+                      href={`/api/deals/artifacts/${artifact.id}/download`}
+                      download
+                    >
+                      <Download className="h-4 w-4" />
+                    </a>
+                  </Button>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="text-xs">
-                  v{artifact.version}
-                </Badge>
-                <Button variant="ghost" size="icon" asChild>
-                  <a
-                    href={`/api/deals/artifacts/${artifact.id}/download`}
-                    download
-                  >
-                    <Download className="h-4 w-4" />
-                  </a>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))
+            );
+          })}
+        </div>
       )}
     </div>
   );

@@ -16,7 +16,7 @@ import {
   Link as LinkIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { getAgentColor, formatAgentLabel } from './AgentIndicator';
+import { getAgentColor, getAgentBorderColor, formatAgentLabel } from './AgentIndicator';
 import { ToolCallCard } from './ToolCallCard';
 import { TriageResultCard } from './TriageResultCard';
 import { ArtifactDownloadCard } from './ArtifactDownloadCard';
@@ -45,12 +45,12 @@ interface MessageBubbleProps {
 
 function ToolResultCard({ name, result }: { name: string; result: unknown }) {
   return (
-    <div className="my-2 rounded-lg border border-neutral-200 bg-white/90 px-3 py-2 text-xs dark:border-neutral-700 dark:bg-neutral-900">
-      <div className="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+    <div className="my-2 rounded-lg border border-[#2a2f3e] bg-[#0f1118]/80 px-3 py-2 text-xs">
+      <div className="mb-1 flex items-center gap-2 font-mono text-[11px] font-medium uppercase tracking-wide text-slate-500">
         <FileText className="h-3.5 w-3.5" />
         <span>{name}</span>
       </div>
-      <pre className="overflow-x-auto whitespace-pre-wrap rounded bg-muted/50 p-2">
+      <pre className="overflow-x-auto whitespace-pre-wrap rounded bg-[#0c0e14] p-2 font-mono text-emerald-400/80">
         {typeof result === 'string' ? result : JSON.stringify(result, null, 2)}
       </pre>
     </div>
@@ -113,9 +113,9 @@ function EventHeader({
   rightAction?: ReactNode;
 }) {
   return (
-    <div className="mb-1 flex items-center justify-between gap-2 text-xs text-neutral-500 dark:text-neutral-400">
+    <div className="mb-1 flex items-center justify-between gap-2 text-xs text-slate-500">
       <span>
-        <span className="font-semibold text-foreground">{title}</span>
+        <span className="font-mono font-medium text-slate-300">{title}</span>
         {agentName ? ` · ${agentName}` : ''}
       </span>
       {rightAction}
@@ -173,51 +173,54 @@ function MessageActions({
 
   const hasSource = Boolean(sourceUrl);
 
+  const btnClass = "inline-flex items-center gap-1 rounded-full border border-[#2a2f3e] bg-[#1a1d28] px-2.5 py-1 text-slate-400 hover:bg-[#252a38] hover:text-slate-200 transition-colors";
+
   return (
     <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-      <button
-        type="button"
-        onClick={onCopy}
-        className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-neutral-600 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
-      >
+      <button type="button" onClick={onCopy} className={btnClass}>
         <ClipboardCopy className="h-3 w-3" />
         Copy
       </button>
 
       {conversationId ? (
-        <button
-          type="button"
-          onClick={onReopen}
-          className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-neutral-600 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
-        >
+        <button type="button" onClick={onReopen} className={btnClass}>
           <RefreshCcw className="h-3 w-3" />
           Reopen
         </button>
       ) : null}
 
       {shareHref ? (
-        <button
-          type="button"
-          onClick={onCopyLink}
-          className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-neutral-600 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
-        >
+        <button type="button" onClick={onCopyLink} className={btnClass}>
           <LinkIcon className="h-3 w-3" />
           Share link
         </button>
       ) : null}
 
       {hasSource ? (
-        <button
-          type="button"
-          onClick={onOpenSource}
-          className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-neutral-600 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
-        >
+        <button type="button" onClick={onOpenSource} className={btnClass}>
           <ExternalLink className="h-3 w-3" />
           Open source
         </button>
       ) : null}
     </div>
   );
+}
+
+/** Event styling: left-border accent color + dark transparent bg */
+const eventStyles: Record<string, { border: string; bg: string; text: string }> = {
+  agent_progress: { border: 'border-l-indigo-500', bg: 'bg-indigo-500/8', text: 'text-indigo-200' },
+  agent_switch: { border: 'border-l-amber-500', bg: 'bg-amber-500/8', text: 'text-amber-200' },
+  handoff: { border: 'border-l-indigo-400', bg: 'bg-indigo-500/8', text: 'text-indigo-200' },
+  tool_start: { border: 'border-l-slate-500', bg: 'bg-slate-500/8', text: 'text-slate-300' },
+  tool_end: { border: 'border-l-slate-500', bg: 'bg-slate-500/8', text: 'text-slate-300' },
+  tool_approval: { border: 'border-l-amber-500', bg: 'bg-amber-500/8', text: 'text-amber-200' },
+  agent_summary: { border: 'border-l-emerald-500', bg: 'bg-emerald-500/8', text: 'text-emerald-200' },
+  error: { border: 'border-l-red-500', bg: 'bg-red-500/8', text: 'text-red-200' },
+  tool_result: { border: 'border-l-violet-500', bg: 'bg-violet-500/8', text: 'text-violet-200' },
+};
+
+function getEventStyle(kind: string) {
+  return eventStyles[kind] ?? { border: 'border-l-slate-500', bg: 'bg-slate-500/8', text: 'text-slate-300' };
 }
 
 function renderSystemContent(
@@ -227,25 +230,32 @@ function renderSystemContent(
 ) {
   const eventKind = message.eventKind;
   const Icon = eventKind ? eventIcons[eventKind] : null;
+  const style = eventKind ? getEventStyle(eventKind) : getEventStyle('');
 
   if (!eventKind) return null;
 
+  const wrapperClass = cn(
+    'rounded-lg border-l-2 px-3 py-2 text-sm',
+    style.border,
+    style.bg,
+  );
+
   if (eventKind === 'agent_progress' && message.agentName) {
     return (
-      <div className="rounded-xl border border-indigo-200 bg-indigo-50/80 p-3 text-sm text-indigo-950 dark:border-indigo-900 dark:bg-indigo-950/30 dark:text-indigo-100">
+      <div className={wrapperClass}>
         <EventHeader
           title="Agent Progress"
           agentName={message.agentName}
-          rightAction={Icon ? <Icon className="h-3 w-3" /> : undefined}
+          rightAction={Icon ? <Icon className="h-3 w-3 text-slate-500" /> : undefined}
         />
-        <p className="text-xs text-muted-foreground">{message.content}</p>
+        <p className="text-xs text-slate-400">{message.content}</p>
         {Array.isArray(message.toolCalls) && message.toolCalls.length > 0 && (
           <div className="mt-2 space-y-1">
-            <p className="text-[11px] font-semibold text-indigo-800 dark:text-indigo-300">Tools in-flight</p>
+            <p className="font-mono text-[11px] font-medium text-indigo-400">Tools in-flight</p>
             {message.toolCalls.map((toolCall, i) => (
               <p
                 key={`${message.id}-progress-tool-${i}`}
-                className="text-xs text-indigo-900 dark:text-indigo-100"
+                className="font-mono text-xs text-indigo-300"
               >
                 {toolCall.name}
               </p>
@@ -259,15 +269,15 @@ function renderSystemContent(
 
   if (eventKind === 'agent_switch' && message.agentName) {
     return (
-      <div className="rounded-xl border border-amber-200 bg-amber-50/80 px-3 py-2 text-sm text-amber-950 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
+      <div className={wrapperClass}>
         <EventHeader
           title="Agent Switched"
           agentName={message.agentName}
-          rightAction={Icon ? <Icon className="h-3 w-3" /> : undefined}
+          rightAction={Icon ? <Icon className="h-3 w-3 text-slate-500" /> : undefined}
         />
         <div className="flex items-center gap-2 text-xs">
           <AgentStatusChip agentName={message.agentName} mode="active" />
-          <span>Active agent changed.</span>
+          <span className="text-slate-400">Active agent changed.</span>
         </div>
         <MessageActions conversationId={conversationId} messageId={message.id} message={message} />
       </div>
@@ -277,15 +287,15 @@ function renderSystemContent(
   if (eventKind === 'handoff') {
     const handoffTarget = message.agentName ?? 'Specialist';
     return (
-      <div className="rounded-xl border border-indigo-200 bg-indigo-50/80 px-3 py-2 text-sm text-indigo-950 dark:border-indigo-900 dark:bg-indigo-950/30 dark:text-indigo-100">
+      <div className={wrapperClass}>
         <EventHeader
           title="Agent Handoff"
           agentName={message.agentName}
-          rightAction={Icon ? <Icon className="h-3 w-3" /> : undefined}
+          rightAction={Icon ? <Icon className="h-3 w-3 text-slate-500" /> : undefined}
         />
         <div className="flex items-center gap-2 text-xs">
           <AgentStatusChip agentName={handoffTarget} mode="handoff" />
-          <span>{message.content}</span>
+          <span className="text-slate-400">{message.content}</span>
         </div>
         <MessageActions conversationId={conversationId} messageId={message.id} message={message} />
       </div>
@@ -296,14 +306,14 @@ function renderSystemContent(
     const toolName = message.toolCalls?.[0]?.name ?? message.agentName ?? 'tool';
     const status = eventKind === 'tool_start' ? 'running' : 'completed';
     return (
-      <div className="rounded-xl border border-slate-200 bg-slate-50/90 px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900/30 dark:text-slate-100">
+      <div className={wrapperClass}>
         <EventHeader
           title={eventKind === 'tool_start' ? 'Tool Started' : 'Tool Completed'}
-          rightAction={Icon ? <Icon className="h-3 w-3" /> : undefined}
+          rightAction={Icon ? <Icon className="h-3 w-3 text-slate-500" /> : undefined}
         />
         <div className="flex items-center gap-2 text-xs">
           <ToolStatusChip toolName={toolName} status={status} />
-          <span>{message.content}</span>
+          <span className="text-slate-400">{message.content}</span>
         </div>
         <MessageActions conversationId={conversationId} messageId={message.id} message={message} />
       </div>
@@ -321,12 +331,12 @@ function renderSystemContent(
     const args = message.toolCalls?.[0]?.args;
 
     return (
-      <div className="rounded-xl border border-amber-200 bg-amber-50/80 px-3 py-2 text-sm text-amber-950 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
+      <div className={wrapperClass}>
         <EventHeader
           title="Tool Approval Required"
-          rightAction={Icon ? <Icon className="h-3 w-3" /> : undefined}
+          rightAction={Icon ? <Icon className="h-3 w-3 text-amber-400" /> : undefined}
         />
-        <p className="text-xs">{message.content}</p>
+        <p className="text-xs text-slate-400">{message.content}</p>
         {runId && toolCallId ? (
           <ToolApprovalPrompt
             runId={runId}
@@ -346,28 +356,28 @@ function renderSystemContent(
     const agent = message.trust?.lastAgentName ?? message.agentName ?? 'Coordinator';
 
     return (
-      <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-3 text-sm text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100">
+      <div className={wrapperClass}>
         <EventHeader
           title="Agent Summary"
           agentName={agent}
-          rightAction={Icon ? <Icon className="h-3 w-3" /> : undefined}
+          rightAction={Icon ? <Icon className="h-3 w-3 text-slate-500" /> : undefined}
         />
-        <div className="grid gap-1 text-xs sm:grid-cols-2">
-          <p>
-            Confidence: <strong>{completion}</strong>
+        <div className="grid gap-1 font-mono text-xs sm:grid-cols-2">
+          <p className="text-slate-400">
+            Confidence: <strong className="text-emerald-400">{completion}</strong>
           </p>
-          <p>
-            Evidence gaps: <strong>{message.trust?.missingEvidence?.length ?? 0}</strong>
+          <p className="text-slate-400">
+            Evidence gaps: <strong className="text-amber-400">{message.trust?.missingEvidence?.length ?? 0}</strong>
           </p>
-          <p>
-            Tools: <strong>{message.trust?.toolsInvoked?.length ?? 0}</strong>
+          <p className="text-slate-400">
+            Tools: <strong className="text-slate-200">{message.trust?.toolsInvoked?.length ?? 0}</strong>
           </p>
-          <p>
-            Duration: <strong>{message.trust?.durationMs ?? 'n/a'} ms</strong>
+          <p className="text-slate-400">
+            Duration: <strong className="text-slate-200">{message.trust?.durationMs ?? 'n/a'} ms</strong>
           </p>
         </div>
         {message.trust?.errorSummary ? (
-          <p className="mt-2 rounded border border-amber-300 bg-amber-100 px-2 py-1 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-900/40 dark:text-amber-100">
+          <p className="mt-2 rounded border border-amber-800/50 bg-amber-900/20 px-2 py-1 text-xs text-amber-300">
             {message.trust.errorSummary}
           </p>
         ) : null}
@@ -378,9 +388,9 @@ function renderSystemContent(
 
   if (eventKind === 'error') {
     return (
-      <div className="rounded-xl border border-rose-200 bg-rose-50/80 px-3 py-2 text-sm text-rose-950 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-100">
-        <EventHeader title="Agent Error" rightAction={Icon ? <Icon className="h-3 w-3" /> : undefined} />
-        <p className="text-xs">{message.content}</p>
+      <div className={wrapperClass}>
+        <EventHeader title="Agent Error" rightAction={Icon ? <Icon className="h-3 w-3 text-red-400" /> : undefined} />
+        <p className="text-xs text-red-300">{message.content}</p>
         <MessageActions conversationId={conversationId} messageId={message.id} message={message} />
       </div>
     );
@@ -388,8 +398,8 @@ function renderSystemContent(
 
   if (eventKind === 'tool_result') {
     return (
-      <div className="rounded-xl border border-violet-200 bg-violet-50/80 p-3 text-sm text-violet-950 dark:border-violet-900 dark:bg-violet-950/30 dark:text-violet-100">
-        <EventHeader title="Tool Result" rightAction={Icon ? <Icon className="h-3 w-3" /> : undefined} />
+      <div className={wrapperClass}>
+        <EventHeader title="Tool Result" rightAction={Icon ? <Icon className="h-3 w-3 text-slate-500" /> : undefined} />
         <ToolResultCard
           name={message.agentName ?? 'tool'}
           result={message.content.length > 0 ? message.content : 'No result available'}
@@ -412,6 +422,10 @@ export function MessageBubble({
   const hasEvent = message.eventKind !== undefined;
   const systemContent = renderSystemContent(message, conversationId, onToolApprovalEvents);
 
+  const agentBorder = !isUser && message.agentName
+    ? getAgentBorderColor(message.agentName)
+    : 'border-l-slate-600';
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -419,15 +433,17 @@ export function MessageBubble({
       transition={{ duration: 0.2, ease: 'easeOut' }}
       className={cn('flex w-full gap-3', isUser ? 'justify-end' : 'justify-start')}
     >
+      {/* Assistant avatar */}
       {!isUser ? (
-        <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-slate-700 to-slate-900 dark:from-slate-500 dark:to-slate-700">
-          <span className="text-xs font-semibold text-white">G</span>
+        <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#1e2230] to-[#2a2f3e] ring-1 ring-[#2a2f3e]">
+          <span className="font-mono text-[10px] font-medium text-blue-400">G</span>
         </div>
       ) : (
-        <ClipboardList className="mt-2 h-7 w-7 shrink-0 text-muted-foreground" />
+        <ClipboardList className="mt-2 h-7 w-7 shrink-0 text-slate-600" />
       )}
 
       <div className={cn('max-w-[84%] space-y-1', isUser && 'items-end')}>
+        {/* Agent label */}
         {!isSystemEvent && !isUser && message.agentName && (
           <div className="flex items-center gap-1.5 pb-0.5">
             <span
@@ -436,22 +452,25 @@ export function MessageBubble({
                 getAgentColor(message.agentName),
               )}
             />
-            <span className="text-xs font-medium text-muted-foreground">
+            <span className="font-mono text-[11px] font-medium text-slate-500">
               {formatAgentLabel(message.agentName)}
             </span>
           </div>
         )}
 
         {isSystemEvent ? (
-          <div className="rounded-2xl px-1 py-1">{systemContent}</div>
+          <div className="py-0.5">{systemContent}</div>
         ) : (
           <>
             <div
               className={cn(
-                'rounded-2xl border px-4 py-3 text-sm leading-relaxed shadow-sm',
+                'rounded-lg px-4 py-3 text-sm leading-relaxed',
                 isUser
-                  ? 'border-black bg-black text-white'
-                  : 'border-neutral-200 bg-white/95 text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900/95 dark:text-neutral-100',
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
+                  : cn(
+                      'border-l-4 bg-[#1a1d28] text-slate-200',
+                      agentBorder,
+                    ),
               )}
             >
               <p className="whitespace-pre-wrap break-words">{message.content}</p>
@@ -504,14 +523,15 @@ export function MessageBubble({
           </>
         )}
 
-        <p className={cn('text-[10px] text-neutral-500/80 dark:text-neutral-500', isUser ? 'text-right' : 'text-left')}>
+        <p className={cn('font-mono text-[10px] text-slate-600', isUser ? 'text-right' : 'text-left')}>
           {formatDateDisplay(message.createdAt)}
         </p>
       </div>
 
+      {/* User avatar */}
       {isUser && (
-        <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600">
-          <span className="text-xs font-semibold text-white">U</span>
+        <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-600">
+          <span className="font-mono text-[10px] font-medium text-white">U</span>
         </div>
       )}
     </motion.div>

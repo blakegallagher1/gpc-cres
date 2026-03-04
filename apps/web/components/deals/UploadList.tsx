@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { timeAgo } from "@/lib/utils";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import type { UploadItem } from "./FileUploadZone";
 
 function formatBytes(bytes: number): string {
@@ -22,14 +23,48 @@ function getFileIcon(contentType: string) {
   return File;
 }
 
-const kindColors: Record<string, string> = {
-  title: "bg-blue-500/10 text-blue-700 dark:text-blue-400",
-  environmental: "bg-green-500/10 text-green-700 dark:text-green-400",
-  survey: "bg-purple-500/10 text-purple-700 dark:text-purple-400",
-  financial: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
-  legal: "bg-red-500/10 text-red-700 dark:text-red-400",
-  other: "bg-gray-500/10 text-gray-700 dark:text-gray-400",
+const categoryConfig: Record<string, { bg: string; icon: string; border: string; badge: string }> = {
+  title: {
+    bg: "bg-blue-500/10 dark:bg-blue-500/15",
+    icon: "text-blue-600 dark:text-blue-400",
+    border: "border-l-blue-500",
+    badge: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20",
+  },
+  environmental: {
+    bg: "bg-green-500/10 dark:bg-green-500/15",
+    icon: "text-green-600 dark:text-green-400",
+    border: "border-l-green-500",
+    badge: "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20",
+  },
+  survey: {
+    bg: "bg-purple-500/10 dark:bg-purple-500/15",
+    icon: "text-purple-600 dark:text-purple-400",
+    border: "border-l-purple-500",
+    badge: "bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/20",
+  },
+  financial: {
+    bg: "bg-amber-500/10 dark:bg-amber-500/15",
+    icon: "text-amber-600 dark:text-amber-400",
+    border: "border-l-amber-500",
+    badge: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20",
+  },
+  legal: {
+    bg: "bg-red-500/10 dark:bg-red-500/15",
+    icon: "text-red-600 dark:text-red-400",
+    border: "border-l-red-500",
+    badge: "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20",
+  },
+  other: {
+    bg: "bg-slate-500/10 dark:bg-slate-500/15",
+    icon: "text-slate-600 dark:text-slate-400",
+    border: "border-l-slate-400",
+    badge: "bg-slate-500/10 text-slate-700 dark:text-slate-400 border-slate-500/20",
+  },
 };
+
+function getCategoryConfig(kind: string) {
+  return categoryConfig[kind] ?? categoryConfig.other;
+}
 
 interface UploadListProps {
   dealId: string;
@@ -76,9 +111,15 @@ export function UploadList({ dealId, uploads, onDelete }: UploadListProps) {
 
   if (uploads.length === 0) {
     return (
-      <p className="py-8 text-center text-sm text-muted-foreground">
-        No documents uploaded yet.
-      </p>
+      <div className="py-10 text-center">
+        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-muted/50">
+          <File className="h-6 w-6 text-muted-foreground" />
+        </div>
+        <p className="font-mono text-sm font-medium text-foreground">No documents yet</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Upload title docs, environmental reports, surveys, and financials above.
+        </p>
+      </div>
     );
   }
 
@@ -86,51 +127,63 @@ export function UploadList({ dealId, uploads, onDelete }: UploadListProps) {
     <div className="space-y-2">
       {uploads.map((upload) => {
         const Icon = getFileIcon(upload.contentType);
+        const cat = getCategoryConfig(upload.kind);
+
         return (
           <div
             key={upload.id}
-            className="flex items-center gap-3 rounded-lg border p-3"
+            className={cn(
+              "flex items-center gap-3 rounded-lg border border-l-4 p-3 transition-all hover:-translate-y-px hover:shadow-md",
+              cat.border,
+            )}
           >
-            <Icon className="h-5 w-5 shrink-0 text-muted-foreground" />
+            {/* Icon in colored circle */}
+            <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-lg", cat.bg)}>
+              <Icon className={cn("h-5 w-5", cat.icon)} />
+            </div>
+
+            {/* File info */}
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium">{upload.filename}</p>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span>{formatBytes(upload.sizeBytes)}</span>
-                <span>{timeAgo(upload.createdAt)}</span>
-              </div>
+              <p className="font-mono text-xs text-muted-foreground">
+                {formatBytes(upload.sizeBytes)} · {timeAgo(upload.createdAt)}
+              </p>
             </div>
-            <Badge
-              variant="secondary"
-              className={kindColors[upload.kind] || kindColors.other}
-            >
-              {upload.kind}
+
+            {/* Category badge */}
+            <Badge variant="outline" className={cn("shrink-0 text-xs", cat.badge)}>
+              {upload.kind.charAt(0).toUpperCase() + upload.kind.slice(1)}
             </Badge>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => handleDownload(upload)}
-              disabled={downloadingId === upload.id}
-            >
-              {downloadingId === upload.id ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="h-4 w-4" />
-              )}
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-destructive hover:text-destructive"
-              onClick={() => handleDelete(upload)}
-              disabled={deletingId === upload.id}
-            >
-              {deletingId === upload.id ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Trash2 className="h-4 w-4" />
-              )}
-            </Button>
+
+            {/* Actions */}
+            <div className="flex shrink-0 items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => handleDownload(upload)}
+                disabled={downloadingId === upload.id}
+              >
+                {downloadingId === upload.id ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                onClick={() => handleDelete(upload)}
+                disabled={deletingId === upload.id}
+              >
+                {deletingId === upload.id ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
           </div>
         );
       })}

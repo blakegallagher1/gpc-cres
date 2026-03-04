@@ -5,15 +5,15 @@ import { cn } from '@/lib/utils';
 type Decision = 'ADVANCE' | 'HOLD' | 'KILL';
 
 const decisionStyles: Record<Decision, { bg: string; text: string; ring: string }> = {
-  ADVANCE: { bg: 'bg-emerald-500/10', text: 'text-emerald-600 dark:text-emerald-400', ring: 'ring-emerald-500/30' },
-  HOLD: { bg: 'bg-amber-500/10', text: 'text-amber-600 dark:text-amber-400', ring: 'ring-amber-500/30' },
-  KILL: { bg: 'bg-red-500/10', text: 'text-red-600 dark:text-red-400', ring: 'ring-red-500/30' },
+  ADVANCE: { bg: 'bg-emerald-500/15', text: 'text-emerald-400', ring: 'ring-emerald-500/30' },
+  HOLD: { bg: 'bg-amber-500/15', text: 'text-amber-400', ring: 'ring-amber-500/30' },
+  KILL: { bg: 'bg-red-500/15', text: 'text-red-400', ring: 'ring-red-500/30' },
 };
 
 const scoreColor = (score: number): string => {
-  if (score >= 70) return 'text-emerald-600 dark:text-emerald-400';
-  if (score >= 40) return 'text-amber-600 dark:text-amber-400';
-  return 'text-red-600 dark:text-red-400';
+  if (score >= 70) return 'text-emerald-400';
+  if (score >= 40) return 'text-amber-400';
+  return 'text-red-400';
 };
 
 const barColor = (score: number): string => {
@@ -44,12 +44,12 @@ export function TriageResultCard({
   const style = decisionStyles[decision];
 
   return (
-    <div className="my-3 rounded-lg border p-4">
+    <div className="my-3 rounded-lg border border-[#2a2f3e] bg-[#12141c]/80 p-4">
       {/* Header */}
       <div className="flex items-center gap-4">
         <div
           className={cn(
-            'inline-flex items-center rounded-md px-2.5 py-1 text-xs font-bold ring-1 ring-inset',
+            'inline-flex items-center rounded-md px-2.5 py-1 font-mono text-xs font-bold ring-1 ring-inset',
             style.bg,
             style.text,
             style.ring
@@ -69,7 +69,7 @@ export function TriageResultCard({
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="3"
-                className="text-muted/50"
+                className="text-[#1e2230]"
               />
               <circle
                 cx="24"
@@ -83,11 +83,11 @@ export function TriageResultCard({
                 className={scoreColor(score)}
               />
             </svg>
-            <span className={cn('absolute text-sm font-bold', scoreColor(score))}>
+            <span className={cn('absolute font-mono text-sm font-bold', scoreColor(score))}>
               {score}
             </span>
           </div>
-          <span className="text-xs text-muted-foreground">/ 100</span>
+          <span className="font-mono text-xs text-slate-600">/ 100</span>
         </div>
       </div>
 
@@ -99,12 +99,12 @@ export function TriageResultCard({
             return (
               <div key={cat.name} className="space-y-1">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">{cat.name}</span>
-                  <span className="font-medium">
+                  <span className="text-slate-400">{cat.name}</span>
+                  <span className="font-mono font-medium text-slate-300">
                     {cat.score}/{cat.maxScore}
                   </span>
                 </div>
-                <div className="h-1.5 w-full rounded-full bg-muted">
+                <div className="h-1.5 w-full rounded-full bg-[#1e2230]">
                   <div
                     className={cn('h-1.5 rounded-full transition-all', barColor(pct))}
                     style={{ width: `${pct}%` }}
@@ -118,13 +118,13 @@ export function TriageResultCard({
 
       {/* Disqualifiers */}
       {disqualifiers && disqualifiers.length > 0 && (
-        <div className="mt-3 rounded-md bg-red-500/5 p-2">
-          <p className="mb-1 text-xs font-medium text-red-600 dark:text-red-400">
+        <div className="mt-3 rounded-md bg-red-500/8 p-2">
+          <p className="mb-1 font-mono text-xs font-medium text-red-400">
             Disqualifiers
           </p>
           <ul className="space-y-0.5">
             {disqualifiers.map((d, i) => (
-              <li key={i} className="text-xs text-red-600/80 dark:text-red-400/80">
+              <li key={i} className="text-xs text-red-400/80">
                 - {d}
               </li>
             ))}

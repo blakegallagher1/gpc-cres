@@ -27,7 +27,6 @@ export function ChatInput({ onSend, isStreaming, onStop }: ChatInputProps) {
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = 'auto';
-    // Clamp to max ~5 rows (approx 120px)
     el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
   }, []);
 
@@ -79,10 +78,13 @@ export function ChatInput({ onSend, isStreaming, onStop }: ChatInputProps) {
 
   return (
     <form
-      className="border-t border-neutral-200/70 bg-white/80 px-4 py-4 dark:border-neutral-800/70 dark:bg-neutral-950/70"
+      className="relative bg-gradient-to-t from-[#0c0e14] to-[#0c0e14]/80 px-4 pb-4 pt-2"
       onSubmit={handleFormSubmit}
     >
-      <div className="mx-auto flex w-full max-w-4xl items-end gap-3 rounded-full border border-neutral-200 bg-neutral-100/90 px-3 py-2 shadow-sm dark:border-neutral-700 dark:bg-neutral-900/80">
+      {/* Subtle glow line */}
+      <div className="glow-line absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-blue-500/30 to-transparent" />
+
+      <div className="mx-auto flex w-full max-w-4xl items-end gap-3 rounded-xl border border-[#2a2f3e] bg-[#1a1d28]/80 px-3 py-2 shadow-lg backdrop-blur-md transition-colors focus-within:border-blue-500/30">
         <div className="relative flex-1">
           <textarea
             ref={textareaRef}
@@ -91,7 +93,7 @@ export function ChatInput({ onSend, isStreaming, onStop }: ChatInputProps) {
             placeholder="Ask something complex..."
             className={cn(
               'w-full resize-none bg-transparent px-3 py-2 text-sm',
-              'placeholder:text-neutral-500',
+              'text-slate-100 placeholder:text-slate-500',
               'focus-visible:outline-none',
               'disabled:cursor-not-allowed disabled:opacity-50'
             )}
@@ -111,7 +113,7 @@ export function ChatInput({ onSend, isStreaming, onStop }: ChatInputProps) {
           <Button
             size="sm"
             variant="destructive"
-            className="h-10 shrink-0 rounded-full px-4"
+            className="h-9 shrink-0 rounded-lg bg-red-900/80 px-4 hover:bg-red-800"
             onClick={onStop}
           >
             <Square className="h-4 w-4" />
@@ -120,7 +122,7 @@ export function ChatInput({ onSend, isStreaming, onStop }: ChatInputProps) {
         ) : (
           <Button
             size="sm"
-            className="h-10 shrink-0 rounded-full px-5"
+            className="h-9 shrink-0 rounded-lg bg-blue-600 px-4 shadow-lg shadow-blue-600/20 hover:bg-blue-500"
             type="submit"
           >
             <ArrowUp className="mr-1.5 h-4 w-4" />
@@ -129,7 +131,7 @@ export function ChatInput({ onSend, isStreaming, onStop }: ChatInputProps) {
         )}
       </div>
 
-      <p className="mx-auto mt-2 max-w-4xl text-center text-[10px] text-muted-foreground/60">
+      <p className="mx-auto mt-2 max-w-4xl text-center font-mono text-[10px] text-slate-600">
         AI agents may make mistakes. Always verify critical data.
       </p>
     </form>

@@ -37,34 +37,34 @@ export function ToolCallCard({ name, args, result }: ToolCallCardProps) {
   const Icon = getToolIcon(name);
 
   return (
-    <div className="my-2 rounded-lg border bg-muted/50">
+    <div className="my-2 overflow-hidden rounded-lg border border-[#2a2f3e] bg-[#12141c]/80">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
+        className="flex w-full items-center gap-2 bg-[#0f1118]/60 px-3 py-2 text-left text-sm transition-colors hover:bg-[#1a1d28]"
       >
-        <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-        <span className="flex-1 font-medium">{name}</span>
+        <Icon className="h-4 w-4 shrink-0 text-blue-400" />
+        <span className="flex-1 font-mono font-medium text-slate-300">{name}</span>
         <ChevronDown
           className={cn(
-            'h-4 w-4 shrink-0 text-muted-foreground transition-transform',
+            'h-4 w-4 shrink-0 text-slate-500 transition-transform duration-200',
             expanded && 'rotate-180'
           )}
         />
       </button>
       {expanded && (
-        <div className="border-t px-3 py-2 text-xs">
+        <div className="border-t border-[#1e2230] text-xs">
           {args && Object.keys(args).length > 0 && (
-            <div className="mb-2">
-              <p className="mb-1 font-medium text-muted-foreground">Arguments</p>
-              <pre className="overflow-x-auto rounded bg-background p-2">
+            <div className="border-b border-[#1e2230] px-3 py-2">
+              <p className="mb-1 font-mono text-[11px] font-medium text-slate-500">Arguments</p>
+              <pre className="max-h-48 overflow-x-auto whitespace-pre-wrap font-mono text-slate-400">
                 {JSON.stringify(args, null, 2)}
               </pre>
             </div>
           )}
           {result && (
-            <div>
-              <p className="mb-1 font-medium text-muted-foreground">Result</p>
-              <pre className="overflow-x-auto whitespace-pre-wrap rounded bg-background p-2">
+            <div className="px-3 py-2">
+              <p className="mb-1 font-mono text-[11px] font-medium text-slate-500">Result</p>
+              <pre className="max-h-64 overflow-x-auto whitespace-pre-wrap font-mono text-emerald-400/80">
                 {result}
               </pre>
             </div>

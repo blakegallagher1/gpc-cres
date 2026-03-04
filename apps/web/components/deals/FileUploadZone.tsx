@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 const FILE_CATEGORIES = [
   { value: "title", label: "Title" },
@@ -101,35 +102,6 @@ export function FileUploadZone({ dealId, onUploadComplete }: FileUploadZoneProps
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-3">
-        <Select value={kind} onValueChange={setKind}>
-          <SelectTrigger className="w-[160px]">
-            <SelectValue placeholder="Category" />
-          </SelectTrigger>
-          <SelectContent>
-            {FILE_CATEGORIES.map((cat) => (
-              <SelectItem key={cat.value} value={cat.value}>
-                {cat.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-1.5"
-          disabled={uploading}
-          onClick={() => inputRef.current?.click()}
-        >
-          {uploading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Upload className="h-4 w-4" />
-          )}
-          Choose File
-        </Button>
-      </div>
-
       <div
         onDragOver={(e) => {
           e.preventDefault();
@@ -137,20 +109,75 @@ export function FileUploadZone({ dealId, onUploadComplete }: FileUploadZoneProps
         }}
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
-        className={`flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 transition-colors ${
-          dragOver
-            ? "border-primary bg-primary/5"
-            : "border-muted-foreground/25 hover:border-muted-foreground/50"
-        }`}
         onClick={() => inputRef.current?.click()}
+        className={cn(
+          "relative flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-8 transition-all duration-300",
+          dragOver
+            ? "border-blue-500 bg-blue-500/5 shadow-inner shadow-blue-500/10"
+            : "upload-zone-breathe border-blue-400/25 bg-gradient-to-br from-blue-500/[0.03] to-slate-500/[0.02] hover:border-blue-400/40 hover:bg-blue-500/[0.04]",
+        )}
       >
-        <FileUp className="mb-2 h-8 w-8 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">
-          {uploading ? "Uploading..." : "Drop files here or click to browse"}
-        </p>
-        <p className="mt-1 text-xs text-muted-foreground/60">
-          PDF, DOC, XLSX, CSV, images up to 50MB
-        </p>
+        {/* Gradient overlay */}
+        <div className="pointer-events-none absolute inset-0 rounded-xl bg-gradient-to-t from-blue-500/[0.04] to-transparent" />
+
+        <div className="relative z-10 flex flex-col items-center gap-4">
+          <div
+            className={cn(
+              "flex h-14 w-14 items-center justify-center rounded-xl bg-blue-500/10 transition-transform duration-300",
+              dragOver && "scale-110",
+            )}
+          >
+            <FileUp
+              className={cn(
+                "h-7 w-7 text-blue-500 transition-transform dark:text-blue-400",
+                dragOver && "animate-bounce",
+              )}
+            />
+          </div>
+
+          <div className="text-center">
+            <p className="font-mono text-sm font-medium text-foreground">
+              {uploading ? "Uploading..." : dragOver ? "Drop to upload" : "Drop files here"}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              PDF, Excel, Word, or images — up to 50MB
+            </p>
+          </div>
+
+          {/* Inline category select + button */}
+          <div className="flex items-center gap-2 pt-2">
+            <Select value={kind} onValueChange={setKind}>
+              <SelectTrigger className="h-9 w-[140px] text-xs" onClick={(e) => e.stopPropagation()}>
+                <SelectValue placeholder="Category" />
+              </SelectTrigger>
+              <SelectContent>
+                {FILE_CATEGORIES.map((cat) => (
+                  <SelectItem key={cat.value} value={cat.value}>
+                    {cat.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 gap-1.5"
+              disabled={uploading}
+              onClick={(e) => {
+                e.stopPropagation();
+                inputRef.current?.click();
+              }}
+            >
+              {uploading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Upload className="h-4 w-4" />
+              )}
+              Choose File
+            </Button>
+          </div>
+        </div>
       </div>
 
       <input

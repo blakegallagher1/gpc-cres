@@ -3,6 +3,8 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  --font-sans: var(--font-sans, "Instrument Sans", system-ui, sans-serif);
+  --font-mono: var(--font-mono, "DM Mono", ui-monospace, monospace);
   --color-background: oklch(var(--background));
   --color-foreground: oklch(var(--foreground));
   --color-card: oklch(var(--card));
@@ -252,4 +254,46 @@ body {
 .dark .map-page ::-webkit-scrollbar-thumb {
   background: var(--map-border);
   border-radius: 3px;
+}
+
+/* ──────────────────────────────────────────────────
+   CHAT COMMAND CONSOLE
+   ────────────────────────────────────────────────── */
+@keyframes chat-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes wave-dot {
+  0%, 60%, 100% { transform: translateY(0); }
+  30% { transform: translateY(-4px); }
+}
+
+@keyframes glow-line {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.6; }
+}
+
+.chat-fade-in {
+  animation: chat-fade-in 0.4s ease-out both;
+}
+
+.wave-dot {
+  animation: wave-dot 1.2s ease-in-out infinite;
+}
+
+.glow-line {
+  animation: glow-line 3s ease-in-out infinite;
+}
+
+/* ──────────────────────────────────────────────────
+   DOCUMENT UPLOAD ZONE
+   ────────────────────────────────────────────────── */
+@keyframes border-breathe {
+  0%, 100% { border-color: oklch(0.65 0.15 250 / 0.25); }
+  50% { border-color: oklch(0.65 0.15 250 / 0.45); }
+}
+
+.upload-zone-breathe {
+  animation: border-breathe 3s ease-in-out infinite;
 }
