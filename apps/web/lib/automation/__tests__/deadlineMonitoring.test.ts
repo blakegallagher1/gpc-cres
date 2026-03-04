@@ -3,7 +3,6 @@ const { dbMock, notificationServiceMock } = vi.hoisted(() => ({
     prisma: {
       task: {
         findMany: vi.fn(),
-        findFirst: vi.fn(),
         create: vi.fn(),
       },
     },
@@ -45,7 +44,6 @@ describe("runDeadlineMonitoring", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     dbMock.prisma.task.findMany.mockResolvedValue([]);
-    dbMock.prisma.task.findFirst.mockResolvedValue(null);
     dbMock.prisma.task.create.mockResolvedValue({ id: "auto-task-1" });
     notificationServiceMock.create.mockResolvedValue({ id: "note-1" });
   });
@@ -118,8 +116,11 @@ describe("runDeadlineMonitoring", () => {
   });
 
   it("skips when dedupe finds a recent follow-up task", async () => {
-    dbMock.prisma.task.findMany.mockResolvedValue([overdueTask()]);
-    dbMock.prisma.task.findFirst.mockResolvedValue({ id: "existing-auto" });
+    dbMock.prisma.task.findMany
+      .mockResolvedValueOnce([overdueTask()]) // overdue tasks
+      .mockResolvedValueOnce([
+        { description: "sourceTaskId=task-1\nSome follow-up text." },
+      ]); // dedup batch
 
     const result = await runDeadlineMonitoring(NOW);
 

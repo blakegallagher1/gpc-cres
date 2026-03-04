@@ -22,6 +22,13 @@ function sourceMarker(taskId: string): string {
   return `sourceTaskId=${taskId}`;
 }
 
+/** Extract the originating task ID from a follow-up task description, or null if absent. */
+function parseSourceTaskId(description: string): string | null {
+  // Marker format: "sourceTaskId=<id>" — matches up to the next whitespace/newline
+  const match = /sourceTaskId=([^\n\s]+)/.exec(description);
+  return match?.[1] ?? null;
+}
+
 /**
  * E2: Deadline monitoring automation.
  * - Finds overdue tasks (dueAt < now, status != DONE)
@@ -70,6 +77,29 @@ export async function runDeadlineMonitoring(now = new Date()): Promise<DeadlineM
   let escalatedHighPriority = 0;
   let notificationsCreated = 0;
 
+  // Batch-fetch all recent [AUTO] follow-up tasks for the affected deals in one query.
+  // The sourceMarker (e.g. "sourceTaskId=<id>") uniquely identifies each origin task,
+  // so we only need to check the description rather than a per-row findFirst.
+  const dealIds = [...new Set(overdueTasks.map((t) => t.dealId))];
+  const recentAutoTasks =
+    dealIds.length > 0
+      ? await prisma.task.findMany({
+          where: {
+            dealId: { in: dealIds },
+            createdAt: { gte: dedupeCutoff },
+          },
+          select: { description: true },
+        })
+      : [];
+
+  // Build a Set of source task IDs that already have a follow-up within the dedup window
+  const dedupedSourceIds = new Set<string>();
+  for (const t of recentAutoTasks) {
+    if (!t.description) continue;
+    const id = parseSourceTaskId(t.description);
+    if (id) dedupedSourceIds.add(id);
+  }
+
   for (const task of overdueTasks) {
     if (!task.dueAt) continue;
 
@@ -79,20 +109,8 @@ export async function runDeadlineMonitoring(now = new Date()): Promise<DeadlineM
     const escalated =
       staleDays > AUTOMATION_CONFIG.deadlineMonitoring.escalationAgeDays;
     const title = buildFollowupTitle(task.title, escalated);
-    const marker = sourceMarker(task.id);
 
-    const existing = await prisma.task.findFirst({
-      where: {
-        orgId: task.orgId,
-        dealId: task.dealId,
-        ownerUserId,
-        createdAt: { gte: dedupeCutoff },
-        title,
-        description: { contains: marker },
-      },
-      select: { id: true },
-    });
-    if (existing) continue;
+    if (dedupedSourceIds.has(task.id)) continue;
 
     await prisma.task.create({
       data: {
@@ -101,7 +119,7 @@ export async function runDeadlineMonitoring(now = new Date()): Promise<DeadlineM
         ownerUserId,
         title,
         description:
-          `${marker}\n` +
+          `${sourceMarker(task.id)}\n` +
           `Source task "${task.title}" is overdue by ${overdueDays} day(s). ` +
           "Review immediately and update status.",
         status: "TODO",
