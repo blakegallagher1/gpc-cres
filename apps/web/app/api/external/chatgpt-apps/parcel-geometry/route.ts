@@ -236,7 +236,8 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!devFallbackMode && !checkRateLimit(`${ROUTE_KEY}:${auth.orgId}`)) {
+    // Higher limit for geometry: map fires many concurrent requests on pan/zoom
+    if (!devFallbackMode && !checkRateLimit(`${ROUTE_KEY}:${auth.orgId}`, 50, 10)) {
       return NextResponse.json(
         { ok: false, request_id: requestId, error: { code: "RATE_LIMITED", message: "Too many requests" } },
         { status: 429 },
