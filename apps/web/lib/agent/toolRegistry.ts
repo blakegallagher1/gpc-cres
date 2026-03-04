@@ -294,32 +294,31 @@ for (const t of TOOLS) {
 }
 
 /**
- * Consult tools are handled differently — they invoke agent.asTool() at runtime
- * in the Agents SDK. For the Worker, these route to Vercel which re-invokes the
- * specialist agent via createConfiguredCoordinator(). This is a simplified version
- * that runs the specialist agent for a single turn.
- *
- * DEFERRED TO v2: Specialist agent invocation via CF Worker requires deep
- * openai/agents SDK integration to support nested agent.asTool() calls in
- * the streaming context. Current stub returns "not yet wired" response.
- * Implementation path: (1) Upgrade agents SDK to support tool nesting,
- * (2) Add specialist agent ref to Worker DO state, (3) Route to specialist
- * coordinator on Vercel with streaming relay. See ROADMAP.md for sequencing.
+ * Consult tools — run specialist agents via the Agents SDK `run()`.
+ * When the CF Worker calls /api/agent/tools/execute with a consult tool,
+ * we create the specialist agent and run it for a single turn with the input.
  */
-// Consult tools placeholder — implemented as pass-through to the existing
-// agent workflow when the Worker calls /api/agent/tools/execute with these names.
-// The full implementation will be wired in a follow-up.
-for (const name of [
-  "consult_finance_specialist",
-  "consult_risk_specialist",
-  "consult_legal_specialist",
-  "consult_market_trajectory_specialist",
-]) {
-  toolRegistry[name] = async (args, context) => {
-    // TODO: Wire to specialist agent run via createIntentAwareCoordinator
-    return {
-      result: `Consult tool '${name}' is not yet wired for remote execution. Input: ${JSON.stringify(args).slice(0, 200)}`,
-      status: "stub",
-    };
+const CONSULT_SPECIALIST_MAP: Record<string, string> = {
+  consult_finance_specialist: "finance",
+  consult_risk_specialist: "risk",
+  consult_legal_specialist: "legal",
+  consult_market_trajectory_specialist: "marketTrajectory",
+};
+
+for (const [toolName, specialistKey] of Object.entries(CONSULT_SPECIALIST_MAP)) {
+  toolRegistry[toolName] = async (args: Record<string, unknown>) => {
+    const input = typeof args.input === "string" ? args.input : JSON.stringify(args);
+    try {
+      // Lazy import to avoid circular deps and keep the registry lightweight
+      const { createIntentAwareCoordinator, run } = await import("@entitlement-os/openai");
+      const intent = specialistKey as Parameters<typeof createIntentAwareCoordinator>[0];
+      const agent = createIntentAwareCoordinator(intent);
+      const result = await run(agent, input, { maxTurns: 3 });
+      return { result: result.finalOutput ?? "(No output from specialist)", status: "ok" };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`[consult] ${toolName} failed:`, message);
+      return { result: `Specialist consultation failed: ${message}`, status: "error" };
+    }
   };
 }
