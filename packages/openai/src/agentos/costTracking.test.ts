@@ -15,6 +15,7 @@ describe("cost tracking usage extraction", () => {
       inputTokens: 1200,
       outputTokens: 340,
       totalTokens: 1540,
+      cachedInputTokens: 0,
       estimatedCostUsd: null,
     });
   });

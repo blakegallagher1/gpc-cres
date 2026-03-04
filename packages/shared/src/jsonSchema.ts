@@ -27,16 +27,22 @@ export function zodToOpenAiJsonSchema(name: string, schema: z.ZodTypeAny): OpenA
 /** Keys that OpenAI Structured Outputs does not permit. */
 const DISALLOWED_KEYS = new Set(["propertyNames", "format"]);
 
-/** Recursively set additionalProperties: false on all object schemas and strip disallowed keys. */
+/** Recursively set additionalProperties: false on all object schemas,
+ *  ensure all properties are in `required`, and strip disallowed keys.
+ *  OpenAI Structured Outputs strict mode requires every property key to
+ *  appear in the required array. */
 function addAdditionalPropertiesFalse(obj: unknown): void {
   if (!obj || typeof obj !== "object") return;
   const record = obj as Record<string, unknown>;
-  // Strip keys that OpenAI rejects
   for (const key of DISALLOWED_KEYS) {
     delete record[key];
   }
   if (record.type === "object" && record.properties) {
     record.additionalProperties = false;
+    const propKeys = Object.keys(record.properties as Record<string, unknown>);
+    if (propKeys.length > 0) {
+      record.required = propKeys;
+    }
   }
   for (const value of Object.values(record)) {
     if (Array.isArray(value)) {

@@ -4,6 +4,7 @@ import { AGENT_MODEL_IDS } from '@entitlement-os/shared';
 export const operationsAgent = new Agent({
   name: 'Operations Agent',
   model: AGENT_MODEL_IDS.operations,
+  modelSettings: { providerData: { prompt_cache_key: "entitlement-os" } },
   handoffDescription:
     'Manages construction scheduling, budgets, contractor evaluation, and project close-out for CRE development',
   instructions: `You are the Operations Agent for Gallagher Property Company, specializing in construction management and project execution.

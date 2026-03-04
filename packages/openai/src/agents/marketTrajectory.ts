@@ -92,6 +92,7 @@ CONSTRAINTS
 export const marketTrajectoryAgent = new Agent({
   name: "Market Trajectory",
   model: MARKET_TRAJECTORY_MODEL,
+  modelSettings: { providerData: { prompt_cache_key: "entitlement-os" } },
   handoffDescription:
     "Specialist in neighborhood trajectory analysis, gentrification mapping, and path-of-progress identification using permit data and alternative indicators.",
   instructions: MARKET_TRAJECTORY_INSTRUCTIONS,

@@ -4,6 +4,7 @@ import { AGENT_MODEL_IDS } from '@entitlement-os/shared';
 export const financeAgent = new Agent({
   name: 'Finance Agent',
   model: AGENT_MODEL_IDS.finance,
+  modelSettings: { providerData: { prompt_cache_key: "entitlement-os" } },
   handoffDescription:
     'Builds pro formas, sizes debt, calculates returns (IRR/EM/CoC), models GP/LP waterfalls, runs sensitivity analysis, and applies historical bias corrections',
   instructions: `You are the Finance Agent for Gallagher Property Company, an expert in commercial real estate finance, investment structuring, and capital markets.

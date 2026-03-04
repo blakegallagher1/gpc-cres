@@ -4,6 +4,7 @@ import { AGENT_MODEL_IDS } from '@entitlement-os/shared';
 export const marketIntelAgent = new Agent({
   name: 'Market Intelligence',
   model: AGENT_MODEL_IDS.marketIntel,
+  modelSettings: { providerData: { prompt_cache_key: "entitlement-os" } },
   handoffDescription:
     'Tracks competitor activity, economic indicators, infrastructure investments, and absorption trends in the Baton Rouge CRE market',
   instructions: `You are the Market Intelligence Agent for Gallagher Property Company. Your role is to track competitor activity, economic indicators, infrastructure investments, and absorption trends to inform market strategy.

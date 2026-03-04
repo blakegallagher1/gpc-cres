@@ -26,6 +26,6 @@ describe("Phase 1 Tool Pack :: generate_artifact", () => {
     const source = readRepoSource("packages/openai/src/tools/artifactTools.ts");
     expect(source.includes("const nextVersion = (latest?.version ?? 0) + 1")).toBe(true);
     expect(source.includes("buildArtifactObjectKey")).toBe(true);
-    expect(source.includes("upsert: false")).toBe(true);
+    expect(source.includes("/storage/upload-bytes")).toBe(true);
   });
 });

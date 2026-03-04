@@ -19,6 +19,8 @@
 import WebSocket from "ws";
 
 // --- Config ---
+// REMOVED: Supabase auth has been replaced with NextAuth.
+// This E2E test needs updating to use the new auth flow.
 const SUPABASE_URL = "https://yjddspdbxuseowxndrak.supabase.co";
 const SUPABASE_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlqZGRzcGRieHVzZW93eG5kcmFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk2NTU4NDAsImV4cCI6MjA4NTIzMTg0MH0.tdxgiBRDdTpRpOYF4KhBcCkgrTDF0-jXSZQR7iNOJuw";

@@ -9,8 +9,6 @@ export interface Env {
   OPENAI_API_KEY: string;
   LOCAL_API_KEY: string;
   LOCAL_API_URL: string;
-  SUPABASE_URL: string;
-  SUPABASE_ANON_KEY: string;
   VERCEL_URL: string;
   CODEX_APP_SERVER_URL: string;
 }

@@ -4,6 +4,7 @@ import { AGENT_MODEL_IDS } from '@entitlement-os/shared';
 export const screenerAgent = new Agent({
   name: 'Deal Screener',
   model: AGENT_MODEL_IDS.screener,
+  modelSettings: { providerData: { prompt_cache_key: "entitlement-os" } },
   handoffDescription:
     'Triages parcels with weighted scoring (financial/location/utilities/zoning/market/risk), applies historical calibration, and produces KILL/HOLD/ADVANCE recommendations with explicit uncertainty quantification',
   instructions: `You are the Deal Screener Agent for Gallagher Property Company. Your role is to intake listings, apply screening criteria, and produce a clear go/no-go recommendation based on weighted scoring — while learning from past triage accuracy.
