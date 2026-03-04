@@ -104,7 +104,7 @@ function createAdapter(baseUrl: string, apiKey: string): SqlDriverAdapter {
       };
     },
 
-    async startTransaction(isolationLevel?: IsolationLevel): Promise<Transaction> {
+    async startTransaction(_isolationLevel?: IsolationLevel): Promise<Transaction> {
       // Begin a transaction on the remote side
       const resp = await gatewayFetch(baseUrl, apiKey, { action: "begin" });
       const txId = resp.txId;
