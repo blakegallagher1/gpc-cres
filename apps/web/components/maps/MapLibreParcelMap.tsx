@@ -289,6 +289,62 @@ function isPolygonGeometry(
   );
 }
 
+type GeoJsonSourceHandle = {
+  setData: (data: GeoJSON.FeatureCollection) => void;
+};
+
+function isGeoJsonSourceHandle(source: unknown): source is GeoJsonSourceHandle {
+  if (!source || typeof source !== "object") return false;
+  const candidate = source as { setData?: unknown };
+  return typeof candidate.setData === "function";
+}
+
+export function getGeoJsonSourceSafe(
+  map: Pick<maplibregl.Map, "getSource" | "isStyleLoaded"> | null | undefined,
+  sourceId: string
+): GeoJsonSourceHandle | null {
+  if (!map) return null;
+  if (!map.isStyleLoaded()) return null;
+  try {
+    const source = map.getSource(sourceId);
+    return isGeoJsonSourceHandle(source) ? source : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setGeoJsonSourceDataSafe(
+  map: Pick<maplibregl.Map, "getSource" | "isStyleLoaded"> | null | undefined,
+  sourceId: string,
+  data: GeoJSON.FeatureCollection
+): boolean {
+  const source = getGeoJsonSourceSafe(map, sourceId);
+  if (!source) return false;
+  try {
+    source.setData(data);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function computeNextSelection(
+  currentSelection: ReadonlySet<string>,
+  parcelId: string,
+  isMultiSelect: boolean
+): Set<string> {
+  const next = new Set(currentSelection);
+  if (isMultiSelect) {
+    if (next.has(parcelId)) next.delete(parcelId);
+    else next.add(parcelId);
+    return next;
+  }
+
+  next.clear();
+  next.add(parcelId);
+  return next;
+}
+
 export function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -429,6 +485,9 @@ export function MapLibreParcelMap({
   const [internalSelectedParcelIds, setInternalSelectedParcelIds] = useState<Set<string>>(new Set());
   const [compareOpen, setCompareOpen] = useState(false);
   const selectedParcelIds = selectedParcelIdsProp ?? internalSelectedParcelIds;
+  const selectedParcelIdsRef = useRef<Set<string>>(selectedParcelIds);
+  const onSelectionChangeRef = useRef(onSelectionChange);
+  const isSelectionControlledRef = useRef(selectedParcelIdsProp !== undefined);
   const [viewportBounds, setViewportBounds] = useState<ViewportBounds | null>(null);
   const boundsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stableMapCallbacks = useStableOptions({ onParcelClick });
@@ -459,6 +518,25 @@ export function MapLibreParcelMap({
   useEffect(() => {
     onViewStateChangeRef.current = onViewStateChange;
   }, [onViewStateChange]);
+
+  useEffect(() => {
+    selectedParcelIdsRef.current = selectedParcelIds;
+  }, [selectedParcelIds]);
+
+  useEffect(() => {
+    onSelectionChangeRef.current = onSelectionChange;
+    isSelectionControlledRef.current = selectedParcelIdsProp !== undefined;
+  }, [onSelectionChange, selectedParcelIdsProp]);
+
+  const updateSelection = useCallback((parcelId: string, isMultiSelect: boolean) => {
+    const next = computeNextSelection(selectedParcelIdsRef.current, parcelId, isMultiSelect);
+    selectedParcelIdsRef.current = next;
+    if (isSelectionControlledRef.current) {
+      onSelectionChangeRef.current?.(next);
+      return;
+    }
+    setInternalSelectedParcelIds(next);
+  }, []);
 
   const effectiveSelectedIds = useMemo(() => {
     const merged = new Set(selectedParcelIds);
@@ -591,10 +669,6 @@ export function MapLibreParcelMap({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
-
-  useEffect(() => {
-    if (onSelectionChange) onSelectionChange(new Set(selectedParcelIds));
-  }, [onSelectionChange, selectedParcelIds]);
 
   const mapCenter: [number, number] = center;
 
@@ -1006,19 +1080,7 @@ export function MapLibreParcelMap({
           if (!parcelId) return;
 
           const isMultiSelect = e.originalEvent?.ctrlKey || e.originalEvent?.metaKey;
-          requestAnimationFrame(() => {
-            setInternalSelectedParcelIds((prev) => {
-              const next = new Set(prev);
-              if (isMultiSelect) {
-                if (next.has(parcelId)) next.delete(parcelId);
-                else next.add(parcelId);
-              } else {
-                next.clear();
-                next.add(parcelId);
-              }
-              return next;
-            });
-          });
+          updateSelection(parcelId, isMultiSelect);
 
           stableMapCallbacks.onParcelClick?.(parcelId);
 
@@ -1121,29 +1183,15 @@ export function MapLibreParcelMap({
         mapRef.current = null;
       }
     };
-  }, []);
+  }, [updateSelection]);
 
   useEffect(() => {
     if (!mapRef.current || !mapReady) return;
     const map = mapRef.current;
-
-    const boundaryLayer = map.getSource("parcel-boundary-source") as
-      | { setData: (data: GeoJSON.FeatureCollection) => void }
-      | undefined;
-    const zoningLayer = map.getSource("parcel-zoning-source") as
-      | { setData: (data: GeoJSON.FeatureCollection) => void }
-      | undefined;
-    const floodLayer = map.getSource("parcel-flood-source") as
-      | { setData: (data: GeoJSON.FeatureCollection) => void }
-      | undefined;
-    const pointLayer = map.getSource("parcel-point-source") as
-      | { setData: (data: GeoJSON.FeatureCollection) => void }
-      | undefined;
-
-    boundaryLayer?.setData(boundarySource);
-    zoningLayer?.setData(zoningSource);
-    floodLayer?.setData(floodSource);
-    pointLayer?.setData(pointSource);
+    setGeoJsonSourceDataSafe(map, "parcel-boundary-source", boundarySource);
+    setGeoJsonSourceDataSafe(map, "parcel-zoning-source", zoningSource);
+    setGeoJsonSourceDataSafe(map, "parcel-flood-source", floodSource);
+    setGeoJsonSourceDataSafe(map, "parcel-point-source", pointSource);
 
     try {
       map.setLayoutProperty("parcel-tiles-fill", "visibility", showLayers && showParcelBoundaries ? "visible" : "none");
@@ -1555,12 +1603,10 @@ function MapLibreDrawControl({
   const clearDrawing = useCallback(() => {
     pointsRef.current = [];
     const m = mapRef.current;
-    if (m?.getSource(sourceId)) {
-      (m.getSource(sourceId) as unknown as { setData: (d: GeoJSON.FeatureCollection) => void })?.setData({
-        type: "FeatureCollection",
-        features: [],
-      });
-    }
+    setGeoJsonSourceDataSafe(m, sourceId, {
+      type: "FeatureCollection",
+      features: [],
+    });
   }, []);
 
   const finishDrawing = useCallback(() => {
@@ -1600,13 +1646,59 @@ function MapLibreDrawControl({
       });
     }
     const m = mapRef.current;
-    if (m?.getSource(sourceId)) {
-      (m.getSource(sourceId) as unknown as { setData: (d: GeoJSON.FeatureCollection) => void })?.setData({
-        type: "FeatureCollection",
-        features,
-      });
-    }
+    setGeoJsonSourceDataSafe(m, sourceId, {
+      type: "FeatureCollection",
+      features,
+    });
   }, [drawing, sourceId]);
+
+  const ensureDrawSourceAndLayers = useCallback((m: maplibregl.Map): boolean => {
+    if (!m.isStyleLoaded()) return false;
+
+    if (!getGeoJsonSourceSafe(m, sourceId)) {
+      try {
+        m.addSource(sourceId, {
+          type: "geojson",
+          data: { type: "FeatureCollection", features: [] },
+        });
+      } catch {
+        return false;
+      }
+    }
+
+    try {
+      if (!m.getLayer(pointLayerId)) {
+        m.addLayer({
+          id: pointLayerId,
+          type: "circle",
+          source: sourceId,
+          filter: ["==", ["get", "kind"], "point"],
+          paint: {
+            "circle-radius": 5,
+            "circle-color": "#7c3aed",
+            "circle-stroke-width": 2,
+            "circle-stroke-color": "#ffffff",
+          },
+        });
+      }
+      if (!m.getLayer(lineLayerId)) {
+        m.addLayer({
+          id: lineLayerId,
+          type: "line",
+          source: sourceId,
+          filter: ["==", ["get", "kind"], "line"],
+          paint: {
+            "line-color": "#7c3aed",
+            "line-width": 2,
+            "line-dasharray": [4, 2],
+          },
+        });
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }, [lineLayerId, pointLayerId, sourceId]);
 
   useEffect(() => {
     const handleActivateDraw = () => {
@@ -1647,38 +1739,12 @@ function MapLibreDrawControl({
     if (!m) return;
 
     const setup = () => {
-      if (m.getSource(sourceId)) return;
-      m.addSource(sourceId, {
-        type: "geojson",
-        data: { type: "FeatureCollection", features: [] },
-      });
-      m.addLayer({
-        id: pointLayerId,
-        type: "circle",
-        source: sourceId,
-        filter: ["==", ["get", "kind"], "point"],
-        paint: {
-          "circle-radius": 5,
-          "circle-color": "#7c3aed",
-          "circle-stroke-width": 2,
-          "circle-stroke-color": "#ffffff",
-        },
-      });
-      m.addLayer({
-        id: lineLayerId,
-        type: "line",
-        source: sourceId,
-        filter: ["==", ["get", "kind"], "line"],
-        paint: {
-          "line-color": "#7c3aed",
-          "line-width": 2,
-          "line-dasharray": [4, 2],
-        },
-      });
+      ensureDrawSourceAndLayers(m);
     };
 
     const clickHandler = (e: maplibregl.MapMouseEvent) => {
-      if (!drawing || !mapRef.current) return;
+      const mapInstance = mapRef.current;
+      if (!drawing || !mapInstance) return;
       pointsRef.current.push(e.lngLat);
       const pts = pointsRef.current;
       const features: GeoJSON.Feature[] = pts.map((p) => ({
@@ -1696,7 +1762,8 @@ function MapLibreDrawControl({
           properties: { kind: "line" },
         });
       }
-      (mapRef.current.getSource(sourceId) as unknown as { setData: (d: GeoJSON.FeatureCollection) => void })?.setData({
+      if (!ensureDrawSourceAndLayers(mapInstance)) return;
+      setGeoJsonSourceDataSafe(mapInstance, sourceId, {
         type: "FeatureCollection",
         features,
       });
@@ -1718,13 +1785,17 @@ function MapLibreDrawControl({
       m.on("click", clickHandler);
       m.on("dblclick", dblClickHandler);
       return () => {
+        if (!m) return;
         m.off("click", clickHandler);
         m.off("dblclick", dblClickHandler);
         m.off("style.load", setup);
       };
     }
-    return () => { m.off("style.load", setup); };
-  }, [drawing, finishDrawing]);
+    return () => {
+      if (!m) return;
+      m.off("style.load", setup);
+    };
+  }, [drawing, ensureDrawSourceAndLayers, finishDrawing]);
 
   useEffect(() => {
     if (!drawing) {
@@ -1845,29 +1916,36 @@ function MapLibrePolygonOverlay({
 
   useEffect(() => {
     const m = mapRef.current;
-    if (!m || !mapReady) return;
+    if (!m || !mapReady || !m.isStyleLoaded()) return;
 
-    if (!m.getSource(sourceId)) {
-      m.addSource(sourceId, { type: "geojson", data });
-      m.addLayer({
-        id: fillId,
-        type: "fill",
-        source: sourceId,
-        paint: { "fill-color": "#7c3aed", "fill-opacity": 0.08 },
-      });
-      m.addLayer({
-        id: lineId,
-        type: "line",
-        source: sourceId,
-        paint: {
-          "line-color": "#7c3aed",
-          "line-width": 2,
-          "line-dasharray": [4, 2],
-        },
-      });
-    } else {
-      (m.getSource(sourceId) as unknown as { setData: (d: GeoJSON.FeatureCollection) => void })?.setData(data);
+    if (!getGeoJsonSourceSafe(m, sourceId)) {
+      try {
+        m.addSource(sourceId, { type: "geojson", data });
+      } catch {
+        return;
+      }
+      if (!m.getLayer(fillId)) {
+        m.addLayer({
+          id: fillId,
+          type: "fill",
+          source: sourceId,
+          paint: { "fill-color": "#7c3aed", "fill-opacity": 0.08 },
+        });
+      }
+      if (!m.getLayer(lineId)) {
+        m.addLayer({
+          id: lineId,
+          type: "line",
+          source: sourceId,
+          paint: {
+            "line-color": "#7c3aed",
+            "line-width": 2,
+            "line-dasharray": [4, 2],
+          },
+        });
+      }
     }
+    setGeoJsonSourceDataSafe(m, sourceId, data);
   }, [mapReady, data]);
 
   return null;
@@ -1901,18 +1979,16 @@ function MapLibreTrajectoryLayer({
     if (!m || !mapReady) return;
 
     if (!hasData) {
-      if (m.getSource(sourceId)) {
-        (m.getSource(sourceId) as unknown as { setData: (d: GeoJSON.FeatureCollection) => void })?.setData({
-          type: "FeatureCollection",
-          features: [],
-        });
-      }
+      setGeoJsonSourceDataSafe(m, sourceId, {
+        type: "FeatureCollection",
+        features: [],
+      });
       return;
     }
 
     const data = trajectoryData as GeoJSON.FeatureCollection;
 
-    if (!m.getSource(sourceId)) {
+    if (!getGeoJsonSourceSafe(m, sourceId)) {
       m.addSource(sourceId, { type: "geojson", data });
       m.addLayer({
         id: fillId,
@@ -1945,7 +2021,7 @@ function MapLibreTrajectoryLayer({
         },
       });
     } else {
-      (m.getSource(sourceId) as unknown as { setData: (d: GeoJSON.FeatureCollection) => void })?.setData(data);
+      setGeoJsonSourceDataSafe(m, sourceId, data);
     }
   }, [mapReady, hasData, trajectoryData]);
 
@@ -2085,10 +2161,7 @@ function MapLibreMeasureTool({
     setPoints([]);
     setTotalDistance(0);
     setTotalArea(0);
-    const source = mapRef.current?.getSource(sourceId) as
-      | { setData: (data: GeoJSON.FeatureCollection) => void }
-      | undefined;
-    source?.setData({
+    setGeoJsonSourceDataSafe(mapRef.current, sourceId, {
       type: "FeatureCollection",
       features: [],
     });
@@ -2195,7 +2268,7 @@ function MapLibreMeasureTool({
     const setup = () => {
       mapLoadedRef.current = true;
 
-      if (!mapInstance.getSource(sourceId)) {
+      if (!getGeoJsonSourceSafe(mapInstance, sourceId)) {
         mapInstance.addSource(sourceId, {
           type: "geojson",
           data: {
@@ -2240,10 +2313,7 @@ function MapLibreMeasureTool({
         });
       }
 
-      const source = mapInstance.getSource(sourceId) as
-        | { setData: (data: GeoJSON.FeatureCollection) => void }
-        | undefined;
-      source?.setData(buildFeatures(points));
+      setGeoJsonSourceDataSafe(mapInstance, sourceId, buildFeatures(points));
       recalculate(points);
     };
 
@@ -2251,10 +2321,7 @@ function MapLibreMeasureTool({
       if (mode === "off" || !mapLoadedRef.current) return;
       const next = [...points, event.lngLat];
       setPoints(next);
-      const source = mapInstance.getSource(sourceId) as
-        | { setData: (data: GeoJSON.FeatureCollection) => void }
-        | undefined;
-      source?.setData(buildFeatures(next));
+      setGeoJsonSourceDataSafe(mapInstance, sourceId, buildFeatures(next));
       recalculate(next);
     };
 
@@ -2269,10 +2336,7 @@ function MapLibreMeasureTool({
       mapInstance.off("click", clickHandler);
       mapInstance.off("style.load", setup);
       if (mode === "off") {
-        const source = mapInstance.getSource(sourceId) as
-          | { setData: (data: GeoJSON.FeatureCollection) => void }
-          | undefined;
-        source?.setData({
+        setGeoJsonSourceDataSafe(mapInstance, sourceId, {
           type: "FeatureCollection",
           features: [],
         });
@@ -2394,10 +2458,7 @@ function MapLibreCompSaleLayer({
     setComps([]);
     setSearched(false);
     setSearchAddress("");
-    const source = mapRef.current?.getSource(sourceId) as
-      | { setData: (data: GeoJSON.FeatureCollection) => void }
-      | undefined;
-    source?.setData({
+    setGeoJsonSourceDataSafe(mapRef.current, sourceId, {
       type: "FeatureCollection",
       features: [],
     });
@@ -2486,10 +2547,10 @@ function MapLibreCompSaleLayer({
     if (!mapInstance) return;
 
     if (!visible) {
-      const source = mapInstance.getSource(sourceId) as
-        | { setData: (data: GeoJSON.FeatureCollection) => void }
-        | undefined;
-      source?.setData({ type: "FeatureCollection", features: [] });
+      setGeoJsonSourceDataSafe(mapInstance, sourceId, {
+        type: "FeatureCollection",
+        features: [],
+      });
       if (mapInstance.getLayer(layerId)) {
         mapInstance.setLayoutProperty(layerId, "visibility", "none");
       }
@@ -2500,7 +2561,7 @@ function MapLibreCompSaleLayer({
     }
 
     const setupComps = () => {
-      if (!mapInstance.getSource(sourceId)) {
+      if (!getGeoJsonSourceSafe(mapInstance, sourceId)) {
         mapInstance.addSource(sourceId, {
           type: "geojson",
           data: compSource,
@@ -2604,10 +2665,7 @@ function MapLibreCompSaleLayer({
           mapInstance.getCanvas().style.cursor = "";
         });
       } else {
-        const source = mapInstance.getSource(sourceId) as
-          | { setData: (data: GeoJSON.FeatureCollection) => void }
-          | undefined;
-        source?.setData(compSource);
+        setGeoJsonSourceDataSafe(mapInstance, sourceId, compSource);
       }
       if (mapInstance.getLayer(layerId)) {
         mapInstance.setLayoutProperty(layerId, "visibility", "visible");
@@ -2627,7 +2685,9 @@ function MapLibreCompSaleLayer({
       searchComps(centerLat, centerLng);
     }
 
-    return () => { mapInstance.off("style.load", setupComps); };
+    return () => {
+      mapInstance.off("style.load", setupComps);
+    };
   }, [centerLat, centerLng, compSource, clear, visible, map, searched, searchComps]);
 
   useEffect(() => {
@@ -2728,7 +2788,7 @@ function MapLibreHeatmapLayer({
     }
 
     const setupHeat = () => {
-      if (!mapInstance.getSource(sourceId)) {
+      if (!getGeoJsonSourceSafe(mapInstance, sourceId)) {
         mapInstance.addSource(sourceId, {
           type: "geojson",
           data: heatSource,
@@ -2740,10 +2800,7 @@ function MapLibreHeatmapLayer({
           paint: preset.paint,
         });
       } else {
-        const source = mapInstance.getSource(sourceId) as
-          | { setData: (data: GeoJSON.FeatureCollection) => void }
-          | undefined;
-        source?.setData(heatSource);
+        setGeoJsonSourceDataSafe(mapInstance, sourceId, heatSource);
       }
       if (mapInstance.getLayer(layerId)) {
         mapInstance.setLayoutProperty(layerId, "visibility", "visible");
@@ -2756,7 +2813,9 @@ function MapLibreHeatmapLayer({
       mapInstance.once("style.load", setupHeat);
     }
 
-    return () => { mapInstance.off("style.load", setupHeat); };
+    return () => {
+      mapInstance.off("style.load", setupHeat);
+    };
   }, [visible, heatSource, preset]);
 
   useEffect(() => {
@@ -2902,10 +2961,7 @@ function MapLibreIsochroneControl({
       if (!visibleRef.current || !clickModeRef.current) return;
       compute(event.lngLat.lat, event.lngLat.lng, minutesRef.current);
 
-      const centerSource = mapInstance.getSource(centerSourceId) as
-        | { setData: (data: GeoJSON.FeatureCollection) => void }
-        | undefined;
-      centerSource?.setData({
+      setGeoJsonSourceDataSafe(mapInstance, centerSourceId, {
         type: "FeatureCollection",
         features: [
           {
@@ -2938,7 +2994,7 @@ function MapLibreIsochroneControl({
     }
 
     const setupIsochrone = () => {
-      if (!mapInstance.getSource(sourceId)) {
+      if (!getGeoJsonSourceSafe(mapInstance, sourceId)) {
         mapInstance.addSource(sourceId, {
           type: "geojson",
           data: { type: "FeatureCollection", features: [] },
@@ -2963,7 +3019,7 @@ function MapLibreIsochroneControl({
           },
         });
 
-        if (!mapInstance.getSource(centerSourceId)) {
+        if (!getGeoJsonSourceSafe(mapInstance, centerSourceId)) {
           mapInstance.addSource(centerSourceId, {
             type: "geojson",
             data: {
@@ -3003,12 +3059,8 @@ function MapLibreIsochroneControl({
 
   useEffect(() => {
     const mapInstance = mapRef.current;
-    const source = mapInstance?.getSource(sourceId) as
-      | { setData: (data: GeoJSON.FeatureCollection) => void }
-      | undefined;
-    const centerSource = mapInstance?.getSource(centerSourceId) as
-      | { setData: (data: GeoJSON.FeatureCollection) => void }
-      | undefined;
+    const source = getGeoJsonSourceSafe(mapInstance, sourceId);
+    const centerSource = getGeoJsonSourceSafe(mapInstance, centerSourceId);
     const layerSource = mapInstance?.getLayer(fillId);
 
     if (!mapInstance) return;
