@@ -109,6 +109,72 @@ function extractToolSources(response: OpenAI.Responses.Response): OpenAiToolSour
   };
 }
 
+// ---------------------------------------------------------------------------
+// Plain text generation (narratives, summaries, briefings)
+// ---------------------------------------------------------------------------
+
+export type CreateTextResponseParams = {
+  apiKey?: string;
+  model?: string;
+  systemPrompt: string;
+  userPrompt: string;
+  maxOutputTokens?: number;
+  temperature?: number;
+};
+
+/**
+ * Generate plain text via the Responses API.
+ * Use for narratives, summaries, and briefing text where structured JSON is not needed.
+ */
+export async function createTextResponse(
+  params: CreateTextResponseParams,
+): Promise<{ text: string; responseId: string | null }> {
+  const client = getClient(params.apiKey);
+  const model = params.model ?? "gpt-4o-mini";
+
+  const response = (await withExponentialBackoff(
+    async () =>
+      client.responses.create({
+        model,
+        input: [
+          { role: "system" as const, content: params.systemPrompt },
+          { role: "user" as const, content: params.userPrompt },
+        ],
+        stream: false,
+        store: false,
+        ...(params.maxOutputTokens ? { max_output_tokens: params.maxOutputTokens } : {}),
+        ...(params.temperature !== undefined ? { temperature: params.temperature } : {}),
+      }),
+    {
+      retries: envNumber("OPENAI_RESPONSES_RETRIES", DEFAULT_RESPONSE_RETRIES),
+      initialDelayMs: envNumber(
+        "OPENAI_RESPONSES_INITIAL_RETRY_DELAY_MS",
+        DEFAULT_INITIAL_RETRY_DELAY_MS,
+      ),
+      maxDelayMs: envNumber(
+        "OPENAI_RESPONSES_MAX_RETRY_DELAY_MS",
+        DEFAULT_MAX_RETRY_DELAY_MS,
+      ),
+      multiplier: envNumber(
+        "OPENAI_RESPONSES_RETRY_MULTIPLIER",
+        DEFAULT_RETRY_MULTIPLIER,
+      ),
+    },
+  )) as OpenAI.Responses.Response;
+
+  const text =
+    typeof response.output_text === "string" ? response.output_text.trim() : "";
+
+  return {
+    text,
+    responseId: typeof response.id === "string" ? response.id : null,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Strict JSON structured output
+// ---------------------------------------------------------------------------
+
 export async function createStrictJsonResponse<T>(
   params: CreateStrictJsonResponseParams,
 ): Promise<StrictJsonResponse<T>> {

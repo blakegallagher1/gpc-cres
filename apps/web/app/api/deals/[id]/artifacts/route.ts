@@ -5,7 +5,7 @@ import { buildArtifactObjectKey, DEAL_STATUSES, ARTIFACT_TYPES } from "@entitlem
 import type { ArtifactType, DealStatus, ArtifactSpec } from "@entitlement-os/shared";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { uploadArtifactToGateway } from "@/lib/storage/gatewayStorage";
-import OpenAI from "openai";
+import { createTextResponse } from "@entitlement-os/openai";
 
 // Stage index for prerequisite checks (higher index = later stage)
 const statusIndex = (s: DealStatus) => DEAL_STATUSES.indexOf(s);
@@ -277,21 +277,15 @@ export async function GET(
 // --- LLM helper for narrative generation ---
 
 async function generateNarrative(prompt: string, systemPrompt: string, maxTokens = 800): Promise<string> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return "(LLM narrative generation unavailable — OPENAI_API_KEY not set)";
-
   try {
-    const client = new OpenAI({ apiKey });
-    const response = await client.chat.completions.create({
+    const { text } = await createTextResponse({
       model: "gpt-4o-mini",
-      max_tokens: maxTokens,
+      maxOutputTokens: maxTokens,
       temperature: 0.4,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: prompt },
-      ],
+      systemPrompt,
+      userPrompt: prompt,
     });
-    return response.choices[0]?.message?.content?.trim() ?? "(No narrative generated)";
+    return text || "(No narrative generated)";
   } catch (err) {
     console.error("[artifact-llm] narrative generation failed:", err instanceof Error ? err.message : String(err));
     return "(Narrative generation failed — see logs)";
