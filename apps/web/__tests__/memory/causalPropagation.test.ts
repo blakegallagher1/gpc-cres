@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { prismaMock } = vi.hoisted(() => ({
   prismaMock: {
     causalImpactTrace: {
-      create: vi.fn(),
+      createManyAndReturn: vi.fn(),
       findMany: vi.fn(),
     },
   },
@@ -23,13 +23,8 @@ const EVENT_ID = "33333333-3333-4333-8333-333333333333";
 
 describe("propagateCausalImpact", () => {
   beforeEach(() => {
-    prismaMock.causalImpactTrace.create.mockReset();
-    prismaMock.causalImpactTrace.create.mockImplementation(
-      async ({ data }: { data: Record<string, unknown> }) => ({
-        id: `trace-${data.targetDomain}`,
-        ...data,
-      }),
-    );
+    prismaMock.causalImpactTrace.createManyAndReturn.mockReset();
+    prismaMock.causalImpactTrace.createManyAndReturn.mockResolvedValue([]);
   });
 
   it("returns empty steps for unmapped fact type", async () => {
@@ -43,7 +38,7 @@ describe("propagateCausalImpact", () => {
 
     expect(result.steps).toHaveLength(0);
     expect(result.traceIds).toHaveLength(0);
-    expect(prismaMock.causalImpactTrace.create).not.toHaveBeenCalled();
+    expect(prismaMock.causalImpactTrace.createManyAndReturn).not.toHaveBeenCalled();
   });
 
   it("returns empty steps for terminal domain", async () => {
@@ -127,11 +122,12 @@ describe("propagateCausalImpact", () => {
       0.2,
     );
 
-    expect(prismaMock.causalImpactTrace.create).toHaveBeenCalled();
-    const firstCall = prismaMock.causalImpactTrace.create.mock.calls[0][0];
-    expect(firstCall.data.orgId).toBe(ORG_ID);
-    expect(firstCall.data.entityId).toBe(ENTITY_ID);
-    expect(firstCall.data.originEventId).toBe(EVENT_ID);
+    expect(prismaMock.causalImpactTrace.createManyAndReturn).toHaveBeenCalledOnce();
+    const call = prismaMock.causalImpactTrace.createManyAndReturn.mock.calls[0][0];
+    expect(call.data.length).toBeGreaterThan(0);
+    expect(call.data[0].orgId).toBe(ORG_ID);
+    expect(call.data[0].entityId).toBe(ENTITY_ID);
+    expect(call.data[0].originEventId).toBe(EVENT_ID);
   });
 });
 

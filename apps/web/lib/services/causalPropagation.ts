@@ -58,8 +58,22 @@ export async function propagateCausalImpact(
   }
 
   const steps: PropagationStep[] = [];
-  const traceIds: string[] = [];
   let currentDelta = Math.abs(impactDelta);
+
+  // Collect trace payloads during the loop — no DB calls here.
+  // propagationPath is cumulative, so it must be captured per-step.
+  const traceDataArray: Array<{
+    orgId: string;
+    entityId: string;
+    originEventId: string;
+    sourceDomain: string;
+    targetDomain: string;
+    impactDelta: number;
+    impactCap: number;
+    clampedDelta: number;
+    propagationPath: string[];
+  }> = [];
+  const propagationPath: string[] = [];
 
   for (const edge of edges) {
     const clampedDelta = Math.min(currentDelta, edge.impactCap);
@@ -72,27 +86,34 @@ export async function propagateCausalImpact(
       clampedDelta,
     };
     steps.push(step);
+    propagationPath.push(`${edge.source}→${edge.target}`);
 
-    // Persist the trace
-    const trace = await prisma.causalImpactTrace.create({
-      data: {
-        orgId,
-        entityId,
-        originEventId,
-        sourceDomain: edge.source,
-        targetDomain: edge.target,
-        impactDelta: currentDelta,
-        impactCap: edge.impactCap,
-        clampedDelta,
-        propagationPath: steps.map((s) => `${s.sourceDomain}→${s.targetDomain}`),
-      },
+    traceDataArray.push({
+      orgId,
+      entityId,
+      originEventId,
+      sourceDomain: edge.source,
+      targetDomain: edge.target,
+      impactDelta: currentDelta,
+      impactCap: edge.impactCap,
+      clampedDelta,
+      propagationPath: [...propagationPath],
     });
-    traceIds.push(trace.id);
 
     // Attenuate: the clamped delta becomes the input for the next edge
     currentDelta = clampedDelta * 0.8; // 20% attenuation per hop
 
     if (currentDelta < 0.01) break; // Below noise floor, stop propagating
+  }
+
+  // Persist all trace records in a single batch insert and recover the generated IDs
+  const traceIds: string[] = [];
+  if (traceDataArray.length > 0) {
+    const created = await prisma.causalImpactTrace.createManyAndReturn({
+      data: traceDataArray,
+      select: { id: true },
+    });
+    traceIds.push(...created.map((r) => r.id));
   }
 
   return { originEventId, sourceDomain, steps, traceIds };
