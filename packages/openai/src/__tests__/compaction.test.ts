@@ -206,6 +206,16 @@ describe("createStrictJsonResponse compaction and chaining", () => {
       id: "resp_with_metadata",
       model: "gpt-5-mini",
       status: "completed",
+      service_tier: "default",
+      created_at: 1_700_000_000,
+      completed_at: 1_700_000_006,
+      prompt_cache_key: "pcache_123",
+      parallel_tool_calls: true,
+      max_tool_calls: 8,
+      temperature: 0.2,
+      top_p: 0.95,
+      background: false,
+      safety_identifier: "safe_abc123",
       usage: {
         input_tokens: 64,
         output_tokens: 9,
@@ -223,7 +233,11 @@ describe("createStrictJsonResponse compaction and chaining", () => {
             type: "web_search_call",
             query: "entitlement properties",
             sources: [
-              { url: "https://example.com/result" },
+              {
+                url: "https://example.com/result",
+                title: "Example Source",
+                snippet: "Example snippet",
+              },
             ],
           },
         },
@@ -279,6 +293,33 @@ describe("createStrictJsonResponse compaction and chaining", () => {
     expect(result.metadata).toBeDefined();
     expect(result.metadata?.model).toBe("gpt-5-mini");
     expect(result.metadata?.status).toBe("completed");
+    expect(result.metadata?.serviceTier).toBe("default");
+    expect(result.metadata?.promptCacheKey).toBe("pcache_123");
+    expect(result.metadata?.parallelToolCalls).toBe(true);
+    expect(result.metadata?.maxToolCalls).toBe(8);
+    expect(result.metadata?.temperature).toBe(0.2);
+    expect(result.metadata?.topP).toBe(0.95);
+    expect(result.metadata?.background).toBe(false);
+    expect(result.metadata?.safetyIdentifier).toBe("safe_abc123");
+    expect(result.metadata?.createdAtEpoch).toBe(1_700_000_000);
+    expect(result.metadata?.completedAtEpoch).toBe(1_700_000_006);
+    expect(result.metadata?.createdAt).toBe("2023-11-14T22:13:20.000Z");
+    expect(result.metadata?.completedAt).toBe("2023-11-14T22:13:26.000Z");
+    expect(result.metadata?.raw).toMatchObject({
+      id: "resp_with_metadata",
+      model: "gpt-5-mini",
+      status: "completed",
+      serviceTier: "default",
+      promptCacheKey: "pcache_123",
+      parallelToolCalls: true,
+      maxToolCalls: 8,
+      temperature: 0.2,
+      topP: 0.95,
+      background: false,
+      safetyIdentifier: "safe_abc123",
+      createdAtEpoch: 1_700_000_000,
+      completedAtEpoch: 1_700_000_006,
+    });
     expect(result.metadata?.usage).toMatchObject({
       inputTokens: 64,
       outputTokens: 9,
@@ -297,6 +338,13 @@ describe("createStrictJsonResponse compaction and chaining", () => {
         shell_call_output: 1,
       },
     });
+    expect(result.toolSources.webSearchSources).toEqual([
+      {
+        url: "https://example.com/result",
+        title: "Example Source",
+        snippet: "Example snippet",
+      },
+    ]);
   });
 
   it("honors explicit contextManagement override while preserving strict parsing", async () => {

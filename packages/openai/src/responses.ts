@@ -299,16 +299,98 @@ function summarizeToolOutput(response: OpenAI.Responses.Response): OpenAiToolOut
 }
 
 function extractResponseMetadata(response: OpenAI.Responses.Response): OpenAiResponseMetadata | null {
+  const responseRecord = asRecord(response) ?? {};
   const usage = extractUsageMetadata(response);
   const toolOutputSummary = summarizeToolOutput(response);
   const incompleteDetails = asRecord((response as { incomplete_details?: unknown }).incomplete_details);
   const finishReason = typeof incompleteDetails?.reason === "string"
     ? incompleteDetails.reason
     : undefined;
+  const serviceTier = typeof responseRecord.service_tier === "string"
+    ? responseRecord.service_tier
+    : typeof responseRecord.serviceTier === "string"
+      ? responseRecord.serviceTier
+      : undefined;
+  const promptCacheKey = typeof responseRecord.prompt_cache_key === "string"
+    ? responseRecord.prompt_cache_key
+    : typeof responseRecord.promptCacheKey === "string"
+      ? responseRecord.promptCacheKey
+      : undefined;
+  const temperature = typeof responseRecord.temperature === "number" && Number.isFinite(responseRecord.temperature)
+    ? responseRecord.temperature
+    : undefined;
+  const topP = typeof responseRecord.top_p === "number" && Number.isFinite(responseRecord.top_p)
+    ? responseRecord.top_p
+    : typeof responseRecord.topP === "number" && Number.isFinite(responseRecord.topP)
+      ? responseRecord.topP
+      : undefined;
+  const parallelToolCalls = typeof responseRecord.parallel_tool_calls === "boolean"
+    ? responseRecord.parallel_tool_calls
+    : typeof responseRecord.parallelToolCalls === "boolean"
+      ? responseRecord.parallelToolCalls
+      : undefined;
+  const background = typeof responseRecord.background === "boolean"
+    ? responseRecord.background
+    : undefined;
+  const safetyIdentifier = typeof responseRecord.safety_identifier === "string"
+    ? responseRecord.safety_identifier
+    : typeof responseRecord.safetyIdentifier === "string"
+      ? responseRecord.safetyIdentifier
+      : undefined;
+  const maxToolCalls = typeof responseRecord.max_tool_calls === "number" &&
+    Number.isFinite(responseRecord.max_tool_calls)
+    ? Math.floor(responseRecord.max_tool_calls)
+    : typeof responseRecord.maxToolCalls === "number" &&
+        Number.isFinite(responseRecord.maxToolCalls)
+      ? Math.floor(responseRecord.maxToolCalls)
+      : undefined;
+
+  const createdAtRaw = typeof responseRecord.created_at === "number"
+    ? responseRecord.created_at
+    : typeof responseRecord.createdAt === "number"
+      ? responseRecord.createdAt
+      : null;
+  const completedAtRaw = typeof responseRecord.completed_at === "number"
+    ? responseRecord.completed_at
+    : typeof responseRecord.completedAt === "number"
+      ? responseRecord.completedAt
+      : null;
+  const createdAtEpoch = typeof createdAtRaw === "number"
+    ? createdAtRaw > 1_000_000_000_000 ? Math.floor(createdAtRaw / 1_000) : Math.floor(createdAtRaw)
+    : undefined;
+  const completedAtEpoch = typeof completedAtRaw === "number"
+    ? completedAtRaw > 1_000_000_000_000 ? Math.floor(completedAtRaw / 1_000) : Math.floor(completedAtRaw)
+    : undefined;
+  const createdAt = typeof createdAtEpoch === "number"
+    ? new Date(createdAtEpoch * 1_000).toISOString()
+    : typeof responseRecord.created_at === "string"
+      ? responseRecord.created_at
+      : typeof responseRecord.createdAt === "string"
+        ? responseRecord.createdAt
+        : undefined;
+  const completedAt = typeof completedAtEpoch === "number"
+    ? new Date(completedAtEpoch * 1_000).toISOString()
+    : typeof responseRecord.completed_at === "string"
+      ? responseRecord.completed_at
+      : typeof responseRecord.completedAt === "string"
+        ? responseRecord.completedAt
+        : undefined;
 
   if (
     !response.model &&
     !response.status &&
+    !serviceTier &&
+    !promptCacheKey &&
+    typeof parallelToolCalls !== "boolean" &&
+    typeof background !== "boolean" &&
+    typeof temperature !== "number" &&
+    typeof topP !== "number" &&
+    !safetyIdentifier &&
+    typeof maxToolCalls !== "number" &&
+    !createdAt &&
+    !completedAt &&
+    typeof createdAtEpoch !== "number" &&
+    typeof completedAtEpoch !== "number" &&
     !usage &&
     toolOutputSummary.totalToolCalls === 0 &&
     toolOutputSummary.totalToolOutputs === 0 &&
@@ -323,6 +405,35 @@ function extractResponseMetadata(response: OpenAI.Responses.Response): OpenAiRes
     ...(typeof response.model === "string" ? { model: response.model } : {}),
     ...(typeof response.status === "string" ? { status: response.status } : {}),
     ...(finishReason ? { finishReason } : {}),
+    ...(serviceTier ? { serviceTier } : {}),
+    ...(promptCacheKey ? { promptCacheKey } : {}),
+    ...(typeof parallelToolCalls === "boolean" ? { parallelToolCalls } : {}),
+    ...(typeof background === "boolean" ? { background } : {}),
+    ...(typeof temperature === "number" ? { temperature } : {}),
+    ...(typeof topP === "number" ? { topP } : {}),
+    ...(safetyIdentifier ? { safetyIdentifier } : {}),
+    ...(typeof maxToolCalls === "number" ? { maxToolCalls } : {}),
+    ...(createdAt ? { createdAt } : {}),
+    ...(completedAt ? { completedAt } : {}),
+    ...(typeof createdAtEpoch === "number" ? { createdAtEpoch } : {}),
+    ...(typeof completedAtEpoch === "number" ? { completedAtEpoch } : {}),
+    raw: {
+      id: typeof responseRecord.id === "string" ? responseRecord.id : undefined,
+      model: typeof response.model === "string" ? response.model : undefined,
+      status: typeof response.status === "string" ? response.status : undefined,
+      serviceTier,
+      promptCacheKey,
+      parallelToolCalls,
+      temperature,
+      topP,
+      background,
+      safetyIdentifier,
+      maxToolCalls,
+      createdAt,
+      completedAt,
+      createdAtEpoch,
+      completedAtEpoch,
+    },
   };
 
   return metadata;
@@ -344,14 +455,24 @@ function extractToolSources(response: OpenAI.Responses.Response): OpenAiToolSour
           : null;
       if (sources) {
         for (const source of sources) {
-          if (typeof source.url !== "string") {
+          const sourceRecord = asRecord(source);
+          if (!sourceRecord) {
             continue;
           }
+          const url = typeof sourceRecord.url === "string" ? sourceRecord.url : null;
+          if (!url) continue;
+
+          const title = typeof sourceRecord.title === "string" ? sourceRecord.title : undefined;
+          const snippet = typeof sourceRecord.snippet === "string"
+            ? sourceRecord.snippet
+            : typeof sourceRecord.summary === "string"
+              ? sourceRecord.summary
+              : undefined;
 
           webSearchSources.push({
-            url: source.url,
-            title: undefined,
-            snippet: undefined,
+            url,
+            title,
+            snippet,
           });
         }
       }
