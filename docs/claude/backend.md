@@ -1,23 +1,26 @@
 # Backend: Local Property DB + FastAPI Gateway
 
-Last synced with `infra/local-api/main.py`: 2026-02-28
+Last synced with `infra/local-api/main.py`: 2026-03-04
 
-## Architecture (verified 2026-02-22)
+## Architecture (verified 2026-03-04)
 
 ```
 Vercel (gallagherpropco.com)
-    ↓ HTTPS + Bearer Token (LOCAL_API_KEY)
-Cloudflare Edge (single tunnel, 4 QUIC connections, remotely-managed ingress)
+    ├── Prisma queries → CF Worker /db → Hyperdrive → tunnel → local Postgres
+    └── Gateway calls → HTTPS + Bearer Token (LOCAL_API_KEY)
+Cloudflare Edge (tunnel + Hyperdrive)
+    ├── agents.gallagherpropco.com → CF Worker (Durable Objects + /db proxy)
     ├── api.gallagherpropco.com → gateway:8000 (FastAPI)
     └── tiles.gallagherpropco.com → martin:3000 (MVT tiles)
     ↓
 Windows 11 Desktop (12-core i7) — Docker Compose at C:\gpc-cres-backend\docker-compose.yml
     ├── gateway (FastAPI :8000) — infra/local-api/main.py
     │   ├── Auth: Bearer token (GATEWAY_API_KEY), constant-time comparison
-    │   ├── DB pool: asyncpg → entitlement_os (560K parcels, deals, orgs, PostGIS)
+    │   ├── DB pool: asyncpg → entitlement_os (all data + PostGIS)
+    │   ├── /db/query endpoint for Prisma SQL proxy (Vercel fallback)
     │   └── Security: X-Content-Type-Options: nosniff, X-Frame-Options: DENY
     ├── martin (:3000) — MVT tile generation from parcel geometries
-    ├── entitlement-db (internal :5432) — entitlement_os, 560K parcels, 5 parishes, PostGIS
+    ├── entitlement-os-postgres (internal :5432) — entitlement_os, all data, PostGIS, SSL enabled
     ├── qdrant (internal :6333) — vector search (docs, memory)
     ├── pgadmin (internal)
     └── cloudflared (tunnel agent)
@@ -29,7 +32,7 @@ Separate subdomains for independent cache policies (tiles: 7d immutable; data: 6
 
 ## Database
 
-All services use a single PostgreSQL database: `entitlement_os` on the `entitlement-db` container. The legacy `local-postgis` container (`cres_db`) was consolidated into `entitlement-db` on 2026-02-24.
+All services use a single PostgreSQL database: `entitlement_os` on the `entitlement-os-postgres` container. The legacy `local-postgis` container was removed on 2026-03-04. Both Supabase projects archived (2026-03-04). Vercel reaches this DB via Cloudflare Hyperdrive (config `ebd13ab7df60414d9ba8244299467e5e`) through the CF Worker `/db` endpoint.
 
 | Pool | Env Var | Target | Purpose |
 |------|---------|--------|---------|

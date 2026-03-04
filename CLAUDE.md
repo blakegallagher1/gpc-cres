@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Last reviewed: 2026-02-25
+Last reviewed: 2026-03-04
 
 **🟢 PRODUCTION VERIFICATION COMPLETE (2026-02-25):**
 - ✅ All 5 features from "Maximize Local Server Utilization" plan verified and working
@@ -17,9 +17,9 @@ Last reviewed: 2026-02-25
 **Entitlement OS** — Internal operating system for Gallagher Property Company, a commercial real estate investment and development firm focused on light industrial, outdoor storage, and truck parking in Louisiana. The platform combines a 14-agent AI coordinator with a deal pipeline UI, property database integration, and document generation to manufacture certainty in entitlement processes.
 
 **Live at:** gallagherpropco.com
-**Deployed on:** Vercel (frontend) + Local 12-core i7 Windows 11 (Docker Compose: FastAPI gateway :8000, Martin tiles :3000, PostgreSQL/Qdrant internal, Cloudflare Tunnel)
+**Deployed on:** Vercel (frontend) + Local 12-core i7 Windows 11 (Docker Compose: FastAPI gateway :8000, Martin tiles :3000, PostgreSQL/Qdrant internal, Cloudflare Tunnel + Hyperdrive)
 
-**Architecture (verified 2026-02-20):** Docker Compose on Windows 11 — FastAPI gateway (:8000), Martin (:3000), PostgreSQL + Qdrant on internal Docker network, single Cloudflare Tunnel with remotely-managed ingress rules. All P0/P1/P2 deployment blockers resolved. See `PHASE_3_DEPLOYMENT_BLOCKERS.md` for deployment evidence.
+**Architecture (verified 2026-03-04):** Docker Compose on Windows 11 — FastAPI gateway (:8000), Martin (:3000), single consolidated PostgreSQL (`entitlement-os-postgres`) + Qdrant on internal Docker network, Cloudflare Tunnel + Hyperdrive. Vercel reaches Postgres via Cloudflare Hyperdrive (config `ebd13ab7df60414d9ba8244299467e5e`) through CF Worker `/db` endpoint. Prisma gateway adapter: `packages/db/src/gateway-adapter.ts`. Both Supabase projects archived (2026-03-04).
 
 **Remote DB access:** `cloudflared access tcp --hostname db.gallagherpropco.com --url localhost:54399` — then connect on `localhost:54399` (user: `postgres`, password: `postgres`). Protected by Cloudflare Access (Blake only). See `docs/CLOUDFLARE.md` for full details.
 
@@ -49,6 +49,30 @@ Last reviewed: 2026-02-25
 - Don't call `dispatchEvent()` without `.catch(() => {})` — unhandled promise rejections crash the route
 - Don't prefix server-only secrets with `NEXT_PUBLIC_` — they must stay server-side only
 - Don't use `any` type — use `Record<string, unknown>` for dynamic objects
+
+## Skill Routing Awareness
+
+For domain-specific tasks, route to skill docs in `skills/`:
+
+- `skills/underwriting` — financial and valuation analysis.
+- `skills/entitlement-os` — entitlement phase work; load phase file sub-skills as needed.
+- `skills/market-trajectory` — market trend and comp trajectory analysis.
+- `skills/property-report` — investment memo and artifact generation tasks.
+- `skills/data-extraction` — county/assessor fetch and parcel import workflows.
+- `skills/parcel-ops` — parcel lookup, geometry retrieval, and map diagnostics.
+
+Use routing rules from each skill:
+
+- Deterministic by exact match when the user asks for a specific skill.
+- Auto-routed by `description` criteria (`Use when` / `Don't use when`) when intent is implicit.
+- Keep domain routing strict with explicit negative-routing examples.
+- For `entitlement-os`, load the requested phase sub-skill for phase-gated execution.
+
+Execution security posture for skill-backed flows:
+
+- Shell default posture is network deny-all, narrowed by workflow allowlist.
+- Secrets flow through `domain_secrets` style environment bindings, never raw strings.
+- Artifact writes and heavy compute happen in workflow filesystem locations, not via stdout-only channels.
 
 ## ROADMAP-FIRST IMPLEMENTATION PROTOCOL (MANDATORY)
 

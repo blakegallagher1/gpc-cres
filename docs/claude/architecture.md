@@ -10,8 +10,8 @@
 | Data Fetching | SWR | 2.4.0 |
 | Agent SDK | @openai/agents (TypeScript) | 0.4.15 |
 | ORM | Prisma | 6.4.1 |
-| Database | PostgreSQL via Supabase | 16 |
-| Auth | Supabase Auth (Google OAuth + email) | 2.93.3 |
+| Database | PostgreSQL (local Docker + Cloudflare Hyperdrive) | 16 |
+| Auth | NextAuth v5 (session-based JWT) | — |
 | Collaboration | TipTap + Yjs | 2.11.7 / 13.6.15 |
 | Workflow Viz | @xyflow/react | 12.3.2 |
 | Package Manager | pnpm | 9.11.0 |
@@ -19,7 +19,7 @@
 | TypeScript | strict mode | 5.7.3 |
 | Local API | FastAPI gateway (Docker Compose) + Martin + Qdrant | 0.115 / 0.30 |
 | Agent Runtime | Cloudflare Workers + Durable Objects (WebSocket chat) | — |
-| Tunnel | Cloudflare Tunnel (single, remotely-managed ingress) | — |
+| Tunnel | Cloudflare Tunnel + Hyperdrive (DB proxy for Vercel) | — |
 | Orchestration (parked) | Temporal | 1.24.2 |
 
 ## Repository Structure
@@ -118,9 +118,10 @@ Deployed at `agents.gallagherpropco.com`. Provides persistent WebSocket transpor
 
 **Enums:** `sku_type` (SMALL_BAY_FLEX, OUTDOOR_STORAGE, TRUCK_PARKING), `deal_status` (11 stages INTAKE→EXITED/KILLED), `task_status`, `artifact_type`, `run_type` (TRIAGE, ARTIFACT_GEN, BUYER_LIST_BUILD, CHANGE_DETECT, ENRICHMENT, INTAKE_PARSE, DOCUMENT_CLASSIFY, BUYER_OUTREACH_DRAFT, ADVANCEMENT_CHECK)
 
-**Database architecture:**
-- **Entitlement OS DB** (Supabase `yjddspdbxuseowxndrak`) — system of record, Prisma-managed
-- **Property Database** (local PostgreSQL `entitlement_os`) — 560K parcels, PostGIS, parcel search/screening/geometry served via local FastAPI server
+**Database architecture (consolidated 2026-03-04):**
+- **Single PostgreSQL** (local Docker `entitlement-os-postgres` / `entitlement_os`) — all app data (deals, orgs, tasks) + spatial data (560K parcels, PostGIS). Prisma-managed schema.
+- **Vercel access:** Cloudflare Hyperdrive (config `ebd13ab7df60414d9ba8244299467e5e`) → CF Worker `/db` → tunnel → local Postgres. Prisma gateway adapter in `packages/db/src/gateway-adapter.ts`.
+- **Qdrant** — vector DB for property intelligence embeddings at `qdrant.gallagherpropco.com`
 
 ## Automation Philosophy
 

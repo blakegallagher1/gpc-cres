@@ -42,20 +42,30 @@ db generate → shared build → db build → openai build → next build
 
 ### Root `.env`
 ```
-DATABASE_URL, DIRECT_DATABASE_URL, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
-NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, OPENAI_API_KEY,
-TEMPORAL_ADDRESS, TEMPORAL_NAMESPACE, TEMPORAL_TASK_QUEUE
+DATABASE_URL (local dev: direct TCP to Postgres),
+DIRECT_DATABASE_URL (same as DATABASE_URL for local dev),
+OPENAI_API_KEY, TEMPORAL_ADDRESS, TEMPORAL_NAMESPACE, TEMPORAL_TASK_QUEUE
 ```
 
 ### Frontend (`apps/web/.env.local`)
 ```
-NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY,
+DATABASE_URL (local dev TCP), DIRECT_DATABASE_URL,
 OPENAI_API_KEY, ALLOWED_LOGIN_EMAILS,
 LOCAL_API_URL, LOCAL_API_KEY, CRON_SECRET, GATEWAY_SERVICE_USER_ID,
-QDRANT_URL,
+QDRANT_URL, AGENTS_URL,
 SOCRATA_BASE_URL, SOCRATA_APP_TOKEN, GOOGLE_MAPS_API_KEY,
 NEXT_PUBLIC_SENTRY_DSN, SENTRY_DSN, SENTRY_AGENTS_DSN,
 AGENT_SESSION_IDLE_TIMEOUT_MS, AGENT_SESSION_MAX_DURATION_MS
+```
+
+### Vercel Production (key vars)
+```
+GATEWAY_DATABASE_URL=https://agents.gallagherpropco.com  (activates Hyperdrive adapter)
+LOCAL_API_KEY  (gateway + Hyperdrive auth)
+LOCAL_API_URL=https://api.gallagherpropco.com
+AGENTS_URL=https://agents.gallagherpropco.com
+DATABASE_URL  (kept for prisma generate at build time)
+OPENAI_API_KEY
 ```
 
 **Note:** `LOCAL_API_URL` can point to either subdomain depending on usage context:

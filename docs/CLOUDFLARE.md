@@ -66,10 +66,41 @@ Protects services with browser login before reaching the backend.
 | Application | Domain | Policy | Session |
 |-------------|--------|--------|---------|
 | SSH | `ssh.gallagherpropco.com` | Blake@gallagherpropco.com | 24h |
-| Entitlement DB | `db.gallagherpropco.com` | Blake@gallagherpropco.com | 24h |
+| Entitlement DB | `db.gallagherpropco.com` | Blake@gallagherpropco.com (Allow) + `hyperdrive-db` service token (Service Auth) | 24h |
 
 Configure in: Zero Trust → Access → Applications → Add application.
 Free plan: 500 applications, 50 identity providers.
+
+---
+
+## Hyperdrive (Database Gateway for Vercel)
+
+Cloudflare Hyperdrive provides connection pooling and caching between Vercel serverless functions and the local PostgreSQL database through the Cloudflare tunnel.
+
+| Property | Value |
+|----------|-------|
+| Config ID | `ebd13ab7df60414d9ba8244299467e5e` |
+| Host | `db.gallagherpropco.com` (tunnel TCP) |
+| Database | `entitlement_os` |
+| Worker binding | `HYPERDRIVE` in `infra/cloudflare-agent/wrangler.toml` |
+| Access policy | Service Auth via `hyperdrive-db` service token |
+
+**How it works:**
+1. Vercel sends Prisma SQL via HTTPS POST to `agents.gallagherpropco.com/db`
+2. CF Worker uses Hyperdrive binding to get a pooled Postgres connection
+3. Hyperdrive connects through the tunnel to `db.gallagherpropco.com` (TCP)
+4. The tunnel routes to `entitlement-os-postgres:5432` on the Docker network
+5. Results return through the same chain
+
+**Prisma integration:** `packages/db/src/gateway-adapter.ts` implements `SqlDriverAdapterFactory` — activates when `GATEWAY_DATABASE_URL` + `LOCAL_API_KEY` are both set on Vercel.
+
+**SSL:** Self-signed cert enabled on Postgres (required by Hyperdrive). 10-year expiry, auto-generated in container.
+
+**Management:**
+```bash
+npx wrangler hyperdrive list              # List configs
+npx wrangler hyperdrive get entitlement-os-db  # Check status
+```
 
 ---
 
