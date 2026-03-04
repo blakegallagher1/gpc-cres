@@ -7,7 +7,11 @@
  * alternative transport layer using the OpenAI MCP connector pattern.
  */
 
-import { TOOL_CATALOG, type ToolCatalogEntry } from "./toolCatalog.js";
+import {
+  TOOL_CATALOG,
+  resolveToolCatalogEntry,
+  type ToolCatalogEntry,
+} from "./toolCatalog.js";
 
 const MCP_ALLOWLISTED_SERVERS = new Set([
   "https://api.gallagherpropco.com",
@@ -62,7 +66,7 @@ export function resolveToolTransport(
 ): "mcp" | "direct" {
   if (!isMcpGatewayEnabled()) return "direct";
 
-  const entry = TOOL_CATALOG[toolName];
+  const entry = resolveToolCatalogEntry(toolName);
   if (!entry || entry.destination !== "gateway") return "direct";
 
   return "mcp";

@@ -77,7 +77,12 @@ async function evaluateRunWithCritic(input: RunCriticInput): Promise<CriticEvalu
       effort: config.models.reasoningEffortCritic,
     },
     contextManagement: isAgentOsFeatureEnabled("contextManagementCompaction")
-      ? { strategy: config.contextManagement.strategy }
+      ? [
+          {
+            type: config.contextManagement.type,
+            compact_threshold: config.contextManagement.compactionThreshold,
+          },
+        ]
       : null,
   });
 
@@ -119,4 +124,3 @@ export async function runCriticEvaluation(input: RunCriticInput): Promise<void> 
   const evaluation = await evaluateRunWithCritic(input);
   await persistCriticEvaluation(input.runId, evaluation);
 }
-

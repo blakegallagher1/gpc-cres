@@ -122,8 +122,25 @@ async function resolvePreviousResponseIdFromHistory(
 
   const priorRun = await prisma.run.findFirst({
     where: { id: priorRunId, orgId },
-    select: { openaiResponseId: true },
+    select: { outputJson: true, openaiResponseId: true },
   });
+
+  const runState =
+    priorRun && typeof priorRun.outputJson === "object" && priorRun.outputJson !== null
+      ? (priorRun.outputJson as { runState?: unknown }).runState
+      : null;
+  const previousResponseIdFromState =
+    runState &&
+    typeof runState === "object" &&
+    !Array.isArray(runState) &&
+    typeof (runState as Record<string, unknown>)[AGENT_RUN_STATE_KEYS.previousResponseId] ===
+      "string"
+      ? ((runState as Record<string, unknown>)[AGENT_RUN_STATE_KEYS.previousResponseId] as string)
+      : null;
+  if (previousResponseIdFromState && previousResponseIdFromState.startsWith("resp")) {
+    return previousResponseIdFromState;
+  }
+
   return typeof priorRun?.openaiResponseId === "string" ? priorRun.openaiResponseId : null;
 }
 

@@ -1,160 +1,42 @@
 import "server-only";
 
+import {
+  ALL_AGENT_TOOLS,
+  resolveToolCatalogEntry,
+  resolveToolName,
+  SPECIALIST_CONSULT_TOOLS,
+  TOOL_NAME_ALIASES,
+} from "@entitlement-os/openai";
+
 /**
  * Tool Registry — maps tool names to their execute functions.
  *
  * This is the dispatch layer used by /api/agent/tools/execute to run
- * tools on behalf of the Cloudflare Worker. Each entry wraps an existing
- * tool from @entitlement-os/openai.
+ * tools on behalf of the Cloudflare Worker.
  *
  * Tools that need orgId/userId inject them from the server-validated auth
  * context, NOT from the request body (prevents privilege escalation).
  */
 
-import {
-  // Deal tools
-  getDealContext,
-  createDeal,
-  updateDealStatus,
-  listDeals,
-  addParcelToDeal,
-  updateParcel,
-  get_rent_roll,
-  model_capital_stack,
-  stress_test_deal,
-  model_exit_scenarios,
-  recommend_entitlement_path,
-  analyze_comparable_sales,
-  optimize_debt_structure,
-  estimate_phase_ii_scope,
-  analyze_title_commitment,
-  generate_zoning_compliance_checklist,
-
-  // Task tools
-  createTask,
-  updateTask,
-  listTasks,
-
-  // Zoning tools
-  zoningMatrixLookup,
-  parishPackLookup,
-
-  // Evidence tools
-  evidenceSnapshot,
-  floodZoneLookup,
-  compareEvidenceHash,
-
-  // Scoring tools
-  parcelTriageScore,
-  hardFilterCheck,
-
-  // Buyer tools
-  addBuyer,
-  searchBuyers,
-  logOutreach,
-
-  // Artifact tools
-  generate_artifact,
-
-  // Property DB tools (gateway-routed, but included for completeness)
-  searchParcels,
-  getParcelDetails,
-  screenZoning,
-  screenFlood,
-  screenSoils,
-  screenWetlands,
-  screenEpa,
-  screenTraffic,
-  screenLdeq,
-  screenFull,
-  queryPropertyDb,
-  queryPropertyDbSql,
-
-  // Database tools
-  query_org_sql,
-
-  // Calculation tools
-  calculate_proforma,
-  calculate_debt_sizing,
-  calculate_development_budget,
-  calculate_site_capacity,
-  estimate_construction_cost,
-  create_milestone_schedule,
-  estimate_project_timeline,
-  calculate_depreciation_schedule,
-  calculate_cost_segregation_estimate,
-  calculate_1031_deadlines,
-  search_comparable_sales,
-  calculate_market_metrics,
-
-  // Portfolio tools
-  analyze_portfolio,
-
-  // Canonical workflow tools
-  get_jurisdiction_pack,
-  create_tasks,
-  attach_artifact,
-  record_outcome,
-  triage_deal,
-  generate_dd_checklist,
-  run_underwriting,
-  summarize_comps,
-  evaluate_run,
-
-  // Market tools
-  query_market_data,
-
-  // Socrata / places tools
-  queryBuildingPermits,
-  searchNearbyPlaces,
-
-  // Outcome tools
-  get_historical_accuracy,
-  record_deal_outcome,
-
-  // Knowledge tools
-  search_knowledge_base,
-  store_knowledge_entry,
-
-  // Context tools
-  share_analysis_finding,
-  get_shared_context,
-
-  // Reasoning tools
-  log_reasoning_trace,
-  assess_uncertainty,
-  request_reanalysis,
-
-  // Entitlement intelligence tools
-  predict_entitlement_path,
-  get_entitlement_feature_primitives,
-  get_entitlement_intelligence_kpis,
-
-  // Document tools
-  query_document_extractions,
-  get_document_extraction_summary,
-  compare_document_vs_deal_terms,
-
-  // Property memory tools
-  recall_property_intelligence,
-  store_property_finding,
-
-  // Memory tools (Phase 1 write gate)
-  record_memory_event,
-  get_entity_memory,
-  store_memory,
-  get_entity_truth,
-  lookup_entity_by_address,
-  ingest_comps,
-
-  // Batch screening
-  screenBatch,
-} from "@entitlement-os/openai";
-
 type ToolExecuteFn = (
   args: Record<string, unknown>,
   context: { orgId: string; userId: string; conversationId: string; dealId?: string },
 ) => Promise<unknown>;
+
+type AgentToolLike = {
+  name: string;
+  invoke: (runContext: unknown, input: string, details?: unknown) => Promise<unknown>;
+  [key: string]: unknown;
+};
+
+function isAgentTool(value: unknown): value is AgentToolLike {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const candidate = value as { name?: unknown; invoke?: unknown };
+  return typeof candidate.name === "string" && typeof candidate.invoke === "function";
+}
 
 /**
  * Wraps an @openai/agents tool() object into a simple execute function.
@@ -163,11 +45,7 @@ type ToolExecuteFn = (
  * which parses the JSON string, validates via Zod, then calls the user's execute fn.
  * We inject orgId into the args before invoking.
  */
-function wrapTool(agentTool: {
-  name?: string;
-  invoke?: (runContext: unknown, input: string, details?: unknown) => Promise<unknown>;
-  [key: string]: unknown;
-}): ToolExecuteFn {
+function wrapTool(agentTool: AgentToolLike): ToolExecuteFn {
   return async (args, context) => {
     if (!agentTool.invoke) {
       throw new Error(`Tool has no invoke function`);
@@ -181,116 +59,53 @@ function wrapTool(agentTool: {
   };
 }
 
-// Build the registry from all tool imports
-const TOOLS: Array<{
-  name?: string;
-  invoke?: (runContext: unknown, input: string, details?: unknown) => Promise<unknown>;
-  [key: string]: unknown;
-}> = [
-  getDealContext,
-  createDeal,
-  updateDealStatus,
-  listDeals,
-  addParcelToDeal,
-  updateParcel,
-  get_rent_roll,
-  model_capital_stack,
-  stress_test_deal,
-  model_exit_scenarios,
-  recommend_entitlement_path,
-  analyze_comparable_sales,
-  optimize_debt_structure,
-  estimate_phase_ii_scope,
-  analyze_title_commitment,
-  generate_zoning_compliance_checklist,
-  createTask,
-  updateTask,
-  listTasks,
-  zoningMatrixLookup,
-  parishPackLookup,
-  evidenceSnapshot,
-  floodZoneLookup,
-  compareEvidenceHash,
-  parcelTriageScore,
-  hardFilterCheck,
-  addBuyer,
-  searchBuyers,
-  logOutreach,
-  generate_artifact,
-  searchParcels,
-  getParcelDetails,
-  screenZoning,
-  screenFlood,
-  screenSoils,
-  screenWetlands,
-  screenEpa,
-  screenTraffic,
-  screenLdeq,
-  screenFull,
-  queryPropertyDb,
-  queryPropertyDbSql,
-  query_org_sql,
-  calculate_proforma,
-  calculate_debt_sizing,
-  calculate_development_budget,
-  calculate_site_capacity,
-  estimate_construction_cost,
-  create_milestone_schedule,
-  estimate_project_timeline,
-  calculate_depreciation_schedule,
-  calculate_cost_segregation_estimate,
-  calculate_1031_deadlines,
-  search_comparable_sales,
-  calculate_market_metrics,
-  analyze_portfolio,
-  get_jurisdiction_pack,
-  create_tasks,
-  attach_artifact,
-  record_outcome,
-  triage_deal,
-  generate_dd_checklist,
-  run_underwriting,
-  summarize_comps,
-  evaluate_run,
-  query_market_data,
-  queryBuildingPermits,
-  searchNearbyPlaces,
-  get_historical_accuracy,
-  record_deal_outcome,
-  search_knowledge_base,
-  store_knowledge_entry,
-  share_analysis_finding,
-  get_shared_context,
-  log_reasoning_trace,
-  assess_uncertainty,
-  request_reanalysis,
-  predict_entitlement_path,
-  get_entitlement_feature_primitives,
-  get_entitlement_intelligence_kpis,
-  recall_property_intelligence,
-  store_property_finding,
-  query_document_extractions,
-  get_document_extraction_summary,
-  compare_document_vs_deal_terms,
-  record_memory_event,
-  get_entity_memory,
-  store_memory,
-  get_entity_truth,
-  lookup_entity_by_address,
-  ingest_comps,
-  screenBatch,
-] as Array<{
-  name?: string;
-  invoke?: (runContext: unknown, input: string, details?: unknown) => Promise<unknown>;
-  [key: string]: unknown;
-}>;
+const TOOLS = (() => {
+  const seen = new Map<string, AgentToolLike>();
 
-export const toolRegistry: Record<string, ToolExecuteFn> = {};
+  for (const candidate of ALL_AGENT_TOOLS) {
+    if (!isAgentTool(candidate)) {
+      continue;
+    }
 
-for (const t of TOOLS) {
-  if (t && typeof t === "object" && typeof t.name === "string" && typeof t.invoke === "function") {
-    toolRegistry[t.name] = wrapTool(t);
+    const existing = seen.get(candidate.name);
+    if (!existing) {
+      seen.set(candidate.name, candidate);
+      continue;
+    }
+
+    // The same tool symbol may be intentionally shared across tool groups.
+    if (existing !== candidate && existing.invoke !== candidate.invoke) {
+      throw new Error(`Duplicate tool registration detected for ${candidate.name}`);
+    }
   }
+
+  return [...seen.values()];
+})();
+
+const registry: Record<string, ToolExecuteFn> = Object.create(null);
+
+function registerTool(
+  key: string,
+  execute: ToolExecuteFn,
+) {
+  const existing = registry[key];
+  if (existing && existing !== execute) {
+    throw new Error(`Duplicate tool registration conflict for ${key}`);
+  }
+  registry[key] = execute;
+}
+
+function registerToolWithAlias(
+  toolName: string,
+  execute: ToolExecuteFn,
+) {
+  const canonicalToolName = resolveToolName(toolName);
+  registerTool(canonicalToolName, execute);
+  registerTool(toolName, execute);
+}
+
+for (const tool of TOOLS) {
+  registerToolWithAlias(tool.name, wrapTool(tool));
 }
 
 /**
@@ -298,15 +113,14 @@ for (const t of TOOLS) {
  * When the CF Worker calls /api/agent/tools/execute with a consult tool,
  * we create the specialist agent and run it for a single turn with the input.
  */
-const CONSULT_SPECIALIST_MAP: Record<string, string> = {
-  consult_finance_specialist: "finance",
-  consult_risk_specialist: "risk",
-  consult_legal_specialist: "legal",
-  consult_market_trajectory_specialist: "marketTrajectory",
-};
+const CONSULT_SPECIALIST_MAP: Readonly<Record<string, string>> = Object.fromEntries(
+  SPECIALIST_CONSULT_TOOLS.map(
+    (toolConfig: { toolName: string; key: string }): [string, string] => [toolConfig.toolName, toolConfig.key],
+  ),
+);
 
 for (const [toolName, specialistKey] of Object.entries(CONSULT_SPECIALIST_MAP)) {
-  toolRegistry[toolName] = async (args: Record<string, unknown>) => {
+  const consultToolExecute: ToolExecuteFn = async (args: Record<string, unknown>) => {
     const input = typeof args.input === "string" ? args.input : JSON.stringify(args);
     try {
       // Lazy import to avoid circular deps and keep the registry lightweight
@@ -321,4 +135,26 @@ for (const [toolName, specialistKey] of Object.entries(CONSULT_SPECIALIST_MAP)) 
       return { result: `Specialist consultation failed: ${message}`, status: "error" };
     }
   };
+  registerToolWithAlias(toolName, consultToolExecute);
 }
+
+const unresolvedAliases: string[] = [];
+for (const [aliasToolName, canonicalToolName] of Object.entries(TOOL_NAME_ALIASES)) {
+  const execute = registry[canonicalToolName];
+  if (!execute) {
+    const entry = resolveToolCatalogEntry(canonicalToolName);
+    if (entry?.destination !== "hosted") {
+      unresolvedAliases.push(`${aliasToolName}->${canonicalToolName}`);
+    }
+    continue;
+  }
+  registerTool(aliasToolName, execute);
+}
+
+if (unresolvedAliases.length > 0) {
+  throw new Error(
+    `Tool alias targets missing executable handlers: ${unresolvedAliases.join(", ")}`,
+  );
+}
+
+export const toolRegistry: Readonly<Record<string, ToolExecuteFn>> = Object.freeze(registry);

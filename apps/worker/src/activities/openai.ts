@@ -13,6 +13,7 @@ import {
   zodToOpenAiJsonSchema,
   SkuType,
   AGENT_RUN_STATE_SCHEMA_VERSION,
+  AGENT_RUN_STATE_KEYS,
   AGENT_RUN_STATE_STATUS,
   type AgentRunState,
   type AgentRunWorkflowInput,
@@ -44,6 +45,7 @@ import {
   inferQueryIntentFromText,
   isAgentOsFeatureEnabled,
   getProofGroupsForIntent,
+  filterToolsForIntent,
   maybeTrimToolOutput,
   runCriticEvaluation,
 } from "@entitlement-os/openai";
@@ -101,6 +103,41 @@ function isAsyncIterable(value: unknown): value is AsyncIterable<unknown> {
   );
 }
 
+function normalizeResponseId(value: unknown): string | null {
+  return typeof value === "string" && value.startsWith("resp") && value.trim().length > 4
+    ? value
+    : null;
+}
+
+function extractPreviousResponseIdFromRunOutput(
+  runOutput: unknown,
+): string | null {
+  if (!isRecord(runOutput)) return null;
+  const runState = isRecord(runOutput.runState as unknown)
+    ? (runOutput.runState as Record<string, unknown>)
+    : null;
+  if (!runState) return null;
+  return normalizeResponseId(
+    runState[AGENT_RUN_STATE_KEYS.previousResponseId],
+  );
+}
+
+async function resolvePreviousResponseIdFromRunRecord(runId: string): Promise<string | null> {
+  const existingRun = await prisma.run.findUnique({
+    where: { id: runId },
+    select: {
+      outputJson: true,
+      openaiResponseId: true,
+    },
+  });
+  if (!existingRun) {
+    return null;
+  }
+  const fromRunState = extractPreviousResponseIdFromRunOutput(existingRun.outputJson);
+  if (fromRunState) return fromRunState;
+  return normalizeResponseId(existingRun.openaiResponseId);
+}
+
 function buildAgentInputItems(input: AgentInputMessage[]) {
   return input.map((entry) => {
     if (entry.role === "user") {
@@ -116,103 +153,6 @@ function buildAgentInputItems(input: AgentInputMessage[]) {
       })),
     };
   });
-}
-
-type ToolPolicy = {
-  exact: Set<string>;
-  prefixes: string[];
-};
-
-const BASE_ALLOWED_TOOLS = [
-  "query_org_sql",
-  "search_knowledge_base",
-  "search_parcels",
-  "get_parcel_details",
-  "evidence_snapshot",
-];
-
-const TOOL_POLICY_BY_INTENT: Record<string, ToolPolicy> = {
-  finance: {
-    exact: new Set([...BASE_ALLOWED_TOOLS, "calculate_proforma", "calculate_debt_sizing"]),
-    prefixes: ["consult_", "finance_", "calculate_", "debt_", "underwrite_", "market_"],
-  },
-  legal: {
-    exact: new Set(BASE_ALLOWED_TOOLS),
-    prefixes: ["consult_", "legal_", "zoning_", "entitlement_", "due_diligence_"],
-  },
-  entitlements: {
-    exact: new Set(BASE_ALLOWED_TOOLS),
-    prefixes: ["consult_", "entitlement_", "zoning_", "permit_", "parish_"],
-  },
-  due_diligence: {
-    exact: new Set(BASE_ALLOWED_TOOLS),
-    prefixes: ["consult_", "due_diligence_", "risk_", "flood_", "evidence_"],
-  },
-  risk: {
-    exact: new Set(BASE_ALLOWED_TOOLS),
-    prefixes: ["consult_", "risk_", "flood_", "screen_", "hazard_", "evidence_"],
-  },
-  marketing: {
-    exact: new Set(BASE_ALLOWED_TOOLS),
-    prefixes: ["consult_", "marketing_", "buyer_", "outreach_", "market_"],
-  },
-  operations: {
-    exact: new Set(BASE_ALLOWED_TOOLS),
-    prefixes: ["consult_", "operations_", "task_", "project_", "schedule_"],
-  },
-  tax: {
-    exact: new Set(BASE_ALLOWED_TOOLS),
-    prefixes: ["consult_", "tax_", "finance_", "calculate_"],
-  },
-  design: {
-    exact: new Set(BASE_ALLOWED_TOOLS),
-    prefixes: ["consult_", "design_", "site_", "entitlement_"],
-  },
-  market_intel: {
-    exact: new Set(BASE_ALLOWED_TOOLS),
-    prefixes: ["consult_", "market_", "comps_", "research_"],
-  },
-  screener: {
-    exact: new Set(BASE_ALLOWED_TOOLS),
-    prefixes: ["consult_", "screen_", "triage_", "parcel_", "risk_", "finance_"],
-  },
-  research: {
-    exact: new Set(BASE_ALLOWED_TOOLS),
-    prefixes: ["consult_", "research_", "market_", "evidence_"],
-  },
-  land_search: {
-    exact: new Set(BASE_ALLOWED_TOOLS),
-    prefixes: ["consult_", "search_", "parcel_", "screen_", "evidence_"],
-  },
-  general: {
-    exact: new Set(BASE_ALLOWED_TOOLS),
-    prefixes: ["consult_"],
-  },
-};
-
-function getToolDefinitionName(tool: unknown): string | null {
-  if (!isRecord(tool)) return null;
-  if (typeof tool.name === "string" && tool.name.trim().length > 0) {
-    return tool.name;
-  }
-  if (isRecord(tool.function) && typeof tool.function.name === "string") {
-    return tool.function.name;
-  }
-  return null;
-}
-
-function filterToolsForIntent(intent: string, tools: readonly unknown[]): unknown[] {
-  const policy = TOOL_POLICY_BY_INTENT[intent] ?? TOOL_POLICY_BY_INTENT.general;
-  const filtered = tools.filter((tool) => {
-    if (isRecord(tool) && tool.type === "hosted_tool") {
-      return false;
-    }
-    const name = getToolDefinitionName(tool);
-    if (!name) return true;
-    if (policy.exact.has(name)) return true;
-    return policy.prefixes.some((prefix) => name.startsWith(prefix));
-  });
-  return filtered.length > 0 ? filtered : [...tools];
 }
 
 function safeParseJson(value: unknown): unknown | null {
@@ -455,6 +395,7 @@ async function persistRunProgress(
     lastAgentName: string;
     confidence: number | null;
     correlationId?: string;
+    previousResponseId?: string | null;
   },
   runStartMs: number,
   runInputHash: string,
@@ -483,6 +424,7 @@ async function persistRunProgress(
     leaseOwner: "agent-runner",
     leaseExpiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
     correlationId: params.correlationId,
+    previousResponseId: params.previousResponseId ?? null,
   };
   const outputJsonPayload = {
     runState,
@@ -996,11 +938,15 @@ export async function runAgentTurn(
       }),
     })}`;
 
+  const providedPreviousResponseId = normalizeResponseId(params.previousResponseId);
+  const persistedPreviousResponseId = await resolvePreviousResponseIdFromRunRecord(runId);
+  const previousResponseId = persistedPreviousResponseId ?? providedPreviousResponseId;
+
   const inputHash = hashJsonSha256({
     orgId: params.orgId,
     userId: params.userId,
     conversationId: params.conversationId,
-    previousResponseId: params.previousResponseId ?? null,
+    previousResponseId,
     runType,
     dealId: params.dealId ?? null,
     jurisdictionId: params.jurisdictionId ?? null,
@@ -1031,6 +977,7 @@ export async function runAgentTurn(
         lastUpdatedAt: new Date(startedAtMs).toISOString(),
         runStartedAt: new Date(startedAtMs).toISOString(),
         runInputHash: inputHash,
+        previousResponseId,
         leaseOwner: "agent-runner",
         leaseExpiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
         correlationId: params.correlationId,
@@ -1061,9 +1008,10 @@ export async function runAgentTurn(
   let retrievalContext: DataAgentRetrievalContext | null = null;
   let lastProgressAt = 0;
   let lastProgressConfidence: number | null = null;
+  let chainResponseId: string | null = previousResponseId;
   let finalResult: AgentRunWorkflowOutput | null = null;
   let trust: AgentTrustSnapshot | null = null;
-  const emitProgress = async (force = false) => {
+  const emitProgress = async (force = false, latestResponseId?: string | null) => {
     const now = Date.now();
     if (!force && now - lastProgressAt < 750) {
       return;
@@ -1078,6 +1026,7 @@ export async function runAgentTurn(
         lastAgentName,
         confidence: lastProgressConfidence,
         correlationId: params.correlationId,
+        previousResponseId: latestResponseId ?? chainResponseId,
       },
       startedAtMs,
       inputHash,
@@ -1102,17 +1051,21 @@ export async function runAgentTurn(
     };
     const coordinator =
       typeof baseCoordinator.clone === "function"
-        ? baseCoordinator.clone({
+            ? baseCoordinator.clone({
             tools: filterToolsForIntent(
               queryIntent,
               [...(baseCoordinator.tools ?? [])],
+              {
+                allowFallback: true,
+                allowNamelessTools: true,
+              },
             ),
           })
         : (baseCoordinator as Parameters<typeof run>[0]);
     const agentInput = buildAgentInputItems(input) as Parameters<typeof run>[1];
     const runOptions = buildAgentStreamRunOptions({
       conversationId: normalizeOpenAiConversationId(params.conversationId),
-      previousResponseId: params.previousResponseId ?? null,
+      previousResponseId,
       maxTurns: params.maxTurns,
     }) as Parameters<typeof run>[2];
     const result = await run(
@@ -1212,6 +1165,8 @@ export async function runAgentTurn(
     ) {
       openaiResponseId =
         (agentRunResult as Record<string, unknown>).lastResponseId as string;
+      chainResponseId = openaiResponseId;
+      void emitProgress(true, chainResponseId);
     }
 
     status = "succeeded";
@@ -1404,7 +1359,7 @@ export async function runAgentTurn(
         trajectoryRecorder.snapshot();
     }
 
-    await emitProgress(true);
+    await emitProgress(true, openaiResponseId);
 
     const finalRunState: AgentRunState = {
       schemaVersion: AGENT_RUN_STATE_SCHEMA_VERSION,
@@ -1419,6 +1374,7 @@ export async function runAgentTurn(
       lastUpdatedAt: new Date().toISOString(),
       runStartedAt: new Date(startedAtMs).toISOString(),
       runInputHash: inputHash,
+      previousResponseId: openaiResponseId ?? previousResponseId,
       leaseOwner: "agent-runner",
       leaseExpiresAt: new Date().toISOString(),
       toolFailures: trust.toolFailures,

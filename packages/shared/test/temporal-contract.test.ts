@@ -15,6 +15,7 @@ describe("Agent run state contract", () => {
       runId: "runId",
       status: "status",
       partialOutput: "partialOutput",
+      previousResponseId: "previousResponseId",
       lastAgentName: "lastAgentName",
       correlationId: "correlationId",
       toolsInvoked: "toolsInvoked",
@@ -79,6 +80,7 @@ describe("Agent run state contract", () => {
       fallbackReason: "Temporal workflow unavailable",
       lastAgentName: "coordinator",
       correlationId: "corr-123",
+      previousResponseId: "resp_previous_123",
     };
 
     const outputJson: AgentRunOutputJson = {
@@ -95,6 +97,9 @@ describe("Agent run state contract", () => {
     expect(parsed.runState[AGENT_RUN_STATE_KEYS.correlationId]).toBe("corr-123");
     expect(parsed.runState[AGENT_RUN_STATE_KEYS.status]).toBe(AGENT_RUN_STATE_STATUS.RUNNING);
     expect(parsed.runState[AGENT_RUN_STATE_KEYS.lastAgentName]).toBe("coordinator");
+    expect(parsed.runState[AGENT_RUN_STATE_KEYS.previousResponseId]).toBe(
+      "resp_previous_123",
+    );
     expect(parsed.runState[AGENT_RUN_STATE_KEYS.evidenceRetryPolicy]).toEqual({
       ...runState.evidenceRetryPolicy,
     });

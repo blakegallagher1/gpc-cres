@@ -1,9 +1,29 @@
-import {
-  hostedFileSearchTool,
-  hostedWebSearchPreviewTool,
-} from "./hostedTools.js";
+import * as hostedTools from "./hostedTools.js";
+import * as dealTools from "./dealTools.js";
+import * as taskTools from "./taskTools.js";
+import * as zoningTools from "./zoningTools.js";
+import * as evidenceTools from "./evidenceTools.js";
+import * as scoringTools from "./scoringTools.js";
+import * as buyerTools from "./buyerTools.js";
+import * as artifactTools from "./artifactTools.js";
+import * as propertyDbTools from "./propertyDbTools.js";
+import * as databaseTools from "./databaseTools.js";
+import * as calculationTools from "./calculationTools.js";
+import * as portfolioTools from "./portfolioTools.js";
+import * as canonicalWorkflowTools from "./canonicalWorkflowTools.js";
+import * as marketTools from "./marketTools.js";
+import * as socrataTools from "./socrataTools.js";
+import * as placesTools from "./placesTools.js";
+import * as outcomeTools from "./outcomeTools.js";
+import * as knowledgeTools from "./knowledgeTools.js";
+import * as contextTools from "./contextTools.js";
+import * as reasoningTools from "./reasoningTools.js";
+import * as entitlementIntelligenceTools from "./entitlementIntelligenceTools.js";
+import * as documentTools from "./documentTools.js";
+import * as propertyMemoryTools from "./propertyMemoryTools.js";
+import * as memoryTools from "./memoryTools.js";
+import * as shellWorkflowTools from "./shellWorkflowTools.js";
 
-// --- Re-export all individual tools ---
 export {
   getDealContext,
   createDeal,
@@ -134,8 +154,18 @@ export {
   ingest_comps,
 } from "./memoryTools.js";
 
-// --- Agent-specific tool collections ---
-import {
+export {
+  analyze_market_workflow,
+  run_data_extraction_workflow,
+  run_underwriting_workflow,
+} from "./shellWorkflowTools.js";
+
+const {
+  hostedFileSearchTool,
+  hostedWebSearchPreviewTool,
+} = hostedTools;
+
+const {
   getDealContext,
   createDeal,
   updateDealStatus,
@@ -152,14 +182,14 @@ import {
   generate_zoning_compliance_checklist,
   addParcelToDeal,
   updateParcel,
-} from "./dealTools.js";
-import { createTask, updateTask, listTasks } from "./taskTools.js";
-import { zoningMatrixLookup, parishPackLookup } from "./zoningTools.js";
-import { evidenceSnapshot, floodZoneLookup, compareEvidenceHash } from "./evidenceTools.js";
-import { parcelTriageScore, hardFilterCheck } from "./scoringTools.js";
-import { addBuyer, searchBuyers, logOutreach } from "./buyerTools.js";
-import { generate_artifact } from "./artifactTools.js";
-import {
+} = dealTools;
+const { createTask, updateTask, listTasks } = taskTools;
+const { zoningMatrixLookup, parishPackLookup } = zoningTools;
+const { evidenceSnapshot, floodZoneLookup, compareEvidenceHash } = evidenceTools;
+const { parcelTriageScore, hardFilterCheck } = scoringTools;
+const { addBuyer, searchBuyers, logOutreach } = buyerTools;
+const { generate_artifact } = artifactTools;
+const {
   searchParcels,
   getParcelDetails,
   screenZoning,
@@ -173,9 +203,9 @@ import {
   screenBatch,
   queryPropertyDb,
   queryPropertyDbSql,
-} from "./propertyDbTools.js";
-import { query_org_sql } from "./databaseTools.js";
-import {
+} = propertyDbTools;
+const { query_org_sql } = databaseTools;
+const {
   calculate_proforma,
   calculate_debt_sizing,
   calculate_development_budget,
@@ -188,12 +218,12 @@ import {
   calculate_1031_deadlines,
   search_comparable_sales,
   calculate_market_metrics,
-} from "./calculationTools.js";
-import { analyze_portfolio } from "./portfolioTools.js";
-import { query_market_data } from "./marketTools.js";
-import { queryBuildingPermits } from "./socrataTools.js";
-import { searchNearbyPlaces } from "./placesTools.js";
-import {
+} = calculationTools;
+const { analyze_portfolio } = portfolioTools;
+const { query_market_data } = marketTools;
+const { queryBuildingPermits } = socrataTools;
+const { searchNearbyPlaces } = placesTools;
+const {
   get_jurisdiction_pack,
   create_tasks,
   attach_artifact,
@@ -203,40 +233,40 @@ import {
   run_underwriting,
   summarize_comps,
   evaluate_run,
-} from "./canonicalWorkflowTools.js";
-import { get_historical_accuracy, record_deal_outcome } from "./outcomeTools.js";
-import { search_knowledge_base, store_knowledge_entry } from "./knowledgeTools.js";
-import {
-  share_analysis_finding,
-  get_shared_context,
-} from "./contextTools.js";
-import {
-  log_reasoning_trace,
-  assess_uncertainty,
-  request_reanalysis,
-} from "./reasoningTools.js";
-import {
+} = canonicalWorkflowTools;
+const { get_historical_accuracy, record_deal_outcome } = outcomeTools;
+const { search_knowledge_base, store_knowledge_entry } = knowledgeTools;
+const { share_analysis_finding, get_shared_context } = contextTools;
+const { log_reasoning_trace, assess_uncertainty, request_reanalysis } = reasoningTools;
+const {
   predict_entitlement_path,
   get_entitlement_feature_primitives,
   get_entitlement_intelligence_kpis,
-} from "./entitlementIntelligenceTools.js";
-import {
+} = entitlementIntelligenceTools;
+const {
   query_document_extractions,
   get_document_extraction_summary,
   compare_document_vs_deal_terms,
-} from "./documentTools.js";
-import {
+} = documentTools;
+const {
   recall_property_intelligence,
   store_property_finding,
-} from "./propertyMemoryTools.js";
-import {
+} = propertyMemoryTools;
+const {
   record_memory_event,
   get_entity_memory,
   store_memory,
   get_entity_truth,
   lookup_entity_by_address,
   ingest_comps,
-} from "./memoryTools.js";
+} = memoryTools;
+const {
+  analyze_market_workflow,
+  run_data_extraction_workflow,
+  run_underwriting_workflow,
+} = shellWorkflowTools;
+
+// --- Agent-specific tool collections ---
 
 /** Web search tool for Responses API pass-through. */
 export const webSearchPreviewTool = hostedWebSearchPreviewTool;
@@ -301,6 +331,7 @@ export const coordinatorTools = [
   query_document_extractions,
   get_document_extraction_summary,
   compare_document_vs_deal_terms,
+  run_underwriting_workflow,
 ];
 
 /** Tools available to the Legal / Entitlements agent. */
@@ -335,6 +366,7 @@ export const researchTools = [
   screenTraffic,
   analyze_comparable_sales,
   query_market_data,
+  run_data_extraction_workflow,
   search_knowledge_base,
   store_knowledge_entry,
   share_analysis_finding,
@@ -468,6 +500,7 @@ export const dueDiligenceTools = [
   compare_document_vs_deal_terms,
   recall_property_intelligence,
   store_property_finding,
+  run_data_extraction_workflow,
 ];
 
 /** Tools available to the Entitlements agent. */
@@ -514,6 +547,7 @@ export const marketIntelTools = [
   search_comparable_sales,
   calculate_market_metrics,
   query_market_data,
+  analyze_market_workflow,
   search_knowledge_base,
   store_knowledge_entry,
   share_analysis_finding,
@@ -553,6 +587,7 @@ export const marketTrajectoryTools = [
   log_reasoning_trace,
   query_market_data,
   search_comparable_sales,
+  analyze_market_workflow,
 ];
 
 /** Tools available to the Tax Strategist agent. (#11 Dead Agent Revival) */
@@ -569,6 +604,34 @@ export const taxTools = [
   get_shared_context,
   log_reasoning_trace,
 ];
+
+/**
+ * Canonical grouped export of all agent tool arrays.
+ *
+ * This keeps a single source of truth for tool collection membership
+ * in call sites that need "all tools across agents" (for example
+ * route-level registry builders in apps/web).
+ */
+export const ALL_AGENT_TOOL_GROUPS = {
+  coordinatorTools,
+  legalTools,
+  researchTools,
+  riskTools,
+  financeTools,
+  screenerTools,
+  marketingTools,
+  dueDiligenceTools,
+  entitlementsTools,
+  operationsTools,
+  marketIntelTools,
+  designTools,
+  marketTrajectoryTools,
+  taxTools,
+} as const;
+
+export const ALL_AGENT_TOOLS = Object.freeze(
+  Object.values(ALL_AGENT_TOOL_GROUPS).flat(),
+);
 
 /**
  * Optional hosted file-search tool export for future vector-store wiring.
@@ -590,6 +653,9 @@ export const ALL_COORDINATOR_TOOL_OBJECTS = coordinatorTools;
 
 export {
   TOOL_CATALOG,
+  TOOL_NAME_ALIASES,
+  resolveToolName,
+  resolveToolCatalogEntry,
   getToolsForIntent,
   getGatewayTools,
   getHostedTools,
