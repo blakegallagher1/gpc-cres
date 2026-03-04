@@ -72,6 +72,9 @@ const VALID_COMP_WRITE: MemoryWrite = {
     market: "Baton Rouge",
     sale_date: "2026-01-15",
     source_url: null,
+    buyer: null,
+    seller: null,
+    address: null,
   },
 };
 

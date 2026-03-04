@@ -82,6 +82,9 @@ describe("writeGateAcceptance — multi fact type", () => {
         market: "Baton Rouge",
         sale_date: "2026-01-15",
         source_url: null,
+        buyer: null,
+        seller: null,
+        address: null,
       },
     };
     createStrictJsonResponseMock.mockResolvedValue({ outputJson: compWrite });
@@ -261,6 +264,9 @@ describe("writeGateAcceptance — multi fact type", () => {
           market: "Baton Rouge",
           sale_date: "2026-01-01",
           source_url: null,
+          buyer: null,
+          seller: null,
+          address: null,
         },
       } satisfies MemoryWrite,
     });
