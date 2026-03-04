@@ -4,6 +4,7 @@ import { AGENT_MODEL_IDS } from '@entitlement-os/shared';
 export const legalAgent = new Agent({
   name: 'Legal Agent',
   model: AGENT_MODEL_IDS.legal,
+  modelSettings: { providerData: { prompt_cache_key: "entitlement-os" } },
   handoffDescription:
     'Handles zoning analysis, entitlement processes, contract drafting/review, and Louisiana-specific real estate law',
   instructions: `You are the Legal Agent for Gallagher Property Company, specializing in commercial real estate law, land use, and development regulations.

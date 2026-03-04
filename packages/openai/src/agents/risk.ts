@@ -4,6 +4,7 @@ import { AGENT_MODEL_IDS } from '@entitlement-os/shared';
 export const riskAgent = new Agent({
   name: 'Risk Agent',
   model: AGENT_MODEL_IDS.risk,
+  modelSettings: { providerData: { prompt_cache_key: "entitlement-os" } },
   handoffDescription:
     'Assesses flood, environmental, market, financial, and regulatory risks with structured uncertainty quantification',
   instructions: `You are the Risk Agent for Gallagher Property Company, specializing in real estate risk assessment and mitigation.

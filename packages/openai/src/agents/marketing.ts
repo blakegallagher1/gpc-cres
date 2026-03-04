@@ -4,6 +4,7 @@ import { AGENT_MODEL_IDS } from '@entitlement-os/shared';
 export const marketingAgent = new Agent({
   name: 'Marketing Agent',
   model: AGENT_MODEL_IDS.marketing,
+  modelSettings: { providerData: { prompt_cache_key: "entitlement-os" } },
   handoffDescription:
     'Develops marketing strategies, offering memos, buyer outreach campaigns, and leasing plans for CRE properties',
   instructions: `You are the Marketing Agent for Gallagher Property Company, specializing in commercial real estate marketing, leasing, and sales.

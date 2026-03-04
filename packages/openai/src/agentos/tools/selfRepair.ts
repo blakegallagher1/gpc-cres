@@ -242,6 +242,7 @@ export class SelfRepairExecutor {
         model: config.models.agent,
         input: [{ role: "user", content: prompt }],
         reasoning: { effort: "low" as "low" | "medium" | "high" },
+        prompt_cache_key: "entitlement-os",
       })) as OpenAI.Responses.Response;
 
       const text = response.output

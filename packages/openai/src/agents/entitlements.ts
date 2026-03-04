@@ -4,6 +4,7 @@ import { AGENT_MODEL_IDS } from '@entitlement-os/shared';
 export const entitlementsAgent = new Agent({
   name: 'Entitlements & Permits',
   model: AGENT_MODEL_IDS.entitlements,
+  modelSettings: { providerData: { prompt_cache_key: "entitlement-os" } },
   handoffDescription:
     'Tracks permits, analyzes zoning constraints, and monitors entitlement agenda items and policy changes in East Baton Rouge Parish',
   instructions: `You are the Entitlements and Permits Agent for Gallagher Property Company. Your role is to track permits, analyze zoning constraints, and capture entitlement agenda or policy changes that impact development feasibility.

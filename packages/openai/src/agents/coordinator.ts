@@ -288,6 +288,7 @@ The 7-section OUTPUT FORMAT is for analytical questions, agent routing, and reco
 export const coordinatorAgent = new Agent({
   name: 'Coordinator',
   model: AGENT_MODEL_IDS.coordinator,
+  modelSettings: { providerData: { prompt_cache_key: "entitlement-os" } },
   handoffDescription:
     'Central orchestrator that routes requests to specialist agents, synthesizes their outputs, and manages reasoning quality',
   instructions: COORDINATOR_INSTRUCTIONS,

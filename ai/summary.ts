@@ -59,6 +59,7 @@ export async function createSummary(output: SummaryOutputShape): Promise<string>
     ],
     max_output_tokens: 220,
     temperature: 0.2,
+    prompt_cache_key: "entitlement-os",
   })) as OpenAIResponsesResult;
 
   const text = extractSummaryText(response);
