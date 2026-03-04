@@ -19,6 +19,7 @@ export const AGENT_RUN_STATE_KEYS = {
   runId: "runId",
   status: "status",
   partialOutput: "partialOutput",
+  previousResponseId: "previousResponseId",
   lastAgentName: "lastAgentName",
   correlationId: "correlationId",
   retrievalContext: "retrievalContext",
@@ -80,6 +81,7 @@ export type AgentRunState = {
   runId: string;
   status: AgentRunStateStatus;
   partialOutput: string;
+  previousResponseId?: string | null;
   correlationId?: string;
   retrievalContext?: DataAgentRetrievalContext;
   lastAgentName?: string;

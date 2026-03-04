@@ -716,6 +716,55 @@ Codex may use ANY `gh` subcommand without asking for permission.
 - When PR automation is required, use standard PR flow from a fresh execution context if prior context blocks `gh pr create` policy checks.
 - Keep `main` as source of truth; after merge, sync local main and remove temporary branches.
 
+# 17 SKILLS ARCHITECTURE
+
+Skills are local, versioned instruction bundles that live in the repo root `skills/` directory.
+
+- `AGENTS.md` stays the baseline for cross-cutting execution behavior (security, auth, tenancy, org rules, error handling, and release protocol).
+- `skills/` carries domain-specific procedures loaded only when routed by intent.
+- `SKILL.md` files are deterministic modules used by Codex, Claude, Cursor, and any orchestrator with explicit or auto-routed loading.
+
+## Invocation Modes
+
+- Deterministic:
+  - A caller requests a specific skill by name (`underwriting`, `entitlement-os`, etc.).
+  - Load the matching `SKILL.md` and any required sub-skills.
+- Auto-routed:
+  - The model/dispatcher matches user intent against `SKILL.md` `description` criteria.
+  - If multiple matches are possible, prefer the most specific domain and highest-confidence intent.
+
+## Entitlement Sub-Skills
+
+- `entitlement-os` is sequenced and phase-based.
+- Load `skills/entitlement-os/phases/phase-a-discovery.md` through
+  `skills/entitlement-os/phases/phase-g-closing.md` as needed.
+- Phase order is part of that skill contract and should be preserved unless explicitly overridden by user scope.
+
+## Skill Authoring Rules
+
+- Every skill must include:
+  - A positive `Use when` criterion and negative `Don't use when` examples.
+  - `validation` criteria and testable outputs.
+  - Exact skill cross-references using canonical skill names.
+  - `version` in frontmatter.
+- Do not include secrets, internal URLs, or internal API keys in skill text.
+- Bump `version` on any behavior change.
+- Add security-sensitive validation gates (e.g., tenancy/permit/auth constraints) in surrounding runtime code, not in prompt text.
+
+## Shell Execution Rules
+
+- Default shell network policy is `deny-all`.
+- Per-workflow allowlists are scoped to only required domains.
+- API credentials are injected via `domain_secrets`; workflow text must never contain plaintext credentials.
+- Artifacts are written to shell filesystem paths; do not rely on stdout-only handoff.
+- Reuse container sessions only when workflow graph requires multi-step continuity.
+
+## Compaction Rules
+
+- Compaction is enabled by default on all Responses API calls.
+- Long-horizon workflows (especially entitlement multi-phase flows) MUST use `previous_response_id` chaining.
+- Persist `response_id` in Temporal workflow state so later steps can pass it forward deterministically for replay-safe continuation.
+
 ## Cursor Cloud specific instructions
 
 ### Services overview

@@ -42,4 +42,15 @@ Read `docs/claude/backend.md` for full reference before modifying backend-relate
 
 **Key files:** `infra/local-api/main.py` (gateway), `packages/openai/src/tools/propertyDbTools.ts` (agent tools), `infra/sql/property-db-rpc-functions.sql` (RPC definitions).
 
+## Skill-Aware Editing
+
+When editing backend-facing API or integration code for this repo, first check the relevant skill in `skills/`:
+
+- `skills/parcel-ops/SKILL.md` for parcel and geometry execution logic.
+- `skills/data-extraction/SKILL.md` for ingestion/fetch normalization expectations.
+- `skills/entitlement-os/SKILL.md` for entitlement workflow context.
+
+Use `Use when` / `Don't use when` routing from each skill to avoid cross-domain changes.
+Maintain default security posture: deny-by-default network access unless a workflow-specific allowlist explicitly requires more.
+
 **Maintenance rule:** When adding/removing endpoints in `main.py`, update `docs/claude/backend.md` endpoint inventory.

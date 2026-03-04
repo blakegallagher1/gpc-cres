@@ -73,7 +73,7 @@ const SPECIALIST_AGENT_CONFIGS: SpecialistAgentConfig[] = [
   { key: 'marketTrajectory', agent: marketTrajectoryAgent, tools: marketTrajectoryTools },
 ];
 
-const SPECIALIST_CONSULT_TOOLS: SpecialistConsultToolConfig[] = [
+export const SPECIALIST_CONSULT_TOOLS: SpecialistConsultToolConfig[] = [
   {
     key: "finance",
     toolName: "consult_finance_specialist",

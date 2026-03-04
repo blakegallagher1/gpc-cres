@@ -34,6 +34,13 @@ export type QdrantCollectionConfig = {
   propertyIntelligence: string;
 };
 
+export type ContextManagementType = "compaction";
+
+export type AgentOsContextManagementConfig = {
+  type: ContextManagementType;
+  compactionThreshold: number;
+};
+
 export type AgentOsConfig = {
   enabled: boolean;
   features: AgentOsFeatureFlags;
@@ -46,10 +53,7 @@ export type AgentOsConfig = {
     reasoningEffortCritic: AgentOsReasoningEffort;
     reasoningEffortReflection: AgentOsReasoningEffort;
   };
-  contextManagement: {
-    strategy: "compaction";
-    compactionThreshold: number;
-  };
+  contextManagement: AgentOsContextManagementConfig;
   qdrant: {
     url: string | null;
     apiKey: string | null;
@@ -147,7 +151,7 @@ function buildConfig(): AgentOsConfig {
       reasoningEffortReflection: readReasoningEffort("AGENTOS_REASONING_EFFORT_REFLECTION", "low"),
     },
     contextManagement: {
-      strategy: "compaction",
+      type: "compaction",
       compactionThreshold: readNumber("AGENTOS_COMPACTION_THRESHOLD", 100_000, 1000),
     },
     qdrant: {

@@ -79,6 +79,7 @@ describe("agentos config", () => {
     expect(config.contextBudgets.semantic).toBe(1000);
     expect(config.contextBudgets.hardCap).toBe(12000);
     expect(config.contextManagement.compactionThreshold).toBe(100_000);
+    expect(config.contextManagement.type).toBe("compaction");
   });
 
   it("returns correct default Qdrant collection names", async () => {
@@ -123,6 +124,7 @@ describe("agentos config", () => {
     expect(config.contextBudgets.episodic).toBe(3000);
     expect(config.contextBudgets.hardCap).toBe(20000);
     expect(config.contextManagement.compactionThreshold).toBe(50000);
+    expect(config.contextManagement.type).toBe("compaction");
     expect(config.models.reasoningEffort).toBe("medium");
     expect(config.models.reasoningEffortCritic).toBe("low");
     expect(config.models.reasoningEffortReflection).toBe("medium");

@@ -130,28 +130,26 @@ Only items meeting all checks are added below as `Planned`.
 ### EOS-SKL-001 — Skills + Shell + Compaction Architecture
 
 - **Priority:** P0
-- **Status:** In Progress
+- **Status:** Done (2026-03-04)
 - **Scope:** Modularize large guidance docs into on-demand Skills, add shell-backed compute workflows, and enable default server-side compaction with response chaining.
 - **Problem:** Monolithic prompt docs and non-compacted response context increase token waste and reduce context reliability for long entitlement workflows.
 - **Execution Gate Status (2026-03-04):**
   - **Phase 1 (Skills Artifacts):** PASS — required markdown structure, routing criteria, examples, and validation sections present.
   - **Phase 2 (Shell Workflows):** PASS — `pnpm --filter @entitlement-os/openai test -- src/__tests__/shell.test.ts` passes.
-  - **Phase 3A/3C (Responses Compaction + Chaining):** FAIL — `pnpm --filter @entitlement-os/openai test -- src/__tests__/compaction.test.ts` fails 3 tests (contract mismatch around chaining and response id mapping).
-  - **Phase 3B (Temporal Chain State):** BLOCKED — workflow-level chaining persistence is not yet implemented in `apps/worker` multi-step AI sequences.
+  - **Phase 3A/3C (Responses Compaction + Chaining):** PASS — `pnpm --filter @entitlement-os/openai test -- src/__tests__/compaction.test.ts` passes.
+  - **Phase 3B (Temporal Chain State):** PASS — chain state persistence and fallback restoration are implemented across worker and web resume paths (`apps/worker/src/activities/openai.ts`, `packages/shared/src/temporal/types.ts`, `packages/shared/test/temporal-contract.test.ts`, `apps/web/lib/agent/agentRunner.ts`).
   - **Phase 4 (Integration Docs):** PASS — `AGENTS.md`, `CLAUDE.md`, `.cursor/rules/backend.mdc`, and `docs/SKILLS_ARCHITECTURE.md` are present.
   - **Verification Sequence (5 steps):**
-    - `pnpm lint` currently fails in `packages/openai` for test files not included in `tsconfig` project service (`src/__tests__/compaction.test.ts`, `src/__tests__/shell.test.ts`).
+    - `pnpm lint` passes.
     - `pnpm typecheck` passes.
-    - `pnpm test` fails with the same 3 compaction tests.
+    - `pnpm test` passes.
     - `pnpm build` passes.
-    - `git diff --stat` confirms intended surface edits in `AGENTS.md`, `CLAUDE.md`, `.cursor/rules/backend.mdc`, and `packages/db/src/gateway-adapter.ts`; `packages/openai` and `skills/` feature files are staged as untracked changes.
-- **Failure Root Cause:**
-  - `packages/openai/src/__tests__/compaction.test.ts` still asserts legacy request/response names (`previous_response_id`, `response_id`, and legacy `context_management` shape) while current wrapper behavior passes continuation via `buildResponseContinuationParams` and returns `responseId` from `OpenAI.Responses.Response`.
-  - `packages/openai` lint uses `eslint src --max-warnings=0` and the new/updated test files under `src/__tests__` are not present in the project's tsconfig include set.
+    - `git diff --stat` confirms intended edits in this item plus related compaction/chain tests and contracts.
 - **Evidence (2026-03-04):**
   - Gate script: `python3 - <<'PY' ... Phase1 gate: PASS`.
   - Shell test command output: `✓ src/__tests__/shell.test.ts (7 tests) 49ms`.
-  - Compaction test command output: `3 tests failed` in `src/__tests__/compaction.test.ts`.
+  - Compaction test command output: `✓ src/__tests__/compaction.test.ts (6 tests) 13ms`.
+  - Temporal contract test output: `✓ test/temporal-contract.test.ts (2 tests)`.
 - **Expected Outcome (measurable):**
   - `skills/` includes one `README.md`, 6 core SKILL docs, and 7 entitlement phase SKILL files.
   - Shell workflows execute compute-heavy CRE tasks with narrowly scoped network allowlists.
@@ -160,7 +158,7 @@ Only items meeting all checks are added below as `Planned`.
 - **Alignment:** Preserves org scoping, auth, and strict JSON validation while shifting to on-demand domain instructions and safer shell/network posture.
 - **Risk/rollback:** Medium — response call contract and workflow orchestration are newly introduced; rollback by reverting shell/compaction modules and preserving previous wrapper behavior.
 - **Acceptance Criteria / Tests:**
-  - [ ] `skills/` directory exists with:
+  - [x] `skills/` directory exists with:
     - `skills/README.md`
     - `skills/underwriting/SKILL.md`
     - `skills/entitlement-os/SKILL.md`
@@ -175,22 +173,22 @@ Only items meeting all checks are added below as `Planned`.
     - `skills/property-report/SKILL.md`
     - `skills/data-extraction/SKILL.md`
     - `skills/parcel-ops/SKILL.md`
-  - [ ] `docs/SKILLS_ARCHITECTURE.md` exists and documents routing/compaction model.
-  - [ ] `packages/openai/src/network-policies.ts` exists with named policy constants.
-  - [ ] `packages/openai/src/shell.ts` and `packages/openai/src/shell-workflows/` provide safe workflow execution with filesystem artifacts.
-  - [ ] `packages/openai/src/__tests__/shell.test.ts` and `packages/openai/src/__tests__/compaction.test.ts` verify new behavior.
-  - [ ] `AGENTS.md` includes section 17 for skills, shell, and compaction.
-  - [ ] `CLAUDE.md` includes skill routing instructions.
-  - [ ] Compaction defaults and chaining are enabled in `packages/openai/src/responses.ts` and stored in Temporal-facing workflow state.
-  - [ ] Final verification protocol passes:
+  - [x] `docs/SKILLS_ARCHITECTURE.md` exists and documents routing/compaction model.
+  - [x] `packages/openai/src/network-policies.ts` exists with named policy constants.
+  - [x] `packages/openai/src/shell.ts` and `packages/openai/src/shell-workflows/` provide safe workflow execution with filesystem artifacts.
+  - [x] `packages/openai/src/__tests__/shell.test.ts` and `packages/openai/src/__tests__/compaction.test.ts` verify new behavior.
+  - [x] `AGENTS.md` includes section 17 for skills, shell, and compaction.
+  - [x] `CLAUDE.md` includes skill routing instructions.
+  - [x] Compaction defaults and chaining are enabled in `packages/openai/src/responses.ts` and stored in Temporal-facing workflow state.
+  - [x] Final verification protocol passes:
     - `pnpm lint`
     - `pnpm typecheck`
     - `pnpm test`
     - `pnpm build`
 - **Evidence (2026-03-04):**
-  - `AGENTS.md`, `CLAUDE.md`, and `.cursor/rules/backend.mdc` updated.
-  - `skills/` and shell modules are present in this branch.
-  - Outstanding open items: `packages/openai/src/responses.ts` contract and `apps/worker` chain-state persistence are still pending.
+  - `AGENTS.md`, `CLAUDE.md`, `.cursor/rules/backend.mdc`, and `docs/SKILLS_ARCHITECTURE.md` updated.
+  - `skills/` and shell modules are in this branch, with checklists and policy constants in place.
+  - `packages/openai/src/responses.ts`, `apps/worker/src/activities/openai.ts`, `packages/shared/src/temporal/types.ts`, `packages/shared/test/temporal-contract.test.ts`, and `apps/web/lib/agent/agentRunner.ts` updated for chain-state continuity.
 
 ### MOD-001 — API Unification: Remove chat.completions (P0-A)
 

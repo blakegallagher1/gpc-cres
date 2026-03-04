@@ -97,14 +97,10 @@ const VALID_PARCEL_IDS = [
       console.log(`\n[TEST 2] Screening ${VALID_PARCEL_IDS.length} parcels in batch mode...`);
 
       const start = Date.now();
-      const response = await apiPost("/api/agent/tools/execute", {
-        toolName: "screen_batch",
-        arguments: {
-          parcel_ids: VALID_PARCEL_IDS,
-          conversationId,
-        },
-        context: { conversationId },
-      });
+      const response = await postAgentTool("screen_batch", {
+        parcel_ids: VALID_PARCEL_IDS,
+        conversationId,
+      }, { conversationId });
       const elapsed = Date.now() - start;
       console.log(`  Batch completed in ${elapsed}ms`);
 
@@ -190,23 +186,21 @@ const VALID_PARCEL_IDS = [
         environmental_concerns: "40% in AE flood zone, hydric soils present",
       };
 
-      const storeResponse = await apiPost("/api/agent/tools/execute", {
-        tool: "store_property_finding",
+      const storeResponse = await postAgentTool("store_property_finding", {
         parcelId,
         screeningResult,
         dealNotes: "Test deal - verify cache and semantic search",
-      });
+      }, { conversationId });
       console.log(`  Stored: ${storeResponse.ok ? "✓" : "✗"}`);
       expect(storeResponse.ok).toBe(true);
 
       // Recall with semantic query
       console.log(`  Searching for "flood zone EBR properties"...`);
-      const searchResponse = await apiPost("/api/agent/tools/execute", {
-        tool: "recall_property_intelligence",
+      const searchResponse = await postAgentTool("recall_property_intelligence", {
         query: "flood zone EBR",
         parish: "EBR",
         minScore: 0.7,
-      });
+      }, { conversationId });
       console.log(`  Found ${searchResponse.results?.length || 0} matches`);
       expect(searchResponse.ok).toBe(true);
       expect(searchResponse.results).toBeDefined();
@@ -227,14 +221,10 @@ const VALID_PARCEL_IDS = [
       const operationId = `error-test-${Date.now()}`;
 
       console.log(`  Screening ${invalidIds.length} invalid parcel IDs...`);
-      const response = await apiPost("/api/agent/tools/execute", {
-        toolName: "screen_batch",
-        arguments: {
-          parcel_ids: invalidIds,
-          conversationId,
-        },
-        context: { conversationId },
-      });
+      const response = await postAgentTool("screen_batch", {
+        parcel_ids: invalidIds,
+        conversationId,
+      }, { conversationId });
 
       expect(response).toBeDefined();
       expect(response.results).toBeDefined();
@@ -262,6 +252,147 @@ const VALID_PARCEL_IDS = [
 });
 
 // ==================== HELPER FUNCTIONS ====================
+
+type AgentToolContext = {
+  conversationId: string;
+  dealId?: string;
+  runId?: string;
+};
+
+type ToolEnvelopeMetadata = {
+  toolName?: string;
+  name?: string;
+  destination?: string;
+  risk?: string;
+  quotaClass?: string;
+  conversationId?: string;
+  runId?: string;
+};
+
+type NormalizedToolResponse<T> =
+  | {
+      ok: true;
+      value: T;
+      metadata?: ToolEnvelopeMetadata;
+    }
+  | {
+      ok: false;
+      error: string;
+      metadata?: ToolEnvelopeMetadata;
+    };
+
+type ScreenBatchResult = Record<
+  string,
+  { status: "ok" | "error"; data?: unknown; error?: string }
+>;
+
+type RecallPropertyResult = {
+  results: Array<{
+    parcelId: string;
+    address: string;
+    parish?: string;
+    score?: number;
+    screening_summary?: string;
+  }>;
+  query: string;
+  count: number;
+};
+
+type StorePropertyResult = {
+  stored: boolean;
+  parcelId: string;
+  address: string;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function normalizeToolResultPayload<T>(value: unknown): T {
+  if (typeof value === "string") {
+    try {
+      return JSON.parse(value) as T;
+    } catch {
+      return value as T;
+    }
+  }
+
+  return value as T;
+}
+
+function normalizeToolResponse<T>(payload: unknown): NormalizedToolResponse<T> {
+  if (!isRecord(payload)) {
+    return {
+      ok: false,
+      error: "Tool response is not a valid object",
+    };
+  }
+
+  // Newer endpoint contract wraps with `result` and `metadata`.
+  if ("result" in payload) {
+    return {
+      ok: true,
+      value: normalizeToolResultPayload<T>(payload.result),
+      metadata: isRecord(payload.metadata) ? (payload.metadata as ToolEnvelopeMetadata) : undefined,
+    };
+  }
+
+  // Backward compatibility for older call patterns.
+  if ("ok" in payload && typeof payload.ok === "boolean") {
+    if (payload.ok) {
+      return {
+        ok: true,
+        value: normalizeToolResultPayload<T>(
+          "result" in payload
+            ? payload.result
+            : "value" in payload
+              ? payload.value
+              : payload,
+        ),
+        metadata: isRecord(payload.metadata) ? (payload.metadata as ToolEnvelopeMetadata) : undefined,
+      };
+    }
+
+    return {
+      ok: false,
+      error: typeof payload.error === "string" ? payload.error : "Tool execution failed",
+      metadata: isRecord(payload.metadata) ? (payload.metadata as ToolEnvelopeMetadata) : undefined,
+    };
+  }
+
+  return {
+    ok: true,
+    value: normalizeToolResultPayload<T>(payload),
+  };
+}
+
+function unwrapScreenBatchResult(raw: ScreenBatchResult | { results: ScreenBatchResult }) {
+  return isRecord(raw) && "results" in raw ? raw.results : raw;
+}
+
+function buildToolExecutionPayload(
+  toolName: string,
+  args: Record<string, any>,
+  context: AgentToolContext,
+) {
+  return {
+    toolName,
+    arguments: args,
+    context,
+    conversationId: context.conversationId,
+    ...(context.dealId ? { dealId: context.dealId } : {}),
+    ...(context.runId ? { runId: context.runId } : {}),
+  };
+}
+
+async function postAgentTool(
+  toolName: string,
+  args: Record<string, any>,
+  context: AgentToolContext,
+): Promise<NormalizedToolResponse<any>> {
+  const payload = await apiPost("/api/agent/tools/execute", buildToolExecutionPayload(toolName, args, context));
+  return normalizeToolResponse(payload);
+}
 
 async function gatewayPost(
   endpoint: string,
