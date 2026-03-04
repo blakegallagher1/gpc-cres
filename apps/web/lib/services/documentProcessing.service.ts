@@ -3,7 +3,7 @@ import type { Prisma } from "@entitlement-os/db";
 import { fetchObjectBytesFromGateway, systemAuth } from "@/lib/storage/gatewayStorage";
 import { getNotificationService } from "./notification.service";
 import { AppError } from "@/lib/errors";
-import OpenAI from "openai";
+import { createTextResponse } from "@entitlement-os/openai";
 import {
   DocTypeSchema,
   type DocType,
@@ -298,17 +298,13 @@ async function classifyWithLLM(
   text: string,
   filename: string
 ): Promise<{ docType: DocType; confidence: number }> {
-  const openai = new OpenAI();
   const truncatedText = text.slice(0, 3000); // First 3K chars for classification
 
   try {
-    const response = await openai.chat.completions.create({
+    const { text: content } = await createTextResponse({
       model: "gpt-4.1-mini",
       temperature: 0,
-      messages: [
-        {
-          role: "system",
-          content: `You are a commercial real estate document classifier. Classify the document into exactly one type.
+      systemPrompt: `You are a commercial real estate document classifier. Classify the document into exactly one type.
 Return JSON with: { "doc_type": string, "confidence": number }
 
 Valid doc_type values:
@@ -325,16 +321,9 @@ Valid doc_type values:
 - "other" — Does not match any above
 
 confidence: 0.0 to 1.0 (your confidence in the classification)`,
-        },
-        {
-          role: "user",
-          content: `Filename: ${filename}\n\nDocument text (first 3000 chars):\n${truncatedText}`,
-        },
-      ],
-      response_format: { type: "json_object" },
+      userPrompt: `Filename: ${filename}\n\nDocument text (first 3000 chars):\n${truncatedText}`,
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) return { docType: "other", confidence: 0.3 };
 
     const parsed = JSON.parse(content);
@@ -611,32 +600,21 @@ async function extractStructuredData(
     return { data: {}, confidence: 0, valid: false, issues: [] };
   }
 
-  const openai = new OpenAI();
   // Use up to 12K chars for extraction (fits in context window with room for response)
   const truncatedText = text.slice(0, 12000);
 
   try {
-    const response = await openai.chat.completions.create({
+    const { text: content } = await createTextResponse({
       model: "gpt-4.1-mini",
       temperature: 0,
-      messages: [
-        {
-          role: "system",
-          content: `You are a CRE document data extractor. Extract structured data from the document text.
+      systemPrompt: `You are a CRE document data extractor. Extract structured data from the document text.
 Return valid JSON matching the schema below. Use null for fields you cannot find. Use empty arrays [] for list fields with no matches.
 Include a top-level "extraction_confidence" field (0.0-1.0) indicating your overall confidence.
 
 ${EXTRACTION_PROMPTS[docType]}`,
-        },
-        {
-          role: "user",
-          content: truncatedText,
-        },
-      ],
-      response_format: { type: "json_object" },
+      userPrompt: truncatedText,
     });
 
-    const content = response.choices[0]?.message?.content;
     if (!content) return { data: {}, confidence: 0, valid: false, issues: [] };
 
     const parsed = JSON.parse(content) as unknown;

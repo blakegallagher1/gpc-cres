@@ -7,7 +7,7 @@ import {
 } from "@entitlement-os/shared";
 import type { ArtifactType, DealStatus, ArtifactSpec } from "@entitlement-os/shared";
 import { renderArtifactFromSpec } from "@entitlement-os/artifacts";
-import OpenAI from "openai";
+import { createTextResponse } from "../responses.js";
 
 // ---------------------------------------------------------------------------
 // Stage prerequisites (must match the route in apps/web)
@@ -296,20 +296,15 @@ async function generateNarrative(
   systemPrompt: string,
   maxTokens = 800
 ): Promise<string> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return "(Narrative unavailable — OPENAI_API_KEY not set)";
   try {
-    const client = new OpenAI({ apiKey });
-    const response = await client.chat.completions.create({
+    const { text } = await createTextResponse({
       model: "gpt-4o-mini",
-      max_tokens: maxTokens,
+      maxOutputTokens: maxTokens,
       temperature: 0.4,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: prompt },
-      ],
+      systemPrompt,
+      userPrompt: prompt,
     });
-    return response.choices[0]?.message?.content?.trim() ?? "(No narrative generated)";
+    return text || "(No narrative generated)";
   } catch (err) {
     console.error(
       "[artifact-tool] narrative generation failed:",

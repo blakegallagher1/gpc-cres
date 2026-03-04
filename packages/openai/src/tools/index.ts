@@ -587,3 +587,32 @@ export const fileSearchTool = hostedFileSearchTool;
  * the resulting function_call to Vercel for execution.
  */
 export const ALL_COORDINATOR_TOOL_OBJECTS = coordinatorTools;
+
+export {
+  TOOL_CATALOG,
+  getToolsForIntent,
+  getGatewayTools,
+  getHostedTools,
+  isMeteredTool,
+} from "./toolCatalog.js";
+export type {
+  ToolCatalogEntry,
+  ToolDestination,
+  ToolRiskLevel,
+  ToolQuotaClass,
+} from "./toolCatalog.js";
+
+export {
+  isMcpGatewayEnabled,
+  getMcpEligibleTools,
+  buildMcpServerTool,
+  resolveToolTransport,
+} from "./mcpGatewayAdapter.js";
+
+export {
+  checkHostedToolQuota,
+  recordHostedToolUsage,
+  getHostedToolUsage,
+  resetConversationQuota,
+  _resetAllQuotas,
+} from "./hostedToolQuota.js";

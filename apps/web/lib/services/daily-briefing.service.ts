@@ -1,5 +1,5 @@
 import { prisma } from "@entitlement-os/db";
-import OpenAI from "openai";
+import { createTextResponse } from "@entitlement-os/openai";
 
 export interface BriefingData {
   generatedAt: string;
@@ -180,21 +180,13 @@ export class DailyBriefingService {
     totalActive: number;
     recentNotifications: string[];
   }): Promise<string> {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) return this.buildFallbackSummary(context);
-
-    const client = new OpenAI({ apiKey });
-    const response = await client.chat.completions.create({
-      model: "gpt-4o-mini",
-      max_tokens: 300,
-      messages: [
-        {
-          role: "system",
-          content: "You are a concise CRE operations briefing assistant for Gallagher Property Company. Write a 2-4 sentence morning briefing highlighting the most important items. Be direct and actionable. No greetings or sign-offs.",
-        },
-        {
-          role: "user",
-          content: `Daily briefing context:
+    try {
+      const { text } = await createTextResponse({
+        model: "gpt-4o-mini",
+        maxOutputTokens: 300,
+        temperature: undefined,
+        systemPrompt: "You are a concise CRE operations briefing assistant for Gallagher Property Company. Write a 2-4 sentence morning briefing highlighting the most important items. Be direct and actionable. No greetings or sign-offs.",
+        userPrompt: `Daily briefing context:
 - ${context.newDeals} new deal(s) created in last 24h
 - ${context.successfulRuns} successful automation runs, ${context.failedRuns} failed
 - ${context.overdueItems} overdue task(s) need attention
@@ -203,11 +195,11 @@ export class DailyBriefingService {
 - Recent notifications: ${context.recentNotifications.slice(0, 5).join("; ") || "None"}
 
 Write a brief morning summary with the top 1-2 action items.`,
-        },
-      ],
-    });
-
-    return response.choices[0]?.message?.content ?? this.buildFallbackSummary(context);
+      });
+      return text || this.buildFallbackSummary(context);
+    } catch {
+      return this.buildFallbackSummary(context);
+    }
   }
 
   private buildFallbackSummary(context: {
