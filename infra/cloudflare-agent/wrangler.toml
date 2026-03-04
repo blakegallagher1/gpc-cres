@@ -25,13 +25,9 @@ new_sqlite_classes = ["CodexRelayDO"]
 binding = "HYPERDRIVE"
 id = "ebd13ab7df60414d9ba8244299467e5e"
 
-[vars]
-SUPABASE_URL = "https://yjddspdbxuseowxndrak.supabase.co"
-
 # Secrets (set via `wrangler secret put`):
 # OPENAI_API_KEY
 # LOCAL_API_KEY
 # LOCAL_API_URL        (e.g. https://api.gallagherpropco.com)
-# SUPABASE_ANON_KEY
 # VERCEL_URL           (e.g. https://gallagherpropco.com)
 # CODEX_APP_SERVER_URL (e.g. ws://codex-gateway-host:8765)

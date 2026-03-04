@@ -143,6 +143,7 @@ export async function createStrictJsonResponse<T>(
         model: params.model,
         input: params.input,
         stream: false,
+        prompt_cache_key: "entitlement-os",
         text: {
           format: {
             type: "json_schema",

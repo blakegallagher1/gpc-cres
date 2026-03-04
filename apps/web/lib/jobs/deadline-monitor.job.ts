@@ -101,33 +101,72 @@ export class DeadlineMonitorJob {
       tasksScanned = tasks.length;
       const notificationService = getNotificationService();
 
+      // Pre-classify tiers so we know which (task, tier) pairs to check
+      const tierByTaskId = new Map<string, DeadlineTier>();
       for (const task of tasks) {
         if (!task.dueAt) continue;
-
         const tier = classifyDeadline(task.dueAt, now);
+        if (tier) tierByTaskId.set(task.id, tier);
+      }
+
+      // Batch-fetch existing DEADLINE notifications for all relevant tasks (one query)
+      const taskIdsWithTiers = Array.from(tierByTaskId.keys());
+      const existingNotifications =
+        taskIdsWithTiers.length > 0
+          ? await prisma.notification.findMany({
+              where: {
+                type: "DEADLINE",
+                OR: taskIdsWithTiers.map((taskId) => ({
+                  metadata: { path: ["taskId"], equals: taskId },
+                })),
+              },
+              select: { metadata: true },
+            })
+          : [];
+
+      // Build a Set of "taskId:tier" keys for O(1) dedup lookup
+      const notifiedKeys = new Set<string>(
+        existingNotifications.flatMap((n) => {
+          const meta = n.metadata as Record<string, unknown> | null;
+          const taskId = meta?.taskId;
+          const tier = meta?.tier;
+          return typeof taskId === "string" && typeof tier === "string"
+            ? [`${taskId}:${tier}`]
+            : [];
+        }),
+      );
+
+      // Batch-fetch org memberships for orgIds that have tasks without an owner
+      const orgIdsNeedingMembers = new Set<string>();
+      for (const task of tasks) {
+        const tier = tierByTaskId.get(task.id);
         if (!tier) continue;
+        if (notifiedKeys.has(`${task.id}:${tier}`)) continue;
+        if (!task.ownerUserId) orgIdsNeedingMembers.add(task.deal.orgId);
+      }
+
+      const allMembers =
+        orgIdsNeedingMembers.size > 0
+          ? await prisma.orgMembership.findMany({
+              where: { orgId: { in: Array.from(orgIdsNeedingMembers) } },
+              select: { orgId: true, userId: true },
+            })
+          : [];
+
+      // Group members by orgId for O(1) lookup
+      const membersByOrgId = new Map<string, string[]>();
+      for (const member of allMembers) {
+        const list = membersByOrgId.get(member.orgId) ?? [];
+        list.push(member.userId);
+        membersByOrgId.set(member.orgId, list);
+      }
+
+      for (const task of tasks) {
+        const tier = tierByTaskId.get(task.id);
+        if (!tier || !task.dueAt) continue;
 
         try {
-          // Deduplicate: check if we already sent this tier for this task
-          const existing = await prisma.notification.findFirst({
-            where: {
-              type: "DEADLINE",
-              metadata: {
-                path: ["taskId"],
-                equals: task.id,
-              },
-              // Check for same tier in metadata
-              AND: {
-                metadata: {
-                  path: ["tier"],
-                  equals: tier,
-                },
-              },
-            },
-            select: { id: true },
-          });
-
-          if (existing) continue; // Already notified for this task+tier
+          if (notifiedKeys.has(`${task.id}:${tier}`)) continue; // Already notified for this task+tier
 
           // Determine recipient: task owner if assigned, otherwise all org members
           const recipients: string[] = [];
@@ -135,12 +174,7 @@ export class DeadlineMonitorJob {
           if (task.ownerUserId) {
             recipients.push(task.ownerUserId);
           } else {
-            // Notify all org members
-            const members = await prisma.orgMembership.findMany({
-              where: { orgId: task.deal.orgId },
-              select: { userId: true },
-            });
-            recipients.push(...members.map((m) => m.userId));
+            recipients.push(...(membersByOrgId.get(task.deal.orgId) ?? []));
           }
 
           for (const userId of recipients) {

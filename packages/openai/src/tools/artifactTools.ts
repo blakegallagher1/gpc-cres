@@ -151,32 +151,43 @@ export const generate_artifact = tool({
           filename: rendered.filename,
         });
 
-        // Upload to B2 via gateway
-        const gatewayUrl = process.env.LOCAL_API_URL?.trim();
-        const gatewayKey = process.env.LOCAL_API_KEY?.trim();
+        // Upload via local gateway (B2 storage)
+        const gatewayUrl = process.env.LOCAL_API_URL?.replace(/\/$/, "");
+        const gatewayKey = process.env.LOCAL_API_KEY;
         if (!gatewayUrl || !gatewayKey) {
-          throw new Error("Missing LOCAL_API_URL or LOCAL_API_KEY for storage upload");
+          throw new Error("LOCAL_API_URL and LOCAL_API_KEY required for artifact upload");
         }
-        const formData = new FormData();
-        formData.append("file", new Blob([rendered.bytes], { type: rendered.contentType }), rendered.filename);
-        formData.append("kind", "artifact");
-        formData.append("dealId", dealId);
-        formData.append("artifactType", aType);
-        formData.append("version", String(nextVersion));
-        formData.append("filename", rendered.filename);
-        formData.append("contentType", rendered.contentType);
+        const serviceUserId = process.env.GATEWAY_SERVICE_USER_ID;
+        if (!serviceUserId) {
+          throw new Error("GATEWAY_SERVICE_USER_ID required for artifact upload");
+        }
+        const uploadForm = new FormData();
+        uploadForm.append("kind", "artifact");
+        uploadForm.append("dealId", dealId);
+        uploadForm.append("artifactType", aType);
+        uploadForm.append("version", String(nextVersion));
+        uploadForm.append("filename", rendered.filename);
+        uploadForm.append("contentType", rendered.contentType);
+        if (run.id) uploadForm.append("generatedByRunId", run.id);
+        uploadForm.append(
+          "file",
+          new Blob([new Uint8Array(rendered.bytes)]),
+          rendered.filename
+        );
         const uploadRes = await fetch(`${gatewayUrl}/storage/upload-bytes`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${gatewayKey}`,
             "X-Org-Id": orgId,
-            "X-User-Id": "system",
+            "X-User-Id": serviceUserId,
           },
-          body: formData,
+          body: uploadForm,
         });
         if (!uploadRes.ok) {
-          const errText = await uploadRes.text();
-          throw new Error(`Storage upload failed (${uploadRes.status}): ${errText}`);
+          const errBody = await uploadRes.json().catch(() => ({}));
+          throw new Error(
+            `Storage upload failed: ${typeof errBody?.detail === "string" ? errBody.detail : errBody?.error || uploadRes.statusText}`
+          );
         }
 
         // Create artifact record

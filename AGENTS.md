@@ -30,8 +30,8 @@ Current implementation status against `Entitlement_OS_Meta_Prompt.md`:
 - Phases `A` through `G` are completed and integrated.
 - Phase `H` verification gate completed: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build` all pass.
 - Security hardening pass completed across tenant isolation, org scoping, map XSS sanitization, auth consistency, and error normalization.
-- Property DB and Supabase env initialization paths now enforce fail-fast behavior for missing/placeholder credentials.
-- Supabase Pro code-side optimizations are wired (read replica/direct URL toggles, pooling params, custom-domain env support); dashboard-only actions remain operational tasks.
+- Property DB initialization path enforces fail-fast behavior for missing/placeholder credentials.
+- Supabase fully removed; auth uses NextAuth with local DB credentials, storage uses B2 via gateway.
 - Formal compliance evidence is captured in:
   - `docs/ENTITLEMENT_OS_META_AUDIT_2026-02-17.md`
   - `ROADMAP.md` item `EOS-001`
@@ -163,7 +163,7 @@ Codex MUST:
 
 - Follow security invariants.
 - Enforce org_id scoping.
-- Maintain Supabase auth checks.
+- Maintain NextAuth session checks.
 - Preserve citation completeness.
 - Preserve evidence hashing determinism.
 - Maintain idempotency.
@@ -212,13 +212,13 @@ Never modify legacy/python unless explicitly instructed.
 All DB rows are scoped by org_id.
 
 Every API route must:
-1. Authenticate Supabase session.
+1. Authenticate session (NextAuth JWT).
 2. Confirm org membership.
 3. Scope all queries by org_id.
 
-Supabase Storage:
-- Private buckets only.
-- Access via signed URLs only.
+File Storage (B2 via Gateway):
+- Private storage only.
+- Access via gateway signed URLs only.
 
 Secrets:
 - Never committed.
@@ -538,12 +538,8 @@ gate BEFORE reporting success or moving to the next task.
 
 4. **Build** — `pnpm build`
    - Full monorepo build must succeed.
-   - If build fails on missing env vars (e.g., Supabase keys),
-     provide stub env vars for the build step only:
+   - If build fails on missing env vars, provide stub env vars for the build step only:
      ```
-     NEXT_PUBLIC_SUPABASE_URL=https://placeholder.supabase.co \
-     NEXT_PUBLIC_SUPABASE_ANON_KEY=placeholder \
-     SUPABASE_SERVICE_ROLE_KEY=placeholder \
      OPENAI_API_KEY=placeholder \
      pnpm build
      ```
@@ -719,3 +715,53 @@ Codex may use ANY `gh` subcommand without asking for permission.
   - `vercel --prod --yes --archive=tgz`
 - When PR automation is required, use standard PR flow from a fresh execution context if prior context blocks `gh pr create` policy checks.
 - Keep `main` as source of truth; after merge, sync local main and remove temporary branches.
+
+## Cursor Cloud specific instructions
+
+### Services overview
+
+| Service | How to start | Port |
+|---|---|---|
+| PostgreSQL (PostGIS + pgvector) | `sudo dockerd &>/dev/null &` then `sudo docker compose -f infra/docker/docker-compose.yml up -d postgres` | 54323 |
+| Next.js dev server | `pnpm dev` (builds packages first, starts all watchers) | 3000 |
+| Cloudflare Agent (optional) | auto-starts with `pnpm dev` via workspace scripts | 8787 |
+| Temporal (optional) | `sudo docker compose -f infra/docker/docker-compose.yml up -d temporal temporal-ui` — also set `ENABLE_TEMPORAL=true` in `.env` | 7233, 8080 |
+
+### Database setup gotcha — migration chain has missing CREATE TABLE statements
+
+The Prisma migration chain references tables (`internal_entities`, `memory_event_log`, `deal_outcomes`, etc.) via ALTER TABLE / FK constraints before any migration creates them. Running `pnpm db:migrate` (`prisma migrate deploy`) on a fresh database **will fail**.
+
+**Workaround for fresh local dev:**
+1. Ensure PostgreSQL extensions are installed: `CREATE EXTENSION IF NOT EXISTS postgis; CREATE EXTENSION IF NOT EXISTS pg_trgm; CREATE EXTENSION IF NOT EXISTS vector;`
+2. Use `prisma db push --accept-data-loss` to sync the schema directly (safe for local dev).
+3. Baseline all migrations as applied:
+   ```bash
+   cd packages/db
+   for dir in $(ls -d prisma/migrations/*/); do
+     name=$(basename "$dir")
+     [ "$name" != "migration_lock.toml" ] && \
+     DATABASE_URL="postgresql://postgres:postgres@localhost:54323/entitlement_os?schema=public" \
+     DIRECT_DATABASE_URL="postgresql://postgres:postgres@localhost:54323/entitlement_os?schema=public" \
+     npx prisma migrate resolve --applied "$name" 2>/dev/null
+   done
+   ```
+
+### Build with placeholder env vars
+
+The build may require an OpenAI key. Use stub values:
+```bash
+OPENAI_API_KEY=sk-placeholder pnpm build
+```
+
+### Pre-existing issues (as of 2026-03-04)
+
+- **Lint:** 5 `@ts-expect-error` directive errors in `packages/openai/src/tools/propertyMemoryTools.test.ts` — pre-existing, not caused by environment setup.
+- **Tests:** 1 assertion failure in `packages/openai` (`memoryTools.phase1.test.ts`) — pre-existing key mismatch in test mock.
+
+### Standard commands reference
+
+See `CLAUDE.md` and root `package.json` scripts. Key commands: `pnpm install`, `pnpm dev`, `pnpm build`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm db:migrate`, `pnpm db:seed`.
+
+### Docker in Cloud VM
+
+Docker must be started manually on each session: `sudo dockerd &>/dev/null &` — wait ~3 seconds before running docker commands. The Docker daemon uses `fuse-overlayfs` storage driver and `iptables-legacy`.

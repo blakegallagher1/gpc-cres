@@ -4,6 +4,7 @@ export type UsageSummary = {
   inputTokens: number;
   outputTokens: number;
   totalTokens: number;
+  cachedInputTokens: number;
   estimatedCostUsd: number | null;
 };
 
@@ -98,10 +99,20 @@ export function extractUsageSummary(value: unknown): UsageSummary | null {
     return null;
   }
 
+  const inputDetails = asRecord(usage.input_tokens_details) ?? asRecord(usage.prompt_tokens_details);
+  const cachedInputTokens = asNonNegativeInt(inputDetails?.cached_tokens) ?? 0;
+
+  if (cachedInputTokens > 0) {
+    console.log(
+      `[prompt-cache] ${cachedInputTokens}/${inputTokens} input tokens served from cache (${Math.round((cachedInputTokens / inputTokens) * 100)}%)`,
+    );
+  }
+
   return {
     inputTokens,
     outputTokens,
     totalTokens,
+    cachedInputTokens,
     estimatedCostUsd: estimateCost(inputTokens, outputTokens),
   };
 }

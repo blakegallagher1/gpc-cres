@@ -144,6 +144,8 @@ import {
   get_entity_memory,
   store_memory,
   get_entity_truth,
+  lookup_entity_by_address,
+  ingest_comps,
 
   // Batch screening
   screenBatch,
@@ -274,6 +276,8 @@ const TOOLS: Array<{
   get_entity_memory,
   store_memory,
   get_entity_truth,
+  lookup_entity_by_address,
+  ingest_comps,
   screenBatch,
 ] as Array<{
   name?: string;

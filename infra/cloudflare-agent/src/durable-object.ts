@@ -301,6 +301,7 @@ export class AgentChatDO implements DurableObject {
       input,
       tools: toolSchemas as ToolSchema[],
       store: true,
+      prompt_cache_key: "entitlement-os",
     };
 
     // First turn: include instructions. Continuations: use previous_response_id
@@ -624,6 +625,7 @@ export class AgentChatDO implements DurableObject {
     const toolResponse: Record<string, unknown> = {
       type: "response.create",
       model: this.conv.model,
+      prompt_cache_key: "entitlement-os",
       input: [
         {
           type: "function_call_output",

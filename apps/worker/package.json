@@ -20,8 +20,7 @@
     "@entitlement-os/shared": "workspace:*",
     "@entitlement-os/openai": "workspace:*",
     "@entitlement-os/evidence": "workspace:*",
-    "@entitlement-os/artifacts": "workspace:*",
-    "@supabase/supabase-js": "^2.93.3"
+    "@entitlement-os/artifacts": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.13.4",
