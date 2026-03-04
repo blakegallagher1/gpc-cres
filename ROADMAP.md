@@ -242,6 +242,21 @@ Only items meeting all checks are added below as `Planned`.
 - **Acceptance:** `packages/shared/src/types/streamEvents.ts` exists with `UniversalStreamEvent` and `AgentStreamEvent` union types; `UNIVERSAL_EVENT_TYPES` set exported.
 - **Files Changed:** `packages/shared/src/types/streamEvents.ts` (new), `packages/shared/src/index.ts`
 
+### MOD-006 — Responses Metadata Hardening (Phase 4 Continuation)
+
+- **Priority:** P1
+- **Status:** Done (2026-03-04)
+- **Problem:** `createStrictJsonResponse` metadata extraction only returned minimal model/status/usage summary, dropping high-value modern Responses fields needed for cost diagnostics, cache observability, and tool provenance.
+- **Evidence:** `packages/openai/src/responses.ts` previously emitted metadata without service tier, prompt cache key, timing fields, and web source snippets/titles.
+- **Expected Outcome:** Metadata includes normalized runtime and cache fields (`serviceTier`, `promptCacheKey`, `parallelToolCalls`, `temperature`, `topP`, `background`, `safetyIdentifier`, timestamps, `maxToolCalls`) with backward-compatible shape and stable tool source enrichment.
+- **Acceptance:** `extractResponseMetadata` emits normalized phase-4 fields when present; `extractToolSources` preserves web source `title` and `snippet`; compaction tests lock these fields.
+- **Files Changed:** `packages/openai/src/responses.ts`, `packages/openai/src/__tests__/compaction.test.ts`
+- **Evidence (2026-03-04):**
+  - `pnpm lint` passes.
+  - `pnpm typecheck` passes.
+  - `pnpm test` passes.
+  - `OPENAI_API_KEY=sk-placeholder pnpm build` passes.
+
 ### INFRA-005 — Maximize Local Server Utilization (4-Phase Plan)
 
 - **Priority:** P1
