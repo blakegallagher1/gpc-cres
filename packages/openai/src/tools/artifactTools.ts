@@ -7,7 +7,6 @@ import {
 } from "@entitlement-os/shared";
 import type { ArtifactType, DealStatus, ArtifactSpec } from "@entitlement-os/shared";
 import { renderArtifactFromSpec } from "@entitlement-os/artifacts";
-import { createClient } from "@supabase/supabase-js";
 import OpenAI from "openai";
 
 // ---------------------------------------------------------------------------
@@ -152,19 +151,32 @@ export const generate_artifact = tool({
           filename: rendered.filename,
         });
 
-        // Upload to Supabase storage
-        const supabase = createClient(
-          process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-          process.env.SUPABASE_SERVICE_ROLE_KEY || ""
-        );
-        const { error: storageError } = await supabase.storage
-          .from("deal-room-uploads")
-          .upload(storageObjectKey, Buffer.from(rendered.bytes), {
-            contentType: rendered.contentType,
-            upsert: false,
-          });
-        if (storageError) {
-          throw new Error(`Storage upload failed: ${storageError.message}`);
+        // Upload to B2 via gateway
+        const gatewayUrl = process.env.LOCAL_API_URL?.trim();
+        const gatewayKey = process.env.LOCAL_API_KEY?.trim();
+        if (!gatewayUrl || !gatewayKey) {
+          throw new Error("Missing LOCAL_API_URL or LOCAL_API_KEY for storage upload");
+        }
+        const formData = new FormData();
+        formData.append("file", new Blob([rendered.bytes], { type: rendered.contentType }), rendered.filename);
+        formData.append("kind", "artifact");
+        formData.append("dealId", dealId);
+        formData.append("artifactType", aType);
+        formData.append("version", String(nextVersion));
+        formData.append("filename", rendered.filename);
+        formData.append("contentType", rendered.contentType);
+        const uploadRes = await fetch(`${gatewayUrl}/storage/upload-bytes`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${gatewayKey}`,
+            "X-Org-Id": orgId,
+            "X-User-Id": "system",
+          },
+          body: formData,
+        });
+        if (!uploadRes.ok) {
+          const errText = await uploadRes.text();
+          throw new Error(`Storage upload failed (${uploadRes.status}): ${errText}`);
         }
 
         // Create artifact record

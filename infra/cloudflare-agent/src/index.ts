@@ -6,6 +6,7 @@
  * ------------------------------------------------------------------ */
 
 import type { Env } from "./types";
+import { handleDbProxy } from "./db-proxy";
 
 export { AgentChatDO } from "./durable-object";
 export { CodexRelayDO } from "./codex-relay-do";
@@ -16,7 +17,12 @@ export default {
 
     // Health check
     if (url.pathname === "/health") {
-      return Response.json({ status: "ok", worker: "entitlement-os-agent" });
+      return Response.json({ status: "ok", worker: "entitlement-os-agent", hyperdrive: !!env.HYPERDRIVE });
+    }
+
+    // DB proxy — Prisma SQL queries via Hyperdrive
+    if (url.pathname === "/db" && request.method === "POST") {
+      return handleDbProxy(request, env);
     }
 
     // Route /{conversationId}/push to the Durable Object push handler

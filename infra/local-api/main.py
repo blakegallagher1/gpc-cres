@@ -1977,6 +1977,88 @@ async def storage_delete_object(
 
 
 # =============================================================================
+# Prisma SQL Proxy  (Vercel → gateway → local Postgres)
+# =============================================================================
+
+
+def _serialize_row(row: asyncpg.Record) -> dict:
+    """Convert an asyncpg Record to a JSON-safe dict."""
+    out = {}
+    for k, v in dict(row).items():
+        if v is None:
+            out[k] = None
+        elif isinstance(v, (str, int, float, bool)):
+            out[k] = v
+        elif hasattr(v, "isoformat"):
+            out[k] = v.isoformat()
+        elif isinstance(v, (bytes, bytearray, memoryview)):
+            out[k] = "<binary>"
+        elif isinstance(v, (list, dict)):
+            out[k] = v
+        elif hasattr(v, "as_tuple"):  # Decimal
+            out[k] = str(v)
+        else:
+            out[k] = str(v)
+    return out
+
+
+@app.post("/db/query")
+async def db_query_proxy(
+    request: Request,
+    api_key: str = Depends(verify_api_key),
+    conn=Depends(get_app_db),
+):
+    """
+    Prisma SQL proxy — executes parameterized queries against the application DB.
+    Used by the Prisma gateway driver adapter on Vercel.
+
+    Single query:  { "sql": "SELECT ...", "params": [...] }
+    Transaction:   { "transaction": [ { "sql": "...", "params": [...] }, ... ] }
+    """
+    body = await request.json()
+
+    # --- Transaction mode ---
+    tx_stmts = body.get("transaction")
+    if tx_stmts and isinstance(tx_stmts, list):
+        results = []
+        async with conn.transaction():
+            for stmt in tx_stmts:
+                sql = (stmt.get("sql") or "").strip()
+                params = stmt.get("params") or []
+                if not sql:
+                    continue
+                if sql.upper().startswith("SELECT") or "RETURNING" in sql.upper():
+                    rows = await conn.fetch(sql, *params)
+                    results.append({
+                        "rows": [_serialize_row(r) for r in rows],
+                        "rowCount": len(rows),
+                    })
+                else:
+                    status = await conn.execute(sql, *params)
+                    count = int(status.split()[-1]) if status else 0
+                    results.append({"rows": [], "rowCount": count})
+        return {"results": results}
+
+    # --- Single query mode ---
+    sql = (body.get("sql") or "").strip()
+    params = body.get("params") or []
+
+    if not sql:
+        raise HTTPException(status_code=400, detail="Missing 'sql' field")
+
+    if sql.upper().startswith("SELECT") or "RETURNING" in sql.upper():
+        rows = await conn.fetch(sql, *params)
+        return {
+            "rows": [_serialize_row(r) for r in rows],
+            "rowCount": len(rows),
+        }
+    else:
+        status = await conn.execute(sql, *params)
+        count = int(status.split()[-1]) if status else 0
+        return {"rows": [], "rowCount": count}
+
+
+# =============================================================================
 # Run Server
 # =============================================================================
 
