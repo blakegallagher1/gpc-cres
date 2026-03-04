@@ -669,7 +669,7 @@ describe("store_property_finding tool (agent-facing wrapper)", () => {
         { status: 503, body: { error: "Service unavailable" } }, // upsert fails
       ]),
     );
-    // @ts-expect-error
+    // @ts-expect-error -- tool.execute accepts raw params in tests
     const result = await store_property_finding.execute({
       orgId: TEST_ORG_ID,
       parcelId: TEST_PARCEL_ID,
@@ -707,7 +707,7 @@ describe("recall_property_intelligence tool (agent-facing wrapper)", () => {
      * so agents can surface a clear message instead of "no stored data".
      */
     mIsEnabled.mockReturnValue(false);
-    // @ts-expect-error
+    // @ts-expect-error -- tool.execute accepts raw params in tests
     const result = await recall_property_intelligence.execute({
       orgId: TEST_ORG_ID,
       query: "flood zones near industrial parcels",
@@ -743,7 +743,7 @@ describe("recall_property_intelligence tool (agent-facing wrapper)", () => {
         },
       ]),
     );
-    // @ts-expect-error
+    // @ts-expect-error -- tool.execute accepts raw params in tests
     const result = await recall_property_intelligence.execute({
       orgId: TEST_ORG_ID,
       query: "flood zones",
@@ -780,7 +780,7 @@ describe("recall_property_intelligence tool (agent-facing wrapper)", () => {
         },
       ]),
     );
-    // @ts-expect-error
+    // @ts-expect-error -- tool.execute accepts raw params in tests
     const result = await recall_property_intelligence.execute({
       orgId: TEST_ORG_ID,
       query: "flood zone parcels",
@@ -797,7 +797,7 @@ describe("recall_property_intelligence tool (agent-facing wrapper)", () => {
         { status: 200, body: { result: { points: [] } } },
       ]),
     );
-    // @ts-expect-error
+    // @ts-expect-error -- tool.execute accepts raw params in tests
     await recall_property_intelligence.execute({
       orgId: TEST_ORG_ID,
       query: "all parcels",
