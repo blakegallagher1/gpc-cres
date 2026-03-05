@@ -5,7 +5,6 @@ import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { uploadDealFileToGateway } from "@/lib/storage/gatewayStorage";
 import { randomUUID } from "crypto";
 import { dispatchEvent } from "@/lib/automation/events";
-import "@/lib/automation/handlers";
 import { captureAutomationDispatchError } from "@/lib/automation/sentry";
 import * as Sentry from "@sentry/nextjs";
 

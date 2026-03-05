@@ -1,8 +1,30 @@
 import { prisma } from "@entitlement-os/db";
-import { propertyDbRpc } from "@entitlement-os/openai";
+import { propertyDbRpc } from "@/lib/server/propertyDbRpc";
 import { AUTOMATION_CONFIG } from "./config";
 import { createAutomationTask } from "./notifications";
 import type { AutomationEvent } from "./events";
+
+type PropertyDbRecord = Record<string, unknown>;
+export type ParcelEnrichmentUpdate = Record<string, unknown>;
+
+export interface ParcelEnrichmentPayload {
+  details: PropertyDbRecord | null;
+  screening: PropertyDbRecord | null;
+  updateData: ParcelEnrichmentUpdate;
+}
+
+function asRecord(value: unknown): PropertyDbRecord | null {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as PropertyDbRecord)
+    : null;
+}
+
+function firstRecord(value: unknown): PropertyDbRecord | null {
+  if (Array.isArray(value)) {
+    return asRecord(value[0]);
+  }
+  return asRecord(value);
+}
 
 /**
  * Normalize an address for property DB search.
@@ -18,7 +40,7 @@ export function normalizeAddress(address: string): string {
  */
 export function scoreMatchConfidence(
   searchAddress: string,
-  matchAddress: string
+  matchAddress: string,
 ): number {
   const a = normalizeAddress(searchAddress).toLowerCase();
   const b = normalizeAddress(matchAddress).toLowerCase();
@@ -47,149 +69,216 @@ export function scoreMatchConfidence(
   return 0.2;
 }
 
+export async function searchPropertyDbMatches(
+  address: string,
+  parish: string | null,
+): Promise<PropertyDbRecord[]> {
+  const normalized = normalizeAddress(address);
+  if (!normalized) {
+    return [];
+  }
+
+  const attempts = [
+    normalized,
+    normalized.replace(/\s+\d{5}(-\d{4})?$/, ""),
+    normalized.split(" ").slice(0, 3).join(" "),
+  ];
+
+  for (const searchText of attempts) {
+    try {
+      const result = await propertyDbRpc("api_search_parcels", {
+        search_text: searchText,
+        parish,
+        limit_rows: 10,
+      });
+      if (Array.isArray(result) && result.length > 0) {
+        return result.filter(
+          (candidate): candidate is PropertyDbRecord => asRecord(candidate) !== null,
+        );
+      }
+    } catch {
+      // Search failed — continue to next attempt
+    }
+  }
+
+  return [];
+}
+
+export function buildParcelEnrichmentUpdate(
+  propertyDbId: string,
+  details: PropertyDbRecord | null,
+  screening: PropertyDbRecord | null,
+): ParcelEnrichmentUpdate {
+  const updateData: ParcelEnrichmentUpdate = { propertyDbId };
+
+  if (details) {
+    if (details.parcel_uid) updateData.apn = String(details.parcel_uid);
+    if (details.lat) updateData.lat = Number(details.lat);
+    if (details.lng) updateData.lng = Number(details.lng);
+    if (details.acreage) updateData.acreage = Number(details.acreage);
+  }
+
+  if (!screening) {
+    return updateData;
+  }
+
+  if (screening.flood) {
+    const flood = asRecord(screening.flood);
+    const zones = Array.isArray(flood?.zones)
+      ? flood.zones
+          .map((zone) => asRecord(zone))
+          .filter((zone): zone is PropertyDbRecord => zone !== null)
+      : [];
+    if (zones.length > 0) {
+      updateData.floodZone = zones
+        .map(
+          (zone) =>
+            `${zone.zone_code} (${Number(zone.overlap_pct ?? 0).toFixed(0)}%)`,
+        )
+        .join(", ");
+    } else {
+      updateData.floodZone = "No flood zone data";
+    }
+  }
+
+  if (screening.soils) {
+    const soils = asRecord(screening.soils);
+    const soilTypes = Array.isArray(soils?.soil_types)
+      ? soils.soil_types
+          .map((soilType) => asRecord(soilType))
+          .filter((soilType): soilType is PropertyDbRecord => soilType !== null)
+      : [];
+    if (soilTypes.length > 0) {
+      updateData.soilsNotes = soilTypes
+        .map(
+          (soilType) =>
+            `${soilType.soil_name}: ${soilType.drainage_class ?? "unknown drainage"}, hydric=${soilType.hydric_rating ?? "?"}`,
+        )
+        .join("; ");
+    }
+  }
+
+  if (screening.wetlands) {
+    const wetlands = asRecord(screening.wetlands);
+    const wetlandAreas = Array.isArray(wetlands?.wetland_areas)
+      ? wetlands.wetland_areas
+          .map((wetlandArea) => asRecord(wetlandArea))
+          .filter((wetlandArea): wetlandArea is PropertyDbRecord => wetlandArea !== null)
+      : [];
+    if (wetlandAreas.length > 0) {
+      updateData.wetlandsNotes = wetlandAreas
+        .map(
+          (wetlandArea) =>
+            `${wetlandArea.wetland_type} (${Number(wetlandArea.overlap_pct ?? 0).toFixed(0)}%)`,
+        )
+        .join("; ");
+    } else {
+      updateData.wetlandsNotes = "No wetlands detected";
+    }
+  }
+
+  const envParts: string[] = [];
+  if (screening.epa) {
+    const epa = asRecord(screening.epa);
+    const sites = Array.isArray(epa?.sites)
+      ? epa.sites
+          .map((site) => asRecord(site))
+          .filter((site): site is PropertyDbRecord => site !== null)
+      : [];
+    if (sites.length > 0) {
+      envParts.push(
+        `EPA: ${sites.length} site(s) nearby — ` +
+          sites
+            .slice(0, 3)
+            .map(
+              (site) =>
+                `${site.facility_name} (${Number(site.distance_miles ?? 0).toFixed(1)}mi)`,
+            )
+            .join(", "),
+      );
+    } else {
+      envParts.push("EPA: No regulated sites nearby");
+    }
+  }
+
+  if (screening.ldeq) {
+    const ldeq = asRecord(screening.ldeq);
+    const permits = Array.isArray(ldeq?.permits)
+      ? ldeq.permits
+          .map((permit) => asRecord(permit))
+          .filter((permit): permit is PropertyDbRecord => permit !== null)
+      : [];
+    if (permits.length > 0) {
+      envParts.push(
+        `LDEQ: ${permits.length} permit(s) nearby — ` +
+          permits
+            .slice(0, 3)
+            .map(
+              (permit) =>
+                `${permit.facility_name} (${Number(permit.distance_miles ?? 0).toFixed(1)}mi)`,
+            )
+            .join(", "),
+      );
+    } else {
+      envParts.push("LDEQ: No permitted facilities nearby");
+    }
+  }
+
+  if (envParts.length > 0) {
+    updateData.envNotes = envParts.join("\n");
+  }
+
+  if (screening.traffic) {
+    const traffic = asRecord(screening.traffic);
+    const roads = Array.isArray(traffic?.roads)
+      ? traffic.roads
+          .map((road) => asRecord(road))
+          .filter((road): road is PropertyDbRecord => road !== null)
+      : [];
+    if (roads.length > 0) {
+      updateData.trafficNotes = roads
+        .slice(0, 3)
+        .map(
+          (road) =>
+            `${road.road_name}: ${Number(road.aadt ?? 0).toLocaleString()} AADT, ${Number(road.truck_pct ?? 0).toFixed(0)}% trucks, ${Number(road.distance_miles ?? 0).toFixed(1)}mi`,
+        )
+        .join("; ");
+    }
+  }
+
+  return updateData;
+}
+
+export async function getParcelEnrichmentPayload(
+  propertyDbId: string,
+): Promise<ParcelEnrichmentPayload> {
+  const details = firstRecord(
+    await propertyDbRpc("api_get_parcel", {
+      parcel_id: propertyDbId,
+    }),
+  );
+  const screening = firstRecord(
+    await propertyDbRpc("api_screen_full", {
+      parcel_id: propertyDbId,
+    }),
+  );
+
+  return {
+    details,
+    screening,
+    updateData: buildParcelEnrichmentUpdate(propertyDbId, details, screening),
+  };
+}
+
 /**
  * Apply enrichment data from a property DB parcel to our parcel record.
  * Calls api_get_parcel + api_screen_full, then updates the parcel.
  */
 export async function applyEnrichment(
   parcelId: string,
-  propertyDbId: string
+  propertyDbId: string,
 ): Promise<void> {
-  const details = await propertyDbRpc("api_get_parcel", {
-    parcel_id: propertyDbId,
-  });
-  const screening = await propertyDbRpc("api_screen_full", {
-    parcel_id: propertyDbId,
-  });
-
-  const d = (Array.isArray(details) ? details[0] : details) as Record<
-    string,
-    unknown
-  > | null;
-  const s = (Array.isArray(screening) ? screening[0] : screening) as Record<
-    string,
-    unknown
-  > | null;
-
-  const updateData: Record<string, unknown> = { propertyDbId };
-
-  if (d) {
-    if (d.parcel_uid) updateData.apn = String(d.parcel_uid);
-    if (d.lat) updateData.lat = Number(d.lat);
-    if (d.lng) updateData.lng = Number(d.lng);
-    if (d.acreage) updateData.acreage = Number(d.acreage);
-  }
-
-  if (s) {
-    // Flood
-    if (s.flood) {
-      const flood = s.flood as Record<string, unknown>;
-      const zones = flood.zones as Array<Record<string, unknown>> | undefined;
-      if (zones && zones.length > 0) {
-        updateData.floodZone = zones
-          .map(
-            (z) =>
-              `${z.zone_code} (${Number(z.overlap_pct ?? 0).toFixed(0)}%)`
-          )
-          .join(", ");
-      } else {
-        updateData.floodZone = "No flood zone data";
-      }
-    }
-
-    // Soils
-    if (s.soils) {
-      const soils = s.soils as Record<string, unknown>;
-      const types = soils.soil_types as
-        | Array<Record<string, unknown>>
-        | undefined;
-      if (types && types.length > 0) {
-        updateData.soilsNotes = types
-          .map(
-            (t) =>
-              `${t.soil_name}: ${t.drainage_class ?? "unknown drainage"}, hydric=${t.hydric_rating ?? "?"}`
-          )
-          .join("; ");
-      }
-    }
-
-    // Wetlands
-    if (s.wetlands) {
-      const wetlands = s.wetlands as Record<string, unknown>;
-      const areas = wetlands.wetland_areas as
-        | Array<Record<string, unknown>>
-        | undefined;
-      if (areas && areas.length > 0) {
-        updateData.wetlandsNotes = areas
-          .map(
-            (w) =>
-              `${w.wetland_type} (${Number(w.overlap_pct ?? 0).toFixed(0)}%)`
-          )
-          .join("; ");
-      } else {
-        updateData.wetlandsNotes = "No wetlands detected";
-      }
-    }
-
-    // Environmental
-    const envParts: string[] = [];
-    if (s.epa) {
-      const epa = s.epa as Record<string, unknown>;
-      const sites = epa.sites as Array<Record<string, unknown>> | undefined;
-      if (sites && sites.length > 0) {
-        envParts.push(
-          `EPA: ${sites.length} site(s) nearby — ` +
-            sites
-              .slice(0, 3)
-              .map(
-                (e) =>
-                  `${e.facility_name} (${Number(e.distance_miles ?? 0).toFixed(1)}mi)`
-              )
-              .join(", ")
-        );
-      } else {
-        envParts.push("EPA: No regulated sites nearby");
-      }
-    }
-    if (s.ldeq) {
-      const ldeq = s.ldeq as Record<string, unknown>;
-      const permits = ldeq.permits as
-        | Array<Record<string, unknown>>
-        | undefined;
-      if (permits && permits.length > 0) {
-        envParts.push(
-          `LDEQ: ${permits.length} permit(s) nearby — ` +
-            permits
-              .slice(0, 3)
-              .map(
-                (p) =>
-                  `${p.facility_name} (${Number(p.distance_miles ?? 0).toFixed(1)}mi)`
-              )
-              .join(", ")
-        );
-      } else {
-        envParts.push("LDEQ: No permitted facilities nearby");
-      }
-    }
-    if (envParts.length > 0) {
-      updateData.envNotes = envParts.join("\n");
-    }
-
-    // Traffic
-    if (s.traffic) {
-      const traffic = s.traffic as Record<string, unknown>;
-      const roads = traffic.roads as Array<Record<string, unknown>> | undefined;
-      if (roads && roads.length > 0) {
-        updateData.trafficNotes = roads
-          .slice(0, 3)
-          .map(
-            (r) =>
-              `${r.road_name}: ${Number(r.aadt ?? 0).toLocaleString()} AADT, ${Number(r.truck_pct ?? 0).toFixed(0)}% trucks, ${Number(r.distance_miles ?? 0).toFixed(1)}mi`
-          )
-          .join("; ");
-      }
-    }
-  }
+  const { updateData } = await getParcelEnrichmentPayload(propertyDbId);
 
   await prisma.parcel.update({
     where: { id: parcelId },
@@ -202,7 +291,7 @@ export async function applyEnrichment(
  * Fires as part of the automation event system (fire-and-forget).
  */
 export async function handleParcelCreated(
-  event: AutomationEvent
+  event: AutomationEvent,
 ): Promise<void> {
   if (event.type !== "parcel.created") return;
 
@@ -216,30 +305,10 @@ export async function handleParcelCreated(
   if (!parcel?.address) return;
   if (parcel.propertyDbId) return; // Already enriched
 
-  // Search property DB with progressive fallback
-  const normalized = normalizeAddress(parcel.address);
-  const attempts = [
-    normalized,
-    normalized.replace(/\s+\d{5}(-\d{4})?$/, ""),
-    normalized.split(" ").slice(0, 3).join(" "),
-  ];
-
-  let matches: Array<Record<string, unknown>> = [];
-  for (const searchText of attempts) {
-    try {
-      const result = await propertyDbRpc("api_search_parcels", {
-        search_text: searchText,
-        parish: parcel.deal?.jurisdiction?.name ?? null,
-        limit_rows: 10,
-      });
-      if (Array.isArray(result) && result.length > 0) {
-        matches = result as Array<Record<string, unknown>>;
-        break;
-      }
-    } catch {
-      // Search failed — continue to next attempt
-    }
-  }
+  const matches = await searchPropertyDbMatches(
+    parcel.address,
+    parcel.deal?.jurisdiction?.name ?? null,
+  );
 
   if (matches.length === 0) {
     await createAutomationTask({
@@ -255,7 +324,7 @@ export async function handleParcelCreated(
   // Score best match
   const bestMatch = matches[0];
   const matchAddress = String(
-    bestMatch.site_address ?? bestMatch.address ?? ""
+    bestMatch.site_address ?? bestMatch.address ?? "",
   );
   const confidence = scoreMatchConfidence(parcel.address, matchAddress);
   const propertyDbId = String(bestMatch.id ?? bestMatch.parcel_id ?? "");
@@ -269,7 +338,7 @@ export async function handleParcelCreated(
     try {
       await applyEnrichment(parcelId, propertyDbId);
       console.log(
-        `[automation] Auto-enriched parcel ${parcelId} with confidence ${confidence}`
+        `[automation] Auto-enriched parcel ${parcelId} with confidence ${confidence}`,
       );
     } catch (err) {
       console.error("[automation] Auto-enrichment failed:", err);
@@ -288,8 +357,8 @@ export async function handleParcelCreated(
     const matchSummary = matches
       .slice(0, 3)
       .map(
-        (m, i) =>
-          `${i + 1}. ${m.site_address ?? m.address ?? "unknown"} (ID: ${m.id ?? m.parcel_id ?? "?"})`
+        (match, index) =>
+          `${index + 1}. ${match.site_address ?? match.address ?? "unknown"} (ID: ${match.id ?? match.parcel_id ?? "?"})`,
       )
       .join("\n");
 

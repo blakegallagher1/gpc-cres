@@ -1833,6 +1833,36 @@ The following items were identified by analyzing 6 OpenAI GitHub repositories (`
   - `apps/web/components/self-healing/ToolHealthDashboard.tsx`
   - `apps/web/app/automation/page.tsx`
 
+### INC-003 — Deals Route Import-Chain Hardening
+
+- **Priority:** P0
+- **Status:** Done (2026-03-05)
+- **Scope:** Deals API auth resilience and gateway-backed parcel enrichment
+- **Problem:** `GET /api/deals` and related deals routes can crash before auth resolution because route imports eagerly register automation handlers and pull in OpenAI/property-db modules with runtime env requirements. The same import chain also keeps parcel enrichment coupled to `@entitlement-os/openai` instead of the gateway-backed parcel APIs that are already deployed.
+- **Expected Outcome (measurable):**
+  - Unauthenticated deals endpoints return `401`/`403` instead of `500`.
+  - Automation handlers register lazily at dispatch time, not route import time.
+  - Parcel enrichment and artifact listing avoid top-level OpenAI/property-db initialization during request module load.
+  - Regression coverage proves the hardened routes stay auth-safe and enrichment still normalizes parcel screening data.
+- **Evidence of need:** Production `/api/deals` smoke checks returned `500` while adjacent auth-scoped routes returned `401`; Sentry incidents showed Prisma/OpenAI init failures occurring before request auth checks.
+- **Alignment:** Preserves strict auth/org scoping, keeps server-only property-db access behind existing gateway auth, and avoids relaxing schema or evidence validation.
+- **Risk/rollback:** Medium. Touches shared automation registration and enrichment plumbing. Rollback by restoring eager handler imports and prior property-db helper wiring if route behavior regresses.
+- **Acceptance Criteria / Tests:**
+  - `apps/web/lib/automation/handlers.ts` registers handlers through an idempotent lazy loader and no longer runs registration at module import time.
+  - Deals routes stop importing `@/lib/automation/handlers` solely for side effects.
+  - `apps/web/lib/server/propertyDbRpc.ts` wraps gateway parcel/search/screening endpoints and normalizes responses for enrichment consumers.
+  - `apps/web/lib/automation/enrichment.ts` and `apps/web/app/api/deals/[id]/parcels/[parcelId]/enrich/route.ts` use the gateway-backed helper instead of `@entitlement-os/openai`.
+  - `apps/web/app/api/deals/[id]/artifacts/route.ts` loads OpenAI narrative helpers only inside the narrative generation path.
+  - Regression tests cover lazy handler registration, property-db normalization, artifacts listing auth behavior, and deal parcel enrichment auth/happy paths.
+  - Full verification gate passes (`pnpm lint`, `pnpm typecheck`, `pnpm test`, `OPENAI_API_KEY=sk-placeholder pnpm build`), with any unrelated pre-existing failures explicitly documented if they remain.
+- **Completion Evidence (2026-03-05):**
+  - `apps/web/lib/automation/events.ts` now lazily imports `ensureHandlersRegistered()` at dispatch time and defers proactive trigger service loading until after event dispatch.
+  - `apps/web/lib/automation/handlers.ts` keeps handler registration idempotent without module-import side effects, and deals routes no longer import the handler module only to trigger eager registration.
+  - `apps/web/lib/server/propertyDbRpc.ts` now fronts gateway-backed parcel search/detail/screening calls, while `apps/web/lib/automation/enrichment.ts` and `apps/web/app/api/deals/[id]/parcels/[parcelId]/enrich/route.ts` consume the normalized helper instead of `@entitlement-os/openai`.
+  - `apps/web/app/api/deals/[id]/artifacts/route.ts` now loads `createTextResponse` only inside `generateNarrative()`, removing top-level OpenAI initialization from auth-only artifact listing requests.
+  - Added regression coverage in `apps/web/lib/automation/__tests__/handlers.test.ts`, `apps/web/lib/automation/__tests__/events.test.ts`, `apps/web/lib/automation/__tests__/enrichment.test.ts`, `apps/web/lib/server/propertyDbRpc.test.ts`, `apps/web/app/api/deals/[id]/artifacts/route.test.ts`, and `apps/web/app/api/deals/[id]/parcels/[parcelId]/enrich/route.test.ts`.
+  - Verification gate passed locally: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `OPENAI_API_KEY=sk-placeholder pnpm build`.
+
 ---
 
 ## Infrastructure & Deployment Phases

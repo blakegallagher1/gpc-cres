@@ -15,7 +15,7 @@ import { handleOutcomeCapture } from "./outcomeCapture";
 /**
  * Register all automation event handlers.
  * Idempotent — safe to call multiple times.
- * Must be imported before dispatching any events.
+ * Called lazily by dispatchEvent to keep route imports auth-safe.
  */
 let registered = false;
 
@@ -66,6 +66,3 @@ export function ensureHandlersRegistered(): void {
   // #MEM-003 Calibration v1: snapshot outcomes + ingest calibration records
   registerHandler("deal.statusChanged", handleOutcomeCapture);
 }
-
-// Auto-register on import
-ensureHandlersRegistered();
