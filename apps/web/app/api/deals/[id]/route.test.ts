@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   resolveAuthMock,
+  fetchMock,
   dispatchEventMock,
   captureAutomationDispatchErrorMock,
   sentryCaptureExceptionMock,
@@ -13,6 +14,7 @@ const {
   parishPackVersionFindFirstMock,
 } = vi.hoisted(() => ({
   resolveAuthMock: vi.fn(),
+  fetchMock: vi.fn(),
   dispatchEventMock: vi.fn().mockResolvedValue(undefined),
   captureAutomationDispatchErrorMock: vi.fn(),
   sentryCaptureExceptionMock: vi.fn(),
@@ -69,6 +71,7 @@ describe("/api/deals/[id] route", () => {
   beforeEach(() => {
     resolveAuthMock.mockReset();
     resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
+    fetchMock.mockReset();
     dispatchEventMock.mockReset();
     dispatchEventMock.mockResolvedValue(undefined);
     captureAutomationDispatchErrorMock.mockReset();
@@ -79,13 +82,15 @@ describe("/api/deals/[id] route", () => {
     dealUpdateMock.mockReset();
     dealDeleteMock.mockReset();
     parishPackVersionFindFirstMock.mockReset();
+    vi.stubGlobal("fetch", fetchMock);
 
     process.env.NODE_ENV = "test";
-    process.env.LOCAL_API_URL = ORIGINAL_LOCAL_API_URL;
-    process.env.LOCAL_API_KEY = ORIGINAL_LOCAL_API_KEY;
+    delete process.env.LOCAL_API_URL;
+    delete process.env.LOCAL_API_KEY;
   });
 
   afterEach(() => {
+    vi.unstubAllGlobals();
     process.env.NODE_ENV = ORIGINAL_NODE_ENV;
     process.env.LOCAL_API_URL = ORIGINAL_LOCAL_API_URL;
     process.env.LOCAL_API_KEY = ORIGINAL_LOCAL_API_KEY;
@@ -114,6 +119,34 @@ describe("/api/deals/[id] route", () => {
       expect(res.status).toBe(404);
       expect(body).toEqual({ error: "Deal not found" });
       expect(parishPackVersionFindFirstMock).not.toHaveBeenCalled();
+    });
+
+    it("returns gateway deal when LOCAL_API_URL and LOCAL_API_KEY are set", async () => {
+      process.env.LOCAL_API_URL = "https://api.example.com";
+      process.env.LOCAL_API_KEY = "test-gateway-key";
+      fetchMock.mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            deals: [{ id: DEAL_ID, name: "Gateway Deal", status: "INTAKE" }],
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+      );
+
+      const req = new NextRequest(`http://localhost/api/deals/${DEAL_ID}`);
+      const res = await GET(req, { params: Promise.resolve({ id: DEAL_ID }) });
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.deal.id).toBe(DEAL_ID);
+      expect(body.deal.name).toBe("Gateway Deal");
+      expect(body.deal.parcels).toEqual([]);
+      expect(body.deal.packContext.hasPack).toBe(false);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(dealFindFirstMock).not.toHaveBeenCalled();
     });
 
     it("returns scoped deal payload with pack context", async () => {

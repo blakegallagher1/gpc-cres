@@ -86,7 +86,27 @@ describe("POST /api/map/isochrone", () => {
 
     expect(res.status).toBe(200);
     expect(Array.isArray(body.polygon)).toBe(true);
-    expect(body.polygon.length).toBe(17);
+    expect(body.polygon.length).toBe(13);
     expect(fetchMock).toHaveBeenCalled();
+  });
+
+  it("returns fallback circle polygon when routing fails", async () => {
+    resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 503,
+      json: async () => ({}),
+    } as Response);
+
+    const req = new NextRequest("http://localhost/api/map/isochrone", {
+      method: "POST",
+      body: JSON.stringify({ lat: 30.45, lng: -91.18, minutes: 10 }),
+    });
+    const res = await POST(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(Array.isArray(body.polygon)).toBe(true);
+    expect(body.polygon.length).toBe(13);
   });
 });

@@ -287,6 +287,51 @@ Only items meeting all checks are added below as `Planned`.
   - ✅ All 5 production verification tests passed (see `PRODUCTION_VERIFICATION_REPORT.md`)
   - ✅ Build: `pnpm build` clean, 668/668 tests passing
 
+### INFRA-006 — Gateway Contract Alignment + Runtime Smoke Matrix (P0)
+
+- **Priority:** P0
+- **Status:** Done (2026-03-05)
+- **Scope:** Align web/server/tool call paths with current `infra/local-api/main.py` gateway contracts and produce a reproducible smoke matrix for map, deals, parcels, screening, and health endpoints.
+- **Problem:** Multiple call sites still reference legacy paths/methods (`/property-db/rpc/*`, `/admin/health`) that no longer match live gateway routes, causing silent fallbacks or hard failures in map and automation flows.
+- **Expected Outcome (measurable):**
+  - All affected call sites use currently supported gateway endpoints and payload contracts.
+  - Route tests cover the compatibility logic for changed paths.
+  - A runnable smoke suite verifies listed endpoint categories against live local gateway.
+- **Evidence of need:** Live gateway scan (`infra/local-api/main.py`) confirms supported paths (`/health`, `/tools/*`, `/api/parcels/*`, `/api/screening/*`) and excludes legacy `/property-db/rpc/*`/`/admin/health` paths.
+- **Alignment:** Preserves org-scoped auth requirements and fails closed when gateway credentials are missing; no weakening of schema or tenancy boundaries.
+- **Risk/rollback:** Low-medium; route behavior changes are isolated to gateway transport wrappers and map/health integration points. Rollback by reverting INFRA-006 commits if downstream compatibility regressions surface.
+- **Acceptance Criteria / Tests:**
+  - Update affected callers to prefer current endpoints and safe compatibility fallback behavior.
+  - Add/adjust unit tests for changed route/service behavior (auth + validation + happy path).
+  - Run verification and smoke checks with explicit pass/fail evidence for endpoint families:
+    - deals
+    - parcels/search + geometry
+    - screening
+    - map prospect/comps/tiles
+    - health
+- **Evidence (2026-03-05):**
+  - Updated call-path contracts to current gateway endpoints:
+    - `apps/web/app/api/map/comps/route.ts`
+    - `apps/web/app/api/health/route.ts`
+    - `apps/web/lib/services/saved-search.service.ts`
+    - `apps/web/lib/jobs/opportunity-scanner.job.ts`
+  - Added/updated route + service tests for compatibility and auth/header behavior:
+    - `apps/web/app/api/map/comps/route.test.ts`
+    - `apps/web/app/api/health/route.test.ts`
+    - `apps/web/lib/services/saved-search.service.test.ts`
+    - `apps/web/lib/jobs/opportunity-scanner.job.test.ts`
+    - `apps/web/app/api/deals/route.test.ts`
+    - `apps/web/app/api/deals/[id]/route.test.ts`
+    - `apps/web/app/api/map/isochrone/route.test.ts`
+    - `apps/web/app/api/geofences/route.test.ts`
+    - `apps/web/app/api/geofences/[id]/route.test.ts`
+    - `apps/web/app/api/memory/ingest/route.test.ts`
+  - Verification gate passed:
+    - `pnpm lint`
+    - `pnpm typecheck`
+    - `pnpm test`
+    - `OPENAI_API_KEY=sk-placeholder pnpm build`
+
 ### KA-001 — Internal Knowledge Agent (5-Workstream Wiring) (P0)
 
 - **Priority:** P0

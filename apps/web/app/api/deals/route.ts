@@ -188,14 +188,19 @@ export async function POST(request: NextRequest) {
       if (!res.ok) {
         const text = await res.text();
         console.error("[api/deals] Local API POST error:", res.status, text.slice(0, 200));
-        return NextResponse.json(
-          { error: "Failed to create deal" },
-          { status: res.status >= 500 ? 503 : res.status }
-        );
+        if (res.status < 500) {
+          return NextResponse.json(
+            { error: "Failed to create deal" },
+            { status: res.status },
+          );
+        }
+        // Gateway-side create failures should not hard-block local workflows.
+        // Fall through to Prisma create path.
       }
-
-      const data = await res.json();
-      return NextResponse.json(data, { status: 201 });
+      if (res.ok) {
+        const data = await res.json();
+        return NextResponse.json(data, { status: 201 });
+      }
     }
 
     // Local dev fallback: Prisma

@@ -30,6 +30,57 @@ export async function GET(
     }
 
     const { id } = await params;
+    const localApiUrl = process.env.LOCAL_API_URL?.trim();
+    const localApiKey = process.env.LOCAL_API_KEY?.trim();
+
+    // When gateway deals mode is active, IDs in /api/deals may not exist
+    // in local Prisma. Try resolving from gateway first for consistency.
+    if (localApiUrl && localApiKey) {
+      try {
+        const query = new URLSearchParams({
+          org_id: auth.orgId,
+          limit: "500",
+        });
+        const upstream = await fetch(
+          `${localApiUrl.replace(/\/$/, "")}/deals?${query.toString()}`,
+          {
+            cache: "no-store",
+            headers: { Authorization: `Bearer ${localApiKey}` },
+          },
+        );
+        if (upstream.ok) {
+          const payload = (await upstream.json()) as {
+            deals?: Array<Record<string, unknown>>;
+          };
+          const gatewayDeal = payload.deals?.find(
+            (deal) => String(deal.id ?? "") === id,
+          );
+          if (gatewayDeal) {
+            return NextResponse.json({
+              deal: {
+                ...gatewayDeal,
+                parcels: [],
+                tasks: [],
+                artifacts: [],
+                uploads: [],
+                triageOutput: null,
+                packContext: {
+                  hasPack: false,
+                  isStale: false,
+                  stalenessDays: null,
+                  missingEvidence: [
+                    "Gateway detail projection in use; full pack context unavailable.",
+                  ],
+                  latestPack: null,
+                },
+              },
+            });
+          }
+        }
+      } catch (error) {
+        console.warn("[/api/deals/[id]] gateway lookup failed, falling back to Prisma", error);
+      }
+    }
 
     const deal = await prisma.deal.findFirst({
       where: { id, orgId: auth.orgId },

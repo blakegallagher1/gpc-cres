@@ -17,20 +17,72 @@ async function propertyRpc(
   if (!config) return [];
 
   const { url, key } = config;
-  const res = await fetch(`${url}/property-db/rpc/${fnName}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) return [];
-  try {
-    return await res.json();
-  } catch {
-    return [];
+  if (fnName === "api_search_parcels") {
+    const q = String(body.search_text ?? body.p_search_text ?? "").trim();
+    const parish = String(body.parish ?? body.p_parish ?? "").trim();
+    const limit = Number(body.limit_rows ?? body.p_limit ?? 50);
+    if (!q) return [];
+
+    const params = new URLSearchParams({
+      q,
+      limit: String(Number.isFinite(limit) ? Math.max(1, Math.min(100, limit)) : 50),
+    });
+    if (parish) {
+      params.set("parish", parish);
+    }
+
+    const res = await fetch(`${url}/api/parcels/search?${params.toString()}`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${key}`,
+      },
+    });
+    if (!res.ok) return [];
+    try {
+      const payload = (await res.json()) as {
+        data?: unknown[];
+        parcels?: unknown[];
+      };
+      if (Array.isArray(payload.data)) return payload.data;
+      if (Array.isArray(payload.parcels)) return payload.parcels;
+      return [];
+    } catch {
+      return [];
+    }
   }
+
+  if (fnName === "api_search_parcels_point") {
+    const lat = Number(body.lat);
+    const lng = Number(body.lng);
+    const limit = Number(body.limit ?? 100);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return [];
+
+    const res = await fetch(`${url}/tools/parcel.point`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        lat,
+        lng,
+        limit: Number.isFinite(limit) ? Math.max(1, Math.min(100, limit)) : 100,
+      }),
+    });
+    if (!res.ok) return [];
+    try {
+      const payload = (await res.json()) as {
+        parcels?: unknown[];
+        data?: unknown[];
+      };
+      if (Array.isArray(payload.parcels)) return payload.parcels;
+      if (Array.isArray(payload.data)) return payload.data;
+      return [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
 }
 
 const QuerySchema = z
@@ -114,11 +166,38 @@ export async function GET(req: NextRequest) {
       // The property DB doesn't have a radius search, so we search with empty text
       // and rely on coordinates. For now, just return parcels near the point.
       const raw = await propertyRpc("api_search_parcels", {
-        search_text: "",
+        search_text: `${lat},${lng}`,
         parish: null,
         limit_rows: 100,
       });
-      result = Array.isArray(raw) ? (raw as Record<string, unknown>[]) : [];
+      let mapped = Array.isArray(raw) ? (raw as Record<string, unknown>[]) : [];
+      if (mapped.length === 0 && typeof lat === "number" && typeof lng === "number") {
+        const pointRaw = await propertyRpc("api_search_parcels_point", {
+          lat,
+          lng,
+          limit: 100,
+        });
+        mapped = Array.isArray(pointRaw)
+          ? (pointRaw as Record<string, unknown>[])
+          : [];
+      }
+      result = mapped;
+    }
+
+    // If address search returns no matches, fallback to point lookup if coordinates exist.
+    if (
+      result.length === 0 &&
+      typeof lat === "number" &&
+      typeof lng === "number"
+    ) {
+      const pointRaw = await propertyRpc("api_search_parcels_point", {
+        lat,
+        lng,
+        limit: 100,
+      });
+      result = Array.isArray(pointRaw)
+        ? (pointRaw as Record<string, unknown>[])
+        : [];
     }
 
     // Map results to comp sale format
