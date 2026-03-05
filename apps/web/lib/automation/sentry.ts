@@ -42,49 +42,6 @@ export function captureAutomationDispatchError(
   });
 }
 
-type ChatGptAppsErrorMeta = {
-  rpc: string;
-  requestId: string;
-  orgId: string;
-  status?: number;
-  route?: string;
-  input?: Record<string, unknown>;
-  details?: string;
-};
-
-export function captureChatGptAppsError(error: unknown, meta: ChatGptAppsErrorMeta): void {
-  Sentry.withScope((scope) => {
-    scope.setTags({
-      integration: "chatgpt-apps",
-      rpc: meta.rpc,
-      orgId: meta.orgId,
-    });
-
-    if (meta.route) {
-      scope.setTag("route", meta.route);
-    }
-
-    if (typeof meta.status === "number") {
-      scope.setTag("status_code", String(meta.status));
-    }
-
-    scope.setContext("chatgpt_apps", {
-      request_id: meta.requestId,
-      route: meta.route,
-      input: meta.input,
-      details: meta.details,
-    });
-
-    const safeError = error instanceof Error ? error : new Error(String(error));
-    Sentry.captureException(safeError, {
-      tags: {
-        integration: "chatgpt-apps",
-        rpc: meta.rpc,
-      },
-      level: "error",
-    });
-  });
-}
 
 type CronMonitorMeta = {
   slug: string;

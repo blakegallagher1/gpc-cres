@@ -827,10 +827,10 @@
       "notes": ""
     },
     {
-      "id": "api_route:external/chatgpt-apps/parcel-geometry",
+      "id": "api_route:parcels/[parcelId]/geometry",
       "type": "api_route",
-      "name": "external/chatgpt-apps/parcel-geometry",
-      "path": "apps/web/app/api/external/chatgpt-apps/parcel-geometry/route.ts",
+      "name": "parcels/[parcelId]/geometry",
+      "path": "apps/web/app/api/parcels/[parcelId]/geometry/route.ts",
       "risk_tier": "P0",
       "owner": "TBD",
       "status": "todo",

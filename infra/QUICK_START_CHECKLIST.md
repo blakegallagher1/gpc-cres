@@ -275,10 +275,10 @@ echo "LOCAL_DATABASE_URI=postgresql://postgres:YOUR_DB_PASSWORD@localhost:5432/e
 
 ## 📝 Notes
 
-- Local DB is ONLY for map tiles (get_parcel_mvt function)
-- Individual parcel geometry endpoint (`/api/external/chatgpt-apps/parcel-geometry`) still uses Supabase unless you update that route
+- Local DB still powers vector tiles (`get_parcel_mvt`), while parcel geometry now flows through the authenticated gateway-backed route `GET /api/parcels/{parcelId}/geometry`
+- Parcel geometry depends on `LOCAL_API_URL`, `LOCAL_API_KEY`, and optional Cloudflare Access headers instead of the removed `chatgpt-apps` route
 - Martin tile server is optional but recommended for production
-- Keep Supabase credentials for non-map features (auth, storage, etc.)
+- Keep any remaining Supabase credentials only for legacy/non-geometry paths that still require them
 
 ---
 

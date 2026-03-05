@@ -7,7 +7,6 @@ const PUBLIC_PATHS = [
   "/signup",
   "/api/auth",      // NextAuth internal routes
   "/api/health",    // Health check (public)
-  "/api/external/", // ChatGPT plugin routes (auth inside)
 ];
 
 function getAllowedOrigins(): Set<string> {

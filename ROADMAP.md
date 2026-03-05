@@ -439,29 +439,32 @@ Reason: these were low-priority for current operating goals and can be deferred 
 - **Problem:** External GIS/zoning integration can fail silently or be insecure if env/config/rate-limit contracts drift.
 - **Expected Outcome (measurable):**
   - 0 open verification blockers in `docs/chatgpt-apps-integration.md`
-  - 10-case smoke suite executes successfully
+  - Active smoke coverage executes successfully for the remaining `chatgpt-apps` routes and the replacement parcel geometry path
   - No raw Supabase/DB errors leaked from API route responses
 - **Evidence:** Open checkboxes in `docs/chatgpt-apps-integration.md` currently indicate incomplete verification.
 - **Alignment:** Supports existing secure two-header auth contract and existing API route patterns.
 - **Risk/rollback:** Low runtime risk; rollout is config/smoke-test hardening. Roll back by disabling route checks and reverting to previous env references if needed.
 - **Acceptance Criteria / Tests:**
   - Env validation doc checklist completed
-  - `scripts/smoke_chatgpt_apps_integration.ts` passes 10 cases
-  - Route error responses are normalized (`{ ok: false, request_id, error }`)
-  - Deployment checks for `CHATGPT_APPS_*` vars verified in preview/production
-- **Files (target):** `apps/web/lib/server/chatgptAppsClient.ts`, `apps/web/app/api/external/chatgpt-apps/*`, `docs/chatgpt-apps-integration.md`, `scripts/smoke_chatgpt_apps_integration.ts`
-- **Completion note:** Updated docs checklist and route/service hardening are complete; remaining tasks verified against 10-case smoke spec.
+  - Remaining `chatgpt-apps` route error responses are normalized (`{ ok: false, request_id, error }`)
+  - Deployment checks for any required `CHATGPT_APPS_*` vars are verified in preview/production for the routes that still depend on them
+  - Replacement parcel geometry path is covered by route tests and production smoke coverage
+- **Files (target):** `apps/web/lib/server/chatgptAppsClient.ts`, `apps/web/app/api/external/chatgpt-apps/*`, `apps/web/app/api/parcels/[parcelId]/geometry/route.ts`, `docs/chatgpt-apps-integration.md`, `scripts/parcels/smoke_map_parcel_prod.ts`
+- **Completion note:** Updated docs checklist and route/service hardening are complete. Legacy `POST /api/external/chatgpt-apps/parcel-geometry` was retired on 2026-03-05 and replaced by `GET /api/parcels/[parcelId]/geometry`.
 - **Operational verification:**
   - **Status:** **IMPLEMENTATION VERIFIED**
   - **Evidence:**
     - `apps/web/lib/server/chatgptAppsClient.ts`
     - `apps/web/app/api/external/chatgpt-apps/*`
+    - `apps/web/app/api/parcels/[parcelId]/geometry/route.ts`
+    - `apps/web/app/api/parcels/[parcelId]/geometry/route.test.ts`
     - `docs/chatgpt-apps-integration.md`
-    - `scripts/smoke_chatgpt_apps_integration.ts`
+    - `scripts/parcels/smoke_map_parcel_prod.ts`
   - **Result:**
     - Implementation evidence is present in checklist + hardened routes/clients.
+    - Parcel geometry no longer depends on the legacy `chatgpt-apps` path.
     - Full `apps/web` test sweep: `pnpm -C apps/web test` passed in this pass.
-    - Note: 10-case smoke verification should be re-run in release validation environments via `scripts/smoke_chatgpt_apps_integration.ts`.
+    - Note: release validation should use `scripts/parcels/smoke_map_parcel_prod.ts` for the replacement parcel geometry flow and targeted smoke coverage for any remaining `chatgpt-apps` routes.
 
 ### R-002 — Remaining Peripheral Shared Backend URL Callers
 
@@ -825,7 +828,7 @@ Reason: these were low-priority for current operating goals and can be deferred 
     - minimizing geometry payload size,
     - and loading/refreshing boundary data per viewport.
 - **Evidence:** Existing map stack currently uses `react-leaflet` and renders boundaries using React components per feature (`apps/web/components/maps/ParcelMap.tsx`) plus a `useParcelGeometry` batch caller that currently fetches up to `maxFetch = 50` records in 5-item waves, which is serviceable but not optimized for modern vector performance.
-- **Alignment:** Extends current map domain model (parcel + optional geometry + overlays) while preserving org authentication boundaries and existing API contracts (`chatgpt-apps` geometry endpoint and `/api/parcels` flow).
+- **Alignment:** Extends current map domain model (parcel + optional geometry + overlays) while preserving org authentication boundaries and existing API contracts (`/api/parcels/[parcelId]/geometry` and `/api/parcels` flow).
 - **Risk/rollback:** Medium. Rendering behavior changes can affect map visuals and interactions. Rollback strategy:
   - feature-flag the new MapLibre map component;
   - keep Leaflet implementation in place;
@@ -852,7 +855,7 @@ Reason: these were low-priority for current operating goals and can be deferred 
   - `apps/web/components/maps/IsochroneControl.tsx`
   - `apps/web/components/maps/mapStyles.ts`
   - `apps/web/components/maps/useParcelGeometry.ts`
-  - `apps/web/app/api/external/chatgpt-apps/parcel-geometry/route.ts` (if batch endpoint is added)
+  - `apps/web/app/api/parcels/[parcelId]/geometry/route.ts` (if batch geometry endpoint changes are required)
   - `apps/web/app/api/parcels` read/list endpoints as needed for tile/viewport batching
   - `apps/web/package.json` (add `maplibre-gl`, optional `supercluster`)
 - **Preliminary tests (performed before adding this item):**
@@ -954,7 +957,7 @@ Reason: these were low-priority for current operating goals and can be deferred 
   - `apps/web/app/api/map/prospect/route.ts` (no contract changes expected)
   - `pnpm -C apps/web lint` ✅ (pass)
   - `pnpm -C apps/web exec vitest run` ✅ (38 files, 418 tests)
-  - baseline finding: current map page composes parcel data from `/api/parcels?hasCoords=true` and geometry via `POST /api/external/chatgpt-apps/parcel-geometry` returning `geom_simplified`.
+  - baseline finding: current map page composes parcel data from `/api/parcels?hasCoords=true` and geometry via `GET /api/parcels/[parcelId]/geometry` returning `geom_simplified`.
 - **Operational verification:**
   - **Status:** **IMPLEMENTATION VERIFIED**
   - **Evidence:**
@@ -971,32 +974,32 @@ Reason: these were low-priority for current operating goals and can be deferred 
 - **Priority:** P0
 - **Status:** Done
 - **Scope:** Critical path for map search and geometry reliability
-- **Problem:** Map and parcel routes depend on Supabase credentials; missing or stale production values can cause empty parcel geometry, empty search results, and map failures.
+- **Problem:** Map and parcel routes depend on gateway-backed property DB credentials; missing or stale production values can cause empty parcel geometry, empty search results, and map failures.
 - **Expected Outcome (measurable):**
-  - Production confirms `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are present and valid for the active `prod` deployment environment.
-  - Runtime checks show `gpc-agent-dashboard` resolves to the intended Louisiana property database role and not fallback.
+  - Production confirms the active property DB env vars are present and valid for the active `prod` deployment environment.
+  - Runtime checks show the app resolves to the intended Louisiana property database path and not a fallback or placeholder configuration.
   - Any config gap is documented with root cause and remediation date.
 - **Evidence of need:** Recent map incidents in production show empty parcel geometry and search behavior consistent with missing/incorrect property DB credentials.
 - **Alignment:** Preserves current auth boundaries and does not change client-visible contracts.
 - **Risk/rollback:** Low operational risk; rollback is reverting to existing env values once validated baseline is restored.
 - **Acceptance Criteria / Tests:**
-  1. Validate `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are visible in production Vercel/project config.
-  2. Confirm both values are non-empty and non-placeholder (`placeholder`, `***`, etc.) via runtime checks.
+  1. Validate the active property DB env vars are visible in production Vercel/project config.
+  2. Confirm the required values are non-empty and non-placeholder (`placeholder`, `***`, etc.) via runtime checks.
   3. Add a startup health check log in logs/monitoring for any request path that hits property DB fallback clients.
 - **Files (target):**
   - `apps/web/lib/server/parcels/propertyClient.ts` (env loading path, if applicable)
   - `apps/web/app/api/parcels/route.ts` (fallback route behavior)
   - `apps/web/app/api/map/prospect/route.ts`
-  - `apps/web/app/api/external/chatgpt-apps/parcel-geometry/route.ts`
+  - `apps/web/app/api/parcels/[parcelId]/geometry/route.ts`
 - **Operational verification:**
   - **Status:** **IMPLEMENTATION VERIFIED**
   - **Evidence:**
     - `apps/web/lib/server/propertyDbEnv.ts`
     - `apps/web/app/api/parcels/route.ts`
     - `apps/web/app/api/map/prospect/route.ts`
-    - `apps/web/app/api/external/chatgpt-apps/parcel-geometry/route.ts`
+    - `apps/web/app/api/parcels/[parcelId]/geometry/route.ts`
     - `scripts/parcels/check_property_db_runtime.ts`
-    - `vercel env ls production` (project `gallagher-cres`) shows `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` configured in Production.
+    - `vercel env ls production` (project `gallagher-cres`) shows the active property DB env vars configured in Production.
   - **Result:**
     - Added one-time runtime health logs for property DB fallback request paths with placeholder detection.
     - Added explicit runtime check script for non-placeholder env + RPC probe (`api_search_parcels`).
@@ -1044,7 +1047,7 @@ Reason: these were low-priority for current operating goals and can be deferred 
   - `/api/parcels?hasCoords=true` returns parcel candidates in production for authenticated calls.
   - Address search on `/api/parcels?search=<address>` returns relevant matches and respects auth.
   - `POST /api/map/prospect` returns parcels filtered to polygon boundary and can still combine with `search`.
-  - `POST /api/external/chatgpt-apps/parcel-geometry` returns `geom_simplified` for query matches and falls back to geometry RPC in expected order.
+  - `GET /api/parcels/{parcelId}/geometry?detail_level=low` returns `geom_simplified` for query matches and falls back to the gateway geometry path in expected order.
 - **Evidence of need:** Current live map does not render polygons and blocks address search-to-map workflows.
 - **Alignment:** No changes to org security model; only validates and hardens existing contract behavior.
 - **Risk/rollback:** Low; this is verification and can be repeated on every release.
@@ -1053,13 +1056,13 @@ Reason: these were low-priority for current operating goals and can be deferred 
      - `GET /api/parcels?hasCoords=true`
      - `GET /api/parcels?search=<known-address>`
      - `POST /api/map/prospect` with valid polygon payload
-     - `POST /api/external/chatgpt-apps/parcel-geometry` for returned candidates
+     - `GET /api/parcels/{parcelId}/geometry?detail_level=low` for returned candidates
   2. Confirm browser map at `/map` shows polygons and marker/selection behavior with auth.
   3. Capture and attach logs showing non-empty response bodies and status codes for each endpoint.
 - **Files (target):**
   - `apps/web/app/api/parcels/route.ts`
   - `apps/web/app/api/map/prospect/route.ts`
-  - `apps/web/app/api/external/chatgpt-apps/parcel-geometry/route.ts`
+  - `apps/web/app/api/parcels/[parcelId]/geometry/route.ts`
   - `apps/web/app/map/page.tsx`
   - `apps/web/components/maps/ParcelMap.tsx`
 - **Operational verification:**
@@ -1067,13 +1070,13 @@ Reason: these were low-priority for current operating goals and can be deferred 
   - **Evidence:**
     - `scripts/parcels/smoke_map_parcel_prod.ts`
     - `apps/web/app/api/map/prospect/route.post.test.ts`
-    - `apps/web/app/api/external/chatgpt-apps/parcel-geometry/route.test.ts`
+    - `apps/web/app/api/parcels/[parcelId]/geometry/route.test.ts`
 - **Result:**
     - Added ordered authenticated smoke runner for production endpoints:
       - `GET /api/parcels?hasCoords=true`
       - `GET /api/parcels?search=<known-address>`
       - `POST /api/map/prospect`
-      - `POST /api/external/chatgpt-apps/parcel-geometry`
+      - `GET /api/parcels/{parcelId}/geometry?detail_level=low`
     - Smoke output captures status code, row counts, sample payload keys, candidate parcel id, and pass/fail in timestamped reports under `output/parcel-smoke/`.
     - 2026-02-20 regression hardening: `/api/parcels` search now canonicalizes street suffix variants (`drive`/`dr`, etc.) and maps stringified `geom_simplified` payloads to centroid coordinates; parcel geometry route and auth proxy now guard uncaught abort/reset errors with normalized responses.
 ### MAP-001a — Deterministic Map Base-Tile Fallback (OSM offline-safe)

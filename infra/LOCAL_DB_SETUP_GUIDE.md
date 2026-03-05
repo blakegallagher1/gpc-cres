@@ -249,18 +249,10 @@ map.getSource('parcels')
 **Expected:** You should see a source named `parcels` with type `vector` and tiles array pointing to `/api/map/tiles/{z}/{x}/{y}`.
 
 ### Check 4: Individual Parcel Geometry
-The app also fetches individual parcel geometries via `/api/external/chatgpt-apps/parcel-geometry`. Check Network tab for these requests:
+The app now fetches individual parcel geometries via `/api/parcels/{parcelId}/geometry`. Check Network tab for these requests:
 
 ```
-POST /api/external/chatgpt-apps/parcel-geometry
-```
-
-**Request body:**
-```json
-{
-  "parcelId": "some-parcel-id",
-  "detailLevel": "low"
-}
+GET /api/parcels/<parcel-id>/geometry?detail_level=low
 ```
 
 **Expected response:**
@@ -277,8 +269,9 @@ POST /api/external/chatgpt-apps/parcel-geometry
 ```
 
 **If this returns errors:**
-- Check `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are still set (this endpoint uses Supabase, not local DB)
-- Or update `apps/web/app/api/external/chatgpt-apps/parcel-geometry/route.ts` to use local DB instead
+- Check `LOCAL_API_URL` and `LOCAL_API_KEY` are set for the app runtime
+- If production is behind Cloudflare Access, also verify `CF_ACCESS_CLIENT_ID` and `CF_ACCESS_CLIENT_SECRET`
+- Inspect `apps/web/app/api/parcels/[parcelId]/geometry/route.ts` and the gateway route `GET /api/parcels/{parcelId}/geometry`
 
 ---
 

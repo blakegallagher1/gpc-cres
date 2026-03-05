@@ -120,7 +120,7 @@ const endpoints: Endpoint[] = [
     gatewayPath: "/tiles/12/1042/1533.pbf",
   },
   {
-    appPath: "/api/external/chatgpt-apps/parcel-geometry",
+    appPath: "/api/parcels/007-3904-9/geometry",
     method: "GET",
     gatewayPath: "/api/parcels/007-3904-9/geometry?detail_level=low",
   },
