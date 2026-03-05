@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { dispatchEvent } from "@/lib/automation/events";
-import "@/lib/automation/handlers";
 import { ParcelTriageSchema } from "@entitlement-os/shared";
 import { captureAutomationDispatchError } from "@/lib/automation/sentry";
 import { getCloudflareAccessHeadersFromEnv } from "@/lib/server/propertyDbEnv";

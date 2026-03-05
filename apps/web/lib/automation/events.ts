@@ -1,6 +1,5 @@
 import * as Sentry from "@sentry/nextjs";
 import type { DealStatus } from "@entitlement-os/shared";
-import { evaluateProactiveEvent } from "@/lib/services/proactiveTrigger.service";
 
 // Event type definitions
 export type AutomationEvent =
@@ -32,6 +31,22 @@ export function registerHandler(eventType: AutomationEventType, handler: Automat
  * Automatically instruments all handler executions to automation_events table.
  */
 export async function dispatchEvent(event: AutomationEvent): Promise<void> {
+  try {
+    const { ensureHandlersRegistered } = await import("./handlers");
+    ensureHandlersRegistered();
+  } catch (error) {
+    console.error(
+      "[automation] handler registration failed:",
+      error instanceof Error ? error.message : String(error),
+    );
+    Sentry.captureException(error instanceof Error ? error : new Error(String(error)), {
+      tags: {
+        automation: true,
+        phase: "handler_registration",
+      },
+    });
+  }
+
   const eventHandlers = handlers.get(event.type) ?? [];
 
   // Extract dealId from event (not all events have it)
@@ -111,16 +126,20 @@ export async function dispatchEvent(event: AutomationEvent): Promise<void> {
   }
 
   const proactivePayload = event as unknown as Record<string, unknown>;
-  void evaluateProactiveEvent({
-    orgId: event.orgId,
-    eventType: event.type,
-    payload: proactivePayload,
-  }).catch((error) => {
-    console.error(
-      "[automation] proactive trigger evaluation failed:",
-      error instanceof Error ? error.message : String(error),
-    );
-  });
+  void import("@/lib/services/proactiveTrigger.service")
+    .then(({ evaluateProactiveEvent }) =>
+      evaluateProactiveEvent({
+        orgId: event.orgId,
+        eventType: event.type,
+        payload: proactivePayload,
+      }),
+    )
+    .catch((error) => {
+      console.error(
+        "[automation] proactive trigger evaluation failed:",
+        error instanceof Error ? error.message : String(error),
+      );
+    });
 }
 
 // Reset handlers (for testing only)

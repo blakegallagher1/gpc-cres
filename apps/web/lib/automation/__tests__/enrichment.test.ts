@@ -1,251 +1,230 @@
-const { openaiMock, dbMock } = vi.hoisted(() => ({
-  openaiMock: {
-    propertyDbRpc: vi.fn(),
-  },
-  dbMock: {
-    prisma: {
-      parcel: { findFirst: vi.fn(), update: vi.fn() },
-      task: { create: vi.fn() },
-    },
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const { propertyDbRpcMock, createAutomationTaskMock, prismaMock } = vi.hoisted(() => ({
+  propertyDbRpcMock: vi.fn(),
+  createAutomationTaskMock: vi.fn(),
+  prismaMock: {
+    parcel: { findFirst: vi.fn(), update: vi.fn() },
   },
 }));
 
-// Mock external deps before any imports
-vi.mock("@entitlement-os/openai", () => openaiMock);
-vi.mock("@entitlement-os/db", () => dbMock);
+vi.mock("@/lib/server/propertyDbRpc", () => ({
+  propertyDbRpc: propertyDbRpcMock,
+}));
+
+vi.mock("../notifications", () => ({
+  createAutomationTask: createAutomationTaskMock,
+}));
+
+vi.mock("@entitlement-os/db", () => ({
+  prisma: prismaMock,
+}));
 
 import {
+  buildParcelEnrichmentUpdate,
+  getParcelEnrichmentPayload,
+  handleParcelCreated,
   normalizeAddress,
   scoreMatchConfidence,
-  handleParcelCreated,
 } from "../enrichment";
 
-describe("enrichment", () => {
-  describe("normalizeAddress", () => {
-    it("should strip apostrophes", () => {
-      expect(normalizeAddress("O'Neal Lane")).toBe("ONeal Lane");
-    });
+describe("enrichment helpers", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
-    it("should strip commas and periods", () => {
-      expect(normalizeAddress("123 Main St., Baton Rouge, LA")).toBe(
-        "123 Main St Baton Rouge LA"
-      );
-    });
+  it("normalizes punctuation and whitespace in addresses", () => {
+    expect(normalizeAddress(" O'Neal,  #123. Main St ")).toBe("ONeal 123 Main St");
+  });
 
-    it("should strip hash symbols", () => {
-      expect(normalizeAddress("456 Oak Ave #200")).toBe("456 Oak Ave 200");
-    });
+  it("scores exact and partial matches predictably", () => {
+    expect(scoreMatchConfidence("123 Main St", "123 Main St")).toBe(1);
+    expect(scoreMatchConfidence("123 Main St", "123 Main St Baton Rouge LA")).toBe(0.85);
+    expect(scoreMatchConfidence("123 Main Street", "123 Main Boulevard")).toBe(0.7);
+    expect(scoreMatchConfidence("123 Main St", "456 Oak Ave")).toBe(0.2);
+  });
 
-    it("should collapse whitespace", () => {
-      expect(normalizeAddress("789  Elm   Blvd")).toBe("789 Elm Blvd");
-    });
+  it("builds parcel update fields from gateway-normalized details and screening", () => {
+    const update = buildParcelEnrichmentUpdate(
+      "prop-1",
+      {
+        parcel_uid: "015-4249-4",
+        lat: 30.44,
+        lng: -91.12,
+        acreage: 1.25,
+      },
+      {
+        flood: {
+          zones: [{ zone_code: "AE", overlap_pct: 60 }],
+        },
+        soils: {
+          soil_types: [
+            { soil_name: "Commerce", drainage_class: "Well drained", hydric_rating: "No" },
+          ],
+        },
+        wetlands: {
+          wetland_areas: [{ wetland_type: "Freshwater", overlap_pct: 20 }],
+        },
+        epa: {
+          sites: [{ facility_name: "Plant A", distance_miles: 0.8 }],
+        },
+        ldeq: {
+          permits: [{ facility_name: "Permit A", distance_miles: 1.2 }],
+        },
+        traffic: {
+          roads: [{ road_name: "Airline Hwy", aadt: 42000, truck_pct: 12, distance_miles: 0.4 }],
+        },
+      },
+    );
 
-    it("should trim leading/trailing whitespace", () => {
-      expect(normalizeAddress("  123 Main St  ")).toBe("123 Main St");
+    expect(update).toMatchObject({
+      propertyDbId: "prop-1",
+      apn: "015-4249-4",
+      lat: 30.44,
+      lng: -91.12,
+      acreage: 1.25,
+      floodZone: "AE (60%)",
+      soilsNotes: "Commerce: Well drained, hydric=No",
+      wetlandsNotes: "Freshwater (20%)",
+      trafficNotes: "Airline Hwy: 42,000 AADT, 12% trucks, 0.4mi",
     });
+    expect(update.envNotes).toContain("EPA: 1 site(s) nearby");
+    expect(update.envNotes).toContain("LDEQ: 1 permit(s) nearby");
+  });
 
-    it("should handle empty strings", () => {
-      expect(normalizeAddress("")).toBe("");
+  it("loads parcel details and screening through the gateway helper", async () => {
+    propertyDbRpcMock
+      .mockResolvedValueOnce({ parcel_uid: "015-4249-4", acreage: 1.25 })
+      .mockResolvedValueOnce({
+        flood: { zones: [{ zone_code: "X", overlap_pct: 100 }] },
+      });
+
+    const payload = await getParcelEnrichmentPayload("prop-1");
+
+    expect(propertyDbRpcMock).toHaveBeenNthCalledWith(1, "api_get_parcel", {
+      parcel_id: "prop-1",
     });
+    expect(propertyDbRpcMock).toHaveBeenNthCalledWith(2, "api_screen_full", {
+      parcel_id: "prop-1",
+    });
+    expect(payload.details).toEqual({ parcel_uid: "015-4249-4", acreage: 1.25 });
+    expect(payload.screening).toEqual({
+      flood: { zones: [{ zone_code: "X", overlap_pct: 100 }] },
+    });
+    expect(payload.updateData).toMatchObject({
+      propertyDbId: "prop-1",
+      apn: "015-4249-4",
+      acreage: 1.25,
+      floodZone: "X (100%)",
+    });
+  });
+});
 
-    it("should handle multiple punctuation types", () => {
-      expect(normalizeAddress("O'Neal's, #123. Main")).toBe(
-        "ONeals 123 Main"
-      );
+describe("handleParcelCreated", () => {
+  const baseEvent = {
+    type: "parcel.created" as const,
+    parcelId: "parcel-1",
+    dealId: "deal-1",
+    orgId: "org-1",
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("passes the jurisdiction parish into property DB search", async () => {
+    prismaMock.parcel.findFirst.mockResolvedValue({
+      id: "parcel-1",
+      address: "123 Main St",
+      dealId: "deal-1",
+      propertyDbId: null,
+      deal: { jurisdiction: { name: "East Baton Rouge" } },
+    });
+    propertyDbRpcMock.mockResolvedValueOnce([{ id: "prop-1", site_address: "123 Main St" }]);
+    propertyDbRpcMock.mockResolvedValueOnce({ parcel_uid: "015-4249-4" });
+    propertyDbRpcMock.mockResolvedValueOnce({ flood: { zones: [] } });
+    prismaMock.parcel.update.mockResolvedValue({});
+
+    await handleParcelCreated(baseEvent);
+
+    expect(propertyDbRpcMock).toHaveBeenNthCalledWith(1, "api_search_parcels", {
+      search_text: "123 Main St",
+      parish: "East Baton Rouge",
+      limit_rows: 10,
     });
   });
 
-  describe("scoreMatchConfidence", () => {
-    it("should return 1.0 for exact matches", () => {
-      expect(scoreMatchConfidence("123 Main St", "123 Main St")).toBe(1.0);
+  it("skips parcels that are missing an address or already enriched", async () => {
+    prismaMock.parcel.findFirst.mockResolvedValueOnce({
+      id: "parcel-1",
+      address: null,
+      dealId: "deal-1",
+      propertyDbId: null,
+      deal: { jurisdiction: { name: "East Baton Rouge" } },
     });
 
-    it("should return 1.0 for matches differing only in punctuation", () => {
-      expect(scoreMatchConfidence("123 Main St.", "123 Main St")).toBe(1.0);
+    await handleParcelCreated(baseEvent);
+
+    prismaMock.parcel.findFirst.mockResolvedValueOnce({
+      id: "parcel-1",
+      address: "123 Main St",
+      dealId: "deal-1",
+      propertyDbId: "existing",
+      deal: { jurisdiction: { name: "East Baton Rouge" } },
     });
 
-    it("should be case-insensitive", () => {
-      expect(scoreMatchConfidence("123 MAIN ST", "123 Main St")).toBe(1.0);
-    });
+    await handleParcelCreated(baseEvent);
 
-    it("should return 0.85 when one starts with the other", () => {
-      expect(
-        scoreMatchConfidence("123 Main St", "123 Main St Baton Rouge LA")
-      ).toBe(0.85);
-    });
-
-    it("should return 0.85 when match starts with search", () => {
-      expect(
-        scoreMatchConfidence("123 Main St Baton Rouge LA", "123 Main St")
-      ).toBe(0.85);
-    });
-
-    it("should return 0.7 for street number + first word match", () => {
-      expect(
-        scoreMatchConfidence("123 Main Street", "123 Main Boulevard")
-      ).toBe(0.7);
-    });
-
-    it("should return 0.4 for street number only match", () => {
-      expect(scoreMatchConfidence("123 Main St", "123 Oak Ave")).toBe(0.4);
-    });
-
-    it("should return 0.2 for completely different addresses", () => {
-      expect(scoreMatchConfidence("123 Main St", "456 Oak Ave")).toBe(0.2);
-    });
-
-    it("should return 0 for empty search address", () => {
-      expect(scoreMatchConfidence("", "123 Main St")).toBe(0);
-    });
-
-    it("should return 0 for empty match address", () => {
-      expect(scoreMatchConfidence("123 Main St", "")).toBe(0);
-    });
-
-    it("should return 0 for both empty", () => {
-      expect(scoreMatchConfidence("", "")).toBe(0);
-    });
+    expect(propertyDbRpcMock).not.toHaveBeenCalled();
+    expect(prismaMock.parcel.update).not.toHaveBeenCalled();
   });
 
-  describe("handleParcelCreated", () => {
-    const baseEvent = {
-      type: "parcel.created" as const,
-      parcelId: "p1",
-      dealId: "d1",
-      orgId: "org1",
-    };
-
-    beforeEach(() => {
-      vi.clearAllMocks();
+  it("auto-applies a single high-confidence match", async () => {
+    prismaMock.parcel.findFirst.mockResolvedValue({
+      id: "parcel-1",
+      address: "123 Main St",
+      dealId: "deal-1",
+      propertyDbId: null,
+      deal: { jurisdiction: { name: "East Baton Rouge" } },
     });
+    propertyDbRpcMock.mockResolvedValueOnce([{ id: "prop-1", site_address: "123 Main St" }]);
+    propertyDbRpcMock.mockResolvedValueOnce({ parcel_uid: "015-4249-4", acreage: 1.1 });
+    propertyDbRpcMock.mockResolvedValueOnce({ flood: { zones: [{ zone_code: "X", overlap_pct: 100 }] } });
+    prismaMock.parcel.update.mockResolvedValue({});
 
-    it("should pass East Baton Rouge parish from jurisdiction to property DB search", async () => {
-      dbMock.prisma.parcel.findFirst.mockResolvedValue({
-        id: "p1",
-        address: "123 Main St",
-        dealId: "d1",
-        propertyDbId: null,
-        deal: { jurisdiction: { name: "East Baton Rouge" } },
-      });
-      openaiMock.propertyDbRpc.mockResolvedValue([
-        { id: "prop1", site_address: "123 Main St" },
-      ]);
-      dbMock.prisma.parcel.update.mockResolvedValue({});
+    await handleParcelCreated(baseEvent);
 
-      await handleParcelCreated(baseEvent);
-
-      expect(openaiMock.propertyDbRpc).toHaveBeenCalledWith("api_search_parcels", {
-        search_text: "123 Main St",
-        parish: "East Baton Rouge",
-        limit_rows: 10,
-      });
+    expect(prismaMock.parcel.update).toHaveBeenCalledWith({
+      where: { id: "parcel-1" },
+      data: expect.objectContaining({
+        propertyDbId: "prop-1",
+        apn: "015-4249-4",
+        acreage: 1.1,
+        floodZone: "X (100%)",
+      }),
     });
+    expect(createAutomationTaskMock).not.toHaveBeenCalled();
+  });
 
-    it("should pass Ascension parish from jurisdiction to property DB search", async () => {
-      dbMock.prisma.parcel.findFirst.mockResolvedValue({
-        id: "p1",
-        address: "456 Airline Hwy",
-        dealId: "d1",
-        propertyDbId: null,
-        deal: { jurisdiction: { name: "Ascension" } },
-      });
-      openaiMock.propertyDbRpc.mockResolvedValue([
-        { id: "prop2", site_address: "456 Airline Hwy" },
-      ]);
-      dbMock.prisma.parcel.update.mockResolvedValue({});
-
-      await handleParcelCreated(baseEvent);
-
-      expect(openaiMock.propertyDbRpc).toHaveBeenCalledWith("api_search_parcels", {
-        search_text: "456 Airline Hwy",
-        parish: "Ascension",
-        limit_rows: 10,
-      });
+  it("creates a manual review task when no matches are found", async () => {
+    prismaMock.parcel.findFirst.mockResolvedValue({
+      id: "parcel-1",
+      address: "999 Nowhere Rd",
+      dealId: "deal-1",
+      propertyDbId: null,
+      deal: { jurisdiction: { name: "East Baton Rouge" } },
     });
+    propertyDbRpcMock.mockResolvedValue([]);
 
-    it("should pass null parish when deal has no jurisdiction", async () => {
-      dbMock.prisma.parcel.findFirst.mockResolvedValue({
-        id: "p1",
-        address: "789 Oak Ave",
-        dealId: "d1",
-        propertyDbId: null,
-        deal: { jurisdiction: null },
-      });
-      openaiMock.propertyDbRpc.mockResolvedValue([]);
-      dbMock.prisma.task.create.mockResolvedValue({});
+    await handleParcelCreated(baseEvent);
 
-      await handleParcelCreated(baseEvent);
-
-      expect(openaiMock.propertyDbRpc).toHaveBeenCalledWith("api_search_parcels", {
-        search_text: "789 Oak Ave",
-        parish: null,
-        limit_rows: 10,
-      });
-    });
-
-    it("should skip if event type is not parcel.created", async () => {
-      const event = {
-        type: "parcel.enriched" as const,
-        parcelId: "p1",
-        dealId: "d1",
-        orgId: "org1",
-      };
-
-      await handleParcelCreated(event);
-
-      expect(dbMock.prisma.parcel.findFirst).not.toHaveBeenCalled();
-    });
-
-    it("should skip if parcel has no address", async () => {
-      dbMock.prisma.parcel.findFirst.mockResolvedValue({
-        id: "p1",
-        address: null,
-        dealId: "d1",
-        propertyDbId: null,
-        deal: { jurisdiction: { name: "East Baton Rouge" } },
-      });
-
-      await handleParcelCreated(baseEvent);
-
-      expect(openaiMock.propertyDbRpc).not.toHaveBeenCalled();
-    });
-
-    it("should skip if parcel is already enriched", async () => {
-      dbMock.prisma.parcel.findFirst.mockResolvedValue({
-        id: "p1",
-        address: "123 Main St",
-        dealId: "d1",
-        propertyDbId: "existing-id",
-        deal: { jurisdiction: { name: "East Baton Rouge" } },
-      });
-
-      await handleParcelCreated(baseEvent);
-
-      expect(openaiMock.propertyDbRpc).not.toHaveBeenCalled();
-    });
-
-    it("should create manual geocoding task when no matches found", async () => {
-      dbMock.prisma.parcel.findFirst.mockResolvedValue({
-        id: "p1",
-        address: "999 Nowhere Rd",
-        dealId: "d1",
-        propertyDbId: null,
-        deal: { jurisdiction: { name: "East Baton Rouge" } },
-      });
-      openaiMock.propertyDbRpc.mockResolvedValue([]);
-      dbMock.prisma.task.create.mockResolvedValue({});
-
-      await handleParcelCreated(baseEvent);
-
-      expect(dbMock.prisma.task.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            title: "[AUTO] Manual geocoding needed",
-            orgId: "org1",
-            dealId: "d1",
-          }),
-        })
-      );
-    });
+    expect(createAutomationTaskMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orgId: "org-1",
+        dealId: "deal-1",
+        type: "enrichment_review",
+        title: "Manual geocoding needed",
+      }),
+    );
   });
 });

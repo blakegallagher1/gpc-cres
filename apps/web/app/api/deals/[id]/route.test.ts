@@ -33,8 +33,6 @@ vi.mock("@/lib/automation/events", () => ({
   dispatchEvent: dispatchEventMock,
 }));
 
-vi.mock("@/lib/automation/handlers", () => ({}));
-
 vi.mock("@/lib/automation/sentry", () => ({
   captureAutomationDispatchError: captureAutomationDispatchErrorMock,
 }));

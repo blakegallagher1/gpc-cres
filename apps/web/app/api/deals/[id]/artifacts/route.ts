@@ -5,7 +5,6 @@ import { buildArtifactObjectKey, DEAL_STATUSES, ARTIFACT_TYPES } from "@entitlem
 import type { ArtifactType, DealStatus, ArtifactSpec } from "@entitlement-os/shared";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { uploadArtifactToGateway } from "@/lib/storage/gatewayStorage";
-import { createTextResponse } from "@entitlement-os/openai";
 
 // Stage index for prerequisite checks (higher index = later stage)
 const statusIndex = (s: DealStatus) => DEAL_STATUSES.indexOf(s);
@@ -278,6 +277,7 @@ export async function GET(
 
 async function generateNarrative(prompt: string, systemPrompt: string, maxTokens = 800): Promise<string> {
   try {
+    const { createTextResponse } = await import("@entitlement-os/openai");
     const { text } = await createTextResponse({
       model: "gpt-4o-mini",
       maxOutputTokens: maxTokens,
