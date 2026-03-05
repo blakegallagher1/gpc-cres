@@ -92,8 +92,7 @@ function extractPolygonGeometry(input: unknown): PolygonGeometry | null {
 // ---------------------------------------------------------------------------
 
 /**
- * Fetches parcel polygon geometries from Supabase (property DB) via
- * POST /api/external/chatgpt-apps/parcel-geometry.
+ * Fetches parcel polygon geometries via GET /api/parcels/{parcelId}/geometry.
  * Only fetches for parcels that have a `propertyDbId` or `geometryLookupKey`.
  * Batches requests in groups of 5 with 200ms inter-batch delay to respect rate limits.
  *
@@ -208,21 +207,19 @@ export function useParcelGeometry(
             parcel.id;
           const cleanedLookupKey = lookupKey.replace(/^ext-/, "");
 
-          const res = await fetch("/api/external/chatgpt-apps/parcel-geometry", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              parcelId: cleanedLookupKey,
-              detailLevel: "low",
-            }),
-            ...(abortNetworkRequests ? { signal: controller.signal } : {}),
-          });
+          const res = await fetch(
+            `/api/parcels/${encodeURIComponent(cleanedLookupKey)}/geometry?detail_level=low`,
+            {
+              method: "GET",
+              ...(abortNetworkRequests ? { signal: controller.signal } : {}),
+            },
+          );
           let json: ParcelGeometryErrorResponse;
           try {
             json = (await res.json()) as ParcelGeometryErrorResponse;
           } catch {
             if (process.env.NODE_ENV !== "production") {
-              console.warn("[useParcelGeometry] Non-JSON parcel geometry response", {
+              console.warn("[useParcelGeometry] Non-JSON response from parcel geometry endpoint", {
                 parcelId: parcel.id,
                 lookupKey: cleanedLookupKey,
                 status: res.status,

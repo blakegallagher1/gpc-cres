@@ -200,7 +200,7 @@ async function main() {
           : JSON.stringify(comps.data).slice(0, 180),
   });
 
-  // 6. Parcel geometry (need a parcel ID from parcels search)
+  // 6. Parcel geometry via GET /api/parcels/{parcelId}/geometry
   const candidateId = (() => {
     for (const step of [parcels2.data, prospect.data]) {
       const obj = toRecord(step);
@@ -215,10 +215,7 @@ async function main() {
   })();
 
   if (candidateId) {
-    const geom = await fetchJson("POST", "/api/external/chatgpt-apps/parcel-geometry", {
-      parcelId: candidateId,
-      detailLevel: "low",
-    });
+    const geom = await fetchJson("GET", `/api/parcels/${encodeURIComponent(candidateId)}/geometry?detail_level=low`);
     const geomData = toRecord(geom.data)?.data as Record<string, unknown> | undefined;
     const geomOk =
       geom.ok &&
@@ -226,9 +223,9 @@ async function main() {
       typeof geomData?.geom_simplified === "string" &&
       geomData.geom_simplified.length > 0;
     steps.push({
-      name: "POST /api/external/chatgpt-apps/parcel-geometry",
-      method: "POST",
-      url: "/api/external/chatgpt-apps/parcel-geometry",
+      name: `GET /api/parcels/{id}/geometry`,
+      method: "GET",
+      url: `/api/parcels/${encodeURIComponent(candidateId)}/geometry?detail_level=low`,
       status: geom.status,
       ok: geom.ok,
       dataOk: geomOk,
@@ -236,9 +233,9 @@ async function main() {
     });
   } else {
     steps.push({
-      name: "POST /api/external/chatgpt-apps/parcel-geometry",
-      method: "POST",
-      url: "/api/external/chatgpt-apps/parcel-geometry",
+      name: "GET /api/parcels/{id}/geometry",
+      method: "GET",
+      url: "/api/parcels/{id}/geometry",
       status: 0,
       ok: false,
       dataOk: false,

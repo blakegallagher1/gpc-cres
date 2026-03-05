@@ -46,7 +46,7 @@ id,type,name,path,risk_tier,owner,status,required_tests,notes
 "api_route:evidence","api_route","evidence","apps/web/app/api/evidence/route.ts","P0","TBD","todo","contract|security|integration|resilience",""
 "api_route:external/chatgpt-apps/amenities-cache","api_route","external/chatgpt-apps/amenities-cache","apps/web/app/api/external/chatgpt-apps/amenities-cache/route.ts","P0","TBD","todo","contract|security|integration|resilience",""
 "api_route:external/chatgpt-apps/parcel-dimensions","api_route","external/chatgpt-apps/parcel-dimensions","apps/web/app/api/external/chatgpt-apps/parcel-dimensions/route.ts","P0","TBD","todo","contract|security|integration|resilience",""
-"api_route:external/chatgpt-apps/parcel-geometry","api_route","external/chatgpt-apps/parcel-geometry","apps/web/app/api/external/chatgpt-apps/parcel-geometry/route.ts","P0","TBD","todo","contract|security|integration|resilience",""
+"api_route:parcels/[parcelId]/geometry","api_route","parcels/[parcelId]/geometry","apps/web/app/api/parcels/[parcelId]/geometry/route.ts","P0","TBD","todo","contract|security|integration|resilience",""
 "api_route:external/chatgpt-apps/zoning-by-parcel","api_route","external/chatgpt-apps/zoning-by-parcel","apps/web/app/api/external/chatgpt-apps/zoning-by-parcel/route.ts","P0","TBD","todo","contract|security|integration|resilience",""
 "api_route:external/chatgpt-apps/zoning-by-point","api_route","external/chatgpt-apps/zoning-by-point","apps/web/app/api/external/chatgpt-apps/zoning-by-point/route.ts","P0","TBD","todo","contract|security|integration|resilience",""
 "api_route:health","api_route","health","apps/web/app/api/health/route.ts","P0","TBD","todo","contract|security|integration|resilience",""

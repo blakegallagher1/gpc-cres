@@ -696,7 +696,7 @@ Codex may use ANY `gh` subcommand without asking for permission.
 - For map and prospecting incidents, treat these as first-line smoke checks:
   - `GET /api/parcels?hasCoords=true`
   - `GET /api/parcels?hasCoords=true&search=<address>`
-  - `POST /api/external/chatgpt-apps/parcel-geometry`
+  - `GET /api/parcels/{parcelId}/geometry?detail_level=low`
 - If parcel points render but polygons do not, verify geometry fallback path executes in this order:
   1. direct geometry lookup
   2. address-normalized lookup

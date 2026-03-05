@@ -152,19 +152,16 @@ async function main() {
     ? await callJson(
         baseUrl,
         bearerToken,
-        "POST",
-        "/api/external/chatgpt-apps/parcel-geometry",
-        {
-          parcelId: candidateParcelId,
-          detailLevel: "low",
-        },
+        "GET",
+        `/api/parcels/${encodeURIComponent(candidateParcelId)}/geometry?detail_level=low`,
+        undefined,
       )
     : { status: 400, ok: false, payload: { error: "No parcel candidate from prior steps." } };
   const parcelGeometryBody = toRecord(parcelGeometry.payload);
   const geometryData = toRecord(parcelGeometryBody?.data);
   const hasGeometry = typeof geometryData?.geom_simplified === "string" && geometryData.geom_simplified.length > 0;
   steps.push({
-    name: "POST /api/external/chatgpt-apps/parcel-geometry",
+    name: "GET /api/parcels/{id}/geometry",
     status: parcelGeometry.status,
     ok: parcelGeometry.ok && hasGeometry,
     count: hasGeometry ? 1 : 0,
