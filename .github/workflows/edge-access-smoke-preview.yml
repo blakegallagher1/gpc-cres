@@ -28,14 +28,23 @@ jobs:
           node-version-file: ".node-version"
           cache: "pnpm"
 
-      - name: Validate required secrets
+      - name: Check required secrets
+        id: required-secrets
         run: |
-          test -n "$LOCAL_API_KEY" || (echo "Missing secret LOCAL_API_KEY" && exit 1)
-          test -n "$CF_ACCESS_CLIENT_ID" || (echo "Missing secret CF_ACCESS_CLIENT_ID" && exit 1)
-          test -n "$CF_ACCESS_CLIENT_SECRET" || (echo "Missing secret CF_ACCESS_CLIENT_SECRET" && exit 1)
+          if [[ -n "$LOCAL_API_KEY" && -n "$CF_ACCESS_CLIENT_ID" && -n "$CF_ACCESS_CLIENT_SECRET" ]]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Install dependencies
+        if: steps.required-secrets.outputs.available == 'true'
         run: pnpm install --frozen-lockfile
 
       - name: Run edge smoke matrix
+        if: steps.required-secrets.outputs.available == 'true'
         run: pnpm smoke:gateway:edge-access
+
+      - name: Skip smoke (missing secrets)
+        if: steps.required-secrets.outputs.available != 'true'
+        run: echo "::notice::Skipping edge smoke because one or more required secrets are not configured."
