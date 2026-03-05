@@ -71,8 +71,10 @@ export async function POST(req: NextRequest) {
 // OSRM 16-ray isochrone approximation
 // ---------------------------------------------------------------------------
 
-const NUM_RAYS = 16;
+const NUM_RAYS = 12;
 const OSRM_BASE = "https://router.project-osrm.org";
+const OSRM_TIMEOUT_MS = 2500;
+const ISOCHRONE_DEADLINE_MS = 9000;
 
 /**
  * For each of 16 directions, find a destination point at roughly `minutes`
@@ -84,6 +86,7 @@ async function computeIsochrone(
   centerLng: number,
   minutes: number
 ): Promise<[number, number][]> {
+  const deadline = Date.now() + ISOCHRONE_DEADLINE_MS;
   const maxDriveSec = minutes * 60;
 
   // Start with an initial guess for max distance based on ~50 mph avg
@@ -102,10 +105,25 @@ async function computeIsochrone(
         centerLng,
         angle,
         maxDriveSec,
-        maxDistKm
+        maxDistKm,
+        deadline
       );
     })
   );
+
+  // If routing failed broadly, return a deterministic radius circle fallback.
+  const unique = new Set(
+    endpoints.map((p) => `${p.lat.toFixed(6)},${p.lng.toFixed(6)}`)
+  );
+  if (unique.size < 4) {
+    const radiusKm = Math.max((minutes / 60) * 45, 0.8);
+    const fallback = angles.map((angle) =>
+      destinationPoint(centerLat, centerLng, angle, radiusKm)
+    );
+    const polygon: [number, number][] = fallback.map((p) => [p.lat, p.lng]);
+    polygon.push(polygon[0]);
+    return polygon;
+  }
 
   // Close the polygon
   const polygon: [number, number][] = endpoints.map((p) => [p.lat, p.lng]);
@@ -123,14 +141,16 @@ async function findReachablePoint(
   lng: number,
   bearingDeg: number,
   maxTimeSec: number,
-  maxDistKm: number
+  maxDistKm: number,
+  deadlineEpochMs: number
 ): Promise<{ lat: number; lng: number }> {
   let lo = 0;
   let hi = maxDistKm;
   let bestPoint = { lat, lng };
-  const MAX_ITERATIONS = 4; // Keep OSRM calls reasonable
+  const MAX_ITERATIONS = 3; // Keep OSRM calls reasonable
 
   for (let i = 0; i < MAX_ITERATIONS; i++) {
+    if (Date.now() >= deadlineEpochMs) break;
     const mid = (lo + hi) / 2;
     const dest = destinationPoint(lat, lng, bearingDeg, mid);
 
@@ -163,7 +183,7 @@ async function getRouteDuration(
 ): Promise<number> {
   const url = `${OSRM_BASE}/route/v1/driving/${lng1},${lat1};${lng2},${lat2}?overview=false`;
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 7000);
+  const timeout = setTimeout(() => controller.abort(), OSRM_TIMEOUT_MS);
   let res: Response;
   try {
     res = await fetch(url, {

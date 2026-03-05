@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z, ZodError } from "zod";
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import { ensureSavedGeofencesTable } from "@/lib/server/geofenceTable";
 
 const CreateGeofenceSchema = z.object({
   name: z.string().trim().min(1).max(120),
@@ -13,6 +14,7 @@ export async function GET(req: NextRequest) {
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
+    await ensureSavedGeofencesTable();
     const rows = await prisma.$queryRaw<Array<{ id: string; name: string; coordinates: unknown; created_at: Date }>>`
       select id::text as id, name, coordinates, created_at
       from saved_geofences
@@ -40,6 +42,7 @@ export async function POST(req: NextRequest) {
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
+    await ensureSavedGeofencesTable();
     const payload = CreateGeofenceSchema.parse(await req.json());
     const [row] = await prisma.$queryRaw<Array<{ id: string; name: string; coordinates: unknown; created_at: Date }>>`
       insert into saved_geofences (org_id, user_id, name, coordinates)

@@ -75,18 +75,21 @@ describe("GET /api/map/comps", () => {
     resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
     fetchMock.mockResolvedValue({
       ok: true,
-      json: async () => [
-        {
-          id: "parcel-1",
-          site_address: "123 Main St",
-          latitude: 30.45,
-          longitude: -91.19,
-          sale_price: 435600,
-          acreage: 10,
-          sale_date: "2025-11-15",
-          use_code: "IND",
-        },
-      ],
+      json: async () => ({
+        ok: true,
+        data: [
+          {
+            id: "parcel-1",
+            site_address: "123 Main St",
+            latitude: 30.45,
+            longitude: -91.19,
+            sale_price: 435600,
+            acreage: 10,
+            sale_date: "2025-11-15",
+            use_code: "IND",
+          },
+        ],
+      }),
     } as Response);
 
     const req = new NextRequest("http://localhost/api/map/comps?address=123+Main+St");
@@ -103,5 +106,40 @@ describe("GET /api/map/comps", () => {
       useType: "IND",
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toContain("/api/parcels/search?");
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ method: "GET" });
+  });
+
+  it("uses parcel.point fallback for lat/lng queries when text search has no matches", async () => {
+    resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ok: true, data: [] }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          ok: true,
+          parcels: [
+            {
+              parcel_id: "POINT-1",
+              address: "Nearby Parcel",
+              lat: 30.45,
+              lng: -91.19,
+            },
+          ],
+        }),
+      } as Response);
+
+    const req = new NextRequest("http://localhost/api/map/comps?lat=30.45&lng=-91.19");
+    const res = await GET(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.comps).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1]?.[0]).toBe("http://property-db.test/tools/parcel.point");
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({ method: "POST" });
   });
 });

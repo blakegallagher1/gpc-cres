@@ -107,16 +107,23 @@ export async function GET(request: NextRequest) {
   if (propertyDbConfig) {
     try {
       const adminKey = process.env.ADMIN_API_KEY?.trim();
-      const res = await fetch(
-        `${propertyDbConfig.url}/admin/health`,
-        {
-          headers: {
-            Authorization: `Bearer ${adminKey ?? propertyDbConfig.key}`,
-          },
+      const authHeader = {
+        Authorization: `Bearer ${adminKey ?? propertyDbConfig.key}`,
+      };
+      const res = await fetch(`${propertyDbConfig.url}/health`, {
+        headers: authHeader,
+        signal: AbortSignal.timeout(5000),
+      });
+      if (res.ok) {
+        propertyDbReachable = true;
+      } else {
+        // Backward compatibility with older gateway deployments.
+        const legacyRes = await fetch(`${propertyDbConfig.url}/admin/health`, {
+          headers: authHeader,
           signal: AbortSignal.timeout(5000),
-        },
-      );
-      propertyDbReachable = res.ok;
+        });
+        propertyDbReachable = legacyRes.ok;
+      }
     } catch {
       propertyDbReachable = false;
     }

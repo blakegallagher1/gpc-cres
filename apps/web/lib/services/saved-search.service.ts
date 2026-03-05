@@ -13,19 +13,35 @@ function getGatewayConfig(): { url: string; key: string } {
 
 async function propertyDbRpc(fnName: string, body: Record<string, unknown>): Promise<unknown> {
   const { url, key } = getGatewayConfig();
-  const res = await fetch(`${url}/property-db/rpc/${fnName}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Property DB error (${res.status}): ${text}`);
+  if (fnName === "api_search_parcels") {
+    const q = String(body.p_search_text ?? body.search_text ?? "").trim();
+    const parish = String(body.p_parish ?? body.parish ?? "").trim();
+    const limit = Number(body.p_limit ?? body.limit_rows ?? 50);
+    const params = new URLSearchParams({
+      q,
+      limit: String(Number.isFinite(limit) ? Math.max(1, Math.min(100, limit)) : 50),
+    });
+    if (parish) {
+      params.set("parish", parish);
+    }
+
+    const res = await fetch(`${url}/api/parcels/search?${params.toString()}`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${key}`,
+      },
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Property DB error (${res.status}): ${text}`);
+    }
+    const payload = (await res.json()) as { data?: unknown[]; parcels?: unknown[] };
+    if (Array.isArray(payload.data)) return payload.data;
+    if (Array.isArray(payload.parcels)) return payload.parcels;
+    return [];
   }
-  return res.json();
+
+  throw new Error(`[saved-search-service] Unsupported propertyDbRpc fnName: ${fnName}`);
 }
 
 export interface SearchCriteria {

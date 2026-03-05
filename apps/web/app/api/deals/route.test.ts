@@ -315,6 +315,29 @@ describe("/api/deals route", () => {
       expect(dealCreateMock).not.toHaveBeenCalled();
     });
 
+    it("falls back to Prisma create when gateway returns 5xx", async () => {
+      resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
+      fetchMock.mockResolvedValue(new Response("gateway down", { status: 500 }));
+      dealCreateMock.mockResolvedValue({ id: DEAL_ID_1, name: "Deal 1" });
+
+      const req = new NextRequest("http://localhost/api/deals", {
+        method: "POST",
+        body: JSON.stringify({
+          name: "Deal 1",
+          sku: "SKU-1",
+          jurisdictionId: "jur-1",
+        }),
+      });
+
+      const res = await POST(req);
+      const body = await res.json();
+
+      expect(res.status).toBe(201);
+      expect(body).toEqual({ deal: { id: DEAL_ID_1, name: "Deal 1" } });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(dealCreateMock).toHaveBeenCalledTimes(1);
+    });
+
     it("uses Prisma fallback and creates an initial parcel in non-production", async () => {
       resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
       delete process.env.LOCAL_API_URL;
