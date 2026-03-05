@@ -196,7 +196,13 @@ Requires Administrator. Anonymous pulls (e.g. python:3.11-slim) work without cre
 The gateway exposes an `/admin` API for programmatic server management — no SSH required for deploys, restarts, logs, schema inspection, or read-only queries.
 
 **Base URL:** `https://api.gallagherpropco.com/admin`
-**Auth:** `Authorization: Bearer $ADMIN_API_KEY` (separate from `GATEWAY_API_KEY`)
+**Auth:** `Authorization: Bearer $ADMIN_API_KEY` (separate from `GATEWAY_API_KEY` / `LOCAL_API_KEY`)
+**Edge requirement:** Cloudflare Access service-token headers are also required at edge:
+
+- `CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID`
+- `CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET`
+
+If Access headers are valid but `ADMIN_API_KEY` is not provided, `/admin/*` is expected to return origin `403`.
 
 ### Env Var
 
@@ -228,35 +234,64 @@ ADMIN_API_KEY=v6g5qQQ24nkD2ihhg_vxtZ7Fnj0B0lKh5lErdb57Tfo
 ```bash
 # Health check
 curl https://api.gallagherpropco.com/admin/health \
+  -H "CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID" \
+  -H "CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET" \
   -H "Authorization: Bearer $ADMIN_API_KEY"
 
 # DB schema
 curl https://api.gallagherpropco.com/admin/db/schema \
+  -H "CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID" \
+  -H "CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET" \
   -H "Authorization: Bearer $ADMIN_API_KEY"
 
 # List tables
 curl https://api.gallagherpropco.com/admin/db/tables \
+  -H "CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID" \
+  -H "CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET" \
   -H "Authorization: Bearer $ADMIN_API_KEY"
 
 # Container logs
 curl "https://api.gallagherpropco.com/admin/containers/fastapi-gateway/logs?lines=20" \
+  -H "CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID" \
+  -H "CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET" \
   -H "Authorization: Bearer $ADMIN_API_KEY"
 
 # Read-only query
 curl -X POST https://api.gallagherpropco.com/admin/db/query \
+  -H "CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID" \
+  -H "CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET" \
   -H "Authorization: Bearer $ADMIN_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"sql": "SELECT table_name FROM information_schema.tables WHERE table_schema='\''public'\'' ORDER BY table_name"}'
 
 # Deploy updated main.py
 curl -X POST https://api.gallagherpropco.com/admin/deploy/gateway \
+  -H "CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID" \
+  -H "CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET" \
   -H "Authorization: Bearer $ADMIN_API_KEY" \
   -F "file=@infra/local-api/main.py"
 
 # Restart gateway (no upload)
 curl -X POST https://api.gallagherpropco.com/admin/deploy/reload \
+  -H "CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID" \
+  -H "CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET" \
   -H "Authorization: Bearer $ADMIN_API_KEY"
 ```
+
+## Trusted-Caller Smoke Commands
+
+Use these after gateway deploys, Access policy changes, or token rotation:
+
+```bash
+# Full edge matrix (without headers then with headers)
+pnpm smoke:gateway:edge-access
+```
+
+Expected:
+
+- `without_access`: Cloudflare `403` for every endpoint in the matrix.
+- `with_access`: all endpoints pass edge and hit origin.
+- `/admin/health` with service token + `LOCAL_API_KEY` remains origin `403` by design.
 
 ---
 

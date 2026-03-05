@@ -19,6 +19,8 @@ describe("GET /api/map/comps", () => {
   const priorEnv = {
     url: process.env.LOCAL_API_URL,
     key: process.env.LOCAL_API_KEY,
+    accessClientId: process.env.CF_ACCESS_CLIENT_ID,
+    accessClientSecret: process.env.CF_ACCESS_CLIENT_SECRET,
   };
 
   beforeEach(() => {
@@ -29,11 +31,15 @@ describe("GET /api/map/comps", () => {
     // Route short-circuits RPC calls if env is missing.
     process.env.LOCAL_API_URL = "http://property-db.test";
     process.env.LOCAL_API_KEY = "test-key";
+    process.env.CF_ACCESS_CLIENT_ID = "client-id.access";
+    process.env.CF_ACCESS_CLIENT_SECRET = "client-secret";
   });
 
   afterEach(() => {
     process.env.LOCAL_API_URL = priorEnv.url;
     process.env.LOCAL_API_KEY = priorEnv.key;
+    process.env.CF_ACCESS_CLIENT_ID = priorEnv.accessClientId;
+    process.env.CF_ACCESS_CLIENT_SECRET = priorEnv.accessClientSecret;
   });
 
   it("returns 401 when unauthenticated", async () => {
@@ -107,7 +113,14 @@ describe("GET /api/map/comps", () => {
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toContain("/api/parcels/search?");
-    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ method: "GET" });
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "GET",
+      headers: expect.objectContaining({
+        Authorization: "Bearer test-key",
+        "CF-Access-Client-Id": "client-id.access",
+        "CF-Access-Client-Secret": "client-secret",
+      }),
+    });
   });
 
   it("uses parcel.point fallback for lat/lng queries when text search has no matches", async () => {

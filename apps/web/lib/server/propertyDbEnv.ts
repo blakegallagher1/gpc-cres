@@ -7,6 +7,21 @@ export interface GatewayConfig {
 
 const loggedHealthChecks = new Set<string>();
 
+export function getCloudflareAccessHeadersFromEnv(): Record<string, string> {
+  const clientId = process.env.CF_ACCESS_CLIENT_ID?.trim();
+  const clientSecret = process.env.CF_ACCESS_CLIENT_SECRET?.trim();
+  if (!clientId || !clientSecret) {
+    return {};
+  }
+  if (isMissingOrPlaceholder(clientId) || isMissingOrPlaceholder(clientSecret)) {
+    return {};
+  }
+  return {
+    "CF-Access-Client-Id": clientId,
+    "CF-Access-Client-Secret": clientSecret,
+  };
+}
+
 export function isMissingOrPlaceholder(value: string | undefined): boolean {
   const normalized = (value ?? "").trim().toLowerCase();
   return (

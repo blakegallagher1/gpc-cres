@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getCloudflareAccessHeadersFromEnv } from "@/lib/server/propertyDbEnv";
 
 const CACHE_MAX_AGE = 86400; // 24h — tiles are immutable for given xyz
 const CACHE_STALE = 604800; // 7d — allow CDN to serve stale while revalidating
@@ -50,6 +51,7 @@ export async function GET(_req: Request, { params }: RouteParams) {
       {
         headers: {
           Authorization: `Bearer ${localApiKey}`,
+          ...getCloudflareAccessHeadersFromEnv(),
         },
       }
     );

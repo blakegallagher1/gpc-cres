@@ -5,10 +5,12 @@ const {
   getTokenMock,
   membershipFindFirstMock,
   getPropertyDbConfigOrNullMock,
+  getCloudflareAccessHeadersFromEnvMock,
 } = vi.hoisted(() => ({
   getTokenMock: vi.fn(),
   membershipFindFirstMock: vi.fn(),
   getPropertyDbConfigOrNullMock: vi.fn(),
+  getCloudflareAccessHeadersFromEnvMock: vi.fn(),
 }));
 
 vi.mock("next-auth/jwt", () => ({
@@ -25,6 +27,7 @@ vi.mock("@entitlement-os/db", () => ({
 
 vi.mock("@/lib/server/propertyDbEnv", () => ({
   getPropertyDbConfigOrNull: getPropertyDbConfigOrNullMock,
+  getCloudflareAccessHeadersFromEnv: getCloudflareAccessHeadersFromEnvMock,
 }));
 
 import { GET } from "./route";
@@ -78,6 +81,7 @@ describe("GET /api/health", () => {
       url: "http://gateway.test",
       key: "gateway-key",
     });
+    getCloudflareAccessHeadersFromEnvMock.mockReturnValue({});
   });
 
   it("returns 401 when request is not authorized", async () => {

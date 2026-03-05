@@ -11,6 +11,18 @@ export type UploadEvidenceParams = {
   orgId: string;
 };
 
+function getCloudflareAccessHeadersFromEnv(): Record<string, string> {
+  const clientId = process.env.CF_ACCESS_CLIENT_ID?.trim();
+  const clientSecret = process.env.CF_ACCESS_CLIENT_SECRET?.trim();
+  if (!clientId || !clientSecret) {
+    return {};
+  }
+  return {
+    "CF-Access-Client-Id": clientId,
+    "CF-Access-Client-Secret": clientSecret,
+  };
+}
+
 function getGatewayConfig(): { url: string; key: string; userId: string } {
   const url = process.env.LOCAL_API_URL?.trim();
   const key = process.env.LOCAL_API_KEY?.trim();
@@ -49,6 +61,7 @@ export async function uploadEvidenceBytesViaGateway(
       Authorization: `Bearer ${config.key}`,
       "X-Org-Id": params.orgId,
       "X-User-Id": config.userId,
+      ...getCloudflareAccessHeadersFromEnv(),
     },
     body: formData,
   });

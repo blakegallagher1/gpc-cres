@@ -10,6 +10,8 @@ export interface Env {
   OPENAI_API_KEY: string;
   LOCAL_API_KEY: string;
   LOCAL_API_URL: string;
+  CF_ACCESS_CLIENT_ID?: string;
+  CF_ACCESS_CLIENT_SECRET?: string;
   VERCEL_URL: string;
   CODEX_APP_SERVER_URL: string;
 }

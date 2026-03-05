@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prismaRead } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
-import { logPropertyDbRuntimeHealth } from "@/lib/server/propertyDbEnv";
+import {
+  getCloudflareAccessHeadersFromEnv,
+  logPropertyDbRuntimeHealth,
+} from "@/lib/server/propertyDbEnv";
 import {
   getDevFallbackParcels,
   isDevParcelFallbackEnabled,
@@ -320,7 +323,10 @@ async function gatewaySearchParcels(q: string, limit: number): Promise<unknown[]
     const params = new URLSearchParams({ q, limit: String(limit) });
     const res = await fetch(`${url}/api/parcels/search?${params}`, {
       method: "GET",
-      headers: { Authorization: `Bearer ${key}` },
+      headers: {
+        Authorization: `Bearer ${key}`,
+        ...getCloudflareAccessHeadersFromEnv(),
+      },
       signal: controller.signal,
     });
     if (!res.ok) {

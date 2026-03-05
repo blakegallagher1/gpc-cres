@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z, ZodError } from "zod";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import { getCloudflareAccessHeadersFromEnv } from "@/lib/server/propertyDbEnv";
 
 function getGatewayConfig(): { url: string; key: string } | null {
   const url = process.env.LOCAL_API_URL?.trim();
@@ -35,6 +36,7 @@ async function propertyRpc(
       method: "GET",
       headers: {
         Authorization: `Bearer ${key}`,
+        ...getCloudflareAccessHeadersFromEnv(),
       },
     });
     if (!res.ok) return [];
@@ -62,6 +64,7 @@ async function propertyRpc(
       headers: {
         Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",
+        ...getCloudflareAccessHeadersFromEnv(),
       },
       body: JSON.stringify({
         lat,

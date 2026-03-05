@@ -35,6 +35,8 @@ describe("SavedSearchService property DB gateway contracts", () => {
       ...envSnapshot,
       LOCAL_API_URL: "http://gateway.test",
       LOCAL_API_KEY: "gateway-key",
+      CF_ACCESS_CLIENT_ID: "client-id.access",
+      CF_ACCESS_CLIENT_SECRET: "client-secret",
     };
   });
 
@@ -75,6 +77,13 @@ describe("SavedSearchService property DB gateway contracts", () => {
     expect(fetchMock.mock.calls[0]?.[0]).toContain("/api/parcels/search?");
     expect(fetchMock.mock.calls[0]?.[0]).toContain("q=Main");
     expect(fetchMock.mock.calls[0]?.[0]).toContain("parish=East+Baton+Rouge");
-    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ method: "GET" });
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "GET",
+      headers: expect.objectContaining({
+        Authorization: "Bearer gateway-key",
+        "CF-Access-Client-Id": "client-id.access",
+        "CF-Access-Client-Secret": "client-secret",
+      }),
+    });
   });
 });

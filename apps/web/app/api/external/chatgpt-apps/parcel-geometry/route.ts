@@ -7,6 +7,7 @@ import {
   getDevFallbackParcelByPropertyDbId,
   isDevParcelFallbackEnabled,
 } from "@/lib/server/devParcelFallback";
+import { getCloudflareAccessHeadersFromEnv } from "@/lib/server/propertyDbEnv";
 
 export const runtime = "nodejs";
 
@@ -326,7 +327,10 @@ export async function POST(request: Request) {
       const parcelId = input.parcelId.replace(/^ext-/, "").trim();
       const url = `${gatewayUrl}/api/parcels/${encodeURIComponent(parcelId)}/geometry?detail_level=${input.detailLevel}`;
       const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${gatewayKey}` },
+        headers: {
+          Authorization: `Bearer ${gatewayKey}`,
+          ...getCloudflareAccessHeadersFromEnv(),
+        },
         signal: request.signal,
       });
 

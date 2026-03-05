@@ -2,7 +2,10 @@ import crypto from "crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { prisma } from "@entitlement-os/db";
-import { getPropertyDbConfigOrNull } from "@/lib/server/propertyDbEnv";
+import {
+  getCloudflareAccessHeadersFromEnv,
+  getPropertyDbConfigOrNull,
+} from "@/lib/server/propertyDbEnv";
 
 const REQUIRED_ENV_VARS = [
   "OPENAI_API_KEY",
@@ -109,6 +112,7 @@ export async function GET(request: NextRequest) {
       const adminKey = process.env.ADMIN_API_KEY?.trim();
       const authHeader = {
         Authorization: `Bearer ${adminKey ?? propertyDbConfig.key}`,
+        ...getCloudflareAccessHeadersFromEnv(),
       };
       const res = await fetch(`${propertyDbConfig.url}/health`, {
         headers: authHeader,

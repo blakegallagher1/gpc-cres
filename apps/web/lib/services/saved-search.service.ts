@@ -1,6 +1,7 @@
 import { prisma } from "@entitlement-os/db";
 import type { Prisma } from "@entitlement-os/db";
 import { NotFoundError, ValidationError } from "@/lib/errors";
+import { getCloudflareAccessHeadersFromEnv } from "@/lib/server/propertyDbEnv";
 
 function getGatewayConfig(): { url: string; key: string } {
   const url = process.env.LOCAL_API_URL?.trim();
@@ -29,6 +30,7 @@ async function propertyDbRpc(fnName: string, body: Record<string, unknown>): Pro
       method: "GET",
       headers: {
         Authorization: `Bearer ${key}`,
+        ...getCloudflareAccessHeadersFromEnv(),
       },
     });
     if (!res.ok) {

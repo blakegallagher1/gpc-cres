@@ -1,3 +1,5 @@
+import { getCloudflareAccessHeadersFromEnv } from "@/lib/server/propertyDbEnv";
+
 /**
  * Shared proxy helpers for Next.js API routes that forward to the Gateway
  * (api.gallagherpropco.com via Cloudflare Tunnel).
@@ -27,6 +29,7 @@ export function gatewayHeaders(
     Authorization: `Bearer ${key}`,
     "X-Org-Id": auth.orgId,
     "X-User-Id": auth.userId,
+    ...getCloudflareAccessHeadersFromEnv(),
   };
   if (options?.contentType === "json") {
     headers["Content-Type"] = "application/json";

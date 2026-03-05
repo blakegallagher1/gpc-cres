@@ -5,6 +5,7 @@ import { dispatchEvent } from "@/lib/automation/events";
 import "@/lib/automation/handlers";
 import { ParcelTriageSchema } from "@entitlement-os/shared";
 import { captureAutomationDispatchError } from "@/lib/automation/sentry";
+import { getCloudflareAccessHeadersFromEnv } from "@/lib/server/propertyDbEnv";
 import * as Sentry from "@sentry/nextjs";
 
 const PACK_STALE_DAYS = 7;
@@ -45,7 +46,10 @@ export async function GET(
           `${localApiUrl.replace(/\/$/, "")}/deals?${query.toString()}`,
           {
             cache: "no-store",
-            headers: { Authorization: `Bearer ${localApiKey}` },
+            headers: {
+              Authorization: `Bearer ${localApiKey}`,
+              ...getCloudflareAccessHeadersFromEnv(),
+            },
           },
         );
         if (upstream.ok) {
