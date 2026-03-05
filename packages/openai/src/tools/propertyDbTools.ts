@@ -29,6 +29,18 @@ function getGatewayKey(): string {
   return key;
 }
 
+function getCloudflareAccessHeadersFromEnv(): Record<string, string> {
+  const clientId = process.env.CF_ACCESS_CLIENT_ID?.trim();
+  const clientSecret = process.env.CF_ACCESS_CLIENT_SECRET?.trim();
+  if (!clientId || !clientSecret) {
+    return {};
+  }
+  return {
+    "CF-Access-Client-Id": clientId,
+    "CF-Access-Client-Secret": clientSecret,
+  };
+}
+
 function getAgentsUrl(): string {
   if (process.env.AGENTS_URL) return process.env.AGENTS_URL.trim();
   const wsUrl = process.env.NEXT_PUBLIC_AGENT_WS_URL?.trim();
@@ -74,6 +86,7 @@ export async function gatewayPost(path: string, body: Record<string, unknown>): 
           Authorization: `Bearer ${PROPERTY_DB_KEY}`,
           apikey: PROPERTY_DB_KEY,
           "Content-Type": "application/json",
+          ...getCloudflareAccessHeadersFromEnv(),
         },
         body: JSON.stringify(body),
       });

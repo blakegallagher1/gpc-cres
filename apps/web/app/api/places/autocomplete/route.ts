@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { getGatewayConfig } from "@/lib/gateway-proxy";
+import { getCloudflareAccessHeadersFromEnv } from "@/lib/server/propertyDbEnv";
 
 // ---------------------------------------------------------------------------
 // GET /api/places/autocomplete?q=<query>
@@ -115,6 +116,7 @@ async function parcelDbAutocomplete(
         Authorization: `Bearer ${config.key}`,
         apikey: config.key,
         "Content-Type": "application/json",
+        ...getCloudflareAccessHeadersFromEnv(),
       },
       body: JSON.stringify({
         // Use the query as a free-text address match

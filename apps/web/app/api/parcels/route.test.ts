@@ -1,10 +1,11 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { resolveAuthMock, findManyMock, fetchMock } = vi.hoisted(() => ({
+const { resolveAuthMock, findManyMock, fetchMock, logPropertyDbRuntimeHealthMock } = vi.hoisted(() => ({
   resolveAuthMock: vi.fn(),
   findManyMock: vi.fn(),
   fetchMock: vi.fn(),
+  logPropertyDbRuntimeHealthMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/resolveAuth", () => ({
@@ -20,7 +21,8 @@ vi.mock("@entitlement-os/db", () => ({
 }));
 
 vi.mock("@/lib/server/propertyDbEnv", () => ({
-  logPropertyDbRuntimeHealth: vi.fn(),
+  logPropertyDbRuntimeHealth: logPropertyDbRuntimeHealthMock,
+  getCloudflareAccessHeadersFromEnv: vi.fn(() => ({})),
 }));
 
 vi.mock("@/lib/server/devParcelFallback", () => ({
@@ -37,9 +39,16 @@ describe("GET /api/parcels", () => {
     resolveAuthMock.mockReset();
     findManyMock.mockReset();
     fetchMock.mockReset();
+    logPropertyDbRuntimeHealthMock.mockReset();
     vi.stubGlobal("fetch", fetchMock);
     process.env.LOCAL_API_URL = "http://property-db.test";
     process.env.LOCAL_API_KEY = "test-key";
+    logPropertyDbRuntimeHealthMock.mockImplementation(() => {
+      const url = process.env.LOCAL_API_URL?.trim();
+      const key = process.env.LOCAL_API_KEY?.trim();
+      if (!url || !key) return null;
+      return { url, key };
+    });
   });
 
   it("returns 401 when unauthenticated", async () => {

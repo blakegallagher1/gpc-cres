@@ -32,6 +32,18 @@ function isAtOrPast(current: string, required: DealStatus): boolean {
   return ci >= ri;
 }
 
+function getCloudflareAccessHeadersFromEnv(): Record<string, string> {
+  const clientId = process.env.CF_ACCESS_CLIENT_ID?.trim();
+  const clientSecret = process.env.CF_ACCESS_CLIENT_SECRET?.trim();
+  if (!clientId || !clientSecret) {
+    return {};
+  }
+  return {
+    "CF-Access-Client-Id": clientId,
+    "CF-Access-Client-Secret": clientSecret,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Tool definition
 // ---------------------------------------------------------------------------
@@ -180,6 +192,7 @@ export const generate_artifact = tool({
             Authorization: `Bearer ${gatewayKey}`,
             "X-Org-Id": orgId,
             "X-User-Id": serviceUserId,
+            ...getCloudflareAccessHeadersFromEnv(),
           },
           body: uploadForm,
         });

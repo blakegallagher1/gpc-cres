@@ -5,6 +5,7 @@ import { dispatchEvent } from "@/lib/automation/events";
 import "@/lib/automation/handlers";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { captureAutomationDispatchError } from "@/lib/automation/sentry";
+import { getCloudflareAccessHeadersFromEnv } from "@/lib/server/propertyDbEnv";
 import * as Sentry from "@sentry/nextjs";
 
 const DealStatusSchema = z.enum([
@@ -53,7 +54,10 @@ export async function GET(request: NextRequest) {
 
       const res = await fetch(`${localApiUrl.replace(/\/$/, "")}/deals?${params.toString()}`, {
         cache: "no-store",
-        headers: { Authorization: `Bearer ${localApiKey}` },
+        headers: {
+          Authorization: `Bearer ${localApiKey}`,
+          ...getCloudflareAccessHeadersFromEnv(),
+        },
       });
 
       if (!res.ok) {
@@ -181,6 +185,7 @@ export async function POST(request: NextRequest) {
           "Content-Type": "application/json",
           "X-Org-Id": auth.orgId,
           "X-User-Id": auth.userId,
+          ...getCloudflareAccessHeadersFromEnv(),
         },
         body: JSON.stringify(body),
       });
@@ -283,6 +288,7 @@ export async function PATCH(request: NextRequest) {
           Authorization: `Bearer ${localApiKey}`,
           "Content-Type": "application/json",
           "X-Org-Id": auth.orgId,
+          ...getCloudflareAccessHeadersFromEnv(),
         },
         body: JSON.stringify(parsed.data),
       });

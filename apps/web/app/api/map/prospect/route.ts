@@ -7,6 +7,7 @@ import {
   isPrismaConnectivityError,
 } from "@/lib/server/devParcelFallback";
 import { getGatewayConfig } from "@/lib/gateway-proxy";
+import { getCloudflareAccessHeadersFromEnv } from "@/lib/server/propertyDbEnv";
 
 function mapDevFallbackToProspectRows(searchText: string): Record<string, unknown>[] {
   const matched = getDevFallbackParcels(searchText);
@@ -40,6 +41,7 @@ async function gatewayPost(
       Authorization: `Bearer ${key}`,
       apikey: key,
       "Content-Type": "application/json",
+      ...getCloudflareAccessHeadersFromEnv(),
     },
     body: JSON.stringify(body),
   });

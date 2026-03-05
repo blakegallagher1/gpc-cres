@@ -77,6 +77,11 @@ async function callGateway(
   path: string,
   body: unknown,
 ): Promise<unknown> {
+  const accessHeaders: Record<string, string> = {};
+  if (env.CF_ACCESS_CLIENT_ID && env.CF_ACCESS_CLIENT_SECRET) {
+    accessHeaders["CF-Access-Client-Id"] = env.CF_ACCESS_CLIENT_ID;
+    accessHeaders["CF-Access-Client-Secret"] = env.CF_ACCESS_CLIENT_SECRET;
+  }
   const MAX_RETRIES = 2;
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
@@ -87,6 +92,7 @@ async function callGateway(
           headers: {
             Authorization: `Bearer ${env.LOCAL_API_KEY}`,
             "Content-Type": "application/json",
+            ...accessHeaders,
           },
           body: JSON.stringify(body),
         },

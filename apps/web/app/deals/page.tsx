@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { DealSummary } from "@/components/deals/DealCard";
 import DealsPage from "./page-client";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import { getCloudflareAccessHeadersFromEnv } from "@/lib/server/propertyDbEnv";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -38,7 +39,10 @@ async function fetchDealsFromLocalApi(
     const url = `${baseUrl.replace(/\/$/, "")}/deals?org_id=${encodeURIComponent(orgId)}${query.toString() ? `&${query.toString()}` : ""}`;
     const response = await fetch(url, {
       cache: "no-store",
-      headers: { Authorization: `Bearer ${apiKey}` },
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        ...getCloudflareAccessHeadersFromEnv(),
+      },
     });
     if (!response.ok) {
       const text = await response.text();

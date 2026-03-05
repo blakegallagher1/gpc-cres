@@ -342,34 +342,47 @@ async def create_deal(
     parcel_address = body.get("parcelAddress")
     apn = body.get("apn")
 
-    row = await conn.fetchrow(
-        """
-        INSERT INTO deals (org_id, name, sku, jurisdiction_id, status, notes, target_close_date, created_by, created_at, updated_at)
-        VALUES ($1, $2, $3::sku_type, $4, 'INTAKE', $5, $6::date, $7, NOW(), NOW())
-        RETURNING id, name, sku, status, created_at, updated_at
-        """,
-        org_id,
-        name,
-        sku,
-        jurisdiction_id,
-        notes,
-        target_close_date if target_close_date else None,
-        created_by,
-    )
+    deal_id = str(_uuid.uuid4())
+    row = None
+    try:
+        async with conn.transaction():
+            row = await conn.fetchrow(
+                """
+                INSERT INTO deals (
+                    id, org_id, name, sku, jurisdiction_id, status, notes, target_close_date, created_by, created_at, updated_at
+                )
+                VALUES ($1::uuid, $2::uuid, $3, $4::sku_type, $5::uuid, 'INTAKE', $6, $7::date, $8::uuid, NOW(), NOW())
+                RETURNING id, name, sku, status, created_at, updated_at
+                """,
+                deal_id,
+                org_id,
+                name,
+                sku,
+                jurisdiction_id,
+                notes,
+                target_close_date if target_close_date else None,
+                created_by,
+            )
 
-    deal_id = str(row["id"])
+            if parcel_address:
+                await conn.execute(
+                    """
+                    INSERT INTO parcels (id, org_id, deal_id, address, apn, created_at)
+                    VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, NOW())
+                    """,
+                    str(_uuid.uuid4()),
+                    org_id,
+                    deal_id,
+                    parcel_address,
+                    apn,
+                )
+    except (ValueError, asyncpg.PostgresError) as err:
+        # Keep client errors generic while preserving server-side diagnostics.
+        print(f"[create_deal] failed org_id={org_id} user_id={created_by}: {err}")
+        raise HTTPException(status_code=400, detail="Invalid deal payload or tenant headers")
 
-    if parcel_address:
-        await conn.execute(
-            """
-            INSERT INTO parcels (org_id, deal_id, address, apn, created_at)
-            VALUES ($1, $2, $3, $4, NOW())
-            """,
-            org_id,
-            deal_id,
-            parcel_address,
-            apn,
-        )
+    if not row:
+        raise HTTPException(status_code=500, detail="Failed to create deal")
 
     jurisdiction_row = await conn.fetchrow(
         "SELECT id, name FROM jurisdictions WHERE id = $1", jurisdiction_id
@@ -470,10 +483,10 @@ async def get_tile(
     if y < 0 or y >= (1 << z):
         raise HTTPException(status_code=400, detail="Invalid tile Y coordinate")
 
-    # Proxy to Martin
+    # Proxy to Martin and follow redirects (Cloudflare/ingress may issue 301/302).
     martin_tile_url = f"{MARTIN_URL}/parcels/{z}/{x}/{y}.pbf"
 
-    async with httpx.AsyncClient(timeout=10.0) as client:
+    async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
         try:
             resp = await client.get(martin_tile_url)
 

@@ -67,9 +67,64 @@ Protects services with browser login before reaching the backend.
 |-------------|--------|--------|---------|
 | SSH | `ssh.gallagherpropco.com` | Blake@gallagherpropco.com | 24h |
 | Entitlement DB | `db.gallagherpropco.com` | Blake@gallagherpropco.com (Allow) + `hyperdrive-db` service token (Service Auth) | 24h |
+| API Gateway | `api.gallagherpropco.com` | `api-gallagherpropco-service-auth` (Service Auth token) | token-based |
 
 Configure in: Zero Trust → Access → Applications → Add application.
 Free plan: 500 applications, 50 identity providers.
+
+### API Gateway Trusted Caller Contract
+
+Requests to `api.gallagherpropco.com` from backend trusted callers must include all three:
+
+- `Authorization: Bearer <LOCAL_API_KEY>`
+- `CF-Access-Client-Id: <CF_ACCESS_CLIENT_ID>`
+- `CF-Access-Client-Secret: <CF_ACCESS_CLIENT_SECRET>`
+
+Without the two Access headers, Cloudflare blocks at edge (`403`) before origin is reached.
+
+### Edge Smoke Matrix (Proven Behavior)
+
+Run:
+
+```bash
+pnpm smoke:gateway:edge-access
+```
+
+Script: `scripts/smoke_gateway_edge_access.ts`
+
+The script validates **both modes** for downstream paths that back the app routes:
+
+- Deals: `/deals`, `/deals/{id}`
+- Parcels / Places: `/api/parcels/search`, `/tools/parcels.search`
+- Map paths: `/tools/parcels.sql`, `/property-db/rpc/*`, `/tiles/{z}/{x}/{y}.pbf`
+- Geometry: `/api/parcels/{id}/geometry`
+- Tool/screening: `/tools/parcel.lookup`, `/tools/parcels.sql`, `/api/screening/{flood,soils,wetlands,epa,traffic,ldeq,full}`
+- Policy check: `/admin/health`, `/health`
+
+Expected status behavior:
+
+- `without_access`: every endpoint returns Cloudflare Access block (`403` with Access block signature).
+- `with_access`: every endpoint reaches origin (status is **not** Cloudflare block; may be `200/400/403/404/422` based on origin auth/business rules).
+- `/admin/health` is expected to remain origin-`403` for this service token flow unless `ADMIN_API_KEY` policy is used.
+
+### Token Rotation Runbook (Quarterly)
+
+Run this every quarter (or immediately after any suspected exposure):
+
+1. Create a new Cloudflare Access service token in the `api-gallagherpropco-service-auth` policy.
+2. Update secrets in all runtimes:
+   - Vercel: `CF_ACCESS_CLIENT_ID`, `CF_ACCESS_CLIENT_SECRET`
+   - Worker: same keys (`wrangler secret put`)
+   - local `.env` and `apps/web/.env.local` for ops smoke runs
+3. Redeploy affected services (Vercel + Worker).
+4. Run `pnpm smoke:gateway:edge-access` and confirm matrix pass.
+5. Revoke the old token in Cloudflare Access.
+6. Record rotation date, operator, and smoke result in ops notes.
+
+### Blast Radius Reduction
+
+Current policy allows broad service-token access to `api.gallagherpropco.com`.
+If narrower scope is required, split into path-limited Access applications/policies (for example `/tools/*` and `/api/screening/*`) and issue separate tokens per caller class.
 
 ---
 
