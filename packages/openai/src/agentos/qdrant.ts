@@ -107,7 +107,10 @@ export function buildHashedSparseVector(text: string, maxTerms = 64): SparseVect
   };
 }
 
-function buildOrgFilter(orgId?: string, extraFilter?: JsonRecord): JsonRecord | undefined {
+export function buildQdrantPayloadFilter(
+  orgId?: string,
+  extraFilter?: JsonRecord,
+): JsonRecord | undefined {
   const must: JsonRecord[] = [];
   if (orgId) {
     must.push({
@@ -228,7 +231,7 @@ export async function hybridSearchQdrant(
     dimensions: config.models.embeddingDimensions,
   });
   const sparse = buildHashedSparseVector(params.query);
-  const orgFilter = buildOrgFilter(params.orgId, params.filter);
+  const orgFilter = buildQdrantPayloadFilter(params.orgId, params.filter);
 
   const qdrantBody: JsonRecord = {
     prefetch: [
@@ -290,4 +293,3 @@ export async function hybridSearchQdrant(
   });
   return parseHybridPoints({ result: fallbackResult }).slice(0, limit);
 }
-

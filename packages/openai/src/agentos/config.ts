@@ -31,6 +31,7 @@ export type QdrantCollectionConfig = {
   skillTriggers: string;
   domainDocs: string;
   toolSpecs: string;
+  institutionalKnowledge: string;
   propertyIntelligence: string;
 };
 
@@ -166,6 +167,9 @@ function buildConfig(): AgentOsConfig {
           process.env.AGENTOS_QDRANT_COLLECTION_DOMAIN?.trim() || "domain_docs",
         toolSpecs:
           process.env.AGENTOS_QDRANT_COLLECTION_TOOLS?.trim() || "tool_specs",
+        institutionalKnowledge:
+          process.env.AGENTOS_QDRANT_COLLECTION_INSTITUTIONAL_KNOWLEDGE?.trim() ||
+          "institutional_knowledge",
         propertyIntelligence:
           process.env.AGENTOS_QDRANT_COLLECTION_PROPERTY_INTELLIGENCE?.trim() || "property_intelligence",
       },
