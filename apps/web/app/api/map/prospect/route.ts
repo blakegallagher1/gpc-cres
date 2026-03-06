@@ -2,27 +2,24 @@ import { NextRequest, NextResponse } from "next/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { prisma } from "@entitlement-os/db";
 import {
-  getDevFallbackParcels,
-  isDevParcelFallbackEnabled,
-  isPrismaConnectivityError,
-} from "@/lib/server/devParcelFallback";
-import { getGatewayConfig } from "@/lib/gateway-proxy";
-import { getCloudflareAccessHeadersFromEnv } from "@/lib/server/propertyDbEnv";
+  getCloudflareAccessHeadersFromEnv,
+  logPropertyDbRuntimeHealth,
+} from "@/lib/server/propertyDbEnv";
 
-function mapDevFallbackToProspectRows(searchText: string): Record<string, unknown>[] {
-  const matched = getDevFallbackParcels(searchText);
-  const seed = matched.length > 0 ? matched : getDevFallbackParcels("*");
-  return seed.map((parcel) => ({
-    id: parcel.id,
-    site_address: parcel.address,
-    acreage: parcel.acreage,
-    zoning: parcel.zoning,
-    flood_zone: parcel.floodZone,
-    lat: parcel.lat,
-    lng: parcel.lng,
-    parish: parcel.parish,
-    parcel_uid: parcel.parcelUid,
-  }));
+class ProspectGatewayError extends Error {
+  status: number;
+  code: "GATEWAY_UNCONFIGURED" | "GATEWAY_UNAVAILABLE";
+
+  constructor(
+    message: string,
+    code: "GATEWAY_UNCONFIGURED" | "GATEWAY_UNAVAILABLE",
+    status: number = 503,
+  ) {
+    super(message);
+    this.name = "ProspectGatewayError";
+    this.status = status;
+    this.code = code;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -35,25 +32,42 @@ async function gatewayPost(
   config: { url: string; key: string },
 ): Promise<unknown> {
   const { url, key } = config;
-  const res = await fetch(`${url}${path}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${key}`,
-      apikey: key,
-      "Content-Type": "application/json",
-      ...getCloudflareAccessHeadersFromEnv(),
-    },
-    body: JSON.stringify(body),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${url}${path}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${key}`,
+        apikey: key,
+        "Content-Type": "application/json",
+        ...getCloudflareAccessHeadersFromEnv(),
+      },
+      body: JSON.stringify(body),
+    });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new ProspectGatewayError(
+      `[prospect] gateway ${path} request failed: ${reason}`,
+      "GATEWAY_UNAVAILABLE",
+    );
+  }
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    console.error(`[prospect] gateway ${path} error ${res.status}: ${text.slice(0, 200)}`);
-    return [];
+    const status = res.status >= 500 ? 502 : 503;
+    throw new ProspectGatewayError(
+      `[prospect] gateway ${path} error ${res.status}: ${text.slice(0, 200)}`,
+      "GATEWAY_UNAVAILABLE",
+      status,
+    );
   }
   try {
     return await res.json();
-  } catch {
-    return [];
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new ProspectGatewayError(
+      `[prospect] gateway ${path} invalid JSON: ${reason}`,
+      "GATEWAY_UNAVAILABLE",
+    );
   }
 }
 
@@ -119,132 +133,6 @@ function buildPolygonSql(
 }
 
 // ---------------------------------------------------------------------------
-// Point-in-polygon (ray casting — JS fallback for non-gateway parcels)
-// ---------------------------------------------------------------------------
-
-function pointInPolygon(
-  lat: number,
-  lng: number,
-  polygon: number[][][]
-): boolean {
-  const ring = polygon[0];
-  if (!ring || ring.length < 4) return false;
-
-  let inside = false;
-  const x = lng;
-  const y = lat;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const xi = ring[i][0];
-    const yi = ring[i][1];
-    const xj = ring[j][0];
-    const yj = ring[j][1];
-    const intersects =
-      yi > y !== yj > y &&
-      x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
-    if (intersects) inside = !inside;
-  }
-  return inside;
-}
-
-function sanitizeSearchTerm(value: unknown): string {
-  if (typeof value !== "string") return "";
-  return value.trim();
-}
-
-async function loadOrgParcels(
-  orgId: string,
-  searchText: string,
-): Promise<Record<string, unknown>[]> {
-  const normalizedSearch = searchText.trim();
-  const where: Record<string, unknown> = {
-    orgId,
-    lat: { not: null },
-    lng: { not: null },
-  };
-
-  if (normalizedSearch && normalizedSearch !== "*") {
-    where.OR = [
-      { address: { contains: normalizedSearch, mode: "insensitive" } },
-      { currentZoning: { contains: normalizedSearch, mode: "insensitive" } },
-      { floodZone: { contains: normalizedSearch, mode: "insensitive" } },
-      {
-        deal: {
-          is: {
-            name: { contains: normalizedSearch, mode: "insensitive" },
-          },
-        },
-      },
-    ];
-  }
-
-  const baseQuery = {
-    where,
-    select: {
-      id: true,
-      address: true,
-      acreage: true,
-      currentZoning: true,
-      floodZone: true,
-      lat: true,
-      lng: true,
-      propertyDbId: true,
-    },
-    take: 600,
-  } as const;
-
-  type OrgParcelRecord = {
-    id: string;
-    address: string | null;
-    acreage: unknown;
-    currentZoning: string | null;
-    floodZone: string | null;
-    lat: unknown;
-    lng: unknown;
-    propertyDbId: string | null;
-  };
-  let parcels: OrgParcelRecord[] = [];
-  try {
-    parcels = await prisma.parcel.findMany(baseQuery);
-
-    if (parcels.length === 0 && isDevParcelFallbackEnabled()) {
-      const devWhere: Record<string, unknown> = {
-        lat: { not: null },
-        lng: { not: null },
-      };
-      if (normalizedSearch && normalizedSearch !== "*") {
-        devWhere.OR = where.OR;
-      }
-
-      parcels = await prisma.parcel.findMany({
-        ...baseQuery,
-        where: devWhere,
-      });
-    }
-  } catch (error) {
-    if (!isPrismaConnectivityError(error)) {
-      throw error;
-    }
-    console.warn("[/api/map/prospect] prisma unavailable, using dev fallback");
-    if (!isDevParcelFallbackEnabled()) {
-      return [];
-    }
-    return mapDevFallbackToProspectRows(searchText);
-  }
-
-  return parcels.map((parcel) => ({
-    id: parcel.id,
-    site_address: parcel.address,
-    acreage: parcel.acreage != null ? Number(parcel.acreage) : null,
-    zoning: parcel.currentZoning,
-    flood_zone: parcel.floodZone,
-    lat: parcel.lat != null ? Number(parcel.lat) : null,
-    lng: parcel.lng != null ? Number(parcel.lng) : null,
-    parish: "",
-    parcel_uid: parcel.propertyDbId || parcel.id,
-  }));
-}
-
-// ---------------------------------------------------------------------------
 // POST /api/map/prospect
 // Body: {
 //   polygon: { type: "Polygon", coordinates: number[][][] },
@@ -307,178 +195,47 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const searchText = sanitizeSearchTerm(filters?.searchText) || "*";
-    const gatewayConfig = getGatewayConfig();
-    const shouldUseGateway = Boolean(gatewayConfig) && !isDevParcelFallbackEnabled();
+    const gatewayHealth = logPropertyDbRuntimeHealth("/api/map/prospect");
+    if (!gatewayHealth) {
+      throw new ProspectGatewayError(
+        "[/api/map/prospect] property DB gateway is not configured",
+        "GATEWAY_UNCONFIGURED",
+      );
+    }
+    const gatewayConfig = {
+      url: gatewayHealth.url.replace(/\/$/, ""),
+      key: gatewayHealth.key,
+    };
+
+    const sql = buildPolygonSql(polygonCoordinates, {
+      zoningCodes: filters?.zoningCodes,
+      minAcreage: filters?.minAcreage,
+      maxAcreage: filters?.maxAcreage,
+      minAssessedValue: filters?.minAssessedValue,
+      maxAssessedValue: filters?.maxAssessedValue,
+    });
+
+    console.log("[prospect] gateway SQL query:", sql.slice(0, 200), "...");
+
+    const raw = await gatewayPost("/tools/parcels.sql", { sql, limit: 500 }, gatewayConfig);
+    const gatewayRows: Record<string, unknown>[] = [];
+
+    if (Array.isArray(raw)) {
+      gatewayRows.push(...(raw as Record<string, unknown>[]));
+    } else if (raw && typeof raw === "object" && "rows" in (raw as Record<string, unknown>)) {
+      const rows = (raw as Record<string, unknown>).rows;
+      if (Array.isArray(rows)) {
+        gatewayRows.push(...(rows as Record<string, unknown>[]));
+      }
+    }
 
     console.log(
-      "[prospect] gatewayConfig:",
-      Boolean(gatewayConfig),
-      "shouldUseGateway:",
-      shouldUseGateway,
-      "devFallback:",
-      isDevParcelFallbackEnabled(),
-      "searchText:",
-      searchText,
+      "[prospect] gateway returned",
+      gatewayRows.length,
+      "parcels via PostGIS ST_Contains",
     );
 
-    // ---------------------------------------------------------------------------
-    // PRIMARY: PostGIS spatial query via FastAPI gateway (/tools/parcels.sql)
-    // Sends the drawn polygon directly to PostGIS ST_Contains — searches the
-    // 198K EBR parcel table with server-side spatial filtering.
-    // ---------------------------------------------------------------------------
-    const allParcels: Record<string, unknown>[] = [];
-    let gatewayQueried = false;
-    if (shouldUseGateway && gatewayConfig) {
-      gatewayQueried = true;
-      const sql = buildPolygonSql(polygonCoordinates, {
-        zoningCodes: filters?.zoningCodes,
-        minAcreage: filters?.minAcreage,
-        maxAcreage: filters?.maxAcreage,
-        minAssessedValue: filters?.minAssessedValue,
-        maxAssessedValue: filters?.maxAssessedValue,
-      });
-
-      console.log("[prospect] gateway SQL query:", sql.slice(0, 200), "...");
-
-      const raw = await gatewayPost("/tools/parcels.sql", { sql, limit: 500 }, gatewayConfig);
-
-      if (Array.isArray(raw)) {
-        allParcels.push(...(raw as Record<string, unknown>[]));
-      } else if (raw && typeof raw === "object" && "rows" in (raw as Record<string, unknown>)) {
-        // Gateway may wrap results in { rows: [...] }
-        const rows = (raw as Record<string, unknown>).rows;
-        if (Array.isArray(rows)) {
-          allParcels.push(...(rows as Record<string, unknown>[]));
-        }
-      }
-
-      console.log(
-        "[prospect] gateway returned",
-        allParcels.length,
-        "parcels via PostGIS ST_Contains",
-      );
-    }
-
-    // Fallback 1: Load org parcels with search text filter
-    if (allParcels.length === 0) {
-      const orgParcels = await loadOrgParcels(auth.orgId, searchText);
-      allParcels.push(...orgParcels);
-      console.log(
-        "[prospect] org parcels (text-filtered) returned",
-        orgParcels.length,
-      );
-    }
-
-    // Fallback 2: If text-filtered search returned nothing and we used a
-    // specific search term, try loading ALL geocoded org parcels so the
-    // polygon filter can do spatial narrowing.
-    if (allParcels.length === 0 && searchText !== "*") {
-      const allOrgParcels = await loadOrgParcels(auth.orgId, "*");
-      allParcels.push(...allOrgParcels);
-      console.log(
-        "[prospect] org parcels (wildcard fallback) returned",
-        allOrgParcels.length,
-      );
-    }
-
-    // Fallback 3: Ensure deterministic local smoke behavior when auth is
-    // disabled in dev — use seeded parcels.
-    if (allParcels.length === 0 && isDevParcelFallbackEnabled()) {
-      allParcels.push(...mapDevFallbackToProspectRows(searchText));
-    }
-
-    // ---------------------------------------------------------------------------
-    // Point-in-polygon filter (JS fallback for non-gateway parcels)
-    // When parcels come from the gateway's PostGIS ST_Contains query, spatial
-    // filtering is already done server-side — skip redundant JS filtering.
-    // For org/Prisma parcels, apply the ray-casting PIP filter.
-    // ---------------------------------------------------------------------------
-    // If the gateway was queried, spatial + filter work is already done server-side.
-    // Only apply JS PIP + filters for fallback (org/Prisma) parcels.
-    const fromGateway = gatewayQueried && allParcels.length > 0;
-    let filtered: Record<string, unknown>[];
-
-    if (fromGateway) {
-      // Gateway already did spatial filtering via ST_Contains
-      filtered = allParcels;
-      console.log(
-        "[prospect] skipping JS PIP — gateway ST_Contains already filtered",
-        filtered.length,
-        "parcels",
-      );
-    } else {
-      filtered = allParcels.filter((p) => {
-        const lat = Number(p.latitude ?? p.lat ?? 0);
-        const lng = Number(p.longitude ?? p.lng ?? 0);
-        if (!lat || !lng) return false;
-        return pointInPolygon(lat, lng, polygonCoordinates);
-      });
-
-      console.log(
-        "[prospect] point-in-polygon:",
-        allParcels.length,
-        "candidates →",
-        filtered.length,
-        "matched",
-      );
-    }
-
-    if (filtered.length === 0 && isDevParcelFallbackEnabled() && allParcels.length > 0) {
-      filtered = allParcels;
-    }
-
-    // ---------------------------------------------------------------------------
-    // Apply filters — only for non-gateway parcels (gateway SQL already filtered)
-    // ---------------------------------------------------------------------------
-    if (!fromGateway) {
-      const minAcreage = filters?.minAcreage;
-      if (minAcreage != null) {
-        filtered = filtered.filter(
-          (p) => p.acreage != null && Number(p.acreage) >= minAcreage
-        );
-      }
-      const maxAcreage = filters?.maxAcreage;
-      if (maxAcreage != null) {
-        filtered = filtered.filter(
-          (p) => p.acreage != null && Number(p.acreage) <= maxAcreage
-        );
-      }
-      if (filters?.zoningCodes?.length) {
-        const codes = new Set(
-          (filters.zoningCodes as string[]).map((c: string) => c.toUpperCase())
-        );
-        filtered = filtered.filter((p) => {
-          const zoning = String(p.zoning ?? p.zone_code ?? "").toUpperCase();
-          return codes.has(zoning) || [...codes].some((c) => zoning.includes(c));
-        });
-      }
-      if (filters?.excludeFloodZone) {
-        filtered = filtered.filter((p) => {
-          const flood = String(p.flood_zone ?? "").toUpperCase();
-          return !(/ZONE\s*[AV]/.test(flood));
-        });
-      }
-      const minAssessedValue = filters?.minAssessedValue;
-      if (minAssessedValue != null) {
-        filtered = filtered.filter(
-          (p) =>
-            p.assessed_value != null &&
-            Number(p.assessed_value) >= minAssessedValue
-        );
-      }
-      const maxAssessedValue = filters?.maxAssessedValue;
-      if (maxAssessedValue != null) {
-        filtered = filtered.filter(
-          (p) =>
-            p.assessed_value != null &&
-            Number(p.assessed_value) <= maxAssessedValue
-        );
-      }
-    }
-
-    // Map to response format
-    const parcels = filtered.map((p) => ({
+    const parcels = gatewayRows.map((p) => ({
       id: String(p.id ?? ""),
       address: String(p.site_address ?? p.situs_address ?? p.address ?? "Unknown"),
       owner: String(p.owner_name ?? p.owner ?? "Unknown"),
@@ -495,6 +252,16 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ parcels, total: parcels.length });
   } catch (error) {
+    if (error instanceof ProspectGatewayError) {
+      console.error("Prospect gateway error:", error);
+      return NextResponse.json(
+        {
+          error: "Property database unavailable",
+          code: error.code,
+        },
+        { status: error.status ?? 503 },
+      );
+    }
     console.error("Prospect search error:", error);
     return NextResponse.json(
       { error: "Failed to search parcels" },

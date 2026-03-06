@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { prisma } from "@entitlement-os/db";
+import { getPropertyDbConfigOrNull } from "@/lib/server/propertyDbEnv";
 
 type DbStatus = {
   ok: boolean;
@@ -86,6 +87,19 @@ async function getMigrationVersion(): Promise<string | null> {
   }
 }
 
+function getDbMode(
+  gatewayConfigured: boolean,
+  directUrlConfigured: boolean
+): "gateway" | "direct" | "unconfigured" {
+  if (gatewayConfigured) {
+    return "gateway";
+  }
+  if (directUrlConfigured) {
+    return "direct";
+  }
+  return "unconfigured";
+}
+
 export async function GET(request: NextRequest) {
   const authorized = await isAuthorized(request);
 
@@ -95,10 +109,18 @@ export async function GET(request: NextRequest) {
 
   const dbStatus = await getDbStatus();
   const migrationVersion = dbStatus.ok ? await getMigrationVersion() : null;
+  const gatewayConfigured = Boolean(getPropertyDbConfigOrNull());
+  const directUrlConfigured = Boolean(process.env.DATABASE_URL?.trim());
+  const dbMode = getDbMode(gatewayConfigured, directUrlConfigured);
 
   return NextResponse.json(
     {
       dbStatus,
+      propertyDb: {
+        dbMode,
+        gatewayConfigured,
+        directUrlConfigured,
+      },
       migrationVersion,
       timestamp: new Date().toISOString(),
       uptimeSeconds: Math.floor(process.uptime()),

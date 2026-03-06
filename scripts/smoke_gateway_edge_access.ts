@@ -28,6 +28,7 @@ type Endpoint = {
   gatewayPath: string;
   method: "GET" | "POST";
   body?: Record<string, unknown>;
+  category?: "gateway" | "semantic" | "health";
 };
 
 type EndpointResult = {
@@ -38,6 +39,7 @@ type EndpointResult = {
   ok: boolean;
   cloudflareBlocked: boolean;
   bodyPreview: string;
+  category: "gateway" | "semantic" | "health";
 };
 
 type ModeReport = {
@@ -76,6 +78,7 @@ const baseUrl = (process.env.LOCAL_API_URL?.trim() || "https://api.gallagherprop
 const localApiKey = readEnvValue("LOCAL_API_KEY");
 const cfAccessClientId = readEnvValue("CF_ACCESS_CLIENT_ID");
 const cfAccessClientSecret = readEnvValue("CF_ACCESS_CLIENT_SECRET");
+const smokeStamp = Date.now().toString();
 
 if (!localApiKey) {
   throw new Error("Missing LOCAL_API_KEY");
@@ -86,18 +89,25 @@ if (!cfAccessClientId || !cfAccessClientSecret) {
 
 // Maps app-side paths to the downstream gateway paths they hit.
 const endpoints: Endpoint[] = [
-  { appPath: "/api/deals", method: "GET", gatewayPath: "/deals" },
-  { appPath: "/api/deals/[id]", method: "GET", gatewayPath: "/deals/non-existent-id" },
+  { appPath: "/api/deals", method: "GET", gatewayPath: "/deals", category: "gateway" },
+  {
+    appPath: "/api/deals/[id]",
+    method: "GET",
+    gatewayPath: "/deals/non-existent-id",
+    category: "gateway",
+  },
   {
     appPath: "/api/parcels",
     method: "GET",
     gatewayPath: "/api/parcels/search?q=highland&limit=1",
+    category: "gateway",
   },
   {
     appPath: "/api/places/autocomplete",
     method: "POST",
     gatewayPath: "/tools/parcels.search",
     body: { q: "highland", limit: 1 },
+    category: "gateway",
   },
   {
     appPath: "/api/map/prospect",
@@ -107,34 +117,33 @@ const endpoints: Endpoint[] = [
       query: "SELECT parcel_id, address FROM ebr_parcels LIMIT 1",
       params: [],
     },
-  },
-  {
-    appPath: "/api/map/comps (compat)",
-    method: "POST",
-    gatewayPath: "/property-db/rpc/rpc_get_comparable_sales",
-    body: {},
+    category: "gateway",
   },
   {
     appPath: "/api/map/tiles/[z]/[x]/[y]",
     method: "GET",
     gatewayPath: "/tiles/12/1042/1533.pbf",
+    category: "gateway",
   },
   {
     appPath: "/api/parcels/007-3904-9/geometry",
     method: "GET",
     gatewayPath: "/api/parcels/007-3904-9/geometry?detail_level=low",
+    category: "gateway",
   },
   {
     appPath: "tool:search_parcels",
     method: "POST",
     gatewayPath: "/tools/parcels.search",
     body: { owner_contains: "LLC", limit: 1 },
+    category: "gateway",
   },
   {
     appPath: "tool:get_parcel_details",
     method: "POST",
     gatewayPath: "/tools/parcel.lookup",
     body: { parcelId: "007-3904-9" },
+    category: "gateway",
   },
   {
     appPath: "tool:query_property_db_sql",
@@ -144,51 +153,87 @@ const endpoints: Endpoint[] = [
       query: "SELECT parcel_uid, situs_address FROM ebr_parcels LIMIT 1",
       params: [],
     },
+    category: "gateway",
   },
   {
     appPath: "tool:screen_flood",
     method: "POST",
     gatewayPath: "/api/screening/flood",
     body: { parcelId: "007-3904-9" },
+    category: "gateway",
   },
   {
     appPath: "tool:screen_soils",
     method: "POST",
     gatewayPath: "/api/screening/soils",
     body: { parcelId: "007-3904-9" },
+    category: "gateway",
   },
   {
     appPath: "tool:screen_wetlands",
     method: "POST",
     gatewayPath: "/api/screening/wetlands",
     body: { parcelId: "007-3904-9" },
+    category: "gateway",
   },
   {
     appPath: "tool:screen_epa",
     method: "POST",
     gatewayPath: "/api/screening/epa",
     body: { parcelId: "007-3904-9" },
+    category: "gateway",
   },
   {
     appPath: "tool:screen_traffic",
     method: "POST",
     gatewayPath: "/api/screening/traffic",
     body: { parcelId: "007-3904-9" },
+    category: "gateway",
   },
   {
     appPath: "tool:screen_ldeq",
     method: "POST",
     gatewayPath: "/api/screening/ldeq",
     body: { parcelId: "007-3904-9" },
+    category: "gateway",
   },
   {
     appPath: "tool:screen_full",
     method: "POST",
     gatewayPath: "/api/screening/full",
     body: { parcelId: "007-3904-9" },
+    category: "gateway",
   },
-  { appPath: "admin policy check", method: "GET", gatewayPath: "/admin/health" },
-  { appPath: "gateway health", method: "GET", gatewayPath: "/health" },
+  {
+    appPath: "tool:docs.search (semantic)",
+    method: "POST",
+    gatewayPath: "/tool/docs.search",
+    body: { query: "hearing notice requirements", limit: 1 },
+    category: "semantic",
+  },
+  {
+    appPath: "tool:memory.write (semantic)",
+    method: "POST",
+    gatewayPath: "/tool/memory.write",
+    body: {
+      conversationId: smokeStamp,
+      userId: "edge-smoke",
+      content: "edge smoke semantic memory write",
+    },
+    category: "semantic",
+  },
+  {
+    appPath: "admin policy check",
+    method: "GET",
+    gatewayPath: "/admin/health",
+    category: "gateway",
+  },
+  {
+    appPath: "gateway health",
+    method: "GET",
+    gatewayPath: "/health",
+    category: "health",
+  },
 ];
 
 async function runRequest(mode: SmokeMode, endpoint: Endpoint): Promise<EndpointResult> {
@@ -224,6 +269,7 @@ async function runRequest(mode: SmokeMode, endpoint: Endpoint): Promise<Endpoint
     ok: response.ok,
     cloudflareBlocked: isCloudflareAccessBlock(response.status, rawBody),
     bodyPreview,
+    category: endpoint.category ?? "gateway",
   };
 }
 
@@ -276,6 +322,19 @@ async function main(): Promise<void> {
 
   printReport(withoutAccess);
   printReport(withAccess);
+
+  const coverage = endpoints.reduce<Record<"gateway" | "semantic" | "health", number>>(
+    (acc, endpoint) => {
+      const category = endpoint.category ?? "gateway";
+      acc[category] += 1;
+      return acc;
+    },
+    { gateway: 0, semantic: 0, health: 0 },
+  );
+  console.log("\n[edge-smoke] Coverage summary:");
+  console.log(`- Gateway/Postgres endpoints: ${coverage.gateway}`);
+  console.log(`- Semantic/Qdrant endpoints: ${coverage.semantic}`);
+  console.log(`- Gateway health endpoints: ${coverage.health}`);
 
   const failures = [
     ...validateWithoutAccess(withoutAccess),

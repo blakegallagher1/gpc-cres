@@ -58,37 +58,52 @@ export function isMigrationSafe(sql: string): MigrationSafetyResult {
 export interface HealthCheckResult {
   status: "ok" | "degraded" | "down";
   missingVars: string[];
+  dbMode: "gateway" | "direct" | "unconfigured";
+  gatewayConfigured: boolean;
+  directUrlConfigured: boolean;
   timestamp: string;
 }
 
-/**
- * Required environment variables for a healthy deployment.
- * Subset of the 42 vars checked in /api/health — these are the critical ones.
- */
-const CRITICAL_ENV_VARS = [
-  "DATABASE_URL",
-  "AUTH_SECRET",
-  "LOCAL_API_URL",
-  "LOCAL_API_KEY",
-  "OPENAI_API_KEY",
-] as const;
+function getDbMode(
+  gatewayConfigured: boolean,
+  directUrlConfigured: boolean
+): "gateway" | "direct" | "unconfigured" {
+  if (gatewayConfigured) {
+    return "gateway";
+  }
+  if (directUrlConfigured) {
+    return "direct";
+  }
+  return "unconfigured";
+}
 
 /**
- * Evaluate deployment health based on environment variable presence.
- * Returns "ok" if all critical vars present, "degraded" if some missing,
- * "down" if essential vars (DATABASE_URL, OPENAI_API_KEY) missing.
+ * Evaluate deployment health using the gateway/local-server path as the
+ * authoritative parcel/property data source in production.
  */
 export function evaluateHealth(): HealthCheckResult {
   const missingVars: string[] = [];
+  const gatewayConfigured = Boolean(
+    process.env.LOCAL_API_URL?.trim() && process.env.LOCAL_API_KEY?.trim()
+  );
+  const directUrlConfigured = Boolean(process.env.DATABASE_URL?.trim());
+  const dbMode = getDbMode(gatewayConfigured, directUrlConfigured);
 
-  for (const v of CRITICAL_ENV_VARS) {
-    if (!process.env[v]) {
-      missingVars.push(v);
-    }
+  if (!process.env.OPENAI_API_KEY?.trim()) {
+    missingVars.push("OPENAI_API_KEY");
+  }
+  if (!process.env.AUTH_SECRET?.trim()) {
+    missingVars.push("AUTH_SECRET");
+  }
+  if (!process.env.LOCAL_API_URL?.trim()) {
+    missingVars.push("LOCAL_API_URL");
+  }
+  if (!process.env.LOCAL_API_KEY?.trim()) {
+    missingVars.push("LOCAL_API_KEY");
   }
 
   let status: "ok" | "degraded" | "down" = "ok";
-  if (missingVars.includes("DATABASE_URL") || missingVars.includes("OPENAI_API_KEY")) {
+  if (!gatewayConfigured || missingVars.includes("OPENAI_API_KEY")) {
     status = "down";
   } else if (missingVars.length > 0) {
     status = "degraded";
@@ -97,6 +112,9 @@ export function evaluateHealth(): HealthCheckResult {
   return {
     status,
     missingVars,
+    dbMode,
+    gatewayConfigured,
+    directUrlConfigured,
     timestamp: new Date().toISOString(),
   };
 }

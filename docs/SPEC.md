@@ -3,7 +3,7 @@
 Last reviewed: 2026-02-19
 
 
-Source-of-truth build plan for: Next.js (TypeScript) + Postgres + Temporal + OpenAI Responses API + Supabase Storage
+Source-of-truth build plan for: Next.js (TypeScript) + gateway-backed Postgres + Temporal + OpenAI Responses API + Qdrant semantic layer + B2 Storage
 
 This document is the authoritative spec for what we are building. It includes architecture, data model, workflows, API contracts, prompts/schemas, storage layout, security model, deployment, testing, and a phased delivery plan.
 
@@ -12,11 +12,11 @@ This document is the authoritative spec for what we are building. It includes ar
 ### Final stack decisions (locked)
 
 - Frontend + API: Next.js (TypeScript), App Router
-- System of record: Postgres (single database)
+- System of record: Postgres (single database) reachable only through the FastAPI gateway via Cloudflare Hyperdrive/Access
 - Orchestration: Temporal (Temporal Cloud recommended)
 - AI runtime: OpenAI Responses API (not Chat Completions)
-- Artifact storage + evidence vault: Supabase Storage (private buckets, signed URLs)
-- Auth: Supabase Auth (fits Storage security + private buckets model; you can swap later)
+- Artifact storage + evidence vault: Backblaze B2 via gateway service endpoints (no direct Supabase dependencies)
+- Auth: NextAuth (JWT sessions stored server-side; Supabase Auth fully removed)
 
 ### Operating principle (what the software optimizes for)
 
@@ -87,21 +87,27 @@ A deal is operationally "done" in the app when:
 - Performs all long-running and retryable work
 - Calls OpenAI API
 - Fetches and snapshots source pages/PDFs
-- Generates artifacts and uploads to Supabase Storage
+- Generates artifacts and uploads to B2 via gateway endpoints
 
 #### Postgres
 
 - Single source of truth (status, entities, versions, audit)
 
-#### Supabase Storage
+#### Storage (B2 via gateway)
 
-Private buckets for:
+Private buckets on Backblaze B2 are exposed only through authenticated FastAPI gateway endpoints:
 
-- artifacts
-- evidence snapshots (HTML/PDF/text)
-- uploads (surveys, drawings, etc)
+- `artifacts`
+- `evidence`
+- `uploads`
 
-Buckets are private by default; access is controlled (RLS in Supabase's model).
+The gateway enforces org scoping + bearer auth; no direct client access to B2.
+
+#### Retrieval authority + verification
+
+- **Local Postgres via the gateway is the only system of record.** Every parcel/property/deal request flows through the FastAPI gateway or the Hyperdrive HTTPS proxy. Vercel functions, Temporal workers, and automation tools are forbidden from opening direct database connections or bypassing the gateway contract in any form.
+- **Qdrant is semantic-only.** Property intelligence recall and documentation/memory searches can use Qdrant for fuzzy matches, but writes must already exist in Postgres (deals, parcels, screenings) and semantic storage routes stay behind the same gateway auth contract.
+- **Verification smokes**: run `pnpm smoke:endpoints`, `pnpm smoke:gateway:edge-access`, and `bash scripts/verify-production-features.sh` after any gateway, tunnel, or semantic-layer change to prove the authoritative Postgres path and semantic-only Qdrant behavior remain intact.
 
 #### OpenAI Responses API
 
@@ -155,7 +161,7 @@ We will use Prisma for migrations + type generation, but the underlying schema i
 
 #### users
 
-- id uuid pk (matches Supabase auth user id)
+- id uuid pk (matches NextAuth user id)
 - email text
 - created_at timestamptz
 
@@ -291,7 +297,7 @@ We will use Prisma for migrations + type generation, but the underlying schema i
 - http_status int
 - content_type text
 - content_hash text
-- storage_object_key text (Supabase path)
+- storage_object_key text (gateway-managed B2 path)
 - text_extract_object_key text null
 - run_id uuid fk -> runs
 
@@ -320,11 +326,11 @@ We will use Prisma for migrations + type generation, but the underlying schema i
 - generated_by_run_id uuid fk -> runs
 - UNIQUE (deal_id,artifact_type,version)
 
-## 5) Storage design (Supabase Storage)
+## 5) Storage design (B2 via gateway)
 
 ### 5.1 Buckets (all private)
 
-Supabase buckets are private by default; private bucket access is controlled via policies.
+Backblaze B2 buckets live behind the FastAPI gateway. Access is enforced through bearer tokens + org scoping.
 
 - artifacts/
 - evidence/
@@ -344,11 +350,11 @@ Supabase buckets are private by default; private bucket access is controlled via
 
 ### 5.3 Access pattern
 
-- Worker uploads with service role credentials.
+- Worker uploads through gateway service endpoints that proxy to B2 with service credentials.
 - Web app never exposes buckets publicly.
-- Web app generates signed URLs for authorized users to view/download files. Supabase supports signed URLs.
+- Web app requests download/upload URLs from the gateway, which signs requests server-side.
 
-Uploads (user-provided) use server-side signed upload or direct upload via policy (v2 feature; optional). Upload APIs are provided in supabase-js.
+Uploads (user-provided) always flow through the gateway so B2 credentials stay server-side.
 
 ## 6) Temporal architecture (the machine)
 
@@ -387,7 +393,7 @@ Steps:
 
 - Activity: FetchSeedSources(jurisdictionId)
 - For each URL:
-  - Activity: FetchAndSnapshotSource(url) (stores in Supabase + DB)
+  - Activity: FetchAndSnapshotSource(url) (stores via gateway to B2 + DB)
   - Activity: ExtractText(url) (HTML->text, PDF->text)
 - Activity: GenerateParishPackWithOpenAI(jurisdictionId, sku)
   - Uses extracted texts + web_search tool for gaps
@@ -492,7 +498,7 @@ Vector stores power file_search.
 
 ### 8.3 Sync strategy (important)
 
-Source of truth for files remains in repo + Supabase uploads.
+Source of truth for files remains in repo + B2 uploads (surfaced through the gateway).
 
 A nightly Temporal job ensures OpenAI vector store is updated to match:
 
@@ -582,7 +588,7 @@ System outputs:
 - POST /api/deals/:id/generate-artifacts
   - starts ArtifactGenerationWorkflow
 - GET /api/artifacts/:id/signed-url
-  - returns signed URL from Supabase
+  - returns signed URL proxied by the gateway (B2 backend)
 
 ### 10.2 "No direct DB access" rule
 
@@ -673,8 +679,9 @@ If any changes -> create v+1.
 ### 14.1 Secrets
 
 - OpenAI API key: worker only
-- Supabase service role key: worker only
-- Next.js uses Supabase anon key for auth/session, but not privileged operations.
+- Gateway bearer token (`LOCAL_API_KEY`) + CF Access client credentials: server-only
+- B2 application key: gateway container only
+- NextAuth `AUTH_SECRET`: server-only
 
 ### 14.2 Authorization
 
@@ -688,9 +695,7 @@ Every API route validates:
 
 ### 14.3 Storage security
 
-Buckets private by default; access controlled via policies.
-
-We generate signed URLs for authorized downloads.
+B2 buckets are never exposed directly; all access flows through the gateway which enforces org_id scope and bearer auth. Signed download/upload URLs are short-lived and gateway-issued.
 
 ### 14.4 AI safety / correctness guardrails
 
@@ -775,7 +780,7 @@ Metrics:
 ### 17.1 Recommended hosting
 
 - Temporal Cloud (managed)
-- Supabase project (Auth + Storage + Postgres)
+- Local Windows workstation (FastAPI gateway + Docker Compose Postgres + B2 proxy + Qdrant) exposed via Cloudflare Tunnel/Hyperdrive
 - Next.js deployed on a Node runtime (Vercel is fine if Node functions are used; no Edge-only constraints)
 - Temporal Worker deployed as a long-running container (Fly.io / AWS ECS / Render)
 
@@ -785,8 +790,7 @@ Docker Compose:
 
 - Postgres
 - Temporal dev server + Temporal Web UI
-
-Use Supabase local (optional) or dev Supabase project for Storage/Auth.
+- FastAPI gateway + B2 proxy shim + Qdrant
 
 ## 18) Codex App usage (how we build this efficiently)
 
@@ -805,7 +809,7 @@ Package repeatable workflows (DB schema, Temporal scaffolding, OpenAI wrapper, a
 Deliverables:
 
 - Monorepo created with apps/packages structure
-- Supabase project created (Auth + Storage + Postgres)
+- Gateway stack provisioned (Docker Compose Postgres + FastAPI gateway + B2 + Qdrant)
 - Temporal Cloud namespace configured
 - Secrets stored in proper env var management
 - CI pipeline (lint, typecheck, unit tests)
@@ -833,7 +837,7 @@ Acceptance:
 Deliverables:
 
 - Evidence fetcher (HTML + PDF)
-- Snapshot upload to Supabase evidence bucket
+- Snapshot upload to gateway-managed B2 evidence bucket
 - Text extraction stored
 - Evidence tables populated
 
@@ -942,7 +946,7 @@ Acceptance:
 
 ## 20) What you can do immediately (Day 1 execution checklist)
 
-- Create Supabase project + buckets (artifacts, evidence, uploads)
+- Stand up gateway stack (Docker Compose Postgres + FastAPI gateway + B2 buckets + Qdrant)
 - Stand up Temporal Cloud namespace
 - Initialize repo + AGENTS.md + skills
 - Build DB + CRUD UI

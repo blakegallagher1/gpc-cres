@@ -44,7 +44,9 @@ db generate → shared build → db build → openai build → next build
 ```
 DATABASE_URL (local dev: direct TCP to Postgres),
 DIRECT_DATABASE_URL (same as DATABASE_URL for local dev),
-OPENAI_API_KEY, TEMPORAL_ADDRESS, TEMPORAL_NAMESPACE, TEMPORAL_TASK_QUEUE
+OPENAI_API_KEY, AUTH_SECRET, TEMPORAL_ADDRESS, TEMPORAL_NAMESPACE, TEMPORAL_TASK_QUEUE,
+LOCAL_API_URL, LOCAL_API_KEY, CF_ACCESS_CLIENT_ID, CF_ACCESS_CLIENT_SECRET,
+QDRANT_URL, QDRANT_API_KEY (optional)
 ```
 
 ### Frontend (`apps/web/.env.local`)
@@ -60,12 +62,16 @@ AGENT_SESSION_IDLE_TIMEOUT_MS, AGENT_SESSION_MAX_DURATION_MS
 
 ### Vercel Production (key vars)
 ```
-GATEWAY_DATABASE_URL=https://agents.gallagherpropco.com  (activates Hyperdrive adapter)
-LOCAL_API_KEY  (gateway + Hyperdrive auth)
+GATEWAY_DATABASE_URL=https://agents.gallagherpropco.com  (Hyperdrive HTTPS endpoint)
+LOCAL_API_KEY  (gateway bearer token)
 LOCAL_API_URL=https://api.gallagherpropco.com
+CF_ACCESS_CLIENT_ID=<service token id>
+CF_ACCESS_CLIENT_SECRET=<service token secret>
 AGENTS_URL=https://agents.gallagherpropco.com
-DATABASE_URL  (kept for prisma generate at build time)
+DATABASE_URL  (non-authoritative local-dev/tooling fallback; do not treat as the production parcel/property path)
 OPENAI_API_KEY
+QDRANT_URL=https://qdrant.gallagherpropco.com
+QDRANT_API_KEY=<optional if gateway proxies>
 ```
 
 **Note:** `LOCAL_API_URL` can point to either subdomain depending on usage context:
@@ -91,22 +97,30 @@ QDRANT_URL=http://qdrant:6333
 
 **Secrets (set via `wrangler secret put`):**
 ```
-OPENAI_API_KEY        # OpenAI API key for Responses API WebSocket
-LOCAL_API_KEY         # Gateway bearer token (same as GATEWAY_API_KEY)
+OPENAI_API_KEY        # Responses API WebSocket
+LOCAL_API_KEY         # Gateway bearer token (same as FastAPI gateway)
 LOCAL_API_URL         # https://api.gallagherpropco.com
-SUPABASE_ANON_KEY     # Supabase anon key for JWT validation
+CF_ACCESS_CLIENT_ID   # Cloudflare Access service token
+CF_ACCESS_CLIENT_SECRET
 VERCEL_URL            # https://gallagherpropco.com
+QDRANT_URL            # optional: direct Worker access
 ```
 
 **Vars (in `wrangler.toml`):**
 ```
-SUPABASE_URL = "https://yjddspdbxuseowxndrak.supabase.co"
+HYPERDRIVE = "<Cloudflare Hyperdrive binding for Postgres>"
 ```
 
 **Feature flag (Vercel env):**
 ```
 NEXT_PUBLIC_AGENT_WS_URL=wss://agents.gallagherpropco.com  # Set to enable WebSocket transport
 ```
+
+## Authoritative data vs semantic recall
+
+- Parcel, deal, and parcel-intelligence data is never fetched directly from Postgres in production. App routes must use `LOCAL_API_URL` + `LOCAL_API_KEY` + the Cloudflare Access headers so the FastAPI gateway can scope queries and fan out to Postgres on the Windows host. Vercel functions rely on `GATEWAY_DATABASE_URL` (Hyperdrive HTTPS) for Prisma during runtime/build tasks that still need Prisma, while `DATABASE_URL` remains a non-authoritative fallback for local dev shells and `pnpm db:*` commands.
+- Qdrant stays semantic-only. Some semantic helpers are exposed through gateway-authenticated tools (`docs.search`, `memory.write`), while other runtime paths still use direct `QDRANT_URL` access for semantic recall. In all cases, Qdrant augments authoritative Postgres records instead of replacing them.
+- After any infra change, run the smoke trio to prove this split remains intact: `pnpm smoke:endpoints` (gateway-backed reads + semantic recall), `pnpm smoke:gateway:edge-access` (Cloudflare Access behavior), and `bash scripts/verify-production-features.sh` (full production harness).
 
 ## CI/CD
 
@@ -170,7 +184,7 @@ cd infra/cloudflare-agent && npx tsx scripts/export-tools.ts
 - Root `.gitignore` has `lib/` pattern - force-add `apps/web/lib/` files
 - Delete `apps/web/.next/` before Vercel deploy to avoid FUNCTION_PAYLOAD_TOO_LARGE
 - Use `--archive=tgz` for Vercel deploy (repo exceeds 15K file limit)
-- `vercel link` overwrites `.env.local` - restore Supabase keys after
+- `vercel link` overwrites `.env.local` - restore `AUTH_SECRET`, `LOCAL_API_URL/KEY`, and Cloudflare Access vars afterward so gateway-backed Postgres + semantic Qdrant routes still authenticate.
 - OpenAI Agents SDK: Zod schemas must use `.nullable()` not `.optional()` for tool params
 - OpenAI Agents SDK: Do NOT use `.url()` or `.email()` Zod validators — they add `format: "uri"` / `format: "email"` to JSON schema which OpenAI structured outputs rejects. Use plain `.string()` instead.
 - Agent tools are wired in `createConfiguredCoordinator()` (agents/index.ts), NOT on the module-level agent exports

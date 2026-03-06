@@ -1,11 +1,20 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { resolveAuthMock, findManyMock, fetchMock, logPropertyDbRuntimeHealthMock } = vi.hoisted(() => ({
+const {
+  resolveAuthMock,
+  findManyMock,
+  fetchMock,
+  logPropertyDbRuntimeHealthMock,
+  requireGatewayConfigMock,
+  isPrismaConnectivityErrorMock,
+} = vi.hoisted(() => ({
   resolveAuthMock: vi.fn(),
   findManyMock: vi.fn(),
   fetchMock: vi.fn(),
   logPropertyDbRuntimeHealthMock: vi.fn(),
+  requireGatewayConfigMock: vi.fn(),
+  isPrismaConnectivityErrorMock: vi.fn().mockReturnValue(false),
 }));
 
 vi.mock("@/lib/auth/resolveAuth", () => ({
@@ -23,12 +32,11 @@ vi.mock("@entitlement-os/db", () => ({
 vi.mock("@/lib/server/propertyDbEnv", () => ({
   logPropertyDbRuntimeHealth: logPropertyDbRuntimeHealthMock,
   getCloudflareAccessHeadersFromEnv: vi.fn(() => ({})),
+  requireGatewayConfig: requireGatewayConfigMock,
 }));
 
 vi.mock("@/lib/server/devParcelFallback", () => ({
-  getDevFallbackParcels: vi.fn().mockReturnValue([]),
-  isDevParcelFallbackEnabled: vi.fn().mockReturnValue(false),
-  isPrismaConnectivityError: vi.fn().mockReturnValue(false),
+  isPrismaConnectivityError: isPrismaConnectivityErrorMock,
 }));
 
 describe("GET /api/parcels", () => {
@@ -40,9 +48,20 @@ describe("GET /api/parcels", () => {
     findManyMock.mockReset();
     fetchMock.mockReset();
     logPropertyDbRuntimeHealthMock.mockReset();
+    requireGatewayConfigMock.mockReset();
+    isPrismaConnectivityErrorMock.mockReset();
+    isPrismaConnectivityErrorMock.mockReturnValue(false);
     vi.stubGlobal("fetch", fetchMock);
     process.env.LOCAL_API_URL = "http://property-db.test";
     process.env.LOCAL_API_KEY = "test-key";
+    requireGatewayConfigMock.mockImplementation(() => {
+      const url = process.env.LOCAL_API_URL?.trim();
+      const key = process.env.LOCAL_API_KEY?.trim();
+      if (!url || !key) {
+        throw new Error("missing gateway config");
+      }
+      return { url, key };
+    });
     logPropertyDbRuntimeHealthMock.mockImplementation(() => {
       const url = process.env.LOCAL_API_URL?.trim();
       const key = process.env.LOCAL_API_KEY?.trim();
@@ -62,7 +81,7 @@ describe("GET /api/parcels", () => {
     expect(body).toEqual({ error: "Unauthorized" });
   });
 
-  it("returns org-scoped parcels when present", async () => {
+  it("returns org-scoped parcels when no filters are provided", async () => {
     ({ GET } = await import("./route"));
     resolveAuthMock.mockResolvedValue({
       userId: "99999999-9999-4999-8999-999999999999",
@@ -82,17 +101,39 @@ describe("GET /api/parcels", () => {
       },
     ]);
 
-    const req = new NextRequest("http://localhost/api/parcels?hasCoords=true");
+    const req = new NextRequest("http://localhost/api/parcels");
     const res = await GET(req);
     const body = await res.json();
 
     expect(res.status).toBe(200);
     expect(body.source).toBe("org");
     expect(body.parcels).toHaveLength(1);
+    expect(findManyMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("falls back to property-db results when org has no coordinate parcels", async () => {
+  it("returns 503 when org parcel store is unavailable", async () => {
+    ({ GET } = await import("./route"));
+    resolveAuthMock.mockResolvedValue({
+      userId: "99999999-9999-4999-8999-999999999999",
+      orgId: "11111111-1111-4111-8111-111111111111",
+    });
+    isPrismaConnectivityErrorMock.mockReturnValueOnce(true);
+    findManyMock.mockRejectedValueOnce(new Error("connection lost"));
+
+    const req = new NextRequest("http://localhost/api/parcels");
+    const res = await GET(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(503);
+    expect(body).toEqual({
+      error: "Parcel store unavailable",
+      code: "ORG_DATA_UNAVAILABLE",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("returns property-db results when gateway search returns parcels", async () => {
     ({ GET } = await import("./route"));
     resolveAuthMock.mockResolvedValue({
       userId: "99999999-9999-4999-8999-999999999999",
@@ -133,12 +174,33 @@ describe("GET /api/parcels", () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(body.source).toBe("property-db-fallback");
+    expect(body.source).toBe("property-db");
     expect(body.parcels.length).toBeGreaterThan(0);
     expect(body.parcels[0].propertyDbId).toBe("external-1");
   });
 
-  it("maps fallback rows that only provide geom_simplified geometry", async () => {
+  it("fails closed when gateway config is unavailable for gateway-backed parcel queries", async () => {
+    logPropertyDbRuntimeHealthMock.mockReturnValueOnce(null);
+    ({ GET } = await import("./route"));
+    resolveAuthMock.mockResolvedValue({
+      userId: "99999999-9999-4999-8999-999999999999",
+      orgId: "11111111-1111-4111-8111-111111111111",
+    });
+    findManyMock.mockResolvedValue([]);
+
+    const req = new NextRequest("http://localhost/api/parcels?hasCoords=true");
+    const res = await GET(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(503);
+    expect(body).toEqual({
+      error: "Property database unavailable",
+      code: "GATEWAY_UNAVAILABLE",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("maps property-db rows that only provide geom_simplified geometry", async () => {
     ({ GET } = await import("./route"));
     resolveAuthMock.mockResolvedValue({
       userId: "99999999-9999-4999-8999-999999999999",
@@ -191,13 +253,13 @@ describe("GET /api/parcels", () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(body.source).toBe("property-db-fallback");
+    expect(body.source).toBe("property-db");
     expect(body.parcels.length).toBeGreaterThan(0);
     expect(body.parcels[0].lat).toBeTypeOf("number");
     expect(body.parcels[0].lng).toBeTypeOf("number");
   });
 
-  it("maps fallback rows when geom_simplified is a JSON string", async () => {
+  it("maps property-db rows when geom_simplified is a JSON string", async () => {
     ({ GET } = await import("./route"));
     resolveAuthMock.mockResolvedValue({
       userId: "99999999-9999-4999-8999-999999999999",
@@ -250,13 +312,13 @@ describe("GET /api/parcels", () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(body.source).toBe("property-db-fallback");
+    expect(body.source).toBe("property-db");
     expect(body.parcels.length).toBeGreaterThan(0);
     expect(body.parcels[0].lat).toBeTypeOf("number");
     expect(body.parcels[0].lng).toBeTypeOf("number");
   });
 
-  it("uses LOCAL_API_URL and LOCAL_API_KEY for property-db fallback", async () => {
+  it("uses LOCAL_API_URL and LOCAL_API_KEY for property-db requests", async () => {
     ({ GET } = await import("./route"));
     process.env.LOCAL_API_URL = "http://property-db.test";
     process.env.LOCAL_API_KEY = "service-role-key";
@@ -299,12 +361,29 @@ describe("GET /api/parcels", () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(body.source).toBe("property-db-fallback");
+    expect(body.source).toBe("property-db");
     expect(body.parcels.length).toBeGreaterThan(0);
     expect(fetchMock).toHaveBeenCalled();
   });
 
-  it("uses LOCAL_API_URL for property-db when set", async () => {
+  it("returns 503 when property-db gateway rejects all requests", async () => {
+    ({ GET } = await import("./route"));
+    resolveAuthMock.mockResolvedValue({
+      userId: "99999999-9999-4999-8999-999999999999",
+      orgId: "11111111-1111-4111-8111-111111111111",
+    });
+    findManyMock.mockResolvedValue([]);
+    fetchMock.mockRejectedValue(new Error("network failure"));
+
+    const req = new NextRequest("http://localhost/api/parcels?hasCoords=true&search=123");
+    const res = await GET(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(503);
+    expect(body.code).toBe("GATEWAY_UNAVAILABLE");
+  });
+
+  it("uses LOCAL_API_URL for property-db searches when set", async () => {
     ({ GET } = await import("./route"));
     process.env.LOCAL_API_URL = "http://property-db.test";
     process.env.LOCAL_API_KEY = "service-role-key";
@@ -347,15 +426,17 @@ describe("GET /api/parcels", () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(body.source).toBe("property-db-fallback");
+    expect(body.source).toBe("property-db");
     expect(body.parcels.length).toBeGreaterThan(0);
     expect(fetchMock).toHaveBeenCalled();
   });
 
-  it("still returns empty fallback when LOCAL_API env are missing", async () => {
+  it("fails closed when gateway config is missing", async () => {
     ({ GET } = await import("./route"));
-    delete process.env.LOCAL_API_URL;
-    delete process.env.LOCAL_API_KEY;
+    requireGatewayConfigMock.mockImplementation(() => {
+      throw new Error("missing gateway config");
+    });
+
     resolveAuthMock.mockResolvedValue({
       userId: "99999999-9999-4999-8999-999999999999",
       orgId: "11111111-1111-4111-8111-111111111111",
@@ -366,9 +447,8 @@ describe("GET /api/parcels", () => {
     const res = await GET(req);
     const body = await res.json();
 
-    expect(res.status).toBe(200);
-    expect(body.source).toBe("property-db-fallback");
-    expect(body.parcels).toEqual([]);
+    expect(res.status).toBe(503);
+    expect(body.code).toBe("GATEWAY_UNAVAILABLE");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

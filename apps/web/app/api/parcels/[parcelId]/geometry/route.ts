@@ -3,14 +3,29 @@ import * as Sentry from "@sentry/nextjs";
 import { checkRateLimit } from "@/lib/server/rateLimiter";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import {
-  getDevFallbackParcelByPropertyDbId,
-  isDevParcelFallbackEnabled,
-} from "@/lib/server/devParcelFallback";
-import { getCloudflareAccessHeadersFromEnv } from "@/lib/server/propertyDbEnv";
+  getCloudflareAccessHeadersFromEnv,
+  logPropertyDbRuntimeHealth,
+} from "@/lib/server/propertyDbEnv";
 
 export const runtime = "nodejs";
 
 const ROUTE_KEY = "parcel-geometry";
+
+class ParcelGeometryGatewayError extends Error {
+  status: number;
+  code: "GATEWAY_UNCONFIGURED" | "GATEWAY_UNAVAILABLE";
+
+  constructor(
+    message: string,
+    code: "GATEWAY_UNCONFIGURED" | "GATEWAY_UNAVAILABLE",
+    status: number = 503,
+  ) {
+    super(message);
+    this.name = "ParcelGeometryGatewayError";
+    this.status = status;
+    this.code = code;
+  }
+}
 
 type ParcelGeometry = {
   bbox: [number, number, number, number];
@@ -136,38 +151,6 @@ function mapGatewayRowToGeometry(row: Record<string, unknown>): ParcelGeometry |
   };
 }
 
-function deriveDevFallbackGeometry(parcelId: string): ParcelGeometry | null {
-  if (!isDevParcelFallbackEnabled()) return null;
-  const parcel = getDevFallbackParcelByPropertyDbId(parcelId);
-  if (!parcel) return null;
-  const areaSqft = Math.max(parcel.acreage * 43_560, 1_000);
-  const halfSideFeet = Math.sqrt(areaSqft) / 2;
-  const latScaleFeetPerDeg = 364_000;
-  const lngScaleFeetPerDeg =
-    Math.max(Math.cos((parcel.lat * Math.PI) / 180), 0.1) * latScaleFeetPerDeg;
-  const latHalfDelta = halfSideFeet / latScaleFeetPerDeg;
-  const lngHalfDelta = halfSideFeet / lngScaleFeetPerDeg;
-  const ring = [
-    [parcel.lng - lngHalfDelta, parcel.lat - latHalfDelta],
-    [parcel.lng + lngHalfDelta, parcel.lat - latHalfDelta],
-    [parcel.lng + lngHalfDelta, parcel.lat + latHalfDelta],
-    [parcel.lng - lngHalfDelta, parcel.lat + latHalfDelta],
-    [parcel.lng - lngHalfDelta, parcel.lat - latHalfDelta],
-  ];
-  const bbox: [number, number, number, number] = [
-    parcel.lng - lngHalfDelta, parcel.lat - latHalfDelta,
-    parcel.lng + lngHalfDelta, parcel.lat + latHalfDelta,
-  ];
-  return {
-    bbox,
-    centroid: { lat: parcel.lat, lng: parcel.lng },
-    area_sqft: areaSqft,
-    geom_simplified: JSON.stringify({ type: "Polygon", coordinates: [ring] }),
-    srid: 4326,
-    dataset_version: "dev-fallback",
-  };
-}
-
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ parcelId: string }> },
@@ -195,38 +178,40 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const detailLevel = (searchParams.get("detail_level") ?? "low") as "low" | "medium" | "high";
 
-    const devFallbackMode = isDevParcelFallbackEnabled();
-    if (!devFallbackMode && !checkRateLimit(`${ROUTE_KEY}:${auth.orgId}`, 50, 10)) {
+    if (!checkRateLimit(`${ROUTE_KEY}:${auth.orgId}`, 50, 10)) {
       return NextResponse.json(
         { ok: false, request_id: requestId, error: { code: "RATE_LIMITED", message: "Too many requests" } },
         { status: 429 },
       );
     }
 
-    const devGeometry = deriveDevFallbackGeometry(parcelId);
-    if (devGeometry) {
-      return NextResponse.json({ ok: true, request_id: requestId, data: devGeometry });
-    }
-
-    const gatewayUrl = process.env.LOCAL_API_URL?.trim();
-    const gatewayKey = process.env.LOCAL_API_KEY?.trim();
-    if (!gatewayUrl || !gatewayKey) {
-      Sentry.captureException(new Error("Parcel geometry: gateway not configured"), {
-        tags: { route: "/api/parcels/[parcelId]/geometry" },
-      });
-      return NextResponse.json(
-        { ok: false, request_id: requestId, error: { code: "GATEWAY_UNCONFIGURED", message: "Parcel geometry provider is unavailable" } },
-        { status: 503 },
+    const gatewayConfig = logPropertyDbRuntimeHealth("/api/parcels/[parcelId]/geometry");
+    if (!gatewayConfig) {
+      throw new ParcelGeometryGatewayError(
+        "Parcel geometry gateway is not configured",
+        "GATEWAY_UNCONFIGURED",
+        503,
       );
     }
+    const gatewayUrl = gatewayConfig.url.replace(/\/$/, "");
+    const gatewayKey = gatewayConfig.key;
 
     const url = `${gatewayUrl}/api/parcels/${encodeURIComponent(parcelId)}/geometry?detail_level=${detailLevel}`;
-    const res = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${gatewayKey}`,
-        ...getCloudflareAccessHeadersFromEnv(),
-      },
-    });
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${gatewayKey}`,
+          ...getCloudflareAccessHeadersFromEnv(),
+        },
+      });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new ParcelGeometryGatewayError(
+        `[parcel-geometry] request failed: ${reason}`,
+        "GATEWAY_UNAVAILABLE",
+      );
+    }
 
     if (res.status === 404) {
       return NextResponse.json(
@@ -236,12 +221,32 @@ export async function GET(
     }
 
     if (!res.ok) {
-      throw new Error(`Gateway responded with ${res.status}`);
+      const errText = await res.text().catch(() => "");
+      const status = res.status >= 500 ? 502 : 503;
+      throw new ParcelGeometryGatewayError(
+        `[parcel-geometry] gateway responded with ${res.status}: ${errText.slice(0, 300)}`,
+        "GATEWAY_UNAVAILABLE",
+        status,
+      );
     }
 
-    const json = (await res.json()) as { ok: boolean; data?: Record<string, unknown> };
+    let json: { ok: boolean; data?: Record<string, unknown> };
+    try {
+      json = (await res.json()) as { ok: boolean; data?: Record<string, unknown> };
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new ParcelGeometryGatewayError(
+        `[parcel-geometry] invalid JSON response: ${reason}`,
+        "GATEWAY_UNAVAILABLE",
+      );
+    }
     const row = json.data;
-    if (!row) throw new Error("Gateway returned no data");
+    if (!row) {
+      throw new ParcelGeometryGatewayError(
+        "[parcel-geometry] gateway returned no data",
+        "GATEWAY_UNAVAILABLE",
+      );
+    }
 
     const geometry = mapGatewayRowToGeometry(row);
     if (!geometry) {
@@ -253,9 +258,24 @@ export async function GET(
 
     return NextResponse.json({ ok: true, request_id: requestId, data: geometry });
   } catch (error) {
-    Sentry.captureException(error instanceof Error ? error : new Error(String(error)), {
+    const err = error instanceof Error ? error : new Error(String(error));
+    Sentry.captureException(err, {
       tags: { route: "/api/parcels/[parcelId]/geometry" },
     });
+    if (error instanceof ParcelGeometryGatewayError) {
+      const message =
+        error.code === "GATEWAY_UNCONFIGURED"
+          ? "Parcel geometry provider is unavailable"
+          : "Parcel geometry gateway error";
+      return NextResponse.json(
+        {
+          ok: false,
+          request_id: requestId,
+          error: { code: error.code, message },
+        },
+        { status: error.status ?? 503 },
+      );
+    }
     return NextResponse.json(
       { ok: false, request_id: requestId, error: { code: "UPSTREAM_ERROR", message: "Internal server error" } },
       { status: 502 },
