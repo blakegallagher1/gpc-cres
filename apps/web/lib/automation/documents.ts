@@ -2,6 +2,7 @@ import { AUTOMATION_CONFIG } from "./config";
 import { createAutomationTask } from "./notifications";
 import type { AutomationEvent } from "./events";
 import { prisma } from "@entitlement-os/db";
+import path from "node:path";
 
 /**
  * Document type classification based on filename and content type.
@@ -31,6 +32,12 @@ export interface ClassificationResult {
   kind: string;
   confidence: number;
   rule: string | null;
+}
+
+function isWorkbookFilename(filename: string): boolean {
+  return new Set([".xlsx", ".xlsm", ".xls"]).has(
+    path.extname(filename).toLowerCase()
+  );
 }
 
 /**
@@ -76,6 +83,7 @@ export async function handleUploadCreated(
 
   // Classify by filename
   const classification = classifyDocument(upload.filename);
+  const workbook = isWorkbookFilename(upload.filename);
 
   // If the upload was already classified by the user (kind !== "other"),
   // and our classification differs, flag for review
@@ -111,6 +119,9 @@ export async function handleUploadCreated(
     console.log(
       `[automation] Auto-classified "${upload.filename}" as "${classification.kind}" (${(classification.confidence * 100).toFixed(0)}% confidence)`
     );
+    if (workbook && classification.kind === "financial") {
+      triggerWorkbookKnowledgeIngest(uploadId, dealId, orgId);
+    }
     return;
   }
 
@@ -126,6 +137,13 @@ export async function handleUploadCreated(
       title: `Classify uploaded document "${upload.filename}"`,
       description: `File "${upload.filename}" could not be auto-classified with sufficient confidence (${(classification.confidence * 100).toFixed(0)}%). Please review and categorize manually.`,
     });
+  }
+
+  if (workbook) {
+    if (upload.kind === "financial") {
+      triggerWorkbookKnowledgeIngest(uploadId, dealId, orgId);
+    }
+    return;
   }
 
   // Trigger document processing pipeline (text extraction + structured data extraction)
@@ -152,4 +170,22 @@ function triggerDocumentProcessing(
       err instanceof Error ? err.message : String(err)
     );
   });
+}
+
+function triggerWorkbookKnowledgeIngest(
+  uploadId: string,
+  dealId: string,
+  orgId: string
+): void {
+  import("@/lib/services/institutionalKnowledgeIngest.service")
+    .then(({ getInstitutionalKnowledgeIngestService }) => {
+      const service = getInstitutionalKnowledgeIngestService();
+      return service.ingestWorkbookUpload(uploadId, dealId, orgId);
+    })
+    .catch((err) => {
+      console.error(
+        `[automation] Workbook knowledge ingest failed for upload ${uploadId}:`,
+        err instanceof Error ? err.message : String(err)
+      );
+    });
 }

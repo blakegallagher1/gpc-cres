@@ -11,6 +11,7 @@ import {
   resolveKnowledgeSearchMode,
   isKnowledgeSearchError,
 } from "@/lib/services/knowledgeBase.service";
+import { getInstitutionalKnowledgeIngestService } from "@/lib/services/institutionalKnowledgeIngest.service";
 
 export async function GET(req: NextRequest) {
   const auth = await resolveAuth(req);
@@ -106,6 +107,22 @@ export async function POST(req: NextRequest) {
         );
         return NextResponse.json({ ids, chunks: ids.length });
       }
+      case "ingest_workbook": {
+        const { uploadId, dealId } = body;
+        if (!uploadId || !dealId) {
+          return NextResponse.json(
+            { error: "uploadId and dealId are required" },
+            { status: 400 }
+          );
+        }
+
+        const result = await getInstitutionalKnowledgeIngestService().ingestWorkbookUpload(
+          uploadId,
+          dealId,
+          auth.orgId
+        );
+        return NextResponse.json(result);
+      }
       case "delete": {
         const { sourceId } = body;
         if (!sourceId) {
@@ -119,7 +136,7 @@ export async function POST(req: NextRequest) {
       }
       default:
         return NextResponse.json(
-          { error: "Invalid action. Use: ingest, delete" },
+          { error: "Invalid action. Use: ingest, ingest_workbook, delete" },
           { status: 400 }
         );
     }

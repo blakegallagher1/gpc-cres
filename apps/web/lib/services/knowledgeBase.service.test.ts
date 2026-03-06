@@ -28,7 +28,9 @@ vi.mock("openai", () => ({
 }));
 
 import {
+  __resetKnowledgeBaseTestState,
   deleteKnowledge,
+  ensureInstitutionalKnowledgeCollectionReady,
   ingestKnowledge,
   isKnowledgeSearchError,
   resolveKnowledgeSearchMode,
@@ -50,6 +52,7 @@ describe("knowledgeBase.service", () => {
     prismaExecuteRawUnsafeMock.mockReset();
     embeddingsCreateMock.mockReset();
     fetchMock.mockReset();
+    __resetKnowledgeBaseTestState();
     vi.stubGlobal("fetch", fetchMock);
 
     process.env.OPENAI_API_KEY = "test-openai-key";
@@ -192,7 +195,9 @@ describe("knowledgeBase.service", () => {
 
   it("mirrors ingested knowledge into Qdrant when configured", async () => {
     prismaQueryRawUnsafeMock.mockResolvedValue([{ id: "knowledge-1" }]);
-    fetchMock.mockResolvedValue(jsonResponse({ status: "ok" }));
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ status: "ok" })) // collection exists
+      .mockResolvedValueOnce(jsonResponse({ status: "ok" })); // points upsert
 
     const ids = await ingestKnowledge(
       "org-1",
@@ -204,9 +209,100 @@ describe("knowledgeBase.service", () => {
 
     expect(ids).toEqual(["knowledge-1"]);
     expect(prismaQueryRawUnsafeMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const [inspectUrl, inspectOptions] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(inspectUrl).toContain("/collections/institutional_knowledge");
+    expect(inspectOptions?.method ?? "GET").toBe("GET");
+    const [upsertUrl, options] = fetchMock.mock.calls[1] as [string, RequestInit];
+    expect(upsertUrl).toContain("/collections/institutional_knowledge/points");
     expect(options.method).toBe("PUT");
+  });
+
+  it("fails closed when workbook ingest requires Qdrant but it is not configured", async () => {
+    delete process.env.QDRANT_URL;
+
+    await expect(ensureInstitutionalKnowledgeCollectionReady()).rejects.toSatisfy(
+      (error: unknown) => {
+        expect(isKnowledgeSearchError(error)).toBe(true);
+        expect((error as Error).message).toContain(
+          "Institutional knowledge ingest requires Qdrant"
+        );
+        return true;
+      }
+    );
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("returns collection readiness details when institutional knowledge Qdrant is configured", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ status: "ok" }));
+
+    await expect(ensureInstitutionalKnowledgeCollectionReady()).resolves.toEqual({
+      enabled: true,
+      collection: "institutional_knowledge",
+      denseVectorName: "dense",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain("/collections/institutional_knowledge");
+    expect(options?.method ?? "GET").toBe("GET");
+  });
+
+  it("creates the institutional knowledge collection once when missing", async () => {
+    prismaQueryRawUnsafeMock
+      .mockResolvedValueOnce([{ id: "knowledge-1" }])
+      .mockResolvedValueOnce([{ id: "knowledge-2" }]);
+
+    const calls: Array<{ url: string; method: string }> = [];
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      const method = init?.method ?? "GET";
+      calls.push({ url, method });
+
+      if (url.includes("/collections/") && method === "GET") {
+        return Promise.resolve(new Response("", { status: 404 }));
+      }
+
+      if (url.endsWith("/index")) {
+        return Promise.resolve(jsonResponse({ status: "indexed" }));
+      }
+
+      if (url.includes("/points")) {
+        return Promise.resolve(jsonResponse({ status: "mirrored" }));
+      }
+
+      return Promise.resolve(jsonResponse({ status: "created" }));
+    });
+
+    const firstIds = await ingestKnowledge(
+      "org-1",
+      "deal_memo",
+      "memo-123",
+      "Important memo content",
+      { source: "upload" }
+    );
+
+    const secondIds = await ingestKnowledge(
+      "org-1",
+      "deal_memo",
+      "memo-456",
+      "Follow-up memo content",
+      { source: "upload" }
+    );
+
+    expect(firstIds).toEqual(["knowledge-1"]);
+    expect(secondIds).toEqual(["knowledge-2"]);
+    expect(fetchMock).toHaveBeenCalled();
+    const getCalls = calls.filter((call) => call.method === "GET");
+    expect(getCalls.length).toBeGreaterThanOrEqual(1);
+    expect(getCalls[0]!.url).toContain("/collections/institutional_knowledge");
+    const indexCalls = calls.filter((call) => call.url.endsWith("/index"));
+    expect(indexCalls).toHaveLength(6);
+    expect(indexCalls.every((call) =>
+      call.url.includes("/collections/institutional_knowledge/index")
+    )).toBe(true);
+    const pointCalls = calls.filter((call) => call.url.includes("/points"));
+    expect(pointCalls).toHaveLength(2);
   });
 
   it("deletes mirrored knowledge from Qdrant when removing a source", async () => {
