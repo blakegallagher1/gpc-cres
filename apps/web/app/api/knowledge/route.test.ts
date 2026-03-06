@@ -10,6 +10,8 @@ const {
   deleteKnowledgeMock,
   resolveKnowledgeSearchModeMock,
   isKnowledgeSearchErrorMock,
+  ingestWorkbookUploadMock,
+  getInstitutionalKnowledgeIngestServiceMock,
 } = vi.hoisted(() => ({
   resolveAuthMock: vi.fn(),
   searchKnowledgeBaseMock: vi.fn(),
@@ -19,6 +21,8 @@ const {
   deleteKnowledgeMock: vi.fn(),
   resolveKnowledgeSearchModeMock: vi.fn(),
   isKnowledgeSearchErrorMock: vi.fn(),
+  ingestWorkbookUploadMock: vi.fn(),
+  getInstitutionalKnowledgeIngestServiceMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/resolveAuth", () => ({
@@ -33,6 +37,10 @@ vi.mock("@/lib/services/knowledgeBase.service", () => ({
   deleteKnowledge: deleteKnowledgeMock,
   resolveKnowledgeSearchMode: resolveKnowledgeSearchModeMock,
   isKnowledgeSearchError: isKnowledgeSearchErrorMock,
+}));
+
+vi.mock("@/lib/services/institutionalKnowledgeIngest.service", () => ({
+  getInstitutionalKnowledgeIngestService: getInstitutionalKnowledgeIngestServiceMock,
 }));
 
 import { GET, POST } from "./route";
@@ -50,11 +58,16 @@ describe("/api/knowledge route", () => {
     deleteKnowledgeMock.mockReset();
     resolveKnowledgeSearchModeMock.mockReset();
     isKnowledgeSearchErrorMock.mockReset();
+    ingestWorkbookUploadMock.mockReset();
+    getInstitutionalKnowledgeIngestServiceMock.mockReset();
 
     resolveKnowledgeSearchModeMock.mockImplementation((_query: string, mode: string) =>
       mode === "auto" ? "semantic" : mode
     );
     isKnowledgeSearchErrorMock.mockReturnValue(false);
+    getInstitutionalKnowledgeIngestServiceMock.mockReturnValue({
+      ingestWorkbookUpload: ingestWorkbookUploadMock,
+    });
   });
 
   afterEach(() => {
@@ -109,6 +122,30 @@ describe("/api/knowledge route", () => {
     );
   });
 
+  it("returns stats by default view", async () => {
+    resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
+    getKnowledgeStatsMock.mockResolvedValue({ total: 4, contentTypes: { deal_memo: 2 } });
+
+    const res = await GET(new NextRequest("http://localhost/api/knowledge"));
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({ total: 4, contentTypes: { deal_memo: 2 } });
+    expect(getKnowledgeStatsMock).toHaveBeenCalledWith(ORG_ID);
+  });
+
+  it("returns recent entries filtered by type", async () => {
+    resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
+    getRecentEntriesMock.mockResolvedValue([{ id: "knowledge-1" }]);
+
+    const res = await GET(
+      new NextRequest("http://localhost/api/knowledge?view=recent&type=deal_memo&limit=7")
+    );
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({ entries: [{ id: "knowledge-1" }] });
+    expect(getRecentEntriesMock).toHaveBeenCalledWith(ORG_ID, 7, "deal_memo");
+  });
+
   it("maps knowledge search errors to their explicit status", async () => {
     resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
     const error = Object.assign(
@@ -146,6 +183,23 @@ describe("/api/knowledge route", () => {
     });
   });
 
+  it("returns 400 for invalid ingest_workbook payloads", async () => {
+    resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
+
+    const res = await POST(
+      new NextRequest("http://localhost/api/knowledge", {
+        method: "POST",
+        body: JSON.stringify({ action: "ingest_workbook", uploadId: "upload-1" }),
+      })
+    );
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toEqual({
+      error: "uploadId and dealId are required",
+    });
+    expect(ingestWorkbookUploadMock).not.toHaveBeenCalled();
+  });
+
   it("deletes knowledge for the authenticated org", async () => {
     resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
     deleteKnowledgeMock.mockResolvedValue(2);
@@ -160,5 +214,130 @@ describe("/api/knowledge route", () => {
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toEqual({ deleted: 2 });
     expect(deleteKnowledgeMock).toHaveBeenCalledWith(ORG_ID, "memo-1");
+  });
+
+  it("returns 401 for unauthenticated POST requests", async () => {
+    resolveAuthMock.mockResolvedValue(null);
+
+    const res = await POST(
+      new NextRequest("http://localhost/api/knowledge", {
+        method: "POST",
+        body: JSON.stringify({ action: "ingest_workbook" }),
+      })
+    );
+
+    expect(res.status).toBe(401);
+    await expect(res.json()).resolves.toEqual({ error: "Unauthorized" });
+    expect(ingestKnowledgeMock).not.toHaveBeenCalled();
+    expect(ingestWorkbookUploadMock).not.toHaveBeenCalled();
+  });
+
+  it("ingests workbook uploads via the dedicated service", async () => {
+    resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
+    ingestWorkbookUploadMock.mockResolvedValue({
+      uploadId: "upload-1",
+      documentExtractionId: "extraction-1",
+      sourceId: "deal-model:the-collective:upload-1",
+      contentType: "document_extraction",
+      summary: "Workbook summary",
+      metadata: { assetType: "Flex Warehouse" },
+      sheetNames: ["Dashboard"],
+      artifact: {
+        filename: "model.xlsx",
+        contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        sizeBytes: 123,
+        storageObjectKey: "org/deal/model.xlsx",
+        sha256: "abc",
+        uploadedByUserId: USER_ID,
+        uploadedByEmail: "blake@example.com",
+        uploadedAt: "2026-03-06T12:00:00.000Z",
+      },
+      knowledge: {
+        collection: "institutional_knowledge",
+        denseVectorName: "dense",
+        chunks: 2,
+        ids: ["chunk-1", "chunk-2"],
+        exactVerified: true,
+        semanticVerified: true,
+        exactTopResult: null,
+        semanticTopResult: null,
+        semanticQuery: "flex warehouse underwriting financial model",
+      },
+    });
+
+    const res = await POST(
+      new NextRequest("http://localhost/api/knowledge", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "ingest_workbook",
+          uploadId: "upload-1",
+          dealId: "deal-1",
+        }),
+      })
+    );
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({
+      uploadId: "upload-1",
+      sourceId: "deal-model:the-collective:upload-1",
+      knowledge: {
+        chunks: 2,
+        exactVerified: true,
+        semanticVerified: true,
+      },
+    });
+    expect(getInstitutionalKnowledgeIngestServiceMock).toHaveBeenCalledTimes(1);
+    expect(ingestWorkbookUploadMock).toHaveBeenCalledWith("upload-1", "deal-1", ORG_ID);
+  });
+
+  it("rejects delete requests without sourceId", async () => {
+    resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
+
+    const res = await POST(
+      new NextRequest("http://localhost/api/knowledge", {
+        method: "POST",
+        body: JSON.stringify({ action: "delete" }),
+      })
+    );
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toEqual({ error: "sourceId is required" });
+    expect(deleteKnowledgeMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 for invalid POST actions", async () => {
+    resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
+
+    const res = await POST(
+      new NextRequest("http://localhost/api/knowledge", {
+        method: "POST",
+        body: JSON.stringify({ action: "sync" }),
+      })
+    );
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toEqual({
+      error: "Invalid action. Use: ingest, ingest_workbook, delete",
+    });
+  });
+
+  it("returns 500 when ingesting knowledge fails", async () => {
+    resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
+    ingestKnowledgeMock.mockRejectedValue(new Error("ingest failed"));
+
+    const res = await POST(
+      new NextRequest("http://localhost/api/knowledge", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "ingest",
+          contentType: "agent_analysis",
+          sourceId: "workbook:v1",
+          contentText: "Workbook summary",
+        }),
+      })
+    );
+
+    expect(res.status).toBe(500);
+    await expect(res.json()).resolves.toEqual({ error: "ingest failed" });
   });
 });

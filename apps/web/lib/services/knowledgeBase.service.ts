@@ -55,12 +55,14 @@ function getOpenAI(): OpenAI {
   return new OpenAI({ apiKey: key });
 }
 
+const KNOWLEDGE_EMBEDDING_DIMENSIONS = 1536;
+
 async function generateEmbedding(text: string): Promise<number[]> {
   const openai = getOpenAI();
   const response = await openai.embeddings.create({
     model: "text-embedding-3-large",
     input: text.slice(0, 8000), // Limit input to ~8K chars
-    dimensions: 1536,
+    dimensions: KNOWLEDGE_EMBEDDING_DIMENSIONS,
   });
   return response.data[0].embedding;
 }
@@ -82,6 +84,127 @@ function getQdrantHeaders(apiKey: string | null): HeadersInit {
   return {
     "Content-Type": "application/json",
     ...(apiKey ? { "api-key": apiKey } : {}),
+  };
+}
+
+const INSTITUTIONAL_KNOWLEDGE_KEYWORD_INDEXES = [
+  "orgId",
+  "contentType",
+  "sourceType",
+  "agentName",
+  "sourceId",
+  "tags",
+] as const;
+
+type QdrantConfig = ReturnType<typeof getQdrantConfig>;
+
+export interface InstitutionalKnowledgeCollectionReady {
+  enabled: true;
+  collection: string;
+  denseVectorName: string;
+}
+
+let ensureInstitutionalKnowledgeCollectionPromise: Promise<void> | null = null;
+
+async function ensureInstitutionalKnowledgeCollectionExists(
+  config: QdrantConfig = getQdrantConfig()
+): Promise<void> {
+  if (!config.url) {
+    return;
+  }
+
+  if (ensureInstitutionalKnowledgeCollectionPromise) {
+    return ensureInstitutionalKnowledgeCollectionPromise;
+  }
+
+  const promise = (async () => {
+    const headers = getQdrantHeaders(config.apiKey);
+    const collectionPath = `${config.url}/collections/${encodeURIComponent(config.collection)}`;
+
+    const checkResponse = await fetch(collectionPath, { headers });
+    if (checkResponse.ok) {
+      return;
+    }
+
+    if (checkResponse.status !== 404) {
+      const body = await checkResponse.text().catch(() => "");
+      throw new Error(
+        `Failed to inspect Qdrant collection '${config.collection}': ${checkResponse.status} ${body}`.trim()
+      );
+    }
+
+    const createResponse = await fetch(collectionPath, {
+      method: "PUT",
+      headers,
+      body: JSON.stringify({
+        vectors: {
+          [config.denseVectorName]: {
+            size: KNOWLEDGE_EMBEDDING_DIMENSIONS,
+            distance: "Cosine",
+          },
+        },
+        sparse_vectors: {
+          bm25: {
+            index: {
+              on_disk: false,
+            },
+          },
+        },
+        optimizers_config: {
+          default_segment_number: 4,
+        },
+      }),
+    });
+
+    if (!createResponse.ok) {
+      const body = await createResponse.text().catch(() => "");
+      throw new Error(
+        `Failed to create Qdrant collection '${config.collection}': ${createResponse.status} ${body}`.trim()
+      );
+    }
+
+    for (const field of INSTITUTIONAL_KNOWLEDGE_KEYWORD_INDEXES) {
+      const indexResponse = await fetch(`${collectionPath}/index`, {
+        method: "PUT",
+        headers,
+        body: JSON.stringify({
+          field_name: field,
+          field_schema: "keyword",
+        }),
+      });
+
+      if (!indexResponse.ok && indexResponse.status !== 409) {
+        const body = await indexResponse.text().catch(() => "");
+        throw new Error(
+          `Failed to create payload index '${field}' for Qdrant collection '${config.collection}': ${indexResponse.status} ${body}`.trim()
+        );
+      }
+    }
+  })();
+
+  ensureInstitutionalKnowledgeCollectionPromise = promise.catch((error) => {
+    ensureInstitutionalKnowledgeCollectionPromise = null;
+    throw error;
+  });
+
+  return ensureInstitutionalKnowledgeCollectionPromise;
+}
+
+export async function ensureInstitutionalKnowledgeCollectionReady(): Promise<InstitutionalKnowledgeCollectionReady> {
+  const config = getQdrantConfig();
+  if (!config.url) {
+    throw new KnowledgeSearchError(
+      "Institutional knowledge ingest requires Qdrant to be configured",
+      503
+    );
+  }
+
+  await ensureInstitutionalKnowledgeCollectionExists(config);
+
+  return {
+    enabled: true,
+    collection: config.collection,
+    denseVectorName: config.denseVectorName,
   };
 }
 
@@ -165,6 +288,8 @@ async function upsertKnowledgeChunksToQdrant(
   if (!config.url || entries.length === 0) {
     return;
   }
+
+  await ensureInstitutionalKnowledgeCollectionExists(config);
 
   const points = await Promise.all(
     entries.map(async (entry) => ({
@@ -501,6 +626,11 @@ export async function searchKnowledgeBase(
 
 export function isKnowledgeSearchError(error: unknown): error is KnowledgeSearchError {
   return error instanceof KnowledgeSearchError;
+}
+
+// Test-only helper to reset memoized Qdrant collection checks between specs.
+export function __resetKnowledgeBaseTestState(): void {
+  ensureInstitutionalKnowledgeCollectionPromise = null;
 }
 
 // ---------------------------------------------------------------------------

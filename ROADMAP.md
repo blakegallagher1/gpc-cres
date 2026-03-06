@@ -452,6 +452,40 @@ Only items meeting all checks are added below as `Planned`.
   - ✅ WS5 — Focused regression coverage added: `apps/web/app/api/knowledge/route.test.ts`, `apps/web/lib/services/knowledgeBase.service.test.ts`, `apps/web/lib/agent/__tests__/retrievalAdapter.test.ts`, `packages/openai/src/dataAgent/retrieval.test.ts`, `packages/openai/src/agentos/config.test.ts`, `packages/openai/src/agentos/qdrant.test.ts`, and `tests/retrieval.test.ts`.
   - ✅ Verification: `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=sk-placeholder pnpm build` all passed on 2026-03-05.
 
+### KA-003 — Workbook Institutional Knowledge Ingest Automation (P1)
+
+- **Priority:** P1
+- **Status:** Done
+- **Problem:** Uploaded Excel underwriting models currently remain preserved only as file artifacts. Operators must manually distill workbook assumptions, returns, and provenance into institutional knowledge, which leaves exact retrieval empty, semantic retrieval under-seeded, and Qdrant collection readiness dependent on ad hoc manual ingestion.
+- **Expected outcome + success signal:** When a user uploads a financial workbook, the system preserves the artifact in gateway storage, extracts a cleaned underwriting summary plus structured metadata, ensures the `institutional_knowledge` Qdrant collection exists, ingests the institutional knowledge record, and verifies the record through both exact and semantic retrieval.
+- **Evidence this is needed:** The first successful institutional knowledge seed came from a manually prepared workbook summary outside the product flow, while `apps/web/lib/automation/documents.ts` only triggers generic document processing and `/api/knowledge` only supports raw text ingestion. This leaves underwriting knowledge automation incomplete and non-repeatable.
+- **Alignment:** Preserves gateway/local-server storage as the artifact source of truth, keeps exact knowledge canonical in Postgres, mirrors semantic chunks into Qdrant only, and avoids raw workbook dumps as the semantic corpus.
+- **Complexity / risk + rollback:** Medium; introduces workbook parsing and upload-triggered ingestion. Roll back by removing the new `ingest_workbook` route action and upload automation branch, falling back to manual `/api/knowledge` ingest while keeping the preserved upload artifact unchanged.
+- **Acceptance criteria + test plan:** Add a workbook ingest service that fetches uploaded workbook bytes from gateway storage, parses supported Excel workbooks, emits a cleaned summary + metadata + artifact provenance, upserts a `DocumentExtraction`, ingests institutional knowledge, verifies exact and semantic retrieval, and returns a deterministic ingest report. Add route tests for `ingest_workbook`, automation tests for financial workbook upload handling, and service tests for parsing/provenance/verification behavior. Verify with `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=sk-placeholder pnpm build`.
+- **Planned Workstreams:**
+  - **WS1 — Workbook parser + summarizer:** Parse uploaded `.xlsx`/`.xlsm` workbooks, extract stable underwriting metrics and sheet context, and generate a cleaned summary text with structured metadata.
+  - **WS2 — Artifact-preserving ingest service:** Fetch workbook bytes from gateway storage, compute provenance metadata, upsert a workbook extraction record, ensure the institutional knowledge collection exists, and ingest canonical + semantic knowledge records.
+  - **WS3 — API + automation wiring:** Extend `/api/knowledge` with `action=ingest_workbook` and trigger workbook ingest automatically from `upload.created` events for financial workbook uploads.
+  - **WS4 — Verification + operator report:** Confirm exact and semantic retrieval for the new source, and return a structured ingest report summarizing artifact preservation, created IDs, and verification outcomes.
+- **Files Expected To Change:**
+  - `ROADMAP.md`
+  - `apps/web/app/api/knowledge/route.ts`
+  - `apps/web/app/api/knowledge/route.test.ts`
+  - `apps/web/lib/automation/documents.ts`
+  - `apps/web/lib/automation/__tests__/documents.test.ts`
+  - `apps/web/lib/services/knowledgeBase.service.ts`
+  - `apps/web/lib/services/knowledgeBase.service.test.ts`
+  - `apps/web/lib/services/institutionalKnowledgeIngest.service.ts`
+  - `apps/web/lib/services/institutionalKnowledgeIngest.service.test.ts`
+  - `apps/web/package.json`
+  - `pnpm-lock.yaml`
+- **Completion Evidence (2026-03-06):**
+  - ✅ WS1 — Workbook parser + summarizer shipped in `apps/web/lib/services/institutionalKnowledgeIngest.service.ts`; supported Excel uploads are parsed from gateway-stored workbook bytes, underwriting metrics are normalized into structured metadata, and a cleaned institutional summary is generated without dumping raw workbook noise into semantic storage.
+  - ✅ WS2 — Artifact-preserving ingest path now verifies Qdrant readiness before knowledge writes: `apps/web/lib/services/institutionalKnowledgeIngest.service.ts` preserves workbook provenance (filename, object key, hash, uploader context), upserts `documentExtraction`, and `apps/web/lib/services/knowledgeBase.service.ts` exposes `ensureInstitutionalKnowledgeCollectionReady()` so workbook ingest fails closed when semantic storage is unavailable.
+  - ✅ WS3 — API + upload automation wiring is live: `apps/web/app/api/knowledge/route.ts` now supports `action=ingest_workbook`, and `apps/web/lib/automation/documents.ts` triggers workbook institutional-knowledge ingest automatically for uploaded financial workbooks while leaving non-workbook processing on the existing document path.
+  - ✅ WS4 — Focused regression coverage shipped: `apps/web/app/api/knowledge/route.test.ts`, `apps/web/lib/automation/__tests__/documents.test.ts`, `apps/web/lib/services/knowledgeBase.service.test.ts`, and `apps/web/lib/services/institutionalKnowledgeIngest.service.test.ts` cover route auth/validation, workbook upload automation behavior, Qdrant readiness, summary extraction, artifact provenance, and exact/semantic verification reporting.
+  - ✅ Verification: `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=sk-placeholder pnpm build` all passed on 2026-03-06.
+
 ---
 
 ## Not Added (did not pass value/risk gate)
