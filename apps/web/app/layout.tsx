@@ -4,6 +4,7 @@ import "./globals.css";
 import * as Sentry from "@sentry/nextjs";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { AuthSessionProvider } from "@/components/providers/session-provider";
+import { ObservabilityProvider } from "@/components/providers/ObservabilityProvider";
 import { Toaster } from "@/components/ui/sonner";
 
 const dmMono = DM_Mono({
@@ -33,28 +34,30 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`${instrumentSans.variable} ${dmMono.variable} ${instrumentSans.className}`}>
         <AuthSessionProvider>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <Sentry.ErrorBoundary
-            fallback={
-              <div className="flex min-h-screen flex-col items-center justify-center gap-4">
-                <h1 className="text-2xl font-semibold text-zinc-900">
-                  Something went wrong
-                </h1>
-                <p className="text-zinc-600">
-                  The application encountered an unexpected error.
-                </p>
-              </div>
-            }
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
           >
-            {children}
-          </Sentry.ErrorBoundary>
-          <Toaster position="bottom-right" />
-        </ThemeProvider>
+            <ObservabilityProvider>
+              <Sentry.ErrorBoundary
+                fallback={
+                  <div className="flex min-h-screen flex-col items-center justify-center gap-4">
+                    <h1 className="text-2xl font-semibold text-zinc-900">
+                      Something went wrong
+                    </h1>
+                    <p className="text-zinc-600">
+                      The application encountered an unexpected error.
+                    </p>
+                  </div>
+                }
+              >
+                {children}
+              </Sentry.ErrorBoundary>
+            </ObservabilityProvider>
+            <Toaster position="bottom-right" />
+          </ThemeProvider>
         </AuthSessionProvider>
       </body>
     </html>
