@@ -26,6 +26,8 @@ const ENV_KEYS = [
   "AGENTOS_CONTEXT_BUDGET_HARD_CAP",
   "AGENTOS_QDRANT_COLLECTION_EPISODIC",
   "AGENTOS_QDRANT_COLLECTION_SKILLS",
+  "AGENTOS_QDRANT_COLLECTION_INSTITUTIONAL_KNOWLEDGE",
+  "AGENTOS_QDRANT_COLLECTION_PROPERTY_INTELLIGENCE",
 ] as const;
 
 type EnvKey = (typeof ENV_KEYS)[number];
@@ -90,6 +92,8 @@ describe("agentos config", () => {
     expect(config.qdrant.collections.skillTriggers).toBe("skill_triggers");
     expect(config.qdrant.collections.domainDocs).toBe("domain_docs");
     expect(config.qdrant.collections.toolSpecs).toBe("tool_specs");
+    expect(config.qdrant.collections.institutionalKnowledge).toBe("institutional_knowledge");
+    expect(config.qdrant.collections.propertyIntelligence).toBe("property_intelligence");
   });
 
   it("enables selected features when explicit flags are on", async () => {
@@ -133,6 +137,8 @@ describe("agentos config", () => {
   it("reads custom Qdrant collection names from env", async () => {
     process.env.AGENTOS_QDRANT_COLLECTION_EPISODIC = "my_episodes";
     process.env.AGENTOS_QDRANT_COLLECTION_SKILLS = "my_skills";
+    process.env.AGENTOS_QDRANT_COLLECTION_INSTITUTIONAL_KNOWLEDGE = "my_knowledge";
+    process.env.AGENTOS_QDRANT_COLLECTION_PROPERTY_INTELLIGENCE = "my_property_intel";
 
     const { getAgentOsConfig } = await import("./config.js");
     const config = getAgentOsConfig({ refresh: true });
@@ -140,5 +146,7 @@ describe("agentos config", () => {
     expect(config.qdrant.collections.episodicMemory).toBe("my_episodes");
     expect(config.qdrant.collections.skillTriggers).toBe("my_skills");
     expect(config.qdrant.collections.domainDocs).toBe("domain_docs");
+    expect(config.qdrant.collections.institutionalKnowledge).toBe("my_knowledge");
+    expect(config.qdrant.collections.propertyIntelligence).toBe("my_property_intel");
   });
 });

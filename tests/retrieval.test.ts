@@ -1,160 +1,75 @@
 /**
- * Unit tests for hybrid retrieval.
+ * Unit tests for the retrieval service wrapper.
  */
 
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockQueryRawUnsafe, mockTemporalFindMany } = vi.hoisted(() => ({
-  mockQueryRawUnsafe: vi.fn(),
-  mockTemporalFindMany: vi.fn(),
+const { mockBuildDataAgentRetrievalContext } = vi.hoisted(() => ({
+  mockBuildDataAgentRetrievalContext: vi.fn(),
 }));
 
-vi.mock("@entitlement-os/db", () => ({
-  prisma: {
-    $queryRawUnsafe: mockQueryRawUnsafe,
-    temporalEdge: {
-      findMany: mockTemporalFindMany,
-    },
-  },
-}));
-
-vi.mock("../openTelemetry/setup.ts", () => ({
-  withSpan: async (_name: string, fn: () => Promise<unknown> | unknown) => fn(),
+vi.mock("@entitlement-os/openai", () => ({
+  buildDataAgentRetrievalContext: mockBuildDataAgentRetrievalContext,
 }));
 
 import * as retrieval from "../services/retrieval.service.ts";
 
 beforeEach(() => {
   vi.restoreAllMocks();
-  mockQueryRawUnsafe.mockReset();
-  mockTemporalFindMany.mockReset();
+  mockBuildDataAgentRetrievalContext.mockReset();
 });
 
 describe("retrieval.service", () => {
-  it("combines semantic, sparse, and graph results with reranking", async () => {
-    vi.spyOn(retrieval, "createQueryEmbedding").mockResolvedValue(Array(4).fill(0.11));
-
-    const semanticRows = [
-      {
-        id: "v1",
-        contentText: "semantic memory about permits",
-        metadata: {},
-        semanticScore: 0.99,
-        sourceTimestamp: new Date(),
+  it("maps orchestrated retrieval results into the legacy record shape", async () => {
+    mockBuildDataAgentRetrievalContext.mockResolvedValue({
+      query: "permit review",
+      subjectId: "run-1",
+      generatedAt: new Date().toISOString(),
+      sources: {
+        semantic: 1,
+        sparse: 1,
+        graph: 1,
       },
-    ];
-    const sparseRows = [
-      {
-        id: "s1",
-        contentText: "permit review note",
-        metadata: {},
-        sparseScore: 0.01,
-        sourceTimestamp: new Date(),
-      },
-    ];
-    const graphRows = [
-      {
-        id: "g1",
-        subjectId: "run-1",
-        predicate: "depends_on",
-        objectId: "permit-license",
-        confidence: 0.7,
-        timestamp: new Date(),
-        sourceHash: "hash",
-      },
-    ];
-
-    mockQueryRawUnsafe.mockImplementation((query: string) => {
-      if (typeof query === "string" && query.includes("vector_embedding")) {
-        return Promise.resolve(semanticRows);
-      }
-      if (typeof query === "string" && query.includes("pg_extension")) {
-        return Promise.resolve([{ available: true }]);
-      }
-      if (typeof query === "string" && query.includes("similarity(ke.content_text")) {
-        return Promise.resolve(sparseRows);
-      }
-      if (typeof query === "string" && query.includes("FROM \"KGEvent\"")) {
-        return Promise.resolve(graphRows);
-      }
-      return Promise.resolve([]);
+      results: [
+        {
+          id: "k1",
+          source: "sparse",
+          text: "permit review note",
+          score: 0.91,
+          metadata: {
+            subjectId: "run-1",
+            retrieval: {
+              sparseScore: 0.91,
+              semanticScore: 0.22,
+              graphScore: 0,
+              recencyScore: 0.73,
+            },
+          },
+        },
+      ],
     });
 
-    mockTemporalFindMany.mockResolvedValue([]);
+    const result = await retrieval.unifiedRetrieval("permit review", "run-1", "org-1");
 
-    const result = await retrieval.unifiedRetrieval("permit review", undefined, "org-1");
-
-    expect(result).toHaveLength(3);
-    expect(result[0].source).toBe("semantic");
-    expect(result[0].id).toBe("v1");
-    expect(result.map((r) => r.source)).toContain("sparse");
-    expect(result.map((r) => r.source)).toContain("graph");
+    expect(mockBuildDataAgentRetrievalContext).toHaveBeenCalledWith("permit review", "run-1", {
+      orgId: "org-1",
+    });
+    expect(result).toEqual([
+      expect.objectContaining({
+        id: "k1",
+        source: "sparse",
+        text: "permit review note",
+        confidence: 0.91,
+        sparseScore: 0.91,
+        semanticScore: 0.22,
+        recencyScore: 0.73,
+        subjectId: "run-1",
+      }),
+    ]);
   });
 
   it("requires non-empty query", async () => {
     await expect(retrieval.unifiedRetrieval("   ")).rejects.toThrow("query is required");
-  });
-
-  it("applies orgId scoping to KG graph queries on happy path", async () => {
-    vi.spyOn(retrieval, "createQueryEmbedding").mockResolvedValue(Array(4).fill(0.11));
-
-    mockQueryRawUnsafe.mockImplementation((query: string, ...params: unknown[]) => {
-      if (typeof query === "string" && query.includes("pg_extension")) {
-        return Promise.resolve([{ available: true }]);
-      }
-      if (typeof query === "string" && query.includes("vector_embedding")) {
-        return Promise.resolve([]);
-      }
-      if (typeof query === "string" && query.includes("similarity(ke.content_text")) {
-        return Promise.resolve([]);
-      }
-      if (typeof query === "string" && query.includes("FROM \"KGEvent\"")) {
-        expect(query).toContain("WHERE ge.org_id = $2");
-        expect(params[0]).toBe("permit");
-        expect(params[1]).toBe("org-1");
-        return Promise.resolve([
-          {
-            id: "g1",
-            subjectId: "s",
-            predicate: "relates_to",
-            objectId: "o",
-            confidence: 0.7,
-            timestamp: new Date(),
-            sourceHash: "hash",
-          },
-        ]);
-      }
-      if (typeof query === "string" && query.includes("FROM \"TemporalEdge\"")) {
-        return Promise.resolve([]);
-      }
-      return Promise.resolve([]);
-    });
-
-    const result = await retrieval.unifiedRetrieval("permit", undefined, "org-1");
-    expect(result.some((entry) => entry.source === "graph")).toBe(true);
-  });
-
-  it("rejects cross-tenant graph access by requiring orgId for KG search", async () => {
-    vi.spyOn(retrieval, "createQueryEmbedding").mockResolvedValue(Array(4).fill(0.11));
-
-    mockQueryRawUnsafe.mockImplementation((query: string) => {
-      if (typeof query === "string" && query.includes("pg_extension")) {
-        return Promise.resolve([{ available: true }]);
-      }
-      if (typeof query === "string" && query.includes("vector_embedding")) {
-        return Promise.resolve([]);
-      }
-      if (typeof query === "string" && query.includes("similarity(ke.content_text")) {
-        return Promise.resolve([]);
-      }
-      if (typeof query === "string" && query.includes("FROM \"KGEvent\"")) {
-        throw new Error("graph query should not run without orgId");
-      }
-      return Promise.resolve([]);
-    });
-
-    const result = await retrieval.unifiedRetrieval("permit");
-    expect(result).toEqual([]);
   });
 
   it("throws when OPENAI_API_KEY is missing for embedding generation", async () => {

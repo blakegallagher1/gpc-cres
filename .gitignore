@@ -12,6 +12,7 @@
 # Environment
 ############################
 .env
+.env.login
 .env.local
 .env.*.local
 .env.production

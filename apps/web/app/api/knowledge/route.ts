@@ -7,6 +7,9 @@ import {
   getRecentEntries,
   deleteKnowledge,
   type KnowledgeContentType,
+  type KnowledgeSearchMode,
+  resolveKnowledgeSearchMode,
+  isKnowledgeSearchError,
 } from "@/lib/services/knowledgeBase.service";
 
 export async function GET(req: NextRequest) {
@@ -32,8 +35,24 @@ export async function GET(req: NextRequest) {
           ? (searchParams.get("types")!.split(",") as KnowledgeContentType[])
           : undefined;
         const limit = Number(searchParams.get("limit") ?? 5);
-        const results = await searchKnowledgeBase(auth.orgId, query, contentTypes, limit);
-        return NextResponse.json({ results });
+        const requestedMode = (searchParams.get("mode") ?? "auto") as KnowledgeSearchMode;
+
+        if (!["auto", "exact", "semantic"].includes(requestedMode)) {
+          return NextResponse.json(
+            { error: "mode must be one of: auto, exact, semantic" },
+            { status: 400 }
+          );
+        }
+
+        const resolvedMode = resolveKnowledgeSearchMode(query, requestedMode);
+        const results = await searchKnowledgeBase(
+          auth.orgId,
+          query,
+          contentTypes,
+          limit,
+          requestedMode
+        );
+        return NextResponse.json({ mode: resolvedMode, results });
       }
       case "recent": {
         const contentType = searchParams.get("type") as KnowledgeContentType | null;
@@ -49,6 +68,9 @@ export async function GET(req: NextRequest) {
     }
   } catch (error) {
     console.error("Knowledge base error:", error);
+    if (isKnowledgeSearchError(error)) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     return NextResponse.json(
       { error: "Failed to query knowledge base" },
       { status: 500 }

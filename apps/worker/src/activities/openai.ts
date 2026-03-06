@@ -1515,41 +1515,23 @@ async function buildRetrievalContext(params: {
   firstUserInput?: string;
 }): Promise<DataAgentRetrievalContext | null> {
   const query =
-    typeof params.queryIntent === "string" && params.queryIntent.trim().length > 0
-      ? params.queryIntent
-      : typeof params.firstUserInput === "string"
+    typeof params.firstUserInput === "string" && params.firstUserInput.trim().length > 0
         ? params.firstUserInput
-        : null;
+        : typeof params.queryIntent === "string" && params.queryIntent.trim().length > 0
+          ? params.queryIntent
+          : null;
 
   if (!query) {
     return null;
   }
 
-  try {
-    const context = await buildDataAgentRetrievalContext(query, params.runId, {
-      orgId: params.orgId,
-    });
-    return {
-      ...context,
-      results: context.results.slice(0, DATA_AGENT_RETRIEVAL_LIMIT),
-    };
-  } catch (error) {
-    console.warn("Failed to compute retrieval context for temporal run", {
-      runId: params.runId,
-      error: String(error),
-    });
-    return {
-      query,
-      subjectId: params.runId,
-      generatedAt: new Date().toISOString(),
-      results: [],
-      sources: {
-        semantic: 0,
-        sparse: 0,
-        graph: 0,
-      },
-    };
-  }
+  const context = await buildDataAgentRetrievalContext(query, params.runId, {
+    orgId: params.orgId,
+  });
+  return {
+    ...context,
+    results: context.results.slice(0, DATA_AGENT_RETRIEVAL_LIMIT),
+  };
 }
 
 function summarizeRetrievalContext(context: DataAgentRetrievalContext | null): Record<string, unknown> {

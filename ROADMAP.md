@@ -366,6 +366,45 @@ Only items meeting all checks are added below as `Planned`.
   - ✅ Production DB: `knowledge_embeddings` table created with pgvector, `pg_trgm` extension + GIN index deployed
   - ✅ Build: `pnpm build` clean, 1,331/1,331 tests passing
 
+### KA-002 — Authoritative Retrieval Split: Gateway Postgres + Qdrant Semantic Orchestrator (P0)
+
+- **Priority:** P0
+- **Status:** Done (2026-03-05)
+- **Scope:** Make local Postgres via the gateway the only authoritative runtime store for parcel/property data, exact knowledge records, workflow state, and graph facts; move semantic/fuzzy knowledge retrieval onto Qdrant; and add a deterministic retrieval orchestrator that routes precise queries to Postgres first and semantic queries to Qdrant with optional merged ranking.
+- **Problem:** Retrieval is still split across legacy and AgentOS paths with blurred ownership. Exact knowledge, graph facts, and workflow state live in Postgres, but semantic search still partly runs out of Postgres pgvector. Property intelligence already uses Qdrant, while `retrievalAdapter.ts` still falls back to legacy retrieval. This creates inconsistent query behavior, unclear source-of-truth boundaries, and leaves parcel/property runtime with implicit fallback semantics instead of a strict gateway-to-local-server contract.
+- **Expected Outcome (measurable):**
+  - Parcel/property data access is gateway-only in production and fails closed when the local server path is unavailable.
+  - Exact knowledge retrieval, workflow state, and graph facts are served from Postgres-backed services first for precise queries.
+  - Semantic/fuzzy institutional knowledge and property-intelligence recall are served from Qdrant collections with org-scoped filtering.
+  - A single orchestrator composes exact, graph, and semantic results into a normalized retrieval payload with explicit source labeling and deterministic ranking.
+  - Legacy Postgres semantic search paths are removed from the runtime serving path or isolated behind tests-only helpers.
+- **Pre-Add Analysis Check:**
+  - **Problem to solve:** Production still mixes authoritative records and semantic retrieval across two engines without an explicit routing contract.
+  - **Expected outcome + success signal:** Exact parcel/property and knowledge requests succeed through gateway-backed Postgres; semantic/fuzzy recall succeeds through Qdrant; CI and production smokes confirm routing and fail-closed behavior.
+  - **Evidence this is needed:** `apps/web/lib/agent/retrievalAdapter.ts` still toggles between AgentOS and legacy retrieval, `services/retrieval.service.ts` and `packages/openai/src/dataAgent/retrieval.ts` still contain Postgres semantic search branches, and `apps/web/lib/services/knowledgeBase.service.ts` still uses `knowledge_embeddings.embedding` for semantic search.
+  - **Alignment:** Preserves local-server-first architecture, keeps authoritative data transactional in Postgres, and uses Qdrant only for semantic augmentation.
+  - **Complexity / risk + rollback:** Medium-high; touches retrieval, knowledge, and property-memory surfaces. Rollback path is to restore previous adapter selection and Qdrant/pgvector search branches if merged ranking or routing regresses.
+  - **Acceptance criteria + test plan:** Add orchestrator/service tests for exact-first routing, semantic routing, merged ranking, org scoping, gateway unavailable, and Qdrant unavailable; route tests for `/api/knowledge`; focused retrieval adapter coverage; production smoke update for property intelligence and gateway-only parcel/property behavior.
+- **Planned Workstreams:**
+  - **WS1 — Gateway-authoritative Postgres contract:** Remove remaining parcel/property fallback semantics from app/runtime paths and make health/retrieval surfaces report gateway-backed local Postgres as the only valid authoritative parcel/property backend.
+  - **WS2 — Qdrant semantic knowledge layer:** Add a dedicated Qdrant collection and payload contract for institutional semantic knowledge while preserving Postgres as the canonical exact record store.
+  - **WS3 — Retrieval orchestrator:** Introduce a single orchestrator that classifies precise vs semantic/fuzzy requests, queries Postgres exact/graph sources first when appropriate, augments with Qdrant semantic recall, and returns a unified scored result set.
+  - **WS4 — Integration migration:** Repoint `apps/web/lib/agent/retrievalAdapter.ts`, `packages/openai/src/dataAgent/retrieval.ts`, worker call sites, and knowledge tools/routes to the orchestrator, retiring silent legacy fallback behavior.
+  - **WS5 — Verification + smokes:** Expand route/service tests and update production smoke coverage for gateway-only parcel/property retrieval plus Qdrant-backed property-intelligence recall.
+- **Files Expected To Change:**
+  - `ROADMAP.md`
+  - `apps/web/lib/agent/retrievalAdapter.ts`
+  - `apps/web/lib/services/knowledgeBase.service.ts`
+  - `apps/web/app/api/knowledge/route.ts`
+  - `services/retrieval.service.ts`
+  - `packages/openai/src/dataAgent/retrieval.ts`
+- **Completion Evidence (2026-03-05):**
+  - ✅ WS1/WS4 — Exact-first retrieval orchestrator is now the only runtime path: `apps/web/lib/agent/retrievalAdapter.ts`, `packages/openai/src/dataAgent/retrieval.ts`, `services/retrieval.service.ts`, and `apps/worker/src/activities/openai.ts` route exact/graph retrieval through authoritative Postgres-backed services first and remove the silent legacy fallback path.
+  - ✅ WS2 — Institutional semantic knowledge is mirrored into Qdrant only: `apps/web/lib/services/knowledgeBase.service.ts`, `packages/openai/src/agentos/config.ts`, `packages/openai/src/agentos/qdrant.ts`, and `infra/scripts/setup_qdrant_collections.py` add org-scoped `institutional_knowledge` collection support while keeping exact records in Postgres.
+  - ✅ WS3 — Knowledge API now exposes explicit retrieval mode control: `apps/web/app/api/knowledge/route.ts` supports `mode=auto|exact|semantic`, resolves exact-vs-semantic routing deterministically, and fails closed with explicit status codes when semantic retrieval is unavailable.
+  - ✅ WS5 — Focused regression coverage added: `apps/web/app/api/knowledge/route.test.ts`, `apps/web/lib/services/knowledgeBase.service.test.ts`, `apps/web/lib/agent/__tests__/retrievalAdapter.test.ts`, `packages/openai/src/dataAgent/retrieval.test.ts`, `packages/openai/src/agentos/config.test.ts`, `packages/openai/src/agentos/qdrant.test.ts`, and `tests/retrieval.test.ts`.
+  - ✅ Verification: `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=sk-placeholder pnpm build` all passed on 2026-03-05.
+
 ---
 
 ## Not Added (did not pass value/risk gate)

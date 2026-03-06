@@ -24,6 +24,8 @@ export interface KnowledgeSearchResult {
   createdAt: string;
 }
 
+export type KnowledgeSearchMode = "exact" | "semantic" | "auto";
+
 export interface KnowledgeEntry {
   id: string;
   contentType: KnowledgeContentType;
@@ -31,6 +33,16 @@ export interface KnowledgeEntry {
   contentText: string;
   metadata: Record<string, unknown>;
   createdAt: string;
+}
+
+class KnowledgeSearchError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status = 500) {
+    super(message);
+    this.name = "KnowledgeSearchError";
+    this.status = status;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -51,6 +63,63 @@ async function generateEmbedding(text: string): Promise<number[]> {
     dimensions: 1536,
   });
   return response.data[0].embedding;
+}
+
+function getQdrantConfig() {
+  const url = process.env.QDRANT_URL?.trim();
+  return {
+    url,
+    apiKey: process.env.QDRANT_API_KEY?.trim() || null,
+    collection:
+      process.env.AGENTOS_QDRANT_COLLECTION_INSTITUTIONAL_KNOWLEDGE?.trim() ||
+      "institutional_knowledge",
+    denseVectorName:
+      process.env.AGENTOS_QDRANT_DENSE_VECTOR_NAME?.trim() || "dense",
+  };
+}
+
+function getQdrantHeaders(apiKey: string | null): HeadersInit {
+  return {
+    "Content-Type": "application/json",
+    ...(apiKey ? { "api-key": apiKey } : {}),
+  };
+}
+
+function isUuidLike(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value
+  );
+}
+
+function classifyAutoSearchMode(query: string): Exclude<KnowledgeSearchMode, "auto"> {
+  const normalized = query.trim();
+  if (!normalized) {
+    return "exact";
+  }
+
+  const tokens = normalized.split(/\s+/).filter(Boolean);
+  const looksQuoted = /^".+"$/.test(normalized) || /^'.+'$/.test(normalized);
+  const looksFieldScoped = /^(source|id|type):/i.test(normalized);
+  const looksIdentifier =
+    isUuidLike(normalized) || /^[A-Z0-9_-]{6,}$/i.test(normalized.replace(/\s+/g, ""));
+  const isShortPhrase = tokens.length <= 3 && normalized.length <= 40;
+
+  if (looksQuoted || looksFieldScoped || looksIdentifier || isShortPhrase) {
+    return "exact";
+  }
+
+  return "semantic";
+}
+
+export function resolveKnowledgeSearchMode(
+  query: string,
+  requestedMode: KnowledgeSearchMode = "auto"
+): Exclude<KnowledgeSearchMode, "auto"> {
+  if (requestedMode === "auto") {
+    return classifyAutoSearchMode(query);
+  }
+
+  return requestedMode;
 }
 
 // ---------------------------------------------------------------------------
@@ -81,6 +150,90 @@ function chunkText(text: string): string[] {
   return chunks;
 }
 
+async function upsertKnowledgeChunksToQdrant(
+  orgId: string,
+  entries: Array<{
+    id: string;
+    contentType: KnowledgeContentType;
+    sourceId: string;
+    contentText: string;
+    metadata: Record<string, unknown>;
+    createdAt: string;
+  }>
+): Promise<void> {
+  const config = getQdrantConfig();
+  if (!config.url || entries.length === 0) {
+    return;
+  }
+
+  const points = await Promise.all(
+    entries.map(async (entry) => ({
+      id: entry.id,
+      vector: {
+        [config.denseVectorName]: await generateEmbedding(entry.contentText),
+      },
+      payload: {
+        orgId,
+        knowledgeId: entry.id,
+        contentType: entry.contentType,
+        sourceId: entry.sourceId,
+        contentText: entry.contentText,
+        metadata: entry.metadata,
+        createdAt: entry.createdAt,
+      },
+    }))
+  );
+
+  const response = await fetch(
+    `${config.url}/collections/${encodeURIComponent(config.collection)}/points`,
+    {
+      method: "PUT",
+      headers: getQdrantHeaders(config.apiKey),
+      body: JSON.stringify({ points, wait: true }),
+    }
+  );
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new KnowledgeSearchError(
+      `Failed to mirror knowledge into Qdrant: ${response.status} ${body}`.trim(),
+      502
+    );
+  }
+}
+
+async function deleteKnowledgeFromQdrant(orgId: string, sourceId: string): Promise<void> {
+  const config = getQdrantConfig();
+  if (!config.url) {
+    return;
+  }
+
+  const response = await fetch(
+    `${config.url}/collections/${encodeURIComponent(config.collection)}/points/delete`,
+    {
+      method: "POST",
+      headers: getQdrantHeaders(config.apiKey),
+      body: JSON.stringify({
+        wait: true,
+        filter: {
+          must: [
+            { key: "orgId", match: { value: orgId } },
+            { key: "sourceId", match: { value: sourceId } },
+          ],
+        },
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new KnowledgeSearchError(
+      `Failed to delete mirrored knowledge from Qdrant: ${response.status} ${body}`.trim(),
+      502
+    );
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Ingestion
 // ---------------------------------------------------------------------------
@@ -94,6 +247,14 @@ export async function ingestKnowledge(
 ): Promise<string[]> {
   const chunks = chunkText(contentText);
   const ids: string[] = [];
+  const qdrantEntries: Array<{
+    id: string;
+    contentType: KnowledgeContentType;
+    sourceId: string;
+    contentText: string;
+    metadata: Record<string, unknown>;
+    createdAt: string;
+  }> = [];
 
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
@@ -118,8 +279,20 @@ export async function ingestKnowledge(
       metaJson
     );
 
-    if (result[0]) ids.push(result[0].id);
+    if (result[0]) {
+      ids.push(result[0].id);
+      qdrantEntries.push({
+        id: result[0].id,
+        contentType,
+        sourceId,
+        contentText: chunk,
+        metadata: JSON.parse(metaJson) as Record<string, unknown>,
+        createdAt: new Date().toISOString(),
+      });
+    }
   }
+
+  await upsertKnowledgeChunksToQdrant(orgId, qdrantEntries);
 
   return ids;
 }
@@ -130,6 +303,9 @@ export async function deleteKnowledge(orgId: string, sourceId: string): Promise<
     orgId,
     sourceId
   );
+
+  await deleteKnowledgeFromQdrant(orgId, sourceId);
+
   return result;
 }
 
@@ -137,52 +313,59 @@ export async function deleteKnowledge(orgId: string, sourceId: string): Promise<
 // Search
 // ---------------------------------------------------------------------------
 
-export async function searchKnowledgeBase(
+async function searchKnowledgeExact(
   orgId: string,
   query: string,
   contentTypes?: KnowledgeContentType[],
   limit = 5
 ): Promise<KnowledgeSearchResult[]> {
-  const embedding = await generateEmbedding(query);
-  const embeddingStr = `[${embedding.join(",")}]`;
-
-  let sql: string;
-  const params: unknown[] = [orgId, embeddingStr, limit];
+  const normalized = query.trim();
+  const params: unknown[] = [orgId];
+  const where: string[] = [`org_id = $1::uuid`];
+  let nextParam = 2;
 
   if (contentTypes && contentTypes.length > 0) {
-    // Build parameterized IN clause
-    const placeholders = contentTypes.map((_, i) => `$${i + 4}`).join(", ");
-    sql = `
-      SELECT
-        id::text,
-        content_type AS "contentType",
-        source_id AS "sourceId",
-        content_text AS "contentText",
-        metadata,
-        1 - (embedding <=> $2::vector(1536)) AS similarity,
-        created_at AS "createdAt"
-      FROM knowledge_embeddings
-      WHERE org_id = $1::uuid AND content_type IN (${placeholders})
-      ORDER BY embedding <=> $2::vector(1536)
-      LIMIT $3
-    `;
+    const placeholders = contentTypes.map(() => `$${nextParam++}`);
+    where.push(`content_type IN (${placeholders.join(", ")})`);
     params.push(...contentTypes);
-  } else {
-    sql = `
-      SELECT
-        id::text,
-        content_type AS "contentType",
-        source_id AS "sourceId",
-        content_text AS "contentText",
-        metadata,
-        1 - (embedding <=> $2::vector(1536)) AS similarity,
-        created_at AS "createdAt"
-      FROM knowledge_embeddings
-      WHERE org_id = $1::uuid
-      ORDER BY embedding <=> $2::vector(1536)
-      LIMIT $3
-    `;
   }
+
+  if (normalized) {
+    const terms = normalized
+      .replace(/^["']|["']$/g, "")
+      .split(/\s+/)
+      .map((term) => term.trim())
+      .filter(Boolean)
+      .slice(0, 8);
+
+    for (const term of terms) {
+      const pattern = `%${term}%`;
+      const placeholder = `$${nextParam++}`;
+      where.push(
+        `(source_id ILIKE ${placeholder} OR content_text ILIKE ${placeholder} OR CAST(metadata AS text) ILIKE ${placeholder})`
+      );
+      params.push(pattern);
+    }
+  }
+
+  const sql = `
+    SELECT
+      id::text,
+      content_type AS "contentType",
+      source_id AS "sourceId",
+      content_text AS "contentText",
+      metadata,
+      CASE
+        WHEN source_id ILIKE $${nextParam} THEN 1
+        ELSE 0.9
+      END AS similarity,
+      created_at AS "createdAt"
+    FROM knowledge_embeddings
+    WHERE ${where.join(" AND ")}
+    ORDER BY similarity DESC, created_at DESC
+    LIMIT $${nextParam + 1}
+  `;
+  params.push(normalized, limit);
 
   const results = await prisma.$queryRawUnsafe<
     Array<{
@@ -207,6 +390,117 @@ export async function searchKnowledgeBase(
       ? r.createdAt.toISOString()
       : String(r.createdAt),
   }));
+}
+
+async function searchKnowledgeSemantic(
+  orgId: string,
+  query: string,
+  contentTypes?: KnowledgeContentType[],
+  limit = 5
+): Promise<KnowledgeSearchResult[]> {
+  const config = getQdrantConfig();
+  if (!config.url) {
+    throw new KnowledgeSearchError(
+      "Semantic knowledge search is unavailable because Qdrant is not configured",
+      503
+    );
+  }
+
+  const embedding = await generateEmbedding(query);
+  const requestedLimit = contentTypes && contentTypes.length > 0 ? Math.max(limit * 3, 15) : limit;
+
+  const response = await fetch(
+    `${config.url}/collections/${encodeURIComponent(config.collection)}/points/query`,
+    {
+      method: "POST",
+      headers: getQdrantHeaders(config.apiKey),
+      body: JSON.stringify({
+        query: embedding,
+        using: config.denseVectorName,
+        limit: requestedLimit,
+        with_payload: true,
+        with_vector: false,
+        filter: {
+          must: [{ key: "orgId", match: { value: orgId } }],
+        },
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new KnowledgeSearchError(
+      `Semantic knowledge search failed: ${response.status} ${body}`.trim(),
+      503
+    );
+  }
+
+  const parsed = (await response.json()) as {
+    result?: { points?: Array<Record<string, unknown>> } | Array<Record<string, unknown>>;
+  };
+  const points = Array.isArray(parsed.result)
+    ? parsed.result
+    : parsed.result?.points ?? [];
+
+  const filteredPoints = points.filter((point) => {
+    if (!contentTypes || contentTypes.length === 0) {
+      return true;
+    }
+
+    const payload =
+      point.payload && typeof point.payload === "object"
+        ? (point.payload as Record<string, unknown>)
+        : {};
+    return contentTypes.includes(
+      String(payload.contentType ?? "user_note") as KnowledgeContentType
+    );
+  });
+
+  return filteredPoints.slice(0, limit).map((point) => {
+    const payload =
+      point.payload && typeof point.payload === "object"
+        ? (point.payload as Record<string, unknown>)
+        : {};
+    const metadata =
+      payload.metadata && typeof payload.metadata === "object"
+        ? (payload.metadata as Record<string, unknown>)
+        : {};
+
+    return {
+      id:
+        typeof payload.knowledgeId === "string"
+          ? payload.knowledgeId
+          : typeof point.id === "string"
+            ? point.id
+            : String(point.id ?? ""),
+      contentType: String(payload.contentType ?? "user_note") as KnowledgeContentType,
+      sourceId: String(payload.sourceId ?? ""),
+      contentText: String(payload.contentText ?? ""),
+      metadata,
+      similarity:
+        typeof point.score === "number" ? Math.round(point.score * 1000) / 1000 : 0,
+      createdAt: String(payload.createdAt ?? new Date(0).toISOString()),
+    };
+  });
+}
+
+export async function searchKnowledgeBase(
+  orgId: string,
+  query: string,
+  contentTypes?: KnowledgeContentType[],
+  limit = 5,
+  mode: KnowledgeSearchMode = "auto"
+): Promise<KnowledgeSearchResult[]> {
+  const resolvedMode = resolveKnowledgeSearchMode(query, mode);
+  if (resolvedMode === "exact") {
+    return searchKnowledgeExact(orgId, query, contentTypes, limit);
+  }
+
+  return searchKnowledgeSemantic(orgId, query, contentTypes, limit);
+}
+
+export function isKnowledgeSearchError(error: unknown): error is KnowledgeSearchError {
+  return error instanceof KnowledgeSearchError;
 }
 
 // ---------------------------------------------------------------------------

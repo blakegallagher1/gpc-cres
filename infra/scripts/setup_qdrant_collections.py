@@ -1,11 +1,13 @@
 """
 One-time Qdrant collection bootstrap for AgentOS v2.
 
-Creates four collections with dense + sparse vectors and payload indexes:
+Creates six collections with dense + sparse vectors and payload indexes:
   1. episodic_memory  — agent episode retrieval
   2. skill_triggers   — procedural skill matching
   3. domain_docs      — domain document retrieval
   4. tool_specs       — tool specification search
+  5. institutional_knowledge — org-scoped semantic knowledge retrieval
+  6. property_intelligence   — parcel similarity and property finding recall
 
 Dense vector:  1536 dimensions (text-embedding-3-large with dimensions=1536)
 Sparse vector: hashed lexical vector for BM25-style hybrid retrieval fusion
@@ -48,6 +50,30 @@ COLLECTIONS: list[CollectionSpec] = [
     CollectionSpec(
         name="tool_specs",
         keyword_indexes=["riskLevel", "orgId"],
+    ),
+    CollectionSpec(
+        name="institutional_knowledge",
+        keyword_indexes=[
+            "orgId",
+            "contentType",
+            "sourceType",
+            "agentName",
+            "sourceId",
+            "tags",
+        ],
+    ),
+    CollectionSpec(
+        name="property_intelligence",
+        keyword_indexes=[
+            "orgId",
+            "sourceType",
+            "findingType",
+            "stateCode",
+            "county",
+            "parish",
+            "city",
+            "zipCode",
+        ],
     ),
 ]
 
