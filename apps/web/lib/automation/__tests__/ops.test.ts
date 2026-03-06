@@ -162,6 +162,7 @@ describe("ops", () => {
 
     beforeEach(() => {
       process.env = { ...originalEnv };
+      delete process.env.DATABASE_URL;
     });
 
     afterAll(() => {
@@ -169,7 +170,6 @@ describe("ops", () => {
     });
 
     it('should return "ok" when all critical vars are present', () => {
-      process.env.DATABASE_URL = "postgresql://localhost/test";
       process.env.AUTH_SECRET = "test-secret";
       process.env.LOCAL_API_URL = "http://localhost:8000";
       process.env.LOCAL_API_KEY = "test-api-key";
@@ -178,23 +178,27 @@ describe("ops", () => {
       const result = evaluateHealth();
       expect(result.status).toBe("ok");
       expect(result.missingVars).toHaveLength(0);
+      expect(result.dbMode).toBe("gateway");
+      expect(result.gatewayConfigured).toBe(true);
+      expect(result.directUrlConfigured).toBe(false);
       expect(result.timestamp).toBeDefined();
     });
 
-    it('should return "down" when DATABASE_URL is missing', () => {
-      delete process.env.DATABASE_URL;
+    it('should return "down" when the gateway-local parcel path is missing', () => {
       process.env.AUTH_SECRET = "test-secret";
-      process.env.LOCAL_API_URL = "http://localhost:8000";
-      process.env.LOCAL_API_KEY = "test-api-key";
+      delete process.env.LOCAL_API_URL;
+      delete process.env.LOCAL_API_KEY;
       process.env.OPENAI_API_KEY = "sk-test";
+      process.env.DATABASE_URL = "postgresql://localhost/test";
 
       const result = evaluateHealth();
       expect(result.status).toBe("down");
-      expect(result.missingVars).toContain("DATABASE_URL");
+      expect(result.missingVars).toContain("LOCAL_API_URL");
+      expect(result.missingVars).toContain("LOCAL_API_KEY");
+      expect(result.dbMode).toBe("direct");
     });
 
     it('should return "down" when OPENAI_API_KEY is missing', () => {
-      process.env.DATABASE_URL = "postgresql://localhost/test";
       process.env.AUTH_SECRET = "test-secret";
       process.env.LOCAL_API_URL = "http://localhost:8000";
       process.env.LOCAL_API_KEY = "test-api-key";
@@ -206,19 +210,17 @@ describe("ops", () => {
     });
 
     it('should return "degraded" when non-critical vars missing', () => {
-      process.env.DATABASE_URL = "postgresql://localhost/test";
       delete process.env.AUTH_SECRET;
-      delete process.env.LOCAL_API_URL;
-      delete process.env.LOCAL_API_KEY;
+      process.env.LOCAL_API_URL = "http://localhost:8000";
+      process.env.LOCAL_API_KEY = "test-api-key";
       process.env.OPENAI_API_KEY = "sk-test";
 
       const result = evaluateHealth();
       expect(result.status).toBe("degraded");
-      expect(result.missingVars.length).toBeGreaterThan(0);
+      expect(result.missingVars).toContain("AUTH_SECRET");
     });
 
     it("should include ISO timestamp", () => {
-      process.env.DATABASE_URL = "postgresql://localhost/test";
       process.env.AUTH_SECRET = "test-secret";
       process.env.LOCAL_API_URL = "http://localhost:8000";
       process.env.LOCAL_API_KEY = "test-api-key";

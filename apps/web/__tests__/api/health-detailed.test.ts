@@ -14,14 +14,22 @@ vi.mock("next-auth/jwt", () => ({
   getToken: vi.fn().mockResolvedValue(null),
 }));
 
+vi.mock("@/lib/server/propertyDbEnv", () => ({
+  getPropertyDbConfigOrNull: vi.fn(),
+}));
+
 describe("GET /api/health/detailed", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.HEALTHCHECK_TOKEN = "health-token";
+    process.env.LOCAL_API_URL = "http://gateway.test";
+    process.env.LOCAL_API_KEY = "gateway-key";
+    delete process.env.DATABASE_URL;
   });
 
   it("returns detailed health payload", async () => {
     const { prisma } = await import("@entitlement-os/db");
+    const { getPropertyDbConfigOrNull } = await import("@/lib/server/propertyDbEnv");
 
     (
       prisma as unknown as {
@@ -32,6 +40,12 @@ describe("GET /api/health/detailed", () => {
     )
       .$queryRawUnsafe.mockResolvedValueOnce([{ ok: 1 }])
       .mockResolvedValueOnce([{ migration_name: "20240202020202_init" }]);
+    (
+      getPropertyDbConfigOrNull as unknown as { mockReturnValue: (v: unknown) => void }
+    ).mockReturnValue({
+      url: "http://gateway.test",
+      key: "gateway-key",
+    });
 
     const { GET } = await import("@/app/api/health/detailed/route");
 
@@ -46,6 +60,11 @@ describe("GET /api/health/detailed", () => {
     expect(response.status).toBe(200);
     expect(payload.dbStatus.ok).toBe(true);
     expect(payload.dbStatus.latencyMs).toBeTypeOf("number");
+    expect(payload.propertyDb).toMatchObject({
+      dbMode: "gateway",
+      gatewayConfigured: true,
+      directUrlConfigured: false,
+    });
     expect(payload.migrationVersion).toBe("20240202020202_init");
     expect(payload.timestamp).toBe(new Date(payload.timestamp).toISOString());
     expect(payload.uptimeSeconds).toBeTypeOf("number");

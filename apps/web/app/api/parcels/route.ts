@@ -4,12 +4,9 @@ import { resolveAuth } from "@/lib/auth/resolveAuth";
 import {
   getCloudflareAccessHeadersFromEnv,
   logPropertyDbRuntimeHealth,
+  requireGatewayConfig,
 } from "@/lib/server/propertyDbEnv";
-import {
-  getDevFallbackParcels,
-  isDevParcelFallbackEnabled,
-  isPrismaConnectivityError,
-} from "@/lib/server/devParcelFallback";
+import { isPrismaConnectivityError } from "@/lib/server/devParcelFallback";
 
 const PROPERTY_DB_PARISHES = [
   "East Baton Rouge",
@@ -25,6 +22,20 @@ const PROPERTY_DB_SEARCH_TERMS = [
   "West Baton Rouge",
   "Iberville",
 ] as const;
+
+class GatewayUnavailableError extends Error {
+  status: number;
+
+  constructor(message: string, status: number = 503) {
+    super(message);
+    this.name = "GatewayUnavailableError";
+    this.status = status;
+  }
+}
+
+function isGatewayUnavailableError(error: unknown): error is GatewayUnavailableError {
+  return error instanceof GatewayUnavailableError;
+}
 
 function sanitizeSearchInput(input: string): string {
   return input
@@ -314,12 +325,7 @@ async function gatewaySearchParcels(q: string, limit: number): Promise<unknown[]
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
   try {
-    const url = process.env.LOCAL_API_URL?.trim();
-    const key = process.env.LOCAL_API_KEY?.trim();
-    if (!url || !key) {
-      console.warn("[gatewaySearchParcels] Missing LOCAL_API_URL or LOCAL_API_KEY");
-      return [];
-    }
+    const { url, key } = requireGatewayConfig("/api/parcels");
     const params = new URLSearchParams({ q, limit: String(limit) });
     const res = await fetch(`${url}/api/parcels/search?${params}`, {
       method: "GET",
@@ -328,18 +334,25 @@ async function gatewaySearchParcels(q: string, limit: number): Promise<unknown[]
         ...getCloudflareAccessHeadersFromEnv(),
       },
       signal: controller.signal,
+      cache: "no-store",
     });
     if (!res.ok) {
       const errBody = await res.text().catch(() => "");
-      console.warn(`[gatewaySearchParcels] failed: ${res.status} ${errBody.slice(0, 300)}`);
-      return [];
+      const status = res.status >= 500 ? 502 : 503;
+      throw new GatewayUnavailableError(
+        `[gatewaySearchParcels] failed: ${res.status} ${errBody.slice(0, 300)}`,
+        status,
+      );
     }
     const text = await res.text().catch(() => "");
     if (!text) return [];
     return parseRpcResponseArray(text);
   } catch (err) {
-    console.warn("[gatewaySearchParcels] exception:", err instanceof Error ? err.message : err);
-    return [];
+    if (isGatewayUnavailableError(err)) {
+      throw err;
+    }
+    const message = err instanceof Error ? err.message : String(err);
+    throw new GatewayUnavailableError(`[gatewaySearchParcels] exception: ${message}`);
   } finally {
     clearTimeout(timeout);
   }
@@ -476,60 +489,43 @@ export async function GET(request: NextRequest) {
 
     const hasCoords = request.nextUrl.searchParams.get("hasCoords") === "true";
     const searchText = request.nextUrl.searchParams.get("search")?.trim() ?? "";
+    const requiresGateway = hasCoords || searchText.length > 0;
 
-    const where: Record<string, unknown> = { orgId: auth.orgId };
-    if (hasCoords) {
-      where.lat = { not: null };
-      where.lng = { not: null };
-    }
-    if (searchText) {
-    where.OR = [
-        { address: { contains: searchText, mode: "insensitive" } },
-        { currentZoning: { contains: searchText, mode: "insensitive" } },
-        { floodZone: { contains: searchText, mode: "insensitive" } },
-        {
-          deal: {
-            is: {
-              name: { contains: searchText, mode: "insensitive" },
+    if (!requiresGateway) {
+      const where: Record<string, unknown> = { orgId: auth.orgId };
+      try {
+        const parcels = await prismaRead.parcel.findMany({
+          where,
+          include: {
+            deal: {
+              select: { id: true, name: true, sku: true, status: true },
             },
           },
-        },
-      ];
-    }
-
-    let parcels: unknown[] = [];
-    let prismaUnavailable = false;
-    try {
-      parcels = await prismaRead.parcel.findMany({
-        where,
-        include: {
-          deal: {
-            select: { id: true, name: true, sku: true, status: true },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-        take: 500,
-      });
-    } catch (error) {
-      prismaUnavailable = isPrismaConnectivityError(error);
-      if (!prismaUnavailable) {
+          orderBy: { createdAt: "desc" },
+          take: 500,
+        });
+        logParcelsDevPayload("org", {
+          hasCoords,
+          searchText,
+          parcelCount: parcels.length,
+        });
+        return NextResponse.json({ parcels, source: "org" });
+      } catch (error) {
+        if (isPrismaConnectivityError(error)) {
+          console.error(
+            "[/api/parcels] prisma unavailable for org parcels",
+            error,
+          );
+          return NextResponse.json(
+            {
+              error: "Parcel store unavailable",
+              code: "ORG_DATA_UNAVAILABLE",
+            },
+            { status: 503 },
+          );
+        }
         throw error;
       }
-      console.warn("[/api/parcels] prisma unavailable, using fallbacks");
-    }
-
-    const shouldReturnOrgParcels =
-      parcels.length > 0 ||
-      (!hasCoords && !prismaUnavailable && searchText.length === 0);
-
-    if (shouldReturnOrgParcels) {
-      logParcelsDevPayload("org", {
-        hasCoords,
-        searchText,
-        prismaUnavailable,
-        parcelCount: parcels.length,
-      });
-      return NextResponse.json({ parcels, source: "org" });
     }
 
     const fallbackQueries: Array<() => Promise<unknown[]>> = searchText
@@ -551,46 +547,42 @@ export async function GET(request: NextRequest) {
           () => searchPropertyDbParcels("*", undefined, 200),
         ];
 
-    logPropertyDbRuntimeHealth("/api/parcels");
+    const gatewayConfig = logPropertyDbRuntimeHealth("/api/parcels");
+    if (!gatewayConfig) {
+      throw new GatewayUnavailableError(
+        "[/api/parcels] property DB gateway is not configured",
+        503,
+      );
+    }
 
-    const parishResults = (await runWithConcurrency(fallbackQueries, 5))
-      .filter(
-        (result): result is PromiseFulfilledResult<unknown[]> =>
-          result.status === "fulfilled",
-      )
-      .map((result) => result.value);
+    const fallbackResults = await runWithConcurrency(fallbackQueries, 5);
+    const fulfilled = fallbackResults.filter(
+      (result): result is PromiseFulfilledResult<unknown[]> =>
+        result.status === "fulfilled",
+    );
+    if (fulfilled.length === 0) {
+      const gatewayError = fallbackResults.find(
+        (result): result is PromiseRejectedResult =>
+          result.status === "rejected" && isGatewayUnavailableError(result.reason),
+      );
+      if (gatewayError) {
+        throw gatewayError.reason;
+      }
+      const firstRejection = fallbackResults.find(
+        (result): result is PromiseRejectedResult => result.status === "rejected",
+      );
+      if (firstRejection) {
+        const reason = firstRejection.reason instanceof Error
+          ? firstRejection.reason.message
+          : String(firstRejection.reason ?? "unknown error");
+        throw new GatewayUnavailableError(`[gatewaySearchParcels] ${reason}`, 502);
+      }
+    }
+
+    const parishResults = fulfilled.map((result) => result.value);
 
     const externalRows = parishResults.flat();
     if (externalRows.length === 0) {
-      if (isDevParcelFallbackEnabled()) {
-        const matchedDevParcels = getDevFallbackParcels(searchText);
-        const seed = matchedDevParcels.length > 0
-          ? matchedDevParcels
-          : getDevFallbackParcels("*");
-        const devParcels = seed.map((parcel) => ({
-          id: parcel.id,
-          address: parcel.address,
-          lat: parcel.lat,
-          lng: parcel.lng,
-          acreage: parcel.acreage,
-          floodZone: parcel.floodZone,
-          currentZoning: parcel.zoning,
-          propertyDbId: parcel.propertyDbId,
-          deal: null,
-        }));
-        logParcelsDevPayload("dev-fallback", {
-          hasCoords,
-          searchText,
-          reason: "external_rows_empty",
-          matchedDevCount: matchedDevParcels.length,
-          parcelCount: devParcels.length,
-        });
-        return NextResponse.json({
-          parcels: devParcels,
-          source: "dev-fallback",
-          searchFallback: Boolean(searchText) && matchedDevParcels.length === 0,
-        });
-      }
       logParcelsDevPayload("property-db-empty", {
         hasCoords,
         searchText,
@@ -598,7 +590,7 @@ export async function GET(request: NextRequest) {
       });
       return NextResponse.json({
         parcels: [],
-        source: "property-db-fallback",
+        source: "property-db",
         error: searchText
           ? "No matches found for the provided search terms."
           : "No parcels found in this region.",
@@ -612,37 +604,6 @@ export async function GET(request: NextRequest) {
           : null,
       )
       .filter((row): row is Record<string, unknown> => row !== null);
-
-    if (mappedExternal.length === 0 && isDevParcelFallbackEnabled()) {
-      const matchedDevParcels = getDevFallbackParcels(searchText);
-      const seed = matchedDevParcels.length > 0
-        ? matchedDevParcels
-        : getDevFallbackParcels("*");
-      const devParcels = seed.map((parcel) => ({
-        id: parcel.id,
-        address: parcel.address,
-        lat: parcel.lat,
-        lng: parcel.lng,
-        acreage: parcel.acreage,
-        floodZone: parcel.floodZone,
-        currentZoning: parcel.zoning,
-        propertyDbId: parcel.propertyDbId,
-        deal: null,
-      }));
-      logParcelsDevPayload("dev-fallback", {
-        hasCoords,
-        searchText,
-        reason: "mapped_external_empty",
-        externalRowCount: externalRows.length,
-        matchedDevCount: matchedDevParcels.length,
-        parcelCount: devParcels.length,
-      });
-      return NextResponse.json({
-        parcels: devParcels,
-        source: "dev-fallback",
-        searchFallback: Boolean(searchText) && matchedDevParcels.length === 0,
-      });
-    }
 
     if (
       process.env.NODE_ENV !== "production" &&
@@ -672,7 +633,7 @@ export async function GET(request: NextRequest) {
       new Map(filteredExternal.map((item) => [String(item.id), item])).values(),
     ).slice(0, 500);
 
-    logParcelsDevPayload("property-db-fallback", {
+    logParcelsDevPayload("property-db", {
       hasCoords,
       searchText,
       externalRowCount: externalRows.length,
@@ -684,12 +645,19 @@ export async function GET(request: NextRequest) {
         parcel !== null &&
         "propertyDbId" in parcel &&
         typeof (parcel as { propertyDbId?: unknown }).propertyDbId === "string" &&
-        ((parcel as { propertyDbId: string }).propertyDbId).trim().length > 0
+        ((parcel as { propertyDbId: string }).propertyDbId).trim().length > 0,
       ).length,
     });
 
-    return NextResponse.json({ parcels: deduped, source: "property-db-fallback" });
+    return NextResponse.json({ parcels: deduped, source: "property-db" });
   } catch (error) {
+    if (isGatewayUnavailableError(error)) {
+      console.error("[/api/parcels] property DB unavailable", error);
+      return NextResponse.json(
+        { error: "Property database unavailable", code: "GATEWAY_UNAVAILABLE" },
+        { status: error.status ?? 503 },
+      );
+    }
     console.error("Error fetching parcels:", error);
     return NextResponse.json(
       { error: "Failed to fetch parcels" },

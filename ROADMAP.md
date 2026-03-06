@@ -332,6 +332,53 @@ Only items meeting all checks are added below as `Planned`.
     - `pnpm test`
     - `OPENAI_API_KEY=sk-placeholder pnpm build`
 
+### INFRA-007 — Gateway-Only Parcel Runtime + Health Truthfulness (P0)
+
+- **Priority:** P0
+- **Status:** Done (2026-03-05)
+- **Scope:** Make parcel/property runtime surfaces fail closed unless the gateway-to-local-server path is configured and healthy, update health/ops reporting to treat that path as the only valid authoritative parcel/property backend, and sync smoke/docs to the same contract.
+- **Problem:** Production parcel/property behavior is intended to be gateway-only, but some routes still fall back to org-scoped Prisma/dev parcel paths and health/ops surfaces still treat `DATABASE_URL` as a meaningful production parcel/property signal. That leaves operators with misleading green states and lets runtime surfaces degrade into alternate backends instead of failing explicitly when the local-server path is unavailable.
+- **Expected Outcome (measurable):**
+  - Parcel/property routes that depend on gateway-backed local Postgres return explicit `503`/`502` gateway errors when the gateway path is unavailable instead of falling back to Prisma/dev parcel data.
+  - Health and ops surfaces report parcel/property readiness from the gateway/local-server path, not from placeholder direct DB env presence.
+  - Smoke scripts and docs describe and verify the authoritative split accurately: local Postgres via gateway for authoritative data, Qdrant for semantic recall.
+- **Evidence of need:** `apps/web/app/api/map/prospect/route.ts` still returns fallback parcel data when gateway config is unavailable or upstream calls fail; `apps/web/app/api/health/route.ts` and `apps/web/lib/automation/ops.ts` still require `DATABASE_URL` as a critical production signal even though parcel/property runtime is intended to be gateway/local-server authoritative.
+- **Alignment:** Enforces the user's strict local-server-first parcel/property requirement, preserves auth/org scoping, and keeps Qdrant limited to semantic retrieval rather than authoritative records.
+- **Risk/rollback:** Medium. User-visible parcel/property routes may return explicit gateway errors where they previously returned degraded fallback data. Rollback by restoring previous fallback branches if operations require temporary degraded reads.
+- **Acceptance Criteria / Tests:**
+  - `apps/web/app/api/health/route.ts`, `apps/web/app/api/health/detailed/route.ts`, and `apps/web/lib/automation/ops.ts` classify parcel/property DB mode as gateway/direct/unconfigured and no longer treat placeholder `DATABASE_URL` as sufficient for parcel/property health.
+  - `apps/web/app/api/map/prospect/route.ts`, `apps/web/app/api/parcels/route.ts`, and `apps/web/app/api/parcels/[parcelId]/geometry/route.ts` fail closed with explicit gateway error payloads when gateway config is missing or upstream calls fail.
+  - Focused tests cover health auth + db-mode reporting, ops health evaluation, and parcel/property fail-closed route behavior.
+  - Smoke scripts verify gateway-backed parcel/property endpoints plus Qdrant semantic recall without relying on legacy compatibility paths.
+  - Docs explicitly state that authoritative parcel/property/exact knowledge data lives in local Postgres via gateway and semantic recall lives in Qdrant.
+- **Completion Evidence (2026-03-05):**
+  - `pnpm -C apps/web test -- app/api/health/route.test.ts __tests__/api/health-detailed.test.ts lib/automation/__tests__/ops.test.ts` passed (38 tests) after the gateway-only DB-mode/reporting changes in `apps/web/app/api/health/route.ts`, `apps/web/app/api/health/detailed/route.ts`, and `apps/web/lib/automation/ops.ts`.
+  - `pnpm -C apps/web test -- app/api/parcels/route.test.ts app/api/map/prospect/route.post.test.ts 'app/api/parcels/[parcelId]/geometry/route.test.ts'` passed (23 tests) after the parcel/property routes were changed to fail closed with `GATEWAY_UNCONFIGURED` / `GATEWAY_UNAVAILABLE` instead of falling back to Prisma/dev geometry data.
+  - `scripts/smoke_endpoints.ts`, `scripts/smoke_gateway_edge_access.ts`, and `scripts/verify-production-features.sh` now separate gateway-backed Postgres checks from semantic/Qdrant checks and require authenticated app access for the semantic tool smoke path.
+  - `README.md`, `docs/SPEC.md`, `docs/CLOUDFLARE.md`, `docs/PRD_ZERO_COST_LOCAL_COMPUTE.md`, and `docs/claude/reference.md` now document the authoritative split explicitly: local Postgres via gateway/Hyperdrive for parcel/property and exact knowledge data, Qdrant for semantic recall only.
+- **Files Expected To Change:**
+  - `ROADMAP.md`
+  - `apps/web/app/api/health/route.ts`
+  - `apps/web/app/api/health/route.test.ts`
+  - `apps/web/app/api/health/detailed/route.ts`
+  - `apps/web/__tests__/api/health-detailed.test.ts`
+  - `apps/web/lib/automation/ops.ts`
+  - `apps/web/lib/automation/__tests__/ops.test.ts`
+  - `apps/web/app/api/map/prospect/route.ts`
+  - `apps/web/app/api/map/prospect/route.post.test.ts`
+  - `apps/web/app/api/parcels/route.ts`
+  - `apps/web/app/api/parcels/route.test.ts`
+  - `apps/web/app/api/parcels/[parcelId]/geometry/route.ts`
+  - `apps/web/app/api/parcels/[parcelId]/geometry/route.test.ts`
+  - `scripts/smoke_endpoints.ts`
+  - `scripts/smoke_gateway_edge_access.ts`
+  - `scripts/verify-production-features.sh`
+  - `README.md`
+  - `docs/SPEC.md`
+  - `docs/CLOUDFLARE.md`
+  - `docs/PRD_ZERO_COST_LOCAL_COMPUTE.md`
+  - `docs/claude/reference.md`
+
 ### KA-001 — Internal Knowledge Agent (5-Workstream Wiring) (P0)
 
 - **Priority:** P0

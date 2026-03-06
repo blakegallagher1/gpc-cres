@@ -7,42 +7,20 @@ import {
   getPropertyDbConfigOrNull,
 } from "@/lib/server/propertyDbEnv";
 
-const REQUIRED_ENV_VARS = [
-  "OPENAI_API_KEY",
-  "OPENAI_FLAGSHIP_MODEL",
-  "OPENAI_STANDARD_MODEL",
-  "OPENAI_MINI_MODEL",
-  "PERPLEXITY_API_KEY",
-  "PERPLEXITY_MODEL",
-  "AUTH_SECRET",
-  "LOCAL_API_URL",
-  "LOCAL_API_KEY",
-  "DATABASE_URL",
-  "GOOGLE_MAPS_API_KEY",
-  "GOOGLE_PLACES_API_KEY",
-  "GOOGLE_SHEETS_API_KEY",
-  "GOOGLE_DRIVE_API_KEY",
-  "B2_S3_ENDPOINT_URL",
-  "B2_ACCESS_KEY_ID",
-  "B2_SECRET_ACCESS_KEY",
-  "B2_BUCKET",
-  "APP_ENV",
-  "APP_DEBUG",
-  "APP_LOG_LEVEL",
-  "AGENT_MAX_TURNS",
-  "AGENT_TIMEOUT_SECONDS",
-  "AGENT_ENABLE_TRACING",
-  "DEFAULT_MARKET_REGION",
-  "DEFAULT_STATE",
-  "DEFAULT_MSA",
-  "ENABLE_WEB_SEARCH",
-  "ENABLE_FILE_SEARCH",
-  "ENABLE_CODE_INTERPRETER",
-  "VERCEL_ACCESS_TOKEN",
-  "VERCEL_USER_ID",
-  "VERCEL_TEAM_ID",
-  "VERCEL_TEAM_URL",
-];
+const CORE_ENV_VARS = ["OPENAI_API_KEY", "AUTH_SECRET"] as const;
+
+function getDbMode(
+  gatewayConfigured: boolean,
+  directUrlConfigured: boolean
+): "gateway" | "direct" | "unconfigured" {
+  if (gatewayConfigured) {
+    return "gateway";
+  }
+  if (directUrlConfigured) {
+    return "direct";
+  }
+  return "unconfigured";
+}
 
 function getBearerToken(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
@@ -102,10 +80,20 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const missing = REQUIRED_ENV_VARS.filter((key) => !process.env[key]);
-  const ok = missing.length === 0;
-
   const propertyDbConfig = getPropertyDbConfigOrNull();
+  const gatewayConfigured = Boolean(propertyDbConfig);
+  const directUrlConfigured = Boolean(process.env.DATABASE_URL?.trim());
+  const dbMode = getDbMode(gatewayConfigured, directUrlConfigured);
+  const monitorAuthConfigured = Boolean(
+    process.env.HEALTHCHECK_TOKEN?.trim() || process.env.VERCEL_ACCESS_TOKEN?.trim()
+  );
+  const missing: string[] = CORE_ENV_VARS.filter((key) => !process.env[key]);
+  if (!process.env.LOCAL_API_URL?.trim()) {
+    missing.push("LOCAL_API_URL");
+  }
+  if (!process.env.LOCAL_API_KEY?.trim()) {
+    missing.push("LOCAL_API_KEY");
+  }
   let propertyDbReachable: boolean | null = null;
   if (propertyDbConfig) {
     try {
@@ -132,14 +120,24 @@ export async function GET(request: NextRequest) {
       propertyDbReachable = false;
     }
   }
+  const status =
+    propertyDbReachable === false || !gatewayConfigured || missing.includes("OPENAI_API_KEY")
+      ? "down"
+      : missing.length > 0 || !monitorAuthConfigured
+        ? "degraded"
+        : "ok";
 
   return NextResponse.json(
     {
-      status: ok ? "ok" : "degraded",
+      status,
       missing,
       propertyDb: {
-        configured: Boolean(propertyDbConfig),
+        configured: gatewayConfigured,
         reachable: propertyDbReachable,
+        dbMode,
+        gatewayConfigured,
+        directUrlConfigured,
+        monitorAuthConfigured,
       },
       build: {
         sha: process.env.VERCEL_GIT_COMMIT_SHA || null,
@@ -148,6 +146,6 @@ export async function GET(request: NextRequest) {
       },
       timestamp: new Date().toISOString(),
     },
-    { status: ok ? 200 : 500 }
+    { status: status === "ok" ? 200 : 500 }
   );
 }

@@ -46,37 +46,9 @@ describe("GET /api/health", () => {
       LOCAL_API_URL: "http://gateway.test",
       LOCAL_API_KEY: "gateway-key",
       OPENAI_API_KEY: "test-openai",
-      OPENAI_FLAGSHIP_MODEL: "gpt-5.2",
-      OPENAI_STANDARD_MODEL: "gpt-5.1",
-      OPENAI_MINI_MODEL: "gpt-5-mini",
-      PERPLEXITY_API_KEY: "test-perplexity",
-      PERPLEXITY_MODEL: "sonar",
-      DATABASE_URL: "postgres://test",
-      GOOGLE_MAPS_API_KEY: "test",
-      GOOGLE_PLACES_API_KEY: "test",
-      GOOGLE_SHEETS_API_KEY: "test",
-      GOOGLE_DRIVE_API_KEY: "test",
-      B2_S3_ENDPOINT_URL: "https://s3.us-west-001.backblazeb2.com",
-      B2_ACCESS_KEY_ID: "test",
-      B2_SECRET_ACCESS_KEY: "test",
-      B2_BUCKET: "test",
-      APP_ENV: "test",
-      APP_DEBUG: "false",
-      APP_LOG_LEVEL: "info",
-      AGENT_MAX_TURNS: "12",
-      AGENT_TIMEOUT_SECONDS: "120",
-      AGENT_ENABLE_TRACING: "false",
-      DEFAULT_MARKET_REGION: "BR",
-      DEFAULT_STATE: "LA",
-      DEFAULT_MSA: "Baton Rouge",
-      ENABLE_WEB_SEARCH: "true",
-      ENABLE_FILE_SEARCH: "true",
-      ENABLE_CODE_INTERPRETER: "false",
-      VERCEL_ACCESS_TOKEN: "token",
-      VERCEL_USER_ID: "user",
-      VERCEL_TEAM_ID: "team",
-      VERCEL_TEAM_URL: "team-url",
     };
+    delete process.env.DATABASE_URL;
+    delete process.env.VERCEL_ACCESS_TOKEN;
     getPropertyDbConfigOrNullMock.mockReturnValue({
       url: "http://gateway.test",
       key: "gateway-key",
@@ -106,6 +78,13 @@ describe("GET /api/health", () => {
 
     expect(res.status).toBe(200);
     expect(body.status).toBe("ok");
+    expect(body.missing).toEqual([]);
+    expect(body.propertyDb).toMatchObject({
+      dbMode: "gateway",
+      gatewayConfigured: true,
+      directUrlConfigured: false,
+      monitorAuthConfigured: true,
+    });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe("http://gateway.test/health");
   });
@@ -132,5 +111,27 @@ describe("GET /api/health", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[0]?.[0]).toBe("http://gateway.test/health");
     expect(fetchMock.mock.calls[1]?.[0]).toBe("http://gateway.test/admin/health");
+  });
+
+  it("reports down when the gateway-local Postgres path is not configured", async () => {
+    delete process.env.LOCAL_API_URL;
+    getPropertyDbConfigOrNullMock.mockReturnValue(null);
+
+    const req = new NextRequest("http://localhost/api/health", {
+      headers: { Authorization: "Bearer health-token" },
+    });
+    const res = await GET(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(body.status).toBe("down");
+    expect(body.missing).toContain("LOCAL_API_URL");
+    expect(body.propertyDb).toMatchObject({
+      configured: false,
+      reachable: null,
+      dbMode: "unconfigured",
+      gatewayConfigured: false,
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

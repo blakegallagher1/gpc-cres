@@ -3,19 +3,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const {
   resolveAuthMock,
   checkRateLimitMock,
-  isDevParcelFallbackEnabledMock,
-  getDevFallbackParcelByPropertyDbIdMock,
   getCloudflareAccessHeadersFromEnvMock,
   fetchMock,
   sentryCaptureExceptionMock,
+  logPropertyDbRuntimeHealthMock,
 } = vi.hoisted(() => ({
   resolveAuthMock: vi.fn(),
   checkRateLimitMock: vi.fn(),
-  isDevParcelFallbackEnabledMock: vi.fn(),
-  getDevFallbackParcelByPropertyDbIdMock: vi.fn(),
   getCloudflareAccessHeadersFromEnvMock: vi.fn(),
   fetchMock: vi.fn(),
   sentryCaptureExceptionMock: vi.fn(),
+  logPropertyDbRuntimeHealthMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/resolveAuth", () => ({
@@ -26,13 +24,9 @@ vi.mock("@/lib/server/rateLimiter", () => ({
   checkRateLimit: checkRateLimitMock,
 }));
 
-vi.mock("@/lib/server/devParcelFallback", () => ({
-  isDevParcelFallbackEnabled: isDevParcelFallbackEnabledMock,
-  getDevFallbackParcelByPropertyDbId: getDevFallbackParcelByPropertyDbIdMock,
-}));
-
 vi.mock("@/lib/server/propertyDbEnv", () => ({
   getCloudflareAccessHeadersFromEnv: getCloudflareAccessHeadersFromEnvMock,
+  logPropertyDbRuntimeHealth: logPropertyDbRuntimeHealthMock,
 }));
 
 vi.mock("@sentry/nextjs", () => ({
@@ -57,16 +51,13 @@ describe("GET /api/parcels/[parcelId]/geometry", () => {
 
     resolveAuthMock.mockReset();
     checkRateLimitMock.mockReset();
-    isDevParcelFallbackEnabledMock.mockReset();
-    getDevFallbackParcelByPropertyDbIdMock.mockReset();
     getCloudflareAccessHeadersFromEnvMock.mockReset();
     fetchMock.mockReset();
     sentryCaptureExceptionMock.mockReset();
+    logPropertyDbRuntimeHealthMock.mockReset();
 
     resolveAuthMock.mockResolvedValue({ userId: "user-1", orgId: "org-1" });
     checkRateLimitMock.mockReturnValue(true);
-    isDevParcelFallbackEnabledMock.mockReturnValue(false);
-    getDevFallbackParcelByPropertyDbIdMock.mockReturnValue(null);
     getCloudflareAccessHeadersFromEnvMock.mockReturnValue({
       "CF-Access-Client-Id": "cf-id",
       "CF-Access-Client-Secret": "cf-secret",
@@ -74,6 +65,10 @@ describe("GET /api/parcels/[parcelId]/geometry", () => {
 
     process.env.LOCAL_API_URL = "https://api.gallagherpropco.com";
     process.env.LOCAL_API_KEY = "test-gateway-key";
+    logPropertyDbRuntimeHealthMock.mockReturnValue({
+      url: process.env.LOCAL_API_URL,
+      key: process.env.LOCAL_API_KEY,
+    });
 
     ({ GET } = await import("./route"));
   });
@@ -153,37 +148,8 @@ describe("GET /api/parcels/[parcelId]/geometry", () => {
     );
   });
 
-  it("returns synthetic geometry for dev fallback parcels", async () => {
-    isDevParcelFallbackEnabledMock.mockReturnValue(true);
-    getDevFallbackParcelByPropertyDbIdMock.mockReturnValue({
-      id: "dev-1",
-      address: "1201 Government St",
-      owner: "Dev Owner",
-      acreage: 0.42,
-      zoning: "C2",
-      floodZone: "X",
-      lat: 30.4451,
-      lng: -91.1782,
-      parish: "East Baton Rouge",
-      parcelUid: "dev-uid-1",
-      propertyDbId: "dev-uid-1",
-    });
-
-    const res = await GET(
-      new Request("http://localhost/api/parcels/dev-uid-1/geometry?detail_level=low"),
-      { params: Promise.resolve({ parcelId: "dev-uid-1" }) },
-    );
-    const body = await res.json();
-
-    expect(res.status).toBe(200);
-    expect(body.ok).toBe(true);
-    expect(body.data.dataset_version).toBe("dev-fallback");
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
   it("returns 503 when gateway env is missing", async () => {
-    delete process.env.LOCAL_API_URL;
-    delete process.env.LOCAL_API_KEY;
+    logPropertyDbRuntimeHealthMock.mockReturnValue(null);
 
     const res = await GET(
       new Request("http://localhost/api/parcels/abc-123/geometry?detail_level=low"),
@@ -195,6 +161,22 @@ describe("GET /api/parcels/[parcelId]/geometry", () => {
     expect(body.error?.code).toBe("GATEWAY_UNCONFIGURED");
     expect(fetchMock).not.toHaveBeenCalled();
     expect(sentryCaptureExceptionMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails closed when the gateway responds with a server error", async () => {
+    fetchMock.mockResolvedValue(
+      new Response("gateway error", { status: 502 }),
+    );
+
+    const res = await GET(
+      new Request("http://localhost/api/parcels/abc-123/geometry?detail_level=low"),
+      { params: Promise.resolve({ parcelId: "abc-123" }) },
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(502);
+    expect(body.error?.code).toBe("GATEWAY_UNAVAILABLE");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("returns 404 when the gateway reports no parcel geometry", async () => {

@@ -20,7 +20,7 @@ We are migrating an enterprise commercial real estate app to a **"Perfect Zero-C
 ### Goals
 1) **Security First / Zero DB Exposure** — No Postgres ports exposed; only Cloudflare Tunnel ingress to HTTP services.
 2) **Zero-Cost Operations** — UI on Vercel; backend on local HP server.
-3) **Clean Data Plane** — All read/write via `https://api.gallagherpropco.com/...`; **No Prisma in production data plane**.
+3) **Clean Data Plane** — Authoritative parcel/property and exact knowledge data flows through `https://api.gallagherpropco.com/...`; production Postgres traffic uses the gateway/Hyperdrive path, and Qdrant stays semantic-only.
 4) **Production Practicality** — Strong observability, CI gates, backward-compatible migration.
 5) **Agentic Operations** — Codex/Cursor can detect errors, propose patches, run tests, stage deployments.
 
@@ -41,7 +41,7 @@ We are migrating an enterprise commercial real estate app to a **"Perfect Zero-C
 - `entitlement_os` Postgres (consolidated), `qdrant`, `pgadmin` — internal only
 
 ### Data flow
-User → Vercel Next.js → HTTPS fetch → Cloudflare Tunnel → Gateway → (Postgres, Qdrant, Martin) → response.
+User → Vercel Next.js → HTTPS fetch → Cloudflare Tunnel → Gateway → (Postgres authoritative read/write, Qdrant semantic, Martin tiles) → response.
 
 ---
 
@@ -70,7 +70,7 @@ User → Vercel Next.js → HTTPS fetch → Cloudflare Tunnel → Gateway → (P
 **Exit criteria:** No Prisma usage in deals route family.
 
 ### Phase 2 — Parcels + Map + Prospecting
-Goal: route map and parcel intelligence through gateway.
+Goal: route map and parcel intelligence through the Cloudflare-tunneled gateway path so Postgres stays authoritative, while semantic/property-memory recall can augment those results from Qdrant without becoming a fallback source of truth.
 
 ### Phase 3 — Runs/Evidence/Chat/Business Domains
 ### Phase 4 — Cron/Background
@@ -108,6 +108,14 @@ Goal: route map and parcel intelligence through gateway.
 ### Vercel / Next.js
 - `LOCAL_API_URL` = `https://api.gallagherpropco.com`
 - `LOCAL_API_KEY` = one of the allowed bearer keys
+- `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET` = Cloudflare Access service token
+- `GATEWAY_DATABASE_URL` = Hyperdrive HTTPS endpoint for Prisma
+- `QDRANT_URL` (+ `QDRANT_API_KEY` if not using gateway proxy)
+
+### Smoke verification (run after any gateway or tunnel change)
+- `pnpm smoke:endpoints` — Vercel-facing health (deals, parcels, semantic tools). Auth failures should be 401; everything else must return `200/4xx` with data.
+- `pnpm smoke:gateway:edge-access` — Confirms Cloudflare Access policy blocks unauthorized callers and allows authorized requests for Postgres+Qdrant endpoints.
+- `bash scripts/verify-production-features.sh` — Replays the five gateway guarantees (cache, batch screening, push streaming, semantic recall, error handling) to prove the UI continues to rely on gateway-backed Postgres for source-of-truth data while Qdrant stays semantic-only.
 
 ---
 

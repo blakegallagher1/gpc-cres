@@ -96,15 +96,17 @@ The script validates **both modes** for downstream paths that back the app route
 
 - Deals: `/deals`, `/deals/{id}`
 - Parcels / Places: `/api/parcels/search`, `/tools/parcels.search`
-- Map paths: `/tools/parcels.sql`, `/property-db/rpc/*`, `/tiles/{z}/{x}/{y}.pbf`
+- Map + SQL paths: `/tools/parcels.sql`, `/tiles/{z}/{x}/{y}.pbf`
 - Geometry: `/api/parcels/{id}/geometry`
 - Tool/screening: `/tools/parcel.lookup`, `/tools/parcels.sql`, `/api/screening/{flood,soils,wetlands,epa,traffic,ldeq,full}`
+- Semantic/Qdrant: `/tool/docs.search`, `/tool/docs.fetch`, `/tool/memory.write`
+- Hyperdrive DB proxy: `POST /db`
 - Policy check: `/admin/health`, `/health`
 
 Expected status behavior:
 
 - `without_access`: every endpoint returns Cloudflare Access block (`403` with Access block signature).
-- `with_access`: every endpoint reaches origin (status is **not** Cloudflare block; may be `200/400/403/404/422` based on origin auth/business rules).
+- `with_access`: every endpoint reaches origin (status is **not** Cloudflare block; may be `200/400/403/404/422` based on origin auth/business rules). Qdrant-backed endpoints should return 200/204 responses (even with empty bodies for stubbed search) while `/db` returns Hyperdrive metadata (200). The gateway/Hyperdrive combo is the only exposed path to Postgres; any request that is not Access-authorized must fail closed at the edge.
 - `/admin/health` is expected to remain origin-`403` for this service token flow unless `ADMIN_API_KEY` policy is used.
 
 ### Token Rotation Runbook (Quarterly)
@@ -182,7 +184,7 @@ First connection may open a browser for Access authentication (24h session).
 psql postgresql://postgres:postgres@localhost:54399/entitlement_os
 
 # Restore a dump (full Step 2: docs/MIGRATION_REMAINING_PLAN.md)
-psql postgresql://postgres:postgres@localhost:54399/entitlement_os -f ~/supabase_dump_app.sql
+psql postgresql://postgres:postgres@localhost:54399/entitlement_os -f ~/entitlement_os_dump.sql
 
 # Quick query
 psql postgresql://postgres:postgres@localhost:54399/entitlement_os -c "SELECT count(*) FROM deals;"

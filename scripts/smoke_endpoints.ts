@@ -7,7 +7,7 @@
  *
  * Env:
  *   BASE_URL               — API base (default: http://localhost:3000)
- *   AUTH_BEARER            — Supabase JWT for protected routes (or MAP_SMOKE_AUTH_BEARER)
+ *   AUTH_BEARER            — NextAuth session JWT or service token for protected routes (or MAP_SMOKE_AUTH_BEARER)
  *   HEALTH_TOKEN           — x-health-token for /api/health (or HEALTHCHECK_TOKEN)
  */
 
@@ -39,6 +39,7 @@ type Step = {
   status: number;
   ok: boolean;
   dataOk: boolean;
+  category: "health" | "gateway" | "semantic";
   error?: string;
 };
 
@@ -93,12 +94,73 @@ async function main() {
     status: health.status,
     ok: health.ok,
     dataOk: healthOk,
+    category: "health",
     error: healthOk
       ? undefined
       : JSON.stringify(health.data).slice(0, 180),
   });
 
-  // 2. Parcels (hasCoords)
+  // 2. Deals list
+  const deals = await fetchJson("GET", "/api/deals?limit=5");
+  const dealsData = toRecord(deals.data);
+  const dealsArr = Array.isArray(dealsData?.deals) ? dealsData.deals : [];
+  const dealsOk = deals.ok && Array.isArray(dealsArr);
+  steps.push({
+    name: "GET /api/deals?limit=5",
+    method: "GET",
+    url: "/api/deals?limit=5",
+    status: deals.status,
+    ok: deals.ok,
+    dataOk: dealsOk,
+    category: "gateway",
+    error:
+      deals.status === 401
+        ? "401 (auth required)"
+        : dealsOk
+          ? undefined
+          : JSON.stringify(deals.data).slice(0, 180),
+  });
+
+  const dealId = (() => {
+    for (const row of dealsArr as Array<Record<string, unknown>>) {
+      const id = row?.id;
+      if (typeof id === "string" && id.trim()) return id.trim();
+    }
+    return null;
+  })();
+
+  if (dealId) {
+    const dealDetail = await fetchJson("GET", `/api/deals/${encodeURIComponent(dealId)}`);
+    const detailOk = dealDetail.ok && toRecord(dealDetail.data)?.deal;
+    steps.push({
+      name: "GET /api/deals/{id}",
+      method: "GET",
+      url: `/api/deals/${encodeURIComponent(dealId)}`,
+      status: dealDetail.status,
+      ok: dealDetail.ok,
+      dataOk: Boolean(detailOk),
+      category: "gateway",
+      error:
+        dealDetail.status === 401
+          ? "401 (auth required)"
+          : detailOk
+            ? undefined
+            : JSON.stringify(dealDetail.data).slice(0, 180),
+    });
+  } else {
+    steps.push({
+      name: "GET /api/deals/{id}",
+      method: "GET",
+      url: "/api/deals/{id}",
+      status: 0,
+      ok: true,
+      dataOk: true,
+      category: "gateway",
+      error: "Skipped: no deal id returned from /api/deals",
+    });
+  }
+
+  // 3. Parcels (hasCoords)
   const parcels1 = await fetchJson("GET", "/api/parcels?hasCoords=true");
   const parcels1Ok =
     parcels1.ok && summarizeParcels(parcels1.data);
@@ -109,6 +171,7 @@ async function main() {
     status: parcels1.status,
     ok: parcels1.ok,
     dataOk: parcels1Ok,
+    category: "gateway",
     error:
       parcels1.status === 401
         ? "401 (auth required)"
@@ -117,7 +180,7 @@ async function main() {
           : JSON.stringify(parcels1.data).slice(0, 180),
   });
 
-  // 3. Parcels (search)
+  // 4. Parcels (search)
   const parcels2 = await fetchJson(
     "GET",
     `/api/parcels?hasCoords=true&search=${encodeURIComponent(SEARCH_ADDRESS)}`
@@ -130,6 +193,7 @@ async function main() {
     status: parcels2.status,
     ok: parcels2.ok,
     dataOk: parcels2Ok,
+    category: "gateway",
     error:
       parcels2.status === 401
         ? "401 (auth required)"
@@ -138,7 +202,7 @@ async function main() {
           : JSON.stringify(parcels2.data).slice(0, 180),
   });
 
-  // 4. Prospect
+  // 5. Prospect
   const polygon = {
     type: "Polygon" as const,
     coordinates: [
@@ -168,6 +232,7 @@ async function main() {
     status: prospect.status,
     ok: prospect.ok,
     dataOk: prospectOk,
+    category: "gateway",
     error:
       prospect.status === 401
         ? "401 (auth required)"
@@ -176,7 +241,7 @@ async function main() {
           : JSON.stringify(prospect.data).slice(0, 180),
   });
 
-  // 5. Comps (needs address or lat/lng)
+  // 6. Comps (needs address or lat/lng)
   const comps = await fetchJson(
     "GET",
     `/api/map/comps?address=${encodeURIComponent(SEARCH_ADDRESS)}&radiusMiles=2`
@@ -192,6 +257,7 @@ async function main() {
     status: comps.status,
     ok: comps.ok,
     dataOk: compsOk,
+    category: "gateway",
     error:
       comps.status === 401
         ? "401 (auth required)"
@@ -200,7 +266,7 @@ async function main() {
           : JSON.stringify(comps.data).slice(0, 180),
   });
 
-  // 6. Parcel geometry via GET /api/parcels/{parcelId}/geometry
+  // 7. Parcel geometry via GET /api/parcels/{parcelId}/geometry
   const candidateId = (() => {
     for (const step of [parcels2.data, prospect.data]) {
       const obj = toRecord(step);
@@ -229,6 +295,7 @@ async function main() {
       status: geom.status,
       ok: geom.ok,
       dataOk: geomOk,
+      category: "gateway",
       error: geomOk ? undefined : JSON.stringify(geom.data).slice(0, 180),
     });
   } else {
@@ -239,9 +306,45 @@ async function main() {
       status: 0,
       ok: false,
       dataOk: false,
+      category: "gateway",
       error: "Skipped: no parcel ID from parcels/prospect",
     });
   }
+
+  // 8. Property intelligence semantic recall (Qdrant)
+  const conversationId = `smoke-${Date.now()}`;
+  const propertyIntel = await fetchJson("POST", "/api/agent/tools/execute", {
+    toolName: "recall_property_intelligence",
+    arguments: {
+      query: "flood zone ebr",
+      parish: "EBR",
+      minScore: 0.4,
+    },
+    context: { conversationId },
+    conversationId,
+  });
+  const propertyResults = toRecord(propertyIntel.data);
+  const hits = Array.isArray(propertyResults?.results)
+    ? propertyResults?.results
+    : [];
+  const propertyOk = propertyIntel.ok && hits.length > 0;
+  steps.push({
+    name: "POST /api/agent/tools/execute (recall_property_intelligence)",
+    method: "POST",
+    url: "/api/agent/tools/execute",
+    status: propertyIntel.status,
+    ok: propertyIntel.ok,
+    dataOk: propertyOk,
+    category: "semantic",
+    error:
+      propertyIntel.status === 401
+        ? "401 (auth required)"
+        : propertyOk
+        ? undefined
+        : hits.length === 0
+          ? "Qdrant returned zero semantic hits"
+          : JSON.stringify(propertyIntel.data).slice(0, 180),
+  });
 
   // Report
   console.log("\n[smoke-endpoints] BASE_URL:", BASE_URL);
@@ -255,21 +358,30 @@ async function main() {
     if (s.error) console.log(`   ${s.error}`);
   }
 
-  const propertyDbSteps = steps.filter(
-    (s) =>
-      !s.name.includes("/api/health")
-  );
-  const propertyDbOk = propertyDbSteps.every((s) => s.ok && s.dataOk);
-  const healthStep = steps.find((s) => s.name.includes("/api/health"));
+  const healthStep = steps.find((s) => s.category === "health");
   const healthPassed = healthStep?.ok && healthStep?.dataOk;
+  const gatewaySteps = steps.filter((s) => s.category === "gateway");
+  const semanticSteps = steps.filter((s) => s.category === "semantic");
+  const gatewayOk = gatewaySteps.every((s) => s.ok && s.dataOk);
+  const semanticOk = semanticSteps.every((s) => s.ok && s.dataOk);
 
   if (!healthPassed) {
     console.log("\n[smoke-endpoints] /api/health returned 401 — set HEALTH_TOKEN to match HEALTHCHECK_TOKEN if needed.");
   }
-  if (!propertyDbOk) {
+  if (!gatewayOk) {
+    console.log("\n[smoke-endpoints] Gateway-backed Postgres endpoints failed — see errors above.");
+  } else {
+    console.log("\n[smoke-endpoints] Gateway-backed Postgres endpoints OK.");
+  }
+  if (!semanticOk) {
+    console.log("[smoke-endpoints] Qdrant semantic recall failed — investigate gateway → Qdrant path.");
+  } else {
+    console.log("[smoke-endpoints] Qdrant semantic recall OK.");
+  }
+
+  if (!gatewayOk || !semanticOk) {
     process.exit(1);
   }
-  console.log("\n[smoke-endpoints] All property-DB endpoints OK.");
 }
 
 main().catch((err) => {
