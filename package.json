@@ -34,6 +34,7 @@
     "copy-gpc-moat-tables": "pnpm exec tsx scripts/copy-gpc-moat-tables.ts",
     "smoke:endpoints": "pnpm exec tsx scripts/smoke_endpoints.ts",
     "smoke:gateway:edge-access": "pnpm exec tsx scripts/smoke_gateway_edge_access.ts",
+    "observability:monitor:prod": "pnpm exec tsx scripts/observability/monitor_production.ts",
     "db:migrate": "pnpm run db:migrate:local",
     "db:migrate:local": "pnpm -C packages/db run migrate:deploy:local",
     "db:migrate:remote": "pnpm -C packages/db run migrate:dev",

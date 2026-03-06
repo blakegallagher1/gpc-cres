@@ -45,6 +45,26 @@ pnpm build
 - `pnpm smoke:gateway:edge-access` — Calls the FastAPI gateway directly with and without Cloudflare Access headers to prove every parcel/property endpoint (SQL, lookup, screening) is only reachable via the tunnel and that semantic `/tool/*` calls stay edge-protected.
 - `bash scripts/verify-production-features.sh` — Full production harness that replays the five gateway features (cache, batch screening, push events, Qdrant property intelligence, error handling) to ensure local Postgres remains authoritative and Qdrant is only used for semantic recall.
 
+## Production observability monitor
+
+Run the production monitor to validate critical pages and APIs and persist a JSON+log report:
+
+```bash
+BASE_URL=https://gallagherpropco.com \
+AUTH_BEARER=<nextauth-jwt> \
+HEALTH_TOKEN=<health-token> \
+pnpm observability:monitor:prod
+```
+
+Optional envs:
+- `OBS_SESSION_COOKIE` — NextAuth session cookie if you want authenticated page checks (`/map`, `/deals`).
+- `OBS_EMIT_TELEMETRY=false` — Skip the `/api/observability/events` ingest check.
+- `OBS_ALLOW_PARTIAL=true` — Do not fail the run if auth/health tokens are missing.
+- `OBS_OUTPUT_DIR=output/observability` — Override report output path.
+- `OBS_SEARCH_ADDRESS="4416 HEATH DR"` — Override parcel/comps search address.
+
+Reports are written to `output/observability/`.
+
 ## Security and tenant isolation baseline
 
 - All API routes must authenticate session, verify org membership, and scope DB access by `org_id`.
