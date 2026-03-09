@@ -28,7 +28,15 @@ const PROPERTY_DB_SEARCH_TERMS = [
   "West Baton Rouge",
   "Iberville",
 ] as const;
-const MAX_SEARCH_FALLBACK_QUERIES = 18;
+const MAX_SEARCH_FALLBACK_QUERIES = 8;
+const MAX_BASELINE_FALLBACK_QUERIES = 4;
+const PROPERTY_DB_GATEWAY_TIMEOUT_MS = Math.max(
+  1500,
+  Math.min(
+    10000,
+    Number.parseInt(process.env.PROPERTY_DB_GATEWAY_TIMEOUT_MS ?? "3500", 10) || 3500,
+  ),
+);
 
 class GatewayUnavailableError extends Error {
   status: number;
@@ -330,7 +338,7 @@ function normalizeRpcRows(value: unknown): Record<string, unknown>[] {
 
 async function gatewaySearchParcels(q: string, limit: number): Promise<unknown[]> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10000);
+  const timeout = setTimeout(() => controller.abort(), PROPERTY_DB_GATEWAY_TIMEOUT_MS);
   try {
     const { url, key } = requireGatewayConfig("/api/parcels");
     const params = new URLSearchParams({ q, limit: String(limit) });
@@ -476,6 +484,46 @@ function matchesSearchQuery(
   );
 }
 
+function parcelDedupKey(parcel: Record<string, unknown>): string {
+  const propertyDbId = typeof parcel.propertyDbId === "string"
+    ? parcel.propertyDbId.trim()
+    : "";
+  if (propertyDbId) return `propertyDbId:${propertyDbId}`;
+
+  const address = typeof parcel.address === "string"
+    ? canonicalizeAddressLikeText(parcel.address)
+    : "";
+  if (address) return `address:${address}`;
+
+  const id = typeof parcel.id === "string" ? parcel.id.trim() : "";
+  if (id) return `id:${id}`;
+
+  const lat = typeof parcel.lat === "number" && Number.isFinite(parcel.lat)
+    ? parcel.lat.toFixed(6)
+    : "";
+  const lng = typeof parcel.lng === "number" && Number.isFinite(parcel.lng)
+    ? parcel.lng.toFixed(6)
+    : "";
+  return `coords:${lat}:${lng}`;
+}
+
+function mergeParcelResults(
+  primary: Record<string, unknown>[],
+  secondary: Record<string, unknown>[],
+): Record<string, unknown>[] {
+  const merged = new Map<string, Record<string, unknown>>();
+  for (const parcel of primary) {
+    merged.set(parcelDedupKey(parcel), parcel);
+  }
+  for (const parcel of secondary) {
+    const key = parcelDedupKey(parcel);
+    if (!merged.has(key)) {
+      merged.set(key, parcel);
+    }
+  }
+  return Array.from(merged.values());
+}
+
 async function searchPropertyDbParcels(
   searchText: string,
   _parish?: string,
@@ -609,6 +657,15 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    let orgSearchMatches: Record<string, unknown>[] = [];
+    if (hasSearch) {
+      try {
+        orgSearchMatches = await fetchOrgFallbackParcels(auth.orgId, searchText);
+      } catch (orgSearchError) {
+        console.error("[/api/parcels] org search seed failed", orgSearchError);
+      }
+    }
+
     const fallbackQueries: Array<() => Promise<unknown[]>> = searchText
       ? Array.from(
           new Set([...buildSearchTerms(searchText), ...normalizeParcelCandidate(searchText)]),
@@ -621,14 +678,18 @@ export async function GET(request: NextRequest) {
           ])
           .slice(0, MAX_SEARCH_FALLBACK_QUERIES)
       : [
+          // Prioritize broad, low-latency seeds first to reduce cold-load fanout.
+          () => searchPropertyDbParcels("*", undefined, 200),
+          () => searchPropertyDbParcels("Baton Rouge", undefined, 200),
+          () => searchPropertyDbParcels("*", "East Baton Rouge", 150),
+          () => searchPropertyDbParcels("*", "Ascension", 150),
           ...PROPERTY_DB_PARISHES.map((parish) =>
             () => searchPropertyDbParcels("*", parish, 150),
           ),
           ...PROPERTY_DB_SEARCH_TERMS.map((term) =>
             () => searchPropertyDbParcels(term, undefined, 200),
           ),
-          () => searchPropertyDbParcels("*", undefined, 200),
-        ];
+        ].slice(0, MAX_BASELINE_FALLBACK_QUERIES);
     fallbackQueryCount = fallbackQueries.length;
 
     const gatewayConfig = logPropertyDbRuntimeHealth("/api/parcels");
@@ -667,6 +728,30 @@ export async function GET(request: NextRequest) {
 
     const externalRows = parishResults.flat();
     if (externalRows.length === 0) {
+      if (orgSearchMatches.length > 0) {
+        await logRequestOutcome(context, {
+          status: 200,
+          orgId: auth.orgId,
+          userId: auth.userId,
+          upstream: "property-db",
+          resultCount: orgSearchMatches.length,
+          details: {
+            ...baseDetails,
+            source: "org-search",
+            fallbackQueryCount,
+            externalRowCount: 0,
+            orgSearchMatchCount: orgSearchMatches.length,
+            degraded: true,
+          },
+        });
+        return withRequestId(NextResponse.json({
+          parcels: orgSearchMatches.slice(0, 500),
+          source: "org",
+          degraded: true,
+          warning:
+            "Property DB search returned no matches; returning org-scoped parcel matches.",
+        }));
+      }
       logParcelsDevPayload("property-db-empty", {
         hasCoords,
         searchText,
@@ -727,9 +812,7 @@ export async function GET(request: NextRequest) {
         })()
       : mappedExternal;
 
-    const deduped = Array.from(
-      new Map(filteredExternal.map((item) => [String(item.id), item])).values(),
-    ).slice(0, 500);
+    const deduped = mergeParcelResults(filteredExternal, orgSearchMatches).slice(0, 500);
 
     logParcelsDevPayload("property-db", {
       hasCoords,
@@ -760,6 +843,7 @@ export async function GET(request: NextRequest) {
         externalRowCount: externalRows.length,
         mappedCount: mappedExternal.length,
         filteredCount: filteredExternal.length,
+        orgSearchMatchCount: orgSearchMatches.length,
         dedupedCount: deduped.length,
       },
     });

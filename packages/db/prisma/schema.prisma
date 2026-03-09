@@ -423,6 +423,8 @@ model Parcel {
   deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
 
   @@index([orgId])
+  @@index([orgId, address])
+  @@index([orgId, propertyDbId])
   @@index([dealId])
   @@map("parcels")
 }

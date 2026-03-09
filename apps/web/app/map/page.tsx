@@ -55,7 +55,7 @@ interface ApiParcel {
 
 interface ParcelsApiResponse {
   parcels: ApiParcel[];
-  source?: "org" | "property-db-fallback";
+  source?: "org" | "property-db" | "org-fallback";
   error?: string;
 }
 
@@ -76,7 +76,28 @@ interface ProspectApiResponse {
   error?: string;
 }
 
+interface ParcelSuggestion {
+  id: string;
+  address: string;
+  lat: number | null;
+  lng: number | null;
+  propertyDbId: string | null;
+}
+
+interface ParcelSuggestApiResponse {
+  suggestions: ParcelSuggestion[];
+}
+
 const SURROUNDING_PARCELS_RADIUS_MILES = 1.25;
+const STREET_SUFFIX_CANONICAL: Array<[RegExp, string]> = [
+  [/\bdr\b/g, "drive"],
+  [/\bst\b/g, "street"],
+  [/\brd\b/g, "road"],
+  [/\bave\b/g, "avenue"],
+  [/\bblvd\b/g, "boulevard"],
+  [/\bhwy\b/g, "highway"],
+  [/\bln\b/g, "lane"],
+];
 
 function distanceMiles(a: MapParcel, b: MapParcel): number {
   const toRad = (value: number) => (value * Math.PI) / 180;
@@ -101,6 +122,32 @@ function toFiniteNumber(...values: Array<unknown>): number | null {
   return null;
 }
 
+function canonicalizeSearchText(value: string): string {
+  let text = value
+    .toLowerCase()
+    .replace(/[^\w\s#-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  for (const [pattern, replacement] of STREET_SUFFIX_CANONICAL) {
+    text = text.replace(pattern, replacement);
+  }
+  return text.replace(/\s+/g, " ").trim();
+}
+
+function parcelMatchesSearch(parcel: MapParcel, query: string): boolean {
+  const q = canonicalizeSearchText(query);
+  if (!q) return true;
+  return [
+    parcel.address,
+    parcel.currentZoning,
+    parcel.floodZone,
+    parcel.propertyDbId,
+  ].some((value) => {
+    if (!value) return false;
+    return canonicalizeSearchText(String(value)).includes(q);
+  });
+}
+
 export default function MapPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -118,8 +165,11 @@ export default function MapPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [searchSubmitId, setSearchSubmitId] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [source, setSource] = useState<"org" | "property-db-fallback">("org");
+  const [source, setSource] = useState<"org" | "property-db" | "org-fallback">("org");
   const [isSearchLoading, setIsSearchLoading] = useState(false);
+  const [isSuggestLoading, setIsSuggestLoading] = useState(false);
+  const [suggestions, setSuggestions] = useState<ParcelSuggestion[]>([]);
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
   const [polygon, setPolygon] = useState<number[][][] | null>(null);
   const [polygonParcels, setPolygonParcels] = useState<MapParcel[] | null>(null);
   const [polygonError, setPolygonError] = useState<string | null>(null);
@@ -157,18 +207,132 @@ export default function MapPage() {
 
     setDebouncedSearch(nextSearch);
     setSearchSubmitId((value) => value + 1);
+    setSuggestions([]);
+    setActiveSuggestionIndex(-1);
   };
 
+  const selectSuggestion = useCallback((suggestion: ParcelSuggestion) => {
+    const nextSearch = suggestion.address.trim();
+    if (!nextSearch) return;
+    setSearchText(nextSearch);
+    setDebouncedSearch(nextSearch);
+    setSearchSubmitId((value) => value + 1);
+    setSuggestions([]);
+    setActiveSuggestionIndex(-1);
+    if (
+      typeof suggestion.lat === "number" &&
+      Number.isFinite(suggestion.lat) &&
+      typeof suggestion.lng === "number" &&
+      Number.isFinite(suggestion.lng)
+    ) {
+      setMapCenter([suggestion.lat, suggestion.lng]);
+      setMapZoom((prev) => (typeof prev === "number" ? Math.max(prev, 14) : 14));
+    }
+  }, []);
+
   const handleSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "ArrowDown" && suggestions.length > 0) {
+      event.preventDefault();
+      setActiveSuggestionIndex((prev) => (prev + 1) % suggestions.length);
+      return;
+    }
+    if (event.key === "ArrowUp" && suggestions.length > 0) {
+      event.preventDefault();
+      setActiveSuggestionIndex((prev) =>
+        prev <= 0 ? suggestions.length - 1 : prev - 1,
+      );
+      return;
+    }
+    if (event.key === "Escape") {
+      setSuggestions([]);
+      setActiveSuggestionIndex(-1);
+      return;
+    }
     if (event.key !== "Enter") return;
     if (!searchText.trim()) return;
     event.preventDefault();
+    if (activeSuggestionIndex >= 0 && activeSuggestionIndex < suggestions.length) {
+      selectSuggestion(suggestions[activeSuggestionIndex]);
+      return;
+    }
     handleSearchSubmit();
   };
 
   const submitSearch = () => {
     handleSearchSubmit();
   };
+
+  useEffect(() => {
+    const nextSearch = searchText.trim();
+    if (!nextSearch) {
+      setDebouncedSearch("");
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      setDebouncedSearch(nextSearch);
+    }, 250);
+
+    return () => clearTimeout(timeout);
+  }, [searchText]);
+
+  useEffect(() => {
+    const query = searchText.trim();
+    if (query.length < 2) {
+      setSuggestions([]);
+      setActiveSuggestionIndex(-1);
+      setIsSuggestLoading(false);
+      return;
+    }
+
+    let active = true;
+    const timeout = setTimeout(async () => {
+      setIsSuggestLoading(true);
+      try {
+        const qs = new URLSearchParams({ q: query, limit: "8" });
+        const res = await fetch(`/api/parcels/suggest?${qs.toString()}`);
+        if (!res.ok || !active) {
+          if (active) {
+            setSuggestions([]);
+            setActiveSuggestionIndex(-1);
+          }
+          return;
+        }
+        const data = (await res.json()) as ParcelSuggestApiResponse;
+        if (!active) return;
+        const next = Array.isArray(data.suggestions) ? data.suggestions : [];
+        const localFallback = next.length === 0
+          ? parcels
+              .filter((parcel) => parcelMatchesSearch(parcel, query))
+              .slice(0, 8)
+              .map((parcel) => ({
+                id: parcel.id,
+                address: parcel.address,
+                lat: parcel.lat,
+                lng: parcel.lng,
+                propertyDbId: parcel.propertyDbId ?? null,
+              }))
+          : [];
+        const effective = next.length > 0 ? next : localFallback;
+        setSuggestions(effective);
+        setActiveSuggestionIndex(effective.length > 0 ? 0 : -1);
+      } catch {
+        if (active) {
+          setSuggestions([]);
+          setActiveSuggestionIndex(-1);
+        }
+      } finally {
+        if (active) {
+          setIsSuggestLoading(false);
+        }
+      }
+    }, 160);
+
+    return () => {
+      active = false;
+      clearTimeout(timeout);
+    };
+  }, [parcels, searchText]);
 
   const mapApiParcels = (data: ParcelsApiResponse): MapParcel[] =>
     (data.parcels as ApiParcel[]).reduce<MapParcel[]>((acc, p) => {
@@ -323,7 +487,11 @@ export default function MapPage() {
           return;
         }
         const data = (await res.json()) as ParcelsApiResponse;
-        setSource(data.source === "property-db-fallback" ? "property-db-fallback" : "org");
+        setSource(
+          data.source === "property-db" || data.source === "org-fallback"
+            ? data.source
+            : "org",
+        );
         if (data.error) {
           setLoadError(data.error);
         }
@@ -398,14 +566,27 @@ export default function MapPage() {
         } else {
           setLoadError(null);
         }
-        setSource(data.source === "property-db-fallback" ? "property-db-fallback" : "org");
+        setSource(
+          data.source === "property-db" || data.source === "org-fallback"
+            ? data.source
+            : "org",
+        );
         const mapped = mapApiParcels(data);
+        const localMatches =
+          mapped.length === 0
+            ? parcels.filter((parcel) => parcelMatchesSearch(parcel, debouncedSearch))
+            : [];
+        const effectiveResults =
+          mapped.length === 0 && localMatches.length > 0 ? localMatches : mapped;
         if (mapped.length === 0 && data.parcels.length > 0) {
           setLoadError(
             "Search returned parcels without usable coordinates (lat/lng).",
           );
         }
-        setSearchParcels(mapped);
+        if (mapped.length === 0 && localMatches.length > 0) {
+          setLoadError(null);
+        }
+        setSearchParcels(effectiveResults);
       } catch {
         if (active) {
           setSearchParcels([]);
@@ -421,7 +602,7 @@ export default function MapPage() {
     return () => {
       active = false;
     };
-  }, [debouncedSearch, searchSubmitId, polygon]);
+  }, [debouncedSearch, parcels, searchSubmitId, polygon]);
 
   useEffect(() => {
     if (!polygon) {
@@ -457,7 +638,7 @@ export default function MapPage() {
     if (parcels.length === 0) {
       return "No parcels with coordinates are available yet. Enrich parcel coordinates to enable map search and boundaries.";
     }
-    if (source === "property-db-fallback") {
+    if (source === "org-fallback") {
       return `${visibleParcels.length} of ${parcels.length} parcels (property database fallback)`;
     }
     return `${visibleParcels.length} of ${parcels.length} parcels with coordinates`;
@@ -520,13 +701,51 @@ export default function MapPage() {
                     onSubmit={handleSearchSubmit}
                     className="flex flex-col gap-1.5"
                   >
-                    <Input
-                      value={searchText}
-                      onChange={(event) => setSearchText(event.target.value)}
-                      onKeyDown={handleSearchKeyDown}
-                      placeholder="Search parcel address, d..."
-                      className="h-8 text-xs bg-map-surface border-map-border text-map-text-primary placeholder:text-map-text-muted"
-                    />
+                    <div className="relative">
+                      <Input
+                        value={searchText}
+                        onChange={(event) => {
+                          setSearchText(event.target.value);
+                          setActiveSuggestionIndex(-1);
+                        }}
+                        onKeyDown={handleSearchKeyDown}
+                        onBlur={() => {
+                          setTimeout(() => {
+                            setSuggestions([]);
+                            setActiveSuggestionIndex(-1);
+                          }, 120);
+                        }}
+                        placeholder="Search parcel address, d..."
+                        className="h-8 text-xs bg-map-surface border-map-border text-map-text-primary placeholder:text-map-text-muted"
+                      />
+                      {(isSuggestLoading || suggestions.length > 0) && (
+                        <div className="absolute z-20 mt-1 w-full rounded-md border border-map-border bg-map-surface shadow-lg">
+                          {isSuggestLoading ? (
+                            <div className="px-2 py-1.5 text-[10px] text-map-text-muted">
+                              Matching addresses...
+                            </div>
+                          ) : (
+                            <div className="max-h-44 overflow-y-auto">
+                              {suggestions.map((suggestion, index) => (
+                                <button
+                                  key={`${suggestion.id}-${index}`}
+                                  type="button"
+                                  onMouseDown={(event) => event.preventDefault()}
+                                  onClick={() => selectSuggestion(suggestion)}
+                                  className={`w-full px-2 py-1.5 text-left text-[10px] transition-colors ${
+                                    index === activeSuggestionIndex
+                                      ? "bg-map-accent/25 text-map-text-primary"
+                                      : "text-map-text-secondary hover:bg-map-surface-elevated hover:text-map-text-primary"
+                                  }`}
+                                >
+                                  {suggestion.address}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                     <Button
                       type="submit"
                       size="sm"

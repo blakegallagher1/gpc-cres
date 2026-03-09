@@ -567,7 +567,7 @@ export function MapLibreParcelMap({
 
   const { geometries, loading: geometryLoading, health: geometryHealth } = useParcelGeometry(
     parcels,
-    200,
+    80,
     viewportBounds,
   );
 

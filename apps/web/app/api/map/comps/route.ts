@@ -9,7 +9,7 @@ import {
 } from "@/lib/server/observability";
 import { getCloudflareAccessHeadersFromEnv } from "@/lib/server/propertyDbEnv";
 
-const DEFAULT_GATEWAY_TIMEOUT_MS = 10_000;
+const DEFAULT_GATEWAY_TIMEOUT_MS = 6_000;
 
 function getGatewayTimeoutMs(): number {
   const raw = Number(process.env.PROPERTY_DB_GATEWAY_TIMEOUT_MS ?? "");

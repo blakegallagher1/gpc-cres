@@ -417,7 +417,65 @@ describe("GET /api/parcels", () => {
     const res = await GET(req);
 
     expect(res.status).toBe(200);
-    expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(18);
+    expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(8);
+  });
+
+  it("caps baseline gateway fanout for non-search map loads", async () => {
+    ({ GET } = await import("./route"));
+    resolveAuthMock.mockResolvedValue({
+      userId: "99999999-9999-4999-8999-999999999999",
+      orgId: "11111111-1111-4111-8111-111111111111",
+    });
+    findManyMock.mockResolvedValue([]);
+    fetchMock.mockResolvedValue({
+      ok: true,
+      text: async () => "[]",
+      json: async () => [],
+    } as Response);
+
+    const req = new NextRequest("http://localhost/api/parcels?hasCoords=true");
+    const res = await GET(req);
+
+    expect(res.status).toBe(200);
+    expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(4);
+  });
+
+  it("returns org-scoped search matches when property-db search returns no rows", async () => {
+    ({ GET } = await import("./route"));
+    resolveAuthMock.mockResolvedValue({
+      userId: "99999999-9999-4999-8999-999999999999",
+      orgId: "11111111-1111-4111-8111-111111111111",
+    });
+    findManyMock.mockResolvedValue([
+      {
+        id: "org-parcel-1",
+        address: "7618 Copperfield Ct, Baton Rouge, LA",
+        lat: 30.421,
+        lng: -91.102,
+        acreage: 0.4,
+        floodZone: "X",
+        currentZoning: "A1",
+        propertyDbId: null,
+        deal: null,
+      },
+    ]);
+    fetchMock.mockResolvedValue({
+      ok: true,
+      text: async () => "[]",
+      json: async () => [],
+    } as Response);
+
+    const req = new NextRequest(
+      "http://localhost/api/parcels?hasCoords=true&search=7618+copperfield+ct",
+    );
+    const res = await GET(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.source).toBe("org");
+    expect(body.degraded).toBe(true);
+    expect(body.parcels.length).toBeGreaterThan(0);
+    expect(body.parcels[0].address).toContain("Copperfield");
   });
 
   it("uses LOCAL_API_URL for property-db searches when set", async () => {
