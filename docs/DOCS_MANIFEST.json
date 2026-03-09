@@ -1,0 +1,92 @@
+{
+  "version": 1,
+  "lastReviewed": "2026-03-09",
+  "canonicalEntryPoint": "docs/INDEX.md",
+  "sourceOfTruthMap": "docs/SOURCE_OF_TRUTH.md",
+  "agentProtocol": "docs/AGENT_DOCS_PROTOCOL.md",
+  "authoritativeDocs": [
+    {
+      "path": "docs/INDEX.md",
+      "topic": "documentation_navigation",
+      "owner": "platform_engineering",
+      "reviewCadenceDays": 14
+    },
+    {
+      "path": "docs/SOURCE_OF_TRUTH.md",
+      "topic": "authority_conflict_resolution",
+      "owner": "platform_engineering_lead",
+      "reviewCadenceDays": 14
+    },
+    {
+      "path": "docs/OWNERSHIP.md",
+      "topic": "doc_governance_and_review_sla",
+      "owner": "platform_engineering",
+      "reviewCadenceDays": 14
+    },
+    {
+      "path": "docs/ARCHIVE_POLICY.md",
+      "topic": "archive_and_deprecation_policy",
+      "owner": "platform_engineering",
+      "reviewCadenceDays": 14
+    },
+    {
+      "path": "docs/CHANGELOG_DOCS.md",
+      "topic": "documentation_contract_changes",
+      "owner": "platform_engineering",
+      "reviewCadenceDays": 14
+    },
+    {
+      "path": "docs/OBSERVABILITY_MONITOR.md",
+      "topic": "production_observability_operations",
+      "owner": "ops_oncall_owner",
+      "reviewCadenceDays": 14
+    },
+    {
+      "path": "docs/runbooks/INCIDENT_RESPONSE.md",
+      "topic": "incident_response_process",
+      "owner": "ops_oncall_owner",
+      "reviewCadenceDays": 14
+    },
+    {
+      "path": "docs/runbooks/RELEASE_VERIFICATION.md",
+      "topic": "release_verification_gate",
+      "owner": "release_owner",
+      "reviewCadenceDays": 14
+    },
+    {
+      "path": "docs/runbooks/API_CONTRACTS.md",
+      "topic": "active_api_contracts",
+      "owner": "backend_owner",
+      "reviewCadenceDays": 14
+    },
+    {
+      "path": "docs/AGENT_DOCS_PROTOCOL.md",
+      "topic": "agent_doc_reading_protocol",
+      "owner": "platform_engineering",
+      "reviewCadenceDays": 14
+    }
+  ],
+  "taskToDocRouting": {
+    "implementation_status": [
+      "ROADMAP.md",
+      "docs/SOURCE_OF_TRUTH.md"
+    ],
+    "architecture_and_security_contracts": [
+      "docs/SPEC.md",
+      "docs/runbooks/API_CONTRACTS.md"
+    ],
+    "incident_triage": [
+      "docs/runbooks/INCIDENT_RESPONSE.md",
+      "docs/OBSERVABILITY_MONITOR.md"
+    ],
+    "release_readiness": [
+      "docs/runbooks/RELEASE_VERIFICATION.md",
+      "ROADMAP.md"
+    ],
+    "documentation_governance": [
+      "docs/OWNERSHIP.md",
+      "docs/ARCHIVE_POLICY.md",
+      "docs/CHANGELOG_DOCS.md"
+    ]
+  }
+}
