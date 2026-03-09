@@ -16,6 +16,14 @@ Sentry.init({
   release,
   enabled: Boolean(dsn),
   tracesSampleRate: 0,
+  beforeBreadcrumb(breadcrumb) {
+    const url = typeof breadcrumb.data?.url === "string" ? breadcrumb.data.url : "";
+    if (url.includes("/api/observability/events")) {
+      return null;
+    }
+
+    return breadcrumb;
+  },
 });
 
 export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;

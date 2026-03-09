@@ -3,9 +3,13 @@
  *
  * Usage:
  *   BASE_URL=https://gallagherpropco.com \
- *   AUTH_BEARER=<jwt> \
- *   HEALTH_TOKEN=<health-token> \
- *   OBS_SESSION_COOKIE="__Secure-next-auth.session-token=..." \
+ *   OBS_AUTH_BEARER=<jwt> \
+ *   OBS_HEALTH_TOKEN=<health-token> \
+ *   OBS_SESSION_COOKIE="__Secure-authjs.session-token=..." \
+ *   OBS_SEARCH_ADDRESS="4416 HEATH DR" \
+ *   OBS_LOOP=true \
+ *   OBS_MAX_CONSECUTIVE_FAILURES=3 \
+ *   OBS_MAX_REPORTS=240 \
  *   pnpm exec tsx scripts/observability/monitor_production.ts
  *
  * Output:
@@ -15,9 +19,23 @@
 
 import path from "node:path";
 import fs from "node:fs/promises";
+import type { Dirent } from "node:fs";
 import { config } from "dotenv";
 
-config({ path: path.resolve(process.cwd(), ".env") });
+const DEFAULT_MONITOR_ENV = ".env";
+const monitorEnvFile =
+  process.env.OBS_MONITOR_ENV_FILE ??
+  process.env.MONITOR_ENV_FILE ??
+  DEFAULT_MONITOR_ENV;
+const monitorEnvPath = path.resolve(process.cwd(), monitorEnvFile);
+
+config({
+  path: monitorEnvPath,
+});
+
+if (monitorEnvPath !== path.resolve(process.cwd(), DEFAULT_MONITOR_ENV)) {
+  config({ path: path.resolve(process.cwd(), ".env"), override: false });
+}
 
 const BASE_URL = (
   process.env.BASE_URL ??
@@ -56,8 +74,24 @@ const OUTPUT_DIR = path.resolve(
 
 const ALLOW_PARTIAL = (process.env.OBS_ALLOW_PARTIAL ?? "").toLowerCase() === "true";
 const EMIT_TELEMETRY = (process.env.OBS_EMIT_TELEMETRY ?? "true").toLowerCase() !== "false";
+const OBS_LOOP = (process.env.OBS_LOOP ?? "").toLowerCase() === "true";
+const OBS_INTERVAL_MS = Number(process.env.OBS_INTERVAL_MS ?? "300000");
+const OBS_MAX_CONSECUTIVE_FAILURES = (() => {
+  const raw = Number(process.env.OBS_MAX_CONSECUTIVE_FAILURES ?? "0");
+  if (!Number.isFinite(raw) || raw <= 0) return 0;
+  return Math.floor(raw);
+})();
+const OBS_MAX_REPORTS = (() => {
+  const raw = Number(process.env.OBS_MAX_REPORTS ?? "240");
+  if (!Number.isFinite(raw) || raw < 0) return 240;
+  return Math.floor(raw);
+})();
 
 const OBS_ENDPOINT = "/api/observability/events";
+const OBS_REQUEST_TIMEOUT_MS = (() => {
+  const raw = Number(process.env.OBS_REQUEST_TIMEOUT_MS ?? "20000");
+  return Number.isFinite(raw) && raw > 0 ? raw : 20000;
+})();
 
 type StepCategory = "page" | "api" | "telemetry";
 
@@ -82,6 +116,13 @@ type FetchJsonResult = {
   headers: Headers;
 };
 
+type FetchPageResult = {
+  status: number;
+  ok: boolean;
+  location: string | null;
+  error?: string;
+};
+
 function formatTimestamp(now: Date): string {
   return now
     .toISOString()
@@ -100,6 +141,8 @@ function extractRequestId(headers: Headers): string | null {
     headers.get("x-request-id") ??
     headers.get("x-correlation-id") ??
     headers.get("x-trace-id") ??
+    headers.get("x-vercel-id") ??
+    headers.get("cf-ray") ??
     null
   );
 }
@@ -115,38 +158,91 @@ async function fetchJson(
     headers["x-health-token"] = HEALTH_TOKEN;
   }
 
-  const res = await fetch(`${BASE_URL}${pathSuffix}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), OBS_REQUEST_TIMEOUT_MS);
 
-  let data: unknown = null;
   try {
-    data = await res.json();
-  } catch {
-    const text = await res.text();
-    data = { raw: text.slice(0, 200) };
-  }
+    const res = await fetch(`${BASE_URL}${pathSuffix}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+    });
 
-  return { status: res.status, ok: res.ok, data, headers: res.headers };
+    let data: unknown = null;
+    try {
+      const text = await res.text();
+      const trimmed = text.trim();
+      if (!trimmed) {
+        data = null;
+      } else {
+        try {
+          data = JSON.parse(trimmed);
+        } catch {
+          data = { raw: trimmed.slice(0, 200) };
+        }
+      }
+    } catch {
+      data = {
+        error: "Failed to read response body",
+      };
+    }
+
+    return { status: res.status, ok: res.ok, data, headers: res.headers };
+  } catch (err) {
+    const message =
+      err instanceof Error && err.name === "AbortError"
+        ? `Request timed out after ${OBS_REQUEST_TIMEOUT_MS}ms`
+        : err instanceof Error
+          ? err.message
+          : String(err);
+    return {
+      status: 0,
+      ok: false,
+      data: { error: message, timeoutMs: OBS_REQUEST_TIMEOUT_MS },
+      headers: new Headers(),
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
-async function fetchPage(pathSuffix: string): Promise<{ status: number; ok: boolean; location: string | null }> {
+async function fetchPage(pathSuffix: string): Promise<FetchPageResult> {
   const headers: Record<string, string> = {};
   if (SESSION_COOKIE) headers["Cookie"] = SESSION_COOKIE;
 
-  const res = await fetch(`${BASE_URL}${pathSuffix}`, {
-    method: "GET",
-    headers,
-    redirect: "manual",
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), OBS_REQUEST_TIMEOUT_MS);
 
-  return {
-    status: res.status,
-    ok: res.ok,
-    location: res.headers.get("location"),
-  };
+  try {
+    const res = await fetch(`${BASE_URL}${pathSuffix}`, {
+      method: "GET",
+      headers,
+      redirect: "manual",
+      signal: controller.signal,
+    });
+
+    return {
+      status: res.status,
+      ok: res.ok,
+      location: res.headers.get("location"),
+    };
+  } catch (err) {
+    const message =
+      err instanceof Error && err.name === "AbortError"
+        ? `Request timed out after ${OBS_REQUEST_TIMEOUT_MS}ms`
+        : err instanceof Error
+          ? err.message
+          : String(err);
+    return {
+      status: 0,
+      ok: false,
+      location: null,
+      error: message,
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function summarizeParcels(data: unknown): boolean {
@@ -169,7 +265,124 @@ function addStep(lines: string[], steps: StepResult[], step: StepResult) {
   if (step.error) lines.push(`   error: ${step.error}`);
 }
 
-async function main() {
+async function sleep(ms: number) {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+type ReportEntry = {
+  runId: string;
+  mtimeMs: number;
+  paths: string[];
+};
+
+async function pruneOutputDir() {
+  if (OBS_MAX_REPORTS === 0) {
+    return { removed: 0, kept: 0, disabled: true };
+  }
+
+  let entries: Dirent[];
+  try {
+    entries = await fs.readdir(OUTPUT_DIR, { withFileTypes: true });
+  } catch (err) {
+    return {
+      removed: 0,
+      kept: 0,
+      disabled: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+
+  const runs = new Map<string, ReportEntry>();
+
+  for (const entry of entries) {
+    if (!entry.isFile()) continue;
+    const match = entry.name.match(/^monitor-(.+)\.(json|log)$/);
+    if (!match) continue;
+    const runId = match[1];
+    if (runId === "latest") continue;
+
+    const filePath = path.join(OUTPUT_DIR, entry.name);
+    let stats: { mtimeMs: number };
+    try {
+      stats = await fs.stat(filePath);
+    } catch {
+      continue;
+    }
+
+    const existing = runs.get(runId);
+    if (existing) {
+      existing.mtimeMs = Math.max(existing.mtimeMs, stats.mtimeMs);
+      existing.paths.push(filePath);
+    } else {
+      runs.set(runId, { runId, mtimeMs: stats.mtimeMs, paths: [filePath] });
+    }
+  }
+
+  const sorted = Array.from(runs.values()).sort((a, b) => b.mtimeMs - a.mtimeMs);
+  const keep = sorted.slice(0, OBS_MAX_REPORTS);
+  const remove = sorted.slice(OBS_MAX_REPORTS);
+
+  let removed = 0;
+  for (const entry of remove) {
+    for (const filePath of entry.paths) {
+      try {
+        await fs.unlink(filePath);
+        removed += 1;
+      } catch {
+        // best-effort cleanup
+      }
+    }
+  }
+
+  return { removed, kept: keep.length, disabled: false };
+}
+
+function buildMonitorSnapshot(
+  now: Date,
+  stamp: string,
+  steps: StepResult[],
+  failed: StepResult[],
+  warned: StepResult[],
+  skipped: StepResult[],
+) {
+  const summary =
+    failed.length > 0
+      ? `${failed.length} checks failed, ${warned.length} warned`
+      : warned.length > 0
+        ? `${warned.length} checks warned`
+        : "All observability checks passed";
+
+  return {
+    source: "production-monitor",
+    surface: "production",
+    status:
+      failed.length > 0
+        ? "error"
+        : warned.length > 0 || skipped.length > 0
+          ? "warn"
+          : "ok",
+    summary,
+    route: "/",
+    details: {
+      runId: stamp,
+      recordedAt: now.toISOString(),
+      totals: {
+        total: steps.length,
+        failed: failed.length,
+        warned: warned.length,
+        skipped: skipped.length,
+      },
+      failedChecks: failed.map((step) => ({
+        name: step.name,
+        status: step.status,
+        requestId: step.requestId ?? null,
+        error: step.error ?? null,
+      })),
+    },
+  };
+}
+
+async function runOnce() {
   await fs.mkdir(OUTPUT_DIR, { recursive: true });
   const now = new Date();
   const stamp = formatTimestamp(now);
@@ -181,31 +394,50 @@ async function main() {
   lines.push(`[observability-monitor] authBearer=${AUTH_BEARER ? "set" : "missing"}`);
   lines.push(`[observability-monitor] healthToken=${HEALTH_TOKEN ? "set" : "missing"}`);
   lines.push(`[observability-monitor] sessionCookie=${SESSION_COOKIE ? "set" : "missing"}`);
+  lines.push(
+    `[observability-monitor] maxConsecutiveFailures=${OBS_MAX_CONSECUTIVE_FAILURES || "disabled"}`,
+  );
+  lines.push(
+    `[observability-monitor] maxReports=${OBS_MAX_REPORTS === 0 ? "disabled" : OBS_MAX_REPORTS}`,
+  );
   lines.push("");
 
   // Public pages
   const home = await fetchPage("/");
+  const homeIsRedirect = home.status >= 300 && home.status < 400;
+  const homeHasLocation = typeof home.location === "string" && home.location.length > 0;
+  const homeOk = home.ok || (homeIsRedirect && homeHasLocation);
+  const homeWarning = homeIsRedirect
+    ? SESSION_COOKIE
+      ? `Redirected to ${home.location ?? "unknown"}`
+      : (home.location ?? "").includes("/login")
+        ? "No session cookie; verified login redirect"
+        : `Redirected to ${home.location ?? "unknown"}`
+    : undefined;
   addStep(lines, steps, {
     name: "GET /",
     method: "GET",
     url: "/",
     status: home.status,
-    ok: home.ok,
-    dataOk: home.ok,
+    ok: homeOk,
+    dataOk: homeOk,
     category: "page",
-    error: home.ok ? undefined : `Unexpected status ${home.status}`,
+    warning: homeWarning,
+    error: homeOk ? undefined : home.error ?? `Unexpected status ${home.status}`,
   });
 
   const login = await fetchPage("/login");
+  const loginOk = login.ok || login.status === 307 || login.status === 302;
   addStep(lines, steps, {
     name: "GET /login",
     method: "GET",
     url: "/login",
     status: login.status,
-    ok: login.ok,
-    dataOk: login.ok,
+    ok: loginOk,
+    dataOk: loginOk,
     category: "page",
-    error: login.ok ? undefined : `Unexpected status ${login.status}`,
+    warning: loginOk ? undefined : login.error ?? `Unexpected status ${login.status}`,
+    error: loginOk ? undefined : `Redirect target not reachable`,
   });
 
   // Protected pages: /map and /deals
@@ -229,7 +461,7 @@ async function main() {
       dataOk: ok,
       category: "page",
       warning,
-      error: ok ? undefined : `Unexpected status ${res.status}`,
+      error: ok ? undefined : res.error ?? `Unexpected status ${res.status}`,
     });
   }
 
@@ -490,6 +722,18 @@ async function main() {
     }
 
     if (EMIT_TELEMETRY) {
+      const preflightFailed = steps.filter((s) => !s.skipped && (!s.ok || !s.dataOk));
+      const preflightSkipped = steps.filter((s) => s.skipped);
+      const preflightWarned = steps.filter((s) => s.warning);
+      const monitorSnapshot = buildMonitorSnapshot(
+        now,
+        stamp,
+        steps,
+        preflightFailed,
+        preflightWarned,
+        preflightSkipped,
+      );
+
       const telemetry = await fetchJson("POST", OBS_ENDPOINT, {
         events: [
           {
@@ -501,9 +745,15 @@ async function main() {
             userAgent: "observability-monitor",
           },
         ],
+        monitorSnapshots: [monitorSnapshot],
       });
 
-      const telemetryOk = telemetry.ok && toRecord(telemetry.data)?.ok === true;
+      const telemetryObj = toRecord(telemetry.data);
+      const telemetryCounts = toRecord(telemetryObj?.counts);
+      const telemetryOk =
+        telemetry.ok &&
+        telemetryObj?.ok === true &&
+        telemetryCounts?.monitorSnapshots === 1;
 
       addStep(lines, steps, {
         name: "POST /api/observability/events",
@@ -570,6 +820,25 @@ async function main() {
   await fs.writeFile(latestPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
   await fs.writeFile(logPath, `${lines.join("\n")}\n`, "utf8");
 
+  try {
+    const retention = await pruneOutputDir();
+    if (retention.disabled) {
+      console.log("[observability-monitor] retention disabled");
+    } else if (retention.error) {
+      console.warn(`[observability-monitor] retention error: ${retention.error}`);
+    } else if (retention.removed > 0) {
+      console.log(
+        `[observability-monitor] retention removed ${retention.removed} files (kept ${retention.kept} runs)`,
+      );
+    }
+  } catch (err) {
+    console.warn(
+      `[observability-monitor] retention failed: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+  }
+
   for (const line of lines) {
     console.log(line);
   }
@@ -577,8 +846,53 @@ async function main() {
   console.log(`[observability-monitor] wrote ${jsonPath}`);
   console.log(`[observability-monitor] wrote ${logPath}`);
 
-  if ((failed.length > 0 || skipped.length > 0) && !ALLOW_PARTIAL) {
-    process.exit(1);
+  const shouldFail = (failed.length > 0 || skipped.length > 0) && !ALLOW_PARTIAL;
+
+  return {
+    shouldFail,
+    stamp,
+    jsonPath,
+    logPath,
+    report,
+  };
+}
+
+async function main() {
+  if (!OBS_LOOP) {
+    const result = await runOnce();
+    if (result.shouldFail) {
+      process.exit(1);
+    }
+    return;
+  }
+
+  console.log(`[observability-monitor] loop=true intervalMs=${OBS_INTERVAL_MS}`);
+  let consecutiveFailures = 0;
+  for (;;) {
+    try {
+      const result = await runOnce();
+      if (result.shouldFail) {
+        consecutiveFailures += 1;
+        console.error(
+          `[observability-monitor] run=${result.stamp} completed with failing checks; continuing loop`,
+        );
+      } else {
+        consecutiveFailures = 0;
+      }
+    } catch (err) {
+      consecutiveFailures += 1;
+      console.error("[observability-monitor] loop iteration failed", err);
+    }
+    if (
+      OBS_MAX_CONSECUTIVE_FAILURES > 0 &&
+      consecutiveFailures >= OBS_MAX_CONSECUTIVE_FAILURES
+    ) {
+      console.error(
+        `[observability-monitor] consecutiveFailures=${consecutiveFailures} exceeded limit=${OBS_MAX_CONSECUTIVE_FAILURES}; exiting`,
+      );
+      process.exit(1);
+    }
+    await sleep(OBS_INTERVAL_MS);
   }
 }
 
