@@ -1,7 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z, ZodError } from "zod";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import {
+  attachRequestIdHeader,
+  createRequestObservabilityContext,
+  logRequestOutcome,
+  logRequestStart,
+} from "@/lib/server/observability";
 import { getCloudflareAccessHeadersFromEnv } from "@/lib/server/propertyDbEnv";
+
+const DEFAULT_GATEWAY_TIMEOUT_MS = 10_000;
+
+function getGatewayTimeoutMs(): number {
+  const raw = Number(process.env.PROPERTY_DB_GATEWAY_TIMEOUT_MS ?? "");
+  if (Number.isFinite(raw) && raw > 0) {
+    return Math.floor(raw);
+  }
+  return DEFAULT_GATEWAY_TIMEOUT_MS;
+}
 
 function getGatewayConfig(): { url: string; key: string } | null {
   const url = process.env.LOCAL_API_URL?.trim();
@@ -10,14 +26,42 @@ function getGatewayConfig(): { url: string; key: string } | null {
   return { url, key };
 }
 
+class GatewayConfigError extends Error {
+  status: number;
+  code: "GATEWAY_UNCONFIGURED";
+  constructor(message: string) {
+    super(message);
+    this.name = "GatewayConfigError";
+    this.status = 503;
+    this.code = "GATEWAY_UNCONFIGURED";
+  }
+}
+
+class GatewayUnavailableError extends Error {
+  status: number;
+  code: "GATEWAY_UNAVAILABLE";
+  constructor(message: string, status: number = 503) {
+    super(message);
+    this.name = "GatewayUnavailableError";
+    this.status = status;
+    this.code = "GATEWAY_UNAVAILABLE";
+  }
+}
+
+function ensureGatewayConfig(): { url: string; key: string } {
+  const config = getGatewayConfig();
+  if (!config) {
+    throw new GatewayConfigError("Property database gateway is not configured");
+  }
+  return config;
+}
+
 async function propertyRpc(
   fnName: string,
-  body: Record<string, unknown>
+  body: Record<string, unknown>,
+  requestId?: string,
 ): Promise<unknown> {
-  const config = getGatewayConfig();
-  if (!config) return [];
-
-  const { url, key } = config;
+  const { url, key } = ensureGatewayConfig();
   if (fnName === "api_search_parcels") {
     const q = String(body.search_text ?? body.p_search_text ?? "").trim();
     const parish = String(body.parish ?? body.p_parish ?? "").trim();
@@ -32,14 +76,40 @@ async function propertyRpc(
       params.set("parish", parish);
     }
 
-    const res = await fetch(`${url}/api/parcels/search?${params.toString()}`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${key}`,
-        ...getCloudflareAccessHeadersFromEnv(),
-      },
-    });
-    if (!res.ok) return [];
+    let res: Response;
+    const timeoutMs = getGatewayTimeoutMs();
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      res = await fetch(`${url}/api/parcels/search?${params.toString()}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${key}`,
+          ...(requestId ? { "x-request-id": requestId } : {}),
+          ...getCloudflareAccessHeadersFromEnv(),
+        },
+        signal: controller.signal,
+      });
+    } catch (error) {
+      const reason =
+        error instanceof Error && error.name === "AbortError"
+          ? `request timed out after ${timeoutMs}ms`
+          : error instanceof Error
+            ? error.message
+            : String(error);
+      throw new GatewayUnavailableError(
+        `[api_search_parcels] request failed: ${reason}`
+      );
+    } finally {
+      clearTimeout(timeout);
+    }
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new GatewayUnavailableError(
+        `[api_search_parcels] upstream ${res.status}: ${text.slice(0, 200)}`,
+        res.status >= 500 ? 502 : 503
+      );
+    }
     try {
       const payload = (await res.json()) as {
         data?: unknown[];
@@ -47,9 +117,14 @@ async function propertyRpc(
       };
       if (Array.isArray(payload.data)) return payload.data;
       if (Array.isArray(payload.parcels)) return payload.parcels;
-      return [];
-    } catch {
-      return [];
+      throw new GatewayUnavailableError(
+        `[api_search_parcels] invalid payload shape`
+      );
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new GatewayUnavailableError(
+        `[api_search_parcels] invalid JSON: ${reason}`
+      );
     }
   }
 
@@ -59,20 +134,46 @@ async function propertyRpc(
     const limit = Number(body.limit ?? 100);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return [];
 
-    const res = await fetch(`${url}/tools/parcel.point`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${key}`,
-        "Content-Type": "application/json",
-        ...getCloudflareAccessHeadersFromEnv(),
-      },
-      body: JSON.stringify({
-        lat,
-        lng,
-        limit: Number.isFinite(limit) ? Math.max(1, Math.min(100, limit)) : 100,
-      }),
-    });
-    if (!res.ok) return [];
+    let res: Response;
+    const timeoutMs = getGatewayTimeoutMs();
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      res = await fetch(`${url}/tools/parcel.point`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${key}`,
+          "Content-Type": "application/json",
+          ...(requestId ? { "x-request-id": requestId } : {}),
+          ...getCloudflareAccessHeadersFromEnv(),
+        },
+        body: JSON.stringify({
+          lat,
+          lng,
+          limit: Number.isFinite(limit) ? Math.max(1, Math.min(100, limit)) : 100,
+        }),
+        signal: controller.signal,
+      });
+    } catch (error) {
+      const reason =
+        error instanceof Error && error.name === "AbortError"
+          ? `request timed out after ${timeoutMs}ms`
+          : error instanceof Error
+            ? error.message
+            : String(error);
+      throw new GatewayUnavailableError(
+        `[api_search_parcels_point] request failed: ${reason}`
+      );
+    } finally {
+      clearTimeout(timeout);
+    }
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new GatewayUnavailableError(
+        `[api_search_parcels_point] upstream ${res.status}: ${text.slice(0, 200)}`,
+        res.status >= 500 ? 502 : 503
+      );
+    }
     try {
       const payload = (await res.json()) as {
         parcels?: unknown[];
@@ -80,12 +181,19 @@ async function propertyRpc(
       };
       if (Array.isArray(payload.parcels)) return payload.parcels;
       if (Array.isArray(payload.data)) return payload.data;
-      return [];
-    } catch {
-      return [];
+      throw new GatewayUnavailableError(
+        `[api_search_parcels_point] invalid payload shape`
+      );
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new GatewayUnavailableError(
+        `[api_search_parcels_point] invalid JSON: ${reason}`
+      );
     }
   }
-  return [];
+  throw new GatewayUnavailableError(
+    `[${fnName}] unsupported property RPC`
+  );
 }
 
 const QuerySchema = z
@@ -121,12 +229,37 @@ function asNumber(value: unknown): number | null {
  * Returns parcels with sale price, date, acreage, and coordinates.
  */
 export async function GET(req: NextRequest) {
-  const auth = await resolveAuth(req);
+  const context = createRequestObservabilityContext(req, "/api/map/comps");
+  const addressParam = req.nextUrl.searchParams.get("address")?.trim() ?? "";
+  const hasAddress = addressParam.length > 0;
+  const hasLatLng = req.nextUrl.searchParams.has("lat") && req.nextUrl.searchParams.has("lng");
+  const radiusMilesProvided = req.nextUrl.searchParams.has("radiusMiles");
+  const baseDetails = {
+    hasAddress,
+    hasLatLng,
+    radiusMilesProvided,
+  };
+
+  await logRequestStart(context, baseDetails);
+
+  let auth: Awaited<ReturnType<typeof resolveAuth>> | null = null;
+
+  const withRequestId = (response: NextResponse) =>
+    attachRequestIdHeader(response, context.requestId);
+
+  auth = await resolveAuth(req);
   if (!auth) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    await logRequestOutcome(context, { status: 401, details: baseDetails });
+    return withRequestId(NextResponse.json({ error: "Unauthorized" }, { status: 401 }));
   }
   if (!auth.orgId) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    await logRequestOutcome(context, {
+      status: 403,
+      orgId: auth.orgId ?? null,
+      userId: auth.userId ?? null,
+      details: baseDetails,
+    });
+    return withRequestId(NextResponse.json({ error: "Forbidden" }, { status: 403 }));
   }
 
   let input: z.infer<typeof QuerySchema>;
@@ -136,19 +269,51 @@ export async function GET(req: NextRequest) {
     );
   } catch (err) {
     if (err instanceof ZodError) {
-      return NextResponse.json(
-        { error: "Validation failed", details: err.flatten().fieldErrors },
-        { status: 400 }
+      await logRequestOutcome(context, {
+        status: 400,
+        orgId: auth.orgId,
+        userId: auth.userId,
+        details: {
+          ...baseDetails,
+          validationError: true,
+        },
+      });
+      return withRequestId(
+        NextResponse.json(
+          { error: "Validation failed", details: err.flatten().fieldErrors },
+          { status: 400 }
+        )
       );
     }
-    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+    await logRequestOutcome(context, {
+      status: 400,
+      orgId: auth.orgId,
+      userId: auth.userId,
+      details: {
+        ...baseDetails,
+        validationError: true,
+      },
+    });
+    return withRequestId(NextResponse.json({ error: "Invalid request" }, { status: 400 }));
   }
 
   const address = input.address;
   const lat = input.lat;
   const lng = input.lng;
+  const requestDetails = {
+    ...baseDetails,
+    hasAddress: Boolean(address),
+    hasLatLng: typeof lat === "number" && typeof lng === "number",
+    radiusMiles: input.radiusMiles,
+  };
+  let usedPointSearch = false;
+  let usedPointFallback = false;
+  let filteredByRadius = false;
 
   try {
+    // Fail fast if the property DB gateway is not configured.
+    ensureGatewayConfig();
+
     // Build search text from address or reverse-geocode location
     const searchText = address
       ? address.replace(/[''`,.#]/g, "").replace(/\s+/g, " ").trim()
@@ -158,28 +323,41 @@ export async function GET(req: NextRequest) {
 
     if (searchText) {
       // Search by address text
-      const raw = await propertyRpc("api_search_parcels", {
-        search_text: searchText,
-        parish: null,
-        limit_rows: 50,
-      });
+      const raw = await propertyRpc(
+        "api_search_parcels",
+        {
+          search_text: searchText,
+          parish: null,
+          limit_rows: 50,
+        },
+        context.requestId,
+      );
       result = Array.isArray(raw) ? (raw as Record<string, unknown>[]) : [];
     } else {
+      usedPointSearch = true;
       // Search by coordinates — use the search with a generic term and filter by distance
       // The property DB doesn't have a radius search, so we search with empty text
       // and rely on coordinates. For now, just return parcels near the point.
-      const raw = await propertyRpc("api_search_parcels", {
-        search_text: `${lat},${lng}`,
-        parish: null,
-        limit_rows: 100,
-      });
+      const raw = await propertyRpc(
+        "api_search_parcels",
+        {
+          search_text: `${lat},${lng}`,
+          parish: null,
+          limit_rows: 100,
+        },
+        context.requestId,
+      );
       let mapped = Array.isArray(raw) ? (raw as Record<string, unknown>[]) : [];
       if (mapped.length === 0 && typeof lat === "number" && typeof lng === "number") {
-        const pointRaw = await propertyRpc("api_search_parcels_point", {
-          lat,
-          lng,
-          limit: 100,
-        });
+        const pointRaw = await propertyRpc(
+          "api_search_parcels_point",
+          {
+            lat,
+            lng,
+            limit: 100,
+          },
+          context.requestId,
+        );
         mapped = Array.isArray(pointRaw)
           ? (pointRaw as Record<string, unknown>[])
           : [];
@@ -193,11 +371,16 @@ export async function GET(req: NextRequest) {
       typeof lat === "number" &&
       typeof lng === "number"
     ) {
-      const pointRaw = await propertyRpc("api_search_parcels_point", {
-        lat,
-        lng,
-        limit: 100,
-      });
+      usedPointFallback = true;
+      const pointRaw = await propertyRpc(
+        "api_search_parcels_point",
+        {
+          lat,
+          lng,
+          limit: 100,
+        },
+        context.requestId,
+      );
       result = Array.isArray(pointRaw)
         ? (pointRaw as Record<string, unknown>[])
         : [];
@@ -241,6 +424,7 @@ export async function GET(req: NextRequest) {
       const radiusMiles = input.radiusMiles;
       const radiusKm = radiusMiles * 1.60934;
 
+      filteredByRadius = true;
       const filtered = comps.filter((c) => {
         const dLat = ((c.lat - centerLat) * Math.PI) / 180;
         const dLng = ((c.lng - centerLng) * Math.PI) / 180;
@@ -253,15 +437,76 @@ export async function GET(req: NextRequest) {
         return distKm <= radiusKm;
       });
 
-      return NextResponse.json({ comps: filtered });
+      await logRequestOutcome(context, {
+        status: 200,
+        orgId: auth.orgId,
+        userId: auth.userId,
+        upstream: "property-db",
+        resultCount: filtered.length,
+        details: {
+          ...requestDetails,
+          usedPointSearch,
+          usedPointFallback,
+          filteredByRadius,
+        },
+      });
+      return withRequestId(NextResponse.json({ comps: filtered }));
     }
 
-    return NextResponse.json({ comps });
+    await logRequestOutcome(context, {
+      status: 200,
+      orgId: auth.orgId,
+      userId: auth.userId,
+      upstream: "property-db",
+      resultCount: comps.length,
+      details: {
+        ...requestDetails,
+        usedPointSearch,
+        usedPointFallback,
+        filteredByRadius,
+      },
+    });
+    return withRequestId(NextResponse.json({ comps }));
   } catch (error) {
+    if (error instanceof GatewayConfigError || error instanceof GatewayUnavailableError) {
+      console.error("[map-comps-route][gateway]", error);
+      await logRequestOutcome(context, {
+        status: 200,
+        orgId: auth?.orgId ?? null,
+        userId: auth?.userId ?? null,
+        upstream: "property-db-fallback",
+        details: {
+          ...requestDetails,
+          errorCode: error.code,
+          degraded: true,
+        },
+      });
+      return withRequestId(
+        NextResponse.json(
+          {
+            comps: [],
+            degraded: true,
+            warning: "Property database unavailable; returning empty comps.",
+            code: error.code,
+          },
+          { status: 200 },
+        ),
+      );
+    }
     console.error("[map-comps-route]", error);
-    return NextResponse.json(
-      { error: "Failed to search comparables" },
-      { status: 500 }
+    await logRequestOutcome(context, {
+      status: 500,
+      orgId: auth?.orgId ?? null,
+      userId: auth?.userId ?? null,
+      upstream: "property-db",
+      error,
+      details: requestDetails,
+    });
+    return withRequestId(
+      NextResponse.json(
+        { error: "Failed to search comparables" },
+        { status: 500 }
+      )
     );
   }
 }

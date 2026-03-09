@@ -21,6 +21,7 @@ describe("GET /api/map/comps", () => {
     key: process.env.LOCAL_API_KEY,
     accessClientId: process.env.CF_ACCESS_CLIENT_ID,
     accessClientSecret: process.env.CF_ACCESS_CLIENT_SECRET,
+    gatewayTimeout: process.env.PROPERTY_DB_GATEWAY_TIMEOUT_MS,
   };
 
   beforeEach(() => {
@@ -33,6 +34,7 @@ describe("GET /api/map/comps", () => {
     process.env.LOCAL_API_KEY = "test-key";
     process.env.CF_ACCESS_CLIENT_ID = "client-id.access";
     process.env.CF_ACCESS_CLIENT_SECRET = "client-secret";
+    process.env.PROPERTY_DB_GATEWAY_TIMEOUT_MS = "";
   });
 
   afterEach(() => {
@@ -40,6 +42,7 @@ describe("GET /api/map/comps", () => {
     process.env.LOCAL_API_KEY = priorEnv.key;
     process.env.CF_ACCESS_CLIENT_ID = priorEnv.accessClientId;
     process.env.CF_ACCESS_CLIENT_SECRET = priorEnv.accessClientSecret;
+    process.env.PROPERTY_DB_GATEWAY_TIMEOUT_MS = priorEnv.gatewayTimeout;
   });
 
   it("returns 401 when unauthenticated", async () => {
@@ -50,6 +53,7 @@ describe("GET /api/map/comps", () => {
     const body = await res.json();
 
     expect(res.status).toBe(401);
+    expect(res.headers.get("x-request-id")).toBeTruthy();
     expect(body).toEqual({ error: "Unauthorized" });
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -103,6 +107,7 @@ describe("GET /api/map/comps", () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
+    expect(res.headers.get("x-request-id")).toBeTruthy();
     expect(body.comps).toHaveLength(1);
     expect(body.comps[0]).toMatchObject({
       id: "parcel-1",
@@ -119,6 +124,7 @@ describe("GET /api/map/comps", () => {
         Authorization: "Bearer test-key",
         "CF-Access-Client-Id": "client-id.access",
         "CF-Access-Client-Secret": "client-secret",
+        "x-request-id": expect.any(String),
       }),
     });
   });
@@ -154,5 +160,75 @@ describe("GET /api/map/comps", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[1]?.[0]).toBe("http://property-db.test/tools/parcel.point");
     expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({ method: "POST" });
+  });
+
+  it("returns degraded empty comps when gateway configuration is missing", async () => {
+    process.env.LOCAL_API_URL = "";
+    process.env.LOCAL_API_KEY = "";
+    resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
+
+    const req = new NextRequest("http://localhost/api/map/comps?address=123+Main+St");
+    const res = await GET(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.degraded).toBe(true);
+    expect(body.comps).toEqual([]);
+    expect(body.code).toBe("GATEWAY_UNCONFIGURED");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("returns degraded empty comps when upstream responds with error", async () => {
+    resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 502,
+      text: async () => "bad upstream",
+    } as Response);
+
+    const req = new NextRequest("http://localhost/api/map/comps?address=123+Main+St");
+    const res = await GET(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.degraded).toBe(true);
+    expect(body.warning).toContain("Property database unavailable");
+    expect(body.comps).toEqual([]);
+    expect(body.code).toBe("GATEWAY_UNAVAILABLE");
+  });
+
+  it("returns degraded empty comps for invalid payload shape", async () => {
+    resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ ok: true, unexpected: [] }),
+    } as Response);
+
+    const req = new NextRequest("http://localhost/api/map/comps?address=123+Main+St");
+    const res = await GET(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.degraded).toBe(true);
+    expect(body.comps).toEqual([]);
+    expect(body.code).toBe("GATEWAY_UNAVAILABLE");
+  });
+
+  it("returns degraded empty comps when upstream request times out", async () => {
+    resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
+    process.env.PROPERTY_DB_GATEWAY_TIMEOUT_MS = "1234";
+    const abortError = Object.assign(new Error("The operation was aborted"), {
+      name: "AbortError",
+    });
+    fetchMock.mockRejectedValue(abortError);
+
+    const req = new NextRequest("http://localhost/api/map/comps?address=123+Main+St");
+    const res = await GET(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.degraded).toBe(true);
+    expect(body.comps).toEqual([]);
+    expect(body.code).toBe("GATEWAY_UNAVAILABLE");
   });
 });

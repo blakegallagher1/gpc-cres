@@ -78,6 +78,7 @@ describe("GET /api/parcels", () => {
     const body = await res.json();
 
     expect(res.status).toBe(401);
+    expect(res.headers.get("x-request-id")).toBeTruthy();
     expect(body).toEqual({ error: "Unauthorized" });
   });
 
@@ -107,6 +108,7 @@ describe("GET /api/parcels", () => {
 
     expect(res.status).toBe(200);
     expect(body.source).toBe("org");
+    expect(res.headers.get("x-request-id")).toBeTruthy();
     expect(body.parcels).toHaveLength(1);
     expect(findManyMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).not.toHaveBeenCalled();
@@ -179,7 +181,7 @@ describe("GET /api/parcels", () => {
     expect(body.parcels[0].propertyDbId).toBe("external-1");
   });
 
-  it("fails closed when gateway config is unavailable for gateway-backed parcel queries", async () => {
+  it("returns degraded org fallback when gateway config is unavailable for gateway-backed parcel queries", async () => {
     logPropertyDbRuntimeHealthMock.mockReturnValueOnce(null);
     ({ GET } = await import("./route"));
     resolveAuthMock.mockResolvedValue({
@@ -192,11 +194,9 @@ describe("GET /api/parcels", () => {
     const res = await GET(req);
     const body = await res.json();
 
-    expect(res.status).toBe(503);
-    expect(body).toEqual({
-      error: "Property database unavailable",
-      code: "GATEWAY_UNAVAILABLE",
-    });
+    expect(res.status).toBe(200);
+    expect(body.source).toBe("org-fallback");
+    expect(body.degraded).toBe(true);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -366,21 +366,58 @@ describe("GET /api/parcels", () => {
     expect(fetchMock).toHaveBeenCalled();
   });
 
-  it("returns 503 when property-db gateway rejects all requests", async () => {
+  it("returns org fallback parcels when property-db gateway rejects all requests", async () => {
     ({ GET } = await import("./route"));
     resolveAuthMock.mockResolvedValue({
       userId: "99999999-9999-4999-8999-999999999999",
       orgId: "11111111-1111-4111-8111-111111111111",
     });
-    findManyMock.mockResolvedValue([]);
+    findManyMock.mockResolvedValue([
+      {
+        id: "org-fallback-1",
+        address: "123 Org Fallback St",
+        lat: 30.45,
+        lng: -91.19,
+        acreage: 1.5,
+        floodZone: "X",
+        currentZoning: "C2",
+        propertyDbId: "org-fallback-uid-1",
+        deal: null,
+      },
+    ]);
     fetchMock.mockRejectedValue(new Error("network failure"));
 
     const req = new NextRequest("http://localhost/api/parcels?hasCoords=true&search=123");
     const res = await GET(req);
     const body = await res.json();
 
-    expect(res.status).toBe(503);
-    expect(body.code).toBe("GATEWAY_UNAVAILABLE");
+    expect(res.status).toBe(200);
+    expect(body.source).toBe("org-fallback");
+    expect(body.degraded).toBe(true);
+    expect(Array.isArray(body.parcels)).toBe(true);
+    expect(body.parcels.length).toBeGreaterThan(0);
+  });
+
+  it("caps gateway fallback fanout for search requests", async () => {
+    ({ GET } = await import("./route"));
+    resolveAuthMock.mockResolvedValue({
+      userId: "99999999-9999-4999-8999-999999999999",
+      orgId: "11111111-1111-4111-8111-111111111111",
+    });
+    findManyMock.mockResolvedValue([]);
+    fetchMock.mockResolvedValue({
+      ok: true,
+      text: async () => "[]",
+      json: async () => [],
+    } as Response);
+
+    const req = new NextRequest(
+      "http://localhost/api/parcels?hasCoords=true&search=1234+Long+Address+Name+Baton+Rouge+Louisiana",
+    );
+    const res = await GET(req);
+
+    expect(res.status).toBe(200);
+    expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(18);
   });
 
   it("uses LOCAL_API_URL for property-db searches when set", async () => {
@@ -431,7 +468,7 @@ describe("GET /api/parcels", () => {
     expect(fetchMock).toHaveBeenCalled();
   });
 
-  it("fails closed when gateway config is missing", async () => {
+  it("uses org fallback when gateway config is missing", async () => {
     ({ GET } = await import("./route"));
     requireGatewayConfigMock.mockImplementation(() => {
       throw new Error("missing gateway config");
@@ -441,15 +478,28 @@ describe("GET /api/parcels", () => {
       userId: "99999999-9999-4999-8999-999999999999",
       orgId: "11111111-1111-4111-8111-111111111111",
     });
-    findManyMock.mockResolvedValue([]);
+    findManyMock.mockResolvedValue([
+      {
+        id: "org-fallback-2",
+        address: "456 Org Fallback Ave",
+        lat: 30.41,
+        lng: -91.11,
+        acreage: 2.2,
+        floodZone: "X",
+        currentZoning: "C1",
+        propertyDbId: "org-fallback-uid-2",
+        deal: null,
+      },
+    ]);
 
     const req = new NextRequest("http://localhost/api/parcels?hasCoords=true");
     const res = await GET(req);
     const body = await res.json();
 
-    expect(res.status).toBe(503);
-    expect(body.code).toBe("GATEWAY_UNAVAILABLE");
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(res.status).toBe(200);
+    expect(body.source).toBe("org-fallback");
+    expect(body.degraded).toBe(true);
+    expect(body.parcels.length).toBeGreaterThan(0);
   });
 
   // Dev fallback tests removed — isDevParcelFallbackEnabled() permanently returns false.

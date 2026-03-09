@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { prismaRead } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import {
+  attachRequestIdHeader,
+  createRequestObservabilityContext,
+  logRequestOutcome,
+  logRequestStart,
+} from "@/lib/server/observability";
+import {
   getCloudflareAccessHeadersFromEnv,
   logPropertyDbRuntimeHealth,
   requireGatewayConfig,
@@ -22,6 +28,7 @@ const PROPERTY_DB_SEARCH_TERMS = [
   "West Baton Rouge",
   "Iberville",
 ] as const;
+const MAX_SEARCH_FALLBACK_QUERIES = 18;
 
 class GatewayUnavailableError extends Error {
   status: number;
@@ -479,17 +486,68 @@ async function searchPropertyDbParcels(
   return gatewaySearchParcels(q, limit);
 }
 
+function hasLatLng(parcel: Record<string, unknown>): boolean {
+  return (
+    typeof parcel.lat === "number" &&
+    Number.isFinite(parcel.lat) &&
+    typeof parcel.lng === "number" &&
+    Number.isFinite(parcel.lng)
+  );
+}
+
+async function fetchOrgFallbackParcels(
+  orgId: string,
+  searchText: string,
+): Promise<Record<string, unknown>[]> {
+  const parcels = await prismaRead.parcel.findMany({
+    where: { orgId },
+    include: {
+      deal: {
+        select: { id: true, name: true, sku: true, status: true },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 500,
+  });
+
+  const asRecords = parcels as Record<string, unknown>[];
+  const withCoords = asRecords.filter(hasLatLng);
+  if (!searchText) {
+    return withCoords.slice(0, 500);
+  }
+
+  const filtered = withCoords.filter((parcel) =>
+    matchesSearchQuery(parcel, searchText),
+  );
+  return (filtered.length > 0 ? filtered : withCoords).slice(0, 500);
+}
+
 // GET /api/parcels - list parcels across all deals
 export async function GET(request: NextRequest) {
-  try {
-    const auth = await resolveAuth(request);
-    if (!auth) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  const context = createRequestObservabilityContext(request, "/api/parcels");
+  const withRequestId = (response: NextResponse) => attachRequestIdHeader(response, context.requestId);
+  const hasCoords = request.nextUrl.searchParams.get("hasCoords") === "true";
+  const searchText = request.nextUrl.searchParams.get("search")?.trim() ?? "";
+  const hasSearch = searchText.length > 0;
+  const requiresGateway = hasCoords || hasSearch;
+  const baseDetails = {
+    hasCoords,
+    hasSearch,
+    searchLength: searchText.length,
+    requiresGateway,
+  };
 
-    const hasCoords = request.nextUrl.searchParams.get("hasCoords") === "true";
-    const searchText = request.nextUrl.searchParams.get("search")?.trim() ?? "";
-    const requiresGateway = hasCoords || searchText.length > 0;
+  await logRequestStart(context, baseDetails);
+
+  let auth: Awaited<ReturnType<typeof resolveAuth>> | null = null;
+  let fallbackQueryCount = 0;
+
+  try {
+    auth = await resolveAuth(request);
+    if (!auth) {
+      await logRequestOutcome(context, { status: 401, details: baseDetails });
+      return withRequestId(NextResponse.json({ error: "Unauthorized" }, { status: 401 }));
+    }
 
     if (!requiresGateway) {
       const where: Record<string, unknown> = { orgId: auth.orgId };
@@ -509,20 +567,43 @@ export async function GET(request: NextRequest) {
           searchText,
           parcelCount: parcels.length,
         });
-        return NextResponse.json({ parcels, source: "org" });
+        await logRequestOutcome(context, {
+          status: 200,
+          orgId: auth.orgId,
+          userId: auth.userId,
+          upstream: "org",
+          resultCount: parcels.length,
+          details: {
+            ...baseDetails,
+            source: "org",
+          },
+        });
+        return withRequestId(NextResponse.json({ parcels, source: "org" }));
       } catch (error) {
         if (isPrismaConnectivityError(error)) {
           console.error(
             "[/api/parcels] prisma unavailable for org parcels",
             error,
           );
-          return NextResponse.json(
+          await logRequestOutcome(context, {
+            status: 503,
+            orgId: auth.orgId,
+            userId: auth.userId,
+            upstream: "org",
+            error,
+            details: {
+              ...baseDetails,
+              source: "org",
+              reason: "prisma_unavailable",
+            },
+          });
+          return withRequestId(NextResponse.json(
             {
               error: "Parcel store unavailable",
               code: "ORG_DATA_UNAVAILABLE",
             },
             { status: 503 },
-          );
+          ));
         }
         throw error;
       }
@@ -531,12 +612,14 @@ export async function GET(request: NextRequest) {
     const fallbackQueries: Array<() => Promise<unknown[]>> = searchText
       ? Array.from(
           new Set([...buildSearchTerms(searchText), ...normalizeParcelCandidate(searchText)]),
-        ).flatMap((term) => [
-          () => searchPropertyDbParcels(term, undefined, 180),
-          ...PROPERTY_DB_PARISHES.map((parish) =>
-            () => searchPropertyDbParcels(term, parish, 120),
-          ),
-        ])
+        )
+          .flatMap((term) => [
+            () => searchPropertyDbParcels(term, undefined, 180),
+            ...PROPERTY_DB_PARISHES.map((parish) =>
+              () => searchPropertyDbParcels(term, parish, 120),
+            ),
+          ])
+          .slice(0, MAX_SEARCH_FALLBACK_QUERIES)
       : [
           ...PROPERTY_DB_PARISHES.map((parish) =>
             () => searchPropertyDbParcels("*", parish, 150),
@@ -546,6 +629,7 @@ export async function GET(request: NextRequest) {
           ),
           () => searchPropertyDbParcels("*", undefined, 200),
         ];
+    fallbackQueryCount = fallbackQueries.length;
 
     const gatewayConfig = logPropertyDbRuntimeHealth("/api/parcels");
     if (!gatewayConfig) {
@@ -588,13 +672,27 @@ export async function GET(request: NextRequest) {
         searchText,
         externalRowCount: 0,
       });
-      return NextResponse.json({
+      await logRequestOutcome(context, {
+        status: 200,
+        orgId: auth.orgId,
+        userId: auth.userId,
+        upstream: "property-db",
+        resultCount: 0,
+        details: {
+          ...baseDetails,
+          source: "property-db",
+          fallbackQueryCount,
+          externalRowCount: 0,
+          emptyResult: true,
+        },
+      });
+      return withRequestId(NextResponse.json({
         parcels: [],
         source: "property-db",
         error: searchText
           ? "No matches found for the provided search terms."
           : "No parcels found in this region.",
-      });
+      }));
     }
 
     const mappedExternal = externalRows
@@ -649,19 +747,84 @@ export async function GET(request: NextRequest) {
       ).length,
     });
 
-    return NextResponse.json({ parcels: deduped, source: "property-db" });
+    await logRequestOutcome(context, {
+      status: 200,
+      orgId: auth.orgId,
+      userId: auth.userId,
+      upstream: "property-db",
+      resultCount: deduped.length,
+      details: {
+        ...baseDetails,
+        source: "property-db",
+        fallbackQueryCount,
+        externalRowCount: externalRows.length,
+        mappedCount: mappedExternal.length,
+        filteredCount: filteredExternal.length,
+        dedupedCount: deduped.length,
+      },
+    });
+    return withRequestId(NextResponse.json({ parcels: deduped, source: "property-db" }));
   } catch (error) {
     if (isGatewayUnavailableError(error)) {
       console.error("[/api/parcels] property DB unavailable", error);
-      return NextResponse.json(
+      if (auth?.orgId) {
+        try {
+          const orgFallback = await fetchOrgFallbackParcels(auth.orgId, searchText);
+          await logRequestOutcome(context, {
+            status: 200,
+            orgId: auth.orgId,
+            userId: auth.userId,
+            upstream: "org-fallback",
+            resultCount: orgFallback.length,
+            details: {
+              ...baseDetails,
+              fallbackQueryCount,
+              source: "org-fallback",
+              degraded: true,
+              gatewayUnavailable: true,
+            },
+          });
+          return withRequestId(
+            NextResponse.json({
+              parcels: orgFallback,
+              source: "org-fallback",
+              degraded: true,
+              warning: "Property database unavailable; returned org-scoped fallback parcels.",
+            }),
+          );
+        } catch (fallbackError) {
+          console.error("[/api/parcels] org fallback failed", fallbackError);
+        }
+      }
+      await logRequestOutcome(context, {
+        status: error.status ?? 503,
+        orgId: auth?.orgId ?? null,
+        userId: auth?.userId ?? null,
+        upstream: "property-db",
+        error,
+        details: {
+          ...baseDetails,
+          fallbackQueryCount,
+          gatewayConfigured: false,
+        },
+      });
+      return withRequestId(NextResponse.json(
         { error: "Property database unavailable", code: "GATEWAY_UNAVAILABLE" },
         { status: error.status ?? 503 },
-      );
+      ));
     }
     console.error("Error fetching parcels:", error);
-    return NextResponse.json(
+    await logRequestOutcome(context, {
+      status: 500,
+      orgId: auth?.orgId ?? null,
+      userId: auth?.userId ?? null,
+      upstream: requiresGateway ? "property-db" : "org",
+      error,
+      details: baseDetails,
+    });
+    return withRequestId(NextResponse.json(
       { error: "Failed to fetch parcels" },
       { status: 500 }
-    );
+    ));
   }
 }
