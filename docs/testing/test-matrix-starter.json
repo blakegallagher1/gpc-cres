@@ -795,74 +795,10 @@
       "notes": ""
     },
     {
-      "id": "api_route:external/chatgpt-apps/amenities-cache",
-      "type": "api_route",
-      "name": "external/chatgpt-apps/amenities-cache",
-      "path": "apps/web/app/api/external/chatgpt-apps/amenities-cache/route.ts",
-      "risk_tier": "P0",
-      "owner": "TBD",
-      "status": "todo",
-      "required_tests": [
-        "contract",
-        "security",
-        "integration",
-        "resilience"
-      ],
-      "notes": ""
-    },
-    {
-      "id": "api_route:external/chatgpt-apps/parcel-dimensions",
-      "type": "api_route",
-      "name": "external/chatgpt-apps/parcel-dimensions",
-      "path": "apps/web/app/api/external/chatgpt-apps/parcel-dimensions/route.ts",
-      "risk_tier": "P0",
-      "owner": "TBD",
-      "status": "todo",
-      "required_tests": [
-        "contract",
-        "security",
-        "integration",
-        "resilience"
-      ],
-      "notes": ""
-    },
-    {
       "id": "api_route:parcels/[parcelId]/geometry",
       "type": "api_route",
       "name": "parcels/[parcelId]/geometry",
       "path": "apps/web/app/api/parcels/[parcelId]/geometry/route.ts",
-      "risk_tier": "P0",
-      "owner": "TBD",
-      "status": "todo",
-      "required_tests": [
-        "contract",
-        "security",
-        "integration",
-        "resilience"
-      ],
-      "notes": ""
-    },
-    {
-      "id": "api_route:external/chatgpt-apps/zoning-by-parcel",
-      "type": "api_route",
-      "name": "external/chatgpt-apps/zoning-by-parcel",
-      "path": "apps/web/app/api/external/chatgpt-apps/zoning-by-parcel/route.ts",
-      "risk_tier": "P0",
-      "owner": "TBD",
-      "status": "todo",
-      "required_tests": [
-        "contract",
-        "security",
-        "integration",
-        "resilience"
-      ],
-      "notes": ""
-    },
-    {
-      "id": "api_route:external/chatgpt-apps/zoning-by-point",
-      "type": "api_route",
-      "name": "external/chatgpt-apps/zoning-by-point",
-      "path": "apps/web/app/api/external/chatgpt-apps/zoning-by-point/route.ts",
       "risk_tier": "P0",
       "owner": "TBD",
       "status": "todo",

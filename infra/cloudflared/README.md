@@ -2,7 +2,7 @@
 
 This document is for **legacy historical reference only**.
 
-The authoritative setup is documented in [`docs/CLOUDFLARE.md`](/docs/CLOUDFLARE.md) and should be treated as current truth:
+The authoritative setup is documented in [`docs/CLOUDFLARE.md`](../../docs/CLOUDFLARE.md) and should be treated as current truth:
 - Single tunnel: `gpc-hp-tunnel`
 - `api.gallagherpropco.com` and `tiles.gallagherpropco.com` over one Cloudflare tunnel
 - Current API/tiles port and proxy assumptions as noted in that document
@@ -61,4 +61,4 @@ sudo cloudflared service install
 | FastAPI 8000 | Only via Cloudflare tunnel |
 | Martin 3000 | Only via Cloudflare tunnel |
 
-See `docs/CLOUDFLARE.md` for the current authoritative setup including remote DB access.
+See [`docs/CLOUDFLARE.md`](../../docs/CLOUDFLARE.md) for the current authoritative setup including remote DB access.

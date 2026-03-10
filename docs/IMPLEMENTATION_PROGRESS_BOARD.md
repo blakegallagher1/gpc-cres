@@ -2,9 +2,13 @@
 
 Last reviewed: 2026-02-19
 
+> **Status: Archived snapshot (non-authoritative).**
+> This progress board is retained for historical audit context and may not match current production status.
+> Use `ROADMAP.md` for current implementation status.
+
 
 Date generated: 2026-02-19
-Primary goal for this pass: track security/tenant-isolation hardening completion and maintain continuity with earlier roadmap execution.
+Primary goal for this pass: track historical security/tenant-isolation hardening completion and maintain continuity with earlier roadmap execution.
 
 ## 2026-02-19 security and isolation hardening
 
@@ -24,9 +28,9 @@ Primary goal for this pass: track security/tenant-isolation hardening completion
 - `pnpm test` passed
 - `pnpm build` passed
 
-### Operational follow-up
+### Historical follow-up (archived)
 
-- Dashboard-side Supabase Pro operations still required:
+- Legacy dashboard-side Supabase Pro operational follow-up items were retired after architecture transition:
   - read replica provisioning
   - PITR validation drill
   - spend caps and alerting

@@ -6,7 +6,7 @@ This guide walks through setting up a Cloudflare Tunnel to securely expose your 
 
 **Architecture:**
 ```
-Vercel → Cloudflare Edge → Cloudflare Tunnel (cloudflared) → Local API Server :8080 → PostgreSQL/Martin
+Vercel → Cloudflare Edge → Cloudflare Tunnel (cloudflared) → Local API Server :8000 → PostgreSQL/Martin
 ```
 
 **Benefits:**
@@ -22,7 +22,7 @@ Vercel → Cloudflare Edge → Cloudflare Tunnel (cloudflared) → Local API Ser
 
 - Cloudflare account (free tier works)
 - Domain managed by Cloudflare DNS (e.g., `gallagherpropco.com`)
-- Local API server running (`python main.py` on port 8080)
+- Local API server running (`python main.py` on port 8000)
 - PostgreSQL and Martin running locally
 
 ---
@@ -86,7 +86,7 @@ credentials-file: /Users/YOUR_USERNAME/.cloudflared/YOUR_TUNNEL_ID_HERE.json
 ingress:
   # Route api.gallagherpropco.com to local FastAPI server
   - hostname: api.gallagherpropco.com
-    service: http://localhost:8080
+    service: http://localhost:8000
     originRequest:
       # Don't verify local SSL (we're using HTTP locally)
       noTLSVerify: true
@@ -354,12 +354,12 @@ sudo journalctl -u cloudflared -f  # Linux
 
 ### 502 Bad Gateway:
 - Local API server is not running
-- Check: `lsof -i :8080` to verify server is listening
+- Check: `lsof -i :8000` to verify server is listening
 - Start FastAPI: `cd infra/local-api && python main.py`
 
 ### 401 Unauthorized:
 - API key mismatch
-- Check `.env` in `infra/local-api/` has correct `API_KEYS`
+- Check `.env` in `infra/local-api/` has correct `GATEWAY_API_KEY` (or `API_KEYS`)
 - Check Vercel env var `LOCAL_API_KEY` matches
 
 ### DNS not resolving:
@@ -404,7 +404,7 @@ If you just want to test quickly without setting up Cloudflare:
 brew install ngrok
 
 # Start tunnel
-ngrok http 8080
+ngrok http 8000
 
 # Use the generated URL (e.g., https://abc123.ngrok.io)
 # Set LOCAL_API_URL=https://abc123.ngrok.io in Vercel

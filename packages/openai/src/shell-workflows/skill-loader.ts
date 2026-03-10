@@ -44,14 +44,25 @@ function resolveSkillsRootDir(): string {
   throw new Error("Unable to locate skills directory for shell workflows");
 }
 
-const SKILLS_ROOT_DIR = resolveSkillsRootDir();
+// Lazy-initialized: deferred from module load time so that importing this
+// module in environments without a skills directory (e.g. Vercel serverless)
+// does not crash.  The directory is only resolved on first actual use.
+let _skillsRootDir: string | null = null;
+
+function getSkillsRootDir(): string {
+  if (_skillsRootDir === null) {
+    _skillsRootDir = resolveSkillsRootDir();
+  }
+  return _skillsRootDir;
+}
 
 export async function loadSkillInstructions(relativeSkillPath: string): Promise<string> {
   if (isAbsolute(relativeSkillPath)) {
     throw new Error("Skill path traversal is not allowed");
   }
-  const resolvedPath = resolve(SKILLS_ROOT_DIR, relativeSkillPath);
-  const relativePath = relative(SKILLS_ROOT_DIR, resolvedPath);
+  const skillsRoot = getSkillsRootDir();
+  const resolvedPath = resolve(skillsRoot, relativeSkillPath);
+  const relativePath = relative(skillsRoot, resolvedPath);
   if (relativePath.startsWith("..")) {
     throw new Error("Skill path traversal is not allowed");
   }

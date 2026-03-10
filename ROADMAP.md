@@ -35,6 +35,25 @@ Only items meeting all checks are added below as `Planned`.
 
 ## Active Roadmap (Prioritized)
 
+### DOC-001 — Documentation Contract Reconciliation (P0)
+
+- **Priority:** P0
+- **Status:** In Progress (2026-03-06)
+- **Scope:** Repo-wide documentation audit and reconciliation against current production/runtime contracts
+- **Problem:** Active docs, READMEs, smoke matrices, and in-code reference comments drifted from the live NextAuth + gateway + Qdrant + observability architecture, leaving conflicting instructions in multiple surfaces.
+- **Expected Outcome (measurable):**
+  - Active documentation matches the current code paths, auth model, gateway endpoints, observability endpoints, and retrieval split.
+  - Historical Supabase-era or deprecated migration docs are explicitly labeled as archival/non-authoritative.
+  - Removed endpoints and old auth/runtime claims no longer appear in active smoke matrices or implementation guides.
+- **Evidence of need:** Current repo scan shows conflicts including stale Supabase JWT references, retired `/api/external/chatgpt-apps/*` paths in test matrices, outdated gateway/tool route names, and old parcel/property deployment guidance that conflicts with the current gateway-only runtime.
+- **Alignment:** Preserves the gateway-only parcel/property architecture, Postgres-first exact retrieval, Qdrant semantic augmentation, NextAuth-based auth discipline, and current observability stack.
+- **Risk/rollback:** Low-to-medium risk because the work spans many documentation surfaces; rollback is straightforward by reverting doc-only changes, but incomplete reconciliation is not acceptable because conflicting docs directly create operator error.
+- **Acceptance Criteria / Tests:**
+  - Update active docs/READMEs/comments to reflect current auth, gateway, parcel geometry, observability, and retrieval contracts.
+  - Mark intentionally historical migration docs as archival with clear pointers to current authoritative docs.
+  - Remove retired route references from test matrices and active operational runbooks.
+  - Run verification gate and review the final diff for documentation-only intent plus any required comment fixes.
+
 ### MEM-001 — Coordinator Memory Tool Invocation Fix (P0)
 
 - **Priority:** P0
@@ -236,7 +255,7 @@ Only items meeting all checks are added below as `Planned`.
 
 - **Priority:** P2
 - **Status:** Done (2026-03-04)
-- **Problem:** Stream event types duplicated across SSE (`streamEventTypes.ts`) and WS (`types.ts`) paths with mismatched field definitions.
+- **Problem:** Stream event types duplicated across SSE (`apps/web/lib/chat/streamEventTypes.ts`) and WS (`infra/cloudflare-agent/src/types.ts`) paths with mismatched field definitions.
 - **Evidence:** `WorkerEvent` in CF Worker types lacked `tool_approval_requested`, `handoff`, `agent_progress` events present in SSE path.
 - **Expected Outcome:** Single canonical event contract in shared package used by both transports.
 - **Acceptance:** `packages/shared/src/types/streamEvents.ts` exists with `UniversalStreamEvent` and `AgentStreamEvent` union types; `UNIVERSAL_EVENT_TYPES` set exported.
@@ -513,12 +532,12 @@ Reason: these were low-priority for current operating goals and can be deferred 
   - `apps/web/app/screening/intake/page.tsx` no longer uploads via Supabase Storage.
   - Legacy direct-query adapters in `apps/web/lib/data/` removed.
 - **Evidence of need:** Runtime inventory identified the remaining non-auth Supabase usage limited to notifications realtime, screening intake uploads, and unused legacy data adapters.
-- **Alignment:** Keeps Supabase for auth/session flows while moving product behavior to existing API polling and backend pathways; no org-scope or auth boundary weakening.
+- **Alignment:** Keeps auth/session boundaries on NextAuth/Auth.js while moving product behavior to existing API polling and backend pathways; no org-scope or auth boundary weakening.
 - **Risk/rollback:** Low-medium; notification delivery becomes poll-based only, and screening intake document uploads are disabled in this form during storage migration. Rollback by restoring the removed Supabase integrations.
 - **Acceptance Criteria / Tests:**
   - Remove Supabase import + realtime subscription from `NotificationFeed`.
   - Remove Supabase storage upload flow from screening intake page.
-  - Delete unused `apps/web/lib/data/agents.ts`, `apps/web/lib/data/workflows.ts`, and `apps/web/lib/data/runs.ts`.
+  - Delete unused legacy data adapters under `apps/web/lib/data/` (agents/workflows/runs adapters removed).
   - Verification gate passes: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`.
 
 ### AOS-001 — AgentOS Upgrade Foundation (P0)
@@ -559,32 +578,32 @@ Reason: these were low-priority for current operating goals and can be deferred 
 - **Problem:** External GIS/zoning integration can fail silently or be insecure if env/config/rate-limit contracts drift.
 - **Expected Outcome (measurable):**
   - 0 open verification blockers in `docs/chatgpt-apps-integration.md`
-  - Active smoke coverage executes successfully for the remaining `chatgpt-apps` routes and the replacement parcel geometry path
+  - Legacy `POST /api/external/chatgpt-apps/parcel-geometry` is fully retired and replaced by the production geometry path
+  - Active smoke coverage executes successfully for `GET /api/parcels/[parcelId]/geometry`
   - No raw Supabase/DB errors leaked from API route responses
-- **Evidence:** Open checkboxes in `docs/chatgpt-apps-integration.md` currently indicate incomplete verification.
+- **Evidence:** Historical checkboxes in `docs/chatgpt-apps-integration.md` were closed as part of the route retirement + replacement work.
 - **Alignment:** Supports existing secure two-header auth contract and existing API route patterns.
-- **Risk/rollback:** Low runtime risk; rollout is config/smoke-test hardening. Roll back by disabling route checks and reverting to previous env references if needed.
+- **Risk/rollback:** Low runtime risk; rollout is route retirement + smoke-test hardening. Roll back by restoring the retired route only if the replacement endpoint regresses.
 - **Acceptance Criteria / Tests:**
   - Env validation doc checklist completed
-  - Remaining `chatgpt-apps` route error responses are normalized (`{ ok: false, request_id, error }`)
-  - Deployment checks for any required `CHATGPT_APPS_*` vars are verified in preview/production for the routes that still depend on them
+  - Legacy `chatgpt-apps` parcel geometry path removed from active runtime and smoke scripts
   - Replacement parcel geometry path is covered by route tests and production smoke coverage
-- **Files (target):** `apps/web/lib/server/chatgptAppsClient.ts`, `apps/web/app/api/external/chatgpt-apps/*`, `apps/web/app/api/parcels/[parcelId]/geometry/route.ts`, `docs/chatgpt-apps-integration.md`, `scripts/parcels/smoke_map_parcel_prod.ts`
+- **Files (target):** `apps/web/app/api/parcels/[parcelId]/geometry/route.ts`, `apps/web/app/api/parcels/[parcelId]/geometry/route.test.ts`, `apps/web/components/maps/useParcelGeometry.ts`, `apps/web/__tests__/api/route-auth.test.ts`, `docs/chatgpt-apps-integration.md`, `scripts/parcels/smoke_map_parcel_prod.ts`, `scripts/smoke_endpoints.ts`
 - **Completion note:** Updated docs checklist and route/service hardening are complete. Legacy `POST /api/external/chatgpt-apps/parcel-geometry` was retired on 2026-03-05 and replaced by `GET /api/parcels/[parcelId]/geometry`.
 - **Operational verification:**
   - **Status:** **IMPLEMENTATION VERIFIED**
   - **Evidence:**
-    - `apps/web/lib/server/chatgptAppsClient.ts`
-    - `apps/web/app/api/external/chatgpt-apps/*`
     - `apps/web/app/api/parcels/[parcelId]/geometry/route.ts`
     - `apps/web/app/api/parcels/[parcelId]/geometry/route.test.ts`
+    - `apps/web/components/maps/useParcelGeometry.ts`
+    - `apps/web/__tests__/api/route-auth.test.ts`
     - `docs/chatgpt-apps-integration.md`
     - `scripts/parcels/smoke_map_parcel_prod.ts`
   - **Result:**
-    - Implementation evidence is present in checklist + hardened routes/clients.
+    - Implementation evidence is present in checklist + hardened replacement route.
     - Parcel geometry no longer depends on the legacy `chatgpt-apps` path.
     - Full `apps/web` test sweep: `pnpm -C apps/web test` passed in this pass.
-    - Note: release validation should use `scripts/parcels/smoke_map_parcel_prod.ts` for the replacement parcel geometry flow and targeted smoke coverage for any remaining `chatgpt-apps` routes.
+    - Note: release validation should use `scripts/parcels/smoke_map_parcel_prod.ts` + `scripts/smoke_endpoints.ts` for the replacement parcel geometry flow.
 
 ### R-002 — Remaining Peripheral Shared Backend URL Callers
 
@@ -859,7 +878,7 @@ Reason: these were low-priority for current operating goals and can be deferred 
 - **Acceptance Criteria / Tests:**
   - Add `RunState` contract tests for `agentIntent`, `retrievalMeta`, `modelOutputs`, and `evidenceHash` presence.
   - Add negative test for malformed episode payload handling.
-- **Files (target):** `apps/web/lib/agent/__tests__/*`, `services/episode.test.ts`, `apps/web/lib/agent/executeAgent.runState-contract.test.ts`
+- **Files (target):** `apps/web/lib/agent/__tests__/*`, `tests/episode.test.ts`, `apps/web/lib/agent/__tests__/executeAgent.runState-contract.test.ts`
 - **Operational verification:**
   - **Status:** **IMPLEMENTATION VERIFIED**
   - **Evidence:**
@@ -937,7 +956,7 @@ Reason: these were low-priority for current operating goals and can be deferred 
 - **Priority:** P1
 - **Status:** Done
 - **Scope:** Geospatial visualization modernization, performance, and selection UX
-- **Completion notes (2026-02-15):** Full MapLibre GPU-backed renderer (1,900+ lines) with: GeoJSON boundary/zoning/flood/point layers, Ctrl/Cmd+click multi-select, popup on click, cursor hover, base layer toggle (Streets/Satellite), overlay toggles with localStorage persistence, error/loading states, 4 analytical tools (Measure, CompSales, Heatmap, Isochrone), viewport-scoped geometry loading (debounced 300ms moveend → useParcelGeometry with ViewportBounds filtering + AbortController), maxFetch raised to 200, requestAnimationFrame-batched selection, explicit a/b/c subdomain tile URLs (MapLibre doesn't support `{s}`), shared tile URL resolver via `tileUrls.ts`.
+- **Completion notes (2026-02-15):** Full MapLibre GPU-backed renderer (1,900+ lines) with: GeoJSON boundary/zoning/flood/point layers, Ctrl/Cmd+click multi-select, popup on click, cursor hover, base layer toggle (Streets/Satellite), overlay toggles with localStorage persistence, error/loading states, 4 analytical tools (Measure, CompSales, Heatmap, Isochrone), viewport-scoped geometry loading (debounced 300ms moveend → useParcelGeometry with ViewportBounds filtering + AbortController), maxFetch raised to 200, requestAnimationFrame-batched selection, explicit a/b/c subdomain tile URLs (MapLibre doesn't support `{s}`), shared tile URL resolver via `apps/web/components/maps/tileUrls.ts`.
 - **Problem:** The current parcel map stack is Leaflet-based with fixed marker+polygon rendering and fixed geometry fetch behavior; for large parcel sets this becomes difficult to scale and limits advanced interactions like reliable multi-select and high-density boundary highlighting.
 - **Expected Outcome (measurable):**
   - Render parcel boundaries with a GPU-backed vector pipeline (MapLibre) and maintain stable frame rates during pan/zoom.
@@ -969,14 +988,15 @@ Reason: these were low-priority for current operating goals and can be deferred 
 - **Files (target):**
   - `apps/web/app/map/page.tsx`
   - `apps/web/components/maps/ParcelMap.tsx`
+  - `apps/web/components/maps/MapLibreParcelMap.tsx`
   - `apps/web/components/maps/DealParcelMap.tsx`
-  - `apps/web/components/maps/HeatmapLayer.tsx`
-  - `apps/web/components/maps/CompSaleLayer.tsx`
-  - `apps/web/components/maps/IsochroneControl.tsx`
+  - `apps/web/components/maps/heatmapPresets.ts`
   - `apps/web/components/maps/mapStyles.ts`
   - `apps/web/components/maps/useParcelGeometry.ts`
-  - `apps/web/app/api/parcels/[parcelId]/geometry/route.ts` (if batch geometry endpoint changes are required)
-  - `apps/web/app/api/parcels` read/list endpoints as needed for tile/viewport batching
+  - `apps/web/app/api/parcels/[parcelId]/geometry/route.ts`
+  - `apps/web/app/api/parcels/route.ts`
+  - `apps/web/app/api/map/prospect/route.ts`
+  - `apps/web/app/api/map/comps/route.ts`
   - `apps/web/package.json` (add `maplibre-gl`, optional `supercluster`)
 - **Preliminary tests (performed before adding this item):**
 
@@ -987,13 +1007,13 @@ Reason: these were low-priority for current operating goals and can be deferred 
        - small (<=200 parcels),
        - medium (~2,000 parcels),
        - heavy (>=10,000 parcels).
-     - Create benchmark script (`scripts/map-baseline-smoke.mjs` or Playwright task) to capture before/after FPS and interaction metrics.
+     - Capture baseline via Playwright smoke + browser performance traces for before/after comparison.
   2. Phase 1 — Engine Selection and Foundation
      - Add `maplibre-gl` renderer path behind feature flag.
      - Introduce `MAP_RENDERER` feature gate:
        - default to current Leaflet in this phase,
        - opt-in MapLibre path guarded by env or feature flag.
-     - Create `apps/web/components/maps/MapProvider.tsx` for map-level shared controls and tokens.
+     - Consolidate map-level shared controls/tokens in `MapLibreParcelMap.tsx` and shared map utility modules.
   3. Phase 2 — Data Model Refactor
      - Replace feature-per-component rendering with a normalized feature collection pipeline:
        - map parcels into `FeatureCollection<Polygon|Point, ParcelFeatureProperties>`.
@@ -1107,7 +1127,7 @@ Reason: these were low-priority for current operating goals and can be deferred 
   2. Confirm the required values are non-empty and non-placeholder (`placeholder`, `***`, etc.) via runtime checks.
   3. Add a startup health check log in logs/monitoring for any request path that hits property DB fallback clients.
 - **Files (target):**
-  - `apps/web/lib/server/parcels/propertyClient.ts` (env loading path, if applicable)
+  - `apps/web/lib/server/propertyDbEnv.ts` (env loading path)
   - `apps/web/app/api/parcels/route.ts` (fallback route behavior)
   - `apps/web/app/api/map/prospect/route.ts`
   - `apps/web/app/api/parcels/[parcelId]/geometry/route.ts`
@@ -1135,7 +1155,7 @@ Reason: these were low-priority for current operating goals and can be deferred 
   - Post-import counts and checksum checks for affected parishes are stable and match expected file totals.
   - Backfilled geometry/address fields are available for the target parish set.
 - **Evidence of need:** CSV compare work found no matching rows for those parishes in the current live parcel source path, while UI map queries returned no viable geometry.
-- **Alignment:** Reuses existing production parcel fallback architecture and does not alter Supabase org-scoped workflows.
+- **Alignment:** Reuses existing production parcel fallback architecture and does not alter NextAuth org-scoped workflows.
 - **Risk/rollback:** Medium if import is duplicated or mis-specified. Use idempotent load semantics and dedupe keys; keep import source and timestamped logs for rollback trace.
 - **Acceptance Criteria / Tests:**
   1. Produce and archive import runbook/output (source file paths, row counts, batch size, time).
@@ -1204,7 +1224,7 @@ Reason: these were low-priority for current operating goals and can be deferred 
 - **Priority:** P2
 - **Status:** Done
 - **Scope:** Map stability in disconnected/offline/CI environments
-- **Completion notes (2026-02-15):** Local tile endpoint at `/api/map/tiles/[z]/[x]/[y]` returns 1x1 neutral-gray PNG (67 bytes) with aggressive cache headers. Shared tile URL resolver at `components/maps/tileUrls.ts` with `NEXT_PUBLIC_MAP_TILE_MODE` env var (remote/local/auto). Both MapLibre (`getStreetTileUrls()`) and Leaflet (`getLeafletStreetTileUrl()`) renderers wired through resolver. `NEXT_PUBLIC_MAP_TILE_MODE=local` eliminates all external tile DNS errors.
+- **Completion notes (2026-02-15):** Local tile endpoint at `/api/map/tiles/[z]/[x]/[y]` returns 1x1 neutral-gray PNG (67 bytes) with aggressive cache headers. Shared tile URL resolver at `apps/web/components/maps/tileUrls.ts` with `NEXT_PUBLIC_MAP_TILE_MODE` env var (remote/local/auto). Both MapLibre (`getStreetTileUrls()`) and Leaflet (`getLeafletStreetTileUrl()`) renderers wired through resolver. `NEXT_PUBLIC_MAP_TILE_MODE=local` eliminates all external tile DNS errors.
 - **Problem:** Map tile bootstrap in production smoke and browser-instrumented runs can fail with `net::ERR_NAME_RESOLVED` because raster tile hostnames are not resolvable in the environment, causing non-deterministic console noise and occasionally degraded map initialization.
 - **Expected Outcome (measurable):**
   - In `NODE_ENV=test` or test/offline mode, map base layers resolve to local `/api/map/tiles/...` responses with zero external tile request failures.
@@ -1271,13 +1291,13 @@ The following items were identified by analyzing 6 OpenAI GitHub repositories (`
   5. No regression in existing text streaming behavior
 - **Files (target):**
   - `apps/web/app/api/chat/route.ts` — add stream event forwarding
-  - `apps/web/components/chat/ChatMessage.tsx` — wire event renderers
+  - `apps/web/components/chat/MessageBubble.tsx` — wire event renderers
   - `apps/web/components/chat/AgentStatusChip.tsx` — new: shows active agent name
   - `apps/web/components/chat/ToolStatusChip.tsx` — new: shows tool execution status
   - `apps/web/lib/chat/streamEventTypes.ts` — new: shared SSE event type definitions
 - **Implementation Steps:**
-  1. Define shared SSE event type schema in `lib/chat/streamEventTypes.ts` (agent_switch, tool_start, tool_end, handoff)
-  2. In `app/api/chat/route.ts`, hook into the SDK runner's event stream — for each `RunItemStreamEvent` of type `tool_called`/`tool_result` and each `RunAgentUpdatedStreamEvent`, emit a corresponding SSE event
+  1. Define shared SSE event type schema in `apps/web/lib/chat/streamEventTypes.ts` (agent_switch, tool_start, tool_end, handoff)
+  2. In `apps/web/app/api/chat/route.ts`, hook into the SDK runner's event stream — for each `RunItemStreamEvent` of type `tool_called`/`tool_result` and each `RunAgentUpdatedStreamEvent`, emit a corresponding SSE event
   3. Update chat client-side stream parser to recognize new event types and dispatch to existing AUI-001 renderers
   4. Create `AgentStatusChip` component — shows agent name with colored dot indicator
   5. Create `ToolStatusChip` component — shows tool name with spinner/check states
@@ -1610,7 +1630,7 @@ The following items were identified by analyzing 6 OpenAI GitHub repositories (`
   5. Existing handoff behavior preserved — coordinator can still hand off when appropriate
 - **Files (target):**
   - `packages/openai/src/agents/index.ts` — add `asTool()` declarations for key specialists
-  - `packages/openai/src/agents/coordinatorInstructions.ts` — update coordinator instructions to describe when to use consult-as-tool vs handoff
+  - `packages/openai/src/agents/coordinator.ts` — update coordinator instructions to describe when to use consult-as-tool vs handoff
 - **Implementation Steps:**
   1. Research SDK `asTool()` API — confirm it preserves specialist tools and instructions
   2. Add `asTool()` for Finance, Risk, and Legal agents in `createConfiguredCoordinator()`
@@ -1656,7 +1676,7 @@ The following items were identified by analyzing 6 OpenAI GitHub repositories (`
   5. Unit test: verify `Retry-After` header is respected
 - **Files (target):**
   - `packages/openai/src/utils/retry.ts` — enhance with exponential backoff + jitter
-  - `packages/openai/src/utils/__tests__/retry.test.ts` — new: comprehensive retry tests
+  - `packages/openai/test/phase1/utils/retry.phase1.test.ts` — comprehensive retry tests
 - **Implementation Steps:**
   1. Enhance retry utility with exponential backoff formula: `min(maxDelay, initialDelay * multiplier^attempt) + random_jitter`
   2. Add `Retry-After` header parsing (supports both seconds and HTTP-date formats)
@@ -1702,7 +1722,7 @@ The following items were identified by analyzing 6 OpenAI GitHub repositories (`
   - Deduplication prevents repeated context items from inflating token usage
   - Session state persisted between page reloads without manual history assembly
   - Reduced conversation context token cost by 20-40% for long conversations
-- **Evidence:** Current manual history assembly in `app/api/chat/route.ts` doesn't compact or deduplicate. Long conversations hit context limits.
+- **Evidence:** Current manual history assembly in `apps/web/app/api/chat/route.ts` doesn't compact or deduplicate. Long conversations hit context limits.
 - **Alignment:** Replaces manual history management with SDK-native session management.
 - **Risk/rollback:** Medium. Changing session management affects conversation continuity. Rollback by reverting to manual Prisma-based history assembly.
 - **Acceptance Criteria / Tests:**
@@ -1890,6 +1910,48 @@ The following items were identified by analyzing 6 OpenAI GitHub repositories (`
   - Added `CRON_SECRET` to Vercel production env.
   - Triggered `GET /api/cron/change-detection` with bearer secret; monitor check-in status is `ok`.
 
+### OBS-001 — Production Observability Stack for Full-Page and API Activity
+
+- **Priority:** P0
+- **Status:** Done (2026-03-09)
+- **Scope:** End-to-end production monitoring, telemetry, and operator diagnostics
+- **Problem:** Production incidents currently require ad hoc repro and log spelunking. We lack a unified observability path for page failures, API failures, request correlation, synthetic monitoring, and operator-visible diagnostics across the full app surface.
+- **Expected Outcome (measurable):**
+  - Browser telemetry captures route transitions, unhandled page errors, failed fetches, and client-side performance context with request/session correlation ids.
+  - Server-side API routes emit structured request logs with request ids, auth/org context, latency, upstream dependency markers, and normalized error metadata.
+  - Admin/operator surface exposes recent telemetry and synthetic-monitor results so incidents can be triaged without digging through raw console output.
+  - Scheduled monitor covers critical authenticated and unauthenticated production journeys and records failures with enough context to fix them.
+- **Evidence of need:** `/map` page parcel-load failures (`Failed to load parcels. Please refresh and try again.`) currently require manual investigation, and the current health monitor only covers a narrow healthcheck path.
+- **Alignment:** Preserves auth/org-scoping boundaries, extends existing request-id and Sentry instrumentation, and supports the gateway-first production architecture without introducing silent fallbacks.
+- **Risk/rollback:** Medium. Touches shared request lifecycle and client telemetry; rollback by disabling the new observability provider/routes/monitor script while preserving request-id propagation.
+- **Acceptance Criteria / Tests:**
+  - Shared observability helpers exist for structured server logging and client event ingestion.
+  - Critical routes/pages emit correlated telemetry without weakening auth or leaking secrets.
+  - Admin observability API exposes recent events and monitor snapshots behind existing admin auth controls.
+  - Production monitor script validates key page/API flows and persists results for operator review.
+  - Verification gate passes (`pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`).
+- **Completion Evidence (2026-03-09):**
+  - Shared observability stack is implemented and wired:
+    - `apps/web/lib/server/observability.ts`
+    - `apps/web/lib/server/observabilityStore.ts`
+    - `apps/web/app/api/observability/events/route.ts`
+    - `apps/web/app/api/admin/observability/route.ts`
+    - `apps/web/components/observability/observability-provider.tsx`
+    - `apps/web/components/observability/observability-boundary.tsx`
+    - `apps/web/app/layout.tsx`
+    - `scripts/observability/monitor_production.ts`
+    - `scripts/observability/start_monitor_prod.sh`
+  - Admin/auth and client observability tests pass:
+    - `pnpm -C apps/web exec vitest run app/api/admin/observability/route.test.ts components/observability/client-telemetry.test.ts components/observability/observability-provider.test.tsx components/observability/observability-boundary.test.tsx`
+  - Production monitor run executed and artifacts persisted:
+    - `output/observability/monitor-2026-03-09-192011029Z.json`
+    - `output/observability/monitor-2026-03-09-192011029Z.log`
+  - Verification gate passed:
+    - `pnpm lint`
+    - `pnpm typecheck`
+    - `pnpm test`
+    - `OPENAI_API_KEY=placeholder pnpm build`
+
 ### PREF-001 — Conversation-Native Preference Extraction and Prompt Injection
 
 - **Priority:** P1
@@ -1969,7 +2031,7 @@ The following items were identified by analyzing 6 OpenAI GitHub repositories (`
 - **Risk/rollback:** Medium. Touches shared automation registration and enrichment plumbing. Rollback by restoring eager handler imports and prior property-db helper wiring if route behavior regresses.
 - **Acceptance Criteria / Tests:**
   - `apps/web/lib/automation/handlers.ts` registers handlers through an idempotent lazy loader and no longer runs registration at module import time.
-  - Deals routes stop importing `@/lib/automation/handlers` solely for side effects.
+  - Deals routes stop importing `@/lib/automation/handlers.ts` solely for side effects.
   - `apps/web/lib/server/propertyDbRpc.ts` wraps gateway parcel/search/screening endpoints and normalizes responses for enrichment consumers.
   - `apps/web/lib/automation/enrichment.ts` and `apps/web/app/api/deals/[id]/parcels/[parcelId]/enrich/route.ts` use the gateway-backed helper instead of `@entitlement-os/openai`.
   - `apps/web/app/api/deals/[id]/artifacts/route.ts` loads OpenAI narrative helpers only inside the narrative generation path.
@@ -2036,13 +2098,13 @@ The following items were identified by analyzing 6 OpenAI GitHub repositories (`
 - **Alignment:** Follows existing property DB tool patterns in agents; asyncpg pooling matches Prisma connection patterns.
 - **Risk/rollback:** Implementation complete but discovery revealed architecture mismatch: actual Windows 11 deployment uses Docker Compose (gateway :8000) not bare-metal (:8081). Architecture decision required.
 - **Acceptance Criteria / Tests:**
-  - ✅ `POST /tool/parcel.bbox` — Search parcels within bounding box (60s cache, max 0.1 sq degrees)
-  - ✅ `GET /tool/parcel.get` — Single parcel by ID (300s cache)
-  - ✅ `GET /tool/parcel.geometry` — GeoJSON with simplification (3600s cache)
-  - ✅ `POST /tool/screening.flood` — Flood risk (3600s cache)
-  - ✅ `POST /tool/docs.search` — Qdrant search (300s cache)
-  - ✅ `GET /tool/docs.fetch` — Qdrant fetch (3600s cache)
-  - ✅ `POST /tool/memory.write` — Qdrant write (no cache)
+  - ✅ `POST /tool/parcel.bbox` *(legacy `/tool/*` route family in archived api_server.py; replaced in current runtime by `/tools/parcels/*` or app-level endpoints)*
+  - ✅ `GET /tool/parcel.get` *(legacy `/tool/*` route family in archived api_server.py; replaced in current runtime by `GET /api/parcels/{id}` or equivalent app resolver)*
+  - ✅ `GET /tool/parcel.geometry` *(legacy `/tool/*` route family in archived api_server.py; replaced by `GET /api/parcels/{id}/geometry`)*
+  - ✅ `POST /tool/screening.flood` *(legacy `/tool/*` route family in archived api_server.py; replaced by `/api/screening/flood`)*
+  - ✅ `POST /tool/docs.search` *(legacy `api_server.py` route family; now represented by `/api/knowledge` and `/api/search` flows)*
+  - ✅ `GET /tool/docs.fetch` *(legacy `api_server.py` route family; now represented by `/api/knowledge` retrieval path)*
+  - ✅ `POST /tool/memory.write` *(legacy `api_server.py` route family; replaced by `/api/memory/write`)*
   - ✅ `GET /health` — Public health check
   - ✅ Bearer token authentication with `secrets.compare_digest()`
   - ✅ asyncpg connection pooling (5-20 conns)
@@ -2082,11 +2144,11 @@ The following items were identified by analyzing 6 OpenAI GitHub repositories (`
   - Response time < 1s (validates routing works)
 - **Acceptance Criteria / Tests (P2 — Endpoint Testing):**
   - All 8 tool endpoints tested with valid Bearer token: `Authorization: Bearer $GATEWAY_API_KEY`
-  - POST /tool/parcel.bbox: Returns array of parcels, cache header present, <500ms latency
-  - GET /tool/parcel.get: Returns single parcel JSON, <50ms latency
-  - GET /tool/parcel.geometry: Returns GeoJSON boundary, <300ms latency
-  - POST /tool/screening.flood: Returns flood risk data, <200ms latency
-  - POST /tool/docs.search, GET /tool/docs.fetch, POST /tool/memory.write: All functional with Qdrant
+  - POST `/tool/parcel.bbox` (legacy): Returns array of parcels, cache header present, <500ms latency
+  - GET `/tool/parcel.get` (legacy): Returns single parcel JSON, <50ms latency
+  - GET `/tool/parcel.geometry` (legacy): Returns GeoJSON boundary, <300ms latency
+  - POST `/tool/screening.flood` (legacy): Returns flood risk data, <200ms latency
+  - POST `/tool/docs.search`, GET `/tool/docs.fetch`, POST `/tool/memory.write` (legacy): All functional with Qdrant in archived gateway
   - GET /health: Returns 200 with status, timestamp, component health (no auth)
   - Error handling tested: Invalid auth → 401, missing params → 400, service error → 503
 - **Files (target):**
@@ -2120,7 +2182,7 @@ The following items were identified by analyzing 6 OpenAI GitHub repositories (`
   - Agent chat runs with no timeout limit (Durable Object lifetime = WebSocket connection lifetime)
   - Hosted tools (web_search, file_search, code_interpreter) available to the coordinator agent
   - Multi-turn conversations use `previous_response_id` chaining for ~15-40% faster context retrieval
-  - Tool calls route correctly: gateway tools to FastAPI, Vercel tools to Prisma/Supabase, hosted tools to OpenAI
+  - Tool calls route correctly: gateway tools to FastAPI, Vercel tools to Next.js auth/runtime services, hosted tools to OpenAI
 - **Evidence of need:** Agent runs with 3+ tool calls regularly hit the 60s Vercel timeout. web_search_preview tool was filtered out of tool definitions because it requires WebSocket mode.
 - **Alignment:** Follows existing architecture (Vercel for Prisma/auth, Cloudflare for edge compute, FastAPI gateway for property DB). Browser receives same `ChatStreamEvent` types as existing SSE transport — no UI breaking changes.
 - **Risk/rollback:** Medium. Existing SSE `/api/chat` route preserved as fallback. Worker can be disabled by removing DNS route; chat falls back to Vercel SSE. Durable Object state is ephemeral (conversation context stored server-side by OpenAI via `store: true`).
@@ -2132,7 +2194,7 @@ The following items were identified by analyzing 6 OpenAI GitHub repositories (`
   - E2E tools: gateway tool execution works — `get_parcel_details` called and returns data (`test-ws-tools.mjs` passes)
   - E2E multi-turn: `previous_response_id` chaining works across turns (`test-ws-multiturn.mjs` passes)
   - Debug endpoints removed before production
-  - Vercel auth endpoint: `POST /api/agent/auth/resolve` returns `{ orgId, userId }` from Supabase JWT
+  - Vercel auth endpoint: `POST /api/agent/auth/resolve` returns `{ orgId, userId }` from NextAuth session resolution
   - Vercel tool endpoint: `POST /api/agent/tools/execute` dispatches tool calls with org-scoped auth
 - **Files:**
   - `infra/cloudflare-agent/src/index.ts` — Worker entry point (JWT validation, DO routing)

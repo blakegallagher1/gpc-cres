@@ -490,7 +490,9 @@ Database migrations (Prisma) must follow these safety rules:
 ## Migration Workflow
 ```
 # Generate migration (do NOT apply)
-pnpm -C packages/db run migrate:dev:local --create-only
+DATABASE_URL="postgresql://postgres:postgres@localhost:54323/entitlement_os?schema=public" \
+DIRECT_DATABASE_URL="postgresql://postgres:postgres@localhost:54323/entitlement_os?schema=public" \
+pnpm -C packages/db exec prisma migrate dev --create-only --name <migration_name>
 
 # Review the generated SQL
 cat packages/db/prisma/migrations/<timestamp>_<name>/migration.sql

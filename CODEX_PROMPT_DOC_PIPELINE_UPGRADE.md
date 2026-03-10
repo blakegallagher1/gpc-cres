@@ -1,8 +1,12 @@
 # Codex Prompt: Document Processing Pipeline Upgrade
 
+> **Status: Archived prompt artifact (non-authoritative).**
+> This prompt captures a historical implementation request and may not match current runtime architecture.
+> Use `ROADMAP.md` and `docs/SPEC.md` for current engineering contracts.
+
 ## Role
 
-You are a senior full-stack TypeScript engineer upgrading the document processing pipeline in a Next.js 16 / Prisma / Supabase monorepo ("Entitlement OS") for a commercial real estate firm. The codebase uses pnpm workspaces, strict TypeScript, and deploys to Vercel.
+You are a senior full-stack TypeScript engineer upgrading the document processing pipeline in a Next.js 16 / Prisma monorepo ("Entitlement OS") for a commercial real estate firm. The codebase uses pnpm workspaces, strict TypeScript, gateway-backed Postgres access, and deploys to Vercel.
 
 ## Context
 
@@ -68,7 +72,7 @@ type PageContent = {
 - `apps/web/lib/services/documentProcessing.service.ts` — replace `extractTextFromPdf`, update `processUpload` to use new parser
 - `packages/db/prisma/schema.prisma` — add `parsedAsMarkdown Boolean @default(false)` to `DocumentExtraction`
 - `apps/web/package.json` — add `@google-cloud/documentai` dependency, keep `unpdf` as fallback
-- Create `apps/web/lib/services/documentParser.ts` — new module wrapping Google Document AI client with Markdown conversion logic
+- Create a new parser module under `apps/web/lib/services/` wrapping the Google Document AI client with Markdown conversion logic
 - `apps/web/.env.local` — add `GOOGLE_DOCUMENT_AI_CREDENTIALS` and `GOOGLE_DOCUMENT_AI_PROCESSOR_ID`
 
 **Constraints:**
@@ -209,11 +213,13 @@ parsedAsMarkdown  Boolean  @default(false) @map("parsed_as_markdown")
 fieldCitations    Json?    @default("{}") @map("field_citations") @db.JsonB
 ```
 
-Run: `pnpm --filter @entitlement-os/db db:migrate` (generates migration SQL)
+Run:
+`DATABASE_URL="postgresql://postgres:postgres@localhost:54323/entitlement_os?schema=public" DIRECT_DATABASE_URL="postgresql://postgres:postgres@localhost:54323/entitlement_os?schema=public" pnpm -C packages/db exec prisma migrate dev --create-only --name <migration_name>`
+(generates migration SQL without applying changes)
 
 ## Testing Requirements
 
-- Update existing tests in `apps/web/lib/services/__tests__/` and `apps/web/lib/automation/__tests__/documents.test.ts` (Jest, not Vitest)
+- Update existing tests in `apps/web/lib/services/__tests__/` and `apps/web/lib/automation/__tests__/documents.test.ts` (Vitest)
 - Mock the Google Document AI client in tests (don't require actual API calls in CI)
 - Add tests for:
   - Scanned PDF → Google Document AI OCR → Markdown → successful extraction
@@ -232,4 +238,4 @@ Run: `pnpm --filter @entitlement-os/db db:migrate` (generates migration SQL)
 - Use `import "server-only"` in any module that touches API keys
 - Don't use Chat Completions API — use OpenAI Responses API (note: current code uses Chat Completions for document processing; this is the one exception, keep it as-is since it works and uses `response_format: { type: "json_object" }`)
 - TypeScript strict mode. No `any`. Use `Record<string, unknown>` for dynamic objects.
-- Tests use Jest with `jest.mock()`/`jest.requireMock()` pattern for Prisma mocking
+- Tests use Vitest with `vi.mock()`/`vi.importMock()` patterns for module mocking

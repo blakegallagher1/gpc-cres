@@ -1,8 +1,8 @@
 /* ------------------------------------------------------------------
  * Cloudflare Worker entry point for Entitlement OS Agent Chat
  *
- * Handles WebSocket upgrade, validates Supabase JWT, resolves org
- * membership via Vercel, then hands off to the AgentChatDO.
+ * Handles WebSocket upgrade, delegates auth/session resolution to Vercel,
+ * then hands off to the AgentChatDO.
  * ------------------------------------------------------------------ */
 
 import type { Env } from "./types";
@@ -57,8 +57,8 @@ export default {
     }
 
     // --- Auth: resolve org membership via Vercel ---
-    // Vercel's resolveAuth() handles both real Supabase JWTs and dev bypass
-    // (NEXT_PUBLIC_DISABLE_AUTH=true), so we delegate all auth logic there.
+    // Vercel's resolveAuth() handles Auth.js/NextAuth tokens (bearer or cookie)
+    // and dev bypass (NEXT_PUBLIC_DISABLE_AUTH=true), so we delegate auth there.
     const token = url.searchParams.get("token") ?? "";
     const conversationId = url.searchParams.get("conversationId");
 

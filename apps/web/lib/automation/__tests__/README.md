@@ -1,11 +1,13 @@
-# Automation Framework Tests - Wave 0
+# Automation Framework Tests - Wave 0 (Historical Spec)
 
 Last reviewed: 2026-02-19
 
 
 ## Overview
 
-This directory contains comprehensive test suites for all 5 shared automation modules that form the foundation of the Automation Frontier project. These tests are written test-first (TDD) and will initially fail until the implementation modules are created.
+This document started as the Wave 0 TDD spec for the automation foundation.
+
+> Historical note: this directory is fully implemented; the "initially fail" language below is no longer current runtime guidance.
 
 ## Test Files
 
@@ -95,18 +97,18 @@ Tests the automation task creation system.
 
 ### Run all automation tests:
 ```bash
-cd apps/web
-npm test -- lib/automation/__tests__
+pnpm --filter gpc-agent-dashboard test -- lib/automation/__tests__
 ```
 
 ### Run a specific test file:
 ```bash
-npm test -- lib/automation/__tests__/gates.test.ts
+pnpm --filter gpc-agent-dashboard test -- lib/automation/__tests__/gates.test.ts
 ```
 
 ### Watch mode:
 ```bash
-npm test -- --watch lib/automation/__tests__
+cd apps/web
+pnpm exec vitest --watch lib/automation/__tests__
 ```
 
 ## Test Philosophy
@@ -119,9 +121,9 @@ These tests follow the **TDD (Test-Driven Development)** approach:
 
 ## Expected State
 
-**Current:** All tests will FAIL because implementation modules don't exist yet.
+**Current:** Core automation modules exist and tests are expected to pass. Failures in this suite should be treated as regressions.
 
-**After Wave 0 implementation:** All tests should PASS, confirming:
+**Wave 0 contract (implemented):** Tests confirm that:
 - Configuration is correct and immutable
 - Decision gates enforce proper human oversight
 - Task filtering protects against inappropriate automation
@@ -130,13 +132,13 @@ These tests follow the **TDD (Test-Driven Development)** approach:
 
 ## Implementation Checklist
 
-To make these tests pass, create these 5 modules:
+Wave 0 implementation targets (completed):
 
-- [ ] `apps/web/lib/automation/config.ts` - Export AUTOMATION_CONFIG (frozen)
-- [ ] `apps/web/lib/automation/gates.ts` - Export requiresHumanApproval, canAutoAdvance, getAdvancementCriteria
-- [ ] `apps/web/lib/automation/taskAllowlist.ts` - Export isAgentExecutable, getHumanOnlyReason
-- [ ] `apps/web/lib/automation/events.ts` - Export dispatchEvent, registerHandler, AutomationEvent type
-- [ ] `apps/web/lib/automation/notifications.ts` - Export createAutomationTask, NotificationType type
+- [x] `apps/web/lib/automation/config.ts` - Export AUTOMATION_CONFIG (frozen)
+- [x] `apps/web/lib/automation/gates.ts` - Export requiresHumanApproval, canAutoAdvance, getAdvancementCriteria
+- [x] `apps/web/lib/automation/taskAllowlist.ts` - Export isAgentExecutable, getHumanOnlyReason
+- [x] `apps/web/lib/automation/events.ts` - Export dispatchEvent, registerHandler, AutomationEvent type
+- [x] `apps/web/lib/automation/notifications.ts` - Export createAutomationTask, NotificationType type
 
 ## Test Statistics
 
@@ -147,7 +149,7 @@ To make these tests pass, create these 5 modules:
 
 ## Notes
 
-- Tests use Jest (not Vitest) because apps/web uses Jest configuration
+- Tests run under Vitest via the `apps/web` workspace test script
 - Prisma is mocked in notifications tests to avoid database dependencies
 - Event tests verify fire-and-forget behavior (critical for automation safety)
 - Gates tests are the most critical - they enforce the automation safety boundary

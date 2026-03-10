@@ -6,6 +6,7 @@ const {
   localToolMock,
   hostedToolMock,
   gatewayToolMock,
+  shellWorkflowStubMock,
   resolveToolTransportMock,
   checkHostedToolQuotaMock,
   recordHostedToolUsageMock,
@@ -15,6 +16,7 @@ const {
   localToolMock: vi.fn(),
   hostedToolMock: vi.fn(),
   gatewayToolMock: vi.fn(),
+  shellWorkflowStubMock: vi.fn(),
   resolveToolTransportMock: vi.fn(),
   checkHostedToolQuotaMock: vi.fn(),
   recordHostedToolUsageMock: vi.fn(),
@@ -30,6 +32,7 @@ vi.mock("@/lib/agent/toolRegistry", () => ({
     local_tool: localToolMock,
     web_search_preview: hostedToolMock,
     search_parcels: gatewayToolMock,
+    run_underwriting_workflow: shellWorkflowStubMock,
   },
 }));
 
@@ -59,6 +62,13 @@ vi.mock("@entitlement-os/openai", () => ({
         quotaClass: "unlimited",
         intents: ["research"],
       },
+      run_underwriting_workflow: {
+        name: "run_underwriting_workflow",
+        destination: "local",
+        risk: "read",
+        quotaClass: "unlimited",
+        intents: ["finance"],
+      },
     })[name],
   resolveToolTransport: resolveToolTransportMock,
   checkHostedToolQuota: checkHostedToolQuotaMock,
@@ -86,6 +96,13 @@ vi.mock("@entitlement-os/openai", () => ({
       quotaClass: "unlimited",
       intents: ["research"],
     },
+    run_underwriting_workflow: {
+      name: "run_underwriting_workflow",
+      destination: "local",
+      risk: "read",
+      quotaClass: "unlimited",
+      intents: ["finance"],
+    },
   },
 }));
 
@@ -112,6 +129,7 @@ describe("POST /api/agent/tools/execute", () => {
     localToolMock.mockReset();
     hostedToolMock.mockReset();
     gatewayToolMock.mockReset();
+    shellWorkflowStubMock.mockReset();
     resolveToolTransportMock.mockReset();
     checkHostedToolQuotaMock.mockReset();
     recordHostedToolUsageMock.mockReset();
@@ -423,5 +441,64 @@ describe("POST /api/agent/tools/execute", () => {
       error: expect.stringMatching(/transport/i),
     });
     expect(gatewayToolMock).not.toHaveBeenCalled();
+  });
+
+  it("shell workflow stub returns unsupported_environment error gracefully", async () => {
+    resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
+    shellWorkflowStubMock.mockResolvedValue({
+      error: "Tool 'run_underwriting_workflow' requires the local compute environment and cannot run in serverless. Route to the gateway instead.",
+      status: "unsupported_environment",
+    });
+
+    const res = await POST(
+      reqWithBody({
+        toolName: "run_underwriting_workflow",
+        arguments: { noi: 100000 },
+        context: { conversationId: CONVERSATION_ID },
+      }),
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.result).toMatchObject({
+      error: expect.stringContaining("local compute environment"),
+      status: "unsupported_environment",
+    });
+    expect(body.metadata.toolName).toBe("run_underwriting_workflow");
+    expect(body.metadata.destination).toBe("local");
+  });
+
+  it("returns 500 when resolveAuth throws an exception", async () => {
+    resolveAuthMock.mockRejectedValue(new Error("JWT decode failed"));
+
+    const res = await POST(
+      reqWithBody({
+        toolName: "local_tool",
+        arguments: {},
+      }),
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(body.error).toMatch(/JWT decode failed/i);
+    expect(localToolMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 500 with error message when tool execution throws", async () => {
+    resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
+    localToolMock.mockRejectedValue(new Error("Database connection failed"));
+
+    const res = await POST(
+      reqWithBody({
+        toolName: "local_tool",
+        arguments: {},
+        context: { conversationId: CONVERSATION_ID },
+      }),
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(body.error).toBe("Database connection failed");
+    expect(body.metadata.toolName).toBe("local_tool");
   });
 });

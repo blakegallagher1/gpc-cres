@@ -1,491 +1,176 @@
-# Local API Server — Production Specification
+# Local API Gateway - Production Spec
 
-> **⚠️ DEPLOYMENT REALITY (verified 2026-02-20):** The actual deployment is a **Docker Compose stack** at `C:\gpc-cres-backend\docker-compose.yml`, NOT the bare-metal Python servers described in parts of this spec. The files `api_server.py` and `tile_server.py` in this directory are **reference implementations** that were never deployed. The deployed gateway runs on port **:8000** (not :8081), tiles via Martin on **:3000** (not :8080), and uses a **single GATEWAY_API_KEY** (not API_KEYS array). See `PHASE_3_DEPLOYMENT_BLOCKERS.md` for deployment evidence.
+> Deployment reality verified against code in `infra/local-api/main.py` and compose in `infra/docker/docker-compose.yml`.
 
 ## Overview
 
-You are a **FastAPI gateway** running inside Docker Compose on a Windows 11 desktop with a 12-core i7 processor and local PostgreSQL database. Your job is to serve **property data**, **vector tiles**, **document search**, and **memory retrieval** to the Entitlement OS frontend deployed on Vercel.
+The local API stack is a Docker Compose deployment that exposes a single FastAPI gateway and a separate Martin tile service behind Cloudflare Tunnel.
 
-**Key architectural decisions:**
-- **Service-to-service authentication** (Bearer token, single GATEWAY_API_KEY)
-- **Separate subdomains** for tiles vs data/tools
-- **Tool-safe endpoints** with strict request shaping
-- **Qdrant integration** for document and memory retrieval
-- **Server-side caching** and rate limiting
+- FastAPI gateway: `gateway:8000` (public hostname: `api.gallagherpropco.com`)
+- Martin tile service: `martin:3000` (public hostname: `tiles.gallagherpropco.com`)
+- Property DB (PostgreSQL/PostGIS): container `5432`, host `54323`
+- Qdrant: container `6333`
 
----
+The Next.js app and worker call gateway/tile services via service-to-service bearer auth, not direct database URLs.
 
 ## Architecture
 
-```
+```text
 Vercel (Next.js)
-    ↓ HTTPS (Single Cloudflare Tunnel, 4 QUIC connections)
-    ↓
-Docker Compose (Windows 11, 12-core i7)
-    ├── gateway (FastAPI :8000) — api.gallagherpropco.com
-    ├── martin (:3000, MVT tiles) — tiles.gallagherpropco.com
-    ├── postgres (internal, :5432) — 560K parcels, PostGIS
-    ├── qdrant (internal, :6333) — vector search
-    ├── pgadmin (internal)
-    └── cloudflared (tunnel agent)
+  -> HTTPS + Bearer token
+Cloudflare Edge + Tunnel
+  -> api.gallagherpropco.com   -> gateway:8000
+  -> tiles.gallagherpropco.com -> martin:3000
+Docker Compose (Windows host)
+  -> gateway (FastAPI)
+  -> martin (MVT)
+  -> entitlement-db (Postgres/PostGIS)
+  -> qdrant
+  -> cloudflared
 ```
 
-**Single Cloudflare Tunnel with remotely-managed ingress:**
-- `api.gallagherpropco.com` → gateway:8000 (FastAPI)
-- `tiles.gallagherpropco.com` → martin:3000 (MVT tiles)
-- Catch-all → http_status:404
+## Runtime Environment Contract
 
-**Why separate subdomains?**
-- Independent cache policies (tiles immutable 7d, data short-lived)
-- Separate rate limiting (tiles high-volume, tools low-volume)
-- CDN optimization (tile subdomain gets aggressive edge caching)
+### Gateway (`infra/local-api/main.py`)
 
----
+Required:
+- `DATABASE_URL` (property DB)
 
-## API Endpoints
+Optional:
+- `APPLICATION_DATABASE_URL` (if omitted, uses `DATABASE_URL`)
+- `MARTIN_URL` (default: `http://localhost:3000`)
+- `API_KEYS` (comma-separated bearer keys)
+- `GATEWAY_API_KEY` (single-key fallback)
+- `ALLOWED_ORIGINS` (comma-separated)
 
-### Tiles Subdomain (`tiles.gallagherpropco.com`)
+Auth behavior:
+- All endpoints except `GET /health` require `Authorization: Bearer <key>`.
+- Key comparison uses constant-time checks.
 
-**Port:** 8080
-**Cache:** Aggressive (7 days, immutable)
-**Rate Limit:** 1000 req/min
+### App Runtime (`apps/web`)
 
-#### `GET /tiles/{z}/{x}/{y}.pbf`
-Returns Mapbox Vector Tile (`.pbf`) for parcel boundaries.
+For parcel/tile flows, app routes read:
+- `LOCAL_API_URL`
+- `LOCAL_API_KEY`
 
-**Response:**
-- `200`: Vector tile binary data
-- `204`: No data for this tile
-- `400`: Invalid tile coordinates
-- `503`: Martin unreachable
+Optional:
+- `TILE_SERVER_URL` (if omitted, tile host is derived by replacing `api.` with `tiles.`)
+- `CF_ACCESS_CLIENT_ID` and `CF_ACCESS_CLIENT_SECRET` when Cloudflare Access is enabled.
 
-**Cache-Control:** `public, max-age=604800, immutable`
+`LOCAL_DATABASE_URI` is not the runtime contract for current app parcel/tile paths.
 
----
+## API Surface (Current `main.py`)
 
-### Data/Tools Subdomain (`api.gallagherpropco.com`)
+### Public
+- `GET /health`
 
-**Port:** 8081
-**Cache:** Short-lived (60s max)
-**Rate Limit:** 100 req/min per endpoint
+### Authenticated - Deals
+- `GET /deals`
+- `POST /deals`
 
-#### `GET /health`
-**No auth required.** Returns system status.
+### Authenticated - Tiles and Parcels
+- `GET /tiles/{z}/{x}/{y}.pbf`
+- `POST /tools/parcel.lookup`
+- `POST /tools/parcel.bbox`
+- `POST /tools/parcel.point`
+- `POST /tools/parcels.search`
+- `POST /tools/parcels.sql`
+- `GET /api/parcels/search`
+- `GET /api/parcels/{parcel_id}`
+- `GET /api/parcels/{parcel_id}/geometry`
 
-**Response:**
+### Authenticated - Screening
+- `POST /api/screening/zoning`
+- `POST /api/screening/flood`
+- `POST /api/screening/soils`
+- `POST /api/screening/wetlands`
+- `POST /api/screening/epa`
+- `POST /api/screening/traffic`
+- `POST /api/screening/ldeq`
+- `POST /api/screening/full`
+
+### Authenticated - Storage
+- `POST /storage/upload-bytes`
+- `GET /storage/object-bytes`
+- `GET /storage/download-url`
+- `POST /storage/delete-object`
+
+### Authenticated - Admin and Stats
+- `GET /api/stats`
+- `POST /db/query`
+- `GET|POST|PATCH /admin/*` (via `admin_router`)
+
+## Query Endpoint Contract
+
+`POST /db/query` executes SQL with parameter binding.
+
+Request shape:
+
 ```json
 {
-  "status": "ok",
-  "timestamp": "2026-02-20T10:00:00Z",
-  "database": "connected",
-  "martin": "up",
-  "qdrant": "up"
+  "sql": "SELECT * FROM ebr_parcels WHERE parcel_id = $1",
+  "params": ["123-456"]
 }
 ```
 
----
+Behavior:
+- `SELECT` and statements containing `RETURNING` return rows.
+- Other statements return `rowCount`.
+- Missing `sql` returns `400`.
 
-#### `POST /tool/parcel.bbox`
-Search parcels within bounding box.
+## Compose Port Contract
 
-**Auth:** Bearer token required
-**Request shaping:**
-- Max bbox area: 0.1 sq degrees (~100 sq km)
-- Max results: 100
-- Cache: 60s by bbox hash
+From `infra/docker/docker-compose.yml`:
+- PostgreSQL host port: `54323`
+- PostgreSQL container port: `5432`
 
-**Request:**
-```json
-{
-  "bbox": {
-    "minLat": 30.40,
-    "minLng": -91.20,
-    "maxLat": 30.45,
-    "maxLng": -91.15
-  },
-  "filters": {
-    "searchText": "Main St",
-    "parish": "East Baton Rouge",
-    "minAcres": 1.0,
-    "maxAcres": 5.0
-  },
-  "limit": 25
-}
+Use host DSN from the workstation:
+
+```bash
+postgresql://postgres:postgres@localhost:54323/entitlement_os
 ```
 
-**Response:**
-```json
-{
-  "ok": true,
-  "count": 12,
-  "cached": false,
-  "data": [
-    {
-      "id": "uuid-here",
-      "parcel_uid": "EBR-123456",
-      "site_address": "123 Main St",
-      "owner_name": "John Doe",
-      "acreage": 1.25,
-      "zoning": "C2",
-      "flood_zone": "X",
-      "lat": 30.41,
-      "lng": -91.15,
-      "parish": "East Baton Rouge"
-    }
-  ]
-}
+## Integration Flows
+
+### 1) Map tile rendering (`/map`)
+1. Browser requests `GET /api/map/tiles/{z}/{x}/{y}` from Next.js.
+2. Next.js route reads `LOCAL_API_URL` and `LOCAL_API_KEY`.
+3. Route calls tile host (`TILE_SERVER_URL` or `LOCAL_API_URL` host swapped to `tiles.`).
+4. Response is returned as `application/vnd.mapbox-vector-tile`.
+
+### 2) Parcel geometry
+1. Browser requests `GET /api/parcels/{parcelId}/geometry`.
+2. Next.js route enforces auth/rate limits.
+3. Route proxies to gateway `GET /api/parcels/{parcel_id}/geometry?detail_level=...`.
+4. Gateway response is normalized and returned to client.
+
+### 3) Agent and tools query
+1. Tool adapter sends authenticated requests to `api.gallagherpropco.com`.
+2. Gateway executes bounded parcel/tool logic.
+3. Optional SQL path goes through `POST /db/query`.
+
+## Operational Smoke Checks
+
+```bash
+# Gateway health
+curl http://localhost:8000/health
+
+# Authenticated parcel search
+curl -H "Authorization: Bearer $GATEWAY_API_KEY" \
+  "http://localhost:8000/api/parcels/search?q=Main%20St&limit=5"
+
+# Authenticated SQL endpoint
+curl -X POST http://localhost:8000/db/query \
+  -H "Authorization: Bearer $GATEWAY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"sql":"SELECT COUNT(*) AS c FROM ebr_parcels"}'
+
+# Host DB connectivity
+psql postgresql://postgres:postgres@localhost:54323/entitlement_os -c "SELECT 1;"
 ```
 
-**Errors:**
-- `400`: Bbox too large or invalid
-- `401`: Missing/invalid Bearer token
-- `429`: Rate limit exceeded
+## Non-Goals and Legacy Notes
 
----
-
-#### `GET /tool/parcel.get?id={parcel_id}`
-Get single parcel by ID.
-
-**Auth:** Bearer token required
-**Cache:** 300s
-
-**Response:**
-```json
-{
-  "ok": true,
-  "data": {
-    "id": "uuid-here",
-    "parcel_uid": "EBR-123456",
-    "site_address": "123 Main St",
-    "owner_name": "John Doe",
-    "acreage": 1.25,
-    "assessed_value": 125000,
-    "sale_date": "2024-06-15",
-    "sale_price": 150000,
-    "zoning": "C2",
-    "flood_zone": "X",
-    "lat": 30.41,
-    "lng": -91.15,
-    "parish": "East Baton Rouge"
-  }
-}
-```
-
----
-
-#### `GET /tool/parcel.geometry?id={parcel_id}&detail={low|medium|high}`
-Get parcel boundary GeoJSON.
-
-**Auth:** Bearer token required
-**Cache:** 3600s
-**Detail levels:**
-- `low`: ~10 points (default)
-- `medium`: ~50 points
-- `high`: ~200 points
-
-**Response:**
-```json
-{
-  "ok": true,
-  "data": {
-    "parcel_uid": "EBR-123456",
-    "geom_simplified": {
-      "type": "Polygon",
-      "coordinates": [[
-        [-91.1500, 30.4100],
-        [-91.1495, 30.4100],
-        [-91.1495, 30.4105],
-        [-91.1500, 30.4105],
-        [-91.1500, 30.4100]
-      ]]
-    }
-  }
-}
-```
-
----
-
-#### `POST /tool/screening.flood`
-Screen parcel for flood risk.
-
-**Auth:** Bearer token required
-**Cache:** 3600s
-
-**Request:**
-```json
-{
-  "parcelId": "EBR-123456",
-  "lat": 30.41,
-  "lng": -91.15
-}
-```
-
-**Response:**
-```json
-{
-  "ok": true,
-  "data": {
-    "parcelId": "EBR-123456",
-    "floodZone": "X",
-    "floodRisk": "low",
-    "firmPanel": "22033C0305E",
-    "effectiveDate": "2024-01-01"
-  }
-}
-```
-
----
-
-#### `POST /tool/docs.search`
-Search project documentation (Qdrant).
-
-**Auth:** Bearer token required
-**Max results:** 20
-**Cache:** 300s
-
-**Request:**
-```json
-{
-  "query": "EBR zoning C2 setback requirements",
-  "limit": 5,
-  "filter": {
-    "parish": "East Baton Rouge",
-    "docType": "zoning"
-  }
-}
-```
-
-**Response:**
-```json
-{
-  "ok": true,
-  "count": 3,
-  "data": [
-    {
-      "score": 0.92,
-      "content": "C2 Commercial: Front setback 25ft, side 10ft...",
-      "metadata": {
-        "source": "EBR UDC Chapter 9",
-        "section": "9.3.2",
-        "parish": "East Baton Rouge",
-        "docType": "zoning"
-      }
-    }
-  ]
-}
-```
-
----
-
-#### `GET /tool/docs.fetch?id={doc_id}`
-Fetch full document by ID (Qdrant).
-
-**Auth:** Bearer token required
-**Cache:** 3600s
-
-**Response:**
-```json
-{
-  "ok": true,
-  "data": {
-    "id": "doc-uuid-here",
-    "title": "EBR Unified Development Code - Chapter 9",
-    "content": "...",
-    "metadata": {
-      "source": "EBR UDC",
-      "updated": "2024-01-15",
-      "parish": "East Baton Rouge"
-    }
-  }
-}
-```
-
----
-
-#### `POST /tool/memory.write`
-Store conversation memory (Qdrant).
-
-**Auth:** Bearer token required
-**Max payload:** 10KB
-**No cache**
-
-**Request:**
-```json
-{
-  "conversationId": "conv-123",
-  "userId": "user-456",
-  "content": "Blake prefers outdoor storage deals in EBR with C2 zoning.",
-  "metadata": {
-    "type": "user_preference",
-    "topic": "deal_criteria"
-  }
-}
-```
-
-**Response:**
-```json
-{
-  "ok": true,
-  "id": "memory-uuid-here",
-  "indexed": true
-}
-```
-
----
-
-## Authentication
-
-**All endpoints except `/health` require:**
-```
-Authorization: Bearer <API_KEY>
-```
-
-**Validation:**
-- Constant-time comparison (`secrets.compare_digest`)
-- API keys stored in `.env` (comma-separated)
-- Invalid key → `401 Unauthorized`
-
-**No CORS** — service-to-service auth only.
-
----
-
-## Database Schema
-
-**Table:** `ebr_parcels` (560K rows)
-
-| Column | Type | Example |
-|--------|------|---------|
-| `id` | UUID | `uuid-here` |
-| `parcel_uid` | TEXT | `EBR-123456` |
-| `site_address` | TEXT | `123 Main St` |
-| `owner` | TEXT | `John Doe` |
-| `area_sqft` | FLOAT | `54450` (1.25 acres) |
-| `assessed_value` | INTEGER | `125000` |
-| `sale_date` | DATE | `2024-06-15` |
-| `sale_price` | INTEGER | `150000` |
-| `zone_code` | TEXT | `C2` |
-| `flood_zone` | TEXT | `X` |
-| `latitude` | FLOAT | `30.41` |
-| `longitude` | FLOAT | `-91.15` |
-| `parish` | TEXT | `East Baton Rouge` |
-| `geom` | GEOMETRY | PostGIS Polygon |
-
-**PostGIS functions available:**
-- `ST_Within(point, bbox)` — bbox filtering
-- `ST_Simplify(geom, tolerance)` — geometry simplification
-- `ST_AsGeoJSON(geom)` — GeoJSON output
-
----
-
-## Performance Requirements
-
-**Target latency (p95):**
-- Tile requests: <100ms
-- Bbox search: <500ms
-- Single parcel: <50ms
-- Screening: <200ms
-- Docs/memory: <300ms
-
-**Connection pool:**
-- Min: 5 connections
-- Max: 20 connections
-- Timeout: 60s
-
-**Rate limiting (per endpoint, per minute):**
-- Tiles: 1000 req/min
-- Bbox search: 100 req/min
-- Other tools: 100 req/min
-
-**Caching (server-side):**
-- In-memory LRU cache (max 1000 entries)
-- TTL varies by endpoint (see above)
-- Cache key = hash(endpoint + params)
-
----
-
-## Running in Production (Windows 11)
-
-**Install dependencies:**
-```powershell
-pip install fastapi uvicorn asyncpg httpx python-dotenv qdrant-client
-```
-
-**Run tile server (port 8080):**
-```powershell
-python tile_server.py
-```
-
-**Run data/tools server (port 8081):**
-```powershell
-python api_server.py
-```
-
-**Use Windows Task Scheduler** to auto-start on boot.
-
-**Cloudflare Tunnel setup:**
-```powershell
-cloudflared tunnel create gpc-tiles
-cloudflared tunnel create gpc-api
-
-# Configure ingress
-# ~/.cloudflared/config.yml
-```
-
----
-
-## Communication Flows
-
-**1. Vercel requests tile:**
-```
-Vercel (apps/web/app/api/map/tiles/[z]/[x]/[y]/route.ts)
-  → HTTPS GET tiles.gallagherpropco.com/tiles/14/3842/6745.pbf
-  → Cloudflare Tunnel → Local API :8080
-  → Proxy to Martin :3000/parcels/14/3842/6745.pbf
-  → Return .pbf binary
-```
-
-**2. Agent searches parcels:**
-```
-Agent (packages/openai/src/tools/propertyDbTools.ts)
-  → POST api.gallagherpropco.com/tool/parcel.bbox
-  → Cloudflare Tunnel → Local API :8081
-  → PostgreSQL query with bbox filter
-  → Return JSON array (max 100)
-```
-
-**3. Agent retrieves zoning docs:**
-```
-Agent (packages/openai/src/tools/zoningTools.ts)
-  → POST api.gallagherpropco.com/tool/docs.search
-  → Cloudflare Tunnel → Local API :8081
-  → Qdrant vector search
-  → Return top 5 matches with scores
-```
-
----
-
-## Monitoring & Logs
-
-**Log format (JSON):**
-```json
-{
-  "timestamp": "2026-02-20T10:00:00Z",
-  "level": "INFO",
-  "endpoint": "/tool/parcel.bbox",
-  "method": "POST",
-  "status": 200,
-  "latency_ms": 145,
-  "cache_hit": false,
-  "result_count": 12
-}
-```
-
-**Health checks:**
-- Vercel hits `/health` every 60s
-- Alert if database disconnected >5min
-- Alert if Martin unreachable >2min
-- Alert if Qdrant down >2min
-
----
-
-This spec is complete and ready to implement.
+- This spec does not describe legacy split servers (`api_server.py`, `tile_server.py`) as the active deployment path.
+- Do not document or depend on `/api/query`; current endpoint is `/db/query`.
+- Do not document app parcel/tile runtime as direct DB URI wiring.

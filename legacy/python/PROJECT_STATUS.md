@@ -41,7 +41,7 @@ Last updated: 2026-02-05
 - Added an in-memory database fallback for local agent runs via `USE_IN_MEMORY_DB`.
 - Replaced dict-based tool placeholders with Agents SDK tools (WebSearch + Code Interpreter config).
 - Made Legal agent file search optional based on `OPENAI_VECTOR_STORE_IDS`.
-- Added `scripts/run_agent_api_exercises.py` to exercise all agent endpoints and capture results.
+- Added `legacy/python/scripts/run_agent_api_exercises.py` to exercise all agent endpoints and capture results.
 - Executed full agent API exercise run; results stored under `output/agent_api_exercises_2026-02-03_21-38-19.*`.
 - Normalized in-memory DB sort keys to avoid mixed-type comparison errors during list operations.
 - Agent API exercise runner now falls back to `sys.executable` if `.venv/bin/python` is unavailable.

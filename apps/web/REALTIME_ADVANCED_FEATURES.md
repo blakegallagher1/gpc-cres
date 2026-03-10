@@ -2,6 +2,10 @@
 
 Last reviewed: 2026-02-19
 
+> **Status: Archived snapshot (non-authoritative).**
+> This feature write-up reflects an earlier implementation phase and may not match current production/runtime contracts.
+> Use `ROADMAP.md` and `docs/SPEC.md` for current capability and architecture status.
+
 
 ## Overview
 
@@ -11,7 +15,7 @@ This document describes the real-time features, advanced features, polish, and t
 
 ## Real-time Features
 
-### 1. WebSocket-like Live Updates (`lib/hooks/useRealtime.ts`)
+### 1. WebSocket-like Live Updates (`apps/web/lib/hooks/useRealtime.ts`)
 
 The `useRealtime` hook provides real-time updates with the following features:
 
@@ -64,7 +68,7 @@ The Dashboard page now includes:
 
 ## Advanced Features
 
-### 1. Undo/Redo System (`lib/hooks/useUndoRedo.ts`)
+### 1. Undo/Redo System (`apps/web/lib/hooks/useUndoRedo.ts`)
 
 Full undo/redo functionality with:
 
@@ -81,7 +85,7 @@ const { state, setState, undo, redo, canUndo, canRedo } = useUndoRedo(
 );
 ```
 
-### 2. Workflow Import/Export (`lib/workflow-io.ts`)
+### 2. Workflow Import/Export (`apps/web/lib/workflow-io.ts`)
 
 Complete workflow serialization:
 
@@ -114,7 +118,7 @@ Pre-built workflow templates:
 import { workflowTemplates } from "@/lib/workflow-io";
 ```
 
-### 4. Command Palette (`components/command-palette/CommandPalette.tsx`)
+### 4. Command Palette (`apps/web/components/command-palette/CommandPalette.tsx`)
 
 Global command interface with:
 
@@ -138,20 +142,20 @@ Global command interface with:
 
 ### 1. Loading Skeletons
 
-**Dashboard Skeleton** (`components/skeletons/DashboardSkeleton.tsx`)
+**Dashboard Skeleton** (`apps/web/components/skeletons/DashboardSkeleton.tsx`)
 - Stats cards
 - Activity chart
 - Recent runs
 - Agent status
 
-**Table Skeleton** (`components/skeletons/TableSkeleton.tsx`)
+**Table Skeleton** (`apps/web/components/skeletons/TableSkeleton.tsx`)
 - Configurable rows/columns
 - Header toolbar
 - Action buttons
 
 ### 2. Error Boundaries
 
-**Page-level Error Boundary** (`components/error-boundary/ErrorBoundary.tsx`)
+**Page-level Error Boundary** (`apps/web/components/error-boundary/ErrorBoundary.tsx`)
 - Catches uncaught errors
 - Shows friendly error message
 - Retry button
@@ -164,7 +168,7 @@ Global command interface with:
 
 ### 3. Page Transitions
 
-**PageTransition** (`components/transitions/PageTransition.tsx`)
+**PageTransition** (`apps/web/components/transitions/PageTransition.tsx`)
 - Smooth fade-in/fade-out
 - Directional slide animation
 - AnimatePresence for exit animations
@@ -185,7 +189,7 @@ Global command interface with:
 
 ## Testing
 
-### 1. Unit Tests (Jest + React Testing Library)
+### 1. Unit Tests (Vitest + React Testing Library)
 
 **Test Setup** (`__tests__/setup.ts`)
 - Mocks for next/navigation
@@ -195,7 +199,7 @@ Global command interface with:
 - Mock for IntersectionObserver
 - Mock for ResizeObserver
 
-**useUndoRedo Tests** (`__tests__/hooks/useUndoRedo.test.ts`)
+**useUndoRedo Tests** (`apps/web/__tests__/hooks/useUndoRedo.test.ts`)
 - Initialization
 - State updates
 - Undo functionality
@@ -206,7 +210,7 @@ Global command interface with:
 - Max history limit
 - onChange callback
 
-**workflow-io Tests** (`__tests__/lib/workflow-io.test.ts`)
+**workflow-io Tests** (`apps/web/__tests__/lib/workflow-io.test.ts`)
 - Export workflow
 - Import valid workflow
 - Import invalid JSON
@@ -219,13 +223,13 @@ Global command interface with:
 
 ### 2. E2E Tests (Playwright)
 
-**Configuration** (`playwright.config.ts`)
+**Configuration** (`apps/web/playwright.config.ts`)
 - Cross-browser testing (Chrome, Firefox, Safari)
 - Mobile testing (Pixel 5, iPhone 12)
 - Screenshot on failure
 - Video on first retry
 
-**Navigation Tests** (`e2e/navigation.spec.ts`)
+**Navigation Tests** (`apps/web/e2e/navigation.spec.ts`)
 - Dashboard display
 - Navigate to Agent Library
 - Navigate to Workflows
@@ -235,14 +239,14 @@ Global command interface with:
 - Command palette keyboard shortcut
 - Command palette navigation
 
-**Agent Tests** (`e2e/agents.spec.ts`)
+**Agent Tests** (`apps/web/e2e/agents.spec.ts`)
 - Display all agents
 - Filter by search
 - Filter by capability
 - Navigate to agent detail
 - Run agent from detail
 
-**Workflow Tests** (`e2e/workflows.spec.ts`)
+**Workflow Tests** (`apps/web/e2e/workflows.spec.ts`)
 - Display workflows list
 - Navigate to workflow builder
 - Display builder canvas
@@ -256,49 +260,50 @@ Global command interface with:
 
 ### New Files Created
 
-```
-lib/hooks/
-├── useRealtime.ts          # Real-time updates, auto-refresh, polling
-└── useUndoRedo.ts          # Undo/redo functionality
+```text
+apps/web/lib/hooks/
+├── useRealtime.ts                  # Real-time updates, auto-refresh, polling
+└── useUndoRedo.ts                  # Undo/redo functionality
 
-lib/
-└── workflow-io.ts          # Import/export, templates
+apps/web/lib/
+└── workflow-io.ts                  # Import/export, templates
 
-components/command-palette/
-└── CommandPalette.tsx      # Global command interface
+apps/web/components/command-palette/
+└── CommandPalette.tsx              # Global command interface
 
-components/error-boundary/
-└── ErrorBoundary.tsx       # Error handling
+apps/web/components/error-boundary/
+└── ErrorBoundary.tsx               # Error handling
 
-components/skeletons/
-├── DashboardSkeleton.tsx   # Dashboard loading state
-└── TableSkeleton.tsx       # Table loading state
+apps/web/components/skeletons/
+├── DashboardSkeleton.tsx           # Dashboard loading state
+└── TableSkeleton.tsx               # Table loading state
 
-components/transitions/
-└── PageTransition.tsx      # Page animations
+apps/web/components/transitions/
+└── PageTransition.tsx              # Page animations
 
-__tests__/
-├── setup.ts                # Test configuration
+apps/web/__tests__/
+├── setup.ts                        # Test configuration
 ├── hooks/
-│   └── useUndoRedo.test.ts # Undo/redo tests
+│   └── useUndoRedo.test.ts         # Undo/redo tests
 └── lib/
-    └── workflow-io.test.ts # Workflow I/O tests
+    └── workflow-io.test.ts         # Workflow I/O tests
 
-e2e/
-├── navigation.spec.ts      # Navigation E2E tests
-├── agents.spec.ts          # Agent E2E tests
-└── workflows.spec.ts       # Workflow E2E tests
+apps/web/e2e/
+├── navigation.spec.ts              # Navigation E2E tests
+├── agents.spec.ts                  # Agent E2E tests
+└── workflows.spec.ts               # Workflow E2E tests
 
-playwright.config.ts        # Playwright configuration
+apps/web/playwright.config.ts       # Playwright configuration
 ```
 
 ### Updated Files
 
-```
-app/page.tsx                # Added real-time features
-components/layout/
+```text
+apps/web/components/layout/
 └── DashboardShell.tsx      # Added Command Palette
 ```
+
+Historical note: this implementation originally referenced `app/page.tsx`, which no longer exists after route split-out into dedicated dashboard pages.
 
 ---
 

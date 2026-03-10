@@ -27,7 +27,7 @@ Browser/Agent ←→ Cloudflare Worker (agents.gallagherpropco.com)
         ┌────────────────┬────────────────┬──────────────┐
         ↓                ↓                ↓              ↓
    Gateway         Vercel API      OpenAI Hosted    Vector DB
-   :8000           tools/execute    (web_search)    (docs.search)
+   :8000           tools/execute    (web_search)    (Qdrant semantic recall)
      ↓
   ┌──────────────────────────────────────┐
   │ 3 NEW ENDPOINTS (POST)               │
@@ -316,7 +316,7 @@ Files Modified:
 
 ### Authentication Chain
 ```
-Magic Link → Supabase JWT → Authorization header → Tool execution
+NextAuth session cookie → /api/auth/token signed JWT → Authorization header → Tool execution
 ✅ Verified: /api/agent/auth/resolve returns 200 OK
 ```
 

@@ -2,9 +2,25 @@ import { NextRequest, NextResponse } from "next/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { prisma } from "@entitlement-os/db";
 import {
+  attachRequestIdHeader,
+  createRequestObservabilityContext,
+  logRequestOutcome,
+  logRequestStart,
+} from "@/lib/server/observability";
+import {
   getCloudflareAccessHeadersFromEnv,
   logPropertyDbRuntimeHealth,
 } from "@/lib/server/propertyDbEnv";
+
+const DEFAULT_GATEWAY_TIMEOUT_MS = 10_000;
+
+function getGatewayTimeoutMs(): number {
+  const raw = Number(process.env.PROPERTY_DB_GATEWAY_TIMEOUT_MS ?? "");
+  if (Number.isFinite(raw) && raw > 0) {
+    return Math.floor(raw);
+  }
+  return DEFAULT_GATEWAY_TIMEOUT_MS;
+}
 
 class ProspectGatewayError extends Error {
   status: number;
@@ -30,9 +46,13 @@ async function gatewayPost(
   path: string,
   body: Record<string, unknown>,
   config: { url: string; key: string },
+  requestId?: string,
 ): Promise<unknown> {
   const { url, key } = config;
   let res: Response;
+  const timeoutMs = getGatewayTimeoutMs();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
     res = await fetch(`${url}${path}`, {
       method: "POST",
@@ -40,16 +60,25 @@ async function gatewayPost(
         Authorization: `Bearer ${key}`,
         apikey: key,
         "Content-Type": "application/json",
+        ...(requestId ? { "x-request-id": requestId } : {}),
         ...getCloudflareAccessHeadersFromEnv(),
       },
       body: JSON.stringify(body),
+      signal: controller.signal,
     });
   } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
+    const reason =
+      error instanceof Error && error.name === "AbortError"
+        ? `request timed out after ${timeoutMs}ms`
+        : error instanceof Error
+          ? error.message
+          : String(error);
     throw new ProspectGatewayError(
       `[prospect] gateway ${path} request failed: ${reason}`,
       "GATEWAY_UNAVAILABLE",
     );
+  } finally {
+    clearTimeout(timeout);
   }
   if (!res.ok) {
     const text = await res.text().catch(() => "");
@@ -148,9 +177,15 @@ function buildPolygonSql(
 // ---------------------------------------------------------------------------
 
 export async function POST(req: NextRequest) {
+  const context = createRequestObservabilityContext(req, "/api/map/prospect");
+  await logRequestStart(context, { action: "prospect-search" });
+  const withRequestId = (response: NextResponse) =>
+    attachRequestIdHeader(response, context.requestId);
+
   const auth = await resolveAuth(req);
   if (!auth) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    await logRequestOutcome(context, { status: 401, details: { action: "prospect-search" } });
+    return withRequestId(NextResponse.json({ error: "Unauthorized" }, { status: 401 }));
   }
 
   let body: {
@@ -165,6 +200,7 @@ export async function POST(req: NextRequest) {
       maxAssessedValue?: number;
     };
   };
+  let requestDetails: Record<string, unknown> = { action: "prospect-search" };
   try {
     body = (await req.json()) as {
       polygon?: { coordinates?: number[][][] };
@@ -179,18 +215,49 @@ export async function POST(req: NextRequest) {
       };
     };
   } catch {
-    return NextResponse.json(
-      { error: "Validation failed", details: { body: ["Invalid JSON body"] } },
-      { status: 400 },
+    await logRequestOutcome(context, {
+      status: 400,
+      orgId: auth.orgId,
+      userId: auth.userId,
+      details: { ...requestDetails, validationError: "invalid_json" },
+    });
+    return withRequestId(
+      NextResponse.json(
+        { error: "Validation failed", details: { body: ["Invalid JSON body"] } },
+        { status: 400 },
+      )
     );
   }
   const { polygon, filters } = body;
   const polygonCoordinates = polygon?.coordinates;
+  requestDetails = {
+    action: "prospect-search",
+    hasPolygon: Boolean(polygonCoordinates?.[0]?.length),
+    polygonRingCount: polygonCoordinates?.length ?? 0,
+    polygonPointCount: polygonCoordinates?.[0]?.length ?? 0,
+    hasFilters: Boolean(filters && Object.keys(filters).length > 0),
+    zoningCodeCount: filters?.zoningCodes?.length ?? 0,
+    hasMinAcreage: filters?.minAcreage != null,
+    hasMaxAcreage: filters?.maxAcreage != null,
+    hasMinAssessedValue: filters?.minAssessedValue != null,
+    hasMaxAssessedValue: filters?.maxAssessedValue != null,
+    excludeFloodZone: Boolean(filters?.excludeFloodZone),
+    hasSearchText: Boolean(filters?.searchText?.trim()),
+    searchLength: filters?.searchText?.trim().length ?? 0,
+  };
 
   if (!polygonCoordinates?.[0]) {
-    return NextResponse.json(
-      { error: "polygon with coordinates is required" },
-      { status: 400 }
+    await logRequestOutcome(context, {
+      status: 400,
+      orgId: auth.orgId,
+      userId: auth.userId,
+      details: { ...requestDetails, validationError: "missing_polygon" },
+    });
+    return withRequestId(
+      NextResponse.json(
+        { error: "polygon with coordinates is required" },
+        { status: 400 }
+      )
     );
   }
 
@@ -215,9 +282,12 @@ export async function POST(req: NextRequest) {
       maxAssessedValue: filters?.maxAssessedValue,
     });
 
-    console.log("[prospect] gateway SQL query:", sql.slice(0, 200), "...");
-
-    const raw = await gatewayPost("/tools/parcels.sql", { sql, limit: 500 }, gatewayConfig);
+    const raw = await gatewayPost(
+      "/tools/parcels.sql",
+      { sql, limit: 500 },
+      gatewayConfig,
+      context.requestId,
+    );
     const gatewayRows: Record<string, unknown>[] = [];
 
     if (Array.isArray(raw)) {
@@ -228,12 +298,6 @@ export async function POST(req: NextRequest) {
         gatewayRows.push(...(rows as Record<string, unknown>[]));
       }
     }
-
-    console.log(
-      "[prospect] gateway returned",
-      gatewayRows.length,
-      "parcels via PostGIS ST_Contains",
-    );
 
     const parcels = gatewayRows.map((p) => ({
       id: String(p.id ?? ""),
@@ -250,22 +314,57 @@ export async function POST(req: NextRequest) {
       propertyDbId: String(p.parcel_uid ?? p.parcel_id ?? p.id ?? ""),
     }));
 
-    return NextResponse.json({ parcels, total: parcels.length });
+    await logRequestOutcome(context, {
+      status: 200,
+      orgId: auth.orgId,
+      userId: auth.userId,
+      upstream: "property-db",
+      resultCount: parcels.length,
+      details: {
+        ...requestDetails,
+        gatewayRowCount: gatewayRows.length,
+        parcelCount: parcels.length,
+      },
+    });
+    return withRequestId(NextResponse.json({ parcels, total: parcels.length }));
   } catch (error) {
     if (error instanceof ProspectGatewayError) {
       console.error("Prospect gateway error:", error);
-      return NextResponse.json(
-        {
-          error: "Property database unavailable",
-          code: error.code,
+      await logRequestOutcome(context, {
+        status: error.status ?? 503,
+        orgId: auth.orgId,
+        userId: auth.userId,
+        upstream: "property-db",
+        error,
+        details: {
+          ...requestDetails,
+          errorCode: error.code,
         },
-        { status: error.status ?? 503 },
+      });
+      return withRequestId(
+        NextResponse.json(
+          {
+            error: "Property database unavailable",
+            code: error.code,
+          },
+          { status: error.status ?? 503 },
+        )
       );
     }
     console.error("Prospect search error:", error);
-    return NextResponse.json(
-      { error: "Failed to search parcels" },
-      { status: 500 }
+    await logRequestOutcome(context, {
+      status: 500,
+      orgId: auth.orgId,
+      userId: auth.userId,
+      upstream: "property-db",
+      error,
+      details: requestDetails,
+    });
+    return withRequestId(
+      NextResponse.json(
+        { error: "Failed to search parcels" },
+        { status: 500 }
+      )
     );
   }
 }
@@ -275,94 +374,176 @@ export async function POST(req: NextRequest) {
 // ---------------------------------------------------------------------------
 
 export async function PUT(req: NextRequest) {
+  const context = createRequestObservabilityContext(req, "/api/map/prospect");
+  await logRequestStart(context, { action: "prospect-bulk" });
+  const withRequestId = (response: NextResponse) =>
+    attachRequestIdHeader(response, context.requestId);
+
   const auth = await resolveAuth(req);
   if (!auth) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    await logRequestOutcome(context, { status: 401, details: { action: "prospect-bulk" } });
+    return withRequestId(NextResponse.json({ error: "Unauthorized" }, { status: 401 }));
   }
 
-  const body = await req.json();
-  const { action, parcelIds, parcels } = body;
+  let action: string | undefined;
+  let parcelCount = 0;
+  let parcelIdCount = 0;
 
-  if (action === "create-deals" && Array.isArray(parcels)) {
-    // Find default jurisdiction for the org (use first available)
-    const jurisdiction = await prisma.jurisdiction.findFirst({
-      where: { orgId: auth.orgId },
-      orderBy: { createdAt: "asc" },
-      select: { id: true },
-    });
-    if (!jurisdiction) {
-      return NextResponse.json(
-        { error: "No jurisdiction configured" },
-        { status: 400 }
-      );
-    }
+  try {
+    const body = await req.json();
+    action = typeof body?.action === "string" ? body.action : undefined;
+    const { parcelIds, parcels } = body as {
+      parcelIds?: unknown;
+      parcels?: unknown;
+    };
+    parcelCount = Array.isArray(parcels) ? parcels.length : 0;
+    parcelIdCount = Array.isArray(parcelIds) ? parcelIds.length : 0;
 
-    // Create a deal for each selected parcel
-    const created: string[] = [];
-    for (const parcel of parcels as Array<{
-      address: string;
-      lat: number;
-      lng: number;
-      acreage: number | null;
-      zoning: string;
-      floodZone: string;
-      id: string;
-      propertyDbId?: string;
-      parish: string;
-    }>) {
-      // Try to find a parish-specific jurisdiction
-      let jId = jurisdiction.id;
-      if (parcel.parish) {
-        const parishJur = await prisma.jurisdiction.findFirst({
-          where: {
-            orgId: auth.orgId,
-            name: { contains: parcel.parish, mode: "insensitive" },
+    if (action === "create-deals" && Array.isArray(parcels)) {
+      // Find default jurisdiction for the org (use first available)
+      const jurisdiction = await prisma.jurisdiction.findFirst({
+        where: { orgId: auth.orgId },
+        orderBy: { createdAt: "asc" },
+        select: { id: true },
+      });
+      if (!jurisdiction) {
+        await logRequestOutcome(context, {
+          status: 400,
+          orgId: auth.orgId,
+          userId: auth.userId,
+          upstream: "org",
+          details: {
+            action,
+            parcelCount,
+            parcelIdCount,
+            validationError: "missing_jurisdiction",
           },
-          orderBy: { createdAt: "asc" },
-          select: { id: true },
         });
-        if (parishJur) jId = parishJur.id;
+        return withRequestId(
+          NextResponse.json(
+            { error: "No jurisdiction configured" },
+            { status: 400 }
+          )
+        );
       }
 
-      const deal = await prisma.deal.create({
-        data: {
-          orgId: auth.orgId,
-          name: `Prospect: ${parcel.address}`,
-          sku: "OUTDOOR_STORAGE",
-          status: "INTAKE",
-          jurisdictionId: jId,
-          createdBy: auth.userId,
-          source: "[AUTO] Prospecting Mode",
+      // Create a deal for each selected parcel
+      const created: string[] = [];
+      for (const parcel of parcels as Array<{
+        address: string;
+        lat: number;
+        lng: number;
+        acreage: number | null;
+        zoning: string;
+        floodZone: string;
+        id: string;
+        propertyDbId?: string;
+        parish: string;
+      }>) {
+        // Try to find a parish-specific jurisdiction
+        let jId = jurisdiction.id;
+        if (parcel.parish) {
+          const parishJur = await prisma.jurisdiction.findFirst({
+            where: {
+              orgId: auth.orgId,
+              name: { contains: parcel.parish, mode: "insensitive" },
+            },
+            orderBy: { createdAt: "asc" },
+            select: { id: true },
+          });
+          if (parishJur) jId = parishJur.id;
+        }
+
+        const deal = await prisma.deal.create({
+          data: {
+            orgId: auth.orgId,
+            name: `Prospect: ${parcel.address}`,
+            sku: "OUTDOOR_STORAGE",
+            status: "INTAKE",
+            jurisdictionId: jId,
+            createdBy: auth.userId,
+            source: "[AUTO] Prospecting Mode",
+          },
+        });
+
+        await prisma.parcel.create({
+          data: {
+            dealId: deal.id,
+            orgId: auth.orgId,
+            address: parcel.address,
+            lat: parcel.lat,
+            lng: parcel.lng,
+            acreage: parcel.acreage,
+            currentZoning: parcel.zoning || null,
+            floodZone: parcel.floodZone || null,
+            propertyDbId: parcel.propertyDbId || parcel.id || null,
+          },
+        });
+
+        created.push(deal.id);
+      }
+      await logRequestOutcome(context, {
+        status: 200,
+        orgId: auth.orgId,
+        userId: auth.userId,
+        upstream: "org",
+        resultCount: created.length,
+        details: {
+          action,
+          parcelCount,
+          parcelIdCount,
         },
       });
-
-      await prisma.parcel.create({
-        data: {
-          dealId: deal.id,
-          orgId: auth.orgId,
-          address: parcel.address,
-          lat: parcel.lat,
-          lng: parcel.lng,
-          acreage: parcel.acreage,
-          currentZoning: parcel.zoning || null,
-          floodZone: parcel.floodZone || null,
-          propertyDbId: parcel.propertyDbId || parcel.id || null,
-        },
-      });
-
-      created.push(deal.id);
+      return withRequestId(NextResponse.json({ created, count: created.length }));
     }
-    return NextResponse.json({ created, count: created.length });
-  }
 
-  if (action === "batch-triage" && Array.isArray(parcelIds)) {
-    // Create triage tasks for each parcel's deal
-    // This would trigger the triage automation loop
-    return NextResponse.json({
-      message: `Batch triage queued for ${parcelIds.length} parcels`,
-      count: parcelIds.length,
+    if (action === "batch-triage" && Array.isArray(parcelIds)) {
+      // Create triage tasks for each parcel's deal
+      // This would trigger the triage automation loop
+      await logRequestOutcome(context, {
+        status: 200,
+        orgId: auth.orgId,
+        userId: auth.userId,
+        upstream: "org",
+        resultCount: parcelIds.length,
+        details: {
+          action,
+          parcelCount,
+          parcelIdCount,
+        },
+      });
+      return withRequestId(NextResponse.json({
+        message: `Batch triage queued for ${parcelIds.length} parcels`,
+        count: parcelIds.length,
+      }));
+    }
+
+    await logRequestOutcome(context, {
+      status: 400,
+      orgId: auth.orgId,
+      userId: auth.userId,
+      upstream: "org",
+      details: {
+        action,
+        parcelCount,
+        parcelIdCount,
+        validationError: "invalid_action",
+      },
     });
+    return withRequestId(NextResponse.json({ error: "Invalid action" }, { status: 400 }));
+  } catch (error) {
+    await logRequestOutcome(context, {
+      status: 500,
+      orgId: auth.orgId,
+      userId: auth.userId,
+      upstream: "org",
+      error,
+      details: {
+        action,
+        parcelCount,
+        parcelIdCount,
+      },
+    });
+    return withRequestId(NextResponse.json({ error: "Internal server error" }, { status: 500 }));
   }
-
-  return NextResponse.json({ error: "Invalid action" }, { status: 400 });
 }

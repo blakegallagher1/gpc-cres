@@ -149,9 +149,10 @@ Required shell rules:
 | Policy | Allowlist | Secret Mapping |
 |---|---|---|
 | `DENY_ALL` | `[]` | none |
-| `SUPABASE_ONLY` | `*.supabase.co` | `SUPABASE_KEY <- env:SUPABASE_SERVICE_ROLE_KEY` |
 | `LOCAL_GATEWAY` | `api.gallagherpropco.com`, `tiles.gallagherpropco.com` | `GATEWAY_KEY <- env:LOCAL_API_KEY` |
-| `CRE_DATA_SOURCES` | `*.supabase.co`, `api.gallagherpropco.com` | `SUPABASE_KEY`, `GATEWAY_KEY` via env refs |
+| `QDRANT_ONLY` | `qdrant.gallagherpropco.com` | `QDRANT_API_KEY <- env:QDRANT_API_KEY` |
+| `OPENAI_ONLY` | `api.openai.com` | `OPENAI_API_KEY <- env:OPENAI_API_KEY` |
+| `CRITICAL_CLOUD_APIS` | `api.gallagherpropco.com`, `tiles.gallagherpropco.com`, `qdrant.gallagherpropco.com` | `GATEWAY_KEY <- env:LOCAL_API_KEY`, `QDRANT_API_KEY <- env:QDRANT_API_KEY` |
 
 ## Compaction Behavior
 

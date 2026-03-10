@@ -1,13 +1,13 @@
 # GitHub Copilot Instructions for Entitlement OS
 
-This is a TypeScript/Next.js monorepo for Entitlement OS — an automation-first operating system for commercial real estate entitlement processes in Louisiana. The platform combines a 13-agent AI coordinator with a deal pipeline UI, property database integration, and document generation.
+This is a TypeScript/Next.js monorepo for Entitlement OS — an automation-first operating system for commercial real estate entitlement processes in Louisiana. The platform combines a 13-agent AI coordinator with a deal pipeline UI, gateway-backed property database integration, and document generation.
 
 ## Tech Stack
 
 - **Frontend**: Next.js 16.1.6 (App Router), React 19, shadcn/ui + Radix + Tailwind
 - **Backend**: Next.js API routes
-- **Database**: PostgreSQL via Supabase (Prisma ORM)
-- **Auth**: Supabase Auth (Google OAuth + email)
+- **Database**: PostgreSQL via Prisma with gateway-first production access
+- **Auth**: NextAuth/Auth.js session auth
 - **AI**: @openai/agents SDK (13 specialized agents)
 - **Package Manager**: pnpm 9.11.0
 - **Node**: 22
@@ -101,7 +101,7 @@ pnpm --filter @entitlement-os/db generate
 - Components should be PascalCase
 - Hooks should use `use*` prefix
 - Server-only code must import `"server-only"` module
-- Never expose secrets (OpenAI API key, Supabase service role key) to client
+- Never expose secrets (OpenAI API key, gateway/service credentials) to client
 
 ### Naming Conventions
 - **Tools**: snake_case (e.g., `get_deal_context`)
@@ -113,14 +113,14 @@ pnpm --filter @entitlement-os/db generate
 - **Multi-tenant by design** — all queries MUST scope by `orgId`
 - Use Prisma's `findFirstOrThrow({ where: { id, orgId } })` pattern
 - Never delete the `orgId` check in queries
-- Supabase Storage uses private buckets with signed URLs only
+- Artifact/evidence storage uses Backblaze B2 behind gateway-issued signed URLs
 
 ### Security
-- All API routes must authenticate Supabase session
+- All API routes must authenticate NextAuth/Auth.js session context
 - Confirm org membership before data access
 - Scope all DB queries by `orgId`
 - Never commit secrets or sensitive data
-- Server-only secrets: OpenAI API key, Supabase service role key
+- Server-only secrets include OpenAI API key and gateway/B2 service credentials
 
 ### Error Handling
 - Tool `execute()` functions return `JSON.stringify({ error: "..." })` on failure
@@ -135,7 +135,7 @@ pnpm --filter @entitlement-os/db generate
 - All AI outputs must pass strict Zod schema validation
 
 ### Testing
-- Use existing test frameworks (Jest in apps/web, Vitest in packages)
+- Use existing test framework conventions (Vitest in apps/web and packages unless a package explicitly defines otherwise)
 - Write tests for new exported functions
 - Mock external APIs in unit tests
 - No live network calls in unit tests
@@ -143,7 +143,7 @@ pnpm --filter @entitlement-os/db generate
 ### Automation
 - 12 automation loops in `apps/web/lib/automation/`
 - Events dispatched with `.catch(() => {})` — fire-and-forget pattern
-- Import `@/lib/automation/handlers` in API routes that dispatch events
+- Import `@/lib/automation/handlers.ts` in API routes that dispatch events
 - Read `AUTOMATION_CONFIG` for guardrail thresholds
 
 ## Key Guidelines

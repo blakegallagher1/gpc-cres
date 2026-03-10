@@ -1,12 +1,13 @@
 # Backend: Local Property DB + FastAPI Gateway
 
-Last synced with `infra/local-api/main.py`: 2026-03-04
+Last synced with `infra/local-api/main.py` + `infra/local-api/admin_router.py`: 2026-03-06
 
 ## Architecture (verified 2026-03-04)
 
 ```
 Vercel (gallagherpropco.com)
-    ├── Prisma queries → CF Worker /db → Hyperdrive → tunnel → local Postgres
+    ├── Prisma queries (tooling/control-plane only; non-authoritative)
+    │   (do not use as default source of truth for parcel/property/deals)
     └── Gateway calls → HTTPS + Bearer Token (LOCAL_API_KEY)
 Cloudflare Edge (tunnel + Hyperdrive)
     ├── agents.gallagherpropco.com → CF Worker (Durable Objects + /db proxy)
@@ -17,7 +18,8 @@ Windows 11 Desktop (12-core i7) — Docker Compose at C:\gpc-cres-backend\docker
     ├── gateway (FastAPI :8000) — infra/local-api/main.py
     │   ├── Auth: Bearer token (GATEWAY_API_KEY), constant-time comparison
     │   ├── DB pool: asyncpg → entitlement_os (all data + PostGIS)
-    │   ├── /db/query endpoint for Prisma SQL proxy (Vercel fallback)
+    │   ├── /db/query endpoint for Prisma SQL proxy (tooling only; non-production
+    │   │   fallback path)
     │   └── Security: X-Content-Type-Options: nosniff, X-Frame-Options: DENY
     ├── martin (:3000) — MVT tile generation from parcel geometries
     ├── entitlement-os-postgres (internal :5432) — entitlement_os, all data, PostGIS, SSL enabled
@@ -33,6 +35,8 @@ Separate subdomains for independent cache policies (tiles: 7d immutable; data: 6
 ## Database
 
 All services use a single PostgreSQL database: `entitlement_os` on the `entitlement-os-postgres` container. The legacy `local-postgis` container was removed on 2026-03-04. Both Supabase projects archived (2026-03-04). Vercel reaches this DB via Cloudflare Hyperdrive (config `ebd13ab7df60414d9ba8244299467e5e`) through the CF Worker `/db` endpoint.
+
+For production runtime traffic, this direct PostgreSQL path must **not** be used for authoritative parcel/property/deal reads or writes. That path is a control-plane aid for tooling.
 
 | Pool | Env Var | Target | Purpose |
 |------|---------|--------|---------|
@@ -52,7 +56,10 @@ Authorization: Bearer <GATEWAY_API_KEY>
 - No CORS by default; `ALLOWED_ORIGINS` env var enables it for specified domains
 - Deals endpoints additionally require `X-Org-Id` and/or `X-User-Id` headers for tenant isolation
 
-## Endpoint Inventory (20 endpoints)
+## Endpoint Inventory
+
+`infra/local-api/main.py` currently defines **27 core endpoints**.
+`infra/local-api/admin_router.py` contributes **12 admin endpoints** under `/admin`.
 
 Synced from `infra/local-api/main.py` — update this table when endpoints change.
 
@@ -75,13 +82,10 @@ Synced from `infra/local-api/main.py` — update this table when endpoints chang
 ### Storage (B2 S3-compatible)
 | Method | Path | Auth | Headers | Description |
 |--------|------|------|---------|-------------|
-| POST | `/storage/upload-session` | Yes | `X-Org-Id`, `X-User-Id` | Create pending upload, return signed PUT URL. Body: `{dealId, filename, contentType, sizeBytes, kind?}`. |
 | POST | `/storage/upload-bytes` | Yes | `X-Org-Id`, `X-User-Id` | Server-side upload. Multipart: `kind=artifact\|evidence_snapshot\|evidence_extract\|staging`, metadata, `file`. For artifact: creates DB row. For staging: `objectKey` required, must start with `staging/{orgId}/`. |
-| POST | `/storage/finalize` | Yes | `X-Org-Id`, `X-User-Id` | Verify object in B2, mark upload available. Body: `{artifactId}`. |
 | GET | `/storage/object-bytes` | Yes | `X-Org-Id`, `X-User-Id` | Raw bytes by key. Query: `key`. Valid keys: `uploads/`, `artifacts/`, `evidence/`, `staging/`. |
 | GET | `/storage/download-url` | Yes | `X-Org-Id`, `X-User-Id` | Signed GET URL. Query: `id`, `type=upload\|artifact\|evidence_snapshot\|evidence_extract`. |
-| GET | `/storage/list` | Yes | `X-Org-Id`, `X-User-Id` | List uploads for deal. Query: `dealId`, `limit`. |
-| DELETE | `/storage/objects/{object_id}` | Yes | `X-Org-Id`, `X-User-Id` | Delete upload from B2 and DB. |
+| POST | `/storage/delete-object` | Yes | `X-Org-Id`, `X-User-Id` | Delete object from storage by key. Body: `{key}`. |
 
 ### Tiles Proxy (Martin)
 | Method | Path | Auth | Description |
@@ -93,6 +97,9 @@ Synced from `infra/local-api/main.py` — update this table when endpoints chang
 |--------|------|------|------|-------------|
 | POST | `/tools/parcel.lookup` | Yes | `{parcel_id}` | Single parcel via `api_get_parcel` RPC, with inline fallback query. |
 | POST | `/tools/parcel.bbox` | Yes | `{west, south, east, north, limit?, parish?}` | Bbox search, max 100 results. |
+| POST | `/tools/parcel.point` | Yes | `{lat, lng, limit?}` | Point-in-polygon lookup with nearest-neighbor fallback. |
+| POST | `/tools/parcels.search` | Yes | typed filters (`zoning`, `zip`, `owner_contains`, `bbox`, `point_radius`, ...) | Structured parcel search facade with guarded filters. |
+| POST | `/tools/parcels.sql` | Yes | `{sql, limit?}` | Governed read-only SQL (`SELECT/WITH` only, allowlisted tables). |
 
 ### Parcel API Endpoints
 | Method | Path | Auth | Description |
@@ -103,18 +110,35 @@ Synced from `infra/local-api/main.py` — update this table when endpoints chang
 
 ### Screening Endpoints (used by `propertyDbTools.ts`)
 
-All screening endpoints: `POST`, auth required, body `{parcel_id}`, resolve parcel_uid → UUID via `_resolve_parcel_uuid()`, return `{ok, data}`.
+All screening endpoints: `POST`, auth required, body uses `parcelId` (camelCase), return `{ok, data}`.
 
 | Path | RPC Function | Extra Params |
 |------|-------------|--------------|
-| `/tools/screen.flood` | `api_screen_flood(uuid)` | — |
-| `/tools/screen.soils` | `api_screen_soils(uuid)` | — |
-| `/tools/screen.wetlands` | `api_screen_wetlands(uuid)` | — |
-| `/tools/screen.epa` | `api_screen_epa(uuid, radius)` | `radius_miles` (default 1.0) |
-| `/tools/screen.traffic` | `api_screen_traffic(uuid, radius)` | `radius_miles` (default 0.5) |
-| `/tools/screen.ldeq` | `api_screen_ldeq(uuid, radius)` | `radius_miles` (default 1.0) |
-| `/tools/screen.full` | `api_screen_full(uuid)` | — (runs all 6 screens) |
-| `/api/screening/zoning` | Zoning district lookup | `parcel_id` |
+| `/api/screening/zoning` | direct zoning lookup on `ebr_parcels` | `parcelId` |
+| `/api/screening/flood` | `api_screen_flood`-equivalent behavior | — |
+| `/api/screening/soils` | `api_screen_soils`-equivalent behavior | — |
+| `/api/screening/wetlands` | `api_screen_wetlands`-equivalent behavior | — |
+| `/api/screening/epa` | `api_screen_epa`-equivalent behavior | `radiusMiles` (default `1.0`) |
+| `/api/screening/traffic` | `api_screen_traffic`-equivalent behavior | `radiusMiles` (default `0.5`) |
+| `/api/screening/ldeq` | `api_screen_ldeq`-equivalent behavior | `radiusMiles` (default `1.0`) |
+| `/api/screening/full` | composite response (zoning+flood+soils+wetlands+epa+traffic+ldeq) | optional `radiusMiles` overrides |
+
+### Admin Endpoints (`/admin/*`)
+
+These live in `infra/local-api/admin_router.py` and require `ADMIN_API_KEY` (plus Cloudflare Access at edge).
+
+- `GET /admin/health`
+- `GET /admin/containers`
+- `POST /admin/containers/{name}/restart`
+- `POST /admin/containers/{name}/stop`
+- `POST /admin/containers/{name}/start`
+- `GET /admin/containers/{name}/logs`
+- `POST /admin/deploy/gateway`
+- `POST /admin/deploy/reload`
+- `GET /admin/db/schema`
+- `GET /admin/db/tables`
+- `POST /admin/db/query`
+- `GET /admin/env`
 
 ## Vercel Integration
 
@@ -162,7 +186,7 @@ After adding: update this file's endpoint inventory table.
 ## Operational Notes
 
 - **Host:** Windows 11 desktop, 12-core i7, Docker Compose
-- **Remote management:** See `docs/SERVER_MANAGEMENT.md` — Cloudflare SSH + `pnpm server:*` scripts
+- **Remote management:** See `docs/SERVER_MANAGEMENT.md` — Cloudflare SSH, admin endpoint operations, and edge smoke checks
 - **Docker Compose path:** `C:\gpc-cres-backend\docker-compose.yml`
 - **Cloudflare Tunnel:** See `docs/CLOUDFLARE.md` — single tunnel, ingress rules managed in dashboard (not local config)
 - **Logs:** Uvicorn JSON logs, security headers on all responses
@@ -172,6 +196,7 @@ After adding: update this file's endpoint inventory table.
 ## Key Invariants
 
 - Bearer auth on every endpoint except `/health`
+- In production, authoritative parcel/property/deals reads/writes must use the FastAPI gateway path only (`LOCAL_API_URL` + `LOCAL_API_KEY`); Prisma/`/db` paths are control-plane tooling and must not be used as fallback.
 - Deals endpoints enforce org-scoping via `X-Org-Id` header + `org_id` in WHERE clauses
 - Screening endpoints resolve `parcel_uid` → UUID before calling RPC (flexible matching: case-insensitive, dash-stripped)
 - Never expose raw database errors to client — return generic 4xx/5xx + log server-side

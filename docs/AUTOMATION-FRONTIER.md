@@ -2,6 +2,10 @@
 
 Last reviewed: 2026-02-19
 
+> **Status: Archived strategy snapshot (non-authoritative).**
+> This document captures a historical autonomy design pass and may not match current runtime wiring or storage contracts.
+> Use `ROADMAP.md` and `docs/SPEC.md` for current implementation behavior.
+
 
 ## Current State: "Guided Autonomy"
 
@@ -11,7 +15,7 @@ The system is a **consultation tool, not an autonomous deal machine**. Agents ad
 
 ## 1. DEAL INTAKE & CREATION
 
-**Status: WIRED.** `handleIntakeReceived` in `lib/automation/intake.ts`. Parses content for addresses, parishes, SKU signals. Auto-creates deal when criteria match + within daily rate limit. 24h veto task attached.
+**Status: WIRED.** `handleIntakeReceived` in `apps/web/lib/automation/intake.ts`. Parses content for addresses, parishes, SKU signals. Auto-creates deal when criteria match + within daily rate limit. 24h veto task attached.
 
 **Today:** Human fills form — name, SKU, jurisdiction, parcel address. Clicks "Create Deal."
 
@@ -30,7 +34,7 @@ The system is a **consultation tool, not an autonomous deal machine**. Agents ad
 
 ## 2. PARCEL ENRICHMENT
 
-**Status: WIRED.** `handleParcelCreated` in `lib/automation/enrichment.ts`. Auto-enriches on parcel creation: normalizes address, searches Property DB, scores match confidence (1.0 exact → 0.2 no match), auto-applies at >90%, creates review task at 50-90%.
+**Status: WIRED.** `handleParcelCreated` in `apps/web/lib/automation/enrichment.ts`. Auto-enriches on parcel creation: normalizes address, searches Property DB, scores match confidence (1.0 exact → 0.2 no match), auto-applies at >90%, creates review task at 50-90%.
 
 **Today:** Human clicks "Enrich" on each parcel. Two-step: search property DB, then apply best match. Manual per-parcel.
 
@@ -48,7 +52,7 @@ The system is a **consultation tool, not an autonomous deal machine**. Agents ad
 
 ## 3. TRIAGE EXECUTION
 
-**Status: WIRED.** `handleTriageReadiness` in `lib/automation/triage.ts`. Fires on `parcel.enriched` — checks all parcels enriched + INTAKE status + no existing run + daily rate limit. Creates notification task (agents advise, humans decide).
+**Status: WIRED.** `handleTriageReadiness` in `apps/web/lib/automation/triage.ts`. Fires on `parcel.enriched` — checks all parcels enriched + INTAKE status + no existing run + daily rate limit. Creates notification task (agents advise, humans decide).
 
 **Today:** Human clicks "Run Triage." AI scores the deal. Human reviews and decides.
 
@@ -70,7 +74,7 @@ The system is a **consultation tool, not an autonomous deal machine**. Agents ad
 
 ## 4. TASK EXECUTION (Next Actions)
 
-**Status: WIRED.** `handleTaskCreated` + `handleTaskCompleted` in `lib/automation/taskExecution.ts`. On `task.created`: checks allowlist (human-only keywords: call/meet/negotiate/sign/schedule), concurrent limit (5/deal). On `task.completed`: quality check (agent findings min 50 chars → review task if too short).
+**Status: WIRED.** `handleTaskCreated` + `handleTaskCompleted` in `apps/web/lib/automation/taskExecution.ts`. On `task.created`: checks allowlist (human-only keywords: call/meet/negotiate/sign/schedule), concurrent limit (5/deal). On `task.completed`: quality check (agent findings min 50 chars → review task if too short).
 
 **Today:** Human clicks "Run All" or individual next actions. Agent executes and marks DONE.
 
@@ -90,7 +94,7 @@ The system is a **consultation tool, not an autonomous deal machine**. Agents ad
 
 ## 5. DEAL STATUS ADVANCEMENT
 
-**Status: WIRED.** `handleAdvancement` + `handleStatusChangeReminder` in `lib/automation/advancement.ts`. On `task.completed`: checks if all step tasks done → suggests advancement (human-gated for PREAPP+). On `deal.statusChanged`: suggests creating tasks for new stage if none exist.
+**Status: WIRED.** `handleAdvancement` + `handleStatusChangeReminder` in `apps/web/lib/automation/advancement.ts`. On `task.completed`: checks if all step tasks done → suggests advancement (human-gated for PREAPP+). On `deal.statusChanged`: suggests creating tasks for new stage if none exist.
 
 **Today:** 100% manual. Only INTAKE → TRIAGE_DONE is automated. The other 9 transitions require human judgment via API call or agent chat.
 
@@ -121,7 +125,7 @@ The system is a **consultation tool, not an autonomous deal machine**. Agents ad
 
 ## 6. DOCUMENT MANAGEMENT
 
-**Status: WIRED.** `handleUploadCreated` in `lib/automation/documents.ts`. On `upload.created`: classifies by filename (13 regex rules for title/environmental/survey/financial/legal), auto-updates kind if >70% confidence, creates review task if <70% or if user classification differs from auto-classification.
+**Status: WIRED.** `handleUploadCreated` in `apps/web/lib/automation/documents.ts`. On `upload.created`: classifies by filename (13 regex rules for title/environmental/survey/financial/legal), auto-updates kind if >70% confidence, creates review task if <70% or if user classification differs from auto-classification.
 
 **Today:** Human uploads files, manually categorizes them (title, environmental, survey, financial, legal, other).
 
@@ -150,7 +154,7 @@ The system is a **consultation tool, not an autonomous deal machine**. Agents ad
 - **Observe:** (Daily 6 AM) For each `JurisdictionSeedSource` URL: fetch content, hash, compare to previous snapshot
 - **Decide:** Has content changed? If yes, is the change material? (Ignore CSS/layout changes; flag zoning code text changes, new ordinances, new application forms)
 - **Act:**
-  - Store new snapshot in Supabase storage
+  - Store new snapshot in gateway-backed object storage (B2)
   - If material change detected: Create task for Legal/Entitlements agent: "Review policy change at [jurisdiction] — [URL]. Diff: [summary]"
   - If zoning code changed: Flag all active deals in that jurisdiction for review
   - Weekly digest email: "3 jurisdiction sources changed this week. 0 require action."
@@ -195,7 +199,7 @@ The system is a **consultation tool, not an autonomous deal machine**. Agents ad
 | HEARING | Hearing deck PPTX |
 | EXIT_MARKETED | Exit package PDF + Buyer teaser PDF |
 
-- **Act:** Generate artifact → store in Supabase → create Artifact DB record → attach to deal → notify human: "Hearing deck ready for review. [Download]"
+- **Act:** Generate artifact → store in gateway-backed object storage (B2) → create Artifact DB record → attach to deal → notify human: "Hearing deck ready for review. [Download]"
 - **Guardrails:**
   - All auto-generated artifacts are DRAFT status until human approves
   - Human can regenerate with edits (versioning tracks all iterations)
@@ -206,7 +210,7 @@ The system is a **consultation tool, not an autonomous deal machine**. Agents ad
 
 ## 10. BUYER OUTREACH (Marketing)
 
-**Status: WIRED.** `handleBuyerOutreach` + `handleTriageBuyerMatch` in `lib/automation/buyerOutreach.ts`. On `deal.statusChanged` to EXIT_MARKETED: matches buyers by SKU + jurisdiction, filters cool-off/duplicates, creates review task with eligible buyer list. On `triage.completed` with ADVANCE: flags potential buyer interest early. NEVER auto-sends.
+**Status: WIRED.** `handleBuyerOutreach` + `handleTriageBuyerMatch` in `apps/web/lib/automation/buyerOutreach.ts`. On `deal.statusChanged` to EXIT_MARKETED: matches buyers by SKU + jurisdiction, filters cool-off/duplicates, creates review task with eligible buyer list. On `triage.completed` with ADVANCE: flags potential buyer interest early. NEVER auto-sends.
 
 **Today:** Manual buyer creation, manual outreach logging.
 
@@ -250,7 +254,7 @@ The system is a **consultation tool, not an autonomous deal machine**. Agents ad
 
 ## 12. DEPLOYMENT & OPS
 
-**Status: WIRED.** `lib/automation/ops.ts` provides `isMigrationSafe()` (10 destructive pattern checks), `evaluateHealth()` (5 critical env vars), `shouldAlertOnFailure()` (consecutive failure threshold). Used by deployment tooling and health checks.
+**Status: WIRED.** `apps/web/lib/automation/ops.ts` provides `isMigrationSafe()` (10 destructive pattern checks), `evaluateHealth()` (5 critical env vars), `shouldAlertOnFailure()` (consecutive failure threshold). Used by deployment tooling and health checks.
 
 **Today:** Push to main → auto-deploy via Vercel. DB migrations manual. Seed manual.
 
@@ -268,20 +272,20 @@ The system is a **consultation tool, not an autonomous deal machine**. Agents ad
 
 | # | Loop | Status | Handler File | Event Trigger |
 |---|------|--------|-------------|---------------|
-| 1 | Deal Intake | WIRED | `intake.ts` | `intake.received` |
-| 2 | Parcel Enrichment | WIRED | `enrichment.ts` | `parcel.created` |
-| 3 | Auto-Triage | WIRED | `triage.ts` | `parcel.enriched` |
-| 4 | Task Execution | WIRED | `taskExecution.ts` | `task.created`, `task.completed` |
-| 5 | Stage Advancement | WIRED | `advancement.ts` | `task.completed`, `deal.statusChanged` |
-| 6 | Document Processing | WIRED | `documents.ts` | `upload.created` |
+| 1 | Deal Intake | WIRED | `apps/web/lib/automation/intake.ts` | `intake.received` |
+| 2 | Parcel Enrichment | WIRED | `apps/web/lib/automation/enrichment.ts` | `parcel.created` |
+| 3 | Auto-Triage | WIRED | `apps/web/lib/automation/triage.ts` | `parcel.enriched` |
+| 4 | Task Execution | WIRED | `apps/web/lib/automation/taskExecution.ts` | `task.created`, `task.completed` |
+| 5 | Stage Advancement | WIRED | `apps/web/lib/automation/advancement.ts` | `task.completed`, `deal.statusChanged` |
+| 6 | Document Processing | WIRED | `apps/web/lib/automation/documents.ts` | `upload.created` |
 | 7 | Change Detection | WIRED | cron route | Daily 6 AM |
 | 8 | Parish Pack Refresh | WIRED | cron route | Weekly Sunday 4 AM |
 | 9 | Artifact Generation | WIRED | API routes | POST trigger + auto on triage |
-| 10 | Buyer Outreach | WIRED | `buyerOutreach.ts` | `deal.statusChanged`, `triage.completed` |
-| 11 | Dead Agent Revival | WIRED | `agents/index.ts` | Design: 6 tools, Tax: 4 tools |
-| 12 | Ops Automation | WIRED | `ops.ts` | Migration safety, health, alerting |
+| 10 | Buyer Outreach | WIRED | `apps/web/lib/automation/buyerOutreach.ts` | `deal.statusChanged`, `triage.completed` |
+| 11 | Dead Agent Revival | WIRED | `packages/openai/src/agents/index.ts` | Design: 6 tools, Tax: 4 tools |
+| 12 | Ops Automation | WIRED | `apps/web/lib/automation/ops.ts` | Migration safety, health, alerting |
 
-### Event → Handler Registry (handlers.ts)
+### Event → Handler Registry (`apps/web/lib/automation/handlers.ts`)
 
 | Event | Handler(s) |
 |-------|-----------|
@@ -308,7 +312,7 @@ The system is a **consultation tool, not an autonomous deal machine**. Agents ad
 
 ### Test Coverage
 
-14 test suites, 302 tests — all in `lib/automation/__tests__/`:
+14 test suites, 302 tests — all in `apps/web/lib/automation/__tests__/`:
 - `config.test.ts`, `events.test.ts`, `gates.test.ts`, `notifications.test.ts`, `taskAllowlist.test.ts`
 - `enrichment.test.ts`, `ops.test.ts`, `handlers.test.ts`
 - `triage.test.ts`, `taskExecution.test.ts`, `documents.test.ts`

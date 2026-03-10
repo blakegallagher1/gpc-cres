@@ -40,6 +40,6 @@ const deal = await prisma.deal.findUnique({
 ## Event Dispatch Patterns
 
 - Always use `.catch(() => {})` on `dispatchEvent()` — fire-and-forget
-- Import `@/lib/automation/handlers` at route top to ensure handler registration
+- Import `@/lib/automation/handlers.ts` at route top to ensure handler registration
 - Read existing record state before update when dispatch depends on detecting a change
 - Never let event dispatch fail an API response

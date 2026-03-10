@@ -15,6 +15,17 @@ interface GatewayEnvelope<T> {
   parcels?: T;
 }
 
+const DEFAULT_GATEWAY_TIMEOUT_MS = 25_000;
+const MAX_RETRIES = 1;
+
+function getGatewayTimeoutMs(): number {
+  const raw = Number(process.env.PROPERTY_DB_GATEWAY_TIMEOUT_MS ?? "");
+  if (Number.isFinite(raw) && raw > 0) {
+    return Math.floor(raw);
+  }
+  return DEFAULT_GATEWAY_TIMEOUT_MS;
+}
+
 function isRecord(value: unknown): value is PropertyDbRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -224,6 +235,56 @@ async function parseEnvelope<T>(res: Response, fnName: PropertyDbRpcFnName): Pro
   return payload;
 }
 
+function isRetryableError(error: unknown): boolean {
+  if (error instanceof Error) {
+    if (error.name === "AbortError") return true;
+    const msg = error.message.toLowerCase();
+    return msg.includes("econnreset") || msg.includes("socket hang up") || msg.includes("fetch failed");
+  }
+  return false;
+}
+
+async function fetchGateway(
+  url: string,
+  init: RequestInit,
+  fnName: PropertyDbRpcFnName,
+): Promise<Response> {
+  const timeoutMs = getGatewayTimeoutMs();
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      return await fetch(url, {
+        ...init,
+        signal: controller.signal,
+      });
+    } catch (error) {
+      lastError = error;
+      clearTimeout(timeout);
+
+      if (attempt < MAX_RETRIES && isRetryableError(error)) {
+        continue;
+      }
+
+      const reason =
+        error instanceof Error && error.name === "AbortError"
+          ? `request timed out after ${timeoutMs}ms`
+          : error instanceof Error
+            ? error.message
+            : String(error);
+      throw new Error(`[property-db-rpc] ${fnName} request failed: ${reason}`);
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  // Should never reach here, but TypeScript needs it
+  throw lastError;
+}
+
 export async function propertyDbRpc(
   fnName: PropertyDbRpcFnName,
   body: PropertyDbRecord,
@@ -248,11 +309,11 @@ export async function propertyDbRpc(
       params.set("parish", parish);
     }
 
-    const res = await fetch(`${baseUrl}/api/parcels/search?${params.toString()}`, {
+    const res = await fetchGateway(`${baseUrl}/api/parcels/search?${params.toString()}`, {
       method: "GET",
       headers,
       cache: "no-store",
-    });
+    }, fnName);
     const payload = await parseEnvelope<unknown[]>(res, fnName);
     if (Array.isArray(payload.data)) return payload.data;
     if (Array.isArray(payload.parcels)) return payload.parcels;
@@ -261,18 +322,18 @@ export async function propertyDbRpc(
 
   if (fnName === "api_get_parcel") {
     const parcelId = requireParcelId(body);
-    const res = await fetch(`${baseUrl}/api/parcels/${encodeURIComponent(parcelId)}`, {
+    const res = await fetchGateway(`${baseUrl}/api/parcels/${encodeURIComponent(parcelId)}`, {
       method: "GET",
       headers,
       cache: "no-store",
-    });
+    }, fnName);
     const payload = await parseEnvelope<PropertyDbRecord>(res, fnName);
     return payload.data ?? null;
   }
 
   if (fnName === "api_screen_full") {
     const parcelId = requireParcelId(body);
-    const res = await fetch(`${baseUrl}/api/screening/full`, {
+    const res = await fetchGateway(`${baseUrl}/api/screening/full`, {
       method: "POST",
       headers: {
         ...headers,
@@ -280,7 +341,7 @@ export async function propertyDbRpc(
       },
       body: JSON.stringify({ parcelId }),
       cache: "no-store",
-    });
+    }, fnName);
     const payload = await parseEnvelope<unknown>(res, fnName);
     return normalizeScreeningPayload(payload.data);
   }

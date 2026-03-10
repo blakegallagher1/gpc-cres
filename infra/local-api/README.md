@@ -86,10 +86,10 @@ infra/local-api/
 - `GET /api/parcels/{id}/geometry?detail_level=low` - Get GeoJSON geometry
 - `POST /api/screening/flood` - Flood zone screening
 - `POST /api/screening/full` - Full parcel screening (flood, soils, wetlands, EPA, traffic, LDEQ)
-- `POST /api/query` - Dynamic SQL execution (for agents)
+- `POST /db/query` - Dynamic SQL execution (for agents)
 - `GET /api/stats` - Database statistics
 
-**Interactive docs:** [http://localhost:8080/docs](http://localhost:8080/docs) (when running locally)
+**Interactive docs:** [http://localhost:8000/docs](http://localhost:8000/docs) (when running locally)
 
 ---
 
@@ -104,8 +104,11 @@ DATABASE_URL=postgresql://postgres:postgres@entitlement-db:5432/entitlement_os
 # Martin tile server
 MARTIN_URL=http://localhost:3000
 
-# API authentication (generate with: openssl rand -hex 32)
-API_KEYS=your-secret-key-here,another-key-here
+# API authentication (runtime accepts either variable)
+# Option A: single key (current compose deployment)
+GATEWAY_API_KEY=your-secret-key-here
+# Option B: comma-separated keys
+# API_KEYS=key1,key2
 
 # CORS (Vercel domains)
 ALLOWED_ORIGINS=https://gallagherpropco.com,https://*.vercel.app
@@ -220,7 +223,7 @@ psql postgresql://postgres:postgres@localhost:54323/entitlement_os \
 | [DEPLOYMENT.md](./DEPLOYMENT.md) | Step-by-step deployment (5 minutes) |
 | [CLOUDFLARE_TUNNEL_SETUP.md](./CLOUDFLARE_TUNNEL_SETUP.md) | Tunnel configuration + systemd/launchd setup |
 | `.env.example` | Environment variable template |
-| [http://localhost:8080/docs](http://localhost:8080/docs) | Interactive API docs (OpenAPI) |
+| [http://localhost:8000/docs](http://localhost:8000/docs) | Interactive API docs (OpenAPI) |
 
 ---
 
@@ -242,13 +245,13 @@ psql postgresql://postgres:postgres@localhost:54323/entitlement_os \
 2. **Configure Tunnel:** Follow [CLOUDFLARE_TUNNEL_SETUP.md](./CLOUDFLARE_TUNNEL_SETUP.md)
 3. **Update Vercel:** Set `LOCAL_API_URL` and `LOCAL_API_KEY` env vars
 4. **Update Next.js:** Proxy API routes to local server
-5. **Test:** Visit `https://gallagherpropco.com/maps`
+5. **Test:** Visit `https://gallagherpropco.com/map`
 
 ---
 
 ## Support
 
-- **API Docs:** http://localhost:8080/docs
+- **API Docs:** http://localhost:8000/docs
 - **FastAPI:** https://fastapi.tiangolo.com
 - **Cloudflare Tunnel:** https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/
 - **PostgreSQL:** See `infra/LOCAL_DB_SETUP_GUIDE.md`
@@ -256,4 +259,3 @@ psql postgresql://postgres:postgres@localhost:54323/entitlement_os \
 ---
 
 **Ready to deploy?** → [DEPLOYMENT.md](./DEPLOYMENT.md)
-

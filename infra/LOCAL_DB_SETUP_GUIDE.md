@@ -1,10 +1,10 @@
 # Local PostgreSQL Setup Guide for Map Tiles
 
-**Target Database:** `postgresql://postgres:YOUR_DB_PASSWORD@localhost:5432/entitlement_os`
+**Target Database:** `postgresql://postgres:YOUR_DB_PASSWORD@localhost:54323/entitlement_os`
 
 Use `YOUR_DB_PASSWORD` as a placeholder and source the real value from a secure secret store when running commands.
 **Hardware:** 12-core i7 processor
-**Goal:** Maximum performance + parcel polygon rendering on /maps page
+**Goal:** Maximum performance + parcel polygon rendering on /map page
 
 ---
 
@@ -16,7 +16,7 @@ Execute the comprehensive SQL setup script to create all required tables, indexe
 cd /Users/gallagherpropertycompany/Documents/gallagher-cres
 
 # Run the setup script
-psql postgresql://postgres:YOUR_DB_PASSWORD@localhost:5432/entitlement_os -f infra/sql/local-db-setup.sql
+psql postgresql://postgres:YOUR_DB_PASSWORD@localhost:54323/entitlement_os -f infra/sql/local-db-setup.sql
 ```
 
 **Expected output:**
@@ -38,7 +38,7 @@ Check that geometry data exists:
 
 ```sql
 -- Connect to database
-psql postgresql://postgres:YOUR_DB_PASSWORD@localhost:5432/entitlement_os
+psql postgresql://postgres:YOUR_DB_PASSWORD@localhost:54323/entitlement_os
 
 -- Check parcel count and geometry coverage
 SELECT
@@ -145,7 +145,7 @@ If you have less than 32GB RAM, edit the config file values proportionally:
 
 ## Step 6: Set Environment Variables
 
-The Next.js tile endpoint needs to know about your local database:
+The app runtime now reads gateway settings (not a direct DB URI) for tile and parcel calls.
 
 ### Option A: For local development (`.env.local`)
 
@@ -155,25 +155,27 @@ cd apps/web
 # Create or edit .env.local
 cat >> .env.local <<EOF
 
-# Local PostgreSQL for map tiles
-LOCAL_DATABASE_URI=postgresql://postgres:YOUR_DB_PASSWORD@localhost:5432/entitlement_os
+# Local gateway URL + bearer key (required for /api/map/tiles and /api/parcels/*)
+LOCAL_API_URL=http://localhost:8000
+LOCAL_API_KEY=YOUR_GATEWAY_API_KEY
+
+# Optional override when tiles are served from a separate host
+# TILE_SERVER_URL=https://tiles.gallagherpropco.com
 EOF
 ```
 
 ### Option B: For Vercel deployment
 
 ```bash
-# Set environment variable in Vercel project
-vercel env add LOCAL_DATABASE_URI production
-# When prompted, enter: postgresql://postgres:YOUR_DB_PASSWORD@localhost:5432/entitlement_os
-# Note: This won't work for Vercel cloud - only for local testing
+# Set gateway env vars in Vercel project
+vercel env add LOCAL_API_URL production
+vercel env add LOCAL_API_KEY production
 ```
 
-**⚠️ Important:** For Vercel cloud deployment, you'll need to use a publicly accessible database URL, not `localhost`. Consider:
-- Supabase (current setup)
-- Railway / Render PostgreSQL
-- AWS RDS / GCP Cloud SQL
-- Or keep using `MAP_DATABASE_URL` pointing to Supabase for production
+**⚠️ Important:** Vercel cannot call `localhost`. In cloud environments, set:
+- `LOCAL_API_URL=https://api.gallagherpropco.com`
+- `LOCAL_API_KEY=<gateway bearer token>`
+- Optional Cloudflare Access headers (`CF_ACCESS_CLIENT_ID`, `CF_ACCESS_CLIENT_SECRET`) if Access is enabled.
 
 ---
 
@@ -205,15 +207,15 @@ http://localhost:3000/api/map/tiles/14/3623/6449
 - Binary content (not empty, not JSON error)
 
 **If you get HTTP 204 or empty response:**
-- Check database connection in Next.js terminal logs
-- Verify `LOCAL_DATABASE_URI` is set correctly
+- Check gateway connectivity in Next.js terminal logs
+- Verify `LOCAL_API_URL` and `LOCAL_API_KEY` are set correctly
 - Verify `get_parcel_mvt()` function exists and returns data (Step 4)
 
 ---
 
-## Step 9: Debug Polygon Rendering on /maps Page
+## Step 9: Debug Polygon Rendering on /map Page
 
-Navigate to `http://localhost:3000/maps` and open browser DevTools (F12).
+Navigate to `http://localhost:3000/map` and open browser DevTools (F12).
 
 ### Check 1: Network Tab
 1. Filter for `/api/map/tiles/`
@@ -288,10 +290,12 @@ UPDATE ebr_parcels
 SET geom = ST_SetSRID(ST_MakePoint(lng, lat), 4326)
 WHERE lng IS NOT NULL AND lat IS NOT NULL;
 
--- If you have a separate geometry export file (e.g., from Supabase):
--- Export from Supabase:
--- SELECT id, parcel_id, ST_AsGeoJSON(geom) as geom_json FROM parcels;
--- Then import and parse the GeoJSON
+-- If you have a separate geometry export file:
+-- Import the geometry payload into a staging table, then merge:
+-- UPDATE ebr_parcels p
+-- SET geom = ST_SetSRID(ST_GeomFromGeoJSON(s.geom_json), 4326)
+-- FROM parcel_geometry_staging s
+-- WHERE s.parcel_id = p.parcel_id;
 ```
 
 ### Issue: Tiles return HTTP 204 everywhere
@@ -401,7 +405,7 @@ REINDEX INDEX CONCURRENTLY idx_mv_parcel_intelligence_geom;
 Once parcel polygons are rendering:
 
 1. **Update CLAUDE.md** to document local DB setup
-2. **Update `.env.example`** to include `LOCAL_DATABASE_URI`
+2. **Update `.env.example`** to include `LOCAL_API_URL` and `LOCAL_API_KEY`
 3. **Consider Martin tile server** for production (pre-rendered tiles, faster than on-the-fly generation)
 4. **Set up monitoring** (pg_stat_statements, query logging)
 5. **Benchmark performance** (tile generation time, concurrent requests)
@@ -417,7 +421,7 @@ If you want to use Martin instead of Next.js API routes:
 cargo install martin
 
 # Configure Martin to serve tiles from get_parcel_mvt function
-martin postgresql://postgres:YOUR_DB_PASSWORD@localhost:5432/entitlement_os --keep-alive 75
+martin postgresql://postgres:YOUR_DB_PASSWORD@localhost:54323/entitlement_os --keep-alive 75
 
 # Martin will auto-discover get_parcel_mvt and serve at:
 # http://localhost:3000/parcels/{z}/{x}/{y}.pbf
@@ -449,10 +453,10 @@ If you encounter issues not covered here:
 3. **Verify environment:**
    ```bash
    cd apps/web
-   node -e "console.log(process.env.LOCAL_DATABASE_URI)"
+   node -e "console.log(process.env.LOCAL_API_URL, !!process.env.LOCAL_API_KEY)"
    ```
 
 4. **Test direct database connection:**
    ```bash
-   psql postgresql://postgres:YOUR_DB_PASSWORD@localhost:5432/entitlement_os -c "SELECT version();"
+   psql postgresql://postgres:YOUR_DB_PASSWORD@localhost:54323/entitlement_os -c "SELECT version();"
    ```

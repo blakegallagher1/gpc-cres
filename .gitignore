@@ -91,6 +91,8 @@ docs/_build/
 .playwright-cli/
 output/playwright/
 output/playwright-*.png
+output/observability/
+scripts/observability/.env.monitor-prod
 
 # Local parcel import drops
 parcel_data_updated/

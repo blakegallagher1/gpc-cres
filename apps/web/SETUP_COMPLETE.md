@@ -2,6 +2,10 @@
 
 Last reviewed: 2026-02-19
 
+> **Status: Archived snapshot (non-authoritative).**
+> This setup log documents an earlier Supabase-based stack and may not match current production/runtime requirements.
+> Use `README.md` and `docs/SPEC.md` for current setup and architecture contracts.
+
 
 ## What Was Built
 

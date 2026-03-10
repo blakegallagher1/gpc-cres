@@ -2,6 +2,10 @@
 
 Last reviewed: 2026-02-19
 
+> **Status: Archived snapshot (non-authoritative).**
+> This roadmap captures a historical planning pass and may not reflect current priorities.
+> Use `ROADMAP.md` as the active implementation source of truth.
+
 
 Generated: 2026-02-15
 Owner: Platform engineering + user review cadence
@@ -126,7 +130,7 @@ Current phase: High-priority enhancements (data visualization rollout and remain
 - Plan file created in docs and updated with live statuses.
 
 ### 2026-02-15 - Screening Configuration Operationalized
-- Added `NEXT_PUBLIC_BACKEND_URL` documentation to `/.env.example` and `/apps/web/.env.example`.
+- Added `NEXT_PUBLIC_BACKEND_URL` documentation to `.env.example` and `apps/web/.env.example`.
 - Updated `README.md` and `apps/web/README.md` onboarding docs to explicitly call out the production requirement.
 - Status for screening blocker remains implemented in code and now explicitly documented for deployment setup.
 

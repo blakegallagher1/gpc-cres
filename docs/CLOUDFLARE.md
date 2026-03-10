@@ -99,14 +99,14 @@ The script validates **both modes** for downstream paths that back the app route
 - Map + SQL paths: `/tools/parcels.sql`, `/tiles/{z}/{x}/{y}.pbf`
 - Geometry: `/api/parcels/{id}/geometry`
 - Tool/screening: `/tools/parcel.lookup`, `/tools/parcels.sql`, `/api/screening/{flood,soils,wetlands,epa,traffic,ldeq,full}`
-- Semantic/Qdrant: `/tool/docs.search`, `/tool/docs.fetch`, `/tool/memory.write`
+- Semantic/Qdrant: validated through app routes, not direct gateway endpoints (currently `/api/knowledge` read path and `/api/memory/write` write path)
 - Hyperdrive DB proxy: `POST /db`
 - Policy check: `/admin/health`, `/health`
 
 Expected status behavior:
 
 - `without_access`: every endpoint returns Cloudflare Access block (`403` with Access block signature).
-- `with_access`: every endpoint reaches origin (status is **not** Cloudflare block; may be `200/400/403/404/422` based on origin auth/business rules). Qdrant-backed endpoints should return 200/204 responses (even with empty bodies for stubbed search) while `/db` returns Hyperdrive metadata (200). The gateway/Hyperdrive combo is the only exposed path to Postgres; any request that is not Access-authorized must fail closed at the edge.
+- `with_access`: every endpoint reaches origin (status is **not** Cloudflare block; may be `200/400/401/403/404/422` based on origin auth/business rules). The assertion is edge pass-through, not a fixed origin status code. The gateway/Hyperdrive combo is the only exposed path to Postgres; any request that is not Access-authorized must fail closed at the edge.
 - `/admin/health` is expected to remain origin-`403` for this service token flow unless `ADMIN_API_KEY` policy is used.
 
 ### Token Rotation Runbook (Quarterly)
@@ -144,6 +144,7 @@ Cloudflare Hyperdrive provides connection pooling and caching between Vercel ser
 
 **How it works:**
 1. Vercel sends Prisma SQL via HTTPS POST to `agents.gallagherpropco.com/db`
+   (control-plane/tooling path only; not used as fallback for authoritative parcel/property/deals runtime flows)
 2. CF Worker uses Hyperdrive binding to get a pooled Postgres connection
 3. Hyperdrive connects through the tunnel to `db.gallagherpropco.com` (TCP)
 4. The tunnel routes to `entitlement-os-postgres:5432` on the Docker network
@@ -214,5 +215,5 @@ For generic tunnel creation, see `infra/local-api/CLOUDFLARE_TUNNEL_SETUP.md`. F
 |-----|---------|
 | `docs/CLOUDFLARE_AGENTS.md` | Worker + Durable Object architecture, deployment, env vars |
 | `docs/claude/backend.md` | Gateway endpoints, auth, Vercel integration |
-| `docs/SERVER_MANAGEMENT.md` | SSH setup, cloudflared on Mac, `pnpm server:*` scripts |
+| `docs/SERVER_MANAGEMENT.md` | SSH setup, cloudflared on Mac, admin endpoint + smoke command workflow |
 | `infra/local-api/CLOUDFLARE_TUNNEL_SETUP.md` | Generic tunnel creation guide (reference) |

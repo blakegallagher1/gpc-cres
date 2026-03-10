@@ -1,6 +1,6 @@
 # Local PostgreSQL Map Tiles - Quick Start Checklist
 
-**Target:** `postgresql://postgres:YOUR_DB_PASSWORD@localhost:5432/entitlement_os` (12-core i7)
+**Target:** `postgresql://postgres:YOUR_DB_PASSWORD@localhost:54323/entitlement_os` (12-core i7)
 
 Replace `YOUR_DB_PASSWORD` with a value from your secure secret source (vault/secret manager). Do not store real passwords directly in this file.
 
@@ -12,11 +12,11 @@ Replace `YOUR_DB_PASSWORD` with a value from your secure secret source (vault/se
 - [ ] PostGIS extension available (`sudo apt-get install postgis` or equivalent)
 - [ ] Database `entitlement_os` exists
 - [ ] User `postgres` has password `YOUR_DB_PASSWORD`
-- [ ] EBR parcel data migrated from Supabase (including `geom` column)
+- [ ] EBR parcel data loaded into local PostgreSQL (including `geom` column)
 
 **Verify database connection:**
 ```bash
-psql postgresql://postgres:YOUR_DB_PASSWORD@localhost:5432/entitlement_os -c "SELECT version();"
+psql postgresql://postgres:YOUR_DB_PASSWORD@localhost:54323/entitlement_os -c "SELECT version();"
 ```
 
 ---
@@ -25,7 +25,7 @@ psql postgresql://postgres:YOUR_DB_PASSWORD@localhost:5432/entitlement_os -c "SE
 
 - [ ] Run SQL setup script:
   ```bash
-  psql postgresql://postgres:YOUR_DB_PASSWORD@localhost:5432/entitlement_os \
+  psql postgresql://postgres:YOUR_DB_PASSWORD@localhost:54323/entitlement_os \
     -f infra/sql/local-db-setup.sql
   ```
 
@@ -77,17 +77,21 @@ psql postgresql://postgres:YOUR_DB_PASSWORD@localhost:5432/entitlement_os -c "SE
 
 ## ✅ Environment Variables
 
-- [ ] Set `LOCAL_DATABASE_URI` in `apps/web/.env.local`:
+- [ ] Set gateway env vars in `apps/web/.env.local`:
   ```bash
-  echo "LOCAL_DATABASE_URI=postgresql://postgres:YOUR_DB_PASSWORD@localhost:5432/entitlement_os" \
-    >> apps/web/.env.local
+  cat >> apps/web/.env.local <<EOF
+  LOCAL_API_URL=http://localhost:8000
+  LOCAL_API_KEY=YOUR_GATEWAY_API_KEY
+  # Optional if tiles are hosted separately:
+  # TILE_SERVER_URL=https://tiles.gallagherpropco.com
+  EOF
   ```
 
-- [ ] Verify env var is set:
+- [ ] Verify env vars are set:
   ```bash
   cd apps/web
   node -e "require('dotenv').config({ path: '.env.local' }); \
-           console.log(process.env.LOCAL_DATABASE_URI)"
+           console.log(process.env.LOCAL_API_URL, !!process.env.LOCAL_API_KEY)"
   ```
 
 ---
@@ -111,9 +115,9 @@ psql postgresql://postgres:YOUR_DB_PASSWORD@localhost:5432/entitlement_os -c "SE
 
 ## ✅ Map Rendering Test
 
-- [ ] Open `/maps` page:
+- [ ] Open `/map` page:
   ```
-  http://localhost:3000/maps
+  http://localhost:3000/map
   ```
 
 - [ ] Open Browser DevTools (F12) → Network tab
@@ -167,13 +171,11 @@ psql postgresql://postgres:YOUR_DB_PASSWORD@localhost:5432/entitlement_os -c "SE
 
 **If "Parcels with geometry: 0":**
 - [ ] Data migration missing `geom` column
-- [ ] Re-export from Supabase including geometry:
+- [ ] Re-import geometry from your authoritative local export/dump:
   ```sql
-  -- In Supabase DB:
-  SELECT id, parcel_id, address, area_sqft, owner,
-         ST_AsText(geom) as geom_wkt
-  FROM parcels
-  WHERE parish = 'East Baton Rouge';
+  -- Example source shape for local import files:
+  -- parcel_id,address,geom_wkt
+  -- 015-4249-4,"4416 HEATH DR","MULTIPOLYGON(((...)))"
   ```
 
 ---
@@ -205,7 +207,7 @@ psql postgresql://postgres:YOUR_DB_PASSWORD@localhost:5432/entitlement_os -c "SE
 - [ ] Schedule daily materialized view refresh (cron or pg_cron):
   ```bash
   # Add to crontab
-  0 3 * * * psql postgresql://postgres:YOUR_DB_PASSWORD@localhost:5432/entitlement_os \
+  0 3 * * * psql postgresql://postgres:YOUR_DB_PASSWORD@localhost:54323/entitlement_os \
     -c "REFRESH MATERIALIZED VIEW CONCURRENTLY mv_parcel_intelligence;"
   ```
 
@@ -224,10 +226,10 @@ You're done when:
 2. ✅ Materialized view contains geometry data
 3. ✅ Test tile function returns bytes (not NULL)
 4. ✅ PostgreSQL performance settings verified
-5. ✅ `LOCAL_DATABASE_URI` env var set
+5. ✅ `LOCAL_API_URL` and `LOCAL_API_KEY` env vars set
 6. ✅ Next.js dev server running
 7. ✅ `/api/map/tiles/{z}/{x}/{y}` returns HTTP 200 + MVT binary
-8. ✅ `/maps` page shows parcel polygons in East Baton Rouge
+8. ✅ `/map` page shows parcel polygons in East Baton Rouge
 
 ---
 
@@ -247,13 +249,15 @@ On 12-core i7 with optimized config:
 
 1. **Document in CLAUDE.md:**
    - Update "Louisiana Property Database" section
-   - Add `LOCAL_DATABASE_URI` env var documentation
+   - Add `LOCAL_API_URL` and `LOCAL_API_KEY` env var documentation
    - Note that local DB replaces Supabase for map tiles
 
 2. **Update `.env.example`:**
    ```bash
-echo "LOCAL_DATABASE_URI=postgresql://postgres:YOUR_DB_PASSWORD@localhost:5432/entitlement_os" \
-     >> apps/web/.env.example
+cat >> apps/web/.env.example <<EOF
+LOCAL_API_URL=http://localhost:8000
+LOCAL_API_KEY=placeholder
+EOF
    ```
 
 3. **Consider Martin tile server** for production:
@@ -267,8 +271,8 @@ echo "LOCAL_DATABASE_URI=postgresql://postgres:YOUR_DB_PASSWORD@localhost:5432/e
    - Materialized view freshness alerts
 
 5. **Benchmark before/after:**
-   - Record current Supabase tile generation time
-   - Compare with local PostgreSQL performance
+   - Record current gateway/local tile generation time
+   - Compare before/after index/config tuning changes
    - Document improvements
 
 ---
@@ -278,7 +282,7 @@ echo "LOCAL_DATABASE_URI=postgresql://postgres:YOUR_DB_PASSWORD@localhost:5432/e
 - Local DB still powers vector tiles (`get_parcel_mvt`), while parcel geometry now flows through the authenticated gateway-backed route `GET /api/parcels/{parcelId}/geometry`
 - Parcel geometry depends on `LOCAL_API_URL`, `LOCAL_API_KEY`, and optional Cloudflare Access headers instead of the removed `chatgpt-apps` route
 - Martin tile server is optional but recommended for production
-- Keep any remaining Supabase credentials only for legacy/non-geometry paths that still require them
+- Supabase is not part of the active parcel/property runtime path
 
 ---
 

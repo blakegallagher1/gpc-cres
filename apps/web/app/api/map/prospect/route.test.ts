@@ -80,6 +80,7 @@ describe("PUT /api/map/prospect", () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
+    expect(res.headers.get("x-request-id")).toBeTruthy();
     expect(body).toEqual({ created: ["deal-1"], count: 1 });
     expect(jurisdictionFindFirstMock).toHaveBeenNthCalledWith(
       1,
@@ -127,6 +128,7 @@ describe("PUT /api/map/prospect", () => {
     const body = await res.json();
 
     expect(res.status).toBe(400);
+    expect(res.headers.get("x-request-id")).toBeTruthy();
     expect(body).toEqual({ error: "No jurisdiction configured" });
     expect(jurisdictionFindFirstMock).toHaveBeenCalledWith(
       expect.objectContaining({

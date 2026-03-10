@@ -12,17 +12,18 @@ We added 7 screening endpoints to the FastAPI gateway (`main.py`) that call exis
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `POST /tools/screen.flood` | POST | Bearer | FEMA flood zone screening |
-| `POST /tools/screen.soils` | POST | Bearer | USDA soil conditions |
-| `POST /tools/screen.wetlands` | POST | Bearer | NWI wetlands presence |
-| `POST /tools/screen.epa` | POST | Bearer | EPA facilities within radius |
-| `POST /tools/screen.traffic` | POST | Bearer | Traffic counts within radius |
-| `POST /tools/screen.ldeq` | POST | Bearer | LDEQ permits within radius |
-| `POST /tools/screen.full` | POST | Bearer | All 6 screens combined |
+| `POST /api/screening/zoning` | POST | Bearer | Zoning classification lookup |
+| `POST /api/screening/flood` | POST | Bearer | FEMA flood zone screening |
+| `POST /api/screening/soils` | POST | Bearer | USDA soil conditions |
+| `POST /api/screening/wetlands` | POST | Bearer | NWI wetlands presence |
+| `POST /api/screening/epa` | POST | Bearer | EPA facilities within radius |
+| `POST /api/screening/traffic` | POST | Bearer | Traffic counts within radius |
+| `POST /api/screening/ldeq` | POST | Bearer | LDEQ permits within radius |
+| `POST /api/screening/full` | POST | Bearer | Combined screening payload |
 
-### Removed Endpoints
+### Route Naming Update
 
-The old mock endpoints (`POST /api/screening/flood` and `POST /api/screening/full`) that returned hardcoded fake data have been replaced by the real `/tools/screen.*` endpoints above.
+Legacy `/tools/screen.*` paths are retired. Production screening now runs on `/api/screening/*` with request bodies keyed by `parcelId` (camelCase).
 
 ---
 
@@ -392,28 +393,28 @@ Test each new endpoint from the Windows machine or any machine with network acce
 curl https://api.gallagherpropco.com/health
 
 # Flood screening
-curl -X POST https://api.gallagherpropco.com/tools/screen.flood ^
+curl -X POST https://api.gallagherpropco.com/api/screening/flood ^
 -H "Authorization: Bearer YOUR_GATEWAY_API_KEY" ^
   -H "Content-Type: application/json" ^
-  -d "{\"parcel_id\":\"016-1466-5\"}"
+  -d "{\"parcelId\":\"016-1466-5\"}"
 
 # EPA screening (with radius)
-curl -X POST https://api.gallagherpropco.com/tools/screen.epa ^
+curl -X POST https://api.gallagherpropco.com/api/screening/epa ^
 -H "Authorization: Bearer YOUR_GATEWAY_API_KEY" ^
   -H "Content-Type: application/json" ^
-  -d "{\"parcel_id\":\"016-1466-5\", \"radius_miles\": 1.0}"
+  -d "{\"parcelId\":\"016-1466-5\", \"radiusMiles\": 1.0}"
 
 # Full screening (all 6 screens combined)
-curl -X POST https://api.gallagherpropco.com/tools/screen.full ^
+curl -X POST https://api.gallagherpropco.com/api/screening/full ^
 -H "Authorization: Bearer YOUR_GATEWAY_API_KEY" ^
   -H "Content-Type: application/json" ^
-  -d "{\"parcel_id\":\"016-1466-5\"}"
+  -d "{\"parcelId\":\"016-1466-5\"}"
 ```
 
 Expected responses:
-- `{"ok": true, "data": {"parcel_id": "...", "flood_zones": [...], "in_sfha": false}}` for flood
-- `{"ok": true, "data": {"parcel_id": "...", "radius_miles": 1.0, "facilities": [...], "count": N}}` for EPA
-- `{"ok": true, "data": {"parcel": {...}, "flood": {...}, "soils": {...}, ...}}` for full
+- `{"ok": true, "data": {"parcelId": "...", "zones": [...], "inSfha": false}}` for flood
+- `{"ok": true, "data": {"parcelId": "...", "radiusMiles": 1.0, "facilities": [...], "facilityCount": N}}` for EPA
+- `{"ok": true, "data": {"parcelId": "...", "zoning": {...}, "flood": {...}, ...}}` for full
 
 If a screening table doesn't exist (e.g., no `fema_flood` table), the RPC function will return an error or empty result — that's expected until you populate those tables.
 
@@ -425,16 +426,16 @@ From the Mac (where the Entitlement OS dev server runs):
 
 ```bash
 # Test flood screening via production gateway
-curl -s -X POST https://api.gallagherpropco.com/tools/screen.flood \
+curl -s -X POST https://api.gallagherpropco.com/api/screening/flood \
 -H "Authorization: Bearer YOUR_GATEWAY_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"parcel_id":"016-1466-5"}'
+  -d '{"parcelId":"016-1466-5"}'
 
 # Test full screening
-curl -s -X POST https://api.gallagherpropco.com/tools/screen.full \
+curl -s -X POST https://api.gallagherpropco.com/api/screening/full \
 -H "Authorization: Bearer YOUR_GATEWAY_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"parcel_id":"016-1466-5"}'
+  -d '{"parcelId":"016-1466-5"}'
 ```
 
 ---
@@ -484,7 +485,7 @@ Cloudflare Edge
   v
 Windows 11 (Docker Compose)
   |
-  +-- gateway:8000 (FastAPI) -- main.py with /tools/screen.* endpoints
+  +-- gateway:8000 (FastAPI) -- main.py with /api/screening/* endpoints
   |     |
   |     +-- localhost:5432 (entitlement_os) -- screening RPC functions
   |     +-- localhost:5432 (entitlement_os) -- deals/orgs

@@ -9,7 +9,8 @@ Use this prompt to instruct your coding agent to implement, maintain, or verify 
 ```
 Implement and maintain the local-compute architecture for gpc-cres:
 
-DEALS: POST/GET /api/deals proxy to FastAPI when LOCAL_API_URL + LOCAL_API_KEY are set. FastAPI writes to APPLICATION_DATABASE_URL with X-Org-Id and X-User-Id.
+DEALS: POST/GET /api/deals route to FastAPI when LOCAL_API_URL + LOCAL_API_KEY are set. In production, these routes must be blocked unless that backend path is available (no production Prisma fallback).
+FastAPI writes to APPLICATION_DATABASE_URL with X-Org-Id and X-User-Id.
 
 AGENT PARCEL TOOLS: /tools/parcel.bbox (bbox search on ebr_parcels via ST_Centroid) and /tools/parcel.lookup (parcel ID lookup, fallback to ebr_parcels when api_get_parcel missing). propertyDbTools uses gatewayPost for both.
 
@@ -26,7 +27,7 @@ This repo uses a **zero-cost, local-compute** setup with:
 
 - **Single Cloudflare tunnel (`gpc-hp-tunnel`)** — `api.gallagherpropco.com` → FastAPI :8000, `tiles.gallagherpropco.com` → Martin :3000, `ssh.gallagherpropco.com` SSH route (when enabled)
 - **Postgres never exposed** — no ingress to 5432
-- **Vercel UI-only** — no Prisma in production
+- **Vercel UI-only** — parcel/property/deal data must not come from Prisma in production
 - **Bearer token auth** for Vercel → FastAPI
 
 The layout is **repo-native** and tailored to the actual structure:
@@ -57,7 +58,7 @@ gpc-cres/
 | FastAPI 8000   | ✅ Only via Cloudflare tunnel     |
 | Martin 3000    | ✅ Only via Cloudflare tunnel     |
 | Vercel         | ✅ UI only                        |
-| Prisma         | ❌ Removed from production path   |
+| Prisma         | ❌ Must not be used in production for parcel/property/deals control paths |
 | API Auth       | ✅ Bearer token                   |
 | DB Access      | ✅ Localhost only                 |
 
@@ -71,11 +72,12 @@ gpc-cres/
 
 - **POST /api/deals** → proxies to FastAPI when `LOCAL_API_URL` and `LOCAL_API_KEY` are set
 - **GET /api/deals** → same proxy for listing
+- Production enforcement: if gateway creds are missing, return 503 instead of Prisma fallback.
 - FastAPI **POST /deals** writes to the application DB (`APPLICATION_DATABASE_URL`) with `X-Org-Id` and `X-User-Id` headers
 - FastAPI **GET /deals** reads from the application DB, org-scoped via `org_id` query param
 
 **Key files:**
-- `apps/web/app/api/deals/route.ts` — proxy logic; Prisma fallback only when `LOCAL_API_URL` not set and not production
+- `apps/web/app/api/deals/route.ts` — proxy logic; local fallback only for non-production environments, no fallback path in production
 - `infra/local-api/main.py` — `/deals` GET and POST handlers using `app_db_pool`
 
 ### 2. Agent Parcel Tools

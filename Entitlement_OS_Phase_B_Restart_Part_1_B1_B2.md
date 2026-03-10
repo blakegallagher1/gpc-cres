@@ -1,6 +1,10 @@
-# Entitlement OS – Phase B Restart: Part 1
+# Entitlement OS – Phase B Restart: Part 1 (Historical)
 
 Last reviewed: 2026-02-19
+
+> **Status: Archived execution prompt (non-authoritative).**
+> This file is retained for historical traceability and does not define active implementation scope.
+> Use `ROADMAP.md` for active work and `docs/SPEC.md` for current architecture.
 
 # Scope: B1 + B2 only
 

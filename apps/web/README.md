@@ -25,10 +25,12 @@ Web application and API surface for Entitlement OS.
 
 Required:
 
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
+- `DATABASE_URL`
+- `AUTH_SECRET`
+- `AUTH_URL`
 - `OPENAI_API_KEY`
+- `LOCAL_API_URL`
+- `LOCAL_API_KEY`
 - `NEXT_PUBLIC_BACKEND_URL`
 
 Optional runtime tuning:

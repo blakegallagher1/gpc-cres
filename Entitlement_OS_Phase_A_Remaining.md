@@ -1,4 +1,10 @@
+# Entitlement OS — Phase A Remaining (Historical)
+
 Last reviewed: 2026-02-19
+
+> **Status: Archived execution prompt (non-authoritative).**
+> This file is retained for historical execution traceability and does not represent the active roadmap.
+> Use `ROADMAP.md` for current planned/in-progress work.
 
 Read CLAUDE.md, ROADMAP.md, and IMPLEMENTATION_PLAN.md first.
 Continue Phase A only and complete remaining work (do not revert route redirect changes already done).

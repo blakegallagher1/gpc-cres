@@ -4,7 +4,8 @@ import { resolveAuth } from "@/lib/auth/resolveAuth";
 /**
  * POST /api/agent/auth/resolve
  *
- * Resolves the user's orgId and userId from a Supabase JWT.
+ * Resolves the user's orgId and userId from Auth.js/NextAuth auth context
+ * (Authorization Bearer token or session cookie).
  * Called by the Cloudflare Worker during WebSocket setup to validate
  * org membership without duplicating the Prisma lookup.
  */

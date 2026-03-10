@@ -3,7 +3,15 @@
 Status: Authoritative
 Authority: Record of documentation contract changes
 Owner: Platform engineering
-Last reviewed: 2026-03-09
+Last reviewed: 2026-03-10
+
+## 2026-03-10
+
+- Added canonical stabilization release note + operational runbook:
+  - `docs/runbooks/STABILITY_RELEASE_RUNBOOK_2026-03-10.md`
+- Updated documentation entry surfaces to route future sessions to that canonical file:
+  - `docs/INDEX.md`
+  - `docs/DOCS_MANIFEST.json`
 
 ## 2026-03-09
 

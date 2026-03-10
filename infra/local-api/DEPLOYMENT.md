@@ -45,14 +45,14 @@ vim .env  # or nano .env
 
 ```bash
 # Database (update password)
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/entitlement_os
+DATABASE_URL=postgresql://postgres:postgres@localhost:54323/entitlement_os
 
 # Martin URL (verify port)
 MARTIN_URL=http://localhost:3000
 
 # Generate API keys (run this command)
 # openssl rand -hex 32
-API_KEYS=YOUR_GENERATED_KEY_HERE
+GATEWAY_API_KEY=YOUR_GENERATED_KEY_HERE
 
 # Vercel domains
 ALLOWED_ORIGINS=https://gallagherpropco.com,https://*.vercel.app
@@ -62,7 +62,7 @@ ALLOWED_ORIGINS=https://gallagherpropco.com,https://*.vercel.app
 ```bash
 openssl rand -hex 32
 # Example output: a1b2c3d4e5f6...
-# Copy this to API_KEYS in .env
+# Copy this to GATEWAY_API_KEY in .env
 ```
 
 ---
@@ -71,7 +71,7 @@ openssl rand -hex 32
 
 ```bash
 # Make sure PostgreSQL and Martin are running
-psql postgresql://postgres:postgres@localhost:5432/entitlement_os -c "SELECT version();"
+psql postgresql://postgres:postgres@localhost:54323/entitlement_os -c "SELECT version();"
 curl http://localhost:3000/health  # Martin health check
 
 # Start FastAPI server
@@ -83,33 +83,33 @@ python main.py
 ======================================================================
 🚀 GPC Local Property Database API
 ======================================================================
-📍 Server: http://localhost:8080
-📖 Docs:   http://localhost:8080/docs
-🗄️  Database: postgresql://postgres:***@localhost:5432/entitlement_os
+📍 Server: http://localhost:8000
+📖 Docs:   http://localhost:8000/docs
+🗄️  Database: postgresql://postgres:***@localhost:54323/entitlement_os
 🗺️  Martin: http://localhost:3000
 🔑 API Keys: 1 configured
 ======================================================================
 INFO:     Started server process [12345]
-INFO:     Uvicorn running on http://0.0.0.0:8080
+INFO:     Uvicorn running on http://0.0.0.0:8000
 ```
 
 **Test endpoints:**
 
 ```bash
 # 1. Health check (no auth required)
-curl http://localhost:8080/health
+curl http://localhost:8000/health
 
 # 2. Tile endpoint (requires auth)
 curl -H "Authorization: Bearer YOUR_API_KEY" \
-  http://localhost:8080/tiles/14/3623/6449.pbf \
+  http://localhost:8000/tiles/14/3623/6449.pbf \
   --output test.pbf
 
 # 3. Parcel search
 curl -H "Authorization: Bearer YOUR_API_KEY" \
-  "http://localhost:8080/api/parcels/search?q=Main%20St&limit=5"
+  "http://localhost:8000/api/parcels/search?q=Main%20St&limit=5"
 
 # 4. API docs (interactive)
-open http://localhost:8080/docs
+open http://localhost:8000/docs
 ```
 
 If all tests pass, move to Step 4.
@@ -141,7 +141,7 @@ tunnel: YOUR_TUNNEL_ID
 credentials-file: /Users/YOUR_USERNAME/.cloudflared/YOUR_TUNNEL_ID.json
 ingress:
   - hostname: api.gallagherpropco.com
-    service: http://localhost:8080
+    service: http://localhost:8000
   - service: http_status:404
 EOF
 
@@ -283,13 +283,13 @@ vercel --prod
 ### 1. Check local services:
 ```bash
 # PostgreSQL
-psql postgresql://postgres:postgres@localhost:5432/entitlement_os -c "SELECT COUNT(*) FROM ebr_parcels WHERE geom IS NOT NULL;"
+psql postgresql://postgres:postgres@localhost:54323/entitlement_os -c "SELECT COUNT(*) FROM ebr_parcels WHERE geom IS NOT NULL;"
 
 # Martin
 curl http://localhost:3000/health
 
 # FastAPI
-curl http://localhost:8080/health
+curl http://localhost:8000/health
 
 # Cloudflare Tunnel
 curl https://api.gallagherpropco.com/health
@@ -304,7 +304,7 @@ curl https://gallagherpropco.com/api/map/tiles/14/3623/6449
 ```
 
 ### 3. Test map rendering:
-Open `https://gallagherpropco.com/maps` and verify:
+Open `https://gallagherpropco.com/map` and verify:
 - [ ] Base map loads
 - [ ] Parcel polygons appear in East Baton Rouge area
 - [ ] Network tab shows successful tile requests (HTTP 200)
@@ -321,7 +321,7 @@ Open `https://gallagherpropco.com/maps` and verify:
 **Fix:**
 ```bash
 # Check if services are running
-lsof -i :8080  # FastAPI
+lsof -i :8000  # FastAPI
 launchctl list | grep cloudflare  # Tunnel
 
 # Restart if needed
@@ -336,7 +336,7 @@ launchctl load ~/Library/LaunchAgents/com.gpc.api.plist
 **Fix:**
 ```bash
 # Check local .env
-cat infra/local-api/.env | grep API_KEYS
+cat infra/local-api/.env | grep -E 'GATEWAY_API_KEY|API_KEYS'
 
 # Check Vercel env var
 vercel env ls
@@ -350,7 +350,7 @@ vercel env ls
 
 **Fix:**
 ```bash
-psql postgresql://postgres:postgres@localhost:5432/entitlement_os <<EOF
+psql postgresql://postgres:postgres@localhost:54323/entitlement_os <<EOF
 -- Refresh materialized view
 REFRESH MATERIALIZED VIEW mv_parcel_intelligence;
 
@@ -369,7 +369,7 @@ EOF
 **Fix:**
 ```bash
 # Check query performance
-psql postgresql://postgres:postgres@localhost:5432/entitlement_os <<EOF
+psql postgresql://postgres:postgres@localhost:54323/entitlement_os <<EOF
 SELECT query, calls, mean_exec_time
 FROM pg_stat_statements
 WHERE query LIKE '%get_parcel_mvt%'
@@ -409,21 +409,21 @@ tail -f /tmp/gpc-api.log
 ### Daily:
 ```bash
 # Refresh materialized view (if data changes)
-psql postgresql://postgres:postgres@localhost:5432/entitlement_os \
+psql postgresql://postgres:postgres@localhost:54323/entitlement_os \
   -c "REFRESH MATERIALIZED VIEW CONCURRENTLY mv_parcel_intelligence;"
 ```
 
 ### Weekly:
 ```bash
 # Vacuum and analyze
-psql postgresql://postgres:postgres@localhost:5432/entitlement_os \
+psql postgresql://postgres:postgres@localhost:54323/entitlement_os \
   -c "VACUUM ANALYZE ebr_parcels; VACUUM ANALYZE mv_parcel_intelligence;"
 ```
 
 ### Monthly:
 ```bash
 # Check for slow queries
-psql postgresql://postgres:postgres@localhost:5432/entitlement_os \
+psql postgresql://postgres:postgres@localhost:54323/entitlement_os \
   -c "SELECT query, calls, mean_exec_time FROM pg_stat_statements ORDER BY mean_exec_time DESC LIMIT 10;"
 ```
 
@@ -506,7 +506,7 @@ Once deployed and working:
 
 ## Support
 
-- **FastAPI Docs:** http://localhost:8080/docs (when running locally)
+- **FastAPI Docs:** http://localhost:8000/docs (when running locally)
 - **Cloudflare Tunnel Docs:** https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/
 - **PostgreSQL Performance:** https://www.postgresql.org/docs/current/performance-tips.html
 - **Martin Tile Server:** https://github.com/maplibre/martin
@@ -548,7 +548,7 @@ Once deployed and working:
 │  └────────────────────────┬─────────────────────────────────┘  │
 │                           │                                     │
 │  ┌────────────────────────▼─────────────────────────────────┐  │
-│  │  FastAPI Server (:8080)                                  │  │
+│  │  FastAPI Server (:8000)                                  │  │
 │  │  - API Key Authentication                                │  │
 │  │  - Request Routing                                       │  │
 │  │  - PostgreSQL Connection Pool                            │  │
@@ -568,4 +568,4 @@ Once deployed and working:
 
 **Deployment complete!** 🚀
 
-Visit `https://gallagherpropco.com/maps` to see parcel polygons rendering from your local server.
+Visit `https://gallagherpropco.com/map` to see parcel polygons rendering from your local server.

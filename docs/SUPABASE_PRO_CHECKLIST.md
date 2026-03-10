@@ -2,6 +2,10 @@
 
 Last updated: 2026-02-19
 
+> **Status: Archived historical checklist (non-authoritative).**
+> Supabase Pro operational guidance is retained for history only and is not part of the active production architecture.
+> Current production contracts are documented in `README.md`, `ROADMAP.md`, and `docs/SPEC.md`.
+
 Code-implementable items in this checklist are now wired in repository code. Remaining unchecked work is dashboard/infra operational.
 
 ## Read Replicas

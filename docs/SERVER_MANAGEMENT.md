@@ -60,26 +60,18 @@ ssh ssh.gallagherpropco.com
 
 If Cloudflare Access is enabled, you’ll see a browser login first. Then SSH proceeds.
 
-## Repo Config
+## Operator Shell Env (optional)
+
+Export these once in your shell before running admin and smoke commands:
 
 ```bash
-cp scripts/server/config.example.sh scripts/server/config.sh
+export CF_ACCESS_CLIENT_ID="<service-token-id>"
+export CF_ACCESS_CLIENT_SECRET="<service-token-secret>"
+export LOCAL_API_KEY="<gateway-bearer>"
+export ADMIN_API_KEY="<gateway-admin-bearer>"
 ```
 
-Edit `scripts/server/config.sh`:
-
-```bash
-# Cloudflare SSH hostname
-export SERVER_HOST="ssh.gallagherpropco.com"
-
-# Your Windows username
-export SERVER_USER="YourWindowsUsername"
-
-# Path to backend on Windows
-export SERVER_PATH="C:/gpc-cres-backend"
-```
-
-The scripts use your `~/.ssh/config` ProxyCommand automatically.
+These variables are consumed by the `curl` examples below and by edge-access smoke tooling.
 
 ---
 
@@ -120,15 +112,14 @@ MacBook (anywhere)                    Windows PC (BG)
 
 ## Available Commands
 
-From repo root (after configuring `scripts/server/config.sh`):
+From repo root:
 
 | Command | Description |
 |---------|-------------|
-| `./scripts/server/status.sh` | Docker container status |
-| `./scripts/server/restart.sh` | Restart gateway container |
-| `./scripts/server/logs.sh` | Tail gateway logs |
-| `./scripts/server/deploy.sh` | Deploy updated main.py to gateway |
-| `./scripts/server/ssh.sh` | Open SSH session to server |
+| `pnpm smoke:gateway:edge-access` | Validate Cloudflare Access deny/pass behavior for gateway + app routes |
+| `pnpm smoke:endpoints` | Run app/gateway production endpoint smoke checks |
+| `pnpm parcel:smoke:prod` | Run map-parcel production smoke checks with geometry verification |
+| `ssh ssh.gallagherpropco.com` | Open SSH session to the Windows host through Cloudflare Access |
 
 ---
 
@@ -299,4 +290,4 @@ Expected:
 
 - `docs/CLOUDFLARE.md` — Cloudflare Tunnel config (ingress rules, DNS)
 - `docs/claude/backend.md` — Gateway architecture, endpoints
-- `docs/B2_DEPLOY_CHECKLIST.md` — B2 storage deployment
+- `docs/SUPABASE_TO_LOCAL_MIGRATION.md` — B2 migration and storage cutover notes

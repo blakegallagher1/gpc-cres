@@ -2,6 +2,10 @@
 
 Last reviewed: 2026-02-19
 
+> **Status: Archived planning artifact (non-authoritative for current implementation).**
+> This meta-prompt is retained for historical planning context and contains superseded stack assumptions.
+> Use `ROADMAP.md` and `docs/SPEC.md` for current implementation and architecture contracts.
+
 
 **Gallagher Property Company | February 2026 | v1.0**
 
@@ -15,7 +19,7 @@ You are a senior full-stack engineer working on **Entitlement OS**, the internal
 
 **Your mission:** Execute a comprehensive consolidation of the UI (reducing 20 sidebar items to 10) and a deep feature enhancement across 7 domains, all without losing any existing functionality. Every capability stays. You are reducing doors into the same rooms and adding depth where the platform is shallow.
 
-**Tech stack:** Next.js 16 (App Router), React 19, shadcn/ui, Radix, Tailwind, Zustand, SWR, Prisma 6, PostgreSQL (Supabase), OpenAI Agents SDK, pnpm monorepo. Strict TypeScript. Node 22.
+**Tech stack:** Next.js 16 (App Router), React 19, shadcn/ui, Radix, Tailwind, Zustand, SWR, Prisma 6, PostgreSQL (gateway-backed local server), OpenAI Agents SDK, pnpm monorepo. Strict TypeScript. Node 22.
 
 **Repo structure:** `apps/web/` (Next.js frontend + API routes), `packages/db/` (Prisma), `packages/openai/` (13 agents + ~26 tools), `packages/shared/` (Zod schemas), `packages/evidence/`, `packages/artifacts/` (PDF + PPTX generation).
 
@@ -26,10 +30,10 @@ You are a senior full-stack engineer working on **Entitlement OS**, the internal
 - Wire agent tools in `createConfiguredCoordinator()`, not on module-level exports
 - Scope all DB queries with `orgId` for multi-tenant isolation
 - Dispatch automation events with `.catch(() => {})` — never block API responses
-- Use `import "server-only"` for any module touching chatgpt-apps keys
+- Use `import "server-only"` for any module touching gateway/service secrets
 - Don't use Chat Completions API — use OpenAI Responses API
 - Don't use `any` type — use `Record<string, unknown>`
-- All automation tests use Jest (NOT vitest) with `jest.mock()`/`jest.requireMock()`
+- All automation tests use Vitest with `vi.mock()`/`vi.importMock()`
 
 **Execution protocol:** Read `CLAUDE.md`, `ROADMAP.md`, and `IMPLEMENTATION_PLAN.md` before touching any code. Follow the ROADMAP-FIRST protocol. Update `ROADMAP.md` after each completed work item with results and status.
 
@@ -47,7 +51,7 @@ Reduce the sidebar from 20 items to 10. No functionality is removed — only reo
 
 #### A1. Delete `/deploy`
 
-Remove `apps/web/app/deploy/` entirely. Remove the sidebar entry from `apps/web/components/layout/Sidebar.tsx`. This page is a localStorage-only mockup with no backend integration.
+Status note: complete. The legacy deploy mock page was removed from `apps/web/app/`, and sidebar navigation no longer includes `/deploy`.
 
 **Acceptance:** Route gone, sidebar entry gone, no dead imports, typecheck passes.
 
@@ -269,7 +273,7 @@ New handler file: `marketMonitoring.ts`. New cron route: `/api/cron/market-monit
 
 New handler file: `knowledgeCapture.ts`. On `deal.statusChanged` to EXITED or KILLED, extract deal metadata (SKU, parish, strategy, actual timeline, triage predictions, outcome metrics) and store as knowledge base entry via `store_knowledge_entry` tool. Include variance analysis: predicted vs. actual IRR, timeline, risk materializations. Test suite.
 
-**Acceptance for all E tasks:** Each handler registered in `handlers.ts`. Each has test suite (Jest, `jest.mock` pattern). Event dispatch from API routes with `.catch(() => {})`. `AUTOMATION_CONFIG` updated with new thresholds. Cron routes protected with `CRON_SECRET`.
+**Acceptance for all E tasks:** Each handler registered in `handlers.ts`. Each has test suite (Vitest, `vi.mock` pattern). Event dispatch from API routes with `.catch(() => {})`. `AUTOMATION_CONFIG` updated with new thresholds. Cron routes protected with `CRON_SECRET`.
 
 ---
 
@@ -331,7 +335,7 @@ After each phase (A through G):
 2. Run `pnpm test` from repo root. All existing tests pass.
 3. Run `pnpm lint`. No new errors (warnings acceptable).
 4. For schema changes: `pnpm db:migrate` creates clean migration.
-5. New code has test coverage: API routes tested, automation handlers tested (Jest pattern), agent tools have at least one test.
+5. New code has test coverage: API routes tested, automation handlers tested (Vitest pattern), agent tools have at least one test.
 6. Update `ROADMAP.md` with completed items and status.
 7. Commit with descriptive message: `phase-X: [scope] description`
 

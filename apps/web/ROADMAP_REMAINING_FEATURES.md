@@ -2,6 +2,11 @@
 
 Last reviewed: 2026-02-19
 
+> **Status: Archived snapshot (non-authoritative).**
+> This roadmap reflects a pre-gateway, Supabase-era planning pass and may not match current production code.
+> Use `ROADMAP.md` as the active implementation source of truth.
+> This document is historical context only; no remaining Supabase-era tasks in this file are active implementation work.
+
 
 ## Overview
 

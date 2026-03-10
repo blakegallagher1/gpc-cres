@@ -1,19 +1,23 @@
 # Supabase → Local Self-Hosted Migration
 
+> **Status: Completed migration record (historical, non-authoritative for current operations).**
+> This file is preserved as migration evidence. Do not use it as an active runbook for current production operations.
+> Use `README.md`, `ROADMAP.md`, and `docs/SPEC.md` for current contracts.
+
 Moves app Postgres and evidence storage from Supabase to the local Windows HP Server. Result: zero external DB dependencies, lower latency, full data ownership.
 
 ## Phase 1: Local Postgres (App DB)
 
 ### 1A) Add app-db to production Docker Compose
 
-Use the fragment in `infra/docker/docker-compose.app-db.yml`, or merge into `C:\gpc-cres-backend\docker-compose.yml`:
+Historical note: this migration originally used a now-retired compose fragment that is no longer kept in-repo. The active compose file in this repo is `infra/docker/docker-compose.yml`, and production uses `C:\gpc-cres-backend\docker-compose.yml`.
 
 ```bash
 # From repo root (local dev)
-docker compose -f infra/docker/docker-compose.yml -f infra/docker/docker-compose.app-db.yml up -d app-db
+docker compose -f infra/docker/docker-compose.yml up -d postgres
 
 # On Windows server (C:\gpc-cres-backend)
-# Copy app-db service + app-db-data volume from infra/docker/docker-compose.app-db.yml
+# Use the server compose file directly; do not reference the retired app-db fragment.
 ```
 
 Port 5433 avoids conflict with cres_db (5432). `pgvector` is required for `KnowledgeEmbedding` (vector column).
@@ -22,8 +26,8 @@ Port 5433 avoids conflict with cres_db (5432). `pgvector` is required for `Knowl
 
 ```powershell
 cd C:\gpc-cres-backend
-docker compose up -d app-db
-docker exec entitlement-os-db psql -U postgres -d entitlement_os -c "CREATE EXTENSION IF NOT EXISTS vector;"
+docker compose up -d postgres
+docker exec entitlement-os-postgres psql -U postgres -d entitlement_os -c "CREATE EXTENSION IF NOT EXISTS vector;"
 ```
 
 ### 1C–1F) Dump, restore, switch

@@ -25,9 +25,9 @@ All endpoints are org-scoped and require authenticated session context.
 
 ### WebSocket transport (Cloudflare Worker)
 
-- `wss://agents.gallagherpropco.com/ws?token=<supabase_jwt>&conversationId=<uuid>`
+- `wss://agents.gallagherpropco.com/ws?token=<auth_jwt>&conversationId=<uuid>`
   - Persistent WebSocket to Cloudflare Durable Object.
-  - Auth: Supabase JWT validated server-side before WebSocket upgrade.
+  - Auth: Browser obtains a signed Auth.js/NextAuth token from `GET /api/auth/token`; Worker forwards it as Bearer to `POST /api/agent/auth/resolve`.
   - Send: `{ type: "message", text: "...", dealId?: "..." }`
   - Receive: Same `ChatStreamEvent` types as SSE (text_delta, tool_start, tool_end, done, error).
 

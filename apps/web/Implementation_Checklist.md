@@ -2,6 +2,11 @@
 
 Last reviewed: 2026-02-19
 
+> **Status: Archived snapshot (non-authoritative).**
+> This checklist reflects a pre-gateway, Supabase-era implementation phase and may not match current production code.
+> Use `README.md`, `ROADMAP.md`, and `docs/SPEC.md` for current architecture and implementation status.
+> This is a historical archive; the items listed below are not active backlog requirements.
+
 
 ## Status Overview
 
@@ -140,7 +145,7 @@ Last reviewed: 2026-02-19
 
 ### Testing
 
-- [x] Set up Jest and React Testing Library
+- [x] Set up Vitest and React Testing Library
 - [x] Create test setup file with mocks
 - [x] Write useUndoRedo hook tests
 - [x] Write workflow-io utility tests
@@ -340,9 +345,8 @@ gpc-dashboard/
 │   ├── navigation.spec.ts
 │   └── workflows.spec.ts
 ├── playwright.config.ts
-├── jest.config.ts
-├── jest.setup.ts
-├── next.config.js
+├── vitest.config.mts
+├── next.config.ts
 ├── tailwind.config.ts
 ├── tsconfig.json
 └── package.json

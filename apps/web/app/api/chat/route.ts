@@ -101,7 +101,16 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "message is required" }, { status: 400 });
   }
 
-  const auth = await resolveAuth(req);
+  let auth;
+  try {
+    auth = await resolveAuth(req);
+  } catch (err) {
+    console.error("[chat-route] resolveAuth error:", err);
+    return Response.json(
+      { error: "Authentication service unavailable" },
+      { status: 500 },
+    );
+  }
   if (!auth) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }

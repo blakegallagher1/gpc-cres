@@ -205,24 +205,6 @@ const endpoints: Endpoint[] = [
     category: "gateway",
   },
   {
-    appPath: "tool:docs.search (semantic)",
-    method: "POST",
-    gatewayPath: "/tool/docs.search",
-    body: { query: "hearing notice requirements", limit: 1 },
-    category: "semantic",
-  },
-  {
-    appPath: "tool:memory.write (semantic)",
-    method: "POST",
-    gatewayPath: "/tool/memory.write",
-    body: {
-      conversationId: smokeStamp,
-      userId: "edge-smoke",
-      content: "edge smoke semantic memory write",
-    },
-    category: "semantic",
-  },
-  {
     appPath: "admin policy check",
     method: "GET",
     gatewayPath: "/admin/health",

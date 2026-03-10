@@ -1,5 +1,9 @@
 # Deployment Status Summary — 2026-02-25
 
+> **Status: Historical deployment snapshot (non-authoritative).**
+> This is a point-in-time report and may not match the current production state.
+> Use current monitoring/runbooks and `ROADMAP.md` for active status.
+
 ## Overall Status: ✅ ALL SYSTEMS OPERATIONAL
 
 All three deployment layers are healthy and fully integrated. The property database query tools implementation (commit e1307e8) is production-ready and verified working.
@@ -32,7 +36,7 @@ All three deployment layers are healthy and fully integrated. The property datab
   - OpenAI Responses API WebSocket support
   - Persistent Durable Object conversations
   - Tool routing to gateway, Vercel, and OpenAI hosted tools
-  - Authentication via Supabase JWT
+  - Authentication via NextAuth/Auth.js session context + service bearer headers
 
 ---
 
@@ -93,7 +97,7 @@ All three deployment layers are healthy and fully integrated. The property datab
 4. **Row limits** — Max 100 rows enforced via wrapping subquery
 
 ### Authentication
-- ✅ Supabase JWT validation in Cloudflare Worker
+- ✅ NextAuth/Auth.js session + service token validation in Cloudflare Worker
 - ✅ Bearer token validation in FastAPI gateway
 - ✅ Org-scoped tool execution in Vercel API routes
 - ✅ Timing-safe comparison for cron secrets
@@ -125,7 +129,7 @@ All three deployment layers are healthy and fully integrated. The property datab
 ## Testing Status
 
 ### E2E Tests (Node.js)
-- ✅ Supabase magic link auth → JWT generation
+- ✅ NextAuth/Auth.js login session → JWT/session resolution
 - ✅ `/api/agent/auth/resolve` → returns orgId and userId
 - ✅ `/api/agent/tools/execute` → returns 200 OK
 - ⚠️ WebSocket streaming test (expected Node.js limitation — requires browser automation)

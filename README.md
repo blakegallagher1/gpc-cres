@@ -2,7 +2,6 @@
 
 Last reviewed: 2026-02-19
 
-
 Next.js + Temporal + Prisma + OpenAI agent runtime for entitlement workflows, chat orchestration, memory, and evidence-backed automation.
 
 ## Core capabilities
@@ -42,7 +41,7 @@ pnpm build
 ## Smoke verification
 
 - `pnpm smoke:endpoints` — Proves every parcel/deal/geometry read is served through the Cloudflare-tunneled gateway Postgres path and separately confirms the semantic-only `recall_property_intelligence` Qdrant tool still returns hits.
-- `pnpm smoke:gateway:edge-access` — Calls the FastAPI gateway directly with and without Cloudflare Access headers to prove every parcel/property endpoint (SQL, lookup, screening) is only reachable via the tunnel and that semantic `/tool/*` calls stay edge-protected.
+- `pnpm smoke:gateway:edge-access` — Calls the FastAPI gateway directly with and without Cloudflare Access headers to prove parcel/property endpoints (SQL, lookup, screening) are only reachable via the tunnel. Semantic retrieval endpoints are validated separately by app-level knowledge routes.
 - `bash scripts/verify-production-features.sh` — Full production harness that replays the five gateway features (cache, batch screening, push events, Qdrant property intelligence, error handling) to ensure local Postgres remains authoritative and Qdrant is only used for semantic recall.
 
 ## Production observability monitor
@@ -51,19 +50,39 @@ Run the production monitor to validate critical pages and APIs and persist a JSO
 
 ```bash
 BASE_URL=https://gallagherpropco.com \
-AUTH_BEARER=<nextauth-jwt> \
-HEALTH_TOKEN=<health-token> \
+OBS_AUTH_BEARER=<nextauth-jwt> \
+OBS_HEALTH_TOKEN=<health-token> \
+OBS_SESSION_COOKIE="__Secure-authjs.session-token=<value>" \
 pnpm observability:monitor:prod
 ```
 
 Optional envs:
-- `OBS_SESSION_COOKIE` — NextAuth session cookie if you want authenticated page checks (`/map`, `/deals`).
+
+- `AUTH_BEARER` or `MAP_SMOKE_AUTH_BEARER` — legacy aliases for `OBS_AUTH_BEARER`.
+- `HEALTH_TOKEN` or `HEALTHCHECK_TOKEN` — legacy aliases for `OBS_HEALTH_TOKEN`.
+- `SESSION_COOKIE` or `AUTH_COOKIE` — legacy aliases for `OBS_SESSION_COOKIE`.
+- `MAP_SMOKE_BASE_URL` — legacy alias for base URL.
+- `MAP_SMOKE_SEARCH_ADDRESS` — legacy alias for `OBS_SEARCH_ADDRESS`.
+- `OBS_SEARCH_ADDRESS` — Search address used for parcel/comps/prospect checks.
 - `OBS_EMIT_TELEMETRY=false` — Skip the `/api/observability/events` ingest check.
 - `OBS_ALLOW_PARTIAL=true` — Do not fail the run if auth/health tokens are missing.
 - `OBS_OUTPUT_DIR=output/observability` — Override report output path.
-- `OBS_SEARCH_ADDRESS="4416 HEATH DR"` — Override parcel/comps search address.
+- `OBS_MONITOR_ENV_FILE` — Path to env file (alias: `MONITOR_ENV_FILE`).
 
 Reports are written to `output/observability/`.
+
+Canonical operator runbook (quickstart, interpretation, triage, security):
+
+- `docs/OBSERVABILITY_MONITOR.md`
+
+For a continuously running monitor with pid/log tracking, configure `scripts/observability/.env.monitor-prod` and use the wrapper:
+
+```bash
+scripts/observability/start_monitor_prod.sh start
+scripts/observability/start_monitor_prod.sh status
+```
+
+See `docs/OBSERVABILITY_MONITOR.md` for the full operator runbook.
 
 ## Security and tenant isolation baseline
 
@@ -91,12 +110,14 @@ Reports are written to `output/observability/`.
 ## Parcel geometry fallback contract
 
 The map/parcel geometry pipeline uses this order:
+
 1. Direct geometry lookup
 2. Address-normalized lookup
 3. RPC fallback (`rpc_get_parcel_geometry`)
 
 ## Chat runtime docs
 
+- Canonical docs entrypoint: `docs/INDEX.md`
 - Runtime/API contracts: `docs/chat-runtime.md`
 - Architecture specification: `docs/SPEC.md`
 - Current implementation roadmap/status: `ROADMAP.md`

@@ -4,6 +4,10 @@
 **Last Updated:** 2026-02-20 21:15 UTC
 **Discovery:** Windows 11 infrastructure audit revealed architecture mismatch; all deployment gaps now closed
 
+> **Status: Archived incident report (non-authoritative).**
+> This document is retained as a historical blocker log from the February 2026 rollout window.
+> Use `ROADMAP.md` for active execution status and `docs/SPEC.md` + `docs/claude/backend.md` for current architecture contracts.
+
 ---
 
 ## Architecture Discovery (2026-02-20)
@@ -178,7 +182,7 @@ Once P0, P1, P2 are complete:
 
 2. [ ] **PRIORITY 2**: Browser chat test — full agent flow
    - Log in at gallagherpropco.com, send parcel query through chat
-   - Verify coordinator → research agent → Supabase RPC → real parcel data
+   - Verify coordinator → research agent → gateway parcel tools → real parcel data
    - Requires authenticated browser session
 
 3. [ ] **PRIORITY 3**: Decide on api_server.py integration strategy

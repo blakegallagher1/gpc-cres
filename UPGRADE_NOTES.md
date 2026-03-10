@@ -3,6 +3,10 @@
 **Date:** 2026-02-23
 **Scope:** `@openai/agents` 0.4.6 → 0.4.15 + AgentOS foundation modules
 
+> **Status: Archived upgrade snapshot (non-authoritative).**
+> This file records one upgrade pass and may not match the current dependency/runtime state.
+> Use `package.json`, `pnpm-lock.yaml`, and `ROADMAP.md` for current version truth.
+
 ---
 
 ## 1. SDK Upgrade: @openai/agents ^0.4.6 → ^0.4.15

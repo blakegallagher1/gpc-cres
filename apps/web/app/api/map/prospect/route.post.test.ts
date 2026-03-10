@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   resolveAuthMock,
@@ -46,6 +46,7 @@ function makeJsonResponse(data: unknown, status = 200): Response {
 
 describe("POST /api/map/prospect", () => {
   let POST: typeof import("./route").POST;
+  const priorGatewayTimeout = process.env.PROPERTY_DB_GATEWAY_TIMEOUT_MS;
 
   beforeEach(async () => {
     vi.resetModules();
@@ -61,7 +62,12 @@ describe("POST /api/map/prospect", () => {
       key: "test-api-key",
     });
     getCloudflareAccessHeadersFromEnvMock.mockReturnValue({});
+    process.env.PROPERTY_DB_GATEWAY_TIMEOUT_MS = "";
     ({ POST } = await import("./route"));
+  });
+
+  afterEach(() => {
+    process.env.PROPERTY_DB_GATEWAY_TIMEOUT_MS = priorGatewayTimeout;
   });
 
   it("returns 401 when unauthenticated", async () => {
@@ -78,6 +84,7 @@ describe("POST /api/map/prospect", () => {
 
     const res = await POST(req);
     expect(res.status).toBe(401);
+    expect(res.headers.get("x-request-id")).toBeTruthy();
   });
 
   it("returns polygon-filtered parcels on the happy path", async () => {
@@ -117,8 +124,19 @@ describe("POST /api/map/prospect", () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
+    expect(res.headers.get("x-request-id")).toBeTruthy();
     expect(body.total).toBeGreaterThan(0);
     expect(body.parcels[0].address).toBe("123 Main St");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      headers: expect.objectContaining({
+        Authorization: "Bearer test-api-key",
+        apikey: "test-api-key",
+        "Content-Type": "application/json",
+        "x-request-id": expect.any(String),
+      }),
+    });
   });
 
   it("returns an empty result when the gateway returns an empty set", async () => {
@@ -139,6 +157,7 @@ describe("POST /api/map/prospect", () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
+    expect(res.headers.get("x-request-id")).toBeTruthy();
     expect(body).toEqual({ parcels: [], total: 0 });
     expect(parcelFindManyMock).not.toHaveBeenCalled();
   });
@@ -159,6 +178,7 @@ describe("POST /api/map/prospect", () => {
     const res = await POST(req);
     const body = await res.json();
     expect(res.status).toBe(503);
+    expect(res.headers.get("x-request-id")).toBeTruthy();
     expect(body).toEqual({
       error: "Property database unavailable",
       code: "GATEWAY_UNCONFIGURED",
@@ -184,8 +204,37 @@ describe("POST /api/map/prospect", () => {
     const body = await res.json();
 
     expect(res.status).toBe(502);
+    expect(res.headers.get("x-request-id")).toBeTruthy();
     expect(body.code).toBe("GATEWAY_UNAVAILABLE");
     expect(parcelFindManyMock).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when the gateway request times out", async () => {
+    resolveAuthMock.mockResolvedValue({ userId: "user-1", orgId: "org-1" });
+    process.env.PROPERTY_DB_GATEWAY_TIMEOUT_MS = "987";
+    const abortError = Object.assign(new Error("aborted"), {
+      name: "AbortError",
+    });
+    fetchMock.mockRejectedValue(abortError);
+
+    const req = new NextRequest("http://localhost/api/map/prospect", {
+      method: "POST",
+      body: JSON.stringify({
+        polygon: {
+          type: "Polygon",
+          coordinates: [[[-91.2, 30.45], [-91.2, 30.35], [-91.1, 30.35], [-91.1, 30.45], [-91.2, 30.45]]],
+        },
+      }),
+    });
+
+    const res = await POST(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(503);
+    expect(body).toEqual({
+      error: "Property database unavailable",
+      code: "GATEWAY_UNAVAILABLE",
+    });
   });
 
   it("returns 400 for malformed JSON payload", async () => {
@@ -199,6 +248,7 @@ describe("POST /api/map/prospect", () => {
     const res = await POST(req);
     const body = await res.json();
     expect(res.status).toBe(400);
+    expect(res.headers.get("x-request-id")).toBeTruthy();
     expect(body.error).toBe("Validation failed");
   });
 

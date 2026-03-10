@@ -29,7 +29,7 @@ pnpm --filter @entitlement-os/openai build   # Build agent package
 npm run dev                  # Next.js dev server :3000
 npm run build                # Production build
 npm run lint                 # ESLint
-npm run test                 # Jest
+npm run test                 # Vitest
 ```
 
 ### Vercel deploy build chain (defined in apps/web/vercel.json)
@@ -68,7 +68,7 @@ LOCAL_API_URL=https://api.gallagherpropco.com
 CF_ACCESS_CLIENT_ID=<service token id>
 CF_ACCESS_CLIENT_SECRET=<service token secret>
 AGENTS_URL=https://agents.gallagherpropco.com
-DATABASE_URL  (non-authoritative local-dev/tooling fallback; do not treat as the production parcel/property path)
+DATABASE_URL  (local-dev/tooling only; should remain non-authoritative in Vercel runtime)
 OPENAI_API_KEY
 QDRANT_URL=https://qdrant.gallagherpropco.com
 QDRANT_API_KEY=<optional if gateway proxies>
@@ -106,7 +106,7 @@ VERCEL_URL            # https://gallagherpropco.com
 QDRANT_URL            # optional: direct Worker access
 ```
 
-**Vars (in `wrangler.toml`):**
+**Vars (in `infra/cloudflare-agent/wrangler.toml`):**
 ```
 HYPERDRIVE = "<Cloudflare Hyperdrive binding for Postgres>"
 ```
@@ -118,23 +118,22 @@ NEXT_PUBLIC_AGENT_WS_URL=wss://agents.gallagherpropco.com  # Set to enable WebSo
 
 ## Authoritative data vs semantic recall
 
-- Parcel, deal, and parcel-intelligence data is never fetched directly from Postgres in production. App routes must use `LOCAL_API_URL` + `LOCAL_API_KEY` + the Cloudflare Access headers so the FastAPI gateway can scope queries and fan out to Postgres on the Windows host. Vercel functions rely on `GATEWAY_DATABASE_URL` (Hyperdrive HTTPS) for Prisma during runtime/build tasks that still need Prisma, while `DATABASE_URL` remains a non-authoritative fallback for local dev shells and `pnpm db:*` commands.
+- Parcel, deal, and parcel-intelligence data must be fetched in production only through the FastAPI gateway path: `LOCAL_API_URL` + `LOCAL_API_KEY` + Cloudflare Access headers, so queries stay on the local DB server path.
+- `GATEWAY_DATABASE_URL` is for Prisma-enabled control-plane paths that still need PostgreSQL connectivity; it must not be the active path for transactional/parcels/deals reads or writes in runtime request handling.
+- `DATABASE_URL` (and `DIRECT_DATABASE_URL`) are local-dev/tooling values only and must not be considered production authoritative.
 - Qdrant stays semantic-only. Some semantic helpers are exposed through gateway-authenticated tools (`docs.search`, `memory.write`), while other runtime paths still use direct `QDRANT_URL` access for semantic recall. In all cases, Qdrant augments authoritative Postgres records instead of replacing them.
 - After any infra change, run the smoke trio to prove this split remains intact: `pnpm smoke:endpoints` (gateway-backed reads + semantic recall), `pnpm smoke:gateway:edge-access` (Cloudflare Access behavior), and `bash scripts/verify-production-features.sh` (full production harness).
 
 ## CI/CD
 
-GitHub Actions (`ci.yml`): push to `main` + PRs. Backend (Python 3.11) + Frontend (Node 22).
-**Known issue:** CI still references old `frontend/` paths — needs update to `apps/web/`.
+GitHub Actions (`.github/workflows/ci.yml`): push to `main` + PRs. Node 22 + pnpm workspace filters (`gpc-agent-dashboard`, `@entitlement-os/*`) are the active contract.
 
 Vercel: Git-triggered deploys on push to `main`. Build command in `apps/web/vercel.json`.
 Cron jobs: `/api/cron/change-detection` (daily 6 AM), `/api/cron/parish-pack-refresh` (weekly Sunday 4 AM).
 
 ## Implementation Roadmap
 
-Read `IMPLEMENTATION_PLAN.md` at the repo root for the full 9-phase feature roadmap, all architectural conventions, and shared infrastructure patterns.
-
-**All 9 phases complete.** Implementation plan fully executed.
+`IMPLEMENTATION_PLAN.md` and `Entitlement_OS_Meta_Prompt.md` are historical planning artifacts. Use `ROADMAP.md` for active implementation status and `docs/SPEC.md` for the current architecture contract.
 
 ### Phase Tracker
 Update status after each sub-phase ships:

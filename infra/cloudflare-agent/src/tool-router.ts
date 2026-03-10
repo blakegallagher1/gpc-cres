@@ -120,7 +120,7 @@ async function callGateway(
 }
 
 /**
- * Call Vercel tool-execution endpoint, forwarding the user's Supabase JWT.
+ * Call Vercel tool-execution endpoint, forwarding the user's Auth.js/NextAuth bearer token.
  */
 async function callVercel(
   env: Env,

@@ -24,6 +24,7 @@ function makeJsonResponse(data: unknown, status = 200): Response {
 
 describe("propertyDbRpc", () => {
   const originalFetch = global.fetch;
+  const originalGatewayTimeout = process.env.PROPERTY_DB_GATEWAY_TIMEOUT_MS;
 
   beforeEach(() => {
     vi.resetModules();
@@ -39,6 +40,7 @@ describe("propertyDbRpc", () => {
       "CF-Access-Client-Id": "cf-id",
       "CF-Access-Client-Secret": "cf-secret",
     });
+    process.env.PROPERTY_DB_GATEWAY_TIMEOUT_MS = "";
 
     vi.stubGlobal("fetch", fetchMock);
   });
@@ -46,6 +48,7 @@ describe("propertyDbRpc", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     global.fetch = originalFetch;
+    process.env.PROPERTY_DB_GATEWAY_TIMEOUT_MS = originalGatewayTimeout;
   });
 
   it("queries parcel search through the gateway", async () => {
@@ -211,5 +214,41 @@ describe("propertyDbRpc", () => {
     await expect(propertyDbRpc("api_get_parcel", { parcel_id: "prop-1" })).rejects.toThrow(
       "[property-db-rpc] api_get_parcel failed (502): backend down",
     );
+  });
+
+  it("throws a timeout error when the gateway request aborts after retry", async () => {
+    process.env.PROPERTY_DB_GATEWAY_TIMEOUT_MS = "321";
+    const { propertyDbRpc } = await import("./propertyDbRpc");
+    const abortError = Object.assign(new Error("aborted"), { name: "AbortError" });
+    fetchMock.mockRejectedValue(abortError);
+
+    await expect(propertyDbRpc("api_get_parcel", { parcel_id: "prop-1" })).rejects.toThrow(
+      "[property-db-rpc] api_get_parcel request failed: request timed out after 321ms",
+    );
+    // Should have retried once (MAX_RETRIES = 1)
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries on transient errors and succeeds on second attempt", async () => {
+    const { propertyDbRpc } = await import("./propertyDbRpc");
+    const transientError = Object.assign(new Error("aborted"), { name: "AbortError" });
+    fetchMock
+      .mockRejectedValueOnce(transientError)
+      .mockResolvedValueOnce(makeJsonResponse({ ok: true, data: { id: "prop-2" } }));
+
+    const result = await propertyDbRpc("api_get_parcel", { parcel_id: "prop-2" });
+
+    expect(result).toEqual({ id: "prop-2" });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not retry on non-transient errors", async () => {
+    const { propertyDbRpc } = await import("./propertyDbRpc");
+    fetchMock.mockRejectedValue(new TypeError("Invalid URL"));
+
+    await expect(propertyDbRpc("api_get_parcel", { parcel_id: "prop-1" })).rejects.toThrow(
+      "Invalid URL",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

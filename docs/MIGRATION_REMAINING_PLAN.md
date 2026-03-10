@@ -1,5 +1,9 @@
 # Migration Remaining Items — Step 2 & Step 4
 
+> **Status: Completed migration record (historical, non-authoritative for current operations).**
+> This document is retained for audit traceability and contains completed one-time migration procedures.
+> Use current operational docs (`README.md`, `ROADMAP.md`, `docs/SPEC.md`) for live runbooks.
+
 Plan for the Supabase → local migration. **All steps complete** (2026-02-24).
 
 ---
@@ -131,6 +135,6 @@ b2 sync C:\backups\app-db b2://gallagher-documents/backups/app-db/
 ## Related docs
 
 - `docs/CLOUDFLARE.md` — Remote DB access via `db.gallagherpropco.com`
-- `scripts/migrate-app-db/README.md` — Original migration steps (pre–Cloudflare Tunnel)
+- `scripts/migrate_supabase_to_local/README.md` — Original migration steps (pre–Cloudflare Tunnel)
 - `docs/SUPABASE_TO_LOCAL_MIGRATION.md` — Full migration overview
 - `infra/scripts/setup_scheduled_tasks.ps1` — Registers AgentOS-AppDB-Backup (and other tasks)

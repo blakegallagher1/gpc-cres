@@ -3,29 +3,27 @@
  * Browser-simulation E2E test for useAgentWebSocket hook.
  *
  * Simulates the exact flow the browser performs:
- *   1. Supabase auth → get JWT
- *   2. WebSocket connect to Worker with JWT + conversationId
+ *   1. Use a valid NextAuth bearer token
+ *   2. WebSocket connect to Worker with bearer + conversationId
  *   3. Send a user message (with optional dealId)
  *   4. Receive streaming events and validate they match ChatStreamEvent types
  *   5. Test multi-turn: send follow-up using same connection
  *   6. Test tool call: send message that triggers a gateway tool
  *
  * Usage:
- *   node scripts/test-browser-e2e.mjs
+ *   node scripts/test-browser-e2e.mjs [jwt]
  *
  * Env (or hardcoded below):
- *   E2E_EMAIL, E2E_PASSWORD, SUPABASE_URL, SUPABASE_ANON_KEY
+ *   AUTH_BEARER | MAP_SMOKE_AUTH_BEARER | OBS_AUTH_BEARER
  */
 import WebSocket from "ws";
 
 // --- Config ---
-// REMOVED: Supabase auth has been replaced with NextAuth.
-// This E2E test needs updating to use the new auth flow.
-const SUPABASE_URL = "https://yjddspdbxuseowxndrak.supabase.co";
-const SUPABASE_ANON_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlqZGRzcGRieHVzZW93eG5kcmFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk2NTU4NDAsImV4cCI6MjA4NTIzMTg0MH0.tdxgiBRDdTpRpOYF4KhBcCkgrTDF0-jXSZQR7iNOJuw";
-const E2E_EMAIL = process.env.E2E_EMAIL ?? "e2e-agent@gallagherpropco.com";
-const E2E_PASSWORD = process.env.E2E_PASSWORD ?? "WsTestPass2026";
+const AUTH_BEARER =
+  process.argv[2] ??
+  process.env.AUTH_BEARER ??
+  process.env.MAP_SMOKE_AUTH_BEARER ??
+  process.env.OBS_AUTH_BEARER;
 const WS_BASE = "wss://agents.gallagherpropco.com";
 
 // Valid ChatStreamEvent types (from streamEventTypes.ts)
@@ -56,27 +54,6 @@ function assert(condition, label) {
   } else {
     console.log(`  ❌ ${label}`);
   }
-}
-
-// --- Step 1: Supabase Auth ---
-async function getSupabaseToken() {
-  console.log("\n🔑 Step 1: Supabase Auth");
-  const res = await fetch(
-    `${SUPABASE_URL}/auth/v1/token?grant_type=password`,
-    {
-      method: "POST",
-      headers: {
-        apikey: SUPABASE_ANON_KEY,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ email: E2E_EMAIL, password: E2E_PASSWORD }),
-    },
-  );
-  const data = await res.json();
-  assert(res.ok, `Auth succeeded (${res.status})`);
-  assert(typeof data.access_token === "string", "Got access_token");
-  assert(typeof data.user?.id === "string", `User ID: ${data.user?.id}`);
-  return data.access_token;
 }
 
 // --- Step 2-6: WebSocket tests ---
@@ -330,22 +307,26 @@ function testMissingConversationId(token) {
 async function main() {
   console.log("=== Browser WebSocket E2E Test ===");
   console.log(`Target: ${WS_BASE}`);
-  console.log(`Auth: ${E2E_EMAIL}\n`);
+  assert(Boolean(AUTH_BEARER), "Auth bearer is set");
+  if (!AUTH_BEARER) {
+    console.error(
+      "Set AUTH_BEARER (or MAP_SMOKE_AUTH_BEARER / OBS_AUTH_BEARER) before running.",
+    );
+    process.exit(1);
+  }
+  console.log("Auth: using provided bearer token\n");
 
   try {
-    // Auth
-    const token = await getSupabaseToken();
-
     // Auth rejection
     await testAuthRejection();
 
     // Missing conversationId
-    await testMissingConversationId(token);
+    await testMissingConversationId(AUTH_BEARER);
 
     // Full flow: connect, 3 turns (text, multi-turn, tool call)
     const conversationId = crypto.randomUUID();
     console.log(`\n📝 conversationId: ${conversationId}`);
-    await connectAndTest(token, conversationId);
+    await connectAndTest(AUTH_BEARER, conversationId);
   } catch (err) {
     console.error("\n💥 Fatal error:", err.message);
     totalTests++;

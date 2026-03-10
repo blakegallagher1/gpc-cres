@@ -2,6 +2,10 @@
 
 Last reviewed: 2026-02-19
 
+> **Status: Archived historical plan (non-authoritative).**
+> This reconciliation plan targets a retired Supabase development workflow and is retained for audit history only.
+> Use `ROADMAP.md` and `docs/SPEC.md` for current operational guidance.
+
 
 ## Scope
 Reconcile schema drift between Prisma migration history and shared Supabase development database without destructive reset.

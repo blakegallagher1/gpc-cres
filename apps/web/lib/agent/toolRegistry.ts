@@ -6,6 +6,7 @@ import {
   resolveToolName,
   SPECIALIST_CONSULT_TOOLS,
   TOOL_NAME_ALIASES,
+  type ToolCatalogEntry,
 } from "@entitlement-os/openai";
 
 /**
@@ -104,8 +105,28 @@ function registerToolWithAlias(
   registerTool(toolName, execute);
 }
 
+/** Shell workflow tool names that require local filesystem/shell — cannot run on Vercel. */
+const SHELL_WORKFLOW_TOOLS = new Set([
+  "run_underwriting_workflow",
+  "run_data_extraction_workflow",
+  "analyze_market_workflow",
+]);
+
+function makeShellWorkflowStub(toolName: string): ToolExecuteFn {
+  return async () => ({
+    error: `Tool '${toolName}' requires the local compute environment and cannot run in serverless. Route to the gateway instead.`,
+    status: "unsupported_environment",
+  });
+}
+
 for (const tool of TOOLS) {
-  registerToolWithAlias(tool.name, wrapTool(tool));
+  if (SHELL_WORKFLOW_TOOLS.has(tool.name)) {
+    // Register a safe stub instead of wrapping the real tool (which would
+    // try to resolve the skills directory on first invocation and fail).
+    registerToolWithAlias(tool.name, makeShellWorkflowStub(tool.name));
+  } else {
+    registerToolWithAlias(tool.name, wrapTool(tool));
+  }
 }
 
 /**

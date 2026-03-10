@@ -1,5 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
+import {
+  attachRequestId,
+  cloneHeadersWithRequestId,
+  getOrCreateRequestId,
+} from "@/lib/server/requestContext";
 
 // Routes that do NOT require authentication
 const PUBLIC_PATHS = [
@@ -22,6 +27,20 @@ function getAllowedOrigins(): Set<string> {
   return new Set(origins);
 }
 
+function finalizeResponse(response: NextResponse, requestId: string): NextResponse {
+  return attachRequestId(response, requestId);
+}
+
+function nextResponseWithRequestId(request: NextRequest, requestId: string): NextResponse {
+  const headers = cloneHeadersWithRequestId(request, requestId);
+  return finalizeResponse(
+    NextResponse.next({
+      request: { headers },
+    }),
+    requestId,
+  );
+}
+
 function setCorsHeaders(
   res: NextResponse,
   req: NextRequest,
@@ -34,13 +53,13 @@ function setCorsHeaders(
   const requestedHeaders = req.headers.get("access-control-request-headers");
   res.headers.set(
     "Access-Control-Allow-Headers",
-    requestedHeaders ?? "Content-Type, Authorization",
+    requestedHeaders ?? "Content-Type, Authorization, x-request-id",
   );
 
   res.headers.set("Vary", "Origin");
 }
 
-function handleApiCors(req: NextRequest): NextResponse {
+function handleApiCors(req: NextRequest, requestId: string): NextResponse {
   const origin = req.headers.get("origin");
   const allowedOrigins = origin ? getAllowedOrigins() : null;
   const isAllowed = Boolean(origin && allowedOrigins?.has(origin));
@@ -48,26 +67,27 @@ function handleApiCors(req: NextRequest): NextResponse {
   if (req.method === "OPTIONS") {
     const res = new NextResponse(null, { status: 204 });
     if (isAllowed && origin) setCorsHeaders(res, req, origin);
-    return res;
+    return finalizeResponse(res, requestId);
   }
 
-  const res = NextResponse.next();
+  const res = nextResponseWithRequestId(req, requestId);
   if (isAllowed && origin) setCorsHeaders(res, req, origin);
   return res;
 }
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const requestId = getOrCreateRequestId(request);
 
   try {
     // API routes: handle CORS only (auth is checked per-route by resolveAuth)
     if (pathname.startsWith("/api/")) {
-      return handleApiCors(request);
+      return handleApiCors(request, requestId);
     }
 
     // Dev bypass — never active in production
     if (process.env.NEXT_PUBLIC_DISABLE_AUTH === "true") {
-      return NextResponse.next();
+      return nextResponseWithRequestId(request, requestId);
     }
 
     // Allow public paths unconditionally
@@ -85,27 +105,30 @@ export async function middleware(request: NextRequest) {
     if (isPublic) {
       // Logged-in users on /login → redirect home
       if (pathname.startsWith("/login") && token) {
-        return NextResponse.redirect(new URL("/", request.url));
+        return finalizeResponse(NextResponse.redirect(new URL("/", request.url)), requestId);
       }
-      return NextResponse.next();
+      return nextResponseWithRequestId(request, requestId);
     }
 
     // Protected route — must have valid session
     if (!token) {
       const loginUrl = new URL("/login", request.url);
       loginUrl.searchParams.set("next", pathname);
-      return NextResponse.redirect(loginUrl);
+      return finalizeResponse(NextResponse.redirect(loginUrl), requestId);
     }
 
-    return NextResponse.next();
+    return nextResponseWithRequestId(request, requestId);
   } catch (error) {
-    console.error("[middleware]", error);
+    console.error(`[middleware][${requestId}]`, error);
     if (pathname.startsWith("/api/")) {
-      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+      return finalizeResponse(
+        NextResponse.json({ error: "Internal server error" }, { status: 500 }),
+        requestId,
+      );
     }
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("error", "auth_unavailable");
-    return NextResponse.redirect(loginUrl);
+    return finalizeResponse(NextResponse.redirect(loginUrl), requestId);
   }
 }
 

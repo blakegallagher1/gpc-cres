@@ -2,6 +2,11 @@
 
 Last reviewed: 2026-02-19
 
+> **Status: Archived snapshot (non-authoritative).**
+> This plan reflects an earlier implementation baseline and includes superseded Supabase-era assumptions.
+> Use `ROADMAP.md` for active execution and `docs/SPEC.md` for current architecture contracts.
+> Treat every design, architecture, and stack claim below as historical only.
+
 
 Generated: 2026-02-05
 Revised: 2026-02-05 — Recentered on conversational agent architecture
@@ -24,7 +29,7 @@ This plan merges both. The primary interface is a **chat** — you talk to a Coo
 
 | Component | Status | Details |
 |-----------|--------|---------|
-| **apps/web/** | 40% | Next.js 16 + React 19 + Supabase auth. Old dashboard UI (agents, workflows, deal-room, screening). Has a working `CopilotPanel.tsx` that streams to backend via SSE — this is our chat prototype. |
+| **apps/web/** | 40% | **Historical snapshot:** Next.js + React with Supabase auth, old dashboard UI (agents, workflows, deal-room, screening), and `CopilotPanel.tsx` streaming prototype. |
 | **packages/db/** | 70% | Prisma schema complete (13 models, all enums). No migrations generated. |
 | **packages/shared/** | 70% | Zod schemas (ParishPack, ParcelTriage, ArtifactSpec), citation validator, SHA-256 hash, storage keys, Temporal types. |
 | **packages/openai/** | 50% | Responses API wrapper, retry logic, types. Missing: agent definitions, structured outputs, tool configs. |
@@ -161,16 +166,16 @@ The chat is the main way you interact with the system. It replaces clicking butt
 
 | Legacy Asset | Port To | Priority |
 |---|---|---|
-| **`tools/screening.py` scoring algorithm** | `packages/shared/src/scoring/` as a function tool | CRITICAL |
-| **`gpc_agents/legal.py` EBR UDC zoning matrix** | `packages/db/seed/ebr-zoning.json` + `zoning_matrix_lookup` tool | CRITICAL |
-| **`prompts/agent_prompts.py` all 12 agent prompts** | Agent definitions in `packages/openai/src/agents/` | HIGH |
-| **`gpc_agents/risk.py` flood/environmental logic** | `flood_zone_lookup` + `environmental_check` tools | HIGH |
-| **`gpc_agents/entitlements.py` permit lifecycle** | `create_permit_record` + `analyze_zoning_entitlements` tools | HIGH |
-| **`gpc_agents/coordinator.py` routing logic** | Coordinator agent handoff configuration | HIGH |
-| **`gpc_agents/research.py` parcel research** | `research_parcel` + `search_parcels` tools | MEDIUM |
-| **`gpc_agents/finance.py` pro forma + waterfall** | `build_proforma` + `size_debt` tools | MEDIUM |
-| **`tools/financial_calcs.py` IRR/NPV/DSCR** | `packages/shared/src/finance/` utility functions | MEDIUM |
-| **`gpc_agents/deal_screener.py` weight config** | Scoring config in `packages/shared/` | HIGH |
+| **`legacy/python/tools/screening.py` scoring algorithm** | `packages/shared/src/scoring/` as a function tool | CRITICAL |
+| **`legacy/python/gpc_agents/legal.py` EBR UDC zoning matrix** | `packages/db/seed/ebr-zoning.json` + `zoning_matrix_lookup` tool | CRITICAL |
+| **`legacy/python/prompts/agent_prompts.py` all 12 agent prompts** | Agent definitions in `packages/openai/src/agents/` | HIGH |
+| **`legacy/python/gpc_agents/risk.py` flood/environmental logic** | `flood_zone_lookup` + `environmental_check` tools | HIGH |
+| **`legacy/python/gpc_agents/entitlements.py` permit lifecycle** | `create_permit_record` + `analyze_zoning_entitlements` tools | HIGH |
+| **`legacy/python/gpc_agents/coordinator.py` routing logic** | Coordinator agent handoff configuration | HIGH |
+| **`legacy/python/gpc_agents/research.py` parcel research** | `research_parcel` + `search_parcels` tools | MEDIUM |
+| **`legacy/python/gpc_agents/finance.py` pro forma + waterfall** | `build_proforma` + `size_debt` tools | MEDIUM |
+| **`legacy/python/tools/financial_calcs.py` IRR/NPV/DSCR** | `packages/shared/src/financialModelCalculations.ts` utility functions | MEDIUM |
+| **`legacy/python/gpc_agents/deal_screener.py` weight config** | Scoring config in `packages/shared/` | HIGH |
 
 ---
 
@@ -242,7 +247,7 @@ Each agent gets:
 - Run-state resumption uses serialized checkpoint envelopes in `runs.serialized_state`.
 - Runtime API/event contract is documented in `docs/chat-runtime.md`.
 
-1c. **Chat UI (`apps/web/app/chat/`)**
+1c. **Chat UI (`apps/web/app/(chat)/`)**
 
 - Full-screen chat interface (primary page, not a side panel)
 - Message input with send button
@@ -466,12 +471,12 @@ Wire minimal tools so agents can do something useful from day one:
 | **AI Models** | GPT-5.2 (Coordinator, Legal, Research, Finance), GPT-5.1 (others) | Best reasoning where it matters, cost-effective elsewhere |
 | **AI API** | OpenAI Responses API | Agentic loop, web_search, file_search, structured outputs |
 | **Structured Outputs** | Zod → zodTextFormat → strict JSON schema | Guaranteed conformance |
-| **Database** | Supabase PostgreSQL via Prisma | Schema exists, type-safe |
+| **Database** | Legacy Supabase PostgreSQL via Prisma | Historical only; retained for archive comparison |
 | **Background Jobs** | Temporal (parish pack refresh, change detection, bulk artifact gen) | Durable execution for long-running tasks only |
-| **Evidence Capture** | Playwright headless + SHA-256 + Supabase Storage | Already a dependency, zero additional cost |
+| **Evidence Capture** | Playwright headless + SHA-256 + Supabase Storage | Historical storage stack only |
 | **Artifact Generation** | PptxGenJS + Playwright print-to-PDF | Already scaffolded |
-| **File Storage** | Supabase Storage (private buckets, signed URLs) | Existing project |
-| **Auth** | Supabase Auth | Already configured, needed for Storage security |
+| **File Storage** | Supabase Storage (private buckets, signed URLs) | Historical, superseded by current storage architecture |
+| **Auth** | Supabase Auth | Historical legacy auth model; current system uses NextAuth |
 | **Testing** | Vitest (unit), Playwright (e2e) | TypeScript-native |
 | **CI** | GitHub Actions | Standard |
 

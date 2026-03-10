@@ -12,10 +12,10 @@ The agent chat can run over two transports:
 ```
 Browser
   │
-  │ WebSocket: wss://agents.gallagherpropco.com/ws?token=<jwt>&conversationId=<uuid>
+  │ WebSocket: wss://agents.gallagherpropco.com/ws?token=<auth_jwt>&conversationId=<uuid>
   │
 Cloudflare Worker (index.ts)
-  │  ├─ Validates Supabase JWT
+  │  ├─ Delegates auth/session validation to Vercel `/api/agent/auth/resolve`
   │  └─ Routes to Durable Object keyed by conversationId
   │
 Durable Object (AgentChatDO)
@@ -26,7 +26,7 @@ Durable Object (AgentChatDO)
   ├── HTTP POST → api.gallagherpropco.com (Bearer LOCAL_API_KEY)
   │     Gateway tools: parcel.lookup, screening endpoints
   │
-  └── HTTP POST → gallagherpropco.com/api/agent/tools/execute (Bearer <supabase_jwt>)
+  └── HTTP POST → gallagherpropco.com/api/agent/tools/execute (Bearer <auth_jwt>)
         Vercel tools: deals, tasks, knowledge, evidence, calculations, etc.
 ```
 
@@ -50,7 +50,7 @@ infra/cloudflare-agent/
 
 apps/web/
 ├── app/api/agent/
-│   ├── auth/resolve/route.ts    # Returns { orgId, userId } from Supabase JWT
+│   ├── auth/resolve/route.ts    # Returns { orgId, userId } from Auth.js/NextAuth auth context
 │   └── tools/execute/route.ts   # Executes tools on behalf of the Worker
 ├── lib/agent/
 │   └── toolRegistry.ts          # Tool name → execute function map
@@ -63,17 +63,17 @@ apps/web/
 | Route | Tools | Auth |
 |-------|-------|------|
 | **Gateway** | `get_parcel_details`, `screen_zoning`, `screen_flood`, `screen_soils`, `screen_wetlands`, `screen_epa`, `screen_traffic`, `screen_ldeq`, `screen_full` | `Bearer LOCAL_API_KEY` |
-| **Vercel** | All other tools (deals, tasks, knowledge, calculations, etc.) | Forwarded Supabase JWT |
+| **Vercel** | All other tools (deals, tasks, knowledge, calculations, etc.) | Forwarded Auth.js/NextAuth bearer token |
 | **Hosted** | `web_search`, `web_search_preview`, `file_search`, `code_interpreter` | Executed by OpenAI server-side |
 
 Gateway tools require snake_case → camelCase argument transformation (e.g., `parcel_id` → `parcelId`). This is handled in `tool-router.ts`.
 
 ## Auth Flow
 
-1. Browser sends Supabase JWT as query param (`?token=<jwt>`)
-2. Worker validates JWT with Supabase Auth API
-3. Worker resolves org membership via `GET /api/agent/auth/resolve` on Vercel
-4. JWT is stored in Durable Object state and forwarded to Vercel for tool execution
+1. Browser requests a signed Auth.js/NextAuth JWT from `GET /api/auth/token`.
+2. Browser sends that token as query param (`?token=<jwt>`) when opening WebSocket.
+3. Worker forwards `Authorization: Bearer <jwt>` to `POST /api/agent/auth/resolve` on Vercel.
+4. Vercel resolves org membership via `resolveAuth()`, and the token is forwarded for Vercel tool execution.
 
 ## Environment Variables
 
@@ -84,14 +84,10 @@ Set via `wrangler secret put <NAME>`:
 | `OPENAI_API_KEY` | OpenAI API key for Responses API WebSocket |
 | `LOCAL_API_KEY` | Gateway Bearer token |
 | `LOCAL_API_URL` | Gateway base URL (e.g., `https://api.gallagherpropco.com`) |
-| `SUPABASE_ANON_KEY` | Supabase anon key for JWT validation |
+| `CF_ACCESS_CLIENT_ID` | Optional Cloudflare Access service token ID for gateway calls |
+| `CF_ACCESS_CLIENT_SECRET` | Optional Cloudflare Access service token secret for gateway calls |
 | `VERCEL_URL` | Vercel app URL (e.g., `https://gallagherpropco.com`) |
-
-Set in `wrangler.toml` `[vars]`:
-
-| Variable | Description |
-|----------|-------------|
-| `SUPABASE_URL` | Supabase project URL |
+| `CODEX_APP_SERVER_URL` | Codex relay upstream URL (`/codex` route) |
 
 ## Deployment
 
@@ -108,7 +104,6 @@ npx tsx scripts/export-tools.ts
 wrangler secret put OPENAI_API_KEY
 wrangler secret put LOCAL_API_KEY
 wrangler secret put LOCAL_API_URL
-wrangler secret put SUPABASE_ANON_KEY
 wrangler secret put VERCEL_URL
 
 # Deploy
@@ -125,7 +120,7 @@ The `useAgentWebSocket` hook provides a drop-in WebSocket transport. Enable it b
 
 ```tsx
 const { sendMessage, status } = useAgentWebSocket({
-  token: supabaseAccessToken,
+  token: nextAuthToken,
   conversationId,
   onEvent: applyEvent,  // same handler used for SSE events
   enabled: true,
@@ -156,7 +151,7 @@ State persists across WebSocket reconnects via DO transactional storage. After 3
 
 | Issue | Fix |
 |-------|-----|
-| Worker returns 401 | Check Supabase JWT validity; verify `SUPABASE_ANON_KEY` secret |
+| Worker returns 401 | Check `/api/auth/token` output and ensure `VERCEL_URL` points to an app with valid `AUTH_SECRET` |
 | Tool calls fail with "Unknown tool" | Re-run `npx tsx scripts/export-tools.ts` and redeploy |
 | Gateway tools timeout | Check gateway health at `https://api.gallagherpropco.com/admin/health` |
 | OpenAI WS won't connect | Verify `OPENAI_API_KEY` secret; check OpenAI status page |
@@ -212,7 +207,7 @@ The `useAgentWebSocket` hook automatically handles operation events:
 
 ```tsx
 const { sendMessage, status, operations } = useAgentWebSocket({
-  token: supabaseAccessToken,
+  token: nextAuthToken,
   conversationId,
   onEvent: applyEvent,
   enabled: true,
