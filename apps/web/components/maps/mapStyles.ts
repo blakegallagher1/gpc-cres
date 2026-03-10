@@ -23,29 +23,117 @@ export const STATUS_COLORS: Record<string, string> = {
 export const DEFAULT_STATUS_COLOR = "#6b7280";
 
 // ---------------------------------------------------------------------------
-// Zoning code → category color
+// Zoning code → per-district color (EBR UDC)
 // ---------------------------------------------------------------------------
 
+/**
+ * Per-district zoning color map. Uses the primary zone code (before comma).
+ * Grouped by category with distinct hues within each group.
+ */
+export const ZONING_DISTRICT_COLORS: Record<string, string> = {
+  // ── Residential (greens / teals) ───────────────────────────────────
+  A1:     "#16a34a",  // single-family large lot — deep green
+  "A2":   "#22c55e",  // single-family medium lot — green
+  "A2.1": "#2dd4bf",  // single-family small lot — teal
+  "A2.5": "#34d399",  // single-family cluster — mint
+  "A2.6": "#4ade80",  // single-family compact — light green
+  "A2.7": "#6ee7b7",  // single-family narrow — pale green
+  "A2.9": "#a7f3d0",  // single-family tiny — very pale green
+  "A3.1": "#0d9488",  // two-family — dark teal
+  "A3.2": "#14b8a6",  // three-family — teal
+  "A3.3": "#5eead4",  // multi-family low — light teal
+  A4:     "#0e7490",  // multi-family high — dark cyan
+  A5:     "#06b6d4",  // multi-family high-rise — cyan
+  R:      "#15803d",  // rural residential — forest green
+  RS:     "#65a30d",  // residential single — olive green
+  RE:     "#84cc16",  // residential estate — lime
+  "RE/A1":"#a3e635",  // residential estate/A1 — bright lime
+  RU:     "#4d7c0f",  // rural — dark olive
+
+  // ── Commercial (blues / indigos) ───────────────────────────────────
+  C1:     "#2563eb",  // neighborhood commercial — blue
+  C2:     "#1d4ed8",  // general commercial — dark blue
+  C5:     "#3b82f6",  // heavy commercial — medium blue
+  "C-AB-1":"#6366f1", // commercial alcohol bev 1 — indigo
+  "C-AB-2":"#818cf8", // commercial alcohol bev 2 — light indigo
+  CN:     "#60a5fa",  // commercial neighborhood — sky blue
+  CG:     "#1e40af",  // commercial general — navy
+  CW:     "#7dd3fc",  // commercial waterfront — light sky
+  CW1:    "#38bdf8",  // commercial waterfront 1 — bright sky
+  CW2:    "#0ea5e9",  // commercial waterfront 2 — ocean
+  CW3:    "#0284c7",  // commercial waterfront 3 — deep ocean
+  B:      "#4f46e5",  // buffer — violet
+  B1:     "#7c3aed",  // buffer 1 — purple
+  BP:     "#a78bfa",  // business park — lavender
+
+  // ── Industrial (purples / magentas) ────────────────────────────────
+  M1:     "#9333ea",  // light industrial — purple
+  M2:     "#7e22ce",  // heavy industrial — dark purple
+  I:      "#c026d3",  // industrial — magenta
+
+  // ── Planned / Mixed-use (oranges / ambers) ─────────────────────────
+  PUD:    "#ea580c",  // planned unit development — deep orange
+  SPUD:   "#f97316",  // special PUD — orange
+  ISPUD:  "#fb923c",  // interim special PUD — light orange
+  TND:    "#d97706",  // traditional neighborhood — amber
+  UC:     "#f59e0b",  // urban core — yellow-amber
+  "NC":   "#fbbf24",  // neighborhood conservation — gold
+  "NC-AB":"#fcd34d",  // neighborhood conservation AB — light gold
+
+  // ── Government / Open space (browns / warm grays) ──────────────────
+  GA:     "#92400e",  // government/airport — brown
+  GOL:    "#a16207",  // government open land — dark amber
+  GOH:    "#b45309",  // government open heavy — burnt orange
+  GU:     "#78716c",  // government utility — warm gray
+  HC1:    "#dc2626",  // highway commercial 1 — red
+  HC2:    "#ef4444",  // highway commercial 2 — bright red
+  HDD:    "#b91c1c",  // historic downtown — dark red
+
+  // ── Lake / Legacy commercial ───────────────────────────────────────
+  LC1:    "#0369a1",  // lake commercial 1 — steel blue
+  LC2:    "#0891b2",  // lake commercial 2 — dark cyan
+  LC3:    "#0e7490",  // lake commercial 3 — teal
+  NO:     "#d4d4d8",  // not designated — light gray
+};
+
+const ZONING_FALLBACK_COLOR = "#9ca3af";
+
 export function getZoningColor(zoning: string | null | undefined): string {
-  if (!zoning) return "#9ca3af";
-  const code = zoning.toUpperCase();
-  // Industrial / Manufacturing
-  if (/^[MI]\d|INDUSTRIAL|MANUFACT|WAREHOUSE/i.test(code)) return "#7c3aed";
-  // Commercial / Business
-  if (/^[CB]\d|COMMERCIAL|BUSINESS|RETAIL|OFFICE/i.test(code)) return "#3b82f6";
-  // Residential / Agricultural
-  if (/^[RA]\d|RESIDENTIAL|AGRICULTURAL|RURAL/i.test(code)) return "#22c55e";
-  // Mixed-use / Planned Development
-  if (/MIXED|MU|PD|PLANNED/i.test(code)) return "#f97316";
-  return "#9ca3af";
+  if (!zoning) return ZONING_FALLBACK_COLOR;
+  const primary = zoning.split(",")[0].trim().toUpperCase();
+  if (ZONING_DISTRICT_COLORS[primary]) return ZONING_DISTRICT_COLORS[primary];
+  // Fallback by category prefix
+  const code = primary;
+  if (/^[MI]/.test(code)) return "#9333ea";
+  if (/^C/.test(code)) return "#2563eb";
+  if (/^B/.test(code)) return "#4f46e5";
+  if (/^[AR]/.test(code)) return "#22c55e";
+  if (/PUD|SPUD|TND|UC/.test(code)) return "#f97316";
+  if (/^G/.test(code)) return "#92400e";
+  if (/^HC/.test(code)) return "#dc2626";
+  if (/^LC/.test(code)) return "#0369a1";
+  return ZONING_FALLBACK_COLOR;
 }
 
 export const ZONING_CATEGORY_LABELS: Record<string, string> = {
-  "#7c3aed": "Industrial",
-  "#3b82f6": "Commercial",
-  "#22c55e": "Residential",
-  "#f97316": "Mixed / PD",
-  "#9ca3af": "Unknown",
+  "#16a34a": "Residential (A1)",
+  "#22c55e": "Residential (A2)",
+  "#0d9488": "Multi-family",
+  "#0e7490": "Multi-family High",
+  "#15803d": "Rural Residential",
+  "#2563eb": "Commercial",
+  "#1d4ed8": "General Commercial",
+  "#6366f1": "Commercial ABC",
+  "#4f46e5": "Buffer",
+  "#9333ea": "Light Industrial",
+  "#7e22ce": "Heavy Industrial",
+  "#ea580c": "Planned (PUD)",
+  "#f97316": "Mixed / Special PUD",
+  "#d97706": "Traditional (TND)",
+  "#dc2626": "Highway Commercial",
+  "#92400e": "Government",
+  "#0369a1": "Lake Commercial",
+  "#9ca3af": "Other",
 };
 
 // ---------------------------------------------------------------------------
