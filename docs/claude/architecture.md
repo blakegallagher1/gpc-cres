@@ -97,7 +97,7 @@ Deployed at `agents.gallagherpropco.com`. Provides persistent WebSocket transpor
 
 **Dual transport:** Feature-flagged via `NEXT_PUBLIC_AGENT_WS_URL`. When set, `ChatContainer.tsx` uses WebSocket; otherwise falls back to SSE (`POST /api/chat`).
 
-**Tool routing:** Gateway tools (parcel lookup, screening) go to `api.gallagherpropco.com` with `LOCAL_API_KEY`. Vercel tools (deals, tasks, knowledge) go to `gallagherpropco.com/api/agent/tools/execute` with the user's Supabase JWT. Hosted tools (web_search) execute server-side on OpenAI.
+**Tool routing:** Gateway tools (parcel lookup, screening) go to `api.gallagherpropco.com` with `LOCAL_API_KEY`. Vercel tools (deals, tasks, knowledge) go to `gallagherpropco.com/api/agent/tools/execute` with the user's Auth.js/NextAuth bearer token. Hosted tools (web_search) execute server-side on OpenAI.
 
 **Durable Object state:** Keyed by `conversationId`. Stores `lastResponseId` for OpenAI response chaining via `previous_response_id`. Uses Hibernation API (`acceptWebSocket`) — instance variables reset between messages, recovered from `this.state.storage`.
 
@@ -146,7 +146,9 @@ See `docs/AUTOMATION-FRONTIER.md` for the full automation frontier map.
 | 11 | Dead Agent Revival | `agents/index.ts` | Design: 6 tools, Tax: 4 tools |
 | 12 | Ops | `ops.ts` | Migration safety, health, alerting |
 
-**Shared automation infra** in `lib/automation/`: `config.ts` (frozen guardrails), `events.ts` (8 event types, fire-and-forget dispatch), `gates.ts` (human gate enforcement), `notifications.ts` ([AUTO] task creation), `taskAllowlist.ts` (agent-executable detection), `handlers.ts` (idempotent handler registry).
+**Shared automation infra** in `apps/web/lib/automation/`: `config.ts` (frozen guardrails), `events.ts` (8 event types, fire-and-forget dispatch, two-layer idempotency, 30s handler timeout, 6-code error taxonomy), `gates.ts` (human gate enforcement), `notifications.ts` ([AUTO] task creation), `taskAllowlist.ts` (agent-executable detection), `handlers.ts` (idempotent handler registry).
+
+**Dispatch reliability (2026-03-10):** `dispatchEvent()` enforces two-layer idempotency: L1 in-memory dedup (10s window, same-instance), L2 durable DB guard (`automation_events.idempotency_key` unique index, cross-instance via `INSERT ... ON CONFLICT DO NOTHING`). Handlers time out at 30s via `Promise.race`. Failures are classified into 6 error codes (`TRANSIENT_UPSTREAM`, `TRANSIENT_DB`, `PERMANENT_VALIDATION`, `PERMANENT_CONFIG`, `PERMANENT_NOT_FOUND`, `UNKNOWN`) with retryability signaling. Failures are recorded with `errorCode` and `retryable` in `automation_events.output_data`.
 
 **Event dispatch wired in 7 API routes:**
 
@@ -160,12 +162,14 @@ See `docs/AUTOMATION-FRONTIER.md` for the full automation frontier map.
 | `deals/[id]/triage` POST | `triage.completed` |
 | `deals/[id]/uploads` POST | `upload.created` |
 
-**Pattern:** All event dispatches use `.catch(() => {})` — fire-and-forget, never blocks the API response. Handler errors are logged but never propagated. Import `@/lib/automation/handlers` at route top to ensure handler registration.
+**Pattern:** All event dispatches use `.catch(() => {})` — fire-and-forget, never blocks the API response. Handler errors are logged but never propagated. Import `@/lib/automation/handlers.ts` at route top to ensure handler registration.
 
-**Test coverage:** 14 test suites, 302 tests in `lib/automation/__tests__/`. Uses Jest (NOT vitest) with `jest.mock()`/`jest.requireMock()` pattern for Prisma mocking.
+**Stability sentinel (2026-03-10):** Automated production monitoring via Vercel Cron every 10 minutes at `/api/cron/stability-sentinel`. Probes chat tool execution (405/5xx), map endpoints (latency p95, error rates), and workflow health (idempotency violations, failure rates) via Prisma/Hyperdrive. Alerts persist to `automation_events` via self-hosted webhook (`/api/admin/sentinel-alerts`) and Sentry. CLI runner at `scripts/observability/stability-sentinel.ts` supports authenticated latency probes (service token pattern via `LOCAL_API_KEY` + `x-agent-tool-auth` headers). Thresholds configurable via `SENTINEL_*` env vars. See `docs/runbooks/STABILITY_SENTINEL_RUNBOOK.md`.
+
+**Test coverage:** `apps/web` automation tests run under Vitest (`pnpm --filter gpc-agent-dashboard test -- lib/automation/__tests__`). Exact suite/test counts are intentionally omitted because they drift frequently.
 
 ## Local Property API (Docker Compose on Windows 11)
 
-**Full reference:** See `/docs/claude/backend.md` for the canonical backend documentation including architecture diagram, all 20 endpoints, auth details, database pools, RPC functions, and operational notes.
+**Full reference:** See `/docs/claude/backend.md` for the canonical backend documentation including architecture diagram, endpoint inventory (`infra/local-api/main.py` core routes + `infra/local-api/admin_router.py` admin routes), auth details, database pools, RPC functions, and operational notes.
 
 **Summary:** Docker Compose on Windows 11 (12-core i7). FastAPI gateway (:8000) + Martin tiles (:3000) + PostgreSQL `entitlement_os` (560K parcels, deals, orgs) + Qdrant. Single Cloudflare Tunnel: `api.gallagherpropco.com` → gateway, `tiles.gallagherpropco.com` → martin. Bearer token auth. Vercel connects via `LOCAL_API_URL` + `LOCAL_API_KEY` env vars.

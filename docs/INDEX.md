@@ -3,7 +3,7 @@
 Status: Authoritative
 Authority: Documentation navigation source of truth
 Owner: Platform engineering
-Last reviewed: 2026-03-09
+Last reviewed: 2026-03-10
 
 This is the canonical entrypoint for repository documentation.
 
@@ -30,6 +30,8 @@ This is the canonical entrypoint for repository documentation.
 - Incident response flow: `docs/runbooks/INCIDENT_RESPONSE.md`
 - Release verification gate: `docs/runbooks/RELEASE_VERIFICATION.md`
 - Active API/runtime contract summary: `docs/runbooks/API_CONTRACTS.md`
+- Stability release + operations canonical runbook: `docs/runbooks/STABILITY_RELEASE_RUNBOOK_2026-03-10.md`
+- Stability sentinel (automated 10-min health checks): `docs/runbooks/STABILITY_SENTINEL_RUNBOOK.md`
 
 ## Domain References
 

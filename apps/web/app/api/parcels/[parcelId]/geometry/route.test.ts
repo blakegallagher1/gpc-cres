@@ -138,14 +138,17 @@ describe("GET /api/parcels/[parcelId]/geometry", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledWith(
       "https://api.gallagherpropco.com/api/parcels/abc-123/geometry?detail_level=high",
-      {
-        headers: {
+      expect.objectContaining({
+        headers: expect.objectContaining({
           Authorization: "Bearer test-gateway-key",
           "CF-Access-Client-Id": "cf-id",
           "CF-Access-Client-Secret": "cf-secret",
-        },
-      },
+        }),
+        signal: expect.any(AbortSignal),
+      }),
     );
+    // Verify cache header on successful geometry response
+    expect(res.headers.get("cache-control")).toMatch(/max-age=300/);
   });
 
   it("returns 503 when gateway env is missing", async () => {

@@ -196,21 +196,29 @@ export async function GET(
     const gatewayUrl = gatewayConfig.url.replace(/\/$/, "");
     const gatewayKey = gatewayConfig.key;
 
+    const GEOMETRY_TIMEOUT_MS = 8000;
     const url = `${gatewayUrl}/api/parcels/${encodeURIComponent(parcelId)}/geometry?detail_level=${detailLevel}`;
     let res: Response;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), GEOMETRY_TIMEOUT_MS);
     try {
       res = await fetch(url, {
         headers: {
           Authorization: `Bearer ${gatewayKey}`,
           ...getCloudflareAccessHeadersFromEnv(),
         },
+        signal: controller.signal,
       });
     } catch (error) {
-      const reason = error instanceof Error ? error.message : String(error);
+      const reason = error instanceof Error && error.name === "AbortError"
+        ? `request timed out after ${GEOMETRY_TIMEOUT_MS}ms`
+        : error instanceof Error ? error.message : String(error);
       throw new ParcelGeometryGatewayError(
         `[parcel-geometry] request failed: ${reason}`,
         "GATEWAY_UNAVAILABLE",
       );
+    } finally {
+      clearTimeout(timeout);
     }
 
     if (res.status === 404) {
@@ -256,7 +264,10 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({ ok: true, request_id: requestId, data: geometry });
+    const response = NextResponse.json({ ok: true, request_id: requestId, data: geometry });
+    // Geometry is stable — cache aggressively (5 min fresh, serve stale up to 1 hour)
+    response.headers.set("Cache-Control", "private, max-age=300, stale-while-revalidate=3600");
+    return response;
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
     Sentry.captureException(err, {

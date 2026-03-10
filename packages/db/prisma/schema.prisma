@@ -985,20 +985,21 @@ model MarketDataPoint {
 }
 
 model AutomationEvent {
-  id          String    @id @default(uuid()) @db.Uuid
-  orgId       String    @map("org_id") @db.Uuid
-  dealId      String?   @map("deal_id") @db.Uuid
-  handlerName String    @map("handler_name") @db.Text
-  eventType   String    @map("event_type") @db.Text
-  status      String    @db.Text // pending|running|completed|failed
-  inputData   Json      @default("{}") @map("input_data") @db.JsonB
-  outputData  Json      @default("{}") @map("output_data") @db.JsonB
-  error       String?   @db.Text
-  startedAt   DateTime  @default(now()) @map("started_at") @db.Timestamptz(6)
-  completedAt DateTime? @map("completed_at") @db.Timestamptz(6)
-  durationMs  Int?      @map("duration_ms")
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id              String    @id @default(uuid()) @db.Uuid
+  orgId           String    @map("org_id") @db.Uuid
+  dealId          String?   @map("deal_id") @db.Uuid
+  handlerName     String    @map("handler_name") @db.Text
+  eventType       String    @map("event_type") @db.Text
+  status          String    @db.Text // pending|running|completed|failed
+  idempotencyKey  String?   @unique @map("idempotency_key") @db.Text
+  inputData       Json      @default("{}") @map("input_data") @db.JsonB
+  outputData      Json      @default("{}") @map("output_data") @db.JsonB
+  error           String?   @db.Text
+  startedAt       DateTime  @default(now()) @map("started_at") @db.Timestamptz(6)
+  completedAt     DateTime? @map("completed_at") @db.Timestamptz(6)
+  durationMs      Int?      @map("duration_ms")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@index([orgId])
   @@index([orgId, dealId])

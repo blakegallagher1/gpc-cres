@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "lastReviewed": "2026-03-09",
+  "lastReviewed": "2026-03-10",
   "canonicalEntryPoint": "docs/INDEX.md",
   "sourceOfTruthMap": "docs/SOURCE_OF_TRUTH.md",
   "agentProtocol": "docs/AGENT_DOCS_PROTOCOL.md",
@@ -60,6 +60,18 @@
       "reviewCadenceDays": 14
     },
     {
+      "path": "docs/runbooks/STABILITY_RELEASE_RUNBOOK_2026-03-10.md",
+      "topic": "chat_map_workflow_stabilization_release_and_operations",
+      "owner": "platform_engineering",
+      "reviewCadenceDays": 14
+    },
+    {
+      "path": "docs/runbooks/STABILITY_SENTINEL_RUNBOOK.md",
+      "topic": "automated_production_health_monitoring_and_alerting",
+      "owner": "platform_engineering",
+      "reviewCadenceDays": 14
+    },
+    {
       "path": "docs/AGENT_DOCS_PROTOCOL.md",
       "topic": "agent_doc_reading_protocol",
       "owner": "platform_engineering",
@@ -82,6 +94,12 @@
     "release_readiness": [
       "docs/runbooks/RELEASE_VERIFICATION.md",
       "ROADMAP.md"
+    ],
+    "stabilization_operations": [
+      "docs/runbooks/STABILITY_RELEASE_RUNBOOK_2026-03-10.md",
+      "docs/runbooks/STABILITY_SENTINEL_RUNBOOK.md",
+      "docs/OBSERVABILITY_MONITOR.md",
+      "docs/runbooks/INCIDENT_RESPONSE.md"
     ],
     "documentation_governance": [
       "docs/OWNERSHIP.md",

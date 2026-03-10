@@ -29,12 +29,22 @@ const PROPERTY_DB_SEARCH_TERMS = [
   "Iberville",
 ] as const;
 const MAX_SEARCH_FALLBACK_QUERIES = 8;
-const MAX_BASELINE_FALLBACK_QUERIES = 4;
+const MAX_BASELINE_FALLBACK_QUERIES = 1;
+const MAX_SEARCH_VARIANT_QUERIES = 2;
+const LOCATION_STOP_WORDS = new Set([
+  "baton",
+  "rouge",
+  "louisiana",
+  "la",
+  "usa",
+  "united",
+  "states",
+]);
 const PROPERTY_DB_GATEWAY_TIMEOUT_MS = Math.max(
   1500,
   Math.min(
     10000,
-    Number.parseInt(process.env.PROPERTY_DB_GATEWAY_TIMEOUT_MS ?? "3500", 10) || 3500,
+    Number.parseInt(process.env.PROPERTY_DB_GATEWAY_TIMEOUT_MS ?? "6500", 10) || 6500,
   ),
 );
 
@@ -256,6 +266,29 @@ function buildSearchTerms(rawText: string): string[] {
   return Array.from(terms).filter(Boolean);
 }
 
+function buildGatewaySearchTerms(rawText: string): string[] {
+  const normalized = canonicalizeAddressLikeText(rawText);
+  if (!normalized) return [];
+
+  const tokens = normalized.split(" ").filter(Boolean);
+  const nonZipTokens = tokens.filter((token) => !/^\d{5}(?:-\d{4})?$/.test(token));
+  const nonLocationTokens = nonZipTokens.filter((token) => !LOCATION_STOP_WORDS.has(token));
+  const withoutHouseNumber = nonLocationTokens[0] && /^\d+[a-z]*$/i.test(nonLocationTokens[0])
+    ? nonLocationTokens.slice(1)
+    : nonLocationTokens;
+
+  const out = new Set<string>();
+  if (withoutHouseNumber.length > 0) out.add(withoutHouseNumber.join(" "));
+  if (nonLocationTokens.length > 0) out.add(nonLocationTokens.join(" "));
+  if (withoutHouseNumber.length >= 2) {
+    out.add(withoutHouseNumber.slice(0, 2).join(" "));
+    out.add(withoutHouseNumber[0]);
+  }
+  out.add(normalized);
+
+  return Array.from(out).map((value) => value.trim()).filter((value) => value.length >= 2);
+}
+
 function normalizeParcelCandidate(value: string): string[] {
   const trimmed = value.trim();
   if (!trimmed) return [];
@@ -352,11 +385,15 @@ async function gatewaySearchParcels(q: string, limit: number): Promise<unknown[]
       cache: "no-store",
     });
     if (!res.ok) {
+      // Upstream 4xx responses are treated as "no matches" for this query
+      // so user-facing search can continue trying alternative terms.
+      if (res.status < 500) {
+        return [];
+      }
       const errBody = await res.text().catch(() => "");
-      const status = res.status >= 500 ? 502 : 503;
       throw new GatewayUnavailableError(
         `[gatewaySearchParcels] failed: ${res.status} ${errBody.slice(0, 300)}`,
-        status,
+        502,
       );
     }
     const text = await res.text().catch(() => "");
@@ -456,7 +493,7 @@ function mapExternalParcelToApiShape(
         ? Number(row.acreage)
         : null,
     floodZone: row.flood_zone ? String(row.flood_zone) : null,
-    currentZoning: row.zoning ? String(row.zoning) : row.zone_code ? String(row.zone_code) : null,
+    currentZoning: row.zoning ? String(row.zoning) : row.zoning_type ? String(row.zoning_type) : row.zone_code ? String(row.zone_code) : null,
     propertyDbId,
     geometryLookupKey: propertyDbId || address,
     searchText: normalizedAddress,
@@ -470,17 +507,30 @@ function matchesSearchQuery(
 ): boolean {
   if (!query) return true;
   const q = canonicalizeAddressLikeText(query);
-  const searchText = String(parcel.searchText ?? "");
-  const fields = [
+  const canonicalFields = [
     parcel.address,
-    searchText,
+    parcel.searchText,
     parcel.currentZoning,
     parcel.floodZone,
     parcel.propertyDbId,
-  ];
-  return fields.some((value) =>
-    typeof value === "string" &&
-    canonicalizeAddressLikeText(value).includes(q),
+  ]
+    .filter((value): value is string => typeof value === "string")
+    .map((value) => canonicalizeAddressLikeText(value))
+    .filter(Boolean);
+  if (canonicalFields.some((value) => value.includes(q))) return true;
+
+  const tokenMatches = q
+    .split(" ")
+    .map((token) => token.trim())
+    .filter((token) =>
+      token.length >= 2 &&
+      !/^\d{5}(?:-\d{4})?$/.test(token) &&
+      !LOCATION_STOP_WORDS.has(token)
+    );
+  if (tokenMatches.length === 0) return false;
+
+  return tokenMatches.every((token) =>
+    canonicalFields.some((field) => field.includes(token))
   );
 }
 
@@ -668,27 +718,19 @@ export async function GET(request: NextRequest) {
 
     const fallbackQueries: Array<() => Promise<unknown[]>> = searchText
       ? Array.from(
-          new Set([...buildSearchTerms(searchText), ...normalizeParcelCandidate(searchText)]),
+          new Set([
+            ...buildGatewaySearchTerms(searchText),
+            ...normalizeParcelCandidate(searchText),
+          ]),
         )
-          .flatMap((term) => [
-            () => searchPropertyDbParcels(term, undefined, 180),
-            ...PROPERTY_DB_PARISHES.map((parish) =>
-              () => searchPropertyDbParcels(term, parish, 120),
-            ),
-          ])
-          .slice(0, MAX_SEARCH_FALLBACK_QUERIES)
+          .filter((term) => term.trim().length > 0 && term.trim() !== "*")
+          .slice(0, MAX_SEARCH_VARIANT_QUERIES)
+          .map((term, index) =>
+            () => searchPropertyDbParcels(term, undefined, index === 0 ? 30 : 20),
+          )
       : [
-          // Prioritize broad, low-latency seeds first to reduce cold-load fanout.
+          // Single broad seed — wildcard returns a representative cross-parish set.
           () => searchPropertyDbParcels("*", undefined, 200),
-          () => searchPropertyDbParcels("Baton Rouge", undefined, 200),
-          () => searchPropertyDbParcels("*", "East Baton Rouge", 150),
-          () => searchPropertyDbParcels("*", "Ascension", 150),
-          ...PROPERTY_DB_PARISHES.map((parish) =>
-            () => searchPropertyDbParcels("*", parish, 150),
-          ),
-          ...PROPERTY_DB_SEARCH_TERMS.map((term) =>
-            () => searchPropertyDbParcels(term, undefined, 200),
-          ),
         ].slice(0, MAX_BASELINE_FALLBACK_QUERIES);
     fallbackQueryCount = fallbackQueries.length;
 
@@ -700,7 +742,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const fallbackResults = await runWithConcurrency(fallbackQueries, 5);
+    const fallbackResults = await runWithConcurrency(
+      fallbackQueries,
+      hasSearch ? 1 : 5,
+    );
     const fulfilled = fallbackResults.filter(
       (result): result is PromiseFulfilledResult<unknown[]> =>
         result.status === "fulfilled",
@@ -808,7 +853,7 @@ export async function GET(request: NextRequest) {
           const preFiltered = mappedExternal.filter((parcel) =>
             matchesSearchQuery(parcel, searchText),
           );
-          return preFiltered.length > 0 ? preFiltered : mappedExternal;
+          return preFiltered;
         })()
       : mappedExternal;
 
@@ -847,7 +892,10 @@ export async function GET(request: NextRequest) {
         dedupedCount: deduped.length,
       },
     });
-    return withRequestId(NextResponse.json({ parcels: deduped, source: "property-db" }));
+    const response = NextResponse.json({ parcels: deduped, source: "property-db" });
+    // Short-lived cache: 30s fresh, serve stale up to 2min while revalidating
+    response.headers.set("Cache-Control", "private, max-age=30, stale-while-revalidate=120");
+    return withRequestId(response);
   } catch (error) {
     if (isGatewayUnavailableError(error)) {
       console.error("[/api/parcels] property DB unavailable", error);

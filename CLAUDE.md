@@ -1,16 +1,13 @@
 # CLAUDE.md
 
-Last reviewed: 2026-03-04
+Last reviewed: 2026-03-10
 
-**🟢 PRODUCTION VERIFICATION COMPLETE (2026-02-25):**
-- ✅ All 5 features from "Maximize Local Server Utilization" plan verified and working
-- ✅ Phase 1 (Gateway Caching): 2.62x speedup verified (1,727ms → 659ms)
-- ✅ Phase 2 (Batch Screening): Multi-parcel results keyed by parcel_id confirmed
-- ✅ Phase 3 (WebSocket Push): Operational event streaming (progress/done/error) live
-- ✅ Phase 4 (Qdrant Semantic Search): property_intelligence collection functional
-- ✅ Phase 5 (Error Handling): Invalid parcel IDs handled with partial batch success
-- ✅ Build verified: pnpm build ✅ | pnpm test (668 tests) ✅
-- **See `PRODUCTION_VERIFICATION_REPORT.md` for full test results, performance metrics, and deployment next steps**
+**🟢 MARCH 2026 STABILIZATION COMPLETE (2026-03-10):**
+- ✅ Map perf: initial load fanout 4→1 query, geometry batch 5→8 with 50ms delay, cache headers on all map routes
+- ✅ Workflow reliability: durable DB-backed idempotency (`automation_events.idempotency_key` unique index), 30s handler timeout, 6-code error taxonomy
+- ✅ Stability sentinel: automated 10-min cron (`/api/cron/stability-sentinel`) monitoring chat/map/workflow surfaces with threshold-based pass/fail
+- ✅ Alert pipeline: self-hosted webhook at `/api/admin/sentinel-alerts` persists alerts to DB, Sentry integration
+- **See `docs/runbooks/STABILITY_RELEASE_RUNBOOK_2026-03-10.md` and `docs/runbooks/STABILITY_SENTINEL_RUNBOOK.md` for operations**
 
 ## Project Overview
 
@@ -35,7 +32,7 @@ Last reviewed: 2026-03-04
 - Wire agent tools in `createConfiguredCoordinator()`, not on module-level exports
 - Scope all DB queries with `orgId` for multi-tenant isolation
 - Dispatch automation events with `.catch(() => {})` — fire-and-forget, never blocks API response
-- Import `@/lib/automation/handlers` at top of any API route that dispatches events (ensures handler registration)
+- Import `@/lib/automation/handlers.ts` at top of any API route that dispatches events (ensures handler registration)
 - Use `import "server-only"` in modules that touch server-only secrets — prevents client-side bundling
 - Force-add `apps/web/lib/` files to git — root `.gitignore` has `lib/` pattern
 - Delete `apps/web/.next/` before CLI deploys to avoid FUNCTION_PAYLOAD_TOO_LARGE
@@ -95,13 +92,13 @@ The same protocol applies to every future agent session to avoid ad-hoc implemen
 
 - Do NOT pre-read files speculatively
 - Do NOT read test files unless fixing a test
-- Read `/docs/claude/` files only when directly relevant to current task
+- Read `docs/claude/` files only when directly relevant to current task
 
 ## Detailed Documentation
 
 For architecture, conventions, workflows, and reference details, see:
-- `/docs/claude/architecture.md` — Tech stack, agents, data model, automation, local API
-- `/docs/claude/backend.md` — FastAPI gateway, endpoint inventory, Docker Compose, DB pools
-- `/docs/claude/conventions.md` — Code style, naming, patterns
-- `/docs/claude/workflows.md` — Agent tool wiring, event dispatch, property DB search, Vercel deploy
-- `/docs/claude/reference.md` — Build commands, env vars, CI/CD, gotchas
+- `docs/claude/architecture.md` — Tech stack, agents, data model, automation, local API
+- `docs/claude/backend.md` — FastAPI gateway, endpoint inventory, Docker Compose, DB pools
+- `docs/claude/conventions.md` — Code style, naming, patterns
+- `docs/claude/workflows.md` — Agent tool wiring, event dispatch, property DB search, Vercel deploy
+- `docs/claude/reference.md` — Build commands, env vars, CI/CD, gotchas

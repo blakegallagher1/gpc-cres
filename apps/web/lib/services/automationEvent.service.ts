@@ -41,13 +41,43 @@ export interface AutomationStats {
 // Service
 // ---------------------------------------------------------------------------
 
+/**
+ * Attempts to start a new automation event row with a durable idempotency key.
+ *
+ * If `idempotencyKey` is provided and a row with that key already exists,
+ * the INSERT is skipped (Postgres unique index ON CONFLICT DO NOTHING)
+ * and the function returns `null` — signalling that the handler should be skipped.
+ *
+ * Returns the event ID on success, or `null` if the event is a duplicate.
+ */
 export async function startEvent(
   orgId: string,
   handlerName: string,
   eventType: string,
   dealId?: string | null,
-  inputData?: Record<string, unknown>
-): Promise<string> {
+  inputData?: Record<string, unknown>,
+  idempotencyKey?: string | null,
+): Promise<string | null> {
+  if (idempotencyKey) {
+    // Use raw INSERT … ON CONFLICT DO NOTHING for atomic dedup across instances.
+    // The non-partial unique index on idempotency_key matches Prisma @unique semantics.
+    const rows = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+      `INSERT INTO automation_events (id, org_id, handler_name, event_type, deal_id, status, idempotency_key, input_data, started_at, created_at, updated_at)
+       VALUES (gen_random_uuid(), $1, $2, $3, $4, 'running', $5, $6, NOW(), NOW(), NOW())
+       ON CONFLICT (idempotency_key) DO NOTHING
+       RETURNING id`,
+      orgId,
+      handlerName,
+      eventType,
+      dealId ?? null,
+      idempotencyKey,
+      JSON.stringify(inputData ?? {}),
+    );
+    if (rows.length === 0) return null; // duplicate — skip handler
+    return rows[0].id;
+  }
+
+  // Legacy path: no idempotency key (backwards compatible)
   const event = await prisma.automationEvent.create({
     data: {
       orgId,
@@ -89,7 +119,8 @@ export async function completeEvent(
 
 export async function failEvent(
   eventId: string,
-  error: unknown
+  error: unknown,
+  errorCode?: string,
 ): Promise<void> {
   const event = await prisma.automationEvent.findUnique({
     where: { id: eventId },
@@ -104,11 +135,16 @@ export async function failEvent(
   const errorMessage =
     error instanceof Error ? error.message : String(error);
 
+  const outputData: Record<string, unknown> = {};
+  if (errorCode) outputData.errorCode = errorCode;
+  outputData.retryable = errorCode ? errorCode.startsWith("TRANSIENT") : false;
+
   await prisma.automationEvent.update({
     where: { id: eventId },
     data: {
       status: "failed",
       error: errorMessage,
+      outputData: outputData as object,
       completedAt: now,
       durationMs,
     },

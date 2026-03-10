@@ -12,7 +12,16 @@ import {
 
 const DEFAULT_LIMIT = 8;
 const MAX_LIMIT = 20;
-const GATEWAY_TIMEOUT_MS = 3500;
+const GATEWAY_TIMEOUT_MS = 4000;
+const LOCATION_STOP_WORDS = new Set([
+  "baton",
+  "rouge",
+  "louisiana",
+  "la",
+  "usa",
+  "united",
+  "states",
+]);
 
 const STREET_SUFFIX_CANONICAL: Array<[RegExp, string]> = [
   [/\bdr\b/g, "drive"],
@@ -63,6 +72,29 @@ function scoreSuggestion(address: string, query: string): number {
   if (words.some((word) => word.startsWith(normalizedQuery))) return 2;
   if (normalizedAddress.includes(normalizedQuery)) return 3;
   return 10;
+}
+
+function buildGatewayQueryCandidates(input: string): string[] {
+  const normalized = canonicalizeAddressLikeText(input);
+  if (!normalized) return [];
+
+  const tokens = normalized.split(" ").filter(Boolean);
+  const nonZipTokens = tokens.filter((token) => !/^\d{5}(?:-\d{4})?$/.test(token));
+  const nonLocationTokens = nonZipTokens.filter((token) => !LOCATION_STOP_WORDS.has(token));
+  const withoutHouseNumber = nonLocationTokens[0] && /^\d+[a-z]*$/i.test(nonLocationTokens[0])
+    ? nonLocationTokens.slice(1)
+    : nonLocationTokens;
+
+  const out = new Set<string>();
+  if (withoutHouseNumber.length > 0) out.add(withoutHouseNumber.join(" "));
+  if (nonLocationTokens.length > 0) out.add(nonLocationTokens.join(" "));
+  if (withoutHouseNumber.length >= 2) {
+    out.add(withoutHouseNumber.slice(0, 2).join(" "));
+    out.add(withoutHouseNumber[0]);
+  }
+  out.add(normalized);
+
+  return Array.from(out).map((value) => value.trim()).filter((value) => value.length >= 2);
 }
 
 type GatewayRow = Record<string, unknown>;
@@ -136,6 +168,25 @@ async function searchGateway(
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function searchGatewayCandidates(
+  query: string,
+  limit: number,
+): Promise<SuggestionRow[]> {
+  const candidates = buildGatewayQueryCandidates(query).slice(0, 2);
+  if (candidates.length === 0) return [];
+
+  // Fire candidates in parallel — return the first non-empty result set.
+  const results = await Promise.allSettled(
+    candidates.map((candidate) => searchGateway(candidate, limit)),
+  );
+  for (const result of results) {
+    if (result.status === "fulfilled" && result.value.length > 0) {
+      return result.value;
+    }
+  }
+  return [];
 }
 
 export async function GET(request: NextRequest) {
@@ -225,7 +276,7 @@ export async function GET(request: NextRequest) {
   // Gateway fallback: when org-local results are empty, search the property DB
   let gatewayRows: SuggestionRow[] = [];
   if (orgRows.length === 0) {
-    gatewayRows = await searchGateway(query, Math.min(limit * 3, 30));
+    gatewayRows = await searchGatewayCandidates(query, Math.min(limit * 3, 30));
   }
 
   const allRows = [...orgRows, ...gatewayRows];
@@ -239,5 +290,7 @@ export async function GET(request: NextRequest) {
     .slice(0, limit)
     .map(({ score: _score, ...rest }) => rest);
 
-  return withRequestId(NextResponse.json({ suggestions }));
+  const response = NextResponse.json({ suggestions });
+  response.headers.set("Cache-Control", "private, max-age=15, stale-while-revalidate=60");
+  return withRequestId(response);
 }

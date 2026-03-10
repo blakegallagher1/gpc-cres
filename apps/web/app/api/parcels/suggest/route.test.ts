@@ -197,7 +197,9 @@ describe("GET /api/parcels/suggest", () => {
     expect(body.suggestions[0].lat).toBe(30.6);
     expect(body.suggestions[0].lng).toBe(-91.15);
     expect(body.suggestions[0].propertyDbId).toBe("016-1234-0");
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    // Gateway candidates now fire in parallel — at least 1 call, up to 2
+    expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(1);
+    expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(2);
   });
 
   it("returns empty when both org and gateway have no results", async () => {
@@ -244,6 +246,47 @@ describe("GET /api/parcels/suggest", () => {
     // Should return 200 with empty suggestions, not 5xx
     expect(res.status).toBe(200);
     expect(body.suggestions).toEqual([]);
+  });
+
+  it("returns cache-control header on successful response", async () => {
+    ({ GET } = await import("./route"));
+    resolveAuthMock.mockResolvedValue({ userId: "u-1", orgId: "org-123" });
+    findManyMock.mockResolvedValue([
+      { id: "p-1", address: "123 Main St", lat: 30.4, lng: -91.1, propertyDbId: "uid-1" },
+    ]);
+
+    const req = new NextRequest("http://localhost/api/parcels/suggest?q=123+main");
+    const res = await GET(req);
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("cache-control")).toMatch(/max-age=15/);
+  });
+
+  it("fires gateway candidates in parallel when org is empty", async () => {
+    ({ GET } = await import("./route"));
+    resolveAuthMock.mockResolvedValue({ userId: "u-1", orgId: "org-123" });
+    findManyMock.mockResolvedValue([]);
+    getPropertyDbConfigOrNullMock.mockReturnValue({
+      url: "https://api.test.com",
+      key: "test-key",
+    });
+    // Both parallel candidates return results — we should use the first non-empty one
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: [{ situs_address: "100 AIRLINE HWY", parcel_uid: "pdb-1", lat: 30.5, lng: -91.1 }],
+      }),
+    });
+
+    const req = new NextRequest("http://localhost/api/parcels/suggest?q=airline+highway&limit=5");
+    const res = await GET(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.suggestions.length).toBeGreaterThan(0);
+    // Parallel: up to 2 candidates fired simultaneously
+    expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(1);
+    expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(2);
   });
 
   it("skips gateway when config is missing", async () => {

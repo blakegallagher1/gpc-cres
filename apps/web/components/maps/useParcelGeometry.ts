@@ -187,7 +187,7 @@ export function useParcelGeometry(
       // Mark as in-flight to prevent duplicate fetches while requests are pending.
       for (const p of toFetch) inFlightRef.current.add(p.id);
 
-      const BATCH_SIZE = 5;
+      const BATCH_SIZE = 8;
 
       for (let i = 0; i < toFetch.length; i += BATCH_SIZE) {
         // Check if aborted between batches
@@ -344,7 +344,7 @@ export function useParcelGeometry(
 
         // Small delay between batches to stay within rate limits
         if (i + BATCH_SIZE < toFetch.length) {
-          await new Promise((r) => setTimeout(r, 200));
+          await new Promise((r) => setTimeout(r, 50));
         }
       }
 

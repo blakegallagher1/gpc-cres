@@ -26,6 +26,10 @@
     {
       "path": "/api/cron/entitlement-precedent-backfill",
       "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/cron/stability-sentinel",
+      "schedule": "*/10 * * * *"
     }
   ]
 }
