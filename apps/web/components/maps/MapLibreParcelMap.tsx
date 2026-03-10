@@ -967,6 +967,76 @@ export function MapLibreParcelMap({
               },
             },
             {
+              id: "zoning-tiles-fill",
+              type: "fill",
+              source: "parcel-tiles",
+              "source-layer": "ebr_parcels",
+              filter: ["has", "zoning_type"],
+              layout: {
+                visibility: showLayers && showZoning ? "visible" : "none",
+              },
+              paint: {
+                "fill-color": [
+                  "case",
+                  // Industrial / Manufacturing — purple
+                  ["any",
+                    ["==", ["slice", ["get", "zoning_type"], 0, 1], "M"],
+                    ["==", ["slice", ["get", "zoning_type"], 0, 1], "I"],
+                  ],
+                  "#7c3aed",
+                  // Commercial / Business — blue
+                  ["any",
+                    ["==", ["slice", ["get", "zoning_type"], 0, 1], "C"],
+                    ["==", ["slice", ["get", "zoning_type"], 0, 1], "B"],
+                  ],
+                  "#3b82f6",
+                  // Mixed / Planned — orange
+                  ["any",
+                    ["==", ["slice", ["get", "zoning_type"], 0, 3], "PUD"],
+                    ["==", ["slice", ["get", "zoning_type"], 0, 2], "MU"],
+                    ["==", ["slice", ["get", "zoning_type"], 0, 2], "UC"],
+                    ["==", ["slice", ["get", "zoning_type"], 0, 3], "TND"],
+                  ],
+                  "#f97316",
+                  // Residential / Agricultural — green (A*, R*)
+                  ["any",
+                    ["==", ["slice", ["get", "zoning_type"], 0, 1], "A"],
+                    ["==", ["slice", ["get", "zoning_type"], 0, 1], "R"],
+                  ],
+                  "#22c55e",
+                  // Default — gray
+                  "#9ca3af",
+                ],
+                "fill-opacity": 0.25,
+                "fill-outline-color": [
+                  "case",
+                  ["any",
+                    ["==", ["slice", ["get", "zoning_type"], 0, 1], "M"],
+                    ["==", ["slice", ["get", "zoning_type"], 0, 1], "I"],
+                  ],
+                  "rgba(124, 58, 237, 0.6)",
+                  ["any",
+                    ["==", ["slice", ["get", "zoning_type"], 0, 1], "C"],
+                    ["==", ["slice", ["get", "zoning_type"], 0, 1], "B"],
+                  ],
+                  "rgba(59, 130, 246, 0.6)",
+                  ["any",
+                    ["==", ["slice", ["get", "zoning_type"], 0, 3], "PUD"],
+                    ["==", ["slice", ["get", "zoning_type"], 0, 2], "MU"],
+                    ["==", ["slice", ["get", "zoning_type"], 0, 2], "UC"],
+                    ["==", ["slice", ["get", "zoning_type"], 0, 3], "TND"],
+                  ],
+                  "rgba(249, 115, 22, 0.6)",
+                  ["any",
+                    ["==", ["slice", ["get", "zoning_type"], 0, 1], "A"],
+                    ["==", ["slice", ["get", "zoning_type"], 0, 1], "R"],
+                  ],
+                  "rgba(34, 197, 94, 0.6)",
+                  "rgba(156, 163, 175, 0.4)",
+                ],
+              },
+            },
+            {
               id: "parcels-zoning-layer",
               type: "fill",
               source: "parcel-zoning-source",
@@ -1100,6 +1170,11 @@ export function MapLibreParcelMap({
             );
             map.setLayoutProperty(
               "parcels-zoning-layer",
+              "visibility",
+              showLayers && showZoning ? "visible" : "none"
+            );
+            map.setLayoutProperty(
+              "zoning-tiles-fill",
               "visibility",
               showLayers && showZoning ? "visible" : "none"
             );
@@ -1246,6 +1321,7 @@ export function MapLibreParcelMap({
       map.setLayoutProperty("parcels-boundary-fill", "visibility", showLayers && showParcelBoundaries ? "visible" : "none");
       map.setLayoutProperty("parcels-boundary-line", "visibility", showLayers && showParcelBoundaries ? "visible" : "none");
       map.setLayoutProperty("parcels-zoning-layer", "visibility", showLayers && showZoning ? "visible" : "none");
+      map.setLayoutProperty("zoning-tiles-fill", "visibility", showLayers && showZoning ? "visible" : "none");
       map.setLayoutProperty("parcels-flood-layer", "visibility", showLayers && showFlood ? "visible" : "none");
       map.setLayoutProperty("fema-flood-tiles-fill", "visibility", showLayers && showFlood ? "visible" : "none");
       map.setLayoutProperty("base-dark", "visibility", isDark && baseLayer !== "Satellite" ? "visible" : "none");
