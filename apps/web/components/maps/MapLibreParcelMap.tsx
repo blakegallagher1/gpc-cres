@@ -848,8 +848,11 @@ export function MapLibreParcelMap({
     }
 
     if (bounds.isEmpty()) return;
-    map.fitBounds(bounds, { padding: 40, maxZoom: 15, animate: false });
+    // Set ref BEFORE fitBounds: animate:false fires moveend synchronously,
+    // which re-enters this function. Without this, the guard on line 843
+    // sees stale ref and recurses until stack overflow.
     fittedBoundsRef.current = fitKey;
+    map.fitBounds(bounds, { padding: 40, maxZoom: 15, animate: false });
   };
 
   useEffect(() => {
@@ -894,6 +897,12 @@ export function MapLibreParcelMap({
             "parcel-flood-source": {
               type: "geojson",
               data: floodSource,
+            },
+            "fema-flood-tiles": {
+              type: "vector",
+              tiles: [getMartinParcelTileUrl("fema_flood")],
+              minzoom: 5,
+              maxzoom: 22,
             },
             "parcel-point-source": {
               type: "geojson",
@@ -967,6 +976,39 @@ export function MapLibreParcelMap({
               paint: {
                 "fill-color": ["get", "fillColor"],
                 "fill-opacity": 0.22,
+              },
+            },
+            {
+              id: "fema-flood-tiles-fill",
+              type: "fill",
+              source: "fema-flood-tiles",
+              "source-layer": "fema_flood",
+              layout: {
+                visibility: showLayers && showFlood ? "visible" : "none",
+              },
+              paint: {
+                "fill-color": [
+                  "match", ["get", "zone"],
+                  "V", "rgba(220, 38, 38, 0.45)",
+                  "VE", "rgba(220, 38, 38, 0.45)",
+                  "A", "rgba(239, 68, 68, 0.35)",
+                  "AE", "rgba(249, 115, 22, 0.35)",
+                  "AH", "rgba(249, 115, 22, 0.35)",
+                  "AO", "rgba(249, 115, 22, 0.35)",
+                  "X", "transparent",
+                  "OPEN WATER", "transparent",
+                  "rgba(156, 163, 175, 0.15)",
+                ],
+                "fill-outline-color": [
+                  "match", ["get", "zone"],
+                  "V", "rgba(220, 38, 38, 0.6)",
+                  "VE", "rgba(220, 38, 38, 0.6)",
+                  "A", "rgba(239, 68, 68, 0.5)",
+                  "AE", "rgba(249, 115, 22, 0.5)",
+                  "AH", "rgba(249, 115, 22, 0.5)",
+                  "AO", "rgba(249, 115, 22, 0.5)",
+                  "transparent",
+                ],
               },
             },
             {
@@ -1063,6 +1105,11 @@ export function MapLibreParcelMap({
             );
             map.setLayoutProperty(
               "parcels-flood-layer",
+              "visibility",
+              showLayers && showFlood ? "visible" : "none"
+            );
+            map.setLayoutProperty(
+              "fema-flood-tiles-fill",
               "visibility",
               showLayers && showFlood ? "visible" : "none"
             );
@@ -1200,6 +1247,7 @@ export function MapLibreParcelMap({
       map.setLayoutProperty("parcels-boundary-line", "visibility", showLayers && showParcelBoundaries ? "visible" : "none");
       map.setLayoutProperty("parcels-zoning-layer", "visibility", showLayers && showZoning ? "visible" : "none");
       map.setLayoutProperty("parcels-flood-layer", "visibility", showLayers && showFlood ? "visible" : "none");
+      map.setLayoutProperty("fema-flood-tiles-fill", "visibility", showLayers && showFlood ? "visible" : "none");
       map.setLayoutProperty("base-dark", "visibility", isDark && baseLayer !== "Satellite" ? "visible" : "none");
       map.setLayoutProperty("base-streets", "visibility", !isDark && baseLayer !== "Satellite" ? "visible" : "none");
       map.setLayoutProperty("base-satellite", "visibility", baseLayer === "Satellite" ? "visible" : "none");
