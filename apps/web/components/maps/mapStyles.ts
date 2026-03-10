@@ -55,17 +55,19 @@ export const ZONING_CATEGORY_LABELS: Record<string, string> = {
 
 export function getFloodColor(floodZone: string | null | undefined): string {
   if (!floodZone) return "transparent";
-  const text = floodZone.toUpperCase();
-  // Coastal flood — worst
-  if (/ZONE\s*V/.test(text)) return "rgba(220, 38, 38, 0.5)";
+  const text = floodZone.toUpperCase().trim();
+  // Coastal flood — worst (V, VE, or "ZONE V*")
+  if (/^V[E]?\b|ZONE\s*V/i.test(text)) return "rgba(220, 38, 38, 0.5)";
+  // Zone AE / AH / AO (high risk with BFE) — check before bare "A"
+  if (/^A[EHO]\b|ZONE\s*A[EHO]/i.test(text)) return "rgba(249, 115, 22, 0.4)";
   // Zone A (high risk, no BFE)
-  if (/ZONE\s*A\b(?!E|H|O)/.test(text)) return "rgba(239, 68, 68, 0.4)";
-  // Zone AE / AH / AO (high risk with BFE)
-  if (/ZONE\s*A[EHO]/.test(text)) return "rgba(249, 115, 22, 0.4)";
+  if (/^A\b|ZONE\s*A\b(?!E|H|O)/i.test(text)) return "rgba(239, 68, 68, 0.4)";
   // Zone X shaded (moderate risk / 500-year)
   if (/SHADED|0\.2.?%|500.?YEAR/i.test(text)) return "rgba(251, 191, 36, 0.3)";
   // Zone X unshaded — minimal risk
-  if (/ZONE\s*X/.test(text)) return "transparent";
+  if (/^X\b|ZONE\s*X/i.test(text)) return "transparent";
+  // OPEN WATER or other non-risk
+  if (/OPEN.?WATER/i.test(text)) return "transparent";
   return "rgba(156, 163, 175, 0.2)";
 }
 
