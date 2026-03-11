@@ -2,7 +2,7 @@
  * Unit tests for reflection and memory update pipeline.
  */
 
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   mockEmbeddingCreate,
@@ -39,13 +39,22 @@ vi.mock("@entitlement-os/db", () => ({
   },
 }));
 
-vi.mock("openai", () => ({
-  default: vi.fn(() => ({
-    embeddings: {
-      create: mockOpenAIEmbeddingCreate,
-    },
-    responses: {},
-  })),
+vi.mock("node:module", () => ({
+  createRequire: () => (moduleName: string) => {
+    if (moduleName !== "openai") {
+      throw new Error(`Unexpected module request: ${moduleName}`);
+    }
+
+    return {
+      default: class OpenAI {
+        public embeddings = {
+          create: mockOpenAIEmbeddingCreate,
+        };
+
+        constructor(_options: unknown) {}
+      },
+    };
+  },
 }));
 
 vi.mock("../openTelemetry/setup.ts", () => ({
@@ -54,12 +63,25 @@ vi.mock("../openTelemetry/setup.ts", () => ({
 
 import { reflectAndUpdateMemory } from "../services/reflection.service.ts";
 
+const originalOpenAIKey = process.env.OPENAI_API_KEY;
+
 beforeEach(() => {
+  process.env.OPENAI_API_KEY = "test-openai-key";
   mockEmbeddingCreate.mockReset();
   mockKGEventCreate.mockReset();
   mockKGEventFindFirst.mockReset();
   mockTemporalEdgeCreate.mockReset();
   mockKnowledgeExecuteRaw.mockReset();
+  mockOpenAIEmbeddingCreate.mockReset();
+  mockOpenAIEmbeddingCreate.mockResolvedValue({ data: [{ embedding: [0.01, 0.02, 0.03] }] });
+});
+
+afterAll(() => {
+  if (typeof originalOpenAIKey === "string") {
+    process.env.OPENAI_API_KEY = originalOpenAIKey;
+    return;
+  }
+  delete process.env.OPENAI_API_KEY;
 });
 
 describe("reflection.service", () => {
