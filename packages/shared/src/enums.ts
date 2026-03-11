@@ -16,6 +16,77 @@ export const DEAL_STATUSES = [
 ] as const;
 export type DealStatus = (typeof DEAL_STATUSES)[number];
 
+export const DEAL_ASSET_CLASSES = [
+  "LAND",
+  "INDUSTRIAL",
+  "OFFICE",
+  "RETAIL",
+  "MULTIFAMILY",
+  "SELF_STORAGE",
+  "HOSPITALITY",
+  "MIXED_USE",
+  "SPECIALTY",
+  "PORTFOLIO",
+] as const;
+export type DealAssetClass = (typeof DEAL_ASSET_CLASSES)[number];
+
+export const DEAL_STRATEGIES = [
+  "ENTITLEMENT",
+  "GROUND_UP_DEVELOPMENT",
+  "VALUE_ADD_ACQUISITION",
+  "CORE_ACQUISITION",
+  "LEASE_UP",
+  "ASSET_MANAGEMENT",
+  "RECAPITALIZATION",
+  "REFINANCE",
+  "DISPOSITION",
+  "DEBT_PLACEMENT",
+] as const;
+export type DealStrategy = (typeof DEAL_STRATEGIES)[number];
+
+export const WORKFLOW_TEMPLATE_KEYS = [
+  "ENTITLEMENT_LAND",
+  "DEVELOPMENT",
+  "ACQUISITION",
+  "LEASE_UP",
+  "ASSET_MANAGEMENT",
+  "DISPOSITION",
+  "REFINANCE",
+  "PORTFOLIO_REVIEW",
+] as const;
+export type WorkflowTemplateKey = (typeof WORKFLOW_TEMPLATE_KEYS)[number];
+
+export const DEAL_STAGE_KEYS = [
+  "ORIGINATION",
+  "SCREENING",
+  "UNDERWRITING",
+  "DUE_DILIGENCE",
+  "CONTRACTING",
+  "EXECUTION",
+  "ASSET_MANAGEMENT",
+  "DISPOSITION",
+  "CLOSED_WON",
+  "CLOSED_LOST",
+] as const;
+export type DealStageKey = (typeof DEAL_STAGE_KEYS)[number];
+
+export const OPPORTUNITY_KINDS = ["SITE", "PROPERTY", "LOAN", "PORTFOLIO", "TENANT", "JV"] as const;
+export type OpportunityKind = (typeof OPPORTUNITY_KINDS)[number];
+
+export const DEAL_SOURCE_TYPES = [
+  "MANUAL",
+  "BROKER",
+  "OWNER_DIRECT",
+  "MARKET_SCAN",
+  "AGENT_DISCOVERY",
+  "REFERRAL",
+  "IMPORT",
+] as const;
+export type DealSourceType = (typeof DEAL_SOURCE_TYPES)[number];
+
+export const DEAL_ASSET_ROLES = ["PRIMARY", "COMPARABLE", "ADJACENT"] as const;
+export type DealAssetRole = (typeof DEAL_ASSET_ROLES)[number];
+
 export const TASK_STATUSES = ["TODO", "IN_PROGRESS", "BLOCKED", "DONE", "CANCELED"] as const;
 export type TaskStatus = (typeof TASK_STATUSES)[number];
 

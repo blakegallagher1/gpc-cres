@@ -23,6 +23,9 @@ import * as documentTools from "./documentTools.js";
 import * as propertyMemoryTools from "./propertyMemoryTools.js";
 import * as memoryTools from "./memoryTools.js";
 import * as shellWorkflowTools from "./shellWorkflowTools.js";
+import * as acquisitionTools from "./acquisitions/index.js";
+import * as assetManagementTools from "./asset-mgmt/index.js";
+import * as capitalMarketsTools from "./capital-markets/index.js";
 
 export {
   getDealContext,
@@ -159,6 +162,27 @@ export {
   run_data_extraction_workflow,
   run_underwriting_workflow,
 } from "./shellWorkflowTools.js";
+export {
+  acquisition_dcf_analysis,
+  acquisition_cap_rate_evaluation,
+  acquisition_rent_roll_analysis,
+  acquisition_internal_comparable_sales,
+  acquisition_investment_returns,
+} from "./acquisitions/index.js";
+export {
+  asset_lease_admin_summary,
+  asset_tenant_exposure_analysis,
+  asset_noi_optimization_plan,
+  asset_capital_plan_summary,
+  asset_operations_health,
+} from "./asset-mgmt/index.js";
+export {
+  capital_debt_sizing_overview,
+  capital_lender_outreach_brief,
+  capital_disposition_analysis,
+  capital_refinance_scenarios,
+  capital_stack_optimization,
+} from "./capital-markets/index.js";
 
 const {
   hostedFileSearchTool,
@@ -265,6 +289,27 @@ const {
   run_data_extraction_workflow,
   run_underwriting_workflow,
 } = shellWorkflowTools;
+const {
+  acquisition_dcf_analysis,
+  acquisition_cap_rate_evaluation,
+  acquisition_rent_roll_analysis,
+  acquisition_internal_comparable_sales,
+  acquisition_investment_returns,
+} = acquisitionTools;
+const {
+  asset_lease_admin_summary,
+  asset_tenant_exposure_analysis,
+  asset_noi_optimization_plan,
+  asset_capital_plan_summary,
+  asset_operations_health,
+} = assetManagementTools;
+const {
+  capital_debt_sizing_overview,
+  capital_lender_outreach_brief,
+  capital_disposition_analysis,
+  capital_refinance_scenarios,
+  capital_stack_optimization,
+} = capitalMarketsTools;
 
 // --- Agent-specific tool collections ---
 
@@ -630,7 +675,24 @@ export const ALL_AGENT_TOOL_GROUPS = {
 } as const;
 
 export const ALL_AGENT_TOOLS = Object.freeze(
-  Object.values(ALL_AGENT_TOOL_GROUPS).flat(),
+  [
+    ...Object.values(ALL_AGENT_TOOL_GROUPS).flat(),
+    acquisition_dcf_analysis,
+    acquisition_cap_rate_evaluation,
+    acquisition_rent_roll_analysis,
+    acquisition_internal_comparable_sales,
+    acquisition_investment_returns,
+    asset_lease_admin_summary,
+    asset_tenant_exposure_analysis,
+    asset_noi_optimization_plan,
+    asset_capital_plan_summary,
+    asset_operations_health,
+    capital_debt_sizing_overview,
+    capital_lender_outreach_brief,
+    capital_disposition_analysis,
+    capital_refinance_scenarios,
+    capital_stack_optimization,
+  ],
 );
 
 /**

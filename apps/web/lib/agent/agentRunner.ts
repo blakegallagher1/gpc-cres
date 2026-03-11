@@ -1,4 +1,4 @@
-import { prisma } from "@entitlement-os/db";
+import { prisma, type Prisma } from "@entitlement-os/db";
 import { randomUUID } from "node:crypto";
 import {
   executeAgentWorkflow,
@@ -18,6 +18,9 @@ import {
 import { PrismaChatSession } from "@/lib/chat/session";
 import { buildPreferenceContext } from "@/lib/services/preferenceService";
 import { buildMemoryContext } from "@/lib/services/memoryContextBuilder";
+import { mapFeaturesFromActionPayload, mergeMapFeatures } from "@/lib/chat/mapFeatureUtils";
+import { parseToolResultMapFeatures } from "@/lib/chat/toolResultWrapper";
+import type { MapFeature } from "@/lib/chat/mapActionTypes";
 
 const LOCAL_LEASE_GRACE_MS = 15 * 60 * 1000;
 const LOCAL_LEASE_WAIT_MS = 60_000 * 10;
@@ -100,6 +103,10 @@ type PersistedAgentSummary = {
 function toStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.filter((item) => typeof item === "string");
+}
+
+function toJsonValue(value: unknown): Prisma.InputJsonValue {
+  return JSON.parse(JSON.stringify(value ?? null)) as Prisma.InputJsonValue;
 }
 
 function extractRunIdFromMetadata(metadata: unknown): string | null {
@@ -582,6 +589,37 @@ export async function runAgentWorkflow(params: AgentRunInput) {
     throw new Error("Either 'message' or 'input' is required.");
   }
 
+  let referencedMapFeatures: MapFeature[] = [];
+  const emitEvent = (event: AgentStreamEvent) => {
+    if (event.type === "map_action") {
+      referencedMapFeatures = mergeMapFeatures(
+        referencedMapFeatures,
+        mapFeaturesFromActionPayload(event.payload),
+      );
+    }
+
+    if (event.type === "tool_end" && event.result !== undefined) {
+      referencedMapFeatures = mergeMapFeatures(
+        referencedMapFeatures,
+        parseToolResultMapFeatures(event.result) ?? [],
+      );
+    }
+
+    onEvent?.(event);
+  };
+  const buildAssistantMessageMetadata = (
+    runId: string,
+    openaiResponseId: string | null,
+  ) =>
+    toJsonValue({
+      kind: "chat_assistant_message",
+      runId,
+      openaiResponseId,
+      ...(referencedMapFeatures.length > 0
+        ? { mapFeatures: referencedMapFeatures }
+        : {}),
+    });
+
   let conversationId = requestedConversationId ?? null;
   let chatSession: PrismaChatSession | null = null;
   let contextDeal: DealContext | null = null;
@@ -809,12 +847,12 @@ export async function runAgentWorkflow(params: AgentRunInput) {
 
     if (priorRun && priorRun.status !== "running") {
       const replay = normalizePersistedAgentSummary(priorRun);
-      onEvent?.({
+      emitEvent({
         type: "agent_summary",
         runId: workflowId,
         trust: mapTemporalTrustForEvents(replay.trust),
       });
-      onEvent?.({
+      emitEvent({
         type: "done",
         runId: workflowId,
         status: replay.status === "succeeded" ? "succeeded" : "failed",
@@ -839,14 +877,14 @@ export async function runAgentWorkflow(params: AgentRunInput) {
     }
 
     if (priorRun?.status === "running") {
-      const replay = await loadCompletedRunResultById(persistedRunId, onEvent);
+      const replay = await loadCompletedRunResultById(persistedRunId, emitEvent);
       if (replay && replay.status !== "running") {
-        onEvent?.({
+        emitEvent({
           type: "agent_summary",
           runId: workflowId,
           trust: mapTemporalTrustForEvents(replay.trust),
         });
-        onEvent?.({
+        emitEvent({
           type: "done",
           runId: workflowId,
           status: replay.status === "succeeded" ? "succeeded" : "failed",
@@ -902,12 +940,12 @@ export async function runAgentWorkflow(params: AgentRunInput) {
 
     if (handle) {
       const resultPromise = handle.result() as Promise<AgentRunWorkflowOutput>;
-      const progressPromise = streamTemporalRunProgress(persistedRunId, onEvent).catch(() => {});
+      const progressPromise = streamTemporalRunProgress(persistedRunId, emitEvent).catch(() => {});
       const workflowResult = await resultPromise;
       await progressPromise;
 
       if (workflowResult.correlationId && workflowResult.correlationId !== correlationId) {
-        onEvent?.({
+        emitEvent({
           type: "agent_progress",
           runId: workflowResult.runId,
           status: "running",
@@ -922,11 +960,10 @@ export async function runAgentWorkflow(params: AgentRunInput) {
             {
               role: "assistant",
               content: workflowResult.finalOutput,
-              metadata: {
-                kind: "chat_assistant_message",
-                runId: workflowResult.runId,
-                openaiResponseId: workflowResult.openaiResponseId,
-              },
+              metadata: buildAssistantMessageMetadata(
+                workflowResult.runId,
+                workflowResult.openaiResponseId,
+              ),
             },
           ]);
         } else {
@@ -935,17 +972,21 @@ export async function runAgentWorkflow(params: AgentRunInput) {
               conversationId,
               role: "assistant",
               content: workflowResult.finalOutput,
+              metadata: buildAssistantMessageMetadata(
+                workflowResult.runId,
+                workflowResult.openaiResponseId,
+              ),
             },
           });
         }
       }
 
-      onEvent?.({
+      emitEvent({
         type: "agent_summary",
         runId: workflowResult.runId,
         trust: mapTemporalTrustForEvents(workflowResult.trust),
       });
-      onEvent?.({
+      emitEvent({
         type: "done",
         runId: workflowResult.runId,
         status: workflowResult.status === "succeeded" ? "succeeded" : "failed",
@@ -972,14 +1013,14 @@ export async function runAgentWorkflow(params: AgentRunInput) {
 
     fallbackReason = temporalStartFailure ?? "Temporal workflow unavailable";
 
-    const replay = await loadCompletedRunResultById(persistedRunId, onEvent);
+    const replay = await loadCompletedRunResultById(persistedRunId, emitEvent);
     if (replay && replay.status !== "running") {
-      onEvent?.({
+      emitEvent({
         type: "agent_summary",
         runId: workflowId,
         trust: mapTemporalTrustForEvents(replay.trust),
       });
-      onEvent?.({
+      emitEvent({
         type: "done",
         runId: workflowId,
         status: replay.status === "succeeded" ? "succeeded" : "failed",
@@ -1005,14 +1046,14 @@ export async function runAgentWorkflow(params: AgentRunInput) {
 
     const leaseToken = await claimLocalRunLease(persistedRunId);
     if (!leaseToken) {
-      const replay = await loadCompletedRunResultById(persistedRunId, onEvent);
+      const replay = await loadCompletedRunResultById(persistedRunId, emitEvent);
       if (replay && replay.status !== "running") {
-        onEvent?.({
+        emitEvent({
           type: "agent_summary",
           runId: workflowId,
           trust: mapTemporalTrustForEvents(replay.trust),
         });
-        onEvent?.({
+        emitEvent({
           type: "done",
           runId: workflowId,
           status: replay.status === AGENT_RUN_STATE_STATUS.SUCCEEDED ? "succeeded" : "failed",
@@ -1059,7 +1100,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
       intentHint,
       queryIntentOverride: intentOverride as import("@entitlement-os/openai").QueryIntent | undefined,
       previousResponseId,
-      onEvent,
+      onEvent: emitEvent,
     });
 
     if (persistConversation && conversationId && result.finalOutput.length > 0) {
@@ -1068,11 +1109,10 @@ export async function runAgentWorkflow(params: AgentRunInput) {
           {
             role: "assistant",
             content: result.finalOutput,
-            metadata: {
-              kind: "chat_assistant_message",
-              runId: result.runId,
-              openaiResponseId: result.openaiResponseId,
-            },
+            metadata: buildAssistantMessageMetadata(
+              result.runId,
+              result.openaiResponseId,
+            ),
           },
         ]);
       } else {
@@ -1081,6 +1121,10 @@ export async function runAgentWorkflow(params: AgentRunInput) {
             conversationId,
             role: "assistant",
             content: result.finalOutput,
+            metadata: buildAssistantMessageMetadata(
+              result.runId,
+              result.openaiResponseId,
+            ),
           },
         });
       }
@@ -1119,7 +1163,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
     intentHint,
     queryIntentOverride: intentOverride as import("@entitlement-os/openai").QueryIntent | undefined,
     previousResponseId,
-    onEvent,
+    onEvent: emitEvent,
   });
 
   if (persistConversation && conversationId && result.finalOutput.length > 0) {
@@ -1128,11 +1172,10 @@ export async function runAgentWorkflow(params: AgentRunInput) {
         {
           role: "assistant",
           content: result.finalOutput,
-          metadata: {
-            kind: "chat_assistant_message",
-            runId: result.runId,
-            openaiResponseId: result.openaiResponseId,
-          },
+          metadata: buildAssistantMessageMetadata(
+            result.runId,
+            result.openaiResponseId,
+          ),
         },
       ]);
     } else {
@@ -1141,6 +1184,10 @@ export async function runAgentWorkflow(params: AgentRunInput) {
           conversationId,
           role: "assistant",
           content: result.finalOutput,
+          metadata: buildAssistantMessageMetadata(
+            result.runId,
+            result.openaiResponseId,
+          ),
         },
       });
     }

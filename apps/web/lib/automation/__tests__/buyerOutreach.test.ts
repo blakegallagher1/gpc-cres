@@ -11,7 +11,42 @@ const { dbMock } = vi.hoisted(() => ({
 
 vi.mock("@entitlement-os/db", () => dbMock);
 
+const {
+  getAutomationDealContextMock,
+  getCurrentWorkflowStageMock,
+  getWorkflowPipelineStepMock,
+  isEntitlementStrategyMock,
+} = vi.hoisted(() => ({
+  getAutomationDealContextMock: vi.fn(),
+  getCurrentWorkflowStageMock: vi.fn(),
+  getWorkflowPipelineStepMock: vi.fn(),
+  isEntitlementStrategyMock: vi.fn(),
+}));
+
+vi.mock("../context", () => ({
+  getAutomationDealContext: getAutomationDealContextMock,
+  getCurrentWorkflowStage: getCurrentWorkflowStageMock,
+  getWorkflowPipelineStep: getWorkflowPipelineStepMock,
+  isEntitlementStrategy: isEntitlementStrategyMock,
+}));
+
 import { findMatchingBuyers, handleBuyerOutreach, handleTriageBuyerMatch } from "../buyerOutreach";
+
+function buildEntitlementContext(overrides: Record<string, unknown> = {}) {
+  return {
+    dealId: "d",
+    orgId: "o",
+    name: "Test Deal",
+    sku: "TRUCK_PARKING",
+    jurisdictionId: "j1",
+    status: "EXIT_MARKETED",
+    strategy: "ENTITLEMENT",
+    workflowTemplateKey: "ENTITLEMENT_LAND",
+    currentStageKey: "DISPOSITION",
+    templateStages: [],
+    ...overrides,
+  };
+}
 
 describe("findMatchingBuyers", () => {
   beforeEach(() => vi.clearAllMocks());
@@ -39,22 +74,29 @@ describe("findMatchingBuyers", () => {
 });
 
 describe("handleBuyerOutreach", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getAutomationDealContextMock.mockResolvedValue(buildEntitlementContext());
+    getCurrentWorkflowStageMock.mockReturnValue(null);
+    getWorkflowPipelineStepMock.mockReturnValue(7);
+    isEntitlementStrategyMock.mockReturnValue(true);
+  });
 
   it("ignores non deal.statusChanged events", async () => {
     await handleBuyerOutreach({ type: "task.completed", dealId: "d", taskId: "t", orgId: "o" });
-    expect(dbMock.prisma.deal.findFirst).not.toHaveBeenCalled();
+    expect(getAutomationDealContextMock).not.toHaveBeenCalled();
   });
 
   it("ignores status changes that are not EXIT_MARKETED", async () => {
     await handleBuyerOutreach({
       type: "deal.statusChanged", dealId: "d", from: "TRIAGE_DONE", to: "PREAPP", orgId: "o",
     });
-    expect(dbMock.prisma.deal.findFirst).not.toHaveBeenCalled();
+    expect(getAutomationDealContextMock).toHaveBeenCalledTimes(1);
+    expect(dbMock.prisma.buyer.findMany).not.toHaveBeenCalled();
   });
 
   it("returns if deal not found", async () => {
-    dbMock.prisma.deal.findFirst.mockResolvedValue(null);
+    getAutomationDealContextMock.mockResolvedValue(null);
     await handleBuyerOutreach({
       type: "deal.statusChanged", dealId: "d", from: "APPROVED", to: "EXIT_MARKETED", orgId: "o",
     });
@@ -62,9 +104,12 @@ describe("handleBuyerOutreach", () => {
   });
 
   it("returns when weekly outreach limit reached", async () => {
-    dbMock.prisma.deal.findFirst.mockResolvedValue({
-      id: "d", name: "Test", sku: "OUTDOOR_STORAGE", jurisdictionId: "j1",
-    });
+    getAutomationDealContextMock.mockResolvedValue(
+      buildEntitlementContext({
+        name: "Test",
+        sku: "OUTDOOR_STORAGE",
+      }),
+    );
     dbMock.prisma.outreach.count.mockResolvedValue(20); // >= max (20)
 
     await handleBuyerOutreach({
@@ -75,9 +120,11 @@ describe("handleBuyerOutreach", () => {
   });
 
   it("creates 'no matching buyers' task when none match", async () => {
-    dbMock.prisma.deal.findFirst.mockResolvedValue({
-      id: "d", name: "Test Deal", sku: "SMALL_BAY_FLEX", jurisdictionId: "j1",
-    });
+    getAutomationDealContextMock.mockResolvedValue(
+      buildEntitlementContext({
+        sku: "SMALL_BAY_FLEX",
+      }),
+    );
     dbMock.prisma.outreach.count.mockResolvedValue(0);
     dbMock.prisma.buyer.findMany.mockResolvedValue([]);
     dbMock.prisma.task.create.mockResolvedValue({ id: "t1" });
@@ -92,9 +139,6 @@ describe("handleBuyerOutreach", () => {
   });
 
   it("creates outreach review task with eligible buyers", async () => {
-    dbMock.prisma.deal.findFirst.mockResolvedValue({
-      id: "d", name: "Test Deal", sku: "TRUCK_PARKING", jurisdictionId: "j1",
-    });
     dbMock.prisma.outreach.count.mockResolvedValue(0);
     dbMock.prisma.buyer.findMany.mockResolvedValue([
       { id: "b1", name: "Buyer A", company: "Co A", email: "a@test.com", buyerType: "operator" },
@@ -113,13 +157,16 @@ describe("handleBuyerOutreach", () => {
     expect(arg.data.title).toContain("2 buyer outreach");
     expect(arg.data.description).toContain("Buyer A");
     expect(arg.data.description).toContain("Buyer B");
-    expect(arg.data.pipelineStep).toBe(8);
+    expect(arg.data.pipelineStep).toBe(7);
   });
 
   it("filters out buyers already contacted for this deal", async () => {
-    dbMock.prisma.deal.findFirst.mockResolvedValue({
-      id: "d", name: "Test", sku: "OUTDOOR_STORAGE", jurisdictionId: "j1",
-    });
+    getAutomationDealContextMock.mockResolvedValue(
+      buildEntitlementContext({
+        name: "Test",
+        sku: "OUTDOOR_STORAGE",
+      }),
+    );
     dbMock.prisma.outreach.count.mockResolvedValue(0);
     dbMock.prisma.buyer.findMany.mockResolvedValue([
       { id: "b1", name: "Buyer A", company: null, email: "a@test.com", buyerType: "operator" },
@@ -137,6 +184,44 @@ describe("handleBuyerOutreach", () => {
 
     // All buyers filtered out, so no outreach task
     expect(dbMock.prisma.task.create).not.toHaveBeenCalled();
+  });
+
+  it("supports workflow-stage outreach for non-entitlement disposition stages", async () => {
+    getAutomationDealContextMock.mockResolvedValue(
+      buildEntitlementContext({
+        strategy: "DISPOSITION",
+        workflowTemplateKey: "DISPOSITION",
+        currentStageKey: "DISPOSITION",
+      }),
+    );
+    isEntitlementStrategyMock.mockReturnValue(false);
+    getCurrentWorkflowStageMock.mockReturnValue({
+      key: "DISPOSITION",
+      name: "Disposition",
+      ordinal: 7,
+      description: null,
+      requiredGate: null,
+    });
+    getWorkflowPipelineStepMock.mockReturnValue(7);
+    dbMock.prisma.outreach.count.mockResolvedValue(0);
+    dbMock.prisma.buyer.findMany.mockResolvedValue([
+      { id: "b1", name: "Buyer A", company: "Co A", email: "a@test.com", buyerType: "operator" },
+    ]);
+    dbMock.prisma.outreach.findFirst.mockResolvedValue(null);
+    dbMock.prisma.task.create.mockResolvedValue({ id: "t1" });
+
+    await handleBuyerOutreach({
+      type: "deal.stageChanged",
+      dealId: "d",
+      from: "EXECUTION",
+      to: "DISPOSITION",
+      orgId: "o",
+    });
+
+    expect(dbMock.prisma.task.create).toHaveBeenCalledTimes(1);
+    const arg = dbMock.prisma.task.create.mock.calls[0][0];
+    expect(arg.data.description).toContain("now in Disposition");
+    expect(arg.data.pipelineStep).toBe(7);
   });
 });
 

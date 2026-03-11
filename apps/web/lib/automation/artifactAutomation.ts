@@ -7,24 +7,48 @@ import { renderArtifactFromSpec } from "@entitlement-os/artifacts";
 import { uploadArtifactToGateway, systemAuth } from "@/lib/storage/gatewayStorage";
 import { createAutomationTask } from "./notifications";
 import type { AutomationEvent } from "./events";
+import {
+  getAutomationDealContext,
+  getCurrentWorkflowStage,
+  getWorkflowPipelineStep,
+} from "./context";
 
 /**
- * #9b Artifact Auto-Generation: Generate BUYER_TEASER_PDF when deal reaches EXIT_MARKETED.
+ * #9b Artifact Auto-Generation: Generate BUYER_TEASER_PDF when the deal reaches Disposition.
  *
- * Triggered by: deal.statusChanged event
+ * Triggered by: workflow stage changes
  *
- * Only fires when the new status is EXIT_MARKETED. The deal must have at
- * least one parcel. Generation is fire-and-forget — failures are logged
- * but never propagate.
+ * Only fires when the resolved workflow stage is Disposition. The deal must
+ * have at least one parcel. Generation is fire-and-forget — failures are
+ * logged but never propagate.
  */
 export async function handleArtifactOnStatusChange(event: AutomationEvent): Promise<void> {
-  if (event.type !== "deal.statusChanged") return;
-  if (event.to !== "EXIT_MARKETED") return;
+  if (event.type !== "deal.statusChanged" && event.type !== "deal.stageChanged") {
+    return;
+  }
 
   const { dealId, orgId } = event;
   const artifactType: ArtifactType = "BUYER_TEASER_PDF";
 
   try {
+    if (event.type === "deal.statusChanged" && event.to !== "EXIT_MARKETED") {
+      return;
+    }
+
+    const context = await getAutomationDealContext(dealId, orgId);
+    if (!context || context.currentStageKey !== "DISPOSITION") {
+      return;
+    }
+
+    if (event.type === "deal.stageChanged" && event.to !== "DISPOSITION") {
+      return;
+    }
+
+    const currentStage = getCurrentWorkflowStage(context);
+    const pipelineStep = currentStage
+      ? getWorkflowPipelineStep(context, currentStage.key)
+      : 7;
+
     // Load deal
     const deal = await prisma.deal.findFirst({
       where: { id: dealId, orgId },
@@ -170,8 +194,8 @@ export async function handleArtifactOnStatusChange(event: AutomationEvent): Prom
         dealId,
         type: "document_review",
         title: `Buyer Teaser v${nextVersion} Auto-Generated`,
-        description: `A Buyer Teaser PDF was automatically generated for "${deal.name}" when the deal advanced to Exit Marketed. Review the document in the Artifacts tab.`,
-        pipelineStep: 7, // EXIT_MARKETED is late-stage
+        description: `A Buyer Teaser PDF was automatically generated for "${deal.name}" when the deal advanced to ${currentStage?.name ?? "Disposition"}. Review the document in the Artifacts tab.`,
+        pipelineStep,
       });
 
       console.log(

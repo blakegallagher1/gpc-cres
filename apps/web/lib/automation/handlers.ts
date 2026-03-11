@@ -35,13 +35,13 @@ export function ensureHandlersRegistered(): void {
 
   // #5 Stage Advancement: suggest advancing when step tasks are done
   registerHandler("task.completed", handleAdvancement);
-  registerHandler("deal.statusChanged", handleStatusChangeReminder);
+  registerHandler("deal.stageChanged", handleStatusChangeReminder);
 
   // #6 Document Management: auto-classify uploads
   registerHandler("upload.created", handleUploadCreated);
 
-  // #10 Buyer Outreach: match buyers when deal reaches EXIT_MARKETED
-  registerHandler("deal.statusChanged", handleBuyerOutreach);
+  // #10 Buyer Outreach: match buyers when deal reaches workflow disposition
+  registerHandler("deal.stageChanged", handleBuyerOutreach);
   registerHandler("triage.completed", handleTriageBuyerMatch);
 
   // #1 Deal Intake: auto-create deals from incoming inquiries
@@ -50,19 +50,19 @@ export function ensureHandlersRegistered(): void {
   // To enable: implement email parser → dispatchEvent({ type: "intake.received", ... })
   registerHandler("intake.received", handleIntakeReceived);
 
-  // #9 Artifact Auto-Generation: BUYER_TEASER on EXIT_MARKETED + triage notification
-  registerHandler("deal.statusChanged", handleArtifactOnStatusChange);
+  // #9 Artifact Auto-Generation: BUYER_TEASER on workflow disposition + triage notification
+  registerHandler("deal.stageChanged", handleArtifactOnStatusChange);
   registerHandler("triage.completed", handleTriageArtifactNotification);
 
-  // #11 Entitlement Strategy Autopilot: PREAPP/CONCEPT recommendation materialization
-  registerHandler("deal.statusChanged", handleEntitlementStrategyAutopilot);
+  // #11 Entitlement Strategy Autopilot: entitlement underwriting recommendation materialization
+  registerHandler("deal.stageChanged", handleEntitlementStrategyAutopilot);
 
   // #E1 Financial Model Auto-Initialization
   registerHandler("triage.completed", handleFinancialInit);
 
   // #E5 Automated Knowledge Capture: persist terminal deal learnings
-  registerHandler("deal.statusChanged", handleKnowledgeCapture);
+  registerHandler("deal.stageChanged", handleKnowledgeCapture);
 
   // #MEM-003 Calibration v1: snapshot outcomes + ingest calibration records
-  registerHandler("deal.statusChanged", handleOutcomeCapture);
+  registerHandler("deal.stageChanged", handleOutcomeCapture);
 }

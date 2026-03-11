@@ -1,259 +1,33 @@
 "use client";
 
-import { Suspense, useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { DashboardShell } from "@/components/layout/DashboardShell";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { AddressAutocomplete, type AddressSuggestion } from "@/components/ui/address-autocomplete";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { ArrowLeft, Loader2 } from "lucide-react";
-import { toast } from "sonner";
-import Link from "next/link";
-
-const SKU_OPTIONS = [
-  { value: "SMALL_BAY_FLEX", label: "Small Bay Flex" },
-  { value: "OUTDOOR_STORAGE", label: "Outdoor Storage" },
-  { value: "TRUCK_PARKING", label: "Truck Parking" },
-];
-
-interface JurisdictionOption {
-  id: string;
-  name: string;
-}
+import { DealUpsertForm } from "@/components/deals/DealUpsertForm";
 
 export default function NewDealPage() {
   return (
-    <Suspense fallback={<DashboardShell><div className="mx-auto max-w-2xl p-8 text-center text-muted-foreground">Loading...</div></DashboardShell>}>
+    <Suspense
+      fallback={
+        <DashboardShell>
+          <div className="mx-auto max-w-2xl p-8 text-center text-muted-foreground">
+            Loading...
+          </div>
+        </DashboardShell>
+      }
+    >
       <NewDealForm />
     </Suspense>
   );
 }
 
 function NewDealForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const [submitting, setSubmitting] = useState(false);
-  const [jurisdictions, setJurisdictions] = useState<JurisdictionOption[]>([]);
-
-  // Pre-populate from query params (e.g. from opportunity match "Create Deal" button)
-  const prefillAddress = searchParams.get("address") ?? "";
-  const prefillParish = searchParams.get("parish") ?? "";
-
-  const [name, setName] = useState("");
-  const [sku, setSku] = useState("");
-  const [jurisdictionId, setJurisdictionId] = useState("");
-  const [parcelAddress, setParcelAddress] = useState(prefillAddress);
-  const [apn, setApn] = useState("");
-  const [notes, setNotes] = useState("");
-
-  useEffect(() => {
-    fetch("/api/jurisdictions")
-      .then((res) => res.json())
-      .then((data) => {
-        const juris = data.jurisdictions ?? [];
-        setJurisdictions(juris);
-        // Auto-select jurisdiction from parish query param
-        if (prefillParish && !jurisdictionId) {
-          const match = juris.find(
-            (j: JurisdictionOption) =>
-              j.name.toLowerCase().includes(prefillParish.toLowerCase())
-          );
-          if (match) setJurisdictionId(match.id);
-        }
-      })
-      .catch(() => {
-        setJurisdictions([
-          { id: "ebr", name: "East Baton Rouge" },
-          { id: "ascension", name: "Ascension" },
-          { id: "livingston", name: "Livingston" },
-        ]);
-      });
-  }, []);
-
-  // Auto-generate deal name from address if prefilled
-  useEffect(() => {
-    if (prefillAddress && !name) {
-      // Use the street portion of the address as the deal name
-      const street = prefillAddress.split(",")[0]?.trim();
-      if (street) setName(street);
-    }
-  }, [prefillAddress]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!name.trim()) {
-      toast.error("Deal name is required");
-      return;
-    }
-    if (!sku) {
-      toast.error("Please select a SKU");
-      return;
-    }
-    if (!jurisdictionId) {
-      toast.error("Please select a jurisdiction");
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      const res = await fetch("/api/deals", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: name.trim(),
-          sku,
-          jurisdictionId,
-          parcelAddress: parcelAddress.trim() || undefined,
-          apn: apn.trim() || undefined,
-          notes: notes.trim() || undefined,
-        }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to create deal");
-      }
-
-      const data = await res.json();
-      toast.success("Deal created");
-      router.push(`/deals/${data.deal.id}`);
-    } catch (error) {
-      console.error("Failed to create deal:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to create deal");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   return (
-    <DashboardShell>
-      <div className="mx-auto max-w-2xl space-y-6">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" asChild>
-            <Link href="/deals">
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold">New Deal</h1>
-            <p className="text-sm text-muted-foreground">
-              Create a new entitlement deal to track through the pipeline.
-            </p>
-          </div>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Deal Details</CardTitle>
-            <CardDescription>
-              Fill in the basic information to create your deal.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Deal Name *</label>
-                <Input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Airline Hwy Flex Park"
-                  required
-                />
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">SKU *</label>
-                  <Select value={sku} onValueChange={setSku}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select product type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SKU_OPTIONS.map((o) => (
-                        <SelectItem key={o.value} value={o.value}>
-                          {o.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Jurisdiction *</label>
-                  <Select value={jurisdictionId} onValueChange={setJurisdictionId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select jurisdiction" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {jurisdictions.map((j) => (
-                        <SelectItem key={j.id} value={j.id}>
-                          {j.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Parcel Address</label>
-                <AddressAutocomplete
-                  value={parcelAddress}
-                  onChange={setParcelAddress}
-                  onSelect={(suggestion: AddressSuggestion) => {
-                    setParcelAddress(suggestion.description);
-                    // Auto-generate deal name from the selected address
-                    if (!name) {
-                      const street = suggestion.description.split(",")[0]?.trim();
-                      if (street) setName(street);
-                    }
-                  }}
-                  placeholder="Start typing an address..."
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">APN (optional)</label>
-                <Input
-                  value={apn}
-                  onChange={(e) => setApn(e.target.value)}
-                  placeholder="e.g. 0123456789"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Notes (optional)</label>
-                <Textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Any additional context about this deal..."
-                  rows={3}
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-2">
-                <Button variant="outline" type="button" asChild>
-                  <Link href="/deals">Cancel</Link>
-                </Button>
-                <Button type="submit" disabled={submitting} className="gap-2">
-                  {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Create Deal
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
-    </DashboardShell>
+    <DealUpsertForm
+      mode="create"
+      prefillAddress={searchParams.get("address") ?? ""}
+      prefillParish={searchParams.get("parish") ?? ""}
+    />
   );
 }

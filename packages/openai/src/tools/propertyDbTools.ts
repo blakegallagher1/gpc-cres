@@ -243,6 +243,56 @@ async function geocodeAddress(address: string): Promise<{ lat: number; lng: numb
 }
 
 // ---------------------------------------------------------------------------
+// Map Feature Envelope — inline helper (cannot import from apps/web/)
+// ---------------------------------------------------------------------------
+
+interface MapFeatureEnvelope {
+  parcelId: string;
+  address?: string;
+  zoningType?: string;
+  center?: { lat: number; lng: number };
+  label?: string;
+}
+
+const MAP_FEATURES_KEY = "__mapFeatures";
+
+function extractMapFeatures(
+  parcels: unknown,
+): MapFeatureEnvelope[] {
+  const arr = Array.isArray(parcels) ? parcels : [parcels];
+  const features: MapFeatureEnvelope[] = [];
+  for (const p of arr) {
+    if (!p || typeof p !== "object") continue;
+    const rec = p as Record<string, unknown>;
+    const id = String(rec.parcel_id ?? rec.parcelId ?? rec.id ?? "");
+    if (!id) continue;
+    const address = String(rec.site_addr ?? rec.siteAddr ?? rec.address ?? "");
+    const zoning = rec.zoning_type ?? rec.zoningType;
+    let center: { lat: number; lng: number } | undefined;
+    if (rec.latitude && rec.longitude) {
+      center = { lat: Number(rec.latitude), lng: Number(rec.longitude) };
+    } else if (rec.centroid_lat && rec.centroid_lng) {
+      center = { lat: Number(rec.centroid_lat), lng: Number(rec.centroid_lng) };
+    }
+    features.push({
+      parcelId: id,
+      address: address || undefined,
+      zoningType: typeof zoning === "string" ? zoning : undefined,
+      center,
+      label: address || id,
+    });
+  }
+  return features;
+}
+
+function wrapResultWithMapFeatures(result: unknown): string {
+  const text = JSON.stringify(result);
+  const features = extractMapFeatures(result);
+  if (features.length === 0) return text;
+  return JSON.stringify({ text, [MAP_FEATURES_KEY]: features });
+}
+
+// ---------------------------------------------------------------------------
 // 1. Search Parcels — geocode address then bbox search on gateway
 // ---------------------------------------------------------------------------
 export const searchParcels = tool({
@@ -276,7 +326,7 @@ export const searchParcels = tool({
       ...(parish ? { parish } : {}),
       ...(limit_rows ? { limit_rows } : {}),
     });
-    return JSON.stringify(result);
+    return wrapResultWithMapFeatures(result);
   },
 });
 
@@ -296,7 +346,7 @@ export const getParcelDetails = tool({
   }),
   execute: async ({ parcel_id }) => {
     const result = await rpc("api_get_parcel", { parcel_id });
-    return JSON.stringify(result);
+    return wrapResultWithMapFeatures(result);
   },
 });
 
@@ -314,7 +364,7 @@ export const screenZoning = tool({
   }),
   execute: async ({ parcel_id }) => {
     const result = await gatewayPost("/api/screening/zoning", { parcelId: parcel_id });
-    return JSON.stringify(result);
+    return wrapResultWithMapFeatures(result);
   },
 });
 
@@ -332,7 +382,7 @@ export const screenFlood = tool({
   }),
   execute: async ({ parcel_id }) => {
     const result = await rpc("api_screen_flood", { parcel_id });
-    return JSON.stringify(result);
+    return wrapResultWithMapFeatures(result);
   },
 });
 
@@ -461,7 +511,7 @@ export const screenFull = tool({
   }),
   execute: async ({ parcel_id }) => {
     const result = await rpc("api_screen_full", { parcel_id });
-    return JSON.stringify(result);
+    return wrapResultWithMapFeatures(result);
   },
 });
 
@@ -492,7 +542,7 @@ export const queryPropertyDb = tool({
       Object.entries(params).filter(([, v]) => v != null)
     );
     const result = await gatewayPost("/tools/parcels.search", cleaned);
-    return JSON.stringify(result);
+    return wrapResultWithMapFeatures(result);
   },
 });
 
@@ -633,7 +683,7 @@ export const screenBatch = tool({
         });
       }
 
-      return JSON.stringify(result);
+      return wrapResultWithMapFeatures(result);
     } catch (batchError) {
       // Push error event if conversationId provided
       if (conversationId) {

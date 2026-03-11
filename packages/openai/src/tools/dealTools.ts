@@ -7,6 +7,8 @@ import {
   type DevelopmentBudgetCalcInput,
 } from "@entitlement-os/shared";
 
+// Legacy compatibility statuses still gate certain downstream actions, but
+// workflowTemplateKey/currentStageKey are the canonical lifecycle fields.
 const HIGH_IMPACT_STATUSES = ["APPROVED", "EXIT_MARKETED", "EXITED", "KILLED"] as const;
 const PACK_STALE_DAYS = 7;
 const PACK_COVERAGE_MINIMUM = 0.75;
@@ -895,7 +897,8 @@ export const getDealContext = tool({
 
 export const createDeal = tool({
   name: "create_deal",
-  description: "Create a new deal with a name, SKU type, and jurisdiction",
+  description:
+    "Create a new deal with a name, legacy SKU compatibility hint, and jurisdiction. Canonical workflow routing should use workflow template and current stage from the application layer.",
   parameters: z.object({
     orgId: z.string().uuid().describe("The org ID for security scoping"),
     createdBy: z.string().describe("The user ID creating the deal"),
@@ -941,7 +944,8 @@ export const createDeal = tool({
 
 export const updateDealStatus = tool({
   name: "update_deal_status",
-  description: "Update the status of a deal (e.g. INTAKE -> TRIAGE_DONE)",
+  description:
+    "Update the legacy compatibility status echo for a deal. Use this only when a legacy entitlement-facing workflow still needs a status change; generalized workflows should reason from workflow template and current stage.",
   parameters: z.object({
     orgId: z.string().uuid().describe("The org ID for security scoping"),
     dealId: z.string().describe("The deal ID to update"),
@@ -959,7 +963,7 @@ export const updateDealStatus = tool({
         "EXITED",
         "KILLED",
       ])
-      .describe("The new deal status"),
+      .describe("The new legacy compatibility status"),
     notes: z.string().optional().nullable().describe("Optional notes about the status change"),
     confirmed: z
       .boolean()

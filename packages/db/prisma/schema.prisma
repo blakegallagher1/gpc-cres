@@ -28,6 +28,81 @@ enum deal_status {
   KILLED
 }
 
+enum deal_asset_class {
+  LAND
+  INDUSTRIAL
+  OFFICE
+  RETAIL
+  MULTIFAMILY
+  SELF_STORAGE
+  HOSPITALITY
+  MIXED_USE
+  SPECIALTY
+  PORTFOLIO
+}
+
+enum deal_strategy {
+  ENTITLEMENT
+  GROUND_UP_DEVELOPMENT
+  VALUE_ADD_ACQUISITION
+  CORE_ACQUISITION
+  LEASE_UP
+  ASSET_MANAGEMENT
+  RECAPITALIZATION
+  REFINANCE
+  DISPOSITION
+  DEBT_PLACEMENT
+}
+
+enum workflow_template_key {
+  ENTITLEMENT_LAND
+  DEVELOPMENT
+  ACQUISITION
+  LEASE_UP
+  ASSET_MANAGEMENT
+  DISPOSITION
+  REFINANCE
+  PORTFOLIO_REVIEW
+}
+
+enum deal_stage_key {
+  ORIGINATION
+  SCREENING
+  UNDERWRITING
+  DUE_DILIGENCE
+  CONTRACTING
+  EXECUTION
+  ASSET_MANAGEMENT
+  DISPOSITION
+  CLOSED_WON
+  CLOSED_LOST
+}
+
+enum opportunity_kind {
+  SITE
+  PROPERTY
+  LOAN
+  PORTFOLIO
+  TENANT
+  JV
+}
+
+enum deal_source_type {
+  MANUAL
+  BROKER
+  OWNER_DIRECT
+  MARKET_SCAN
+  AGENT_DISCOVERY
+  REFERRAL
+  IMPORT
+}
+
+enum deal_asset_role {
+  PRIMARY
+  COMPARABLE
+  ADJACENT
+}
+
 enum task_status {
   TODO
   IN_PROGRESS
@@ -258,6 +333,13 @@ model Org {
   counterfactualDealLogs         CounterfactualDealLog[]
   entityCollisionAlerts          EntityCollisionAlert[]
   driftFreezeStates              DriftFreezeState[]
+  assets                         Asset[]
+  dealAssets                     DealAsset[]
+  workflowTemplates              WorkflowTemplate[]
+  workflowStages                 WorkflowStage[]
+  dealStageHistories             DealStageHistory[]
+  generalizedScorecards          GeneralizedScorecard[]
+  moduleStates                   ModuleState[]
 
   @@map("orgs")
 }
@@ -265,7 +347,7 @@ model Org {
 model User {
   id           String   @id @db.Uuid
   email        String   @db.Text
-  passwordHash String?  @db.Text @map("password_hash")
+  passwordHash String?  @map("password_hash") @db.Text
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   memberships              OrgMembership[]
@@ -338,28 +420,45 @@ model JurisdictionSeedSource {
 }
 
 model Deal {
-  id                        String      @id @default(uuid()) @db.Uuid
-  orgId                     String      @map("org_id") @db.Uuid
-  name                      String      @db.Text
+  id                        String                 @id @default(uuid()) @db.Uuid
+  orgId                     String                 @map("org_id") @db.Uuid
+  name                      String                 @db.Text
+  /// @deprecated Compatibility-only field derived from assetClass/strategy/workflowTemplateKey.
   sku                       sku_type
-  jurisdictionId            String      @map("jurisdiction_id") @db.Uuid
-  status                    deal_status @default(INTAKE)
-  targetCloseDate           DateTime?   @map("target_close_date") @db.Date
-  notes                     String?     @db.Text
-  createdBy                 String      @map("created_by") @db.Uuid
-  createdAt                 DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                 DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
-  source                    String?     @db.Text
-  financialModelAssumptions Json?       @map("financial_model_assumptions") @db.JsonB
-  financialModelScenarios   Json?       @map("financial_model_scenarios") @db.JsonB
-  waterfallStructures       Json?       @map("waterfall_structures") @db.JsonB
-  debtComparisons           Json?       @map("debt_comparisons") @db.JsonB
+  jurisdictionId            String                 @map("jurisdiction_id") @db.Uuid
+  /// @deprecated Compatibility-only field derived from currentStageKey for legacy entitlement clients.
+  status                    deal_status            @default(INTAKE)
+  assetClass                deal_asset_class?      @map("asset_class")
+  assetSubtype              String?                @map("asset_subtype") @db.Text
+  strategy                  deal_strategy?
+  workflowTemplateKey       workflow_template_key? @map("workflow_template_key")
+  currentStageKey           deal_stage_key?        @map("current_stage_key")
+  opportunityKind           opportunity_kind?      @map("opportunity_kind")
+  dealSourceType            deal_source_type?      @map("deal_source_type")
+  primaryAssetId            String?                @map("primary_asset_id") @db.Uuid
+  marketName                String?                @map("market_name") @db.Text
+  investmentSummary         String?                @map("investment_summary") @db.Text
+  businessPlanSummary       String?                @map("business_plan_summary") @db.Text
+  legacySku                 sku_type?              @map("legacy_sku")
+  legacyStatus              deal_status?           @map("legacy_status")
+  targetCloseDate           DateTime?              @map("target_close_date") @db.Date
+  notes                     String?                @db.Text
+  createdBy                 String                 @map("created_by") @db.Uuid
+  createdAt                 DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                 DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+  source                    String?                @db.Text
+  financialModelAssumptions Json?                  @map("financial_model_assumptions") @db.JsonB
+  financialModelScenarios   Json?                  @map("financial_model_scenarios") @db.JsonB
+  waterfallStructures       Json?                  @map("waterfall_structures") @db.JsonB
+  debtComparisons           Json?                  @map("debt_comparisons") @db.JsonB
 
   org          Org          @relation(fields: [orgId], references: [id], onDelete: Cascade)
   jurisdiction Jurisdiction @relation(fields: [jurisdictionId], references: [id], onDelete: Restrict)
   creator      User         @relation("deal_created_by", fields: [createdBy], references: [id], onDelete: Restrict)
+  primaryAsset Asset?       @relation("deal_primary_asset", fields: [primaryAssetId, orgId], references: [id, orgId], onDelete: Restrict)
 
   parcels                        Parcel[]
+  dealAssets                     DealAsset[]
   tasks                          Task[]
   outreach                       Outreach[]
   runs                           Run[]
@@ -391,11 +490,168 @@ model Deal {
   entitlementOutcomePrecedents   EntitlementOutcomePrecedent[]
   entitlementPredictionSnapshots EntitlementPredictionSnapshot[]
   counterfactualLogs             CounterfactualDealLog[]
+  stageHistory                   DealStageHistory[]
+  generalizedScorecards          GeneralizedScorecard[]
+  moduleStates                   ModuleState[]
 
+  @@unique([id, orgId])
   @@index([orgId])
   @@index([jurisdictionId])
   @@index([status])
+  @@index([orgId, primaryAssetId])
   @@map("deals")
+}
+
+model Asset {
+  id                String            @id @default(uuid()) @db.Uuid
+  orgId             String            @map("org_id") @db.Uuid
+  name              String            @db.Text
+  address           String?           @db.Text
+  city              String?           @db.Text
+  state             String?           @db.Text
+  zip               String?           @db.Text
+  county            String?           @db.Text
+  parcelNumber      String?           @map("parcel_number") @db.Text
+  assetClass        deal_asset_class? @map("asset_class")
+  assetSubtype      String?           @map("asset_subtype") @db.Text
+  lat               Decimal?          @db.Decimal(10, 7)
+  lng               Decimal?          @db.Decimal(10, 7)
+  acreage           Decimal?          @db.Decimal(12, 4)
+  sfGross           Decimal?          @map("sf_gross") @db.Decimal(14, 2)
+  sfNet             Decimal?          @map("sf_net") @db.Decimal(14, 2)
+  yearBuilt         Int?              @map("year_built")
+  zoning            String?           @db.Text
+  zoningDescription String?           @map("zoning_description") @db.Text
+  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  org             Org         @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  primaryForDeals Deal[]      @relation("deal_primary_asset")
+  dealAssets      DealAsset[]
+
+  @@unique([id, orgId])
+  @@index([orgId])
+  @@index([orgId, parcelNumber])
+  @@index([orgId, address])
+  @@map("assets")
+}
+
+model DealAsset {
+  id        String          @id @default(uuid()) @db.Uuid
+  orgId     String          @map("org_id") @db.Uuid
+  dealId    String          @map("deal_id") @db.Uuid
+  assetId   String          @map("asset_id") @db.Uuid
+  role      deal_asset_role
+  createdAt DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  org   Org   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  deal  Deal  @relation(fields: [dealId, orgId], references: [id, orgId], onDelete: Cascade)
+  asset Asset @relation(fields: [assetId, orgId], references: [id, orgId], onDelete: Cascade)
+
+  @@unique([dealId, assetId])
+  @@index([orgId])
+  @@index([orgId, dealId])
+  @@index([orgId, assetId])
+  @@map("deal_assets")
+}
+
+model WorkflowTemplate {
+  id          String                @id @default(uuid()) @db.Uuid
+  orgId       String                @map("org_id") @db.Uuid
+  key         workflow_template_key
+  name        String                @db.Text
+  description String?               @db.Text
+  isDefault   Boolean               @default(false) @map("is_default")
+  createdAt   DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  org    Org             @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  stages WorkflowStage[]
+
+  @@unique([id, orgId])
+  @@unique([orgId, key])
+  @@index([orgId])
+  @@map("workflow_templates")
+}
+
+model WorkflowStage {
+  id           String         @id @default(uuid()) @db.Uuid
+  orgId        String         @map("org_id") @db.Uuid
+  templateId   String         @map("template_id") @db.Uuid
+  key          deal_stage_key
+  name         String         @db.Text
+  ordinal      Int
+  description  String?        @db.Text
+  requiredGate String?        @map("required_gate") @db.Text
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  org      Org              @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  template WorkflowTemplate @relation(fields: [templateId, orgId], references: [id, orgId], onDelete: Cascade)
+
+  @@unique([templateId, key])
+  @@unique([templateId, ordinal])
+  @@index([orgId])
+  @@index([orgId, templateId])
+  @@map("workflow_stages")
+}
+
+model DealStageHistory {
+  id           String          @id @default(uuid()) @db.Uuid
+  dealId       String          @map("deal_id") @db.Uuid
+  orgId        String          @map("org_id") @db.Uuid
+  fromStageKey deal_stage_key? @map("from_stage_key")
+  toStageKey   deal_stage_key  @map("to_stage_key")
+  changedBy    String?         @map("changed_by") @db.Uuid
+  changedAt    DateTime        @default(now()) @map("changed_at") @db.Timestamptz(6)
+  note         String?         @db.Text
+
+  deal Deal @relation(fields: [dealId, orgId], references: [id, orgId], onDelete: Cascade)
+  org  Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([orgId, dealId])
+  @@index([toStageKey])
+  @@map("deal_stage_history")
+}
+
+model GeneralizedScorecard {
+  id        String   @id @default(uuid()) @db.Uuid
+  dealId    String   @map("deal_id") @db.Uuid
+  orgId     String   @map("org_id") @db.Uuid
+  module    String   @db.Text
+  dimension String   @db.Text
+  score     Float
+  weight    Float?
+  evidence  String?  @db.Text
+  scoredAt  DateTime @default(now()) @map("scored_at") @db.Timestamptz(6)
+  scoredBy  String?  @map("scored_by") @db.Uuid
+
+  deal Deal @relation(fields: [dealId, orgId], references: [id, orgId], onDelete: Cascade)
+  org  Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([orgId, dealId])
+  @@index([module])
+  @@map("generalized_scorecards")
+}
+
+model ModuleState {
+  id        String   @id @default(uuid()) @db.Uuid
+  dealId    String   @map("deal_id") @db.Uuid
+  orgId     String   @map("org_id") @db.Uuid
+  module    String   @db.Text
+  stateJson Json     @map("state_json") @db.JsonB
+  version   Int      @default(1)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy String?  @map("updated_by") @db.Uuid
+
+  deal Deal @relation(fields: [dealId, orgId], references: [id, orgId], onDelete: Cascade)
+  org  Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, dealId, module])
+  @@index([orgId])
+  @@index([orgId, dealId])
+  @@map("module_states")
 }
 
 model Parcel {
@@ -985,21 +1241,21 @@ model MarketDataPoint {
 }
 
 model AutomationEvent {
-  id              String    @id @default(uuid()) @db.Uuid
-  orgId           String    @map("org_id") @db.Uuid
-  dealId          String?   @map("deal_id") @db.Uuid
-  handlerName     String    @map("handler_name") @db.Text
-  eventType       String    @map("event_type") @db.Text
-  status          String    @db.Text // pending|running|completed|failed
-  idempotencyKey  String?   @unique @map("idempotency_key") @db.Text
-  inputData       Json      @default("{}") @map("input_data") @db.JsonB
-  outputData      Json      @default("{}") @map("output_data") @db.JsonB
-  error           String?   @db.Text
-  startedAt       DateTime  @default(now()) @map("started_at") @db.Timestamptz(6)
-  completedAt     DateTime? @map("completed_at") @db.Timestamptz(6)
-  durationMs      Int?      @map("duration_ms")
-  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id             String    @id @default(uuid()) @db.Uuid
+  orgId          String    @map("org_id") @db.Uuid
+  dealId         String?   @map("deal_id") @db.Uuid
+  handlerName    String    @map("handler_name") @db.Text
+  eventType      String    @map("event_type") @db.Text
+  status         String    @db.Text // pending|running|completed|failed
+  idempotencyKey String?   @unique @map("idempotency_key") @db.Text
+  inputData      Json      @default("{}") @map("input_data") @db.JsonB
+  outputData     Json      @default("{}") @map("output_data") @db.JsonB
+  error          String?   @db.Text
+  startedAt      DateTime  @default(now()) @map("started_at") @db.Timestamptz(6)
+  completedAt    DateTime? @map("completed_at") @db.Timestamptz(6)
+  durationMs     Int?      @map("duration_ms")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@index([orgId])
   @@index([orgId, dealId])
@@ -1200,7 +1456,7 @@ model DealOutcome {
   createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  deal           Deal            @relation(fields: [dealId], references: [id], onDelete: Cascade)
   internalEntity InternalEntity? @relation("DealOutcomes", fields: [entityId], references: [id])
 
   @@index([dealId])
@@ -1720,11 +1976,11 @@ model InternalEntity {
   createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  org             Org              @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  memoryEventLogs MemoryEventLog[]
-  draftMemories    MemoryDraft[]    @relation("DraftMemories")
-  verifiedMemories MemoryVerified[] @relation("VerifiedMemories")
-  rejectedMemories MemoryRejected[] @relation("RejectedMemories")
+  org                   Org                    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  memoryEventLogs       MemoryEventLog[]
+  draftMemories         MemoryDraft[]          @relation("DraftMemories")
+  verifiedMemories      MemoryVerified[]       @relation("VerifiedMemories")
+  rejectedMemories      MemoryRejected[]       @relation("RejectedMemories")
   dealOutcomes          DealOutcome[]          @relation("DealOutcomes")
   causalImpactTraces    CausalImpactTrace[]    @relation("EntityCausalTraces")
   innovationQueue       InnovationQueue[]      @relation("EntityInnovationQueue")
@@ -1737,23 +1993,23 @@ model InternalEntity {
 }
 
 model MemoryEventLog {
-  id           String   @id @default(uuid()) @db.Uuid
-  orgId        String   @map("org_id") @db.Uuid
-  entityId     String   @map("entity_id") @db.Uuid
-  dealId       String?  @map("deal_id") @db.Uuid
-  threadId     String?  @map("thread_id") @db.Text
-  userId       String?  @map("user_id") @db.Uuid
-  sourceType   String   @map("source_type") @db.Text
-  factType     String   @map("fact_type") @db.Text
-  payloadJson  Json     @map("payload_json") @db.JsonB
-  status       String   @db.Text
-  conflictFlag Boolean  @default(false) @map("conflict_flag")
-  timestamp    DateTime @default(now()) @db.Timestamptz(6)
-  requestId    String   @map("request_id") @db.Text
-  modelTraceId String?  @map("model_trace_id") @db.Text
-  toolName     String?  @map("tool_name") @db.Text
-  latencyMs    Int?     @map("latency_ms")
-  tokenUsage   Int?     @map("token_usage")
+  id             String   @id @default(uuid()) @db.Uuid
+  orgId          String   @map("org_id") @db.Uuid
+  entityId       String   @map("entity_id") @db.Uuid
+  dealId         String?  @map("deal_id") @db.Uuid
+  threadId       String?  @map("thread_id") @db.Text
+  userId         String?  @map("user_id") @db.Uuid
+  sourceType     String   @map("source_type") @db.Text
+  factType       String   @map("fact_type") @db.Text
+  payloadJson    Json     @map("payload_json") @db.JsonB
+  status         String   @db.Text
+  conflictFlag   Boolean  @default(false) @map("conflict_flag")
+  timestamp      DateTime @default(now()) @db.Timestamptz(6)
+  requestId      String   @map("request_id") @db.Text
+  modelTraceId   String?  @map("model_trace_id") @db.Text
+  toolName       String?  @map("tool_name") @db.Text
+  latencyMs      Int?     @map("latency_ms")
+  tokenUsage     Int?     @map("token_usage")
   costUsd        Float?   @map("cost_usd") @db.DoublePrecision
   causalMetadata Json?    @map("causal_metadata") @db.JsonB
 
@@ -1771,26 +2027,26 @@ model MemoryEventLog {
 }
 
 model CalibrationSegment {
-  id               String   @id @default(uuid()) @db.Uuid
-  orgId            String   @map("org_id")
-  propertyType     String   @map("property_type")
-  market           String
-  strategy         String
-  leverageBand     String   @map("leverage_band")
-  vintageYear      Int      @map("vintage_year")
-  noiBias          Float?   @map("noi_bias")
-  rehabBias        Float?   @map("rehab_bias")
-  exitCapBias      Float?   @map("exit_cap_bias")
-  leaseUpBias      Float?   @map("lease_up_bias")
-  sampleN          Int      @default(0) @map("sample_n")
-  variance         Float?
-  mae              Float?
-  lastUpdated      DateTime @default(now()) @map("last_updated") @db.Timestamptz(6)
+  id           String   @id @default(uuid()) @db.Uuid
+  orgId        String   @map("org_id")
+  propertyType String   @map("property_type")
+  market       String
+  strategy     String
+  leverageBand String   @map("leverage_band")
+  vintageYear  Int      @map("vintage_year")
+  noiBias      Float?   @map("noi_bias")
+  rehabBias    Float?   @map("rehab_bias")
+  exitCapBias  Float?   @map("exit_cap_bias")
+  leaseUpBias  Float?   @map("lease_up_bias")
+  sampleN      Int      @default(0) @map("sample_n")
+  variance     Float?
+  mae          Float?
+  lastUpdated  DateTime @default(now()) @map("last_updated") @db.Timestamptz(6)
 
-  records          CalibrationRecord[]
+  records CalibrationRecord[]
 
-  @@map("CalibrationSegment")
   @@unique([propertyType, market, strategy, leverageBand, vintageYear], map: "uq_calibration_segment")
+  @@map("CalibrationSegment")
 }
 
 model MemorySourceRegistry {
@@ -1807,20 +2063,20 @@ model MemorySourceRegistry {
 }
 
 model MemoryDraft {
-  id              String   @id @default(uuid()) @db.Uuid
-  orgId           String   @map("org_id") @db.Uuid
-  entityId        String   @map("entity_id") @db.Uuid
-  factType        String   @map("fact_type") @db.Text
-  sourceType      String   @map("source_type") @db.Text
-  economicWeight  Float    @map("economic_weight") @db.DoublePrecision
-  volatilityClass String   @map("volatility_class") @db.Text
-  payloadJson     Json     @map("payload_json") @db.JsonB
-  conflictFlag    Boolean  @default(false) @map("conflict_flag")
-  requestId       String   @map("request_id") @db.Text
-  eventLogId      String   @map("event_log_id") @db.Uuid
-  tier              Int      @default(1)
-  confidenceVector  Json?    @map("confidence_vector") @db.JsonB
-  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  id               String   @id @default(uuid()) @db.Uuid
+  orgId            String   @map("org_id") @db.Uuid
+  entityId         String   @map("entity_id") @db.Uuid
+  factType         String   @map("fact_type") @db.Text
+  sourceType       String   @map("source_type") @db.Text
+  economicWeight   Float    @map("economic_weight") @db.DoublePrecision
+  volatilityClass  String   @map("volatility_class") @db.Text
+  payloadJson      Json     @map("payload_json") @db.JsonB
+  conflictFlag     Boolean  @default(false) @map("conflict_flag")
+  requestId        String   @map("request_id") @db.Text
+  eventLogId       String   @map("event_log_id") @db.Uuid
+  tier             Int      @default(1)
+  confidenceVector Json?    @map("confidence_vector") @db.JsonB
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   entity InternalEntity @relation("DraftMemories", fields: [entityId], references: [id], onDelete: Cascade)
 
@@ -1831,19 +2087,19 @@ model MemoryDraft {
 }
 
 model MemoryVerified {
-  id              String   @id @default(uuid()) @db.Uuid
-  orgId           String   @map("org_id") @db.Uuid
-  entityId        String   @map("entity_id") @db.Uuid
-  factType        String   @map("fact_type") @db.Text
-  sourceType      String   @map("source_type") @db.Text
-  economicWeight  Float    @map("economic_weight") @db.DoublePrecision
-  volatilityClass String   @map("volatility_class") @db.Text
-  payloadJson     Json     @map("payload_json") @db.JsonB
-  requestId       String   @map("request_id") @db.Text
-  eventLogId      String   @map("event_log_id") @db.Uuid
-  tier              Int      @default(1)
-  confidenceVector  Json?    @map("confidence_vector") @db.JsonB
-  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  id               String   @id @default(uuid()) @db.Uuid
+  orgId            String   @map("org_id") @db.Uuid
+  entityId         String   @map("entity_id") @db.Uuid
+  factType         String   @map("fact_type") @db.Text
+  sourceType       String   @map("source_type") @db.Text
+  economicWeight   Float    @map("economic_weight") @db.DoublePrecision
+  volatilityClass  String   @map("volatility_class") @db.Text
+  payloadJson      Json     @map("payload_json") @db.JsonB
+  requestId        String   @map("request_id") @db.Text
+  eventLogId       String   @map("event_log_id") @db.Uuid
+  tier             Int      @default(1)
+  confidenceVector Json?    @map("confidence_vector") @db.JsonB
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   entity InternalEntity @relation("VerifiedMemories", fields: [entityId], references: [id], onDelete: Cascade)
 
@@ -1884,10 +2140,10 @@ model CalibrationRecord {
   effectiveWeight Float    @map("effective_weight")
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  segment   CalibrationSegment @relation(fields: [segmentId], references: [id])
+  segment CalibrationSegment @relation(fields: [segmentId], references: [id])
 
-  @@map("CalibrationRecord")
   @@index([segmentId], map: "idx_cal_record_segment")
+  @@map("CalibrationRecord")
 }
 
 model MemoryFeedback {
@@ -1929,20 +2185,20 @@ model CausalImpactTrace {
 }
 
 model InnovationQueue {
-  id               String   @id @default(uuid()) @db.Uuid
-  orgId            String   @map("org_id") @db.Uuid
-  entityId         String   @map("entity_id") @db.Uuid
-  memoryVerifiedId String?  @map("memory_verified_id") @db.Uuid
-  memoryDraftId    String?  @map("memory_draft_id") @db.Uuid
-  factType         String   @map("fact_type") @db.Text
-  sourceReliability Float   @map("source_reliability") @db.DoublePrecision
-  agreementScore   Float    @map("agreement_score") @db.DoublePrecision
-  noveltyReason    String   @map("novelty_reason") @db.Text
-  status           String   @default("pending") @db.Text
-  reviewedBy       String?  @map("reviewed_by") @db.Uuid
-  reviewedAt       DateTime? @map("reviewed_at") @db.Timestamptz(6)
-  reviewDecision   String?  @map("review_decision") @db.Text
-  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  id                String    @id @default(uuid()) @db.Uuid
+  orgId             String    @map("org_id") @db.Uuid
+  entityId          String    @map("entity_id") @db.Uuid
+  memoryVerifiedId  String?   @map("memory_verified_id") @db.Uuid
+  memoryDraftId     String?   @map("memory_draft_id") @db.Uuid
+  factType          String    @map("fact_type") @db.Text
+  sourceReliability Float     @map("source_reliability") @db.DoublePrecision
+  agreementScore    Float     @map("agreement_score") @db.DoublePrecision
+  noveltyReason     String    @map("novelty_reason") @db.Text
+  status            String    @default("pending") @db.Text
+  reviewedBy        String?   @map("reviewed_by") @db.Uuid
+  reviewedAt        DateTime? @map("reviewed_at") @db.Timestamptz(6)
+  reviewDecision    String?   @map("review_decision") @db.Text
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
 
   org    Org            @relation(fields: [orgId], references: [id], onDelete: Cascade)
   entity InternalEntity @relation("EntityInnovationQueue", fields: [entityId], references: [id], onDelete: Cascade)
@@ -1953,16 +2209,16 @@ model InnovationQueue {
 }
 
 model CounterfactualDealLog {
-  id               String   @id @default(uuid()) @db.Uuid
-  orgId            String   @map("org_id") @db.Uuid
-  dealId           String   @map("deal_id") @db.Uuid
-  outcome          String   @db.Text
-  rejectionReason  String?  @map("rejection_reason") @db.Text
-  stageAtClose     String   @map("stage_at_close") @db.Text
-  projectionSnapshot Json?  @map("projection_snapshot") @db.JsonB
-  actualMetrics    Json?    @map("actual_metrics") @db.JsonB
-  lessonsLearned   String?  @map("lessons_learned") @db.Text
-  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  id                 String   @id @default(uuid()) @db.Uuid
+  orgId              String   @map("org_id") @db.Uuid
+  dealId             String   @map("deal_id") @db.Uuid
+  outcome            String   @db.Text
+  rejectionReason    String?  @map("rejection_reason") @db.Text
+  stageAtClose       String   @map("stage_at_close") @db.Text
+  projectionSnapshot Json?    @map("projection_snapshot") @db.JsonB
+  actualMetrics      Json?    @map("actual_metrics") @db.JsonB
+  lessonsLearned     String?  @map("lessons_learned") @db.Text
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   org  Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
   deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
@@ -1973,18 +2229,18 @@ model CounterfactualDealLog {
 }
 
 model EntityCollisionAlert {
-  id            String   @id @default(uuid()) @db.Uuid
-  orgId         String   @map("org_id") @db.Uuid
-  entityIdA     String   @map("entity_id_a") @db.Uuid
-  entityIdB     String   @map("entity_id_b") @db.Uuid
-  similarity    Float    @db.DoublePrecision
-  addressA      String   @map("address_a") @db.Text
-  addressB      String   @map("address_b") @db.Text
-  status        String   @default("pending") @db.Text
-  resolvedBy    String?  @map("resolved_by") @db.Uuid
-  resolvedAt    DateTime? @map("resolved_at") @db.Timestamptz(6)
-  resolution    String?  @db.Text
-  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  id         String    @id @default(uuid()) @db.Uuid
+  orgId      String    @map("org_id") @db.Uuid
+  entityIdA  String    @map("entity_id_a") @db.Uuid
+  entityIdB  String    @map("entity_id_b") @db.Uuid
+  similarity Float     @db.DoublePrecision
+  addressA   String    @map("address_a") @db.Text
+  addressB   String    @map("address_b") @db.Text
+  status     String    @default("pending") @db.Text
+  resolvedBy String?   @map("resolved_by") @db.Uuid
+  resolvedAt DateTime? @map("resolved_at") @db.Timestamptz(6)
+  resolution String?   @db.Text
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
 
   org     Org            @relation(fields: [orgId], references: [id], onDelete: Cascade)
   entityA InternalEntity @relation("EntityCollisionAlerts", fields: [entityIdA], references: [id], onDelete: Cascade)
@@ -1996,18 +2252,18 @@ model EntityCollisionAlert {
 }
 
 model DriftFreezeState {
-  id               String   @id @default(uuid()) @db.Uuid
-  orgId            String   @map("org_id") @db.Uuid
-  segmentId        String   @map("segment_id") @db.Uuid
-  frozen           Boolean  @default(false)
-  consecutiveWorsenings Int @default(0) @map("consecutive_worsenings")
-  lastMae          Float?   @map("last_mae") @db.DoublePrecision
-  previousMae      Float?   @map("previous_mae") @db.DoublePrecision
-  frozenAt         DateTime? @map("frozen_at") @db.Timestamptz(6)
-  unfrozenAt       DateTime? @map("unfrozen_at") @db.Timestamptz(6)
-  unfrozenBy       String?  @map("unfrozen_by") @db.Uuid
-  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                    String    @id @default(uuid()) @db.Uuid
+  orgId                 String    @map("org_id") @db.Uuid
+  segmentId             String    @map("segment_id") @db.Uuid
+  frozen                Boolean   @default(false)
+  consecutiveWorsenings Int       @default(0) @map("consecutive_worsenings")
+  lastMae               Float?    @map("last_mae") @db.DoublePrecision
+  previousMae           Float?    @map("previous_mae") @db.DoublePrecision
+  frozenAt              DateTime? @map("frozen_at") @db.Timestamptz(6)
+  unfrozenAt            DateTime? @map("unfrozen_at") @db.Timestamptz(6)
+  unfrozenBy            String?   @map("unfrozen_by") @db.Uuid
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   org Org @relation(fields: [orgId], references: [id], onDelete: Cascade)
 

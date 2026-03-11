@@ -1,6 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
@@ -101,8 +109,31 @@ interface MapLibreParcelMapProps {
   onSelectionChange?: (ids: Set<string>) => void;
   /** Called on moveend with map center and zoom. */
   onViewStateChange?: (center: [number, number], zoom: number) => void;
+  /** Called once the MapLibre style is loaded and imperative APIs are safe. */
+  onMapReady?: () => void;
   /** Optional search UI rendered at the top of the layer panel. */
   searchSlot?: React.ReactNode;
+}
+
+export interface MapLibreParcelMapRef {
+  flyTo: (opts: { center: [number, number]; zoom?: number }) => void;
+  highlightParcels: (
+    parcelIds: string[],
+    style?: "pulse" | "outline" | "fill",
+    color?: string,
+    durationMs?: number,
+  ) => void;
+  addTemporaryLayer: (
+    layerId: string,
+    geojson: GeoJSON.FeatureCollection,
+    style?: {
+      fillColor?: string;
+      fillOpacity?: number;
+      strokeColor?: string;
+      strokeWidth?: number;
+    },
+  ) => void;
+  clearTemporaryLayers: (layerIds?: string[]) => void;
 }
 
 const ZOOM_LIMIT = 19;
@@ -446,7 +477,7 @@ function getVelocityColor(score: number): string {
   return "#FFEDA0";
 }
 
-export function MapLibreParcelMap({
+export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcelMapProps>(function MapLibreParcelMap({
   parcels,
   center = [-91.1871, 30.4515],
   zoom = 11,
@@ -463,11 +494,14 @@ export function MapLibreParcelMap({
   selectedParcelIds: selectedParcelIdsProp,
   onSelectionChange,
   onViewStateChange,
+  onMapReady,
   searchSlot,
-}: MapLibreParcelMapProps) {
+}, ref) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const popupRef = useRef<maplibregl.Popup | null>(null);
+  const temporaryLayerIdsRef = useRef<Map<string, string[]>>(new Map());
+  const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const fittedBoundsRef = useRef("");
   const [mapError, setMapError] = useState<string | null>(null);
@@ -483,6 +517,7 @@ export function MapLibreParcelMap({
   const [measureMode, setMeasureMode] = useState<"off" | "distance" | "area">("off");
   const [layerPanelOpen, setLayerPanelOpen] = useState(true);
   const [internalSelectedParcelIds, setInternalSelectedParcelIds] = useState<Set<string>>(new Set());
+  const [imperativeHighlightIds, setImperativeHighlightIds] = useState<Set<string>>(new Set());
   const [compareOpen, setCompareOpen] = useState(false);
   const selectedParcelIds = selectedParcelIdsProp ?? internalSelectedParcelIds;
   const selectedParcelIdsRef = useRef<Set<string>>(selectedParcelIds);
@@ -515,9 +550,14 @@ export function MapLibreParcelMap({
 
   // Stable ref for onViewStateChange to avoid stale closure in map event handlers
   const onViewStateChangeRef = useRef(onViewStateChange);
+  const onMapReadyRef = useRef(onMapReady);
   useEffect(() => {
     onViewStateChangeRef.current = onViewStateChange;
   }, [onViewStateChange]);
+
+  useEffect(() => {
+    onMapReadyRef.current = onMapReady;
+  }, [onMapReady]);
 
   useEffect(() => {
     selectedParcelIdsRef.current = selectedParcelIds;
@@ -538,13 +578,170 @@ export function MapLibreParcelMap({
     setInternalSelectedParcelIds(next);
   }, []);
 
+  const clearTemporaryLayers = useCallback((layerIds?: string[]) => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const targets =
+      layerIds && layerIds.length > 0
+        ? layerIds
+        : Array.from(temporaryLayerIdsRef.current.keys());
+
+    for (const layerId of targets) {
+      const actualLayerIds = temporaryLayerIdsRef.current.get(layerId) ?? [];
+
+      for (const actualLayerId of actualLayerIds) {
+        if (map.getLayer(actualLayerId)) {
+          map.removeLayer(actualLayerId);
+        }
+      }
+
+      if (map.getSource(layerId)) {
+        map.removeSource(layerId);
+      }
+
+      temporaryLayerIdsRef.current.delete(layerId);
+    }
+  }, []);
+
+  const addTemporaryLayer = useCallback(
+    (
+      layerId: string,
+      geojson: GeoJSON.FeatureCollection,
+      style?: {
+        fillColor?: string;
+        fillOpacity?: number;
+        strokeColor?: string;
+        strokeWidth?: number;
+      },
+    ) => {
+      const map = mapRef.current;
+      if (!map || !map.isStyleLoaded()) return;
+
+      clearTemporaryLayers([layerId]);
+
+      map.addSource(layerId, {
+        type: "geojson",
+        data: geojson,
+      });
+
+      const actualLayerIds: string[] = [];
+      const hasPolygon = geojson.features.some(
+        (feature) =>
+          feature.geometry?.type === "Polygon" ||
+          feature.geometry?.type === "MultiPolygon",
+      );
+      const hasLine = geojson.features.some(
+        (feature) =>
+          feature.geometry?.type === "LineString" ||
+          feature.geometry?.type === "MultiLineString",
+      );
+      const hasPoint = geojson.features.some(
+        (feature) =>
+          feature.geometry?.type === "Point" ||
+          feature.geometry?.type === "MultiPoint",
+      );
+
+      if (hasPolygon) {
+        const fillLayerId = `${layerId}-fill`;
+        map.addLayer({
+          id: fillLayerId,
+          type: "fill",
+          source: layerId,
+          paint: {
+            "fill-color": style?.fillColor ?? "#f97316",
+            "fill-opacity": style?.fillOpacity ?? 0.28,
+          },
+        });
+        actualLayerIds.push(fillLayerId);
+      }
+
+      if (hasLine || hasPolygon) {
+        const lineLayerId = `${layerId}-line`;
+        map.addLayer({
+          id: lineLayerId,
+          type: "line",
+          source: layerId,
+          paint: {
+            "line-color": style?.strokeColor ?? "#fb923c",
+            "line-width": style?.strokeWidth ?? 2,
+          },
+        });
+        actualLayerIds.push(lineLayerId);
+      }
+
+      if (hasPoint) {
+        const circleLayerId = `${layerId}-circle`;
+        map.addLayer({
+          id: circleLayerId,
+          type: "circle",
+          source: layerId,
+          paint: {
+            "circle-radius": 6,
+            "circle-color": style?.fillColor ?? "#f97316",
+            "circle-stroke-color": style?.strokeColor ?? "#fb923c",
+            "circle-stroke-width": 2,
+          },
+        });
+        actualLayerIds.push(circleLayerId);
+      }
+
+      temporaryLayerIdsRef.current.set(layerId, actualLayerIds);
+    },
+    [clearTemporaryLayers],
+  );
+
+  const highlightParcels = useCallback(
+    (
+      parcelIds: string[],
+      _style?: "pulse" | "outline" | "fill",
+      _color?: string,
+      durationMs = 0,
+    ) => {
+      if (highlightTimeoutRef.current) {
+        clearTimeout(highlightTimeoutRef.current);
+        highlightTimeoutRef.current = null;
+      }
+
+      setImperativeHighlightIds(new Set(parcelIds));
+
+      if (durationMs > 0) {
+        highlightTimeoutRef.current = setTimeout(() => {
+          setImperativeHighlightIds(new Set());
+          highlightTimeoutRef.current = null;
+        }, durationMs);
+      }
+    },
+    [],
+  );
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      flyTo: ({ center: nextCenter, zoom: nextZoom }) => {
+        mapRef.current?.flyTo({
+          center: nextCenter,
+          zoom: nextZoom,
+          duration: 1500,
+        });
+      },
+      highlightParcels,
+      addTemporaryLayer,
+      clearTemporaryLayers,
+    }),
+    [addTemporaryLayer, clearTemporaryLayers, highlightParcels],
+  );
+
   const effectiveSelectedIds = useMemo(() => {
     const merged = new Set(selectedParcelIds);
     if (highlightParcelIds) {
       for (const id of highlightParcelIds) merged.add(id);
     }
+    for (const id of imperativeHighlightIds) {
+      merged.add(id);
+    }
     return merged;
-  }, [selectedParcelIds, highlightParcelIds]);
+  }, [selectedParcelIds, highlightParcelIds, imperativeHighlightIds]);
   const selectedParcelsForCompare = useMemo(
     () => parcels.filter((parcel) => effectiveSelectedIds.has(parcel.id)),
     [parcels, effectiveSelectedIds]
@@ -1186,6 +1383,7 @@ export function MapLibreParcelMap({
 
         map.resize();
         setMapReady(true);
+        onMapReadyRef.current?.();
 
         const hideBoundaryLayerVisibility = () => {
           try {
@@ -1339,14 +1537,17 @@ export function MapLibreParcelMap({
     return () => {
       disposed = true;
       if (boundsTimerRef.current) clearTimeout(boundsTimerRef.current);
+      if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
+      setMapReady(false);
       if (mapRef.current) {
+        clearTemporaryLayers();
         popupRef.current?.remove();
         popupRef.current = null;
         mapRef.current.remove();
         mapRef.current = null;
       }
     };
-  }, [updateSelection]);
+  }, [clearTemporaryLayers, updateSelection]);
 
   useEffect(() => {
     if (!mapRef.current || !mapReady) return;
@@ -1739,7 +1940,7 @@ export function MapLibreParcelMap({
       {showTools && mapReady && <MapTour />}
     </div>
   );
-}
+});
 
 function MapLibreDrawControl({
   map,

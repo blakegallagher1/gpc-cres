@@ -1,3 +1,5 @@
+import type { DealStrategy, OpportunityKind } from "@entitlement-os/shared";
+
 export type SpecialistAgentKey =
   | "legal"
   | "research"
@@ -11,11 +13,17 @@ export type SpecialistAgentKey =
   | "marketing"
   | "tax"
   | "marketIntel"
-  | "marketTrajectory";
+  | "marketTrajectory"
+  | "acquisitionUnderwriting"
+  | "assetManagement"
+  | "capitalMarkets";
 
 export type QueryIntent =
   | "land_search"
   | "finance"
+  | "acquisition_underwriting"
+  | "asset_management"
+  | "capital_markets"
   | "legal"
   | "design"
   | "operations"
@@ -43,6 +51,11 @@ export interface QueryIntentProfile {
   keywordTriggers: RegExp[];
 }
 
+export interface DealRoutingContext {
+  strategy: DealStrategy | string | null;
+  opportunityKind: OpportunityKind | string | null;
+}
+
 export const SPECIALIST_AGENT_KEYS: SpecialistAgentKey[] = [
   "legal",
   "research",
@@ -57,6 +70,9 @@ export const SPECIALIST_AGENT_KEYS: SpecialistAgentKey[] = [
   "tax",
   "marketIntel",
   "marketTrajectory",
+  "acquisitionUnderwriting",
+  "assetManagement",
+  "capitalMarkets",
 ];
 
 export const SPECIALIST_LABELS: Record<SpecialistAgentKey, string> = {
@@ -73,6 +89,9 @@ export const SPECIALIST_LABELS: Record<SpecialistAgentKey, string> = {
   tax: "Tax",
   marketIntel: "Market Intelligence",
   marketTrajectory: "Market Trajectory",
+  acquisitionUnderwriting: "Acquisition Underwriting",
+  assetManagement: "Asset Management",
+  capitalMarkets: "Capital Markets",
 };
 
 const KNOWLEDGE_PROOF_GROUP: ProofGroup = {
@@ -83,6 +102,21 @@ const KNOWLEDGE_PROOF_GROUP: ProofGroup = {
 const PARCEL_PROOF_GROUP: ProofGroup = {
   label: "Parcel context",
   tools: ["search_parcels", "get_parcel_details"],
+};
+
+const DEAL_PROOF_GROUP: ProofGroup = {
+  label: "Deal context",
+  tools: ["get_deal_context", "query_document_extractions", "query_org_sql"],
+};
+
+const LEASE_PROOF_GROUP: ProofGroup = {
+  label: "Lease or rent roll evidence",
+  tools: ["get_rent_roll", "query_document_extractions", "acquisition_rent_roll_analysis"],
+};
+
+const CAPITAL_PROOF_GROUP: ProofGroup = {
+  label: "Capital structure evidence",
+  tools: ["model_capital_stack", "capital_debt_sizing_overview", "capital_stack_optimization"],
 };
 
 const QUERY_INTENT_PROFILES: Record<QueryIntent, QueryIntentProfile> = {
@@ -106,6 +140,45 @@ const QUERY_INTENT_PROFILES: Record<QueryIntent, QueryIntentProfile> = {
     proofGroups: [KNOWLEDGE_PROOF_GROUP],
     keywordTriggers: [
       /\bfinance\b/, /funding/, /capital\s+stack/, /IRR/, /cash\s+flow/, /debt/, /equity/, /return\s+on\s+investment/, /underwrite/,
+    ],
+  },
+  acquisition_underwriting: {
+    label: "Acquisition underwriting",
+    description: "Pre-close underwriting for property or site acquisitions using DCF, rent roll, and return metrics.",
+    specialists: ["acquisitionUnderwriting", "finance", "marketIntel"],
+    proofGroups: [DEAL_PROOF_GROUP, LEASE_PROOF_GROUP, CAPITAL_PROOF_GROUP],
+    keywordTriggers: [
+      /\bacquisition\b/,
+      /\bunderwrit(e|ing)\b/,
+      /\bdcf\b/,
+      /\bcap\s+rate\b/,
+      /\binvestment\s+committee\b/,
+    ],
+  },
+  asset_management: {
+    label: "Asset management",
+    description: "Post-close asset execution covering lease administration, tenant exposure, NOI growth, and capital planning.",
+    specialists: ["assetManagement", "operations", "finance"],
+    proofGroups: [DEAL_PROOF_GROUP, LEASE_PROOF_GROUP],
+    keywordTriggers: [
+      /\basset\s+management\b/,
+      /\blease\s+admin/i,
+      /\btenant\s+management\b/,
+      /\bnoi\s+optimization\b/,
+      /\bcapital\s+plan/i,
+    ],
+  },
+  capital_markets: {
+    label: "Capital markets",
+    description: "Debt sizing, refinance, sale execution, and capital stack optimization grounded in the deal record.",
+    specialists: ["capitalMarkets", "finance", "marketing"],
+    proofGroups: [DEAL_PROOF_GROUP, CAPITAL_PROOF_GROUP],
+    keywordTriggers: [
+      /\bcapital\s+markets\b/,
+      /\brefinanc(e|ing)\b/,
+      /\bdisposition\b/,
+      /\blender\b/,
+      /\bdebt\s+placement\b/,
     ],
   },
   legal: {
@@ -230,6 +303,9 @@ const QUERY_INTENT_PROFILES: Record<QueryIntent, QueryIntentProfile> = {
 const QUERY_INTENT_ORDER: QueryIntent[] = [
   "land_search",
   "finance",
+  "acquisition_underwriting",
+  "asset_management",
+  "capital_markets",
   "legal",
   "design",
   "operations",
@@ -260,6 +336,75 @@ export function inferQueryIntentFromText(text?: string): QueryIntent {
     }
   }
   return "general";
+}
+
+const ACQUISITION_STRATEGY_KEYS = new Set([
+  "ACQUISITION",
+  "GROUND_UP_DEVELOPMENT",
+]);
+
+const ASSET_MANAGEMENT_STRATEGY_KEYS = new Set([
+  "VALUE_ADD",
+  "VALUE_ADD_ACQUISITION",
+  "CORE_PLUS",
+  "CORE_ACQUISITION",
+  "ASSET_MANAGEMENT",
+  "LEASE_UP",
+]);
+
+const CAPITAL_MARKETS_STRATEGY_KEYS = new Set([
+  "DISPOSITION",
+  "REFINANCE",
+  "RECAPITALIZATION",
+  "DEBT_PLACEMENT",
+]);
+
+function normalizeEnumValue(value: string | null | undefined): string | null {
+  if (!value) {
+    return null;
+  }
+  return value.trim().toUpperCase();
+}
+
+export function inferQueryIntentFromDealContext(
+  deal: DealRoutingContext | null | undefined,
+): QueryIntent | null {
+  if (!deal) {
+    return null;
+  }
+
+  const strategy = normalizeEnumValue(deal.strategy ?? null);
+  const opportunityKind = normalizeEnumValue(deal.opportunityKind ?? null);
+
+  if (strategy === "ENTITLEMENT") {
+    return "entitlements";
+  }
+
+  if (
+    CAPITAL_MARKETS_STRATEGY_KEYS.has(strategy ?? "") ||
+    opportunityKind === "LOAN"
+  ) {
+    return "capital_markets";
+  }
+
+  if (
+    ASSET_MANAGEMENT_STRATEGY_KEYS.has(strategy ?? "") ||
+    opportunityKind === "TENANT" ||
+    opportunityKind === "PORTFOLIO"
+  ) {
+    return "asset_management";
+  }
+
+  if (
+    ACQUISITION_STRATEGY_KEYS.has(strategy ?? "") ||
+    opportunityKind === "PROPERTY" ||
+    opportunityKind === "SITE" ||
+    opportunityKind === "JV"
+  ) {
+    return "acquisition_underwriting";
+  }
+
+  return null;
 }
 
 export function buildPlannerContext(intent: QueryIntent): string {

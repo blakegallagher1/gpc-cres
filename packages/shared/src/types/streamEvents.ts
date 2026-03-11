@@ -32,6 +32,43 @@ export type ToolEndEvent = {
   toolCallId?: string;
 };
 
+export type MapActionPayload =
+  | {
+      action: "highlight";
+      parcelIds: string[];
+      style?: "pulse" | "outline" | "fill";
+      color?: string;
+      durationMs?: number;
+    }
+  | {
+      action: "flyTo";
+      center: [number, number];
+      zoom?: number;
+      parcelId?: string;
+    }
+  | {
+      action: "addLayer";
+      layerId: string;
+      geojson: { type: "FeatureCollection"; features: unknown[] };
+      style?: {
+        fillColor?: string;
+        fillOpacity?: number;
+        strokeColor?: string;
+        strokeWidth?: number;
+      };
+      label?: string;
+    }
+  | {
+      action: "clearLayers";
+      layerIds?: string[];
+    };
+
+export type MapActionEvent = {
+  type: "map_action";
+  payload: MapActionPayload;
+  toolCallId?: string | null;
+};
+
 export type AgentSwitchEvent = {
   type: "agent_switch";
   agentName: string;
@@ -121,6 +158,7 @@ export type UniversalStreamEvent =
   | TextDeltaEvent
   | ToolStartEvent
   | ToolEndEvent
+  | MapActionEvent
   | AgentSwitchEvent
   | DoneEvent
   | ErrorEvent
@@ -144,6 +182,7 @@ export const UNIVERSAL_EVENT_TYPES = new Set<AgentStreamEventType>([
   "text_delta",
   "tool_start",
   "tool_end",
+  "map_action",
   "agent_switch",
   "done",
   "error",

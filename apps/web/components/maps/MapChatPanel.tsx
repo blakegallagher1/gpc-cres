@@ -7,8 +7,6 @@ import {
 } from "react";
 import { Map, ChevronRight, ChevronLeft } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { MessageList } from "@/components/chat/MessageList";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { parseSSEStream } from "@/lib/chat/stream";
@@ -17,70 +15,33 @@ import {
   createStreamPresenterState,
   type StreamPresenterState,
 } from "@/lib/chat/streamPresenter";
+import {
+  buildMapContextInput,
+  useMapChatDispatch,
+  useMapChatState,
+} from "@/lib/chat/MapChatContext";
+import { mapFeaturesFromActionPayload } from "@/lib/chat/mapFeatureUtils";
+import { parseToolResultMapFeatures } from "@/lib/chat/toolResultWrapper";
 import type {
   ChatMessage,
   ChatStreamEvent,
 } from "@/lib/chat/types";
 
-type FeatureCollection = {
-  type: "FeatureCollection";
-  features: unknown[];
-};
-
 const PANEL_WIDTH = 420;
 
-function tryParseGeoJSON(text: string): FeatureCollection | null {
-  if (!text || typeof text !== "string") return null;
-  const trimmed = text.trim();
-  if (!trimmed.startsWith("{")) return null;
-  try {
-    const parsed = JSON.parse(trimmed) as unknown;
-    if (
-      parsed &&
-      typeof parsed === "object" &&
-      "type" in parsed &&
-      (parsed as { type: string }).type === "FeatureCollection" &&
-      "features" in parsed &&
-      Array.isArray((parsed as { features: unknown }).features)
-    ) {
-      return parsed as FeatureCollection;
-    }
-  } catch {
-    // not valid JSON or not a FeatureCollection
-  }
-  return null;
-}
-
-function extractGeoJSONFromToolResult(result: unknown): FeatureCollection | null {
-  if (typeof result === "string") return tryParseGeoJSON(result);
-  if (result && typeof result === "object" && "type" in result) {
-    const obj = result as { type: string; features?: unknown };
-    if (obj.type === "FeatureCollection" && Array.isArray(obj.features)) {
-      return obj as FeatureCollection;
-    }
-  }
-  return null;
-}
-
 interface MapChatPanelProps {
-  onGeoJsonReceived?: (data: { type: "FeatureCollection"; features: unknown[] }) => void;
   parcelCount?: number;
   selectedCount?: number;
   viewportLabel?: string;
-  mapContext?: {
-    center?: { lat: number; lng: number } | null;
-    zoom?: number;
-    selectedParcelIds?: string[];
-  } | null;
 }
 
 export function MapChatPanel({
-  onGeoJsonReceived,
   parcelCount,
   selectedCount,
   viewportLabel,
-  mapContext,
 }: MapChatPanelProps) {
+  const mapState = useMapChatState();
+  const mapDispatch = useMapChatDispatch();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -106,28 +67,29 @@ export function MapChatPanel({
         return nextMessages;
       });
 
-      if (event.type === "tool_result" || event.type === "tool_end") {
-        const result =
-          event.type === "tool_result"
-            ? (event as { result?: unknown }).result
-            : (event as { result?: unknown }).result;
-        const geo = result ? extractGeoJSONFromToolResult(result) : null;
-        if (geo && onGeoJsonReceived) onGeoJsonReceived(geo);
+      if (event.type === "map_action") {
+        mapDispatch({ type: "MAP_ACTION_RECEIVED", payload: event.payload });
+        const features = mapFeaturesFromActionPayload(event.payload);
+        if (features.length > 0) {
+          mapDispatch({ type: "ADD_REFERENCED_FEATURES", features });
+        }
       }
 
-      if (event.type === "agent_progress" && event.partialOutput) {
-        const geo = tryParseGeoJSON(event.partialOutput);
-        if (geo && onGeoJsonReceived) onGeoJsonReceived(geo);
+      if (
+        (event.type === "tool_result" || event.type === "tool_end") &&
+        event.result !== undefined
+      ) {
+        const features = parseToolResultMapFeatures(event.result);
+        if (features?.length) {
+          mapDispatch({ type: "ADD_REFERENCED_FEATURES", features });
+        }
       }
 
       if (event.type === "done") {
         setIsStreaming(false);
-        const lastContent = presenterRef.current.assistantDraft;
-        const geo = lastContent ? tryParseGeoJSON(lastContent) : null;
-        if (geo && onGeoJsonReceived) onGeoJsonReceived(geo);
       }
     },
-    [onGeoJsonReceived]
+    [mapDispatch]
   );
 
   const handleSend = useCallback(
@@ -146,6 +108,7 @@ export function MapChatPanel({
       presenterRef.current = reset;
       setPresenterState(reset);
       setIsStreaming(true);
+      mapDispatch({ type: "SET_REFERENCED_FEATURES", features: [] });
       setMessages((prev) => [...prev, userMessage]);
 
       abortControllerRef.current?.abort();
@@ -160,7 +123,7 @@ export function MapChatPanel({
           body: JSON.stringify({
             message: text,
             intent: "market_trajectory",
-            mapContext,
+            mapContext: buildMapContextInput(mapState),
           }),
         });
 
@@ -189,7 +152,7 @@ export function MapChatPanel({
         setIsStreaming(false);
       }
     },
-    [applyEvent]
+    [applyEvent, mapDispatch, mapState]
   );
 
   const handleStop = useCallback(() => {

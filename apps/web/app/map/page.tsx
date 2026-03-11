@@ -4,6 +4,7 @@ import {
   type FormEvent,
   type KeyboardEvent,
   useEffect,
+  useRef,
   useCallback,
   useMemo,
   useState,
@@ -13,9 +14,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
 import { Loader2, Search } from "lucide-react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
-import type { MapParcel } from "@/components/maps/ParcelMap";
+import type { MapParcel, ParcelMapRef } from "@/components/maps/ParcelMap";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import {
+  useMapChatDispatch,
+  useMapChatState,
+} from "@/lib/chat/MapChatContext";
+import { mapFeaturesFromGeoJson } from "@/lib/chat/mapFeatureUtils";
 
 const MapChatPanel = dynamic(
   () => import("@/components/maps/MapChatPanel").then((m) => m.MapChatPanel),
@@ -152,6 +158,12 @@ export default function MapPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { setTheme } = useTheme();
+  const mapState = useMapChatState();
+  const mapDispatch = useMapChatDispatch();
+  const mapRef = useRef<ParcelMapRef | null>(null);
+  const [isMapReady, setIsMapReady] = useState(false);
+  const [mapRefVersion, setMapRefVersion] = useState(0);
+  const initializedFromUrlRef = useRef(false);
 
   // Force dark mode on map page mount
   useEffect(() => {
@@ -174,12 +186,7 @@ export default function MapPage() {
   const [polygonParcels, setPolygonParcels] = useState<MapParcel[] | null>(null);
   const [polygonError, setPolygonError] = useState<string | null>(null);
   const [isPolygonLoading, setIsPolygonLoading] = useState(false);
-  const [trajectoryData, setTrajectoryData] = useState<{
-    type: "FeatureCollection";
-    features: unknown[];
-  } | null>(null);
-  const [selectedParcelIds, setSelectedParcelIds] = useState<Set<string>>(new Set());
-  const [mapCenter, setMapCenter] = useState<[number, number]>(() => {
+  const initialCenterFromUrl = useMemo<[number, number]>(() => {
     const latStr = searchParams.get("lat");
     const lngStr = searchParams.get("lng");
     if (latStr != null && lngStr != null) {
@@ -187,18 +194,60 @@ export default function MapPage() {
       const lng = Number(lngStr);
       if (Number.isFinite(lat) && Number.isFinite(lng)) return [lat, lng];
     }
-    return [30.4515, -91.1871]; // Baton Rouge default
-  });
-  const [mapZoom, setMapZoom] = useState<number | undefined>(() => {
+    return [30.4515, -91.1871];
+  }, [searchParams]);
+  const initialZoomFromUrl = useMemo<number | undefined>(() => {
     const zStr = searchParams.get("z");
     if (zStr == null) return undefined;
     const zoom = Number(zStr);
     return Number.isFinite(zoom) ? zoom : undefined;
-  });
+  }, [searchParams]);
+  const selectedParcelIds = useMemo(
+    () => new Set(mapState.selectedParcelIds),
+    [mapState.selectedParcelIds],
+  );
+  const mapCenter = useMemo<[number, number]>(
+    () =>
+      mapState.center
+        ? [mapState.center[1], mapState.center[0]]
+        : initialCenterFromUrl,
+    [initialCenterFromUrl, mapState.center],
+  );
+  const mapZoom = mapState.zoom ?? initialZoomFromUrl;
   const authDisabledHint =
     process.env.NODE_ENV !== "production"
       ? " Start the dev server with NEXT_PUBLIC_DISABLE_AUTH=true or sign in."
       : " Please sign in and try again.";
+
+  useEffect(() => {
+    if (initializedFromUrlRef.current) return;
+    initializedFromUrlRef.current = true;
+
+    if (!mapState.center) {
+      mapDispatch({
+        type: "SET_VIEWPORT",
+        center: [initialCenterFromUrl[1], initialCenterFromUrl[0]],
+        zoom: initialZoomFromUrl ?? 11,
+      });
+    }
+
+    if (mapState.selectedParcelIds.length === 0) {
+      const selectedParcelId = searchParams.get("parcel");
+      if (selectedParcelId) {
+        mapDispatch({
+          type: "SELECT_PARCELS",
+          parcelIds: [selectedParcelId],
+        });
+      }
+    }
+  }, [
+    initialCenterFromUrl,
+    initialZoomFromUrl,
+    mapDispatch,
+    mapState.center,
+    mapState.selectedParcelIds.length,
+    searchParams,
+  ]);
 
   const handleSearchSubmit = (event?: FormEvent<HTMLFormElement>) => {
     event?.preventDefault();
@@ -217,18 +266,27 @@ export default function MapPage() {
     setSearchText(nextSearch);
     setDebouncedSearch(nextSearch);
     setSearchSubmitId((value) => value + 1);
-    setSuggestions([]);
-    setActiveSuggestionIndex(-1);
-    if (
-      typeof suggestion.lat === "number" &&
-      Number.isFinite(suggestion.lat) &&
-      typeof suggestion.lng === "number" &&
-      Number.isFinite(suggestion.lng)
-    ) {
-      setMapCenter([suggestion.lat, suggestion.lng]);
-      setMapZoom((prev) => (typeof prev === "number" ? Math.max(prev, 14) : 14));
-    }
-  }, []);
+      setSuggestions([]);
+      setActiveSuggestionIndex(-1);
+      if (
+        typeof suggestion.lat === "number" &&
+        Number.isFinite(suggestion.lat) &&
+        typeof suggestion.lng === "number" &&
+        Number.isFinite(suggestion.lng)
+      ) {
+        mapDispatch({
+          type: "SET_VIEWPORT",
+          center: [suggestion.lng, suggestion.lat],
+          zoom: typeof mapZoom === "number" ? Math.max(mapZoom, 14) : 14,
+        });
+        mapRef.current?.flyTo({
+          center: [suggestion.lng, suggestion.lat],
+          zoom: typeof mapZoom === "number" ? Math.max(mapZoom, 14) : 14,
+        });
+      }
+    },
+    [mapDispatch, mapZoom],
+  );
 
   const handleSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "ArrowDown" && suggestions.length > 0) {
@@ -513,20 +571,20 @@ export default function MapPage() {
 
   useEffect(() => {
     const next = new URLSearchParams(searchParams.toString());
-    if (mapCenter) {
-      next.set("lat", mapCenter[0].toFixed(6));
-      next.set("lng", mapCenter[1].toFixed(6));
+    if (mapState.center) {
+      next.set("lat", mapState.center[1].toFixed(6));
+      next.set("lng", mapState.center[0].toFixed(6));
     }
-    if (typeof mapZoom === "number") {
-      next.set("z", mapZoom.toFixed(2));
+    if (typeof mapState.zoom === "number") {
+      next.set("z", mapState.zoom.toFixed(2));
     }
-    if (selectedParcelIds.size === 1) {
-      next.set("parcel", Array.from(selectedParcelIds)[0]);
+    if (mapState.selectedParcelIds.length === 1) {
+      next.set("parcel", mapState.selectedParcelIds[0]);
     } else {
       next.delete("parcel");
     }
     router.replace(`/map?${next.toString()}`);
-  }, [mapCenter, mapZoom, selectedParcelIds, router, searchParams]);
+  }, [mapState.center, mapState.selectedParcelIds, mapState.zoom, router, searchParams]);
 
   useEffect(() => {
     let active = true;
@@ -656,23 +714,82 @@ export default function MapPage() {
     visibleParcels.length,
   ]);
 
+  useEffect(() => {
+    if (mapState.viewportLabel === statusText) return;
+    mapDispatch({ type: "SET_VIEWPORT_LABEL", label: statusText });
+  }, [mapDispatch, mapState.viewportLabel, statusText]);
+
+  useEffect(() => {
+    const nextAction = mapState.pendingActions[0];
+    if (!nextAction || !mapRef.current || !isMapReady) return;
+
+    if (nextAction.action === "highlight") {
+      mapRef.current.highlightParcels(
+        nextAction.parcelIds,
+        nextAction.style,
+        nextAction.color,
+        nextAction.durationMs,
+      );
+      if (nextAction.durationMs === 0) {
+        mapDispatch({
+          type: "SELECT_PARCELS",
+          parcelIds: nextAction.parcelIds,
+        });
+      }
+    }
+
+    if (nextAction.action === "flyTo") {
+      mapRef.current.flyTo({
+        center: nextAction.center,
+        zoom: nextAction.zoom ?? 15,
+      });
+      if (nextAction.parcelId) {
+        mapDispatch({
+          type: "SELECT_PARCELS",
+          parcelIds: [nextAction.parcelId],
+        });
+      }
+    }
+
+    if (nextAction.action === "addLayer") {
+      mapRef.current.addTemporaryLayer(
+        nextAction.layerId,
+        nextAction.geojson,
+        nextAction.style,
+      );
+      const features = mapFeaturesFromGeoJson(nextAction.geojson);
+      if (features.length > 0) {
+        mapDispatch({ type: "ADD_REFERENCED_FEATURES", features });
+      }
+    }
+
+    if (nextAction.action === "clearLayers") {
+      mapRef.current.clearTemporaryLayers(nextAction.layerIds);
+    }
+
+    mapDispatch({ type: "CONSUME_PENDING_ACTION" });
+  }, [isMapReady, mapDispatch, mapRefVersion, mapState.pendingActions]);
+
+  const attachMapRef = useCallback((instance: ParcelMapRef | null) => {
+    mapRef.current = instance;
+    if (!instance) {
+      setIsMapReady(false);
+    }
+    setMapRefVersion((value) => value + 1);
+  }, []);
+
   return (
     <DashboardShell noPadding>
       <div className="map-page h-screen flex flex-col relative">
         {!loading && (
           <>
             <MapChatPanel
-              onGeoJsonReceived={setTrajectoryData}
               parcelCount={activeParcels.length}
               selectedCount={selectedParcelIds.size}
               viewportLabel={statusText}
-              mapContext={{
-                center: mapCenter ? { lat: mapCenter[0], lng: mapCenter[1] } : null,
-                zoom: mapZoom,
-                selectedParcelIds: Array.from(selectedParcelIds),
-              }}
             />
             <ParcelMap
+              ref={attachMapRef}
               parcels={activeParcels}
               center={mapCenter}
               zoom={mapZoom}
@@ -687,13 +804,23 @@ export default function MapPage() {
                 const parcel = activeParcels.find((p) => p.id === id);
                 if (parcel?.dealId) router.push(`/deals/${parcel.dealId}`);
               }}
-              onSelectionChange={setSelectedParcelIds}
+              onSelectionChange={(ids) => {
+                mapDispatch({
+                  type: "SELECT_PARCELS",
+                  parcelIds: Array.from(ids),
+                });
+              }}
               onViewStateChange={(center, zoom) => {
-                setMapCenter(center);
-                setMapZoom(zoom);
+                mapDispatch({
+                  type: "SET_VIEWPORT",
+                  center: [center[1], center[0]],
+                  zoom,
+                });
+              }}
+              onMapReady={() => {
+                setIsMapReady(true);
               }}
               selectedParcelIds={selectedParcelIds}
-              trajectoryData={trajectoryData}
               searchSlot={
                 <>
                   <h2 className="text-[10px] font-semibold uppercase tracking-wider text-map-text-muted mb-2">Parcel Search</h2>

@@ -6,6 +6,7 @@ import { AuthSessionProvider } from "@/components/providers/session-provider";
 import { ObservabilityBoundary } from "@/components/observability/observability-boundary";
 import { ObservabilityProvider } from "@/components/observability/observability-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { MapChatProvider } from "@/lib/chat/MapChatContext";
 
 const dmMono = DM_Mono({
   subsets: ["latin"],
@@ -40,9 +41,11 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            <ObservabilityProvider>
-              <ObservabilityBoundary>{children}</ObservabilityBoundary>
-            </ObservabilityProvider>
+            <MapChatProvider>
+              <ObservabilityProvider>
+                <ObservabilityBoundary>{children}</ObservabilityBoundary>
+              </ObservabilityProvider>
+            </MapChatProvider>
             <Toaster position="bottom-right" />
           </ThemeProvider>
         </AuthSessionProvider>

@@ -26,6 +26,13 @@ import {
   createStreamPresenterState,
   type StreamPresenterState,
 } from '@/lib/chat/streamPresenter';
+import {
+  buildMapContextInput,
+  useMapChatDispatch,
+  useMapChatState,
+} from '@/lib/chat/MapChatContext';
+import { mapFeaturesFromActionPayload } from '@/lib/chat/mapFeatureUtils';
+import { parseToolResultMapFeatures } from '@/lib/chat/toolResultWrapper';
 import { useAgentWebSocket } from '@/lib/chat/useAgentWebSocket';
 
 type RawConversationMessage = {
@@ -135,6 +142,11 @@ function parseToolCalls(value: unknown): ChatMessage['toolCalls'] {
 }
 
 function toChatMessageFromApi(msg: RawConversationMessage): ChatMessage {
+  const metadata = parseMetadata(msg.metadata);
+  const mapFeatures = Array.isArray(metadata?.mapFeatures)
+    ? (metadata?.mapFeatures as ChatMessage['mapFeatures'])
+    : undefined;
+
   return {
     id: normalizeConversationId(msg.id) ?? crypto.randomUUID(),
     role: isString(msg.role) ? (msg.role as ChatMessage['role']) : 'assistant',
@@ -142,11 +154,14 @@ function toChatMessageFromApi(msg: RawConversationMessage): ChatMessage {
     agentName: isString(msg.agentName) ? msg.agentName : undefined,
     toolCalls: parseToolCalls(msg.toolCalls),
     createdAt: normalizeConversationId(msg.createdAt) ?? new Date().toISOString(),
-    metadata: parseMetadata(msg.metadata),
+    metadata,
+    mapFeatures,
   };
 }
 
 export function ChatContainer() {
+  const mapState = useMapChatState();
+  const mapDispatch = useMapChatDispatch();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -278,6 +293,7 @@ export function ChatContainer() {
         presenterRef.current = reset;
         setPresenterState(reset);
         setMessages([]);
+        mapDispatch({ type: 'SET_REFERENCED_FEATURES', features: [] });
         return;
       }
 
@@ -308,6 +324,16 @@ export function ChatContainer() {
           .map((entry) => toChatMessageFromApi(entry))
           .filter((msg) => msg.content.length > 0 || msg.role === 'assistant');
 
+        const latestMapFeatures =
+          [...loaded]
+            .reverse()
+            .find((msg) => Array.isArray(msg.mapFeatures) && msg.mapFeatures.length > 0)
+            ?.mapFeatures ?? [];
+        mapDispatch({
+          type: 'SET_REFERENCED_FEATURES',
+          features: latestMapFeatures,
+        });
+
         const normalizedId = normalizeConversationId(convo.id);
         if (normalizedId) {
           setConversationState(normalizedId);
@@ -320,7 +346,7 @@ export function ChatContainer() {
         void reloadConversations();
       }
     },
-    [reloadConversations, setConversationState, syncRecent],
+    [mapDispatch, reloadConversations, setConversationState, syncRecent],
   );
 
   useEffect(() => {
@@ -355,6 +381,24 @@ export function ChatContainer() {
         setAgentSummary(summary);
       }
 
+      if (event.type === 'map_action') {
+        mapDispatch({ type: 'MAP_ACTION_RECEIVED', payload: event.payload });
+        const features = mapFeaturesFromActionPayload(event.payload);
+        if (features.length > 0) {
+          mapDispatch({ type: 'ADD_REFERENCED_FEATURES', features });
+        }
+      }
+
+      if (
+        (event.type === 'tool_end' || event.type === 'tool_result') &&
+        event.result !== undefined
+      ) {
+        const features = parseToolResultMapFeatures(event.result);
+        if (features?.length) {
+          mapDispatch({ type: 'ADD_REFERENCED_FEATURES', features });
+        }
+      }
+
       if (event.type === 'agent_switch') {
         setCurrentAgent(event.agentName);
       } else if (event.type === 'handoff') {
@@ -373,7 +417,7 @@ export function ChatContainer() {
         }
       }
     },
-    [reloadConversations, setConversationState, syncRecent],
+    [mapDispatch, reloadConversations, setConversationState, syncRecent],
   );
 
   // WebSocket transport (Cloudflare Agent Worker)
@@ -403,11 +447,14 @@ export function ChatContainer() {
       setCurrentAgent(null);
       setAgentSummary(null);
       setIsStreaming(true);
+      mapDispatch({ type: 'SET_REFERENCED_FEATURES', features: [] });
       setMessages((current) => [...current, userMessage]);
+
+      const requestMapContext = buildMapContextInput(mapState);
 
       // WebSocket transport — send and return (events arrive via onEvent callback)
       if (WS_ENABLED) {
-        wsSendMessage(text, selectedDealId ?? undefined);
+        wsSendMessage(text, selectedDealId ?? undefined, requestMapContext ?? null);
         return;
       }
 
@@ -425,6 +472,7 @@ export function ChatContainer() {
             message: text,
             conversationId: conversationIdRef.current,
             dealId: selectedDealId,
+            mapContext: requestMapContext,
           }),
         });
 
@@ -462,7 +510,7 @@ export function ChatContainer() {
         setCurrentAgent(null);
       }
     },
-    [applyEvent, selectedDealId, wsSendMessage],
+    [applyEvent, mapDispatch, mapState, selectedDealId, wsSendMessage],
   );
 
   const handleStop = useCallback(() => {

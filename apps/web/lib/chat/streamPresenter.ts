@@ -4,6 +4,15 @@ import {
   type ChatTrustSnapshot,
   type ChatToolCall,
 } from "./types";
+import {
+  extractTextFromToolResult,
+  parseToolResultMapFeatures,
+} from "./toolResultWrapper";
+import {
+  mapFeaturesFromActionPayload,
+  mergeMapFeatures,
+} from "./mapFeatureUtils";
+import type { MapFeature } from "./mapActionTypes";
 
 export type StreamPresenterState = {
   assistantDraft: string;
@@ -11,6 +20,7 @@ export type StreamPresenterState = {
   progressMessageId: string | null;
   lastAgentName: string | null;
   conversationId: string | null;
+  pendingAssistantMapFeatures: MapFeature[];
 };
 
 export type StreamPresenterResult = {
@@ -29,6 +39,7 @@ export function createStreamPresenterState(): StreamPresenterState {
     progressMessageId: null,
     lastAgentName: null,
     conversationId: null,
+    pendingAssistantMapFeatures: [],
   };
 }
 
@@ -94,8 +105,11 @@ function getToolMessageContent(
     return `${toolCall.name} finished`;
   }
 
-  if (typeof toolCall.result === "string") return String(toolCall.result);
-  return JSON.stringify(toolCall.result ?? "Tool result");
+  if (toolCall.result == null) {
+    return "Tool result";
+  }
+
+  return extractTextFromToolResult(toolCall.result);
 }
 
 function createTrustSnapshot(event: ChatStreamEvent): ChatTrustSnapshot | undefined {
@@ -156,6 +170,7 @@ function eventToToolMessage(
     createdAt: now,
     eventKind: mapToolStatus(event.type),
     toolCalls: [toolCall],
+    mapFeatures: parseToolResultMapFeatures(toolCall.result) ?? undefined,
   };
 }
 
@@ -220,6 +235,10 @@ export function applyStreamingEvent(
       createdAt: now,
       eventKind: "assistant",
       agentName: normalizeAgentName(state.lastAgentName ?? undefined),
+      mapFeatures:
+        state.pendingAssistantMapFeatures.length > 0
+          ? state.pendingAssistantMapFeatures
+          : undefined,
     };
 
     return {
@@ -327,8 +346,19 @@ export function applyStreamingEvent(
       return { nextState: state, nextMessages: messages };
     }
 
+    const nextPendingAssistantMapFeatures =
+      event.type === "tool_result" || event.type === "tool_end"
+        ? mergeMapFeatures(
+            state.pendingAssistantMapFeatures,
+            parseToolResultMapFeatures(toolMessage.toolCalls?.[0]?.result) ?? [],
+          )
+        : state.pendingAssistantMapFeatures;
+
     return {
-      nextState: state,
+      nextState: {
+        ...state,
+        pendingAssistantMapFeatures: nextPendingAssistantMapFeatures,
+      },
       nextMessages: [...messages, toolMessage],
     };
   }
@@ -380,6 +410,19 @@ export function applyStreamingEvent(
         lastAgentName: normalizeAgentName(event.agentName) ?? state.lastAgentName,
       },
       nextMessages: [...messages, summary],
+    };
+  }
+
+  if (event.type === "map_action") {
+    return {
+      nextState: {
+        ...state,
+        pendingAssistantMapFeatures: mergeMapFeatures(
+          state.pendingAssistantMapFeatures,
+          mapFeaturesFromActionPayload(event.payload),
+        ),
+      },
+      nextMessages: messages,
     };
   }
 

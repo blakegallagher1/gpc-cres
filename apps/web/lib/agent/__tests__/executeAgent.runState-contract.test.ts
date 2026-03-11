@@ -18,6 +18,7 @@ vi.mock("@openai/agents", () => ({
 
 vi.mock("@entitlement-os/openai", () => ({
   inferQueryIntentFromText: vi.fn(() => "analysis"),
+  inferQueryIntentFromDealContext: vi.fn(() => null),
   createIntentAwareCoordinator: vi.fn(() => ({ id: "coordinator-agent" })),
   evaluateProofCompliance: vi.fn(() => []),
   buildAgentStreamRunOptions: vi.fn(() => ({})),
@@ -36,6 +37,9 @@ vi.mock("@entitlement-os/openai", () => ({
   isAgentOsFeatureEnabled: vi.fn(() => false),
   maybeTrimToolOutput: vi.fn((value: unknown) => ({ value, wasTrimmed: false })),
   runCriticEvaluation: vi.fn(async () => {}),
+}));
+vi.mock("@/lib/services/deal-reader", () => ({
+  getDealReaderById: vi.fn(async () => null),
 }));
 vi.mock("../retrievalAdapter", () => ({
   unifiedRetrieval: vi.fn(async () => [
@@ -152,9 +156,78 @@ function normalizePersistedOutput(output: Record<string, unknown>): Record<strin
 }
 
 describe("executeAgentWorkflow", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     process.env.OPENAI_API_KEY = "test-key";
+
+    const openAiRuntime = (await vi.importMock("@entitlement-os/openai")) as {
+      inferQueryIntentFromText: ReturnType<typeof vi.fn>;
+      inferQueryIntentFromDealContext: ReturnType<typeof vi.fn>;
+      createIntentAwareCoordinator: ReturnType<typeof vi.fn>;
+    };
+    const dealReader = (await vi.importMock("@/lib/services/deal-reader")) as {
+      getDealReaderById: ReturnType<typeof vi.fn>;
+    };
+
+    dealReader.getDealReaderById.mockResolvedValue(null);
+    openAiRuntime.inferQueryIntentFromDealContext.mockReturnValue(null);
+    openAiRuntime.inferQueryIntentFromText.mockReturnValue("analysis");
+    openAiRuntime.createIntentAwareCoordinator.mockReturnValue({ id: "coordinator-agent" });
+  });
+
+  it("routes by deal strategy and opportunity kind before falling back to text intent", async () => {
+    const { prisma } = await vi.importMock("@entitlement-os/db");
+    const openAiAgents = await vi.importMock("@openai/agents");
+    const openAiRuntime = await vi.importMock("@entitlement-os/openai");
+    const dealReader = await vi.importMock("@/lib/services/deal-reader");
+    const { run } = openAiAgents as {
+      run: ReturnType<typeof vi.fn>;
+      user: ReturnType<typeof vi.fn>;
+      assistant: ReturnType<typeof vi.fn>;
+    };
+
+    prisma.run.findUnique.mockResolvedValue(null);
+    prisma.run.upsert.mockResolvedValue({
+      id: NORMALIZED_RUN_ID,
+      status: "running",
+      inputHash: "input-hash",
+      outputJson: null,
+      openaiResponseId: null,
+      startedAt: new Date("2025-01-01T00:00:00.000Z"),
+      finishedAt: null,
+    });
+    prisma.run.update.mockResolvedValue({ status: "succeeded" });
+    dealReader.getDealReaderById.mockResolvedValue({
+      id: "deal-asset",
+      orgId: "org-test",
+      strategy: "VALUE_ADD_ACQUISITION",
+      opportunityKind: "PROPERTY",
+    });
+    openAiRuntime.inferQueryIntentFromDealContext.mockReturnValue("asset_management");
+    openAiRuntime.inferQueryIntentFromText.mockReturnValue("analysis");
+    run.mockResolvedValue({
+      finalOutput: JSON.stringify(VALID_REPORT),
+      lastResponseId: "openai-response-id",
+    });
+
+    await executeAgentWorkflow({
+      orgId: "org-test",
+      userId: "user-test",
+      conversationId: "conversation-test",
+      runId: SOURCE_RUN_ID,
+      dealId: "deal-asset",
+      input: [{ role: "user", content: "What should we do next on this asset?" }],
+      runType: "ENRICHMENT",
+    });
+
+    expect(dealReader.getDealReaderById).toHaveBeenCalledWith("org-test", "deal-asset");
+    expect(openAiRuntime.inferQueryIntentFromDealContext).toHaveBeenCalledWith(
+      expect.objectContaining({
+        strategy: "VALUE_ADD_ACQUISITION",
+        opportunityKind: "PROPERTY",
+      }),
+    );
+    expect(openAiRuntime.createIntentAwareCoordinator).toHaveBeenCalledWith("asset_management");
   });
 
   it("persists AgentRunOutputJson with required runState contract fields", async () => {

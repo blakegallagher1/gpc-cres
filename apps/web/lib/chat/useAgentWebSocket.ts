@@ -1,5 +1,6 @@
 'use client';
 
+import type { MapContextInput } from '@entitlement-os/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ChatStreamEvent } from '@/lib/chat/streamEventTypes';
 
@@ -30,7 +31,11 @@ interface Operation {
 
 interface UseAgentWebSocketReturn {
   /** Send a user message over WebSocket */
-  sendMessage: (text: string, dealId?: string) => void;
+  sendMessage: (
+    text: string,
+    dealId?: string,
+    mapContext?: MapContextInput | null,
+  ) => void;
   /** Connection status */
   status: ConnectionStatus;
   /** Disconnect and clean up */
@@ -197,7 +202,11 @@ export function useAgentWebSocket({
   }, [enabled, token, conversationId, disconnect]);
 
   const sendMessage = useCallback(
-    (text: string, dealId?: string) => {
+    (
+      text: string,
+      dealId?: string,
+      mapContext?: MapContextInput | null,
+    ) => {
       const ws = wsRef.current;
       if (!ws || ws.readyState !== WebSocket.OPEN) {
         onEventRef.current({
@@ -212,6 +221,7 @@ export function useAgentWebSocket({
           type: 'message',
           text,
           ...(dealId ? { dealId } : {}),
+          ...(mapContext ? { mapContext } : {}),
         }),
       );
     },

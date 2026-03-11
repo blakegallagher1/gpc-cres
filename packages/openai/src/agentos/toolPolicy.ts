@@ -49,6 +49,18 @@ const TOOL_POLICY_BY_INTENT: Record<string, ToolPolicyDefinition> = {
     exact: ["calculate_proforma", "calculate_debt_sizing"],
     prefixes: ["consult_", "finance_", "calculate_", "debt_", "underwrite_", "market_"],
   },
+  acquisition_underwriting: {
+    exact: ["get_deal_context", "get_rent_roll", "get_document_extraction_summary"],
+    prefixes: ["consult_", "acquisition_", "finance_", "market_", "capital_"],
+  },
+  asset_management: {
+    exact: ["get_deal_context", "get_rent_roll"],
+    prefixes: ["consult_", "asset_", "operations_", "task_", "capital_"],
+  },
+  capital_markets: {
+    exact: ["get_deal_context", "get_rent_roll", "model_capital_stack", "get_document_extraction_summary"],
+    prefixes: ["consult_", "capital_", "finance_", "market_"],
+  },
   legal: {
     exact: [],
     prefixes: ["consult_", "legal_", "zoning_", "entitlement_", "due_diligence_"],
@@ -172,4 +184,3 @@ export function filterToolsForIntent(
 
   return [...tools];
 }
-

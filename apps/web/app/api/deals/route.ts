@@ -1,9 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
+import {
+  DealCreateCompatibilityRequestSchema,
+  type SkuType,
+} from "@entitlement-os/shared";
 import { z } from "zod";
+import "@/lib/automation/handlers";
 import { dispatchEvent } from "@/lib/automation/events";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
-import { captureAutomationDispatchError } from "@/lib/automation/sentry";
+import {
+  projectLegacyDealCompatibility,
+  resolveCanonicalDealWorkflowState,
+  resolveGeneralizedFieldsFromLegacySku,
+  resolveLegacyStatusFromStageKey,
+  resolveStageKeyFromLegacyStatus,
+  toDateOrNull,
+} from "../_lib/opportunityPhase3";
 import { getCloudflareAccessHeadersFromEnv } from "@/lib/server/propertyDbEnv";
 import * as Sentry from "@sentry/nextjs";
 
@@ -32,6 +44,49 @@ const DealBulkActionSchema = z.discriminatedUnion("action", [
     status: DealStatusSchema,
   }),
 ]);
+
+function normalizeDealCreateRequestBody(body: Record<string, unknown>) {
+  return {
+    name: typeof body.name === "string" ? body.name : "",
+    sku: typeof body.sku === "string" ? body.sku : null,
+    jurisdictionId:
+      typeof body.jurisdictionId === "string" ? body.jurisdictionId : null,
+    notes: typeof body.notes === "string" ? body.notes : null,
+    targetCloseDate:
+      typeof body.targetCloseDate === "string" ? body.targetCloseDate : null,
+    parcelAddress:
+      typeof body.parcelAddress === "string" ? body.parcelAddress : null,
+    apn: typeof body.apn === "string" ? body.apn : null,
+    assetClass: typeof body.assetClass === "string" ? body.assetClass : null,
+    assetSubtype:
+      typeof body.assetSubtype === "string" ? body.assetSubtype : null,
+    strategy: typeof body.strategy === "string" ? body.strategy : null,
+    workflowTemplateKey:
+      typeof body.workflowTemplateKey === "string"
+        ? body.workflowTemplateKey
+        : null,
+    currentStageKey:
+      typeof body.currentStageKey === "string" ? body.currentStageKey : null,
+    opportunityKind:
+      typeof body.opportunityKind === "string" ? body.opportunityKind : null,
+    dealSourceType:
+      typeof body.dealSourceType === "string" ? body.dealSourceType : null,
+    primaryAssetId:
+      typeof body.primaryAssetId === "string" ? body.primaryAssetId : null,
+    marketName: typeof body.marketName === "string" ? body.marketName : null,
+    investmentSummary:
+      typeof body.investmentSummary === "string"
+        ? body.investmentSummary
+        : null,
+    businessPlanSummary:
+      typeof body.businessPlanSummary === "string"
+        ? body.businessPlanSummary
+        : null,
+    legacySku: typeof body.legacySku === "string" ? body.legacySku : null,
+    legacyStatus:
+      typeof body.legacyStatus === "string" ? body.legacyStatus : null,
+  };
+}
 
 // GET /api/deals - proxy to local FastAPI (production) or Prisma (local dev fallback)
 export async function GET(request: NextRequest) {
@@ -134,6 +189,22 @@ export async function GET(request: NextRequest) {
         name: d.name,
         sku: d.sku,
         status: d.status,
+        assetClass:
+          d.assetClass ??
+          resolveGeneralizedFieldsFromLegacySku(d.sku as SkuType).assetClass,
+        strategy:
+          d.strategy ??
+          resolveGeneralizedFieldsFromLegacySku(d.sku as SkuType).strategy,
+        workflowTemplateKey:
+          d.workflowTemplateKey ??
+          resolveGeneralizedFieldsFromLegacySku(d.sku as SkuType)
+            .workflowTemplateKey,
+        currentStageKey:
+          d.currentStageKey ??
+          resolveStageKeyFromLegacyStatus(d.status),
+        legacySku: d.legacySku ?? d.sku,
+        legacyStatus: d.legacyStatus ?? d.status,
+        primaryAssetId: d.primaryAssetId,
         jurisdiction: d.jurisdiction,
         createdAt: d.createdAt.toISOString(),
         updatedAt: d.updatedAt.toISOString(),
@@ -164,17 +235,85 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json();
+    const rawBody = (await request.json()) as Record<string, unknown>;
+    const parsed = DealCreateCompatibilityRequestSchema.safeParse(
+      normalizeDealCreateRequestBody(rawBody),
+    );
 
-    if (!body.name || !body.sku || !body.jurisdictionId) {
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "name, sku, and jurisdictionId are required" },
-        { status: 400 }
+        {
+          error: parsed.error.issues
+            .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+            .join("; "),
+        },
+        { status: 400 },
       );
+    }
+
+    const body = parsed.data;
+    const legacySkuHint = body.legacySku ?? body.sku;
+    const legacyStatusHint = body.legacyStatus ?? "INTAKE";
+    const workflowState = resolveCanonicalDealWorkflowState({
+      base: {
+        currentStageKey: resolveStageKeyFromLegacyStatus("INTAKE"),
+      },
+      overrides: {
+        assetClass: body.assetClass,
+        strategy: body.strategy,
+        workflowTemplateKey: body.workflowTemplateKey,
+        currentStageKey: body.currentStageKey,
+      },
+      legacySku: legacySkuHint,
+      legacyStatus: legacyStatusHint,
+    });
+    const compatibility = projectLegacyDealCompatibility({
+      workflowState,
+      legacySkuHint,
+      legacyStatusHint,
+    });
+
+    if (
+      !body.name.trim() ||
+      !body.jurisdictionId ||
+      !workflowState.workflowTemplateKey
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "name, workflowTemplateKey or legacy sku, and jurisdictionId are required",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (body.primaryAssetId) {
+      const primaryAsset = await prisma.asset.findFirst({
+        where: { id: body.primaryAssetId, orgId: auth.orgId },
+        select: { id: true },
+      });
+
+      if (!primaryAsset) {
+        return NextResponse.json(
+          { error: "Primary asset not found" },
+          { status: 400 },
+        );
+      }
     }
 
     const localApiUrl = process.env.LOCAL_API_URL?.trim();
     const localApiKey = process.env.LOCAL_API_KEY?.trim();
+    const createPayload = {
+      ...body,
+      assetClass: workflowState.assetClass,
+      strategy: workflowState.strategy,
+      workflowTemplateKey: workflowState.workflowTemplateKey,
+      currentStageKey: workflowState.currentStageKey,
+      sku: compatibility.sku,
+      status: compatibility.status,
+      legacySku: compatibility.legacySku,
+      legacyStatus: compatibility.legacyStatus,
+    };
 
     if (localApiUrl && localApiKey) {
       const res = await fetch(`${localApiUrl.replace(/\/$/, "")}/deals`, {
@@ -186,7 +325,7 @@ export async function POST(request: NextRequest) {
           "X-User-Id": auth.userId,
           ...getCloudflareAccessHeadersFromEnv(),
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify(createPayload),
       });
 
       if (!res.ok) {
@@ -219,17 +358,54 @@ export async function POST(request: NextRequest) {
       data: {
         orgId: auth.orgId,
         name: body.name,
-        sku: body.sku,
+        sku: compatibility.sku,
+        legacySku: compatibility.legacySku,
         jurisdictionId: body.jurisdictionId,
-        status: "INTAKE",
+        status: compatibility.status,
+        legacyStatus: compatibility.legacyStatus,
+        assetClass: workflowState.assetClass,
+        assetSubtype: body.assetSubtype,
+        strategy: workflowState.strategy,
+        workflowTemplateKey: workflowState.workflowTemplateKey,
+        currentStageKey: workflowState.currentStageKey,
+        opportunityKind: body.opportunityKind,
+        dealSourceType: body.dealSourceType,
+        primaryAssetId: body.primaryAssetId,
+        marketName: body.marketName,
+        investmentSummary: body.investmentSummary,
+        businessPlanSummary: body.businessPlanSummary,
         notes: body.notes ?? null,
-        targetCloseDate: body.targetCloseDate ? new Date(body.targetCloseDate) : null,
+        targetCloseDate: toDateOrNull(body.targetCloseDate),
         createdBy: auth.userId,
       },
       include: {
         jurisdiction: { select: { id: true, name: true } },
       },
     });
+
+    if (deal.currentStageKey) {
+      await prisma.dealStageHistory.create({
+        data: {
+          dealId: deal.id,
+          orgId: auth.orgId,
+          fromStageKey: null,
+          toStageKey: deal.currentStageKey,
+          changedBy: auth.userId,
+          note: "Deal created.",
+        },
+      });
+    }
+
+    if (body.primaryAssetId) {
+      await prisma.dealAsset.create({
+        data: {
+          orgId: auth.orgId,
+          dealId: deal.id,
+          assetId: body.primaryAssetId,
+          role: "PRIMARY",
+        },
+      });
+    }
 
     // If a parcel address was provided, create the first parcel
     if (body.parcelAddress) {
@@ -315,7 +491,17 @@ export async function PATCH(request: NextRequest) {
 
     const deals = await prisma.deal.findMany({
       where: { orgId: auth.orgId, id: { in: ids } },
-      select: { id: true, status: true },
+      select: {
+        id: true,
+        sku: true,
+        status: true,
+        legacySku: true,
+        legacyStatus: true,
+        assetClass: true,
+        strategy: true,
+        workflowTemplateKey: true,
+        currentStageKey: true,
+      },
     });
 
     const scopedIds = deals.map((deal) => deal.id);
@@ -336,37 +522,94 @@ export async function PATCH(request: NextRequest) {
       });
     }
 
-    const result = await prisma.deal.updateMany({
-      where: { id: { in: scopedIds } },
-      data: { status: parsed.data.status },
-    });
+    const targetLegacyStatus = parsed.data.status;
+    const targetStageKey = resolveStageKeyFromLegacyStatus(targetLegacyStatus);
+    let updatedCount = 0;
 
-    const targetStatus = parsed.data.status;
     for (const deal of deals) {
-      if (deal.status !== parsed.data.status) {
+      const existingLegacySku = (deal.legacySku ?? deal.sku) as SkuType;
+      const existingLegacyStatus = (deal.legacyStatus ?? deal.status) as z.infer<
+        typeof DealStatusSchema
+      >;
+      const workflowState = resolveCanonicalDealWorkflowState({
+        base: {
+          assetClass: deal.assetClass,
+          strategy: deal.strategy,
+          workflowTemplateKey: deal.workflowTemplateKey,
+          currentStageKey:
+            deal.currentStageKey ??
+            resolveStageKeyFromLegacyStatus(existingLegacyStatus),
+        },
+        overrides: {
+          currentStageKey: targetStageKey,
+        },
+        legacySku: existingLegacySku,
+        legacyStatus: targetLegacyStatus,
+      });
+      const compatibility = projectLegacyDealCompatibility({
+        workflowState,
+        legacySkuHint: existingLegacySku,
+        legacyStatusHint: targetLegacyStatus,
+      });
+      const previousStageKey =
+        deal.currentStageKey ??
+        resolveStageKeyFromLegacyStatus(existingLegacyStatus);
+
+      await prisma.deal.update({
+        where: { id: deal.id },
+        data: {
+          assetClass: workflowState.assetClass,
+          strategy: workflowState.strategy,
+          workflowTemplateKey: workflowState.workflowTemplateKey,
+          currentStageKey: workflowState.currentStageKey,
+          sku: compatibility.sku,
+          status: compatibility.status,
+          legacySku: compatibility.legacySku,
+          legacyStatus: compatibility.legacyStatus,
+        },
+      });
+      updatedCount += 1;
+
+      if (
+        workflowState.currentStageKey &&
+        workflowState.currentStageKey !== previousStageKey
+      ) {
+        await prisma.dealStageHistory.create({
+          data: {
+            dealId: deal.id,
+            orgId: auth.orgId,
+            fromStageKey: previousStageKey,
+            toStageKey: workflowState.currentStageKey,
+            changedBy: auth.userId,
+            note: "Stage updated from legacy compatibility hint.",
+          },
+        });
+
+        dispatchEvent({
+          type: "deal.stageChanged",
+          dealId: deal.id,
+          from: previousStageKey,
+          to: workflowState.currentStageKey,
+          orgId: auth.orgId,
+        }).catch(() => {});
+      }
+
+      if (existingLegacyStatus !== compatibility.status) {
         dispatchEvent({
           type: "deal.statusChanged",
           dealId: deal.id,
-          from: deal.status as import("@entitlement-os/shared").DealStatus,
-          to: targetStatus as import("@entitlement-os/shared").DealStatus,
+          from: existingLegacyStatus as import("@entitlement-os/shared").DealStatus,
+          to: compatibility.status as import("@entitlement-os/shared").DealStatus,
           orgId: auth.orgId,
-        }).catch((error) => {
-          captureAutomationDispatchError(error, {
-            handler: "api.deals.bulk-update-status",
-            eventType: "deal.statusChanged",
-            dealId: deal.id,
-            orgId: auth.orgId,
-            status: targetStatus,
-          });
-        });
+        }).catch(() => {});
       }
     }
 
     return NextResponse.json({
       action: "update-status",
-      status: parsed.data.status,
-      updated: result.count,
-      skipped: ids.length - result.count,
+      status: resolveLegacyStatusFromStageKey(targetStageKey, targetLegacyStatus),
+      updated: updatedCount,
+      skipped: ids.length - updatedCount,
       ids: scopedIds,
     });
   } catch (error) {

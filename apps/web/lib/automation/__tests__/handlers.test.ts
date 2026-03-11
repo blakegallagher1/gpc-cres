@@ -115,17 +115,17 @@ describe("ensureHandlersRegistered", () => {
       ["task.created", handleTaskCreatedMock],
       ["task.completed", handleTaskCompletedMock],
       ["task.completed", handleAdvancementMock],
-      ["deal.statusChanged", handleStatusChangeReminderMock],
+      ["deal.stageChanged", handleStatusChangeReminderMock],
       ["upload.created", handleUploadCreatedMock],
-      ["deal.statusChanged", handleBuyerOutreachMock],
+      ["deal.stageChanged", handleBuyerOutreachMock],
       ["triage.completed", handleTriageBuyerMatchMock],
       ["intake.received", handleIntakeReceivedMock],
-      ["deal.statusChanged", handleArtifactOnStatusChangeMock],
+      ["deal.stageChanged", handleArtifactOnStatusChangeMock],
       ["triage.completed", handleTriageArtifactNotificationMock],
-      ["deal.statusChanged", handleEntitlementStrategyAutopilotMock],
+      ["deal.stageChanged", handleEntitlementStrategyAutopilotMock],
       ["triage.completed", handleFinancialInitMock],
-      ["deal.statusChanged", handleKnowledgeCaptureMock],
-      ["deal.statusChanged", handleOutcomeCaptureMock],
+      ["deal.stageChanged", handleKnowledgeCaptureMock],
+      ["deal.stageChanged", handleOutcomeCaptureMock],
     ]);
   });
 

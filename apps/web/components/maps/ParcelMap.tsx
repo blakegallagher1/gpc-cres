@@ -1,7 +1,10 @@
 "use client";
 
-import { useMemo } from "react";
-import { MapLibreParcelMap } from "./MapLibreParcelMap";
+import { forwardRef, useMemo } from "react";
+import {
+  MapLibreParcelMap,
+  type MapLibreParcelMapRef,
+} from "./MapLibreParcelMap";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -39,14 +42,17 @@ interface ParcelMapProps {
   selectedParcelIds?: Set<string>;
   onSelectionChange?: (ids: Set<string>) => void;
   onViewStateChange?: (center: [number, number], zoom: number) => void;
+  onMapReady?: () => void;
   searchSlot?: React.ReactNode;
 }
+
+export type ParcelMapRef = MapLibreParcelMapRef;
 
 // ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 
-export function ParcelMap({
+export const ParcelMap = forwardRef<MapLibreParcelMapRef, ParcelMapProps>(function ParcelMap({
   parcels,
   center = [30.4515, -91.1871],
   zoom = 11,
@@ -63,12 +69,14 @@ export function ParcelMap({
   selectedParcelIds,
   onSelectionChange,
   onViewStateChange,
+  onMapReady,
   searchSlot,
-}: ParcelMapProps) {
+}, ref) {
   const mlCenter: [number, number] = useMemo(() => [center[1], center[0]], [center]);
 
   return (
     <MapLibreParcelMap
+      ref={ref}
       parcels={parcels}
       center={mlCenter}
       zoom={zoom}
@@ -85,7 +93,8 @@ export function ParcelMap({
       selectedParcelIds={selectedParcelIds}
       onSelectionChange={onSelectionChange}
       onViewStateChange={onViewStateChange}
+      onMapReady={onMapReady}
       searchSlot={searchSlot}
     />
   );
-}
+});

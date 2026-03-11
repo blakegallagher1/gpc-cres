@@ -224,6 +224,33 @@ describe("dispatchEvent", () => {
     expect(handler).toHaveBeenCalledTimes(2);
   });
 
+  it("uses the destination stage in stageChanged idempotency keys", async () => {
+    const { dispatchEvent, registerHandler, _resetHandlers } = await loadModule();
+    _resetHandlers();
+    const handler = vi.fn(async () => undefined);
+    registerHandler("deal.stageChanged", handler);
+
+    const event = {
+      type: "deal.stageChanged" as const,
+      dealId: "deal-1",
+      from: "UNDERWRITING" as const,
+      to: "DISPOSITION" as const,
+      orgId: "org-1",
+    };
+
+    await dispatchEvent(event);
+
+    expect(handler).toHaveBeenCalledWith(event);
+    expect(startEventMock).toHaveBeenCalledWith(
+      "org-1",
+      expect.any(String),
+      "deal.stageChanged",
+      "deal-1",
+      event,
+      expect.stringContaining("deal.stageChanged:org-1:deal-1:DISPOSITION"),
+    );
+  });
+
   it("times out long-running handlers and records failure", async () => {
     // Override timeout for faster test
     const mod = await loadModule();

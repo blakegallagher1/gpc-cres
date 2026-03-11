@@ -24,6 +24,8 @@ import { AgentStatusChip } from './AgentStatusChip';
 import { ToolStatusChip } from './ToolStatusChip';
 import { ToolApprovalPrompt } from './ToolApprovalPrompt';
 import type { ChatMessage, ChatStreamEvent } from '@/lib/chat/types';
+import { MiniMapMessage } from './MiniMapMessage';
+import { useMapChatDispatch } from '@/lib/chat/MapChatContext';
 
 type MessageBubbleEventMap = Record<string, ComponentType<{ className?: string }>>;
 
@@ -417,6 +419,7 @@ export function MessageBubble({
   conversationId,
   onToolApprovalEvents,
 }: MessageBubbleProps) {
+  const mapDispatch = useMapChatDispatch();
   const isUser = message.role === 'user';
   const isSystemEvent = message.eventKind !== undefined && message.eventKind !== 'assistant';
   const hasEvent = message.eventKind !== undefined;
@@ -474,6 +477,14 @@ export function MessageBubble({
               )}
             >
               <p className="whitespace-pre-wrap break-words">{message.content}</p>
+              {Array.isArray(message.mapFeatures) && message.mapFeatures.length > 0 ? (
+                <MiniMapMessage
+                  features={message.mapFeatures}
+                  onParcelClick={(parcelId) => {
+                    mapDispatch({ type: 'SELECT_PARCELS', parcelIds: [parcelId] });
+                  }}
+                />
+              ) : null}
               {!hasEvent ? (
                 <MessageActions
                   conversationId={conversationId}

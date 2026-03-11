@@ -2,6 +2,7 @@ import { prisma } from "@entitlement-os/db";
 import { AUTOMATION_CONFIG } from "./config";
 import { createAutomationTask } from "./notifications";
 import type { AutomationEvent } from "./events";
+import { resolveCanonicalDealWorkflowState } from "../../app/api/_lib/opportunityPhase3";
 
 /**
  * #3 Auto-Triage: Detect when a deal is ready for triage and create a notification.
@@ -26,11 +27,35 @@ export async function handleTriageReadiness(
   // Load deal with parcels
   const deal = await prisma.deal.findFirst({
     where: { id: dealId, orgId },
-    include: { parcels: true },
+    select: {
+      id: true,
+      name: true,
+      sku: true,
+      status: true,
+      legacySku: true,
+      legacyStatus: true,
+      assetClass: true,
+      strategy: true,
+      workflowTemplateKey: true,
+      currentStageKey: true,
+      parcels: true,
+    },
   });
 
   if (!deal) return;
-  if (deal.status !== "INTAKE") return;
+  const workflowState = resolveCanonicalDealWorkflowState({
+    base: {
+      assetClass: deal.assetClass,
+      strategy: deal.strategy,
+      workflowTemplateKey: deal.workflowTemplateKey,
+      currentStageKey: deal.currentStageKey,
+    },
+    legacySku: deal.legacySku ?? deal.sku,
+    legacyStatus: deal.legacyStatus ?? deal.status,
+  });
+
+  if (workflowState.workflowTemplateKey !== "ENTITLEMENT_LAND") return;
+  if (workflowState.currentStageKey !== "ORIGINATION") return;
   if (deal.parcels.length === 0) return;
 
   // Check all parcels are enriched

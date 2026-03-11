@@ -73,6 +73,11 @@ export type ChatStreamEvent =
       conversationId?: string | null;
     }
   | { type: "tool_result"; name: string; result?: unknown }
-  | { type: "agent_progress_summary"; agentName: string; message: string };
+  | { type: "agent_progress_summary"; agentName: string; message: string }
+  | {
+      type: "map_action";
+      payload: import("./mapActionTypes").MapActionPayload;
+      toolCallId?: string | null;
+    };
 
 export type ChatStreamEventKind = ChatStreamEvent["type"];

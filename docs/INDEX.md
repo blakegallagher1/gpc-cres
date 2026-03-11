@@ -3,7 +3,7 @@
 Status: Authoritative
 Authority: Documentation navigation source of truth
 Owner: Platform engineering
-Last reviewed: 2026-03-10
+Last reviewed: 2026-03-11
 
 This is the canonical entrypoint for repository documentation.
 
@@ -38,6 +38,7 @@ This is the canonical entrypoint for repository documentation.
 - Cloudflare + networking: `docs/CLOUDFLARE.md`
 - Server management: `docs/SERVER_MANAGEMENT.md`
 - Chat runtime contract: `docs/chat-runtime.md`
+- Opportunity-platform generalization roadmap: `docs/OPPORTUNITY_OS_GENERALIZATION_ROADMAP.md`
 - Internal architecture set: `docs/claude/architecture.md`, `docs/claude/backend.md`, `docs/claude/conventions.md`, `docs/claude/workflows.md`, `docs/claude/reference.md`
 
 ## Archived / Historical Docs

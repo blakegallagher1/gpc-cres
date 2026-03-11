@@ -1,4 +1,5 @@
 import type { ChatStreamEvent } from "./streamEventTypes";
+import type { MapFeature } from "./mapActionTypes";
 
 export type { ChatStreamEvent } from "./streamEventTypes";
 export type ChatStreamEventKind = ChatStreamEvent["type"];
@@ -61,6 +62,7 @@ export type ChatMessage = {
     version?: string;
     downloadUrl: string;
   }[];
+  mapFeatures?: MapFeature[];
 };
 
 export type ConversationSummary = {

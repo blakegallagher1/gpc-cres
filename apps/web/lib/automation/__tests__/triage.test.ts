@@ -27,6 +27,7 @@ function makeDeal(overrides?: Record<string, unknown>) {
   return {
     id: "deal-1",
     name: "Test Deal",
+    sku: "SMALL_BAY_FLEX",
     status: "INTAKE",
     parcels: [{ id: "p1", propertyDbId: "prop-1" }],
     ...overrides,

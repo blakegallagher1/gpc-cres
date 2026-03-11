@@ -15,6 +15,8 @@ export * from "./dealStakeholder.js";
 export * from "./propertyTitle.js";
 export * from "./propertySurvey.js";
 export * from "./financialModel.js";
+export * from "./opportunityGeneralization.js";
+export * from "./opportunityPhase3.js";
 
 export const CapitalSourceKindSchema = z.enum([
   "LP_EQUITY",

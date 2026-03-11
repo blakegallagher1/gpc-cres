@@ -3,7 +3,15 @@
 Status: Authoritative
 Authority: Record of documentation contract changes
 Owner: Platform engineering
-Last reviewed: 2026-03-10
+Last reviewed: 2026-03-11
+
+## 2026-03-11
+
+- Added repo-specific platform generalization roadmap for expanding beyond entitlement-only workflows:
+  - `docs/OPPORTUNITY_OS_GENERALIZATION_ROADMAP.md`
+- Updated active implementation status and docs navigation to point to the new roadmap:
+  - `ROADMAP.md`
+  - `docs/INDEX.md`
 
 ## 2026-03-10
 

@@ -6,11 +6,37 @@ vi.mock("@/lib/services/entitlementStrategyAutopilot.service", () => ({
   runEntitlementStrategyAutopilot: runEntitlementStrategyAutopilotMock,
 }));
 
+const {
+  getAutomationDealContextMock,
+  isEntitlementStrategyMock,
+} = vi.hoisted(() => ({
+  getAutomationDealContextMock: vi.fn(),
+  isEntitlementStrategyMock: vi.fn(),
+}));
+
+vi.mock("../context", () => ({
+  getAutomationDealContext: getAutomationDealContextMock,
+  isEntitlementStrategy: isEntitlementStrategyMock,
+}));
+
 import { handleEntitlementStrategyAutopilot } from "../entitlementStrategy";
 
 describe("handleEntitlementStrategyAutopilot", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    getAutomationDealContextMock.mockResolvedValue({
+      dealId: "deal-1",
+      orgId: "org-1",
+      name: "Deal 1",
+      sku: "SMALL_BAY_FLEX",
+      jurisdictionId: "jur-1",
+      status: "PREAPP",
+      strategy: "ENTITLEMENT",
+      workflowTemplateKey: "ENTITLEMENT_LAND",
+      currentStageKey: "UNDERWRITING",
+      templateStages: [],
+    });
+    isEntitlementStrategyMock.mockReturnValue(true);
   });
 
   it("ignores non deal.statusChanged events", async () => {
@@ -30,6 +56,20 @@ describe("handleEntitlementStrategyAutopilot", () => {
       dealId: "deal-1",
       from: "TRIAGE_DONE",
       to: "HEARING",
+      orgId: "org-1",
+    });
+
+    expect(runEntitlementStrategyAutopilotMock).not.toHaveBeenCalled();
+  });
+
+  it("ignores non-entitlement deals", async () => {
+    isEntitlementStrategyMock.mockReturnValue(false);
+
+    await handleEntitlementStrategyAutopilot({
+      type: "deal.statusChanged",
+      dealId: "deal-1",
+      from: "TRIAGE_DONE",
+      to: "PREAPP",
       orgId: "org-1",
     });
 

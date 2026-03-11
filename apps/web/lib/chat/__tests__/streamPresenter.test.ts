@@ -4,6 +4,7 @@ import {
   applyStreamingEvents,
   createStreamPresenterState,
 } from "../streamPresenter";
+import { createToolResultWithMap } from "../toolResultWrapper";
 import type { ChatStreamEvent, ChatMessage } from "../types";
 
 describe("streamPresenter", () => {
@@ -172,6 +173,79 @@ describe("streamPresenter", () => {
           args: { dealId: "d-1", status: "APPROVED" },
         },
       ],
+    });
+  });
+
+  it("carries parsed map features forward onto the assistant message", () => {
+    const wrappedResult = createToolResultWithMap("Found parcel", [
+      {
+        parcelId: "parcel-1",
+        address: "123 Main St",
+        center: { lat: 30.4515, lng: -91.1871 },
+      },
+    ]);
+
+    const events: ChatStreamEvent[] = [
+      {
+        type: "tool_end",
+        name: "parcel_lookup",
+        result: wrappedResult,
+        toolCallId: "tool-map-1",
+      },
+      {
+        type: "map_action",
+        payload: {
+          action: "addLayer",
+          layerId: "layer-1",
+          geojson: {
+            type: "FeatureCollection",
+            features: [
+              {
+                type: "Feature",
+                properties: {
+                  parcelId: "parcel-1",
+                  address: "123 Main St",
+                  label: "123 Main St",
+                },
+                geometry: {
+                  type: "Point",
+                  coordinates: [-91.1871, 30.4515],
+                },
+              },
+            ],
+          },
+        },
+      },
+      {
+        type: "text_delta",
+        content: "Here is the parcel.",
+      },
+    ];
+
+    const { nextMessages } = applyStreamingEvents(
+      createStreamPresenterState(),
+      [],
+      events,
+      () => "2026-02-15T12:00:00.000Z",
+      (prefix) => `${prefix}-map`,
+    );
+
+    const assistantMessage = nextMessages.find(
+      (entry) => entry.eventKind === "assistant",
+    );
+
+    expect(assistantMessage).toMatchObject({
+      role: "assistant",
+      content: "Here is the parcel.",
+    });
+    expect(assistantMessage?.mapFeatures).toHaveLength(1);
+    expect(assistantMessage?.mapFeatures?.[0]).toMatchObject({
+      parcelId: "parcel-1",
+      address: "123 Main St",
+      geometry: {
+        type: "Point",
+        coordinates: [-91.1871, 30.4515],
+      },
     });
   });
 });

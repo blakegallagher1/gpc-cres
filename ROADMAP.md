@@ -1,6 +1,6 @@
 # Entitlement OS — Master Implementation Roadmap
 
-Last reviewed: 2026-03-02
+Last reviewed: 2026-03-11
 
 
 ## Governance
@@ -53,6 +53,41 @@ Only items meeting all checks are added below as `Planned`.
   - Mark intentionally historical migration docs as archival with clear pointers to current authoritative docs.
   - Remove retired route references from test matrices and active operational runbooks.
   - Run verification gate and review the final diff for documentation-only intent plus any required comment fixes.
+
+### PLAT-001 — Opportunity OS Generalization Program (P1)
+
+- **Priority:** P1
+- **Status:** Done (2026-03-11)
+- **Scope:** Generalize the repo from an entitlement-focused operating system into a multi-tenant CRE opportunity platform that supports acquisition, development, entitlement, leasing, asset-management, refinance, disposition, and portfolio-review workflows.
+- **Problem:** The platform layer is already broad, but the domain model is still hard-coded around entitlement-era assumptions: fixed SKUs, entitlement-specific deal statuses, parcel-first deal structure, and automation/tooling that treat zoning/parish-pack/triage work as the default operating model.
+- **Expected Outcome (measurable):**
+  - `Deal` classification and workflow state are generalized beyond the current `sku` and entitlement-only `status` enums.
+  - Assets/properties, parcels, workflows, scorecards, and stage histories support non-entitlement opportunity types without breaking current entitlement flows.
+  - Agents, tools, APIs, and UI surfaces route by opportunity type and workflow template rather than assuming every deal is an entitlement flip.
+- **Evidence of need:** The current spec still defines deals as “an entitlement flip effort” and treats three entitlement SKUs as non-negotiable. The current Prisma schema encodes that same assumption via `sku_type` and entitlement lifecycle statuses, even though the repo already contains broader CRE models such as financing, tenants, leases, development budgets, title, survey, and risk tracking.
+- **Alignment:** Preserves existing org-scoping, auth, gateway-only property DB access, strict shared-schema validation, and current entitlement functionality by making entitlements one module within a broader platform rather than removing them.
+- **Risk/rollback:** High scope and migration risk if attempted as a rewrite. The required approach is additive schema evolution, compatibility facades, dual-read/dual-write phases, and delayed deprecation of legacy entitlement contracts.
+- **Acceptance Criteria / Tests:**
+  - Check in a repo-specific implementation roadmap that defines concrete schema, API, agent/tool, UI/automation, and migration phases for platform generalization.
+  - Use additive migration sequencing that keeps current entitlement workflows operational during rollout.
+  - Future implementation slices validate legacy compatibility plus generalized flows with route tests, agent/tool contract tests, and the full repo verification gate.
+- **Implementation plan:** `docs/OPPORTUNITY_OS_GENERALIZATION_ROADMAP.md`
+- **Evidence (2026-03-11):**
+  - Phase 1 additive schema introduction completed in `packages/db/prisma/schema.prisma`, `packages/shared/src/enums.ts`, `packages/shared/src/schemas/opportunityGeneralization.ts`, and `packages/shared/src/schemas/index.ts`.
+  - Added additive migration `packages/db/prisma/migrations/20260311210100_add_opportunity_os_generalization_schema/migration.sql`.
+  - Added prerequisite migration-history repair `packages/db/prisma/migrations/20260311205900_backfill_schema_parity/migration.sql` so Prisma shadow and verification flows could replay prior schema state cleanly before the Phase 1 diff.
+  - Phase 3 API compatibility facade completed in `apps/web/app/api/deals/route.ts`, `apps/web/app/api/deals/[id]/route.ts`, `apps/web/app/api/deals/[id]/screen/route.ts`, `apps/web/app/api/workflows/route.ts`, `apps/web/app/api/workflows/[id]/route.ts`, `apps/web/app/api/assets/route.ts`, `apps/web/app/api/assets/[id]/route.ts`, `apps/web/app/api/_lib/opportunityPhase3.ts`, and `packages/shared/src/schemas/opportunityPhase3.ts`.
+  - Phase 3 preserved legacy `/api/deals` and `/api/deals/[id]/triage` behavior while adding generalized dual-write fields, the `/screen` compatibility endpoint, workflow/asset APIs, and org-scoped route coverage in the corresponding Vitest route suites.
+  - Phase 6 compatibility sunset completed in `packages/db/prisma/schema.prisma`, `apps/web/app/api/deals/route.ts`, `apps/web/app/api/deals/[id]/route.ts`, `apps/web/app/api/_lib/opportunityPhase3.ts`, `apps/web/lib/automation/context.ts`, `apps/web/lib/automation/intake.ts`, `apps/web/lib/automation/triage.ts`, `apps/web/lib/automation/advancement.ts`, `apps/web/lib/automation/buyerOutreach.ts`, `apps/web/lib/automation/artifactAutomation.ts`, `apps/web/lib/automation/entitlementStrategy.ts`, `apps/web/lib/automation/knowledgeCapture.ts`, `apps/web/lib/automation/outcomeCapture.ts`, `packages/openai/src/agents/coordinator.ts`, `packages/openai/src/tools/dealTools.ts`, and `docs/LEGACY_CLEANUP_CANDIDATES.md`.
+  - Phase 6 moved canonical writes to generalized workflow fields (`workflowTemplateKey`, `currentStageKey`, `assetClass`, `strategy`) while keeping `sku`/`status` on compatibility-only read paths derived by mapper functions so entitlement deals continue to resolve through the `ENTITLEMENT_LAND` template.
+  - Verification passed:
+    - `pnpm prisma generate`
+    - `pnpm prisma migrate dev --name add-opportunity-os-generalization-schema`
+    - `pnpm lint`
+    - `pnpm typecheck`
+    - `pnpm test`
+    - `pnpm build`
+    - Manual `POST /api/deals` verification through a local Next dev server plus mock gateway confirmed entitlement create requests forward canonical `workflowTemplateKey=ENTITLEMENT_LAND` and `currentStageKey=ORIGINATION` while echoing compatibility `sku=SMALL_BAY_FLEX` and `status=INTAKE`.
 
 ### MEM-001 — Coordinator Memory Tool Invocation Fix (P0)
 
@@ -558,6 +593,48 @@ Reason: these were low-priority for current operating goals and can be deferred 
   - Command center preview now hands off to `/opportunities` instead of bouncing users back to saved filters.
   - The opportunity API and service now support user-scoped `savedSearchId` filtering for deep links.
 
+### MAP-006 — Fluid Map-Chat Integration Completion (P0)
+
+- **Priority:** P0
+- **Status:** Done (2026-03-11)
+- **Scope:** Finish the shared map/chat transport, context, and UI integration so parcel tools, `/map`, and assistant messages use one consistent map-state contract.
+- **Problem:** The typed map-action and wrapped tool-result groundwork landed, but the remaining UI and WebSocket surfaces still bypassed the shared context. `/map` kept its own selection and viewport state, the Cloudflare worker path could not forward map context or `map_action` events, and assistant messages could not render inline spatial previews from `__mapFeatures`.
+- **Expected Outcome (measurable):**
+  - SSE and WebSocket transports both accept `mapContext` input and can emit `map_action` events with the same shared schema.
+  - `/map`, `ChatContainer`, and `MapChatPanel` read/write one shared `MapChatContext` for viewport, selected parcel IDs, referenced features, and pending map actions.
+  - Assistant messages can persist `mapFeatures` and render an inline mini-map preview without scraping raw tool JSON.
+- **Evidence of need:** The implementation plan in `~/.claude/plans/noble-marinating-wolf.md` was only partially complete in the starting tree: shared map action contracts and parcel tool wrappers existed, but `packages/shared`, the Cloudflare worker, `ChatContainer`, `/map`, and the message rendering surfaces did not yet consume the shared integration layer end to end.
+- **Alignment:** Preserves the current map tooling architecture, avoids duplicated parcel/viewport state, keeps strict typed stream contracts across transports, and does not weaken auth/org-scoping or tool-result validation behavior.
+- **Risk/rollback:** Medium UI/integration risk because the work touched shared chat and map surfaces. Rollback remains straightforward by reverting the scoped files, but partial completion would have left SSE and WebSocket behavior divergent and kept `/map` in a split-brain state.
+- **Acceptance Criteria / Tests:**
+  - Add the remaining shared stream and worker contract updates for `map_action` and `mapContext`.
+  - Mount and consume `MapChatProvider` across chat/map surfaces, replacing local `/map` selection and viewport ownership.
+  - Expose imperative map controls needed for pending map actions and connect them to the shared context.
+  - Add assistant message `mapFeatures` support and render inline mini-map previews from typed features.
+  - Run the full verification gate: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`.
+- **Completion note:** The remaining end-to-end integration is complete. Shared `MapChatContext` now drives `/map`, home chat, and the map side panel; both SSE and Cloudflare-worker transports serialize the same `mapContext`; assistant messages persist typed `mapFeatures` and render inline mini-map previews without raw JSON scraping.
+- **Operational verification:**
+  - **Status:** **IMPLEMENTATION VERIFIED**
+  - **Evidence:**
+    - `packages/shared/src/types/mapChat.ts`
+    - `apps/web/lib/chat/MapChatContext.tsx`
+    - `apps/web/app/map/page.tsx`
+    - `apps/web/components/chat/ChatContainer.tsx`
+    - `apps/web/components/maps/MapChatPanel.tsx`
+    - `apps/web/components/maps/MapLibreParcelMap.tsx`
+    - `apps/web/components/chat/MiniMapMessage.tsx`
+    - `apps/web/lib/agent/agentRunner.ts`
+    - `infra/cloudflare-agent/src/durable-object.ts`
+    - `apps/web/lib/chat/__tests__/MapChatContext.test.tsx`
+    - `apps/web/lib/chat/__tests__/normalizeParcel.test.ts`
+    - `apps/web/lib/chat/__tests__/toolResultWrapper.test.ts`
+    - `apps/web/lib/chat/__tests__/streamPresenter.test.ts`
+    - `apps/web/app/api/chat/route.test.ts`
+  - Verification gate passed at repo root:
+    - `pnpm lint`
+    - `pnpm typecheck`
+    - `pnpm test`
+    - `pnpm build`
 
 ### R-006 — Supabase Client Surface Reduction (P1)
 

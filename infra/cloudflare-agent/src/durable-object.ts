@@ -21,6 +21,115 @@ const OPENAI_WS_URL = "https://api.openai.com/v1/responses";
 const MODEL = "gpt-4.1";
 const RECONNECT_BEFORE_EXPIRY_MS = 5 * 60 * 1000; // reconnect at 55min
 const MAX_RECONNECT_ATTEMPTS = 2;
+const MAP_FEATURES_KEY = "__mapFeatures";
+
+type MapContext = NonNullable<ClientMessage["mapContext"]>;
+type GeoJsonGeometry = {
+  type: string;
+  coordinates?: unknown;
+  geometries?: unknown[];
+};
+
+type MapFeature = {
+  parcelId: string;
+  address?: string;
+  zoningType?: string;
+  owner?: string;
+  acres?: number;
+  label?: string;
+  center?: { lat: number; lng: number };
+  geometry?: GeoJsonGeometry;
+};
+
+function extractTextFromToolResult(result: unknown): string {
+  if (typeof result === "string") {
+    try {
+      const parsed = JSON.parse(result) as { text?: unknown } & Record<string, unknown>;
+      if (parsed && typeof parsed === "object" && MAP_FEATURES_KEY in parsed) {
+        return typeof parsed.text === "string" ? parsed.text : JSON.stringify(parsed.text ?? "");
+      }
+    } catch {
+      return result;
+    }
+    return result;
+  }
+
+  if (result && typeof result === "object") {
+    const parsed = result as { text?: unknown } & Record<string, unknown>;
+    if (MAP_FEATURES_KEY in parsed) {
+      return typeof parsed.text === "string" ? parsed.text : JSON.stringify(parsed.text ?? "");
+    }
+    return JSON.stringify(result);
+  }
+
+  return String(result ?? "");
+}
+
+function parseToolResultMapFeatures(result: unknown): MapFeature[] | null {
+  if (!result) return null;
+
+  let parsed: Record<string, unknown>;
+  if (typeof result === "string") {
+    try {
+      parsed = JSON.parse(result) as Record<string, unknown>;
+    } catch {
+      return null;
+    }
+  } else if (typeof result === "object") {
+    parsed = result as Record<string, unknown>;
+  } else {
+    return null;
+  }
+
+  const features = parsed[MAP_FEATURES_KEY];
+  if (!Array.isArray(features) || features.length === 0) {
+    return null;
+  }
+
+  return features as MapFeature[];
+}
+
+function buildMapContextPrefix(mapContext: ClientMessage["mapContext"]): string {
+  const center = mapContext?.center;
+  const selected = mapContext?.selectedParcelIds ?? [];
+  const referenced = mapContext?.referencedFeatures ?? [];
+  const hasContext =
+    !!center ||
+    typeof mapContext?.zoom === "number" ||
+    selected.length > 0 ||
+    referenced.length > 0 ||
+    Boolean(mapContext?.viewportLabel);
+
+  if (!hasContext) {
+    return "";
+  }
+
+  const centerText = center
+    ? `${center.lat.toFixed(6)}, ${center.lng.toFixed(6)}`
+    : "unknown";
+  const zoomText =
+    typeof mapContext?.zoom === "number" ? mapContext.zoom.toFixed(2) : "unknown";
+  const referencedText =
+    referenced.length > 0
+      ? referenced
+          .map((feature) =>
+            [feature.parcelId, feature.address, feature.zoning]
+              .filter((value) => typeof value === "string" && value.length > 0)
+              .join(" | "),
+          )
+          .join("; ")
+      : "none";
+
+  return `[Map Context]
+Center: ${centerText}
+Zoom: ${zoomText}
+Selected Parcels: ${selected.join(", ") || "none"}
+Viewport Label: ${mapContext?.viewportLabel ?? "unknown"}
+Referenced Features: ${referencedText}
+[/Map Context]
+
+`;
+}
 
 export class AgentChatDO implements DurableObject {
   private state: DurableObjectState;
@@ -45,6 +154,7 @@ export class AgentChatDO implements DurableObject {
 
   // Context for current turn
   private currentDealId: string | undefined;
+  private currentMapContext: MapContext | null = null;
 
   constructor(state: DurableObjectState, env: Env) {
     this.state = state;
@@ -199,6 +309,7 @@ export class AgentChatDO implements DurableObject {
 
     console.log("[DO] Received message:", parsed.text.slice(0, 100));
     this.currentDealId = parsed.dealId;
+    this.currentMapContext = parsed.mapContext ?? null;
 
     await this.handleUserMessage(parsed.text);
   }
@@ -286,12 +397,14 @@ export class AgentChatDO implements DurableObject {
       console.log("[DO] OpenAI WebSocket connected successfully");
     }
 
+    const promptText = `${buildMapContextPrefix(this.currentMapContext)}${text}`;
+
     // Build the response.create request (flat structure per OpenAI WebSocket mode docs)
     const input: unknown[] = [
       {
         type: "message",
         role: "user",
-        content: [{ type: "input_text", text }],
+        content: [{ type: "input_text", text: promptText }],
       },
     ];
 
@@ -585,6 +698,75 @@ export class AgentChatDO implements DurableObject {
       parsedResult !== null &&
       "error" in parsedResult;
 
+    const mapFeatures = parseToolResultMapFeatures(parsedResult);
+    if (mapFeatures?.length) {
+      const parcelIds = mapFeatures
+        .map((feature) => feature.parcelId)
+        .filter((parcelId): parcelId is string => !!parcelId);
+
+      if (parcelIds.length > 0) {
+        this.sendToClient({
+          type: "map_action",
+          payload: {
+            action: "highlight",
+            parcelIds,
+            style: "pulse",
+            durationMs: 0,
+          },
+          toolCallId: callId,
+        });
+      }
+
+      const firstWithCenter = mapFeatures.find(
+        (feature) =>
+          feature.center &&
+          typeof feature.center.lat === "number" &&
+          typeof feature.center.lng === "number",
+      );
+
+      if (firstWithCenter?.center) {
+        this.sendToClient({
+          type: "map_action",
+          payload: {
+            action: "flyTo",
+            center: [firstWithCenter.center.lng, firstWithCenter.center.lat],
+            zoom: mapFeatures.length === 1 ? 17 : 14,
+            parcelId: firstWithCenter.parcelId,
+          },
+          toolCallId: callId,
+        });
+      }
+
+      const geojsonFeatures = mapFeatures
+        .filter((feature) => feature.geometry)
+        .map((feature) => ({
+          type: "Feature" as const,
+          properties: {
+            parcelId: feature.parcelId,
+            address: feature.address,
+            zoning: feature.zoningType,
+            label: feature.label,
+          },
+          geometry: feature.geometry!,
+        }));
+
+      if (geojsonFeatures.length > 0) {
+        this.sendToClient({
+          type: "map_action",
+          payload: {
+            action: "addLayer",
+            layerId: `tool-result-${callId}`,
+            geojson: {
+              type: "FeatureCollection",
+              features: geojsonFeatures,
+            },
+            label: `${toolName} results (${geojsonFeatures.length})`,
+          },
+          toolCallId: callId,
+        });
+      }
+    }
+
     this.sendToClient({
       type: "tool_end",
       name: toolName,
@@ -630,7 +812,7 @@ export class AgentChatDO implements DurableObject {
         {
           type: "function_call_output",
           call_id: callId,
-          output: resultJson,
+          output: extractTextFromToolResult(parsedResult),
         },
       ],
     };

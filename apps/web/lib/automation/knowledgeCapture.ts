@@ -102,9 +102,32 @@ function buildRiskSummary(
   return lines.join("\n");
 }
 
+function resolveTerminalOutcomeStatus(
+  event: AutomationEvent,
+): "EXITED" | "KILLED" | null {
+  if (event.type === "deal.statusChanged") {
+    return event.to === "EXITED" || event.to === "KILLED" ? event.to : null;
+  }
+
+  if (event.type === "deal.stageChanged") {
+    if (event.to === "CLOSED_WON") {
+      return "EXITED";
+    }
+    if (event.to === "CLOSED_LOST") {
+      return "KILLED";
+    }
+  }
+
+  return null;
+}
+
 export async function handleKnowledgeCapture(event: AutomationEvent): Promise<void> {
-  if (event.type !== "deal.statusChanged") return;
-  if (event.to !== "EXITED" && event.to !== "KILLED") return;
+  if (event.type !== "deal.statusChanged" && event.type !== "deal.stageChanged") {
+    return;
+  }
+
+  const terminalStatus = resolveTerminalOutcomeStatus(event);
+  if (!terminalStatus) return;
 
   const deal = await prisma.deal.findFirst({
     where: {
@@ -185,7 +208,7 @@ export async function handleKnowledgeCapture(event: AutomationEvent): Promise<vo
     deal.outcome?.actualHoldPeriodMonths ??
     (deal.outcome?.exitDate
       ? daysBetween(deal.createdAt, deal.outcome.exitDate)
-      : event.to === "KILLED"
+      : terminalStatus === "KILLED"
       ? daysBetween(deal.createdAt, deal.updatedAt)
       : null);
 
@@ -200,12 +223,12 @@ export async function handleKnowledgeCapture(event: AutomationEvent): Promise<vo
 
   const parish = deal.jurisdiction?.name ?? "Unknown";
   const strategy = deal.entitlementPath?.recommendedStrategy ?? "Unknown";
-  const sourceId = `deal-outcome:${deal.id}:${event.to.toLowerCase()}`;
+  const sourceId = `deal-outcome:${deal.id}:${terminalStatus.toLowerCase()}`;
 
   const content = [
     `Deal Outcome Record: ${deal.name}`,
     "",
-    `- Status: ${event.to}`,
+    `- Status: ${terminalStatus}`,
     `- SKU: ${deal.sku}`,
     `- Parish: ${parish}`,
     `- Strategy: ${strategy}`,
@@ -237,7 +260,7 @@ export async function handleKnowledgeCapture(event: AutomationEvent): Promise<vo
     orgId: deal.orgId,
     dealId: deal.id,
     dealName: deal.name,
-    status: event.to,
+    status: terminalStatus,
     parish,
     sku: deal.sku,
     strategy,

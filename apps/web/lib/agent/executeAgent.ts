@@ -29,6 +29,7 @@ import {
   deserializeRunStateEnvelope,
   extractUsageSummary,
   evaluateProofCompliance,
+  inferQueryIntentFromDealContext,
   inferQueryIntentFromText,
   isAgentOsFeatureEnabled,
   maybeTrimToolOutput,
@@ -42,7 +43,10 @@ import {
   setupAgentTracing,
 } from "@entitlement-os/openai";
 import { AgentTrustEnvelope } from "@/types";
+import type { MapActionPayload } from "@/lib/chat/mapActionTypes";
+import { parseToolResultMapFeatures } from "@/lib/chat/toolResultWrapper";
 import { autoFeedRun } from "@/lib/agent/dataAgentAutoFeed.service";
+import { getDealReaderById } from "@/lib/services/deal-reader";
 import { logger } from "./loggerAdapter";
 import { unifiedRetrieval } from "./retrievalAdapter";
 
@@ -211,6 +215,11 @@ export type AgentStreamEvent =
       type: "agent_summary";
       runId: string;
       trust: AgentTrustEnvelope;
+    }
+  | {
+      type: "map_action";
+      payload: MapActionPayload;
+      toolCallId?: string | null;
     };
 
 type AgentExecutionResult = {
@@ -644,6 +653,85 @@ function extractToolOutput(payload: Record<string, unknown>): unknown {
     }
   }
   return null;
+}
+
+/**
+ * Inspects a tool result for __mapFeatures and emits map_action SSE events
+ * (highlight, flyTo, addLayer) so the map UI can react in real-time.
+ */
+function emitMapActionsFromToolResult(
+  toolName: string,
+  result: unknown,
+  toolCallId: string | null | undefined,
+  emit: (event: AgentStreamEvent) => void,
+): void {
+  const features = parseToolResultMapFeatures(result);
+  if (!features || features.length === 0) return;
+
+  // Highlight all parcel IDs
+  const parcelIds = features
+    .map((f) => f.parcelId)
+    .filter((id): id is string => !!id);
+
+  if (parcelIds.length > 0) {
+    emit({
+      type: "map_action",
+      payload: {
+        action: "highlight",
+        parcelIds,
+        style: "pulse",
+        durationMs: 0,
+      } as MapActionPayload,
+      toolCallId: toolCallId ?? null,
+    });
+  }
+
+  // Fly to the centroid of the first feature with coordinates
+  const firstWithCenter = features.find(
+    (f) => f.center && typeof f.center.lat === "number" && typeof f.center.lng === "number",
+  );
+  if (firstWithCenter?.center) {
+    emit({
+      type: "map_action",
+      payload: {
+        action: "flyTo",
+        center: [firstWithCenter.center.lng, firstWithCenter.center.lat],
+        zoom: features.length === 1 ? 17 : 14,
+        parcelId: firstWithCenter.parcelId,
+      } as MapActionPayload,
+      toolCallId: toolCallId ?? null,
+    });
+  }
+
+  // Add a temporary GeoJSON layer for features with full geometry
+  const geoFeatures = features
+    .filter((f) => f.geometry)
+    .map((f) => ({
+      type: "Feature" as const,
+      properties: {
+        parcelId: f.parcelId,
+        address: f.address,
+        zoning: f.zoningType,
+        label: f.label,
+      },
+      geometry: f.geometry!,
+    }));
+
+  if (geoFeatures.length > 0) {
+    emit({
+      type: "map_action",
+      payload: {
+        action: "addLayer",
+        layerId: `tool-result-${toolCallId ?? Date.now()}`,
+        geojson: {
+          type: "FeatureCollection",
+          features: geoFeatures,
+        },
+        label: `${toolName} results (${geoFeatures.length})`,
+      } as MapActionPayload,
+      toolCallId: toolCallId ?? null,
+    });
+  }
 }
 
 function extractSerializedRunStateCandidate(payload: Record<string, unknown>): string | null {
@@ -1247,8 +1335,14 @@ export async function executeAgentWorkflow(
   });
   const firstUserInput = params.input.find((entry) => entry.role === "user")?.content;
   const userTextForIntent = params.intentHint ?? firstUserInput;
+  const dealRoutingContext =
+    params.queryIntentOverride || !params.dealId
+      ? null
+      : await getDealReaderById(params.orgId, params.dealId);
   const queryIntent =
-    params.queryIntentOverride ?? inferQueryIntentFromText(userTextForIntent);
+    params.queryIntentOverride ??
+    inferQueryIntentFromDealContext(dealRoutingContext) ??
+    inferQueryIntentFromText(userTextForIntent);
   const runId = toDatabaseRunId(
     params.runId ??
       `agent-run-${hashJsonSha256({ inputHash, runType: params.runType ?? "ENRICHMENT" })}`,
@@ -1713,6 +1807,7 @@ export async function executeAgentWorkflow(
                 toolCallId,
               });
               collectToolOutputSignals(toolName, output, state, args);
+              emitMapActionsFromToolResult(toolName, output, toolCallId, emit);
               await persistCheckpoint({
                 kind: "tool_completion",
                 toolName,

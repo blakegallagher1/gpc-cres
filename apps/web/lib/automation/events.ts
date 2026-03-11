@@ -1,5 +1,5 @@
 import * as Sentry from "@sentry/nextjs";
-import type { DealStatus } from "@entitlement-os/shared";
+import type { DealStageKey, DealStatus } from "@entitlement-os/shared";
 
 // ---------------------------------------------------------------------------
 // Error taxonomy
@@ -49,6 +49,7 @@ export type AutomationEvent =
   | { type: "task.created"; dealId: string; taskId: string; orgId: string }
   | { type: "task.completed"; dealId: string; taskId: string; orgId: string }
   | { type: "deal.statusChanged"; dealId: string; from: DealStatus; to: DealStatus; orgId: string }
+  | { type: "deal.stageChanged"; dealId: string; from: DealStageKey | null; to: DealStageKey; orgId: string }
   | { type: "upload.created"; dealId: string; uploadId: string; orgId: string }
   | { type: "intake.received"; source: string; content: string; orgId: string };
 

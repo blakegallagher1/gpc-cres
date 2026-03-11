@@ -2,6 +2,13 @@
  * Shared types for the Entitlement OS Cloudflare Agent Worker
  * ------------------------------------------------------------------ */
 
+import type { MapContextInput } from "@entitlement-os/shared";
+
+type GeoJsonFeatureCollection = {
+  type: "FeatureCollection";
+  features: unknown[];
+};
+
 /** Env bindings declared in wrangler.toml + secrets */
 export interface Env {
   AGENT_CHAT: DurableObjectNamespace;
@@ -34,6 +41,7 @@ export interface ClientMessage {
   type: "message";
   text: string;
   dealId?: string;
+  mapContext?: MapContextInput | null;
 }
 
 /** Events sent from Worker → Browser (matches ChatStreamEvent in streamEventTypes.ts) */
@@ -41,6 +49,40 @@ export type WorkerEvent =
   | { type: "text_delta"; content: string }
   | { type: "tool_start"; name: string; args?: Record<string, unknown>; toolCallId?: string }
   | { type: "tool_end"; name: string; result?: unknown; status?: "completed" | "failed"; toolCallId?: string }
+  | {
+      type: "map_action";
+      payload:
+        | {
+            action: "highlight";
+            parcelIds: string[];
+            style?: "pulse" | "outline" | "fill";
+            color?: string;
+            durationMs?: number;
+          }
+        | {
+            action: "flyTo";
+            center: [number, number];
+            zoom?: number;
+            parcelId?: string;
+          }
+        | {
+            action: "addLayer";
+            layerId: string;
+            geojson: GeoJsonFeatureCollection;
+            style?: {
+              fillColor?: string;
+              fillOpacity?: number;
+              strokeColor?: string;
+              strokeWidth?: number;
+            };
+            label?: string;
+          }
+        | {
+            action: "clearLayers";
+            layerIds?: string[];
+          };
+      toolCallId?: string | null;
+    }
   | { type: "agent_switch"; agentName: string }
   | { type: "error"; message: string; code?: string }
   | { type: "done"; runId?: string; conversationId?: string }

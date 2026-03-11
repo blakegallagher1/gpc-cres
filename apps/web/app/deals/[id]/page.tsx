@@ -11,6 +11,7 @@ import {
   Plus,
   MessageSquare,
   Calculator,
+  PencilLine,
   Trash2,
   AlertTriangle,
   RefreshCw,
@@ -40,6 +41,8 @@ import { RiskRegisterPanel } from "@/components/deals/RiskRegisterPanel";
 import { TriageResultPanel } from "@/components/deals/TriageResultPanel";
 import { RunTriageButton } from "@/components/deals/RunTriageButton";
 import { ActivityTimeline } from "@/components/deals/ActivityTimeline";
+import { WorkflowTimeline } from "@/components/deals/WorkflowTimeline";
+import { GeneralizedScorecard } from "@/components/deals/GeneralizedScorecard";
 import { TaskCreateForm } from "@/components/deals/TaskCreateForm";
 import { DealStakeholdersPanel } from "@/components/deals/DealStakeholdersPanel";
 import type { TaskItem } from "@/components/deals/TaskCard";
@@ -70,12 +73,46 @@ interface DealDetail {
   name: string;
   sku: string;
   status: string;
+  assetClass?: string | null;
+  strategy?: string | null;
+  workflowTemplateKey?: string | null;
+  currentStageKey?: string | null;
   notes?: string | null;
   targetCloseDate?: string | null;
   createdAt: string;
   updatedAt: string;
   triageTier?: string | null;
   triageOutput?: Record<string, unknown> | null;
+  workflowTemplate?: {
+    id: string;
+    key: string;
+    name: string;
+    description?: string | null;
+    stages: Array<{
+      id: string;
+      key: string;
+      name: string;
+      ordinal: number;
+      description?: string | null;
+      requiredGate?: string | null;
+    }>;
+  } | null;
+  stageHistory: Array<{
+    id: string;
+    fromStageKey: string | null;
+    toStageKey: string;
+    changedAt: string;
+    note?: string | null;
+  }>;
+  generalizedScorecards: Array<{
+    id: string;
+    module: string;
+    dimension: string;
+    score: number;
+    weight: number | null;
+    evidence: string | null;
+    scoredAt: string;
+  }>;
   jurisdiction?: { id: string; name: string; kind: string; state: string } | null;
   parcels: ParcelItem[];
   tasks: TaskItem[];
@@ -273,6 +310,7 @@ export default function DealDetailPage() {
   }, [id, loadDeal]);
 
   const displayNotes = deal?.notes?.trim() ?? "";
+  const hasGeneralizedScorecards = (deal?.generalizedScorecards?.length ?? 0) > 0;
 
   // Also load latest triage from dedicated endpoint
   useEffect(() => {
@@ -501,6 +539,12 @@ export default function DealDetailPage() {
                 Chat
               </Link>
             </Button>
+            <Button variant="outline" size="sm" className="gap-1.5" asChild>
+              <Link href={`/deals/${deal.id}/edit`}>
+                <PencilLine className="h-4 w-4" />
+                Edit
+              </Link>
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -563,6 +607,20 @@ export default function DealDetailPage() {
                         <div>
                           <p className="text-xs text-muted-foreground">Parcels</p>
                           <p className="font-medium">{deal.parcels.length}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Asset Class</p>
+                          <p className="font-medium">{deal.assetClass ?? "--"}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Strategy</p>
+                          <p className="font-medium">{deal.strategy ?? "--"}</p>
+                        </div>
+                        <div className="col-span-2">
+                          <p className="text-xs text-muted-foreground">Workflow Template</p>
+                          <p className="font-medium">
+                            {deal.workflowTemplate?.name ?? deal.workflowTemplateKey ?? "--"}
+                          </p>
                         </div>
                         <div className="col-span-2">
                           <p className="text-xs text-muted-foreground">Extraction Review</p>
@@ -753,6 +811,22 @@ export default function DealDetailPage() {
                         No timeline milestone data available yet.
                       </p>
                     )}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Workflow Timeline</CardTitle>
+                    <CardDescription>
+                      Current stage and completed stage history for this workflow template.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <WorkflowTimeline
+                      currentStageKey={deal.currentStageKey ?? null}
+                      workflowTemplate={deal.workflowTemplate ?? null}
+                      stageHistory={deal.stageHistory ?? []}
+                    />
                   </CardContent>
                 </Card>
 
@@ -967,10 +1041,14 @@ export default function DealDetailPage() {
                 {/* Triage Results */}
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-base">Triage Assessment</CardTitle>
+                    <CardTitle className="text-base">
+                      {hasGeneralizedScorecards ? "Opportunity Scorecard" : "Triage Assessment"}
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {triageResult && (triageResult as Record<string, unknown>).decision ? (
+                    {hasGeneralizedScorecards ? (
+                      <GeneralizedScorecard scores={deal.generalizedScorecards} />
+                    ) : triageResult && (triageResult as Record<string, unknown>).decision ? (
                       <TriageResultPanel
                         triage={triageResult as Parameters<typeof TriageResultPanel>[0]["triage"]}
                         sources={triageSources}

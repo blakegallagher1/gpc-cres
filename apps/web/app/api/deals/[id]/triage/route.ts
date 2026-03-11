@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
+import "@/lib/automation/handlers";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { dispatchEvent } from "@/lib/automation/events";
 import { getTemporalClient } from "@/lib/workflowClient";
@@ -17,6 +18,7 @@ import type {
 } from "@entitlement-os/shared";
 import { uploadArtifactToGateway } from "@/lib/storage/gatewayStorage";
 import { captureAutomationDispatchError } from "@/lib/automation/sentry";
+import { resolveStageKeyFromLegacyStatus } from "@/app/api/_lib/opportunityPhase3";
 import * as Sentry from "@sentry/nextjs";
 
 // POST /api/deals/[id]/triage - run triage via Temporal
@@ -229,11 +231,49 @@ export async function POST(
     }
 
     if (deal.status === "INTAKE") {
+      const previousStageKey =
+        deal.currentStageKey ?? resolveStageKeyFromLegacyStatus("INTAKE");
+      const nextStageKey = resolveStageKeyFromLegacyStatus("TRIAGE_DONE");
+
       await prisma.deal.update({
         where: { id },
-        data: { status: "TRIAGE_DONE" },
+        data: {
+          status: "TRIAGE_DONE",
+          legacyStatus: "TRIAGE_DONE",
+          currentStageKey: nextStageKey,
+        },
       });
       deal.status = "TRIAGE_DONE";
+      deal.currentStageKey = nextStageKey;
+
+      if (nextStageKey) {
+        await prisma.dealStageHistory.create({
+          data: {
+            dealId: id,
+            orgId: auth.orgId,
+            fromStageKey: previousStageKey,
+            toStageKey: nextStageKey,
+            changedBy: auth.userId,
+            note: "Stage advanced after triage completion.",
+          },
+        });
+
+        dispatchEvent({
+          type: "deal.stageChanged",
+          dealId: id,
+          from: previousStageKey,
+          to: nextStageKey,
+          orgId: auth.orgId,
+        }).catch((error) => {
+          captureAutomationDispatchError(error, {
+            handler: "api.deals.triage.stage",
+            eventType: "deal.stageChanged",
+            dealId: id,
+            orgId: auth.orgId,
+            status: deal.status,
+          });
+        });
+      }
     }
 
     dispatchEvent({

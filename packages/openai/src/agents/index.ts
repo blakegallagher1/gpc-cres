@@ -1,26 +1,97 @@
-import { Agent } from '@openai/agents';
-import type { RunContext } from "@openai/agents";
+import { Agent, type RunContext } from "@openai/agents";
+
 import { coordinatorInputGuardrail } from "../guardrails/inputGuardrails.js";
-import { LazyContext } from "./contextLoader.js";
 import {
   financeOutputGuardrail,
   legalOutputGuardrail,
 } from "../guardrails/outputGuardrails.js";
+import {
+  buildPlannerContext,
+  getQueryIntentProfile,
+  type QueryIntent,
+  type SpecialistAgentKey,
+} from "../queryRouter.js";
+import { initAgentsSentry, instrumentAgentTools } from "../sentry.js";
+import {
+  acquisition_cap_rate_evaluation,
+  acquisition_dcf_analysis,
+  acquisition_internal_comparable_sales,
+  acquisition_investment_returns,
+  acquisition_rent_roll_analysis,
+  asset_capital_plan_summary,
+  asset_lease_admin_summary,
+  asset_noi_optimization_plan,
+  asset_operations_health,
+  asset_tenant_exposure_analysis,
+  capital_debt_sizing_overview,
+  capital_disposition_analysis,
+  capital_lender_outreach_brief,
+  capital_refinance_scenarios,
+  capital_stack_optimization,
+  compare_document_vs_deal_terms,
+  coordinatorTools,
+  designTools,
+  dueDiligenceTools,
+  entitlementsTools,
+  financeTools,
+  getDealContext,
+  get_document_extraction_summary,
+  get_rent_roll,
+  get_shared_context,
+  legalTools,
+  log_reasoning_trace,
+  marketIntelTools,
+  marketTrajectoryTools,
+  marketingTools,
+  model_capital_stack,
+  operationsTools,
+  query_document_extractions,
+  researchTools,
+  riskTools,
+  screenerTools,
+  search_knowledge_base,
+  share_analysis_finding,
+  taxTools,
+  store_knowledge_entry,
+  assess_uncertainty,
+} from "../tools/index.js";
+import { LazyContext } from "./contextLoader.js";
 
-export { coordinatorAgent, COORDINATOR_INSTRUCTIONS } from './coordinator.js';
-export { legalAgent } from './legal.js';
-export { researchAgent } from './research.js';
-export { riskAgent } from './risk.js';
-export { financeAgent } from './finance.js';
-export { screenerAgent } from './screener.js';
-export { dueDiligenceAgent } from './dueDiligence.js';
-export { entitlementsAgent } from './entitlements.js';
-export { designAgent } from './design.js';
-export { operationsAgent } from './operations.js';
-export { marketingAgent } from './marketing.js';
-export { taxAgent } from './tax.js';
-export { marketIntelAgent } from './marketIntel.js';
-export { marketTrajectoryAgent } from './marketTrajectory.js';
+export { coordinatorAgent, COORDINATOR_INSTRUCTIONS } from "./coordinator.js";
+export { acquisitionUnderwritingAgent } from "./acquisition-underwriting.js";
+export { assetManagementAgent } from "./asset-management.js";
+export { capitalMarketsAgent } from "./capital-markets.js";
+export { designAgent } from "./design.js";
+export { dueDiligenceAgent } from "./dueDiligence.js";
+export { entitlementsAgent } from "./entitlements.js";
+export { financeAgent } from "./finance.js";
+export { legalAgent } from "./legal.js";
+export { marketIntelAgent } from "./marketIntel.js";
+export { marketingAgent } from "./marketing.js";
+export { operationsAgent } from "./operations.js";
+export { researchAgent } from "./research.js";
+export { riskAgent } from "./risk.js";
+export { screenerAgent } from "./screener.js";
+export { taxAgent } from "./tax.js";
+export { marketTrajectoryAgent } from "./marketTrajectory.js";
+
+import { coordinatorAgent } from "./coordinator.js";
+import { acquisitionUnderwritingAgent } from "./acquisition-underwriting.js";
+import { assetManagementAgent } from "./asset-management.js";
+import { capitalMarketsAgent } from "./capital-markets.js";
+import { designAgent } from "./design.js";
+import { dueDiligenceAgent } from "./dueDiligence.js";
+import { entitlementsAgent } from "./entitlements.js";
+import { financeAgent } from "./finance.js";
+import { legalAgent } from "./legal.js";
+import { marketIntelAgent } from "./marketIntel.js";
+import { marketTrajectoryAgent } from "./marketTrajectory.js";
+import { marketingAgent } from "./marketing.js";
+import { operationsAgent } from "./operations.js";
+import { researchAgent } from "./research.js";
+import { riskAgent } from "./risk.js";
+import { screenerAgent } from "./screener.js";
+import { taxAgent } from "./tax.js";
 
 type SpecialistAgentConfig = {
   key: SpecialistAgentKey;
@@ -46,32 +117,6 @@ const PARCEL_RESOURCE_TOOLS = new Set([
   "screen_ldeq",
   "screen_full",
 ]);
-
-const SPECIALIST_AGENT_CONFIGS: SpecialistAgentConfig[] = [
-  {
-    key: "legal",
-    agent: legalAgent,
-    tools: legalTools,
-    outputGuardrails: [legalOutputGuardrail],
-  },
-  { key: 'research', agent: researchAgent, tools: researchTools },
-  { key: 'risk', agent: riskAgent, tools: riskTools },
-  {
-    key: "finance",
-    agent: financeAgent,
-    tools: financeTools,
-    outputGuardrails: [financeOutputGuardrail],
-  },
-  { key: 'screener', agent: screenerAgent, tools: screenerTools },
-  { key: 'dueDiligence', agent: dueDiligenceAgent, tools: dueDiligenceTools },
-  { key: 'entitlements', agent: entitlementsAgent, tools: entitlementsTools },
-  { key: 'design', agent: designAgent, tools: designTools },
-  { key: 'operations', agent: operationsAgent, tools: operationsTools },
-  { key: 'marketing', agent: marketingAgent, tools: marketingTools },
-  { key: 'tax', agent: taxAgent, tools: taxTools },
-  { key: 'marketIntel', agent: marketIntelAgent, tools: marketIntelTools },
-  { key: 'marketTrajectory', agent: marketTrajectoryAgent, tools: marketTrajectoryTools },
-];
 
 export const SPECIALIST_CONSULT_TOOLS: SpecialistConsultToolConfig[] = [
   {
@@ -172,19 +217,9 @@ function buildSpecialistContextLoader(config: SpecialistAgentConfig): LazyContex
   });
 }
 
-const SPECIALIST_CONTEXT_LOADERS = new Map<SpecialistAgentKey, LazyContext>(
-  SPECIALIST_AGENT_CONFIGS.map((config) => [
-    config.key,
-    buildSpecialistContextLoader(config),
-  ]),
-);
-
 function withTools(config: SpecialistAgentConfig): Agent {
   initAgentsSentry();
-  const contextLoader = SPECIALIST_CONTEXT_LOADERS.get(config.key);
-  if (!contextLoader) {
-    throw new Error(`Missing context loader for specialist ${config.key}`);
-  }
+  const contextLoader = buildSpecialistContextLoader(config);
 
   return config.agent.clone({
     tools: instrumentAgentTools(
@@ -192,7 +227,9 @@ function withTools(config: SpecialistAgentConfig): Agent {
       filterUnsupportedAgentTools([...config.tools]),
     ) as Agent["tools"],
     handoffs: [],
-    outputGuardrails: [...(config.outputGuardrails ?? [])] as Agent["outputGuardrails"],
+    outputGuardrails: [
+      ...(config.outputGuardrails ?? []),
+    ] as Agent["outputGuardrails"],
     instructions: async (runContext, agent) => {
       const composed = await contextLoader.compose(
         {
@@ -209,51 +246,172 @@ function withTools(config: SpecialistAgentConfig): Agent {
   });
 }
 
-// Lazy imports to avoid circular references during handoff wiring
-import { coordinatorAgent } from './coordinator.js';
-import { legalAgent } from './legal.js';
-import { researchAgent } from './research.js';
-import { riskAgent } from './risk.js';
-import { financeAgent } from './finance.js';
-import { screenerAgent } from './screener.js';
-import { dueDiligenceAgent } from './dueDiligence.js';
-import { entitlementsAgent } from './entitlements.js';
-import { designAgent } from './design.js';
-import { operationsAgent } from './operations.js';
-import { marketingAgent } from './marketing.js';
-import { taxAgent } from './tax.js';
-import { marketIntelAgent } from './marketIntel.js';
-import { marketTrajectoryAgent } from './marketTrajectory.js';
+function buildSpecialistAgentConfigs(): SpecialistAgentConfig[] {
+  const acquisitionTools = [
+    getDealContext,
+    acquisition_dcf_analysis,
+    acquisition_cap_rate_evaluation,
+    acquisition_rent_roll_analysis,
+    acquisition_internal_comparable_sales,
+    acquisition_investment_returns,
+    get_document_extraction_summary,
+    query_document_extractions,
+    compare_document_vs_deal_terms,
+    search_knowledge_base,
+    store_knowledge_entry,
+    share_analysis_finding,
+    get_shared_context,
+    assess_uncertainty,
+    log_reasoning_trace,
+  ] as const;
 
-import {
-  coordinatorTools,
-  legalTools,
-  researchTools,
-  riskTools,
-  financeTools,
-  screenerTools,
-  dueDiligenceTools,
-  entitlementsTools,
-  marketingTools,
-  operationsTools,
-  marketIntelTools,
-  marketTrajectoryTools,
-  designTools,
-  taxTools,
-} from '../tools/index.js';
-import {
-  QueryIntent,
-  SpecialistAgentKey,
-  getQueryIntentProfile,
-  buildPlannerContext,
-} from '../queryRouter.js';
-import { initAgentsSentry, instrumentAgentTools } from "../sentry.js";
+  const assetManagementTools = [
+    getDealContext,
+    get_rent_roll,
+    asset_lease_admin_summary,
+    asset_tenant_exposure_analysis,
+    asset_noi_optimization_plan,
+    asset_capital_plan_summary,
+    asset_operations_health,
+    search_knowledge_base,
+    store_knowledge_entry,
+    share_analysis_finding,
+    get_shared_context,
+    log_reasoning_trace,
+  ] as const;
+
+  const capitalMarketsTools = [
+    getDealContext,
+    get_rent_roll,
+    model_capital_stack,
+    capital_debt_sizing_overview,
+    capital_lender_outreach_brief,
+    capital_disposition_analysis,
+    capital_refinance_scenarios,
+    capital_stack_optimization,
+    get_document_extraction_summary,
+    query_document_extractions,
+    compare_document_vs_deal_terms,
+    search_knowledge_base,
+    store_knowledge_entry,
+    share_analysis_finding,
+    get_shared_context,
+    log_reasoning_trace,
+  ] as const;
+
+  return [
+    {
+      key: "legal",
+      agent: legalAgent,
+      tools: legalTools,
+      outputGuardrails: [legalOutputGuardrail],
+    },
+    {
+      key: "research",
+      agent: researchAgent,
+      tools: researchTools,
+    },
+    {
+      key: "risk",
+      agent: riskAgent,
+      tools: riskTools,
+    },
+    {
+      key: "finance",
+      agent: financeAgent,
+      tools: financeTools,
+      outputGuardrails: [financeOutputGuardrail],
+    },
+    {
+      key: "screener",
+      agent: screenerAgent,
+      tools: screenerTools,
+    },
+    {
+      key: "dueDiligence",
+      agent: dueDiligenceAgent,
+      tools: dueDiligenceTools,
+    },
+    {
+      key: "entitlements",
+      agent: entitlementsAgent,
+      tools: entitlementsTools,
+    },
+    {
+      key: "design",
+      agent: designAgent,
+      tools: designTools,
+    },
+    {
+      key: "operations",
+      agent: operationsAgent,
+      tools: operationsTools,
+    },
+    {
+      key: "marketing",
+      agent: marketingAgent,
+      tools: marketingTools,
+    },
+    {
+      key: "tax",
+      agent: taxAgent,
+      tools: taxTools,
+    },
+    {
+      key: "marketIntel",
+      agent: marketIntelAgent,
+      tools: marketIntelTools,
+    },
+    {
+      key: "marketTrajectory",
+      agent: marketTrajectoryAgent,
+      tools: marketTrajectoryTools,
+    },
+    {
+      key: "acquisitionUnderwriting",
+      agent: acquisitionUnderwritingAgent,
+      tools: acquisitionTools,
+      outputGuardrails: [financeOutputGuardrail],
+    },
+    {
+      key: "assetManagement",
+      agent: assetManagementAgent,
+      tools: assetManagementTools,
+    },
+    {
+      key: "capitalMarkets",
+      agent: capitalMarketsAgent,
+      tools: capitalMarketsTools,
+      outputGuardrails: [financeOutputGuardrail],
+    },
+  ];
+}
 
 /** All specialist agents (everything except the coordinator). */
-export const specialistAgents = SPECIALIST_AGENT_CONFIGS.map((config) => config.agent);
+export const specialistAgents = [
+  legalAgent,
+  researchAgent,
+  riskAgent,
+  financeAgent,
+  screenerAgent,
+  dueDiligenceAgent,
+  entitlementsAgent,
+  designAgent,
+  operationsAgent,
+  marketingAgent,
+  taxAgent,
+  marketIntelAgent,
+  marketTrajectoryAgent,
+  acquisitionUnderwritingAgent,
+  assetManagementAgent,
+  capitalMarketsAgent,
+];
 
-function buildSpecialistTeam(keys: SpecialistAgentKey[]): Agent[] {
+function buildSpecialistTeam(keys: readonly SpecialistAgentKey[]): Agent[] {
+  const configs = buildSpecialistAgentConfigs();
+  const configByKey = new Map(configs.map((config) => [config.key, config]));
   const seen = new Set<SpecialistAgentKey>();
+
   return keys
     .filter((key) => {
       if (seen.has(key)) return false;
@@ -261,7 +419,7 @@ function buildSpecialistTeam(keys: SpecialistAgentKey[]): Agent[] {
       return true;
     })
     .map((key) => {
-      const config = SPECIALIST_AGENT_CONFIGS.find((entry) => entry.key === key);
+      const config = configByKey.get(key);
       if (!config) {
         throw new Error(`Unknown specialist agent key: ${key}`);
       }
@@ -269,17 +427,22 @@ function buildSpecialistTeam(keys: SpecialistAgentKey[]): Agent[] {
     });
 }
 
-function buildSpecialistConsultTools(specialists: Agent[]): Agent["tools"] {
+function buildSpecialistConsultTools(
+  configs: readonly SpecialistAgentConfig[],
+  specialists: readonly Agent[],
+): Agent["tools"] {
   const specialistByName = new Map(specialists.map((agent) => [agent.name, agent]));
-  const specialistByKey = new Map<SpecialistAgentKey, Agent>(
-    SPECIALIST_AGENT_CONFIGS.map((config) => [config.key, specialistByName.get(config.agent.name) ?? withTools(config)]),
-  );
+  const configByKey = new Map(configs.map((config) => [config.key, config]));
 
   return SPECIALIST_CONSULT_TOOLS.map((toolConfig) => {
-    const specialist = specialistByKey.get(toolConfig.key);
-    if (!specialist) {
-      throw new Error(`Missing specialist for consult tool: ${toolConfig.key}`);
+    const config = configByKey.get(toolConfig.key);
+    if (!config) {
+      throw new Error(`Missing specialist config for consult tool: ${toolConfig.key}`);
     }
+
+    const specialist =
+      specialistByName.get(config.agent.name) ?? withTools(config);
+
     return specialist.asTool({
       toolName: toolConfig.toolName,
       toolDescription: toolConfig.toolDescription,
@@ -288,10 +451,26 @@ function buildSpecialistConsultTools(specialists: Agent[]): Agent["tools"] {
 }
 
 export function createIntentAwareCoordinator(intent: QueryIntent): Agent<unknown, any> {
+  return createConfiguredCoordinator({ intent });
+}
+
+/**
+ * Create a Coordinator agent with all specialist handoffs wired up.
+ * Returns a new Agent instance ready for `run()`.
+ *
+ * We clone every agent so the module-level exports stay tool-free,
+ * allowing callers to wire custom subsets if needed.
+ */
+export function createConfiguredCoordinator(options?: {
+  intent?: QueryIntent;
+}): Agent<unknown, any> {
   initAgentsSentry();
+
+  const intent = options?.intent ?? "general";
   const profile = getQueryIntentProfile(intent);
+  const specialistConfigs = buildSpecialistAgentConfigs();
   const specialists = buildSpecialistTeam(profile.specialists);
-  const consultTools = buildSpecialistConsultTools(specialists);
+  const consultTools = buildSpecialistConsultTools(specialistConfigs, specialists);
   const plannerContext = buildPlannerContext(intent);
   const instructions = plannerContext
     ? `${coordinatorAgent.instructions}\n\n${plannerContext}`
@@ -306,15 +485,4 @@ export function createIntentAwareCoordinator(intent: QueryIntent): Agent<unknown
     instructions,
     inputGuardrails: [coordinatorInputGuardrail] as Agent["inputGuardrails"],
   });
-}
-
-/**
- * Create a Coordinator agent with all specialist handoffs wired up.
- * Returns a new Agent instance ready for `run()`.
- *
- * We clone every agent so the module-level exports stay tool-free,
- * allowing callers to wire custom subsets if needed.
- */
-export function createConfiguredCoordinator(): Agent<unknown, any> {
-  return createIntentAwareCoordinator('general');
 }

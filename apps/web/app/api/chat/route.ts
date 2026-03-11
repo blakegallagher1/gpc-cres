@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import type { MapContextInput } from "@entitlement-os/shared";
 import { setupAgentTracing } from "@entitlement-os/openai";
 import { randomUUID } from "node:crypto";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
@@ -8,6 +9,39 @@ import { extractAndMergeConversationPreferences } from "@/lib/services/preferenc
 
 function sseEvent(data: Record<string, unknown>): string {
   return `data: ${JSON.stringify(data)}\n\n`;
+}
+
+function buildMapContextPrefix(mapContext: MapContextInput | null | undefined): string {
+  const center = mapContext?.center;
+  const selected = mapContext?.selectedParcelIds ?? [];
+  const referenced = mapContext?.referencedFeatures ?? [];
+  const hasContext =
+    Boolean(center) ||
+    typeof mapContext?.zoom === "number" ||
+    selected.length > 0 ||
+    referenced.length > 0 ||
+    Boolean(mapContext?.viewportLabel);
+
+  if (!hasContext) {
+    return "";
+  }
+
+  const referencedText =
+    referenced.length > 0
+      ? referenced
+          .map((feature) =>
+            [feature.parcelId, feature.address, feature.zoning]
+              .filter((value) => typeof value === "string" && value.length > 0)
+              .join(" | "),
+          )
+          .join("; ")
+      : "none";
+
+  return `[Map Context]\ncenter=${center ? `${center.lat},${center.lng}` : "unknown"}\nzoom=${
+    typeof mapContext?.zoom === "number" ? mapContext.zoom.toFixed(2) : "unknown"
+  }\nselectedParcelIds=${selected.length > 0 ? selected.join(",") : "none"}\nviewportLabel=${
+    mapContext?.viewportLabel ?? "unknown"
+  }\nreferencedFeatures=${referencedText}\n[/Map Context]\n\n`;
 }
 
 function isInternalFailureMessage(message: string): boolean {
@@ -70,11 +104,7 @@ export async function POST(req: NextRequest) {
     conversationId?: string;
     dealId?: string;
     intent?: string;
-    mapContext?: {
-      center?: { lat?: number; lng?: number } | null;
-      zoom?: number;
-      selectedParcelIds?: string[];
-    } | null;
+    mapContext?: MapContextInput | null;
   };
   try {
     body = (await req.json()) as {
@@ -82,11 +112,7 @@ export async function POST(req: NextRequest) {
       conversationId?: string;
       dealId?: string;
       intent?: string;
-      mapContext?: {
-        center?: { lat?: number; lng?: number } | null;
-        zoom?: number;
-        selectedParcelIds?: string[];
-      } | null;
+      mapContext?: MapContextInput | null;
     };
   } catch {
     return Response.json({ error: "Invalid JSON" }, { status: 400 });
@@ -121,13 +147,7 @@ export async function POST(req: NextRequest) {
       let doneSent = false;
 
       try {
-        const center = mapContext?.center;
-        const selected = mapContext?.selectedParcelIds ?? [];
-        const mapContextPrefix = center || typeof mapContext?.zoom === "number" || selected.length > 0
-          ? `[Map Context]\ncenter=${center ? `${center.lat ?? "?"},${center.lng ?? "?"}` : "unknown"}\nzoom=${
-              typeof mapContext?.zoom === "number" ? mapContext.zoom.toFixed(2) : "unknown"
-            }\nselectedParcelIds=${selected.length > 0 ? selected.join(",") : "none"}\n[/Map Context]\n\n`
-          : "";
+        const mapContextPrefix = buildMapContextPrefix(mapContext);
 
         const workflow = await runAgentWorkflow({
           orgId: auth.orgId,
@@ -140,7 +160,7 @@ export async function POST(req: NextRequest) {
           correlationId,
           persistConversation: true,
           intent: intent ?? undefined,
-        onEvent: (event: AgentStreamEvent) => {
+          onEvent: (event: AgentStreamEvent) => {
             if (event.type === "done") {
               doneSent = true;
             }

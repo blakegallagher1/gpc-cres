@@ -2,11 +2,16 @@ import { prisma } from "@entitlement-os/db";
 import { AUTOMATION_CONFIG } from "./config";
 import { createAutomationTask } from "./notifications";
 import type { AutomationEvent } from "./events";
+import {
+  getAutomationDealContext,
+  getCurrentWorkflowStage,
+  getWorkflowPipelineStep,
+} from "./context";
 
 /**
  * #10 Buyer Outreach: Match buyers to deals and draft outreach suggestions.
  *
- * Triggered by: deal.statusChanged event (when deal reaches EXIT_MARKETED)
+ * Triggered by: deal.stageChanged event when the workflow reaches Disposition.
  * Also triggered by: triage.completed event (for early buyer matching at ADVANCE deals)
  *
  * Actions:
@@ -101,23 +106,34 @@ async function alreadyContacted(
 }
 
 /**
- * Handle deal reaching EXIT_MARKETED — suggest buyer outreach.
+ * Handle deals reaching the Disposition stage — suggest buyer outreach.
  */
 export async function handleBuyerOutreach(
   event: AutomationEvent
 ): Promise<void> {
-  if (event.type !== "deal.statusChanged") return;
-  if (event.to !== "EXIT_MARKETED") return;
+  if (event.type !== "deal.statusChanged" && event.type !== "deal.stageChanged") {
+    return;
+  }
 
   const { dealId, orgId } = event;
+  const context = await getAutomationDealContext(dealId, orgId);
+  if (!context) return;
 
-  // Load deal
-  const deal = await prisma.deal.findFirst({
-    where: { id: dealId, orgId },
-    select: { id: true, name: true, sku: true, jurisdictionId: true },
-  });
+  if (event.type === "deal.statusChanged" && event.to !== "EXIT_MARKETED") {
+    return;
+  }
+  if (event.type === "deal.stageChanged" && event.to !== "DISPOSITION") {
+    return;
+  }
+  if (context.currentStageKey !== "DISPOSITION") {
+    return;
+  }
 
-  if (!deal) return;
+  const currentStage = getCurrentWorkflowStage(context);
+  const pipelineStep = currentStage
+    ? getWorkflowPipelineStep(context, currentStage.key)
+    : 7;
+  const triggerLabel = currentStage?.name ?? "Disposition";
 
   // Check weekly rate limit
   const weeklyCount = await weeklyOutreachCount(dealId, orgId);
@@ -131,8 +147,8 @@ export async function handleBuyerOutreach(
   // Find matching buyers
   const matchedBuyers = await findMatchingBuyers(
     orgId,
-    deal.sku,
-    deal.jurisdictionId
+    context.sku,
+    context.jurisdictionId
   );
 
   if (matchedBuyers.length === 0) {
@@ -141,8 +157,8 @@ export async function handleBuyerOutreach(
       dealId,
       type: "enrichment_review",
       title: "No matching buyers found",
-      description: `Deal "${deal.name}" (${deal.sku}) reached EXIT_MARKETED but no buyers match the SKU + jurisdiction criteria. Consider adding buyers or broadening search criteria.`,
-      pipelineStep: 8,
+      description: `Deal "${context.name}" (${context.sku}) reached ${triggerLabel} but no buyers match the SKU + jurisdiction criteria. Consider adding buyers or broadening search criteria.`,
+      pipelineStep,
     });
     return;
   }
@@ -187,8 +203,8 @@ export async function handleBuyerOutreach(
     dealId,
     type: "enrichment_review",
     title: `${buyersToContact.length} buyer outreach emails ready for review`,
-    description: `Deal "${deal.name}" (${deal.sku}) is now EXIT_MARKETED. ${buyersToContact.length} eligible buyer(s) matched:\n\n${buyerList}\n\nTotal matched: ${matchedBuyers.length} | Eligible: ${eligibleBuyers.length} | This batch: ${buyersToContact.length}\n\nReview and draft personalized outreach for each buyer. Emails will NOT be sent automatically.`,
-    pipelineStep: 8,
+    description: `Deal "${context.name}" (${context.sku}) is now in ${triggerLabel}. ${buyersToContact.length} eligible buyer(s) matched:\n\n${buyerList}\n\nTotal matched: ${matchedBuyers.length} | Eligible: ${eligibleBuyers.length} | This batch: ${buyersToContact.length}\n\nReview and draft personalized outreach for each buyer. Emails will NOT be sent automatically.`,
+    pipelineStep,
   });
 }
 

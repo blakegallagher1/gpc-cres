@@ -2,6 +2,10 @@ import { prisma } from "@entitlement-os/db";
 import { AUTOMATION_CONFIG } from "./config";
 import { createAutomationTask } from "./notifications";
 import type { AutomationEvent } from "./events";
+import {
+  projectLegacyDealCompatibility,
+  resolveCanonicalDealWorkflowState,
+} from "../../app/api/_lib/opportunityPhase3";
 
 /**
  * #1 Deal Intake: Process incoming property inquiries and auto-create deals.
@@ -209,15 +213,33 @@ export async function handleIntakeReceived(
     : `${source} intake — ${parish}`;
 
   const sku = parsed.skuSignals[0] as "SMALL_BAY_FLEX" | "OUTDOOR_STORAGE" | "TRUCK_PARKING";
+  const workflowState = resolveCanonicalDealWorkflowState({
+    base: {
+      currentStageKey: "ORIGINATION",
+    },
+    legacySku: sku,
+    legacyStatus: "INTAKE",
+  });
+  const compatibility = projectLegacyDealCompatibility({
+    workflowState,
+    legacySkuHint: sku,
+    legacyStatusHint: "INTAKE",
+  });
 
   // Auto-create deal
   const deal = await prisma.deal.create({
     data: {
       orgId,
       name: dealName,
-      sku,
+      sku: compatibility.sku,
+      legacySku: compatibility.legacySku,
       jurisdictionId: jurisdiction.id,
-      status: "INTAKE",
+      status: compatibility.status,
+      legacyStatus: compatibility.legacyStatus,
+      assetClass: workflowState.assetClass,
+      strategy: workflowState.strategy,
+      workflowTemplateKey: workflowState.workflowTemplateKey,
+      currentStageKey: workflowState.currentStageKey,
       source: `[AUTO] ${source}`,
       notes: `Auto-created from ${source}.\n\n${content.slice(0, 1000)}`,
       createdBy: orgMember.userId,
