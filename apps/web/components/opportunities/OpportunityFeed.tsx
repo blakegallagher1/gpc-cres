@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import {
@@ -44,6 +44,12 @@ interface OpportunityItem {
   createdAt: string;
 }
 
+interface OpportunityFeedProps {
+  limit?: number;
+  savedSearchId?: string | null;
+  showViewAllLink?: boolean;
+}
+
 function scoreColor(score: number): string {
   if (score >= 80) return "text-green-600 bg-green-50";
   if (score >= 60) return "text-yellow-600 bg-yellow-50";
@@ -59,14 +65,28 @@ function timeAgo(dateStr: string): string {
   return `${days}d ago`;
 }
 
-export function OpportunityFeed() {
+export function OpportunityFeed({
+  limit = 8,
+  savedSearchId = null,
+  showViewAllLink = true,
+}: OpportunityFeedProps) {
   const router = useRouter();
+  const inboxHref = savedSearchId
+    ? `/opportunities?savedSearchId=${encodeURIComponent(savedSearchId)}`
+    : "/opportunities";
+  const opportunitiesQuery = useMemo(() => {
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (savedSearchId) {
+      params.set("savedSearchId", savedSearchId);
+    }
+    return `/api/opportunities?${params.toString()}`;
+  }, [limit, savedSearchId]);
   const {
     data,
     isLoading,
     mutate,
   } = useSWR<{ opportunities: OpportunityItem[]; total: number }>(
-    "/api/opportunities?limit=8",
+    opportunitiesQuery,
     fetcher,
     { revalidateOnFocus: false, dedupingInterval: 60000 }
   );
@@ -355,12 +375,12 @@ export function OpportunityFeed() {
               );
             })}
 
-            {total > opportunities.length && (
+            {showViewAllLink && total > opportunities.length && (
                 <Button
                   variant="ghost"
                   size="sm"
                   className="w-full text-xs"
-                  onClick={() => router.push("/prospecting?tab=saved-filters")}
+                  onClick={() => router.push(inboxHref)}
                 >
                 View all {total} opportunities
                 <ArrowRight className="ml-1 h-3 w-3" />
@@ -371,11 +391,12 @@ export function OpportunityFeed() {
           <div className="flex flex-col items-center gap-2 py-6 text-center">
             <Sparkles className="h-8 w-8 text-muted-foreground/40" />
             <p className="text-sm text-muted-foreground">
-              No opportunities yet.
+              {savedSearchId ? "No matches for this saved search yet." : "No opportunities yet."}
             </p>
             <p className="text-xs text-muted-foreground/60">
-              Create a saved search to start surfacing matches from 560K
-              parcels.
+              {savedSearchId
+                ? "Run the saved search from prospecting to generate fresh parcel matches."
+                : "Create a saved search to start surfacing matches from 560K parcels."}
             </p>
             <SavedSearchBuilder
               onCreated={() => mutate()}

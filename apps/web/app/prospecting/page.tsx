@@ -26,6 +26,10 @@ interface SavedSearchItem {
   id: string;
   name: string;
   criteria: Record<string, unknown>;
+  lastRunAt?: string | null;
+  _count?: {
+    matches: number;
+  };
 }
 
 const ProspectMap = dynamic(
@@ -364,7 +368,16 @@ function ProspectingPageContent() {
                         className="rounded-lg border p-3 text-sm"
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <p className="font-medium">{search.name}</p>
+                          <div>
+                            <p className="font-medium">{search.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {search._count?.matches ?? 0} match
+                              {(search._count?.matches ?? 0) === 1 ? "" : "es"}
+                              {search.lastRunAt
+                                ? ` · Last run ${new Date(search.lastRunAt).toLocaleDateString()}`
+                                : " · Never run"}
+                            </p>
+                          </div>
                           <div className="flex gap-2">
                             <Button size="sm" onClick={() => applySavedSearch(search)}>
                               Apply
@@ -375,6 +388,15 @@ function ProspectingPageContent() {
                               onClick={() => handleRunSearch(search.id)}
                             >
                               Run
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                router.push(`/opportunities?savedSearchId=${encodeURIComponent(search.id)}`)
+                              }
+                            >
+                              View matches
                             </Button>
                             <Button
                               size="sm"

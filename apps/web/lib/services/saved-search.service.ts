@@ -252,9 +252,19 @@ export class SavedSearchService {
   /**
    * Get unseen opportunity matches across all saved searches for a user.
    */
-  async getOpportunities(orgId: string, userId: string, limit = 20, offset = 0) {
+  async getOpportunities(
+    orgId: string,
+    userId: string,
+    limit = 20,
+    offset = 0,
+    savedSearchId?: string
+  ) {
     const searches = await prisma.savedSearch.findMany({
-      where: { orgId, userId },
+      where: {
+        orgId,
+        userId,
+        ...(savedSearchId ? { id: savedSearchId } : {}),
+      },
       select: { id: true },
     });
     const searchIds = searches.map((s) => s.id);

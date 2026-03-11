@@ -521,6 +521,44 @@ Reason: these were low-priority for current operating goals and can be deferred 
 
 ## Completed
 
+### PIPE-006 — Dedicated Opportunities Inbox (P1)
+
+- **Priority:** P1
+- **Status:** Done (2026-03-11)
+- **Scope:** Ship a full-page opportunity review inbox for saved-search matches, with direct navigation from prospecting and command center surfaces.
+- **Problem:** Saved searches could be run and opportunity matches were generated, but the primary prospecting flow stopped at a toast. The only existing review surface was a limited command-center card, and its "View all opportunities" CTA routed back to prospecting instead of a true inbox.
+- **Expected Outcome (measurable):**
+  - Users can open a dedicated `/opportunities` route and review more than the command-center preview subset.
+  - Prospecting saved filters can deep-link into the exact opportunity set they generated.
+  - Command center preview can hand off to the inbox instead of sending users back to saved filters.
+- **Evidence of need:** Repo signals showed the saved-search loop already created and stored `opportunityMatch` rows, but prospecting only exposed `Run` plus a success toast and the preview card hard-coded `router.push("/prospecting?tab=saved-filters")` for "View all opportunities."
+- **Alignment:** Reused existing saved-search/opportunity APIs, auth (`resolveAuth`), navigation telemetry, and current shadcn card/button patterns. No new design system or growth layer was introduced.
+- **Risk/rollback:** Low. The change is additive and mostly UI routing over existing data paths; rollback is reverting the route, API filter, and entry-point links.
+- **Acceptance Criteria / Tests:**
+  - [x] Added an authenticated `/opportunities` page using the existing opportunity feed component.
+  - [x] Extended opportunity fetching to support an optional `savedSearchId` filter scoped to the authenticated user's searches.
+  - [x] Updated existing entry points so command center preview and prospecting saved filters can open the inbox.
+  - [x] Targeted verification passed:
+    - `pnpm --dir apps/web exec vitest run lib/services/saved-search.service.test.ts`
+    - `pnpm lint`
+    - `pnpm typecheck`
+    - `pnpm build`
+  - [x] Repo-wide `pnpm test` was run; the feature area passed, and the remaining blocker is the pre-existing root `tests/reflection.test.ts` dependency on live reflection embedding credentials.
+- **Files:**
+  - `apps/web/app/opportunities/page.tsx`
+  - `apps/web/components/opportunities/OpportunityFeed.tsx`
+  - `apps/web/app/api/opportunities/route.ts`
+  - `apps/web/lib/services/saved-search.service.ts`
+  - `apps/web/app/prospecting/page.tsx`
+  - `apps/web/components/layout/Sidebar.tsx`
+  - `apps/web/lib/services/saved-search.service.test.ts`
+- **Completion Evidence (2026-03-11):**
+  - Added a dedicated opportunity inbox route that renders the existing feed in full-page mode with a higher result cap.
+  - Prospecting saved filters now surface total match counts, last-run status, and a direct "View matches" entry into the inbox.
+  - Command center preview now hands off to `/opportunities` instead of bouncing users back to saved filters.
+  - The opportunity API and service now support user-scoped `savedSearchId` filtering for deep links.
+
+
 ### R-006 — Supabase Client Surface Reduction (P1)
 
 - **Priority:** P1

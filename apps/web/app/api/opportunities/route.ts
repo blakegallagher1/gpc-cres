@@ -20,8 +20,26 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const limit = Math.min(parseInt(searchParams.get("limit") ?? "20", 10), 100);
     const offset = parseInt(searchParams.get("offset") ?? "0", 10);
+    const savedSearchIdParam = searchParams.get("savedSearchId");
+    const savedSearchId =
+      savedSearchIdParam && z.string().uuid().safeParse(savedSearchIdParam).success
+        ? savedSearchIdParam
+        : null;
 
-    const result = await service.getOpportunities(auth.orgId, auth.userId, limit, offset);
+    if (savedSearchIdParam && !savedSearchId) {
+      return NextResponse.json(
+        { error: "savedSearchId must be a valid UUID" },
+        { status: 400 }
+      );
+    }
+
+    const result = await service.getOpportunities(
+      auth.orgId,
+      auth.userId,
+      limit,
+      offset,
+      savedSearchId ?? undefined
+    );
     return NextResponse.json(result);
   } catch (error) {
     console.error("Error fetching opportunities:", error);

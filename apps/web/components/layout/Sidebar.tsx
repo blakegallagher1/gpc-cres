@@ -46,6 +46,7 @@ const navGroups: NavGroup[] = [
     label: "Pipeline",
     items: [
       { id: "prospecting", href: "/prospecting", icon: Crosshair, label: "Prospecting" },
+      { id: "opportunities", href: "/opportunities", icon: Sparkles, label: "Opportunities" },
       { id: "portfolio", href: "/portfolio", icon: PieChart, label: "Portfolio" },
       { id: "wealth", href: "/wealth", icon: Wallet, label: "Wealth" },
     ],
