@@ -1,4 +1,7 @@
 -- Improve org-scoped parcel suggestion lookups.
+ALTER TABLE "parcels"
+  ADD COLUMN IF NOT EXISTS "property_db_id" uuid;
+
 CREATE INDEX IF NOT EXISTS idx_parcels_org_address_prefix
   ON "parcels" ("org_id", lower("address") text_pattern_ops);
 

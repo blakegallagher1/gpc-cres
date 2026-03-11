@@ -59,6 +59,29 @@ BEGIN
 END $$;
 
 -- Deal outcomes: attach entity + final/projection snapshots for calibration ingestion.
+CREATE TABLE IF NOT EXISTS "deal_outcomes" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "deal_id" uuid NOT NULL,
+  "actual_purchase_price" numeric(14, 2),
+  "actual_noi_year1" numeric(14, 2),
+  "actual_exit_price" numeric(14, 2),
+  "actual_irr" numeric(8, 4),
+  "actual_equity_multiple" numeric(8, 4),
+  "actual_hold_period_months" integer,
+  "exit_date" date,
+  "exit_type" text,
+  "kill_reason" text,
+  "kill_was_correct" boolean,
+  "notes" text,
+  "created_by" uuid NOT NULL,
+  "created_at" timestamptz(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updated_at" timestamptz(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "deal_outcomes_deal_id_fkey" FOREIGN KEY ("deal_id") REFERENCES "deals"("id") ON DELETE CASCADE,
+  CONSTRAINT "deal_outcomes_deal_id_key" UNIQUE ("deal_id")
+);
+
+CREATE INDEX IF NOT EXISTS "deal_outcomes_deal_id_idx" ON "deal_outcomes" ("deal_id");
+
 ALTER TABLE "deal_outcomes"
   ADD COLUMN IF NOT EXISTS "entity_id" uuid,
   ADD COLUMN IF NOT EXISTS "final_metrics" jsonb,
