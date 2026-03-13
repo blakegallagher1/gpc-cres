@@ -24,7 +24,7 @@ interface Operation {
   id: string;
   label: string;
   pct: number;
-  status: "progress" | "done" | "error";
+  status: 'progress' | 'done' | 'error';
   summary?: string;
   error?: string;
 }
@@ -67,10 +67,12 @@ export function useAgentWebSocket({
 }: UseAgentWebSocketOptions): UseAgentWebSocketReturn {
   const [status, setStatus] = useState<ConnectionStatus>('disconnected');
   const [operations, setOperations] = useState<Map<string, Operation>>(new Map());
+  const [reconnectNonce, setReconnectNonce] = useState(0);
   const wsRef = useRef<WebSocket | null>(null);
   const onEventRef = useRef(onEvent);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const operationsRef = useRef<Map<string, Operation>>(new Map());
+  const manualDisconnectRef = useRef(false);
 
   // Keep callback ref fresh without re-triggering connection
   useEffect(() => {
@@ -78,26 +80,34 @@ export function useAgentWebSocket({
   }, [onEvent]);
 
   const disconnect = useCallback(() => {
+    manualDisconnectRef.current = true;
     if (reconnectTimerRef.current) {
       clearTimeout(reconnectTimerRef.current);
       reconnectTimerRef.current = null;
     }
-    if (wsRef.current) {
-      wsRef.current.close();
-      wsRef.current = null;
+    const ws = wsRef.current;
+    wsRef.current = null;
+    if (ws) {
+      ws.close(1000);
     }
     setStatus('disconnected');
   }, []);
 
-  // Connect / reconnect when enabled + token + conversationId are set
+  // Connect / reconnect when enabled + token + conversationId are set.
   useEffect(() => {
     if (!enabled || !token || !conversationId) {
       disconnect();
       return;
     }
 
-    // Don't reconnect if already connected to the same conversation
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+    manualDisconnectRef.current = false;
+
+    // Don't reconnect if already connected to the same conversation.
+    if (
+      wsRef.current &&
+      (wsRef.current.readyState === WebSocket.OPEN ||
+        wsRef.current.readyState === WebSocket.CONNECTING)
+    ) {
       return;
     }
 
@@ -109,8 +119,12 @@ export function useAgentWebSocket({
 
     const ws = new WebSocket(url.toString());
     wsRef.current = ws;
+    let cleanedUp = false;
 
     ws.onopen = () => {
+      if (cleanedUp) {
+        return;
+      }
       setStatus('connected');
     };
 
@@ -168,13 +182,23 @@ export function useAgentWebSocket({
     };
 
     ws.onerror = () => {
+      if (cleanedUp) {
+        return;
+      }
       setStatus('error');
     };
 
     ws.onclose = (event) => {
-      wsRef.current = null;
+      if (wsRef.current === ws) {
+        wsRef.current = null;
+      }
 
-      // Normal closure or auth rejection — don't reconnect
+      if (cleanedUp || manualDisconnectRef.current) {
+        setStatus('disconnected');
+        return;
+      }
+
+      // Normal closure or auth rejection — don't reconnect.
       if (event.code === 1000 || event.code === 4001 || event.code === 4003) {
         setStatus('disconnected');
         if (event.code === 4001 || event.code === 4003) {
@@ -186,20 +210,32 @@ export function useAgentWebSocket({
         return;
       }
 
-      // Abnormal closure — attempt one reconnect after 2s
+      // Abnormal closure — attempt one reconnect after 2s.
       setStatus('error');
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+      }
       reconnectTimerRef.current = setTimeout(() => {
         reconnectTimerRef.current = null;
-        // Re-trigger effect by toggling state (the effect deps will handle it)
-        setStatus('disconnected');
+        if (manualDisconnectRef.current) {
+          return;
+        }
+        setReconnectNonce((current) => current + 1);
       }, 2000);
     };
 
     return () => {
-      ws.close();
-      wsRef.current = null;
+      cleanedUp = true;
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+      if (wsRef.current === ws) {
+        wsRef.current = null;
+      }
+      ws.close(1000);
     };
-  }, [enabled, token, conversationId, disconnect]);
+  }, [enabled, token, conversationId, disconnect, reconnectNonce]);
 
   const sendMessage = useCallback(
     (

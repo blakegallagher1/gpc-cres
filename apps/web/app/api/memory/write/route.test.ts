@@ -6,6 +6,9 @@ const { resolveAuthMock, resolveEntityIdMock, memoryWriteGateMock } = vi.hoisted
   resolveEntityIdMock: vi.fn(),
   memoryWriteGateMock: vi.fn(),
 }));
+const { shouldUseAppDatabaseDevFallbackMock } = vi.hoisted(() => ({
+  shouldUseAppDatabaseDevFallbackMock: vi.fn(),
+}));
 
 vi.mock("@/lib/auth/resolveAuth", () => ({
   resolveAuth: resolveAuthMock,
@@ -19,6 +22,10 @@ vi.mock("@/lib/services/memoryWriteGate", () => ({
   memoryWriteGate: memoryWriteGateMock,
 }));
 
+vi.mock("@/lib/server/appDbEnv", () => ({
+  shouldUseAppDatabaseDevFallback: shouldUseAppDatabaseDevFallbackMock,
+}));
+
 import { POST } from "./route";
 
 describe("POST /api/memory/write", () => {
@@ -26,6 +33,8 @@ describe("POST /api/memory/write", () => {
     resolveAuthMock.mockReset();
     resolveEntityIdMock.mockReset();
     memoryWriteGateMock.mockReset();
+    shouldUseAppDatabaseDevFallbackMock.mockReset();
+    shouldUseAppDatabaseDevFallbackMock.mockReturnValue(false);
   });
 
   it("returns 401 when unauthenticated", async () => {
@@ -106,5 +115,28 @@ describe("POST /api/memory/write", () => {
       },
     );
     expect(body.decision).toBe("draft");
+  });
+
+  it("returns 503 when app DB fallback is active", async () => {
+    resolveAuthMock.mockResolvedValue({ userId: "user-1", orgId: "org-1" });
+    shouldUseAppDatabaseDevFallbackMock.mockReturnValue(true);
+
+    const req = new NextRequest("http://localhost/api/memory/write", {
+      method: "POST",
+      body: JSON.stringify({
+        input_text: "123 Main St, Baton Rouge, LA 70801 sold for $1,250,000",
+        address: "123 Main St, Baton Rouge, LA 70801",
+      }),
+    });
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(503);
+    await expect(res.json()).resolves.toEqual({
+      error: "Memory store is temporarily unavailable",
+      degraded: true,
+    });
+    expect(resolveEntityIdMock).not.toHaveBeenCalled();
+    expect(memoryWriteGateMock).not.toHaveBeenCalled();
   });
 });

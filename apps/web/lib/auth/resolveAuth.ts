@@ -5,13 +5,30 @@ import { prisma } from "@entitlement-os/db";
 
 export type AuthResult = { userId: string; orgId: string };
 
+function getLocalDevAuthResult(): AuthResult {
+  const userId = process.env.LOCAL_DEV_AUTH_USER_ID?.trim() || "dev-user";
+  const orgId = process.env.LOCAL_DEV_AUTH_ORG_ID?.trim() || "dev-org";
+  return { userId, orgId };
+}
+
+function isLocalAuthBypassEnabled() {
+  if (process.env.NEXT_PUBLIC_DISABLE_AUTH !== "true") {
+    return false;
+  }
+
+  if (process.env.NODE_ENV !== "production") {
+    return true;
+  }
+
+  // Allow the seeded local bypass in Playwright's production-style server,
+  // but only when the test harness has explicitly opted into E2E mode.
+  return process.env.NEXT_PUBLIC_E2E === "true";
+}
+
 export async function resolveAuth(request?: Request): Promise<AuthResult | null> {
-  // 1. Dev bypass — never active in production
-  if (
-    process.env.NEXT_PUBLIC_DISABLE_AUTH === "true" &&
-    process.env.NODE_ENV !== "production"
-  ) {
-    return { userId: "dev-user", orgId: "dev-org" };
+  // 1. Dev/E2E bypass — only active for explicit local auth-disabled runs.
+  if (isLocalAuthBypassEnabled()) {
+    return getLocalDevAuthResult();
   }
 
   if (!request) return null;

@@ -2,12 +2,19 @@ import { withSentryConfig } from "@sentry/nextjs";
 import path from "path";
 import type { NextConfig } from "next";
 
+const nextDistDir = process.env.NEXT_DIST_DIR?.trim();
+const nextTsconfigPath = process.env.NEXT_TSCONFIG_PATH?.trim();
+
 const nextConfig: NextConfig = {
   transpilePackages: [
     "@entitlement-os/shared",
     "@entitlement-os/db",
     "@entitlement-os/openai",
   ],
+  distDir: nextDistDir || undefined,
+  typescript: {
+    tsconfigPath: nextTsconfigPath || undefined,
+  },
   images: {
     unoptimized: true,
   },

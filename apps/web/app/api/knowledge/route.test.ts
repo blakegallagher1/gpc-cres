@@ -24,6 +24,9 @@ const {
   ingestWorkbookUploadMock: vi.fn(),
   getInstitutionalKnowledgeIngestServiceMock: vi.fn(),
 }));
+const { shouldUseAppDatabaseDevFallbackMock } = vi.hoisted(() => ({
+  shouldUseAppDatabaseDevFallbackMock: vi.fn(),
+}));
 
 vi.mock("@/lib/auth/resolveAuth", () => ({
   resolveAuth: resolveAuthMock,
@@ -43,6 +46,10 @@ vi.mock("@/lib/services/institutionalKnowledgeIngest.service", () => ({
   getInstitutionalKnowledgeIngestService: getInstitutionalKnowledgeIngestServiceMock,
 }));
 
+vi.mock("@/lib/server/appDbEnv", () => ({
+  shouldUseAppDatabaseDevFallback: shouldUseAppDatabaseDevFallbackMock,
+}));
+
 import { GET, POST } from "./route";
 
 const ORG_ID = "11111111-1111-4111-8111-111111111111";
@@ -60,6 +67,7 @@ describe("/api/knowledge route", () => {
     isKnowledgeSearchErrorMock.mockReset();
     ingestWorkbookUploadMock.mockReset();
     getInstitutionalKnowledgeIngestServiceMock.mockReset();
+    shouldUseAppDatabaseDevFallbackMock.mockReset();
 
     resolveKnowledgeSearchModeMock.mockImplementation((_query: string, mode: string) =>
       mode === "auto" ? "semantic" : mode
@@ -68,6 +76,7 @@ describe("/api/knowledge route", () => {
     getInstitutionalKnowledgeIngestServiceMock.mockReturnValue({
       ingestWorkbookUpload: ingestWorkbookUploadMock,
     });
+    shouldUseAppDatabaseDevFallbackMock.mockReturnValue(false);
   });
 
   afterEach(() => {
@@ -144,6 +153,23 @@ describe("/api/knowledge route", () => {
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toEqual({ entries: [{ id: "knowledge-1" }] });
     expect(getRecentEntriesMock).toHaveBeenCalledWith(ORG_ID, 7, "deal_memo");
+  });
+
+  it("returns degraded recent results when app DB fallback is active", async () => {
+    resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
+    shouldUseAppDatabaseDevFallbackMock.mockReturnValue(true);
+
+    const res = await GET(
+      new NextRequest("http://localhost/api/knowledge?view=recent&type=deal_memo&limit=7")
+    );
+
+    expect(res.status).toBe(503);
+    await expect(res.json()).resolves.toEqual({
+      error: "Knowledge base is temporarily unavailable",
+      degraded: true,
+      entries: [],
+    });
+    expect(getRecentEntriesMock).not.toHaveBeenCalled();
   });
 
   it("maps knowledge search errors to their explicit status", async () => {
@@ -339,5 +365,29 @@ describe("/api/knowledge route", () => {
 
     expect(res.status).toBe(500);
     await expect(res.json()).resolves.toEqual({ error: "ingest failed" });
+  });
+
+  it("returns degraded ingest response when app DB fallback is active", async () => {
+    resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
+    shouldUseAppDatabaseDevFallbackMock.mockReturnValue(true);
+
+    const res = await POST(
+      new NextRequest("http://localhost/api/knowledge", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "ingest",
+          contentType: "agent_analysis",
+          sourceId: "workbook:v1",
+          contentText: "Workbook summary",
+        }),
+      })
+    );
+
+    expect(res.status).toBe(503);
+    await expect(res.json()).resolves.toEqual({
+      error: "Knowledge base is temporarily unavailable",
+      degraded: true,
+    });
+    expect(ingestKnowledgeMock).not.toHaveBeenCalled();
   });
 });

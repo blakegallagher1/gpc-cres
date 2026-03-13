@@ -46,6 +46,8 @@ import { AgentTrustEnvelope } from "@/types";
 import type { MapActionPayload } from "@/lib/chat/mapActionTypes";
 import { parseToolResultMapFeatures } from "@/lib/chat/toolResultWrapper";
 import { autoFeedRun } from "@/lib/agent/dataAgentAutoFeed.service";
+import { isSchemaDriftError } from "@/lib/api/prismaSchemaFallback";
+import { isLocalAppRuntime } from "@/lib/server/appDbEnv";
 import { getDealReaderById } from "@/lib/services/deal-reader";
 import { logger } from "./loggerAdapter";
 import { unifiedRetrieval } from "./retrievalAdapter";
@@ -66,7 +68,13 @@ const PROPERTY_NUMERIC_FACT_RE = /\$[\d][\d,.]*\s*(?:[kKmM]|million|thousand)?\b
 const PROPERTY_DATA_TABLE_RE = /\n\s*(?:\||\*|[-+•])[\s\S]*?(?:\$|%|\b\d+\s*(?:acres?|units?|b\s*dr))[\s\S]*?(?:\n|$)/i;
 const PROPERTY_DATA_HEADER_RE = /\b(?:here are|here's|input|ingest|storing|table of)\b.*\b(?:comps?|sales?|properties?|parcels?)\b/i;
 const PROPERTY_RECALL_QUERY_RE =
-  /\b(?:tell me about|what do we know about|what do you know about|anything on|anything about|details on|details about|history on|history about|profile for|profile on|what's on file for)\b/i;
+  /\b(?:tell me about|what do we know about|what do you know about|anything on|anything about|details on|details about|history on|history about|profile for|profile on|what's on file for|what was (?:the )?(?:sale price|price|cap rate|noi|rent|value)\b|what is (?:the )?(?:sale price|price|cap rate|noi|rent|value)\b|what's (?:the )?(?:sale price|price|cap rate|noi|rent|value)\b)\b/i;
+const PROPERTY_MEMORY_INGESTION_RE =
+  /\b(?:store|save|remember|record|learn)\b[\s\S]*\b(?:future recall|future reference|for later|on file|knowledge base|build knowledge)\b/i;
+const KNOWLEDGE_MEMORY_INGESTION_RE =
+  /\b(?:store|save|remember|record|capture|learn)\b[\s\S]*\b(?:knowledge entry|reasoning trace|analysis pattern|institutional knowledge|knowledge base|future reference|for later)\b/i;
+const PROPERTY_ANALYSIS_REQUEST_RE =
+  /\b(?:analy[sz]e|underwrite|assess|evaluate|recommend|compare|screen|triage|what do you think|should we|summari[sz]e)\b/i;
 const ADDRESS_SIGNATURE_RE =
   /\b(\d{1,6})\s+([a-z0-9.'"\-\s]+?)\s+(street|st|avenue|ave|boulevard|blvd|road|rd|drive|dr|lane|ln|court|ct|place|pl|parkway|pkwy|highway|hwy|trail|trl|way|terrace|terr|circle|cir)\b/i;
 const ADDRESS_SUFFIX_CANONICAL: Record<string, string> = {
@@ -103,6 +111,7 @@ function shouldRequireStoreMemory(firstUserInput: unknown): boolean {
   if (typeof firstUserInput !== "string") return false;
   const text = firstUserInput.trim();
   if (text.length < 8) return false;
+  if (PROPERTY_RECALL_QUERY_RE.test(text)) return false;
   const hasPropertyDataHint = PROPERTY_DATA_HINT_RE.test(text);
   const hasAddress = PROPERTY_ADDRESS_RE.test(text);
   const hasNumericFact = PROPERTY_NUMERIC_FACT_RE.test(text);
@@ -117,6 +126,24 @@ function shouldRequireAddressMemoryLookup(firstUserInput: unknown): boolean {
   if (text.length < 8) return false;
   if (shouldRequireStoreMemory(text)) return false;
   return PROPERTY_ADDRESS_RE.test(text) && PROPERTY_RECALL_QUERY_RE.test(text);
+}
+
+function shouldTreatAsMemoryIngestionOnly(firstUserInput: unknown): boolean {
+  if (typeof firstUserInput !== "string") return false;
+  const text = firstUserInput.trim();
+  if (text.length < 8) return false;
+  if (!shouldRequireStoreMemory(text)) return false;
+  if (!PROPERTY_MEMORY_INGESTION_RE.test(text)) return false;
+  return !PROPERTY_ANALYSIS_REQUEST_RE.test(text);
+}
+
+function shouldTreatAsKnowledgeIngestionOnly(firstUserInput: unknown): boolean {
+  if (typeof firstUserInput !== "string") return false;
+  const text = firstUserInput.trim();
+  if (text.length < 8) return false;
+  if (shouldRequireStoreMemory(text)) return false;
+  if (!KNOWLEDGE_MEMORY_INGESTION_RE.test(text)) return false;
+  return !PROPERTY_ANALYSIS_REQUEST_RE.test(text);
 }
 
 function normalizeAddressComparable(value: string): string {
@@ -470,7 +497,14 @@ function buildMissingEvidenceRetryPolicy(
   };
 }
 
-function getToolName(payload: Record<string, unknown>): string | null {
+const GENERIC_TOOL_EVENT_NAMES = new Set([
+  "tool_called",
+  "tool_call",
+  "tool_output",
+  "tool_result",
+]);
+
+function getDirectToolName(payload: Record<string, unknown>): string | null {
   const toolValueName =
     payload.tool && isRecord(payload.tool) && typeof payload.tool.name === "string"
       ? payload.tool.name
@@ -511,7 +545,32 @@ function getToolName(payload: Record<string, unknown>): string | null {
   return null;
 }
 
+function getToolName(payload: Record<string, unknown>): string | null {
+  const directName = getDirectToolName(payload);
+  if (directName && !GENERIC_TOOL_EVENT_NAMES.has(directName.toLowerCase())) {
+    return directName;
+  }
+
+  const rawItem = extractApprovalRawItem(payload);
+  if (rawItem) {
+    const rawName = getDirectToolName(rawItem);
+    if (rawName) {
+      return rawName;
+    }
+  }
+
+  return directName;
+}
+
 function extractToolArgs(payload: Record<string, unknown>): Record<string, unknown> | undefined {
+  const rawItem = extractApprovalRawItem(payload);
+  if (rawItem && typeof rawItem.arguments === "string") {
+    const parsedRawArgs = safeParseJson(rawItem.arguments);
+    if (isRecord(parsedRawArgs)) {
+      return parsedRawArgs;
+    }
+  }
+
   const toolArgs =
     payload.toolCall &&
     isRecord(payload.toolCall) &&
@@ -546,6 +605,21 @@ function extractToolArgs(payload: Record<string, unknown>): Record<string, unkno
 }
 
 function extractToolCallId(payload: Record<string, unknown>): string | null {
+  const rawItem = extractApprovalRawItem(payload);
+  if (rawItem) {
+    const rawCallId =
+      typeof rawItem.callId === "string"
+        ? rawItem.callId
+        : typeof rawItem.call_id === "string"
+          ? rawItem.call_id
+          : typeof rawItem.id === "string"
+            ? rawItem.id
+            : null;
+    if (rawCallId) {
+      return rawCallId;
+    }
+  }
+
   const toolCallIdNested =
     payload.toolCall &&
     isRecord(payload.toolCall) &&
@@ -1335,6 +1409,11 @@ export async function executeAgentWorkflow(
   });
   const firstUserInput = params.input.find((entry) => entry.role === "user")?.content;
   const userTextForIntent = params.intentHint ?? firstUserInput;
+  const requireStoreMemory = shouldRequireStoreMemory(userTextForIntent);
+  const requireAddressMemoryLookup = shouldRequireAddressMemoryLookup(userTextForIntent);
+  const memoryIngestionOnly = shouldTreatAsMemoryIngestionOnly(userTextForIntent);
+  const knowledgeIngestionOnly = shouldTreatAsKnowledgeIngestionOnly(userTextForIntent);
+  const ingestionOnly = memoryIngestionOnly || knowledgeIngestionOnly;
   const dealRoutingContext =
     params.queryIntentOverride || !params.dealId
       ? null
@@ -1519,12 +1598,14 @@ export async function executeAgentWorkflow(
       throw new Error("OPENAI_API_KEY is not configured on the server.");
     }
 
-    retrievalContext = await buildRetrievalContext({
-      runId: dbRun.id,
-      orgId: params.orgId,
-      queryIntent,
-      firstUserInput,
-    });
+    if (!ingestionOnly) {
+      retrievalContext = await buildRetrievalContext({
+        runId: dbRun.id,
+        orgId: params.orgId,
+        queryIntent,
+        firstUserInput,
+      });
+    }
 
     const baseCoordinator = createIntentAwareCoordinator(queryIntent) as Agent & {
       clone?: (config: { tools: Agent["tools"] }) => Agent;
@@ -1910,9 +1991,8 @@ export async function executeAgentWorkflow(
       };
     };
 
-    const requireStoreMemory = shouldRequireStoreMemory(firstUserInput);
-    const requireAddressMemoryLookup = shouldRequireAddressMemoryLookup(firstUserInput);
-    const deferTextUntilFinal = requireStoreMemory || requireAddressMemoryLookup;
+    const deferTextUntilFinal =
+      requireStoreMemory || knowledgeIngestionOnly || requireAddressMemoryLookup;
     const primaryAttempt = await runAttempt(runInput, "primary", !deferTextUntilFinal);
     agentRunResult = primaryAttempt.agentRunResult;
     let finalOutputRaw = primaryAttempt.finalOutputRaw;
@@ -2089,25 +2169,34 @@ export async function executeAgentWorkflow(
   } finally {
     if (status === "succeeded") {
       const sanitizedOutput = sanitizeOutputText(finalText);
+      const allowPlainTextFinalOutput =
+        (memoryIngestionOnly && state.toolsInvoked.has("store_memory")) ||
+        (knowledgeIngestionOnly && state.toolsInvoked.has("store_knowledge_entry")) ||
+        (requireAddressMemoryLookup && hasAddressMemoryLookup(state));
       const parsedReport = parseFinalOutputJsonObject(sanitizedOutput);
       if (!parsedReport) {
-        const reason = "Final agent output is not a valid JSON object.";
-        state.toolErrorMessages.push(`final_report: ${reason}`);
-        state.missingEvidence.add("Final agent report did not parse as JSON.");
-        finalReport = buildFallbackAgentReportFromText({
-          rawText: sanitizedOutput,
-          taskSummary: firstUserInput ?? "Coordinator request",
-          generatedAt: new Date().toISOString(),
-        });
-        logger.warn("Agent final output was non-JSON; applied fallback report normalization", {
-          orgId: params.orgId,
-          dealId: params.dealId,
-          conversationId: params.conversationId,
-          runId: dbRun.id,
-          correlationId: params.correlationId,
-          agentName: lastAgentName || "Coordinator",
-        });
-        finalText = JSON.stringify(finalReport, null, 2);
+        if (allowPlainTextFinalOutput) {
+          finalReport = null;
+          finalText = sanitizedOutput;
+        } else {
+          const reason = "Final agent output is not a valid JSON object.";
+          state.toolErrorMessages.push(`final_report: ${reason}`);
+          state.missingEvidence.add("Final agent report did not parse as JSON.");
+          finalReport = buildFallbackAgentReportFromText({
+            rawText: sanitizedOutput,
+            taskSummary: userTextForIntent ?? firstUserInput ?? "Coordinator request",
+            generatedAt: new Date().toISOString(),
+          });
+          logger.warn("Agent final output was non-JSON; applied fallback report normalization", {
+            orgId: params.orgId,
+            dealId: params.dealId,
+            conversationId: params.conversationId,
+            runId: dbRun.id,
+            correlationId: params.correlationId,
+            agentName: lastAgentName || "Coordinator",
+          });
+          finalText = JSON.stringify(finalReport, null, 2);
+        }
       } else {
         const validation = AgentReportSchema.safeParse(parsedReport);
         if (!validation.success) {
@@ -2270,11 +2359,20 @@ export async function executeAgentWorkflow(
       };
     }
 
-    const proofViolations = evaluateProofCompliance(queryIntent, state.toolsInvoked);
+    const skipProofEnforcement =
+      (memoryIngestionOnly && state.toolsInvoked.has("store_memory")) ||
+      (knowledgeIngestionOnly && state.toolsInvoked.has("store_knowledge_entry"));
+    const proofGroups = getProofGroupsForIntent(queryIntent);
+    const proofViolations = skipProofEnforcement
+      ? []
+      : evaluateProofCompliance(queryIntent, state.toolsInvoked);
     const failedProofViolations = proofViolations.filter(
       (violation) => violation.missingTools.length > 0,
     );
-    const proofChecks = getProofGroupsForIntent(queryIntent).map((group) => {
+    const proofChecks = proofGroups.map((group) => {
+      if (skipProofEnforcement) {
+        return `${group.label}:skipped-ingestion`;
+      }
       const failed = failedProofViolations.some(
         (violation) => violation.group.label === group.label,
       );
@@ -2472,55 +2570,57 @@ export async function executeAgentWorkflow(
       conversationId: params.conversationId,
     });
 
-    void autoFeedRun({
-      orgId: params.orgId,
-      runId: dbRun.id,
-      runType: params.runType ?? "ENRICHMENT",
-      agentIntent:
-        firstUserInput && typeof firstUserInput === "string"
-          ? firstUserInput.slice(0, 280)
-          : "agent run",
-      finalOutputText: finalText,
-      finalReport: finalReport ? (finalReport as unknown as Record<string, unknown>) : null,
-      confidence: trust.confidence,
-      evidenceHash:
-        trust.evidenceHash ??
-        computeEvidenceHash(
-          trust.evidenceCitations.map((citation) => ({
-            tool: citation.tool ?? "agent_tool",
-            sourceId: citation.sourceId,
-            snapshotId: citation.snapshotId,
-            contentHash: citation.contentHash,
-            url: citation.url,
-            isOfficial: citation.isOfficial,
-          })),
-        ) ??
-        "no-evidence-hash",
-      toolsInvoked: trust.toolsInvoked,
-      evidenceCitations: trust.evidenceCitations.map((citation) => ({
-        tool: citation.tool,
-        sourceId: citation.sourceId,
-        snapshotId: citation.snapshotId,
-        contentHash: citation.contentHash,
-        url: citation.url,
-        isOfficial: citation.isOfficial,
-      })),
-      retrievalMeta: {
+    if (!ingestionOnly) {
+      void autoFeedRun({
+        orgId: params.orgId,
         runId: dbRun.id,
-        queryIntent: queryIntent ?? null,
-        status,
-        schemaVersion: AGENT_RUN_STATE_SCHEMA_VERSION,
-        retrievalContext: retrievalContext ?? null,
-        retrievalSummary: summarizeRetrievalContext(retrievalContext),
-      },
-      subjectId: dbRun.id,
-      autoScore: trust.confidence,
-    }).catch((error) => {
-      logger.warn("Data Agent auto-feed failed after local run", {
-        runId: dbRun.id,
-        error: String(error),
+        runType: params.runType ?? "ENRICHMENT",
+        agentIntent:
+          firstUserInput && typeof firstUserInput === "string"
+            ? firstUserInput.slice(0, 280)
+            : "agent run",
+        finalOutputText: finalText,
+        finalReport: finalReport ? (finalReport as unknown as Record<string, unknown>) : null,
+        confidence: trust.confidence,
+        evidenceHash:
+          trust.evidenceHash ??
+          computeEvidenceHash(
+            trust.evidenceCitations.map((citation) => ({
+              tool: citation.tool ?? "agent_tool",
+              sourceId: citation.sourceId,
+              snapshotId: citation.snapshotId,
+              contentHash: citation.contentHash,
+              url: citation.url,
+              isOfficial: citation.isOfficial,
+            })),
+          ) ??
+          "no-evidence-hash",
+        toolsInvoked: trust.toolsInvoked,
+        evidenceCitations: trust.evidenceCitations.map((citation) => ({
+          tool: citation.tool,
+          sourceId: citation.sourceId,
+          snapshotId: citation.snapshotId,
+          contentHash: citation.contentHash,
+          url: citation.url,
+          isOfficial: citation.isOfficial,
+        })),
+        retrievalMeta: {
+          runId: dbRun.id,
+          queryIntent: queryIntent ?? null,
+          status,
+          schemaVersion: AGENT_RUN_STATE_SCHEMA_VERSION,
+          retrievalContext: retrievalContext ?? null,
+          retrievalSummary: summarizeRetrievalContext(retrievalContext),
+        },
+        subjectId: dbRun.id,
+        autoScore: trust.confidence,
+      }).catch((error) => {
+        logger.warn("Data Agent auto-feed failed after local run", {
+          runId: dbRun.id,
+          error: String(error),
+        });
       });
-    });
+    }
     if (isAgentOsFeatureEnabled("criticEvaluation")) {
       void runCriticEvaluation({
         runId: dbRun.id,
@@ -2769,10 +2869,17 @@ async function buildRetrievalContext(params: {
       sources,
     };
   } catch (error) {
+    if (shouldSuppressLocalSchemaDrift(error)) {
+      logger.info("Skipped retrieval context computation due to local schema drift", {
+        runId: params.runId,
+        error: String(error),
+      });
+    } else {
     logger.warn("Failed to compute retrieval context for run", {
       runId: params.runId,
       error: String(error),
     });
+    }
     return {
       query,
       subjectId: params.runId,
@@ -2785,6 +2892,10 @@ async function buildRetrievalContext(params: {
       },
     };
   }
+}
+
+function shouldSuppressLocalSchemaDrift(error: unknown): boolean {
+  return isLocalAppRuntime() && isSchemaDriftError(error);
 }
 
 function summarizeRetrievalContext(context: DataAgentRetrievalContext | null): Record<string, unknown> {

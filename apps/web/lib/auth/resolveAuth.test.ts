@@ -19,6 +19,7 @@ vi.mock("@entitlement-os/db", () => ({
 
 describe("resolveAuth", () => {
   let resolveAuth: typeof import("./resolveAuth").resolveAuth;
+  const originalNodeEnv = process.env.NODE_ENV;
 
   beforeEach(async () => {
     vi.resetModules();
@@ -26,8 +27,12 @@ describe("resolveAuth", () => {
     prismaMock.orgMembership.findFirst.mockReset();
 
     process.env.AUTH_SECRET = "test-secret-32chars-minimum-len";
+    process.env.NODE_ENV = originalNodeEnv ?? "test";
     delete process.env.NEXT_PUBLIC_DISABLE_AUTH;
+    delete process.env.NEXT_PUBLIC_E2E;
     delete process.env.AGENT_TOOL_INTERNAL_TOKEN;
+    delete process.env.LOCAL_DEV_AUTH_USER_ID;
+    delete process.env.LOCAL_DEV_AUTH_ORG_ID;
 
     ({ resolveAuth } = await import("./resolveAuth"));
   });
@@ -42,6 +47,37 @@ describe("resolveAuth", () => {
     ({ resolveAuth } = await import("./resolveAuth"));
     const result = await resolveAuth();
     expect(result).toEqual({ userId: "dev-user", orgId: "dev-org" });
+  });
+
+  it("returns configured local dev auth identity when override env vars are set", async () => {
+    process.env.NEXT_PUBLIC_DISABLE_AUTH = "true";
+    process.env.LOCAL_DEV_AUTH_USER_ID = "00000000-0000-0000-0000-000000000003";
+    process.env.LOCAL_DEV_AUTH_ORG_ID = "00000000-0000-0000-0000-000000000001";
+    ({ resolveAuth } = await import("./resolveAuth"));
+
+    const result = await resolveAuth();
+
+    expect(result).toEqual({
+      userId: "00000000-0000-0000-0000-000000000003",
+      orgId: "00000000-0000-0000-0000-000000000001",
+    });
+  });
+
+  it("allows the seeded local bypass in explicit Playwright E2E mode", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.NEXT_PUBLIC_DISABLE_AUTH = "true";
+    process.env.NEXT_PUBLIC_E2E = "true";
+    process.env.LOCAL_DEV_AUTH_USER_ID = "00000000-0000-0000-0000-000000000003";
+    process.env.LOCAL_DEV_AUTH_ORG_ID = "00000000-0000-0000-0000-000000000001";
+    ({ resolveAuth } = await import("./resolveAuth"));
+
+    const result = await resolveAuth(new Request("http://localhost/api/test"));
+
+    expect(result).toEqual({
+      userId: "00000000-0000-0000-0000-000000000003",
+      orgId: "00000000-0000-0000-0000-000000000001",
+    });
+    expect(getTokenMock).not.toHaveBeenCalled();
   });
 
   it("returns null when no auth token present", async () => {

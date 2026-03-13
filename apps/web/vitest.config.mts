@@ -1,16 +1,19 @@
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
+
+const appRoot = fileURLToPath(new URL(".", import.meta.url));
 
 export default defineConfig({
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./"),
-      "@/": path.resolve(__dirname, "./"),
-      "@entitlement-os/db": path.resolve(__dirname, "../../packages/db/dist"),
-      "@entitlement-os/shared": path.resolve(__dirname, "../../packages/shared/src"),
-      "@entitlement-os/openai": path.resolve(__dirname, "../../packages/openai/src"),
-      "@entitlement-os/artifacts": path.resolve(__dirname, "../../packages/artifacts/src"),
-      "@entitlement-os/evidence": path.resolve(__dirname, "../../packages/evidence/src"),
+      "@": path.resolve(appRoot, "./"),
+      "@/": path.resolve(appRoot, "./"),
+      "@entitlement-os/db": path.resolve(appRoot, "../../packages/db/dist"),
+      "@entitlement-os/shared": path.resolve(appRoot, "../../packages/shared/src"),
+      "@entitlement-os/openai": path.resolve(appRoot, "../../packages/openai/src"),
+      "@entitlement-os/artifacts": path.resolve(appRoot, "../../packages/artifacts/src"),
+      "@entitlement-os/evidence": path.resolve(appRoot, "../../packages/evidence/src"),
     },
   },
   test: {

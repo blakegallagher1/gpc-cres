@@ -7,8 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
-    "test": "vitest run",
-    "test:observability": "vitest run app/api/admin/observability/route.test.ts app/api/observability/events/route.test.ts components/observability/client-telemetry.test.ts components/observability/observability-provider.test.tsx components/observability/observability-boundary.test.tsx"
+    "test": "vitest run --configLoader runner",
+    "test:observability": "vitest run --configLoader runner app/api/admin/observability/route.test.ts app/api/observability/events/route.test.ts components/observability/client-telemetry.test.ts components/observability/observability-provider.test.tsx components/observability/observability-boundary.test.tsx"
   },
   "dependencies": {
     "@entitlement-os/artifacts": "workspace:*",

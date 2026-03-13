@@ -5,7 +5,7 @@
  * Qdrant augments only when the query looks semantic/fuzzy or exact recall is weak.
  */
 
-import { prisma } from "@entitlement-os/db";
+import { getDataAgentSchemaCapabilities, prisma } from "@entitlement-os/db";
 import { recordDataAgentRetrieval } from "@entitlement-os/shared";
 import type {
   DataAgentRetrievalContext,
@@ -218,7 +218,7 @@ async function exactSearch(
         ke.metadata as "metadata",
         ke.updated_at as "sourceTimestamp"
       FROM knowledge_embeddings ke
-      WHERE ke.org_id = $1
+      WHERE ke.org_id = $1::uuid
         AND (
           ke.content_text ILIKE ANY($2::text[])
           OR CAST(ke.metadata AS text) ILIKE ANY($2::text[])
@@ -290,10 +290,15 @@ async function graphSearch(
     return [];
   }
 
+  const capabilities = await getDataAgentSchemaCapabilities();
+  if (!capabilities.kgEvent) {
+    return [];
+  }
+
   const params: unknown[] = [query, orgId];
   const baseWhere = subjectId
     ? `
-      WHERE ge.org_id = $2
+      WHERE ge.org_id = $2::uuid
         AND (
           ge.subject_id ILIKE ('%' || $1 || '%')
           OR ge.object_id ILIKE ('%' || $1 || '%')
@@ -302,7 +307,7 @@ async function graphSearch(
         )
     `
     : `
-      WHERE ge.org_id = $2
+      WHERE ge.org_id = $2::uuid
         AND (
           ge.subject_id ILIKE ('%' || $1 || '%')
           OR ge.object_id ILIKE ('%' || $1 || '%')
@@ -333,15 +338,16 @@ async function graphSearch(
   );
 
   const eventIds = rows.map((row) => row.id);
-  const edges: Array<{ fromEvent: string; toEvent: string }> = eventIds.length
+  const edges: Array<{ fromEvent: string; toEvent: string }> =
+    capabilities.temporalEdge && eventIds.length
     ? await prisma.$queryRawUnsafe<Array<{ fromEvent: string; toEvent: string }>>(
         `
           SELECT
             "fromEvent" as "fromEvent",
             "toEvent" as "toEvent"
           FROM "TemporalEdge"
-          WHERE "fromEvent" = ANY($1::text[])
-             OR "toEvent" = ANY($1::text[])
+          WHERE "fromEvent" = ANY($1::uuid[])
+             OR "toEvent" = ANY($1::uuid[])
         `,
         eventIds,
       )

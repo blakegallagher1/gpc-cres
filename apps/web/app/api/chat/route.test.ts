@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createSseWriter } from "./sseWriter";
 
 const { resolveAuthMock, runAgentWorkflowMock } = vi.hoisted(() => ({
   resolveAuthMock: vi.fn(),
@@ -10,6 +11,9 @@ const { setupAgentTracingMock } = vi.hoisted(() => ({
 }));
 const { extractAndMergeConversationPreferencesMock } = vi.hoisted(() => ({
   extractAndMergeConversationPreferencesMock: vi.fn(),
+}));
+const { shouldUseAppDatabaseDevFallbackMock } = vi.hoisted(() => ({
+  shouldUseAppDatabaseDevFallbackMock: vi.fn(() => false),
 }));
 
 vi.mock("@/lib/auth/resolveAuth", () => ({
@@ -29,6 +33,10 @@ vi.mock("@/lib/services/preferenceExtraction.service", () => ({
     extractAndMergeConversationPreferencesMock,
 }));
 
+vi.mock("@/lib/server/appDbEnv", () => ({
+  shouldUseAppDatabaseDevFallback: shouldUseAppDatabaseDevFallbackMock,
+}));
+
 import { POST } from "./route";
 
 describe("POST /api/chat", () => {
@@ -37,6 +45,8 @@ describe("POST /api/chat", () => {
     runAgentWorkflowMock.mockReset();
     setupAgentTracingMock.mockReset();
     extractAndMergeConversationPreferencesMock.mockReset();
+    shouldUseAppDatabaseDevFallbackMock.mockReset();
+    shouldUseAppDatabaseDevFallbackMock.mockReturnValue(false);
     extractAndMergeConversationPreferencesMock.mockResolvedValue(undefined);
   });
 
@@ -120,5 +130,42 @@ describe("POST /api/chat", () => {
     expect(message).toContain("viewportLabel=Downtown Baton Rouge");
     expect(message).toContain("referencedFeatures=parcel-1 | 123 Main St | C2");
     expect(message).toContain("Show me the selected parcel.");
+  });
+
+  it("treats late SSE enqueues after stream close as a no-op", () => {
+    const controller = {
+      enqueue: vi.fn(() => {
+        throw new TypeError("Invalid state: Controller is already closed");
+      }),
+      close: vi.fn(),
+    } as unknown as ReadableStreamDefaultController<Uint8Array>;
+
+    const writer = createSseWriter(controller, new TextEncoder());
+
+    expect(writer.enqueue({ type: "error", message: "late error" })).toBe(false);
+    expect(writer.isClosed()).toBe(true);
+    expect(() => writer.close()).not.toThrow();
+  });
+
+  it("returns structured SSE fallback payloads when the app DB is unavailable in dev", async () => {
+    shouldUseAppDatabaseDevFallbackMock.mockReturnValue(true);
+    resolveAuthMock.mockResolvedValue({
+      userId: "99999999-9999-4999-8999-999999999999",
+      orgId: "11111111-1111-4111-8111-111111111111",
+    });
+
+    const req = new NextRequest("http://localhost/api/chat", {
+      method: "POST",
+      body: JSON.stringify({ message: "Store this memory for later." }),
+    });
+    const res = await POST(req);
+    const text = await res.text();
+
+    expect(res.status).toBe(200);
+    expect(text).toContain('"type":"error"');
+    expect(text).toContain('"type":"done"');
+    expect(text).toContain('"code":"system_configuration_error"');
+    expect(text).toContain("System configuration error");
+    expect(runAgentWorkflowMock).not.toHaveBeenCalled();
   });
 });

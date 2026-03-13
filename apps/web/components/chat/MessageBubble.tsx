@@ -225,12 +225,31 @@ function getEventStyle(kind: string) {
   return eventStyles[kind] ?? { border: 'border-l-slate-500', bg: 'bg-slate-500/8', text: 'text-slate-300' };
 }
 
+function getEffectiveEventKind(
+  message: ChatMessage,
+): ChatMessage['eventKind'] | undefined {
+  if (message.eventKind) {
+    return message.eventKind;
+  }
+
+  const metadataKind =
+    message.metadata && typeof message.metadata.kind === 'string'
+      ? message.metadata.kind
+      : null;
+
+  if (metadataKind === 'tool_approval_requested') {
+    return 'tool_approval';
+  }
+
+  return undefined;
+}
+
 function renderSystemContent(
   message: ChatMessage,
   conversationId?: string | null,
   onToolApprovalEvents?: (events: ChatStreamEvent[]) => void,
 ) {
-  const eventKind = message.eventKind;
+  const eventKind = getEffectiveEventKind(message);
   const Icon = eventKind ? eventIcons[eventKind] : null;
   const style = eventKind ? getEventStyle(eventKind) : getEventStyle('');
 
@@ -420,9 +439,10 @@ export function MessageBubble({
   onToolApprovalEvents,
 }: MessageBubbleProps) {
   const mapDispatch = useMapChatDispatch();
+  const effectiveEventKind = getEffectiveEventKind(message);
   const isUser = message.role === 'user';
-  const isSystemEvent = message.eventKind !== undefined && message.eventKind !== 'assistant';
-  const hasEvent = message.eventKind !== undefined;
+  const isSystemEvent = effectiveEventKind !== undefined && effectiveEventKind !== 'assistant';
+  const hasEvent = effectiveEventKind !== undefined;
   const systemContent = renderSystemContent(message, conversationId, onToolApprovalEvents);
 
   const agentBorder = !isUser && message.agentName

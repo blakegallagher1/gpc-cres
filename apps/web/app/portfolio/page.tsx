@@ -12,6 +12,8 @@ import type {
 } from "@/lib/services/portfolioAnalytics.service";
 import PortfolioPage from "./page-client";
 
+export const dynamic = "force-dynamic";
+
 type SearchParams = Record<string, string | string[] | undefined>;
 
 type PortfolioPayload = {

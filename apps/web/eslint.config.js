@@ -4,7 +4,13 @@ const globals = require("globals");
 
 module.exports = [
   {
-    ignores: [".next/**", "node_modules/**", "dist/**", "out/**"]
+    ignores: [
+      ".next/**",
+      ".next-playwright-*/**",
+      "node_modules/**",
+      "dist/**",
+      "out/**",
+    ]
   },
   {
     files: ["**/*.{js,jsx,ts,tsx}"],

@@ -5,7 +5,9 @@
  * without crossing monorepo-level service boundaries during Next.js compile.
  */
 
-import { prisma } from "@entitlement-os/db";
+import { getDataAgentSchemaCapabilities, prisma } from "@entitlement-os/db";
+import { isSchemaDriftError } from "@/lib/api/prismaSchemaFallback";
+import { isLocalAppRuntime } from "@/lib/server/appDbEnv";
 import { logger, recordDataAgentAutoFeed } from "./loggerAdapter";
 
 type JsonRecord = Record<string, unknown>;
@@ -117,6 +119,36 @@ export async function autoFeedRun(input: AutoFeedInput): Promise<AutoFeedResult>
     status: "started",
     hasWarnings: false,
   });
+
+  if (isLocalAppRuntime()) {
+    const capabilities = await getDataAgentSchemaCapabilities();
+    if (shouldSkipAutoFeedForLocalSchemaCapabilities(capabilities)) {
+      logger.info("Data Agent auto-feed skipped due to local schema drift", {
+        runId: input.runId,
+        episodeId,
+        error: "Required Data Agent tables are unavailable in the local app database",
+      });
+      recordDataAgentAutoFeed({
+        runId: input.runId,
+        episodeId: null,
+        vectorMode: "error",
+        kgEventsInserted: 0,
+        temporalEdgesInserted: 0,
+        rewardScore: autoScore,
+        status: "schema_unavailable",
+        hasWarnings: false,
+      });
+
+      return {
+        summary,
+        reflectionSuccess,
+        rewardWriteSuccess,
+        episodeCreated,
+        errors: ["AUTO_FEED_SCHEMA_UNAVAILABLE"],
+        episodeId,
+      };
+    }
+  }
 
   try {
     const existing = await prisma.$queryRawUnsafe<EpisodeRow[]>(
@@ -293,6 +325,33 @@ export async function autoFeedRun(input: AutoFeedInput): Promise<AutoFeedResult>
       errors,
     };
   } catch (error) {
+    if (shouldSuppressAutoFeedSchemaDrift(error)) {
+      logger.info("Data Agent auto-feed skipped due to local schema drift", {
+        runId: input.runId,
+        episodeId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      recordDataAgentAutoFeed({
+        runId: input.runId,
+        episodeId: episodeId ?? null,
+        vectorMode: "error",
+        kgEventsInserted,
+        temporalEdgesInserted,
+        rewardScore: autoScore,
+        status: "schema_unavailable",
+        hasWarnings: false,
+      });
+
+      return {
+        summary,
+        reflectionSuccess,
+        rewardWriteSuccess,
+        episodeCreated,
+        errors: ["AUTO_FEED_SCHEMA_UNAVAILABLE"],
+        episodeId,
+      };
+    }
+
     const message = error instanceof Error ? error.message : String(error);
     errors.push(message);
     logger.warn("Data Agent auto-feed failed", {
@@ -381,4 +440,24 @@ function shouldAutoFeed(): boolean {
     return true;
   }
   return flag !== "0" && flag.toLowerCase() !== "false";
+}
+
+function shouldSuppressAutoFeedSchemaDrift(error: unknown): boolean {
+  return isLocalAppRuntime() && isSchemaDriftError(error);
+}
+
+function shouldSkipAutoFeedForLocalSchemaCapabilities(capabilities: {
+  episode: boolean;
+  kgEvent: boolean;
+  temporalEdge: boolean;
+  rewardSignal: boolean;
+  knowledgeEmbedding: boolean;
+}): boolean {
+  return !(
+    capabilities.episode &&
+    capabilities.kgEvent &&
+    capabilities.temporalEdge &&
+    capabilities.rewardSignal &&
+    capabilities.knowledgeEmbedding
+  );
 }

@@ -42,6 +42,33 @@ function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+function normalizeCompPayloadFromInput(
+  inputText: string,
+  payload: CompPayload,
+): CompPayload {
+  const capRate = payload.cap_rate;
+  if (typeof capRate !== "number" || !Number.isFinite(capRate)) {
+    return payload;
+  }
+
+  // User-facing chat prompts usually express cap rate as a percentage (6.1%),
+  // while the model occasionally emits a decimal (0.061). Normalize only when
+  // the original prompt clearly used percent notation for cap rate.
+  if (
+    capRate > 0 &&
+    capRate < 1 &&
+    /\bcap(?:\s|-)?rate\b/i.test(inputText) &&
+    inputText.includes("%")
+  ) {
+    return {
+      ...payload,
+      cap_rate: Number((capRate * 100).toFixed(4)),
+    };
+  }
+
+  return payload;
+}
+
 export async function memoryWriteGate(
   inputText: string,
   entityContext: WriteContext,
@@ -118,7 +145,12 @@ export async function memoryWriteGate(
     // and produces a CompPayload with every nullable field set to null.
     // Storing such a record would overwrite verified truth with nulls.
     if (structuredWrite.fact_type === "comp") {
-      const p = structuredWrite.payload as CompPayload;
+      const normalizedPayload = normalizeCompPayloadFromInput(
+        inputText,
+        structuredWrite.payload as CompPayload,
+      );
+      structuredWrite.payload = normalizedPayload;
+      const p = normalizedPayload;
       const hasEconomicData = [
         p.sale_price,
         p.cap_rate,

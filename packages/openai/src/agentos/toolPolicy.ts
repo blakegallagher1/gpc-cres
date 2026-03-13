@@ -37,6 +37,7 @@ const BASE_ALLOWED_TOOLS = [
 
 export const WEB_ADDITIONAL_TOOL_ALLOWLIST = [
   "store_memory",
+  "store_knowledge_entry",
   "get_entity_truth",
   "get_entity_memory",
   "record_memory_event",

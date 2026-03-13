@@ -1,13 +1,33 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const { mockQueryRawUnsafe } = vi.hoisted(() => ({
+const { mockQueryRawUnsafe, mockGetDataAgentSchemaCapabilities } = vi.hoisted(() => ({
   mockQueryRawUnsafe: vi.fn(),
+  mockGetDataAgentSchemaCapabilities: vi.fn(),
+}));
+
+const {
+  mockLoggerWarn,
+  mockLoggerInfo,
+  mockRecordDataAgentAutoFeed,
+} = vi.hoisted(() => ({
+  mockLoggerWarn: vi.fn(),
+  mockLoggerInfo: vi.fn(),
+  mockRecordDataAgentAutoFeed: vi.fn(),
 }));
 
 vi.mock("@entitlement-os/db", () => ({
   prisma: {
     $queryRawUnsafe: mockQueryRawUnsafe,
   },
+  getDataAgentSchemaCapabilities: mockGetDataAgentSchemaCapabilities,
+}));
+
+vi.mock("../loggerAdapter", () => ({
+  logger: {
+    warn: mockLoggerWarn,
+    info: mockLoggerInfo,
+  },
+  recordDataAgentAutoFeed: mockRecordDataAgentAutoFeed,
 }));
 
 import { autoFeedRun } from "../dataAgentAutoFeed.service";
@@ -35,6 +55,17 @@ const BASE_INPUT = {
 describe("apps/web dataAgentAutoFeed", () => {
   beforeEach(() => {
     mockQueryRawUnsafe.mockReset();
+    mockLoggerWarn.mockReset();
+    mockLoggerInfo.mockReset();
+    mockRecordDataAgentAutoFeed.mockReset();
+    mockGetDataAgentSchemaCapabilities.mockReset();
+    mockGetDataAgentSchemaCapabilities.mockResolvedValue({
+      episode: true,
+      kgEvent: true,
+      temporalEdge: true,
+      rewardSignal: true,
+      knowledgeEmbedding: true,
+    });
     process.env.DATA_AGENT_AUTOFED = "true";
     process.env.NODE_ENV = "production";
   });
@@ -99,5 +130,39 @@ describe("apps/web dataAgentAutoFeed", () => {
     expect(result.reflectionSuccess).toBe(false);
     expect(result.rewardWriteSuccess).toBe(false);
     expect(mockQueryRawUnsafe).not.toHaveBeenCalled();
+  });
+
+  it("suppresses local schema-drift failures as degraded skips", async () => {
+    process.env.NODE_ENV = "development";
+    mockGetDataAgentSchemaCapabilities.mockResolvedValue({
+      episode: false,
+      kgEvent: false,
+      temporalEdge: false,
+      rewardSignal: false,
+      knowledgeEmbedding: true,
+    });
+
+    const result = await autoFeedRun(BASE_INPUT);
+
+    expect(result.summary).toBe("analysis complete\n{\"summary\":\"ok\"}");
+    expect(result.errors).toEqual(["AUTO_FEED_SCHEMA_UNAVAILABLE"]);
+    expect(result.episodeCreated).toBe(false);
+    expect(result.reflectionSuccess).toBe(false);
+    expect(result.rewardWriteSuccess).toBe(false);
+    expect(mockQueryRawUnsafe).not.toHaveBeenCalled();
+    expect(mockLoggerWarn).not.toHaveBeenCalled();
+    expect(mockLoggerInfo).toHaveBeenCalledWith(
+      "Data Agent auto-feed skipped due to local schema drift",
+      expect.objectContaining({
+        runId: BASE_INPUT.runId,
+      }),
+    );
+    expect(mockRecordDataAgentAutoFeed).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        runId: BASE_INPUT.runId,
+        status: "schema_unavailable",
+        hasWarnings: false,
+      }),
+    );
   });
 });

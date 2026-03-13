@@ -4,6 +4,8 @@ import {
   resumeSerializedAgentRun,
   type AgentStreamEvent,
 } from "@/lib/agent/executeAgent";
+import { sanitizeChatErrorMessage } from "@/app/api/chat/_lib/errorHandling";
+import { shouldUseAppDatabaseDevFallback } from "@/lib/server/appDbEnv";
 
 export async function POST(req: NextRequest) {
   let body: {
@@ -25,6 +27,16 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  if (shouldUseAppDatabaseDevFallback()) {
+    const sanitized = sanitizeChatErrorMessage(
+      "PrismaClientInitializationError: Environment variable not found: DATABASE_URL",
+    );
+    return Response.json(
+      { error: sanitized.message, code: sanitized.code, events: [] },
+      { status: 500 },
+    );
+  }
+
   const events: AgentStreamEvent[] = [];
 
   try {
@@ -44,6 +56,10 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Failed to resume run";
-    return Response.json({ error: message, events }, { status: 500 });
+    const sanitized = sanitizeChatErrorMessage(message);
+    return Response.json(
+      { error: sanitized.message, code: sanitized.code, events },
+      { status: 500 },
+    );
   }
 }

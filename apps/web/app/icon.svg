@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="gpc-icon-bg" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2563EB" />
+      <stop offset="1" stop-color="#0F172A" />
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="56" height="56" rx="16" fill="url(#gpc-icon-bg)" />
+  <path
+    d="M22 20H34C41.1797 20 47 25.8203 47 33C47 40.1797 41.1797 46 34 46H22V20Z"
+    fill="rgba(255,255,255,0.12)"
+  />
+  <path
+    d="M25 25H34C38.4183 25 42 28.5817 42 33C42 37.4183 38.4183 41 34 41H29V35H33.5C34.8807 35 36 33.8807 36 32.5C36 31.1193 34.8807 30 33.5 30H25V25Z"
+    fill="#F8FAFC"
+  />
+  <path
+    d="M19 33C19 26.3726 24.3726 21 31 21H37V27H31C27.6863 27 25 29.6863 25 33C25 36.3137 27.6863 39 31 39H37V45H31C24.3726 45 19 39.6274 19 33Z"
+    fill="#BFDBFE"
+  />
+</svg>

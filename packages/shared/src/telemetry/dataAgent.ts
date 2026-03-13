@@ -22,7 +22,7 @@ export type DataAgentAutoFeedEvent = {
   kgEventsInserted: number;
   temporalEdgesInserted: number;
   rewardScore: number | null;
-  status: "started" | "succeeded" | "failed" | "validation_error";
+  status: "started" | "succeeded" | "failed" | "validation_error" | "schema_unavailable";
   hasWarnings: boolean;
   generatedAt: string;
 };
@@ -50,6 +50,7 @@ type DataAgentMetrics = {
     successes: number;
     failures: number;
     validationFailures: number;
+    schemaUnavailable: number;
     episodesCreated: number;
     vectorEmbeddings: number;
     kgEventsInserted: number;
@@ -78,6 +79,7 @@ const metrics: DataAgentMetrics = {
     successes: 0,
     failures: 0,
     validationFailures: 0,
+    schemaUnavailable: 0,
     episodesCreated: 0,
     vectorEmbeddings: 0,
     kgEventsInserted: 0,
@@ -150,6 +152,8 @@ export function recordDataAgentAutoFeed(payload: Omit<
   if (payload.status === "validation_error") {
     metrics.autoFeed.validationFailures += 1;
     metrics.autoFeed.failures += 1;
+  } else if (payload.status === "schema_unavailable") {
+    metrics.autoFeed.schemaUnavailable += 1;
   } else if (payload.status === "succeeded") {
     metrics.autoFeed.successes += 1;
   } else if (payload.status === "failed") {
@@ -196,6 +200,7 @@ export function resetDataAgentMetrics(): void {
   metrics.autoFeed.successes = 0;
   metrics.autoFeed.failures = 0;
   metrics.autoFeed.validationFailures = 0;
+  metrics.autoFeed.schemaUnavailable = 0;
   metrics.autoFeed.episodesCreated = 0;
   metrics.autoFeed.vectorEmbeddings = 0;
   metrics.autoFeed.kgEventsInserted = 0;

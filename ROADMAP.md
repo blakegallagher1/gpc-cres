@@ -54,6 +54,227 @@ Only items meeting all checks are added below as `Planned`.
   - Remove retired route references from test matrices and active operational runbooks.
   - Run verification gate and review the final diff for documentation-only intent plus any required comment fixes.
 
+### CHAT-002 — Chat Surface Local-Degradation + Error Sanitization (P0)
+
+- **Priority:** P0
+- **Status:** Done (2026-03-12)
+- **Scope:** Stabilize the local chat experience when persistence/config dependencies are unavailable and remove raw internal error leakage from chat routes.
+- **Problem:** With local auth bypass enabled for UI testing, the main chat shell loads but `/api/chat/conversations`, `/api/deals`, `/api/notifications/unread-count`, and chat resume/approval flows surface Prisma initialization failures when `DATABASE_URL` is absent. This breaks core chat-adjacent UI and leaks internal error details into client-visible responses.
+- **Expected Outcome (measurable):**
+  - Chat home renders without 500s in the common local-dev `NEXT_PUBLIC_DISABLE_AUTH=true` flow even when the app database is unavailable.
+  - Conversation history, deal scope, and unread count degrade to empty/zero states instead of throwing route errors.
+  - Chat resume/approval endpoints stop returning raw Prisma/config internals in JSON error responses.
+- **Evidence of need:** Live local verification against `http://127.0.0.1:3001` showed `GET /api/chat/conversations 500`, `GET /api/deals 500`, and `GET /api/notifications/unread-count 500` with `Environment variable not found: DATABASE_URL`, while `POST /api/chat/resume` returned the raw Prisma initialization message to the client.
+- **Alignment:** Preserves strict auth and org scoping while matching existing degraded-mode patterns already used on map/geofence/portfolio surfaces.
+- **Risk/rollback:** Low-to-medium risk because the work is limited to route-level error handling and chat UI-adjacent behavior. Rollback is straightforward by reverting the scoped route changes if a contract mismatch appears.
+- **Acceptance Criteria / Tests:**
+  - `/api/chat/conversations` degrades to an empty list on schema-drift or Prisma connectivity failures.
+  - `/api/deals` and `/api/notifications/unread-count` return safe empty-state payloads for the local-dev missing-DB path instead of 500s.
+  - `/api/chat/resume` and `/api/chat/tool-approval` return sanitized error payloads for internal/system failures.
+  - Add route tests for the new degraded/sanitized behaviors.
+  - Run focused chat route tests plus repo verification gate.
+- **Evidence:** Added `apps/web/lib/server/appDbEnv.ts`, hardened `apps/web/app/api/chat/*`, `apps/web/app/api/deals/route.ts`, and `apps/web/app/api/notifications/unread-count/route.ts`, added regression coverage in the chat route tests plus `apps/web/lib/chat/__tests__/useAgentWebSocket.test.tsx`, removed the chat-page favicon 404 with `apps/web/app/icon.svg`, manually re-ran the local chat flow on `http://localhost:3001`, and verified with `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
+
+### CHAT-003 — Chat Reload + Reconnect Recovery Hardening (P0)
+
+- **Priority:** P0
+- **Status:** Done (2026-03-12)
+- **Scope:** Fix concrete chat correctness regressions across conversation reloads, WebSocket reconnect behavior, and pending tool approval recovery.
+- **Problem:** Several core chat flows regress after the initial stream. The WebSocket hook never reconnects after abnormal closes, conversation reload drops persisted assistant metadata that the UI relies on, and pending tool approvals disappear on reload because the conversation API does not surface recoverable approval state.
+- **Expected Outcome (measurable):**
+  - Abnormal Worker WebSocket closures trigger a real client reconnect attempt instead of leaving chat stuck in an error state.
+  - Reloaded conversations preserve persisted assistant metadata, including run lineage and map feature payloads.
+  - Conversations with a pending approval rehydrate an actionable approval prompt after reload so the user can approve or reject without replaying the original request.
+- **Evidence of need:** Repo inspection of `apps/web/lib/chat/useAgentWebSocket.ts` shows the reconnect path only toggles `status`, but the connection effect does not depend on `status`, so reconnect never occurs. `apps/web/app/api/chat/conversations/[id]/route.ts` omits `metadata` from message reads even though `apps/web/lib/agent/agentRunner.ts` persists `runId`, `openaiResponseId`, and `mapFeatures` into assistant message metadata. The same route also omits pending approval state even though `apps/web/lib/agent/executeAgent.ts` persists it in `runs.output_json.pendingApproval`.
+- **Alignment:** Preserves existing auth and org scoping, keeps server persistence authoritative, and extends the current chat route/UI contract instead of introducing a parallel recovery surface.
+- **Risk/rollback:** Medium. The work spans route read models plus client connection logic, but rollback remains straightforward because it is additive and isolated to chat transport/reload behavior.
+- **Acceptance Criteria / Tests:**
+  - `useAgentWebSocket` reconnects after abnormal close and does not reconnect after intentional or auth-failure closes.
+  - `/api/chat/conversations/[id]` returns persisted message metadata and rehydrates pending approval state for the current org-scoped conversation.
+  - Reloaded pending approvals render with the existing approval UI and post back through `/api/chat/tool-approval`.
+  - Add focused route/client tests for reconnect and reload recovery.
+  - Run focused chat tests plus repo verification gate.
+- **Evidence (2026-03-12):**
+  - Fixed reconnect recovery in `apps/web/lib/chat/useAgentWebSocket.ts` and added focused coverage in `apps/web/lib/chat/__tests__/useAgentWebSocket.test.tsx`.
+  - Hardened conversation list/detail degradation and pending-approval reload state in `apps/web/app/api/chat/conversations/route.ts` and `apps/web/app/api/chat/conversations/[id]/route.ts`, with regression coverage in `apps/web/app/api/chat/conversations/route.test.ts` and `apps/web/app/api/chat/conversations/[id]/route.test.ts`.
+  - Preserved approval UI after reload via `apps/web/components/chat/MessageBubble.tsx`, `apps/web/components/chat/ChatContainer.tsx`, and `apps/web/lib/chat/__tests__/streamRender.integration.test.tsx`.
+  - Kept resume and approval failures sanitized in `apps/web/app/api/chat/resume/route.ts` and `apps/web/app/api/chat/tool-approval/route.ts` while extending their route tests.
+  - Verified with `pnpm exec vitest run --configLoader runner --root apps/web -c vitest.config.mts 'app/api/chat/conversations/route.test.ts' 'app/api/chat/conversations/[id]/route.test.ts' 'app/api/chat/resume/route.test.ts' 'app/api/chat/tool-approval/route.test.ts' 'lib/chat/__tests__/streamRender.integration.test.tsx' 'lib/chat/__tests__/useAgentWebSocket.test.tsx'`, `pnpm lint`, `pnpm typecheck`, and `pnpm test`.
+  - `OPENAI_API_KEY=placeholder pnpm build` remains blocked by a pre-existing `packages/shared` TypeScript emit `EPERM` against `dist/` outputs, which is outside the chat changes.
+
+### CHAT-004 — Learning Surface Local-Degradation Hardening (P0)
+
+- **Priority:** P0
+- **Status:** Done (2026-03-12)
+- **Scope:** Harden the chat-adjacent learning APIs so local auth-bypass/dev fallback mode does not crash preference, memory-write, or knowledge routes when the app database is unavailable.
+- **Problem:** The main chat shell already degrades in the common local-dev missing-`DATABASE_URL` flow, but the adjacent learning surfaces still throw raw Prisma initialization failures. `GET /api/preferences`, `POST /api/memory/write`, and `GET /api/knowledge?view=recent` currently return 500s and pollute logs, which blocks realistic testing of chat learning behavior.
+- **Expected Outcome (measurable):**
+  - Preference, memory-write, and knowledge routes return explicit degraded or unavailable responses in local missing-DB mode instead of raw Prisma initialization failures.
+  - The visible learned-preferences panel can render an empty/degraded state without triggering 500s.
+  - Route tests cover the new short-circuit behavior so future chat-learning QA does not regress.
+- **Evidence of need:** Live local verification against `http://127.0.0.1:3001` showed `GET /api/preferences 500`, `POST /api/memory/write 500`, and `GET /api/knowledge?view=recent 500` with `Environment variable not found: DATABASE_URL` while testing the chat feature's ability to learn and build knowledge.
+- **Alignment:** Extends the existing `shouldUseAppDatabaseDevFallback()` degraded-mode pattern already used on the chat, deals, notifications, and map-adjacent routes without weakening auth, org scoping, or production behavior.
+- **Risk/rollback:** Low risk because the work is route-local and only affects the development missing-DB path. Rollback is straightforward by reverting the route guards and tests if a contract mismatch appears.
+- **Acceptance Criteria / Tests:**
+  - `/api/preferences` returns an empty/degraded payload in local missing-DB mode.
+  - `/api/preferences/[id]`, `/api/memory/write`, and `/api/knowledge` stop surfacing raw Prisma initialization failures in that same mode.
+  - Add route tests for the new short-circuit behavior, including the previously uncovered preferences routes.
+  - Re-run focused learning-surface tests plus the repo verification gate.
+- **Evidence (2026-03-12):**
+  - Hardened local missing-DB fallback responses in `apps/web/app/api/preferences/route.ts`, `apps/web/app/api/preferences/[id]/route.ts`, `apps/web/app/api/memory/write/route.ts`, and `apps/web/app/api/knowledge/route.ts`.
+  - Added new route coverage in `apps/web/app/api/preferences/route.test.ts` and `apps/web/app/api/preferences/[id]/route.test.ts`, and extended degraded-mode coverage in `apps/web/app/api/memory/write/route.test.ts` and `apps/web/app/api/knowledge/route.test.ts`.
+  - Focused learning-surface verification passed: `pnpm -C apps/web test -- app/api/preferences/route.test.ts 'app/api/preferences/[id]/route.test.ts' app/api/memory/write/route.test.ts app/api/knowledge/route.test.ts` and `pnpm -C apps/web test -- __tests__/memory/memoryContextBuilder.test.ts __tests__/memory/memoryRetrieval.test.ts lib/agent/__tests__/agentRunner.stability.test.ts`.
+  - Live local probes against `http://127.0.0.1:3001` now return explicit degraded responses instead of raw Prisma failures: `GET /api/preferences -> 200 {"preferences":[],"degraded":true}`, `POST /api/memory/write -> 503`, `GET /api/knowledge?view=recent -> 503`, `POST /api/knowledge -> 503`, and `PATCH /api/preferences/pref-1 -> 503`.
+  - Full verification gate passed: `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
+
+### CHAT-005 — DB-Backed Chat Learning E2E (P0)
+
+- **Priority:** P0
+- **Status:** Done (2026-03-12)
+- **Scope:** Run the chat surface against the real local Postgres stack, align local auth-bypass with a valid seeded membership, and add an automated end-to-end test that proves a chat turn triggers a persisted `store_memory` cycle.
+- **Problem:** The existing chat QA only proves degraded-mode behavior when the app DB is unavailable. It does not verify that a real chat turn can write learned facts into the memory system under local auth bypass, and the current bypass identity (`dev-user` / `dev-org`) does not correspond to the seeded local org membership used by the DB-backed stack.
+- **Expected Outcome (measurable):**
+  - A DB-backed local app run can send a chat message and complete a real persisted memory write without auth or Prisma failures.
+  - Local auth bypass resolves to a seeded, DB-valid org/user identity so coordinator memory tool auth succeeds in development and E2E contexts.
+  - A Playwright E2E proves a chat turn emits a `store_memory` tool cycle and results in a persisted memory record for the seeded org.
+- **Evidence of need:** Local Docker Postgres is healthy on `localhost:54323`, but the current dev-bypass identity does not match the seeded org membership (`00000000-0000-0000-0000-000000000001` / `00000000-0000-0000-0000-000000000003`), so DB-backed chat-learning verification would still fail even with `DATABASE_URL` configured.
+- **Alignment:** Preserves production auth and agent behavior by scoping the identity override to explicit local dev/E2E bypass mode, while validating the existing `store_memory` coordinator enforcement end to end instead of introducing a production-only shortcut.
+- **Risk/rollback:** Medium-low risk because the auth-bypass change is development-only and the E2E adds coverage without changing production routing. Rollback is straightforward by reverting the local auth config helper and the new Playwright spec if it proves too brittle.
+- **Acceptance Criteria / Tests:**
+  - Local auth bypass resolves to a seeded membership that exists in the local Postgres database.
+  - A DB-backed local server run completes a chat turn that invokes `store_memory` and persists a record for the seeded org.
+  - Add automated E2E coverage for the persisted chat-learning cycle.
+  - Re-run focused auth/chat tests plus the repo verification gate.
+- **Evidence (2026-03-12):**
+  - Added seeded local-dev auth overrides in `apps/web/lib/auth/resolveAuth.ts` and covered them in `apps/web/lib/auth/resolveAuth.test.ts`, allowing DB-backed auth bypass to resolve the seeded org/user IDs `00000000-0000-0000-0000-000000000001` and `00000000-0000-0000-0000-000000000003`.
+  - Configured the Playwright harness for DB-backed local runs in `apps/web/playwright.config.ts`, including local Postgres defaults and an explicit `PLAYWRIGHT_REUSE_EXISTING_SERVER=true` path for running against a live dev server.
+  - Hardened the chat runtime for local DB-backed learning in `apps/web/lib/agent/agentRunner.ts` and `apps/web/lib/agent/executeAgent.ts` so local runs stay on the direct path unless Temporal is explicitly enabled, wrapped `store_memory` events are recognized correctly, explicit memory-ingestion turns skip proof-enforcement false negatives after a successful memory write, and optional retrieval/auto-feed paths do not add unrelated local Prisma noise.
+  - Added focused coverage in `apps/web/lib/agent/__tests__/agentRunner.stability.test.ts` and `apps/web/lib/agent/__tests__/executeAgent.runState-contract.test.ts`.
+  - Added `apps/web/e2e/chat-learning.spec.ts` plus the stronger Copilot-close helper in `apps/web/e2e/_helpers/ui.ts` to exercise a real browser-driven chat-learning flow.
+  - Fixed a real chat composer race in `apps/web/components/chat/ChatInput.tsx` so submit reads the live textarea value when React state has not flushed yet, with regression coverage in `apps/web/components/chat/ChatInput.test.tsx`.
+  - Stabilized the production-style Playwright harness for parallel chat-learning verification: `apps/web/playwright.config.ts` now uses per-lane `NEXT_DIST_DIR` isolation plus root-local `tsconfig.playwright.<port>.json` copies, `.gitignore` ignores those generated files, and `apps/web/next.config.ts` respects `NEXT_DIST_DIR`/`NEXT_TSCONFIG_PATH` so concurrent browser lanes do not fight over `.next/lock` or break `@/` path resolution.
+  - Fixed the chat production-build regression exposed by the E2E lanes by moving SSE helpers into `apps/web/app/api/chat/sseWriter.ts`, importing them from `apps/web/app/api/chat/route.ts`, and adding degraded SSE fallback coverage in `apps/web/app/api/chat/route.test.ts`.
+  - Hardened chat-learning normalization for memory writes in `apps/web/lib/services/memoryWriteGate.ts` so percentage-form cap rates expressed in chat prompts are stored consistently even when the model emits a decimal, with regression coverage in `apps/web/__tests__/memory/memoryWriteGate.test.ts`.
+  - Verified a DB-backed local dev run on `http://127.0.0.1:3002` with `DATABASE_URL` and `DIRECT_DATABASE_URL` pointed at local Postgres `localhost:54323`, `NEXT_PUBLIC_DISABLE_AUTH=true`, and seeded local auth overrides.
+  - Verified the full browser-driven `store_memory` cycle through chat against the DB-backed dev server using Playwright automation: `POST /api/chat` completed successfully for a memory-ingestion prompt, and `/api/entities/lookup` returned persisted truth values for `comp.sale_price`, `comp.cap_rate`, `comp.noi`, `comp.sale_date`, and the canonical address.
+  - Re-ran the chat-learning E2E as a four-lane matrix for broader coverage and speed: Chromium/Firefox/WebKit production-style lanes on isolated ports (`3117`, `3118`, `3119`) all passed, and a reused DB-backed dev-server Chromium lane against `http://127.0.0.1:3002` passed cleanly as the local baseline.
+  - Focused verification passed:
+    - `pnpm -C apps/web test -- components/chat/ChatInput.test.tsx lib/agent/__tests__/executeAgent.runState-contract.test.ts lib/agent/__tests__/agentRunner.stability.test.ts lib/auth/resolveAuth.test.ts app/api/chat/route.test.ts`
+  - Full verification gate passed:
+    - `pnpm lint`
+    - `pnpm typecheck`
+    - `pnpm test`
+    - `OPENAI_API_KEY=placeholder pnpm build`
+
+### CHAT-006 — Chat Learning Expansion + Automation Hardening (P0)
+
+- **Priority:** P0
+- **Status:** Done (2026-03-12)
+- **Scope:** Extend chat-learning verification from `store_memory` into `store_knowledge_entry`, promote the stable browser matrix into CI automation, clean up the remaining warning noise exposed by the successful E2E runs, and add end-to-end coverage for the highest-risk chat continuation flows.
+- **Problem:** The current chat-learning verification proves only one persistence path and still relies on manual orchestration for the broader browser matrix. The successful runs also surfaced residual warning noise in the coordinator and Next runtime, and the riskiest chat continuation flows still rely on unit/integration coverage rather than browser-level evidence.
+- **Expected Outcome (measurable):**
+  - A DB-backed browser E2E proves a real chat turn triggers `store_knowledge_entry` and that the stored knowledge is retrievable afterward.
+  - Chromium chat-learning becomes an automated PR gate, while the broader browser matrix runs on a scheduled or manual workflow without slowing every PR.
+  - The coordinator no longer falls back to non-JSON report normalization on successful chat-learning runs, the Next middleware deprecation warning is removed, and the `/portfolio` build warning is reduced to intentional behavior only.
+  - Browser-level chat QA covers approval resume, conversation resume/history, reconnect after abnormal close, and cross-session recall after reload.
+- **Evidence of need:** `apps/web/e2e/chat-learning.spec.ts` currently verifies only `store_memory`. `.github/workflows/ci.yml` does not run any chat-learning Playwright coverage. Successful multi-browser runs still emit the coordinator fallback warning in `apps/web/lib/agent/executeAgent.ts`, the repo still uses `apps/web/middleware.ts`, and `/portfolio` currently opts into dynamic rendering via `headers()` reads in `apps/web/app/portfolio/page.tsx`.
+- **Alignment:** Preserves strict auth, org scoping, and structured-output contracts while upgrading the highest-signal chat QA paths that already exist in route and unit tests into browser-backed regression coverage.
+- **Risk/rollback:** Medium risk because the work touches runtime orchestration, E2E infrastructure, and Next request handling. Rollback is straightforward by reverting the new E2E specs/workflows and any targeted runtime warning fixes if a change proves too brittle.
+- **Acceptance Criteria / Tests:**
+  - Add a DB-backed Playwright E2E that proves a chat turn stores a knowledge entry and that the knowledge entry is retrievable through the app afterward.
+  - Add browser-level coverage for the highest-risk chat continuation flows without overlapping unstable helpers.
+  - Promote Chromium chat-learning into PR CI and add a full cross-browser matrix on schedule and manual dispatch.
+  - Eliminate or intentionally justify the coordinator non-JSON fallback warning, the Next middleware deprecation warning, and the `/portfolio` dynamic-render warning.
+  - Re-run focused Playwright/chat suites plus the full repo verification gate.
+- **Evidence:** Added DB-backed chat-learning coverage in `apps/web/e2e/chat-knowledge-learning.spec.ts` and `apps/web/e2e/chat-continuation.spec.ts`, promoted the required Chromium gate and scheduled/manual browser matrix in `.github/workflows/ci.yml` and `.github/workflows/chat-learning-browser-matrix.yml`, exposed `store_knowledge_entry` through `packages/openai/src/agentos/toolPolicy.ts` with regression coverage in `packages/openai/src/agentos/toolPolicy.test.ts`, removed the middleware deprecation by replacing `apps/web/middleware.ts` with `apps/web/proxy.ts`, made `/portfolio` intentionally dynamic in `apps/web/app/portfolio/page.tsx`, fixed the persisted numeric recall fallback path in `apps/web/lib/agent/executeAgent.ts` with coverage in `apps/web/lib/agent/__tests__/executeAgent.runState-contract.test.ts`, and verified with `PLAYWRIGHT_PORT=3124 pnpm -C apps/web exec playwright test e2e/chat-knowledge-learning.spec.ts --project chromium --workers=1 --reporter=list`, `PLAYWRIGHT_PORT=3127 pnpm -C apps/web exec playwright test e2e/chat-continuation.spec.ts --project chromium --workers=1 --reporter=list -g "continues the same DB-backed conversation after reload and preserves recallable context"`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
+
+### CHAT-007 — Local Data Agent Auto-Feed Schema-Drift Degradation (P1)
+
+- **Priority:** P1
+- **Status:** Done (2026-03-12)
+- **Scope:** Suppress false-positive Data Agent auto-feed failure noise during successful local chat runs when the app DB lacks Data Agent 2.0 tables, while preserving hard failures outside that narrow degraded case.
+- **Problem:** The DB-backed chat continuation lane now passes, but local run finalization still logs `Data Agent auto-feed failed` when the development database is missing `Episode`/`KGEvent` tables. That makes successful chat-learning runs look broken and obscures real regressions.
+- **Expected Outcome (measurable):**
+  - Successful local chat runs no longer emit Data Agent auto-feed warnings for known schema-drift on `Episode`/`KGEvent`/related tables.
+  - Auto-feed telemetry records the event as a degraded schema-unavailable skip instead of a generic failure.
+  - Production and non-schema-drift failures still log as warnings and remain visible.
+- **Evidence of need:** The passing `apps/web/e2e/chat-continuation.spec.ts` Chromium lane still emitted `relation "KGEvent" does not exist`, `relation "Episode" does not exist`, and `Data Agent auto-feed failed`, even though the user-visible chat flow completed correctly.
+- **Alignment:** Preserves the Data Agent auto-feed architecture and observability while matching the repo’s existing local degraded-mode strategy for missing DB capabilities.
+- **Risk/rollback:** Low risk because the change is narrowly scoped to a known development-only schema-drift path and leaves other failure classes untouched. Rollback is straightforward by reverting the suppression branch if it hides useful signal.
+- **Acceptance Criteria / Tests:**
+  - Recognize local schema-drift errors in app-local auto-feed and downgrade them to an info/degraded path instead of a warning failure.
+  - Add regression coverage for the degraded schema-unavailable result.
+  - Re-run the focused chat continuation browser lane and the full repo verification gate.
+- **Evidence:** Added local-runtime schema-drift suppression in `apps/web/lib/agent/dataAgentAutoFeed.service.ts` and `apps/web/lib/agent/executeAgent.ts`, exposed the local-runtime helper in `apps/web/lib/server/appDbEnv.ts`, updated shared auto-feed telemetry state in `packages/shared/src/telemetry/dataAgent.ts` and `utils/logger.ts`, added regression coverage in `apps/web/lib/agent/__tests__/dataAgentAutoFeed.service.test.ts` and `apps/web/lib/agent/__tests__/executeAgent.runState-contract.test.ts`, and verified with `pnpm -C apps/web test -- lib/agent/__tests__/dataAgentAutoFeed.service.test.ts lib/agent/__tests__/executeAgent.runState-contract.test.ts`, `PLAYWRIGHT_PORT=3129 pnpm -C apps/web exec playwright test e2e/chat-continuation.spec.ts --project chromium --workers=1 --reporter=list -g "continues the same DB-backed conversation after reload and preserves recallable context"`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`. The remaining `util._extend` warning was traced to Next’s bundled `next/dist/compiled/http-proxy` dependency rather than app code.
+
+### CHAT-008 — Playwright Upstream Deprecation Noise Suppression (P2)
+
+- **Priority:** P2
+- **Status:** Done (2026-03-12)
+- **Scope:** Keep the production-style chat-learning browser lanes clean by suppressing the single known upstream `DEP0060` deprecation emitted by Next's bundled `http-proxy`, without muting broader app/runtime warnings.
+- **Problem:** `CHAT-007` removed the local Data Agent false positives, but the focused Playwright continuation lane still emitted `DeprecationWarning: The util._extend API is deprecated`. That warning comes from Next's bundled dependency rather than repository code, so it obscures lane health without pointing to a repo fix.
+- **Expected Outcome (measurable):**
+  - The chat-learning Playwright web server no longer emits `DEP0060` during successful production-style runs.
+  - Warning suppression remains scoped to the Playwright web-server environment and does not mute unrelated warnings in normal app runtime or other verification steps.
+- **Evidence of need:** The successful `PLAYWRIGHT_PORT=3129 pnpm -C apps/web exec playwright test e2e/chat-continuation.spec.ts --project chromium --workers=1 --reporter=list -g "continues the same DB-backed conversation after reload and preserves recallable context"` lane still printed `[DEP0060] DeprecationWarning: The util._extend API is deprecated` after the app-specific warning cleanup was complete. Read-only tracing confirmed the source is Next's bundled `next/dist/compiled/http-proxy`.
+- **Alignment:** Preserves the repo's warning discipline by removing a known upstream false-positive from the high-signal browser lane only, instead of weakening app logging or globally hiding deprecations.
+- **Risk/rollback:** Low risk because the change is limited to the Playwright web-server env. Rollback is a one-line config revert if future Next versions remove or repurpose the warning.
+- **Acceptance Criteria / Tests:**
+  - Scope `--disable-warning=DEP0060` to the Playwright web-server environment only.
+  - Re-run the focused chat continuation browser lane and confirm the `util._extend` warning is absent.
+  - Re-run the full repo verification gate.
+- **Evidence:** Updated `apps/web/playwright.config.ts` to append `--disable-warning=DEP0060` only for the Playwright web-server environment, then verified with `PLAYWRIGHT_PORT=3130 pnpm -C apps/web exec playwright test e2e/chat-continuation.spec.ts --project chromium --workers=1 --reporter=list -g "continues the same DB-backed conversation after reload and preserves recallable context"`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
+
+### CHAT-009 — Retrieval UUID Casting + Local Data Agent Table Capability Gating (P1)
+
+- **Priority:** P1
+- **Status:** Done (2026-03-12)
+- **Scope:** Fix the remaining real runtime errors exposed by the DB-backed chat continuation lane: the retrieval `uuid = text` mismatch on `knowledge_embeddings.org_id` and the raw Prisma stderr emitted when local app databases are missing Data Agent graph/episode tables.
+- **Problem:** After `CHAT-008`, the focused continuation lane still surfaced a real retrieval failure (`operator does not exist: uuid = text`) before `lookup_entity_by_address`, plus raw Prisma `relation "KGEvent" does not exist` / `relation "Episode" does not exist` noise before the existing degraded-mode handlers took over.
+- **Expected Outcome (measurable):**
+  - Retrieval context no longer throws `uuid = text` for `knowledge_embeddings.org_id`.
+  - Local graph retrieval and local auto-feed skip table-dependent paths before Prisma throws when Data Agent graph/episode tables are absent.
+  - The focused continuation browser lane passes without raw `KGEvent` / `Episode` Prisma stderr or retrieval type mismatch noise.
+- **Evidence of need:** The successful `PLAYWRIGHT_PORT=3130 pnpm -C apps/web exec playwright test e2e/chat-continuation.spec.ts --project chromium --workers=1 --reporter=list -g "continues the same DB-backed conversation after reload and preserves recallable context"` lane still emitted `ERROR: operator does not exist: uuid = text`, plus Prisma stderr for missing `KGEvent` and `Episode` tables. Local DB inspection confirmed `knowledge_embeddings.org_id` is UUID-typed and the current app DB intentionally lacks `KGEvent` / `TemporalEdge` / `Episode` tables.
+- **Alignment:** Preserves the exact-first retrieval architecture and local degraded-mode strategy while removing false-positive runtime noise from optional Data Agent paths.
+- **Risk/rollback:** Low risk because the change is limited to table-capability checks and explicit UUID casts in raw retrieval SQL. Rollback is limited to the new helper and the cast changes if they prove incompatible.
+- **Acceptance Criteria / Tests:**
+  - Cast raw retrieval `org_id` comparisons to `::uuid`.
+  - Add a shared table-capability helper for Data Agent optional tables and use it to skip graph retrieval / auto-feed before Prisma throws in local runtimes.
+  - Add focused tests for the capability helper, graph-skip path, and local auto-feed skip behavior.
+  - Re-run the focused continuation browser lane and the full repo verification gate.
+- **Evidence:** Added `packages/db/src/schemaCapabilities.ts` plus `packages/db/test/schemaCapabilities.test.ts`, wired the export through `packages/db/src/index.ts`, updated `packages/openai/src/dataAgent/retrieval.ts` and `packages/openai/src/dataAgent/retrieval.test.ts` to cast UUID-bound raw SQL and skip graph queries when graph tables are unavailable, updated `apps/web/lib/agent/dataAgentAutoFeed.service.ts` and `apps/web/lib/agent/__tests__/dataAgentAutoFeed.service.test.ts` to skip local auto-feed before table-dependent writes when required Data Agent tables are absent, and verified with `pnpm --filter @entitlement-os/db test`, `pnpm --filter @entitlement-os/openai test -- src/dataAgent/retrieval.test.ts`, `pnpm -C apps/web test -- lib/agent/__tests__/dataAgentAutoFeed.service.test.ts lib/agent/__tests__/executeAgent.runState-contract.test.ts`, `PLAYWRIGHT_PORT=3132 pnpm -C apps/web exec playwright test e2e/chat-continuation.spec.ts --project chromium --workers=1 --reporter=list -g "continues the same DB-backed conversation after reload and preserves recallable context"`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
+
+### CHAT-010 — Multi-Agent Chat Closeout Workflow (P1)
+
+- **Priority:** P1
+- **Status:** Done (2026-03-12)
+- **Scope:** Build a gated multi-agent workflow that completes the current chat closeout backlog as four coordinated lanes: checkpoint shipping, GitHub/browser automation validation, remaining Playwright log-noise cleanup, and roadmap/gate signoff.
+- **Problem:** The chat-learning lane is now technically green, but the remaining closeout work is operational rather than purely code-level. Without an explicit PM-owned multi-agent workflow, the repo lacks a replayable way to parallelize release packaging, CI/browser path validation, warning cleanup, and final roadmap signoff without losing auditability.
+- **Expected Outcome (measurable):**
+  - A slugged workflow artifact set exists under `output/codex-agents-workflow/` with a PM plan, task matrix, handoff rules, lane reports, QA signoff, and a run log for this four-step closeout.
+  - The checkpoint-shipping lane produces a concrete release-ready report tied to the current chat diff and verification evidence.
+  - The automation lane validates the current GitHub/browser workflow path against the repo’s Playwright/CI setup and records any needed fixes or a pass result.
+  - The log-noise lane removes the remaining non-actionable Playwright webserver warning noise without weakening broader warning visibility.
+  - The workflow is reusable through a repo-level automation entrypoint instead of being trapped in one interactive session.
+- **Evidence of need:** The chat roadmap items `CHAT-002` through `CHAT-009` are done, but the next requested step is explicitly to “build a multi-agent workflow to complete all 4” follow-on tasks. Existing `output/codex-agents-workflow/run/` scaffolding is generic and does not yet encode this chat-specific closeout flow.
+- **Alignment:** Reuses the existing Codex MCP handoff pattern, preserves roadmap-first execution, and keeps changes within scoped workflow/docs/automation surfaces plus the narrowly targeted log-noise fix.
+- **Risk/rollback:** Low-to-medium risk because most changes are artifact/workflow scaffolding, but the log-noise cleanup touches the Playwright harness. Rollback is straightforward by reverting the new workflow slug, wrapper script, roadmap entry, and any scoped warning fix.
+- **Acceptance Criteria / Tests:**
+  - Create a chat-specific multi-agent workflow artifact set with explicit PM gates, role scopes, and completion reports.
+  - Add a reusable script or entrypoint that replays the workflow scaffold with the same four-lane objective.
+  - Complete the four lanes for this run: ship report, automation-path validation, warning cleanup, and roadmap/final signoff.
+  - Re-run the focused browser lane if the warning cleanup changes the Playwright harness.
+  - Close with `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
+- **Evidence (2026-03-12):**
+  - Added reusable workflow scaffolding in `scripts/codex-auto/chat-closeout-workflow.sh` and documented it in `scripts/codex-auto/README.md`.
+  - Built the run-specific artifact packet under `output/codex-agents-workflow/chat-closeout-four-lane/`, including `PLAN.md`, `TASKS.md`, `HANDOFF_MATRIX.md`, `TRACELOG.md`, `SHIP_REPORT.md`, `AUTOMATION_REPORT.md`, `RUNTIME_REPORT.md`, `QA_REPORT.md`, `07_outputs_inventory.md`, `07_run_log.md`, `08_qa_verification.md`, and `09_final_signoff.md`.
+  - Automation lane tightened CI/browser workflow behavior in `.github/workflows/ci.yml` and `.github/workflows/chat-learning-browser-matrix.yml` so secret-gated runs fail or skip with explicit intent instead of opaque shell behavior.
+  - Runtime lane kept the `DEP0060` suppression scoped to Playwright and removed the remaining `NO_COLOR` / `FORCE_COLOR` Node warning noise by deleting inherited `NO_COLOR` inside `apps/web/playwright.config.ts`.
+  - Verified the runtime lane with `PLAYWRIGHT_PORT=3122 pnpm -C apps/web exec playwright test e2e/chat-continuation.spec.ts --project chromium --workers=1 --reporter=list`, then independently re-verified the highest-signal continuation case with `PLAYWRIGHT_PORT=3132 pnpm -C apps/web exec playwright test e2e/chat-continuation.spec.ts --project chromium --workers=1 --reporter=list -g "continues the same DB-backed conversation after reload and preserves recallable context"`.
+  - Smoke-tested the reusable scaffold with `./scripts/codex-auto/chat-closeout-workflow.sh chat-closeout-script-smoke --force`.
+  - Final verification gate passed: `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
+
 ### PLAT-001 — Opportunity OS Generalization Program (P1)
 
 - **Priority:** P1
@@ -555,6 +776,58 @@ Reason: these were low-priority for current operating goals and can be deferred 
 
 
 ## Completed
+
+### MAP-008 — Map Regression Harness + Prospect Filter Hardening (P0)
+
+- **Priority:** P0
+- **Status:** Done (2026-03-12)
+- **Scope:** Harden `/map` browser QA, polygon prospect filter correctness, comps-panel UX, and map-adjacent local/dev degradation behavior.
+- **Problem:** The current map route lacked a repeatable browser harness for core flows, polygon prospecting accepted `searchText` / `excludeFloodZone` filters without applying them to the gateway SQL, the comps panel auto-fit the map on open while failing silently on degraded responses, and map side panels emitted avoidable 500s during local/dev runs when optional geofence storage was unavailable.
+- **Expected Outcome (measurable):**
+  - Headless Playwright can load and exercise `/map` reliably on a dedicated port with WebGL-capable launch options.
+  - `POST /api/map/prospect` applies `searchText` and `excludeFloodZone` filters to the generated parcel SQL.
+  - The map search submit path triggers a single explicit request per button click.
+  - Opening comparable sales no longer recenters the map automatically, and comp failures surface an explicit panel message.
+  - Bulk prospect deal creation is transactional so failed parcel writes do not leave partial prospect/deal state behind.
+  - Geofence loading degrades to an empty state instead of surfacing 500s when schema/connectivity prerequisites are missing in local/dev.
+- **Evidence of need:** Browser probing showed default headless `/map` runs failed MapLibre initialization without SwiftShader, local map runs surfaced `/api/geofences` 500s when the DB was absent, route inspection confirmed `/api/map/prospect` ignored `filters.searchText` and `filters.excludeFloodZone`, and map review found the comps tool auto-fit the viewport on open without showing degraded or failure feedback.
+- **Alignment:** Preserved current auth/org-scoped route patterns, gateway-first parcel architecture, and the roadmap requirement for repeatable verification before UI mutation.
+- **Risk/rollback:** Low-to-medium. Changes were isolated to the map page submit behavior, geofence GET degradation, prospect SQL generation, map overlay stacking, and Playwright test harness configuration. Rollback remains straightforward by reverting the map QA slice.
+- **Acceptance Criteria / Tests:**
+  - [x] Added a dedicated Playwright `/map` regression spec with mocked map APIs covering load, search, and polygon draw flow.
+  - [x] Configured the Playwright harness to use a dedicated repo-owned production-style server plus SwiftShader-compatible launch args so `/map` renders in headless automation.
+  - [x] Added comps-panel browser coverage for non-recentering open behavior and explicit degraded/failure messaging.
+  - [x] Updated `/api/map/prospect` tests to assert the filter SQL includes `searchText` and `excludeFloodZone`.
+  - [x] Updated `PUT /api/map/prospect` coverage to assert the bulk-create path runs inside a transaction and fails closed on parcel-write errors.
+  - [x] Updated geofence route tests to assert empty-state degradation on schema drift / DB connectivity failures.
+  - [x] Ran focused map tests plus the repo verification gate.
+- **Files:**
+  - `apps/web/app/map/page.tsx`
+  - `apps/web/app/api/map/prospect/route.ts`
+  - `apps/web/app/api/map/prospect/route.post.test.ts`
+  - `apps/web/app/api/map/prospect/route.test.ts`
+  - `apps/web/app/api/geofences/route.ts`
+  - `apps/web/app/api/geofences/route.test.ts`
+  - `apps/web/components/maps/MapLibreParcelMap.tsx`
+  - `apps/web/components/maps/MapLibreParcelMap.test.tsx`
+  - `apps/web/playwright.config.ts`
+  - `apps/web/e2e/map.spec.ts`
+- **Completion Evidence (2026-03-12):**
+  - Fixed `/map` search so the explicit Search button no longer double-submits.
+  - Restored prior theme on map-page unmount and suppressed invalid acreage rendering in parcel popups.
+  - Raised the polygon draw controls above the analytical toolbar so the finish action remains clickable during draw mode.
+  - Stopped the comparable-sales panel from auto-fitting the viewport on open and added explicit failure/empty-state feedback for degraded comp searches.
+  - Applied `searchText` and `excludeFloodZone` directly in prospect SQL generation and covered that with route tests.
+  - Wrapped `PUT /api/map/prospect` bulk deal creation in a transaction and added a failure-path test so prospect writes fail closed instead of leaving partial records behind.
+  - Degraded `GET /api/geofences` to `{ geofences: [], degraded: true }` for schema drift / DB connectivity failures in local-dev paths.
+  - Added `apps/web/e2e/map.spec.ts` to cover core map load, single-submit search, comps behavior, and polygon draw/prospect/clear flow with mocked APIs.
+  - Verification passed:
+    - `pnpm -C apps/web test -- app/api/map/prospect/route.post.test.ts app/api/geofences/route.test.ts components/maps/MapLibreParcelMap.test.tsx`
+    - `pnpm -C apps/web exec playwright test e2e/map.spec.ts --reporter=list`
+    - `pnpm lint`
+    - `pnpm typecheck`
+    - `pnpm test`
+    - `OPENAI_API_KEY=placeholder pnpm build`
 
 ### PIPE-006 — Dedicated Opportunities Inbox (P1)
 
@@ -1063,8 +1336,42 @@ Reason: these were low-priority for current operating goals and can be deferred 
     - `pnpm -C apps/web test lib/chat/__tests__/streamPresenter.test.ts lib/chat/__tests__/conversationSidebar.test.ts lib/chat/__tests__/streamRender.integration.test.tsx`
     - `pnpm -C apps/web test`
   - **Result:**
-    - 8 targeted chat tests passed
-    - 418 total `apps/web` tests passed
+  - 8 targeted chat tests passed
+  - 418 total `apps/web` tests passed
+
+### AUI-002 — Chat Bootstrap Stability + Conversation Metadata Rehydration
+
+- **Priority:** P1
+- **Status:** Done
+- **Scope:** Initial chat shell reliability and reopened-conversation fidelity
+- **Problem:** Chat bootstrap reads were surfacing `500`s on initial page load when conversation or notification storage was temporarily unavailable, and reopened conversations dropped per-message metadata because `/api/chat/conversations/[id]` omitted it from the response.
+- **Expected Outcome (measurable):**
+  - Initial chat shell loads without `500` noise when conversation or notification storage is unavailable due to schema drift or transient DB connectivity failures.
+  - Reopened conversations preserve structured message metadata needed for event rendering, tool result hydration, and map-feature rehydration.
+- **Evidence:** Live local chat QA against the dev server reproduced `500` responses on `/api/chat/conversations` and `/api/notifications/unread-count` during initial authenticated shell load. Code inspection showed `apps/web/app/api/chat/conversations/[id]/route.ts` selected `toolCalls` but omitted `metadata` even though `ChatContainer` expects it when rebuilding saved messages.
+- **Alignment:** Extends the existing degraded-read pattern already used on other non-destructive read routes and preserves the chat UI contract without weakening auth or org scoping.
+- **Risk/rollback:** Low. Changes are limited to read-only chat/notification endpoints and response serialization. Rollback is straightforward by reverting the route handlers and focused tests.
+- **Acceptance Criteria / Tests:**
+  1. `GET /api/chat/conversations` returns `200 { conversations: [], degraded: true }` on schema drift or DB connectivity failures instead of surfacing `500`.
+  2. `GET /api/notifications/unread-count` returns `200 { count: 0, degraded: true }` for the same failure classes.
+  3. `GET /api/chat/conversations/[id]` includes message `metadata` so saved conversations can rehydrate structured chat state.
+  4. Add route tests for auth rejection, degraded reads, and metadata persistence.
+- **Files (target):**
+  - `apps/web/app/api/chat/conversations/route.ts`
+  - `apps/web/app/api/chat/conversations/[id]/route.ts`
+  - `apps/web/app/api/chat/_lib/errorHandling.ts`
+  - `apps/web/app/api/notifications/unread-count/route.ts`
+  - `apps/web/app/api/chat/conversations/route.test.ts`
+  - `apps/web/app/api/chat/conversations/[id]/route.test.ts`
+  - `apps/web/app/api/notifications/unread-count/route.test.ts`
+- **Completion note:** Hardened the chat bootstrap read routes with schema-drift and connectivity degradations, and restored `metadata` in the conversation detail payload so reopened chats preserve structured event state and map context.
+- **Operational verification:**
+  - **Status:** **IMPLEMENTATION VERIFIED**
+  - **Evidence:**
+    - `pnpm -C apps/web test app/api/chat/conversations/route.test.ts 'app/api/chat/conversations/[id]/route.test.ts' app/api/notifications/unread-count/route.test.ts`
+  - **Result:**
+    - Chat bootstrap route regressions are covered with focused auth/degradation tests.
+    - Conversation detail responses now preserve message metadata used by the chat UI.
 
 ### MAP-001 — MapLibre Vector Rendering + Multi-Select Parcel Boundary Intelligence (Option 3)
 
@@ -2066,6 +2373,403 @@ The following items were identified by analyzing 6 OpenAI GitHub repositories (`
     - `pnpm typecheck`
     - `pnpm test`
     - `OPENAI_API_KEY=placeholder pnpm build`
+
+### AIOPS-001 — Autonomous DevOps Self-Healing Sidecar
+
+- **Priority:** P1
+- **Status:** Done (2026-03-11)
+- **Scope:** Autonomous production monitoring, diagnostics, patch planning, validation, and guarded deployment orchestration
+- **Problem:** Production reliability work still depends on ad hoc operator loops across monitor artifacts, observability events, Sentry, test harnesses, patch drafting, and deploy commands. There is no single control plane that can observe gallagherpropco.com, classify incidents, trace likely code owners/files, generate candidate repairs, validate them, and advance only through guarded release stages.
+- **Expected Outcome (measurable):**
+  - A repo-local `ai-devops/` sidecar can run `monitor -> test -> analyze -> diagnose -> fix -> validate -> review -> deploy -> monitor` as a continuous loop without weakening existing auth, org-scoping, or deployment safety rules.
+  - Monitor ingestion reuses current production observability signals (`scripts/observability/monitor_production.ts`, admin observability API, and optional Sentry) and persists normalized state/artifacts under `ai-devops/monitoring` and `ai-devops/artifacts`.
+  - Patch generation defaults to guarded proposal mode, with auto-apply and auto-production deployment blocked behind explicit env safety flags, passing validation, and rollback metadata.
+  - CI validates the sidecar’s TypeScript, analyzer logic, and smoke harnesses without changing the app’s core request path.
+- **Evidence of need:** Current production checks on `https://gallagherpropco.com` show recurring `/api/health` 500, `/api/deals` 503, and parcel/prospect 502 gateway failures, while diagnosis still requires manual correlation across monitor output, admin observability, and route code.
+- **Alignment:** Reuses existing observability/admin APIs, Vercel/GitHub deployment flow, and resilient-tool patterns; keeps the app runtime unchanged by implementing the autonomous system as an additive sidecar.
+- **Risk/rollback:** Medium. Adds automation that can touch git/deploy flows if enabled. Rollback by disabling `ai-devops` workflows/scripts and removing the sidecar path without affecting the production app runtime.
+- **Completion Evidence (2026-03-11):**
+  - Sidecar architecture, agents, shared contracts, scripts, and harnesses landed under:
+    - `ai-devops/README.md`
+    - `ai-devops/shared/types.ts`
+    - `ai-devops/shared/config.ts`
+    - `ai-devops/shared/artifact-store.ts`
+    - `ai-devops/shared/http.ts`
+    - `ai-devops/shared/discovery.ts`
+    - `ai-devops/shared/error-rules.ts`
+    - `ai-devops/agents/orchestrator.ts`
+    - `ai-devops/agents/monitor.ts`
+    - `ai-devops/agents/qa-tester.ts`
+    - `ai-devops/agents/log-analyzer.ts`
+    - `ai-devops/agents/root-cause.ts`
+    - `ai-devops/agents/patch-engineer.ts`
+    - `ai-devops/agents/test-validator.ts`
+    - `ai-devops/agents/code-review.ts`
+    - `ai-devops/agents/deploy.ts`
+    - `ai-devops/agents/chaos-agent.ts`
+    - `ai-devops/scripts/run-agents.ts`
+    - `ai-devops/scripts/run-tests.ts`
+    - `ai-devops/scripts/analyze-logs.ts`
+    - `ai-devops/tests/api-tests/harness.ts`
+    - `ai-devops/tests/playwright/harness.ts`
+    - `ai-devops/ci/github-actions.yml`
+    - `.github/workflows/ai-devops.yml`
+  - Root scripts and dependency wiring added in `package.json`.
+  - Focused sidecar verification passed:
+    - `pnpm ai-devops:typecheck`
+    - `pnpm ai-devops:test:unit`
+    - `pnpm ai-devops:run -- --once`
+    - `pnpm ai-devops:analyze -- --refresh-monitor`
+    - `pnpm ai-devops:test -- --mode ui`
+  - Live production smoke evidence persisted in:
+    - `ai-devops/monitoring/monitor-latest.json`
+    - `ai-devops/monitoring/error-classification.json`
+    - `ai-devops/artifacts/test-results.json`
+    - `ai-devops/artifacts/log-analysis.json`
+    - `ai-devops/artifacts/root-cause.json`
+    - `ai-devops/artifacts/deployment-report.json`
+  - Repo verification gate passed:
+    - `pnpm lint`
+    - `pnpm typecheck`
+    - `pnpm test`
+    - `OPENAI_API_KEY=placeholder pnpm build`
+
+### AIOPS-002 — Autonomous Remediation Execution Path (P1)
+
+- **Priority:** P1
+- **Status:** Done (2026-03-11)
+- **Scope:** Promote the additive `ai-devops/` sidecar from guarded monitor-only operation into autonomous patch synthesis and CI-safe self-remediation via GitHub PRs.
+- **Problem:** `AIOPS-001` landed the monitoring, QA, diagnosis, validation, and deploy-control scaffolding, but the default patch provider was still placeholder-only and the scheduled workflow still ran in proposal/disabled deploy mode. The sidecar could detect incidents, but it could not yet synthesize a real patch and advance it through a clean remediation branch automatically.
+- **Expected Outcome (measurable):**
+  - `ai-devops` has a built-in OpenAI-backed patch generator that consumes log-analysis/root-cause artifacts and returns structured unified diffs, tests, and rollback notes without requiring a separately maintained external diff service.
+  - The deploy path can create a clean remediation branch and PR safely from automation, without bundling local dirty-worktree changes or generated monitoring artifacts.
+  - The scheduled GitHub Actions workflow runs the remediation loop in `apply + pr/preview-safe` mode when required secrets are present, while preserving the existing production safety gates around review, validation, preview, and auto-production.
+- **Evidence of need:** Current incidents on `https://gallagherpropco.com` were already being surfaced by the sidecar, but the latest runs still ended in placeholder patch output and skipped deployment because no real diff generator or autonomous PR path was wired.
+- **Alignment:** Reuses the existing `ai-devops` sidecar, `packages/openai` strict JSON wrapper, current GitHub/Vercel release flow, and repo safety rules; keeps auto-production opt-in only.
+- **Risk/rollback:** Medium. The main risks are unsafe patch drafts, dirty-worktree leakage into remediation branches, and CI credential/config mismatches. Rollback by returning the workflow to `propose`/`disabled`, removing the built-in patch command default, and disabling the autonomous PR stage.
+- **Completion Evidence (2026-03-11):**
+  - Added built-in patch synthesis using the repo OpenAI wrapper and local diff construction in:
+    - `ai-devops/scripts/generate-patch.ts`
+    - `ai-devops/shared/patch-generation.ts`
+    - `ai-devops/shared/config.ts`
+    - `ai-devops/shared/diff.ts`
+  - Hardened deploy automation to use isolated git worktrees plus CI/local git strategy selection in:
+    - `ai-devops/agents/deploy.ts`
+    - `ai-devops/agents/test-validator.ts`
+  - Added focused coverage for the new remediation path in:
+    - `ai-devops/tests/api-tests/config.test.ts`
+    - `ai-devops/tests/api-tests/deploy.test.ts`
+    - `ai-devops/tests/api-tests/patch-generation.test.ts`
+  - Updated autonomous remediation docs and workflow defaults in:
+    - `ai-devops/README.md`
+    - `ai-devops/ci/github-actions.yml`
+    - `.github/workflows/ai-devops.yml`
+    - `ai-devops/tsconfig.json`
+  - Built-in patch provider smoke passed against current production incident artifacts, producing a git-style diff preview from `ai-devops/scripts/generate-patch.ts`.
+  - One-shot orchestration smoke passed with the faster patch model defaults:
+    - `AI_DEVOPS_PATCH_MODEL=gpt-5-mini AI_DEVOPS_PATCH_REASONING_EFFORT=low pnpm ai-devops:run -- --once`
+  - Verification gate passed:
+    - `pnpm ai-devops:typecheck`
+    - `pnpm ai-devops:test:unit`
+    - `pnpm lint`
+    - `pnpm typecheck`
+    - `pnpm test`
+    - `OPENAI_API_KEY=placeholder pnpm build`
+- **Acceptance Criteria / Tests:**
+  - `ai-devops/agents/*.ts` implements the orchestrator, monitor, QA, log analysis, root cause, patch engineer, test validation, code review, deploy, and chaos agents with shared artifact contracts.
+  - `ai-devops/scripts/run-agents.ts`, `run-tests.ts`, and `analyze-logs.ts` execute the loop in one-shot or continuous modes.
+  - `ai-devops/tests/api-tests` and `ai-devops/tests/playwright` provide automated API/UI coverage for `/`, `/login`, `/map`, `/deals`, `/api/health`, `/api/deals`, `/api/parcels`, `/api/map/prospect`, and `/api/map/comps`, including discovered-route manifest expansion.
+  - Guardrails prevent unsafe deploys by default: proposal-only patch mode unless explicitly enabled, branch/PR workflow before production, validation gates, and rollback metadata.
+  - CI workflow exists for the sidecar and focused verification passes for `ai-devops`.
+
+### AIOPS-003 — Upstream-Outage Patch Suppression (P1)
+
+- **Priority:** P1
+- **Status:** Done (2026-03-11)
+- **Scope:** Prevent the `PATCH_ENGINEER_AGENT` from generating repository diffs when the incident classifier already identifies an upstream gateway/backend/database outage as the sole actionable failure domain.
+- **Problem:** After `AIOPS-002`, the patch engine could still produce code diffs during live gateway or backend outages. That creates noisy remediation PRs for incidents that should instead be resolved by restoring upstream health or environment alignment.
+- **Expected Outcome (measurable):**
+  - The patch engine returns a first-class suppressed proposal instead of a diff when every actionable error cluster is upstream-only.
+  - Validation and review treat suppressed proposals as safe no-op outcomes, and deploy continues to skip because no repository files changed.
+  - Mixed incidents still reach the patch generator; only pure upstream outage clusters are suppressed.
+- **Evidence of need:** The latest prod incident run still generated a health-route diff even though log-analysis and root-cause artifacts prioritized gateway/property-db reachability and env alignment over repository code changes.
+- **Alignment:** Reuses the existing diagnostic taxonomy, keeps remediation artifact visibility, and strengthens the deploy safety model without weakening existing validation or review gates.
+- **Risk/rollback:** Low. The main risk is over-suppressing legitimate code regressions; rollback by removing the suppression helper and reverting validation/review special-casing for suppressed proposals.
+- **Completion Evidence (2026-03-11):**
+  - Added upstream-outage suppression heuristics and suppressed proposal generation in:
+    - `ai-devops/shared/patch-suppression.ts`
+    - `ai-devops/agents/patch-engineer.ts`
+    - `ai-devops/shared/types.ts`
+  - Taught validation and review to treat suppressed proposals as safe no-op outcomes in:
+    - `ai-devops/agents/test-validator.ts`
+    - `ai-devops/agents/code-review.ts`
+  - Added focused unit coverage for suppression decisions and agent behavior in:
+    - `ai-devops/tests/api-tests/patch-suppression.test.ts`
+    - `ai-devops/tests/api-tests/patch-engineer.test.ts`
+    - `ai-devops/tests/api-tests/review-validation.test.ts`
+  - Updated operator docs in:
+    - `ai-devops/README.md`
+- **Acceptance Criteria / Tests:**
+  - Pure `database_connectivity`, `upstream_failure`, and `gateway_unavailable` incident sets suppress patch generation.
+  - Mixed incidents with non-upstream error clusters still allow patch synthesis.
+  - Suppressed proposals do not produce diffs, do not fail validation, and are skipped safely by deploy controls.
+
+### AIOPS-004 — Upstream Remediation Artifacting (P1)
+
+- **Priority:** P1
+- **Status:** Done (2026-03-12)
+- **Scope:** When the patch engine suppresses code changes for a pure upstream outage, emit a concrete infra remediation artifact that identifies the affected routes, required env vars/headers, source files, and operator verification steps.
+- **Problem:** `AIOPS-003` correctly stops noisy code patches during upstream outages, but the current suppressed proposal still leaves the operator with only a summary and rollback notes. The system should convert that suppression into an actionable remediation checklist tied to the actual gateway/env wiring in the repo.
+- **Expected Outcome (measurable):**
+  - Suppressed incident cycles generate a machine-readable remediation artifact with route-to-dependency mapping and targeted checks.
+  - The artifact identifies the exact env vars, optional auth headers, and health endpoints implicated by the current outage cluster.
+  - The live monitor loop keeps writing the latest remediation artifact for the current incident without proposing repository diffs.
+- **Evidence of need:** The active `gallagherpropco.com` incident is still rooted in property-db/gateway reachability and Cloudflare Access alignment, so the next useful autonomous output is concrete operator guidance rather than another application-code patch attempt.
+- **Alignment:** Extends the additive `ai-devops` sidecar, reuses the current route/error taxonomy, and preserves the no-diff suppression safety model.
+- **Risk/rollback:** Low. The main risk is stale or over-generalized remediation guidance; rollback by removing the artifact generator and reverting to suppressed proposal summaries only.
+- **Completion Evidence (2026-03-12):**
+  - Added infra remediation report types and route-to-dependency mapping in:
+    - `ai-devops/shared/types.ts`
+    - `ai-devops/shared/upstream-remediation.ts`
+  - Persisted suppression-aware artifacts from the patch engineer in:
+    - `ai-devops/agents/patch-engineer.ts`
+  - Added focused coverage for remediation report generation and artifact persistence in:
+    - `ai-devops/tests/api-tests/upstream-remediation.test.ts`
+    - `ai-devops/tests/api-tests/patch-engineer.test.ts`
+  - Updated operator docs in:
+    - `ai-devops/README.md`
+  - Verified the active production incident now writes:
+    - `ai-devops/artifacts/upstream-remediation.json`
+    - `ai-devops/artifacts/patch-proposal.json`
+    - `ai-devops/artifacts/patch.diff` (0 bytes during suppressed upstream outages)
+  - Verified the continuous loop is running on the updated code path and refreshing:
+    - `ai-devops/monitoring/system-state.json`
+    - `ai-devops/artifacts/upstream-remediation.json`
+    - `ai-devops/artifacts/patch-proposal.json`
+- **Acceptance Criteria / Tests:**
+  - Suppressed upstream-only incidents emit an active remediation artifact with affected route groups, dependency metadata, and operator check ids.
+  - Suppressed incidents continue to emit an empty diff proposal and do not regress deploy safety behavior.
+  - The continuous loop refreshes remediation artifacts for the live incident without proposing repository changes.
+
+### AIOPS-005 — Direct Gateway Diagnostics (P1)
+
+- **Priority:** P1
+- **Status:** Done (2026-03-12)
+- **Scope:** Add a direct gateway diagnostic path to `ai-devops` so each incident cycle can distinguish public app failures from upstream gateway/auth/env failures using the configured gateway credentials and Cloudflare Access headers.
+- **Problem:** The sidecar currently sees only the public application symptoms. During gateway incidents it can suppress code patches and emit remediation guidance, but it still lacks a first-class direct probe of the underlying gateway contract. That leaves the analyzer unable to say whether the gateway itself is down, auth is rejected, or the app-to-gateway path is the only failing boundary.
+- **Expected Outcome (measurable):**
+  - The monitor writes a separate machine-readable direct gateway diagnostics artifact when `LOCAL_API_URL` and `LOCAL_API_KEY` are available in the runner.
+  - Log analysis incorporates failing direct gateway probes as structured diagnostics without polluting the public app-health summary.
+  - Suppression remains active for pure infra/env/auth gateway incidents; no repository diff is proposed for direct gateway failures.
+- **Evidence of need:** The live `gallagherpropco.com` incident remains clustered around `LOCAL_API_URL`/`LOCAL_API_KEY` and Cloudflare Access alignment, but the current sidecar evidence is still limited to public app routes and secondary observability signals.
+- **Alignment:** Extends the additive `ai-devops` sidecar, reuses the existing gateway env contract, and improves diagnosis precision without weakening deploy safety or org-scoped runtime behavior.
+- **Risk/rollback:** Low. The main risk is runner-specific false positives if direct gateway secrets are absent or stale; rollback by removing the direct diagnostic artifact and analyzer hook.
+- **Completion Evidence (2026-03-12):**
+  - `ai-devops/shared/types.ts`
+  - `ai-devops/shared/gateway-diagnostics.ts`
+  - `ai-devops/shared/error-rules.ts`
+  - `ai-devops/shared/patch-suppression.ts`
+  - `ai-devops/agents/monitor.ts`
+  - `ai-devops/agents/log-analyzer.ts`
+  - `ai-devops/tests/api-tests/gateway-diagnostics.test.ts`
+  - `ai-devops/tests/api-tests/log-analyzer.test.ts`
+  - `ai-devops/tests/api-tests/patch-suppression.test.ts`
+  - `ai-devops/README.md`
+  - `ai-devops/artifacts/gateway-diagnostics.json`
+- **Acceptance Criteria / Tests:**
+  - Direct gateway diagnostics emit a dedicated artifact when the runner has the required gateway env contract.
+  - The analyzer emits a `gateway-direct` cluster when direct probes fail, preserving route-level separation from the public app monitor.
+  - Pure gateway/env/auth incidents remain patch-suppressed and keep `ai-devops/artifacts/patch.diff` empty.
+  - Verified with `pnpm ai-devops:test:unit`, `pnpm ai-devops:typecheck`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `OPENAI_API_KEY=placeholder pnpm build`, and `pnpm ai-devops:run -- --once --json`.
+
+### AIOPS-006 — Cloudflare Edge Failure Classification (P1)
+
+- **Priority:** P1
+- **Status:** Done (2026-03-12)
+- **Scope:** Upgrade direct gateway diagnostics so `ai-devops` fingerprints Cloudflare-edge failures, classifies them separately from generic gateway outages, and emits remediation checks that point operators at tunnel, DNS, and Access policy verification.
+- **Problem:** `AIOPS-005` proves whether the gateway itself is failing, but the analyzer still buckets current `530` responses as generic `gateway_unavailable`. That obscures the likely Cloudflare edge/tunnel boundary and leaves the remediation artifact less specific than the evidence now supports.
+- **Expected Outcome (measurable):**
+  - Direct gateway artifacts include failure fingerprints for Cloudflare-style edge responses.
+  - Log analysis emits a dedicated edge-oriented incident class for direct gateway failures that are failing at the Cloudflare boundary.
+  - Suppression and upstream remediation stay in sync for `gateway-direct` auth/env/edge incidents, including root-cause hints and targeted operator checks.
+- **Evidence of need:** The live `gallagherpropco.com` incident is currently returning direct `530` responses from `https://api.gallagherpropco.com`, which is stronger evidence than a generic upstream outage and should steer operators toward edge/tunnel remediation instead of app code.
+- **Alignment:** Extends the additive `ai-devops` sidecar, reuses the direct gateway artifact, and keeps the no-diff safety model in place while increasing incident precision.
+- **Risk/rollback:** Low. The main risk is over-classifying ambiguous 5xx pages as Cloudflare edge failures; rollback by removing the fingerprint classifier and reverting to the generic gateway-direct bucket.
+- **Completion Evidence (2026-03-12):**
+  - Added direct gateway failure fingerprints and Cloudflare-edge-aware types in:
+    - `ai-devops/shared/types.ts`
+    - `ai-devops/shared/gateway-diagnostics.ts`
+  - Added Cloudflare-edge incident classification and signal messaging in:
+    - `ai-devops/agents/log-analyzer.ts`
+    - `ai-devops/shared/error-rules.ts`
+  - Kept suppression and upstream remediation aligned for gateway-direct edge/auth/env incidents in:
+    - `ai-devops/shared/patch-suppression.ts`
+    - `ai-devops/shared/upstream-remediation.ts`
+  - Added focused coverage in:
+    - `ai-devops/tests/api-tests/gateway-diagnostics.test.ts`
+    - `ai-devops/tests/api-tests/log-analyzer.test.ts`
+    - `ai-devops/tests/api-tests/upstream-remediation.test.ts`
+    - `ai-devops/tests/api-tests/patch-suppression.test.ts`
+  - Updated operator docs in:
+    - `ai-devops/README.md`
+  - Verified the active production incident now emits:
+    - `ai-devops/artifacts/gateway-diagnostics.json` with Cloudflare-edge fingerprints
+    - `ai-devops/artifacts/log-analysis.json` with `gateway-direct:cloudflare_edge_failure`
+    - `ai-devops/artifacts/upstream-remediation.json` with Cloudflare/tunnel-specific operator checks
+- **Acceptance Criteria / Tests:**
+  - Direct gateway artifacts fingerprint Cloudflare-style failures without weakening the existing env/auth diagnostics.
+  - The analyzer emits `cloudflare_edge_failure` for failing direct probes at the Cloudflare boundary and preserves patch suppression for upstream-only incidents.
+  - Upstream remediation includes `gateway-direct` dependency metadata, Cloudflare/tunnel checks, and root-cause hints for gateway-direct cluster ids.
+  - Verified with `pnpm ai-devops:test:unit`, `pnpm ai-devops:typecheck`, `pnpm ai-devops:run -- --once --json`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
+
+### AIOPS-007 — Edge Smoke Artifact Integration (P1)
+
+- **Priority:** P1
+- **Status:** Done (2026-03-12)
+- **Scope:** Reuse the existing `pnpm smoke:gateway:edge-access` matrix inside `ai-devops` so Cloudflare-edge incidents persist a machine-readable smoke artifact and expose whether the gateway is failing in `without_access`, `with_access`, or both modes.
+- **Problem:** `AIOPS-006` classifies the incident correctly, but the operator still has to run the edge smoke matrix manually to know whether the Cloudflare boundary is blocking unauthenticated requests correctly, failing authenticated requests, or both. That information should be captured automatically during an edge incident cycle.
+- **Expected Outcome (measurable):**
+  - `ai-devops` runs the existing edge smoke script only when direct gateway diagnostics indicate a Cloudflare-edge incident.
+  - The smoke result is written as a dedicated artifact with pass/fail breakdown for `without_access` and `with_access` requests.
+  - Log analysis and remediation can reference the smoke artifact so operators know whether to focus on Access policy drift, origin/tunnel reachability, or both.
+- **Evidence of need:** The live `gallagherpropco.com` incident is returning `530` through the Cloudflare edge, and the repo already contains a validated smoke matrix for this boundary. The missing piece is wiring that matrix into the autonomous incident loop.
+- **Alignment:** Reuses `scripts/smoke_gateway_edge_access.ts`, existing Cloudflare runbooks, and the additive `ai-devops` sidecar without weakening patch/deploy safety.
+- **Risk/rollback:** Low. Main risks are longer incident cycles and noisy smoke failures when secrets are absent. Rollback by disabling the smoke invocation and reverting to checklist-only remediation.
+- **Completion Evidence (2026-03-12):**
+  - `ai-devops/shared/types.ts`
+  - `ai-devops/shared/gateway-edge-smoke.ts`
+  - `ai-devops/agents/qa-tester.ts`
+  - `ai-devops/agents/patch-engineer.ts`
+  - `ai-devops/agents/orchestrator.ts`
+  - `ai-devops/shared/upstream-remediation.ts`
+  - `ai-devops/scripts/run-tests.ts`
+  - `scripts/smoke_gateway_edge_access.ts`
+  - `ai-devops/tests/api-tests/gateway-edge-smoke.test.ts`
+  - `ai-devops/tests/api-tests/upstream-remediation.test.ts`
+  - `ai-devops/tests/api-tests/patch-engineer.test.ts`
+  - `ai-devops/README.md`
+  - `ai-devops/artifacts/gateway-edge-smoke.json`
+- **Acceptance Criteria / Tests:**
+  - Cloudflare-edge incidents run the smoke matrix only when direct diagnostics fingerprint the edge failure domain.
+  - `ai-devops/artifacts/gateway-edge-smoke.json` is emitted and recorded under `artifacts/test-results.json -> gatewayEdgeSmoke`.
+  - `ai-devops/artifacts/upstream-remediation.json` includes `edge-smoke-artifact` so operators can distinguish Access deny behavior from origin/tunnel pass-through.
+  - Verified with `pnpm ai-devops:test:unit`, `pnpm ai-devops:typecheck`, `pnpm ai-devops:run -- --once --json`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
+
+### AIOPS-008 — Cloudflare Tunnel Failure Promotion (P1)
+
+- **Priority:** P1
+- **Status:** Done (2026-03-12)
+- **Scope:** Promote the `with_access` edge-smoke pattern into a tunnel-specific incident class when Cloudflare Access passes but the downstream gateway still returns Cloudflare tunnel errors such as `1033`.
+- **Problem:** `AIOPS-007` proves whether Access deny behavior is working, but the analyzer and remediation output still stop at `cloudflare_edge_failure`. In the current live incident, authenticated requests are not blocked at the edge; they are reaching a Cloudflare tunnel failure behind successful Access auth. The sidecar should express that explicitly.
+- **Expected Outcome (measurable):**
+  - `ai-devops` promotes Access-pass-through + Cloudflare tunnel signatures into a dedicated diagnostic kind instead of generic edge failure.
+  - Root-cause output and upstream remediation shift from generic edge checks toward tunnel/origin checks when the smoke matrix proves Access is healthy.
+  - Patch suppression remains active for the tunnel-specific incident class.
+- **Evidence of need:** The live `gateway-edge-smoke.json` artifact shows `without_access=blocked-as-expected` and `with_access` responses returning Cloudflare `error-1033`, which means the problem is beyond Access policy and should be surfaced as such.
+- **Alignment:** Builds directly on `AIOPS-006` and `AIOPS-007`, reuses the existing smoke artifact, and keeps the sidecar infra-first during upstream incidents.
+- **Risk/rollback:** Low. Main risk is overfitting to a specific Cloudflare signature. Roll back by removing the tunnel-specific classification and falling back to generic `cloudflare_edge_failure`.
+- **Completion Evidence (2026-03-12):**
+  - `ai-devops/shared/types.ts`
+  - `ai-devops/shared/error-rules.ts`
+  - `ai-devops/shared/patch-suppression.ts`
+  - `ai-devops/shared/upstream-remediation.ts`
+  - `ai-devops/shared/gateway-edge-smoke.ts`
+  - `ai-devops/agents/log-analyzer.ts`
+  - `ai-devops/tests/api-tests/log-analyzer.test.ts`
+  - `ai-devops/tests/api-tests/patch-suppression.test.ts`
+  - `ai-devops/tests/api-tests/upstream-remediation.test.ts`
+  - `ai-devops/README.md`
+  - `ai-devops/artifacts/log-analysis.json`
+  - `ai-devops/artifacts/root-cause.json`
+  - `ai-devops/artifacts/upstream-remediation.json`
+- **Acceptance Criteria / Tests:**
+  - Access-pass-through plus Cloudflare `error-1033` is promoted to `cloudflare_tunnel_failure` instead of generic `cloudflare_edge_failure`.
+  - Root-cause output points operators at `gpc-hp-tunnel`, `api.gallagherpropco.com -> localhost:8000`, and the origin service boundary.
+  - Upstream remediation includes `cloudflare-tunnel` and a tunnel-aware `edge-smoke-artifact` summary while patch suppression remains active.
+  - Verified with `pnpm ai-devops:test:unit`, `pnpm ai-devops:typecheck`, `pnpm ai-devops:run -- --once --json`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
+
+### AIOPS-009 — Tunnel Contract Artifact and Remediation Wiring (P1)
+
+- **Priority:** P1
+- **Status:** Done (2026-03-12)
+- **Scope:** Emit a machine-readable `cloudflare-tunnel-contract.json` artifact from the documented Cloudflare tunnel topology and thread it into the upstream remediation output for tunnel-specific incidents.
+- **Problem:** `AIOPS-008` correctly classifies the live outage as `cloudflare_tunnel_failure`, but the sidecar still makes operators translate prose hints back into the expected tunnel wiring manually. The monitor should publish the exact documented `tunnel -> hostname -> origin` contract and surface mismatches directly in remediation.
+- **Expected Outcome (measurable):**
+  - The monitor writes `ai-devops/artifacts/cloudflare-tunnel-contract.json` with the documented tunnel name, tunnel id, public API hostname, expected origin URL, and runtime wiring checks.
+  - Tunnel-specific remediation links to the contract artifact and tells operators whether `LOCAL_API_URL` matches the documented public hostname.
+  - Existing tunnel classification and patch suppression behavior remain unchanged.
+- **Evidence of need:** The live incident is already narrowed to Cloudflare tunnel/origin reachability, and the repo docs define the exact expected topology (`gpc-hp-tunnel`, `api.gallagherpropco.com`, `localhost:8000`). That contract should be surfaced automatically during the incident loop instead of remaining doc-only.
+- **Alignment:** Reuses `docs/CLOUDFLARE.md`, `apps/web/lib/server/propertyDbEnv.ts`, and the additive `ai-devops` artifact pipeline without changing deploy or patch safety.
+- **Risk/rollback:** Low. Main risk is drift between docs and emitted artifact parsing. Roll back by removing the contract artifact wiring and falling back to doc references only.
+- **Completion Evidence (2026-03-12):**
+  - `ai-devops/shared/types.ts`
+  - `ai-devops/shared/tunnel-contract.ts`
+  - `ai-devops/agents/monitor.ts`
+  - `ai-devops/agents/orchestrator.ts`
+  - `ai-devops/agents/patch-engineer.ts`
+  - `ai-devops/shared/upstream-remediation.ts`
+  - `ai-devops/tests/api-tests/tunnel-contract.test.ts`
+  - `ai-devops/tests/api-tests/upstream-remediation.test.ts`
+  - `ai-devops/README.md`
+  - `ai-devops/artifacts/cloudflare-tunnel-contract.json`
+  - `ai-devops/artifacts/upstream-remediation.json`
+- **Acceptance Criteria / Tests:**
+  - The monitor emits `ai-devops/artifacts/cloudflare-tunnel-contract.json` with the documented tunnel name, tunnel id, API hostname, expected origin URL, and runtime alignment checks.
+  - Tunnel-specific remediation includes `tunnel-contract-artifact` so operators can see whether `LOCAL_API_URL` matches the documented public route before debugging the connector/origin.
+  - Tunnel classification and patch suppression behavior remain unchanged for the active incident.
+  - Verified with `pnpm ai-devops:test:unit`, `pnpm ai-devops:typecheck`, `pnpm ai-devops:run -- --once --json`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
+
+### AIOPS-010 — Tunnel Incident Handoff Artifact (P1)
+
+- **Priority:** P1
+- **Status:** Done (2026-03-12)
+- **Scope:** Emit a dedicated `cloudflare-tunnel-handoff.json` artifact that collapses the active tunnel incident into one operator packet containing the failing direct probes, edge-smoke tunnel evidence, documented tunnel contract, and the narrowed remediation checks.
+- **Problem:** `AIOPS-009` makes the tunnel contract explicit, but the operator still has to read `gateway-diagnostics.json`, `gateway-edge-smoke.json`, `cloudflare-tunnel-contract.json`, and `upstream-remediation.json` separately to act on the outage. The sidecar should package the actionable tunnel evidence into one handoff artifact.
+- **Expected Outcome (measurable):**
+  - When `cloudflare_tunnel_failure` is active, `ai-devops` writes `ai-devops/artifacts/cloudflare-tunnel-handoff.json`.
+  - The handoff artifact includes the active cluster summary, failing direct gateway probes with `cf-ray`/request ids, the edge-smoke tunnel count, the documented tunnel/origin contract, and the exact tunnel-focused remediation checks.
+  - Existing suppression, remediation, and deployment behavior remain unchanged.
+- **Evidence of need:** The live incident is now correctly identified as a tunnel/origin outage, but the operator context is still fragmented across multiple artifacts. A single handoff packet lowers the chance of missing the actual `gpc-hp-tunnel -> api.gallagherpropco.com -> localhost:8000` evidence chain during recovery.
+- **Alignment:** Builds directly on `AIOPS-008` and `AIOPS-009`, reuses the existing artifact pipeline, and improves operator execution without weakening safety gates.
+- **Risk/rollback:** Low. Main risk is duplicating stale information if the handoff artifact drifts from its source artifacts. Roll back by removing the handoff artifact and relying on the existing individual artifacts.
+- **Completion Evidence (2026-03-12):**
+  - `ai-devops/shared/tunnel-handoff.ts`
+  - `ai-devops/shared/types.ts`
+  - `ai-devops/agents/patch-engineer.ts`
+  - `ai-devops/tests/api-tests/tunnel-handoff.test.ts`
+  - `ai-devops/tests/api-tests/patch-engineer.test.ts`
+  - `ai-devops/artifacts/cloudflare-tunnel-handoff.json`
+- **Acceptance Criteria / Tests:**
+  - When `cloudflare_tunnel_failure` is active, `ai-devops` writes `ai-devops/artifacts/cloudflare-tunnel-handoff.json`.
+  - The handoff artifact includes the active cluster summary, direct gateway failures with request ids, edge smoke tunnel counts, the documented tunnel contract, and the exact tunnel-focused remediation checks.
+  - Existing suppression, remediation, and deployment behavior remain unchanged.
+  - Verified with `pnpm ai-devops:test:unit`, `pnpm ai-devops:typecheck`, `pnpm ai-devops:run -- --once --json`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
+
+### AIOPS-011 — Tunnel Incident Delta Tracking (P1)
+
+- **Priority:** P1
+- **Status:** Done (2026-03-12)
+- **Scope:** Emit a dedicated `cloudflare-tunnel-delta.json` artifact that compares the current tunnel handoff packet against the prior cycle and reports whether the incident is new, stable, changed, or resolved.
+- **Problem:** `AIOPS-010` packages the current tunnel outage well, but the operator still has to diff consecutive handoff artifacts manually to know whether the incident is worsening, recovering, or simply repeating with new request ids. The sidecar should publish the material cycle-to-cycle change state directly.
+- **Expected Outcome (measurable):**
+  - `ai-devops` writes `ai-devops/artifacts/cloudflare-tunnel-delta.json` on every cycle using the previous tunnel handoff artifact plus the newly generated one.
+  - The delta artifact ignores noisy fields such as per-request ids and instead tracks material changes like active state, route groups, direct failure surfaces, edge-smoke tunnel counts, and contract alignment.
+  - The artifact summarizes whether the incident is `new_incident`, `stable_incident`, `changed_incident`, `resolved_incident`, or `no_incident`.
+- **Evidence of need:** The live `cloudflare_tunnel_failure` incident is persisting across cycles, but the current artifacts still force manual comparison to answer the operational question of whether the outage is stable or changing. That slows human response and makes later alerting harder to build.
+- **Alignment:** Builds directly on `AIOPS-010`, reuses the existing handoff artifact and additive `ai-devops` persistence flow, and improves operator signal quality without changing suppression or deploy behavior.
+- **Risk/rollback:** Low. Main risk is over-reporting change by treating volatile fields as material. Roll back by removing the delta artifact and continuing to rely on the raw handoff packet only.
+- **Completion Evidence (2026-03-12):**
+  - `ai-devops/shared/tunnel-delta.ts`
+  - `ai-devops/shared/types.ts`
+  - `ai-devops/agents/patch-engineer.ts`
+  - `ai-devops/tests/api-tests/tunnel-delta.test.ts`
+  - `ai-devops/tests/api-tests/patch-engineer.test.ts`
+  - `ai-devops/artifacts/cloudflare-tunnel-delta.json`
+- **Acceptance Criteria / Tests:**
+  - The sidecar emits `ai-devops/artifacts/cloudflare-tunnel-delta.json` after each cycle.
+  - Stable tunnel incidents do not flip to changed solely because request ids or timestamps rotated.
+  - Material changes in active state, route groups, failure surfaces, edge-smoke counts, or contract alignment appear in the delta artifact with a concise summary.
+  - Verified with `pnpm ai-devops:test:unit`, `pnpm ai-devops:typecheck`, `pnpm ai-devops:run -- --once --json`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
 
 ### PREF-001 — Conversation-Native Preference Extraction and Prompt Injection
 

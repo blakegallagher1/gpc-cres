@@ -29,6 +29,9 @@ chmod +x scripts/codex-auto/*.sh
 # Implement the next Planned ROADMAP item
 ./scripts/codex-auto/roadmap-next.sh
 
+# Scaffold the reusable chat closeout workflow
+./scripts/codex-auto/chat-closeout-workflow.sh
+
 # Fix a failed CI run
 ./scripts/codex-auto/ci-fix.sh latest
 ./scripts/codex-auto/ci-fix.sh 12345678
@@ -47,6 +50,7 @@ chmod +x scripts/codex-auto/*.sh
 | `run.sh` | Run any prompt against the repo | Ad-hoc tasks, quick fixes |
 | `sweep.sh` | Type-hardening, auth audit, lint fix | Weekly quality maintenance |
 | `roadmap-next.sh` | Implement next ROADMAP item | Continuous delivery |
+| `chat-closeout-workflow.sh` | Scaffold the four-lane chat closeout workflow | When you want a reusable PM/ship/automation/runtime/QA artifact set |
 | `ci-fix.sh` | Auto-fix failed CI runs | After CI failure notification |
 | `review-pr.sh` | AI code review on a PR | Before merging |
 | `sentry-fix.sh` | Auto-fix unresolved Sentry issues | After Sentry notifications or on-demand |

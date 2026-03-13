@@ -12,6 +12,7 @@ import {
   isKnowledgeSearchError,
 } from "@/lib/services/knowledgeBase.service";
 import { getInstitutionalKnowledgeIngestService } from "@/lib/services/institutionalKnowledgeIngest.service";
+import { shouldUseAppDatabaseDevFallback } from "@/lib/server/appDbEnv";
 
 export async function GET(req: NextRequest) {
   const auth = await resolveAuth(req);
@@ -46,6 +47,17 @@ export async function GET(req: NextRequest) {
         }
 
         const resolvedMode = resolveKnowledgeSearchMode(query, requestedMode);
+        if (shouldUseAppDatabaseDevFallback()) {
+          return NextResponse.json(
+            {
+              error: "Knowledge base is temporarily unavailable",
+              degraded: true,
+              mode: resolvedMode,
+              results: [],
+            },
+            { status: 503 },
+          );
+        }
         const results = await searchKnowledgeBase(
           auth.orgId,
           query,
@@ -58,11 +70,32 @@ export async function GET(req: NextRequest) {
       case "recent": {
         const contentType = searchParams.get("type") as KnowledgeContentType | null;
         const limit = Number(searchParams.get("limit") ?? 20);
+        if (shouldUseAppDatabaseDevFallback()) {
+          return NextResponse.json(
+            {
+              error: "Knowledge base is temporarily unavailable",
+              degraded: true,
+              entries: [],
+            },
+            { status: 503 },
+          );
+        }
         const entries = await getRecentEntries(auth.orgId, limit, contentType ?? undefined);
         return NextResponse.json({ entries });
       }
       case "stats":
       default: {
+        if (shouldUseAppDatabaseDevFallback()) {
+          return NextResponse.json(
+            {
+              error: "Knowledge base is temporarily unavailable",
+              degraded: true,
+              total: 0,
+              contentTypes: {},
+            },
+            { status: 503 },
+          );
+        }
         const stats = await getKnowledgeStats(auth.orgId);
         return NextResponse.json(stats);
       }
@@ -98,6 +131,12 @@ export async function POST(req: NextRequest) {
             { status: 400 }
           );
         }
+        if (shouldUseAppDatabaseDevFallback()) {
+          return NextResponse.json(
+            { error: "Knowledge base is temporarily unavailable", degraded: true },
+            { status: 503 },
+          );
+        }
         const ids = await ingestKnowledge(
           auth.orgId,
           contentType as KnowledgeContentType,
@@ -115,6 +154,12 @@ export async function POST(req: NextRequest) {
             { status: 400 }
           );
         }
+        if (shouldUseAppDatabaseDevFallback()) {
+          return NextResponse.json(
+            { error: "Knowledge base is temporarily unavailable", degraded: true },
+            { status: 503 },
+          );
+        }
 
         const result = await getInstitutionalKnowledgeIngestService().ingestWorkbookUpload(
           uploadId,
@@ -129,6 +174,12 @@ export async function POST(req: NextRequest) {
           return NextResponse.json(
             { error: "sourceId is required" },
             { status: 400 }
+          );
+        }
+        if (shouldUseAppDatabaseDevFallback()) {
+          return NextResponse.json(
+            { error: "Knowledge base is temporarily unavailable", degraded: true },
+            { status: 503 },
           );
         }
         const deleted = await deleteKnowledge(auth.orgId, sourceId);
