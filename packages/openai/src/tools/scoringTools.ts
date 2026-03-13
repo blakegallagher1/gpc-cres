@@ -1,6 +1,49 @@
 import { tool } from "@openai/agents";
 import { z } from "zod";
 
+import { lookupPoiDensitySnapshot } from "./googleMapsTools.js";
+
+function extractOrgIdFromContext(context: unknown): string | null {
+  if (!context || typeof context !== "object") {
+    return null;
+  }
+
+  const outer = context as Record<string, unknown>;
+  const candidate =
+    outer.context && typeof outer.context === "object"
+      ? (outer.context as Record<string, unknown>)
+      : outer;
+
+  return typeof candidate.orgId === "string" && candidate.orgId.trim().length > 0
+    ? candidate.orgId.trim()
+    : null;
+}
+
+export function scorePOIDensity(
+  counts: Record<string, number>,
+  total: number,
+): number {
+  let score = 1;
+
+  if (total >= 60) {
+    score = 9;
+  } else if (total >= 31) {
+    score = 7;
+  } else if (total >= 16) {
+    score = 5;
+  } else if (total >= 6) {
+    score = 3;
+  }
+
+  const hasGroceryStore = (counts.grocery_store ?? 0) > 0;
+  const hasGasStation = (counts.gas_station ?? 0) > 0;
+  if (hasGroceryStore && hasGasStation) {
+    score += 1;
+  }
+
+  return Math.min(10, score);
+}
+
 export const parcelTriageScore = tool({
   name: "parcel_triage_score",
   description:
@@ -13,6 +56,14 @@ export const parcelTriageScore = tool({
       .optional().nullable()
       .describe("Current zoning code (e.g. M1, C2, A1)"),
     acreage: z.number().optional().nullable().describe("Parcel acreage"),
+    latitude: z
+      .number()
+      .optional().nullable()
+      .describe("Parcel latitude for optional POI density enrichment"),
+    longitude: z
+      .number()
+      .optional().nullable()
+      .describe("Parcel longitude for optional POI density enrichment"),
     proposedUse: z
       .enum(["SMALL_BAY_FLEX", "OUTDOOR_STORAGE", "TRUCK_PARKING"])
       .describe("The proposed SKU/use type"),
@@ -42,13 +93,15 @@ export const parcelTriageScore = tool({
     address,
     currentZoning,
     acreage,
+    latitude,
+    longitude,
     proposedUse,
     floodZone,
     futureLandUse,
     utilitiesAvailable,
     frontageRoad,
     adjacentUses,
-  }) => {
+  }, context) => {
     const disqualifiers: Array<{ label: string; detail: string; severity: "hard" | "soft" }> = [];
     const dataGaps: string[] = [];
 
@@ -292,6 +345,37 @@ export const parcelTriageScore = tool({
 
     const score = Math.max(0, Math.min(100, totalScore));
 
+    let poiDensityScore: number | null = null;
+    const orgId = extractOrgIdFromContext(context);
+    const canScorePoiDensity =
+      Boolean(process.env.GOOGLE_MAPS_API_KEY?.trim()) &&
+      Boolean(orgId) &&
+      typeof latitude === "number" &&
+      typeof longitude === "number";
+
+    if (
+      canScorePoiDensity &&
+      orgId &&
+      typeof latitude === "number" &&
+      typeof longitude === "number"
+    ) {
+      try {
+        const poiSnapshot = await lookupPoiDensitySnapshot({
+          orgId,
+          latitude,
+          longitude,
+        });
+        if (poiSnapshot.snapshot) {
+          poiDensityScore = scorePOIDensity(
+            poiSnapshot.snapshot.counts,
+            poiSnapshot.snapshot.total,
+          );
+        }
+      } catch {
+        poiDensityScore = null;
+      }
+    }
+
     // --- Determine decision ---
     const hardDisqualifiers = disqualifiers.filter((d) => d.severity === "hard");
     let decision: "KILL" | "HOLD" | "ADVANCE";
@@ -320,6 +404,7 @@ export const parcelTriageScore = tool({
       categoryScores,
       disqualifiers,
       dataGaps,
+      poiDensityScore,
     });
   },
 });

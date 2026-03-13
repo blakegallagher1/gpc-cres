@@ -54,6 +54,42 @@ Only items meeting all checks are added below as `Planned`.
   - Remove retired route references from test matrices and active operational runbooks.
   - Run verification gate and review the final diff for documentation-only intent plus any required comment fixes.
 
+### MAP-009 — Google Maps Grounding + Cache-Backed Market Enrichment (P1)
+
+- **Priority:** P1
+- **Status:** Done (2026-03-12)
+- **Scope:** Add Google Maps Grounding Lite MCP access for agents, cache-backed area-summary and POI-density tools in Postgres, and Address Validation enrichment on autocomplete without weakening org scoping or making Google the system of record.
+- **Problem:** The repo already uses `GOOGLE_MAPS_API_KEY` for Places autocomplete and text search, but agents cannot yet access the Google Maps Grounding Lite MCP server, market/screener flows lack cache-backed area summaries and POI density enrichment, and autocomplete cannot surface verified-address hints. Google responses are also not yet persisted in Postgres for authoritative reuse.
+- **Expected Outcome (measurable):**
+  - Coordinator/runtime can expose the Google Maps Grounding Lite MCP server when explicitly enabled and keyed.
+  - Area summaries and POI density are fetched from Google only on cache miss, then stored in Postgres with org-scoped TTL-based reuse.
+  - Parcel triage can add an optional `poiDensityScore` without failing when Google is unavailable.
+  - `/api/places/autocomplete` can opportunistically annotate top Google results with validation metadata without slowing the response path materially.
+- **Evidence of need:** Current code only covers `apps/web/app/api/places/autocomplete/route.ts` and `packages/openai/src/tools/placesTools.ts`; there is no Google MCP server registration, no cache-backed area-summary or aggregate-density tool, no Address Validation utility, and no Postgres cache models for Google-derived enrichments.
+- **Alignment:** Preserves the repo contract that Postgres is authoritative and Google Maps is a metered external enrichment source. All cache writes remain scoped by `orgId`, OpenAI tooling stays on the Responses/MCP path, and server-only API keys remain server-side.
+- **Risk/rollback:** Medium risk because the work spans agent tool wiring, Prisma schema, and app-route enrichment. Rollback is straightforward by disabling the feature flag / env gates and reverting the additive cache models plus route/tool changes.
+- **Acceptance Criteria / Tests:**
+  - Add a gated Google Maps MCP server config and register the canonical MCP tool metadata/aliases without breaking local tool execution paths.
+  - Add `get_area_summary` and `get_poi_density` tools with Postgres-backed caching, graceful degradation, and org-scoped queries.
+  - Add cache models and a Prisma migration for Google area summary and POI density persistence.
+  - Add optional POI density scoring to `parcel_triage_score` that degrades to `null` when coordinates or Google access are unavailable.
+  - Add Address Validation enrichment to `/api/places/autocomplete` plus focused route/tool tests.
+  - Run focused package/app tests plus `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
+- **Evidence (2026-03-12):**
+  - Added Google Maps Grounding Lite MCP gating and intent-scoped coordinator/specialist wiring in `packages/openai/src/tools/mcpGatewayAdapter.ts`, `packages/openai/src/tools/toolCatalog.ts`, `packages/openai/src/tools/index.ts`, and `packages/openai/src/agents/index.ts`.
+  - Added Postgres-backed Google cache models plus migration in `packages/db/prisma/schema.prisma` and `packages/db/prisma/migrations/20260313042308_add_google_maps_cache_models/migration.sql`.
+  - Added cache-backed `get_area_summary` and `get_poi_density` tools plus POI triage enrichment in `packages/openai/src/tools/googleMapsTools.ts` and `packages/openai/src/tools/scoringTools.ts`.
+  - Added Address Validation enrichment contract in `apps/web/lib/server/googleMapsValidation.ts` and `apps/web/app/api/places/autocomplete/route.ts`.
+  - Focused verification passed:
+    - `pnpm -C packages/openai test -- src/tools/googleMapsTools.test.ts src/tools/scoringTools.test.ts test/phase1/tools/parcelTriageScore.phase1.test.ts`
+    - `pnpm -C apps/web test -- app/api/places/autocomplete/route.test.ts app/api/agent/tools/execute/route.test.ts`
+    - `pnpm -C packages/db run generate`
+  - Full gate passed:
+    - `pnpm lint`
+    - `pnpm typecheck`
+    - `pnpm test`
+    - `OPENAI_API_KEY=placeholder pnpm build`
+
 ### CHAT-002 — Chat Surface Local-Degradation + Error Sanitization (P0)
 
 - **Priority:** P0

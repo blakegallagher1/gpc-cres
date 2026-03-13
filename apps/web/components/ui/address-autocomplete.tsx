@@ -16,6 +16,8 @@ export interface AddressSuggestion {
   description: string;
   placeId: string;
   source: "google" | "parcel_db";
+  validated?: boolean;
+  formattedAddress?: string;
 }
 
 interface AddressAutocompleteProps {

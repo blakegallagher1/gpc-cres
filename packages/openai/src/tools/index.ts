@@ -14,6 +14,7 @@ import * as canonicalWorkflowTools from "./canonicalWorkflowTools.js";
 import * as marketTools from "./marketTools.js";
 import * as socrataTools from "./socrataTools.js";
 import * as placesTools from "./placesTools.js";
+import * as googleMapsTools from "./googleMapsTools.js";
 import * as outcomeTools from "./outcomeTools.js";
 import * as knowledgeTools from "./knowledgeTools.js";
 import * as contextTools from "./contextTools.js";
@@ -113,6 +114,7 @@ export { query_market_data } from "./marketTools.js";
 
 export { queryBuildingPermits } from "./socrataTools.js";
 export { searchNearbyPlaces } from "./placesTools.js";
+export { get_area_summary, get_poi_density } from "./googleMapsTools.js";
 
 export { get_historical_accuracy, record_deal_outcome } from "./outcomeTools.js";
 
@@ -247,6 +249,7 @@ const { analyze_portfolio } = portfolioTools;
 const { query_market_data } = marketTools;
 const { queryBuildingPermits } = socrataTools;
 const { searchNearbyPlaces } = placesTools;
+const { get_area_summary, get_poi_density } = googleMapsTools;
 const {
   get_jurisdiction_pack,
   create_tasks,
@@ -373,6 +376,8 @@ export const coordinatorTools = [
   screenBatch,
   queryPropertyDb,
   queryPropertyDbSql,
+  get_area_summary,
+  get_poi_density,
   query_document_extractions,
   get_document_extraction_summary,
   compare_document_vs_deal_terms,
@@ -411,6 +416,8 @@ export const researchTools = [
   screenTraffic,
   analyze_comparable_sales,
   query_market_data,
+  get_area_summary,
+  get_poi_density,
   run_data_extraction_workflow,
   search_knowledge_base,
   store_knowledge_entry,
@@ -480,6 +487,8 @@ export const financeTools = [
 export const screenerTools = [
   parcelTriageScore,
   hardFilterCheck,
+  get_area_summary,
+  get_poi_density,
   getDealContext,
   addParcelToDeal,
   updateParcel,
@@ -519,6 +528,7 @@ export const marketingTools = [
 /** Tools available to the Due Diligence agent. */
 export const dueDiligenceTools = [
   getDealContext,
+  get_area_summary,
   evidenceSnapshot,
   floodZoneLookup,
   compareEvidenceHash,
@@ -587,6 +597,8 @@ export const operationsTools = [
 /** Tools available to the Market Intel agent. */
 export const marketIntelTools = [
   getDealContext,
+  get_area_summary,
+  get_poi_density,
   searchParcels,
   getParcelDetails,
   search_comparable_sales,
@@ -622,6 +634,8 @@ export const designTools = [
 export const marketTrajectoryTools = [
   queryBuildingPermits,
   searchNearbyPlaces,
+  get_area_summary,
+  get_poi_density,
   getDealContext,
   searchParcels,
   getParcelDetails,
@@ -732,8 +746,10 @@ export type {
 
 export {
   isMcpGatewayEnabled,
+  isGoogleMapsGroundingLiteEnabled,
   getMcpEligibleTools,
   buildMcpServerTool,
+  buildGoogleMapsMcpServerTool,
   resolveToolTransport,
 } from "./mcpGatewayAdapter.js";
 

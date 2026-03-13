@@ -62,8 +62,13 @@ export const TOOL_NAME_ALIASES: Record<string, string> = {
   screenBatch: "screen_batch",
 
   searchNearbyPlaces: "search_nearby_places",
+  searchPlacesGoogle: "gmaps_search_places",
+  computeRoutesGoogle: "gmaps_compute_routes",
+  lookupWeatherGoogle: "gmaps_lookup_weather",
   parcelTriageScore: "parcel_triage_score",
   hardFilterCheck: "hard_filter_check",
+  getAreaSummary: "get_area_summary",
+  getPOIDensity: "get_poi_density",
   addBuyer: "add_buyer",
   searchBuyers: "search_buyers",
   logOutreach: "log_outreach",
@@ -199,6 +204,8 @@ export const TOOL_CATALOG: Record<string, ToolCatalogEntry> = {
   calculate_1031_deadlines: { name: "calculate_1031_deadlines", destination: "local", risk: "read", quotaClass: "unlimited", intents: ["general", "tax", "finance"] },
   search_comparable_sales: { name: "search_comparable_sales", destination: "local", risk: "read", quotaClass: "unlimited", intents: ["research", "market_intel", "finance"] },
   calculate_market_metrics: { name: "calculate_market_metrics", destination: "local", risk: "read", quotaClass: "unlimited", intents: ["general", "market_intel", "market_trajectory"] },
+  get_area_summary: { name: "get_area_summary", destination: "local", risk: "read", quotaClass: "metered", intents: ["general", "research", "screener", "due_diligence", "market_intel", "market_trajectory"] },
+  get_poi_density: { name: "get_poi_density", destination: "local", risk: "read", quotaClass: "metered", intents: ["general", "research", "screener", "market_intel", "market_trajectory"] },
   acquisition_dcf_analysis: { name: "acquisition_dcf_analysis", destination: "local", risk: "read", quotaClass: "unlimited", intents: ["acquisition_underwriting", "finance"] },
   acquisition_cap_rate_evaluation: { name: "acquisition_cap_rate_evaluation", destination: "local", risk: "read", quotaClass: "unlimited", intents: ["acquisition_underwriting", "finance"] },
   acquisition_rent_roll_analysis: { name: "acquisition_rent_roll_analysis", destination: "local", risk: "read", quotaClass: "unlimited", intents: ["acquisition_underwriting", "finance", "due_diligence"] },
@@ -289,6 +296,11 @@ export const TOOL_CATALOG: Record<string, ToolCatalogEntry> = {
   analyze_market_workflow: { name: "analyze_market_workflow", destination: "local", risk: "read", quotaClass: "unlimited", intents: ["market_trajectory", "market_intel", "finance", "general"] },
   run_underwriting_workflow: { name: "run_underwriting_workflow", destination: "local", risk: "read", quotaClass: "unlimited", intents: ["finance", "due_diligence", "general"] },
   run_data_extraction_workflow: { name: "run_data_extraction_workflow", destination: "local", risk: "read", quotaClass: "unlimited", intents: ["research", "due_diligence", "general", "market_intel"] },
+
+  // --- Remote MCP tools (OpenAI-managed over remote MCP, metered) ---
+  gmaps_search_places: { name: "gmaps_search_places", destination: "mcp", risk: "read", quotaClass: "metered", intents: ["general", "research", "market_intel", "screener", "due_diligence"] },
+  gmaps_compute_routes: { name: "gmaps_compute_routes", destination: "mcp", risk: "read", quotaClass: "metered", intents: ["general", "research", "market_intel", "due_diligence"] },
+  gmaps_lookup_weather: { name: "gmaps_lookup_weather", destination: "mcp", risk: "read", quotaClass: "metered", intents: ["general", "research"] },
 
   // --- Hosted tools (OpenAI-managed, metered) ---
   web_search_preview: { name: "web_search_preview", destination: "hosted", risk: "read", quotaClass: "metered", intents: ["general", "research", "market_intel", "market_trajectory"] },
