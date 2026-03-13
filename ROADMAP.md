@@ -141,6 +141,30 @@ Only items meeting all checks are added below as `Planned`.
   - Focused verification passed: `pnpm -C packages/openai test -- src/tools/orgIdSchema.test.ts src/tools/propertyMemoryTools.test.ts`, `pnpm exec vitest run tests/smoke_endpoints.test.ts`, and `pnpm -C packages/openai test -- test/phase1/tools/addParcelToDeal.phase1.test.ts test/phase1/tools/compareEvidenceHash.phase1.test.ts test/phase1/tools/createDeal.phase1.test.ts test/phase1/tools/createTask.phase1.test.ts test/phase1/tools/evidenceSnapshot.phase1.test.ts test/phase1/tools/getDealContext.phase1.test.ts test/phase1/tools/get_rent_roll.phase1.test.ts test/phase1/tools/listDeals.phase1.test.ts test/phase1/tools/updateDealStatus.phase1.test.ts test/phase1/tools/updateParcel.phase1.test.ts test/phase1/tools/updateTask.phase1.test.ts`.
   - Full verification gate passed: `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
 
+### MAP-012 — Production Smoke Contract Follow-up (P0)
+
+- **Priority:** P0
+- **Status:** Done (2026-03-13)
+- **Scope:** Align the production smoke harness with the runtime contracts that are actually deployed for polygon prospecting and semantic property-intelligence recall.
+- **Problem:** After the `MAP-011` deploy, live production probes show the runtime fixes are working, but `pnpm smoke:endpoints` still fails for two harness-specific reasons. First, `/api/map/prospect` returns parcel rows for the polygon-only request, while the smoke harness currently injects `filters.searchText` and expects the address-specific path to work even though the current route implementation does not apply `searchText`. Second, semantic recall now executes without schema errors, but a zero-hit read-only recall is not a reliable health check when the collection may legitimately be empty for the current org. The harness needs to fall back to a deterministic `store_property_finding` plus `recall_property_intelligence` round-trip when the read-only recall returns zero hits.
+- **Expected Outcome (measurable):**
+  - `scripts/smoke_endpoints.ts` validates polygon prospecting with a structural parcel-envelope check instead of a brittle non-empty row-count expectation.
+  - Semantic smoke stops reporting false negatives when the collection is empty by seeding and recalling a known parcel only when the initial read-only probe returns zero hits.
+  - `scripts/verify-production-features.sh` passes again once redeployed because it delegates to the repaired smoke script.
+- **Evidence of need:** On 2026-03-13, the production custom domain on commit `c7f4745f5a166d57b0368f503342f13bdf42c601` returned parcel data for `/api/parcels?hasCoords=true&search=4416 HEATH DR`, returned `stored: true` followed by one semantic hit for a direct `store_property_finding` → `recall_property_intelligence` round-trip, and returned parcel rows for polygon-only `/api/map/prospect` while the smoke script's `filters.searchText` variant still returned `{ parcels: [], total: 0 }`.
+- **Alignment:** Preserves the deployed runtime contracts, keeps the smoke harness auth path on the current Cloudflare Access model, and avoids shipping a speculative runtime change just to satisfy a brittle verifier.
+- **Risk/rollback:** Low risk because the work is limited to smoke/test code and roadmap evidence. Rollback is straightforward by reverting the harness updates if a different production contract is intentionally restored later.
+- **Acceptance Criteria / Tests:**
+  - `scripts/smoke_endpoints.ts` uses polygon-only prospect verification with structural envelope validation and deterministic semantic fallback seeding.
+  - `tests/smoke_endpoints.test.ts` and a dedicated parcel-smoke helper test cover the new helpers.
+  - Re-run focused smoke tests, the full verification gate, redeploy, and verify `pnpm smoke:endpoints` plus `bash scripts/verify-production-features.sh` against production.
+- **Evidence / Verification:**
+  - Patched [scripts/smoke_endpoints.ts](/Users/gallagherpropertycompany/Documents/gallagher-cres/scripts/smoke_endpoints.ts) so prospect smoke uses polygon-only envelope validation, geometry fallback uses generic parcel IDs, and semantic smoke falls back to `store_property_finding` plus exact-address recall against the known production fixture parcel when the initial read-only recall returns zero hits.
+  - Patched [scripts/parcels/smoke_map_parcel_prod.ts](/Users/gallagherpropertycompany/Documents/gallagher-cres/scripts/parcels/smoke_map_parcel_prod.ts) to stop treating `POST /api/map/prospect` row count as a hard failure, prefer parcel-search IDs for geometry lookup, and add a main-entrypoint guard so helper exports are testable without auto-execution.
+  - Added regression coverage in [tests/smoke_endpoints.test.ts](/Users/gallagherpropertycompany/Documents/gallagher-cres/tests/smoke_endpoints.test.ts) and [tests/parcel_smoke_prod.test.ts](/Users/gallagherpropertycompany/Documents/gallagher-cres/tests/parcel_smoke_prod.test.ts), and wired the new parcel-smoke test into [package.json](/Users/gallagherpropertycompany/Documents/gallagher-cres/package.json).
+  - Focused verification passed: `pnpm exec vitest run tests/smoke_endpoints.test.ts tests/parcel_smoke_prod.test.ts` and `pnpm -C apps/web test -- app/api/map/prospect/route.post.test.ts`.
+  - Live production verification passed from the local harness on 2026-03-13: `pnpm smoke:endpoints` succeeded against `https://gallagherpropco.com`, and `bash scripts/verify-production-features.sh` completed successfully with edge-access, endpoint smoke, and parcel smoke all green.
+
 ### CHAT-002 — Chat Surface Local-Degradation + Error Sanitization (P0)
 
 - **Priority:** P0

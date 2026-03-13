@@ -20,7 +20,7 @@
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r --filter './packages/**' build && pnpm -r typecheck",
-    "test": "pnpm -r test && pnpm exec vitest run tests/episode.test.ts tests/retrieval.test.ts tests/reflection.test.ts tests/reward.test.ts tests/smoke_endpoints.test.ts",
+    "test": "pnpm -r test && pnpm exec vitest run tests/episode.test.ts tests/retrieval.test.ts tests/reflection.test.ts tests/reward.test.ts tests/smoke_endpoints.test.ts tests/parcel_smoke_prod.test.ts",
     "test:docs": "node scripts/testing/validate-docs.mjs",
     "test:web:observability": "pnpm -C apps/web run test:observability",
     "test:matrix:generate": "node scripts/testing/generate-test-matrix.mjs",

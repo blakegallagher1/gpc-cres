@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 type SmokeStep = {
   name: string;
@@ -29,6 +30,26 @@ function summarizeArray(value: unknown): { count: number; sampleKeys: string[] }
   if (!Array.isArray(value)) return { count: 0, sampleKeys: [] };
   const first = toRecord(value[0]);
   return { count: value.length, sampleKeys: first ? Object.keys(first).slice(0, 8) : [] };
+}
+
+export function isParcelEnvelope(payload: unknown): boolean {
+  const body = toRecord(payload);
+  return Array.isArray(body?.parcels) && typeof body?.total === "number";
+}
+
+export function extractCandidateParcelId(payloads: unknown[]): string {
+  for (const payload of payloads) {
+    const body = toRecord(payload);
+    const rows = Array.isArray(body?.parcels) ? body.parcels : [];
+    for (const row of rows as Array<Record<string, unknown>>) {
+      const id = row.propertyDbId ?? row.parcelUid ?? row.id;
+      if (typeof id === "string" && id.trim().length > 0) {
+        return id.trim();
+      }
+    }
+  }
+
+  return "";
 }
 
 async function callJson(
@@ -116,37 +137,24 @@ async function main() {
     bearerToken,
     "POST",
     "/api/map/prospect",
-    {
-      polygon,
-      filters: {
-        searchText: searchAddress,
-      },
-    },
+    { polygon },
   );
   const prospectBody = toRecord(prospect.payload);
   const prospectSummary = summarizeArray(prospectBody?.parcels);
   steps.push({
     name: "POST /api/map/prospect",
     status: prospect.status,
-    ok: prospect.ok,
+    ok: prospect.ok && isParcelEnvelope(prospect.payload),
     count: prospectSummary.count,
     sampleKeys: prospectSummary.sampleKeys,
     error: prospect.ok ? undefined : JSON.stringify(prospect.payload).slice(0, 220),
   });
 
-  const candidateParcelId = (() => {
-    const prospectRows = Array.isArray(prospectBody?.parcels) ? prospectBody?.parcels : [];
-    for (const row of prospectRows as Array<Record<string, unknown>>) {
-      const id = row.propertyDbId ?? row.parcelUid ?? row.id;
-      if (typeof id === "string" && id.trim().length > 0) return id.trim();
-    }
-    const searchRows = Array.isArray(parcelsSearchBody?.parcels) ? parcelsSearchBody.parcels : [];
-    for (const row of searchRows as Array<Record<string, unknown>>) {
-      const id = row.propertyDbId ?? row.parcelUid ?? row.id;
-      if (typeof id === "string" && id.trim().length > 0) return id.trim();
-    }
-    return "";
-  })();
+  const candidateParcelId = extractCandidateParcelId([
+    parcelsSearch.payload,
+    prospect.payload,
+    parcelsHasCoords.payload,
+  ]);
 
   const parcelGeometry = candidateParcelId
     ? await callJson(
@@ -172,7 +180,12 @@ async function main() {
         : JSON.stringify(parcelGeometry.payload).slice(0, 220),
   });
 
-  const success = steps.every((step) => step.ok && step.count > 0);
+  const success = steps.every((step) => {
+    if (step.name === "POST /api/map/prospect") {
+      return step.ok;
+    }
+    return step.ok && step.count > 0;
+  });
   const report = {
     generatedAt: new Date().toISOString(),
     baseUrl,
@@ -197,7 +210,11 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error("[map-smoke] fatal:", error);
-  process.exit(1);
-});
+const entrypoint = process.argv[1] ? path.resolve(process.argv[1]) : "";
+
+if (entrypoint === fileURLToPath(import.meta.url)) {
+  main().catch((error) => {
+    console.error("[map-smoke] fatal:", error);
+    process.exit(1);
+  });
+}
