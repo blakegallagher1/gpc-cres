@@ -12,6 +12,7 @@
  */
 
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { config } from "dotenv";
 
 config({ path: path.resolve(process.cwd(), ".env") });
@@ -41,6 +42,13 @@ type Step = {
   dataOk: boolean;
   category: "health" | "gateway" | "semantic";
   error?: string;
+};
+
+type SemanticRecallAssessment = {
+  hits: unknown[];
+  ok: boolean;
+  error?: string;
+  memoryDisabled: boolean;
 };
 
 async function fetchJson(
@@ -76,6 +84,84 @@ function summarizeParcels(data: unknown): boolean {
   const obj = toRecord(data);
   const arr = Array.isArray(obj?.parcels) ? obj.parcels : [];
   return arr.length > 0 && typeof (arr[0] as Record<string, unknown>)?.lat === "number";
+}
+
+export function unwrapToolExecuteResult(data: unknown): unknown {
+  const envelope = toRecord(data);
+  if (!envelope || !("result" in envelope)) {
+    return data;
+  }
+  return envelope.result;
+}
+
+export function assessSemanticRecallPayload(data: unknown): SemanticRecallAssessment {
+  const envelope = toRecord(data);
+  if (typeof envelope?.error === "string") {
+    return {
+      hits: [],
+      ok: false,
+      error: envelope.error,
+      memoryDisabled: false,
+    };
+  }
+
+  const unwrapped = unwrapToolExecuteResult(data);
+  if (typeof unwrapped === "string" && unwrapped.trim().length > 0) {
+    return {
+      hits: [],
+      ok: false,
+      error: unwrapped,
+      memoryDisabled: false,
+    };
+  }
+
+  const result = toRecord(unwrapped);
+  if (!result) {
+    return {
+      hits: [],
+      ok: false,
+      error: "Semantic recall returned an unexpected payload.",
+      memoryDisabled: false,
+    };
+  }
+
+  if (typeof result.error === "string" && result.error.trim().length > 0) {
+    return {
+      hits: [],
+      ok: false,
+      error: result.error,
+      memoryDisabled: false,
+    };
+  }
+
+  const hits = Array.isArray(result.results) ? result.results : [];
+  const memoryDisabled = result.memory_disabled === true;
+  if (memoryDisabled) {
+    return {
+      hits,
+      ok: false,
+      error:
+        typeof result.note === "string" && result.note.trim().length > 0
+          ? result.note
+          : "Property intelligence memory is disabled.",
+      memoryDisabled: true,
+    };
+  }
+
+  if (hits.length === 0) {
+    return {
+      hits,
+      ok: false,
+      error: "Qdrant returned zero semantic hits",
+      memoryDisabled: false,
+    };
+  }
+
+  return {
+    hits,
+    ok: true,
+    memoryDisabled: false,
+  };
 }
 
 async function main() {
@@ -323,11 +409,8 @@ async function main() {
     context: { conversationId },
     conversationId,
   });
-  const propertyResults = toRecord(propertyIntel.data);
-  const hits = Array.isArray(propertyResults?.results)
-    ? propertyResults?.results
-    : [];
-  const propertyOk = propertyIntel.ok && hits.length > 0;
+  const semanticRecall = assessSemanticRecallPayload(propertyIntel.data);
+  const propertyOk = propertyIntel.ok && semanticRecall.ok;
   steps.push({
     name: "POST /api/agent/tools/execute (recall_property_intelligence)",
     method: "POST",
@@ -340,10 +423,8 @@ async function main() {
       propertyIntel.status === 401
         ? "401 (auth required)"
         : propertyOk
-        ? undefined
-        : hits.length === 0
-          ? "Qdrant returned zero semantic hits"
-          : JSON.stringify(propertyIntel.data).slice(0, 180),
+          ? undefined
+          : semanticRecall.error ?? JSON.stringify(propertyIntel.data).slice(0, 180),
   });
 
   // Report
@@ -384,7 +465,11 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+const entrypoint = process.argv[1] ? path.resolve(process.argv[1]) : "";
+
+if (entrypoint === fileURLToPath(import.meta.url)) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}

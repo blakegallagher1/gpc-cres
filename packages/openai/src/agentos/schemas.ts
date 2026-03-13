@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ToolOrgIdSchema } from "../tools/orgIdSchema.js";
 
 // ---------------------------------------------------------------------------
 // Shared enums
@@ -31,7 +32,7 @@ export const EpisodicEntrySchema = z.object({
   tags: z.array(z.string()),
   agentId: z.string(),
   taskType: z.string(),
-  orgId: z.string().uuid(),
+  orgId: ToolOrgIdSchema,
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
 });
@@ -47,7 +48,7 @@ export const SemanticFactSchema = z.object({
   valueJson: z.record(z.string(), z.unknown()),
   confidence: z.number().min(0).max(1),
   provenanceEpisodeId: z.string().uuid().nullable(),
-  orgId: z.string().uuid(),
+  orgId: ToolOrgIdSchema,
   updatedAt: z.coerce.date(),
 });
 export type SemanticFact = z.infer<typeof SemanticFactSchema>;
@@ -68,7 +69,7 @@ export const ProceduralSkillSchema = z.object({
   evaluatorAvgScore: z.number().min(0).max(1),
   dedupeHash: z.string(),
   embeddingId: z.string(),
-  orgId: z.string().uuid(),
+  orgId: ToolOrgIdSchema,
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
 });
@@ -86,7 +87,7 @@ export const DomainDocSchema = z.object({
   contentPointer: z.string(),
   embeddingId: z.string(),
   tags: z.array(z.string()),
-  orgId: z.string().uuid(),
+  orgId: ToolOrgIdSchema,
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
 });
@@ -145,7 +146,7 @@ export const TrajectoryLogSchema = z.object({
   tokenUsage: TokenUsageSchema,
   costUsd: z.number().min(0),
   riskEvents: z.array(RiskEventSchema),
-  orgId: z.string().uuid(),
+  orgId: ToolOrgIdSchema,
   createdAt: z.coerce.date(),
 });
 export type TrajectoryLog = z.infer<typeof TrajectoryLogSchema>;
@@ -190,7 +191,7 @@ export const ToolSpecSchema = z.object({
   latencyStats: LatencyStatsSchema,
   errorRate: z.number().min(0).max(1),
   embeddingId: z.string(),
-  orgId: z.string().uuid(),
+  orgId: ToolOrgIdSchema,
 });
 export type ToolSpec = z.infer<typeof ToolSpecSchema>;
 
@@ -207,7 +208,7 @@ export const EvalResultSchema = z.object({
   dimensionScores: EvalDimensionScoresSchema,
   overallScore: z.number().min(0).max(1),
   rationale: z.string(),
-  orgId: z.string().uuid(),
+  orgId: ToolOrgIdSchema,
   createdAt: z.coerce.date(),
 });
 export type EvalResult = z.infer<typeof EvalResultSchema>;

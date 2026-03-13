@@ -8,6 +8,7 @@ import {
 } from "@entitlement-os/shared";
 import { hashBytesSha256 } from "@entitlement-os/shared/crypto";
 import { rpc } from "./propertyDbTools.js";
+import { ToolOrgIdSchema } from "./orgIdSchema.js";
 
 function detectExtension(contentType: string | null, url: string): string {
   const lowerType = (contentType ?? "").toLowerCase();
@@ -156,7 +157,7 @@ export const evidenceSnapshot = tool({
   description:
     "Capture a snapshot of a URL for evidence tracking. Fetches the URL, hashes the content, stores a snapshot record, and detects changes from previous snapshots. Returns snapshot metadata including content hash and change detection.",
   parameters: z.object({
-    orgId: z.string().uuid().describe("The org ID for security scoping"),
+    orgId: ToolOrgIdSchema.describe("The org ID for security scoping"),
     url: z.string().min(1).describe("The URL to snapshot (e.g. https://example.com/page)"),
     title: z.string().optional().nullable().describe("Optional title for the evidence source"),
     dealId: z.string().optional().nullable().describe("Optional deal ID to associate the snapshot run with"),
@@ -397,7 +398,7 @@ export const compareEvidenceHash = tool({
   description:
     "Check if an evidence source has changed since its last snapshot by comparing content hashes",
   parameters: z.object({
-    orgId: z.string().uuid().describe("The org ID for security scoping"),
+    orgId: ToolOrgIdSchema.describe("The org ID for security scoping"),
     sourceId: z
       .string()
       .uuid()

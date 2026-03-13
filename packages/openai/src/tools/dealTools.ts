@@ -6,6 +6,7 @@ import {
   summarizeDevelopmentBudget,
   type DevelopmentBudgetCalcInput,
 } from "@entitlement-os/shared";
+import { ToolOrgIdSchema } from "./orgIdSchema.js";
 
 // Legacy compatibility statuses still gate certain downstream actions, but
 // workflowTemplateKey/currentStageKey are the canonical lifecycle fields.
@@ -794,7 +795,7 @@ export const getDealContext = tool({
   description:
     "Get full context for a deal including parcels, tasks, latest triage, and artifacts",
   parameters: z.object({
-    orgId: z.string().uuid().describe("The org ID for security scoping"),
+    orgId: ToolOrgIdSchema.describe("The org ID for security scoping"),
     dealId: z.string().describe("The deal ID"),
   }),
   execute: async ({ orgId, dealId }) => {
@@ -900,7 +901,7 @@ export const createDeal = tool({
   description:
     "Create a new deal with a name, legacy SKU compatibility hint, and jurisdiction. Canonical workflow routing should use workflow template and current stage from the application layer.",
   parameters: z.object({
-    orgId: z.string().uuid().describe("The org ID for security scoping"),
+    orgId: ToolOrgIdSchema.describe("The org ID for security scoping"),
     createdBy: z.string().describe("The user ID creating the deal"),
     name: z.string().min(1).describe("Name of the deal"),
     sku: z
@@ -947,7 +948,7 @@ export const updateDealStatus = tool({
   description:
     "Update the legacy compatibility status echo for a deal. Use this only when a legacy entitlement-facing workflow still needs a status change; generalized workflows should reason from workflow template and current stage.",
   parameters: z.object({
-    orgId: z.string().uuid().describe("The org ID for security scoping"),
+    orgId: ToolOrgIdSchema.describe("The org ID for security scoping"),
     dealId: z.string().describe("The deal ID to update"),
     status: z
       .enum([
@@ -1004,7 +1005,7 @@ export const listDeals = tool({
   name: "list_deals",
   description: "List deals with optional filters by status and/or SKU type",
   parameters: z.object({
-    orgId: z.string().uuid().describe("The org ID for security scoping"),
+    orgId: ToolOrgIdSchema.describe("The org ID for security scoping"),
     status: z
       .enum([
         "INTAKE",
@@ -1056,7 +1057,7 @@ export const get_rent_roll = tool({
   description:
     "Return full rent roll detail for a deal, including lease schedule, rollover vacancy behavior, and weighted average lease term.",
   parameters: z.object({
-    orgId: z.string().uuid().describe("The org ID for security scoping"),
+    orgId: ToolOrgIdSchema.describe("The org ID for security scoping"),
     dealId: z.string().describe("The deal ID"),
     holdYears: z
       .number()
@@ -1139,7 +1140,7 @@ export const model_capital_stack = tool({
   description:
     "Model sources and uses from persisted capital sources + equity waterfall tiers for a deal.",
   parameters: z.object({
-    orgId: z.string().uuid().describe("The org ID for security scoping"),
+    orgId: ToolOrgIdSchema.describe("The org ID for security scoping"),
     dealId: z.string().describe("The deal ID"),
   }),
   execute: async ({ orgId, dealId }) => {
@@ -1253,7 +1254,7 @@ export const stress_test_deal = tool({
   description:
     "Run predefined stress scenarios for a deal and return a scenario comparison table with probability-weighted expected IRR and equity multiple.",
   parameters: z.object({
-    orgId: z.string().uuid().describe("The org ID for security scoping"),
+    orgId: ToolOrgIdSchema.describe("The org ID for security scoping"),
     dealId: z.string().describe("The deal ID"),
     includeScenarioIds: z
       .array(z.enum(STRESS_SCENARIO_IDS))
@@ -1341,7 +1342,7 @@ export const model_exit_scenarios = tool({
   description:
     "Model exit strategies for sell-year timing, refinance-then-hold paths, and disposition at stabilization. Returns scenario-level exit value, equity proceeds, equity multiple, IRR, and IRR-maximizing timing.",
   parameters: z.object({
-    orgId: z.string().uuid().describe("The org ID for security scoping"),
+    orgId: ToolOrgIdSchema.describe("The org ID for security scoping"),
     dealId: z.string().describe("The deal ID"),
     maxExitYear: z
       .number()
@@ -2006,7 +2007,7 @@ export const addParcelToDeal = tool({
   name: "add_parcel_to_deal",
   description: "Attach a parcel (by address and optional details) to a deal",
   parameters: z.object({
-    orgId: z.string().uuid().describe("The org ID for security scoping"),
+    orgId: ToolOrgIdSchema.describe("The org ID for security scoping"),
     dealId: z.string().describe("The deal to attach the parcel to"),
     address: z.string().min(1).describe("Street address of the parcel"),
     apn: z.string().optional().nullable().describe("Assessor parcel number"),
@@ -2070,7 +2071,7 @@ export const updateParcel = tool({
   description:
     "Update an existing parcel with enriched data (coordinates, APN, acreage, zoning, etc.). Use this after scanning the property database and getting user approval to associate the findings with the deal.",
   parameters: z.object({
-    orgId: z.string().uuid().describe("The org ID for security scoping"),
+    orgId: ToolOrgIdSchema.describe("The org ID for security scoping"),
     parcelId: z.string().describe("The parcel ID to update"),
     apn: z.string().optional().nullable().describe("Assessor parcel number"),
     lat: z.number().optional().nullable().describe("Latitude"),

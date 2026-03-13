@@ -789,6 +789,22 @@ describe("recall_property_intelligence tool (agent-facing wrapper)", () => {
     expect(result.results[0].parcelId).toBe(TEST_PARCEL_ID);
   });
 
+  it("accepts the seeded sentinel org id in the tool parameter schema", () => {
+    const parameters = recall_property_intelligence.parameters as unknown as {
+      parse: (value: unknown) => { orgId: string };
+    };
+
+    const parsed = parameters.parse({
+      orgId: TEST_ORG_ID,
+      query: "flood zone parcels",
+      parish: null,
+      minScore: null,
+      topK: null,
+    });
+
+    expect(parsed.orgId).toBe(TEST_ORG_ID);
+  });
+
   it("caps topK at 20 regardless of input", async () => {
     vi.stubGlobal(
       "fetch",

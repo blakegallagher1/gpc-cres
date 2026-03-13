@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { PrismaClient } from "@entitlement-os/db";
 import { PropertyIntelligenceStore } from "../agentos/memory/property.js";
 import { isAgentOsFeatureEnabled } from "../agentos/config.js";
+import { ToolOrgIdSchema } from "./orgIdSchema.js";
 
 /**
  * Property Memory Tools — semantic search and storage for property intelligence.
@@ -37,7 +38,7 @@ export const recall_property_intelligence = tool({
     "Returns parcels with similar environmental conditions, zoning, or deal notes. " +
     "Useful for pattern discovery across past projects.",
   parameters: z.object({
-    orgId: z.string().uuid().describe("The org ID for security scoping"),
+    orgId: ToolOrgIdSchema.describe("The org ID for security scoping"),
     query: z
       .string()
       .describe(
@@ -99,7 +100,7 @@ export const store_property_finding = tool({
     "Once stored, similar properties can be found via recall_property_intelligence. " +
     "Include environmental flags, zoning, or deal notes that might help future deal evaluation.",
   parameters: z.object({
-    orgId: z.string().uuid().describe("The org ID for security scoping"),
+    orgId: ToolOrgIdSchema.describe("The org ID for security scoping"),
     parcelId: z.string().describe("Unique parcel ID from property DB"),
     address: z.string().describe("Street address of the parcel"),
     parish: z.string().describe("Parish name (e.g., 'East Baton Rouge')"),
