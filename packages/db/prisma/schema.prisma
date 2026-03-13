@@ -340,6 +340,8 @@ model Org {
   dealStageHistories             DealStageHistory[]
   generalizedScorecards          GeneralizedScorecard[]
   moduleStates                   ModuleState[]
+  areaSummaryCaches              AreaSummaryCache[]
+  poiDensityCaches               POIDensityCache[]
 
   @@map("orgs")
 }
@@ -2269,4 +2271,60 @@ model DriftFreezeState {
 
   @@unique([orgId, segmentId], map: "uq_drift_freeze_segment")
   @@map("drift_freeze_states")
+}
+
+model AreaSummaryCache {
+  id                String   @id @default(uuid()) @db.Uuid
+  orgId             String   @map("org_id") @db.Uuid
+  cacheKey          String   @map("cache_key") @db.Text
+  canonicalAddress  String?  @map("canonical_address") @db.Text
+  placeId           String?  @map("place_id") @db.Text
+  lat               Decimal? @db.Decimal(10, 7)
+  lng               Decimal? @db.Decimal(10, 7)
+  radiusMeters      Int      @map("radius_meters")
+  summaryJson       Json     @map("summary_json") @db.JsonB
+  sourcePayloadJson Json?    @map("source_payload_json") @db.JsonB
+  fetchedAt         DateTime @default(now()) @map("fetched_at") @db.Timestamptz(6)
+  expiresAt         DateTime @map("expires_at") @db.Timestamptz(6)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  org Org @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, cacheKey])
+  @@index([orgId])
+  @@index([orgId, canonicalAddress])
+  @@index([orgId, placeId])
+  @@index([orgId, lat, lng, radiusMeters])
+  @@index([orgId, expiresAt])
+  @@map("area_summary_caches")
+}
+
+model POIDensityCache {
+  id                String   @id @default(uuid()) @db.Uuid
+  orgId             String   @map("org_id") @db.Uuid
+  cacheKey          String   @map("cache_key") @db.Text
+  canonicalAddress  String?  @map("canonical_address") @db.Text
+  placeId           String?  @map("place_id") @db.Text
+  lat               Decimal  @db.Decimal(10, 7)
+  lng               Decimal  @db.Decimal(10, 7)
+  radiusMeters      Int      @map("radius_meters")
+  poiTypes          String[] @default([]) @map("poi_types")
+  densityScore      Float    @map("density_score") @db.DoublePrecision
+  resultJson        Json     @map("result_json") @db.JsonB
+  sourcePayloadJson Json?    @map("source_payload_json") @db.JsonB
+  fetchedAt         DateTime @default(now()) @map("fetched_at") @db.Timestamptz(6)
+  expiresAt         DateTime @map("expires_at") @db.Timestamptz(6)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  org Org @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, cacheKey])
+  @@index([orgId])
+  @@index([orgId, canonicalAddress])
+  @@index([orgId, placeId])
+  @@index([orgId, lat, lng, radiusMeters])
+  @@index([orgId, expiresAt])
+  @@map("poi_density_caches")
 }

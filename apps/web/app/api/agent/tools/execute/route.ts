@@ -141,7 +141,9 @@ function getToolMetadata(
 ): ToolMetadata {
   const destination = entry.destination;
   const transport =
-    destination === "gateway" ? resolveToolTransport(canonicalToolName) : "direct";
+    destination === "gateway" || destination === "mcp"
+      ? resolveToolTransport(canonicalToolName)
+      : "direct";
 
   return {
     requestedToolName,
@@ -235,10 +237,13 @@ export async function POST(req: NextRequest) {
   }
 
   if (!tool) {
-    if (metadata.destination === "hosted") {
+    if (metadata.destination === "hosted" || metadata.destination === "mcp") {
       return NextResponse.json(
         {
-          error: `Hosted tool '${canonicalToolName}' is executed by OpenAI and should not be dispatched via /api/agent/tools/execute`,
+          error:
+            metadata.destination === "mcp"
+              ? `MCP tool '${canonicalToolName}' is executed by OpenAI and should not be dispatched via /api/agent/tools/execute`
+              : `Hosted tool '${canonicalToolName}' is executed by OpenAI and should not be dispatched via /api/agent/tools/execute`,
           metadata,
         },
         { status: 400 },

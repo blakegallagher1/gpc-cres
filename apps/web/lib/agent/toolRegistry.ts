@@ -164,7 +164,7 @@ for (const [aliasToolName, canonicalToolName] of Object.entries(TOOL_NAME_ALIASE
   const execute = registry[canonicalToolName];
   if (!execute) {
     const entry = resolveToolCatalogEntry(canonicalToolName);
-    if (entry?.destination !== "hosted") {
+    if (entry?.destination !== "hosted" && entry?.destination !== "mcp") {
       unresolvedAliases.push(`${aliasToolName}->${canonicalToolName}`);
     }
     continue;

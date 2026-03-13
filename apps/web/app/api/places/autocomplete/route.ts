@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { getGatewayConfig } from "@/lib/gateway-proxy";
+import { validateAddress } from "@/lib/server/googleMapsValidation";
 import { getCloudflareAccessHeadersFromEnv } from "@/lib/server/propertyDbEnv";
 
 // ---------------------------------------------------------------------------
@@ -21,7 +22,13 @@ interface Suggestion {
   placeId: string;
   /** "google" | "parcel_db" — lets the frontend show a subtle badge */
   source: "google" | "parcel_db";
+  /** Whether Google Address Validation verified the top suggestion */
+  validated?: boolean;
+  /** Validated Google Address Validation formatted address when available */
+  formattedAddress?: string;
 }
+
+const GOOGLE_VALIDATION_ROUTE_RACE_MS = 2_000;
 
 // ---------------------------------------------------------------------------
 // Google Places Autocomplete (New API)
@@ -154,6 +161,41 @@ async function parcelDbAutocomplete(
   }
 }
 
+function waitForValidationRace(timeoutMs: number): Promise<null> {
+  return new Promise((resolve) => {
+    setTimeout(() => resolve(null), timeoutMs);
+  });
+}
+
+async function enrichTopGoogleSuggestion(
+  suggestions: Suggestion[],
+  apiKey: string | null,
+): Promise<Suggestion[]> {
+  if (!apiKey || suggestions.length === 0 || suggestions[0]?.source !== "google") {
+    return suggestions;
+  }
+
+  const validationResult = await Promise.race([
+    validateAddress(suggestions[0].description, apiKey),
+    waitForValidationRace(GOOGLE_VALIDATION_ROUTE_RACE_MS),
+  ]);
+
+  if (!validationResult) {
+    return suggestions;
+  }
+
+  return [
+    {
+      ...suggestions[0],
+      ...(validationResult.formattedAddress
+        ? { formattedAddress: validationResult.formattedAddress }
+        : {}),
+      validated: validationResult.isValid,
+    },
+    ...suggestions.slice(1),
+  ];
+}
+
 // ---------------------------------------------------------------------------
 // Route handler
 // ---------------------------------------------------------------------------
@@ -171,19 +213,27 @@ export async function GET(req: NextRequest) {
 
   const googleKey = process.env.GOOGLE_MAPS_API_KEY?.trim();
   const gatewayConfig = getGatewayConfig();
+  const parcelResultsPromise = gatewayConfig
+    ? parcelDbAutocomplete(query, gatewayConfig)
+    : Promise.resolve([]);
+  const googleResultsPromise = googleKey
+    ? googleAutocomplete(query, googleKey)
+    : Promise.resolve([]);
 
-  // Run both in parallel — Google is primary, parcel DB is supplementary
-  const [googleResults, parcelResults] = await Promise.all([
-    googleKey ? googleAutocomplete(query, googleKey) : Promise.resolve([]),
-    gatewayConfig ? parcelDbAutocomplete(query, gatewayConfig) : Promise.resolve([]),
-  ]);
+  const googleResults = await googleResultsPromise;
+  const enrichedGoogleResultsPromise = enrichTopGoogleSuggestion(
+    googleResults,
+    googleKey ?? null,
+  );
+  const parcelResults = await parcelResultsPromise;
+  const enrichedGoogleResults = await enrichedGoogleResultsPromise;
 
   // Merge: Google first (better full-address quality), then parcel DB extras
   // De-dupe by normalized address substring
   const seen = new Set<string>();
   const merged: Suggestion[] = [];
 
-  for (const s of [...googleResults, ...parcelResults]) {
+  for (const s of [...enrichedGoogleResults, ...parcelResults]) {
     const key = s.description.toLowerCase().replace(/\s+/g, " ").slice(0, 40);
     if (!seen.has(key)) {
       seen.add(key);

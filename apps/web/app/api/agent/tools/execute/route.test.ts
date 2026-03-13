@@ -6,6 +6,7 @@ const {
   localToolMock,
   hostedToolMock,
   gatewayToolMock,
+  mcpToolMock,
   shellWorkflowStubMock,
   resolveToolTransportMock,
   checkHostedToolQuotaMock,
@@ -16,6 +17,7 @@ const {
   localToolMock: vi.fn(),
   hostedToolMock: vi.fn(),
   gatewayToolMock: vi.fn(),
+  mcpToolMock: vi.fn(),
   shellWorkflowStubMock: vi.fn(),
   resolveToolTransportMock: vi.fn(),
   checkHostedToolQuotaMock: vi.fn(),
@@ -62,6 +64,13 @@ vi.mock("@entitlement-os/openai", () => ({
         quotaClass: "unlimited",
         intents: ["research"],
       },
+      gmaps_search_places: {
+        name: "gmaps_search_places",
+        destination: "mcp",
+        risk: "read",
+        quotaClass: "metered",
+        intents: ["research"],
+      },
       run_underwriting_workflow: {
         name: "run_underwriting_workflow",
         destination: "local",
@@ -94,6 +103,13 @@ vi.mock("@entitlement-os/openai", () => ({
       destination: "gateway",
       risk: "read",
       quotaClass: "unlimited",
+      intents: ["research"],
+    },
+    gmaps_search_places: {
+      name: "gmaps_search_places",
+      destination: "mcp",
+      risk: "read",
+      quotaClass: "metered",
       intents: ["research"],
     },
     run_underwriting_workflow: {
@@ -129,6 +145,7 @@ describe("POST /api/agent/tools/execute", () => {
     localToolMock.mockReset();
     hostedToolMock.mockReset();
     gatewayToolMock.mockReset();
+    mcpToolMock.mockReset();
     shellWorkflowStubMock.mockReset();
     resolveToolTransportMock.mockReset();
     checkHostedToolQuotaMock.mockReset();
@@ -441,6 +458,32 @@ describe("POST /api/agent/tools/execute", () => {
       error: expect.stringMatching(/transport/i),
     });
     expect(gatewayToolMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 for MCP tools because they execute via OpenAI, not the Vercel executor", async () => {
+    resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
+    resolveToolTransportMock.mockReturnValue("mcp");
+
+    const res = await POST(
+      reqWithBody({
+        toolName: "gmaps_search_places",
+        arguments: { query: "coffee near Baton Rouge" },
+        context: { conversationId: CONVERSATION_ID },
+      }),
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(resolveToolTransportMock).toHaveBeenCalledWith("gmaps_search_places");
+    expect(body).toMatchObject({
+      error: expect.stringContaining("MCP tool"),
+      metadata: {
+        toolName: "gmaps_search_places",
+        destination: "mcp",
+        transport: "mcp",
+        quotaClass: "metered",
+      },
+    });
   });
 
   it("shell workflow stub returns unsupported_environment error gracefully", async () => {

@@ -54,6 +54,7 @@ import {
   taxTools,
   store_knowledge_entry,
   assess_uncertainty,
+  buildGoogleMapsMcpServerTool,
 } from "../tools/index.js";
 import { LazyContext } from "./contextLoader.js";
 
@@ -117,6 +118,25 @@ const PARCEL_RESOURCE_TOOLS = new Set([
   "screen_ldeq",
   "screen_full",
 ]);
+
+const SPECIALIST_INTENT_MAP: Record<SpecialistAgentKey, QueryIntent> = {
+  legal: "legal",
+  research: "research",
+  risk: "risk",
+  finance: "finance",
+  screener: "screener",
+  dueDiligence: "due_diligence",
+  entitlements: "entitlements",
+  design: "design",
+  operations: "operations",
+  marketing: "marketing",
+  tax: "tax",
+  marketIntel: "market_intel",
+  marketTrajectory: "market_trajectory",
+  acquisitionUnderwriting: "acquisition_underwriting",
+  assetManagement: "asset_management",
+  capitalMarkets: "capital_markets",
+};
 
 export const SPECIALIST_CONSULT_TOOLS: SpecialistConsultToolConfig[] = [
   {
@@ -220,11 +240,17 @@ function buildSpecialistContextLoader(config: SpecialistAgentConfig): LazyContex
 function withTools(config: SpecialistAgentConfig): Agent {
   initAgentsSentry();
   const contextLoader = buildSpecialistContextLoader(config);
+  const googleMapsMcpTool = buildGoogleMapsMcpServerTool({
+    intent: SPECIALIST_INTENT_MAP[config.key],
+  });
 
   return config.agent.clone({
     tools: instrumentAgentTools(
       config.agent.name,
-      filterUnsupportedAgentTools([...config.tools]),
+      filterUnsupportedAgentTools([
+        ...config.tools,
+        ...(googleMapsMcpTool ? [googleMapsMcpTool] : []),
+      ]),
     ) as Agent["tools"],
     handoffs: [],
     outputGuardrails: [
@@ -472,6 +498,7 @@ export function createConfiguredCoordinator(options?: {
   const specialists = buildSpecialistTeam(profile.specialists);
   const consultTools = buildSpecialistConsultTools(specialistConfigs, specialists);
   const plannerContext = buildPlannerContext(intent);
+  const googleMapsMcpTool = buildGoogleMapsMcpServerTool({ intent });
   const instructions = plannerContext
     ? `${coordinatorAgent.instructions}\n\n${plannerContext}`
     : coordinatorAgent.instructions;
@@ -479,7 +506,11 @@ export function createConfiguredCoordinator(options?: {
   return coordinatorAgent.clone({
     tools: instrumentAgentTools(
       coordinatorAgent.name,
-      filterUnsupportedAgentTools([...coordinatorTools, ...consultTools]),
+      filterUnsupportedAgentTools([
+        ...coordinatorTools,
+        ...consultTools,
+        ...(googleMapsMcpTool ? [googleMapsMcpTool] : []),
+      ]),
     ) as Agent["tools"],
     handoffs: specialists,
     instructions,
