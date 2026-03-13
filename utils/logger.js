@@ -82,6 +82,9 @@ function resetRetrievalMetrics() {
  */
 function recordDataAgentAutoFeed(payload) {
     sharedTelemetry.recordDataAgentAutoFeed?.(payload);
+    if (payload.status === "started") {
+        return;
+    }
     if (payload.status === "succeeded") {
         exports.logger.info("Data Agent auto-feed succeeded", {
             runId: payload.runId,
@@ -91,6 +94,17 @@ function recordDataAgentAutoFeed(payload) {
             temporalEdgesInserted: payload.temporalEdgesInserted,
             rewardScore: payload.rewardScore,
             status: payload.status,
+        });
+        return;
+    }
+    if (payload.status === "schema_unavailable") {
+        exports.logger.info("Data Agent auto-feed skipped", {
+            runId: payload.runId,
+            episodeId: payload.episodeId,
+            vectorMode: payload.vectorMode,
+            status: payload.status,
+            hasWarnings: payload.hasWarnings,
+            rewardScore: payload.rewardScore,
         });
         return;
     }

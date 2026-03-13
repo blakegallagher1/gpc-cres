@@ -14,7 +14,7 @@ type AutoFeedTelemetryPayload = {
     kgEventsInserted: number;
     temporalEdgesInserted: number;
     rewardScore: number | null;
-    status: "started" | "succeeded" | "failed" | "validation_error";
+    status: "started" | "succeeded" | "failed" | "validation_error" | "schema_unavailable";
     hasWarnings: boolean;
 };
 /**

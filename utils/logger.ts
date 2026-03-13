@@ -21,7 +21,7 @@ type AutoFeedTelemetryPayload = {
   kgEventsInserted: number;
   temporalEdgesInserted: number;
   rewardScore: number | null;
-  status: "started" | "succeeded" | "failed" | "validation_error";
+  status: "started" | "succeeded" | "failed" | "validation_error" | "schema_unavailable";
   hasWarnings: boolean;
 };
 
@@ -108,6 +108,10 @@ export function resetRetrievalMetrics(): void {
 export function recordDataAgentAutoFeed(payload: AutoFeedTelemetryPayload): void {
   sharedTelemetry.recordDataAgentAutoFeed?.(payload);
 
+  if (payload.status === "started") {
+    return;
+  }
+
   if (payload.status === "succeeded") {
     logger.info("Data Agent auto-feed succeeded", {
       runId: payload.runId,
@@ -117,6 +121,18 @@ export function recordDataAgentAutoFeed(payload: AutoFeedTelemetryPayload): void
       temporalEdgesInserted: payload.temporalEdgesInserted,
       rewardScore: payload.rewardScore,
       status: payload.status,
+    });
+    return;
+  }
+
+  if (payload.status === "schema_unavailable") {
+    logger.info("Data Agent auto-feed skipped", {
+      runId: payload.runId,
+      episodeId: payload.episodeId,
+      vectorMode: payload.vectorMode,
+      status: payload.status,
+      hasWarnings: payload.hasWarnings,
+      rewardScore: payload.rewardScore,
     });
     return;
   }
