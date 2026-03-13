@@ -31,6 +31,8 @@ const PROPERTY_DB_SEARCH_TERMS = [
 const MAX_SEARCH_FALLBACK_QUERIES = 8;
 const MAX_BASELINE_FALLBACK_QUERIES = 1;
 const MAX_SEARCH_VARIANT_QUERIES = 2;
+const DEFAULT_PROPERTY_DB_GATEWAY_TIMEOUT_MS = 15_000;
+const MAX_PROPERTY_DB_GATEWAY_TIMEOUT_MS = 25_000;
 const LOCATION_STOP_WORDS = new Set([
   "baton",
   "rouge",
@@ -43,8 +45,12 @@ const LOCATION_STOP_WORDS = new Set([
 const PROPERTY_DB_GATEWAY_TIMEOUT_MS = Math.max(
   1500,
   Math.min(
-    10000,
-    Number.parseInt(process.env.PROPERTY_DB_GATEWAY_TIMEOUT_MS ?? "6500", 10) || 6500,
+    MAX_PROPERTY_DB_GATEWAY_TIMEOUT_MS,
+    Number.parseInt(
+      process.env.PROPERTY_DB_GATEWAY_TIMEOUT_MS ??
+        String(DEFAULT_PROPERTY_DB_GATEWAY_TIMEOUT_MS),
+      10,
+    ) || DEFAULT_PROPERTY_DB_GATEWAY_TIMEOUT_MS,
   ),
 );
 
@@ -418,8 +424,13 @@ async function gatewaySearchParcels(q: string, limit: number): Promise<unknown[]
     if (isGatewayUnavailableError(err)) {
       throw err;
     }
-    const message = err instanceof Error ? err.message : String(err);
-    throw new GatewayUnavailableError(`[gatewaySearchParcels] exception: ${message}`);
+    const reason =
+      err instanceof Error && err.name === "AbortError"
+        ? `request timed out after ${PROPERTY_DB_GATEWAY_TIMEOUT_MS}ms`
+        : err instanceof Error
+          ? err.message
+          : String(err);
+    throw new GatewayUnavailableError(`[gatewaySearchParcels] exception: ${reason}`);
   } finally {
     clearTimeout(timeout);
   }

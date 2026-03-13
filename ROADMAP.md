@@ -165,6 +165,30 @@ Only items meeting all checks are added below as `Planned`.
   - Focused verification passed: `pnpm exec vitest run tests/smoke_endpoints.test.ts tests/parcel_smoke_prod.test.ts` and `pnpm -C apps/web test -- app/api/map/prospect/route.post.test.ts`.
   - Live production verification passed from the local harness on 2026-03-13: `pnpm smoke:endpoints` succeeded against `https://gallagherpropco.com`, and `bash scripts/verify-production-features.sh` completed successfully with edge-access, endpoint smoke, and parcel smoke all green.
 
+### MAP-013 — Parcel Gateway Timeout Hardening (P0)
+
+- **Priority:** P0
+- **Status:** Done (2026-03-13)
+- **Scope:** Harden the live `/api/parcels` gateway-search timeout budget so production known-address searches do not abort before the property-db gateway responds.
+- **Problem:** After the `MAP-012` harness fixes deployed, the new production build on commit `eae2669` still shows `GET /api/parcels?hasCoords=true&search=4416 HEATH DR` returning `503 GATEWAY_UNAVAILABLE`. Vercel runtime logs for the live request show `[/api/parcels] property DB unavailable Error [GatewayUnavailableError]: [gatewaySearchParcels] exception: This operation was aborted`, which indicates the route's own `PROPERTY_DB_GATEWAY_TIMEOUT_MS` budget is expiring before the upstream search call completes.
+- **Expected Outcome (measurable):**
+  - Default `/api/parcels` gateway searches tolerate a slower but successful upstream search response instead of aborting at the current short timeout.
+  - Timeout-driven failures log an explicit `request timed out after ...ms` reason instead of a generic abort string.
+  - Regression coverage proves the default timeout budget is above the observed live-search latency envelope.
+- **Evidence of need:** On 2026-03-13, the production deployment `dpl_AtFMwKSENXBJ5rjcNAkxnis7RTmd` served commit `eae2669`, `/api/health` reported `propertyDb.reachable=true`, and Vercel request logs for `/api/parcels` showed the route aborting its own gateway fetch before completion.
+- **Alignment:** Preserves the gateway-only parcel architecture, keeps true upstream outages surfaced as degraded fallback or `503`, and avoids loosening auth/org-scoping controls.
+- **Risk/rollback:** Low risk because the change is limited to the parcel route's timeout handling and focused regression tests. Rollback is straightforward by reverting the timeout/logging adjustment if user-facing latency becomes unacceptable.
+- **Acceptance Criteria / Tests:**
+  - `/api/parcels` no longer aborts successful gateway searches at the current production latency envelope.
+  - Timeout failures include the configured timeout duration in the gateway-unavailable log/error path.
+  - Add focused route-test coverage for a slower successful gateway response under the default timeout budget.
+- **Evidence / Verification:**
+  - Patched [apps/web/app/api/parcels/route.ts](/Users/gallagherpropertycompany/Documents/gallagher-cres/apps/web/app/api/parcels/route.ts) to raise the default gateway timeout budget from the previous short 6.5s path, preserve env override support, and log explicit `request timed out after ...ms` abort reasons.
+  - Added regression coverage in [apps/web/app/api/parcels/route.test.ts](/Users/gallagherpropertycompany/Documents/gallagher-cres/apps/web/app/api/parcels/route.test.ts) for both a slower successful gateway response under the default timeout budget and an explicit timeout-duration log on abort.
+  - Production diagnosis captured on 2026-03-13 from deployment `dpl_AtFMwKSENXBJ5rjcNAkxnis7RTmd`: `/api/health` reported `propertyDb.reachable=true` on commit `eae2669`, while Vercel request logs for `/api/parcels` showed `GatewayUnavailableError` caused by an aborted gateway request.
+  - Focused verification passed: `pnpm -C apps/web test -- app/api/parcels/route.test.ts` and `pnpm exec vitest run tests/smoke_endpoints.test.ts tests/parcel_smoke_prod.test.ts`.
+  - Full verification gate passed: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `OPENAI_API_KEY=placeholder pnpm build`.
+
 ### CHAT-002 — Chat Surface Local-Degradation + Error Sanitization (P0)
 
 - **Priority:** P0

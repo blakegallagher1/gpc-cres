@@ -444,6 +444,137 @@ describe("GET /api/parcels", () => {
     expect(attemptedQueries.slice(0, 2)).toEqual(["4416 HEATH DR", "4416 heath"]);
   });
 
+  it("keeps the default gateway timeout high enough for slower successful gateway responses", async () => {
+    vi.useFakeTimers();
+
+    try {
+      ({ GET } = await import("./route"));
+      logPropertyDbRuntimeHealthMock.mockReturnValue({
+        url: "http://property-db.test",
+        key: "test-key",
+      });
+      requireGatewayConfigMock.mockReturnValue({
+        url: "http://property-db.test",
+        key: "test-key",
+      });
+      resolveAuthMock.mockResolvedValue({
+        userId: "99999999-9999-4999-8999-999999999999",
+        orgId: "11111111-1111-4111-8111-111111111111",
+      });
+      findManyMock.mockResolvedValue([]);
+      fetchMock.mockImplementation((_url, init) =>
+        new Promise((resolve, reject) => {
+          const signal = init?.signal as AbortSignal | undefined;
+          const timeout = setTimeout(() => {
+            resolve({
+              ok: true,
+              text: async () =>
+                JSON.stringify([
+                  {
+                    id: "external-slow-1",
+                    site_address: "4416 Heath Dr",
+                    latitude: 30.45,
+                    longitude: -91.12,
+                    acreage: 0.7,
+                    flood_zone: "X",
+                    zone_code: "C2",
+                    parcel_uid: "parcel-uid-slow-1",
+                  },
+                ]),
+              json: async () => [
+                {
+                  id: "external-slow-1",
+                  site_address: "4416 Heath Dr",
+                  latitude: 30.45,
+                  longitude: -91.12,
+                  acreage: 0.7,
+                  flood_zone: "X",
+                  zone_code: "C2",
+                  parcel_uid: "parcel-uid-slow-1",
+                },
+              ],
+            } as Response);
+          }, 7500);
+
+          signal?.addEventListener(
+            "abort",
+            () => {
+              clearTimeout(timeout);
+              const abortError = new Error("This operation was aborted");
+              abortError.name = "AbortError";
+              reject(abortError);
+            },
+            { once: true },
+          );
+        }),
+      );
+
+      const req = new NextRequest("http://localhost/api/parcels?hasCoords=true");
+      const pending = GET(req);
+      await vi.advanceTimersByTimeAsync(7600);
+      const res = await pending;
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.source).toBe("property-db");
+      expect(body.parcels[0].address).toBe("4416 Heath Dr");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("logs the configured timeout duration when gateway search aborts", async () => {
+    vi.useFakeTimers();
+    process.env.PROPERTY_DB_GATEWAY_TIMEOUT_MS = "1500";
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    try {
+      ({ GET } = await import("./route"));
+      resolveAuthMock.mockResolvedValue({
+        userId: "99999999-9999-4999-8999-999999999999",
+        orgId: "11111111-1111-4111-8111-111111111111",
+      });
+      findManyMock.mockRejectedValue(new Error("db unavailable"));
+      fetchMock.mockImplementation((_url, init) =>
+        new Promise((_, reject) => {
+          const signal = init?.signal as AbortSignal | undefined;
+          signal?.addEventListener(
+            "abort",
+            () => {
+              const abortError = new Error("This operation was aborted");
+              abortError.name = "AbortError";
+              reject(abortError);
+            },
+            { once: true },
+          );
+        }),
+      );
+
+      const req = new NextRequest("http://localhost/api/parcels?hasCoords=true");
+      const pending = GET(req);
+      await vi.advanceTimersByTimeAsync(1600);
+      const res = await pending;
+      const body = await res.json();
+
+      expect(res.status).toBe(503);
+      expect(body).toEqual({
+        error: "Property database unavailable",
+        code: "GATEWAY_UNAVAILABLE",
+      });
+
+      const timeoutLog = consoleErrorSpy.mock.calls.find((call) =>
+        String(call[0]).includes("[/api/parcels] property DB unavailable") &&
+        call[1] instanceof Error &&
+        call[1].message.includes("request timed out after 1500ms"),
+      );
+      expect(timeoutLog).toBeTruthy();
+    } finally {
+      delete process.env.PROPERTY_DB_GATEWAY_TIMEOUT_MS;
+      consoleErrorSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
   it("caps baseline gateway fanout for non-search map loads", async () => {
     ({ GET } = await import("./route"));
     resolveAuthMock.mockResolvedValue({
