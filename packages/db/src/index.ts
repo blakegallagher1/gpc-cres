@@ -1,4 +1,6 @@
 export { prisma, prismaRead } from "./client.js";
+export { getDataAgentSchemaCapabilities } from "./schemaCapabilities.js";
+export type { DataAgentSchemaCapabilities } from "./schemaCapabilities.js";
 
 // Re-export Prisma types for downstream packages (e.g. evidence) without requiring
 // them to depend on @prisma/client directly.

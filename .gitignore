@@ -39,6 +39,9 @@ yarn-error.log*
 coverage/
 playwright-report/
 test-results/
+.next-playwright-*/
+apps/web/.playwright/
+apps/web/tsconfig.playwright.*.json
 
 ############################
 # Python (legacy/)

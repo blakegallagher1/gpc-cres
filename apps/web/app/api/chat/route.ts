@@ -6,10 +6,9 @@ import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { runAgentWorkflow } from "@/lib/agent/agentRunner";
 import type { AgentStreamEvent } from "@/lib/agent/executeAgent";
 import { extractAndMergeConversationPreferences } from "@/lib/services/preferenceExtraction.service";
-
-function sseEvent(data: Record<string, unknown>): string {
-  return `data: ${JSON.stringify(data)}\n\n`;
-}
+import { shouldUseAppDatabaseDevFallback } from "@/lib/server/appDbEnv";
+import { sanitizeChatErrorMessage } from "./_lib/errorHandling";
+import { createSseWriter, sseEvent } from "./sseWriter";
 
 function buildMapContextPrefix(mapContext: MapContextInput | null | undefined): string {
   const center = mapContext?.center;
@@ -44,55 +43,10 @@ function buildMapContextPrefix(mapContext: MapContextInput | null | undefined): 
   }\nreferencedFeatures=${referencedText}\n[/Map Context]\n\n`;
 }
 
-function isInternalFailureMessage(message: string): boolean {
-  const normalized = message.toLowerCase();
-  return (
-    normalized.includes("prisma") ||
-    normalized.includes("findmany") ||
-    normalized.includes("public.") ||
-    normalized.includes("user_preferences") ||
-    normalized.includes("the table")
-  );
-}
-
-function isSystemConfigurationErrorMessage(message: string): boolean {
-  const normalized = message.toLowerCase();
-  return (
-    normalized.includes("invalid schema for response_format") ||
-    normalized.includes("response_format") ||
-    normalized.includes("not a valid format") ||
-    normalized.includes("json_schema") ||
-    normalized.includes("outputtype")
-  );
-}
-
-function isGuardrailTripwireMessage(message: string): boolean {
-  const normalized = message.toLowerCase();
-  return (
-    normalized.includes("input guardrail triggered") ||
-    normalized.includes("output guardrail triggered") ||
-    normalized.includes("guardrail tripwire")
-  );
-}
-
 function toClientErrorPayload(message: string, correlationId: string): Record<string, unknown> {
-  if (!isGuardrailTripwireMessage(message)) {
-    if (isInternalFailureMessage(message) || isSystemConfigurationErrorMessage(message)) {
-      return {
-        type: "error",
-        code: "system_configuration_error",
-        correlationId,
-        message: "System configuration error. Please contact admin.",
-      };
-    }
-    return { type: "error", message };
-  }
-
   return {
     type: "error",
-    code: "guardrail_tripwire",
-    message:
-      "Request blocked by safety guardrails. Please revise the prompt or remove risky/unvalidated content and try again.",
+    ...sanitizeChatErrorMessage(message, correlationId),
   };
 }
 
@@ -141,10 +95,36 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  if (shouldUseAppDatabaseDevFallback()) {
+    const errorPayload = toClientErrorPayload(
+      "PrismaClientInitializationError: Environment variable not found: DATABASE_URL",
+      correlationId,
+    );
+    return new Response(
+      `${sseEvent(errorPayload)}${sseEvent({
+        type: "done",
+        runId: randomUUID(),
+        status: "failed",
+        conversationId: requestedConversationId ?? null,
+      })}`,
+      {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+        },
+      },
+    );
+  }
+
   const encoder = new TextEncoder();
+  let writer:
+    | ReturnType<typeof createSseWriter>
+    | null = null;
   const stream = new ReadableStream({
     async start(controller) {
       let doneSent = false;
+      writer = createSseWriter(controller, encoder);
 
       try {
         const mapContextPrefix = buildMapContextPrefix(mapContext);
@@ -166,14 +146,10 @@ export async function POST(req: NextRequest) {
             }
             if (event.type === "error") {
               console.error(`[chat-route][${correlationId}]`, event.message);
-              controller.enqueue(
-                encoder.encode(sseEvent(toClientErrorPayload(event.message, correlationId))),
-              );
+              writer?.enqueue(toClientErrorPayload(event.message, correlationId));
               return;
             }
-            controller.enqueue(
-              encoder.encode(sseEvent(event as Record<string, unknown>)),
-            );
+            writer?.enqueue(event as Record<string, unknown>);
           },
         });
 
@@ -192,24 +168,21 @@ export async function POST(req: NextRequest) {
       } catch (error) {
         const errMsg = error instanceof Error ? error.message : "Agent execution failed";
         console.error(`[chat-route][${correlationId}]`, errMsg);
-        controller.enqueue(
-          encoder.encode(sseEvent(toClientErrorPayload(errMsg, correlationId))),
-        );
+        writer?.enqueue(toClientErrorPayload(errMsg, correlationId));
       } finally {
         if (!doneSent) {
-          controller.enqueue(
-              encoder.encode(
-              sseEvent({
-                type: "done",
-                runId: randomUUID(),
-                status: "failed",
-                conversationId: requestedConversationId,
-              }),
-            ),
-          );
+          writer?.enqueue({
+            type: "done",
+            runId: randomUUID(),
+            status: "failed",
+            conversationId: requestedConversationId,
+          });
         }
-        controller.close();
+        writer?.close();
       }
+    },
+    cancel() {
+      writer?.markClosed();
     },
   });
 

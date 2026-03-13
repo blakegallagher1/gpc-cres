@@ -404,6 +404,9 @@ function sleepMs(ms: number): Promise<void> {
 }
 
 function shouldUseTemporalAgentFlow(): boolean {
+  if (process.env.ENABLE_TEMPORAL !== "true") {
+    return false;
+  }
   const temporalAddress = process.env.TEMPORAL_ADDRESS;
   return typeof temporalAddress === "string" && temporalAddress.length > 0;
 }

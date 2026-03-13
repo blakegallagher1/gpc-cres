@@ -271,6 +271,26 @@ describe("/api/deals route", () => {
       expect(dealFindManyMock).not.toHaveBeenCalled();
       expect(fetchMock).not.toHaveBeenCalled();
     });
+
+    it("degrades to an empty list when local Prisma fallback is unavailable", async () => {
+      resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
+      delete process.env.LOCAL_API_URL;
+      delete process.env.LOCAL_API_KEY;
+      process.env.NODE_ENV = "development";
+      dealFindManyMock.mockRejectedValue(
+        new Error(
+          "PrismaClientInitializationError: Environment variable not found: DATABASE_URL",
+        ),
+      );
+
+      const req = new NextRequest("http://localhost/api/deals");
+      const res = await GET(req);
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body).toEqual({ deals: [], degraded: true });
+      expect(sentryCaptureExceptionMock).not.toHaveBeenCalled();
+    });
   });
 
   describe("POST", () => {

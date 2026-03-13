@@ -75,7 +75,7 @@ function handleApiCors(req: NextRequest, requestId: string): NextResponse {
   return res;
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const requestId = getOrCreateRequestId(request);
 
@@ -119,7 +119,7 @@ export async function middleware(request: NextRequest) {
 
     return nextResponseWithRequestId(request, requestId);
   } catch (error) {
-    console.error(`[middleware][${requestId}]`, error);
+    console.error(`[proxy][${requestId}]`, error);
     if (pathname.startsWith("/api/")) {
       return finalizeResponse(
         NextResponse.json({ error: "Internal server error" }, { status: 500 }),

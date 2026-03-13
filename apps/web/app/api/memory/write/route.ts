@@ -4,6 +4,7 @@ import { resolveEntityId } from "@/lib/services/entityResolution";
 import { memoryWriteGate } from "@/lib/services/memoryWriteGate";
 import { ingestKnowledge } from "@/lib/services/knowledgeBase.service";
 import { bridgeCompToMarket } from "@/lib/services/compToMarket";
+import { shouldUseAppDatabaseDevFallback } from "@/lib/server/appDbEnv";
 
 const ADDRESS_WITH_CITY_STATE_ZIP_RE =
   /\b\d{1,6}\s+[A-Za-z0-9.'\- ]+?\s(?:Street|St\.?|Avenue|Ave\.?|Boulevard|Blvd\.?|Road|Rd\.?|Drive|Dr\.?|Lane|Ln\.?|Court|Ct\.?|Place|Pl\.?|Parkway|Pkwy\.?|Highway|Hwy\.?|Trail|Trl\.?|Way|Terrace|Terr\.?|Circle|Cir\.?)\s*,\s*[A-Za-z .'-]+,\s*[A-Z]{2}\s+\d{5}\b/i;
@@ -46,6 +47,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "At least one of entity_id, address, or parcel_id is required" },
         { status: 400 },
+      );
+    }
+
+    if (shouldUseAppDatabaseDevFallback()) {
+      return NextResponse.json(
+        { error: "Memory store is temporarily unavailable", degraded: true },
+        { status: 503 },
       );
     }
 

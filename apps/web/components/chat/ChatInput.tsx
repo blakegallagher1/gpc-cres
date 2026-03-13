@@ -43,7 +43,7 @@ export function ChatInput({ onSend, isStreaming, onStop }: ChatInputProps) {
 
     const el = textareaRef.current;
     if (!el) return;
-    const value = draft.trim();
+    const value = (el.value || draft).trim();
     if (!value) return;
 
     onSend(value);

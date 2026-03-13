@@ -166,6 +166,7 @@ function setTemporalUnavailable() {
 describe("runAgentWorkflow local fallback resilience", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    process.env.ENABLE_TEMPORAL = "true";
     process.env.TEMPORAL_ADDRESS = "http://temporal.local:7233";
     setTemporalUnavailable();
 
@@ -218,6 +219,7 @@ describe("runAgentWorkflow local fallback resilience", () => {
   });
 
   it("uses org-scoped conversation lookup on happy path when conversationId is provided", async () => {
+    delete process.env.ENABLE_TEMPORAL;
     delete process.env.TEMPORAL_ADDRESS;
     prisma.conversation.findFirst.mockResolvedValue({ id: "conv-1" });
     prisma.message.findMany.mockResolvedValue([]);
@@ -238,6 +240,7 @@ describe("runAgentWorkflow local fallback resilience", () => {
   });
 
   it("rejects cross-tenant conversation IDs when membership scope does not match", async () => {
+    delete process.env.ENABLE_TEMPORAL;
     delete process.env.TEMPORAL_ADDRESS;
     prisma.conversation.findFirst.mockResolvedValue(null);
 
@@ -252,6 +255,7 @@ describe("runAgentWorkflow local fallback resilience", () => {
   });
 
   it("skips fallback history query when persistConversation=false and no conversationId", async () => {
+    delete process.env.ENABLE_TEMPORAL;
     delete process.env.TEMPORAL_ADDRESS;
     prisma.conversation.findFirst.mockReset();
     prisma.message.findMany.mockResolvedValue([
@@ -273,5 +277,21 @@ describe("runAgentWorkflow local fallback resilience", () => {
 
     expect(prisma.conversation.findFirst).not.toHaveBeenCalled();
     expect(prisma.message.findMany).not.toHaveBeenCalled();
+  });
+
+  it("uses the direct local path when Temporal is not explicitly enabled", async () => {
+    delete process.env.ENABLE_TEMPORAL;
+    process.env.TEMPORAL_ADDRESS = "http://temporal.local:7233";
+    prisma.run.upsert.mockResolvedValue({ id: "run-3", status: "running" });
+    prisma.run.update.mockResolvedValue({ id: "run-3", status: "succeeded" });
+
+    await runAgentWorkflow({
+      ...BASE_REQUEST,
+      correlationId: "temporal-disabled-local-direct",
+      persistConversation: false,
+    });
+
+    expect(getTemporalClient).not.toHaveBeenCalled();
+    expect((executeAgentWorkflow as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(1);
   });
 });

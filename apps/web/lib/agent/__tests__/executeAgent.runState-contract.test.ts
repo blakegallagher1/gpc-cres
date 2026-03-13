@@ -569,9 +569,29 @@ describe("executeAgentWorkflow", () => {
         {
           type: "run_item_stream_event",
           item: {
-            type: "tool_result",
-            name: "store_memory",
+            type: "tool_called",
+            name: "tool_called",
+            raw_item: {
+              type: "function_call",
+              name: "store_memory",
+              arguments: JSON.stringify({
+                input_text: "123 Main St sold for $800K.",
+              }),
+              call_id: "call-store-memory",
+            },
+          },
+        },
+        {
+          type: "run_item_stream_event",
+          item: {
+            type: "tool_output",
+            name: "tool_output",
             output: { stored: true },
+            raw_item: {
+              type: "function_call_output",
+              name: "store_memory",
+              call_id: "call-store-memory",
+            },
           },
         },
       ]),
@@ -603,6 +623,468 @@ describe("executeAgentWorkflow", () => {
         enabled: false,
         missingEvidenceCount: 0,
       }),
+    );
+  });
+
+  it("skips proof enforcement for explicit memory-ingestion requests once store_memory succeeds", async () => {
+    const { prisma } = await vi.importMock("@entitlement-os/db");
+    const openAiAgents = await vi.importMock("@openai/agents");
+    const openAiRuntime = await vi.importMock("@entitlement-os/openai");
+    const { run } = openAiAgents as {
+      run: ReturnType<typeof vi.fn>;
+      user: ReturnType<typeof vi.fn>;
+      assistant: ReturnType<typeof vi.fn>;
+    };
+
+    prisma.run.findUnique.mockResolvedValue(null);
+    prisma.run.upsert.mockResolvedValue({
+      id: NORMALIZED_RUN_ID,
+      status: "running",
+      inputHash: "input-hash",
+      outputJson: null,
+      openaiResponseId: null,
+      startedAt: new Date("2025-01-01T00:00:00.000Z"),
+      finishedAt: null,
+    });
+    openAiRuntime.getProofGroupsForIntent.mockReturnValue([
+      { label: "Parcel Proof", tools: ["search_parcels"] },
+    ]);
+    openAiRuntime.evaluateProofCompliance.mockReturnValue([
+      {
+        group: { label: "Parcel Proof", tools: ["search_parcels"] },
+        missingTools: ["search_parcels"],
+      },
+    ]);
+    (run as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      makeAsyncEventStream([
+        {
+          type: "raw_model_stream_event",
+          data: {
+            delta:
+              "Stored and verified the property fact for future recall: 123 Memory Ln sold for $800,000.",
+          },
+        },
+        {
+          type: "run_item_stream_event",
+          item: {
+            type: "tool_called",
+            name: "tool_called",
+            raw_item: {
+              type: "function_call",
+              name: "store_memory",
+              arguments: JSON.stringify({
+                input_text:
+                  "Store this property fact for future recall: 123 Memory Ln sold for $800,000.",
+              }),
+              call_id: "call-store-memory-proof-skip",
+            },
+          },
+        },
+        {
+          type: "run_item_stream_event",
+          item: {
+            type: "tool_output",
+            name: "tool_output",
+            output: { stored: true },
+            raw_item: {
+              type: "function_call_output",
+              name: "store_memory",
+              call_id: "call-store-memory-proof-skip",
+            },
+          },
+        },
+      ]),
+    );
+    prisma.run.update.mockResolvedValue({ status: "succeeded" });
+
+    const result = await executeAgentWorkflow({
+      orgId: "org-test",
+      userId: "user-test",
+      conversationId: "conversation-test",
+      runId: SOURCE_RUN_ID,
+      input: [
+        {
+          role: "user",
+          content:
+            "Store this property fact for future recall: 123 Memory Ln sold for $800,000 on 2025-01-01.",
+        },
+      ],
+      runType: "ENRICHMENT",
+      correlationId: "corr-proof-skip",
+    });
+
+    expect(result.status).toBe("succeeded");
+
+    const updateCall = prisma.run.update.mock.calls[0][0];
+    const outputJson = updateCall.data.outputJson as Record<string, unknown>;
+    expect(outputJson.toolFailures).not.toEqual(
+      expect.arrayContaining([expect.stringContaining("proof_enforcement")]),
+    );
+    expect(outputJson.proofChecks).toEqual(
+      expect.arrayContaining(["Parcel Proof:skipped-ingestion"]),
+    );
+  });
+
+  it("preserves plain-text knowledge-ingestion confirmations without fallback normalization", async () => {
+    const { prisma } = await vi.importMock("@entitlement-os/db");
+    const openAiAgents = await vi.importMock("@openai/agents");
+    const openAiRuntime = await vi.importMock("@entitlement-os/openai");
+    const loggerModule = await vi.importMock("../loggerAdapter");
+    const { run } = openAiAgents as {
+      run: ReturnType<typeof vi.fn>;
+      user: ReturnType<typeof vi.fn>;
+      assistant: ReturnType<typeof vi.fn>;
+    };
+
+    prisma.run.findUnique.mockResolvedValue(null);
+    prisma.run.upsert.mockResolvedValue({
+      id: NORMALIZED_RUN_ID,
+      status: "running",
+      inputHash: "input-hash",
+      outputJson: null,
+      openaiResponseId: null,
+      startedAt: new Date("2025-01-01T00:00:00.000Z"),
+      finishedAt: null,
+    });
+    openAiRuntime.getProofGroupsForIntent.mockReturnValue([
+      { label: "Parcel Proof", tools: ["search_parcels"] },
+    ]);
+    openAiRuntime.evaluateProofCompliance.mockReturnValue([
+      {
+        group: { label: "Parcel Proof", tools: ["search_parcels"] },
+        missingTools: ["search_parcels"],
+      },
+    ]);
+    (run as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      makeAsyncEventStream([
+        {
+          type: "raw_model_stream_event",
+          data: {
+            delta:
+              "Stored the underwriting pattern in the knowledge base for future reference.",
+          },
+        },
+        {
+          type: "run_item_stream_event",
+          item: {
+            type: "tool_called",
+            name: "tool_called",
+            raw_item: {
+              type: "function_call",
+              name: "store_knowledge_entry",
+              arguments: JSON.stringify({
+                title: "Industrial flex rent growth pattern",
+              }),
+              call_id: "call-store-knowledge-entry",
+            },
+          },
+        },
+        {
+          type: "run_item_stream_event",
+          item: {
+            type: "tool_output",
+            name: "tool_output",
+            output: { stored: true },
+            raw_item: {
+              type: "function_call_output",
+              name: "store_knowledge_entry",
+              call_id: "call-store-knowledge-entry",
+            },
+          },
+        },
+      ]),
+    );
+    prisma.run.update.mockResolvedValue({ status: "succeeded" });
+
+    const result = await executeAgentWorkflow({
+      orgId: "org-test",
+      userId: "user-test",
+      conversationId: "conversation-test",
+      runId: SOURCE_RUN_ID,
+      input: [
+        {
+          role: "user",
+          content:
+            "Store this underwriting pattern in the knowledge base for future reference: industrial flex rents in Baton Rouge hold better when dock-high access is present.",
+        },
+      ],
+      runType: "ENRICHMENT",
+      correlationId: "corr-knowledge-ingest",
+    });
+
+    expect(result.status).toBe("succeeded");
+    expect(result.finalOutput).toBe(
+      "Stored the underwriting pattern in the knowledge base for future reference.",
+    );
+    expect(result.finalReport).toBeNull();
+
+    const updateCall = prisma.run.update.mock.calls[0][0];
+    const outputJson = updateCall.data.outputJson as Record<string, unknown>;
+    expect(outputJson.finalOutput).toBe(
+      "Stored the underwriting pattern in the knowledge base for future reference.",
+    );
+    expect(outputJson.finalReport).toBeNull();
+    expect(outputJson.proofChecks).toEqual(
+      expect.arrayContaining(["Parcel Proof:skipped-ingestion"]),
+    );
+    expect(outputJson.toolFailures).not.toEqual(
+      expect.arrayContaining([expect.stringContaining("final_report")]),
+    );
+    expect((loggerModule.logger.warn as ReturnType<typeof vi.fn>)).not.toHaveBeenCalledWith(
+      "Agent final output was non-JSON; applied fallback report normalization",
+      expect.anything(),
+    );
+  });
+
+  it("preserves plain-text address recall replies after lookup without fallback normalization", async () => {
+    const { prisma } = await vi.importMock("@entitlement-os/db");
+    const openAiAgents = await vi.importMock("@openai/agents");
+    const openAiRuntime = await vi.importMock("@entitlement-os/openai");
+    const { run } = openAiAgents as {
+      run: ReturnType<typeof vi.fn>;
+      user: ReturnType<typeof vi.fn>;
+      assistant: ReturnType<typeof vi.fn>;
+    };
+    const loggerModule = await vi.importMock("../loggerAdapter");
+    const reply = "$2,345,678";
+
+    openAiRuntime.getProofGroupsForIntent.mockReturnValue([]);
+    openAiRuntime.evaluateProofCompliance.mockReturnValue([]);
+
+    prisma.run.findUnique.mockResolvedValue(null);
+    prisma.run.upsert.mockResolvedValue({
+      id: NORMALIZED_RUN_ID,
+      status: "running",
+      inputHash: "input-hash",
+      outputJson: null,
+      openaiResponseId: null,
+      startedAt: new Date("2025-01-01T00:00:00.000Z"),
+      finishedAt: null,
+    });
+    (run as ReturnType<typeof vi.fn>).mockResolvedValue(
+      makeAsyncEventStream([
+        {
+          type: "run_item_stream_event",
+          item: {
+            type: "tool_called",
+            name: "tool_called",
+            raw_item: {
+              type: "function_call",
+              name: "lookup_entity_by_address",
+              arguments: JSON.stringify({
+                address: "1010 Trace Memory Ave, Baton Rouge, LA 70808",
+              }),
+              call_id: "call-lookup-entity",
+            },
+          },
+        },
+        {
+          type: "run_item_stream_event",
+          item: {
+            type: "tool_output",
+            name: "tool_output",
+            output: {
+              found: true,
+              entity_id: "entity-lookup",
+              address: "1010 Trace Memory Ave, Baton Rouge, LA 70808",
+            },
+            raw_item: {
+              type: "function_call_output",
+              name: "lookup_entity_by_address",
+              call_id: "call-lookup-entity",
+            },
+          },
+        },
+        {
+          type: "raw_model_stream_event",
+          data: { delta: reply },
+        },
+      ]),
+    );
+    prisma.run.update.mockResolvedValue({ status: "succeeded" });
+
+    const result = await executeAgentWorkflow({
+      orgId: "org-test",
+      userId: "user-test",
+      conversationId: "conversation-test",
+      runId: SOURCE_RUN_ID,
+      input: [
+        {
+          role: "user",
+          content: "What do we know about 1010 Trace Memory Ave, Baton Rouge, LA 70808?",
+        },
+      ],
+      runType: "ENRICHMENT",
+      correlationId: "corr-recall-plain-text",
+    });
+
+    expect(result.status).toBe("succeeded");
+    expect(result.finalOutput).toBe(reply);
+    expect(result.finalReport).toBeNull();
+
+    const updateCall = prisma.run.update.mock.calls[0][0];
+    const outputJson = updateCall.data.outputJson as Record<string, unknown>;
+    expect(outputJson.finalOutput).toBe(reply);
+    expect(outputJson.finalReport).toBeNull();
+    expect(outputJson.toolFailures).not.toEqual(
+      expect.arrayContaining([expect.stringContaining("final_report")]),
+    );
+    expect((loggerModule.logger.warn as ReturnType<typeof vi.fn>)).not.toHaveBeenCalledWith(
+      "Agent final output was non-JSON; applied fallback report normalization",
+      expect.anything(),
+    );
+  });
+
+  it("preserves plain-text numeric address recall replies after lookup without fallback normalization", async () => {
+    const { prisma } = await vi.importMock("@entitlement-os/db");
+    const openAiAgents = await vi.importMock("@openai/agents");
+    const openAiRuntime = await vi.importMock("@entitlement-os/openai");
+    const { run } = openAiAgents as {
+      run: ReturnType<typeof vi.fn>;
+      user: ReturnType<typeof vi.fn>;
+      assistant: ReturnType<typeof vi.fn>;
+    };
+    const loggerModule = await vi.importMock("../loggerAdapter");
+    const reply = "$2,345,678";
+
+    openAiRuntime.getProofGroupsForIntent.mockReturnValue([]);
+    openAiRuntime.evaluateProofCompliance.mockReturnValue([]);
+
+    prisma.run.findUnique.mockResolvedValue(null);
+    prisma.run.upsert.mockResolvedValue({
+      id: NORMALIZED_RUN_ID,
+      status: "running",
+      inputHash: "input-hash",
+      outputJson: null,
+      openaiResponseId: null,
+      startedAt: new Date("2025-01-01T00:00:00.000Z"),
+      finishedAt: null,
+    });
+    (run as ReturnType<typeof vi.fn>).mockResolvedValue(
+      makeAsyncEventStream([
+        {
+          type: "run_item_stream_event",
+          item: {
+            type: "tool_called",
+            name: "tool_called",
+            raw_item: {
+              type: "function_call",
+              name: "lookup_entity_by_address",
+              arguments: JSON.stringify({
+                address: "1010 Trace Memory Ave, Baton Rouge, LA 70808",
+              }),
+              call_id: "call-lookup-entity-numeric",
+            },
+          },
+        },
+        {
+          type: "run_item_stream_event",
+          item: {
+            type: "tool_output",
+            name: "tool_output",
+            output: {
+              found: true,
+              entity_id: "entity-lookup",
+              address: "1010 Trace Memory Ave, Baton Rouge, LA 70808",
+            },
+            raw_item: {
+              type: "function_call_output",
+              name: "lookup_entity_by_address",
+              call_id: "call-lookup-entity-numeric",
+            },
+          },
+        },
+        {
+          type: "raw_model_stream_event",
+          data: { delta: reply },
+        },
+      ]),
+    );
+    prisma.run.update.mockResolvedValue({ status: "succeeded" });
+
+    const result = await executeAgentWorkflow({
+      orgId: "org-test",
+      userId: "user-test",
+      conversationId: "conversation-test",
+      runId: SOURCE_RUN_ID,
+      input: [
+        {
+          role: "user",
+          content:
+            "What was the sale price for 1010 Trace Memory Ave, Baton Rouge, LA 70808? Reply with the number only.",
+        },
+      ],
+      runType: "ENRICHMENT",
+      correlationId: "corr-recall-plain-text-numeric",
+    });
+
+    expect(result.status).toBe("succeeded");
+    expect(result.finalOutput).toBe(reply);
+    expect(result.finalReport).toBeNull();
+
+    const updateCall = prisma.run.update.mock.calls[0][0];
+    const outputJson = updateCall.data.outputJson as Record<string, unknown>;
+    expect(outputJson.finalOutput).toBe(reply);
+    expect(outputJson.finalReport).toBeNull();
+    expect(outputJson.toolFailures).not.toEqual(
+      expect.arrayContaining([expect.stringContaining("final_report")]),
+    );
+    expect((loggerModule.logger.warn as ReturnType<typeof vi.fn>)).not.toHaveBeenCalledWith(
+      "Agent final output was non-JSON; applied fallback report normalization",
+      expect.anything(),
+    );
+  });
+
+  it("suppresses retrieval-context schema drift warnings in local runtimes", async () => {
+    const { prisma } = await vi.importMock("@entitlement-os/db");
+    const openAiAgents = await vi.importMock("@openai/agents");
+    const retrievalAdapter = await vi.importMock("../retrievalAdapter");
+    const loggerModule = await vi.importMock("../loggerAdapter");
+    const { run } = openAiAgents as {
+      run: ReturnType<typeof vi.fn>;
+      user: ReturnType<typeof vi.fn>;
+      assistant: ReturnType<typeof vi.fn>;
+    };
+
+    prisma.run.findUnique.mockResolvedValue(null);
+    prisma.run.upsert.mockResolvedValue({
+      id: NORMALIZED_RUN_ID,
+      status: "running",
+      inputHash: "input-hash",
+      outputJson: null,
+      openaiResponseId: null,
+      startedAt: new Date("2025-01-01T00:00:00.000Z"),
+      finishedAt: null,
+    });
+    prisma.run.update.mockResolvedValue({ status: "succeeded" });
+    (retrievalAdapter.unifiedRetrieval as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new Error('relation "KGEvent" does not exist'),
+    );
+    run.mockResolvedValue({
+      finalOutput: JSON.stringify(VALID_REPORT),
+      lastResponseId: "openai-response-id",
+    });
+
+    const result = await executeAgentWorkflow({
+      orgId: "org-test",
+      userId: "user-test",
+      conversationId: "conversation-test",
+      runId: SOURCE_RUN_ID,
+      input: [{ role: "user", content: "Summarize this opportunity." }],
+      runType: "ENRICHMENT",
+      correlationId: "corr-schema-drift-retrieval",
+    });
+
+    expect(result.status).toBe("succeeded");
+    expect((loggerModule.logger.info as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith(
+      "Skipped retrieval context computation due to local schema drift",
+      expect.objectContaining({
+        runId: NORMALIZED_RUN_ID,
+      }),
+    );
+    expect((loggerModule.logger.warn as ReturnType<typeof vi.fn>)).not.toHaveBeenCalledWith(
+      "Failed to compute retrieval context for run",
+      expect.anything(),
     );
   });
 

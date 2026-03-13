@@ -106,6 +106,35 @@ describe("memoryWriteGate", () => {
     expect(result.recordId).toBe("verified-1");
   });
 
+  it("normalizes decimal cap rates to percentages when the prompt uses percent notation", async () => {
+    createStrictJsonResponseMock.mockResolvedValue({
+      outputJson: {
+        ...VALID_COMP_WRITE,
+        payload: {
+          ...VALID_COMP_WRITE.payload,
+          cap_rate: 0.061,
+        },
+      },
+    });
+
+    const result = await memoryWriteGate(
+      "123 Main sold for $2.5M, 6.1% cap rate, NOI $162,500",
+      { entityId: ENTITY_ID, orgId: ORG_ID, address: "123 Main St" },
+    );
+
+    expect(result.decision).toBe("verified");
+    expect(result.structuredMemoryWrite?.payload).toHaveProperty("cap_rate", 6.1);
+    expect(prismaMock.memoryVerified.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          payloadJson: expect.objectContaining({
+            cap_rate: 6.1,
+          }),
+        }),
+      }),
+    );
+  });
+
   it("rejects when OpenAI structured output parsing fails", async () => {
     createStrictJsonResponseMock.mockRejectedValue(
       new Error("JSON parse error: unexpected token"),

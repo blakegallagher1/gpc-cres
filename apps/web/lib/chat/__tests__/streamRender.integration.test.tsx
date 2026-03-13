@@ -90,4 +90,37 @@ describe("chat stream rendering integration", () => {
       screen.getByText("Recovered from transient lookup timeout."),
     ).toBeTruthy();
   });
+
+  it("rehydrates approval prompts from conversation metadata after reload", () => {
+    render(
+      <MessageList
+        isStreaming={false}
+        messages={[
+          {
+            id: 'msg-reload-1',
+            role: 'system',
+            content: 'Approval required for update_deal_status',
+            createdAt: '2026-03-12T12:00:00.000Z',
+            metadata: {
+              kind: 'tool_approval_requested',
+              runId: 'run-reload-1',
+              toolCallId: 'call-reload-1',
+              toolName: 'update_deal_status',
+              pendingApproval: true,
+            },
+            toolCalls: [
+              {
+                name: 'update_deal_status',
+              },
+            ],
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText('Tool Approval Required')).toBeTruthy();
+    expect(screen.getByText('Approval required for update_deal_status')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Approve' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Reject' })).toBeTruthy();
+  });
 });

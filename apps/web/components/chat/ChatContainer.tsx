@@ -534,7 +534,7 @@ export function ChatContainer() {
         typeof window === 'undefined'
           ? null
           : new URLSearchParams(window.location.search).get('conversationId');
-      if (conversationRouteId && conversationRouteId !== conversationIdRef.current) {
+      if (conversationRouteId) {
         void loadConversation(conversationRouteId);
       }
     };

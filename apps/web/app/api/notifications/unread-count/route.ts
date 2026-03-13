@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { NotificationService } from "@/lib/services/notification.service";
 import { isSchemaDriftError } from "@/lib/api/prismaSchemaFallback";
+import { shouldUseAppDatabaseDevFallback } from "@/lib/server/appDbEnv";
+import { isPrismaConnectivityError } from "@/lib/server/devParcelFallback";
 import * as Sentry from "@sentry/nextjs";
 
 const service = new NotificationService();
@@ -14,13 +16,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    if (shouldUseAppDatabaseDevFallback()) {
+      return NextResponse.json({ count: 0, degraded: true });
+    }
+
     const count = await service.getUnreadCount(auth.userId);
     return NextResponse.json({ count });
   } catch (error) {
-    console.error("Error fetching unread count:", error);
-    if (isSchemaDriftError(error)) {
-      return NextResponse.json({ count: 0 });
+    if (isSchemaDriftError(error) || isPrismaConnectivityError(error)) {
+      return NextResponse.json({ count: 0, degraded: true });
     }
+    console.error("Error fetching unread count:", error);
     Sentry.captureException(error, {
       tags: { route: "api.notifications.unread-count", method: "GET" },
     });

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ZodError, z } from "zod";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { updateUserPreference } from "@/lib/services/preferenceService";
+import { shouldUseAppDatabaseDevFallback } from "@/lib/server/appDbEnv";
 
 const PreferencePatchSchema = z
   .object({
@@ -26,6 +27,14 @@ export async function PATCH(
   try {
     const { id } = await context.params;
     const body = PreferencePatchSchema.parse(await request.json());
+
+    if (shouldUseAppDatabaseDevFallback()) {
+      return NextResponse.json(
+        { error: "Preference storage is temporarily unavailable", degraded: true },
+        { status: 503 },
+      );
+    }
+
     const preference = await updateUserPreference({
       orgId: auth.orgId,
       userId: auth.userId,

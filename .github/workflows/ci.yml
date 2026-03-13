@@ -46,3 +46,90 @@ jobs:
 
       - name: Build
         run: pnpm --filter gpc-agent-dashboard build
+
+  chat-learning-chromium:
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: entitlement_os
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d entitlement_os"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      CI: "true"
+      AUTH_SECRET: "test-auth-secret-for-playwright"
+      NEXTAUTH_SECRET: "test-auth-secret-for-playwright"
+      DATABASE_URL: "postgresql://postgres:postgres@127.0.0.1:5432/entitlement_os?schema=public"
+      DIRECT_DATABASE_URL: "postgresql://postgres:postgres@127.0.0.1:5432/entitlement_os?schema=public"
+      DATABASE_URL_LOCAL: "postgresql://postgres:postgres@127.0.0.1:5432/entitlement_os?schema=public"
+      DIRECT_DATABASE_URL_LOCAL: "postgresql://postgres:postgres@127.0.0.1:5432/entitlement_os?schema=public"
+      PLAYWRIGHT_DATABASE_URL: "postgresql://postgres:postgres@127.0.0.1:5432/entitlement_os?schema=public"
+      PLAYWRIGHT_DIRECT_DATABASE_URL: "postgresql://postgres:postgres@127.0.0.1:5432/entitlement_os?schema=public"
+      PLAYWRIGHT_PORT: "3117"
+      PLAYWRIGHT_LOCAL_DEV_AUTH_ORG_ID: "00000000-0000-0000-0000-000000000001"
+      # Seed data currently provisions the local owner as ...0002; keep CI E2E aligned.
+      PLAYWRIGHT_LOCAL_DEV_AUTH_USER_ID: "00000000-0000-0000-0000-000000000002"
+      PLAYWRIGHT_ENABLE_TEMPORAL: "false"
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".node-version"
+          cache: "pnpm"
+
+      - name: Verify chat-learning secret
+        run: |
+          if [[ -z "$OPENAI_API_KEY" ]]; then
+            echo "::error::OPENAI_API_KEY is required for the chat-learning Chromium PR gate."
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Create .env from .env.example
+        run: cp .env.example .env
+
+      - name: Generate Prisma client
+        run: pnpm --filter @entitlement-os/db generate
+
+      - name: Build packages
+        run: pnpm --filter @entitlement-os/shared build && pnpm --filter @entitlement-os/db build && pnpm --filter @entitlement-os/evidence build && pnpm --filter @entitlement-os/artifacts build && pnpm --filter @entitlement-os/openai build
+
+      - name: Migrate database
+        run: pnpm db:migrate
+
+      - name: Seed database
+        run: pnpm db:seed
+
+      - name: Install Chromium for Playwright
+        run: pnpm -C apps/web exec playwright install --with-deps chromium
+
+      - name: Run chat-learning Chromium gate
+        run: pnpm -C apps/web exec playwright test e2e/chat-learning.spec.ts --project chromium --workers=1
+
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chat-learning-chromium-${{ github.run_id }}
+          path: |
+            apps/web/playwright-report/**
+            apps/web/test-results/**

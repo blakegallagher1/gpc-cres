@@ -17,6 +17,9 @@ import {
   toDateOrNull,
 } from "../_lib/opportunityPhase3";
 import { getCloudflareAccessHeadersFromEnv } from "@/lib/server/propertyDbEnv";
+import { isSchemaDriftError } from "@/lib/api/prismaSchemaFallback";
+import { shouldUseAppDatabaseDevFallback } from "@/lib/server/appDbEnv";
+import { isPrismaConnectivityError } from "@/lib/server/devParcelFallback";
 import * as Sentry from "@sentry/nextjs";
 
 const DealStatusSchema = z.enum([
@@ -135,6 +138,9 @@ export async function GET(request: NextRequest) {
         { status: 503 }
       );
     }
+    if (shouldUseAppDatabaseDevFallback()) {
+      return NextResponse.json({ deals: [], degraded: true });
+    }
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
     const sku = searchParams.get("sku");
@@ -216,6 +222,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ deals: result });
   } catch (error) {
+    if (isSchemaDriftError(error) || isPrismaConnectivityError(error)) {
+      return NextResponse.json({ deals: [], degraded: true });
+    }
     console.error("Error fetching deals:", error);
     Sentry.captureException(error, {
       tags: { route: "api.deals", method: "GET" },
