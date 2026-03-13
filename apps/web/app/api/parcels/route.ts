@@ -289,31 +289,46 @@ function buildGatewaySearchTerms(rawText: string): string[] {
   return Array.from(out).map((value) => value.trim()).filter((value) => value.length >= 2);
 }
 
-function normalizeParcelCandidate(value: string): string[] {
-  const trimmed = value.trim();
+function buildExactGatewaySearchTerms(rawText: string): string[] {
+  const trimmed = rawText.trim().replace(/\s+/g, " ");
   if (!trimmed) return [];
 
-  const collapsed = trimmed.replace(/\s+/g, " ");
-  const normalized = collapsed.toLowerCase();
-  const bare = normalized
-    .replace(/[^\w\s.#-]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  const normalized = sanitizeSearchInput(trimmed);
+  if (!normalized) return [];
 
-  const out = new Set<string>();
-  if (trimmed.length > 0) out.add(trimmed);
-  if (normalized.length > 0) out.add(normalized);
-  if (bare.length > 0) out.add(bare);
+  const tokens = normalized.split(" ").filter(Boolean);
+  const out = new Set<string>([trimmed, normalized]);
 
-  const words = normalized.split(" ");
-  if (words.length >= 2) {
-    out.add(words.slice(0, 2).join(" "));
-    out.add(words.slice(-2).join(" "));
-    out.add(words[0]);
-    out.add(words[words.length - 1]);
+  if (tokens.length >= 3) {
+    out.add(tokens.slice(0, 3).join(" "));
+  }
+  if (tokens.length >= 2) {
+    out.add(tokens.slice(0, 2).join(" "));
+    out.add(tokens.slice(-2).join(" "));
   }
 
-  return Array.from(out).filter(Boolean);
+  return Array.from(out).filter((value) => value.length >= 2);
+}
+
+function buildPrioritizedGatewayQueries(rawText: string): string[] {
+  const orderedQueries = [
+    ...buildExactGatewaySearchTerms(rawText),
+    ...buildGatewaySearchTerms(rawText),
+  ];
+
+  const seen = new Set<string>();
+  const out: string[] = [];
+
+  for (const candidate of orderedQueries) {
+    const trimmed = candidate.trim();
+    if (!trimmed || trimmed === "*") continue;
+    const key = sanitizeSearchInput(trimmed);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(trimmed);
+  }
+
+  return out;
 }
 
 function parseRpcResponseArray(value: string): unknown[] {
@@ -717,12 +732,7 @@ export async function GET(request: NextRequest) {
     }
 
     const fallbackQueries: Array<() => Promise<unknown[]>> = searchText
-      ? Array.from(
-          new Set([
-            ...buildGatewaySearchTerms(searchText),
-            ...normalizeParcelCandidate(searchText),
-          ]),
-        )
+      ? buildPrioritizedGatewayQueries(searchText)
           .filter((term) => term.trim().length > 0 && term.trim() !== "*")
           .slice(0, MAX_SEARCH_VARIANT_QUERIES)
           .map((term, index) =>

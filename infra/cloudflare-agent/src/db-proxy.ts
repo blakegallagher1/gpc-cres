@@ -64,6 +64,12 @@ interface QueryRequest {
 // Active transactions keyed by txId
 const activeTxClients = new Map<string, pg.Client>();
 
+function databaseErrorResponse(error: unknown, label: string): Response {
+  const message = error instanceof Error ? error.message : String(error);
+  console.error(`[db-proxy] ${label}:`, message);
+  return Response.json({ error: "Database error", detail: message }, { status: 500 });
+}
+
 export async function handleDbProxy(request: Request, env: Env): Promise<Response> {
   // Auth check
   const authHeader = request.headers.get("Authorization") ?? "";
@@ -79,66 +85,72 @@ export async function handleDbProxy(request: Request, env: Env): Promise<Respons
     return Response.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  // --- Transaction control (begin/commit/rollback) ---
-  if (body.action === "begin") {
-    const client = new Client({ connectionString: env.HYPERDRIVE.connectionString });
-    await client.connect();
-    await client.query("BEGIN");
-    const txId = crypto.randomUUID();
-    activeTxClients.set(txId, client);
-    // Auto-cleanup after 30s
-    setTimeout(() => {
-      const c = activeTxClients.get(txId);
-      if (c) {
-        c.query("ROLLBACK").catch(() => {});
-        c.end().catch(() => {});
-        activeTxClients.delete(txId);
-      }
-    }, 30_000);
-    return Response.json({ txId });
-  }
-
-  if (body.action === "commit" && body.txId) {
-    const client = activeTxClients.get(body.txId);
-    if (!client) return Response.json({ error: "Transaction not found" }, { status: 404 });
-    await client.query("COMMIT");
-    await client.end();
-    activeTxClients.delete(body.txId);
-    return Response.json({ ok: true });
-  }
-
-  if (body.action === "rollback" && body.txId) {
-    const client = activeTxClients.get(body.txId);
-    if (!client) return Response.json({ error: "Transaction not found" }, { status: 404 });
-    await client.query("ROLLBACK");
-    await client.end();
-    activeTxClients.delete(body.txId);
-    return Response.json({ ok: true });
-  }
-
-  // --- Query execution (single or within transaction) ---
-  const sql = (body.sql ?? "").trim();
-  if (!sql) {
-    return Response.json({ error: "Missing 'sql' field" }, { status: 400 });
-  }
-
-  const args = body.args ?? [];
-
-  // Use transaction client if txId provided, otherwise create one-shot client
-  let client: pg.Client;
-  let ownClient = false;
-
-  if (body.txId) {
-    const txClient = activeTxClients.get(body.txId);
-    if (!txClient) return Response.json({ error: "Transaction not found" }, { status: 404 });
-    client = txClient;
-  } else {
-    client = new Client({ connectionString: env.HYPERDRIVE.connectionString });
-    await client.connect();
-    ownClient = true;
-  }
+  let transientClient: pg.Client | null = null;
+  let shouldCloseTransientClient = false;
 
   try {
+    // --- Transaction control (begin/commit/rollback) ---
+    if (body.action === "begin") {
+      const client = new Client({ connectionString: env.HYPERDRIVE.connectionString });
+      transientClient = client;
+      shouldCloseTransientClient = true;
+      await client.connect();
+      await client.query("BEGIN");
+      const txId = crypto.randomUUID();
+      activeTxClients.set(txId, client);
+      transientClient = null;
+      shouldCloseTransientClient = false;
+      // Auto-cleanup after 30s
+      setTimeout(() => {
+        const c = activeTxClients.get(txId);
+        if (c) {
+          c.query("ROLLBACK").catch(() => {});
+          c.end().catch(() => {});
+          activeTxClients.delete(txId);
+        }
+      }, 30_000);
+      return Response.json({ txId });
+    }
+
+    if (body.action === "commit" && body.txId) {
+      const client = activeTxClients.get(body.txId);
+      if (!client) return Response.json({ error: "Transaction not found" }, { status: 404 });
+      await client.query("COMMIT");
+      await client.end();
+      activeTxClients.delete(body.txId);
+      return Response.json({ ok: true });
+    }
+
+    if (body.action === "rollback" && body.txId) {
+      const client = activeTxClients.get(body.txId);
+      if (!client) return Response.json({ error: "Transaction not found" }, { status: 404 });
+      await client.query("ROLLBACK");
+      await client.end();
+      activeTxClients.delete(body.txId);
+      return Response.json({ ok: true });
+    }
+
+    // --- Query execution (single or within transaction) ---
+    const sql = (body.sql ?? "").trim();
+    if (!sql) {
+      return Response.json({ error: "Missing 'sql' field" }, { status: 400 });
+    }
+
+    const args = body.args ?? [];
+
+    // Use transaction client if txId provided, otherwise create one-shot client
+    let client: pg.Client;
+    if (body.txId) {
+      const txClient = activeTxClients.get(body.txId);
+      if (!txClient) return Response.json({ error: "Transaction not found" }, { status: 404 });
+      client = txClient;
+    } else {
+      client = new Client({ connectionString: env.HYPERDRIVE.connectionString });
+      transientClient = client;
+      shouldCloseTransientClient = true;
+      await client.connect();
+    }
+
     const res = await client.query({ text: sql, values: args, rowMode: "array" });
 
     // Build Prisma-compatible columnar response
@@ -153,12 +165,14 @@ export async function handleDbProxy(request: Request, env: Env): Promise<Respons
       rowCount: res.rowCount ?? 0,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error("[db-proxy] Query error:", message);
-    return Response.json({ error: "Database error", detail: message }, { status: 500 });
+    return databaseErrorResponse(err, body.action ? `Transaction ${body.action} failed` : "Query error");
   } finally {
-    if (ownClient) {
-      try { await client.end(); } catch { /* ignore */ }
+    if (shouldCloseTransientClient && transientClient) {
+      try {
+        await transientClient.end();
+      } catch {
+        // ignore close failures on one-shot or failed transient clients
+      }
     }
   }
 }

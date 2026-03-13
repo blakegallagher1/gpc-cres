@@ -13,9 +13,21 @@ import { z } from "zod";
  *   SOCRATA_APP_TOKEN – optional but raises rate-limit ceiling
  */
 
-const SOCRATA_BASE_URL =
-  process.env.SOCRATA_BASE_URL || "https://data.brla.gov/resource";
-const APP_TOKEN = process.env.SOCRATA_APP_TOKEN;
+function getSocrataBaseUrl(): string {
+  return process.env.SOCRATA_BASE_URL || "https://data.brla.gov/resource";
+}
+
+function getSocrataAppToken(): string | undefined {
+  return process.env.SOCRATA_APP_TOKEN;
+}
+
+function getBuildingPermitsDatasetId(): string {
+  return process.env.SOCRATA_EBR_PERMITS_DATASET_ID || "7fq7-8j7r";
+}
+
+function escapeSoqlLiteral(value: string): string {
+  return value.replace(/'/g, "''");
+}
 
 // ---------------------------------------------------------------------------
 // Tool: queryBuildingPermits
@@ -24,55 +36,84 @@ const APP_TOKEN = process.env.SOCRATA_APP_TOKEN;
 export const queryBuildingPermits = tool({
   name: "query_building_permits",
   description:
-    "Queries a municipal open-data portal (Socrata SODA API) for commercial " +
-    "renovation and new-construction permits filed within a given zip code " +
-    "over a configurable lookback window.",
+    "Queries the live East Baton Rouge Parish building permits dataset " +
+    "for permits filed within a given zip code over a configurable lookback window.",
   parameters: z.object({
     zipCode: z.string().describe("5-digit zip code to search"),
     monthsBack: z
       .number()
       .optional().nullable()
       .describe("Months of history to retrieve (default 12)"),
+    designation: z
+      .enum(["Commercial", "Residential", "All"])
+      .optional().nullable()
+      .describe("Optional designation filter; defaults to Commercial."),
     permitTypes: z
       .array(z.string())
       .optional().nullable()
       .describe(
-        "Optional permit-type filter strings, e.g. ['renovation','new_construction']. " +
-          "Defaults to commercial renovation + new construction."
+        "Optional raw permit-type filter strings, e.g. ['Occupancy Permit (C)']. " +
+          "Defaults to all permit types within the selected designation."
       ),
+    limit: z
+      .number()
+      .optional().nullable()
+      .describe("Maximum number of permits to return (default 50, max 200)"),
   }),
   execute: async ({
     zipCode,
     monthsBack,
+    designation,
     permitTypes,
+    limit,
   }: {
     zipCode: string;
     monthsBack?: number | null;
+    designation?: "Commercial" | "Residential" | "All" | null;
     permitTypes?: string[] | null;
+    limit?: number | null;
   }): Promise<string> => {
     const months = monthsBack ?? 12;
-    const types = permitTypes ?? ["renovation", "new_construction"];
+    const normalizedLimit = Math.max(1, Math.min(limit ?? 50, 200));
 
     const sinceDate = new Date();
     sinceDate.setMonth(sinceDate.getMonth() - months);
     const sinceISO = sinceDate.toISOString().slice(0, 10);
+    const whereClauses = [
+      `zip='${escapeSoqlLiteral(zipCode)}'`,
+      `issueddate >= '${sinceISO}'`,
+      "parishname = 'East Baton Rouge'",
+    ];
 
-    // Build SoQL query — resource ID is portal-specific; read from env var
-    const datasetId = process.env.SOCRATA_EBR_PERMITS_DATASET_ID || "PLACEHOLDER_DATASET_ID";
-    const typeFilter = types.map((t) => `'${t}'`).join(",");
-    const soql =
-      `$where=zipcode='${zipCode}' ` +
-      `AND permit_type IN (${typeFilter}) ` +
-      `AND filed_date >= '${sinceISO}' ` +
-      `&$order=filed_date DESC&$limit=200`;
+    if (designation && designation !== "All") {
+      whereClauses.push(`designation='${escapeSoqlLiteral(designation)}'`);
+    } else if (!designation) {
+      whereClauses.push("designation='Commercial'");
+    }
+
+    if (permitTypes && permitTypes.length > 0) {
+      const typeFilter = permitTypes
+        .map((type) => `'${escapeSoqlLiteral(type)}'`)
+        .join(",");
+      whereClauses.push(`permittype IN (${typeFilter})`);
+    }
+
+    const params = new URLSearchParams({
+      $select:
+        "permitnumber,permittype,designation,projectdescription,projectvalue,permitfee,issueddate,address,zip,ownername,applicantname,contractorname",
+      $where: whereClauses.join(" AND "),
+      $order: "issueddate DESC",
+      $limit: String(normalizedLimit),
+    });
 
     const headers: Record<string, string> = {
       Accept: "application/json",
     };
-    if (APP_TOKEN) headers["X-App-Token"] = APP_TOKEN;
+    const appToken = getSocrataAppToken();
+    if (appToken) headers["X-App-Token"] = appToken;
 
     try {
-      const url = `${SOCRATA_BASE_URL}/${datasetId}.json?${soql}`;
+      const url = `${getSocrataBaseUrl()}/${getBuildingPermitsDatasetId()}.json?${params.toString()}`;
 
       const res = await fetch(url, {
         headers,
@@ -86,13 +127,23 @@ export const queryBuildingPermits = tool({
       }
 
       const permits = (await res.json()) as Array<Record<string, unknown>>;
+      const permitTypeCounts = permits.reduce<Record<string, number>>((acc, permit) => {
+        const permitType =
+          typeof permit.permittype === "string" && permit.permittype.trim().length > 0
+            ? permit.permittype
+            : "Unknown";
+        acc[permitType] = (acc[permitType] ?? 0) + 1;
+        return acc;
+      }, {});
 
       return JSON.stringify({
         success: true,
         zipCode,
         timeframeMonths: months,
+        designation: designation ?? "Commercial",
         permitCount: permits.length,
-        permits: permits.slice(0, 25), // cap payload sent back to agent
+        permitTypeCounts,
+        permits,
       });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);

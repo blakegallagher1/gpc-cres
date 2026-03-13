@@ -90,6 +90,31 @@ Only items meeting all checks are added below as `Planned`.
     - `pnpm test`
     - `OPENAI_API_KEY=placeholder pnpm build`
 
+### MAP-010 — Production Parcel Search + Semantic Recall Regression Fix (P0)
+
+- **Priority:** P0
+- **Status:** Done (2026-03-13)
+- **Scope:** Fix the live `/api/parcels` address-search regression for known parcel addresses and restore direct `/api/agent/tools/execute` semantic recall execution for `recall_property_intelligence`.
+- **Problem:** Production repro on `https://gallagherpropco.com` shows `GET /api/parcels?hasCoords=true&search=4416 HEATH DR` returning `503 GATEWAY_UNAVAILABLE`, while direct gateway probes confirm the exact query `4416 heath dr` resolves successfully. The current fallback ordering truncates search fanout to the first two generated variants, both of which canonicalize to non-working `drive` forms before the exact `dr` query is attempted. Separately, `/api/agent/tools/execute` executes `recall_property_intelligence` through the SDK `tool.invoke(...)` path, but required-nullable JSON-schema fields are omitted from the request body, causing `Invalid JSON input for tool` before Qdrant is queried.
+- **Expected Outcome (measurable):**
+  - Known-address parcel searches attempt an exact suffix-preserving query before broader canonicalized variants and return parcel rows instead of empty/503 responses when the upstream gateway is otherwise healthy.
+  - `/api/agent/tools/execute` can run `recall_property_intelligence` without callers having to manually send `null` for every required-nullable field.
+  - Focused tests lock the fallback-query ordering and required-nullable tool-input hydration.
+- **Evidence of need:** Live probes on 2026-03-13 reproduced `/api/parcels?hasCoords=true&search=4416 HEATH DR -> 503`, while direct authenticated gateway calls returned one row for `q=4416 heath dr` and zero rows for the route’s current preferred variants `q=heath drive` and `q=4416 heath drive`. The same production session reproduced `/api/agent/tools/execute` returning `An error occurred while running the tool... Invalid JSON input for tool` for `recall_property_intelligence`.
+- **Alignment:** Preserves the gateway-only parcel architecture, keeps parcel search fail-closed when the gateway is truly unavailable, and restores the existing semantic-recall contract without loosening auth or org scoping.
+- **Risk/rollback:** Low-to-medium risk because the changes are scoped to fallback query ordering and tool-input normalization. Rollback is straightforward by reverting the ordering helper and nullable-field hydration if unintended search/tool behavior appears.
+- **Acceptance Criteria / Tests:**
+  - `/api/parcels` search prioritizes suffix-preserving exact address variants ahead of broader canonicalized variants.
+  - `recall_property_intelligence` and similar required-nullable tool invocations succeed via `/api/agent/tools/execute` when optional fields are omitted by the caller.
+  - Add focused regression coverage for parcel fallback query ordering and nullable tool-input hydration.
+  - Re-run focused tests plus the live production repro probes used to diagnose the issue.
+- **Evidence / Verification:**
+  - Production repro and diagnosis captured on 2026-03-13: authenticated gateway probes returned one row for `q=4416 heath dr` and zero rows for the route's previous first-choice variants `q=heath drive` and `q=4416 heath drive`, isolating fallback-order truncation as the parcel-search failure.
+  - Patched [apps/web/app/api/parcels/route.ts](/Users/gallagherpropertycompany/Documents/gallagher-cres/apps/web/app/api/parcels/route.ts) to prioritize suffix-preserving exact address queries before broader canonicalized variants, with regression coverage in [apps/web/app/api/parcels/route.test.ts](/Users/gallagherpropertycompany/Documents/gallagher-cres/apps/web/app/api/parcels/route.test.ts).
+  - Patched [apps/web/lib/agent/toolRegistry.ts](/Users/gallagherpropertycompany/Documents/gallagher-cres/apps/web/lib/agent/toolRegistry.ts) and added [apps/web/lib/agent/toolInvokeInput.ts](/Users/gallagherpropertycompany/Documents/gallagher-cres/apps/web/lib/agent/toolInvokeInput.ts) plus [apps/web/lib/agent/toolInvokeInput.test.ts](/Users/gallagherpropertycompany/Documents/gallagher-cres/apps/web/lib/agent/toolInvokeInput.test.ts) so required-nullable tool-schema fields are hydrated to `null` before SDK invocation.
+  - Focused verification passed: `pnpm -C apps/web test -- app/api/parcels/route.test.ts lib/agent/toolInvokeInput.test.ts` and `pnpm -C apps/web test -- app/api/agent/tools/execute/route.test.ts`.
+  - Full verification gate passed: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `OPENAI_API_KEY=placeholder pnpm build`.
+
 ### CHAT-002 — Chat Surface Local-Degradation + Error Sanitization (P0)
 
 - **Priority:** P0
@@ -310,6 +335,96 @@ Only items meeting all checks are added below as `Planned`.
   - Verified the runtime lane with `PLAYWRIGHT_PORT=3122 pnpm -C apps/web exec playwright test e2e/chat-continuation.spec.ts --project chromium --workers=1 --reporter=list`, then independently re-verified the highest-signal continuation case with `PLAYWRIGHT_PORT=3132 pnpm -C apps/web exec playwright test e2e/chat-continuation.spec.ts --project chromium --workers=1 --reporter=list -g "continues the same DB-backed conversation after reload and preserves recallable context"`.
   - Smoke-tested the reusable scaffold with `./scripts/codex-auto/chat-closeout-workflow.sh chat-closeout-script-smoke --force`.
   - Final verification gate passed: `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
+
+### CHAT-011 — Land Search Tool Routing + DB Proxy Failure Containment (P0)
+
+- **Priority:** P0
+- **Status:** Done (2026-03-13)
+- **Scope:** Fix land-search chat queries so they can use the statewide parcel DB tools they are instructed to use, and harden the Cloudflare `/db` proxy so upstream connection failures return JSON instead of uncaught Worker HTML.
+- **Problem:** A production chat request asking for East Baton Rouge land suitable for a mobile home park surfaced `Gateway DB proxy error (500)` with raw Cloudflare `Worker threw exception` HTML. Read-only tracing shows two contract mismatches: `packages/openai/src/agentos/toolPolicy.ts` globally exposes `query_org_sql` while omitting `query_property_db` / `query_property_db_sql` for `land_search`, and `infra/cloudflare-agent/src/db-proxy.ts` leaves connection/transaction setup outside the guarded query error path, allowing uncaught Worker exceptions to escape as 1101 HTML.
+- **Expected Outcome (measurable):**
+  - Land-search prompts can access `query_property_db` / `query_property_db_sql` through the intent filter without inheriting irrelevant org-DB SQL by default.
+  - The Cloudflare `/db` proxy returns structured JSON 500 payloads for connection/transaction setup failures instead of uncaught 1101 HTML.
+  - Regression tests cover both the land-search allowlist behavior and the `/db` proxy failure path.
+- **Evidence of need:** Live user failure included raw Cloudflare HTML from `agents.gallagherpropco.com`; local repo inspection confirmed `query_property_db` is recommended in coordinator instructions but blocked by current tool policy, while `/db` connection setup is not fully wrapped in `try/catch`.
+- **Alignment:** Preserves the parcel-search architecture (`LOCAL_API_URL` gateway for statewide parcel data, Prisma `/db` only for scoped app/control-plane reads), keeps org-scoped SQL available only where intended, and improves error containment without weakening validation or auth.
+- **Risk/rollback:** Low-to-medium risk because the changes are isolated to tool exposure and proxy error handling. Rollback is limited to the policy map and `/db` handler if downstream tool-selection behavior regresses.
+- **Acceptance Criteria / Tests:**
+  - Allow `query_property_db` and `query_property_db_sql` for `land_search` and the other intent classes already declared in the tool catalog.
+  - Stop granting `query_org_sql` as a universal default when the intent does not call for org-scoped SQL.
+  - Wrap `/db` connection and transaction-control setup so failures return JSON error payloads.
+  - Add focused tests for tool filtering and DB proxy failure containment.
+  - Re-run focused package tests plus `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
+- **Evidence (2026-03-13):**
+  - Updated `packages/openai/src/agentos/toolPolicy.ts` so `land_search` and related parcel-oriented intents expose `query_property_db` / `query_property_db_sql`, while `query_org_sql` is no longer inherited as a universal default.
+  - Added intent-filter regression coverage in `packages/openai/src/agentos/toolPolicy.test.ts` for both the land-search parcel-tool path and the research path that still needs org-scoped SQL.
+  - Hardened `infra/cloudflare-agent/src/db-proxy.ts` so connect / `BEGIN` / commit / rollback failures return structured JSON `{ error, detail }` responses instead of uncaught Worker exceptions that bubble up as Cloudflare 1101 HTML.
+  - Added `infra/cloudflare-agent/src/db-proxy.test.ts` to cover one-shot connection failure and transaction-start failure containment.
+  - Focused verification passed: `pnpm -C packages/openai test -- src/agentos/toolPolicy.test.ts`, `pnpm -C infra/cloudflare-agent test -- src/db-proxy.test.ts`, `pnpm lint`, `pnpm typecheck`, and `OPENAI_API_KEY=placeholder pnpm build`.
+  - Full `pnpm test` remains blocked by a pre-existing unrelated failure in `packages/openai/test/phase1/tools/memoryTools.phase1.test.ts` (auth-header expectation drift in the memory tool test), not by the land-search / db-proxy changes in this item.
+
+### MARKET-015 — Live EBR Building Permits Feed (P0)
+
+- **Priority:** P0
+- **Status:** Done (2026-03-13)
+- **Scope:** Add a live East Baton Rouge building permits feed sourced from the BRLA Socrata dataset, expose it through an authenticated Market Intel API, render it with charts and tables in the web app, and repair the existing permits tool so chat and UI use the same real dataset contract.
+- **Problem:** The repo has a Market Intel page and a `query_building_permits` tool, but the current permits path is not production-ready for a constant live feed: the tool still points at a placeholder dataset id, there is no dedicated authenticated API for BRLA permits, and users have no charts/tables surface for current East Baton Rouge permit activity.
+- **Expected Outcome (measurable):**
+  - Authenticated users can open a Market Intel permits page that refreshes automatically and shows current BRLA permit activity with summary cards, charts, and a recent-permits table.
+  - The server route validates inputs and returns structured live aggregates from dataset `7fq7-8j7r`.
+  - The `query_building_permits` tool uses the real BRLA field names and dataset id so chat and agent workflows can query the same live feed.
+- **Evidence of need:** User explicitly requested a “constant live feed of building permits” from `https://data.brla.gov/Housing-and-Development/EBR-Building-Permits/7fq7-8j7r/about_data`. Direct metadata inspection confirms dataset `7fq7-8j7r` exposes real-time-friendly fields including `permitnumber`, `permittype`, `designation`, `projectdescription`, `projectvalue`, `issueddate`, `address`, `zip`, and contractor/owner attributes, while the current tool still defaults to `PLACEHOLDER_DATASET_ID`.
+- **Alignment:** Extends the existing Market Intel surface, preserves auth and route validation patterns, reuses the repo’s chart/table primitives, and keeps external data access server-side with optional Socrata app-token support.
+- **Risk/rollback:** Low-to-medium risk because the slice is additive. Rollback is limited to the new route/page and the Socrata tool contract if the external schema shifts.
+- **Acceptance Criteria / Tests:**
+  - Add a live permits API route with 401 auth rejection, 400 input validation, 200 happy path, and 500 upstream failure handling.
+  - Render a dedicated permits dashboard page with at least cards, charts, and a recent-permits table, refreshing on an interval.
+  - Fix `query_building_permits` to target the BRLA dataset id and real field names.
+  - Add focused route/tool tests plus the full repo verification gate.
+- **Evidence (2026-03-13):**
+  - Added `apps/web/lib/services/buildingPermits.service.ts` to query BRLA dataset `7fq7-8j7r` server-side with live Socrata aggregates for totals, issued-date trend, designation mix, permit-type mix, ZIP concentration, and recent permits, plus optional `permitType` and `zip` filters for the dashboard.
+  - Added authenticated route `apps/web/app/api/market/building-permits/route.ts` with Zod validation and explicit 401 / 400 / 500 handling, plus regression coverage in `apps/web/app/api/market/building-permits/route.test.ts`.
+  - Added dashboard UI `apps/web/app/market/building-permits/page.tsx` with SWR polling, metric cards, Recharts panels, a searchable recent-permits table, and high-value permit cards; added sidebar entry + longest-prefix active-link fix in `apps/web/components/layout/Sidebar.tsx`.
+  - Repaired `packages/openai/src/tools/socrataTools.ts` and added `packages/openai/src/tools/socrataTools.test.ts` so `query_building_permits` uses the live East Baton Rouge dataset id, real field names, and environment values read at execution time instead of module import time.
+  - Added env documentation in `.env.example` and `apps/web/.env.example` for `SOCRATA_BASE_URL`, `SOCRATA_EBR_PERMITS_DATASET_ID`, and `SOCRATA_APP_TOKEN`.
+  - Live smoke against `https://data.brla.gov/resource/7fq7-8j7r.json` confirmed the production SoQL filter shape for `designation = 'Commercial' AND permittype = 'Occupancy Permit (C)' AND zip = '70811'`, returning `permit_count = 6` with `latest_issued_date = 2026-03-09T00:00:00.000`.
+  - Verification passed:
+    - `pnpm -C apps/web test -- app/api/market/building-permits/route.test.ts lib/services/buildingPermits.service.test.ts`
+    - `pnpm -C packages/openai test -- src/tools/socrataTools.test.ts`
+    - `pnpm lint`
+    - `pnpm typecheck`
+    - `pnpm test`
+    - `OPENAI_API_KEY=placeholder pnpm build`
+
+### MARKET-016 — Surface Live Permits On Market Hub (P0)
+
+- **Priority:** P0
+- **Status:** Done (2026-03-13)
+- **Scope:** Integrate the live East Baton Rouge permits dashboard into `/market` so Market Intel users can access permits data from the primary market page instead of only the dedicated `/market/building-permits` route.
+- **Problem:** The live permits feed now exists, but it is isolated on its own page. The main Market Intel hub at `/market` still centers on parish summaries and recent activity feeds, so users do not see permit charts/tables unless they already know to navigate to the separate route.
+- **Expected Outcome (measurable):**
+  - `/market` exposes the live permits dashboard inside the Market Intel interface.
+  - The integration reuses the existing live permits UI contract rather than maintaining a second divergent permit dashboard.
+  - Visibility is covered by at least one dashboard-level assertion in addition to the existing route/service/tool tests.
+- **Evidence of need:** User explicitly requested that “the building permit data should be added to the https://gallagherpropco.com/market page”.
+- **Alignment:** Keeps Market Intel as the single hub for market data, avoids duplicated permit-dashboard logic, and reuses the authenticated BRLA permits feed already implemented in `MARKET-015`.
+- **Risk/rollback:** Low risk because the change is additive and can fall back to the dedicated permits page if the hub integration regresses.
+- **Acceptance Criteria / Tests:**
+  - Add a permits entry point or tab directly on `/market`.
+  - Reuse the existing live permits dashboard content rather than copy-pasting a second implementation.
+  - Add focused UI coverage confirming the Market page exposes the permits dashboard.
+  - Re-run `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
+- **Evidence (2026-03-13):**
+  - Added shared component `apps/web/components/market/BuildingPermitsDashboard.tsx` so the live BRLA permits dashboard can render both on `/market/building-permits` and inside the main Market Intel hub without duplicating the permits UI logic.
+  - Updated `apps/web/app/market/building-permits/page.tsx` to wrap the shared permits dashboard in `DashboardShell`, preserving the dedicated route while making the dashboard reusable.
+  - Updated `apps/web/app/market/page.tsx` to advertise live permit intelligence in the market-page intro copy, add a `Live Permits` tab, and render the shared permits dashboard inline on `/market`.
+  - Added focused UI coverage in `apps/web/app/market/page.test.tsx` and `apps/web/components/market/BuildingPermitsDashboard.test.tsx` for the market-page entry point and embedded permits dashboard rendering.
+  - Verification passed:
+    - `pnpm -C apps/web test -- app/market/page.test.tsx components/market/BuildingPermitsDashboard.test.tsx app/api/market/building-permits/route.test.ts lib/services/buildingPermits.service.test.ts`
+    - `pnpm lint`
+    - `pnpm typecheck`
+    - `pnpm test`
+    - `OPENAI_API_KEY=placeholder pnpm build`
 
 ### PLAT-001 — Opportunity OS Generalization Program (P1)
 

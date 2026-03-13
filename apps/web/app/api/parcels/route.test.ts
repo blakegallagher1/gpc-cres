@@ -420,6 +420,30 @@ describe("GET /api/parcels", () => {
     expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(8);
   });
 
+  it("prioritizes exact suffix-preserving address variants ahead of canonicalized fallback queries", async () => {
+    ({ GET } = await import("./route"));
+    resolveAuthMock.mockResolvedValue({
+      userId: "99999999-9999-4999-8999-999999999999",
+      orgId: "11111111-1111-4111-8111-111111111111",
+    });
+    findManyMock.mockResolvedValue([]);
+    fetchMock.mockResolvedValue({
+      ok: true,
+      text: async () => "[]",
+      json: async () => [],
+    } as Response);
+
+    const req = new NextRequest("http://localhost/api/parcels?hasCoords=true&search=4416+HEATH+DR");
+    const res = await GET(req);
+
+    const attemptedQueries = fetchMock.mock.calls.map(([url]) =>
+      new URL(String(url)).searchParams.get("q"),
+    );
+
+    expect(res.status).toBe(200);
+    expect(attemptedQueries.slice(0, 2)).toEqual(["4416 HEATH DR", "4416 heath"]);
+  });
+
   it("caps baseline gateway fanout for non-search map loads", async () => {
     ({ GET } = await import("./route"));
     resolveAuthMock.mockResolvedValue({

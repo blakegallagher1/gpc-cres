@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import useSWR from "swr";
+import { BuildingPermitsDashboard } from "@/components/market/BuildingPermitsDashboard";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import {
   Card,
@@ -619,7 +620,7 @@ export default function MarketPage() {
           <div>
             <h1 className="text-2xl font-bold">Market Intelligence</h1>
             <p className="text-sm text-muted-foreground">
-              Parish-level market data, comp sales, listings, and trends
+              Parish-level market data, comp sales, listings, live permit intelligence, and trends
             </p>
           </div>
         </div>
@@ -627,6 +628,7 @@ export default function MarketPage() {
         <Tabs defaultValue="parish" className="space-y-4">
           <TabsList>
             <TabsTrigger value="parish">Parish Dashboard</TabsTrigger>
+            <TabsTrigger value="permits">Live Permits</TabsTrigger>
             <TabsTrigger value="feed">Recent Activity</TabsTrigger>
           </TabsList>
 
@@ -650,6 +652,10 @@ export default function MarketPage() {
             </div>
 
             <ParishDashboard parish={selectedParish} />
+          </TabsContent>
+
+          <TabsContent value="permits" className="space-y-4">
+            <BuildingPermitsDashboard embedded />
           </TabsContent>
 
           <TabsContent value="feed" className="space-y-4">

@@ -6,8 +6,8 @@ type MemoryToolHeaders = Record<string, string>;
 function getInternalMemoryToolToken(): string {
   return (
     process.env.MEMORY_TOOL_SERVICE_TOKEN?.trim() ??
-    process.env.LOCAL_API_KEY?.trim() ??
     process.env.COORDINATOR_TOOL_SERVICE_TOKEN?.trim() ??
+    process.env.LOCAL_API_KEY?.trim() ??
     ""
   );
 }

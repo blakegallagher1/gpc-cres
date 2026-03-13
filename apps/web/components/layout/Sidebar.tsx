@@ -17,6 +17,7 @@ import {
   Activity,
   BarChart3,
   Shield,
+  FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/stores/uiStore";
@@ -65,6 +66,7 @@ const navGroups: NavGroup[] = [
     items: [
       { id: "reference", href: "/reference", icon: FileSearch, label: "Reference Data" },
       { id: "market-settings", href: "/market", icon: BarChart3, label: "Market Intel" },
+      { id: "building-permits", href: "/market/building-permits", icon: FileText, label: "Permit Intel" },
     ],
   },
   {
@@ -75,9 +77,18 @@ const navGroups: NavGroup[] = [
   },
 ];
 
+const allNavItems = navGroups.flatMap((group) => group.items);
+
 export function Sidebar() {
   const pathname = usePathname();
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
+  const activeHref = [...allNavItems]
+    .sort((left, right) => right.href.length - left.href.length)
+    .find((item) =>
+      item.href === "/"
+        ? pathname === "/"
+        : pathname === item.href || (pathname?.startsWith(`${item.href}/`) ?? false)
+    )?.href;
 
   return (
     <aside
@@ -113,11 +124,7 @@ export function Sidebar() {
             <div className="space-y-0.5">
               {group.items.map((item) => {
                 const Icon = item.icon;
-                const isActive =
-                  item.href === "/"
-                    ? pathname === "/"
-                    : pathname === item.href ||
-                      (pathname?.startsWith(`${item.href}/`) ?? false);
+                const isActive = activeHref === item.href;
 
                 return (
                   <Link

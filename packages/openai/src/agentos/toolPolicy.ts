@@ -28,11 +28,15 @@ export type ToolFilterOptions = {
 };
 
 const BASE_ALLOWED_TOOLS = [
-  "query_org_sql",
   "search_knowledge_base",
   "search_parcels",
   "get_parcel_details",
   "evidence_snapshot",
+] as const;
+
+const PROPERTY_DB_QUERY_TOOLS = [
+  "query_property_db",
+  "query_property_db_sql",
 ] as const;
 
 export const WEB_ADDITIONAL_TOOL_ALLOWLIST = [
@@ -47,7 +51,7 @@ export const WEB_ADDITIONAL_TOOL_ALLOWLIST = [
 
 const TOOL_POLICY_BY_INTENT: Record<string, ToolPolicyDefinition> = {
   finance: {
-    exact: ["calculate_proforma", "calculate_debt_sizing"],
+    exact: ["calculate_proforma", "calculate_debt_sizing", "query_org_sql", ...PROPERTY_DB_QUERY_TOOLS],
     prefixes: ["consult_", "finance_", "calculate_", "debt_", "underwrite_", "market_"],
   },
   acquisition_underwriting: {
@@ -71,11 +75,11 @@ const TOOL_POLICY_BY_INTENT: Record<string, ToolPolicyDefinition> = {
     prefixes: ["consult_", "entitlement_", "zoning_", "permit_", "parish_"],
   },
   due_diligence: {
-    exact: [],
+    exact: ["query_org_sql", ...PROPERTY_DB_QUERY_TOOLS],
     prefixes: ["consult_", "due_diligence_", "risk_", "flood_", "evidence_"],
   },
   risk: {
-    exact: [],
+    exact: ["query_org_sql", ...PROPERTY_DB_QUERY_TOOLS],
     prefixes: ["consult_", "risk_", "flood_", "screen_", "hazard_", "evidence_"],
   },
   marketing: {
@@ -99,19 +103,19 @@ const TOOL_POLICY_BY_INTENT: Record<string, ToolPolicyDefinition> = {
     prefixes: ["consult_", "market_", "comps_", "research_"],
   },
   screener: {
-    exact: [],
+    exact: [...PROPERTY_DB_QUERY_TOOLS],
     prefixes: ["consult_", "screen_", "triage_", "parcel_", "risk_", "finance_"],
   },
   research: {
-    exact: [],
+    exact: ["query_org_sql", ...PROPERTY_DB_QUERY_TOOLS],
     prefixes: ["consult_", "research_", "market_", "evidence_"],
   },
   land_search: {
-    exact: [],
+    exact: [...PROPERTY_DB_QUERY_TOOLS],
     prefixes: ["consult_", "search_", "parcel_", "screen_", "evidence_"],
   },
   general: {
-    exact: [],
+    exact: ["query_org_sql", ...PROPERTY_DB_QUERY_TOOLS],
     prefixes: ["consult_"],
   },
 };

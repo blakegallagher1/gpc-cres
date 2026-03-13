@@ -8,6 +8,7 @@ import {
   TOOL_NAME_ALIASES,
   type ToolCatalogEntry,
 } from "@entitlement-os/openai";
+import { hydrateRequiredNullableToolArgs } from "./toolInvokeInput";
 
 /**
  * Tool Registry — maps tool names to their execute functions.
@@ -51,8 +52,11 @@ function wrapTool(agentTool: AgentToolLike): ToolExecuteFn {
     if (!agentTool.invoke) {
       throw new Error(`Tool has no invoke function`);
     }
-    // Inject orgId into args — most tools need it for multi-tenant scoping
-    const enrichedArgs = { ...args, orgId: context.orgId };
+    // Inject orgId into args and hydrate missing required-nullable fields.
+    const enrichedArgs = hydrateRequiredNullableToolArgs(agentTool.parameters, {
+      ...args,
+      orgId: context.orgId,
+    });
     // Pass auth context as RunContext so memory tools can extract orgId/userId
     // for their internal HTTP calls (buildMemoryToolHeaders expects { context: { orgId, userId } })
     const runContext = { context: { orgId: context.orgId, userId: context.userId } };
