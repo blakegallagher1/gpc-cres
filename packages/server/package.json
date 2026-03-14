@@ -9,7 +9,6 @@
   "dependencies": {
     "@entitlement-os/db": "workspace:*",
     "@entitlement-os/shared": "workspace:*",
-    "uuid": "^11.0.3",
     "zod": "^4.1.12"
   },
   "devDependencies": {

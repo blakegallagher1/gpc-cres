@@ -25,7 +25,7 @@
     "@openai/agents": "^0.4.15",
     "@qdrant/js-client-rest": "^1.17.0",
     "@sentry/node": "^10.43.0",
-    "openai": "^6.21.0",
+    "openai": "^6.29.0",
     "zod": "^4.1.12"
   },
   "devDependencies": {

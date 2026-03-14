@@ -11,7 +11,6 @@ import {
   FACT_TYPE_VOLATILITY,
   calculateEconomicWeight,
 } from '@entitlement-os/shared';
-import { v4 as uuidv4 } from 'uuid';
 
 // ============================================================================
 // Entity Resolution
@@ -71,7 +70,7 @@ export class EntityResolutionService {
     // Create new entity
     const newEntity = await prisma.internalEntity.create({
       data: {
-        id: uuidv4(),
+        id: crypto.randomUUID(),
         orgId: params.orgId,
         canonicalAddress,
         type: 'property',
@@ -254,7 +253,7 @@ export class MemoryIngestionService {
             // Create event log entry
             const eventLog = await prisma.memoryEventLog.create({
               data: {
-                id: uuidv4(),
+                id: crypto.randomUUID(),
                 orgId: request.orgId,
                 entityId: entityResolution.entityId,
                 dealId: request.dealId ?? null,
@@ -273,7 +272,7 @@ export class MemoryIngestionService {
             if (request.autoVerify) {
               const verified = await prisma.memoryVerified.create({
                 data: {
-                  id: uuidv4(),
+                  id: crypto.randomUUID(),
                   orgId: request.orgId,
                   entityId: entityResolution.entityId,
                   factType: fact.factType,
@@ -291,7 +290,7 @@ export class MemoryIngestionService {
             } else {
               const draft = await prisma.memoryDraft.create({
                 data: {
-                  id: uuidv4(),
+                  id: crypto.randomUUID(),
                   orgId: request.orgId,
                   entityId: entityResolution.entityId,
                   factType: fact.factType,
@@ -336,7 +335,7 @@ export class MemoryIngestionService {
             if (isNovel) {
               await prisma.innovationQueue.create({
                 data: {
-                  id: uuidv4(),
+                  id: crypto.randomUUID(),
                   orgId: request.orgId,
                   entityId: entityResolution.entityId,
                   factType: fact.factType,

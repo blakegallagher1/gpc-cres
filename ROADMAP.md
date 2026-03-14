@@ -3273,6 +3273,166 @@ The following items were identified by analyzing 6 OpenAI GitHub repositories (`
 
 ## Completed (for traceability only)
 
+### DEP-008 — OCR Runtime Refresh (P1)
+
+- **Priority:** P1
+- **Status:** Done (2026-03-14)
+- **Scope:** Refresh the app's direct `tesseract.js` dependency to the current supported line without expanding into the broader document-processing architecture.
+- **Problem:** After `DEP-007`, `tesseract.js` was the last remaining app-only package before the repo dropped into fully coupled migration tracks. The app uses it only in the OCR fallback inside `apps/web/lib/services/documentProcessing.service.ts`, so leaving it behind created isolated dependency drift on a narrow code surface.
+- **Expected Outcome (measurable):**
+  - `tesseract.js` is updated to `^7.0.0` in the app manifest and lockfile.
+  - The existing OCR fallback still imports `createWorker` correctly under the new package version.
+  - The full repo verification gate passes after the refresh.
+- **Evidence of need:** A fresh 2026-03-14 `pnpm outdated -r --format json` audit still flagged `tesseract.js` `5.1.1 -> 7.0.0`, and repo inspection showed exactly one direct usage site in the document-processing OCR fallback.
+- **Alignment:** Keeps the dependency work in a narrow app-only slice, preserves the current OCR fallback architecture, and avoids coupling this refresh to Tiptap/Yjs, Prisma 7, ESLint 10, or Wrangler 4.
+- **Risk/rollback:** Low-to-medium risk because the package crosses major versions, but the code surface is narrow and the runtime contract in use is limited to `createWorker(...).recognize(...).terminate()`. Rollback is straightforward by reverting the manifest and lockfile changes if the focused smoke or repo gate regresses.
+- **Acceptance Criteria / Tests:**
+  - Update only `tesseract.js` to the current approved line.
+  - Prove the app can still import `createWorker` from `tesseract.js` with a focused smoke check.
+  - Run `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
+- **Evidence / Verification:**
+  - Updated [apps/web/package.json](/Users/gallagherpropertycompany/Documents/gallagher-cres/apps/web/package.json) to declare `tesseract.js` `^7.0.0`.
+  - Refreshed [pnpm-lock.yaml](/Users/gallagherpropertycompany/Documents/gallagher-cres/pnpm-lock.yaml) with `pnpm install`.
+  - Focused module smoke passed: `pnpm -C apps/web exec node --input-type=module -e "const m = await import('tesseract.js'); console.log(typeof m.createWorker);"`.
+  - Verification passed on the final code state: `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
+
+### DEP-007 — Dotenv Tooling Refresh (P1)
+
+- **Priority:** P1
+- **Status:** Done (2026-03-14)
+- **Scope:** Refresh the repo's direct `dotenv` and `dotenv-cli` dependencies to the current lines without broadening into unrelated env-loader or script refactors.
+- **Problem:** After `DEP-006`, the smallest remaining outdated slice is the env-tooling pair: `dotenv` `16.6.1 -> 17.3.1` and `dotenv-cli` `8.0.0 -> 11.0.0`. The repo depends on `dotenv` in several Node/Playwright scripts and on `dotenv-cli` for the Prisma/db scripts in `packages/db`, so leaving them stale creates avoidable tooling drift while larger runtime migrations remain deferred.
+- **Expected Outcome (measurable):**
+  - Root `dotenv` is updated to `^17.3.1`.
+  - `packages/db` `dotenv-cli` is updated to `^11.0.0` without breaking the existing `dotenv -e ../../.env -- <command>` script contract.
+  - The full repo verification gate passes after the refresh.
+- **Evidence of need:** A fresh 2026-03-14 `pnpm outdated -r --format json` audit still flagged `dotenv` and `dotenv-cli`, and the published `dotenv-cli@11.0.0` README still documented the same `-e` plus `--` command form currently used by the repo's db scripts.
+- **Alignment:** Keeps the dependency work in a narrow tooling slice, preserves the existing script interface, and avoids coupling this refresh to Prisma 7, ESLint 10, Wrangler 4, or the collaborative-editor migration.
+- **Risk/rollback:** Low-to-medium risk because the packages are tooling-facing rather than runtime-critical, but `dotenv-cli` sits on db workflows and must preserve command semantics. Rollback is straightforward by reverting the manifest and lockfile changes if the script smoke check or repo gate regresses.
+- **Acceptance Criteria / Tests:**
+  - Update only `dotenv` and `dotenv-cli` to the current approved lines.
+  - Prove the `packages/db` Prisma wrapper still works with a focused `dotenv` CLI smoke invocation.
+  - Run `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
+- **Evidence / Verification:**
+  - Updated [package.json](/Users/gallagherpropertycompany/Documents/gallagher-cres/package.json) to declare `dotenv` `^17.3.1`.
+  - Updated [packages/db/package.json](/Users/gallagherpropertycompany/Documents/gallagher-cres/packages/db/package.json) to declare `dotenv-cli` `^11.0.0`.
+  - Refreshed [pnpm-lock.yaml](/Users/gallagherpropertycompany/Documents/gallagher-cres/pnpm-lock.yaml) with `pnpm install`.
+  - Focused db-script smoke passed: `pnpm -C packages/db exec dotenv -e ../../.env -- prisma version`.
+  - Verification passed on the final code state: `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
+
+### DEP-006 — Prisma Adapter Patch Refresh (P1)
+
+- **Priority:** P1
+- **Status:** Done (2026-03-14)
+- **Scope:** Refresh the existing Prisma adapter packages on their current major line without attempting the separate Prisma 7 client/CLI migration.
+- **Problem:** After `DEP-005`, the lowest-risk remaining dependency work is the adapter pair already running on the 7.x line: `@prisma/adapter-pg` `7.4.2 -> 7.5.0` and `@prisma/driver-adapter-utils` `7.4.2 -> 7.5.0`. Leaving them behind creates drift inside the current adapter stack even though the repo is not yet taking the broader Prisma 7 migration.
+- **Expected Outcome (measurable):**
+  - `@prisma/adapter-pg` and `@prisma/driver-adapter-utils` are aligned to `7.5.0`.
+  - The gateway adapter code continues to compile against the updated driver types with no behavioral changes.
+  - The full repo verification gate passes after the refresh.
+- **Evidence of need:** A fresh 2026-03-14 `pnpm outdated -r --format json` audit still flagged `@prisma/adapter-pg` and `@prisma/driver-adapter-utils`, and package metadata showed `@prisma/adapter-pg@7.5.0` depends directly on `@prisma/driver-adapter-utils@7.5.0`.
+- **Alignment:** Keeps the dependency work in a narrow same-major adapter slice, preserves the existing Prisma 6 client/CLI baseline, and avoids coupling this refresh to the separate Prisma 7 migration.
+- **Risk/rollback:** Low risk because the packages stay on the current major and the code surface using them is narrow. Rollback is straightforward by reverting the manifest/lockfile changes if typecheck or build regresses.
+- **Acceptance Criteria / Tests:**
+  - Update only `@prisma/adapter-pg` and `@prisma/driver-adapter-utils` to `7.5.0`.
+  - Do not widen scope into `prisma` / `@prisma/client` major upgrades.
+  - Run `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
+- **Evidence / Verification:**
+  - Updated [package.json](/Users/gallagherpropertycompany/Documents/gallagher-cres/package.json) to declare `@prisma/adapter-pg` `^7.5.0`.
+  - Updated [packages/db/package.json](/Users/gallagherpropertycompany/Documents/gallagher-cres/packages/db/package.json) to declare `@prisma/driver-adapter-utils` `^7.5.0`.
+  - Refreshed [pnpm-lock.yaml](/Users/gallagherpropertycompany/Documents/gallagher-cres/pnpm-lock.yaml) with `pnpm install`.
+  - Verification passed on the final code state: `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
+
+### DEP-005 — Sonner Toast Runtime Refresh (P1)
+
+- **Priority:** P1
+- **Status:** Done (2026-03-14)
+- **Scope:** Refresh the app's direct `sonner` dependency to the current approved latest line and verify that the existing toast/toaster wrapper still compiles and behaves under the standard repo gate.
+- **Problem:** After `DEP-004`, `sonner` remained the last app-only outdated runtime package at `1.7.4 -> 2.0.7`. The app uses `toast.*` broadly but through a thin wrapper in `apps/web/components/ui/sonner.tsx`, so this was the last isolated UI-runtime candidate before the remaining coupled migrations.
+- **Expected Outcome (measurable):**
+  - `sonner` is updated to `^2.0.7` in the app manifest and lockfile.
+  - Existing `toast.*` calls and the shared `Toaster` wrapper still compile, or are corrected in place if the major changed surface details.
+  - The full repo verification gate passes after the refresh.
+- **Evidence of need:** A fresh 2026-03-14 `pnpm outdated -r --format json` audit still flagged `sonner` `1.7.4 -> 2.0.7` in [apps/web/package.json](/Users/gallagherpropertycompany/Documents/gallagher-cres/apps/web/package.json), and repo inspection showed app usage is concentrated in direct `toast` calls plus a single wrapper component.
+- **Alignment:** Keeps the dependency work in a narrow app-only slice, preserves runtime/security behavior, and avoids coupling this UI package refresh to Prisma 7, ESLint 10, Tiptap 3, or other higher-risk tracks.
+- **Risk/rollback:** Low-to-medium risk because the upgrade crosses a major version, but the app surface is limited and the wrapper plus full repo gate provide a straightforward stop condition. Rollback is straightforward by reverting the manifest/lockfile change if compile or tests regress.
+- **Acceptance Criteria / Tests:**
+  - Update only `sonner` to the approved current line.
+  - Fix any wrapper or toast-call regressions introduced by the refresh without widening scope into unrelated UI refactors.
+  - Run `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
+- **Evidence / Verification:**
+  - Updated [apps/web/package.json](/Users/gallagherpropertycompany/Documents/gallagher-cres/apps/web/package.json) to declare `sonner` `^2.0.7`.
+  - Refreshed [pnpm-lock.yaml](/Users/gallagherpropertycompany/Documents/gallagher-cres/pnpm-lock.yaml) with `pnpm install`.
+  - Verification passed on the final code state: `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
+
+### DEP-004 — Lucide React Icon Pack Refresh (P1)
+
+- **Priority:** P1
+- **Status:** Done (2026-03-14)
+- **Scope:** Refresh the app's direct `lucide-react` dependency to the current approved latest line and verify that the icon surface remains compile-safe across the UI.
+- **Problem:** After `DEP-003`, `lucide-react` remained the next clean isolated outdated package at `0.452.0 -> 0.577.0`. The package is used broadly across the app, so leaving it stale compounded future UI-package drift, but it still fit a self-contained single-dependency refresh.
+- **Expected Outcome (measurable):**
+  - `lucide-react` is updated to `^0.577.0` in the app manifest and lockfile.
+  - All current icon imports still compile or are corrected in-place if the package changed icon exports.
+  - The full repo verification gate passes after the refresh.
+- **Evidence of need:** A fresh 2026-03-14 `pnpm outdated -r --format json` audit still flagged `lucide-react` `0.452.0 -> 0.577.0` in [apps/web/package.json](/Users/gallagherpropertycompany/Documents/gallagher-cres/apps/web/package.json), and repo inspection showed the package is imported across many app UI surfaces.
+- **Alignment:** Keeps the dependency work in a narrow app-only slice, preserves runtime/security behavior, and avoids coupling this UI package refresh to larger migration families such as Prisma 7, ESLint 10, or Tiptap 3.
+- **Risk/rollback:** Low-to-medium risk because `lucide-react` is used widely and remains on a `0.x` versioning line, but the blast radius is still limited to import/compile behavior and is guarded by the standard repo gate. Rollback is straightforward by reverting the manifest/lockfile change if compile or UI tests regress.
+- **Acceptance Criteria / Tests:**
+  - Update only `lucide-react` to the approved current line.
+  - Fix any icon-export regressions introduced by the refresh without widening scope into unrelated UI refactors.
+  - Run `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
+- **Evidence / Verification:**
+  - Updated [apps/web/package.json](/Users/gallagherpropertycompany/Documents/gallagher-cres/apps/web/package.json) to declare `lucide-react` `^0.577.0`.
+  - Refreshed [pnpm-lock.yaml](/Users/gallagherpropertycompany/Documents/gallagher-cres/pnpm-lock.yaml) with `pnpm install`.
+  - Verification passed on the final code state: `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
+
+### DEP-003 — OpenAI SDK Manifest Alignment (P1)
+
+- **Priority:** P1
+- **Status:** Done (2026-03-14)
+- **Scope:** Align the declared `openai` dependency with the currently approved latest patch/minor line in the app and shared wrapper package.
+- **Problem:** After `DEP-002`, the next isolated remaining runtime upgrade was `openai` `6.25.0 -> 6.29.0`. The repo already resolved `6.25.0` in the lockfile, but both declaring manifests still advertised `^6.21.0`, which left version drift and future maintenance ambiguity.
+- **Expected Outcome (measurable):**
+  - The `openai` manifest declarations in the app and wrapper package are aligned to `^6.29.0`.
+  - The lockfile resolves the new SDK version without pulling adjacent major upgrades.
+  - The full repo verification gate passes after the refresh.
+- **Evidence of need:** A fresh 2026-03-14 `pnpm outdated -r --format json` audit still flagged `openai` `6.25.0 -> 6.29.0` in [apps/web/package.json](/Users/gallagherpropertycompany/Documents/gallagher-cres/apps/web/package.json) and [packages/openai/package.json](/Users/gallagherpropertycompany/Documents/gallagher-cres/packages/openai/package.json).
+- **Alignment:** Keeps the dependency work on a narrow same-major SDK bump, preserves the existing Responses wrapper contract, and avoids coupling this refresh to higher-risk `@openai/agents` or Prisma changes.
+- **Risk/rollback:** Low-to-medium risk because the SDK is central to runtime integrations, but the scope is limited to a same-major manifest/lockfile refresh with the standard repo gate as the stop condition. Rollback is straightforward by reverting the bump if verification fails.
+- **Acceptance Criteria / Tests:**
+  - Update only the declared `openai` version in the app and wrapper manifests.
+  - Refresh the lockfile without widening scope into unrelated dependency families.
+  - Run `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
+- **Evidence / Verification:**
+  - Updated [apps/web/package.json](/Users/gallagherpropertycompany/Documents/gallagher-cres/apps/web/package.json) and [packages/openai/package.json](/Users/gallagherpropertycompany/Documents/gallagher-cres/packages/openai/package.json) to declare `openai` `^6.29.0`.
+  - Refreshed [pnpm-lock.yaml](/Users/gallagherpropertycompany/Documents/gallagher-cres/pnpm-lock.yaml) with `pnpm install`.
+  - Verification passed on the final code state: `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
+
+### DEP-002 — Tailwind Merge Alignment + UUID Dependency Removal (P1)
+
+- **Priority:** P1
+- **Status:** Done (2026-03-14)
+- **Scope:** Apply the next low-risk dependency cleanup by aligning `tailwind-merge` with the app's Tailwind 4 stack and removing the now-unnecessary direct `uuid` dependency from app/server manifests.
+- **Problem:** After `DEP-001`, the remaining lowest-risk dependency drift was concentrated in `tailwind-merge` and a stale direct `uuid` dependency. The app already runs Tailwind 4, and most of the repo already uses `crypto.randomUUID()`, but manifests still carried older declarations that added avoidable maintenance noise.
+- **Expected Outcome (measurable):**
+  - `tailwind-merge` is updated to the Tailwind 4 line without changing UI behavior.
+  - Direct `uuid` usage is removed from runtime code and manifests in favor of native `crypto.randomUUID()`.
+  - The full repo verification gate passes after the refresh.
+- **Evidence of need:** A 2026-03-14 `pnpm outdated -r --format json` audit still flagged `tailwind-merge` `2.6.1 -> 3.5.0` and `uuid` `11.1.0 -> 13.0.0`. Repo inspection showed `tailwind-merge` is only consumed via `apps/web/lib/utils.ts`, the app is already on Tailwind 4, and the remaining direct `uuid` import was confined to `packages/server/src/services/memory-ingestion.service.ts` while the rest of the repo already used `crypto.randomUUID()`.
+- **Alignment:** Keeps the dependency refresh focused on low-risk cleanup, preserves current runtime/security behavior, and avoids larger coupled upgrades such as Prisma 7, Tiptap 3, `@openai/agents`, ESLint 10, and Wrangler 4.
+- **Risk/rollback:** Low risk because the change is limited to one small utility dependency bump plus replacing library UUID generation with the platform-native equivalent already used elsewhere. Rollback is straightforward by reverting the manifest/code changes if a regression appears.
+- **Acceptance Criteria / Tests:**
+  - Update only `tailwind-merge` to the Tailwind 4-compatible major.
+  - Replace remaining direct `uuid` calls with `crypto.randomUUID()` and remove `uuid` from local manifests.
+  - Do not widen scope into unrelated dependency families.
+  - Run `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
+- **Evidence / Verification:**
+  - Updated [apps/web/package.json](/Users/gallagherpropertycompany/Documents/gallagher-cres/apps/web/package.json) to `tailwind-merge` `^3.5.0` and removed the unused direct `uuid` dependency from the app manifest.
+  - Removed the direct `uuid` dependency from [packages/server/package.json](/Users/gallagherpropertycompany/Documents/gallagher-cres/packages/server/package.json) and replaced the remaining `uuid` calls in [memory-ingestion.service.ts](/Users/gallagherpropertycompany/Documents/gallagher-cres/packages/server/src/services/memory-ingestion.service.ts) with `crypto.randomUUID()`.
+  - Refreshed [pnpm-lock.yaml](/Users/gallagherpropertycompany/Documents/gallagher-cres/pnpm-lock.yaml) with `pnpm install`.
+  - Verification passed on the final code state: `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
+
 ### DEP-001 — Safe Dependency Refresh Batch 1 (P1)
 
 - **Priority:** P1
