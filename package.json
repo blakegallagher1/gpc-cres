@@ -8,12 +8,12 @@
     "@types/pg": "^8.11.6",
     "dotenv": "^16.4.5",
     "eslint": "^9.20.1",
-    "pg": "^8.19.0",
+    "pg": "^8.20.0",
     "prisma": "6.19.2",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3",
-    "typescript-eslint": "^8.24.0",
-    "vitest": "^4.0.18"
+    "typescript-eslint": "^8.57.0",
+    "vitest": "^4.1.0"
   },
   "scripts": {
     "dev": "pnpm -r --filter './packages/**' build && pnpm -r --parallel dev",

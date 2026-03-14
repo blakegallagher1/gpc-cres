@@ -244,12 +244,14 @@ function formatRelativeTime(value: string | null): string {
 }
 
 function formatTooltipValue(
-  value: number | string | undefined,
-  name: string | undefined,
+  value: number | string | ReadonlyArray<number | string> | undefined,
+  name: number | string | undefined,
 ): [string, string] {
   const normalizedValue =
     typeof value === "number"
       ? value
+      : Array.isArray(value)
+        ? Number(value[0] ?? 0)
       : typeof value === "string"
         ? Number(value)
         : 0;

@@ -1,6 +1,6 @@
 # Entitlement OS — Master Implementation Roadmap
 
-Last reviewed: 2026-03-11
+Last reviewed: 2026-03-14
 
 
 ## Governance
@@ -3272,6 +3272,30 @@ The following items were identified by analyzing 6 OpenAI GitHub repositories (`
 
 
 ## Completed (for traceability only)
+
+### DEP-001 — Safe Dependency Refresh Batch 1 (P1)
+
+- **Priority:** P1
+- **Status:** Done (2026-03-14)
+- **Scope:** Apply the first low-risk dependency refresh batch across the monorepo and remove deprecated ambient type packages that are no longer needed.
+- **Problem:** A 2026-03-14 `pnpm outdated -r --format json` audit flagged stale patch/minor versions across core toolchain/runtime packages plus deprecated `@types/bcryptjs` and `@types/uuid`, which increases maintenance noise and compounds future upgrade risk.
+- **Expected Outcome (measurable):**
+  - The selected low-risk dependency set is updated in manifests and lockfile without widening scope into high-coupling majors.
+  - Deprecated ambient type packages are removed with no runtime behavior change.
+  - The full repo verification gate passes after the refresh.
+- **Evidence of need:** The dependency audit flagged outdated versions for `postcss`, `@cloudflare/workers-types`, `@sentry/nextjs`, `@sentry/node`, `framer-motion`, `happy-dom`, `maplibre-gl`, `pg`, `recharts`, `typescript-eslint`, and `vitest`, plus deprecated `@types/bcryptjs` and `@types/uuid`.
+- **Alignment:** Keeps the refresh within low-risk patch/minor maintenance boundaries, preserves existing security and org-scoping invariants, and intentionally avoids major migration surfaces such as Prisma 7, `@openai/agents`, Tiptap 3, Wrangler 4, and other higher-risk upgrades.
+- **Risk/rollback:** Low risk because the changes are limited to manifest and lockfile maintenance. Rollback is straightforward by reverting the dependency commit if any verification failure is attributable to the refresh.
+- **Acceptance Criteria / Tests:**
+  - Update only the approved batch-1 dependency set: `postcss`, `@cloudflare/workers-types`, `@sentry/nextjs`, `@sentry/node`, `framer-motion`, `happy-dom`, `maplibre-gl`, `pg`, `recharts`, `typescript-eslint`, and `vitest`.
+  - Remove deprecated `@types/bcryptjs` and `@types/uuid` where package-native typings are sufficient.
+  - Do not introduce unrelated dependency upgrades or major-version migrations.
+  - Run `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
+- **Evidence / Verification:**
+  - Updated the approved dependency batch in [package.json](/Users/gallagherpropertycompany/Documents/gallagher-cres/package.json), [apps/web/package.json](/Users/gallagherpropertycompany/Documents/gallagher-cres/apps/web/package.json), [infra/cloudflare-agent/package.json](/Users/gallagherpropertycompany/Documents/gallagher-cres/infra/cloudflare-agent/package.json), [packages/artifacts/package.json](/Users/gallagherpropertycompany/Documents/gallagher-cres/packages/artifacts/package.json), [packages/db/package.json](/Users/gallagherpropertycompany/Documents/gallagher-cres/packages/db/package.json), [packages/evidence/package.json](/Users/gallagherpropertycompany/Documents/gallagher-cres/packages/evidence/package.json), [packages/openai/package.json](/Users/gallagherpropertycompany/Documents/gallagher-cres/packages/openai/package.json), [packages/server/package.json](/Users/gallagherpropertycompany/Documents/gallagher-cres/packages/server/package.json), and [packages/shared/package.json](/Users/gallagherpropertycompany/Documents/gallagher-cres/packages/shared/package.json), then refreshed the lockfile with `pnpm install`.
+  - Removed deprecated `@types/bcryptjs` and `@types/uuid` entries from the app and server manifests because the runtime packages already provide sufficient typings.
+  - Recharts 3.8 tightened tooltip formatter types; patched [apps/web/components/market/BuildingPermitsDashboard.tsx](/Users/gallagherpropertycompany/Documents/gallagher-cres/apps/web/components/market/BuildingPermitsDashboard.tsx) to accept the widened tooltip value/name contract without changing runtime behavior.
+  - Verification passed on the final code state: `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
 
 - Screening pipeline config hardening
 - Chat input behavior fix
