@@ -3273,6 +3273,37 @@ The following items were identified by analyzing 6 OpenAI GitHub repositories (`
 
 ## Completed (for traceability only)
 
+### REF-001 — Jurisdictions Route Shaping + Reference Error Visibility (P1)
+
+- **Priority:** P1
+- **Status:** Done (2026-03-16)
+- **Scope:** Harden `/api/jurisdictions` response shaping and make the `/reference` page fail visibly when jurisdictions loading fails instead of collapsing into an empty-state false negative.
+- **Problem:** `/api/jurisdictions` returned `latestPack` straight from Prisma, including JSON lineage fields that could be malformed or mixed-type, and the route had no dedicated regression coverage. On the client, `apps/web/app/reference/page.tsx` treated non-200 responses as normal JSON, so a `500` quietly became `jurisdictions = []` and the UI showed “No jurisdictions found.” instead of the real failure.
+- **Expected Outcome (measurable):**
+  - `/api/jurisdictions` always returns a plain JSON-safe `latestPack` object with normalized `generatedAt`, `sourceUrls`, `sourceEvidenceIds`, `sourceSnapshotIds`, and `sourceContentHashes`.
+  - Malformed or missing pack lineage on one jurisdiction no longer takes down the entire list, and the route logs the affected jurisdiction/pack context when normalization is required.
+  - `/reference?tab=jurisdictions` surfaces an explicit error state when the jurisdictions fetch fails instead of rendering the empty-state fallback.
+- **Evidence of need:** Production browser verification on 2026-03-16 captured `/api/jurisdictions` returning `500` while the `/reference` shell still rendered and presented an empty jurisdictions state. Code inspection showed the route passing raw Prisma pack rows through the response and the page fetcher using `fetch(url).then((response) => response.json())` without throwing on `!response.ok`.
+- **Alignment:** Preserves org-scoped auth and the existing jurisdictions/parish-pack contract while making route serialization deterministic and surfacing failures honestly in the UI.
+- **Risk/rollback:** Low risk because the work is isolated to one read-only route, one page fetch path, and tests. Rollback is straightforward by reverting the serializer and UI error handling if a downstream consumer depends on the raw response shape.
+- **Acceptance Criteria / Tests:**
+  - `/api/jurisdictions` builds a plain JSON response shape for `latestPack` instead of returning the raw Prisma object.
+  - Route normalization tolerates malformed or missing lineage fields and logs the specific jurisdiction/pack context that needed recovery.
+  - Add dedicated route tests for auth rejection, valid lineage serialization, and malformed/missing lineage recovery.
+  - `/reference` throws on non-200 jurisdictions responses and renders an explicit jurisdictions error state.
+  - Re-run focused tests plus `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
+- **Evidence (2026-03-16):**
+  - Hardened `/api/jurisdictions` shaping in `apps/web/app/api/jurisdictions/route.ts` with explicit Prisma payload typing, JSON-safe `latestPack` serialization, lineage normalization, and jurisdiction/pack-scoped malformed-lineage logging.
+  - Updated `apps/web/app/reference/page.tsx` so the shared fetcher throws on non-OK responses and the jurisdictions tab renders an explicit error state instead of the empty fallback.
+  - Added regressions in `apps/web/app/api/jurisdictions/route.test.ts` and `apps/web/app/reference/page.test.tsx` covering auth rejection, valid lineage serialization, malformed/missing lineage recovery, and visible client-side error handling.
+  - Focused verification passed:
+    - `pnpm -C apps/web test -- app/api/jurisdictions/route.test.ts app/reference/page.test.tsx`
+  - Full gate passed:
+    - `pnpm lint`
+    - `pnpm typecheck`
+    - `pnpm test`
+    - `OPENAI_API_KEY=placeholder pnpm build`
+
 ### CHAT-012 — Draft Chat Bootstrap ID Separation (P1)
 
 - **Priority:** P1

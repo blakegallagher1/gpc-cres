@@ -9,7 +9,24 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 
-const fetcher = (url: string) => fetch(url).then((response) => response.json());
+export async function referenceFetcher<T>(url: string): Promise<T> {
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    let message = `Request failed (${response.status})`;
+    try {
+      const payload = (await response.json()) as { error?: unknown };
+      if (typeof payload.error === "string" && payload.error.length > 0) {
+        message = payload.error;
+      }
+    } catch {
+      // Ignore JSON parse failures for non-OK responses and preserve fallback text.
+    }
+    throw new Error(message);
+  }
+
+  return response.json() as Promise<T>;
+}
 
 interface EvidenceSource {
   id: string;
@@ -45,6 +62,36 @@ interface JurisdictionItem {
 
 type ReferenceTab = "evidence" | "jurisdictions";
 
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message;
+  }
+  return "Unknown error";
+}
+
+function ReferenceErrorState({
+  title,
+  message,
+}: {
+  title: string;
+  message: string;
+}) {
+  return (
+    <div
+      role="alert"
+      className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+    >
+      <div className="flex items-start gap-2">
+        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+        <div>
+          <p className="font-medium">{title}</p>
+          <p className="mt-1 text-red-700/90">{message}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ReferencePageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -55,13 +102,15 @@ function ReferencePageContent() {
     return raw === "jurisdictions" ? "jurisdictions" : "evidence";
   }, [searchParams]);
 
-  const { data: evidenceResponse } = useSWR<{ sources: EvidenceSource[] }>(
+  const { data: evidenceResponse, error: evidenceError } = useSWR<{ sources: EvidenceSource[] }>(
     "/api/evidence?includeSnapshots=false",
-    fetcher
+    referenceFetcher
   );
-  const { data: jurisdictionsResponse } = useSWR<{ jurisdictions: JurisdictionItem[] }>(
+  const { data: jurisdictionsResponse, error: jurisdictionsError } = useSWR<{
+    jurisdictions: JurisdictionItem[];
+  }>(
     "/api/jurisdictions",
-    fetcher
+    referenceFetcher
   );
 
   const evidenceSources = evidenceResponse?.sources ?? [];
@@ -93,7 +142,12 @@ function ReferencePageContent() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {evidenceSources.length === 0 ? (
+              {evidenceError ? (
+                <ReferenceErrorState
+                  title="Unable to load evidence sources."
+                  message={getErrorMessage(evidenceError)}
+                />
+              ) : evidenceSources.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No evidence sources found.</p>
               ) : (
                 <div className="space-y-2">
@@ -132,7 +186,12 @@ function ReferencePageContent() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {jurisdictions.length === 0 ? (
+              {jurisdictionsError ? (
+                <ReferenceErrorState
+                  title="Unable to load jurisdictions."
+                  message={getErrorMessage(jurisdictionsError)}
+                />
+              ) : jurisdictions.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No jurisdictions found.</p>
               ) : (
                 <div className="space-y-2">
