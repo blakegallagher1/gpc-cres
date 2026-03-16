@@ -3273,6 +3273,39 @@ The following items were identified by analyzing 6 OpenAI GitHub repositories (`
 
 ## Completed (for traceability only)
 
+### MARKET-017 — Building Permits Feed Degraded-Mode Recovery (P1)
+
+- **Priority:** P1
+- **Status:** Done (2026-03-16)
+- **Scope:** Harden the East Baton Rouge building permits feed so secondary Socrata query failures no longer collapse `/api/market/building-permits` into a `500`.
+- **Problem:** `apps/web/lib/services/buildingPermits.service.ts` issued six parallel Socrata queries through `Promise.all`. Any single non-OK response rejected the entire feed, which bubbled through `apps/web/app/api/market/building-permits/route.ts` as a `500` even when the core totals data was still available.
+- **Expected Outcome (measurable):**
+  - Secondary Socrata query failures return partial building-permits data with warnings instead of failing the whole route.
+  - Upstream failures are logged with the failed query name, HTTP status, and a short response snippet.
+  - A last-good payload can be served when a critical query fails after a prior successful fetch.
+- **Evidence of need:** Production browser verification on 2026-03-16 reproduced `GET /api/market/building-permits?days=30&designation=all&limit=25 -> 500` while the page shell still rendered. Code inspection confirmed the service used `Promise.all` across six Socrata calls, so a single upstream miss collapsed the feed.
+- **Alignment:** Preserves the authenticated market-feed contract, keeps the BRLA Socrata source authoritative, and improves resilience without weakening route validation or auth.
+- **Risk/rollback:** Low-to-medium risk because the work changes feed orchestration and introduces last-good caching, but it is isolated to one service, one route, and focused tests. Rollback is straightforward by reverting the degraded-mode logic if downstream consumers mis-handle the new response metadata.
+- **Acceptance Criteria / Tests:**
+  - Replace the all-or-nothing fetch fanout with a partial-failure strategy such as `Promise.allSettled`.
+  - Log query-specific upstream failures with status plus a short response snippet.
+  - Return partial data with warnings for secondary-query failures, or a cached last-good payload when critical queries fail and cache is available.
+  - Extend `apps/web/lib/services/buildingPermits.service.test.ts` to cover partial failure and last-good fallback behavior.
+  - Extend `apps/web/app/api/market/building-permits/route.test.ts` to cover degraded-but-successful responses in addition to generic `500`.
+  - Re-run focused tests plus `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
+- **Evidence (2026-03-16):**
+  - Reworked `apps/web/lib/services/buildingPermits.service.ts` to use query-aware `Promise.allSettled` orchestration, structured upstream failure logging, last-good cache fallback for required-query failures, and degraded-mode response metadata (`warnings`, `partial`, `fallbackUsed`).
+  - Kept `apps/web/app/api/market/building-permits/route.ts` on the authenticated `200` path for recovered degraded feeds while preserving the existing `500` for unrecoverable required-query failures.
+  - Added partial-failure and cached-fallback regressions in `apps/web/lib/services/buildingPermits.service.test.ts` plus degraded-success coverage in `apps/web/app/api/market/building-permits/route.test.ts`.
+  - Aligned the dashboard response typing in `apps/web/components/market/BuildingPermitsDashboard.tsx` with the new degraded-mode fields.
+  - Focused verification passed:
+    - `pnpm -C apps/web test -- app/api/market/building-permits/route.test.ts lib/services/buildingPermits.service.test.ts`
+  - Full gate passed:
+    - `pnpm lint`
+    - `pnpm typecheck`
+    - `pnpm test`
+    - `OPENAI_API_KEY=placeholder pnpm build`
+
 ### REF-001 — Jurisdictions Route Shaping + Reference Error Visibility (P1)
 
 - **Priority:** P1

@@ -111,6 +111,9 @@ type BuildingPermitsFeedResponse = {
   topPermitTypes: BuildingPermitsBreakdownPoint[];
   topZipCodes: BuildingPermitsBreakdownPoint[];
   recentPermits: BuildingPermitRecord[];
+  warnings?: string[];
+  partial?: boolean;
+  fallbackUsed?: boolean;
 };
 
 type PermitTableRecord = {

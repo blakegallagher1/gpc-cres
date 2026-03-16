@@ -76,6 +76,9 @@ describe("GET /api/market/building-permits", () => {
       topPermitTypes: [],
       topZipCodes: [],
       recentPermits: [],
+      warnings: [],
+      partial: false,
+      fallbackUsed: false,
     });
 
     const req = new NextRequest(
@@ -100,6 +103,54 @@ describe("GET /api/market/building-permits", () => {
       permitType: "Occupancy Permit (C)",
       zipCode: "70811",
     });
+  });
+
+  it("returns a degraded but successful feed when the service recovers from partial upstream failures", async () => {
+    resolveAuthMock.mockResolvedValue({ userId: "user-1", orgId: "org-1" });
+    getEbrBuildingPermitsFeedMock.mockResolvedValue({
+      dataset: {
+        id: "7fq7-8j7r",
+        sourceUrl:
+          "https://data.brla.gov/Housing-and-Development/EBR-Building-Permits/7fq7-8j7r/about_data",
+        apiBaseUrl: "https://data.brla.gov/resource",
+        refreshedAt: "2026-03-16T18:00:00.000Z",
+      },
+      filters: {
+        days: 30,
+        designation: "all",
+        limit: 25,
+        permitType: null,
+        zipCode: null,
+      },
+      totals: {
+        permitCount: 12,
+        totalProjectValue: 450000,
+        averageProjectValue: 37500,
+        totalPermitFees: 6000,
+        latestIssuedDate: "2026-03-12T00:00:00.000",
+      },
+      issuedTrend: [],
+      designationBreakdown: [],
+      topPermitTypes: [],
+      topZipCodes: [],
+      recentPermits: [],
+      warnings: [
+        "designation breakdown data is temporarily unavailable (503 Service Unavailable).",
+      ],
+      partial: true,
+      fallbackUsed: false,
+    });
+
+    const req = new NextRequest("http://localhost/api/market/building-permits");
+    const res = await GET(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.partial).toBe(true);
+    expect(body.fallbackUsed).toBe(false);
+    expect(body.warnings).toEqual([
+      "designation breakdown data is temporarily unavailable (503 Service Unavailable).",
+    ]);
   });
 
   it("returns 500 when the feed service throws", async () => {

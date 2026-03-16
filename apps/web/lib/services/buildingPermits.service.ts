@@ -57,10 +57,52 @@ export type BuildingPermitsFeed = {
   topPermitTypes: BuildingPermitsBreakdownPoint[];
   topZipCodes: BuildingPermitsBreakdownPoint[];
   recentPermits: BuildingPermitRecord[];
+  warnings: string[];
+  partial: boolean;
+  fallbackUsed: boolean;
 };
 
 const DEFAULT_SOCRATA_BASE_URL = "https://data.brla.gov/resource";
 const DEFAULT_SOCRATA_DATASET_ID = "7fq7-8j7r";
+const SOCRATA_QUERY_TIMEOUT_MS = 15_000;
+
+type BuildingPermitsQueryName =
+  | "totals"
+  | "issuedTrend"
+  | "designationBreakdown"
+  | "topPermitTypes"
+  | "topZipCodes"
+  | "recentPermits";
+
+type SocrataQueryDefinition = {
+  name: BuildingPermitsQueryName;
+  required: boolean;
+  params: Record<string, string>;
+};
+
+class SocrataQueryError extends Error {
+  readonly queryName: BuildingPermitsQueryName;
+  readonly status: number | null;
+  readonly statusText: string | null;
+  readonly snippet: string | null;
+
+  constructor(args: {
+    queryName: BuildingPermitsQueryName;
+    message: string;
+    status?: number | null;
+    statusText?: string | null;
+    snippet?: string | null;
+  }) {
+    super(args.message);
+    this.name = "SocrataQueryError";
+    this.queryName = args.queryName;
+    this.status = args.status ?? null;
+    this.statusText = args.statusText ?? null;
+    this.snippet = args.snippet ?? null;
+  }
+}
+
+const lastGoodBuildingPermitsFeedCache = new Map<string, BuildingPermitsFeed>();
 
 function escapeSoqlLiteral(value: string): string {
   return value.replace(/'/g, "''");
@@ -86,6 +128,50 @@ function socrataHeaders(): HeadersInit {
 
 function getDatasetPageUrl(): string {
   return `https://data.brla.gov/Housing-and-Development/EBR-Building-Permits/${getDatasetId()}/about_data`;
+}
+
+function getCacheKey(options: BuildingPermitsFeedOptions): string {
+  return JSON.stringify([
+    options.days,
+    options.designation,
+    options.limit,
+    options.permitType ?? null,
+    options.zipCode ?? null,
+  ]);
+}
+
+function truncateSnippet(value: string, maxLength = 240): string {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+  return `${normalized.slice(0, maxLength - 1)}…`;
+}
+
+function getQueryLabel(queryName: BuildingPermitsQueryName): string {
+  switch (queryName) {
+    case "totals":
+      return "permit totals";
+    case "issuedTrend":
+      return "issued trend";
+    case "designationBreakdown":
+      return "designation breakdown";
+    case "topPermitTypes":
+      return "permit type breakdown";
+    case "topZipCodes":
+      return "zip code breakdown";
+    case "recentPermits":
+      return "recent permits";
+  }
+}
+
+function formatWarningMessage(error: SocrataQueryError): string {
+  const queryLabel = getQueryLabel(error.queryName);
+  const statusPart =
+    error.status !== null
+      ? ` (${error.status}${error.statusText ? ` ${error.statusText}` : ""})`
+      : "";
+  return `${queryLabel} data is temporarily unavailable${statusPart}.`;
 }
 
 function parseNumber(value: unknown): number {
@@ -147,22 +233,43 @@ function buildWhereClause(options: BuildingPermitsFeedOptions): string {
 }
 
 async function fetchSocrataRows<T extends Record<string, unknown>>(
+  queryName: BuildingPermitsQueryName,
   params: Record<string, string>,
 ): Promise<T[]> {
   const search = new URLSearchParams(params);
   const url = `${getSocrataBaseUrl()}/${getDatasetId()}.json?${search.toString()}`;
-  const response = await fetch(url, {
-    headers: socrataHeaders(),
-    cache: "no-store",
-    next: { revalidate: 0 },
-    signal: AbortSignal.timeout(15_000),
-  });
+  try {
+    const response = await fetch(url, {
+      headers: socrataHeaders(),
+      cache: "no-store",
+      next: { revalidate: 0 },
+      signal: AbortSignal.timeout(SOCRATA_QUERY_TIMEOUT_MS),
+    });
 
-  if (!response.ok) {
-    throw new Error(`Socrata returned ${response.status} ${response.statusText}`);
+    if (!response.ok) {
+      const snippet = truncateSnippet(await response.text().catch(() => ""));
+      throw new SocrataQueryError({
+        queryName,
+        message: `Socrata returned ${response.status} ${response.statusText}`,
+        status: response.status,
+        statusText: response.statusText,
+        snippet: snippet.length > 0 ? snippet : null,
+      });
+    }
+
+    return (await response.json()) as T[];
+  } catch (error) {
+    if (error instanceof SocrataQueryError) {
+      throw error;
+    }
+
+    const message =
+      error instanceof Error ? error.message : "Unknown Socrata request failure";
+    throw new SocrataQueryError({
+      queryName,
+      message,
+    });
   }
-
-  return (await response.json()) as T[];
 }
 
 export async function getEbrBuildingPermitsFeed(
@@ -184,75 +291,170 @@ export async function getEbrBuildingPermitsFeed(
     "contractorname",
   ].join(",");
 
-  const [
-    totalsRows,
-    issuedTrendRows,
-    designationRows,
-    permitTypeRows,
-    zipRows,
-    recentPermitRows,
-  ] = await Promise.all([
-    fetchSocrataRows<Record<string, unknown>>({
-      $select:
-        "count(*) as permit_count," +
-        "sum(projectvalue) as total_project_value," +
-        "avg(projectvalue) as average_project_value," +
-        "sum(permitfee) as total_permit_fees," +
-        "max(issueddate) as latest_issued_date",
-      $where: where,
-    }),
-    fetchSocrataRows<Record<string, unknown>>({
-      $select:
-        "date_trunc_ymd(issueddate) as issued_day," +
-        "count(*) as permit_count," +
-        "sum(projectvalue) as total_project_value",
-      $where: where,
-      $group: "issued_day",
-      $order: "issued_day ASC",
-      $limit: "366",
-    }),
-    fetchSocrataRows<Record<string, unknown>>({
-      $select:
-        "coalesce(designation, 'Unknown') as designation_label," +
-        "count(*) as permit_count," +
-        "sum(projectvalue) as total_project_value",
-      $where: where,
-      $group: "designation_label",
-      $order: "permit_count DESC",
-      $limit: "10",
-    }),
-    fetchSocrataRows<Record<string, unknown>>({
-      $select:
-        "coalesce(permittype, 'Unknown') as permit_type_label," +
-        "count(*) as permit_count," +
-        "sum(projectvalue) as total_project_value",
-      $where: where,
-      $group: "permit_type_label",
-      $order: "permit_count DESC",
-      $limit: "10",
-    }),
-    fetchSocrataRows<Record<string, unknown>>({
-      $select:
-        "zip," +
-        "count(*) as permit_count," +
-        "sum(projectvalue) as total_project_value",
-      $where: where,
-      $group: "zip",
-      $order: "permit_count DESC",
-      $limit: "10",
-    }),
-    fetchSocrataRows<Record<string, unknown>>({
-      $select: commonSelectFields,
-      $where: where,
-      $order: "issueddate DESC",
-      $limit: String(options.limit),
-    }),
-  ]);
+  const cacheKey = getCacheKey(options);
+  const queries: SocrataQueryDefinition[] = [
+    {
+      name: "totals",
+      required: true,
+      params: {
+        $select:
+          "count(*) as permit_count," +
+          "sum(projectvalue) as total_project_value," +
+          "avg(projectvalue) as average_project_value," +
+          "sum(permitfee) as total_permit_fees," +
+          "max(issueddate) as latest_issued_date",
+        $where: where,
+      },
+    },
+    {
+      name: "issuedTrend",
+      required: false,
+      params: {
+        $select:
+          "date_trunc_ymd(issueddate) as issued_day," +
+          "count(*) as permit_count," +
+          "sum(projectvalue) as total_project_value",
+        $where: where,
+        $group: "issued_day",
+        $order: "issued_day ASC",
+        $limit: "366",
+      },
+    },
+    {
+      name: "designationBreakdown",
+      required: false,
+      params: {
+        $select:
+          "coalesce(designation, 'Unknown') as designation_label," +
+          "count(*) as permit_count," +
+          "sum(projectvalue) as total_project_value",
+        $where: where,
+        $group: "designation_label",
+        $order: "permit_count DESC",
+        $limit: "10",
+      },
+    },
+    {
+      name: "topPermitTypes",
+      required: false,
+      params: {
+        $select:
+          "coalesce(permittype, 'Unknown') as permit_type_label," +
+          "count(*) as permit_count," +
+          "sum(projectvalue) as total_project_value",
+        $where: where,
+        $group: "permit_type_label",
+        $order: "permit_count DESC",
+        $limit: "10",
+      },
+    },
+    {
+      name: "topZipCodes",
+      required: false,
+      params: {
+        $select:
+          "zip," +
+          "count(*) as permit_count," +
+          "sum(projectvalue) as total_project_value",
+        $where: where,
+        $group: "zip",
+        $order: "permit_count DESC",
+        $limit: "10",
+      },
+    },
+    {
+      name: "recentPermits",
+      required: false,
+      params: {
+        $select: commonSelectFields,
+        $where: where,
+        $order: "issueddate DESC",
+        $limit: String(options.limit),
+      },
+    },
+  ];
+
+  const settledQueries = await Promise.allSettled(
+    queries.map((query) => fetchSocrataRows<Record<string, unknown>>(query.name, query.params)),
+  );
+
+  const warnings: string[] = [];
+  const queryRows = new Map<BuildingPermitsQueryName, Record<string, unknown>[]>();
+  let requiredQueryFailed = false;
+
+  for (const [index, settledQuery] of settledQueries.entries()) {
+    const query = queries[index];
+    if (!query) {
+      continue;
+    }
+
+    if (settledQuery.status === "fulfilled") {
+      queryRows.set(query.name, settledQuery.value);
+      continue;
+    }
+
+    const error =
+      settledQuery.reason instanceof SocrataQueryError
+        ? settledQuery.reason
+        : new SocrataQueryError({
+            queryName: query.name,
+            message:
+              settledQuery.reason instanceof Error
+                ? settledQuery.reason.message
+                : "Unknown Socrata request failure",
+          });
+
+    console.warn("[building-permits] upstream query failed", {
+      queryName: error.queryName,
+      required: query.required,
+      status: error.status,
+      statusText: error.statusText,
+      snippet: error.snippet,
+      message: error.message,
+    });
+
+    warnings.push(formatWarningMessage(error));
+    queryRows.set(query.name, []);
+    if (query.required) {
+      requiredQueryFailed = true;
+    }
+  }
+
+  if (requiredQueryFailed) {
+    const cachedFeed = lastGoodBuildingPermitsFeedCache.get(cacheKey);
+    if (cachedFeed) {
+      const fallbackWarnings = [
+        "Serving the last successful building permits snapshot because a required Socrata query failed.",
+        ...warnings,
+      ];
+      console.warn("[building-permits] serving cached last-good payload", {
+        cacheKey,
+        warnings: fallbackWarnings,
+        refreshedAt: cachedFeed.dataset.refreshedAt,
+      });
+
+      return {
+        ...cachedFeed,
+        warnings: fallbackWarnings,
+        fallbackUsed: true,
+        partial: false,
+      };
+    }
+
+    throw new Error("Building permits feed unavailable because a required Socrata query failed");
+  }
+
+  const totalsRows = queryRows.get("totals") ?? [];
+  const issuedTrendRows = queryRows.get("issuedTrend") ?? [];
+  const designationRows = queryRows.get("designationBreakdown") ?? [];
+  const permitTypeRows = queryRows.get("topPermitTypes") ?? [];
+  const zipRows = queryRows.get("topZipCodes") ?? [];
+  const recentPermitRows = queryRows.get("recentPermits") ?? [];
 
   const totalsRow = totalsRows[0] ?? {};
   const refreshedAt = new Date().toISOString();
 
-  return {
+  const feed: BuildingPermitsFeed = {
     dataset: {
       id: getDatasetId(),
       sourceUrl: getDatasetPageUrl(),
@@ -301,5 +503,18 @@ export async function getEbrBuildingPermitsFeed(
       applicantName: parseNullableString(row.applicantname),
       contractorName: parseNullableString(row.contractorname),
     })),
+    warnings,
+    partial: warnings.length > 0,
+    fallbackUsed: false,
   };
+
+  if (!feed.partial) {
+    lastGoodBuildingPermitsFeedCache.set(cacheKey, feed);
+  }
+
+  return feed;
+}
+
+export function __resetBuildingPermitsFeedCacheForTests(): void {
+  lastGoodBuildingPermitsFeedCache.clear();
 }
