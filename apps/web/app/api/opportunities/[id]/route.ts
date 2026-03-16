@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { SavedSearchService } from "@/lib/services/saved-search.service";
 import { AppError } from "@/lib/errors";
 
 const service = new SavedSearchService();
+const OpportunityActionSchema = z.object({
+  action: z.enum(["seen", "dismiss", "pursue"]),
+});
 
-// PATCH /api/opportunities/[id] — mark seen or dismiss a match
+// PATCH /api/opportunities/[id] — update per-match operator feedback
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -17,20 +21,29 @@ export async function PATCH(
     }
 
     const { id } = await params;
-    const body = await request.json();
+    const body = await request.json().catch(() => null);
+    const parsed = OpportunityActionSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          error: parsed.error.issues
+            .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+            .join("; "),
+        },
+        { status: 400 }
+      );
+    }
 
-    if (body.action === "seen") {
+    if (parsed.data.action === "seen") {
       const match = await service.markSeen(id, auth.orgId, auth.userId);
       return NextResponse.json({ match });
-    } else if (body.action === "dismiss") {
+    } else if (parsed.data.action === "dismiss") {
       const match = await service.dismissMatch(id, auth.orgId, auth.userId);
       return NextResponse.json({ match });
     }
 
-    return NextResponse.json(
-      { error: "Invalid action. Use 'seen' or 'dismiss'." },
-      { status: 400 }
-    );
+    const match = await service.markPursued(id, auth.orgId, auth.userId);
+    return NextResponse.json({ match });
   } catch (error) {
     if (error instanceof AppError) {
       return NextResponse.json({ error: error.message }, { status: error.statusCode });

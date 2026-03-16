@@ -6,6 +6,8 @@ const {
   createManyMock,
   opportunityFindManyMock,
   opportunityCountMock,
+  opportunityFindFirstMock,
+  opportunityUpdateMock,
   updateMock,
 } = vi.hoisted(() => ({
   findFirstMock: vi.fn(),
@@ -13,6 +15,8 @@ const {
   createManyMock: vi.fn(),
   opportunityFindManyMock: vi.fn(),
   opportunityCountMock: vi.fn(),
+  opportunityFindFirstMock: vi.fn(),
+  opportunityUpdateMock: vi.fn(),
   updateMock: vi.fn(),
 }));
 
@@ -25,8 +29,10 @@ vi.mock("@entitlement-os/db", () => ({
     },
     opportunityMatch: {
       createMany: createManyMock,
+      findFirst: opportunityFindFirstMock,
       findMany: opportunityFindManyMock,
       count: opportunityCountMock,
+      update: opportunityUpdateMock,
     },
   },
 }));
@@ -98,14 +104,53 @@ describe("SavedSearchService property DB gateway contracts", () => {
 
   it("filters opportunities to the requested saved search", async () => {
     findManyMock.mockResolvedValue([{ id: "search-2" }]);
-    opportunityFindManyMock.mockResolvedValue([
-      {
-        id: "match-1",
-        savedSearchId: "search-2",
-        parcelId: "parcel-1",
-        savedSearch: { id: "search-2", name: "Industrial Baton Rouge" },
-      },
-    ]);
+    opportunityFindManyMock
+      .mockResolvedValueOnce([
+        {
+          id: "match-1",
+          savedSearchId: "search-2",
+          parcelId: "parcel-1",
+          matchScore: { toString: () => "82.5" },
+          matchedCriteria: { parish: true, acreageInRange: true },
+          parcelData: {
+            parish: "East Baton Rouge",
+            parcelUid: "UID-1",
+            ownerName: "Owner",
+            address: "123 Main St",
+            acreage: 2.2,
+            lat: 30.45,
+            lng: -91.19,
+          },
+          seenAt: null,
+          pursuedAt: null,
+          dismissedAt: null,
+          createdAt: new Date("2026-03-16T00:00:00.000Z"),
+          savedSearch: { id: "search-2", name: "Industrial Baton Rouge" },
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: "hist-1",
+          savedSearchId: "search-2",
+          parcelId: "parcel-9",
+          matchScore: { toString: () => "70" },
+          matchedCriteria: { parish: true },
+          parcelData: {
+            parish: "East Baton Rouge",
+            parcelUid: "UID-9",
+            ownerName: "Owner",
+            address: "99 Main St",
+            acreage: 2.4,
+            lat: 30.45,
+            lng: -91.19,
+          },
+          seenAt: new Date("2026-03-14T00:00:00.000Z"),
+          pursuedAt: new Date("2026-03-15T00:00:00.000Z"),
+          dismissedAt: null,
+          createdAt: new Date("2026-03-14T00:00:00.000Z"),
+          savedSearch: { id: "search-2", name: "Industrial Baton Rouge" },
+        },
+      ]);
     opportunityCountMock.mockResolvedValue(1);
 
     const service = new SavedSearchService();
@@ -125,8 +170,7 @@ describe("SavedSearchService property DB gateway contracts", () => {
           savedSearchId: { in: ["search-2"] },
           dismissedAt: null,
         },
-        take: 25,
-        skip: 0,
+        take: 1,
       })
     );
     expect(opportunityCountMock).toHaveBeenCalledWith({
@@ -135,16 +179,45 @@ describe("SavedSearchService property DB gateway contracts", () => {
         dismissedAt: null,
       },
     });
-    expect(result).toEqual({
-      opportunities: [
-        {
-          id: "match-1",
-          savedSearchId: "search-2",
-          parcelId: "parcel-1",
-          savedSearch: { id: "search-2", name: "Industrial Baton Rouge" },
-        },
-      ],
-      total: 1,
+    expect(result.total).toBe(1);
+    expect(result.opportunities[0]).toMatchObject({
+      id: "match-1",
+      parcelId: "parcel-1",
+      priorityScore: expect.any(Number),
+      feedbackSignal: "new",
+      savedSearch: { id: "search-2", name: "Industrial Baton Rouge" },
+    });
+    expect(result.opportunities[0]?.thesis.summary).toContain("123 Main St");
+    expect(result.opportunities[0]?.thesis.signals).toContain(
+      "Operator history is positive in East Baton Rouge"
+    );
+  });
+
+  it("persists pursue feedback for a scoped opportunity match", async () => {
+    opportunityFindFirstMock.mockResolvedValue({
+      id: "match-1",
+      seenAt: null,
+    });
+    opportunityUpdateMock.mockResolvedValue({
+      id: "match-1",
+      pursuedAt: new Date("2026-03-16T00:00:00.000Z"),
+    });
+
+    const service = new SavedSearchService();
+    await service.markPursued("match-1", "org-1", "user-1");
+
+    expect(opportunityFindFirstMock).toHaveBeenCalledWith({
+      where: {
+        id: "match-1",
+        savedSearch: { orgId: "org-1", userId: "user-1" },
+      },
+    });
+    expect(opportunityUpdateMock).toHaveBeenCalledWith({
+      where: { id: "match-1" },
+      data: expect.objectContaining({
+        pursuedAt: expect.any(Date),
+        seenAt: expect.any(Date),
+      }),
     });
   });
 });

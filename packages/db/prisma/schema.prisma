@@ -1276,6 +1276,7 @@ model OpportunityMatch {
   matchedCriteria Json      @default("{}") @map("matched_criteria") @db.JsonB
   parcelData      Json      @default("{}") @map("parcel_data") @db.JsonB // Cached parcel info for display
   seenAt          DateTime? @map("seen_at") @db.Timestamptz(6)
+  pursuedAt       DateTime? @map("pursued_at") @db.Timestamptz(6)
   dismissedAt     DateTime? @map("dismissed_at") @db.Timestamptz(6)
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -1285,6 +1286,7 @@ model OpportunityMatch {
   @@unique([savedSearchId, parcelId])
   @@index([savedSearchId])
   @@index([savedSearchId, seenAt])
+  @@index([savedSearchId, pursuedAt])
   @@index([savedSearchId, dismissedAt])
   @@map("opportunity_matches")
 }
