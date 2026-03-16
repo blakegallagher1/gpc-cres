@@ -1,6 +1,12 @@
 import { prisma } from "@entitlement-os/db";
 import type { Prisma } from "@entitlement-os/db";
 import { NotFoundError, ValidationError } from "@/lib/errors";
+import {
+  buildOpportunityFeedbackProfile,
+  enrichOpportunityMatch,
+  type OpportunityMatchForThesis,
+  type OpportunityParcelData,
+} from "@/lib/opportunities/thesisEngine";
 import { getCloudflareAccessHeadersFromEnv } from "@/lib/server/propertyDbEnv";
 
 function getGatewayConfig(): { url: string; key: string } {
@@ -91,6 +97,62 @@ interface ParcelResult {
   acreage: number | null;
   lat: number | null;
   lng: number | null;
+}
+
+function toRecord(value: Prisma.JsonValue | null | undefined): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+  return value as Record<string, unknown>;
+}
+
+function toStringOrNull(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0 ? value : null;
+}
+
+function toNumberOrNull(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function toParcelData(value: Prisma.JsonValue | null | undefined): OpportunityParcelData {
+  const record = toRecord(value);
+  return {
+    parish: toStringOrNull(record.parish),
+    parcelUid: toStringOrNull(record.parcelUid),
+    ownerName: toStringOrNull(record.ownerName),
+    address: toStringOrNull(record.address),
+    acreage: toNumberOrNull(record.acreage),
+    lat: toNumberOrNull(record.lat),
+    lng: toNumberOrNull(record.lng),
+  };
+}
+
+type OpportunityMatchRow = {
+  id: string;
+  parcelId: string;
+  matchScore: Prisma.Decimal;
+  matchedCriteria: Prisma.JsonValue;
+  parcelData: Prisma.JsonValue;
+  createdAt: Date;
+  seenAt: Date | null;
+  pursuedAt: Date | null;
+  dismissedAt: Date | null;
+  savedSearch: { id: string; name: string };
+};
+
+function toThesisInput(match: OpportunityMatchRow): OpportunityMatchForThesis {
+  return {
+    id: match.id,
+    parcelId: match.parcelId,
+    matchScore: match.matchScore.toString(),
+    matchedCriteria: toRecord(match.matchedCriteria),
+    parcelData: toParcelData(match.parcelData),
+    savedSearch: match.savedSearch,
+    createdAt: match.createdAt,
+    seenAt: match.seenAt,
+    pursuedAt: match.pursuedAt,
+    dismissedAt: match.dismissedAt,
+  };
 }
 
 const MAX_BULK_IDS = 250;
@@ -273,7 +335,16 @@ export class SavedSearchService {
       return { opportunities: [], total: 0 };
     }
 
-    const [opportunities, total] = await Promise.all([
+    const total = await prisma.opportunityMatch.count({
+      where: {
+        savedSearchId: { in: searchIds },
+        dismissedAt: null,
+      },
+    });
+
+    const fetchLimit = Math.max(1, Math.min(total, Math.max(200, offset + limit)));
+
+    const [opportunities, feedbackHistory] = await Promise.all([
       prisma.opportunityMatch.findMany({
         where: {
           savedSearchId: { in: searchIds },
@@ -283,18 +354,51 @@ export class SavedSearchService {
           savedSearch: { select: { id: true, name: true } },
         },
         orderBy: [{ seenAt: { sort: "asc", nulls: "first" } }, { matchScore: "desc" }],
-        take: limit,
-        skip: offset,
+        take: fetchLimit,
       }),
-      prisma.opportunityMatch.count({
+      prisma.opportunityMatch.findMany({
         where: {
           savedSearchId: { in: searchIds },
-          dismissedAt: null,
+          OR: [
+            { pursuedAt: { not: null } },
+            { dismissedAt: { not: null } },
+            { seenAt: { not: null } },
+          ],
         },
+        include: {
+          savedSearch: { select: { id: true, name: true } },
+        },
+        orderBy: { updatedAt: "desc" },
+        take: 250,
       }),
     ]);
 
-    return { opportunities, total };
+    const profile = buildOpportunityFeedbackProfile(
+      feedbackHistory.map((match) => toThesisInput(match as OpportunityMatchRow))
+    );
+    const rankOrder: Record<string, number> = {
+      new: 0,
+      pursued: 1,
+      seen: 2,
+      dismissed: 3,
+    };
+    const ranked = opportunities
+      .map((match) => enrichOpportunityMatch(toThesisInput(match as OpportunityMatchRow), profile))
+      .sort((left, right) => {
+        const signalDelta = rankOrder[left.feedbackSignal] - rankOrder[right.feedbackSignal];
+        if (signalDelta !== 0) return signalDelta;
+        if (right.priorityScore !== left.priorityScore) {
+          return right.priorityScore - left.priorityScore;
+        }
+        const matchScoreDelta = Number.parseFloat(String(right.matchScore)) - Number.parseFloat(String(left.matchScore));
+        if (matchScoreDelta !== 0) return matchScoreDelta;
+        return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
+      });
+
+    return {
+      opportunities: ranked.slice(offset, offset + limit),
+      total,
+    };
   }
 
   async markSeenBulk(matchIds: string[], orgId: string, userId: string): Promise<BulkMatchUpdateResult> {
@@ -351,6 +455,25 @@ export class SavedSearchService {
     return prisma.opportunityMatch.update({
       where: { id: matchId },
       data: { seenAt: new Date() },
+    });
+  }
+
+  async markPursued(matchId: string, orgId: string, userId: string) {
+    const match = await prisma.opportunityMatch.findFirst({
+      where: {
+        id: matchId,
+        savedSearch: { orgId, userId },
+      },
+    });
+    if (!match) throw new NotFoundError("Match not found");
+
+    const now = new Date();
+    return prisma.opportunityMatch.update({
+      where: { id: matchId },
+      data: {
+        seenAt: match.seenAt ?? now,
+        pursuedAt: now,
+      },
     });
   }
 

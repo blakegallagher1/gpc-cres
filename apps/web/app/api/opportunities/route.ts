@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import { AppError } from "@/lib/errors";
 import { SavedSearchService } from "@/lib/services/saved-search.service";
 
 const service = new SavedSearchService();
@@ -42,6 +43,9 @@ export async function GET(request: NextRequest) {
     );
     return NextResponse.json(result);
   } catch (error) {
+    if (error instanceof AppError) {
+      return NextResponse.json({ error: error.message }, { status: error.statusCode });
+    }
     console.error("Error fetching opportunities:", error);
     return NextResponse.json(
       { error: "Failed to fetch opportunities" },
@@ -81,6 +85,9 @@ export async function PATCH(request: NextRequest) {
       result,
     });
   } catch (error) {
+    if (error instanceof AppError) {
+      return NextResponse.json({ error: error.message }, { status: error.statusCode });
+    }
     console.error("Error bulk updating opportunities:", error);
     return NextResponse.json(
       { error: "Failed to bulk update opportunities" },

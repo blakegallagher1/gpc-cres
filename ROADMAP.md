@@ -1052,6 +1052,49 @@ Reason: these were low-priority for current operating goals and can be deferred 
 
 ## Completed
 
+### PIPE-007 — Opportunity Thesis Engine + Feedback Loop (P1)
+
+- **Priority:** P1
+- **Status:** Done (2026-03-16)
+- **Scope:** Turn raw saved-search parcel matches into ranked, explainable opportunity theses that learn from operator feedback without weakening existing auth, org scoping, or inbox workflows.
+- **Problem:** The platform already generalizes beyond entitlement work, stores property-intelligence memory, and ships a dedicated `/opportunities` inbox, but opportunity matches still surface as mostly raw parcel rows with a score badge. The system does not yet explain why a parcel matters now, suggest the next diligence action, or learn from `pursue`/`dismiss` behavior to improve future ranking.
+- **Expected Outcome (measurable):**
+  - `/api/opportunities` returns an explainable thesis object plus a learned priority score for each visible opportunity.
+  - The opportunity inbox surfaces `why now`, `angle`, `key risks`, and `next best action` instead of only raw parcel metadata.
+  - Operator feedback persists an explicit positive signal (`pursue`) in addition to the existing `dismiss`/`seen` states and influences future opportunity ranking.
+- **Evidence of need:** The current opportunity pipeline already creates `opportunity_matches` rows and ships a full-page inbox, but the feed still renders only score + parcel facts + create/deal actions. That leaves the system reactive and forces operators to mentally synthesize the thesis every time.
+- **Alignment:** Reuses the existing saved-search/opportunity pipeline, org-scoped auth via `resolveAuth`, the current feedback/reward design direction, and additive schema evolution. No legacy entitlement behavior is removed, and no external AI dependency is required for the first slice.
+- **Risk/rollback:** Medium. The work touches the opportunity schema, service/API read models, and inbox UI. Rollback is straightforward by reverting the additive column, thesis engine, and UI/API changes if ranking or feedback semantics regress.
+- **Acceptance Criteria / Tests:**
+  - [x] Added a first-class positive feedback state for opportunities with additive schema migration only.
+  - [x] Added a deterministic thesis/ranking engine with focused unit coverage.
+  - [x] Extended the opportunity service/API to expose thesis + priority score and to persist `pursue` feedback.
+  - [x] Updated the inbox UI to render the thesis and send positive feedback on deal creation.
+  - [x] Ran focused opportunity route/service tests plus the full repo verification gate.
+- **Files:**
+  - `packages/db/prisma/schema.prisma`
+  - `packages/db/prisma/migrations/20260316214500_add_opportunity_pursued_at/migration.sql`
+  - `apps/web/lib/opportunities/thesisEngine.ts`
+  - `apps/web/lib/opportunities/thesisEngine.test.ts`
+  - `apps/web/lib/services/saved-search.service.ts`
+  - `apps/web/lib/services/saved-search.service.test.ts`
+  - `apps/web/app/api/opportunities/route.ts`
+  - `apps/web/app/api/opportunities/route.test.ts`
+  - `apps/web/app/api/opportunities/[id]/route.ts`
+  - `apps/web/app/api/opportunities/[id]/route.test.ts`
+  - `apps/web/components/opportunities/OpportunityFeed.tsx`
+- **Completion Evidence (2026-03-16):**
+  - Added `pursued_at` to `opportunity_matches` with a saved-search feedback index so positive operator intent persists without destructive schema churn.
+  - Added a deterministic thesis engine that learns parish and acreage preferences from prior `pursued` and `dismissed` outcomes, then emits `summary`, `whyNow`, `angle`, `nextBestAction`, `keyRisks`, `signals`, and `priorityScore`.
+  - Updated the scoped opportunity service and APIs so inbox reads are reranked with explainable theses and `PATCH /api/opportunities/[id]` accepts `pursue` as explicit positive feedback.
+  - Updated the inbox UI so each card shows the thesis, confidence, signals, and risks, and `Create Deal` records a `pursue` event before navigating into deal creation.
+  - Verification passed:
+    - `pnpm -C apps/web test -- app/api/opportunities/route.test.ts 'app/api/opportunities/[id]/route.test.ts' lib/opportunities/thesisEngine.test.ts lib/services/saved-search.service.test.ts`
+    - `pnpm lint`
+    - `pnpm typecheck`
+    - `pnpm test`
+    - `OPENAI_API_KEY=placeholder pnpm build`
+
 ### MAP-008 — Map Regression Harness + Prospect Filter Hardening (P0)
 
 - **Priority:** P0

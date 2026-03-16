@@ -37,9 +37,21 @@ interface ParcelData {
 interface OpportunityItem {
   id: string;
   matchScore: string; // Decimal comes as string
+  priorityScore: number;
   parcelData: ParcelData;
   parcelId: string;
   seenAt: string | null;
+  pursuedAt?: string | null;
+  feedbackSignal: "new" | "seen" | "pursued" | "dismissed";
+  thesis: {
+    summary: string;
+    whyNow: string;
+    angle: string;
+    nextBestAction: string;
+    confidence: number;
+    keyRisks: string[];
+    signals: string[];
+  };
   savedSearch: { id: string; name: string };
   createdAt: string;
 }
@@ -118,11 +130,11 @@ export function OpportunityFeed({
 
   const handleCreateDeal = (e: React.MouseEvent, opp: OpportunityItem) => {
     e.stopPropagation();
-    // Mark as seen
+    // Record positive operator feedback before entering deal creation.
     fetch(`/api/opportunities/${opp.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "seen" }),
+      body: JSON.stringify({ action: "pursue" }),
     }).catch(() => {});
 
     // Navigate to deal creation with pre-populated parcel data
@@ -273,8 +285,9 @@ export function OpportunityFeed({
         ) : opportunities.length > 0 ? (
           <div className="space-y-2">
             {opportunities.map((opp) => {
-              const score = parseFloat(opp.matchScore);
+              const score = opp.priorityScore;
               const isUnseen = !opp.seenAt;
+              const isPursued = opp.feedbackSignal === "pursued";
 
               return (
                 <div
@@ -342,24 +355,36 @@ export function OpportunityFeed({
                       </div>
 
                       {/* Meta + actions */}
-                      <div className="mt-2 flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                          <Badge
-                            variant="outline"
-                            className="h-5 text-[10px]"
-                          >
-                            {opp.savedSearch.name}
-                          </Badge>
-                          <span>{timeAgo(opp.createdAt)}</span>
-                          {isUnseen && (
-                            <span className="flex items-center gap-0.5 text-primary">
-                              <Eye className="h-3 w-3" />
-                              New
-                            </span>
-                          )}
-                        </div>
+                        <div className="mt-2 flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                            <Badge
+                              variant="outline"
+                              className="h-5 text-[10px]"
+                            >
+                              {opp.savedSearch.name}
+                            </Badge>
+                            <Badge
+                              variant="secondary"
+                              className="h-5 text-[10px]"
+                            >
+                              {Math.round(opp.thesis.confidence * 100)}% confidence
+                            </Badge>
+                            <span>{timeAgo(opp.createdAt)}</span>
+                            {isUnseen && (
+                              <span className="flex items-center gap-0.5 text-primary">
+                                <Eye className="h-3 w-3" />
+                                New
+                              </span>
+                            )}
+                            {isPursued && (
+                              <span className="flex items-center gap-0.5 text-emerald-600">
+                                <Check className="h-3 w-3" />
+                                Pursued
+                              </span>
+                            )}
+                          </div>
 
-                        <Button
+                          <Button
                           size="sm"
                           variant="outline"
                           className="h-7 gap-1 text-xs"
@@ -367,7 +392,51 @@ export function OpportunityFeed({
                         >
                           <Plus className="h-3 w-3" />
                           Create Deal
-                        </Button>
+                          </Button>
+                        </div>
+
+                      <div className="mt-3 rounded-lg border border-emerald-200/70 bg-emerald-50/40 p-3">
+                        <p className="text-xs font-medium text-foreground">
+                          {opp.thesis.summary}
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {opp.thesis.whyNow}
+                        </p>
+                        <div className="mt-2 grid gap-2 text-xs sm:grid-cols-2">
+                          <div>
+                            <p className="font-medium text-foreground">Angle</p>
+                            <p className="mt-0.5 text-muted-foreground">
+                              {opp.thesis.angle}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="font-medium text-foreground">Next Best Action</p>
+                            <p className="mt-0.5 text-muted-foreground">
+                              {opp.thesis.nextBestAction}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {opp.thesis.signals.slice(0, 3).map((signalText) => (
+                            <Badge
+                              key={signalText}
+                              variant="outline"
+                              className="border-emerald-300/70 bg-white text-[10px] text-emerald-700"
+                            >
+                              {signalText}
+                            </Badge>
+                          ))}
+                        </div>
+
+                        <div className="mt-2">
+                          <p className="text-[11px] font-medium text-foreground">Key Risks</p>
+                          <ul className="mt-1 space-y-1 text-[11px] text-muted-foreground">
+                            {opp.thesis.keyRisks.slice(0, 2).map((risk) => (
+                              <li key={risk}>• {risk}</li>
+                            ))}
+                          </ul>
+                        </div>
                       </div>
                     </div>
                   </div>
