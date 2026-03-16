@@ -1,10 +1,16 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { resolveAuthMock, jurisdictionFindManyMock, parishPackVersionFindManyMock } = vi.hoisted(() => ({
+const {
+  resolveAuthMock,
+  jurisdictionFindManyMock,
+  parishPackVersionFindManyMock,
+  queryRawMock,
+} = vi.hoisted(() => ({
   resolveAuthMock: vi.fn(),
   jurisdictionFindManyMock: vi.fn(),
   parishPackVersionFindManyMock: vi.fn(),
+  queryRawMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/resolveAuth", () => ({
@@ -19,6 +25,7 @@ vi.mock("@entitlement-os/db", () => ({
     parishPackVersion: {
       findMany: parishPackVersionFindManyMock,
     },
+    $queryRaw: queryRawMock,
   },
 }));
 
@@ -29,6 +36,7 @@ describe("/api/jurisdictions route", () => {
     resolveAuthMock.mockReset();
     jurisdictionFindManyMock.mockReset();
     parishPackVersionFindManyMock.mockReset();
+    queryRawMock.mockReset();
     vi.restoreAllMocks();
   });
 
@@ -44,6 +52,7 @@ describe("/api/jurisdictions route", () => {
     expect(body).toEqual({ error: "Unauthorized" });
     expect(jurisdictionFindManyMock).not.toHaveBeenCalled();
     expect(parishPackVersionFindManyMock).not.toHaveBeenCalled();
+    expect(queryRawMock).not.toHaveBeenCalled();
   });
 
   it("serializes valid lineage data into a plain JSON latestPack shape", async () => {
@@ -60,12 +69,18 @@ describe("/api/jurisdictions route", () => {
         kind: "county",
         state: "LA",
         timezone: "America/Chicago",
-        officialDomains: ["brla.gov"],
         seedSources: [
           { id: "seed-1", active: true },
           { id: "seed-2", active: false },
         ],
         _count: { deals: 4 },
+      },
+    ]);
+    queryRawMock.mockResolvedValue([
+      {
+        id: "jur-1",
+        officialDomainsRaw:
+          '"[\\"brla.gov\\",\\"library.municode.com\\"]"',
       },
     ]);
     parishPackVersionFindManyMock.mockResolvedValue([
@@ -98,7 +113,7 @@ describe("/api/jurisdictions route", () => {
           kind: "county",
           state: "LA",
           timezone: "America/Chicago",
-          officialDomains: ["brla.gov"],
+          officialDomains: ["brla.gov", "library.municode.com"],
           seedSourceCount: 1,
           dealCount: 4,
           latestPack: {
@@ -139,7 +154,6 @@ describe("/api/jurisdictions route", () => {
         kind: "county",
         state: "LA",
         timezone: "America/Chicago",
-        officialDomains: ["good.example.gov"],
         seedSources: [{ id: "seed-good", active: true }],
         _count: { deals: 1 },
       },
@@ -149,9 +163,18 @@ describe("/api/jurisdictions route", () => {
         kind: "county",
         state: "LA",
         timezone: "America/Chicago",
-        officialDomains: ["broken.example.gov"],
         seedSources: [{ id: "seed-bad", active: true }],
         _count: { deals: 3 },
+      },
+    ]);
+    queryRawMock.mockResolvedValue([
+      {
+        id: "jur-good",
+        officialDomainsRaw: '["good.example.gov"]',
+      },
+      {
+        id: "jur-bad",
+        officialDomainsRaw: '["broken.example.gov"]',
       },
     ]);
     parishPackVersionFindManyMock.mockResolvedValue([
@@ -238,9 +261,14 @@ describe("/api/jurisdictions route", () => {
         kind: "county",
         state: "LA",
         timezone: "America/Chicago",
-        officialDomains: ["brla.gov"],
         seedSources: [{ id: "seed-1", active: true }],
         _count: { deals: 2 },
+      },
+    ]);
+    queryRawMock.mockResolvedValue([
+      {
+        id: "jur-1",
+        officialDomainsRaw: '["brla.gov"]',
       },
     ]);
     parishPackVersionFindManyMock.mockRejectedValue(
@@ -282,6 +310,54 @@ describe("/api/jurisdictions route", () => {
         orgId: "org-1",
         jurisdictionCount: 1,
         error: "current pack include failed",
+      }),
+    );
+  });
+
+  it("normalizes malformed official domain payloads without taking down the list", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    resolveAuthMock.mockResolvedValue({
+      userId: "user-1",
+      orgId: "org-1",
+    });
+    jurisdictionFindManyMock.mockResolvedValue([
+      {
+        id: "jur-1",
+        name: "Ascension Parish",
+        kind: "county",
+        state: "LA",
+        timezone: "America/Chicago",
+        seedSources: [{ id: "seed-1", active: true }],
+        _count: { deals: 0 },
+      },
+    ]);
+    queryRawMock.mockResolvedValue([
+      {
+        id: "jur-1",
+        officialDomainsRaw: "not-json-or-array",
+      },
+    ]);
+    parishPackVersionFindManyMock.mockResolvedValue([]);
+
+    const res = await GET(
+      new NextRequest("http://localhost/api/jurisdictions"),
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.jurisdictions[0]).toMatchObject({
+      id: "jur-1",
+      officialDomains: [],
+      packContext: {
+        hasPack: false,
+      },
+    });
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[jurisdictions] malformed official domains",
+      expect.objectContaining({
+        jurisdictionId: "jur-1",
+        jurisdictionName: "Ascension Parish",
       }),
     );
   });

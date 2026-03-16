@@ -4,10 +4,17 @@ import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { isChatPersistenceUnavailable } from "@/app/api/chat/_lib/errorHandling";
 import { shouldUseAppDatabaseDevFallback } from "@/lib/server/appDbEnv";
 
+const DB_UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 type PendingApprovalRecord = {
   toolCallId: string | null;
   toolName: string | null;
 };
+
+function isDatabaseUuid(value: string): boolean {
+  return DB_UUID_REGEX.test(value.trim());
+}
 
 function readPendingApproval(outputJson: unknown): PendingApprovalRecord | null {
   if (!outputJson || typeof outputJson !== "object" || Array.isArray(outputJson)) {
@@ -48,6 +55,10 @@ export async function GET(
 
   if (shouldUseAppDatabaseDevFallback()) {
     return NextResponse.json({ conversation: null, degraded: true });
+  }
+
+  if (!isDatabaseUuid(id)) {
+    return NextResponse.json({ conversation: null });
   }
 
   try {
@@ -193,6 +204,13 @@ export async function DELETE(
     return NextResponse.json(
       { error: "Conversation store unavailable", degraded: true },
       { status: 503 },
+    );
+  }
+
+  if (!isDatabaseUuid(id)) {
+    return NextResponse.json(
+      { error: "Conversation not found" },
+      { status: 404 },
     );
   }
 

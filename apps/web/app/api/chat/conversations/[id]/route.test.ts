@@ -36,6 +36,9 @@ vi.mock("@/lib/server/appDbEnv", () => ({
 import { DELETE, GET } from "./route";
 import { shouldUseAppDatabaseDevFallback } from "@/lib/server/appDbEnv";
 
+const CONVERSATION_ID_1 = "11111111-1111-4111-8111-111111111111";
+const CONVERSATION_ID_2 = "22222222-2222-4222-8222-222222222222";
+
 describe("/api/chat/conversations/[id]", () => {
   beforeEach(() => {
     resolveAuthMock.mockReset();
@@ -55,7 +58,7 @@ describe("/api/chat/conversations/[id]", () => {
       orgId: "11111111-1111-4111-8111-111111111111",
     });
     conversationFindFirstMock.mockResolvedValue({
-      id: "conv-1",
+      id: CONVERSATION_ID_1,
       title: "Parcel review",
       dealId: "deal-1",
       deal: { id: "deal-1", name: "Main Street", status: "ACTIVE" },
@@ -83,15 +86,19 @@ describe("/api/chat/conversations/[id]", () => {
       startedAt: new Date("2026-03-12T10:06:00.000Z"),
       outputJson: {
         pendingApproval: {
-          conversationId: "conv-1",
+          conversationId: CONVERSATION_ID_1,
           toolCallId: "call-42",
           toolName: "update_deal_status",
         },
       },
     });
 
-    const req = new NextRequest("http://localhost/api/chat/conversations/conv-1");
-    const res = await GET(req, { params: Promise.resolve({ id: "conv-1" }) });
+    const req = new NextRequest(
+      `http://localhost/api/chat/conversations/${CONVERSATION_ID_1}`,
+    );
+    const res = await GET(req, {
+      params: Promise.resolve({ id: CONVERSATION_ID_1 }),
+    });
     const body = await res.json();
 
     expect(res.status).toBe(200);
@@ -148,8 +155,12 @@ describe("/api/chat/conversations/[id]", () => {
     );
     runFindFirstMock.mockResolvedValue(null);
 
-    const req = new NextRequest("http://localhost/api/chat/conversations/conv-1");
-    const res = await GET(req, { params: Promise.resolve({ id: "conv-1" }) });
+    const req = new NextRequest(
+      `http://localhost/api/chat/conversations/${CONVERSATION_ID_1}`,
+    );
+    const res = await GET(req, {
+      params: Promise.resolve({ id: CONVERSATION_ID_1 }),
+    });
     const body = await res.json();
 
     expect(res.status).toBe(200);
@@ -161,7 +172,6 @@ describe("/api/chat/conversations/[id]", () => {
       userId: "99999999-9999-4999-8999-999999999999",
       orgId: "11111111-1111-4111-8111-111111111111",
     });
-    conversationFindFirstMock.mockResolvedValue(null);
 
     const req = new NextRequest("http://localhost/api/chat/conversations/draft-1");
     const res = await GET(req, { params: Promise.resolve({ id: "draft-1" }) });
@@ -169,6 +179,7 @@ describe("/api/chat/conversations/[id]", () => {
 
     expect(res.status).toBe(200);
     expect(body).toEqual({ conversation: null });
+    expect(conversationFindFirstMock).not.toHaveBeenCalled();
     expect(runFindFirstMock).not.toHaveBeenCalled();
   });
 
@@ -180,7 +191,7 @@ describe("/api/chat/conversations/[id]", () => {
       orgId: "11111111-1111-4111-8111-111111111111",
     });
     conversationFindFirstMock.mockResolvedValue({
-      id: "conv-2",
+      id: CONVERSATION_ID_2,
       title: "Pending approval lookup drift",
       dealId: null,
       deal: null,
@@ -200,14 +211,18 @@ describe("/api/chat/conversations/[id]", () => {
     });
     runFindFirstMock.mockRejectedValue(new Error("json path lookup failed"));
 
-    const req = new NextRequest("http://localhost/api/chat/conversations/conv-2");
-    const res = await GET(req, { params: Promise.resolve({ id: "conv-2" }) });
+    const req = new NextRequest(
+      `http://localhost/api/chat/conversations/${CONVERSATION_ID_2}`,
+    );
+    const res = await GET(req, {
+      params: Promise.resolve({ id: CONVERSATION_ID_2 }),
+    });
     const body = await res.json();
 
     expect(res.status).toBe(200);
     expect(body).toEqual({
       conversation: {
-        id: "conv-2",
+        id: CONVERSATION_ID_2,
         title: "Pending approval lookup drift",
         dealId: null,
         deal: null,
@@ -229,12 +244,11 @@ describe("/api/chat/conversations/[id]", () => {
     expect(warnSpy).toHaveBeenCalledWith(
       "[chat-conversation-detail] pending approval lookup failed",
       expect.objectContaining({
-        conversationId: "conv-2",
+        conversationId: CONVERSATION_ID_2,
         orgId: "11111111-1111-4111-8111-111111111111",
         error: "json path lookup failed",
       }),
     );
-
   });
 
   it("short-circuits GET before Prisma when dev fallback is active", async () => {
@@ -244,8 +258,12 @@ describe("/api/chat/conversations/[id]", () => {
     });
     vi.mocked(shouldUseAppDatabaseDevFallback).mockReturnValue(true);
 
-    const req = new NextRequest("http://localhost/api/chat/conversations/conv-1");
-    const res = await GET(req, { params: Promise.resolve({ id: "conv-1" }) });
+    const req = new NextRequest(
+      `http://localhost/api/chat/conversations/${CONVERSATION_ID_1}`,
+    );
+    const res = await GET(req, {
+      params: Promise.resolve({ id: CONVERSATION_ID_1 }),
+    });
     const body = await res.json();
 
     expect(res.status).toBe(200);
@@ -265,10 +283,15 @@ describe("/api/chat/conversations/[id]", () => {
       ),
     );
 
-    const req = new NextRequest("http://localhost/api/chat/conversations/conv-1", {
-      method: "DELETE",
+    const req = new NextRequest(
+      `http://localhost/api/chat/conversations/${CONVERSATION_ID_1}`,
+      {
+        method: "DELETE",
+      },
+    );
+    const res = await DELETE(req, {
+      params: Promise.resolve({ id: CONVERSATION_ID_1 }),
     });
-    const res = await DELETE(req, { params: Promise.resolve({ id: "conv-1" }) });
     const body = await res.json();
 
     expect(res.status).toBe(503);
@@ -286,10 +309,15 @@ describe("/api/chat/conversations/[id]", () => {
     });
     vi.mocked(shouldUseAppDatabaseDevFallback).mockReturnValue(true);
 
-    const req = new NextRequest("http://localhost/api/chat/conversations/conv-1", {
-      method: "DELETE",
+    const req = new NextRequest(
+      `http://localhost/api/chat/conversations/${CONVERSATION_ID_1}`,
+      {
+        method: "DELETE",
+      },
+    );
+    const res = await DELETE(req, {
+      params: Promise.resolve({ id: CONVERSATION_ID_1 }),
     });
-    const res = await DELETE(req, { params: Promise.resolve({ id: "conv-1" }) });
     const body = await res.json();
 
     expect(res.status).toBe(503);
@@ -297,6 +325,24 @@ describe("/api/chat/conversations/[id]", () => {
       error: "Conversation store unavailable",
       degraded: true,
     });
+    expect(conversationFindFirstMock).not.toHaveBeenCalled();
+    expect(conversationDeleteMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 for invalid draft ids on DELETE without touching Prisma", async () => {
+    resolveAuthMock.mockResolvedValue({
+      userId: "99999999-9999-4999-8999-999999999999",
+      orgId: "11111111-1111-4111-8111-111111111111",
+    });
+
+    const req = new NextRequest("http://localhost/api/chat/conversations/draft-1", {
+      method: "DELETE",
+    });
+    const res = await DELETE(req, { params: Promise.resolve({ id: "draft-1" }) });
+    const body = await res.json();
+
+    expect(res.status).toBe(404);
+    expect(body).toEqual({ error: "Conversation not found" });
     expect(conversationFindFirstMock).not.toHaveBeenCalled();
     expect(conversationDeleteMock).not.toHaveBeenCalled();
   });
