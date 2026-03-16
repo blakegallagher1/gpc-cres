@@ -170,6 +170,135 @@ describe("POST /api/map/prospect", () => {
     expect(parcelFindManyMock).not.toHaveBeenCalled();
   });
 
+  it("maps wrapped gateway rows nested under data.rows", async () => {
+    resolveAuthMock.mockResolvedValue({ userId: "user-1", orgId: "org-1" });
+    fetchMock.mockResolvedValue(
+      makeJsonResponse({
+        ok: true,
+        data: {
+          rows: [
+            {
+              id: "p-2",
+              site_address: "456 Oak Ave",
+              owner_name: "Wrapped Owner",
+              acreage: 2.5,
+              zoning: "M1",
+              assessed_value: 750000,
+              lat: 30.4,
+              lng: -91.16,
+              parish_name: "East Baton Rouge",
+              parcel_uid: "uid-2",
+            },
+          ],
+        },
+      }),
+    );
+
+    const req = new NextRequest("http://localhost/api/map/prospect", {
+      method: "POST",
+      body: JSON.stringify({
+        polygon: {
+          type: "Polygon",
+          coordinates: [[[-91.2, 30.45], [-91.2, 30.35], [-91.1, 30.35], [-91.1, 30.45], [-91.2, 30.45]]],
+        },
+      }),
+    });
+
+    const res = await POST(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body).toEqual({
+      parcels: [
+        {
+          id: "p-2",
+          address: "456 Oak Ave",
+          owner: "Wrapped Owner",
+          acreage: 2.5,
+          zoning: "M1",
+          assessedValue: 750000,
+          floodZone: "",
+          lat: 30.4,
+          lng: -91.16,
+          parish: "East Baton Rouge",
+          parcelUid: "uid-2",
+          propertyDbId: "uid-2",
+        },
+      ],
+      total: 1,
+    });
+  });
+
+  it("maps columnar gateway SQL responses", async () => {
+    resolveAuthMock.mockResolvedValue({ userId: "user-1", orgId: "org-1" });
+    fetchMock.mockResolvedValue(
+      makeJsonResponse({
+        columnNames: [
+          "id",
+          "site_address",
+          "owner_name",
+          "acreage",
+          "zoning",
+          "assessed_value",
+          "lat",
+          "lng",
+          "parish_name",
+          "parcel_id",
+        ],
+        rows: [
+          [
+            "p-3",
+            "2774 HIGHLAND RD",
+            "Columnar Owner",
+            1.1,
+            "C2",
+            640000,
+            30.4227,
+            -91.179,
+            "East Baton Rouge",
+            "parcel-3",
+          ],
+        ],
+        rowCount: 1,
+      }),
+    );
+
+    const req = new NextRequest("http://localhost/api/map/prospect", {
+      method: "POST",
+      body: JSON.stringify({
+        polygon: {
+          type: "Polygon",
+          coordinates: [[[-91.2, 30.45], [-91.2, 30.35], [-91.1, 30.35], [-91.1, 30.45], [-91.2, 30.45]]],
+        },
+        filters: { searchText: "2774 HIGHLAND RD" },
+      }),
+    });
+
+    const res = await POST(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body).toEqual({
+      parcels: [
+        {
+          id: "p-3",
+          address: "2774 HIGHLAND RD",
+          owner: "Columnar Owner",
+          acreage: 1.1,
+          zoning: "C2",
+          assessedValue: 640000,
+          floodZone: "",
+          lat: 30.4227,
+          lng: -91.179,
+          parish: "East Baton Rouge",
+          parcelUid: "parcel-3",
+          propertyDbId: "parcel-3",
+        },
+      ],
+      total: 1,
+    });
+  });
+
   it("adds suffix-aware searchText matching to the polygon SQL", async () => {
     resolveAuthMock.mockResolvedValue({ userId: "user-1", orgId: "org-1" });
     fetchMock.mockResolvedValue(makeJsonResponse([]));

@@ -3398,6 +3398,34 @@ The following items were identified by analyzing 6 OpenAI GitHub repositories (`
     - One-shot authenticated production monitor passed 12/12 on current live build `b276edfbe73b96259d3fa244cf3b46971f949f1d`; artifact: `output/observability/monitor-2026-03-16-232547543Z.json`.
     - Direct authenticated probes against that same live build still returned `total: 100` with first address `7944 BOONE AVE` for both polygon-only and `filters.searchText` requests (`4416 HEATH DR` and `2774 HIGHLAND RD`), confirming the current deployed build still ignores `searchText` until this patch is shipped.
 
+### MAP-016 — Prospect Gateway Envelope Normalization (P1)
+
+- **Priority:** P1
+- **Status:** Done (2026-03-16)
+- **Scope:** Normalize `/tools/parcels.sql` gateway payload envelopes in `POST /api/map/prospect` so production polygon prospecting can read wrapped and columnar SQL responses instead of silently treating them as empty result sets.
+- **Problem:** After `MAP-015` shipped in PR `#107`, production build `c9ab99423cabf20e798dbdc38fa96393674b4e80` still returned `{ "parcels": [], "total": 0 }` for geometry-derived polygon probes that should have included `2774 HIGHLAND RD`. The root cause was response-shape drift: the route only handled raw row arrays or top-level `rows` objects, while the live gateway can return nested `data.rows` envelopes or columnar `columnNames + rows[][]` SQL payloads.
+- **Expected Outcome (measurable):**
+  - `POST /api/map/prospect` maps wrapped `data.rows` gateway payloads into parcel objects.
+  - `POST /api/map/prospect` maps columnar `columnNames` + `rows[][]` SQL responses into parcel objects.
+  - Focused route regressions prove both payload shapes return non-empty parcel envelopes instead of false empty responses.
+- **Evidence of need:** On 2026-03-16, authenticated production probes against build `c9ab99423cabf20e798dbdc38fa96393674b4e80` returned a valid parcel for `GET /api/parcels?hasCoords=true&search=2774 HIGHLAND RD`, returned valid geometry for `/api/parcels/ext-00001e98-979c-485a-b71d-69c4f817dd70/geometry`, and still returned `total: 0` for the derived polygon sent to `POST /api/map/prospect`. Local SQL sanity checks showed the polygon SQL itself still returned rows, isolating the defect to prospect-route gateway response parsing rather than polygon semantics.
+- **Alignment:** Preserves the existing gateway-backed parcel architecture, keeps auth/org handling unchanged, and hardens the route against already-deployed gateway response shapes instead of redefining the route contract.
+- **Risk/rollback:** Low risk because the change is isolated to read-only prospect-route parsing plus focused tests. Rollback is straightforward by reverting the normalization helpers and the added response-shape regressions if downstream parsing behavior regresses.
+- **Acceptance Criteria / Tests:**
+  - `apps/web/app/api/map/prospect/route.ts` normalizes nested `data.rows`, direct row arrays, and columnar `columnNames + rows[][]` payloads into parcel rows.
+  - `apps/web/app/api/map/prospect/route.post.test.ts` covers wrapped and columnar gateway responses.
+  - Re-run focused route tests plus `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
+- **Evidence (2026-03-16):**
+  - Updated `apps/web/app/api/map/prospect/route.ts` with `normalizeProspectGatewayRows()` and columnar row mapping so the route accepts direct rows, nested envelopes, and Cloudflare db-proxy SQL payloads.
+  - Added focused regressions in `apps/web/app/api/map/prospect/route.post.test.ts` covering wrapped `data.rows` responses and columnar `columnNames + rows[][]` responses.
+  - Focused verification passed:
+    - `pnpm -C apps/web test -- app/api/map/prospect/route.post.test.ts app/api/map/prospect/route.test.ts`
+  - Full verification gate passed:
+    - `pnpm lint`
+    - `pnpm typecheck`
+    - `pnpm test`
+    - `OPENAI_API_KEY=placeholder pnpm build`
+
 ### MAP-014 — Parcel Geometry Missing-Row Degradation Path (P1)
 
 - **Priority:** P1
