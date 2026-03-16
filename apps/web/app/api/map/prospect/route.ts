@@ -13,6 +13,29 @@ import {
 } from "@/lib/server/propertyDbEnv";
 
 const DEFAULT_GATEWAY_TIMEOUT_MS = 10_000;
+const STREET_SUFFIX_CANONICAL: Array<[RegExp, string]> = [
+  [/\bdr\b/g, "drive"],
+  [/\bst\b/g, "street"],
+  [/\brd\b/g, "road"],
+  [/\bave\b/g, "avenue"],
+  [/\bblvd\b/g, "boulevard"],
+  [/\bhwy\b/g, "highway"],
+  [/\bln\b/g, "lane"],
+];
+const STREET_SUFFIX_ABBREVIATED: Array<[RegExp, string]> = [
+  [/\bdrive\b/g, "dr"],
+  [/\bstreet\b/g, "st"],
+  [/\broad\b/g, "rd"],
+  [/\bavenue\b/g, "ave"],
+  [/\bboulevard\b/g, "blvd"],
+  [/\bhighway\b/g, "hwy"],
+  [/\blane\b/g, "ln"],
+];
+const PROSPECT_SEARCH_FIELDS = [
+  "LOWER(regexp_replace(COALESCE(address, ''), '[^a-z0-9]+', ' ', 'g'))",
+  "LOWER(regexp_replace(COALESCE(owner, ''), '[^a-z0-9]+', ' ', 'g'))",
+  "LOWER(regexp_replace(COALESCE(parcel_id, ''), '[^a-z0-9]+', ' ', 'g'))",
+] as const;
 
 function getGatewayTimeoutMs(): number {
   const raw = Number(process.env.PROPERTY_DB_GATEWAY_TIMEOUT_MS ?? "");
@@ -107,6 +130,7 @@ async function gatewayPost(
 function buildPolygonSql(
   polygonCoordinates: number[][][],
   filters?: {
+    searchText?: string;
     zoningCodes?: string[];
     minAcreage?: number;
     maxAcreage?: number;
@@ -124,6 +148,10 @@ function buildPolygonSql(
   const whereClauses: string[] = [
     `ST_Contains(ST_SetSRID(ST_GeomFromGeoJSON('${geojson.replace(/'/g, "''")}'), 4326), geom)`,
   ];
+  const searchClause = buildProspectSearchClause(filters?.searchText);
+  if (searchClause) {
+    whereClauses.push(searchClause);
+  }
 
   if (filters?.zoningCodes?.length) {
     const escaped = filters.zoningCodes.map((c) => c.replace(/'/g, "''").toUpperCase());
@@ -157,8 +185,68 @@ function buildPolygonSql(
       'East Baton Rouge' AS parish_name
     FROM ebr_parcels
     WHERE ${whereClauses.join(" AND ")}
+    ORDER BY address ASC NULLS LAST, parcel_id ASC
     LIMIT 500
   `.trim();
+}
+
+function normalizeProspectSearchText(input: string): string {
+  return input
+    .normalize("NFKD")
+    .replace(/[^\w\s]/g, " ")
+    .replace(/_/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function replaceStreetSuffixes(
+  value: string,
+  replacements: ReadonlyArray<readonly [RegExp, string]>,
+): string {
+  let normalized = value;
+  for (const [pattern, replacement] of replacements) {
+    normalized = normalized.replace(pattern, replacement);
+  }
+  return normalized.replace(/\s+/g, " ").trim();
+}
+
+function escapeSqlLikeLiteral(value: string): string {
+  return value
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "''")
+    .replace(/%/g, "\\%")
+    .replace(/_/g, "\\_");
+}
+
+function buildProspectSearchPatterns(searchText?: string): string[] {
+  const normalized = normalizeProspectSearchText(searchText ?? "");
+  if (!normalized || normalized === "*") {
+    return [];
+  }
+
+  const variants = new Set<string>([
+    normalized,
+    replaceStreetSuffixes(normalized, STREET_SUFFIX_CANONICAL),
+    replaceStreetSuffixes(normalized, STREET_SUFFIX_ABBREVIATED),
+  ]);
+
+  return Array.from(variants)
+    .filter(Boolean)
+    .map((value) => `%${value.split(" ").map(escapeSqlLikeLiteral).join("%")}%`);
+}
+
+function buildProspectSearchClause(searchText?: string): string | null {
+  const patterns = buildProspectSearchPatterns(searchText);
+  if (patterns.length === 0) {
+    return null;
+  }
+
+  const comparisons = patterns.flatMap((pattern) =>
+    PROSPECT_SEARCH_FIELDS.map((field) => `${field} LIKE '${pattern}' ESCAPE '\\'`),
+  );
+
+  return `(${comparisons.join(" OR ")})`;
 }
 
 // ---------------------------------------------------------------------------
@@ -275,6 +363,7 @@ export async function POST(req: NextRequest) {
     };
 
     const sql = buildPolygonSql(polygonCoordinates, {
+      searchText: filters?.searchText,
       zoningCodes: filters?.zoningCodes,
       minAcreage: filters?.minAcreage,
       maxAcreage: filters?.maxAcreage,

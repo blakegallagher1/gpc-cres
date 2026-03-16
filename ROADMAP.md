@@ -3366,6 +3366,38 @@ The following items were identified by analyzing 6 OpenAI GitHub repositories (`
 
 ## Completed (for traceability only)
 
+### MAP-015 — Polygon Prospect SearchText Contract Recovery (P1)
+
+- **Priority:** P1
+- **Status:** Done (2026-03-16)
+- **Scope:** Restore `filters.searchText` semantics in `POST /api/map/prospect` so polygon prospecting can narrow results by address, owner, or parcel identifier instead of ignoring the text filter.
+- **Problem:** The current route records `hasSearchText` in observability but `buildPolygonSql()` never applies that value to the SQL query. Live production verification on 2026-03-16 at build `b276edfbe73b96259d3fa244cf3b46971f949f1d` returned the same first parcel (`7944 BOONE AVE`) and the same `total: 100` for both polygon-only requests and `filters.searchText="2774 HIGHLAND RD"`, proving the text filter is a no-op. That breaks the `/map` polygon-search contract and the saved-search/prospecting flows that send `searchText`.
+- **Expected Outcome (measurable):**
+  - `POST /api/map/prospect` applies `filters.searchText` in-database before the gateway row cap so polygon searches can narrow by address, owner, or parcel id.
+  - Wildcard placeholder input like `searchText="*"` remains a no-op so the existing `/map` empty-search behavior does not regress.
+  - Route regression coverage proves the generated SQL includes suffix-aware text matching when `searchText` is present and omits it for wildcard-only input.
+- **Evidence of need:** A live authenticated production probe on 2026-03-16 showed `POST /api/map/prospect` returning `total: 100` with first address `7944 BOONE AVE` both with and without `filters.searchText="2774 HIGHLAND RD"`, and no returned parcel matched the requested address. The current `/map` page and `/prospecting` page both send `filters.searchText`, so the route contract is currently broken for shipped UI behavior.
+- **Alignment:** Preserves the gateway-backed polygon route, keeps auth/org handling unchanged, and repairs an existing client contract instead of redefining monitor expectations.
+- **Risk/rollback:** Low risk because the work stays inside the map prospect route, only changes SQL generation for an optional filter, and is covered by focused tests. Rollback is straightforward by reverting the SQL helper and route tests if downstream query behavior regresses.
+- **Acceptance Criteria / Tests:**
+  - `apps/web/app/api/map/prospect/route.ts` applies normalized, suffix-aware `searchText` matching to address/owner/parcel id fields.
+  - `searchText="*"` does not add a restrictive SQL clause.
+  - `apps/web/app/api/map/prospect/route.post.test.ts` covers both filtered and wildcard search-text behavior.
+  - Re-run focused route tests plus `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
+- **Evidence (2026-03-16):**
+  - Updated `apps/web/app/api/map/prospect/route.ts` so `buildPolygonSql()` applies normalized, suffix-aware `searchText` matching to address, owner, and `parcel_id` before the gateway row cap while preserving `searchText="*"` as a no-op.
+  - Added focused regressions in `apps/web/app/api/map/prospect/route.post.test.ts` covering both suffix-aware `searchText` SQL generation and wildcard passthrough behavior.
+  - Focused verification passed:
+    - `pnpm -C apps/web test -- app/api/map/prospect/route.post.test.ts app/api/map/prospect/route.test.ts`
+  - Full verification gate passed:
+    - `pnpm lint`
+    - `pnpm typecheck`
+    - `pnpm test`
+    - `OPENAI_API_KEY=placeholder pnpm build`
+  - Live runtime evidence:
+    - One-shot authenticated production monitor passed 12/12 on current live build `b276edfbe73b96259d3fa244cf3b46971f949f1d`; artifact: `output/observability/monitor-2026-03-16-232547543Z.json`.
+    - Direct authenticated probes against that same live build still returned `total: 100` with first address `7944 BOONE AVE` for both polygon-only and `filters.searchText` requests (`4416 HEATH DR` and `2774 HIGHLAND RD`), confirming the current deployed build still ignores `searchText` until this patch is shipped.
+
 ### MAP-014 — Parcel Geometry Missing-Row Degradation Path (P1)
 
 - **Priority:** P1

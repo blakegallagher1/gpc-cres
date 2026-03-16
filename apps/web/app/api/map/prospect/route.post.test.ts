@@ -137,6 +137,14 @@ describe("POST /api/map/prospect", () => {
         "x-request-id": expect.any(String),
       }),
     });
+    const gatewayBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body ?? "{}")) as {
+      sql?: string;
+      limit?: number;
+    };
+    expect(gatewayBody.limit).toBe(500);
+    expect(gatewayBody.sql).toContain(
+      "LOWER(regexp_replace(COALESCE(address, ''), '[^a-z0-9]+', ' ', 'g')) LIKE '%main%' ESCAPE '\\'",
+    );
   });
 
   it("returns an empty result when the gateway returns an empty set", async () => {
@@ -160,6 +168,56 @@ describe("POST /api/map/prospect", () => {
     expect(res.headers.get("x-request-id")).toBeTruthy();
     expect(body).toEqual({ parcels: [], total: 0 });
     expect(parcelFindManyMock).not.toHaveBeenCalled();
+  });
+
+  it("adds suffix-aware searchText matching to the polygon SQL", async () => {
+    resolveAuthMock.mockResolvedValue({ userId: "user-1", orgId: "org-1" });
+    fetchMock.mockResolvedValue(makeJsonResponse([]));
+
+    const req = new NextRequest("http://localhost/api/map/prospect", {
+      method: "POST",
+      body: JSON.stringify({
+        polygon: {
+          type: "Polygon",
+          coordinates: [[[-91.2, 30.45], [-91.2, 30.35], [-91.1, 30.35], [-91.1, 30.45], [-91.2, 30.45]]],
+        },
+        filters: { searchText: "2774 Highland Rd" },
+      }),
+    });
+
+    const res = await POST(req);
+    const gatewayBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body ?? "{}")) as {
+      sql?: string;
+    };
+
+    expect(res.status).toBe(200);
+    expect(gatewayBody.sql).toContain("%2774%highland%rd%");
+    expect(gatewayBody.sql).toContain("%2774%highland%road%");
+  });
+
+  it("treats wildcard-only searchText as an unfiltered polygon search", async () => {
+    resolveAuthMock.mockResolvedValue({ userId: "user-1", orgId: "org-1" });
+    fetchMock.mockResolvedValue(makeJsonResponse([]));
+
+    const req = new NextRequest("http://localhost/api/map/prospect", {
+      method: "POST",
+      body: JSON.stringify({
+        polygon: {
+          type: "Polygon",
+          coordinates: [[[-91.2, 30.45], [-91.2, 30.35], [-91.1, 30.35], [-91.1, 30.45], [-91.2, 30.45]]],
+        },
+        filters: { searchText: "*" },
+      }),
+    });
+
+    const res = await POST(req);
+    const gatewayBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body ?? "{}")) as {
+      sql?: string;
+    };
+
+    expect(res.status).toBe(200);
+    expect(gatewayBody.sql).not.toContain("regexp_replace(COALESCE(address");
+    expect(gatewayBody.sql).not.toContain("%\\*%");
   });
 
   it("fails closed when gateway config is unavailable", async () => {
