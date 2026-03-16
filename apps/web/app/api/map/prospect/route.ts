@@ -37,6 +37,71 @@ const PROSPECT_SEARCH_FIELDS = [
   "LOWER(regexp_replace(COALESCE(parcel_id, ''), '[^a-z0-9]+', ' ', 'g'))",
 ] as const;
 
+function isProspectRow(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isProspectRowArray(value: unknown): value is Record<string, unknown>[] {
+  return Array.isArray(value) && value.every((item) => isProspectRow(item));
+}
+
+function mapColumnarRows(
+  columnNames: string[],
+  rows: unknown[],
+): Record<string, unknown>[] {
+  return rows.flatMap((row) => {
+    if (!Array.isArray(row)) {
+      return [];
+    }
+
+    return [
+      Object.fromEntries(
+        columnNames.map((columnName, index) => [columnName, row[index] ?? null]),
+      ),
+    ];
+  });
+}
+
+function normalizeProspectGatewayRows(value: unknown): Record<string, unknown>[] {
+  if (!value) {
+    return [];
+  }
+
+  if (isProspectRowArray(value)) {
+    return value;
+  }
+
+  if (!isProspectRow(value)) {
+    return [];
+  }
+
+  const columnNames = Array.isArray(value.columnNames)
+    ? value.columnNames.filter((item): item is string => typeof item === "string")
+    : null;
+  if (columnNames?.length && Array.isArray(value.rows)) {
+    return mapColumnarRows(columnNames, value.rows);
+  }
+
+  for (const candidate of [value.data, value.rows, value.result, value.items, value.parcels]) {
+    if (candidate === undefined) {
+      continue;
+    }
+
+    return normalizeProspectGatewayRows(candidate);
+  }
+
+  if (
+    value.id != null ||
+    value.site_address != null ||
+    value.situs_address != null ||
+    value.address != null
+  ) {
+    return [value];
+  }
+
+  return [];
+}
+
 function getGatewayTimeoutMs(): number {
   const raw = Number(process.env.PROPERTY_DB_GATEWAY_TIMEOUT_MS ?? "");
   if (Number.isFinite(raw) && raw > 0) {
@@ -377,16 +442,7 @@ export async function POST(req: NextRequest) {
       gatewayConfig,
       context.requestId,
     );
-    const gatewayRows: Record<string, unknown>[] = [];
-
-    if (Array.isArray(raw)) {
-      gatewayRows.push(...(raw as Record<string, unknown>[]));
-    } else if (raw && typeof raw === "object" && "rows" in (raw as Record<string, unknown>)) {
-      const rows = (raw as Record<string, unknown>).rows;
-      if (Array.isArray(rows)) {
-        gatewayRows.push(...(rows as Record<string, unknown>[]));
-      }
-    }
+    const gatewayRows = normalizeProspectGatewayRows(raw);
 
     const parcels = gatewayRows.map((p) => ({
       id: String(p.id ?? ""),
