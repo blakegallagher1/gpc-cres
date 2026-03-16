@@ -91,10 +91,7 @@ export async function GET(
     ]);
 
     if (!conversation) {
-      return NextResponse.json(
-        { error: "Conversation not found" },
-        { status: 404 },
-      );
+      return NextResponse.json({ conversation: null });
     }
 
     const messages = conversation.messages.map((m) => ({

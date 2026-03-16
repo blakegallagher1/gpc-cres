@@ -75,7 +75,7 @@ describe('useAgentWebSocket', () => {
     const { result } = renderHook(() =>
       useAgentWebSocket({
         token: 'token-1',
-        conversationId: 'conv-1',
+        sessionId: 'conv-1',
         onEvent,
         enabled: true,
       }),
@@ -116,7 +116,7 @@ describe('useAgentWebSocket', () => {
     const { result } = renderHook(() =>
       useAgentWebSocket({
         token: 'token-1',
-        conversationId: 'conv-1',
+        sessionId: 'conv-1',
         onEvent,
         enabled: true,
       }),
@@ -140,7 +140,7 @@ describe('useAgentWebSocket', () => {
     const { result } = renderHook(() =>
       useAgentWebSocket({
         token: 'token-1',
-        conversationId: 'conv-1',
+        sessionId: 'conv-1',
         onEvent,
         enabled: true,
       }),

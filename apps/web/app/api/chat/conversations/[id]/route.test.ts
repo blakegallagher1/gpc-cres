@@ -152,6 +152,22 @@ describe("/api/chat/conversations/[id]", () => {
     expect(body).toEqual({ conversation: null, degraded: true });
   });
 
+  it("returns a draft-safe null conversation when the record does not exist", async () => {
+    resolveAuthMock.mockResolvedValue({
+      userId: "99999999-9999-4999-8999-999999999999",
+      orgId: "11111111-1111-4111-8111-111111111111",
+    });
+    conversationFindFirstMock.mockResolvedValue(null);
+    runFindFirstMock.mockResolvedValue(null);
+
+    const req = new NextRequest("http://localhost/api/chat/conversations/draft-1");
+    const res = await GET(req, { params: Promise.resolve({ id: "draft-1" }) });
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body).toEqual({ conversation: null });
+  });
+
   it("short-circuits GET before Prisma when dev fallback is active", async () => {
     resolveAuthMock.mockResolvedValue({
       userId: "99999999-9999-4999-8999-999999999999",

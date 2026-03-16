@@ -3273,6 +3273,34 @@ The following items were identified by analyzing 6 OpenAI GitHub repositories (`
 
 ## Completed (for traceability only)
 
+### CHAT-012 — Draft Chat Bootstrap ID Separation (P1)
+
+- **Priority:** P1
+- **Status:** Done (2026-03-16)
+- **Scope:** Separate the WebSocket bootstrap/session identifier from the persisted conversation identifier so fresh chats stop probing nonexistent conversation records during initial load.
+- **Problem:** The chat client generated a UUID for WebSocket bootstrap, wrote it into the URL as `conversationId`, then immediately treated that draft-only value like a persisted conversation record. On a fresh chat this caused `GET /api/chat/conversations/[id]` to hit a nonexistent row and return noisy `404`s before the user sent the first message.
+- **Expected Outcome (measurable):**
+  - Fresh chat load in WebSocket mode no longer writes a draft bootstrap UUID into the URL before the first persisted conversation exists.
+  - The client does not call `GET /api/chat/conversations/[id]` for a draft-only bootstrap identifier.
+  - The detail route returns a compatibility-safe `200 { conversation: null }` for missing draft ids instead of a `404`.
+- **Evidence of need:** Production browser verification on 2026-03-16 reproduced a fresh chat session issuing `GET /api/chat/conversations/<uuid>` before first send and receiving `404`, even though no persisted conversation had been created yet. Code inspection tied the behavior to `apps/web/components/chat/ChatContainer.tsx`, `apps/web/lib/chat/useAgentWebSocket.ts`, and `apps/web/app/api/chat/conversations/[id]/route.ts`.
+- **Alignment:** Preserves the current Cloudflare Worker transport contract, keeps auth and org-scoped Prisma reads unchanged, and narrows the fix to client bootstrap behavior plus a backward-compatible detail-route shield.
+- **Risk/rollback:** Low-to-medium risk because the patch touches central chat bootstrap state, but it does not weaken auth, persistence, or route validation. Rollback is straightforward by reverting the client state split and route compatibility change if chat continuation behavior regresses.
+- **Acceptance Criteria / Tests:**
+  - WebSocket bootstrap uses a private session id that is not written into the URL for a fresh chat.
+  - Fresh chat render does not fetch `/api/chat/conversations/[id]` before the first send.
+  - Existing persisted conversations still load through the same detail route and sidebar flow.
+  - Add a route regression for missing conversation ids returning `200 { conversation: null }`.
+  - Add a client regression proving the fresh-chat bootstrap path does not fetch a nonexistent conversation.
+  - Re-run focused chat tests plus `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
+- **Evidence / Verification:**
+  - Split draft transport-session state from persisted conversation state in [apps/web/components/chat/ChatContainer.tsx](/Users/gallagherpropertycompany/Documents/gallagher-cres/apps/web/components/chat/ChatContainer.tsx) so fresh WebSocket chats keep the bootstrap id private and only promote a conversation id into the URL when it is not a draft-session echo.
+  - Updated [apps/web/lib/chat/useAgentWebSocket.ts](/Users/gallagherpropertycompany/Documents/gallagher-cres/apps/web/lib/chat/useAgentWebSocket.ts) to take a transport `sessionId` while preserving the Worker's current query-param contract.
+  - Hardened [apps/web/app/api/chat/conversations/[id]/route.ts](/Users/gallagherpropertycompany/Documents/gallagher-cres/apps/web/app/api/chat/conversations/[id]/route.ts) so missing draft ids return `200 { conversation: null }`.
+  - Added regressions in [apps/web/app/api/chat/conversations/[id]/route.test.ts](/Users/gallagherpropertycompany/Documents/gallagher-cres/apps/web/app/api/chat/conversations/[id]/route.test.ts), [apps/web/lib/chat/__tests__/useAgentWebSocket.test.tsx](/Users/gallagherpropertycompany/Documents/gallagher-cres/apps/web/lib/chat/__tests__/useAgentWebSocket.test.tsx), and [apps/web/components/chat/ChatContainer.test.tsx](/Users/gallagherpropertycompany/Documents/gallagher-cres/apps/web/components/chat/ChatContainer.test.tsx).
+  - Focused verification passed: `pnpm -C apps/web test -- 'app/api/chat/conversations/[id]/route.test.ts' 'lib/chat/__tests__/useAgentWebSocket.test.tsx' 'components/chat/ChatContainer.test.tsx'`.
+  - Full verification gate passed: `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
+
 ### DEP-008 — OCR Runtime Refresh (P1)
 
 - **Priority:** P1

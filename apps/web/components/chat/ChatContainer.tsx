@@ -165,6 +165,7 @@ export function ChatContainer() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [transportSessionId, setTransportSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [currentAgent, setCurrentAgent] = useState<string | null>(null);
@@ -182,6 +183,7 @@ export function ChatContainer() {
   const abortControllerRef = useRef<AbortController | null>(null);
   const eventCounterRef = useRef(0);
   const conversationIdRef = useRef<string | null>(null);
+  const transportSessionIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     presenterRef.current = presenterState;
@@ -207,13 +209,28 @@ export function ChatContainer() {
     return () => { cancelled = true; };
   }, []);
 
-  // Eagerly generate a conversationId for WebSocket mode so the socket connects
-  // before the user sends their first message (new conversation flow)
-  useEffect(() => {
-    if (WS_ENABLED && !conversationIdRef.current) {
-      setConversationState(crypto.randomUUID());
-    }
+  const setTransportSessionState = useCallback((id: string | null) => {
+    transportSessionIdRef.current = id;
+    setTransportSessionId(id);
   }, []);
+
+  // Eagerly generate a transport-only session id for WebSocket mode so the
+  // socket connects before the first send, without leaking the draft id into
+  // persisted conversation state or the URL.
+  useEffect(() => {
+    if (!WS_ENABLED || transportSessionIdRef.current) {
+      return;
+    }
+
+    const initialConversationId =
+      typeof window === 'undefined'
+        ? null
+        : new URLSearchParams(window.location.search).get('conversationId');
+
+    if (!initialConversationId) {
+      setTransportSessionState(crypto.randomUUID());
+    }
+  }, [setTransportSessionState]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -285,8 +302,8 @@ export function ChatContainer() {
   const loadConversation = useCallback(
     async (id: string | null) => {
       if (!id) {
-        // In WS mode, eagerly generate a new conversationId so the socket reconnects
-        setConversationState(WS_ENABLED ? crypto.randomUUID() : null);
+        setConversationState(null);
+        setTransportSessionState(WS_ENABLED ? crypto.randomUUID() : null);
         setCurrentAgent(null);
         setAgentSummary(null);
         const reset = createStreamPresenterState();
@@ -298,6 +315,7 @@ export function ChatContainer() {
       }
 
       setConversationState(id);
+      setTransportSessionState(id);
       setCurrentAgent(null);
       setAgentSummary(null);
 
@@ -346,7 +364,13 @@ export function ChatContainer() {
         void reloadConversations();
       }
     },
-    [mapDispatch, reloadConversations, setConversationState, syncRecent],
+    [
+      mapDispatch,
+      reloadConversations,
+      setConversationState,
+      setTransportSessionState,
+      syncRecent,
+    ],
   );
 
   useEffect(() => {
@@ -410,9 +434,17 @@ export function ChatContainer() {
       if (event.type === 'done') {
         setIsStreaming(false);
         setCurrentAgent(null);
-        if (event.conversationId) {
-          syncRecent(event.conversationId);
-          setConversationState(event.conversationId);
+        const nextConversationId = normalizeConversationId(event.conversationId);
+        const isDraftSessionEcho =
+          nextConversationId !== null &&
+          conversationIdRef.current === null &&
+          transportSessionIdRef.current === nextConversationId;
+
+        if (nextConversationId && !isDraftSessionEcho) {
+          syncRecent(nextConversationId);
+          if (conversationIdRef.current !== nextConversationId) {
+            setConversationState(nextConversationId);
+          }
           void reloadConversations();
         }
       }
@@ -423,7 +455,7 @@ export function ChatContainer() {
   // WebSocket transport (Cloudflare Agent Worker)
   const { sendMessage: wsSendMessage } = useAgentWebSocket({
     token: authToken,
-    conversationId,
+    sessionId: transportSessionId,
     onEvent: applyEvent,
     enabled: WS_ENABLED,
   });

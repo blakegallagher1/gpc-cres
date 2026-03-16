@@ -12,8 +12,8 @@ type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 interface UseAgentWebSocketOptions {
   /** NextAuth JWT for WebSocket authentication */
   token: string | null;
-  /** Current conversation ID (null = new conversation) */
-  conversationId: string | null;
+  /** Transport session id used to key the Worker connection */
+  sessionId: string | null;
   /** Called for every streaming event from the Worker */
   onEvent: (event: ChatStreamEvent) => void;
   /** Whether WebSocket transport is enabled (vs SSE fallback) */
@@ -54,14 +54,14 @@ interface UseAgentWebSocketReturn {
  * Usage:
  *   const { sendMessage, status } = useAgentWebSocket({
  *     token: nextAuthJwt,
- *     conversationId,
+ *     sessionId,
  *     onEvent: applyEvent,
  *     enabled: true,
  *   });
  */
 export function useAgentWebSocket({
   token,
-  conversationId,
+  sessionId,
   onEvent,
   enabled = false,
 }: UseAgentWebSocketOptions): UseAgentWebSocketReturn {
@@ -93,16 +93,16 @@ export function useAgentWebSocket({
     setStatus('disconnected');
   }, []);
 
-  // Connect / reconnect when enabled + token + conversationId are set.
+  // Connect / reconnect when enabled + token + sessionId are set.
   useEffect(() => {
-    if (!enabled || !token || !conversationId) {
+    if (!enabled || !token || !sessionId) {
       disconnect();
       return;
     }
 
     manualDisconnectRef.current = false;
 
-    // Don't reconnect if already connected to the same conversation.
+    // Don't reconnect if already connected to the same transport session.
     if (
       wsRef.current &&
       (wsRef.current.readyState === WebSocket.OPEN ||
@@ -115,7 +115,8 @@ export function useAgentWebSocket({
 
     const url = new URL('/ws', AGENT_WS_URL);
     url.searchParams.set('token', token);
-    url.searchParams.set('conversationId', conversationId);
+    // The Worker still expects its transport key under the conversationId param.
+    url.searchParams.set('conversationId', sessionId);
 
     const ws = new WebSocket(url.toString());
     wsRef.current = ws;
@@ -235,7 +236,7 @@ export function useAgentWebSocket({
       }
       ws.close(1000);
     };
-  }, [enabled, token, conversationId, disconnect, reconnectNonce]);
+  }, [enabled, token, sessionId, disconnect, reconnectNonce]);
 
   const sendMessage = useCallback(
     (
