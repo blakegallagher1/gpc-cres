@@ -440,41 +440,52 @@ Only items meeting all checks are added below as `Planned`.
 ### CHAT-013 — Production Draft Conversation Detail Fail-Open Recovery (P0)
 
 - **Priority:** P0
-- **Status:** In Progress (2026-03-16)
-- **Scope:** Narrow the remaining production chat detail failure so draft conversation ids and pending-approval lookup drift no longer surface `500`s on the live detail route.
-- **Problem:** The earlier draft-bootstrap fix stopped the client from eagerly writing draft ids into the URL, but live production verification on 2026-03-16 still showed `GET /api/chat/conversations/draft-verify-* -> 500 {"error":"Failed to load conversation"}`. Code inspection in `apps/web/app/api/chat/conversations/[id]/route.ts` shows the route still runs `prisma.conversation.findFirst(...)` and `prisma.run.findFirst(...)` in the same `Promise.all`, so a production-only failure in the pending-approval query can still turn a missing draft id into a `500` before the compatibility `conversation: null` response is reached.
+- **Status:** Done (2026-03-16)
+- **Scope:** Prevent live chat detail reads from sending ephemeral draft ids into UUID-backed Prisma lookups so fresh draft probes fail open instead of erroring.
+- **Problem:** Production verification on 2026-03-16 still showed `GET /api/chat/conversations/draft-verify-* -> 500 {"error":"Failed to load conversation"}` after the earlier bootstrap fix. Vercel production logs narrowed the real root cause: the route was still passing draft ids like `draft-verify-1773687416593` into the database-backed conversation lookup, and Prisma failed with `invalid input syntax for type uuid` before the compatibility `conversation: null` path could return.
 - **Expected Outcome (measurable):**
-  - Missing draft conversation ids return `200 { conversation: null }` even if the pending-approval lookup path is unhealthy.
-  - Persisted conversations still load normally when the optional pending-approval recovery query fails.
+  - Missing draft conversation ids return `200 { conversation: null }` without touching UUID-only Prisma queries.
+  - Delete attempts for non-persisted draft ids return a clean `404` instead of surfacing a database error.
   - Live production probe for `/api/chat/conversations/draft-verify-*` returns `200` instead of `500` after deploy.
-- **Evidence of need:** Production-authenticated probes on 2026-03-16 showed `/api/chat/conversations` returning `200` while `/api/chat/conversations/draft-verify-*` returned `500`, which narrows the remaining issue to the detail route rather than auth/session state. Local tests for `CHAT-012` passed, but they did not cover the production-only case where the run lookup itself throws before the null-conversation branch can return.
-- **Alignment:** Preserves the current auth and org-scoped conversation lookup contract while making pending-approval recovery explicitly best-effort instead of a blocker for the main conversation read path.
+- **Evidence of need:** Production-authenticated probes on 2026-03-16 showed `/api/chat/conversations` returning `200` while `/api/chat/conversations/draft-verify-*` returned `500`. Vercel logs on deployment `dpl_FhKpV7q4pKh5FvRTy3aMoLGtCxRx` confirmed the failing SQL path was an invalid UUID cast on the draft identifier, not an auth/session issue.
+- **Alignment:** Preserves the current auth and org-scoped conversation lookup contract while ensuring ephemeral client-side session ids never hit UUID-backed persistence queries.
 - **Risk/rollback:** Low risk because the change is isolated to a read-only route and route tests. Rollback is straightforward by reverting the query ordering and warning path if it masks a needed operator signal, but it should not be allowed to block chat detail reads.
 - **Acceptance Criteria / Tests:**
-  - `apps/web/app/api/chat/conversations/[id]/route.ts` fetches the persisted conversation before attempting pending-approval recovery.
-  - Missing conversations return `200 { conversation: null }` without invoking the pending-approval lookup.
-  - Pending-approval query failures log a route-scoped warning and still return the persisted conversation payload.
-  - Add route regressions for missing-conversation short-circuiting and pending-approval lookup failure recovery.
+  - `apps/web/app/api/chat/conversations/[id]/route.ts` short-circuits non-UUID ids before any Prisma conversation or run lookup.
+  - Missing conversations return `200 { conversation: null }` without invoking UUID-only persistence queries.
+  - Add route regressions for non-UUID draft GET/DELETE handling and persisted UUID conversation loading.
   - Re-run focused chat tests, the repo verification gate, and a live production draft-id probe after push.
+- **Evidence (2026-03-16):**
+  - Hardened `apps/web/app/api/chat/conversations/[id]/route.ts` with a DB UUID guard so ephemeral draft ids now return `200 { conversation: null }` on GET and `404` on DELETE before any Prisma call.
+  - Updated `apps/web/app/api/chat/conversations/[id]/route.test.ts` to use valid UUID conversation ids for persisted records and to assert draft ids never reach the Prisma mocks.
+  - Local verification passed: `pnpm -C apps/web test -- 'app/api/chat/conversations/[id]/route.test.ts' app/api/jurisdictions/route.test.ts app/reference/page.test.tsx`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
+  - Production deployment `f78b352da8c72ca4883094e4d4992899062effe9` returned `200 {"conversation":null}` for `/api/chat/conversations/draft-verify-*`, and the follow-up `vercel logs --since 3m --status-code 500` window showed no new chat-route `500`s.
 
 ### REF-002 — Jurisdictions Pack Query Failure Containment (P0)
 
 - **Priority:** P0
-- **Status:** In Progress (2026-03-16)
-- **Scope:** Contain the remaining production `/api/jurisdictions` failure by decoupling the base jurisdiction list from the current-pack lookup so pack-query drift cannot take down the entire route.
-- **Problem:** Even after response-shape hardening in `REF-001`, production verification on 2026-03-16 still shows `GET /api/jurisdictions -> 500`. The current route still performs one Prisma `jurisdiction.findMany({ include: { parishPackVersions: ... }})` query, so a failure in the current-pack include path can still collapse the whole route before any per-jurisdiction shaping or error recovery runs.
+- **Status:** Done (2026-03-16)
+- **Scope:** Keep `/api/jurisdictions` live when production data drifts in `official_domains` or parish-pack lookups by separating raw domain normalization from the base Prisma query.
+- **Problem:** Even after response-shape hardening in `REF-001`, production verification on 2026-03-16 still showed `GET /api/jurisdictions -> 500`. Vercel production logs identified the real failure: Prisma could not decode `official_domains` because production rows stored JSON strings like `"[\"ascensionparish.net\",\"library.municode.com\",...]"` in a column Prisma expected to be an array, so the base `jurisdiction.findMany()` failed before pack shaping or per-record containment ran.
 - **Expected Outcome (measurable):**
-  - `/api/jurisdictions` returns the base jurisdiction list even when current-pack lookup fails.
-  - Current-pack failures are logged with org-scoped context and surfaced as degraded pack context on the affected response instead of a route-wide `500`.
+  - `/api/jurisdictions` returns the base jurisdiction list even when `official_domains` values are encoded inconsistently in production.
+  - Current-pack failures are still logged with org-scoped context and surfaced as degraded pack context on the affected response instead of a route-wide `500`.
   - Live production probe for `/api/jurisdictions` returns `200` after deploy unless the base jurisdiction query itself is unavailable.
-- **Evidence of need:** Production-authenticated verification on 2026-03-16 showed `/api/jurisdictions` returning `500` even after the route serializer was hardened and covered by local tests. Because serializer exceptions are already trapped per record, the remaining likely failure point is the Prisma query shape itself rather than JSON normalization.
-- **Alignment:** Preserves auth and org scoping, keeps the explicit `/reference` page error path for true route failures, and strengthens one-bad-query containment without weakening response validation or hiding base-database outages.
+- **Evidence of need:** Production-authenticated verification on 2026-03-16 showed `/api/jurisdictions` returning `500` even after the serializer hardening in `REF-001`. Vercel logs on deployment `dpl_FhKpV7q4pKh5FvRTy3aMoLGtCxRx` confirmed the remaining failure was `Inconsistent column data: Conversion failed: expected an array in column 'official_domains'`, which required query-shape hardening rather than more serializer guards.
+- **Alignment:** Preserves auth and org scoping, keeps the explicit `/reference` page error path for true route failures, and strengthens one-bad-record containment without weakening response validation or hiding base-database outages.
 - **Risk/rollback:** Low-to-medium risk because the route query shape changes, but the response contract remains stable. Rollback is straightforward by restoring the single include query if a downstream consumer unexpectedly depends on its exact Prisma behavior.
 - **Acceptance Criteria / Tests:**
-  - Split `/api/jurisdictions` into a base jurisdiction query and a current-pack lookup query.
+  - Split `/api/jurisdictions` into a Prisma-safe base jurisdiction query plus a raw `official_domains` lookup and a separate current-pack lookup query.
+  - Malformed or JSON-encoded `official_domains` values normalize to a stable string array without taking down the route.
   - A current-pack lookup failure logs a route-scoped warning and still returns jurisdictions with degraded pack context.
-  - Add route regressions for valid pack serialization, malformed lineage normalization, and pack-query failure containment.
+  - Add route regressions for valid pack serialization, malformed lineage normalization, malformed official domain normalization, and pack-query failure containment.
   - Re-run focused jurisdictions tests, the repo verification gate, and the live production `/api/jurisdictions` probe after push.
+- **Evidence (2026-03-16):**
+  - Reworked `apps/web/app/api/jurisdictions/route.ts` to exclude `officialDomains` from the base Prisma query, fetch raw `official_domains` text separately, and normalize arrays, JSON-array strings, double-encoded JSON strings, and Postgres array literals per jurisdiction.
+  - Kept current-pack lookup best-effort and logged malformed official-domain payloads or pack lookup failures without collapsing the route.
+  - Expanded `apps/web/app/api/jurisdictions/route.test.ts` to cover valid official-domain normalization, malformed official-domain fallback to `[]`, malformed lineage normalization, and pack-query failure containment.
+  - Local verification passed: `pnpm -C apps/web test -- 'app/api/chat/conversations/[id]/route.test.ts' app/api/jurisdictions/route.test.ts app/reference/page.test.tsx`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
+  - Production deployment `f78b352da8c72ca4883094e4d4992899062effe9` returned `200` for `/api/jurisdictions` with normalized `officialDomains`, and the follow-up `vercel logs --since 3m --status-code 500` window showed no new jurisdictions-route `500`s.
 
 ### MARKET-015 — Live EBR Building Permits Feed (P0)
 
