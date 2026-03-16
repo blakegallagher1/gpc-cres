@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   resolveAuthMock,
@@ -43,6 +43,10 @@ describe("/api/chat/conversations/[id]", () => {
     conversationDeleteMock.mockReset();
     runFindFirstMock.mockReset();
     vi.mocked(shouldUseAppDatabaseDevFallback).mockReturnValue(false);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("returns persisted metadata and pending approval recovery state", async () => {
@@ -158,7 +162,6 @@ describe("/api/chat/conversations/[id]", () => {
       orgId: "11111111-1111-4111-8111-111111111111",
     });
     conversationFindFirstMock.mockResolvedValue(null);
-    runFindFirstMock.mockResolvedValue(null);
 
     const req = new NextRequest("http://localhost/api/chat/conversations/draft-1");
     const res = await GET(req, { params: Promise.resolve({ id: "draft-1" }) });
@@ -166,6 +169,72 @@ describe("/api/chat/conversations/[id]", () => {
 
     expect(res.status).toBe(200);
     expect(body).toEqual({ conversation: null });
+    expect(runFindFirstMock).not.toHaveBeenCalled();
+  });
+
+  it("returns the persisted conversation when pending approval lookup fails", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    resolveAuthMock.mockResolvedValue({
+      userId: "99999999-9999-4999-8999-999999999999",
+      orgId: "11111111-1111-4111-8111-111111111111",
+    });
+    conversationFindFirstMock.mockResolvedValue({
+      id: "conv-2",
+      title: "Pending approval lookup drift",
+      dealId: null,
+      deal: null,
+      createdAt: new Date("2026-03-16T14:00:00.000Z"),
+      updatedAt: new Date("2026-03-16T14:01:00.000Z"),
+      messages: [
+        {
+          id: "msg-2",
+          role: "assistant",
+          content: "Conversation still loads.",
+          agentName: "Coordinator",
+          toolCalls: null,
+          metadata: { kind: "chat_assistant_message", runId: "run-2" },
+          createdAt: new Date("2026-03-16T14:00:30.000Z"),
+        },
+      ],
+    });
+    runFindFirstMock.mockRejectedValue(new Error("json path lookup failed"));
+
+    const req = new NextRequest("http://localhost/api/chat/conversations/conv-2");
+    const res = await GET(req, { params: Promise.resolve({ id: "conv-2" }) });
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body).toEqual({
+      conversation: {
+        id: "conv-2",
+        title: "Pending approval lookup drift",
+        dealId: null,
+        deal: null,
+        createdAt: "2026-03-16T14:00:00.000Z",
+        updatedAt: "2026-03-16T14:01:00.000Z",
+        messages: [
+          {
+            id: "msg-2",
+            role: "assistant",
+            content: "Conversation still loads.",
+            agentName: "Coordinator",
+            toolCalls: null,
+            metadata: { kind: "chat_assistant_message", runId: "run-2" },
+            createdAt: "2026-03-16T14:00:30.000Z",
+          },
+        ],
+      },
+    });
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[chat-conversation-detail] pending approval lookup failed",
+      expect.objectContaining({
+        conversationId: "conv-2",
+        orgId: "11111111-1111-4111-8111-111111111111",
+        error: "json path lookup failed",
+      }),
+    );
+
   });
 
   it("short-circuits GET before Prisma when dev fallback is active", async () => {

@@ -5,32 +5,31 @@ import { resolveAuth } from "@/lib/auth/resolveAuth";
 
 const PACK_STALE_DAYS = 7;
 
-const jurisdictionInclude = {
+const jurisdictionBaseInclude = {
   seedSources: { select: { id: true, active: true } },
-  parishPackVersions: {
-    where: { status: "current" },
-    orderBy: { generatedAt: "desc" },
-    take: 1,
-    select: {
-      id: true,
-      generatedAt: true,
-      version: true,
-      sourceUrls: true,
-      sourceEvidenceIds: true,
-      sourceSnapshotIds: true,
-      sourceContentHashes: true,
-      officialOnly: true,
-      packCoverageScore: true,
-      canonicalSchemaVersion: true,
-    },
-  },
   _count: { select: { deals: true } },
 } satisfies Prisma.JurisdictionInclude;
 
 type JurisdictionRecord = Prisma.JurisdictionGetPayload<{
-  include: typeof jurisdictionInclude;
+  include: typeof jurisdictionBaseInclude;
 }>;
-type LatestPackRecord = JurisdictionRecord["parishPackVersions"][number];
+const latestPackSelect = {
+  id: true,
+  jurisdictionId: true,
+  generatedAt: true,
+  version: true,
+  sourceUrls: true,
+  sourceEvidenceIds: true,
+  sourceSnapshotIds: true,
+  sourceContentHashes: true,
+  officialOnly: true,
+  packCoverageScore: true,
+  canonicalSchemaVersion: true,
+} satisfies Prisma.ParishPackVersionSelect;
+
+type LatestPackRecord = Prisma.ParishPackVersionGetPayload<{
+  select: typeof latestPackSelect;
+}>;
 type PackLineageFieldName =
   | "sourceUrls"
   | "sourceEvidenceIds"
@@ -101,9 +100,12 @@ function normalizePackLineageField(
   return normalized;
 }
 
-function buildJurisdictionResponse(record: JurisdictionRecord) {
+function buildJurisdictionResponse(
+  record: JurisdictionRecord,
+  latestPackRecord: LatestPackRecord | null,
+  packLookupFailed: boolean,
+) {
   try {
-    const latestPackRecord = record.parishPackVersions[0] ?? null;
     const activeSeedSourceCount = record.seedSources.filter(
       (seedSource) => seedSource.active,
     ).length;
@@ -131,7 +133,11 @@ function buildJurisdictionResponse(record: JurisdictionRecord) {
     const missingEvidence: string[] = [];
 
     if (!latestPackRecord) {
-      missingEvidence.push("No current parish pack found for this jurisdiction.");
+      missingEvidence.push(
+        packLookupFailed
+          ? "Current parish pack data is temporarily unavailable."
+          : "No current parish pack found for this jurisdiction.",
+      );
     } else {
       stalenessDays = daysSince(latestPackRecord.generatedAt);
       isStale = stalenessDays >= PACK_STALE_DAYS;
@@ -251,11 +257,48 @@ export async function GET(request: NextRequest) {
 
     const jurisdictions = await prisma.jurisdiction.findMany({
       where: { orgId: auth.orgId },
-      include: jurisdictionInclude,
+      include: jurisdictionBaseInclude,
       orderBy: { name: "asc" },
     });
 
-    const result = jurisdictions.map(buildJurisdictionResponse);
+    const jurisdictionIds = jurisdictions.map((jurisdiction) => jurisdiction.id);
+    let packLookupFailed = false;
+    const latestPackByJurisdictionId = new Map<string, LatestPackRecord>();
+
+    if (jurisdictionIds.length > 0) {
+      try {
+        const latestPacks = await prisma.parishPackVersion.findMany({
+          where: {
+            orgId: auth.orgId,
+            status: "current",
+            jurisdictionId: { in: jurisdictionIds },
+          },
+          orderBy: [{ jurisdictionId: "asc" }, { generatedAt: "desc" }],
+          select: latestPackSelect,
+        });
+
+        for (const pack of latestPacks) {
+          if (!latestPackByJurisdictionId.has(pack.jurisdictionId)) {
+            latestPackByJurisdictionId.set(pack.jurisdictionId, pack);
+          }
+        }
+      } catch (error) {
+        packLookupFailed = true;
+        console.warn("[jurisdictions] failed to load current parish packs", {
+          orgId: auth.orgId,
+          jurisdictionCount: jurisdictionIds.length,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    const result = jurisdictions.map((jurisdiction) =>
+      buildJurisdictionResponse(
+        jurisdiction,
+        latestPackByJurisdictionId.get(jurisdiction.id) ?? null,
+        packLookupFailed,
+      ),
+    );
 
     return NextResponse.json({ jurisdictions: result });
   } catch (error) {

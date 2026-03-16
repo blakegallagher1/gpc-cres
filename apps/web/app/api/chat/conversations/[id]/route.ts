@@ -51,28 +51,39 @@ export async function GET(
   }
 
   try {
-    const [conversation, pendingApprovalRun] = await Promise.all([
-      prisma.conversation.findFirst({
-        where: { id, orgId: auth.orgId },
-        include: {
-          messages: {
-            orderBy: { createdAt: "asc" },
-            select: {
-              id: true,
-              role: true,
-              content: true,
-              agentName: true,
-              toolCalls: true,
-              metadata: true,
-              createdAt: true,
-            },
-          },
-          deal: {
-            select: { id: true, name: true, status: true },
+    const conversation = await prisma.conversation.findFirst({
+      where: { id, orgId: auth.orgId },
+      include: {
+        messages: {
+          orderBy: { createdAt: "asc" },
+          select: {
+            id: true,
+            role: true,
+            content: true,
+            agentName: true,
+            toolCalls: true,
+            metadata: true,
+            createdAt: true,
           },
         },
-      }),
-      prisma.run.findFirst({
+        deal: {
+          select: { id: true, name: true, status: true },
+        },
+      },
+    });
+
+    if (!conversation) {
+      return NextResponse.json({ conversation: null });
+    }
+
+    let pendingApprovalRun: {
+      id: string;
+      startedAt: Date;
+      outputJson: unknown;
+    } | null = null;
+
+    try {
+      pendingApprovalRun = await prisma.run.findFirst({
         where: {
           orgId: auth.orgId,
           status: "running",
@@ -87,11 +98,16 @@ export async function GET(
           startedAt: true,
           outputJson: true,
         },
-      }),
-    ]);
-
-    if (!conversation) {
-      return NextResponse.json({ conversation: null });
+      });
+    } catch (error) {
+      console.warn("[chat-conversation-detail] pending approval lookup failed", {
+        conversationId: id,
+        orgId: auth.orgId,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unknown pending approval lookup error",
+      });
     }
 
     const messages = conversation.messages.map((m) => ({

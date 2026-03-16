@@ -1,9 +1,10 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { resolveAuthMock, jurisdictionFindManyMock } = vi.hoisted(() => ({
+const { resolveAuthMock, jurisdictionFindManyMock, parishPackVersionFindManyMock } = vi.hoisted(() => ({
   resolveAuthMock: vi.fn(),
   jurisdictionFindManyMock: vi.fn(),
+  parishPackVersionFindManyMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/resolveAuth", () => ({
@@ -15,6 +16,9 @@ vi.mock("@entitlement-os/db", () => ({
     jurisdiction: {
       findMany: jurisdictionFindManyMock,
     },
+    parishPackVersion: {
+      findMany: parishPackVersionFindManyMock,
+    },
   },
 }));
 
@@ -24,6 +28,7 @@ describe("/api/jurisdictions route", () => {
   beforeEach(() => {
     resolveAuthMock.mockReset();
     jurisdictionFindManyMock.mockReset();
+    parishPackVersionFindManyMock.mockReset();
     vi.restoreAllMocks();
   });
 
@@ -38,6 +43,7 @@ describe("/api/jurisdictions route", () => {
     expect(res.status).toBe(401);
     expect(body).toEqual({ error: "Unauthorized" });
     expect(jurisdictionFindManyMock).not.toHaveBeenCalled();
+    expect(parishPackVersionFindManyMock).not.toHaveBeenCalled();
   });
 
   it("serializes valid lineage data into a plain JSON latestPack shape", async () => {
@@ -59,21 +65,22 @@ describe("/api/jurisdictions route", () => {
           { id: "seed-1", active: true },
           { id: "seed-2", active: false },
         ],
-        parishPackVersions: [
-          {
-            id: "pack-1",
-            generatedAt,
-            version: 7,
-            sourceUrls: ["https://brla.gov/ordinances/pack-7"],
-            sourceEvidenceIds: ["ev-1"],
-            sourceSnapshotIds: ["snap-1"],
-            sourceContentHashes: ["hash-1"],
-            officialOnly: true,
-            packCoverageScore: 0.92,
-            canonicalSchemaVersion: "parish-pack-v1",
-          },
-        ],
         _count: { deals: 4 },
+      },
+    ]);
+    parishPackVersionFindManyMock.mockResolvedValue([
+      {
+        id: "pack-1",
+        jurisdictionId: "jur-1",
+        generatedAt,
+        version: 7,
+        sourceUrls: ["https://brla.gov/ordinances/pack-7"],
+        sourceEvidenceIds: ["ev-1"],
+        sourceSnapshotIds: ["snap-1"],
+        sourceContentHashes: ["hash-1"],
+        officialOnly: true,
+        packCoverageScore: 0.92,
+        canonicalSchemaVersion: "parish-pack-v1",
       },
     ]);
 
@@ -134,7 +141,6 @@ describe("/api/jurisdictions route", () => {
         timezone: "America/Chicago",
         officialDomains: ["good.example.gov"],
         seedSources: [{ id: "seed-good", active: true }],
-        parishPackVersions: [],
         _count: { deals: 1 },
       },
       {
@@ -145,21 +151,22 @@ describe("/api/jurisdictions route", () => {
         timezone: "America/Chicago",
         officialDomains: ["broken.example.gov"],
         seedSources: [{ id: "seed-bad", active: true }],
-        parishPackVersions: [
-          {
-            id: "pack-bad",
-            generatedAt,
-            version: 4,
-            sourceUrls: [" https://broken.example.gov/pack ", 42],
-            sourceEvidenceIds: "ev-2",
-            sourceSnapshotIds: null,
-            sourceContentHashes: [{}],
-            officialOnly: false,
-            packCoverageScore: 0.5,
-            canonicalSchemaVersion: null,
-          },
-        ],
         _count: { deals: 3 },
+      },
+    ]);
+    parishPackVersionFindManyMock.mockResolvedValue([
+      {
+        id: "pack-bad",
+        jurisdictionId: "jur-bad",
+        generatedAt,
+        version: 4,
+        sourceUrls: [" https://broken.example.gov/pack ", 42],
+        sourceEvidenceIds: "ev-2",
+        sourceSnapshotIds: null,
+        sourceContentHashes: [{}],
+        officialOnly: false,
+        packCoverageScore: 0.5,
+        canonicalSchemaVersion: null,
       },
     ]);
 
@@ -213,6 +220,68 @@ describe("/api/jurisdictions route", () => {
         packId: "pack-bad",
         packVersion: 4,
         fieldName: "sourceEvidenceIds",
+      }),
+    );
+  });
+
+  it("returns degraded pack context when current-pack lookup fails", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    resolveAuthMock.mockResolvedValue({
+      userId: "user-1",
+      orgId: "org-1",
+    });
+    jurisdictionFindManyMock.mockResolvedValue([
+      {
+        id: "jur-1",
+        name: "East Baton Rouge Parish",
+        kind: "county",
+        state: "LA",
+        timezone: "America/Chicago",
+        officialDomains: ["brla.gov"],
+        seedSources: [{ id: "seed-1", active: true }],
+        _count: { deals: 2 },
+      },
+    ]);
+    parishPackVersionFindManyMock.mockRejectedValue(
+      new Error("current pack include failed"),
+    );
+
+    const res = await GET(
+      new NextRequest("http://localhost/api/jurisdictions"),
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body).toEqual({
+      jurisdictions: [
+        {
+          id: "jur-1",
+          name: "East Baton Rouge Parish",
+          kind: "county",
+          state: "LA",
+          timezone: "America/Chicago",
+          officialDomains: ["brla.gov"],
+          seedSourceCount: 1,
+          dealCount: 2,
+          latestPack: null,
+          packContext: {
+            hasPack: false,
+            isStale: false,
+            stalenessDays: null,
+            missingEvidence: [
+              "Current parish pack data is temporarily unavailable.",
+            ],
+          },
+        },
+      ],
+    });
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[jurisdictions] failed to load current parish packs",
+      expect.objectContaining({
+        orgId: "org-1",
+        jurisdictionCount: 1,
+        error: "current pack include failed",
       }),
     );
   });

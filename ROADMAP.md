@@ -437,6 +437,45 @@ Only items meeting all checks are added below as `Planned`.
   - Focused verification passed: `pnpm -C packages/openai test -- src/agentos/toolPolicy.test.ts`, `pnpm -C infra/cloudflare-agent test -- src/db-proxy.test.ts`, `pnpm lint`, `pnpm typecheck`, and `OPENAI_API_KEY=placeholder pnpm build`.
   - Full `pnpm test` remains blocked by a pre-existing unrelated failure in `packages/openai/test/phase1/tools/memoryTools.phase1.test.ts` (auth-header expectation drift in the memory tool test), not by the land-search / db-proxy changes in this item.
 
+### CHAT-013 — Production Draft Conversation Detail Fail-Open Recovery (P0)
+
+- **Priority:** P0
+- **Status:** In Progress (2026-03-16)
+- **Scope:** Narrow the remaining production chat detail failure so draft conversation ids and pending-approval lookup drift no longer surface `500`s on the live detail route.
+- **Problem:** The earlier draft-bootstrap fix stopped the client from eagerly writing draft ids into the URL, but live production verification on 2026-03-16 still showed `GET /api/chat/conversations/draft-verify-* -> 500 {"error":"Failed to load conversation"}`. Code inspection in `apps/web/app/api/chat/conversations/[id]/route.ts` shows the route still runs `prisma.conversation.findFirst(...)` and `prisma.run.findFirst(...)` in the same `Promise.all`, so a production-only failure in the pending-approval query can still turn a missing draft id into a `500` before the compatibility `conversation: null` response is reached.
+- **Expected Outcome (measurable):**
+  - Missing draft conversation ids return `200 { conversation: null }` even if the pending-approval lookup path is unhealthy.
+  - Persisted conversations still load normally when the optional pending-approval recovery query fails.
+  - Live production probe for `/api/chat/conversations/draft-verify-*` returns `200` instead of `500` after deploy.
+- **Evidence of need:** Production-authenticated probes on 2026-03-16 showed `/api/chat/conversations` returning `200` while `/api/chat/conversations/draft-verify-*` returned `500`, which narrows the remaining issue to the detail route rather than auth/session state. Local tests for `CHAT-012` passed, but they did not cover the production-only case where the run lookup itself throws before the null-conversation branch can return.
+- **Alignment:** Preserves the current auth and org-scoped conversation lookup contract while making pending-approval recovery explicitly best-effort instead of a blocker for the main conversation read path.
+- **Risk/rollback:** Low risk because the change is isolated to a read-only route and route tests. Rollback is straightforward by reverting the query ordering and warning path if it masks a needed operator signal, but it should not be allowed to block chat detail reads.
+- **Acceptance Criteria / Tests:**
+  - `apps/web/app/api/chat/conversations/[id]/route.ts` fetches the persisted conversation before attempting pending-approval recovery.
+  - Missing conversations return `200 { conversation: null }` without invoking the pending-approval lookup.
+  - Pending-approval query failures log a route-scoped warning and still return the persisted conversation payload.
+  - Add route regressions for missing-conversation short-circuiting and pending-approval lookup failure recovery.
+  - Re-run focused chat tests, the repo verification gate, and a live production draft-id probe after push.
+
+### REF-002 — Jurisdictions Pack Query Failure Containment (P0)
+
+- **Priority:** P0
+- **Status:** In Progress (2026-03-16)
+- **Scope:** Contain the remaining production `/api/jurisdictions` failure by decoupling the base jurisdiction list from the current-pack lookup so pack-query drift cannot take down the entire route.
+- **Problem:** Even after response-shape hardening in `REF-001`, production verification on 2026-03-16 still shows `GET /api/jurisdictions -> 500`. The current route still performs one Prisma `jurisdiction.findMany({ include: { parishPackVersions: ... }})` query, so a failure in the current-pack include path can still collapse the whole route before any per-jurisdiction shaping or error recovery runs.
+- **Expected Outcome (measurable):**
+  - `/api/jurisdictions` returns the base jurisdiction list even when current-pack lookup fails.
+  - Current-pack failures are logged with org-scoped context and surfaced as degraded pack context on the affected response instead of a route-wide `500`.
+  - Live production probe for `/api/jurisdictions` returns `200` after deploy unless the base jurisdiction query itself is unavailable.
+- **Evidence of need:** Production-authenticated verification on 2026-03-16 showed `/api/jurisdictions` returning `500` even after the route serializer was hardened and covered by local tests. Because serializer exceptions are already trapped per record, the remaining likely failure point is the Prisma query shape itself rather than JSON normalization.
+- **Alignment:** Preserves auth and org scoping, keeps the explicit `/reference` page error path for true route failures, and strengthens one-bad-query containment without weakening response validation or hiding base-database outages.
+- **Risk/rollback:** Low-to-medium risk because the route query shape changes, but the response contract remains stable. Rollback is straightforward by restoring the single include query if a downstream consumer unexpectedly depends on its exact Prisma behavior.
+- **Acceptance Criteria / Tests:**
+  - Split `/api/jurisdictions` into a base jurisdiction query and a current-pack lookup query.
+  - A current-pack lookup failure logs a route-scoped warning and still returns jurisdictions with degraded pack context.
+  - Add route regressions for valid pack serialization, malformed lineage normalization, and pack-query failure containment.
+  - Re-run focused jurisdictions tests, the repo verification gate, and the live production `/api/jurisdictions` probe after push.
+
 ### MARKET-015 — Live EBR Building Permits Feed (P0)
 
 - **Priority:** P0
