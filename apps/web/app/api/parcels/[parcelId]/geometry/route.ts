@@ -55,6 +55,16 @@ function toFiniteNumber(value: unknown): number | null {
   return null;
 }
 
+function describeValue(value: unknown): string {
+  if (Array.isArray(value)) {
+    return "array";
+  }
+  if (value === null) {
+    return "null";
+  }
+  return typeof value;
+}
+
 function parseGeometry(value: unknown): GeoJsonGeometry | null {
   let candidate = value;
   if (typeof candidate === "string") {
@@ -151,6 +161,17 @@ function mapGatewayRowToGeometry(row: Record<string, unknown>): ParcelGeometry |
   };
 }
 
+function geometryUnavailableResponse(requestId: string) {
+  return NextResponse.json(
+    {
+      ok: false,
+      request_id: requestId,
+      error: { code: "GEOMETRY_UNAVAILABLE", message: "Parcel geometry unavailable" },
+    },
+    { status: 404 },
+  );
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ parcelId: string }> },
@@ -222,10 +243,12 @@ export async function GET(
     }
 
     if (res.status === 404) {
-      return NextResponse.json(
-        { ok: false, request_id: requestId, error: { code: "NOT_FOUND", message: "Parcel geometry not found" } },
-        { status: 404 },
-      );
+      console.info("[parcel-geometry] gateway returned no geometry row", {
+        parcelId,
+        detailLevel,
+        status: res.status,
+      });
+      return geometryUnavailableResponse(requestId);
     }
 
     if (!res.ok) {
@@ -258,10 +281,16 @@ export async function GET(
 
     const geometry = mapGatewayRowToGeometry(row);
     if (!geometry) {
-      return NextResponse.json(
-        { ok: false, request_id: requestId, error: { code: "NOT_FOUND", message: "Parcel geometry not found" } },
-        { status: 404 },
-      );
+      console.warn("[parcel-geometry] gateway row could not be parsed into usable geometry", {
+        parcelId,
+        detailLevel,
+        geomSimplifiedType: describeValue(row.geom_simplified),
+        geometryType: describeValue(row.geometry),
+        geomType: describeValue(row.geom),
+        bboxType: describeValue(row.bbox),
+        rowKeys: Object.keys(row),
+      });
+      return geometryUnavailableResponse(requestId);
     }
 
     const response = NextResponse.json({ ok: true, request_id: requestId, data: geometry });

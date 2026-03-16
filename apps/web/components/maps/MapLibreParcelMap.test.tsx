@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   computeNextSelection,
+  getGeometryStatusLabel,
   getGeoJsonSourceSafe,
   parcelPopupHtml,
   setGeoJsonSourceDataSafe,
@@ -145,5 +146,37 @@ describe("computeNextSelection", () => {
   it("preserves insertion order for additive multi-select", () => {
     const next = computeNextSelection(new Set(["parcel-a", "parcel-c"]), "parcel-b", true);
     expect(Array.from(next)).toEqual(["parcel-a", "parcel-c", "parcel-b"]);
+  });
+});
+
+describe("getGeometryStatusLabel", () => {
+  it("prefers a dedicated geometry-unavailable label for missing parcel rows", () => {
+    expect(
+      getGeometryStatusLabel(false, {
+        failedCount: 1,
+        geometryUnavailable: true,
+        propertyDbUnconfigured: false,
+      }),
+    ).toBe("Geometry unavailable");
+  });
+
+  it("keeps provider-unconfigured messaging higher priority than missing geometry", () => {
+    expect(
+      getGeometryStatusLabel(false, {
+        failedCount: 2,
+        geometryUnavailable: true,
+        propertyDbUnconfigured: true,
+      }),
+    ).toBe("Shapes unavailable");
+  });
+
+  it("falls back to a generic partial-failure label for other shape issues", () => {
+    expect(
+      getGeometryStatusLabel(false, {
+        failedCount: 1,
+        geometryUnavailable: false,
+        propertyDbUnconfigured: false,
+      }),
+    ).toBe("Some shapes unavailable");
   });
 });

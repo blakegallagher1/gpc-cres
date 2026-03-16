@@ -33,6 +33,7 @@ type ParcelGeometryErrorResponse = {
 
 type GeometryFetchHealth = {
   failedCount: number;
+  geometryUnavailable: boolean;
   unauthorized: boolean;
   rateLimited: boolean;
   propertyDbUnconfigured: boolean;
@@ -123,6 +124,7 @@ export function useParcelGeometry(
   const [loading, setLoading] = useState(false);
   const [health, setHealth] = useState<GeometryFetchHealth>({
     failedCount: 0,
+    geometryUnavailable: false,
     unauthorized: false,
     rateLimited: false,
     propertyDbUnconfigured: false,
@@ -231,11 +233,16 @@ export function useParcelGeometry(
           if (!res.ok || !json.ok) {
             const errorCode = json.error?.code ?? null;
             const errorMessage = json.error?.message ?? null;
+            const geometryUnavailable =
+              res.status === 404 ||
+              errorCode === "NOT_FOUND" ||
+              errorCode === "GEOMETRY_UNAVAILABLE";
             if (errorCode === "CLIENT_ABORTED") {
               return null;
             }
             setHealth((prev) => ({
               failedCount: prev.failedCount + 1,
+              geometryUnavailable: prev.geometryUnavailable || geometryUnavailable,
               unauthorized: prev.unauthorized || res.status === 401 || errorCode === "UNAUTHORIZED",
               rateLimited: prev.rateLimited || res.status === 429 || errorCode === "RATE_LIMITED",
               propertyDbUnconfigured:
@@ -244,9 +251,10 @@ export function useParcelGeometry(
                 errorCode === "GATEWAY_UNCONFIGURED",
               upstreamError:
                 prev.upstreamError ||
-                errorCode === "UPSTREAM_ERROR" ||
-                errorCode === "PROPERTY_DB_UNCONFIGURED" ||
-                errorCode === "GATEWAY_UNCONFIGURED",
+                (!geometryUnavailable &&
+                  (errorCode === "UPSTREAM_ERROR" ||
+                    errorCode === "PROPERTY_DB_UNCONFIGURED" ||
+                    errorCode === "GATEWAY_UNCONFIGURED")),
               lastErrorCode: errorCode,
               lastErrorMessage: errorMessage,
               lastRequestId: json.request_id ?? null,

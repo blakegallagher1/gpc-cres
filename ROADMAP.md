@@ -3273,6 +3273,38 @@ The following items were identified by analyzing 6 OpenAI GitHub repositories (`
 
 ## Completed (for traceability only)
 
+### MAP-014 — Parcel Geometry Missing-Row Degradation Path (P1)
+
+- **Priority:** P1
+- **Status:** Done (2026-03-16)
+- **Scope:** Separate parcel-geometry `404` causes in the route and surface a clean “geometry unavailable” state in the map UI when the gateway genuinely has no geometry row for a parcel.
+- **Problem:** `apps/web/app/api/parcels/[parcelId]/geometry/route.ts` returned the same `404` both when the upstream gateway genuinely had no parcel-geometry row and when a returned row could not be parsed by `mapGatewayRowToGeometry()`. The map UI then collapsed both cases into a generic failed-shapes path, which made a missing geometry record look like a broken parcel.
+- **Expected Outcome (measurable):**
+  - Route logs distinguish upstream `404` from unparseable gateway rows.
+  - The missing production parcel `000028d9-4de7-467a-b904-64238e593b34` degrades as “geometry unavailable” instead of a generic broken-shapes state.
+  - Focused regressions cover both route logging paths and the map-side geometry-unavailable state.
+- **Evidence of need:** Production browser verification on 2026-03-16 reproduced `GET /api/parcels/000028d9-4de7-467a-b904-64238e593b34/geometry?detail_level=low -> 404`. Direct gateway inspection in this session confirmed the upstream endpoint itself returns `404 {"detail":"Parcel geometry not found"}` for that parcel, so the live failure is a true missing-row case rather than a parser mismatch.
+- **Alignment:** Preserves the gateway-backed parcel architecture, keeps real missing geometry on a `404`, and improves observability and client-side degradation without weakening auth or route normalization.
+- **Risk/rollback:** Low risk because the work is isolated to one read-only route, the parcel-geometry client hook/UI messaging, and focused tests. Rollback is straightforward by reverting the route logging and client-side geometry-unavailable state if downstream behavior regresses.
+- **Acceptance Criteria / Tests:**
+  - Log gateway `404` and unparseable gateway-row cases separately in the parcel geometry route.
+  - If no upstream row exists, keep the route on `404` while surfacing a “geometry unavailable” state in the map UI.
+  - Add focused route regressions for gateway `404` and row-parse failure behavior.
+  - Add focused map-side regression coverage for the geometry-unavailable state.
+  - Re-run focused tests plus `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
+- **Evidence (2026-03-16):**
+  - Verified the live upstream parcel-geometry row for `000028d9-4de7-467a-b904-64238e593b34` genuinely does not exist: the gateway returned `404 {"detail":"Parcel geometry not found"}` for that parcel in this session.
+  - Updated `apps/web/app/api/parcels/[parcelId]/geometry/route.ts` to log true gateway missing-row cases separately from unparseable row-shaping failures while keeping the route on `404` with `GEOMETRY_UNAVAILABLE`.
+  - Updated `apps/web/components/maps/useParcelGeometry.ts` and `apps/web/components/maps/MapLibreParcelMap.tsx` so the client surfaces a dedicated “Geometry unavailable” state instead of treating a missing row like a generic parcel-shape failure.
+  - Added route regressions in `apps/web/app/api/parcels/[parcelId]/geometry/route.test.ts` plus map-side regressions in `apps/web/components/maps/useParcelGeometry.test.tsx` and `apps/web/components/maps/MapLibreParcelMap.test.tsx`.
+  - Focused verification passed:
+    - `pnpm -C apps/web test -- 'app/api/parcels/[parcelId]/geometry/route.test.ts' components/maps/MapLibreParcelMap.test.tsx components/maps/useParcelGeometry.test.tsx`
+  - Full gate passed:
+    - `pnpm lint`
+    - `pnpm typecheck`
+    - `pnpm test`
+    - `OPENAI_API_KEY=placeholder pnpm build`
+
 ### MARKET-017 — Building Permits Feed Degraded-Mode Recovery (P1)
 
 - **Priority:** P1

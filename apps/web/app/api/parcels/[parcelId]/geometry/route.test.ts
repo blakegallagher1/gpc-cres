@@ -183,6 +183,7 @@ describe("GET /api/parcels/[parcelId]/geometry", () => {
   });
 
   it("returns 404 when the gateway reports no parcel geometry", async () => {
+    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
     fetchMock.mockResolvedValue(new Response(null, { status: 404 }));
 
     const res = await GET(
@@ -192,6 +193,54 @@ describe("GET /api/parcels/[parcelId]/geometry", () => {
     const body = await res.json();
 
     expect(res.status).toBe(404);
-    expect(body.error?.code).toBe("NOT_FOUND");
+    expect(body.error?.code).toBe("GEOMETRY_UNAVAILABLE");
+    expect(body.error?.message).toBe("Parcel geometry unavailable");
+    expect(infoSpy).toHaveBeenCalledWith(
+      "[parcel-geometry] gateway returned no geometry row",
+      expect.objectContaining({
+        parcelId: "missing",
+        detailLevel: "low",
+        status: 404,
+      }),
+    );
+    infoSpy.mockRestore();
+  });
+
+  it("returns 404 with a separate log when the gateway row cannot be parsed", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    fetchMock.mockResolvedValue(
+      makeJsonResponse({
+        ok: true,
+        data: {
+          bbox: [-91.2, 30.3, -91.1, 30.4],
+          area_sqft: 1200,
+          srid: 4326,
+          dataset_version: "gateway",
+        },
+      }),
+    );
+
+    const res = await GET(
+      new Request("http://localhost/api/parcels/unparseable/geometry?detail_level=low"),
+      { params: Promise.resolve({ parcelId: "unparseable" }) },
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(404);
+    expect(body.error?.code).toBe("GEOMETRY_UNAVAILABLE");
+    expect(body.error?.message).toBe("Parcel geometry unavailable");
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[parcel-geometry] gateway row could not be parsed into usable geometry",
+      expect.objectContaining({
+        parcelId: "unparseable",
+        detailLevel: "low",
+        bboxType: "array",
+        geomSimplifiedType: "undefined",
+        geometryType: "undefined",
+        geomType: "undefined",
+        rowKeys: expect.arrayContaining(["bbox", "area_sqft", "srid", "dataset_version"]),
+      }),
+    );
+    warnSpy.mockRestore();
   });
 });

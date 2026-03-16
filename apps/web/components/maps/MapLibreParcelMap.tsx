@@ -178,6 +178,23 @@ function getSavedOverlaysFallback(): {
   };
 }
 
+type GeometryStatusHealth = {
+  failedCount: number;
+  geometryUnavailable: boolean;
+  propertyDbUnconfigured: boolean;
+};
+
+export function getGeometryStatusLabel(
+  loading: boolean,
+  health: GeometryStatusHealth,
+): string | null {
+  if (loading) return "Loading shapes…";
+  if (health.propertyDbUnconfigured) return "Shapes unavailable";
+  if (health.geometryUnavailable) return "Geometry unavailable";
+  if (health.failedCount > 0) return "Some shapes unavailable";
+  return null;
+}
+
 function statusColorForParcel(parcel: MapParcel): string {
   const isDark = typeof document !== "undefined" && document.documentElement.classList.contains("dark");
   const colors = isDark ? DARK_STATUS_COLORS : STATUS_COLORS;
@@ -767,6 +784,7 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
     80,
     viewportBounds,
   );
+  const geometryStatusLabel = getGeometryStatusLabel(geometryLoading, geometryHealth);
 
   useEffect(() => {
     parcelByIdRef.current = parcelById;
@@ -1750,13 +1768,9 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
                     />
                     <span className="text-[11px] text-map-text-primary">Parcels</span>
                   </label>
-                  {(geometryLoading || geometryHealth.failedCount > 0 || geometryHealth.propertyDbUnconfigured) && (
+                  {geometryStatusLabel && (
                     <div className="text-[10px] text-map-status-yellow ml-5">
-                      {geometryLoading
-                        ? "Loading shapes…"
-                        : geometryHealth.propertyDbUnconfigured
-                          ? "Shapes unavailable"
-                          : "Some shapes unavailable"}
+                      {geometryStatusLabel}
                     </div>
                   )}
                   <label className="flex items-center gap-2 cursor-pointer py-0.5">
