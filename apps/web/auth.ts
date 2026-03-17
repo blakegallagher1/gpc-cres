@@ -120,33 +120,41 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
 
       // Auto-provision user + org membership on first OAuth sign-in.
-      try {
-        const existing = await prisma.user.findFirst({
-          where: { email },
-          select: { id: true },
-        });
-        if (!existing) {
-          const userId = randomUUID();
-          // Find the default org (first org in the system).
-          const defaultOrg = await prisma.org.findFirst({
-            orderBy: { createdAt: "asc" },
+      // Retry once on transient DB errors to avoid auth_unavailable flakes.
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const existing = await prisma.user.findFirst({
+            where: { email },
             select: { id: true },
           });
-          if (!defaultOrg) {
-            console.error("[auth] no org exists for auto-provisioning");
-            return "/login?error=auth_unavailable";
+          if (!existing) {
+            const userId = randomUUID();
+            const defaultOrg = await prisma.org.findFirst({
+              orderBy: { createdAt: "asc" },
+              select: { id: true },
+            });
+            if (!defaultOrg) {
+              console.error("[auth] no org exists for auto-provisioning");
+              return "/login?error=auth_unavailable";
+            }
+            await prisma.user.create({
+              data: { id: userId, email },
+            });
+            await prisma.orgMembership.create({
+              data: { userId, orgId: defaultOrg.id, role: "member" },
+            });
+            console.log("[auth] auto-provisioned OAuth user:", email);
           }
-          await prisma.user.create({
-            data: { id: userId, email },
-          });
-          await prisma.orgMembership.create({
-            data: { userId, orgId: defaultOrg.id, role: "member" },
-          });
-          console.log("[auth] auto-provisioned OAuth user:", email);
+          break; // success — exit retry loop
+        } catch (error) {
+          if (attempt === 0) {
+            console.warn("[auth] OAuth provisioning failed, retrying:", error);
+            await new Promise((r) => setTimeout(r, 500));
+            continue;
+          }
+          console.error("[auth] OAuth user provisioning error after retry:", error);
+          return "/login?error=auth_unavailable";
         }
-      } catch (error) {
-        console.error("[auth] OAuth user provisioning error:", error);
-        return "/login?error=auth_unavailable";
       }
 
       return true;
@@ -160,23 +168,35 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         return token;
       }
 
-      // OAuth sign-in: look up userId and orgId from DB by email.
+      // OAuth sign-in: look up userId and orgId from DB by email (retry once on transient failure).
       if (user && account?.provider && account.provider !== "credentials") {
         const email = user.email?.trim().toLowerCase();
         if (email) {
-          const dbUser = await prisma.user.findFirst({
-            where: { email },
-            select: { id: true, email: true },
-          });
-          if (dbUser) {
-            const membership = await prisma.orgMembership.findFirst({
-              where: { userId: dbUser.id },
-              orderBy: { createdAt: "asc" },
-              select: { orgId: true },
-            });
-            token.userId = dbUser.id;
-            token.orgId = membership?.orgId;
-            token.email = dbUser.email;
+          for (let attempt = 0; attempt < 2; attempt++) {
+            try {
+              const dbUser = await prisma.user.findFirst({
+                where: { email },
+                select: { id: true, email: true },
+              });
+              if (dbUser) {
+                const membership = await prisma.orgMembership.findFirst({
+                  where: { userId: dbUser.id },
+                  orderBy: { createdAt: "asc" },
+                  select: { orgId: true },
+                });
+                token.userId = dbUser.id;
+                token.orgId = membership?.orgId;
+                token.email = dbUser.email;
+              }
+              break;
+            } catch (error) {
+              if (attempt === 0) {
+                console.warn("[auth] jwt callback DB lookup failed, retrying:", error);
+                await new Promise((r) => setTimeout(r, 500));
+                continue;
+              }
+              console.error("[auth] jwt callback DB lookup failed after retry:", error);
+            }
           }
         }
       }

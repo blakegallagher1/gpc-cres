@@ -218,6 +218,7 @@ export default function DealDetailPage() {
   const activeTab = searchParams?.get("tab") ?? "overview";
   const [deal, setDeal] = useState<DealDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [triageResult, setTriageResult] = useState<Record<string, unknown> | null>(null);
   const [triageSources, setTriageSources] = useState<{ url: string; title?: string }[]>([]);
   const [buyerSearch, setBuyerSearch] = useState("");
@@ -289,6 +290,7 @@ export default function DealDetailPage() {
   };
 
   const loadDeal = useCallback(async () => {
+    setLoadError(false);
     try {
       const res = await fetch(`/api/deals/${id}`);
       if (!res.ok) throw new Error("Failed to load deal");
@@ -299,6 +301,7 @@ export default function DealDetailPage() {
       }
     } catch (error) {
       console.error("Failed to load deal:", error);
+      setLoadError(true);
       toast.error("Failed to load deal");
     } finally {
       setLoading(false);
@@ -473,10 +476,24 @@ export default function DealDetailPage() {
     return (
       <DashboardShell>
         <div className="py-20 text-center">
-          <p className="text-muted-foreground">Deal not found</p>
-          <Button asChild className="mt-4">
-            <Link href="/deals">Back to Deals</Link>
-          </Button>
+          <p className="text-muted-foreground">
+            {loadError ? "Failed to load deal" : "Deal not found"}
+          </p>
+          <div className="mt-4 flex items-center justify-center gap-3">
+            {loadError && (
+              <Button
+                variant="outline"
+                onClick={() => { setLoading(true); loadDeal(); }}
+                className="gap-2"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Retry
+              </Button>
+            )}
+            <Button asChild>
+              <Link href="/deals">Back to Deals</Link>
+            </Button>
+          </div>
         </div>
       </DashboardShell>
     );

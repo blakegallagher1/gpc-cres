@@ -16,15 +16,16 @@ interface DashboardShellProps {
 }
 
 export function DashboardShell({ children, noPadding }: DashboardShellProps) {
-  const { sidebarCollapsed, setCopilotOpen } = useUIStore();
+  const { sidebarCollapsed, setSidebarCollapsed, setCopilotOpen } = useUIStore();
   const isMobile = useIsMobile();
 
-  // On mobile: close copilot by default
+  // On mobile: collapse sidebar and close copilot by default
   useEffect(() => {
     if (isMobile) {
+      setSidebarCollapsed(true);
       setCopilotOpen(false);
     }
-  }, [isMobile, setCopilotOpen]);
+  }, [isMobile, setSidebarCollapsed, setCopilotOpen]);
 
   return (
     <AuthGuard>

@@ -464,6 +464,7 @@ export default function CommandCenterPage() {
   } = useSWR<BriefingData>("/api/intelligence/daily-briefing", fetcher, {
     revalidateOnFocus: false,
     dedupingInterval: 60000,
+    errorRetryCount: 3,
   });
 
   const [refreshing, setRefreshing] = useState(false);
@@ -486,6 +487,7 @@ export default function CommandCenterPage() {
     {
       revalidateOnFocus: false,
       dedupingInterval: 60000,
+      errorRetryCount: 3,
     }
   );
 
@@ -500,6 +502,7 @@ export default function CommandCenterPage() {
     {
       revalidateOnFocus: false,
       dedupingInterval: 60000,
+      errorRetryCount: 3,
     }
   );
   const deadlineEvents = deadlinesPayload?.deadlines ?? [];

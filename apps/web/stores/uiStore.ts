@@ -8,6 +8,7 @@ interface UIState {
   openCommandPalette: () => void;
   closeCommandPalette: () => void;
   setCommandPaletteOpen: (open: boolean) => void;
+  setSidebarCollapsed: (collapsed: boolean) => void;
   toggleCopilot: () => void;
   setCopilotOpen: (open: boolean) => void;
 }
@@ -19,6 +20,7 @@ export const useUIStore = create((set): UIState => ({
   copilotOpen: process.env.NEXT_PUBLIC_E2E === "true" ? false : true,
   toggleSidebar: () =>
     set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
+  setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
   openCommandPalette: () => set({ commandPaletteOpen: true }),
   closeCommandPalette: () => set({ commandPaletteOpen: false }),
   setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
