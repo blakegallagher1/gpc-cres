@@ -11,6 +11,7 @@ export type KnowledgeContentType =
   | "document_extraction"
   | "market_report"
   | "user_note"
+  | "chat_capture"
   | "outcome_record"
   | "reasoning_trace";
 

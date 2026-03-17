@@ -17,6 +17,12 @@ export type SessionItem = {
   createdAt?: Date;
 };
 
+export type PersistedSessionItem = SessionItem & {
+  id: string;
+  conversationId: string;
+  createdAt: Date;
+};
+
 export type SessionCompactionResult = {
   compacted: boolean;
   previousTokenEstimate: number;
@@ -151,10 +157,10 @@ export class PrismaChatSession {
       .filter((row): row is SessionItem => row !== null);
   }
 
-  async addItems(items: SessionItem[]): Promise<void> {
-    if (items.length === 0) return;
+  async addItems(items: SessionItem[]): Promise<PersistedSessionItem[]> {
+    if (items.length === 0) return [];
     await this.ensureConversation();
-    if (!this.conversationId) return;
+    if (!this.conversationId) return [];
 
     const existing = await prisma.message.findMany({
       where: { conversationId: this.conversationId },
@@ -200,11 +206,34 @@ export class PrismaChatSession {
       });
     }
 
-    if (insertRows.length === 0) return;
+    if (insertRows.length === 0) return [];
 
-    await prisma.message.createMany({
-      data: insertRows,
-    });
+    const createdRows: PersistedSessionItem[] = [];
+    for (const row of insertRows) {
+      const created = await prisma.message.create({
+        data: row,
+        select: {
+          id: true,
+          conversationId: true,
+          role: true,
+          content: true,
+          metadata: true,
+          createdAt: true,
+        },
+      });
+      const role = normalizeRole(created.role);
+      if (!role) continue;
+      createdRows.push({
+        id: created.id,
+        conversationId: created.conversationId,
+        role,
+        content: created.content,
+        metadata: created.metadata as Prisma.InputJsonValue | undefined,
+        createdAt: created.createdAt,
+      });
+    }
+
+    return createdRows;
   }
 
   async runCompaction(): Promise<SessionCompactionResult> {

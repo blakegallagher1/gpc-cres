@@ -461,6 +461,40 @@ Only items meeting all checks are added below as `Planned`.
   - Local verification passed: `pnpm -C apps/web test -- 'app/api/chat/conversations/[id]/route.test.ts' app/api/jurisdictions/route.test.ts app/reference/page.test.tsx`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
   - Production deployment `f78b352da8c72ca4883094e4d4992899062effe9` returned `200 {"conversation":null}` for `/api/chat/conversations/draft-verify-*`, and the follow-up `vercel logs --since 3m --status-code 500` window showed no new chat-route `500`s.
 
+### CHAT-014 — Business-Wide Chat Memory Capture + Retrieval Context (P0)
+
+- **Priority:** P0
+- **Status:** Done (2026-03-16)
+- **Scope:** Capture every persisted user chat message as org-scoped business memory with typed metadata, then retrieve relevant historical chat captures back into the agent runtime as labeled context.
+- **Problem:** The current chat pipeline persists conversation history and extracts narrow preferences, but it does not convert the broader stream of user-authored business intelligence into reusable institutional memory. This leaves sourcing, underwriting, entitlement, capital, buyer, operations, hiring, marketing, and strategy inputs trapped inside individual conversations instead of compounding across the business.
+- **Expected Outcome (measurable):**
+  - Every persisted user chat message is mirrored into the existing institutional knowledge store as a deterministic `chat_capture` record.
+  - Captured chat memory includes typed metadata such as capture kind, business domains, source message id, conversation id, and optional deal linkage.
+  - Future chat turns automatically receive a bounded historical business-memory block sourced from prior user chats, labeled as possibly stale context rather than live instructions.
+  - Capture/retrieval failures remain best-effort and never block the core chat flow.
+- **Evidence of need:** Current inspection of `apps/web/lib/agent/agentRunner.ts`, `apps/web/lib/chat/session.ts`, and `apps/web/lib/services/knowledgeBase.service.ts` shows persisted chat history, preference extraction, and institutional knowledge ingest/search already exist as separate primitives, but there is no business-wide capture layer that stores everything the user says in chat and feeds relevant prior user-authored intelligence back into future runs.
+- **Alignment:** Reuses the existing org-scoped conversation/session and institutional knowledge architecture, preserves NextAuth/org-scoping and strict chat-route behavior, avoids introducing a second memory store, and keeps the first slice additive with no schema migration by using the existing `knowledge_embeddings` table plus a new `chat_capture` content type.
+- **Risk/rollback:** Medium. The work touches the central chat runner and session persistence path, but rollback is straightforward because the feature is additive and can be disabled by reverting the capture/retrieval wiring without affecting baseline chat persistence.
+- **Acceptance Criteria / Tests:**
+  - Add a dedicated business-memory capture/retrieval service that classifies user chat messages into business domains and capture kinds, strips system-added map context, and ingests them as `chat_capture` knowledge entries.
+  - Update the Prisma-backed chat session so persisted user messages return stable message ids that can be used as deterministic chat-memory source keys.
+  - Inject a labeled historical business-memory block into the agent system context before execution, with semantic search fallback to exact search when Qdrant/embedding dependencies are unavailable.
+  - Add focused tests for capture metadata, retrieval-context shaping, and agent-runner wiring.
+  - Re-run focused chat/service tests plus `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
+- **Evidence (2026-03-16):**
+  - Added `apps/web/lib/services/businessMemory.service.ts` to sanitize map-context-prefixed chat messages, classify business domains and capture kinds, persist deterministic `chat_capture` knowledge entries by chat-message source id, and build labeled historical business-memory context with semantic-to-exact fallback.
+  - Updated `apps/web/lib/agent/agentRunner.ts` so persisted user chat messages retrieve prior business memory into the agent system context before execution, then capture the current user turn after it has a stable persisted message id.
+  - Updated `apps/web/lib/chat/session.ts` so `addItems()` returns persisted message rows, enabling deterministic message-to-knowledge linkage without adding a second persistence path.
+  - Extended `apps/web/lib/services/knowledgeBase.service.ts` to recognize the additive `chat_capture` content type.
+  - Added focused regressions in `apps/web/lib/services/businessMemory.service.test.ts`, `apps/web/lib/chat/__tests__/session.test.ts`, and `apps/web/lib/agent/__tests__/agentRunner.stability.test.ts`.
+  - Focused verification passed:
+    - `pnpm -C apps/web test -- lib/services/businessMemory.service.test.ts lib/chat/__tests__/session.test.ts lib/agent/__tests__/agentRunner.stability.test.ts`
+  - Full verification gate passed:
+    - `pnpm lint`
+    - `pnpm typecheck`
+    - `pnpm test`
+    - `OPENAI_API_KEY=placeholder pnpm build`
+
 ### REF-002 — Jurisdictions Pack Query Failure Containment (P0)
 
 - **Priority:** P0

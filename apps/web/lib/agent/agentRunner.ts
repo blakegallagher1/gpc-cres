@@ -18,6 +18,10 @@ import {
 import { PrismaChatSession } from "@/lib/chat/session";
 import { buildPreferenceContext } from "@/lib/services/preferenceService";
 import { buildMemoryContext } from "@/lib/services/memoryContextBuilder";
+import {
+  buildBusinessMemoryContext,
+  captureBusinessChatMemory,
+} from "@/lib/services/businessMemory.service";
 import { mapFeaturesFromActionPayload, mergeMapFeatures } from "@/lib/chat/mapFeatureUtils";
 import { parseToolResultMapFeatures } from "@/lib/chat/toolResultWrapper";
 import type { MapFeature } from "@/lib/chat/mapActionTypes";
@@ -711,26 +715,10 @@ export async function runAgentWorkflow(params: AgentRunInput) {
     }
   }
 
-  const systemContext = [
-    buildSystemContext(orgId, userId, dealId, jurisdictionId, sku, preferenceContext),
-    buildJurisdictionContext(jurisdictionContext),
-    contextDeal
-      ? [
-          "Current deal context:",
-          `Deal: ${contextDeal.name} (${contextDeal.status})`,
-          `Deal ID: ${contextDeal.id}`,
-          `Jurisdiction: ${contextDeal.jurisdiction?.name ?? "Unknown"}, ${
-            contextDeal.jurisdiction?.state ?? "LA"
-          }`,
-          `SKU: ${contextDeal.sku}`,
-        ].join("\n")
-      : "",
-    memoryBlock,
-  ]
-    .filter(Boolean)
-    .join("\n\n");
-
   let agentInput: AgentInputMessage[];
+  let businessMemoryBlock = "";
+  let persistedUserMessageId: string | null = null;
+  let persistedUserMessageCreatedAt: Date | undefined;
 
   const hasInputOverride = input && input.length > 0;
   const shouldCreateConversation =
@@ -787,13 +775,68 @@ export async function runAgentWorkflow(params: AgentRunInput) {
     }
 
     if (persistConversation && message && chatSession) {
-      await chatSession.addItems([
+      const persistedItems = await chatSession.addItems([
         {
           role: "user",
           content: message,
           metadata: { kind: "chat_user_message" },
         },
       ]);
+      const persistedUserMessage =
+        persistedItems.find((item) => item.role === "user") ?? null;
+      persistedUserMessageId = persistedUserMessage?.id ?? null;
+      persistedUserMessageCreatedAt = persistedUserMessage?.createdAt;
+    }
+  }
+
+  if (message) {
+    try {
+      const businessMemoryContext = await buildBusinessMemoryContext({
+        orgId,
+        userId,
+        userMessage: message,
+        conversationId,
+        dealId: contextDeal?.id ?? dealId ?? null,
+      });
+      businessMemoryBlock = businessMemoryContext.contextBlock;
+    } catch {
+      // Business memory retrieval is best-effort; never block the chat flow.
+    }
+  }
+
+  const systemContext = [
+    buildSystemContext(orgId, userId, dealId, jurisdictionId, sku, preferenceContext),
+    buildJurisdictionContext(jurisdictionContext),
+    contextDeal
+      ? [
+          "Current deal context:",
+          `Deal: ${contextDeal.name} (${contextDeal.status})`,
+          `Deal ID: ${contextDeal.id}`,
+          `Jurisdiction: ${contextDeal.jurisdiction?.name ?? "Unknown"}, ${
+            contextDeal.jurisdiction?.state ?? "LA"
+          }`,
+          `SKU: ${contextDeal.sku}`,
+        ].join("\n")
+      : "",
+    memoryBlock,
+    businessMemoryBlock,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+
+  if (message && persistedUserMessageId) {
+    try {
+      await captureBusinessChatMemory({
+        orgId,
+        userId,
+        messageId: persistedUserMessageId,
+        messageText: message,
+        conversationId,
+        dealId: contextDeal?.id ?? dealId ?? null,
+        createdAt: persistedUserMessageCreatedAt,
+      });
+    } catch {
+      // Business memory capture is best-effort; never block the chat flow.
     }
   }
 
