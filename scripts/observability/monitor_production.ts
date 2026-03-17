@@ -6,7 +6,7 @@
  *   OBS_AUTH_BEARER=<jwt> \
  *   OBS_HEALTH_TOKEN=<health-token> \
  *   OBS_SESSION_COOKIE="__Secure-authjs.session-token=..." \
- *   OBS_SEARCH_ADDRESS="4416 HEATH DR" \
+ *   OBS_SEARCH_ADDRESS="2774 HIGHLAND RD" \
  *   OBS_LOOP=true \
  *   OBS_MAX_CONSECUTIVE_FAILURES=3 \
  *   OBS_MAX_REPORTS=240 \
@@ -65,7 +65,7 @@ const SESSION_COOKIE =
 const SEARCH_ADDRESS =
   process.env.OBS_SEARCH_ADDRESS ??
   process.env.MAP_SMOKE_SEARCH_ADDRESS ??
-  "4416 HEATH DR";
+  "2774 HIGHLAND RD";
 
 const OUTPUT_DIR = path.resolve(
   process.cwd(),

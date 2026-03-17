@@ -461,40 +461,6 @@ Only items meeting all checks are added below as `Planned`.
   - Local verification passed: `pnpm -C apps/web test -- 'app/api/chat/conversations/[id]/route.test.ts' app/api/jurisdictions/route.test.ts app/reference/page.test.tsx`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
   - Production deployment `f78b352da8c72ca4883094e4d4992899062effe9` returned `200 {"conversation":null}` for `/api/chat/conversations/draft-verify-*`, and the follow-up `vercel logs --since 3m --status-code 500` window showed no new chat-route `500`s.
 
-### CHAT-014 — Business-Wide Chat Memory Capture + Retrieval Context (P0)
-
-- **Priority:** P0
-- **Status:** Done (2026-03-16)
-- **Scope:** Capture every persisted user chat message as org-scoped business memory with typed metadata, then retrieve relevant historical chat captures back into the agent runtime as labeled context.
-- **Problem:** The current chat pipeline persists conversation history and extracts narrow preferences, but it does not convert the broader stream of user-authored business intelligence into reusable institutional memory. This leaves sourcing, underwriting, entitlement, capital, buyer, operations, hiring, marketing, and strategy inputs trapped inside individual conversations instead of compounding across the business.
-- **Expected Outcome (measurable):**
-  - Every persisted user chat message is mirrored into the existing institutional knowledge store as a deterministic `chat_capture` record.
-  - Captured chat memory includes typed metadata such as capture kind, business domains, source message id, conversation id, and optional deal linkage.
-  - Future chat turns automatically receive a bounded historical business-memory block sourced from prior user chats, labeled as possibly stale context rather than live instructions.
-  - Capture/retrieval failures remain best-effort and never block the core chat flow.
-- **Evidence of need:** Current inspection of `apps/web/lib/agent/agentRunner.ts`, `apps/web/lib/chat/session.ts`, and `apps/web/lib/services/knowledgeBase.service.ts` shows persisted chat history, preference extraction, and institutional knowledge ingest/search already exist as separate primitives, but there is no business-wide capture layer that stores everything the user says in chat and feeds relevant prior user-authored intelligence back into future runs.
-- **Alignment:** Reuses the existing org-scoped conversation/session and institutional knowledge architecture, preserves NextAuth/org-scoping and strict chat-route behavior, avoids introducing a second memory store, and keeps the first slice additive with no schema migration by using the existing `knowledge_embeddings` table plus a new `chat_capture` content type.
-- **Risk/rollback:** Medium. The work touches the central chat runner and session persistence path, but rollback is straightforward because the feature is additive and can be disabled by reverting the capture/retrieval wiring without affecting baseline chat persistence.
-- **Acceptance Criteria / Tests:**
-  - Add a dedicated business-memory capture/retrieval service that classifies user chat messages into business domains and capture kinds, strips system-added map context, and ingests them as `chat_capture` knowledge entries.
-  - Update the Prisma-backed chat session so persisted user messages return stable message ids that can be used as deterministic chat-memory source keys.
-  - Inject a labeled historical business-memory block into the agent system context before execution, with semantic search fallback to exact search when Qdrant/embedding dependencies are unavailable.
-  - Add focused tests for capture metadata, retrieval-context shaping, and agent-runner wiring.
-  - Re-run focused chat/service tests plus `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
-- **Evidence (2026-03-16):**
-  - Added `apps/web/lib/services/businessMemory.service.ts` to sanitize map-context-prefixed chat messages, classify business domains and capture kinds, persist deterministic `chat_capture` knowledge entries by chat-message source id, and build labeled historical business-memory context with semantic-to-exact fallback.
-  - Updated `apps/web/lib/agent/agentRunner.ts` so persisted user chat messages retrieve prior business memory into the agent system context before execution, then capture the current user turn after it has a stable persisted message id.
-  - Updated `apps/web/lib/chat/session.ts` so `addItems()` returns persisted message rows, enabling deterministic message-to-knowledge linkage without adding a second persistence path.
-  - Extended `apps/web/lib/services/knowledgeBase.service.ts` to recognize the additive `chat_capture` content type.
-  - Added focused regressions in `apps/web/lib/services/businessMemory.service.test.ts`, `apps/web/lib/chat/__tests__/session.test.ts`, and `apps/web/lib/agent/__tests__/agentRunner.stability.test.ts`.
-  - Focused verification passed:
-    - `pnpm -C apps/web test -- lib/services/businessMemory.service.test.ts lib/chat/__tests__/session.test.ts lib/agent/__tests__/agentRunner.stability.test.ts`
-  - Full verification gate passed:
-    - `pnpm lint`
-    - `pnpm typecheck`
-    - `pnpm test`
-    - `OPENAI_API_KEY=placeholder pnpm build`
-
 ### REF-002 — Jurisdictions Pack Query Failure Containment (P0)
 
 - **Priority:** P0
@@ -3442,7 +3408,7 @@ The following items were identified by analyzing 6 OpenAI GitHub repositories (`
   - `POST /api/map/prospect` maps wrapped `data.rows` gateway payloads into parcel objects.
   - `POST /api/map/prospect` maps columnar `columnNames` + `rows[][]` SQL responses into parcel objects.
   - Focused route regressions prove both payload shapes return non-empty parcel envelopes instead of false empty responses.
-- **Evidence of need:** On 2026-03-16, authenticated production probes against build `c9ab99423cabf20e798dbdc38fa96393674b4e80` returned a valid parcel for `GET /api/parcels?hasCoords=true&search=2774 HIGHLAND RD`, returned valid geometry for `/api/parcels/ext-00001e98-979c-485a-b71d-69c4f817dd70/geometry`, and still returned `total: 0` for the derived polygon sent to `POST /api/map/prospect`. Local SQL sanity checks showed the polygon SQL itself still returned rows, isolating the defect to prospect-route gateway response parsing rather than polygon semantics.
+- **Evidence of need:** On 2026-03-16, authenticated production probes against build `c9ab99423cabf20e798dbdc38fa96393674b4e80` returned a valid parcel for `GET /api/parcels?hasCoords=true&search=2774 HIGHLAND RD`, returned valid geometry for `/api/parcels/ext-00001e98-979c-485a-b71d-69c4f817dd70/geometry`, and still returned `total: 0` for the derived polygon sent to `POST /api/map/prospect`. That isolated the failure to the prospect route path rather than the parcel-search or geometry paths; follow-up live gateway inspection in `MAP-017` then confirmed a second SQL-contract defect remained after this envelope hardening landed.
 - **Alignment:** Preserves the existing gateway-backed parcel architecture, keeps auth/org handling unchanged, and hardens the route against already-deployed gateway response shapes instead of redefining the route contract.
 - **Risk/rollback:** Low risk because the change is isolated to read-only prospect-route parsing plus focused tests. Rollback is straightforward by reverting the normalization helpers and the added response-shape regressions if downstream parsing behavior regresses.
 - **Acceptance Criteria / Tests:**
@@ -3455,6 +3421,66 @@ The following items were identified by analyzing 6 OpenAI GitHub repositories (`
   - Focused verification passed:
     - `pnpm -C apps/web test -- app/api/map/prospect/route.post.test.ts app/api/map/prospect/route.test.ts`
   - Full verification gate passed:
+    - `pnpm lint`
+    - `pnpm typecheck`
+    - `pnpm test`
+    - `OPENAI_API_KEY=placeholder pnpm build`
+
+### MAP-017 — Prospect SQL Contract Recovery + Error Surfacing (P1)
+
+- **Priority:** P1
+- **Status:** Done (2026-03-16)
+- **Scope:** Restore `POST /api/map/prospect` against the live `ebr_parcels` schema and stop masking gateway SQL failures as successful empty prospect responses.
+- **Problem:** After `MAP-016` merged and deployed as build `161a4eaa5a9482f7a9fa8575dc68f9bfab1d18f7`, the authenticated production monitor still failed `POST /api/map/prospect` with `{"parcels":[],"total":0}`. Direct authenticated calls to the same gateway endpoint used by the route, `POST /tools/parcels.sql`, revealed the actual upstream response: `{"ok":false,"error":"SQL error: column \"zoning_type\" does not exist"}`. The route still selected `zoning_type` and `existing_land_use` from `ebr_parcels`, even though the live schema only exposed `id`, `parcel_id`, `address`, `area_sqft`, `owner`, `assessed_value`, `geom`, and `created_at`. Because the route only checked HTTP status and not `ok:false` JSON envelopes, it silently converted that SQL error into a false empty success.
+- **Expected Outcome (measurable):**
+  - `POST /api/map/prospect` only selects columns that exist on the live `ebr_parcels` gateway dataset.
+  - Gateway `200` error envelopes with `ok:false` and `error` now fail closed as `GATEWAY_UNAVAILABLE` instead of returning `200 { parcels: [], total: 0 }`.
+  - The authenticated production monitor and the geometry-derived `2774 HIGHLAND RD` polygon probe both return non-empty parcel results on the deployed build.
+- **Evidence of need:** On 2026-03-16, a direct authenticated gateway probe against the live `LOCAL_API_URL/tools/parcels.sql` endpoint with the route’s polygon SQL returned `status=200` and `{"ok":false,"error":"SQL error: column \"zoning_type\" does not exist"}`. A schema probe via `SELECT * FROM ebr_parcels LIMIT 1` on that same gateway returned columns `id`, `parcel_id`, `address`, `area_sqft`, `owner`, `assessed_value`, `geom`, and `created_at`, confirming the route’s SQL projection was out of contract with the deployed dataset.
+- **Alignment:** Preserves the gateway-backed parcel architecture, keeps auth/org handling unchanged, and hardens the route against both live schema drift and live gateway error-envelope semantics.
+- **Risk/rollback:** Low risk because the change stays inside the read-only prospect route and its focused tests. Rollback is straightforward by reverting the SQL projection and error-envelope handling if downstream parcel dataset assumptions change again.
+- **Acceptance Criteria / Tests:**
+  - `apps/web/app/api/map/prospect/route.ts` selects only live `ebr_parcels` columns and preserves the `zoning` response field with a literal empty-string placeholder.
+  - `apps/web/app/api/map/prospect/route.ts` throws `GATEWAY_UNAVAILABLE` when the gateway returns `ok:false` plus an `error` message in a `200` JSON response.
+  - `apps/web/app/api/map/prospect/route.post.test.ts` covers the direct SQL-error envelope regression.
+  - Re-run focused route tests plus `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
+- **Evidence (2026-03-16):**
+  - Updated `apps/web/app/api/map/prospect/route.ts` so the route now selects only live `ebr_parcels` columns, preserves `zoning` with a literal empty string, and throws `GATEWAY_UNAVAILABLE` when `/tools/parcels.sql` responds with `200 { ok: false, error: ... }`.
+  - Added a focused regression in `apps/web/app/api/map/prospect/route.post.test.ts` covering the SQL-error envelope path and asserting the route no longer emits `zoning_type` in prospect SQL.
+  - Direct live gateway probes confirmed the root cause before the fix: `POST /tools/parcels.sql` returned `{"ok":false,"error":"SQL error: column \"zoning_type\" does not exist"}` for the route's polygon SQL, while `SELECT * FROM ebr_parcels LIMIT 1` exposed only `id`, `parcel_id`, `address`, `area_sqft`, `owner`, `assessed_value`, `geom`, and `created_at`.
+  - Verification passed:
+    - `pnpm -C apps/web test -- app/api/map/prospect/route.post.test.ts app/api/map/prospect/route.test.ts`
+    - `pnpm lint`
+    - `pnpm typecheck`
+    - `pnpm test`
+    - `OPENAI_API_KEY=placeholder pnpm build`
+
+### MAP-018 — Prospect Search Normalization + Monitor Fixture Alignment (P1)
+
+- **Priority:** P1
+- **Status:** Done (2026-03-16)
+- **Scope:** Make `POST /api/map/prospect` search matching work against uppercase assessor data and align the production monitor with a parcel address that is actually inside the scripted polygon.
+- **Problem:** After `MAP-017`, direct live gateway probes showed a second functional defect in the shipped `searchText` path: the route normalized prospect fields with `LOWER(regexp_replace(..., '[^a-z0-9]+', ...))`, which strips uppercase letters before lowercasing. On the live `ebr_parcels` dataset that turned `2774 HIGHLAND RD` into `2774 `, so the suffix-aware search clause could not match address, owner, or parcel text even when the parcel was inside the polygon. Separately, the production monitor still defaulted to `4416 HEATH DR`, whose live centroid (`30.601889205397672, -91.15151656623976`) sits north of the monitor polygon's max latitude `30.5001`, so the monitor could keep reporting false failures after the route bug was fixed.
+- **Expected Outcome (measurable):**
+  - `POST /api/map/prospect` normalizes search fields by lowercasing before stripping non-alphanumerics, so uppercase assessor addresses remain searchable.
+  - The production monitor defaults to an address fixture that is inside the scripted polygon and can therefore validate filtered prospect behavior.
+  - A deployed production probe for the monitor polygon plus `searchText="2774 HIGHLAND RD"` returns a non-empty parcel envelope.
+- **Evidence of need:** On 2026-03-16, direct gateway SQL against the live dataset returned `2774 HIGHLAND RD` for a simple `LOWER(address) LIKE '%2774 highland rd%'` plus polygon containment check, but the route-equivalent normalized search clause returned zero rows. A direct normalization probe showed the current SQL transformed the same address into `2774 ` because uppercase letters were stripped before `LOWER(...)` executed. Separate live gateway probes showed `4416 HEATH DR` exists in `ebr_parcels` with centroid latitude `30.601889205397672`, which is outside the monitor polygon capped at latitude `30.5001`.
+- **Alignment:** Preserves the gateway-backed prospect route, keeps auth/org handling unchanged, and hardens production validation by using a deterministic in-polygon fixture instead of a false-negative address.
+- **Risk/rollback:** Low risk because the change is isolated to the route's read-only search expression, one monitor fixture constant, and focused tests. Rollback is straightforward by reverting the normalization expression and monitor default if downstream query behavior unexpectedly changes.
+- **Acceptance Criteria / Tests:**
+  - `apps/web/app/api/map/prospect/route.ts` lowercases `address`, `owner`, and `parcel_id` before `regexp_replace(..., '[^a-z0-9]+', ' ', 'g')`.
+  - `apps/web/app/api/map/prospect/route.post.test.ts` asserts the generated SQL uses the corrected lowercase-first normalization and still preserves wildcard passthrough.
+  - `scripts/observability/monitor_production.ts` defaults `OBS_SEARCH_ADDRESS` to `2774 HIGHLAND RD`.
+  - Re-run focused route tests plus `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `OPENAI_API_KEY=placeholder pnpm build`.
+  - After deploy, the authenticated production monitor and a direct production `POST /api/map/prospect` probe with the monitor polygon plus `2774 HIGHLAND RD` return non-empty results.
+- **Evidence (2026-03-16):**
+  - Updated `apps/web/app/api/map/prospect/route.ts` so prospect search fields now normalize with `regexp_replace(LOWER(COALESCE(...)), '[^a-z0-9]+', ' ', 'g')`, which preserves uppercase assessor text through normalization.
+  - Updated `apps/web/app/api/map/prospect/route.post.test.ts` to assert the lowercase-first normalization expression is emitted in generated SQL while wildcard-only `searchText="*"` still omits the restrictive clause.
+  - Updated `scripts/observability/monitor_production.ts` so the documented/default search fixture is `2774 HIGHLAND RD`, an address whose live parcel centroid is inside the scripted monitor polygon.
+  - Direct live gateway validation with the corrected normalization returned one row for `2774 HIGHLAND RD` under the monitor polygon, proving the fixed SQL path matches the live dataset.
+  - Verification passed:
+    - `pnpm -C apps/web test -- app/api/map/prospect/route.post.test.ts app/api/map/prospect/route.test.ts`
     - `pnpm lint`
     - `pnpm typecheck`
     - `pnpm test`

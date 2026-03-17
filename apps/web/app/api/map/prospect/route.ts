@@ -32,9 +32,9 @@ const STREET_SUFFIX_ABBREVIATED: Array<[RegExp, string]> = [
   [/\blane\b/g, "ln"],
 ];
 const PROSPECT_SEARCH_FIELDS = [
-  "LOWER(regexp_replace(COALESCE(address, ''), '[^a-z0-9]+', ' ', 'g'))",
-  "LOWER(regexp_replace(COALESCE(owner, ''), '[^a-z0-9]+', ' ', 'g'))",
-  "LOWER(regexp_replace(COALESCE(parcel_id, ''), '[^a-z0-9]+', ' ', 'g'))",
+  "regexp_replace(LOWER(COALESCE(address, '')), '[^a-z0-9]+', ' ', 'g')",
+  "regexp_replace(LOWER(COALESCE(owner, '')), '[^a-z0-9]+', ' ', 'g')",
+  "regexp_replace(LOWER(COALESCE(parcel_id, '')), '[^a-z0-9]+', ' ', 'g')",
 ] as const;
 
 function isProspectRow(value: unknown): value is Record<string, unknown> {
@@ -100,6 +100,28 @@ function normalizeProspectGatewayRows(value: unknown): Record<string, unknown>[]
   }
 
   return [];
+}
+
+function extractProspectGatewayError(value: unknown): string | null {
+  if (!isProspectRow(value)) {
+    return null;
+  }
+
+  if (value.ok === false && typeof value.error === "string" && value.error.trim().length > 0) {
+    return value.error.trim();
+  }
+
+  for (const candidate of [value.data, value.result]) {
+    if (candidate === undefined) {
+      continue;
+    }
+    const nestedError = extractProspectGatewayError(candidate);
+    if (nestedError) {
+      return nestedError;
+    }
+  }
+
+  return null;
 }
 
 function getGatewayTimeoutMs(): number {
@@ -218,11 +240,6 @@ function buildPolygonSql(
     whereClauses.push(searchClause);
   }
 
-  if (filters?.zoningCodes?.length) {
-    const escaped = filters.zoningCodes.map((c) => c.replace(/'/g, "''").toUpperCase());
-    const likeConditions = escaped.map((c) => `UPPER(zoning_type) LIKE '%${c}%'`);
-    whereClauses.push(`(${likeConditions.join(" OR ")})`);
-  }
   if (filters?.minAcreage != null) {
     whereClauses.push(`(area_sqft / 43560.0) >= ${Number(filters.minAcreage)}`);
   }
@@ -242,9 +259,8 @@ function buildPolygonSql(
       address AS site_address,
       owner AS owner_name,
       (area_sqft / 43560.0) AS acreage,
-      zoning_type AS zoning,
+      '' AS zoning,
       assessed_value,
-      existing_land_use,
       ST_Y(ST_Centroid(geom)) AS lat,
       ST_X(ST_Centroid(geom)) AS lng,
       'East Baton Rouge' AS parish_name
@@ -442,6 +458,14 @@ export async function POST(req: NextRequest) {
       gatewayConfig,
       context.requestId,
     );
+    const gatewayError = extractProspectGatewayError(raw);
+    if (gatewayError) {
+      throw new ProspectGatewayError(
+        `[prospect] gateway /tools/parcels.sql returned error payload: ${gatewayError}`,
+        "GATEWAY_UNAVAILABLE",
+        502,
+      );
+    }
     const gatewayRows = normalizeProspectGatewayRows(raw);
 
     const parcels = gatewayRows.map((p) => ({
