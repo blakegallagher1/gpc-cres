@@ -18,9 +18,11 @@ import {
   BarChart3,
   Shield,
   FileText,
+  Menu,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/stores/uiStore";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 interface NavItem {
   id: string;
@@ -82,6 +84,7 @@ const allNavItems = navGroups.flatMap((group) => group.items);
 export function Sidebar() {
   const pathname = usePathname();
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
+  const isMobile = useIsMobile();
   const activeHref = [...allNavItems]
     .sort((left, right) => right.href.length - left.href.length)
     .find((item) =>
@@ -90,86 +93,124 @@ export function Sidebar() {
         : pathname === item.href || (pathname?.startsWith(`${item.href}/`) ?? false)
     )?.href;
 
+  // On mobile: sidebar is hidden by default, shown as overlay when not collapsed
+  const mobileHidden = isMobile && sidebarCollapsed;
+  const mobileOpen = isMobile && !sidebarCollapsed;
+
   return (
-    <aside
-      className={cn(
-        "fixed left-0 top-0 z-40 flex h-screen flex-col border-r bg-card transition-all duration-300",
-        sidebarCollapsed ? "w-16" : "w-64"
+    <>
+      {/* Mobile hamburger button — only visible when sidebar is hidden on mobile */}
+      {mobileHidden && (
+        <button
+          onClick={toggleSidebar}
+          className="fixed left-3 top-4 z-50 flex h-8 w-8 items-center justify-center rounded-lg bg-card text-muted-foreground shadow-md border md:hidden"
+          aria-label="Open menu"
+        >
+          <Menu className="h-4 w-4" />
+        </button>
       )}
-    >
-      {/* Logo */}
-      <div className="flex h-16 items-center gap-3 border-b px-4">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-purple-600">
-          <Building2 className="h-6 w-6 text-white" />
-        </div>
-        {!sidebarCollapsed && (
-          <div className="overflow-hidden">
-            <h1 className="truncate font-bold">Gallagher OS</h1>
-            <p className="truncate text-xs text-muted-foreground">
-              CRE Platform
-            </p>
-          </div>
+
+      {/* Backdrop for mobile overlay */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          onClick={toggleSidebar}
+        />
+      )}
+
+      <aside
+        className={cn(
+          "fixed left-0 top-0 z-40 flex h-screen flex-col border-r bg-card transition-all duration-300",
+          isMobile
+            ? cn(
+                "w-64 shadow-xl",
+                sidebarCollapsed && "-translate-x-full"
+              )
+            : sidebarCollapsed
+              ? "w-16"
+              : "w-64"
         )}
-      </div>
-
-      {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto p-3">
-        {navGroups.map((group) => (
-          <div key={group.label} className="mb-4">
-            {!sidebarCollapsed && (
-              <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
-                {group.label}
-              </p>
-            )}
-            <div className="space-y-0.5">
-              {group.items.map((item) => {
-                const Icon = item.icon;
-                const isActive = activeHref === item.href;
-
-                return (
-                  <Link
-                    key={item.id}
-                    href={item.href}
-                    className={cn(
-                      "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                      isActive
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                    )}
-                    title={sidebarCollapsed ? item.label : undefined}
-                  >
-                    <Icon className="h-4 w-4 shrink-0" />
-                    {!sidebarCollapsed && <span>{item.label}</span>}
-                  </Link>
-                );
-              })}
-            </div>
+      >
+        {/* Logo */}
+        <div className="flex h-16 items-center gap-3 border-b px-4">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-purple-600">
+            <Building2 className="h-6 w-6 text-white" />
           </div>
-        ))}
-      </nav>
-
-      {/* User */}
-      <div className="border-t p-3">
-        <div className="flex items-center gap-3 rounded-lg bg-muted px-3 py-2.5">
-          <div className="h-8 w-8 shrink-0 rounded-full bg-gradient-to-br from-green-400 to-blue-500" />
-          {!sidebarCollapsed && (
-            <div className="min-w-0 overflow-hidden">
-              <p className="truncate text-sm font-medium">Admin User</p>
+          {(!sidebarCollapsed || isMobile) && (
+            <div className="overflow-hidden">
+              <h1 className="truncate font-bold">Gallagher OS</h1>
               <p className="truncate text-xs text-muted-foreground">
-                Gallagher Property
+                CRE Platform
               </p>
             </div>
           )}
         </div>
-      </div>
 
-      {/* Collapse Toggle */}
-      <button
-        onClick={toggleSidebar}
-        className="absolute -right-3 top-20 flex h-6 w-6 items-center justify-center rounded-full border bg-card text-muted-foreground shadow-sm hover:text-foreground"
-      >
-        {sidebarCollapsed ? ">" : "<"}
-      </button>
-    </aside>
+        {/* Navigation */}
+        <nav className="flex-1 overflow-y-auto p-3">
+          {navGroups.map((group) => (
+            <div key={group.label} className="mb-4">
+              {(!sidebarCollapsed || isMobile) && (
+                <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+                  {group.label}
+                </p>
+              )}
+              <div className="space-y-0.5">
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeHref === item.href;
+
+                  return (
+                    <Link
+                      key={item.id}
+                      href={item.href}
+                      onClick={() => {
+                        // Close sidebar on mobile after navigation
+                        if (isMobile) toggleSidebar();
+                      }}
+                      className={cn(
+                        "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                        isActive
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      )}
+                      title={sidebarCollapsed && !isMobile ? item.label : undefined}
+                    >
+                      <Icon className="h-4 w-4 shrink-0" />
+                      {(!sidebarCollapsed || isMobile) && <span>{item.label}</span>}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </nav>
+
+        {/* User */}
+        <div className="border-t p-3">
+          <div className="flex items-center gap-3 rounded-lg bg-muted px-3 py-2.5">
+            <div className="h-8 w-8 shrink-0 rounded-full bg-gradient-to-br from-green-400 to-blue-500" />
+            {(!sidebarCollapsed || isMobile) && (
+              <div className="min-w-0 overflow-hidden">
+                <p className="truncate text-sm font-medium">Admin User</p>
+                <p className="truncate text-xs text-muted-foreground">
+                  Gallagher Property
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Collapse Toggle — hidden on mobile (uses hamburger instead) */}
+        {!isMobile && (
+          <button
+            onClick={toggleSidebar}
+            className="absolute -right-3 top-20 flex h-6 w-6 items-center justify-center rounded-full border bg-card text-muted-foreground shadow-sm hover:text-foreground"
+          >
+            {sidebarCollapsed ? ">" : "<"}
+          </button>
+        )}
+      </aside>
+    </>
   );
 }

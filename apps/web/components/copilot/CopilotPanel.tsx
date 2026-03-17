@@ -24,6 +24,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useUIStore } from "@/stores/uiStore";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -179,6 +180,7 @@ function extractProjectId(pathname: string) {
 
 export function CopilotPanel() {
   const { copilotOpen, toggleCopilot } = useUIStore();
+  const isMobile = useIsMobile();
   const pathname = usePathname();
   const projectId = useMemo(() => pathname ? extractProjectId(pathname) : null, [pathname]);
   const [selectedAction, setSelectedAction] = useState(
@@ -510,9 +512,18 @@ export function CopilotPanel() {
   if (isMapPage) return null;
 
   return (
+    <>
+    {/* Backdrop for mobile copilot */}
+    {isMobile && copilotOpen && (
+      <div
+        className="fixed inset-0 z-40 bg-black/50"
+        onClick={toggleCopilot}
+      />
+    )}
     <aside
       className={cn(
-        "fixed right-0 top-16 z-40 h-[calc(100vh-4rem)] w-[360px] border-l bg-background/95 shadow-xl transition-transform duration-300",
+        "fixed right-0 top-16 z-50 h-[calc(100vh-4rem)] border-l bg-background/95 shadow-xl transition-transform duration-300",
+        isMobile ? "w-full" : "w-[360px]",
         copilotOpen ? "translate-x-0" : "translate-x-full"
       )}
     >
@@ -775,5 +786,6 @@ export function CopilotPanel() {
         </div>
       </div>
     </aside>
+    </>
   );
 }

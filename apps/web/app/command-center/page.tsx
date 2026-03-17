@@ -6,6 +6,7 @@ import useSWR from "swr";
 import {
   Sparkles,
   AlertTriangle,
+  AlertCircle,
   Zap,
   BarChart3,
   Loader2,
@@ -26,6 +27,7 @@ import { cn } from "@/lib/utils";
 import { OpportunityFeed } from "@/components/opportunities/OpportunityFeed";
 import { DeadlinesWidget } from "@/components/intelligence/DeadlinesWidget";
 import { EntitlementKpiWidget } from "@/components/intelligence/EntitlementKpiWidget";
+import { SectionErrorBoundary } from "@/components/error-boundary/ErrorBoundary";
 import { toast } from "sonner";
 import { PIPELINE_STAGES } from "@/lib/data/portfolioConstants";
 
@@ -456,6 +458,7 @@ function DeadlineTimelinePanel({
 export default function CommandCenterPage() {
   const {
     data: briefing,
+    error: briefingError,
     isLoading,
     mutate,
   } = useSWR<BriefingData>("/api/intelligence/daily-briefing", fetcher, {
@@ -477,7 +480,7 @@ export default function CommandCenterPage() {
       0
     ) ?? 0;
 
-  const { data: portfolioPayload, isLoading: portfolioSnapshotLoading } = useSWR<PortfolioSnapshotPayload>(
+  const { data: portfolioPayload, error: portfolioError, isLoading: portfolioSnapshotLoading } = useSWR<PortfolioSnapshotPayload>(
     "/api/portfolio",
     fetcher,
     {
@@ -491,7 +494,7 @@ export default function CommandCenterPage() {
     [portfolioPayload?.deals]
   );
 
-  const { data: deadlinesPayload, isLoading: deadlinesLoading } = useSWR<DeadlineTimelinePayload>(
+  const { data: deadlinesPayload, error: deadlinesError, isLoading: deadlinesLoading } = useSWR<DeadlineTimelinePayload>(
     "/api/intelligence/deadlines",
     fetcher,
     {
@@ -628,6 +631,7 @@ export default function CommandCenterPage() {
         </div>
 
         {/* Daily Briefing */}
+        <SectionErrorBoundary title="Daily Briefing">
         <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
@@ -650,6 +654,14 @@ export default function CommandCenterPage() {
               <div className="space-y-2">
                 <Skeleton className="h-4 w-full" />
                 <Skeleton className="h-4 w-3/4" />
+              </div>
+            ) : briefingError ? (
+              <div className="flex flex-col items-center gap-2 py-4">
+                <AlertCircle className="h-6 w-6 text-destructive" />
+                <p className="text-sm text-destructive">Failed to load briefing</p>
+                <Button variant="ghost" size="sm" onClick={() => mutate()}>
+                  Retry
+                </Button>
               </div>
             ) : briefing ? (
               <div className="space-y-4">
@@ -684,9 +696,11 @@ export default function CommandCenterPage() {
             )}
           </CardContent>
         </Card>
+        </SectionErrorBoundary>
 
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Needs Attention */}
+          <SectionErrorBoundary title="Needs Attention">
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2">
@@ -740,8 +754,10 @@ export default function CommandCenterPage() {
               )}
             </CardContent>
           </Card>
+          </SectionErrorBoundary>
 
           {/* Recent Automation Activity */}
+          <SectionErrorBoundary title="Recent Automation">
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2">
@@ -805,25 +821,37 @@ export default function CommandCenterPage() {
               )}
             </CardContent>
           </Card>
+          </SectionErrorBoundary>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
+          <SectionErrorBoundary title="Deadlines">
           <DeadlinesWidget />
+          </SectionErrorBoundary>
+          <SectionErrorBoundary title="Deadline Timeline">
           <DeadlineTimelinePanel deadlines={deadlineEvents} isLoading={deadlinesLoading} />
+          </SectionErrorBoundary>
         </div>
 
+        <SectionErrorBoundary title="Pipeline Timeline">
         <PipelineDayTimelinePanel
           deals={portfolioDeals}
           isLoading={portfolioSnapshotLoading}
         />
+        </SectionErrorBoundary>
 
         {/* Entitlement KPI Trend Monitoring */}
+        <SectionErrorBoundary title="Entitlement KPIs">
         <EntitlementKpiWidget />
+        </SectionErrorBoundary>
 
         {/* Opportunity Matches */}
+        <SectionErrorBoundary title="Opportunities">
         <OpportunityFeed />
+        </SectionErrorBoundary>
 
         {/* Pipeline Snapshot */}
+        <SectionErrorBoundary title="Pipeline Snapshot">
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
@@ -902,6 +930,7 @@ export default function CommandCenterPage() {
             )}
           </CardContent>
         </Card>
+        </SectionErrorBoundary>
       </div>
     </DashboardShell>
   );

@@ -6,6 +6,7 @@ import { useTheme } from "next-themes";
 import { useRouter, usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/stores/uiStore";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import { Button } from "@/components/ui/button";
 import { signOut } from "next-auth/react";
 import { toast } from "sonner";
@@ -14,6 +15,7 @@ import { NotificationFeed } from "@/components/notifications/NotificationFeed";
 export function Header() {
   const { theme, setTheme } = useTheme();
   const { sidebarCollapsed, openCommandPalette, toggleCopilot } = useUIStore();
+  const isMobile = useIsMobile();
   const [searchFocused, setSearchFocused] = useState(false);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -39,8 +41,8 @@ export function Header() {
   return (
     <header
       className={cn(
-        "fixed right-0 top-0 z-30 flex h-16 items-center justify-between border-b bg-card/80 px-6 backdrop-blur-xl transition-all duration-300",
-        sidebarCollapsed ? "left-16" : "left-64"
+        "fixed right-0 top-0 z-30 flex h-16 items-center justify-between border-b bg-card/80 backdrop-blur-xl transition-all duration-300",
+        isMobile ? "left-0 px-12" : cn("px-6", sidebarCollapsed ? "left-16" : "left-64")
       )}
     >
       {/* Search */}
@@ -122,24 +124,27 @@ export function Header() {
         {/* New Run Button */}
         <Button
           className="gap-2"
+          size={isMobile ? "icon" : "default"}
           onClick={() => {
             const newId = crypto.randomUUID();
             window.location.href = `/?conversationId=${newId}`;
           }}
         >
           <Plus className="h-4 w-4" />
-          <span>New Run</span>
+          {!isMobile && <span>New Run</span>}
         </Button>
 
         {/* Sign Out */}
-        <Button
-          variant="ghost"
-          onClick={handleSignOut}
-          disabled={isSigningOut}
-          className="text-muted-foreground"
-        >
-          {isSigningOut ? "Signing out..." : "Sign Out"}
-        </Button>
+        {!isMobile && (
+          <Button
+            variant="ghost"
+            onClick={handleSignOut}
+            disabled={isSigningOut}
+            className="text-muted-foreground"
+          >
+            {isSigningOut ? "Signing out..." : "Sign Out"}
+          </Button>
+        )}
       </div>
     </header>
   );
