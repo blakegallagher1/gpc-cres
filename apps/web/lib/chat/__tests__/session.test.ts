@@ -155,7 +155,14 @@ function installPrismaHandlers() {
         content: string;
         metadata?: unknown;
       };
-      select?: { id?: boolean };
+      select?: {
+        id?: boolean;
+        conversationId?: boolean;
+        role?: boolean;
+        content?: boolean;
+        metadata?: boolean;
+        createdAt?: boolean;
+      };
     }) => {
       const row = {
         id: `msg-${state.messages.length + 1}`,
@@ -166,7 +173,16 @@ function installPrismaHandlers() {
         createdAt: nextDate(),
       };
       state.messages.push(row);
-      if (args.select?.id) return { id: row.id };
+      if (args.select) {
+        return {
+          ...(args.select.id ? { id: row.id } : {}),
+          ...(args.select.conversationId ? { conversationId: row.conversationId } : {}),
+          ...(args.select.role ? { role: row.role } : {}),
+          ...(args.select.content ? { content: row.content } : {}),
+          ...(args.select.metadata ? { metadata: row.metadata } : {}),
+          ...(args.select.createdAt ? { createdAt: row.createdAt } : {}),
+        };
+      }
       return row;
     },
   );
@@ -225,7 +241,7 @@ describe("PrismaChatSession", () => {
       conversationId: "conv-1",
     });
 
-    await session.addItems([
+    const created = await session.addItems([
       { role: "tool", content: "parcel boundary fetched for APN 123" },
       { role: "tool", content: "parcel boundary fetched for APN 123" },
       { role: "tool", content: "heatmap layer refreshed" },
@@ -236,6 +252,7 @@ describe("PrismaChatSession", () => {
       (entry) => entry.role === "tool" && entry.content === "parcel boundary fetched for APN 123",
     ).length;
 
+    expect(created.map((entry) => entry.id)).toEqual(["msg-1", "msg-2"]);
     expect(duplicateCount).toBe(1);
     expect(items.some((entry) => entry.content === "heatmap layer refreshed")).toBe(true);
   });

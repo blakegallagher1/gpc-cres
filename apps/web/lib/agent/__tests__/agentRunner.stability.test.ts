@@ -1,5 +1,19 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
+const { chatSessionMock, prismaChatSessionCreateMock } = vi.hoisted(() => {
+  const chatSession = {
+    getConversationId: vi.fn(() => "conversation-id"),
+    runCompaction: vi.fn().mockResolvedValue(undefined),
+    getItems: vi.fn().mockResolvedValue([]),
+    addItems: vi.fn().mockResolvedValue([]),
+  };
+
+  return {
+    chatSessionMock: chatSession,
+    prismaChatSessionCreateMock: vi.fn().mockResolvedValue(chatSession),
+  };
+});
+
 vi.mock("@entitlement-os/db", () => ({
   prisma: {
     run: {
@@ -43,17 +57,36 @@ vi.mock("@/lib/workflowClient", () => ({
 
 vi.mock("@/lib/chat/session", () => ({
   PrismaChatSession: {
-    create: vi.fn().mockResolvedValue({
-      getConversationId: () => "conversation-id",
-      runCompaction: vi.fn().mockResolvedValue(undefined),
-      getItems: vi.fn().mockResolvedValue([]),
-      addItems: vi.fn().mockResolvedValue(undefined),
-    }),
+    create: prismaChatSessionCreateMock,
   },
 }));
 
 vi.mock("@/lib/services/preferenceService", () => ({
   buildPreferenceContext: vi.fn().mockResolvedValue(""),
+}));
+
+const {
+  buildBusinessMemoryContextMock,
+  captureBusinessChatMemoryMock,
+} = vi.hoisted(() => ({
+  buildBusinessMemoryContextMock: vi.fn().mockResolvedValue({
+    contextBlock: "",
+    results: [],
+    retrievalMode: null,
+  }),
+  captureBusinessChatMemoryMock: vi.fn().mockResolvedValue({
+    captured: true,
+    sourceId: "chat-message:msg-1",
+    ingestedIds: ["knowledge-1"],
+    sanitizedText: "Assess parcel entitlement path",
+    businessDomains: ["entitlement"],
+    captureKind: "fact",
+  }),
+}));
+
+vi.mock("@/lib/services/businessMemory.service", () => ({
+  buildBusinessMemoryContext: buildBusinessMemoryContextMock,
+  captureBusinessChatMemory: captureBusinessChatMemoryMock,
 }));
 
 import { getTemporalClient } from "@/lib/workflowClient";
@@ -113,36 +146,32 @@ function configureClaimReplayState(params: {
 
 function makeWorkflowResult(runId: string) {
   return {
-    result: {
-      runId,
-      status: "succeeded",
-      finalOutput: "ok",
-      finalReport: null,
+    runId,
+    status: "succeeded",
+    finalOutput: "ok",
+    finalReport: null,
+    toolsInvoked: [],
+    trust: {
       toolsInvoked: [],
-      trust: {
-        toolsInvoked: [],
-        packVersionsUsed: [],
-        evidenceCitations: [],
-        evidenceHash: null,
-        confidence: 0.96,
-        missingEvidence: [],
-        verificationSteps: [],
-        lastAgentName: "coordinator",
-        errorSummary: null,
-        durationMs: 11,
-        toolFailures: [],
-        proofChecks: [],
-        retryAttempts: 0,
-        retryMaxAttempts: 0,
-        retryMode: "local",
-        fallbackLineage: ["local-fallback"],
-        fallbackReason: "forced local fallback",
-      },
-      openaiResponseId: "openai-response-id",
-      inputHash: "input-hash",
+      packVersionsUsed: [],
+      evidenceCitations: [],
+      evidenceHash: null,
+      confidence: 0.96,
+      missingEvidence: [],
+      verificationSteps: [],
+      lastAgentName: "coordinator",
+      errorSummary: null,
+      durationMs: 11,
+      toolFailures: [],
+      proofChecks: [],
+      retryAttempts: 0,
+      retryMaxAttempts: 0,
+      retryMode: "local",
+      fallbackLineage: ["local-fallback"],
+      fallbackReason: "forced local fallback",
     },
-    conversationId: "conversation-id",
-    agentInput: [{ role: "user", content: "Assess parcel entitlement path" }],
+    openaiResponseId: "openai-response-id",
+    inputHash: "input-hash",
   };
 }
 
@@ -170,6 +199,10 @@ describe("runAgentWorkflow local fallback resilience", () => {
     process.env.TEMPORAL_ADDRESS = "http://temporal.local:7233";
     setTemporalUnavailable();
 
+    chatSessionMock.getConversationId.mockReturnValue("conversation-id");
+    chatSessionMock.runCompaction.mockResolvedValue(undefined);
+    chatSessionMock.getItems.mockResolvedValue([]);
+    chatSessionMock.addItems.mockResolvedValue([]);
     prisma.message.findMany.mockResolvedValue([]);
 
     (executeAgentWorkflow as ReturnType<typeof vi.fn>).mockResolvedValue(
@@ -293,5 +326,55 @@ describe("runAgentWorkflow local fallback resilience", () => {
 
     expect(getTemporalClient).not.toHaveBeenCalled();
     expect((executeAgentWorkflow as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(1);
+  });
+
+  it("injects historical business memory and captures persisted user chat messages", async () => {
+    delete process.env.ENABLE_TEMPORAL;
+    delete process.env.TEMPORAL_ADDRESS;
+
+    chatSessionMock.addItems.mockResolvedValue([
+      {
+        id: "msg-1",
+        conversationId: "conversation-id",
+        role: "user",
+        content: "Assess parcel entitlement path",
+        metadata: { kind: "chat_user_message" },
+        createdAt: new Date("2026-03-16T18:00:00.000Z"),
+      },
+    ]);
+    buildBusinessMemoryContextMock.mockResolvedValue({
+      contextBlock:
+        "[Historical business memory from prior user chats]\n- 2026-03-16 | kind=preference | domains=strategy | user-authored note: Focus on the broader business operating system.",
+      results: [],
+      retrievalMode: "semantic",
+    });
+    prisma.run.upsert.mockResolvedValue({ id: "run-4", status: "running" });
+    prisma.run.update.mockResolvedValue({ id: "run-4", status: "succeeded" });
+
+    const workflow = await runAgentWorkflow({
+      ...BASE_REQUEST,
+      correlationId: "business-memory-capture",
+      persistConversation: true,
+    });
+
+    expect(buildBusinessMemoryContextMock).toHaveBeenCalledWith({
+      orgId: "org-stability",
+      userId: "user-stability",
+      userMessage: "Assess parcel entitlement path",
+      conversationId: "conversation-id",
+      dealId: null,
+    });
+    expect(captureBusinessChatMemoryMock).toHaveBeenCalledWith({
+      orgId: "org-stability",
+      userId: "user-stability",
+      messageId: "msg-1",
+      messageText: "Assess parcel entitlement path",
+      conversationId: "conversation-id",
+      dealId: null,
+      createdAt: new Date("2026-03-16T18:00:00.000Z"),
+    });
+    expect(workflow.agentInput[0].content).toContain(
+      "[Historical business memory from prior user chats]",
+    );
   });
 });
