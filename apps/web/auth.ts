@@ -1,6 +1,8 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import Google from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
+import { randomUUID } from "node:crypto";
 import { timingSafeEqual } from "node:crypto";
 import { prisma } from "@entitlement-os/db";
 import { isEmailAllowed } from "@/lib/auth/allowedEmails";
@@ -44,6 +46,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   debug: process.env.NODE_ENV !== "production",
   trustHost: true,
   providers: [
+    Google({
+      clientId: process.env.AUTH_GOOGLE_ID,
+      clientSecret: process.env.AUTH_GOOGLE_SECRET,
+    }),
     Credentials({
       credentials: {
         email: { label: "Email", type: "email" },
@@ -102,12 +108,79 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   session: { strategy: "jwt" },
   callbacks: {
-    jwt({ token, user }) {
-      if (user) {
+    async signIn({ user, account }) {
+      // Credentials provider already validates in authorize() — allow through.
+      if (account?.provider === "credentials") return true;
+
+      // For OAuth (Google), enforce the email allowlist.
+      const email = user.email?.trim().toLowerCase();
+      if (!email || !isEmailAllowed(email)) {
+        console.log("[auth] OAuth email not allowed:", email);
+        return "/login?error=unauthorized";
+      }
+
+      // Auto-provision user + org membership on first OAuth sign-in.
+      try {
+        const existing = await prisma.user.findFirst({
+          where: { email },
+          select: { id: true },
+        });
+        if (!existing) {
+          const userId = randomUUID();
+          // Find the default org (first org in the system).
+          const defaultOrg = await prisma.org.findFirst({
+            orderBy: { createdAt: "asc" },
+            select: { id: true },
+          });
+          if (!defaultOrg) {
+            console.error("[auth] no org exists for auto-provisioning");
+            return "/login?error=auth_unavailable";
+          }
+          await prisma.user.create({
+            data: { id: userId, email },
+          });
+          await prisma.orgMembership.create({
+            data: { userId, orgId: defaultOrg.id, role: "member" },
+          });
+          console.log("[auth] auto-provisioned OAuth user:", email);
+        }
+      } catch (error) {
+        console.error("[auth] OAuth user provisioning error:", error);
+        return "/login?error=auth_unavailable";
+      }
+
+      return true;
+    },
+    async jwt({ token, user, account }) {
+      // Credentials provider sets orgId directly on the user object.
+      if (user && account?.provider === "credentials") {
         token.userId = user.id;
         token.orgId = (user as unknown as { orgId: string }).orgId;
         token.email = user.email ?? undefined;
+        return token;
       }
+
+      // OAuth sign-in: look up userId and orgId from DB by email.
+      if (user && account?.provider && account.provider !== "credentials") {
+        const email = user.email?.trim().toLowerCase();
+        if (email) {
+          const dbUser = await prisma.user.findFirst({
+            where: { email },
+            select: { id: true, email: true },
+          });
+          if (dbUser) {
+            const membership = await prisma.orgMembership.findFirst({
+              where: { userId: dbUser.id },
+              orderBy: { createdAt: "asc" },
+              select: { orgId: true },
+            });
+            token.userId = dbUser.id;
+            token.orgId = membership?.orgId;
+            token.email = dbUser.email;
+          }
+        }
+      }
+
       return token;
     },
     session({ session, token }) {
