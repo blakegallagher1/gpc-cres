@@ -143,8 +143,10 @@ describe("POST /api/map/prospect", () => {
     };
     expect(gatewayBody.limit).toBe(500);
     expect(gatewayBody.sql).toContain(
-      "LOWER(regexp_replace(COALESCE(address, ''), '[^a-z0-9]+', ' ', 'g')) LIKE '%main%' ESCAPE '\\'",
+      "regexp_replace(LOWER(COALESCE(address, '')), '[^a-z0-9]+', ' ', 'g') LIKE '%main%' ESCAPE '\\'",
     );
+    expect(gatewayBody.sql).toContain("'' AS zoning");
+    expect(gatewayBody.sql).not.toContain("zoning_type");
   });
 
   it("returns an empty result when the gateway returns an empty set", async () => {
@@ -299,6 +301,37 @@ describe("POST /api/map/prospect", () => {
     });
   });
 
+  it("fails closed when the gateway returns a SQL error envelope", async () => {
+    resolveAuthMock.mockResolvedValue({ userId: "user-1", orgId: "org-1" });
+    fetchMock.mockResolvedValue(
+      makeJsonResponse({
+        ok: false,
+        error: 'SQL error: column "zoning_type" does not exist',
+      }),
+    );
+
+    const req = new NextRequest("http://localhost/api/map/prospect", {
+      method: "POST",
+      body: JSON.stringify({
+        polygon: {
+          type: "Polygon",
+          coordinates: [[[-91.2, 30.45], [-91.2, 30.35], [-91.1, 30.35], [-91.1, 30.45], [-91.2, 30.45]]],
+        },
+      }),
+    });
+
+    const res = await POST(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(502);
+    expect(res.headers.get("x-request-id")).toBeTruthy();
+    expect(body).toEqual({
+      error: "Property database unavailable",
+      code: "GATEWAY_UNAVAILABLE",
+    });
+    expect(parcelFindManyMock).not.toHaveBeenCalled();
+  });
+
   it("adds suffix-aware searchText matching to the polygon SQL", async () => {
     resolveAuthMock.mockResolvedValue({ userId: "user-1", orgId: "org-1" });
     fetchMock.mockResolvedValue(makeJsonResponse([]));
@@ -320,6 +353,9 @@ describe("POST /api/map/prospect", () => {
     };
 
     expect(res.status).toBe(200);
+    expect(gatewayBody.sql).toContain(
+      "regexp_replace(LOWER(COALESCE(address, '')), '[^a-z0-9]+', ' ', 'g')",
+    );
     expect(gatewayBody.sql).toContain("%2774%highland%rd%");
     expect(gatewayBody.sql).toContain("%2774%highland%road%");
   });
@@ -345,7 +381,7 @@ describe("POST /api/map/prospect", () => {
     };
 
     expect(res.status).toBe(200);
-    expect(gatewayBody.sql).not.toContain("regexp_replace(COALESCE(address");
+    expect(gatewayBody.sql).not.toContain("regexp_replace(LOWER(COALESCE(address");
     expect(gatewayBody.sql).not.toContain("%\\*%");
   });
 
