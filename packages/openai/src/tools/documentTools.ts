@@ -1,6 +1,11 @@
 import { prisma } from "@entitlement-os/db";
 import { tool } from "@openai/agents";
 import { z } from "zod";
+import {
+  canUseQdrantHybridRetrieval,
+  getAgentOsConfig,
+  DocumentIntelligenceStore,
+} from "../agentos/index.js";
 
 const DOCUMENT_TYPES = [
   "psa",
@@ -355,6 +360,75 @@ export const compare_document_vs_deal_terms = tool({
       extractionCount: extractions.length,
       hasTerms: !!dealTerms,
       hasFinancing: !!financing,
+    });
+  },
+});
+
+export const search_document_content = tool({
+  name: "search_document_content",
+  description:
+    "Semantically search the full text content of uploaded deal documents using hybrid vector + " +
+    "keyword retrieval. Use this when you need to find specific clauses, provisions, terms, or " +
+    "language across documents — e.g. 'inspection contingency clause', 'wetland mitigation', " +
+    "'environmental remediation liability', 'tenant estoppel requirements'. Returns matching " +
+    "text excerpts with relevance scores. This searches raw document text, not structured " +
+    "extractions — use query_document_extractions for structured field lookups instead.",
+  parameters: z.object({
+    query: z.string().describe("Natural language search query describing what you are looking for."),
+    org_id: z.string().describe("The organization ID (for multi-tenant scoping)."),
+    deal_id: z
+      .string()
+      .nullable()
+      .describe("Optional deal ID to scope search to a specific deal. Pass null for org-wide search."),
+    doc_type: z
+      .enum(DOCUMENT_TYPES)
+      .nullable()
+      .describe("Optional document type filter. Pass null to search all document types."),
+  }),
+  execute: async (params) => {
+    if (!canUseQdrantHybridRetrieval()) {
+      return JSON.stringify({
+        hits: [],
+        message: "Document content search is not enabled (Qdrant hybrid retrieval disabled).",
+      });
+    }
+
+    const config = getAgentOsConfig();
+    if (!config.qdrant.url) {
+      return JSON.stringify({
+        hits: [],
+        message: "Document content search is not available (Qdrant URL not configured).",
+      });
+    }
+
+    const store = new DocumentIntelligenceStore(config.qdrant.url);
+    const hits = await store.search(params.query, params.org_id, {
+      dealId: params.deal_id ?? undefined,
+      docType: params.doc_type ?? undefined,
+      topK: 5,
+    });
+
+    if (hits.length === 0) {
+      return JSON.stringify({
+        hits: [],
+        message: `No document content matched "${params.query}".`,
+      });
+    }
+
+    const results = hits.map((hit) => ({
+      filename: hit.filename,
+      docType: hit.docType,
+      dealId: hit.dealId,
+      uploadId: hit.uploadId,
+      relevanceScore: Math.round(hit.score * 1000) / 1000,
+      textExcerpt: hit.text.length > 500 ? hit.text.slice(0, 500) + "..." : hit.text,
+      chunkIndex: hit.chunkIndex,
+    }));
+
+    return JSON.stringify({
+      query: params.query,
+      hitCount: results.length,
+      hits: results,
     });
   },
 });

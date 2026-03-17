@@ -143,6 +143,7 @@ export {
   query_document_extractions,
   get_document_extraction_summary,
   compare_document_vs_deal_terms,
+  search_document_content,
 } from "./documentTools.js";
 
 export {
@@ -274,6 +275,7 @@ const {
   query_document_extractions,
   get_document_extraction_summary,
   compare_document_vs_deal_terms,
+  search_document_content,
 } = documentTools;
 const {
   recall_property_intelligence,
@@ -381,6 +383,7 @@ export const coordinatorTools = [
   query_document_extractions,
   get_document_extraction_summary,
   compare_document_vs_deal_terms,
+  search_document_content,
   run_underwriting_workflow,
 ];
 
@@ -481,6 +484,7 @@ export const financeTools = [
   query_document_extractions,
   get_document_extraction_summary,
   compare_document_vs_deal_terms,
+  search_document_content,
 ];
 
 /** Tools available to the Deal Screener agent. */
@@ -553,6 +557,7 @@ export const dueDiligenceTools = [
   query_document_extractions,
   get_document_extraction_summary,
   compare_document_vs_deal_terms,
+  search_document_content,
   recall_property_intelligence,
   store_property_finding,
   run_data_extraction_workflow,

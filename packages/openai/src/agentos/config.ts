@@ -33,6 +33,7 @@ export type QdrantCollectionConfig = {
   toolSpecs: string;
   institutionalKnowledge: string;
   propertyIntelligence: string;
+  documentIntelligence: string;
 };
 
 export type ContextManagementType = "compaction";
@@ -172,6 +173,8 @@ function buildConfig(): AgentOsConfig {
           "institutional_knowledge",
         propertyIntelligence:
           process.env.AGENTOS_QDRANT_COLLECTION_PROPERTY_INTELLIGENCE?.trim() || "property_intelligence",
+        documentIntelligence:
+          process.env.AGENTOS_QDRANT_COLLECTION_DOCUMENT_INTELLIGENCE?.trim() || "document_intelligence",
       },
       denseVectorName: process.env.AGENTOS_QDRANT_DENSE_VECTOR_NAME?.trim() || "dense",
       sparseVectorName: process.env.AGENTOS_QDRANT_SPARSE_VECTOR_NAME?.trim() || "bm25",

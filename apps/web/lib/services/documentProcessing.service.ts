@@ -83,6 +83,31 @@ function normalizeDocType(docType: string): DocType {
   return parsed.success ? parsed.data : "other";
 }
 
+async function indexDocumentInQdrant(input: {
+  orgId: string;
+  uploadId: string;
+  dealId: string;
+  docType: string;
+  filename: string;
+  rawText: string;
+}): Promise<void> {
+  const { canUseQdrantHybridRetrieval, getAgentOsConfig, DocumentIntelligenceStore } =
+    await import("@entitlement-os/openai");
+  if (!canUseQdrantHybridRetrieval()) return;
+  const config = getAgentOsConfig();
+  if (!config.qdrant.url) return;
+
+  const store = new DocumentIntelligenceStore(config.qdrant.url);
+  await store.upsert({
+    orgId: input.orgId,
+    uploadId: input.uploadId,
+    dealId: input.dealId,
+    docType: input.docType,
+    filename: input.filename,
+    rawText: input.rawText,
+  });
+}
+
 function toNumber(value: Prisma.Decimal | number | string): number {
   if (typeof value === "number") return value;
   if (typeof value === "string") return Number(value);
@@ -729,9 +754,18 @@ export class DocumentProcessingService {
         }
       }
     } else if (isDoc) {
-      // Word docs — we can't easily extract text server-side without heavy deps
-      // Mark for manual review
-      console.log(`[doc-processing] Word document "${upload.filename}" — text extraction not supported yet`);
+      try {
+        const { extractRawText } = await import("mammoth");
+        const arrayBuf = await fetchObjectBytesFromGateway(
+          upload.storageObjectKey,
+          systemAuth(upload.orgId)
+        );
+        const result = await extractRawText({ buffer: Buffer.from(arrayBuf) });
+        extractedText = result.value ?? "";
+        console.log(`[doc-processing] Extracted ${extractedText.length} chars from Word doc "${upload.filename}"`);
+      } catch (docErr) {
+        console.error(`[doc-processing] Word doc extraction failed for "${upload.filename}":`, docErr);
+      }
     }
 
     // Step 1: Classify — combine regex + LLM
@@ -825,6 +859,20 @@ export class DocumentProcessingService {
     console.log(
       `[doc-processing] Extracted "${upload.filename}" as ${finalDocType} (confidence: ${(overallConfidence * 100).toFixed(0)}%)`
     );
+
+    // Step 3b: Index document text in Qdrant for semantic search (fire-and-forget)
+    if (extractedText && extractedText.length >= MIN_TEXT_FOR_EXTRACTION) {
+      indexDocumentInQdrant({
+        orgId,
+        uploadId,
+        dealId,
+        docType: finalDocType,
+        filename: upload.filename,
+        rawText: extractedText,
+      }).catch((err) => {
+        console.error(`[doc-processing] Qdrant indexing failed for "${upload.filename}":`, err);
+      });
+    }
 
     // Step 4: Auto-fill or create review notification
     if (overallConfidence >= 0.85 && Object.keys(extractedData).length > 0) {

@@ -461,14 +461,62 @@ export function ChatContainer() {
   });
 
   const handleSend = useCallback(
-    async (content: string) => {
+    async (content: string, files?: File[]) => {
       const text = content.trim();
-      if (!text) return;
+      if (!text && (!files || files.length === 0)) return;
+
+      // Upload files to deal if present
+      let fileContext = '';
+      if (files && files.length > 0 && selectedDealId) {
+        const uploaded: { filename: string; contentType: string; id: string }[] = [];
+        try {
+          for (const file of files) {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('kind', 'other');
+            const res = await fetch(`/api/deals/${selectedDealId}/uploads`, {
+              method: 'POST',
+              body: formData,
+            });
+            if (!res.ok) {
+              throw new Error(`Failed to upload ${file.name}`);
+            }
+            const data = (await res.json()) as {
+              upload: { id: string; filename: string; contentType: string };
+            };
+            uploaded.push({
+              filename: data.upload.filename,
+              contentType: data.upload.contentType,
+              id: data.upload.id,
+            });
+          }
+        } catch (err) {
+          setMessages((current) =>
+            current.concat([
+              {
+                id: crypto.randomUUID(),
+                role: 'system',
+                content: `Error uploading files: ${err instanceof Error ? err.message : 'Upload failed'}`,
+                createdAt: new Date().toISOString(),
+                eventKind: 'error',
+              },
+            ]),
+          );
+          return;
+        }
+        const fileList = uploaded
+          .map((f) => `${f.filename} (${f.contentType})`)
+          .join(', ');
+        fileContext = `[Attached ${uploaded.length} file${uploaded.length > 1 ? 's' : ''}: ${fileList}]\n`;
+      }
+
+      const messageForAgent = fileContext + (text || 'Please review the attached files.');
+      const displayText = text || `Uploaded ${files?.length ?? 0} file${(files?.length ?? 0) > 1 ? 's' : ''}`;
 
       const userMessage: ChatMessage = {
         id: crypto.randomUUID(),
         role: 'user',
-        content: text,
+        content: displayText,
         createdAt: new Date().toISOString(),
       };
 
@@ -486,7 +534,7 @@ export function ChatContainer() {
 
       // WebSocket transport — send and return (events arrive via onEvent callback)
       if (WS_ENABLED) {
-        wsSendMessage(text, selectedDealId ?? undefined, requestMapContext ?? null);
+        wsSendMessage(messageForAgent, selectedDealId ?? undefined, requestMapContext ?? null);
         return;
       }
 
@@ -501,7 +549,7 @@ export function ChatContainer() {
           headers: { 'Content-Type': 'application/json' },
           signal: controller.signal,
           body: JSON.stringify({
-            message: text,
+            message: messageForAgent,
             conversationId: conversationIdRef.current,
             dealId: selectedDealId,
             mapContext: requestMapContext,
@@ -655,6 +703,7 @@ export function ChatContainer() {
             onSend={stableChatInputOptions.onSend}
             isStreaming={isStreaming}
             onStop={stableChatInputOptions.onStop}
+            canAttachFiles={!!selectedDealId}
           />
         </div>
       </div>
