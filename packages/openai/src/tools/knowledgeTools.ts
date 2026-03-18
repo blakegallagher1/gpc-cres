@@ -35,6 +35,8 @@ export const search_knowledge_base = tool({
           "user_note",
           "outcome_record",
           "reasoning_trace",
+          "episodic_summary",
+          "procedural_skill",
         ])
       )
       .optional().nullable()

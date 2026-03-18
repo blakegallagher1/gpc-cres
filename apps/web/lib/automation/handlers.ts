@@ -11,6 +11,8 @@ import { handleEntitlementStrategyAutopilot } from "./entitlementStrategy";
 import { handleKnowledgeCapture } from "./knowledgeCapture";
 import { handleFinancialInit } from "./financialInit";
 import { handleOutcomeCapture } from "./outcomeCapture";
+import { handleAgentLearningPromotion } from "./agentLearningPromotion";
+import { handleAgentLearningOutcomeReinforcement } from "./agentLearningOutcomeReinforcement";
 
 /**
  * Register all automation event handlers.
@@ -65,4 +67,10 @@ export function ensureHandlersRegistered(): void {
 
   // #MEM-003 Calibration v1: snapshot outcomes + ingest calibration records
   registerHandler("deal.stageChanged", handleOutcomeCapture);
+
+  // #DA-008 Outcome reinforcement: link terminal outcomes back into agent learning
+  registerHandler("deal.stageChanged", handleAgentLearningOutcomeReinforcement);
+
+  // #DA-007 Long-term learning promotion: distill completed runs asynchronously
+  registerHandler("agent.run.completed", handleAgentLearningPromotion);
 }

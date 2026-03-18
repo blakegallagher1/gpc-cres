@@ -51,13 +51,29 @@ export type AutomationEvent =
   | { type: "deal.statusChanged"; dealId: string; from: DealStatus; to: DealStatus; orgId: string }
   | { type: "deal.stageChanged"; dealId: string; from: DealStageKey | null; to: DealStageKey; orgId: string }
   | { type: "upload.created"; dealId: string; uploadId: string; orgId: string }
-  | { type: "intake.received"; source: string; content: string; orgId: string };
+  | { type: "intake.received"; source: string; content: string; orgId: string }
+  | {
+      type: "agent.run.completed";
+      runId: string;
+      orgId: string;
+      userId: string;
+      conversationId?: string | null;
+      dealId?: string | null;
+      jurisdictionId?: string | null;
+      runType?: string | null;
+      status: "succeeded" | "failed" | "canceled";
+      inputPreview?: string | null;
+      queryIntent?: string | null;
+    };
 
 export type AutomationEventType = AutomationEvent["type"];
-export type AutomationHandler = (event: AutomationEvent) => Promise<void>;
+export type AutomationHandler<TEvent extends AutomationEvent = AutomationEvent> = (
+  event: TEvent,
+) => Promise<void>;
+type RegisteredAutomationHandler = AutomationHandler<AutomationEvent>;
 
 // Handler registry
-const handlers: Map<string, AutomationHandler[]> = new Map();
+const handlers: Map<AutomationEventType, RegisteredAutomationHandler[]> = new Map();
 
 /** Max time a single handler is allowed to run before being considered stuck. */
 const HANDLER_TIMEOUT_MS = 30_000;
@@ -72,6 +88,10 @@ const IDEMPOTENCY_WINDOW_MS = 10_000;
 const recentIdempotencyKeys = new Map<string, number>();
 
 function computeIdempotencyKey(event: AutomationEvent): string {
+  if (event.type === "agent.run.completed") {
+    return `agent.run.completed:${event.orgId}:${event.runId}`;
+  }
+
   const parts = [event.type, event.orgId];
   if ("dealId" in event) parts.push(event.dealId);
   if ("parcelId" in event) parts.push(event.parcelId);
@@ -96,9 +116,12 @@ function isDuplicateEvent(key: string): boolean {
   return false;
 }
 
-export function registerHandler(eventType: AutomationEventType, handler: AutomationHandler): void {
+export function registerHandler<TEventType extends AutomationEventType>(
+  eventType: TEventType,
+  handler: AutomationHandler<Extract<AutomationEvent, { type: TEventType }>>,
+): void {
   const existing = handlers.get(eventType) || [];
-  existing.push(handler);
+  existing.push(handler as RegisteredAutomationHandler);
   handlers.set(eventType, existing);
 }
 

@@ -28,6 +28,20 @@ describe("Phase 1 Tool Pack :: store_knowledge_entry", () => {
   });
 
   it("[MATRIX:tool:store_knowledge_entry][PACK:idempotency] validates retry safety and duplicate-write prevention behavior", () => {
+    const contentTypeSchema = store_knowledge_entry.parameters?.properties?.content_type as {
+      enum?: string[];
+    };
+
+    expect(contentTypeSchema.enum).toEqual([
+      "agent_analysis",
+      "market_report",
+      "outcome_record",
+      "reasoning_trace",
+    ]);
+    expect(contentTypeSchema.enum?.includes("procedural_skill")).toBe(false);
+    expect(contentTypeSchema.enum?.includes("episodic_summary")).toBe(false);
+    expect(contentTypeSchema.enum?.includes("trajectory_trace")).toBe(false);
+
     const source = readRepoSource("packages/openai/src/tools/knowledgeTools.ts");
     expect(source.includes("tags: params.tags ?? []")).toBe(true);
     // sourceId derived from agent name + title ensures deduplication on retry

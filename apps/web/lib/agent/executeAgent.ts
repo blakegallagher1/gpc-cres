@@ -47,6 +47,8 @@ import type { MapActionPayload } from "@/lib/chat/mapActionTypes";
 import { parseToolResultMapFeatures } from "@/lib/chat/toolResultWrapper";
 import { autoFeedRun } from "@/lib/agent/dataAgentAutoFeed.service";
 import { isSchemaDriftError } from "@/lib/api/prismaSchemaFallback";
+import { AUTOMATION_CONFIG } from "@/lib/automation/config";
+import { dispatchEvent } from "@/lib/automation/events";
 import { isLocalAppRuntime } from "@/lib/server/appDbEnv";
 import { getDealReaderById } from "@/lib/services/deal-reader";
 import { logger } from "./loggerAdapter";
@@ -1305,6 +1307,7 @@ async function persistFinalRunResult(params: {
   status: AgentExecutionResult["status"];
   openaiResponseId: string | null;
   outputJson: Prisma.InputJsonValue;
+  trajectory?: Prisma.InputJsonValue;
   serializedState?: Prisma.InputJsonValue | null;
   executionLeaseToken?: string;
 }): Promise<boolean> {
@@ -1316,6 +1319,7 @@ async function persistFinalRunResult(params: {
         finishedAt: new Date(),
         openaiResponseId: params.openaiResponseId,
         outputJson: params.outputJson,
+        trajectory: params.trajectory ?? undefined,
         serializedState: params.serializedState ?? undefined,
       },
     });
@@ -1329,6 +1333,7 @@ async function persistFinalRunResult(params: {
       finishedAt: new Date(),
       openaiResponseId: params.openaiResponseId,
       outputJson: params.outputJson,
+      trajectory: params.trajectory ?? undefined,
       serializedState: params.serializedState ?? undefined,
     },
   });
@@ -2306,12 +2311,16 @@ export async function executeAgentWorkflow(
         pendingOutputJson.trajectory = trajectoryRecorder.snapshot();
       }
       const outputJson = pendingOutputJson as Prisma.InputJsonValue;
+      const pendingTrajectory = trajectoryRecorder
+        ? (trajectoryRecorder.snapshot() as unknown as Prisma.InputJsonValue)
+        : undefined;
 
       const persisted = await persistFinalRunResult({
         runId: dbRun.id,
         status: "running",
         openaiResponseId,
         outputJson,
+        trajectory: pendingTrajectory,
         serializedState: latestSerializedRunState
           ? (serializeRunStateEnvelope({
               serializedRunState: latestSerializedRunState,
@@ -2523,12 +2532,16 @@ export async function executeAgentWorkflow(
       (outputJson as unknown as Record<string, unknown>).trajectory =
         trajectoryRecorder.snapshot();
     }
+    const finalTrajectory = trajectoryRecorder
+      ? (trajectoryRecorder.snapshot() as unknown as Prisma.InputJsonValue)
+      : undefined;
 
     const persisted = await persistFinalRunResult({
       runId: dbRun.id,
       status,
       openaiResponseId,
       outputJson: outputJson as unknown as Prisma.InputJsonValue,
+      trajectory: finalTrajectory,
       serializedState: latestSerializedRunState
         ? (serializeRunStateEnvelope({
             serializedRunState: latestSerializedRunState,
@@ -2553,6 +2566,44 @@ export async function executeAgentWorkflow(
       throw new Error(
         `Could not persist run result for ${dbRun.id}: duplicate execution is still in progress`,
       );
+    }
+
+    if (AUTOMATION_CONFIG.agentLearning.enabled && status !== "running") {
+      const inputPreview =
+        typeof firstUserInput === "string" ? firstUserInput.slice(0, 2000) : null;
+
+      await prisma.run.update({
+        where: { id: dbRun.id },
+        data: {
+          memoryPromotionStatus: "pending",
+          memoryPromotionError: null,
+          memoryPromotedAt: null,
+        },
+      });
+
+      void dispatchEvent({
+        type: "agent.run.completed",
+        runId: dbRun.id,
+        orgId: params.orgId,
+        userId: params.userId,
+        conversationId: params.conversationId ?? null,
+        dealId: params.dealId ?? null,
+        jurisdictionId: params.jurisdictionId ?? null,
+        runType: params.runType ?? null,
+        status:
+          status === "succeeded"
+            ? "succeeded"
+            : status === "failed"
+              ? "failed"
+              : "canceled",
+        inputPreview,
+        queryIntent: queryIntent ?? null,
+      }).catch((error) => {
+        logger.warn("Agent learning event dispatch failed", {
+          runId: dbRun.id,
+          error: String(error),
+        });
+      });
     }
 
     emit({

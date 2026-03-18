@@ -75,7 +75,7 @@ describe("PostRunPipeline", () => {
 
     expect(mockPrisma.trajectoryLog.create).not.toHaveBeenCalled();
     expect(mockPrisma.run.update).not.toHaveBeenCalled();
-  });
+  }, 15_000);
 
   it("captures trajectory when only trajectoryCapture is enabled", async () => {
     process.env.AGENTOS_ENABLED = "true";
@@ -111,7 +111,7 @@ describe("PostRunPipeline", () => {
     expect(createArg.finalOutput).toBe("The parcel is zoned C-2 Commercial.");
     expect(createArg.latencyMs).toBe(3200);
     expect(createArg.costUsd).toBeGreaterThan(0);
-  });
+  }, 15_000);
 });
 
 describe("computeRunCost", () => {

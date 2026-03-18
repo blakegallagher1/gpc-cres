@@ -63,6 +63,20 @@ export const AUTOMATION_CONFIG = Object.freeze({
   knowledgeCapture: Object.freeze({
     dedupeBeforeWrite: true as const,
   }),
+  agentLearning: Object.freeze({
+    enabled: true,
+    createTrajectoryLogs: true,
+    createEpisodes: true,
+    injectEpisodes: true,
+    injectProcedures: false,
+    promoteFacts: false,
+    promoteProcedures: false,
+    minConfidenceForFactPromotion: 0.72,
+    minEpisodesForSkill: 3,
+    minSkillSuccessRate: 0.67,
+    maxSimilarEpisodes: 2,
+    maxProcedures: 2,
+  }),
   hostedTools: Object.freeze({
     webSearchMaxCallsPerConversation: 10,
   }),

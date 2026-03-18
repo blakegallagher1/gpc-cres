@@ -320,6 +320,7 @@ model Org {
   episodicEntries                EpisodicEntry[]
   semanticFacts                  SemanticFact[]
   proceduralSkills               ProceduralSkill[]
+  proceduralSkillEpisodes        ProceduralSkillEpisode[]
   domainDocs                     DomainDoc[]
   trajectoryLogs                 TrajectoryLog[]
   toolSpecs                      ToolSpec[]
@@ -767,6 +768,9 @@ model Run {
   outputJson       Json?     @map("output_json")
   serializedState  Json?     @map("serialized_state")
   trajectory       Json?     @map("trajectory")
+  memoryPromotionStatus String?   @map("memory_promotion_status") @db.Text
+  memoryPromotedAt     DateTime?  @map("memory_promoted_at") @db.Timestamptz(6)
+  memoryPromotionError String?    @map("memory_promotion_error") @db.Text
 
   org          Org           @relation(fields: [orgId], references: [id], onDelete: Cascade)
   deal         Deal?         @relation(fields: [dealId], references: [id], onDelete: Cascade)
@@ -781,6 +785,7 @@ model Run {
   @@index([dealId])
   @@index([jurisdictionId])
   @@index([runType])
+  @@index([orgId, memoryPromotionStatus])
   @@map("runs")
 }
 
@@ -1819,23 +1824,40 @@ model AssumptionActual {
 // ---------------------------------------------------------------------------
 
 model EpisodicEntry {
-  id          String           @id @default(uuid()) @db.Uuid
-  orgId       String           @map("org_id") @db.Uuid
-  agentId     String           @map("agent_id") @db.Text
-  taskType    String           @map("task_type") @db.Text
-  summary     String           @db.Text
-  embeddingId String           @map("embedding_id") @db.Text
-  outcome     episodic_outcome
-  confidence  Float            @db.DoublePrecision
-  tags        String[]         @default([])
-  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                      String                   @id @default(uuid()) @db.Uuid
+  orgId                   String                   @map("org_id") @db.Uuid
+  agentId                 String                   @map("agent_id") @db.Text
+  taskType                String                   @map("task_type") @db.Text
+  summary                 String                   @db.Text
+  embeddingId             String                   @map("embedding_id") @db.Text
+  outcome                 episodic_outcome
+  confidence              Float                    @db.DoublePrecision
+  tags                    String[]                 @default([])
+  runId                   String?                  @map("run_id") @db.Uuid
+  dealId                  String?                  @map("deal_id") @db.Uuid
+  jurisdictionId          String?                  @map("jurisdiction_id") @db.Uuid
+  conversationId          String?                  @map("conversation_id") @db.Uuid
+  userId                  String?                  @map("user_id") @db.Uuid
+  trajectoryLogId         String?                  @map("trajectory_log_id") @db.Uuid
+  finalOutputHash         String?                  @map("final_output_hash") @db.Text
+  toolSequence            String[]                 @default([]) @map("tool_sequence")
+  retrievalContextSummary Json?                    @map("retrieved_context_summary") @db.JsonB
+  metadata                Json?                    @db.JsonB
+  outcomeLinkedAt         DateTime?                @map("outcome_linked_at") @db.Timestamptz(6)
+  createdAt               DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  org Org @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org                     Org                      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  trajectoryLog           TrajectoryLog?           @relation(fields: [trajectoryLogId], references: [id], onDelete: SetNull)
+  proceduralSkillEpisodes ProceduralSkillEpisode[]
 
+  @@unique([orgId, runId, agentId, taskType])
   @@index([orgId, agentId])
   @@index([orgId, taskType])
   @@index([orgId, outcome])
+  @@index([orgId, dealId])
+  @@index([orgId, conversationId])
+  @@index([orgId, taskType, outcome])
   @@index([createdAt])
   @@map("episodic_entries")
 }
@@ -1857,26 +1879,35 @@ model SemanticFact {
 }
 
 model ProceduralSkill {
-  id                String   @id @default(uuid()) @db.Uuid
-  orgId             String   @map("org_id") @db.Uuid
-  name              String   @db.Text
-  description       String   @db.Text
-  skillMdContent    String   @map("skill_md_content") @db.Text
-  toolSequence      String[] @default([]) @map("tool_sequence")
-  successCount      Int      @default(0) @map("success_count")
-  failCount         Int      @default(0) @map("fail_count")
-  successRate       Float    @default(0) @map("success_rate") @db.DoublePrecision
-  evaluatorAvgScore Float    @default(0) @map("evaluator_avg_score") @db.DoublePrecision
-  dedupeHash        String   @map("dedupe_hash") @db.Text
-  embeddingId       String   @map("embedding_id") @db.Text
-  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                   String                   @id @default(uuid()) @db.Uuid
+  orgId                String                   @map("org_id") @db.Uuid
+  name                 String                   @db.Text
+  description          String                   @db.Text
+  skillMdContent       String                   @map("skill_md_content") @db.Text
+  toolSequence         String[]                 @default([]) @map("tool_sequence")
+  successCount         Int                      @default(0) @map("success_count")
+  failCount            Int                      @default(0) @map("fail_count")
+  successRate          Float                    @default(0) @map("success_rate") @db.DoublePrecision
+  evaluatorAvgScore    Float                    @default(0) @map("evaluator_avg_score") @db.DoublePrecision
+  dedupeHash           String                   @map("dedupe_hash") @db.Text
+  embeddingId          String                   @map("embedding_id") @db.Text
+  taskType             String?                  @map("task_type") @db.Text
+  agentId              String?                  @map("agent_id") @db.Text
+  triggerConditions    Json?                    @map("trigger_conditions") @db.JsonB
+  evidenceRequirements Json?                    @map("evidence_requirements") @db.JsonB
+  failureModes         Json?                    @map("failure_modes") @db.JsonB
+  lastPromotedAt       DateTime?                @map("last_promoted_at") @db.Timestamptz(6)
+  createdAt            DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  org Org @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org                   Org                      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  proceduralSkillEpisodes ProceduralSkillEpisode[]
 
   @@unique([orgId, dedupeHash])
   @@index([orgId, successRate])
   @@index([orgId, evaluatorAvgScore])
+  @@index([orgId, taskType])
+  @@index([orgId, agentId])
   @@map("procedural_skills")
 }
 
@@ -1904,10 +1935,14 @@ model TrajectoryLog {
   orgId                   String   @map("org_id") @db.Uuid
   runId                   String   @map("run_id") @db.Uuid
   agentId                 String   @map("agent_id") @db.Text
+  conversationId          String?  @map("conversation_id") @db.Uuid
+  dealId                  String?  @map("deal_id") @db.Uuid
+  jurisdictionId          String?  @map("jurisdiction_id") @db.Uuid
   taskInput               String   @map("task_input") @db.Text
   retrievedContextSummary Json     @map("retrieved_context_summary")
   plan                    String?  @db.Text
   toolCalls               Json     @map("tool_calls")
+  toolResults             Json?    @map("tool_results") @db.JsonB
   intermediateSteps       Json     @map("intermediate_steps")
   finalOutput             String   @map("final_output") @db.Text
   reflection              Json?
@@ -1916,17 +1951,44 @@ model TrajectoryLog {
   tokenUsage              Json     @map("token_usage")
   costUsd                 Float    @map("cost_usd") @db.DoublePrecision
   riskEvents              Json     @map("risk_events")
+  trustJson               Json?    @map("trust_json") @db.JsonB
+  evidenceCitations       Json?    @map("evidence_citations") @db.JsonB
+  packVersionsUsed        String[] @default([]) @map("pack_versions_used")
   createdAt               DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   org Org @relation(fields: [orgId], references: [id], onDelete: Cascade)
   run Run @relation(fields: [runId], references: [id], onDelete: Cascade)
 
   evalResults EvalResult[]
+  episodes    EpisodicEntry[]
 
+  @@unique([runId, agentId])
   @@index([orgId, agentId])
+  @@index([orgId, runId])
+  @@index([orgId, dealId])
+  @@index([orgId, conversationId])
   @@index([orgId, createdAt])
   @@index([evaluatorScore])
   @@map("trajectory_logs")
+}
+
+model ProceduralSkillEpisode {
+  id                String   @id @default(uuid()) @db.Uuid
+  orgId             String   @map("org_id") @db.Uuid
+  proceduralSkillId String   @map("procedural_skill_id") @db.Uuid
+  episodicEntryId   String   @map("episodic_entry_id") @db.Uuid
+  relationType      String   @map("relation_type") @db.Text
+  weight            Float    @db.DoublePrecision
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  org             Org             @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  proceduralSkill ProceduralSkill @relation(fields: [proceduralSkillId], references: [id], onDelete: Cascade)
+  episodicEntry   EpisodicEntry   @relation(fields: [episodicEntryId], references: [id], onDelete: Cascade)
+
+  @@unique([proceduralSkillId, episodicEntryId])
+  @@index([orgId, proceduralSkillId])
+  @@index([orgId, episodicEntryId])
+  @@map("procedural_skill_episodes")
 }
 
 model ToolSpec {

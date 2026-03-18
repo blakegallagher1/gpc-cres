@@ -31,6 +31,8 @@ describe("Phase 4 Opportunity OS :: capital markets agent", () => {
         "model_capital_stack",
         "query_document_extractions",
         "search_knowledge_base",
+        "search_procedural_skills",
+        "search_similar_episodes",
         "share_analysis_finding",
         "store_knowledge_entry",
       ].sort(),

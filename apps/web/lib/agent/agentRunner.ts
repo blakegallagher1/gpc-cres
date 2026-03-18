@@ -22,6 +22,7 @@ import {
   buildBusinessMemoryContext,
   captureBusinessChatMemory,
 } from "@/lib/services/businessMemory.service";
+import { buildLearningContext } from "@/lib/services/learningContextBuilder";
 import { mapFeaturesFromActionPayload, mergeMapFeatures } from "@/lib/chat/mapFeatureUtils";
 import { parseToolResultMapFeatures } from "@/lib/chat/toolResultWrapper";
 import type { MapFeature } from "@/lib/chat/mapActionTypes";
@@ -717,6 +718,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
 
   let agentInput: AgentInputMessage[];
   let businessMemoryBlock = "";
+  let learningContextBlock = "";
   let persistedUserMessageId: string | null = null;
   let persistedUserMessageCreatedAt: Date | undefined;
 
@@ -802,6 +804,21 @@ export async function runAgentWorkflow(params: AgentRunInput) {
     } catch {
       // Business memory retrieval is best-effort; never block the chat flow.
     }
+
+    try {
+      const learningContext = await buildLearningContext({
+        orgId,
+        userId,
+        userMessage: message,
+        conversationId: conversationId ?? null,
+        dealId: contextDeal?.id ?? dealId ?? null,
+        jurisdictionId: jurisdictionContext?.id ?? jurisdictionId ?? null,
+        runTypeHint: runType ?? null,
+      });
+      learningContextBlock = learningContext.contextBlock;
+    } catch {
+      // Learning context retrieval is best-effort; never block the chat flow.
+    }
   }
 
   const systemContext = [
@@ -820,6 +837,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
       : "",
     memoryBlock,
     businessMemoryBlock,
+    learningContextBlock,
   ]
     .filter(Boolean)
     .join("\n\n");

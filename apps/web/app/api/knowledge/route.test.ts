@@ -12,6 +12,7 @@ const {
   isKnowledgeSearchErrorMock,
   ingestWorkbookUploadMock,
   getInstitutionalKnowledgeIngestServiceMock,
+  knowledgeContentTypesMock,
 } = vi.hoisted(() => ({
   resolveAuthMock: vi.fn(),
   searchKnowledgeBaseMock: vi.fn(),
@@ -23,6 +24,19 @@ const {
   isKnowledgeSearchErrorMock: vi.fn(),
   ingestWorkbookUploadMock: vi.fn(),
   getInstitutionalKnowledgeIngestServiceMock: vi.fn(),
+  knowledgeContentTypesMock: [
+    "deal_memo",
+    "agent_analysis",
+    "document_extraction",
+    "market_report",
+    "user_note",
+    "chat_capture",
+    "outcome_record",
+    "reasoning_trace",
+    "episodic_summary",
+    "procedural_skill",
+    "trajectory_trace",
+  ],
 }));
 const { shouldUseAppDatabaseDevFallbackMock } = vi.hoisted(() => ({
   shouldUseAppDatabaseDevFallbackMock: vi.fn(),
@@ -38,6 +52,7 @@ vi.mock("@/lib/services/knowledgeBase.service", () => ({
   getKnowledgeStats: getKnowledgeStatsMock,
   getRecentEntries: getRecentEntriesMock,
   deleteKnowledge: deleteKnowledgeMock,
+  KNOWLEDGE_CONTENT_TYPES: knowledgeContentTypesMock,
   resolveKnowledgeSearchMode: resolveKnowledgeSearchModeMock,
   isKnowledgeSearchError: isKnowledgeSearchErrorMock,
 }));
@@ -153,6 +168,74 @@ describe("/api/knowledge route", () => {
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toEqual({ entries: [{ id: "knowledge-1" }] });
     expect(getRecentEntriesMock).toHaveBeenCalledWith(ORG_ID, 7, "deal_memo");
+  });
+
+  it("accepts the new long-term learning content types", async () => {
+    resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
+    searchKnowledgeBaseMock.mockResolvedValue([{ id: "skill-1" }]);
+    getRecentEntriesMock.mockResolvedValue([{ id: "trace-1" }]);
+    ingestKnowledgeMock.mockResolvedValue(["episode-1"]);
+
+    const searchRes = await GET(
+      new NextRequest(
+        "http://localhost/api/knowledge?view=search&q=triage%20procedure&types=procedural_skill,episodic_summary"
+      )
+    );
+    expect(searchRes.status).toBe(200);
+
+    const recentRes = await GET(
+      new NextRequest("http://localhost/api/knowledge?view=recent&type=trajectory_trace&limit=2")
+    );
+    expect(recentRes.status).toBe(200);
+    expect(getRecentEntriesMock).toHaveBeenCalledWith(ORG_ID, 2, "trajectory_trace");
+
+    const ingestRes = await POST(
+      new NextRequest("http://localhost/api/knowledge", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "ingest",
+          contentType: "procedural_skill",
+          sourceId: "skill:abc",
+          contentText: "Skill body",
+          metadata: { agentId: "finance" },
+        }),
+      })
+    );
+    expect(ingestRes.status).toBe(200);
+    expect(ingestKnowledgeMock).toHaveBeenCalledWith(
+      ORG_ID,
+      "procedural_skill",
+      "skill:abc",
+      "Skill body",
+      { agentId: "finance" }
+    );
+  });
+
+  it("rejects invalid content-type filters", async () => {
+    resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
+
+    const searchRes = await GET(
+      new NextRequest("http://localhost/api/knowledge?view=search&q=test&types=bogus_type")
+    );
+    expect(searchRes.status).toBe(400);
+
+    const recentRes = await GET(
+      new NextRequest("http://localhost/api/knowledge?view=recent&type=bogus_type")
+    );
+    expect(recentRes.status).toBe(400);
+
+    const ingestRes = await POST(
+      new NextRequest("http://localhost/api/knowledge", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "ingest",
+          contentType: "bogus_type",
+          sourceId: "x",
+          contentText: "y",
+        }),
+      })
+    );
+    expect(ingestRes.status).toBe(400);
   });
 
   it("returns degraded recent results when app DB fallback is active", async () => {
