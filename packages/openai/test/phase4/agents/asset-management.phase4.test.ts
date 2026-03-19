@@ -27,6 +27,8 @@ describe("Phase 4 Opportunity OS :: asset management agent", () => {
         "get_shared_context",
         "log_reasoning_trace",
         "search_knowledge_base",
+        "search_procedural_skills",
+        "search_similar_episodes",
         "share_analysis_finding",
         "store_knowledge_entry",
       ].sort(),

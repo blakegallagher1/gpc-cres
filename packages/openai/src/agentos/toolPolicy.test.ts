@@ -48,6 +48,8 @@ describe("toolPolicy", () => {
       { type: "function", name: "query_property_db" },
       { type: "function", name: "query_org_sql" },
       { type: "function", name: "search_knowledge_base" },
+      { type: "function", name: "search_procedural_skills" },
+      { type: "function", name: "search_similar_episodes" },
     ];
 
     const filtered = filterToolsForIntent("research", tools, {
@@ -59,6 +61,8 @@ describe("toolPolicy", () => {
       "query_property_db",
       "query_org_sql",
       "search_knowledge_base",
+      "search_procedural_skills",
+      "search_similar_episodes",
     ]);
   });
 });

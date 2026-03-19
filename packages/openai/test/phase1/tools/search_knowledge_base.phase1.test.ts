@@ -20,6 +20,9 @@ describe("Phase 1 Tool Pack :: search_knowledge_base", () => {
 
     expect(source.includes("content_types")).toBe(true);
     expect(source.includes("deal_context")).toBe(true);
+    expect(source.includes("\"episodic_summary\"")).toBe(true);
+    expect(source.includes("\"procedural_skill\"")).toBe(true);
+    expect(source.includes("\"trajectory_trace\"")).toBe(false);
     // Auth headers forwarded via buildMemoryToolHeaders
     expect(source.includes("buildMemoryToolHeaders(context)")).toBe(true);
   });

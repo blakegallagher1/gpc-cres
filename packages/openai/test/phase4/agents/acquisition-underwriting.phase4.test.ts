@@ -30,6 +30,8 @@ describe("Phase 4 Opportunity OS :: acquisition underwriting agent", () => {
         "log_reasoning_trace",
         "query_document_extractions",
         "search_knowledge_base",
+        "search_procedural_skills",
+        "search_similar_episodes",
         "share_analysis_finding",
         "store_knowledge_entry",
       ].sort(),

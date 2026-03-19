@@ -147,6 +147,23 @@ describe("AUTOMATION_CONFIG", () => {
     });
   });
 
+  describe("agentLearning configuration", () => {
+    it("should have the requested rollout defaults", () => {
+      expect(AUTOMATION_CONFIG.agentLearning.enabled).toBe(true);
+      expect(AUTOMATION_CONFIG.agentLearning.createTrajectoryLogs).toBe(true);
+      expect(AUTOMATION_CONFIG.agentLearning.createEpisodes).toBe(true);
+      expect(AUTOMATION_CONFIG.agentLearning.injectEpisodes).toBe(true);
+      expect(AUTOMATION_CONFIG.agentLearning.injectProcedures).toBe(false);
+      expect(AUTOMATION_CONFIG.agentLearning.promoteFacts).toBe(false);
+      expect(AUTOMATION_CONFIG.agentLearning.promoteProcedures).toBe(false);
+      expect(AUTOMATION_CONFIG.agentLearning.minConfidenceForFactPromotion).toBe(0.72);
+      expect(AUTOMATION_CONFIG.agentLearning.minEpisodesForSkill).toBe(3);
+      expect(AUTOMATION_CONFIG.agentLearning.minSkillSuccessRate).toBe(0.67);
+      expect(AUTOMATION_CONFIG.agentLearning.maxSimilarEpisodes).toBe(2);
+      expect(AUTOMATION_CONFIG.agentLearning.maxProcedures).toBe(2);
+    });
+  });
+
   describe("immutability", () => {
     it("should be frozen (immutable)", () => {
       expect(Object.isFrozen(AUTOMATION_CONFIG)).toBe(true);
@@ -163,6 +180,7 @@ describe("AUTOMATION_CONFIG", () => {
       expect(Object.isFrozen(AUTOMATION_CONFIG.hostedTools)).toBe(true);
       expect(Object.isFrozen(AUTOMATION_CONFIG.intelligenceKpi)).toBe(true);
       expect(Object.isFrozen(AUTOMATION_CONFIG.entitlementAutopilot)).toBe(true);
+      expect(Object.isFrozen(AUTOMATION_CONFIG.agentLearning)).toBe(true);
     });
 
     it("should not allow modification of top-level properties", () => {

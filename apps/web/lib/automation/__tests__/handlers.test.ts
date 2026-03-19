@@ -18,6 +18,8 @@ const {
   handleKnowledgeCaptureMock,
   handleFinancialInitMock,
   handleOutcomeCaptureMock,
+  handleAgentLearningPromotionMock,
+  handleAgentLearningOutcomeReinforcementMock,
 } = vi.hoisted(() => ({
   registerHandlerMock: vi.fn(),
   handleParcelCreatedMock: vi.fn(),
@@ -36,6 +38,8 @@ const {
   handleKnowledgeCaptureMock: vi.fn(),
   handleFinancialInitMock: vi.fn(),
   handleOutcomeCaptureMock: vi.fn(),
+  handleAgentLearningPromotionMock: vi.fn(),
+  handleAgentLearningOutcomeReinforcementMock: vi.fn(),
 }));
 
 vi.mock("../events", () => ({
@@ -94,6 +98,15 @@ vi.mock("../outcomeCapture", () => ({
   handleOutcomeCapture: handleOutcomeCaptureMock,
 }));
 
+vi.mock("../agentLearningPromotion", () => ({
+  handleAgentLearningPromotion: handleAgentLearningPromotionMock,
+}));
+
+vi.mock("../agentLearningOutcomeReinforcement", () => ({
+  handleAgentLearningOutcomeReinforcement:
+    handleAgentLearningOutcomeReinforcementMock,
+}));
+
 async function loadModule() {
   return import("../handlers");
 }
@@ -126,6 +139,8 @@ describe("ensureHandlersRegistered", () => {
       ["triage.completed", handleFinancialInitMock],
       ["deal.stageChanged", handleKnowledgeCaptureMock],
       ["deal.stageChanged", handleOutcomeCaptureMock],
+      ["deal.stageChanged", handleAgentLearningOutcomeReinforcementMock],
+      ["agent.run.completed", handleAgentLearningPromotionMock],
     ]);
   });
 
@@ -135,6 +150,6 @@ describe("ensureHandlersRegistered", () => {
     ensureHandlersRegistered();
     ensureHandlersRegistered();
 
-    expect(registerHandlerMock).toHaveBeenCalledTimes(16);
+    expect(registerHandlerMock).toHaveBeenCalledTimes(18);
   });
 });

@@ -17,6 +17,7 @@ import * as placesTools from "./placesTools.js";
 import * as googleMapsTools from "./googleMapsTools.js";
 import * as outcomeTools from "./outcomeTools.js";
 import * as knowledgeTools from "./knowledgeTools.js";
+import * as proceduralMemoryTools from "./proceduralMemoryTools.js";
 import * as contextTools from "./contextTools.js";
 import * as reasoningTools from "./reasoningTools.js";
 import * as entitlementIntelligenceTools from "./entitlementIntelligenceTools.js";
@@ -119,6 +120,10 @@ export { get_area_summary, get_poi_density } from "./googleMapsTools.js";
 export { get_historical_accuracy, record_deal_outcome } from "./outcomeTools.js";
 
 export { search_knowledge_base, store_knowledge_entry } from "./knowledgeTools.js";
+export {
+  search_procedural_skills,
+  search_similar_episodes,
+} from "./proceduralMemoryTools.js";
 
 export {
   share_analysis_finding,
@@ -264,6 +269,7 @@ const {
 } = canonicalWorkflowTools;
 const { get_historical_accuracy, record_deal_outcome } = outcomeTools;
 const { search_knowledge_base, store_knowledge_entry } = knowledgeTools;
+const { search_procedural_skills, search_similar_episodes } = proceduralMemoryTools;
 const { share_analysis_finding, get_shared_context } = contextTools;
 const { log_reasoning_trace, assess_uncertainty, request_reanalysis } = reasoningTools;
 const {
@@ -342,6 +348,8 @@ export const coordinatorTools = [
   lookup_entity_by_address,
   ingest_comps,
   search_knowledge_base,
+  search_procedural_skills,
+  search_similar_episodes,
   store_knowledge_entry,
   get_shared_context,
   share_analysis_finding,
@@ -423,6 +431,8 @@ export const researchTools = [
   get_poi_density,
   run_data_extraction_workflow,
   search_knowledge_base,
+  search_procedural_skills,
+  search_similar_episodes,
   store_knowledge_entry,
   share_analysis_finding,
   get_shared_context,
@@ -450,6 +460,8 @@ export const riskTools = [
   screenLdeq,
   screenFull,
   search_knowledge_base,
+  search_procedural_skills,
+  search_similar_episodes,
   store_knowledge_entry,
   share_analysis_finding,
   get_shared_context,
@@ -476,6 +488,8 @@ export const financeTools = [
   get_historical_accuracy,
   record_deal_outcome,
   search_knowledge_base,
+  search_procedural_skills,
+  search_similar_episodes,
   store_knowledge_entry,
   share_analysis_finding,
   get_shared_context,
@@ -578,6 +592,8 @@ export const entitlementsTools = [
   get_entitlement_feature_primitives,
   get_entitlement_intelligence_kpis,
   search_knowledge_base,
+  search_procedural_skills,
+  search_similar_episodes,
   store_knowledge_entry,
   share_analysis_finding,
   get_shared_context,
@@ -593,6 +609,8 @@ export const operationsTools = [
   create_milestone_schedule,
   estimate_project_timeline,
   search_knowledge_base,
+  search_procedural_skills,
+  search_similar_episodes,
   store_knowledge_entry,
   share_analysis_finding,
   get_shared_context,

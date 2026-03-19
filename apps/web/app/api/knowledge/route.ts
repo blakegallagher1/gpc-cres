@@ -6,6 +6,7 @@ import {
   getKnowledgeStats,
   getRecentEntries,
   deleteKnowledge,
+  KNOWLEDGE_CONTENT_TYPES,
   type KnowledgeContentType,
   type KnowledgeSearchMode,
   resolveKnowledgeSearchMode,
@@ -13,6 +14,10 @@ import {
 } from "@/lib/services/knowledgeBase.service";
 import { getInstitutionalKnowledgeIngestService } from "@/lib/services/institutionalKnowledgeIngest.service";
 import { shouldUseAppDatabaseDevFallback } from "@/lib/server/appDbEnv";
+
+function isKnowledgeContentType(value: string): value is KnowledgeContentType {
+  return (KNOWLEDGE_CONTENT_TYPES as readonly string[]).includes(value);
+}
 
 export async function GET(req: NextRequest) {
   const auth = await resolveAuth(req);
@@ -33,9 +38,20 @@ export async function GET(req: NextRequest) {
             { status: 400 }
           );
         }
-        const contentTypes = searchParams.get("types")
-          ? (searchParams.get("types")!.split(",") as KnowledgeContentType[])
+        const rawContentTypes = searchParams.get("types")
+          ? searchParams
+              .get("types")!
+              .split(",")
+              .map((value) => value.trim())
+              .filter(Boolean)
           : undefined;
+        if (rawContentTypes && rawContentTypes.some((value) => !isKnowledgeContentType(value))) {
+          return NextResponse.json(
+            { error: `types must be a comma-separated list of: ${KNOWLEDGE_CONTENT_TYPES.join(", ")}` },
+            { status: 400 },
+          );
+        }
+        const contentTypes = rawContentTypes as KnowledgeContentType[] | undefined;
         const limit = Number(searchParams.get("limit") ?? 5);
         const requestedMode = (searchParams.get("mode") ?? "auto") as KnowledgeSearchMode;
 
@@ -68,7 +84,14 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ mode: resolvedMode, results });
       }
       case "recent": {
-        const contentType = searchParams.get("type") as KnowledgeContentType | null;
+        const rawContentType = searchParams.get("type");
+        if (rawContentType && !isKnowledgeContentType(rawContentType)) {
+          return NextResponse.json(
+            { error: `type must be one of: ${KNOWLEDGE_CONTENT_TYPES.join(", ")}` },
+            { status: 400 },
+          );
+        }
+        const contentType = rawContentType as KnowledgeContentType | null;
         const limit = Number(searchParams.get("limit") ?? 20);
         if (shouldUseAppDatabaseDevFallback()) {
           return NextResponse.json(
@@ -131,6 +154,12 @@ export async function POST(req: NextRequest) {
             { status: 400 }
           );
         }
+        if (typeof contentType !== "string" || !isKnowledgeContentType(contentType)) {
+          return NextResponse.json(
+            { error: `contentType must be one of: ${KNOWLEDGE_CONTENT_TYPES.join(", ")}` },
+            { status: 400 },
+          );
+        }
         if (shouldUseAppDatabaseDevFallback()) {
           return NextResponse.json(
             { error: "Knowledge base is temporarily unavailable", degraded: true },
@@ -139,7 +168,7 @@ export async function POST(req: NextRequest) {
         }
         const ids = await ingestKnowledge(
           auth.orgId,
-          contentType as KnowledgeContentType,
+          contentType,
           sourceId,
           contentText,
           metadata ?? {}

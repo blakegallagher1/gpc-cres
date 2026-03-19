@@ -251,6 +251,39 @@ describe("dispatchEvent", () => {
     );
   });
 
+  it("uses the run-specific durable idempotency key for agent learning promotion events", async () => {
+    const { dispatchEvent, registerHandler, _resetHandlers } = await loadModule();
+    _resetHandlers();
+    const handler = vi.fn(async () => undefined);
+    registerHandler("agent.run.completed", handler);
+
+    const event = {
+      type: "agent.run.completed" as const,
+      runId: "run-1",
+      orgId: "org-1",
+      userId: "user-1",
+      conversationId: "conversation-1",
+      dealId: "deal-1",
+      jurisdictionId: "jurisdiction-1",
+      runType: "TRIAGE",
+      status: "succeeded" as const,
+      inputPreview: "Summarize the latest zoning risk.",
+      queryIntent: "risk",
+    };
+
+    await dispatchEvent(event);
+
+    expect(handler).toHaveBeenCalledWith(event);
+    expect(startEventMock).toHaveBeenCalledWith(
+      "org-1",
+      expect.any(String),
+      "agent.run.completed",
+      "deal-1",
+      event,
+      expect.stringContaining("agent.run.completed:org-1:run-1"),
+    );
+  });
+
   it("times out long-running handlers and records failure", async () => {
     // Override timeout for faster test
     const mod = await loadModule();

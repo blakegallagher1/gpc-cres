@@ -5,15 +5,21 @@ import OpenAI from "openai";
 // Types
 // ---------------------------------------------------------------------------
 
-export type KnowledgeContentType =
-  | "deal_memo"
-  | "agent_analysis"
-  | "document_extraction"
-  | "market_report"
-  | "user_note"
-  | "chat_capture"
-  | "outcome_record"
-  | "reasoning_trace";
+export const KNOWLEDGE_CONTENT_TYPES = [
+  "deal_memo",
+  "agent_analysis",
+  "document_extraction",
+  "market_report",
+  "user_note",
+  "chat_capture",
+  "outcome_record",
+  "reasoning_trace",
+  "episodic_summary",
+  "procedural_skill",
+  "trajectory_trace",
+] as const;
+
+export type KnowledgeContentType = (typeof KNOWLEDGE_CONTENT_TYPES)[number];
 
 export interface KnowledgeSearchResult {
   id: string;
@@ -433,6 +439,44 @@ export async function deleteKnowledge(orgId: string, sourceId: string): Promise<
   await deleteKnowledgeFromQdrant(orgId, sourceId);
 
   return result;
+}
+
+export async function replaceKnowledgeEntry(
+  orgId: string,
+  contentType: KnowledgeContentType,
+  sourceId: string,
+  contentText: string,
+  metadata: Record<string, unknown> = {},
+): Promise<string[]> {
+  await deleteKnowledge(orgId, sourceId).catch(() => 0);
+  return ingestKnowledge(orgId, contentType, sourceId, contentText, metadata);
+}
+
+export async function ingestEpisodicSummary(
+  orgId: string,
+  sourceId: string,
+  contentText: string,
+  metadata: Record<string, unknown> = {},
+): Promise<string[]> {
+  return replaceKnowledgeEntry(orgId, "episodic_summary", sourceId, contentText, metadata);
+}
+
+export async function ingestProceduralSkill(
+  orgId: string,
+  sourceId: string,
+  contentText: string,
+  metadata: Record<string, unknown> = {},
+): Promise<string[]> {
+  return replaceKnowledgeEntry(orgId, "procedural_skill", sourceId, contentText, metadata);
+}
+
+export async function ingestTrajectoryTrace(
+  orgId: string,
+  sourceId: string,
+  contentText: string,
+  metadata: Record<string, unknown> = {},
+): Promise<string[]> {
+  return replaceKnowledgeEntry(orgId, "trajectory_trace", sourceId, contentText, metadata);
 }
 
 // ---------------------------------------------------------------------------

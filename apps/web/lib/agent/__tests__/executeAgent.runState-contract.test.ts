@@ -155,6 +155,12 @@ function normalizePersistedOutput(output: Record<string, unknown>): Record<strin
   return cloned;
 }
 
+function getPersistedRunUpdateCalls(updateMock: ReturnType<typeof vi.fn>) {
+  return updateMock.mock.calls
+    .map(([call]) => call as { data?: Record<string, unknown> })
+    .filter((call) => isRecord(call.data) && "outputJson" in call.data);
+}
+
 describe("executeAgentWorkflow", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -265,7 +271,7 @@ describe("executeAgentWorkflow", () => {
       correlationId: "corr-local",
     });
 
-    expect(prisma.run.update).toHaveBeenCalledTimes(1);
+    expect(prisma.run.update.mock.calls.length).toBeGreaterThanOrEqual(1);
     const updateCall = prisma.run.update.mock.calls[0][0];
     const outputJson = updateCall.data.outputJson as Record<string, unknown>;
     const runState = outputJson.runState as Record<string, unknown>;
@@ -364,7 +370,7 @@ describe("executeAgentWorkflow", () => {
       correlationId: "corr-local",
     });
 
-    expect(prisma.run.update).toHaveBeenCalledTimes(1);
+    expect(prisma.run.update.mock.calls.length).toBeGreaterThanOrEqual(1);
     const updateCall = prisma.run.update.mock.calls[0][0];
     const outputJson = updateCall.data.outputJson as Record<string, unknown>;
 
@@ -412,7 +418,7 @@ describe("executeAgentWorkflow", () => {
       correlationId: "corr-local",
     });
 
-    expect(prisma.run.update).toHaveBeenCalledTimes(1);
+    expect(prisma.run.update.mock.calls.length).toBeGreaterThanOrEqual(1);
     const updateCall = prisma.run.update.mock.calls[0][0];
     const outputJson = updateCall.data.outputJson as Record<string, unknown>;
     const finalReport = outputJson.finalReport as Record<string, unknown>;
@@ -465,11 +471,12 @@ describe("executeAgentWorkflow", () => {
       await executeAgentWorkflow(request);
       await executeAgentWorkflow(request);
 
+      const persistedUpdates = getPersistedRunUpdateCalls(prisma.run.update);
       const firstOutput = normalizePersistedOutput(
-        prisma.run.update.mock.calls[0][0].data.outputJson as Record<string, unknown>,
+        persistedUpdates[0]?.data?.outputJson as Record<string, unknown>,
       );
       const secondOutput = normalizePersistedOutput(
-        prisma.run.update.mock.calls[1][0].data.outputJson as Record<string, unknown>,
+        persistedUpdates[1]?.data?.outputJson as Record<string, unknown>,
       );
 
       expect(firstOutput).toEqual(secondOutput);

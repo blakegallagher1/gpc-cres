@@ -29,6 +29,8 @@ export type ToolFilterOptions = {
 
 const BASE_ALLOWED_TOOLS = [
   "search_knowledge_base",
+  "search_procedural_skills",
+  "search_similar_episodes",
   "search_parcels",
   "get_parcel_details",
   "evidence_snapshot",
