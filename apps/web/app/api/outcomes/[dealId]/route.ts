@@ -3,8 +3,8 @@ import { resolveAuth } from "@/lib/auth/resolveAuth";
 import {
   DealOutcomePatchInputSchema,
 } from "@entitlement-os/shared";
-import {
 import * as Sentry from "@sentry/nextjs";
+import {
   getDealOutcomeForOrg,
   updateDealOutcomeForOrg,
 } from "@/lib/services/outcomeTracking.service";

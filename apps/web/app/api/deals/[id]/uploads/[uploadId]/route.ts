@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
-import {
 import * as Sentry from "@sentry/nextjs";
+import {
   getDownloadUrlFromGateway,
   deleteObjectFromGateway,
 } from "@/lib/storage/gatewayStorage";

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError, z } from "zod";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
-import {
 import * as Sentry from "@sentry/nextjs";
+import {
   createProactiveTrigger,
   listProactiveTriggers,
 } from "@/lib/services/proactiveTrigger.service";

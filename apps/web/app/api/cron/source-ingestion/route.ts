@@ -6,8 +6,8 @@ import {
   type NotificationPriority,
   getNotificationService,
 } from "@/lib/services/notification.service";
-import {
 import * as Sentry from "@sentry/nextjs";
+import {
   computeEvidenceHash,
   computeSourceCaptureManifestHash,
   dedupeEvidenceCitations,
@@ -57,12 +57,6 @@ type SourceIngestionAlertCandidate = {
   staleOffenderCount: number;
   staleOffenders: StaleSourceOffender[];
   sourceManifestHash: string;
-};
-
-type SourceIngestionAlertNotificationRecord = {
-  id: string;
-  createdAt: Date;
-  metadata: unknown;
 };
 
 function toNumber(value: unknown): number {
@@ -909,7 +903,6 @@ export async function GET(req: Request) {
   const startTime = Date.now();
 
   try {
-    const notificationService = getNotificationService();
     const alertDecisionConfig = getSourceIngestionAlertConfig();
     const initialSources = await prisma.jurisdictionSeedSource.findMany({
       where: { active: true },
@@ -1173,7 +1166,7 @@ export async function GET(req: Request) {
       discovery: { count: number; urls: string[] };
     }> = [];
     let totalStale = 0;
-    let totalDiscovery = discoveries.length;
+    const totalDiscovery = discoveries.length;
     let totalSources = 0;
 
     for (const [orgId, state] of orgStates) {
