@@ -9,12 +9,11 @@ import {
 } from "@/lib/server/observability";
 import * as Sentry from "@sentry/nextjs";
 import {
-  getCloudflareAccessHeadersFromEnv,
   logPropertyDbRuntimeHealth,
 } from "@/lib/server/propertyDbEnv";
+import { requestPropertyDbGateway } from "@/lib/server/propertyDbRpc";
 
-const DEFAULT_GATEWAY_TIMEOUT_MS = 25_000;
-const MAX_GATEWAY_RETRIES = 1;
+const MAX_PROSPECT_RESULTS = 100;
 const STREET_SUFFIX_CANONICAL: Array<[RegExp, string]> = [
   [/\bdr\b/g, "drive"],
   [/\bst\b/g, "street"],
@@ -126,33 +125,6 @@ function extractProspectGatewayError(value: unknown): string | null {
   return null;
 }
 
-function getGatewayTimeoutMs(): number {
-  const raw = Number(process.env.PROPERTY_DB_GATEWAY_TIMEOUT_MS ?? "");
-  if (Number.isFinite(raw) && raw > 0) {
-    return Math.floor(raw);
-  }
-  return DEFAULT_GATEWAY_TIMEOUT_MS;
-}
-
-function isRetryableGatewayFailure(error: unknown): boolean {
-  if (error instanceof ProspectGatewayError) {
-    if (error.status >= 500) {
-      return true;
-    }
-    return error.message.toLowerCase().includes("timed out");
-  }
-  if (error instanceof Error) {
-    const message = error.message.toLowerCase();
-    return (
-      error.name === "AbortError" ||
-      message.includes("fetch failed") ||
-      message.includes("socket hang up") ||
-      message.includes("econnreset")
-    );
-  }
-  return false;
-}
-
 class ProspectGatewayError extends Error {
   status: number;
   code: "GATEWAY_UNCONFIGURED" | "GATEWAY_UNAVAILABLE";
@@ -176,81 +148,56 @@ class ProspectGatewayError extends Error {
 async function gatewayPost(
   path: string,
   body: Record<string, unknown>,
-  config: { url: string; key: string },
   requestId?: string,
 ): Promise<unknown> {
-  const { url, key } = config;
-  const timeoutMs = getGatewayTimeoutMs();
-
-  for (let attempt = 0; attempt <= MAX_GATEWAY_RETRIES; attempt += 1) {
-    let res: Response;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-      res = await fetch(`${url}${path}`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${key}`,
-          apikey: key,
-          "Content-Type": "application/json",
-          ...(requestId ? { "x-request-id": requestId } : {}),
-          ...getCloudflareAccessHeadersFromEnv(),
-        },
-        body: JSON.stringify(body),
-        signal: controller.signal,
-      });
-    } catch (error) {
-      Sentry.captureException(error, {
-        tags: { route: "api.map.prospect", method: "UNKNOWN" },
-      });
-      const gatewayError = new ProspectGatewayError(
-        `[prospect] gateway ${path} request failed: ${
-          error instanceof Error && error.name === "AbortError"
-            ? `request timed out after ${timeoutMs}ms`
-            : error instanceof Error
-              ? error.message
-              : String(error)
-        }`,
-        "GATEWAY_UNAVAILABLE",
-      );
-      if (attempt < MAX_GATEWAY_RETRIES && isRetryableGatewayFailure(gatewayError)) {
-        continue;
-      }
-      throw gatewayError;
-    } finally {
-      clearTimeout(timeout);
-    }
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      const gatewayError = new ProspectGatewayError(
-        `[prospect] gateway ${path} error ${res.status}: ${text.slice(0, 200)}`,
-        "GATEWAY_UNAVAILABLE",
-        res.status >= 500 ? 502 : 503,
-      );
-      if (attempt < MAX_GATEWAY_RETRIES && isRetryableGatewayFailure(gatewayError)) {
-        continue;
-      }
-      throw gatewayError;
-    }
-    try {
-      return await res.json();
-    } catch (error) {
-      Sentry.captureException(error, {
-        tags: { route: "api.map.prospect", method: "UNKNOWN" },
-      });
-      throw new ProspectGatewayError(
-        `[prospect] gateway ${path} invalid JSON: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-        "GATEWAY_UNAVAILABLE",
-      );
-    }
+  let res: Response;
+  try {
+    res = await requestPropertyDbGateway({
+      routeTag: "/api/map/prospect",
+      path,
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+      requestId,
+      includeApiKey: true,
+      cache: "no-store",
+    });
+  } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.map.prospect", method: "UNKNOWN" },
+    });
+    throw new ProspectGatewayError(
+      `[prospect] gateway ${path} request failed: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+      "GATEWAY_UNAVAILABLE",
+    );
   }
 
-  throw new ProspectGatewayError(
-    `[prospect] gateway ${path} request failed after retries`,
-    "GATEWAY_UNAVAILABLE",
-  );
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new ProspectGatewayError(
+      `[prospect] gateway ${path} error ${res.status}: ${text.slice(0, 200)}`,
+      "GATEWAY_UNAVAILABLE",
+      res.status >= 500 ? 502 : 503,
+    );
+  }
+
+  try {
+    return await res.json();
+  } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.map.prospect", method: "UNKNOWN" },
+    });
+    throw new ProspectGatewayError(
+      `[prospect] gateway ${path} invalid JSON: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+      "GATEWAY_UNAVAILABLE",
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -310,7 +257,7 @@ function buildPolygonSql(
     FROM ebr_parcels
     WHERE ${whereClauses.join(" AND ")}
     ORDER BY address ASC NULLS LAST, parcel_id ASC
-    LIMIT 500
+    LIMIT ${MAX_PROSPECT_RESULTS}
   `.trim();
 }
 
@@ -481,11 +428,6 @@ export async function POST(req: NextRequest) {
         "GATEWAY_UNCONFIGURED",
       );
     }
-    const gatewayConfig = {
-      url: gatewayHealth.url.replace(/\/$/, ""),
-      key: gatewayHealth.key,
-    };
-
     const sql = buildPolygonSql(polygonCoordinates, {
       searchText: filters?.searchText,
       zoningCodes: filters?.zoningCodes,
@@ -497,8 +439,7 @@ export async function POST(req: NextRequest) {
 
     const raw = await gatewayPost(
       "/tools/parcels.sql",
-      { sql, limit: 500 },
-      gatewayConfig,
+      { sql, limit: MAX_PROSPECT_RESULTS },
       context.requestId,
     );
     const gatewayError = extractProspectGatewayError(raw);

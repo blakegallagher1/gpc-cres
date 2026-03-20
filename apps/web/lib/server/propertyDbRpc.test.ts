@@ -81,6 +81,61 @@ describe("propertyDbRpc", () => {
     });
   });
 
+  it("retries transient 5xx responses once for shared gateway requests", async () => {
+    const { requestPropertyDbGateway } = await import("./propertyDbRpc");
+    fetchMock
+      .mockResolvedValueOnce(new Response("backend down", { status: 503 }))
+      .mockResolvedValueOnce(makeJsonResponse({ ok: true, data: [{ id: "prop-1" }] }));
+
+    const res = await requestPropertyDbGateway({
+      routeTag: "/api/test-route",
+      path: "/tools/parcels.sql",
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sql: "SELECT 1", limit: 1 }),
+      requestId: "req-1",
+      includeApiKey: true,
+    });
+
+    expect(res.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "https://api.example.com/tools/parcels.sql",
+      expect.objectContaining({
+        method: "POST",
+        cache: "no-store",
+        headers: {
+          Authorization: "Bearer gateway-key",
+          apikey: "gateway-key",
+          "CF-Access-Client-Id": "cf-id",
+          "CF-Access-Client-Secret": "cf-secret",
+          "Content-Type": "application/json",
+          "x-request-id": "req-1",
+        },
+      }),
+    );
+  });
+
+  it("supports per-call timeout and retry overrides", async () => {
+    const { requestPropertyDbGateway } = await import("./propertyDbRpc");
+    const abortError = Object.assign(new Error("aborted"), { name: "AbortError" });
+    fetchMock.mockRejectedValue(abortError);
+
+    await expect(
+      requestPropertyDbGateway({
+        routeTag: "/api/test-route",
+        path: "/api/parcels/search?q=main&limit=1",
+        method: "GET",
+        timeoutMs: 321,
+        maxRetries: 0,
+      }),
+    ).rejects.toThrow(
+      "[property-db-rpc] /api/test-route request failed: request timed out after 321ms",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("loads a parcel by id through the gateway", async () => {
     const { propertyDbRpc } = await import("./propertyDbRpc");
     fetchMock.mockResolvedValue(makeJsonResponse({ ok: true, data: { id: "prop-1", parcel_uid: "015-4249-4" } }));

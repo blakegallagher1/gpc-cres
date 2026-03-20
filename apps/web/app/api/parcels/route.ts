@@ -8,11 +8,10 @@ import {
   logRequestStart,
 } from "@/lib/server/observability";
 import {
-  getCloudflareAccessHeadersFromEnv,
   logPropertyDbRuntimeHealth,
-  requireGatewayConfig,
 } from "@/lib/server/propertyDbEnv";
 import { isPrismaConnectivityError } from "@/lib/server/devParcelFallback";
+import { requestPropertyDbGateway } from "@/lib/server/propertyDbRpc";
 import * as Sentry from "@sentry/nextjs";
 
 const PROPERTY_DB_PARISHES = [
@@ -32,9 +31,7 @@ const PROPERTY_DB_SEARCH_TERMS = [
 const MAX_SEARCH_FALLBACK_QUERIES = 8;
 const MAX_BASELINE_FALLBACK_QUERIES = 1;
 const MAX_SEARCH_VARIANT_QUERIES = 2;
-const DEFAULT_PROPERTY_DB_GATEWAY_TIMEOUT_MS = 25_000;
-const MAX_PROPERTY_DB_GATEWAY_TIMEOUT_MS = 25_000;
-const MAX_PROPERTY_DB_GATEWAY_RETRIES = 1;
+const BASELINE_GATEWAY_RESULT_LIMIT = 50;
 const LOCATION_STOP_WORDS = new Set([
   "baton",
   "rouge",
@@ -44,18 +41,6 @@ const LOCATION_STOP_WORDS = new Set([
   "united",
   "states",
 ]);
-const PROPERTY_DB_GATEWAY_TIMEOUT_MS = Math.max(
-  1500,
-  Math.min(
-    MAX_PROPERTY_DB_GATEWAY_TIMEOUT_MS,
-    Number.parseInt(
-      process.env.PROPERTY_DB_GATEWAY_TIMEOUT_MS ??
-        String(DEFAULT_PROPERTY_DB_GATEWAY_TIMEOUT_MS),
-      10,
-    ) || DEFAULT_PROPERTY_DB_GATEWAY_TIMEOUT_MS,
-  ),
-);
-
 class GatewayUnavailableError extends Error {
   status: number;
 
@@ -68,23 +53,6 @@ class GatewayUnavailableError extends Error {
 
 function isGatewayUnavailableError(error: unknown): error is GatewayUnavailableError {
   return error instanceof GatewayUnavailableError;
-}
-
-function isRetryableGatewayFailure(error: unknown): boolean {
-  if (!isGatewayUnavailableError(error)) {
-    return false;
-  }
-  if (error.status >= 500) {
-    return true;
-  }
-  const message = error.message.toLowerCase();
-  return (
-    message.includes("timed out") ||
-    message.includes("aborterror") ||
-    message.includes("fetch failed") ||
-    message.includes("socket hang up") ||
-    message.includes("econnreset")
-  );
 }
 
 function sanitizeSearchInput(input: string): string {
@@ -366,6 +334,16 @@ function parseRpcResponseArray(value: string): unknown[] {
   }
 }
 
+async function parseGatewayRowsResponse(res: Response): Promise<unknown[]> {
+  try {
+    const json = await res.json();
+    return normalizeRpcRows(json);
+  } catch {
+    const text = await res.text().catch(() => "");
+    return parseRpcResponseArray(text);
+  }
+}
+
 function logParcelsDevPayload(
   phase: string,
   details: Record<string, unknown>,
@@ -410,65 +388,38 @@ function normalizeRpcRows(value: unknown): Record<string, unknown>[] {
 }
 
 async function gatewaySearchParcels(q: string, limit: number): Promise<unknown[]> {
-  for (let attempt = 0; attempt <= MAX_PROPERTY_DB_GATEWAY_RETRIES; attempt += 1) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), PROPERTY_DB_GATEWAY_TIMEOUT_MS);
-    try {
-      const { url, key } = requireGatewayConfig("/api/parcels");
-      const params = new URLSearchParams({ q, limit: String(limit) });
-      const res = await fetch(`${url}/api/parcels/search?${params}`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${key}`,
-          ...getCloudflareAccessHeadersFromEnv(),
-        },
-        signal: controller.signal,
-        cache: "no-store",
-      });
-      if (!res.ok) {
-        // Upstream 4xx responses are treated as "no matches" for this query
-        // so user-facing search can continue trying alternative terms.
-        if (res.status < 500) {
-          return [];
-        }
-        const errBody = await res.text().catch(() => "");
-        const gatewayError = new GatewayUnavailableError(
-          `[gatewaySearchParcels] failed: ${res.status} ${errBody.slice(0, 300)}`,
-          502,
-        );
-        if (attempt < MAX_PROPERTY_DB_GATEWAY_RETRIES && isRetryableGatewayFailure(gatewayError)) {
-          continue;
-        }
-        throw gatewayError;
+  try {
+    const params = new URLSearchParams({ q, limit: String(limit) });
+    const res = await requestPropertyDbGateway({
+      routeTag: "/api/parcels",
+      path: `/api/parcels/search?${params.toString()}`,
+      method: "GET",
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      // Upstream 4xx responses are treated as "no matches" for this query
+      // so user-facing search can continue trying alternative terms.
+      if (res.status < 500) {
+        return [];
       }
-      const text = await res.text().catch(() => "");
-      if (!text) return [];
-      return parseRpcResponseArray(text);
-    } catch (err) {
-      Sentry.captureException(err, {
-        tags: { route: "api.parcels", method: "UNKNOWN" },
-      });
-      const gatewayError = isGatewayUnavailableError(err)
-        ? err
-        : new GatewayUnavailableError(
-            `[gatewaySearchParcels] exception: ${
-              err instanceof Error && err.name === "AbortError"
-                ? `request timed out after ${PROPERTY_DB_GATEWAY_TIMEOUT_MS}ms`
-                : err instanceof Error
-                  ? err.message
-                  : String(err)
-            }`,
-          );
-      if (attempt < MAX_PROPERTY_DB_GATEWAY_RETRIES && isRetryableGatewayFailure(gatewayError)) {
-        continue;
-      }
-      throw gatewayError;
-    } finally {
-      clearTimeout(timeout);
+      const errBody = await res.text().catch(() => "");
+      throw new GatewayUnavailableError(
+        `[gatewaySearchParcels] failed: ${res.status} ${errBody.slice(0, 300)}`,
+        502,
+      );
     }
+    return parseGatewayRowsResponse(res);
+  } catch (err) {
+    Sentry.captureException(err, {
+      tags: { route: "api.parcels", method: "UNKNOWN" },
+    });
+    if (isGatewayUnavailableError(err)) {
+      throw err;
+    }
+    throw new GatewayUnavailableError(
+      `[gatewaySearchParcels] exception: ${err instanceof Error ? err.message : String(err)}`,
+    );
   }
-
-  throw new GatewayUnavailableError("[gatewaySearchParcels] request failed after retries");
 }
 
 
@@ -795,7 +746,7 @@ export async function GET(request: NextRequest) {
           )
       : [
           // Single broad seed — wildcard returns a representative cross-parish set.
-          () => searchPropertyDbParcels("*", undefined, 200),
+          () => searchPropertyDbParcels("*", undefined, BASELINE_GATEWAY_RESULT_LIMIT),
         ].slice(0, MAX_BASELINE_FALLBACK_QUERIES);
     fallbackQueryCount = fallbackQueries.length;
 
