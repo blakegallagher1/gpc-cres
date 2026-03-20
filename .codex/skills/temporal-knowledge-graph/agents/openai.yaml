@@ -1,0 +1,4 @@
+interface:
+  display_name: "Temporal Knowledge Graph Retrieval"
+  short_description: "Run temporal knowledge-graph planning and multi-step retrieval"
+  default_prompt: "Execute a temporal KG retrieval for this question and return evidence-backed conclusions."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Memory Conflict REPL Check"
+  short_description: "Live check for memory conflict confirmation flow."
+  default_prompt: "Run the live memory conflict check against deployment and report conflicts plus date/time guard behavior."

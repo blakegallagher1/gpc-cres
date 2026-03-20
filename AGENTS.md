@@ -14,8 +14,7 @@ for parcel/tools behind Cloudflare Tunnel, and optional Python reference code un
 - Data/tools API: FastAPI gateway behind Cloudflare (`api.gallagherpropco.com` → host :8000)
 - Database: PostgreSQL via Prisma; Vercel runtime often uses Cloudflare Hyperdrive to Postgres
 
-**Auth & realtime:** NextAuth (app session); limited Supabase usage may remain for specific
-features—see `docs/SPEC.md` and `docs/claude/architecture.md` for the current contract.
+**Auth:** NextAuth (app session). See `docs/SPEC.md` and `docs/claude/architecture.md` for the current contract.
 
 ## Architecture Map
 

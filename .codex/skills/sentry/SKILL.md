@@ -1,0 +1,134 @@
+---
+name: sentry
+description: "Use when the user asks to inspect Sentry issues/events, summarize recent production errors, or pull Sentry health data for Entitlement OS using read-only queries."
+triggers:
+  - "sentry"
+  - "sentry issue"
+  - "sentry incidents"
+  - "sentry events"
+  - "production errors"
+---
+
+# Sentry (Read-only Observability)
+
+## Quick start
+
+- If not already authenticated, ask the user to provide a valid `SENTRY_AUTH_TOKEN` (read-only scopes such as `project:read`, `event:read`) or to log in and create one before running commands.
+- Set `SENTRY_AUTH_TOKEN` as an env var.
+- Optional defaults: `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_BASE_URL`.
+- Repo defaults: `SENTRY_ORG=gpc-ul`, `SENTRY_PROJECT=entitlement-os-web`, time range `24h`, environment `prod`, limit 20 (max 50).
+- Always call the Sentry API (no heuristics, no caching).
+
+If the token is missing, give the user these steps:
+1. Create a Sentry auth token: https://sentry.io/settings/account/api/auth-tokens/
+2. Create a token with read-only scopes such as `project:read`, `event:read`, and `org:read`.
+3. Set `SENTRY_AUTH_TOKEN` as an environment variable in their system.
+4. Offer to guide them through setting the environment variable for their OS/shell if needed.
+- Never ask the user to paste the full token in chat. Ask them to set it locally and confirm when ready.
+
+## Core tasks (use bundled script)
+
+Use `scripts/sentry_api.py` (repo-local path) for deterministic API calls. It handles pagination and retries once on transient errors.
+
+## Skill path (set once)
+
+```bash
+export SENTRY_API="${SENTRY_API:-$PWD/.codex/skills/sentry/scripts/sentry_api.py}"
+```
+
+The default org/project for Entitlement OS is read from `SENTRY_ORG`/`SENTRY_PROJECT` in env.
+
+## Entitlement OS mapping
+
+- App routes: inspect `apps/web` crash/error patterns through Sentry tags.
+- Worker queues: inspect `apps/worker` failures for retry spikes.
+- Agent pipeline: watch `packages/openai` and `packages/evidence` for AI upstream errors.
+- If a stack-like payload is needed, use `event-detail --include-entries` and inspect with strict redaction.
+
+### 1) List issues (ordered by most recent)
+
+```bash
+python3 "$SENTRY_API" \
+  list-issues \
+  --org "${SENTRY_ORG:-gpc-ul}" \
+  --project "${SENTRY_PROJECT:-entitlement-os-web}" \
+  --environment prod \
+  --time-range 24h \
+  --limit 20 \
+  --query "is:unresolved"
+```
+
+### 2) Resolve an issue short ID to issue ID
+
+```bash
+python3 "$SENTRY_API" \
+  list-issues \
+  --org "${SENTRY_ORG:-gpc-ul}" \
+  --project "${SENTRY_PROJECT:-entitlement-os-web}" \
+  --query "short_id:ABC-123" \
+  --limit 1
+```
+
+Use the returned `id` for issue detail or events.
+
+### 3) Issue detail
+
+```bash
+python3 "$SENTRY_API" \
+  issue-detail \
+  1234567890
+```
+
+### 4) Issue events
+
+```bash
+python3 "$SENTRY_API" \
+  issue-events \
+  1234567890 \
+  --limit 20
+```
+
+### 5) Event detail (no stack traces by default)
+
+```bash
+python3 "$SENTRY_API" \
+  event-detail \
+  --org "${SENTRY_ORG:-gpc-ul}" \
+  --project "${SENTRY_PROJECT:-entitlement-os-web}" \
+  abcdef1234567890
+```
+
+## API requirements
+
+Always use these endpoints (GET only):
+
+- List issues: `/api/0/projects/{org_slug}/{project_slug}/issues/`
+- Issue detail: `/api/0/issues/{issue_id}/`
+- Events for issue: `/api/0/issues/{issue_id}/events/`
+- Event detail: `/api/0/projects/{org_slug}/{project_slug}/events/{event_id}/`
+
+## Inputs and defaults
+
+- `org_slug`, `project_slug`: default to `gpc-ul`/`entitlement-os-web` through env vars.
+- `time_range`: default `24h` (pass as `statsPeriod`).
+- `environment`: default `prod`.
+- `limit`: default 20, max 50 (paginate until limit reached).
+- `search_query`: optional `query` parameter.
+- `issue_short_id`: resolve via list-issues query first.
+
+## Output formatting rules
+
+- Issue list: show title, short_id, status, first_seen, last_seen, count, environments, top_tags; order by most recent.
+- Event detail: include culprit, timestamp, environment, release, url.
+- If no results, state explicitly.
+- Redact PII in output (emails, IPs). Do not print raw stack traces.
+- Never echo auth tokens.
+
+## Golden test inputs
+
+- Org: `gpc-ul`
+- Project: `entitlement-os-web`
+- Issue short ID: `{ABC-123}`
+
+Example prompt: “List the top 10 open issues for prod in the last 24h.”
+Expected: ordered list with titles, short IDs, counts, last seen.

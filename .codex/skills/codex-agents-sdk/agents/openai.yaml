@@ -1,0 +1,4 @@
+interface:
+  display_name: "Codex Agents SDK"
+  short_description: "Run Codex MCP multi-agent handoff orchestration"
+  default_prompt: "Build a coordinated multi-agent workflow for this Entitlement OS task using Codex MCP and enforce role-specific handoff gating."

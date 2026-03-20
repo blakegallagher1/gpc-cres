@@ -1,0 +1,206 @@
+#:schema https://developers.openai.com/codex/config-schema.json
+
+# Project-level Codex configuration for Entitlement OS
+# Enables full GitHub autonomy (branch -> PR -> CI fix -> merge -> cleanup)
+# Enhanced with multi-agent, memory, collaboration, and quality gates
+
+# ---------------------------------------------------------------------------
+# Core Model & Reasoning
+# ---------------------------------------------------------------------------
+model                   = "gpt-5.4"
+personality             = "pragmatic"            # Direct, no fluff — matches GPC style
+approval_policy         = "never"                # Full autonomy — never pause for approval
+sandbox_mode            = "danger-full-access"   # Trusted project — full filesystem + network access
+
+model_reasoning_effort  = "xhigh"
+
+# Web search: live for real-time docs, API references, dependency checks
+web_search = "live"
+
+# ---------------------------------------------------------------------------
+# Shell Environment Policy
+# ---------------------------------------------------------------------------
+[shell_environment_policy]
+inherit                = "core"          # Start with core env (PATH, HOME, etc.)
+ignore_default_excludes = true           # Allow TOKEN/KEY vars through the filter
+include_only = [
+  "PATH", "HOME", "SHELL", "USER", "LANG", "TERM",
+  "GH_TOKEN",                            # GitHub CLI auth -- full repo management
+  "GITHUB_TOKEN",                         # Alias -- gh accepts either
+  "OPENAI_API_KEY",                       # Agent calls
+  "NODE_OPTIONS",                         # Node.js config
+  "GIT_AUTHOR_NAME",                      # Git commit identity
+  "GIT_AUTHOR_EMAIL",                     # Git commit identity
+  "GIT_COMMITTER_NAME",                   # Git commit identity
+  "GIT_COMMITTER_EMAIL",                  # Git commit identity
+  "EDITOR",                               # Git editor (for rebase etc.)
+  "SSH_AUTH_SOCK",                         # SSH agent (if using SSH protocol)
+  "DATABASE_URL",                          # Prisma direct connection
+  "DIRECT_URL",                            # Prisma direct URL
+  "ENTITLEMENT_OS_KG_WORKFLOW_DIR",        # Temporal KG workflow trace output
+  "ENTITLEMENT_OS_KG_FALLBACK_FILE",       # Temporal KG JSONL fallback source
+  "SENTRY_AUTH_TOKEN",                      # Sentry API access
+  "SENTRY_ORG",                             # Sentry organization slug
+  "SENTRY_PROJECT",                         # Sentry project slug
+  "SENTRY_BASE_URL",                        # Optional Sentry API base override
+  "ENTITLEMENT_OS_AGENT_WORKFLOW_OUTPUT_DIR", # Entitlement OS agents workflow artifacts
+  "PWCLI",                                 # Playwright wrapper script path override
+  "ENTITLEMENT_OS_BASE_URL",               # Playwright base URL for local app checks
+  "PLAYWRIGHT_OUTPUT_DIR",                 # Playwright artifact output directory
+  "PLAYWRIGHT_CLI_SESSION",                # Playwright session identifier override
+  "CF_ACCESS_CLIENT_ID",                   # Cloudflare Access service token — bypasses CF Access 403/1010
+  "CF_ACCESS_CLIENT_SECRET",               # Cloudflare Access service token secret
+  "ADMIN_API_KEY",                         # FastAPI gateway admin bearer — production /admin/* routes
+  "LOCAL_API_KEY",                         # FastAPI gateway bearer — production /api/* routes
+  "NEXTAUTH_SECRET",                       # NextAuth session signing — for production auth flows
+  "AUTH_SECRET",                           # NextAuth v5 alias for NEXTAUTH_SECRET
+]
+
+# ---------------------------------------------------------------------------
+# Feature Flags — only non-default flags needed
+# ---------------------------------------------------------------------------
+[features]
+multi_agent = true   # Spawn child agents for parallel package work
+memories    = true   # Persistent cross-session memory
+
+# ---------------------------------------------------------------------------
+# Multi-agent Configuration — proper agent roles with model overrides
+# ---------------------------------------------------------------------------
+[agents]
+max_threads              = 6      # db + agent + web + worker + reviewer + explorer
+max_depth                = 2      # Allow agents to spawn sub-agents (default 1 = no nesting)
+job_max_runtime_seconds  = 1800   # 30 min timeout per agent job — prevents runaway threads
+
+[agents.db-agent]
+description = "Prisma schema, migrations, database queries, Zod schemas mirroring DB models. Scope: packages/db/, packages/shared/ (schema types only)."
+config_file = "agents/db-agent.toml"
+
+[agents.agent-agent]
+description = "AI agent implementation, prompt engineering, evidence pipeline, artifact generation. Scope: packages/openai/, packages/evidence/, packages/artifacts/."
+config_file = "agents/agent-agent.toml"
+
+[agents.web-agent]
+description = "Next.js pages, API routes, UI components, auth middleware, automation handlers. Scope: apps/web/."
+config_file = "agents/web-agent.toml"
+
+[agents.reviewer]
+description = "Find security, correctness, org-scoping, and test gaps in code. Run for every PR review."
+config_file = "agents/reviewer.toml"
+
+[agents.explorer]
+description = "Fast read-only codebase exploration. Architecture questions, grep, dependency tracing."
+config_file = "agents/explorer.toml"
+
+[agents.shipper]
+description = "Post-task shipping agent. Commits, pushes, merges to main, and verifies Vercel deployment."
+config_file = "agents/shipper.toml"
+
+# ---------------------------------------------------------------------------
+# TUI & Notifications
+# ---------------------------------------------------------------------------
+[tui]
+notifications = true    # Desktop notifications when tasks complete
+
+# ---------------------------------------------------------------------------
+# Session History — persist for cross-session continuity
+# ---------------------------------------------------------------------------
+[history]
+persistence = "save-all"
+
+# ---------------------------------------------------------------------------
+# Profiles — switch behavior based on task type
+# ---------------------------------------------------------------------------
+
+# Feature work: full autonomy, high reasoning, multi-agent
+[profiles.feature]
+approval_policy         = "never"
+sandbox_mode            = "danger-full-access"
+model_reasoning_effort  = "high"
+model_reasoning_summary = "detailed"
+personality             = "pragmatic"
+web_search              = "live"
+[profiles.feature.features]
+multi_agent = true
+memories    = true
+
+# Bug fixes: focused, fast, moderate reasoning
+[profiles.bugfix]
+approval_policy         = "never"
+sandbox_mode            = "danger-full-access"
+model_reasoning_effort  = "medium"
+model_reasoning_summary = "concise"
+personality             = "pragmatic"
+web_search              = "live"
+[profiles.bugfix.features]
+memories = true
+
+# Migrations: cautious, high reasoning, plan-first
+[profiles.migrate]
+approval_policy         = "on-request"
+sandbox_mode            = "workspace-write"
+model_reasoning_effort  = "xhigh"
+model_reasoning_summary = "detailed"
+personality             = "pragmatic"
+web_search              = "live"
+[profiles.migrate.features]
+memories = true
+
+# Spark: fast codex-spark model — no reasoning summary (unsupported)
+[profiles.spark]
+approval_policy         = "never"
+sandbox_mode            = "danger-full-access"
+model                   = "gpt-5.3-codex-spark"
+model_reasoning_effort  = "xhigh"
+model_reasoning_summary = "none"
+personality             = "pragmatic"
+web_search              = "live"
+[profiles.spark.features]
+multi_agent = true
+memories    = true
+
+# Deep review: max reasoning, read-only, thorough
+[profiles.review]
+approval_policy         = "on-request"
+sandbox_mode            = "read-only"
+model                   = "gpt-5.4"
+model_reasoning_effort  = "xhigh"
+model_reasoning_summary = "detailed"
+web_search              = "cached"
+[profiles.review.features]
+memories    = true
+multi_agent = true
+
+# ---------------------------------------------------------------------------
+# Skills — project-specific Codex skills
+# ---------------------------------------------------------------------------
+[[skills.config]]
+path = ".codex/skills/sentry"
+enabled = true
+
+[[skills.config]]
+path = ".codex/skills/playwright"
+enabled = true
+
+[[skills.config]]
+path = ".codex/skills/codex-agents-sdk"
+enabled = true
+
+[[skills.config]]
+path = ".codex/skills/temporal-knowledge-graph"
+enabled = true
+
+[[skills.config]]
+path = ".codex/skills/auth-pattern"
+enabled = true
+
+[[skills.config]]
+path = ".codex/skills/automation-loop"
+enabled = true
+
+[[skills.config]]
+path = ".codex/skills/type-hardening"
+enabled = true
+
+[[skills.config]]
+path = ".codex/skills/memory-conflict-repl-check"
+enabled = true

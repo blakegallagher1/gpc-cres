@@ -72,7 +72,11 @@ htmlcov/
 ############################
 logs/
 *.log
-.codex/
+# Codex — track config, ignore runtime state
+.codex/sandbox/
+.codex/state/
+.codex/cache/
+.codex/memories/
 .codex-learnings.md
 session-state.json
 .swc/
