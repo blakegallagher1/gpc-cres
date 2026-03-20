@@ -6,11 +6,13 @@ const {
   fetchMock,
   logPropertyDbRuntimeHealthMock,
   getCloudflareAccessHeadersFromEnvMock,
+  requireGatewayConfigMock,
 } = vi.hoisted(() => ({
   resolveAuthMock: vi.fn(),
   fetchMock: vi.fn(),
   logPropertyDbRuntimeHealthMock: vi.fn(),
   getCloudflareAccessHeadersFromEnvMock: vi.fn(),
+  requireGatewayConfigMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/resolveAuth", () => ({
@@ -20,6 +22,7 @@ vi.mock("@/lib/auth/resolveAuth", () => ({
 vi.mock("@/lib/server/propertyDbEnv", () => ({
   logPropertyDbRuntimeHealth: logPropertyDbRuntimeHealthMock,
   getCloudflareAccessHeadersFromEnv: getCloudflareAccessHeadersFromEnvMock,
+  requireGatewayConfig: requireGatewayConfigMock,
 }));
 
 const { parcelFindManyMock } = vi.hoisted(() => ({
@@ -55,6 +58,7 @@ describe("POST /api/map/prospect", () => {
     parcelFindManyMock.mockReset();
     logPropertyDbRuntimeHealthMock.mockReset();
     getCloudflareAccessHeadersFromEnvMock.mockReset();
+    requireGatewayConfigMock.mockReset();
     vi.stubGlobal("fetch", fetchMock);
     // Gateway env vars (used by the route after the PostGIS reroute)
     logPropertyDbRuntimeHealthMock.mockReturnValue({
@@ -62,6 +66,10 @@ describe("POST /api/map/prospect", () => {
       key: "test-api-key",
     });
     getCloudflareAccessHeadersFromEnvMock.mockReturnValue({});
+    requireGatewayConfigMock.mockReturnValue({
+      url: "https://api.gallagherpropco.com",
+      key: "test-api-key",
+    });
     process.env.PROPERTY_DB_GATEWAY_TIMEOUT_MS = "";
     ({ POST } = await import("./route"));
   });
@@ -141,7 +149,7 @@ describe("POST /api/map/prospect", () => {
       sql?: string;
       limit?: number;
     };
-    expect(gatewayBody.limit).toBe(500);
+    expect(gatewayBody.limit).toBe(100);
     expect(gatewayBody.sql).toContain(
       "regexp_replace(LOWER(COALESCE(address, '')), '[^a-z0-9]+', ' ', 'g') LIKE '%main%' ESCAPE '\\'",
     );
@@ -400,6 +408,31 @@ describe("POST /api/map/prospect", () => {
     );
     expect(gatewayBody.sql).toContain("%2774%highland%rd%");
     expect(gatewayBody.sql).toContain("%2774%highland%road%");
+  });
+
+  it("caps the polygon SQL and gateway request limit at 100 rows", async () => {
+    resolveAuthMock.mockResolvedValue({ userId: "user-1", orgId: "org-1" });
+    fetchMock.mockResolvedValue(makeJsonResponse([]));
+
+    const req = new NextRequest("http://localhost/api/map/prospect", {
+      method: "POST",
+      body: JSON.stringify({
+        polygon: {
+          type: "Polygon",
+          coordinates: [[[-91.2, 30.45], [-91.2, 30.35], [-91.1, 30.35], [-91.1, 30.45], [-91.2, 30.45]]],
+        },
+      }),
+    });
+
+    const res = await POST(req);
+    const gatewayBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body ?? "{}")) as {
+      sql?: string;
+      limit?: number;
+    };
+
+    expect(res.status).toBe(200);
+    expect(gatewayBody.limit).toBe(100);
+    expect(gatewayBody.sql).toContain("LIMIT 100");
   });
 
   it("treats wildcard-only searchText as an unfiltered polygon search", async () => {

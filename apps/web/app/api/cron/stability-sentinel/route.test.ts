@@ -7,6 +7,7 @@ const {
   sentryCaptureExceptionMock,
   sentryCaptureMessageMock,
   fetchMock,
+  requestPropertyDbGatewayMock,
 } = vi.hoisted(() => ({
   automationEventCountMock: vi.fn(),
   automationEventCreateMock: vi.fn(),
@@ -14,6 +15,7 @@ const {
   sentryCaptureExceptionMock: vi.fn(),
   sentryCaptureMessageMock: vi.fn(),
   fetchMock: vi.fn(),
+  requestPropertyDbGatewayMock: vi.fn(),
 }));
 
 vi.mock("@entitlement-os/db", () => ({
@@ -29,6 +31,10 @@ vi.mock("@entitlement-os/db", () => ({
 vi.mock("@sentry/nextjs", () => ({
   captureException: sentryCaptureExceptionMock,
   captureMessage: sentryCaptureMessageMock,
+}));
+
+vi.mock("@/lib/server/propertyDbRpc", () => ({
+  requestPropertyDbGateway: requestPropertyDbGatewayMock,
 }));
 
 describe("GET /api/cron/stability-sentinel", () => {
@@ -53,6 +59,7 @@ describe("GET /api/cron/stability-sentinel", () => {
     sentryCaptureExceptionMock.mockReset();
     sentryCaptureMessageMock.mockReset();
     fetchMock.mockReset();
+    requestPropertyDbGatewayMock.mockReset();
 
     automationEventCountMock
       .mockResolvedValueOnce(0)
@@ -60,6 +67,12 @@ describe("GET /api/cron/stability-sentinel", () => {
       .mockResolvedValueOnce(0);
     queryRawMock.mockResolvedValue([{ dup_count: 0 }]);
     automationEventCreateMock.mockResolvedValue({});
+    requestPropertyDbGatewayMock.mockResolvedValue(
+      new Response(JSON.stringify([{ ok: 1 }]), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
 
     ({ GET } = await import("./route"));
   });
@@ -99,7 +112,15 @@ describe("GET /api/cron/stability-sentinel", () => {
     expect(body.failCount).toBe(0);
     expect(body.warnCount).toBe(0);
     expect(body.probes.geometry).toHaveLength(1);
+    expect(body.probes.propertyDb).toHaveLength(1);
     expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(requestPropertyDbGatewayMock).toHaveBeenCalledTimes(1);
+    expect(requestPropertyDbGatewayMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        timeoutMs: 15000,
+        maxRetries: 0,
+      }),
+    );
     expect(automationEventCreateMock).not.toHaveBeenCalled();
     expect(sentryCaptureMessageMock).not.toHaveBeenCalled();
   });
@@ -131,7 +152,37 @@ describe("GET /api/cron/stability-sentinel", () => {
     expect(res.status).toBe(200);
     expect(body.verdict).toBe("FAIL");
     expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(requestPropertyDbGatewayMock).toHaveBeenCalledTimes(1);
     expect(automationEventCreateMock).toHaveBeenCalledTimes(1);
     expect(sentryCaptureMessageMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails the map surface when the property-db probe fails", async () => {
+    requestPropertyDbGatewayMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: false, error: "gateway down" }), {
+        status: 503,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    fetchMock.mockResolvedValue(new Response("unauthorized", { status: 401 }));
+
+    const res = await GET(
+      new Request("http://localhost/api/cron/stability-sentinel", {
+        headers: { authorization: "Bearer cron-secret" },
+      }),
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.verdict).toBe("FAIL");
+    expect(body.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "map_property_db_probe",
+          surface: "map",
+          status: "fail",
+        }),
+      ]),
+    );
   });
 });
