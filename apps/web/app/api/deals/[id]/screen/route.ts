@@ -7,6 +7,7 @@ import {
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { GET as getLegacyTriage, POST as postLegacyTriage } from "../triage/route";
+import * as Sentry from "@sentry/nextjs";
 
 const SUPPORTED_TEMPLATE_KEY = "ENTITLEMENT_LAND";
 
@@ -197,6 +198,9 @@ export async function GET(
       { status: triageResponse.status },
     );
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.screen", method: "GET" },
+    });
     console.error("Error fetching screen:", error);
     return NextResponse.json(
       { error: "Failed to fetch screen" },
@@ -260,6 +264,9 @@ export async function POST(
       { status: triageResponse.status },
     );
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.screen", method: "POST" },
+    });
     console.error("Error running screen:", error);
     return NextResponse.json(
       { error: "Failed to run screen" },

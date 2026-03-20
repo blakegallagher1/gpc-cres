@@ -5,6 +5,7 @@ import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { AppError } from "@/lib/errors";
 import { getDocumentProcessingService } from "@/lib/services/documentProcessing.service";
 import {
+import * as Sentry from "@sentry/nextjs";
   DocTypeSchema,
   PatchExtractionRequestSchema,
   type DocType,
@@ -44,6 +45,9 @@ export async function GET(
 
     return NextResponse.json({ extraction });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.extractions", method: "GET" },
+    });
     console.error("Error fetching extraction:", error);
     return NextResponse.json(
       { error: "Failed to fetch extraction" },
@@ -163,6 +167,9 @@ export async function PATCH(
       { status: 400 }
     );
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.extractions", method: "PATCH" },
+    });
     if (error instanceof AppError) {
       const statusCode =
         "statusCode" in error && typeof error.statusCode === "number"

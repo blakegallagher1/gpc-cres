@@ -8,6 +8,7 @@ import {
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import {
+import * as Sentry from "@sentry/nextjs";
   toIsoString,
   toNumberOrNull,
 } from "@/app/api/_lib/opportunityPhase3";
@@ -130,6 +131,9 @@ export async function GET(request: NextRequest) {
       }),
     );
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.assets", method: "GET" },
+    });
     console.error("Error fetching assets:", error);
     return NextResponse.json(
       { error: "Failed to fetch assets" },
@@ -195,6 +199,9 @@ export async function POST(request: NextRequest) {
       { status: 201 },
     );
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.assets", method: "POST" },
+    });
     console.error("Error creating asset:", error);
     return NextResponse.json(
       { error: "Failed to create asset" },

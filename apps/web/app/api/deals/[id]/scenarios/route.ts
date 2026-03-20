@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import * as Sentry from "@sentry/nextjs";
 
 export interface SavedScenario {
   id: string;
@@ -34,6 +35,9 @@ export async function GET(
     const scenarios = (deal.financialModelScenarios as SavedScenario[] | null) ?? [];
     return NextResponse.json({ scenarios });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.scenarios", method: "GET" },
+    });
     console.error("Error loading scenarios:", error);
     return NextResponse.json(
       { error: "Failed to load scenarios" },
@@ -81,6 +85,9 @@ export async function PUT(
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.scenarios", method: "PUT" },
+    });
     console.error("Error saving scenarios:", error);
     return NextResponse.json(
       { error: "Failed to save scenarios" },

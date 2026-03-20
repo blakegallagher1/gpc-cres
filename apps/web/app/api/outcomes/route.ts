@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { DealOutcomeCreateInputSchema } from "@entitlement-os/shared";
 import {
+import * as Sentry from "@sentry/nextjs";
   upsertDealOutcomeForOrg,
   getDealOutcomeForOrg,
   getOutcomeSummary,
@@ -42,6 +43,9 @@ export async function GET(req: NextRequest) {
       }
     }
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.outcomes", method: "GET" },
+    });
     console.error("Outcomes error:", error);
     return NextResponse.json(
       { error: "Failed to fetch outcome data" },
@@ -81,6 +85,9 @@ export async function POST(req: NextRequest) {
         );
         return NextResponse.json({ outcome }, { status: 201 });
       } catch (error) {
+        Sentry.captureException(error, {
+          tags: { route: "api.outcomes", method: "POST" },
+        });
         if (error instanceof Error && error.message === "Deal not found") {
           return NextResponse.json(
             { error: "Deal not found" },
@@ -125,6 +132,9 @@ export async function POST(req: NextRequest) {
         );
     }
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.outcomes", method: "POST" },
+    });
     console.error("Record outcome error:", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed" },

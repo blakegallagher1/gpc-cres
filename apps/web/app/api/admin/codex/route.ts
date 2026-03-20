@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { isEmailAllowed } from "@/lib/auth/allowedEmails";
 import {
+import * as Sentry from "@sentry/nextjs";
   CLIENT_INFO,
   parseCodexMessage,
   type JsonRpcNotification,
@@ -248,6 +249,9 @@ function enqueueConnectionState(
       }),
     );
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.admin.codex", method: "UNKNOWN" },
+    });
     // SSE disconnect races can close the stream while ws callbacks are still firing.
     connection.controller = null;
     logRelayVerbose(connection.connectionId, "sse_enqueue_failed", error);
@@ -297,6 +301,9 @@ function cleanupRelay(
     try {
       upstream.close(1000, "Relay connection closed");
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { route: "api.admin.codex", method: "UNKNOWN" },
+      });
       logRelayVerbose(connectionId, "upstream_close_failed", error);
     }
   }
@@ -339,6 +346,9 @@ function connectUpstream(connectionId: string) {
       upstream.send(JSON.stringify(initializeRequest));
       logRelay(connectionId, "sent_initialize", initializeRequest);
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { route: "api.admin.codex", method: "UNKNOWN" },
+      });
       logRelay(connectionId, "send_initialize_failed", error);
     }
 
@@ -354,6 +364,9 @@ function connectUpstream(connectionId: string) {
         upstream.send(JSON.stringify(initializedNotification));
         logRelay(connectionId, "sent_initialized", initializedNotification);
       } catch (error) {
+        Sentry.captureException(error, {
+          tags: { route: "api.admin.codex", method: "UNKNOWN" },
+        });
         logRelay(connectionId, "send_initialized_failed", error);
       }
     }, HANDSHAKE_WAIT_MS);
@@ -379,6 +392,9 @@ function connectUpstream(connectionId: string) {
         try {
           relayForMessage.controller?.enqueue(toSseFrame(payload));
         } catch (error) {
+          Sentry.captureException(error, {
+            tags: { route: "api.admin.codex", method: "UNKNOWN" },
+          });
           relayForMessage.controller = null;
           logRelayVerbose(connectionId, "sse_enqueue_message_failed", error);
         }
@@ -566,11 +582,17 @@ export async function GET(request: NextRequest) {
           try {
             connection.controller.enqueue(toSseKeepAlive());
           } catch (error) {
+            Sentry.captureException(error, {
+              tags: { route: "api.admin.codex", method: "GET" },
+            });
             connection.controller = null;
             logRelayVerbose(connection.connectionId, "sse_keep_alive_failed", error);
           }
         }, SSE_HEARTBEAT_INTERVAL_MS);
       } catch (error) {
+        Sentry.captureException(error, {
+          tags: { route: "api.admin.codex", method: "GET" },
+        });
         const message = error instanceof Error ? error.message : "Relay failed";
         enqueueConnectionState(connection, "error", message);
         cleanupRelay(connectionId, {
@@ -667,6 +689,9 @@ export async function POST(request: NextRequest) {
           : null,
     });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.admin.codex", method: "POST" },
+    });
     return NextResponse.json(
       {
         error: "Failed to relay payload",

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { getDownloadUrlFromGateway } from "@/lib/storage/gatewayStorage";
+import * as Sentry from "@sentry/nextjs";
 
 type SnapshotRecord = {
   id: string;
@@ -151,6 +152,9 @@ export async function GET(
       },
     });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.evidence.sources.package", method: "GET" },
+    });
     console.error("Error generating evidence package:", error);
     return NextResponse.json({ error: "Failed to generate evidence package" }, { status: 500 });
   }

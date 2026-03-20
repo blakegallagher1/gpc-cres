@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { recomputeAllSegments } from "@/lib/jobs/calibrationRecompute";
+import * as Sentry from "@sentry/nextjs";
 
 function verifyCronSecret(req: Request): boolean {
   const secret = (process.env.CRON_SECRET || "").trim();
@@ -32,6 +33,9 @@ export async function GET(req: Request) {
       try {
         await recomputeAllSegments(org.id);
       } catch (err) {
+        Sentry.captureException(err, {
+          tags: { route: "api.cron.calibration", method: "GET" },
+        });
         errors.push({
           orgId: org.id,
           error: err instanceof Error ? err.message : String(err),
@@ -45,6 +49,9 @@ export async function GET(req: Request) {
       errors,
     });
   } catch (err) {
+    Sentry.captureException(err, {
+      tags: { route: "api.cron.calibration", method: "GET" },
+    });
     console.error("[cron/calibration] failed:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { NotificationService } from "@/lib/services/notification.service";
 import type { NotificationFilters } from "@/lib/services/notification.service";
+import * as Sentry from "@sentry/nextjs";
 
 const service = new NotificationService();
 
@@ -36,6 +37,9 @@ export async function GET(request: NextRequest) {
     const result = await service.getAll(auth.userId, filters);
     return NextResponse.json(result);
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.notifications", method: "GET" },
+    });
     console.error("Error fetching notifications:", error);
     return NextResponse.json(
       { error: "Failed to fetch notifications" },

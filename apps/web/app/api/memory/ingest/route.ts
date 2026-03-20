@@ -5,6 +5,7 @@ import { MemoryIngestionRequestSchema } from '@entitlement-os/shared';
 import { resolveAuth } from '@/lib/auth/resolveAuth';
 import { extractParishFromAddress } from '@/lib/services/compToMarket';
 import { addMarketDataPoint } from '@/lib/services/marketMonitor.service';
+import * as Sentry from "@sentry/nextjs";
 
 /**
  * POST /api/memory/ingest
@@ -108,6 +109,9 @@ export async function POST(request: NextRequest) {
     // Return result
     return NextResponse.json(result, { status: result.success ? 200 : 207 });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.memory.ingest", method: "POST" },
+    });
     console.error('[Memory Ingest API Error]', error);
     return NextResponse.json(
       {

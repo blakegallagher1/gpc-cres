@@ -7,6 +7,7 @@ import {
   DealTermsPatchInputSchema,
 } from "@entitlement-os/shared";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import * as Sentry from "@sentry/nextjs";
 
 const paramsSchema = z.object({
   id: z.string().uuid(),
@@ -171,6 +172,9 @@ export async function GET(
       terms: terms ? serializeTerms(terms as DealTermsRecord) : null,
     });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.terms", method: "GET" },
+    });
     console.error("Error reading deal terms:", error);
     return NextResponse.json(
       { error: "Failed to load deal terms" },
@@ -241,6 +245,9 @@ async function handleUpsertTerms(
 
     return NextResponse.json({ terms: serializeTerms(terms as DealTermsRecord) });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.terms", method: "PATCH" },
+    });
     console.error("Error upserting deal terms:", error);
     return NextResponse.json(
       { error: "Failed to save deal terms" },
@@ -278,6 +285,9 @@ export async function DELETE(
 
     return NextResponse.json({ terms: serializeTerms(deleted as DealTermsRecord) });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.terms", method: "DELETE" },
+    });
     if (error instanceof Error && error.message.includes("Record to delete does not exist")) {
       return NextResponse.json({ error: "Deal terms not found" }, { status: 404 });
     }

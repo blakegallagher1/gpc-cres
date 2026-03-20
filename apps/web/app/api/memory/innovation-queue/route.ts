@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@entitlement-os/db';
 import { resolveAuth } from '@/lib/auth/resolveAuth';
+import * as Sentry from "@sentry/nextjs";
 
 /**
  * GET /api/memory/innovation-queue
@@ -33,6 +34,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ items });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.memory.innovation-queue", method: "GET" },
+    });
     console.error('[Innovation Queue API Error]', error);
     return NextResponse.json(
       {
@@ -81,6 +85,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ item: updated });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.memory.innovation-queue", method: "POST" },
+    });
     console.error('[Innovation Queue Review API Error]', error);
     return NextResponse.json(
       {

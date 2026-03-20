@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import * as Sentry from "@sentry/nextjs";
 
 export async function GET(request: NextRequest) {
   const auth = await resolveAuth(request);
@@ -20,6 +21,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ entities });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.entities", method: "GET" },
+    });
     console.error("[Entities GET] Failed:", error);
     return NextResponse.json(
       { error: "Failed to load entities", entities: [] },
@@ -64,6 +68,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ entity }, { status: 201 });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.entities", method: "POST" },
+    });
     console.error("Error creating entity:", error);
     return NextResponse.json({ error: "Failed to create entity" }, { status: 500 });
   }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { AGENT_RUN_STATE_KEYS } from "@entitlement-os/shared";
+import * as Sentry from "@sentry/nextjs";
 
 type RunRow = {
   id: string;
@@ -1119,6 +1120,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(payload);
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.runs.dashboard", method: "GET" },
+    });
     console.error("Error building run dashboard", error);
     return NextResponse.json(
       { error: "Failed to build run dashboard" },

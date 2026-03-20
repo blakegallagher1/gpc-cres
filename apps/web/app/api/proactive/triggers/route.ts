@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ZodError, z } from "zod";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import {
+import * as Sentry from "@sentry/nextjs";
   createProactiveTrigger,
   listProactiveTriggers,
 } from "@/lib/services/proactiveTrigger.service";
@@ -38,6 +39,9 @@ export async function GET(request: NextRequest) {
     const triggers = await listProactiveTriggers(auth.orgId);
     return NextResponse.json({ triggers });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.proactive.triggers", method: "GET" },
+    });
     console.error("[proactive.triggers.get]", error);
     return NextResponse.json(
       { error: "Failed to fetch triggers" },
@@ -70,6 +74,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ trigger });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.proactive.triggers", method: "POST" },
+    });
     if (error instanceof ZodError) {
       return NextResponse.json(
         { error: "Validation failed", details: error.flatten().fieldErrors },

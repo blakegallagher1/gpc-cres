@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { memoryEventSchema } from "@/lib/schemas/memoryEvent";
 import { getMemoryEventService } from "@/lib/services/memoryEventService";
+import * as Sentry from "@sentry/nextjs";
 
 // POST /api/memory/events — Record a memory event
 export async function POST(req: NextRequest) {
@@ -29,6 +30,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(event, { status: 201 });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.memory.events", method: "POST" },
+    });
     console.error("Error recording memory event:", error);
     return NextResponse.json(
       { error: "Failed to record memory event" },
@@ -53,6 +57,9 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(stats);
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.memory.events", method: "GET" },
+    });
     console.error("Error fetching memory event stats:", error);
     return NextResponse.json(
       { error: "Failed to fetch memory event stats" },

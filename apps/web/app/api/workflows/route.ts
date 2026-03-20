@@ -8,6 +8,7 @@ import {
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { toIsoString } from "@/app/api/_lib/opportunityPhase3";
+import * as Sentry from "@sentry/nextjs";
 
 function normalizeWorkflowTemplateCreateBody(body: Record<string, unknown>) {
   return {
@@ -116,6 +117,9 @@ export async function GET(request: NextRequest) {
       }),
     );
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.workflows", method: "GET" },
+    });
     console.error("Error fetching workflow templates:", error);
     return NextResponse.json(
       { error: "Failed to fetch workflow templates" },
@@ -202,6 +206,9 @@ export async function POST(request: NextRequest) {
       { status: 201 },
     );
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.workflows", method: "POST" },
+    });
     console.error("Error creating workflow template:", error);
     return NextResponse.json(
       { error: "Failed to create workflow template" },

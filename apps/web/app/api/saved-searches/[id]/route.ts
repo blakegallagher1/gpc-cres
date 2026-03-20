@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { SavedSearchService } from "@/lib/services/saved-search.service";
 import { AppError } from "@/lib/errors";
+import * as Sentry from "@sentry/nextjs";
 
 const service = new SavedSearchService();
 
@@ -20,6 +21,9 @@ export async function GET(
     const search = await service.getById(id, auth.orgId, auth.userId);
     return NextResponse.json({ search });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.saved-searches", method: "GET" },
+    });
     if (error instanceof AppError) {
       return NextResponse.json({ error: error.message }, { status: error.statusCode });
     }
@@ -54,6 +58,9 @@ export async function PATCH(
 
     return NextResponse.json({ search });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.saved-searches", method: "PATCH" },
+    });
     if (error instanceof AppError) {
       return NextResponse.json({ error: error.message }, { status: error.statusCode });
     }
@@ -80,6 +87,9 @@ export async function DELETE(
     await service.delete(id, auth.orgId, auth.userId);
     return NextResponse.json({ success: true });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.saved-searches", method: "DELETE" },
+    });
     if (error instanceof AppError) {
       return NextResponse.json({ error: error.message }, { status: error.statusCode });
     }

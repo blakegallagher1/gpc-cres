@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import * as Sentry from "@sentry/nextjs";
 
 interface ActivityItem {
   type: "run" | "task" | "upload" | "message";
@@ -106,6 +107,9 @@ export async function GET(
 
     return NextResponse.json({ activity: items.slice(0, 50) });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.activity", method: "GET" },
+    });
     console.error("Error fetching activity:", error);
     return NextResponse.json(
       { error: "Failed to fetch activity" },

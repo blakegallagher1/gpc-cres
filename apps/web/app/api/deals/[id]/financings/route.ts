@@ -10,6 +10,7 @@ import {
   type DealFinancingPatchWithIdInput,
 } from "@entitlement-os/shared";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import * as Sentry from "@sentry/nextjs";
 
 const paramsSchema = z.object({
   id: z.string().uuid(),
@@ -210,6 +211,9 @@ export async function GET(
       financings: financings.map((item) => serializeFinancing(item as DealFinancingRecord)),
     });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.financings", method: "GET" },
+    });
     console.error("Error reading deal financings:", error);
     return NextResponse.json(
       { error: "Failed to load financings" },
@@ -266,6 +270,9 @@ export async function POST(
       financing: serializeFinancing(financing as DealFinancingRecord),
     });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.financings", method: "POST" },
+    });
     if (error instanceof ZodError) {
       return NextResponse.json(
         { error: "Invalid financing payload", issues: error.flatten().fieldErrors },
@@ -334,6 +341,9 @@ export async function PATCH(
       financing: serializeFinancing(financing as DealFinancingRecord),
     });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.financings", method: "PATCH" },
+    });
     if (error instanceof ZodError) {
       return NextResponse.json(
         { error: "Invalid financing payload", issues: error.flatten().fieldErrors },
@@ -395,6 +405,9 @@ export async function DELETE(
       financing: serializeFinancing(deleted as DealFinancingRecord),
     });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.financings", method: "DELETE" },
+    });
     if (error instanceof ZodError) {
       return NextResponse.json(
         { error: "Invalid financing id", issues: error.flatten().fieldErrors },

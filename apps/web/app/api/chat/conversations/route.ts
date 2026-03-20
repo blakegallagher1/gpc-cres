@@ -3,6 +3,7 @@ import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { isChatPersistenceUnavailable } from "@/app/api/chat/_lib/errorHandling";
 import { shouldUseAppDatabaseDevFallback } from "@/lib/server/appDbEnv";
+import * as Sentry from "@sentry/nextjs";
 
 // GET /api/chat/conversations — list conversations for the current user's org
 export async function GET(request: NextRequest) {
@@ -38,6 +39,9 @@ export async function GET(request: NextRequest) {
       })),
     });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.chat.conversations", method: "GET" },
+    });
     if (isChatPersistenceUnavailable(error)) {
       return NextResponse.json({ conversations: [], degraded: true });
     }

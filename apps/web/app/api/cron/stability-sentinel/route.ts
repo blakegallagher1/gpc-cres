@@ -77,6 +77,9 @@ async function runProbe(endpoint: string, method: string, body?: string): Promis
       await res.text().catch(() => "");
       runs.push({ status: res.status, totalMs: Math.round(performance.now() - start) });
     } catch (err) {
+      Sentry.captureException(err, {
+        tags: { route: "api.cron.stability-sentinel", method: "UNKNOWN" },
+      });
       runs.push({
         status: 0,
         totalMs: Math.round(performance.now() - start),
@@ -128,6 +131,9 @@ async function queryWorkflowStats(): Promise<WorkflowStats | null> {
       duplicateKeyViolations: dupRows[0]?.dup_count ?? 0,
     };
   } catch (err) {
+    Sentry.captureException(err, {
+      tags: { route: "api.cron.stability-sentinel", method: "UNKNOWN" },
+    });
     console.error("[sentinel-cron] Workflow stats query failed:", err instanceof Error ? err.message : String(err));
     return null;
   }
@@ -306,6 +312,9 @@ export async function GET(request: Request) {
 
     return NextResponse.json(result);
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.cron.stability-sentinel", method: "GET" },
+    });
     Sentry.captureException(error, { tags: { sentinel: true } });
     return NextResponse.json(
       { ok: false, error: error instanceof Error ? error.message : "Sentinel failed" },

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { getCausalTraces } from "@/lib/services/causalPropagation";
+import * as Sentry from "@sentry/nextjs";
 
 // GET /api/entities/[id]/causal-traces — Get causal impact traces for an entity
 export async function GET(
@@ -21,6 +22,9 @@ export async function GET(
 
     return NextResponse.json({ traces });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.entities.causal-traces", method: "GET" },
+    });
     console.error("Error fetching causal traces:", error);
     return NextResponse.json(
       { error: "Failed to fetch causal traces" },

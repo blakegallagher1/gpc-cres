@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import * as Sentry from "@sentry/nextjs";
 
 type TraceRow = {
   id: string;
@@ -91,12 +92,18 @@ export async function GET(
 
       return NextResponse.json({ traces });
     } catch (traceError) {
+      Sentry.captureException(traceError, {
+        tags: { route: "api.runs.traces", method: "GET" },
+      });
       // The traces table is not part of the Prisma schema/migrations yet in some envs.
       // Fail open by returning an empty list so the run detail UI can still render.
       console.warn("Traces query failed; returning empty traces list.", traceError);
       return NextResponse.json({ traces: [] });
     }
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.runs.traces", method: "GET" },
+    });
     console.error("Error fetching run traces:", error);
     return NextResponse.json(
       { error: "Failed to fetch traces" },

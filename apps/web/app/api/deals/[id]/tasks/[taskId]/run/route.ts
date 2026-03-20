@@ -168,6 +168,9 @@ export async function POST(
           data: { status: "TODO" },
         });
       } catch (error) {
+        Sentry.captureException(error, {
+          tags: { route: "api.deals.tasks.run", method: "POST" },
+        });
         const errMsg = error instanceof Error ? error.message : "Task execution failed";
         controller.enqueue(encoder.encode(sseEvent({ type: "error", message: errMsg })));
         await prisma.task.update({ where: { id: taskId }, data: { status: "TODO" } }).catch((updateError) => {

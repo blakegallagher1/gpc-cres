@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { getTruthView } from "@/lib/services/truthViewService";
+import * as Sentry from "@sentry/nextjs";
 
 // GET /api/entities/[id]/truth — Get the current truth view for an entity
 export async function GET(
@@ -18,6 +19,9 @@ export async function GET(
 
     return NextResponse.json(truth);
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.entities.truth", method: "GET" },
+    });
     console.error("Error fetching truth view:", error);
     return NextResponse.json(
       { error: "Failed to fetch truth view" },

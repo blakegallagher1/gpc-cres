@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
+import * as Sentry from "@sentry/nextjs";
 
 export const runtime = "nodejs";
 
@@ -58,6 +59,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ ok: true, stored: true });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.admin.sentinel-alerts", method: "POST" },
+    });
     return NextResponse.json(
       { ok: false, error: error instanceof Error ? error.message : "Storage failed" },
       { status: 500 },

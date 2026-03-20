@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import type { Prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import * as Sentry from "@sentry/nextjs";
 
 const PACK_STALE_DAYS = 7;
 
@@ -334,6 +335,9 @@ function buildJurisdictionResponse(
       },
     };
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.jurisdictions", method: "UNKNOWN" },
+    });
     console.error("[jurisdictions] failed to shape jurisdiction response", {
       jurisdictionId: record.id,
       jurisdictionName: record.name,
@@ -402,6 +406,9 @@ export async function GET(request: NextRequest) {
           );
         }
       } catch (error) {
+        Sentry.captureException(error, {
+          tags: { route: "api.jurisdictions", method: "GET" },
+        });
         console.warn("[jurisdictions] failed to load official domains", {
           orgId: auth.orgId,
           jurisdictionCount: jurisdictionIds.length,
@@ -431,6 +438,9 @@ export async function GET(request: NextRequest) {
           }
         }
       } catch (error) {
+        Sentry.captureException(error, {
+          tags: { route: "api.jurisdictions", method: "GET" },
+        });
         packLookupFailed = true;
         console.warn("[jurisdictions] failed to load current parish packs", {
           orgId: auth.orgId,
@@ -451,6 +461,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ jurisdictions: result });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.jurisdictions", method: "GET" },
+    });
     console.error("Error fetching jurisdictions:", error);
     return NextResponse.json(
       { error: "Failed to fetch jurisdictions" },

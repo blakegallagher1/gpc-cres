@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import * as Sentry from "@sentry/nextjs";
 
 // GET /api/runs/[runId] - run details (org-scoped)
 export async function GET(
@@ -61,6 +62,9 @@ export async function GET(
       },
     });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.runs", method: "GET" },
+    });
     console.error("Error fetching run:", error);
     return NextResponse.json({ error: "Failed to fetch run" }, { status: 500 });
   }
@@ -89,6 +93,9 @@ export async function DELETE(
 
     return NextResponse.json({ ok: true });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.runs", method: "DELETE" },
+    });
     console.error("Error deleting run:", error);
     return NextResponse.json({ error: "Failed to delete run" }, { status: 500 });
   }

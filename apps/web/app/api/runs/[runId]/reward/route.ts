@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { addRewardSignal } from "@/lib/agent/reward.service";
+import * as Sentry from "@sentry/nextjs";
 
 type RewardPayload = {
   userScore?: unknown;
@@ -83,6 +84,9 @@ export async function POST(
       },
     });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.runs.reward", method: "POST" },
+    });
     console.error("Error saving run reward", error);
     if ((error as Error).message.includes("does not exist")) {
       return NextResponse.json({ error: "Episode not found for this run" }, { status: 404 });

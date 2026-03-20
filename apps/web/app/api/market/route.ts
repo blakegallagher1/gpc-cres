@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import {
+import * as Sentry from "@sentry/nextjs";
   getParishSummary,
   getMarketTrends,
   getRecentDataPoints,
@@ -50,6 +51,9 @@ export async function GET(req: NextRequest) {
       }
     }
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.market", method: "GET" },
+    });
     console.error("Market data error:", error);
     return NextResponse.json(
       { error: "Failed to fetch market data" },
@@ -85,6 +89,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ id });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.market", method: "POST" },
+    });
     console.error("Add market data error:", error);
     return NextResponse.json(
       { error: "Failed to add market data" },

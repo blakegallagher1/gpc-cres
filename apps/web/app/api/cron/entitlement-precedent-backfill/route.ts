@@ -6,6 +6,7 @@ import type { Prisma } from "@entitlement-os/db";
 import { backfillEntitlementOutcomePrecedents } from "@/lib/services/entitlementPrecedentBackfill.service";
 import { runEntitlementKpiDriftMonitor } from "@/lib/services/entitlementKpiMonitor.service";
 import { runEntitlementStrategyAutopilotSweep } from "@/lib/services/entitlementStrategyAutopilot.service";
+import * as Sentry from "@sentry/nextjs";
 
 function verifyCronSecret(req: Request): boolean {
   const secret = (process.env.CRON_SECRET || "").trim();
@@ -77,6 +78,9 @@ export async function GET(req: Request) {
           jurisdictionId: jurisdictionId ?? undefined,
         }));
       } catch (monitorError) {
+        Sentry.captureException(monitorError, {
+          tags: { route: "api.cron.entitlement-precedent-backfill", method: "GET" },
+        });
         kpiMonitorSummary = toInputJsonValue({
           success: false,
           error: monitorError instanceof Error ? monitorError.message : String(monitorError),
@@ -90,6 +94,9 @@ export async function GET(req: Request) {
           jurisdictionId,
         }));
       } catch (autopilotError) {
+        Sentry.captureException(autopilotError, {
+          tags: { route: "api.cron.entitlement-precedent-backfill", method: "GET" },
+        });
         autopilotSummary = toInputJsonValue({
           success: false,
           error: autopilotError instanceof Error ? autopilotError.message : String(autopilotError),
@@ -117,6 +124,9 @@ export async function GET(req: Request) {
         strategyAutopilot: autopilotSummary,
       });
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { route: "api.cron.entitlement-precedent-backfill", method: "GET" },
+      });
       const message = error instanceof Error ? error.message : String(error);
       await prisma.run.update({
         where: { id: run.id },

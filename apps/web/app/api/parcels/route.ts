@@ -13,6 +13,7 @@ import {
   requireGatewayConfig,
 } from "@/lib/server/propertyDbEnv";
 import { isPrismaConnectivityError } from "@/lib/server/devParcelFallback";
+import * as Sentry from "@sentry/nextjs";
 
 const PROPERTY_DB_PARISHES = [
   "East Baton Rouge",
@@ -421,6 +422,9 @@ async function gatewaySearchParcels(q: string, limit: number): Promise<unknown[]
     if (!text) return [];
     return parseRpcResponseArray(text);
   } catch (err) {
+    Sentry.captureException(err, {
+      tags: { route: "api.parcels", method: "UNKNOWN" },
+    });
     if (isGatewayUnavailableError(err)) {
       throw err;
     }
@@ -453,6 +457,9 @@ async function runWithConcurrency<T>(
         const value = await tasks[currentIndex]();
         results[currentIndex] = { status: "fulfilled", value };
       } catch (reason) {
+        Sentry.captureException(reason, {
+          tags: { route: "api.parcels", method: "UNKNOWN" },
+        });
         results[currentIndex] = { status: "rejected", reason };
       }
     }
@@ -704,6 +711,9 @@ export async function GET(request: NextRequest) {
         });
         return withRequestId(NextResponse.json({ parcels, source: "org" }));
       } catch (error) {
+        Sentry.captureException(error, {
+          tags: { route: "api.parcels", method: "GET" },
+        });
         if (isPrismaConnectivityError(error)) {
           console.error(
             "[/api/parcels] prisma unavailable for org parcels",
@@ -738,6 +748,9 @@ export async function GET(request: NextRequest) {
       try {
         orgSearchMatches = await fetchOrgFallbackParcels(auth.orgId, searchText);
       } catch (orgSearchError) {
+        Sentry.captureException(orgSearchError, {
+          tags: { route: "api.parcels", method: "GET" },
+        });
         console.error("[/api/parcels] org search seed failed", orgSearchError);
       }
     }
@@ -918,6 +931,9 @@ export async function GET(request: NextRequest) {
     response.headers.set("Cache-Control", "private, max-age=30, stale-while-revalidate=120");
     return withRequestId(response);
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.parcels", method: "GET" },
+    });
     if (isGatewayUnavailableError(error)) {
       console.error("[/api/parcels] property DB unavailable", error);
       if (auth?.orgId) {
@@ -946,6 +962,9 @@ export async function GET(request: NextRequest) {
             }),
           );
         } catch (fallbackError) {
+          Sentry.captureException(fallbackError, {
+            tags: { route: "api.parcels", method: "GET" },
+          });
           console.error("[/api/parcels] org fallback failed", fallbackError);
         }
       }

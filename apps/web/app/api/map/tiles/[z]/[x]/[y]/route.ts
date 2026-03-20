@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCloudflareAccessHeadersFromEnv } from "@/lib/server/propertyDbEnv";
+import * as Sentry from "@sentry/nextjs";
 
 const CACHE_MAX_AGE = 86400; // 24h — tiles are immutable for given xyz
 const CACHE_STALE = 604800; // 7d — allow CDN to serve stale while revalidating
@@ -80,6 +81,9 @@ export async function GET(_req: Request, { params }: RouteParams) {
       },
     });
   } catch (err) {
+    Sentry.captureException(err, {
+      tags: { route: "api.map.tiles", method: "GET" },
+    });
     console.error("[tiles] Proxy error:", err);
     return NextResponse.json(
       { error: "Failed to fetch tile from local API" },

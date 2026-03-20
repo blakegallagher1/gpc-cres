@@ -211,6 +211,9 @@ export async function POST(
         TRIAGE_RESULT_TIMEOUT_MS,
       );
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { route: "api.deals.triage", method: "POST" },
+      });
       if (!isTriageTimeout(error)) {
         throw error;
       }
@@ -317,6 +320,9 @@ export async function POST(
       sources: result.sources,
     });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.triage", method: "POST" },
+    });
     console.error("Error running triage:", error);
     Sentry.captureException(error, {
       tags: { route: "/api/deals/[id]/triage", method: "POST" },
@@ -378,6 +384,9 @@ export async function GET(
       rerun: normalized.rerun,
     });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.triage", method: "GET" },
+    });
     console.error("Error fetching triage:", error);
     Sentry.captureException(error, {
       tags: { route: "/api/deals/[id]/triage", method: "GET" },
@@ -533,6 +542,9 @@ async function generateTriagePdf(params: TriagePdfParams): Promise<void> {
 
     console.log(`Auto-generated TRIAGE_PDF v${nextVersion} for deal ${dealId}`);
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.triage", method: "GET" },
+    });
     const errorMsg = error instanceof Error ? error.message : String(error);
     await prisma.run.update({
       where: { id: run.id },

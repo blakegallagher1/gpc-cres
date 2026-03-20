@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { getMemoryEventService } from "@/lib/services/memoryEventService";
+import * as Sentry from "@sentry/nextjs";
 
 // GET /api/entities/[id]/memory — Get entity memory events
 export async function GET(
@@ -36,6 +37,9 @@ export async function GET(
       pagination: result.pagination,
     });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.entities.memory", method: "GET" },
+    });
     console.error("Error fetching entity memory:", error);
     return NextResponse.json(
       { error: "Failed to fetch entity memory" },

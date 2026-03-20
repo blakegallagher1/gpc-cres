@@ -3,6 +3,7 @@ import { z } from "zod";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { SavedSearchService } from "@/lib/services/saved-search.service";
 import { AppError } from "@/lib/errors";
+import * as Sentry from "@sentry/nextjs";
 
 const service = new SavedSearchService();
 const OpportunityActionSchema = z.object({
@@ -45,6 +46,9 @@ export async function PATCH(
     const match = await service.markPursued(id, auth.orgId, auth.userId);
     return NextResponse.json({ match });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.opportunities", method: "PATCH" },
+    });
     if (error instanceof AppError) {
       return NextResponse.json({ error: error.message }, { status: error.statusCode });
     }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { NotificationService } from "@/lib/services/notification.service";
 import { AppError } from "@/lib/errors";
+import * as Sentry from "@sentry/nextjs";
 
 const service = new NotificationService();
 
@@ -34,6 +35,9 @@ export async function PATCH(
       { status: 400 }
     );
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.notifications", method: "PATCH" },
+    });
     if (error instanceof AppError) {
       return NextResponse.json(
         { error: error.message },

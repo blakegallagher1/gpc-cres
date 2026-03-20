@@ -3,6 +3,7 @@ import { z } from "zod";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { SavedSearchService } from "@/lib/services/saved-search.service";
 import { AppError } from "@/lib/errors";
+import * as Sentry from "@sentry/nextjs";
 
 const service = new SavedSearchService();
 const BulkSavedSearchSchema = z.object({
@@ -21,6 +22,9 @@ export async function GET(request: NextRequest) {
     const searches = await service.getAll(auth.orgId, auth.userId);
     return NextResponse.json({ searches });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.saved-searches", method: "GET" },
+    });
     console.error("Error fetching saved searches:", error);
     return NextResponse.json(
       { error: "Failed to fetch saved searches" },
@@ -57,6 +61,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ search }, { status: 201 });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.saved-searches", method: "POST" },
+    });
     console.error("Error creating saved search:", error);
     return NextResponse.json(
       { error: "Failed to create saved search" },
@@ -101,6 +108,9 @@ export async function PATCH(request: NextRequest) {
     );
     return NextResponse.json({ action: parsed.data.action, result });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.saved-searches", method: "PATCH" },
+    });
     if (error instanceof AppError) {
       return NextResponse.json({ error: error.message }, { status: error.statusCode });
     }

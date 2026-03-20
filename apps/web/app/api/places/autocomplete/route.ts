@@ -3,6 +3,7 @@ import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { getGatewayConfig } from "@/lib/gateway-proxy";
 import { validateAddress } from "@/lib/server/googleMapsValidation";
 import { getCloudflareAccessHeadersFromEnv } from "@/lib/server/propertyDbEnv";
+import * as Sentry from "@sentry/nextjs";
 
 // ---------------------------------------------------------------------------
 // GET /api/places/autocomplete?q=<query>
@@ -103,6 +104,9 @@ async function googleAutocomplete(
         };
       });
   } catch (err) {
+    Sentry.captureException(err, {
+      tags: { route: "api.places.autocomplete", method: "UNKNOWN" },
+    });
     console.warn("[places/autocomplete] Google fetch failed:", err);
     return [];
   }
@@ -156,6 +160,9 @@ async function parcelDbAutocomplete(
       };
     });
   } catch (err) {
+    Sentry.captureException(err, {
+      tags: { route: "api.places.autocomplete", method: "UNKNOWN" },
+    });
     console.warn("[places/autocomplete] parcel DB fetch failed:", err);
     return [];
   }

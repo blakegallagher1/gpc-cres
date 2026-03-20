@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import * as Sentry from "@sentry/nextjs";
 
 // GET /api/deals/[id]/waterfall — load saved waterfall structures
 export async function GET(
@@ -27,6 +28,9 @@ export async function GET(
     const structures = (deal.waterfallStructures as Record<string, unknown>[] | null) ?? [];
     return NextResponse.json({ structures });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.waterfall", method: "GET" },
+    });
     console.error("Error loading waterfall structures:", error);
     return NextResponse.json(
       { error: "Failed to load waterfall structures" },
@@ -73,6 +77,9 @@ export async function PUT(
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.waterfall", method: "PUT" },
+    });
     console.error("Error saving waterfall structures:", error);
     return NextResponse.json(
       { error: "Failed to save waterfall structures" },

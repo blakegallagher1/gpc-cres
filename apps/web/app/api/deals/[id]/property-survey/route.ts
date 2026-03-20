@@ -7,6 +7,7 @@ import {
   PropertySurveyPatchInputSchema,
 } from "@entitlement-os/shared";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import * as Sentry from "@sentry/nextjs";
 
 const paramsSchema = z.object({
   id: z.string().uuid(),
@@ -143,6 +144,9 @@ export async function GET(
         : null,
     });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.property-survey", method: "GET" },
+    });
     console.error("Error reading property survey:", error);
     return NextResponse.json(
       { error: "Failed to load property survey" },
@@ -199,6 +203,9 @@ export async function PUT(
       propertySurvey: serializePropertySurvey(propertySurvey as PropertySurveyRecord),
     });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.property-survey", method: "PUT" },
+    });
     console.error("Error saving property survey:", error);
     return NextResponse.json(
       { error: "Failed to save property survey" },

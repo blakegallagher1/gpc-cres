@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import {
+import * as Sentry from "@sentry/nextjs";
   getParcelEnrichmentPayload,
   searchPropertyDbMatches,
 } from "@/lib/automation/enrichment";
@@ -78,6 +79,9 @@ export async function POST(
 
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.parcels.enrich", method: "POST" },
+    });
     console.error("Enrich error:", error);
     return NextResponse.json(
       { error: "Enrichment failed" },

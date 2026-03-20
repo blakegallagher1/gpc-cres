@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z, ZodError } from "zod";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import * as Sentry from "@sentry/nextjs";
 
 const IsochroneRequestSchema = z.object({
   lat: z.coerce.number().min(-90).max(90),
@@ -39,6 +40,9 @@ export async function POST(req: NextRequest) {
   try {
     input = IsochroneRequestSchema.parse(body);
   } catch (err) {
+    Sentry.captureException(err, {
+      tags: { route: "api.map.isochrone", method: "POST" },
+    });
     if (err instanceof ZodError) {
       return NextResponse.json(
         { error: "Validation failed", details: err.flatten().fieldErrors },
@@ -59,6 +63,9 @@ export async function POST(req: NextRequest) {
     );
     return NextResponse.json({ polygon });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.map.isochrone", method: "POST" },
+    });
     console.error("[map-isochrone-route]", error);
     return NextResponse.json(
       { error: "Failed to compute isochrone" },

@@ -5,6 +5,7 @@ import { ZodError, z } from "zod";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { toolRegistry } from "@/lib/agent/toolRegistry";
 import {
+import * as Sentry from "@sentry/nextjs";
   type ToolDestination,
   type ToolQuotaClass,
   type ToolRiskLevel,
@@ -161,6 +162,9 @@ export async function POST(req: NextRequest) {
   try {
     auth = await resolveAuth(req);
   } catch (err) {
+    Sentry.captureException(err, {
+      tags: { route: "api.agent.tools.execute", method: "POST" },
+    });
     console.error("[tools/execute] resolveAuth error:", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Auth resolution failed" },
@@ -178,6 +182,9 @@ export async function POST(req: NextRequest) {
     const rawRequest = RawToolExecutionRequestSchema.parse(rawBody);
     requestBody = normalizeToolExecutionRequest(rawRequest);
   } catch (err) {
+    Sentry.captureException(err, {
+      tags: { route: "api.agent.tools.execute", method: "POST" },
+    });
     if (err instanceof ZodError) {
       return NextResponse.json(
         { error: "Validation failed", details: err.flatten().fieldErrors },
@@ -220,6 +227,9 @@ export async function POST(req: NextRequest) {
   try {
     metadata = getToolMetadata(requestedToolName, canonicalToolName, catalogEntry);
   } catch (err) {
+    Sentry.captureException(err, {
+      tags: { route: "api.agent.tools.execute", method: "POST" },
+    });
     return NextResponse.json(
       {
         error: err instanceof Error ? err.message : "Tool transport policy unavailable",

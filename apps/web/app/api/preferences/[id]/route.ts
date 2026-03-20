@@ -3,6 +3,7 @@ import { ZodError, z } from "zod";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { updateUserPreference } from "@/lib/services/preferenceService";
 import { shouldUseAppDatabaseDevFallback } from "@/lib/server/appDbEnv";
+import * as Sentry from "@sentry/nextjs";
 
 const PreferencePatchSchema = z
   .object({
@@ -45,6 +46,9 @@ export async function PATCH(
 
     return NextResponse.json({ preference });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.preferences", method: "PATCH" },
+    });
     if (error instanceof ZodError) {
       return NextResponse.json(
         { error: "Validation failed", details: error.flatten().fieldErrors },

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { AppError } from "@/lib/errors";
 import { SavedSearchService } from "@/lib/services/saved-search.service";
+import * as Sentry from "@sentry/nextjs";
 
 const service = new SavedSearchService();
 const BulkOpportunitySchema = z.object({
@@ -43,6 +44,9 @@ export async function GET(request: NextRequest) {
     );
     return NextResponse.json(result);
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.opportunities", method: "GET" },
+    });
     if (error instanceof AppError) {
       return NextResponse.json({ error: error.message }, { status: error.statusCode });
     }
@@ -85,6 +89,9 @@ export async function PATCH(request: NextRequest) {
       result,
     });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.opportunities", method: "PATCH" },
+    });
     if (error instanceof AppError) {
       return NextResponse.json({ error: error.message }, { status: error.statusCode });
     }

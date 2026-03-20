@@ -14,6 +14,7 @@ import {
 } from "@/lib/services/knowledgeBase.service";
 import { getInstitutionalKnowledgeIngestService } from "@/lib/services/institutionalKnowledgeIngest.service";
 import { shouldUseAppDatabaseDevFallback } from "@/lib/server/appDbEnv";
+import * as Sentry from "@sentry/nextjs";
 
 function isKnowledgeContentType(value: string): value is KnowledgeContentType {
   return (KNOWLEDGE_CONTENT_TYPES as readonly string[]).includes(value);
@@ -124,6 +125,9 @@ export async function GET(req: NextRequest) {
       }
     }
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.knowledge", method: "GET" },
+    });
     console.error("Knowledge base error:", error);
     if (isKnowledgeSearchError(error)) {
       return NextResponse.json({ error: error.message }, { status: error.status });
@@ -221,6 +225,9 @@ export async function POST(req: NextRequest) {
         );
     }
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.knowledge", method: "POST" },
+    });
     console.error("Knowledge ingest error:", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed" },

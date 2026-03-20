@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { getPendingCollisions, resolveCollision } from "@/lib/services/entityCollisionDetector";
+import * as Sentry from "@sentry/nextjs";
 
 // GET /api/memory/entity-collisions — Get pending collision alerts
 export async function GET(req: NextRequest) {
@@ -13,6 +14,9 @@ export async function GET(req: NextRequest) {
     const alerts = await getPendingCollisions(auth.orgId);
     return NextResponse.json({ alerts });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.memory.entity-collisions", method: "GET" },
+    });
     console.error("Error fetching collision alerts:", error);
     return NextResponse.json(
       { error: "Failed to fetch collision alerts" },
@@ -43,6 +47,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.memory.entity-collisions", method: "POST" },
+    });
     console.error("Error resolving collision:", error);
     return NextResponse.json(
       { error: "Failed to resolve collision" },

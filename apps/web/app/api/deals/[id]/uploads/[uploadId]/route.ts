@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import {
+import * as Sentry from "@sentry/nextjs";
   getDownloadUrlFromGateway,
   deleteObjectFromGateway,
 } from "@/lib/storage/gatewayStorage";
@@ -34,6 +35,9 @@ export async function GET(
 
     return NextResponse.json({ url: downloadUrl });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.uploads", method: "GET" },
+    });
     console.error("Error getting upload URL:", error);
     return NextResponse.json(
       { error: "Failed to get upload URL" },
@@ -71,6 +75,9 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.uploads", method: "DELETE" },
+    });
     console.error("Error deleting upload:", error);
     return NextResponse.json(
       { error: "Failed to delete upload" },

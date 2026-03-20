@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "@entitlement-os/db";
 import { PropertyTitlePatchInput, PropertyTitlePatchInputSchema } from "@entitlement-os/shared";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import * as Sentry from "@sentry/nextjs";
 
 const paramsSchema = z.object({
   id: z.string().uuid(),
@@ -129,6 +130,9 @@ export async function GET(
       propertyTitle: propertyTitle ? serializePropertyTitle(propertyTitle as PropertyTitleRecord) : null,
     });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.property-title", method: "GET" },
+    });
     console.error("Error reading property title:", error);
     return NextResponse.json(
       { error: "Failed to load property title" },
@@ -183,6 +187,9 @@ export async function PUT(
 
     return NextResponse.json({ propertyTitle: serializePropertyTitle(propertyTitle as PropertyTitleRecord) });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.property-title", method: "PUT" },
+    });
     console.error("Error saving property title:", error);
     return NextResponse.json(
       { error: "Failed to save property title" },

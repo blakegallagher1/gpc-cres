@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { runAgentWorkflow } from "@/lib/agent/agentRunner";
 import type { AgentInputMessage } from "@/lib/agent/executeAgent";
+import * as Sentry from "@sentry/nextjs";
 
 type AgentApiPayload = {
   message?: string;
@@ -158,6 +159,9 @@ export async function POST(req: NextRequest) {
           },
         });
       } catch (error) {
+        Sentry.captureException(error, {
+          tags: { route: "api.agent", method: "POST" },
+        });
         const errMsg = error instanceof Error ? error.message : "Agent execution failed";
         console.error(`[agent-route][${correlationId}]`, errMsg);
         controller.enqueue(

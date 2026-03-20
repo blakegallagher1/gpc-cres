@@ -10,6 +10,7 @@ import {
   DealRiskIdSchema,
 } from "@entitlement-os/shared";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import * as Sentry from "@sentry/nextjs";
 
 const paramsSchema = z.object({
   id: z.string().uuid(),
@@ -165,6 +166,9 @@ export async function GET(
 
     return NextResponse.json({ risks: risks.map((risk) => serializeRisk(risk as RiskRecord)) });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.risks", method: "GET" },
+    });
     console.error("Error reading deal risks:", error);
     return NextResponse.json(
       { error: "Failed to load deal risks" },
@@ -218,6 +222,9 @@ export async function POST(
 
     return NextResponse.json({ risk: serializeRisk(risk as RiskRecord) });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.risks", method: "POST" },
+    });
     if (error instanceof ZodError) {
       return NextResponse.json(
         { error: "Invalid risk payload", issues: error.flatten().fieldErrors },
@@ -284,6 +291,9 @@ export async function PATCH(
 
     return NextResponse.json({ risk: serializeRisk(risk as RiskRecord) });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.risks", method: "PATCH" },
+    });
     if (error instanceof ZodError) {
       return NextResponse.json(
         { error: "Invalid risk payload", issues: error.flatten().fieldErrors },
@@ -343,6 +353,9 @@ export async function DELETE(
 
     return NextResponse.json({ risk: serializeRisk(risk as RiskRecord) });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.risks", method: "DELETE" },
+    });
     if (error instanceof ZodError) {
       return NextResponse.json(
         { error: "Invalid risk id", issues: error.flatten().fieldErrors },

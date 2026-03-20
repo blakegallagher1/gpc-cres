@@ -4,6 +4,7 @@ import {
   DealOutcomePatchInputSchema,
 } from "@entitlement-os/shared";
 import {
+import * as Sentry from "@sentry/nextjs";
   getDealOutcomeForOrg,
   updateDealOutcomeForOrg,
 } from "@/lib/services/outcomeTracking.service";
@@ -26,6 +27,9 @@ export async function GET(
 
     return NextResponse.json({ outcome });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.outcomes", method: "GET" },
+    });
     console.error("Outcome get error:", error);
     return NextResponse.json(
       { error: "Failed to fetch outcome" },
@@ -62,6 +66,9 @@ export async function PATCH(
     );
     return NextResponse.json({ outcome });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.outcomes", method: "PATCH" },
+    });
     if (error instanceof Error && error.message === "Outcome not found") {
       return NextResponse.json(
         { error: "Outcome not found" },

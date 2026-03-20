@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { NotificationService } from "@/lib/services/notification.service";
+import * as Sentry from "@sentry/nextjs";
 
 const service = new NotificationService();
 
@@ -15,6 +16,9 @@ export async function POST(request: NextRequest) {
     const count = await service.markAllRead(auth.userId);
     return NextResponse.json({ success: true, markedRead: count });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.notifications.mark-all-read", method: "POST" },
+    });
     console.error("Error marking all notifications read:", error);
     return NextResponse.json(
       { error: "Failed to mark all read" },

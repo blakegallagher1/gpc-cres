@@ -6,6 +6,7 @@ import {
 } from "@/lib/agent/executeAgent";
 import { sanitizeChatErrorMessage } from "@/app/api/chat/_lib/errorHandling";
 import { shouldUseAppDatabaseDevFallback } from "@/lib/server/appDbEnv";
+import * as Sentry from "@sentry/nextjs";
 
 export async function POST(req: NextRequest) {
   let body: {
@@ -58,6 +59,9 @@ export async function POST(req: NextRequest) {
 
     return Response.json({ ok: true, events });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.chat.tool-approval", method: "POST" },
+    });
     const message =
       error instanceof Error ? error.message : "Failed to apply approval decision";
     const sanitized = sanitizeChatErrorMessage(message);

@@ -28,7 +28,19 @@ export async function GET(request: NextRequest) {
     const day1Ago = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     const day7Ago = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-    const [knowledgeCount, verifiedCount, entityCount, runs24h, recentActivity, knowledgeByType] =
+    const [
+      knowledgeCount,
+      verifiedCount,
+      entityCount,
+      runs24h,
+      recentActivity,
+      knowledgeByType,
+      trajectoryLogCount,
+      episodicEntryCount,
+      proceduralSkillCount,
+      proceduralSkillEpisodeCount,
+      promotionGroups,
+    ] =
       await Promise.all([
         prisma.$queryRawUnsafe<[{ count: bigint }]>(
           `SELECT count(*) FROM knowledge_embeddings WHERE org_id = $1::uuid`,
@@ -52,13 +64,32 @@ export async function GET(request: NextRequest) {
           `SELECT content_type, count(*) FROM knowledge_embeddings WHERE org_id = $1::uuid GROUP BY content_type ORDER BY count(*) DESC`,
           orgId
         ).then((rows) => rows.map((r) => ({ contentType: r.content_type, count: Number(r.count) }))),
+        prisma.trajectoryLog.count({ where: { orgId } }),
+        prisma.episodicEntry.count({ where: { orgId } }),
+        prisma.proceduralSkill.count({ where: { orgId } }),
+        prisma.proceduralSkillEpisode.count({ where: { orgId } }),
+        prisma.run.groupBy({
+          by: ["memoryPromotionStatus"],
+          where: { orgId },
+          _count: true,
+        }),
       ]);
+
+    const promotionBreakdown = promotionGroups.reduce<Record<string, number>>((acc, group) => {
+      acc[group.memoryPromotionStatus ?? "unset"] = group._count;
+      return acc;
+    }, {});
 
     result.overview = {
       knowledgeCount,
       verifiedCount,
       entityCount,
+      trajectoryLogCount,
+      episodicEntryCount,
+      proceduralSkillCount,
+      proceduralSkillEpisodeCount,
       runs24h,
+      promotionBreakdown,
       recentActivity: recentActivity.map((e) => ({
         type: e.sourceType,
         summary: `${e.sourceType}: ${e.factType ?? "unknown"}`,
@@ -206,7 +237,7 @@ export async function GET(request: NextRequest) {
     const day1Ago = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     const day7Ago = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-    const [runs, total, stats, dailyByRunType] = await Promise.all([
+    const [runs, total, stats, dailyByRunType, learningCounts] = await Promise.all([
       prisma.run.findMany({
         where: { orgId },
         orderBy: { startedAt: "desc" },
@@ -220,6 +251,9 @@ export async function GET(request: NextRequest) {
           finishedAt: true,
           error: true,
           dealId: true,
+          memoryPromotionStatus: true,
+          memoryPromotedAt: true,
+          memoryPromotionError: true,
         },
       }),
       prisma.run.count({ where: { orgId } }),
@@ -243,6 +277,15 @@ export async function GET(request: NextRequest) {
         runType: g.runType,
         count: g._count,
       }))),
+      Promise.all([
+        prisma.trajectoryLog.count({ where: { orgId } }),
+        prisma.episodicEntry.count({ where: { orgId } }),
+        prisma.proceduralSkill.count({ where: { orgId } }),
+      ]).then(([trajectoryLogs, episodicEntries, proceduralSkills]) => ({
+        trajectoryLogs,
+        episodicEntries,
+        proceduralSkills,
+      })),
     ]);
 
     result.agents = {
@@ -257,11 +300,15 @@ export async function GET(request: NextRequest) {
           : null,
         error: r.error,
         dealId: r.dealId,
+        memoryPromotionStatus: r.memoryPromotionStatus,
+        memoryPromotedAt: r.memoryPromotedAt,
+        memoryPromotionError: r.memoryPromotionError,
       })),
       total,
       page,
       stats,
       dailyByRunType,
+      learningCounts,
     };
   }
 
@@ -269,6 +316,10 @@ export async function GET(request: NextRequest) {
   if (tab === "system") {
     const tableCounts = await Promise.all([
       prisma.run.count({ where: { orgId } }).then((c) => ["runs", c] as const),
+      prisma.trajectoryLog.count({ where: { orgId } }).then((c) => ["trajectoryLogs", c] as const),
+      prisma.episodicEntry.count({ where: { orgId } }).then((c) => ["episodicEntries", c] as const),
+      prisma.proceduralSkill.count({ where: { orgId } }).then((c) => ["proceduralSkills", c] as const),
+      prisma.proceduralSkillEpisode.count({ where: { orgId } }).then((c) => ["proceduralSkillEpisodes", c] as const),
       prisma.memoryVerified.count({ where: { orgId } }).then((c) => ["memoryVerified", c] as const),
       prisma.internalEntity.count({ where: { orgId } }).then((c) => ["internalEntities", c] as const),
       prisma.deal.count({ where: { orgId } }).then((c) => ["deals", c] as const),

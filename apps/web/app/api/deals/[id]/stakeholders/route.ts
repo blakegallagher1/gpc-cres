@@ -12,6 +12,7 @@ import {
   DealStakeholderPatchWithIdInputSchema,
 } from "@entitlement-os/shared";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import * as Sentry from "@sentry/nextjs";
 
 const paramsSchema = z.object({
   id: z.string().uuid(),
@@ -176,6 +177,9 @@ export async function GET(
       stakeholders: stakeholders.map((item) => serializeStakeholder(item as StakeholderRecord)),
     } satisfies StakeholdersResponse);
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.stakeholders", method: "GET" },
+    });
     console.error("Error reading deal stakeholders:", error);
     return NextResponse.json({ error: "Failed to load stakeholders" }, { status: 500 });
   }
@@ -228,6 +232,9 @@ export async function POST(
       stakeholder: serializeStakeholder(stakeholder as StakeholderRecord),
     });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.stakeholders", method: "POST" },
+    });
     if (error instanceof ZodError) {
       return NextResponse.json(
         { error: "Invalid stakeholder payload", issues: error.flatten().fieldErrors },
@@ -292,6 +299,9 @@ export async function PATCH(
       stakeholder: serializeStakeholder(stakeholder as StakeholderRecord),
     });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.stakeholders", method: "PATCH" },
+    });
     if (error instanceof ZodError) {
       return NextResponse.json(
         { error: "Invalid stakeholder payload", issues: error.flatten().fieldErrors },
@@ -353,6 +363,9 @@ export async function DELETE(
       stakeholder: serializeStakeholder(stakeholder as StakeholderRecord),
     });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.stakeholders", method: "DELETE" },
+    });
     if (error instanceof ZodError) {
       return NextResponse.json(
         { error: "Invalid stakeholder id", issues: error.flatten().fieldErrors },

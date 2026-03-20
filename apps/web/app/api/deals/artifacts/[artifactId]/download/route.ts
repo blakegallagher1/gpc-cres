@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { getDownloadUrlFromGateway } from "@/lib/storage/gatewayStorage";
+import * as Sentry from "@sentry/nextjs";
 
 // GET /api/deals/artifacts/[artifactId]/download — download artifact via signed URL
 export async function GET(
@@ -31,6 +32,9 @@ export async function GET(
 
     return NextResponse.redirect(downloadUrl, 302);
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.artifacts.download", method: "GET" },
+    });
     console.error("Error downloading artifact:", error);
     return NextResponse.json(
       { error: "Failed to download artifact" },

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { AGENT_RUN_STATE_KEYS } from "@entitlement-os/shared";
+import * as Sentry from "@sentry/nextjs";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -141,6 +142,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ runs: result });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.runs", method: "GET" },
+    });
     console.error("Error fetching runs:", error);
     return NextResponse.json({ error: "Failed to fetch runs" }, { status: 500 });
   }

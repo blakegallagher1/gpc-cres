@@ -9,6 +9,7 @@ import {
   getPendingCount,
 } from "@/lib/services/approval.service";
 import type { DealStatus } from "@entitlement-os/shared";
+import * as Sentry from "@sentry/nextjs";
 
 export async function GET(req: NextRequest) {
   const auth = await resolveAuth(req);
@@ -28,6 +29,9 @@ export async function GET(req: NextRequest) {
     const approvals = await getPendingApprovals(auth.orgId);
     return NextResponse.json({ approvals });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.approvals", method: "GET" },
+    });
     console.error("Approvals error:", error);
     return NextResponse.json(
       { error: "Failed to fetch approvals" },
@@ -63,6 +67,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ id });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.approvals", method: "POST" },
+    });
     console.error("Create approval error:", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed" },
@@ -119,6 +126,9 @@ export async function PATCH(req: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.approvals", method: "PATCH" },
+    });
     console.error("Approval action error:", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed" },

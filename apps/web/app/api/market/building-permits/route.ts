@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ZodError, z } from "zod";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import {
+import * as Sentry from "@sentry/nextjs";
   getEbrBuildingPermitsFeed,
   type BuildingPermitsDesignation,
 } from "@/lib/services/buildingPermits.service";
@@ -46,6 +47,9 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (err) {
+    Sentry.captureException(err, {
+      tags: { route: "api.market.building-permits", method: "GET" },
+    });
     if (err instanceof ZodError) {
       return NextResponse.json(
         {

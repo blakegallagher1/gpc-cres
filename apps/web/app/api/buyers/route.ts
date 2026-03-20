@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import type { Prisma } from "@entitlement-os/db";
+import * as Sentry from "@sentry/nextjs";
 
 // GET /api/buyers - list buyers for the org
 export async function GET(request: NextRequest) {
@@ -127,6 +128,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ buyers: normalizedBuyers });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.buyers", method: "GET" },
+    });
     console.error("Error fetching buyers:", error);
     return NextResponse.json(
       { error: "Failed to fetch buyers" },
@@ -168,6 +172,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ buyer }, { status: 201 });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.buyers", method: "POST" },
+    });
     console.error("Error creating buyer:", error);
     return NextResponse.json(
       { error: "Failed to create buyer" },

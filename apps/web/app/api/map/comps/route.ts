@@ -8,6 +8,7 @@ import {
   logRequestStart,
 } from "@/lib/server/observability";
 import { getCloudflareAccessHeadersFromEnv } from "@/lib/server/propertyDbEnv";
+import * as Sentry from "@sentry/nextjs";
 
 const DEFAULT_GATEWAY_TIMEOUT_MS = 6_000;
 
@@ -91,6 +92,9 @@ async function propertyRpc(
         signal: controller.signal,
       });
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { route: "api.map.comps", method: "UNKNOWN" },
+      });
       const reason =
         error instanceof Error && error.name === "AbortError"
           ? `request timed out after ${timeoutMs}ms`
@@ -121,6 +125,9 @@ async function propertyRpc(
         `[api_search_parcels] invalid payload shape`
       );
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { route: "api.map.comps", method: "UNKNOWN" },
+      });
       const reason = error instanceof Error ? error.message : String(error);
       throw new GatewayUnavailableError(
         `[api_search_parcels] invalid JSON: ${reason}`
@@ -155,6 +162,9 @@ async function propertyRpc(
         signal: controller.signal,
       });
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { route: "api.map.comps", method: "UNKNOWN" },
+      });
       const reason =
         error instanceof Error && error.name === "AbortError"
           ? `request timed out after ${timeoutMs}ms`
@@ -185,6 +195,9 @@ async function propertyRpc(
         `[api_search_parcels_point] invalid payload shape`
       );
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { route: "api.map.comps", method: "UNKNOWN" },
+      });
       const reason = error instanceof Error ? error.message : String(error);
       throw new GatewayUnavailableError(
         `[api_search_parcels_point] invalid JSON: ${reason}`
@@ -268,6 +281,9 @@ export async function GET(req: NextRequest) {
       Object.fromEntries(req.nextUrl.searchParams.entries())
     );
   } catch (err) {
+    Sentry.captureException(err, {
+      tags: { route: "api.map.comps", method: "GET" },
+    });
     if (err instanceof ZodError) {
       await logRequestOutcome(context, {
         status: 400,
@@ -468,6 +484,9 @@ export async function GET(req: NextRequest) {
     });
     return withRequestId(NextResponse.json({ comps }));
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.map.comps", method: "GET" },
+    });
     if (error instanceof GatewayConfigError || error instanceof GatewayUnavailableError) {
       console.error("[map-comps-route][gateway]", error);
       await logRequestOutcome(context, {

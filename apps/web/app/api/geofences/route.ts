@@ -3,6 +3,7 @@ import { z, ZodError } from "zod";
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { ensureSavedGeofencesTable } from "@/lib/server/geofenceTable";
+import * as Sentry from "@sentry/nextjs";
 
 const CreateGeofenceSchema = z.object({
   name: z.string().trim().min(1).max(120),
@@ -32,6 +33,9 @@ export async function GET(req: NextRequest) {
       })),
     });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.geofences", method: "GET" },
+    });
     console.error("[geofences-get]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
@@ -62,6 +66,9 @@ export async function POST(req: NextRequest) {
       { status: 201 }
     );
   } catch (err) {
+    Sentry.captureException(err, {
+      tags: { route: "api.geofences", method: "POST" },
+    });
     if (err instanceof ZodError) {
       return NextResponse.json(
         { error: "Validation failed", details: err.flatten().fieldErrors },

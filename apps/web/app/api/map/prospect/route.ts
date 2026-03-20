@@ -8,6 +8,7 @@ import {
   logRequestStart,
 } from "@/lib/server/observability";
 import {
+import * as Sentry from "@sentry/nextjs";
   getCloudflareAccessHeadersFromEnv,
   logPropertyDbRuntimeHealth,
 } from "@/lib/server/propertyDbEnv";
@@ -177,6 +178,9 @@ async function gatewayPost(
       signal: controller.signal,
     });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.map.prospect", method: "UNKNOWN" },
+    });
     const reason =
       error instanceof Error && error.name === "AbortError"
         ? `request timed out after ${timeoutMs}ms`
@@ -202,6 +206,9 @@ async function gatewayPost(
   try {
     return await res.json();
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.map.prospect", method: "UNKNOWN" },
+    });
     const reason = error instanceof Error ? error.message : String(error);
     throw new ProspectGatewayError(
       `[prospect] gateway ${path} invalid JSON: ${reason}`,
@@ -497,6 +504,9 @@ export async function POST(req: NextRequest) {
     });
     return withRequestId(NextResponse.json({ parcels, total: parcels.length }));
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.map.prospect", method: "POST" },
+    });
     if (error instanceof ProspectGatewayError) {
       console.error("Prospect gateway error:", error);
       await logRequestOutcome(context, {
@@ -701,6 +711,9 @@ export async function PUT(req: NextRequest) {
     });
     return withRequestId(NextResponse.json({ error: "Invalid action" }, { status: 400 }));
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.map.prospect", method: "PUT" },
+    });
     await logRequestOutcome(context, {
       status: 500,
       orgId: auth.orgId,

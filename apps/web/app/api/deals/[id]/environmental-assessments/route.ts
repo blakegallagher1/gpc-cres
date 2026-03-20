@@ -10,6 +10,7 @@ import {
   type EnvironmentalAssessmentPatchWithIdInput,
 } from "@entitlement-os/shared";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import * as Sentry from "@sentry/nextjs";
 
 const paramsSchema = z.object({
   id: z.string().uuid(),
@@ -188,6 +189,9 @@ export async function GET(
       ),
     });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.environmental-assessments", method: "GET" },
+    });
     console.error("Error reading environmental assessments:", error);
     return NextResponse.json(
       { error: "Failed to load environmental assessments" },
@@ -246,6 +250,9 @@ export async function POST(
       ),
     });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.environmental-assessments", method: "POST" },
+    });
     if (error instanceof ZodError) {
       return NextResponse.json(
         { error: "Invalid environmental assessment payload", issues: error.flatten().fieldErrors },
@@ -319,6 +326,9 @@ export async function PATCH(
       environmentalAssessment: serializeAssessment(assessment as EnvironmentalAssessmentRecord),
     });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.environmental-assessments", method: "PATCH" },
+    });
     if (error instanceof ZodError) {
       return NextResponse.json(
         { error: "Invalid environmental assessment payload", issues: error.flatten().fieldErrors },
@@ -380,6 +390,9 @@ export async function DELETE(
       environmentalAssessment: serializeAssessment(deleted as EnvironmentalAssessmentRecord),
     });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.environmental-assessments", method: "DELETE" },
+    });
     if (error instanceof ZodError) {
       return NextResponse.json(
         { error: "Invalid environmental assessment id", issues: error.flatten().fieldErrors },

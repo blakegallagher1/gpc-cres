@@ -231,6 +231,9 @@ export async function GET(
         signal: controller.signal,
       });
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { route: "api.parcels.geometry", method: "GET" },
+      });
       const reason = error instanceof Error && error.name === "AbortError"
         ? `request timed out after ${GEOMETRY_TIMEOUT_MS}ms`
         : error instanceof Error ? error.message : String(error);
@@ -265,6 +268,9 @@ export async function GET(
     try {
       json = (await res.json()) as { ok: boolean; data?: Record<string, unknown> };
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { route: "api.parcels.geometry", method: "GET" },
+      });
       const reason = error instanceof Error ? error.message : String(error);
       throw new ParcelGeometryGatewayError(
         `[parcel-geometry] invalid JSON response: ${reason}`,
@@ -298,6 +304,9 @@ export async function GET(
     response.headers.set("Cache-Control", "private, max-age=300, stale-while-revalidate=3600");
     return response;
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.parcels.geometry", method: "GET" },
+    });
     const err = error instanceof Error ? error : new Error(String(error));
     Sentry.captureException(err, {
       tags: { route: "/api/parcels/[parcelId]/geometry" },

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import * as Sentry from "@sentry/nextjs";
 
 export async function GET(
   request: NextRequest,
@@ -57,6 +58,9 @@ export async function PATCH(
 
     return NextResponse.json({ entity });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.entities", method: "PATCH" },
+    });
     console.error("Error updating entity:", error);
     return NextResponse.json({ error: "Failed to update entity" }, { status: 500 });
   }

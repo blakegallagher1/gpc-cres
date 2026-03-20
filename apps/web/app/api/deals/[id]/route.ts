@@ -142,6 +142,9 @@ export async function GET(
           }
         }
       } catch (error) {
+        Sentry.captureException(error, {
+          tags: { route: "api.deals", method: "GET" },
+        });
         console.warn("[/api/deals/[id]] gateway lookup failed, falling back to Prisma", error);
       }
     }
@@ -354,6 +357,9 @@ export async function GET(
       },
     });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals", method: "GET" },
+    });
     console.error("Error fetching deal:", error);
     Sentry.captureException(error, {
       tags: { route: "/api/deals/[id]", method: "GET" },
@@ -658,6 +664,9 @@ export async function PATCH(
 
     return NextResponse.json({ deal });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals", method: "PATCH" },
+    });
     console.error("Error updating deal:", error);
     Sentry.captureException(error, {
       tags: { route: "/api/deals/[id]", method: "PATCH" },
@@ -698,6 +707,9 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals", method: "DELETE" },
+    });
     console.error("Error deleting deal:", error);
     Sentry.captureException(error, {
       tags: { route: "/api/deals/[id]", method: "DELETE" },

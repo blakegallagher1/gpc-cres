@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@entitlement-os/db';
 import { resolveAuth } from '@/lib/auth/resolveAuth';
+import * as Sentry from "@sentry/nextjs";
 
 /**
  * GET /api/memory/stats
@@ -59,6 +60,9 @@ export async function GET(request: NextRequest) {
       })),
     });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.memory.stats", method: "GET" },
+    });
     console.error('[Memory Stats API Error]', error);
     return NextResponse.json(
       {

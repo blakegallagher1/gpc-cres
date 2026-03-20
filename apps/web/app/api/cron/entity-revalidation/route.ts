@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { detectCollisions, persistCollisionAlerts } from "@/lib/services/entityCollisionDetector";
+import * as Sentry from "@sentry/nextjs";
 
 function verifyCronSecret(req: Request): boolean {
   const secret = (process.env.CRON_SECRET || "").trim();
@@ -44,6 +45,9 @@ export async function GET(req: Request) {
       summary,
     });
   } catch (err) {
+    Sentry.captureException(err, {
+      tags: { route: "api.cron.entity-revalidation", method: "GET" },
+    });
     console.error("[cron/entity-revalidation] failed:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

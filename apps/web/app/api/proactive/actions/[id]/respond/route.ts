@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ZodError, z } from "zod";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { respondToProactiveAction } from "@/lib/services/proactiveAction.service";
+import * as Sentry from "@sentry/nextjs";
 
 const ResponseSchema = z.object({
   response: z.enum(["APPROVE", "REJECT", "MODIFY"]),
@@ -30,6 +31,9 @@ export async function POST(
 
     return NextResponse.json({ success: true, result });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.proactive.actions.respond", method: "POST" },
+    });
     if (error instanceof ZodError) {
       return NextResponse.json(
         { error: "Validation failed", details: error.flatten().fieldErrors },

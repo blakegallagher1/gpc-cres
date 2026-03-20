@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import * as Sentry from "@sentry/nextjs";
 
 type Urgency = "green" | "yellow" | "red" | "black";
 
@@ -211,6 +212,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ deadlines, total: deadlines.length });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.intelligence.deadlines", method: "GET" },
+    });
     console.error("[api/intelligence/deadlines]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

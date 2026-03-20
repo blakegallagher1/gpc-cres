@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@entitlement-os/db';
 import { resolveAuth } from '@/lib/auth/resolveAuth';
+import * as Sentry from "@sentry/nextjs";
 
 /**
  * GET /api/memory/entities/[entityId]
@@ -75,6 +76,9 @@ export async function GET(
       eventLogs,
     });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.memory.entities", method: "GET" },
+    });
     console.error('[Memory Entity API Error]', error);
     return NextResponse.json(
       {

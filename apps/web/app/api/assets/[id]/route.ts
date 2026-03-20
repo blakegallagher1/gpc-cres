@@ -8,6 +8,7 @@ import {
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import {
+import * as Sentry from "@sentry/nextjs";
   hasOwn,
   toIsoString,
   toNumberOrNull,
@@ -181,6 +182,9 @@ export async function GET(
       }),
     );
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.assets", method: "GET" },
+    });
     console.error("Error fetching asset:", error);
     return NextResponse.json(
       { error: "Failed to fetch asset" },
@@ -289,6 +293,9 @@ export async function PATCH(
       }),
     );
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.assets", method: "PATCH" },
+    });
     console.error("Error updating asset:", error);
     return NextResponse.json(
       { error: "Failed to update asset" },

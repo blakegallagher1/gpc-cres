@@ -26,6 +26,7 @@ import {
 } from "@entitlement-os/shared";
 import { ZodError, z } from "zod";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import * as Sentry from "@sentry/nextjs";
 
 const paramsSchema = z.object({
   id: z.string().uuid(),
@@ -437,6 +438,9 @@ export async function GET(
       equityWaterfalls: deal.equityWaterfalls.map((tier) => serializeEquityWaterfallTier(tier)),
     });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.financial-model", method: "GET" },
+    });
     console.error("[financial-model.GET]", error);
     return NextResponse.json(
       { error: "Failed to load financial model" },
@@ -559,6 +563,9 @@ export async function PUT(
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.financial-model", method: "PUT" },
+    });
     if (error instanceof ZodError) {
       return NextResponse.json(
         { error: "Invalid financial model payload", issues: error.flatten().fieldErrors },
@@ -700,6 +707,9 @@ export async function POST(
 
     return NextResponse.json({ tenantLease: serializeLease(lease) });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.financial-model", method: "POST" },
+    });
     if (error instanceof ZodError) {
       return NextResponse.json(
         { error: "Invalid financial model create payload", issues: error.flatten().fieldErrors },
@@ -861,6 +871,9 @@ export async function PATCH(
 
     return NextResponse.json({ tenantLease: serializeLease(lease) });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.financial-model", method: "PATCH" },
+    });
     if (error instanceof ZodError) {
       return NextResponse.json(
         { error: "Invalid financial model update payload", issues: error.flatten().fieldErrors },
@@ -977,6 +990,9 @@ export async function DELETE(
     });
     return NextResponse.json({ tenantLease: serializeLease(lease) });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.financial-model", method: "DELETE" },
+    });
     if (error instanceof ZodError) {
       return NextResponse.json(
         { error: "Invalid financial model delete payload", issues: error.flatten().fieldErrors },

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import * as Sentry from "@sentry/nextjs";
 
 /**
  * POST /api/agent/auth/resolve
@@ -17,6 +18,9 @@ export async function POST(request: NextRequest) {
     }
     return NextResponse.json({ orgId: auth.orgId, userId: auth.userId });
   } catch (err) {
+    Sentry.captureException(err, {
+      tags: { route: "api.agent.auth.resolve", method: "POST" },
+    });
     console.error("[auth/resolve] POST error:", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Internal error" },
@@ -34,6 +38,9 @@ export async function GET(request: NextRequest) {
     }
     return NextResponse.json({ orgId: auth.orgId, userId: auth.userId });
   } catch (err) {
+    Sentry.captureException(err, {
+      tags: { route: "api.agent.auth.resolve", method: "GET" },
+    });
     console.error("[auth/resolve] GET error:", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Internal error" },

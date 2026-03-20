@@ -11,6 +11,7 @@ import {
   withTimeout,
 } from "@entitlement-os/evidence";
 import { runWithCronMonitor } from "@/lib/automation/sentry";
+import * as Sentry from "@sentry/nextjs";
 
 const MAX_TIMEOUT_MS = 60_000;
 const MAX_RETRIES = 3;
@@ -129,6 +130,9 @@ export async function GET(req: Request) {
           `[change-detection] ${label} — ${captureResult.changed ? (snapshotCount <= 1 ? "first capture" : "CHANGED") : "unchanged"}`
         );
       } catch (error) {
+        Sentry.captureException(error, {
+          tags: { route: "api.cron.change-detection", method: "GET" },
+        });
         const errorMsg = error instanceof Error ? error.message : String(error);
         result = {
           ...result,
@@ -233,6 +237,9 @@ export async function GET(req: Request) {
         console.log("[change-detection] Complete:", JSON.stringify(summary.stats));
         return NextResponse.json(summary);
       } catch (error) {
+        Sentry.captureException(error, {
+          tags: { route: "api.cron.change-detection", method: "GET" },
+        });
         console.error("[cron/change-detection] Failed:", error);
         return NextResponse.json(
           { error: "Change detection failed", details: String(error) },

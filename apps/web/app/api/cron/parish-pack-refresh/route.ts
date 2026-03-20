@@ -23,6 +23,7 @@ import {
 } from "@/lib/storage/gatewayStorage";
 import { hashJsonSha256 } from "@entitlement-os/shared/crypto";
 import { runWithCronMonitor } from "@/lib/automation/sentry";
+import * as Sentry from "@sentry/nextjs";
 
 const SKUS: SkuType[] = ["SMALL_BAY_FLEX", "OUTDOOR_STORAGE", "TRUCK_PARKING"];
 const STALE_DAYS = 7;
@@ -358,6 +359,9 @@ export async function GET(req: Request) {
                 isOfficial: isOfficialSource(seededSourceUrl, officialDomains),
               });
             } catch (err) {
+              Sentry.captureException(err, {
+                tags: { route: "api.cron.parish-pack-refresh", method: "GET" },
+              });
               // Don't fail the whole pack generation if one source fails
               const msg = err instanceof Error ? err.message : String(err);
               console.warn(`[parish-pack-refresh] ${label} — evidence capture failed for ${source.url}: ${msg}`);
@@ -512,6 +516,9 @@ export async function GET(req: Request) {
             `[parish-pack-refresh] ${label} — stored v${nextVersion} (${packStatus}), ${evidenceTexts.length} evidence sources, ${response.toolSources.webSearchSources.length} web search sources`
           );
         } catch (err) {
+          Sentry.captureException(err, {
+            tags: { route: "api.cron.parish-pack-refresh", method: "GET" },
+          });
           const msg = err instanceof Error ? err.message : String(err);
           errors.push(`${label}: ${msg}`);
           console.error(`[parish-pack-refresh] ${label} — FAILED: ${msg}`);
@@ -539,6 +546,9 @@ export async function GET(req: Request) {
         console.log("[parish-pack-refresh] Complete:", JSON.stringify(summary.stats));
         return NextResponse.json(summary);
       } catch (error) {
+        Sentry.captureException(error, {
+          tags: { route: "api.cron.parish-pack-refresh", method: "GET" },
+        });
         console.error("[cron/parish-pack-refresh] Failed:", error);
         return NextResponse.json(
           { error: "Parish pack refresh failed", details: String(error) },

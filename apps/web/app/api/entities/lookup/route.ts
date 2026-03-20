@@ -3,6 +3,7 @@ import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { prisma } from "@entitlement-os/db";
 import { normalizeAddress } from "@/lib/services/entityResolution";
 import { getTruthView } from "@/lib/services/truthViewService";
+import * as Sentry from "@sentry/nextjs";
 
 /**
  * GET /api/entities/lookup
@@ -72,6 +73,9 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ found: false });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.entities.lookup", method: "GET" },
+    });
     console.error("Error in entity lookup:", error);
     const message = error instanceof Error ? error.message : String(error);
     return NextResponse.json(

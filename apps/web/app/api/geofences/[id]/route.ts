@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { ensureSavedGeofencesTable } from "@/lib/server/geofenceTable";
+import * as Sentry from "@sentry/nextjs";
 
 export async function DELETE(
   req: NextRequest,
@@ -26,6 +27,9 @@ export async function DELETE(
 
     return NextResponse.json({ ok: true });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.geofences", method: "DELETE" },
+    });
     console.error("[geofences-delete]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

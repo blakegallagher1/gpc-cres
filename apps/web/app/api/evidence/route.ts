@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import * as Sentry from "@sentry/nextjs";
 
 type EvidenceFreshnessState = "fresh" | "aging" | "stale" | "critical" | "unknown";
 type EvidenceDriftSignal = "stable" | "changed" | "insufficient";
@@ -210,6 +211,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ sources: result });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.evidence", method: "GET" },
+    });
     console.error("Error fetching evidence sources:", error);
     return NextResponse.json(
       { error: "Failed to fetch evidence sources" },

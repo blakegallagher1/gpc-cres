@@ -7,6 +7,7 @@ import {
   EntitlementPathPatchInputSchema,
 } from "@entitlement-os/shared";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import * as Sentry from "@sentry/nextjs";
 
 const paramsSchema = z.object({
   id: z.string().uuid(),
@@ -185,6 +186,9 @@ export async function GET(
         : null,
     });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.entitlement-path", method: "GET" },
+    });
     console.error("Error reading entitlement path:", error);
     return NextResponse.json(
       { error: "Failed to load entitlement path" },
@@ -255,6 +259,9 @@ async function handleUpsertEntitlementPath(
 
     return NextResponse.json({ entitlementPath: serializeEntitlementPath(entitlementPath as EntitlementPathRecord) });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.entitlement-path", method: "PATCH" },
+    });
     console.error("Error upserting entitlement path:", error);
     return NextResponse.json(
       { error: "Failed to save entitlement path" },
@@ -292,6 +299,9 @@ export async function DELETE(
 
     return NextResponse.json({ entitlementPath: serializeEntitlementPath(deleted as EntitlementPathRecord) });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.entitlement-path", method: "DELETE" },
+    });
     if (error instanceof Error && error.message.includes("Record to delete does not exist")) {
       return NextResponse.json(
         { error: "Entitlement path not found" },

@@ -5,6 +5,7 @@ import { buildArtifactObjectKey, DEAL_STATUSES, ARTIFACT_TYPES } from "@entitlem
 import type { ArtifactType, DealStatus, ArtifactSpec } from "@entitlement-os/shared";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { uploadArtifactToGateway } from "@/lib/storage/gatewayStorage";
+import * as Sentry from "@sentry/nextjs";
 
 // Stage index for prerequisite checks (higher index = later stage)
 const statusIndex = (s: DealStatus) => DEAL_STATUSES.indexOf(s);
@@ -213,6 +214,9 @@ export async function POST(
 
       return NextResponse.json({ artifact, run: { id: run.id, status: "succeeded" } }, { status: 201 });
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { route: "api.deals.artifacts", method: "POST" },
+      });
       const errorMsg = error instanceof Error ? error.message : String(error);
       await prisma.run.update({
         where: { id: run.id },
@@ -229,6 +233,9 @@ export async function POST(
       );
     }
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.artifacts", method: "POST" },
+    });
     console.error("Error generating artifact:", error);
     return NextResponse.json(
       { error: "Failed to generate artifact" },
@@ -265,6 +272,9 @@ export async function GET(
 
     return NextResponse.json({ artifacts });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.artifacts", method: "GET" },
+    });
     console.error("Error fetching artifacts:", error);
     return NextResponse.json(
       { error: "Failed to fetch artifacts" },
@@ -287,6 +297,9 @@ async function generateNarrative(prompt: string, systemPrompt: string, maxTokens
     });
     return text || "(No narrative generated)";
   } catch (err) {
+    Sentry.captureException(err, {
+      tags: { route: "api.deals.artifacts", method: "GET" },
+    });
     console.error("[artifact-llm] narrative generation failed:", err instanceof Error ? err.message : String(err));
     return "(Narrative generation failed — see logs)";
   }

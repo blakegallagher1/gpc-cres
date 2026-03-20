@@ -12,6 +12,7 @@ import {
   upsertEntitlementOutcomePrecedent,
 } from "@/lib/services/entitlementIntelligence.service";
 import { recommendEntitlementStrategy } from "@/lib/services/entitlementStrategyAutopilot.service";
+import * as Sentry from "@sentry/nextjs";
 
 const skuSchema = z.enum(["SMALL_BAY_FLEX", "OUTDOOR_STORAGE", "TRUCK_PARKING"]);
 const optionalBooleanParam = z.preprocess((value) => {
@@ -239,6 +240,9 @@ export async function GET(req: NextRequest) {
     });
     return NextResponse.json(prediction);
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.intelligence.entitlements", method: "GET" },
+    });
     console.error("Entitlement intelligence GET error:", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to query entitlement intelligence" },
@@ -342,6 +346,9 @@ export async function POST(req: NextRequest) {
       }
     }
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.intelligence.entitlements", method: "POST" },
+    });
     console.error("Entitlement intelligence POST error:", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to process entitlement intelligence request" },

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { listProactiveActions } from "@/lib/services/proactiveAction.service";
+import * as Sentry from "@sentry/nextjs";
 
 const ActionStatusSchema = z.enum([
   "PENDING",
@@ -38,6 +39,9 @@ export async function GET(request: NextRequest) {
     });
     return NextResponse.json({ actions });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.proactive.actions", method: "GET" },
+    });
     console.error("[proactive.actions.get]", error);
     return NextResponse.json(
       { error: "Failed to fetch actions" },

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@entitlement-os/db';
 import { resolveAuth } from '@/lib/auth/resolveAuth';
+import * as Sentry from "@sentry/nextjs";
 
 /**
  * GET /api/memory/collisions
@@ -33,6 +34,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ alerts });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.memory.collisions", method: "GET" },
+    });
     console.error('[Collisions API Error]', error);
     return NextResponse.json(
       {
@@ -81,6 +85,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ alert: updated });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.memory.collisions", method: "POST" },
+    });
     console.error('[Collision Resolution API Error]', error);
     return NextResponse.json(
       {

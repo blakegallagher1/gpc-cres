@@ -7,6 +7,7 @@ import {
   getNotificationService,
 } from "@/lib/services/notification.service";
 import {
+import * as Sentry from "@sentry/nextjs";
   computeEvidenceHash,
   computeSourceCaptureManifestHash,
   dedupeEvidenceCitations,
@@ -413,6 +414,9 @@ async function sendSourceIngestionAlertBatch(params: {
       await operation();
       return;
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { route: "api.cron.source-ingestion", method: "UNKNOWN" },
+      });
       lastError = error;
       if (attempt >= config.retryAttempts) {
         break;
@@ -795,6 +799,9 @@ async function captureSourceWithRetry(params: {
         usedPlaywright: result.usedPlaywright,
       };
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { route: "api.cron.source-ingestion", method: "UNKNOWN" },
+      });
       lastError = error;
       if (retryIndex < MAX_CAPTURE_RETRIES) {
         await sleepMs(250 * 2 ** (retryIndex - 1));
@@ -883,6 +890,9 @@ async function discoverSources(initialSources: Array<{
           url: normalized,
         });
       } catch (error) {
+        Sentry.captureException(error, {
+          tags: { route: "api.cron.source-ingestion", method: "UNKNOWN" },
+        });
         console.warn(`[source-ingestion] failed to discover ${normalized} — ${error instanceof Error ? error.message : String(error)}`);
       }
     }
@@ -1348,6 +1358,9 @@ export async function GET(req: Request) {
     console.log("[source-ingestion] summary:", summary.stats);
     return NextResponse.json(summary);
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.cron.source-ingestion", method: "GET" },
+    });
     console.error("[cron/source-ingestion] failed:", error);
     return NextResponse.json(
       {

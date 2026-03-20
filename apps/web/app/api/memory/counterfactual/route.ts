@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import {
+import * as Sentry from "@sentry/nextjs";
   logCounterfactual,
   getCounterfactualLogs,
   getOutcomeSummary,
@@ -25,6 +26,9 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ logs, summary });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.memory.counterfactual", method: "GET" },
+    });
     console.error("Error fetching counterfactual logs:", error);
     return NextResponse.json(
       { error: "Failed to fetch counterfactual logs" },
@@ -64,6 +68,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.memory.counterfactual", method: "POST" },
+    });
     console.error("Error logging counterfactual:", error);
     return NextResponse.json(
       { error: "Failed to log counterfactual" },

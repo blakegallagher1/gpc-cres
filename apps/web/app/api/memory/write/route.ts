@@ -5,6 +5,7 @@ import { memoryWriteGate } from "@/lib/services/memoryWriteGate";
 import { ingestKnowledge } from "@/lib/services/knowledgeBase.service";
 import { bridgeCompToMarket } from "@/lib/services/compToMarket";
 import { shouldUseAppDatabaseDevFallback } from "@/lib/server/appDbEnv";
+import * as Sentry from "@sentry/nextjs";
 
 const ADDRESS_WITH_CITY_STATE_ZIP_RE =
   /\b\d{1,6}\s+[A-Za-z0-9.'\- ]+?\s(?:Street|St\.?|Avenue|Ave\.?|Boulevard|Blvd\.?|Road|Rd\.?|Drive|Dr\.?|Lane|Ln\.?|Court|Ct\.?|Place|Pl\.?|Parkway|Pkwy\.?|Highway|Hwy\.?|Trail|Trl\.?|Way|Terrace|Terr\.?|Circle|Cir\.?)\s*,\s*[A-Za-z .'-]+,\s*[A-Z]{2}\s+\d{5}\b/i;
@@ -92,6 +93,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.memory.write", method: "POST" },
+    });
     console.error("Error in memory write gate:", error);
     const message = error instanceof Error ? error.message : String(error);
     const stack = error instanceof Error ? error.stack : undefined;

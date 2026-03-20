@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { isSchemaDriftError } from "@/lib/api/prismaSchemaFallback";
 import {
+import * as Sentry from "@sentry/nextjs";
   getRecentEvents,
   getAutomationStats,
   getHandlerHealth,
@@ -57,6 +58,9 @@ export async function GET(req: NextRequest) {
         );
     }
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.automation.events", method: "GET" },
+    });
     if (isSchemaDriftError(error)) {
       console.warn(
         "Automation events table missing; returning empty fallback payload",

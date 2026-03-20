@@ -3,6 +3,7 @@ import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { isChatPersistenceUnavailable } from "@/app/api/chat/_lib/errorHandling";
 import { shouldUseAppDatabaseDevFallback } from "@/lib/server/appDbEnv";
+import * as Sentry from "@sentry/nextjs";
 
 const DB_UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -111,6 +112,9 @@ export async function GET(
         },
       });
     } catch (error) {
+      Sentry.captureException(error, {
+        tags: { route: "api.chat.conversations", method: "GET" },
+      });
       console.warn("[chat-conversation-detail] pending approval lookup failed", {
         conversationId: id,
         orgId: auth.orgId,
@@ -175,6 +179,9 @@ export async function GET(
       },
     });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.chat.conversations", method: "GET" },
+    });
     if (isChatPersistenceUnavailable(error)) {
       return NextResponse.json({ conversation: null, degraded: true });
     }
@@ -231,6 +238,9 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.chat.conversations", method: "DELETE" },
+    });
     if (isChatPersistenceUnavailable(error)) {
       return NextResponse.json(
         { error: "Conversation store unavailable", degraded: true },

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import * as Sentry from "@sentry/nextjs";
 
 export async function GET(request: NextRequest) {
   const auth = await resolveAuth(request);
@@ -53,6 +54,9 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.wealth.summary", method: "GET" },
+    });
     console.error("Error computing wealth summary:", error);
     return NextResponse.json({ error: "Failed to compute summary" }, { status: 500 });
   }

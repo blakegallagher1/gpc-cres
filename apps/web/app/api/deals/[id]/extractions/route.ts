@@ -4,6 +4,7 @@ import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { AppError } from "@/lib/errors";
 import { getDocumentProcessingService } from "@/lib/services/documentProcessing.service";
 import { TriggerExtractionRequestSchema } from "@/lib/validation/extractionSchemas";
+import * as Sentry from "@sentry/nextjs";
 
 type ExtractionReviewStatus = "none" | "pending_review" | "review_complete";
 
@@ -54,6 +55,9 @@ export async function GET(
       extractionStatus,
     });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.extractions", method: "GET" },
+    });
     console.error("Error fetching extractions:", error);
     return NextResponse.json(
       { error: "Failed to fetch extractions" },
@@ -118,6 +122,9 @@ export async function POST(
       { status: result.created ? 201 : 200 }
     );
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.extractions", method: "POST" },
+    });
     if (error instanceof AppError) {
       const statusCode =
         "statusCode" in error && typeof error.statusCode === "number"

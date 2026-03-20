@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import * as Sentry from "@sentry/nextjs";
 
 type Aggregated = {
   toolName: string;
@@ -84,6 +85,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ tools });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.tools.health", method: "GET" },
+    });
     console.error("[tools.health]", error);
     return NextResponse.json(
       { error: "Failed to load tool health metrics" },

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import * as Sentry from "@sentry/nextjs";
 
 export async function GET(request: NextRequest) {
   const auth = await resolveAuth(request);
@@ -64,6 +65,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ taxEvent }, { status: 201 });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.wealth.tax-events", method: "POST" },
+    });
     console.error("Error creating tax event:", error);
     return NextResponse.json({ error: "Failed to create tax event" }, { status: 500 });
   }

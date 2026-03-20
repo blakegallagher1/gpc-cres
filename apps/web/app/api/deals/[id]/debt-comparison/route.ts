@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import * as Sentry from "@sentry/nextjs";
 
 // GET /api/deals/[id]/debt-comparison — load saved loan structures
 export async function GET(
@@ -27,6 +28,9 @@ export async function GET(
     const loans = (deal.debtComparisons as Record<string, unknown>[] | null) ?? [];
     return NextResponse.json({ loans });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.debt-comparison", method: "GET" },
+    });
     console.error("Error loading debt comparisons:", error);
     return NextResponse.json(
       { error: "Failed to load debt comparisons" },
@@ -73,6 +77,9 @@ export async function PUT(
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.debt-comparison", method: "PUT" },
+    });
     console.error("Error saving debt comparisons:", error);
     return NextResponse.json(
       { error: "Failed to save debt comparisons" },

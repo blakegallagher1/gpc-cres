@@ -9,6 +9,7 @@ import { extractAndMergeConversationPreferences } from "@/lib/services/preferenc
 import { shouldUseAppDatabaseDevFallback } from "@/lib/server/appDbEnv";
 import { sanitizeChatErrorMessage } from "./_lib/errorHandling";
 import { createSseWriter, sseEvent } from "./sseWriter";
+import * as Sentry from "@sentry/nextjs";
 
 function buildMapContextPrefix(mapContext: MapContextInput | null | undefined): string {
   const center = mapContext?.center;
@@ -85,6 +86,9 @@ export async function POST(req: NextRequest) {
   try {
     auth = await resolveAuth(req);
   } catch (err) {
+    Sentry.captureException(err, {
+      tags: { route: "api.chat", method: "POST" },
+    });
     console.error("[chat-route] resolveAuth error:", err);
     return Response.json(
       { error: "Authentication service unavailable" },
@@ -166,6 +170,9 @@ export async function POST(req: NextRequest) {
           });
         }
       } catch (error) {
+        Sentry.captureException(error, {
+          tags: { route: "api.chat", method: "POST" },
+        });
         const errMsg = error instanceof Error ? error.message : "Agent execution failed";
         console.error(`[chat-route][${correlationId}]`, errMsg);
         writer?.enqueue(toClientErrorPayload(errMsg, correlationId));

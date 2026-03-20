@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { getDownloadUrlFromGateway } from "@/lib/storage/gatewayStorage";
+import * as Sentry from "@sentry/nextjs";
 
 type DownloadVariant = "snapshot" | "text";
 
@@ -73,6 +74,9 @@ export async function GET(
       variant,
     });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.evidence.snapshots.download", method: "GET" },
+    });
     console.error("Error generating evidence download URL:", error);
     return NextResponse.json({ error: "Failed to download snapshot" }, { status: 500 });
   }
