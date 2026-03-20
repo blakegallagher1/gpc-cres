@@ -126,15 +126,25 @@ async function queryWorkflowStats(): Promise<WorkflowStats | null> {
 
     const row = statsResult.rows[0] ?? {};
 
+    // Guard: column may not exist in production if migration hasn't run yet.
     const dupResult = await client.query(`
-      SELECT count(*)::int AS dup_count
-      FROM (
-        SELECT idempotency_key, count(*) AS cnt
-        FROM automation_events
-        WHERE started_at >= $1 AND idempotency_key IS NOT NULL
-        GROUP BY idempotency_key
-        HAVING count(*) > 1
-      ) dupes
+      SELECT CASE
+        WHEN EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'automation_events' AND column_name = 'idempotency_key'
+        )
+        THEN (
+          SELECT count(*)::int
+          FROM (
+            SELECT idempotency_key, count(*) AS cnt
+            FROM automation_events
+            WHERE started_at >= $1 AND idempotency_key IS NOT NULL
+            GROUP BY idempotency_key
+            HAVING count(*) > 1
+          ) dupes
+        )
+        ELSE 0
+      END AS dup_count
     `, [since]);
 
     await client.end();
