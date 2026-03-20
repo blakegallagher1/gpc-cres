@@ -11,6 +11,7 @@ export type PromoteCandidateFactsInput = {
   dealId?: string | null;
   jurisdictionId?: string | null;
   status: "succeeded" | "failed" | "canceled";
+  signal?: AbortSignal;
 };
 
 export type PromoteCandidateFactsResult = {
@@ -33,6 +34,12 @@ type CandidateFact = {
 };
 
 const MAX_FACT_CANDIDATES = 4;
+
+function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) {
+    throw new Error("Agent learning promotion aborted");
+  }
+}
 
 function isRecord(value: unknown): value is JsonRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -252,6 +259,7 @@ export async function promoteCandidateFactsFromRun(
     return result;
   }
 
+  throwIfAborted(input.signal);
   const run = await prisma.run.findFirst({
     where: {
       id: input.runId,
@@ -283,6 +291,7 @@ export async function promoteCandidateFactsFromRun(
     orgId: input.orgId,
     dealId: input.dealId ?? run.dealId ?? null,
   });
+  throwIfAborted(input.signal);
 
   if (!entityContext) {
     return result;
@@ -291,6 +300,7 @@ export async function promoteCandidateFactsFromRun(
   const candidates = extractWhitelistedFactCandidates(outputJson);
 
   for (const candidate of candidates) {
+    throwIfAborted(input.signal);
     result.attempted += 1;
 
     try {

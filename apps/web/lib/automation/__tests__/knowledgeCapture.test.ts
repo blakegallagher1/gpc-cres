@@ -11,15 +11,24 @@ const { dbMock, knowledgeMock } = vi.hoisted(() => ({
     ingestKnowledge: vi.fn(),
   },
 }));
+const { captureAutomationTimeoutMock } = vi.hoisted(() => ({
+  captureAutomationTimeoutMock: vi.fn(),
+}));
 
 vi.mock("@entitlement-os/db", () => dbMock);
 vi.mock("@/lib/services/knowledgeBase.service", () => knowledgeMock);
+vi.mock("../sentry", () => ({
+  captureAutomationTimeout: captureAutomationTimeoutMock,
+}));
 
 import { handleKnowledgeCapture } from "../knowledgeCapture";
 
 describe("handleKnowledgeCapture", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useRealTimers();
+    knowledgeMock.deleteKnowledge.mockResolvedValue(0);
+    knowledgeMock.ingestKnowledge.mockResolvedValue(["knowledge-1"]);
   });
 
   it("ignores non deal.statusChanged events", async () => {
@@ -160,6 +169,84 @@ describe("handleKnowledgeCapture", () => {
     expect(knowledgeMock.ingestKnowledge.mock.calls[0][0]).toBe("org-1");
     expect(knowledgeMock.ingestKnowledge.mock.calls[0][2]).toBe(
       "deal-outcome:deal-2:killed",
+    );
+  });
+
+  it("skips knowledge capture when deleteKnowledge times out", async () => {
+    vi.useFakeTimers();
+    dbMock.prisma.deal.findFirst.mockResolvedValue({
+      id: "deal-1",
+      orgId: "org-1",
+      name: "Test Deal",
+      sku: "OUTDOOR_STORAGE",
+      status: "EXITED",
+      createdAt: new Date("2025-01-01T00:00:00.000Z"),
+      updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+      jurisdiction: { name: "East Baton Rouge" },
+      entitlementPath: { recommendedStrategy: "CUP" },
+      outcome: null,
+      risks: [],
+    });
+    dbMock.prisma.run.findFirst.mockResolvedValue({ outputJson: null });
+    dbMock.prisma.entitlementPredictionSnapshot.findFirst.mockResolvedValue(null);
+    knowledgeMock.deleteKnowledge.mockReturnValue(new Promise(() => {}));
+
+    const promise = handleKnowledgeCapture({
+      type: "deal.statusChanged",
+      dealId: "deal-1",
+      from: "EXIT_MARKETED",
+      to: "EXITED",
+      orgId: "org-1",
+    });
+
+    await vi.advanceTimersByTimeAsync(5_000);
+    await expect(promise).resolves.toBeUndefined();
+
+    expect(captureAutomationTimeoutMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        handler: "knowledgeCapture",
+        label: "deleteKnowledge timed out after 5000ms",
+      }),
+    );
+    expect(knowledgeMock.ingestKnowledge).not.toHaveBeenCalled();
+  });
+
+  it("skips knowledge capture when ingestKnowledge times out", async () => {
+    vi.useFakeTimers();
+    dbMock.prisma.deal.findFirst.mockResolvedValue({
+      id: "deal-1",
+      orgId: "org-1",
+      name: "Test Deal",
+      sku: "OUTDOOR_STORAGE",
+      status: "EXITED",
+      createdAt: new Date("2025-01-01T00:00:00.000Z"),
+      updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+      jurisdiction: { name: "East Baton Rouge" },
+      entitlementPath: { recommendedStrategy: "CUP" },
+      outcome: null,
+      risks: [],
+    });
+    dbMock.prisma.run.findFirst.mockResolvedValue({ outputJson: null });
+    dbMock.prisma.entitlementPredictionSnapshot.findFirst.mockResolvedValue(null);
+    knowledgeMock.deleteKnowledge.mockResolvedValue(1);
+    knowledgeMock.ingestKnowledge.mockReturnValue(new Promise(() => {}));
+
+    const promise = handleKnowledgeCapture({
+      type: "deal.statusChanged",
+      dealId: "deal-1",
+      from: "EXIT_MARKETED",
+      to: "EXITED",
+      orgId: "org-1",
+    });
+
+    await vi.advanceTimersByTimeAsync(15_000);
+    await expect(promise).resolves.toBeUndefined();
+
+    expect(captureAutomationTimeoutMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        handler: "knowledgeCapture",
+        label: "ingestKnowledge timed out after 15000ms",
+      }),
     );
   });
 });

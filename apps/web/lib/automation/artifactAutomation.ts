@@ -1,7 +1,4 @@
 import { prisma } from "@entitlement-os/db";
-import {
-  buildArtifactObjectKey,
-} from "@entitlement-os/shared";
 import type { ArtifactSpec, ArtifactType } from "@entitlement-os/shared";
 import { renderArtifactFromSpec } from "@entitlement-os/artifacts";
 import { uploadArtifactToGateway, systemAuth } from "@/lib/storage/gatewayStorage";
@@ -12,6 +9,45 @@ import {
   getCurrentWorkflowStage,
   getWorkflowPipelineStep,
 } from "./context";
+import { captureAutomationTimeout } from "./sentry";
+import { withTimeout } from "./timeout";
+
+const ARTIFACT_RENDER_TIMEOUT_MS = 15_000;
+const ARTIFACT_UPLOAD_TIMEOUT_MS = 10_000;
+const ARTIFACT_HANDLER = "artifactAutomation";
+
+function asCancelablePromise<T>(
+  promise: Promise<T>,
+  cancel: () => void,
+): Promise<T> & { cancel: () => void } {
+  const cancelable = promise as Promise<T> & { cancel: () => void };
+  cancelable.cancel = cancel;
+  return cancelable;
+}
+
+async function failArtifactRun(runId: string, message: string): Promise<void> {
+  await prisma.run.update({
+    where: { id: runId },
+    data: { status: "failed", finishedAt: new Date(), error: message },
+  });
+}
+
+async function createArtifactTimeoutTask(params: {
+  orgId: string;
+  dealId: string;
+  title: string;
+  description: string;
+  pipelineStep?: number;
+}): Promise<void> {
+  await createAutomationTask({
+    orgId: params.orgId,
+    dealId: params.dealId,
+    type: "document_review",
+    title: params.title,
+    description: params.description,
+    pipelineStep: params.pipelineStep,
+  });
+}
 
 /**
  * #9b Artifact Auto-Generation: Generate BUYER_TEASER_PDF when the deal reaches Disposition.
@@ -142,7 +178,31 @@ export async function handleArtifactOnStatusChange(event: AutomationEvent): Prom
         sources_summary: [],
       };
 
-      const rendered = await renderArtifactFromSpec(spec);
+      const rendered = await withTimeout(
+        renderArtifactFromSpec(spec),
+        ARTIFACT_RENDER_TIMEOUT_MS,
+        "artifactAutomation.renderArtifactFromSpec.BUYER_TEASER_PDF",
+      );
+      if (rendered === null) {
+        const timeoutMessage = `BUYER_TEASER_PDF render timed out after ${ARTIFACT_RENDER_TIMEOUT_MS}ms`;
+        captureAutomationTimeout({
+          label: timeoutMessage,
+          handler: ARTIFACT_HANDLER,
+          eventType: event.type,
+          dealId,
+          orgId,
+          status: currentStage?.name ?? "Disposition",
+        });
+        await failArtifactRun(run.id, timeoutMessage);
+        await createArtifactTimeoutTask({
+          orgId,
+          dealId,
+          title: "Buyer Teaser generation timed out",
+          description: `Automatic Buyer Teaser generation for "${deal.name}" timed out while rendering. Create or rerun the artifact manually before continuing marketing review.`,
+          pipelineStep,
+        });
+        return;
+      }
 
       // Version
       const latest = await prisma.artifact.findFirst({
@@ -152,24 +212,45 @@ export async function handleArtifactOnStatusChange(event: AutomationEvent): Prom
       });
       const nextVersion = (latest?.version ?? 0) + 1;
 
-      // Storage
-      const storageObjectKey = buildArtifactObjectKey({
-        orgId,
-        dealId,
-        artifactType,
-        version: nextVersion,
-        filename: rendered.filename,
-      });
-      const gwResult = await uploadArtifactToGateway({
-        auth: systemAuth(orgId),
-        dealId,
-        artifactType,
-        version: nextVersion,
-        filename: rendered.filename,
-        contentType: rendered.contentType,
-        bytes: Buffer.from(rendered.bytes),
-        generatedByRunId: run.id,
-      });
+      const uploadController = new AbortController();
+      const gwResult = await withTimeout(
+        asCancelablePromise(
+          uploadArtifactToGateway({
+            auth: systemAuth(orgId),
+            dealId,
+            artifactType,
+            version: nextVersion,
+            filename: rendered.filename,
+            contentType: rendered.contentType,
+            bytes: Buffer.from(rendered.bytes),
+            generatedByRunId: run.id,
+            signal: uploadController.signal,
+          }),
+          () => uploadController.abort(),
+        ),
+        ARTIFACT_UPLOAD_TIMEOUT_MS,
+        "artifactAutomation.uploadArtifactToGateway.BUYER_TEASER_PDF",
+      );
+      if (gwResult === null) {
+        const timeoutMessage = `BUYER_TEASER_PDF upload timed out after ${ARTIFACT_UPLOAD_TIMEOUT_MS}ms`;
+        captureAutomationTimeout({
+          label: timeoutMessage,
+          handler: ARTIFACT_HANDLER,
+          eventType: event.type,
+          dealId,
+          orgId,
+          status: currentStage?.name ?? "Disposition",
+        });
+        await failArtifactRun(run.id, timeoutMessage);
+        await createArtifactTimeoutTask({
+          orgId,
+          dealId,
+          title: "Buyer Teaser upload timed out",
+          description: `Automatic Buyer Teaser generation for "${deal.name}" rendered successfully but timed out before gateway upload completed. Re-run the artifact manually; no downloadable artifact record was created.`,
+          pipelineStep,
+        });
+        return;
+      }
 
       // DB record
       await prisma.artifact.create({
@@ -203,10 +284,7 @@ export async function handleArtifactOnStatusChange(event: AutomationEvent): Prom
       );
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
-      await prisma.run.update({
-        where: { id: run.id },
-        data: { status: "failed", finishedAt: new Date(), error: msg },
-      });
+      await failArtifactRun(run.id, msg);
       console.error(`[automation] BUYER_TEASER_PDF auto-gen failed for ${dealId}:`, msg);
     }
   } catch (error) {
@@ -382,7 +460,30 @@ async function ensureTriagePdfGenerated(dealId: string, orgId: string): Promise<
       sources_summary: [],
     };
 
-    const rendered = await renderArtifactFromSpec(spec);
+    const rendered = await withTimeout(
+      renderArtifactFromSpec(spec),
+      ARTIFACT_RENDER_TIMEOUT_MS,
+      "artifactAutomation.renderArtifactFromSpec.TRIAGE_PDF",
+    );
+    if (rendered === null) {
+      const timeoutMessage = `TRIAGE_PDF render timed out after ${ARTIFACT_RENDER_TIMEOUT_MS}ms`;
+      captureAutomationTimeout({
+        label: timeoutMessage,
+        handler: ARTIFACT_HANDLER,
+        eventType: "triage.completed",
+        dealId,
+        orgId,
+      });
+      await failArtifactRun(run.id, timeoutMessage);
+      await createArtifactTimeoutTask({
+        orgId,
+        dealId,
+        title: "Triage Report generation timed out",
+        description: `Automatic Triage Report generation for "${deal.name}" timed out while rendering. Review the deal manually and re-run the artifact when capacity is available.`,
+      });
+      return null;
+    }
+
     const latest = await prisma.artifact.findFirst({
       where: { dealId, artifactType: "TRIAGE_PDF" },
       orderBy: { version: "desc" },
@@ -390,23 +491,43 @@ async function ensureTriagePdfGenerated(dealId: string, orgId: string): Promise<
     });
     const nextVersion = (latest?.version ?? 0) + 1;
 
-    const storageObjectKey = buildArtifactObjectKey({
-      orgId,
-      dealId,
-      artifactType: "TRIAGE_PDF",
-      version: nextVersion,
-      filename: rendered.filename,
-    });
-    const gwResult = await uploadArtifactToGateway({
-      auth: systemAuth(orgId),
-      dealId,
-      artifactType: "TRIAGE_PDF",
-      version: nextVersion,
-      filename: rendered.filename,
-      contentType: rendered.contentType,
-      bytes: Buffer.from(rendered.bytes),
-      generatedByRunId: run.id,
-    });
+    const uploadController = new AbortController();
+    const gwResult = await withTimeout(
+      asCancelablePromise(
+        uploadArtifactToGateway({
+          auth: systemAuth(orgId),
+          dealId,
+          artifactType: "TRIAGE_PDF",
+          version: nextVersion,
+          filename: rendered.filename,
+          contentType: rendered.contentType,
+          bytes: Buffer.from(rendered.bytes),
+          generatedByRunId: run.id,
+          signal: uploadController.signal,
+        }),
+        () => uploadController.abort(),
+      ),
+      ARTIFACT_UPLOAD_TIMEOUT_MS,
+      "artifactAutomation.uploadArtifactToGateway.TRIAGE_PDF",
+    );
+    if (gwResult === null) {
+      const timeoutMessage = `TRIAGE_PDF upload timed out after ${ARTIFACT_UPLOAD_TIMEOUT_MS}ms`;
+      captureAutomationTimeout({
+        label: timeoutMessage,
+        handler: ARTIFACT_HANDLER,
+        eventType: "triage.completed",
+        dealId,
+        orgId,
+      });
+      await failArtifactRun(run.id, timeoutMessage);
+      await createArtifactTimeoutTask({
+        orgId,
+        dealId,
+        title: "Triage Report upload timed out",
+        description: `Automatic Triage Report generation for "${deal.name}" rendered successfully but timed out before gateway upload completed. Re-run the artifact manually; no downloadable artifact record was created.`,
+      });
+      return null;
+    }
 
     await prisma.artifact.create({
       data: {
@@ -425,10 +546,7 @@ async function ensureTriagePdfGenerated(dealId: string, orgId: string): Promise<
     return nextVersion;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    await prisma.run.update({
-      where: { id: run.id },
-      data: { status: "failed", finishedAt: new Date(), error: msg },
-    });
+    await failArtifactRun(run.id, msg);
     console.error("[automation] TRIAGE_PDF auto-generation failed:", msg);
     return null;
   }

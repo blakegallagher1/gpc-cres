@@ -1,9 +1,15 @@
 const { runEntitlementStrategyAutopilotMock } = vi.hoisted(() => ({
   runEntitlementStrategyAutopilotMock: vi.fn(),
 }));
+const { captureAutomationTimeoutMock } = vi.hoisted(() => ({
+  captureAutomationTimeoutMock: vi.fn(),
+}));
 
 vi.mock("@/lib/services/entitlementStrategyAutopilot.service", () => ({
   runEntitlementStrategyAutopilot: runEntitlementStrategyAutopilotMock,
+}));
+vi.mock("../sentry", () => ({
+  captureAutomationTimeout: captureAutomationTimeoutMock,
 }));
 
 const {
@@ -24,6 +30,7 @@ import { handleEntitlementStrategyAutopilot } from "../entitlementStrategy";
 describe("handleEntitlementStrategyAutopilot", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useRealTimers();
     getAutomationDealContextMock.mockResolvedValue({
       dealId: "deal-1",
       orgId: "org-1",
@@ -112,6 +119,33 @@ describe("handleEntitlementStrategyAutopilot", () => {
     expect(runEntitlementStrategyAutopilotMock).toHaveBeenCalledTimes(1);
     expect(errorSpy).toHaveBeenCalledTimes(1);
     expect(String(errorSpy.mock.calls[0]?.[0])).toContain("Entitlement strategy autopilot failed");
+
+    errorSpy.mockRestore();
+  });
+
+  it("skips silently when the autopilot times out", async () => {
+    vi.useFakeTimers();
+    runEntitlementStrategyAutopilotMock.mockReturnValue(new Promise(() => {}));
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const promise = handleEntitlementStrategyAutopilot({
+      type: "deal.statusChanged",
+      dealId: "deal-1",
+      from: "PREAPP",
+      to: "CONCEPT",
+      orgId: "org-1",
+    });
+
+    await vi.advanceTimersByTimeAsync(25_000);
+    await expect(promise).resolves.toBeUndefined();
+
+    expect(captureAutomationTimeoutMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        handler: "entitlementStrategy",
+        label: "runEntitlementStrategyAutopilot timed out after 25000ms",
+      }),
+    );
+    expect(errorSpy).not.toHaveBeenCalled();
 
     errorSpy.mockRestore();
   });

@@ -52,9 +52,12 @@ async function allStepTasksDone(
   orgId: string,
   pipelineStep: number
 ): Promise<{ done: boolean; total: number; completed: number }> {
+  const where = { dealId, deal: { orgId }, pipelineStep } as const;
   const tasks = await prisma.task.findMany({
-    where: { dealId, deal: { orgId }, pipelineStep },
+    where,
     select: { status: true },
+    orderBy: { createdAt: "asc" },
+    take: 500,
   });
 
   if (tasks.length === 0) {
@@ -62,6 +65,13 @@ async function allStepTasksDone(
   }
 
   const completed = tasks.filter((t) => t.status === "DONE").length;
+  if (tasks.length === 500) {
+    const total = await prisma.task.count({ where });
+    if (total > tasks.length) {
+      return { done: false, total, completed };
+    }
+  }
+
   return { done: completed === tasks.length, total: tasks.length, completed };
 }
 

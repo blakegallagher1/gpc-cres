@@ -3,9 +3,16 @@ import { propertyDbRpc } from "@/lib/server/propertyDbRpc";
 import { AUTOMATION_CONFIG } from "./config";
 import { createAutomationTask } from "./notifications";
 import type { AutomationEvent } from "./events";
+import { captureAutomationTimeout } from "./sentry";
+import { withTimeout } from "./timeout";
 
 type PropertyDbRecord = Record<string, unknown>;
 export type ParcelEnrichmentUpdate = Record<string, unknown>;
+
+const ENRICHMENT_HANDLER = "enrichment";
+const SEARCH_PARCELS_TIMEOUT_MS = 8_000;
+const GET_PARCEL_TIMEOUT_MS = 5_000;
+const SCREEN_FULL_TIMEOUT_MS = 12_000;
 
 export interface ParcelEnrichmentPayload {
   details: PropertyDbRecord | null;
@@ -86,11 +93,22 @@ export async function searchPropertyDbMatches(
 
   for (const searchText of attempts) {
     try {
-      const result = await propertyDbRpc("api_search_parcels", {
-        search_text: searchText,
-        parish,
-        limit_rows: 10,
-      });
+      const result = await withTimeout(
+        propertyDbRpc("api_search_parcels", {
+          search_text: searchText,
+          parish,
+          limit_rows: 10,
+        }),
+        SEARCH_PARCELS_TIMEOUT_MS,
+        "enrichment.api_search_parcels",
+      );
+      if (result === null) {
+        captureAutomationTimeout({
+          label: `api_search_parcels timed out after ${SEARCH_PARCELS_TIMEOUT_MS}ms`,
+          handler: ENRICHMENT_HANDLER,
+        });
+        continue;
+      }
       if (Array.isArray(result) && result.length > 0) {
         return result.filter(
           (candidate): candidate is PropertyDbRecord => asRecord(candidate) !== null,
@@ -252,16 +270,36 @@ export function buildParcelEnrichmentUpdate(
 export async function getParcelEnrichmentPayload(
   propertyDbId: string,
 ): Promise<ParcelEnrichmentPayload> {
-  const details = firstRecord(
-    await propertyDbRpc("api_get_parcel", {
+  const detailResult = await withTimeout(
+    propertyDbRpc("api_get_parcel", {
       parcel_id: propertyDbId,
     }),
+    GET_PARCEL_TIMEOUT_MS,
+    "enrichment.api_get_parcel",
   );
-  const screening = firstRecord(
-    await propertyDbRpc("api_screen_full", {
+  if (detailResult === null) {
+    captureAutomationTimeout({
+      label: `api_get_parcel timed out after ${GET_PARCEL_TIMEOUT_MS}ms`,
+      handler: ENRICHMENT_HANDLER,
+    });
+  }
+
+  const screeningResult = await withTimeout(
+    propertyDbRpc("api_screen_full", {
       parcel_id: propertyDbId,
     }),
+    SCREEN_FULL_TIMEOUT_MS,
+    "enrichment.api_screen_full",
   );
+  if (screeningResult === null) {
+    captureAutomationTimeout({
+      label: `api_screen_full timed out after ${SCREEN_FULL_TIMEOUT_MS}ms`,
+      handler: ENRICHMENT_HANDLER,
+    });
+  }
+
+  const details = firstRecord(detailResult);
+  const screening = firstRecord(screeningResult);
 
   return {
     details,

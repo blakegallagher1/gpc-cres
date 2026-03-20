@@ -125,6 +125,16 @@ describe("handleFinancialInit", () => {
       orgId: "org-1",
     });
 
+    expect(dbMock.prisma.marketDataPoint.findMany).toHaveBeenCalledWith({
+      where: {
+        parish: { equals: "Ascension", mode: "insensitive" },
+        observedAt: { gte: expect.any(Date) },
+        dataType: "comp_sale",
+      },
+      select: { data: true },
+      orderBy: { observedAt: "desc" },
+      take: 100,
+    });
     const payload = dbMock.prisma.deal.update.mock.calls[0][0].data
       .financialModelAssumptions as Record<string, unknown>;
     expect((payload.exit as { exitCapRate: number }).exitCapRate).toBe(8.3);

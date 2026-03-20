@@ -9,6 +9,7 @@ import { deleteKnowledge, ingestKnowledge } from "@/lib/services/knowledgeBase.s
 export type UpsertProceduralSkillsFromEpisodeInput = {
   orgId: string;
   episodicEntryId: string;
+  signal?: AbortSignal;
 };
 
 export type UpsertProceduralSkillsFromEpisodeResult = {
@@ -117,6 +118,12 @@ function buildSkillMarkdown(params: {
   ].join("\n");
 }
 
+function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) {
+    throw new Error("Agent learning promotion aborted");
+  }
+}
+
 async function loadEpisodeCluster(
   input: UpsertProceduralSkillsFromEpisodeInput,
 ): Promise<{
@@ -130,6 +137,7 @@ async function loadEpisodeCluster(
   supportingEpisodes: EpisodeClusterItem[];
   failureEpisodes: EpisodeClusterItem[];
 } | null> {
+  throwIfAborted(input.signal);
   const episode = await prisma.episodicEntry.findFirst({
     where: {
       id: input.episodicEntryId,
@@ -165,6 +173,7 @@ async function loadEpisodeCluster(
     },
     orderBy: { updatedAt: "desc" },
   });
+  throwIfAborted(input.signal);
 
   const allClusterEpisodes = clusterEpisodes.filter((candidate) => {
     const candidateSequence = normalizeToolSequence(candidate.toolSequence);
@@ -224,7 +233,9 @@ export async function upsertProceduralSkillsFromEpisode(
   });
   const sourceId = `skill:${dedupeHash}`;
 
+  throwIfAborted(input.signal);
   await deleteKnowledge(input.orgId, sourceId).catch(() => 0);
+  throwIfAborted(input.signal);
   const knowledgeIds = await ingestKnowledge(
     input.orgId,
     "procedural_skill",
@@ -248,6 +259,7 @@ export async function upsertProceduralSkillsFromEpisode(
     Math.max(1, cluster.supportingEpisodes.length);
   const now = new Date();
 
+  throwIfAborted(input.signal);
   const skill = await prisma.proceduralSkill.upsert({
     where: {
       orgId_dedupeHash: {
@@ -304,6 +316,7 @@ export async function upsertProceduralSkillsFromEpisode(
 
   const supportingEpisodeIds = cluster.supportingEpisodes.map((episode) => episode.id);
 
+  throwIfAborted(input.signal);
   await prisma.proceduralSkillEpisode.deleteMany({
     where: {
       orgId: input.orgId,
@@ -315,6 +328,7 @@ export async function upsertProceduralSkillsFromEpisode(
   });
 
   for (const episode of cluster.supportingEpisodes) {
+    throwIfAborted(input.signal);
     await prisma.proceduralSkillEpisode.upsert({
       where: {
         proceduralSkillId_episodicEntryId: {
