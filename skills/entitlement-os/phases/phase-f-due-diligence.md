@@ -9,7 +9,7 @@ description: |
 
 ## Prerequisites
 
-- `Entitlement_OS_Meta_Prompt.md` (`Phase F`) and `Entitlement_OS_Phase_A_Remaining.md` if any workflow re-baselining is required.
+- `docs/archive/2026-03-20-root-cleanup/Entitlement_OS_Meta_Prompt.md` (`Phase F`) and `docs/archive/2026-03-20-root-cleanup/Entitlement_OS_Phase_A_Remaining.md` if any workflow re-baselining is required.
 - Deal docs from title/survey/environmental/financing/financial phases.
 - Evidence traceability: extraction IDs, upload IDs, and extraction schema versions.
 

@@ -1,7 +1,7 @@
 import { create } from "zustand";
 
 // ---------------------------------------------------------------------------
-// Assumption categories per IMPLEMENTATION_PLAN.md Phase 3A
+// Assumption categories per docs/archive/2026-03-20-root-cleanup/IMPLEMENTATION_PLAN.md Phase 3A (archived)
 // ---------------------------------------------------------------------------
 
 export interface AcquisitionAssumptions {

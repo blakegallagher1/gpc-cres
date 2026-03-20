@@ -53,6 +53,9 @@ Only items meeting all checks are added below as `Planned`.
   - Mark intentionally historical migration docs as archival with clear pointers to current authoritative docs.
   - Remove retired route references from test matrices and active operational runbooks.
   - Run verification gate and review the final diff for documentation-only intent plus any required comment fixes.
+- **Evidence (incremental, 2026-03-20):** Reconciled agent docs (`AGENTS.md`, `packages/db/AGENTS.md`) with actual workspace packages; removed non-canonical gateway prototypes `infra/local-api/api_server.py` and `tile_server.py` (canonical `main.py` + `admin_router.py`); updated `infra/local-api/README.md`, `infra/local-api/SPEC.md`, `docs/archive/2026-03-20-root-cleanup/PHASE_3_DEPLOYMENT_BLOCKERS.md`, `ROADMAP.md` (INFRA-002), `docs/CHANGELOG_DOCS.md`, `docs/INDEX.md`, `docs/DOCS_MANIFEST.json`; corrected archived `docs/PLAN.md` worker row + banner; clarified `CLAUDE.md` and `docs/claude/architecture.md`; deleted superseded `docs/COMPREHENSIVE_CLAUDE_CODE_CONTINUATION_PROMPT_2026-03-07.md`; added `apps/web/.next-*/` to `.gitignore`.
+- **Evidence (incremental, 2026-03-20 — PC server access):** Added `docs/server-manifest.json` (structured URLs, ports, env var *names*); reconciled OS + Postgres naming in `docs/SERVER_MANAGEMENT.md` and `docs/claude/backend.md`; linked from `docs/SOURCE_OF_TRUTH.md`, `docs/INDEX.md`, `CLAUDE.md`, and `.env.example` / `apps/web/.env.example` comments.
+- **Evidence (incremental, 2026-03-20 — agent-oriented repo layout):** Moved historical root-level prompts/status files into `docs/archive/2026-03-20-root-cleanup/` with `README.md` index; updated cross-references (`skills/entitlement-os/`, `docs/claude/reference.md`, `.github/copilot-instructions.md`, `scripts/observability/sentinel-eval.ts`, etc.); added `**/*.bak.*` to `.gitignore`.
 
 ### MAP-009 — Google Maps Grounding + Cache-Backed Market Enrichment (P1)
 
@@ -834,7 +837,7 @@ Only items meeting all checks are added below as `Planned`.
   - ✅ Phase 2 — Batch screening: 3-parcel batch in 150–200ms, results keyed by parcel ID, per-parcel `operation_progress` events pushed, `operation_done` on completion
   - ✅ Phase 3 — WebSocket push: `/{conversationId}/push` live on `agents.gallagherpropco.com`, progress/done/error events accepted and delivered to active sessions
   - ✅ Phase 4 — Qdrant property intelligence: Tunnel `qdrant.gallagherpropco.com → http://qdrant:6333` live, Qdrant v1.17.0 responding, `QDRANT_URL` + all `AGENTOS_*` flags deployed to Vercel production, `property_intelligence` collection auto-provisioned on first use
-  - ✅ All 5 production verification tests passed (see `PRODUCTION_VERIFICATION_REPORT.md`)
+  - ✅ All 5 production verification tests passed (see `docs/archive/2026-03-20-root-cleanup/PRODUCTION_VERIFICATION_REPORT.md`)
   - ✅ Build: `pnpm build` clean, 668/668 tests passing
 
 ### INFRA-006 — Gateway Contract Alignment + Runtime Smoke Matrix (P0)
@@ -1595,6 +1598,46 @@ Reason: these were low-priority for current operating goals and can be deferred 
   - **Result:**
     - Contract and negative-path guardrails are implemented and exercised.
     - Full `apps/web` test sweep: `pnpm -C apps/web test` passed in this pass.
+
+### DA-007 — Event-Driven Long-Term Learning Promotion Runtime (P0)
+
+- **Priority:** P0
+- **Status:** Planned
+- **Scope:** Agent learning promotion + prompt retrieval
+- **Pre-add analysis result:** PASS (the active app schema already includes `trajectory_logs`, `episodic_entries`, `procedural_skills`, and `eval_results`, but runtime does not yet promote completed runs into those tables or inject the resulting procedural/episodic context back into future runs).
+- **Problem:** Completed runs persist final output, evidence, and tool metadata, but the chat/runtime stack still lacks an asynchronous promotion pipeline that turns those outputs into durable trajectory logs, reusable episodes, procedural skills, and reinforcement updates tied to terminal deal outcomes.
+- **Expected Outcome (measurable):**
+  - Every completed run is queued asynchronously for long-term learning promotion without adding material chat latency.
+  - Successful runs create at least one `episodic_entries` row and repeated successful patterns promote `procedural_skills`.
+  - Verified property/entity facts continue to flow through `memoryWriteGate` / `MemoryVerified` rather than creating a competing truth store.
+  - Future runs receive injected `[Relevant Procedures]` and `[Similar Prior Runs]` context blocks.
+- **Evidence of need:** `apps/web/lib/agent/agentRunner.ts` already persists normalized final output/trust metadata and `apps/web/lib/automation/knowledgeCapture.ts` already captures terminal outcome records, but nothing currently bridges those runtime artifacts into the AgentOS v2 learning tables or prompt context.
+- **Alignment:** Extends the existing four-layer memory architecture without replacing the current entity-truth or knowledge pipelines; keeps fact promotion behind the existing write gate and uses the repository’s event-driven automation conventions for async execution.
+- **Risk/rollback:** Medium. Risks are duplicate promotion, noisy fact extraction, and prompt bloat. Roll back by disabling the new `agent.run.completed` dispatch/handler path while leaving the base chat runtime untouched.
+- **Acceptance Criteria / Tests:**
+  - Add schema + migration support for run promotion status fields, richer trajectory/episode/skill metadata, and `procedural_skill_episodes`.
+  - Dispatch `agent.run.completed` after assistant message persistence, update run promotion status asynchronously, and persist promotion failures for observability.
+  - Create focused tests for automation event wiring/registration, knowledge route acceptance of new content types, and tool/catalog exposure of the new procedural/episodic search tools.
+  - Re-run the repo verification gate after implementation (`pnpm lint`, `pnpm typecheck`, `pnpm test`, `OPENAI_API_KEY=placeholder pnpm build`).
+- **Files (target):**
+  - `packages/db/prisma/schema.prisma`
+  - `packages/db/prisma/migrations/20260317_agent_learning_runtime/`
+  - `apps/web/lib/agent/agentRunner.ts`
+  - `apps/web/lib/automation/events.ts`
+  - `apps/web/lib/automation/handlers.ts`
+  - `apps/web/lib/automation/knowledgeCapture.ts`
+  - `apps/web/lib/automation/agentLearningPromotion.ts`
+  - `apps/web/lib/services/agentLearning.service.ts`
+  - `apps/web/lib/services/trajectoryLog.service.ts`
+  - `apps/web/lib/services/episodicMemory.service.ts`
+  - `apps/web/lib/services/proceduralSkill.service.ts`
+  - `apps/web/lib/services/outcomeReinforcement.service.ts`
+  - `apps/web/lib/services/learningContextBuilder.ts`
+  - `apps/web/lib/services/knowledgeBase.service.ts`
+  - `apps/web/app/api/knowledge/route.ts`
+  - `apps/web/app/api/admin/stats/route.ts`
+  - `packages/openai/src/tools/*`
+  - `packages/openai/src/agents/index.ts`
 
 ### AUI-001 — AgentKit-Inspired Chat UX Enhancements (No Pipeline Migration)
 
@@ -2578,7 +2621,7 @@ The following items were identified by analyzing 6 OpenAI GitHub repositories (`
 - **Priority:** P0
 - **Status:** Done (2026-02-17)
 - **Scope:** Consolidation + schema + financial depth + tools + automation + artifacts + portfolio analytics
-- **Problem:** The A→G execution stream was completed across multiple implementation passes, but ROADMAP lacked a single formal compliance entry proving end-to-end closure against `Entitlement_OS_Meta_Prompt.md`.
+- **Problem:** The A→G execution stream was completed across multiple implementation passes, but ROADMAP lacked a single formal compliance entry proving end-to-end closure against `docs/archive/2026-03-20-root-cleanup/Entitlement_OS_Meta_Prompt.md`.
 - **Expected Outcome (measurable):**
   - A1→G5 checklist recorded with `Done/Partial/Missing` status and file evidence.
   - Final verification gate recorded after latest integration patch set.
@@ -3248,13 +3291,12 @@ The following items were identified by analyzing 6 OpenAI GitHub repositories (`
   - ✅ In-memory LRU cache (1000 entries, endpoint-specific TTLs)
   - ✅ JSON logging with request IDs
 - **Files (target):**
-  - `infra/local-api/api_server.py` (693 lines, complete implementation)
-  - Note: Architectural decision required on integration strategy (see PHASE_3_DEPLOYMENT_BLOCKERS.md)
+  - ~~`infra/local-api/api_server.py`~~ **removed from tree 2026-03-20** — superseded by `main.py` + `admin_router.py`; prior file preserved only in git history (see `docs/archive/2026-03-20-root-cleanup/PHASE_3_DEPLOYMENT_BLOCKERS.md` Option B).
 - **Completion Evidence (2026-02-20):**
-  - api_server.py fully implemented with all 8 endpoints
+  - api_server.py fully implemented with all 8 endpoints *(reference implementation; **removed from tree 2026-03-20** — canonical runtime is `main.py`)*
   - Asyncpg pooling + caching + JSON logging complete
   - Discovery: Actual deployment uses Docker Compose (not bare-metal :8081)
-  - See PHASE_3_DEPLOYMENT_BLOCKERS.md for integration options (Option A: add as Docker service, Option B: adapt to existing :8000 gateway, Option C: use as reference)
+  - See docs/archive/2026-03-20-root-cleanup/PHASE_3_DEPLOYMENT_BLOCKERS.md for integration options (Option A: add as Docker service, Option B: adapt to existing :8000 gateway, Option C: use as reference)
 
 ### INFRA-003 — Phase 3: Deployment Readiness & Blocking Issues Resolution
 
@@ -3266,7 +3308,7 @@ The following items were identified by analyzing 6 OpenAI GitHub repositories (`
   - P0 Blocker resolved: Real CLOUDFLARE_TUNNEL_TOKEN in place, tunnel authenticates with Cloudflare edge
   - P1 Blocker resolved: Ingress rules configured for api.gallagherpropco.com ↔ localhost:8000 and tiles.gallagherpropco.com
   - P2 Blocker resolved: All 8 tool endpoints tested with Bearer auth, response schemas validated, caching headers verified
-  - Post-deployment: Architecture decision made on api_server.py integration (Option A/B/C per PHASE_3_DEPLOYMENT_BLOCKERS.md)
+  - Post-deployment: Architecture decision made on api_server.py integration (Option A/B/C per docs/archive/2026-03-20-root-cleanup/PHASE_3_DEPLOYMENT_BLOCKERS.md)
 - **Evidence of need:** Infrastructure audit (2026-02-20) explicitly documented 3 critical blockers with acceptance criteria.
 - **Alignment:** Follows existing deployment patterns (Vercel + Cloudflare Tunnel + Local API). No breaking changes.
 - **Risk/rollback:** Low risk if blockers resolved sequentially (P0 → P1 → P2). Rollback at each stage until full validation.
@@ -3289,10 +3331,10 @@ The following items were identified by analyzing 6 OpenAI GitHub repositories (`
   - GET /health: Returns 200 with status, timestamp, component health (no auth)
   - Error handling tested: Invalid auth → 401, missing params → 400, service error → 503
 - **Files (target):**
-  - `PHASE_3_DEPLOYMENT_BLOCKERS.md` (comprehensive blocking issues doc, created 2026-02-20)
+  - `docs/archive/2026-03-20-root-cleanup/PHASE_3_DEPLOYMENT_BLOCKERS.md` (comprehensive blocking issues doc, created 2026-02-20)
   - `C:\gpc-cres-backend\.env` (CLOUDFLARE_TUNNEL_TOKEN update)
   - Cloudflare dashboard (ingress rule configuration)
-  - Integration decision: api_server.py Option A/B/C (see PHASE_3_DEPLOYMENT_BLOCKERS.md lines 132-135)
+  - Integration decision: api_server.py Option A/B/C (see docs/archive/2026-03-20-root-cleanup/PHASE_3_DEPLOYMENT_BLOCKERS.md lines 132-135)
   - Documentation updates: SPEC.md (architecture), CLAUDE.md (port references), agent tool definitions
 - **Completion Evidence (2026-02-21, 3-prompt workflow COMPLETE):**
   - ✅ **P0 RESOLVED:** Cloudflare Tunnel token deployed, tunnel LIVE with 4 QUIC connections to Atlanta edge (atl01, atl08, atl10, atl12)

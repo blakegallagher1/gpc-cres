@@ -9,7 +9,7 @@ description: |
 
 ## Prerequisites
 
-- `Entitlement_OS_Meta_Prompt.md` (`Phase B`) and `Entitlement_OS_Phase_B_Restart_Part_1_B1_B2.md`.
+- `docs/archive/2026-03-20-root-cleanup/Entitlement_OS_Meta_Prompt.md` (`Phase B`) and `docs/archive/2026-03-20-root-cleanup/Entitlement_OS_Phase_B_Restart_Part_1_B1_B2.md`.
 - Entitlement phase A output when this is part of a multi-phase workflow.
 - Deal context containing `dealId` and current `orgId`.
 - Existing API/DB state for `deal terms` and `entitlement path` records.

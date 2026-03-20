@@ -133,7 +133,7 @@ Cron jobs: `/api/cron/change-detection` (daily 6 AM), `/api/cron/parish-pack-ref
 
 ## Implementation Roadmap
 
-`IMPLEMENTATION_PLAN.md` and `Entitlement_OS_Meta_Prompt.md` are historical planning artifacts. Use `ROADMAP.md` for active implementation status and `docs/SPEC.md` for the current architecture contract.
+`docs/archive/2026-03-20-root-cleanup/IMPLEMENTATION_PLAN.md` and `docs/archive/2026-03-20-root-cleanup/Entitlement_OS_Meta_Prompt.md` are historical planning artifacts. Use `ROADMAP.md` for active implementation status and `docs/SPEC.md` for the current architecture contract.
 
 ### Phase Tracker
 Update status after each sub-phase ships:

@@ -357,7 +357,7 @@ function buildSummary(
 }
 
 const REMEDIATION_HINTS: Record<string, string> = {
-  chat_405_count: "The tool execute route is returning 405. Check for shell-workflow import crash or route misconfiguration. See PRODUCTION_VERIFICATION_REPORT.md.",
+  chat_405_count: "The tool execute route is returning 405. Check for shell-workflow import crash or route misconfiguration. See docs/archive/2026-03-20-root-cleanup/PRODUCTION_VERIFICATION_REPORT.md.",
   chat_5xx_rate: "Tool execution is failing server-side. Check Vercel function logs for /api/agent/tools/execute errors.",
   map_parcels_p95: "Parcel list latency is elevated. Check gateway connectivity and fanout query count.",
   map_suggest_p95: "Suggest typeahead is slow. Check gateway search latency and parallel candidate logic.",

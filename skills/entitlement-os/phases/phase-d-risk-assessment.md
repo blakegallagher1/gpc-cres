@@ -9,7 +9,7 @@ description: |
 
 ## Prerequisites
 
-- `Entitlement_OS_Meta_Prompt.md` (`Phase D`) and entitlement-specific tool inventory.
+- `docs/archive/2026-03-20-root-cleanup/Entitlement_OS_Meta_Prompt.md` (`Phase D`) and entitlement-specific tool inventory.
 - `Entitlement_OS_Phase_B_Restart_Part_3_B5.md` for baseline risk model fields.
 - `DealRisk`-eligible data from prior phases (`B3`–`D`).
 

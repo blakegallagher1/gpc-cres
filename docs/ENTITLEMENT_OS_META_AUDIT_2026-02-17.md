@@ -4,7 +4,7 @@ Last reviewed: 2026-02-19
 
 
 Date: 2026-02-17  
-Scope baseline: `Entitlement_OS_Meta_Prompt.md`
+Scope baseline: `docs/archive/2026-03-20-root-cleanup/Entitlement_OS_Meta_Prompt.md`
 
 ## Final gate status
 

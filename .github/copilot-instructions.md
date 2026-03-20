@@ -179,7 +179,7 @@ CI runs: `cp .env.example .env` before Prisma generate because db scripts load e
 ## Reference Documentation
 
 - Architecture spec: `docs/SPEC.md`
-- Implementation plan: `IMPLEMENTATION_PLAN.md`
+- Implementation plan (archived): `docs/archive/2026-03-20-root-cleanup/IMPLEMENTATION_PLAN.md`
 - Automation frontier: `docs/AUTOMATION-FRONTIER.md`
 - Agent guidelines: `AGENTS.md` (for Codex)
 - Project overview: `CLAUDE.md` (for Claude)

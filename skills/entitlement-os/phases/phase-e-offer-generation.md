@@ -9,7 +9,7 @@ description: |
 
 ## Prerequisites
 
-- `Entitlement_OS_Meta_Prompt.md` (`Phase E`) and phase outputs `B`, `C`, `D`.
+- `docs/archive/2026-03-20-root-cleanup/Entitlement_OS_Meta_Prompt.md` (`Phase E`) and phase outputs `B`, `C`, `D`.
 - Active deal with financial assumptions, risk register, and timeline milestones.
 - Current offer policy/contingency templates.
 
