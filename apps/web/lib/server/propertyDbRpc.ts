@@ -18,12 +18,32 @@ interface GatewayEnvelope<T> {
 const DEFAULT_GATEWAY_TIMEOUT_MS = 25_000;
 const MAX_RETRIES = 1;
 
-function getGatewayTimeoutMs(): number {
-  const raw = Number(process.env.PROPERTY_DB_GATEWAY_TIMEOUT_MS ?? "");
-  if (Number.isFinite(raw) && raw > 0) {
-    return Math.floor(raw);
+interface PropertyDbGatewayRequestOptions {
+  routeTag: string;
+  path: string;
+  method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
+  headers?: Record<string, string>;
+  body?: BodyInit;
+  cache?: RequestCache;
+  requestId?: string;
+  includeApiKey?: boolean;
+  timeoutMs?: number;
+  maxRetries?: number;
+}
+
+function getGatewayTimeoutMs(override?: number): number {
+  if (typeof override === "number" && Number.isFinite(override) && override > 0) {
+    return Math.floor(override);
   }
-  return DEFAULT_GATEWAY_TIMEOUT_MS;
+  const raw = Number(process.env.PROPERTY_DB_GATEWAY_TIMEOUT_MS ?? "");
+  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : DEFAULT_GATEWAY_TIMEOUT_MS;
+}
+
+function getGatewayRetryCount(override?: number): number {
+  if (typeof override === "number" && Number.isFinite(override) && override >= 0) {
+    return Math.floor(override);
+  }
+  return MAX_RETRIES;
 }
 
 function isRecord(value: unknown): value is PropertyDbRecord {
@@ -219,7 +239,7 @@ function normalizeScreeningPayload(data: unknown): PropertyDbRecord | null {
   };
 }
 
-async function parseEnvelope<T>(res: Response, fnName: PropertyDbRpcFnName): Promise<GatewayEnvelope<T>> {
+async function parseEnvelope<T>(res: Response, fnName: string): Promise<GatewayEnvelope<T>> {
   if (!res.ok) {
     const text = await res.text();
     throw new Error(
@@ -247,25 +267,32 @@ function isRetryableError(error: unknown): boolean {
 async function fetchGateway(
   url: string,
   init: RequestInit,
-  fnName: PropertyDbRpcFnName,
+  fnName: string,
+  timeoutOverrideMs?: number,
+  retryOverride?: number,
 ): Promise<Response> {
-  const timeoutMs = getGatewayTimeoutMs();
+  const timeoutMs = getGatewayTimeoutMs(timeoutOverrideMs);
+  const maxRetries = getGatewayRetryCount(retryOverride);
   let lastError: unknown;
 
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
-      return await fetch(url, {
+      const response = await fetch(url, {
         ...init,
         signal: controller.signal,
       });
+      if (response.status >= 500 && attempt < maxRetries) {
+        continue;
+      }
+      return response;
     } catch (error) {
       lastError = error;
       clearTimeout(timeout);
 
-      if (attempt < MAX_RETRIES && isRetryableError(error)) {
+      if (attempt < maxRetries && isRetryableError(error)) {
         continue;
       }
 
@@ -285,17 +312,52 @@ async function fetchGateway(
   throw lastError;
 }
 
+/**
+ * Shared property-db gateway request path for apps/web server routes.
+ * Applies the repo-standard timeout/retry policy and injects auth/access headers.
+ */
+export async function requestPropertyDbGateway(
+  options: PropertyDbGatewayRequestOptions,
+): Promise<Response> {
+  const {
+    routeTag,
+    path,
+    method = "GET",
+    headers = {},
+    body,
+    cache = "no-store",
+    requestId,
+    includeApiKey = false,
+    timeoutMs,
+    maxRetries,
+  } = options;
+  const { url, key } = requireGatewayConfig(routeTag);
+  const baseUrl = url.replace(/\/$/, "");
+
+  return fetchGateway(
+    `${baseUrl}${path}`,
+    {
+      method,
+      headers: {
+        Authorization: `Bearer ${key}`,
+        ...(includeApiKey ? { apikey: key } : {}),
+        ...(requestId ? { "x-request-id": requestId } : {}),
+        ...getCloudflareAccessHeadersFromEnv(),
+        ...headers,
+      },
+      ...(body ? { body } : {}),
+      cache,
+    },
+    routeTag,
+    timeoutMs,
+    maxRetries,
+  );
+}
+
 export async function propertyDbRpc(
   fnName: PropertyDbRpcFnName,
   body: PropertyDbRecord,
 ): Promise<unknown> {
-  const { url, key } = requireGatewayConfig("property-db-rpc");
-  const headers = {
-    Authorization: `Bearer ${key}`,
-    ...getCloudflareAccessHeadersFromEnv(),
-  };
-  const baseUrl = url.replace(/\/$/, "");
-
   if (fnName === "api_search_parcels") {
     const q = toNonEmptyString(body.p_search_text ?? body.search_text);
     const parish = toNonEmptyString(body.p_parish ?? body.parish);
@@ -309,11 +371,12 @@ export async function propertyDbRpc(
       params.set("parish", parish);
     }
 
-    const res = await fetchGateway(`${baseUrl}/api/parcels/search?${params.toString()}`, {
+    const res = await requestPropertyDbGateway({
+      routeTag: fnName,
+      path: `/api/parcels/search?${params.toString()}`,
       method: "GET",
-      headers,
       cache: "no-store",
-    }, fnName);
+    });
     const payload = await parseEnvelope<unknown[]>(res, fnName);
     if (Array.isArray(payload.data)) return payload.data;
     if (Array.isArray(payload.parcels)) return payload.parcels;
@@ -322,26 +385,28 @@ export async function propertyDbRpc(
 
   if (fnName === "api_get_parcel") {
     const parcelId = requireParcelId(body);
-    const res = await fetchGateway(`${baseUrl}/api/parcels/${encodeURIComponent(parcelId)}`, {
+    const res = await requestPropertyDbGateway({
+      routeTag: fnName,
+      path: `/api/parcels/${encodeURIComponent(parcelId)}`,
       method: "GET",
-      headers,
       cache: "no-store",
-    }, fnName);
+    });
     const payload = await parseEnvelope<PropertyDbRecord>(res, fnName);
     return payload.data ?? null;
   }
 
   if (fnName === "api_screen_full") {
     const parcelId = requireParcelId(body);
-    const res = await fetchGateway(`${baseUrl}/api/screening/full`, {
+    const res = await requestPropertyDbGateway({
+      routeTag: fnName,
+      path: "/api/screening/full",
       method: "POST",
       headers: {
-        ...headers,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ parcelId }),
       cache: "no-store",
-    }, fnName);
+    });
     const payload = await parseEnvelope<unknown>(res, fnName);
     return normalizeScreeningPayload(payload.data);
   }
