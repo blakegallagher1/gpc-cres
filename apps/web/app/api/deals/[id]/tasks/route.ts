@@ -3,6 +3,8 @@ import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { dispatchEvent } from "@/lib/automation/events";
 import { captureAutomationDispatchError } from "@/lib/automation/sentry";
+import "@/lib/automation/handlers";
+import * as Sentry from "@sentry/nextjs";
 
 // GET /api/deals/[id]/tasks
 export async function GET(
@@ -33,6 +35,9 @@ export async function GET(
 
     return NextResponse.json({ tasks });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.tasks", method: "GET" },
+    });
     console.error("Error fetching tasks:", error);
     return NextResponse.json(
       { error: "Failed to fetch tasks" },
@@ -109,6 +114,9 @@ export async function POST(
 
     return NextResponse.json({ task }, { status: 201 });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.tasks", method: "POST" },
+    });
     console.error("Error creating task:", error);
     return NextResponse.json(
       { error: "Failed to create task" },
@@ -202,6 +210,9 @@ export async function PATCH(
 
     return NextResponse.json({ task });
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.deals.tasks", method: "PATCH" },
+    });
     console.error("Error updating task:", error);
     return NextResponse.json(
       { error: "Failed to update task" },

@@ -5,6 +5,7 @@ import { dispatchEvent } from "@/lib/automation/events";
 import { runAgentWorkflow } from "@/lib/agent/agentRunner";
 import * as Sentry from "@sentry/nextjs";
 import { captureAutomationDispatchError } from "@/lib/automation/sentry";
+import "@/lib/automation/handlers";
 
 type TaskAgentStatus = "succeeded" | "failed" | "canceled";
 

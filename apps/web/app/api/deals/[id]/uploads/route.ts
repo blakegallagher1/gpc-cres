@@ -6,6 +6,7 @@ import { uploadDealFileToGateway } from "@/lib/storage/gatewayStorage";
 import { randomUUID } from "crypto";
 import { dispatchEvent } from "@/lib/automation/events";
 import { captureAutomationDispatchError } from "@/lib/automation/sentry";
+import "@/lib/automation/handlers";
 import * as Sentry from "@sentry/nextjs";
 
 // GET /api/deals/[id]/uploads - list uploads for a deal

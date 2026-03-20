@@ -3,6 +3,7 @@ import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { dispatchEvent } from "@/lib/automation/events";
 import { captureAutomationDispatchError } from "@/lib/automation/sentry";
+import "@/lib/automation/handlers";
 import * as Sentry from "@sentry/nextjs";
 
 // GET /api/deals/[id]/parcels

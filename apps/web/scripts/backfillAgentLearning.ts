@@ -135,7 +135,7 @@ async function dispatchBackfillEvent(run: BackfillRunRecord): Promise<void> {
     throw new Error("missing conversation/user context");
   }
 
-  await dispatchEvent({
+  dispatchEvent({
     type: "agent.run.completed",
     runId: run.id,
     orgId: run.orgId,
@@ -148,7 +148,7 @@ async function dispatchBackfillEvent(run: BackfillRunRecord): Promise<void> {
     inputPreview:
       conversationContext.inputPreview ?? extractInputPreviewFromOutput(outputJson),
     queryIntent: extractQueryIntent(outputJson),
-  });
+  }).catch(() => {});
 }
 
 async function main(): Promise<void> {
