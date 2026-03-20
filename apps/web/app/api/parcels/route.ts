@@ -32,8 +32,9 @@ const PROPERTY_DB_SEARCH_TERMS = [
 const MAX_SEARCH_FALLBACK_QUERIES = 8;
 const MAX_BASELINE_FALLBACK_QUERIES = 1;
 const MAX_SEARCH_VARIANT_QUERIES = 2;
-const DEFAULT_PROPERTY_DB_GATEWAY_TIMEOUT_MS = 15_000;
+const DEFAULT_PROPERTY_DB_GATEWAY_TIMEOUT_MS = 25_000;
 const MAX_PROPERTY_DB_GATEWAY_TIMEOUT_MS = 25_000;
+const MAX_PROPERTY_DB_GATEWAY_RETRIES = 1;
 const LOCATION_STOP_WORDS = new Set([
   "baton",
   "rouge",
@@ -67,6 +68,23 @@ class GatewayUnavailableError extends Error {
 
 function isGatewayUnavailableError(error: unknown): error is GatewayUnavailableError {
   return error instanceof GatewayUnavailableError;
+}
+
+function isRetryableGatewayFailure(error: unknown): boolean {
+  if (!isGatewayUnavailableError(error)) {
+    return false;
+  }
+  if (error.status >= 500) {
+    return true;
+  }
+  const message = error.message.toLowerCase();
+  return (
+    message.includes("timed out") ||
+    message.includes("aborterror") ||
+    message.includes("fetch failed") ||
+    message.includes("socket hang up") ||
+    message.includes("econnreset")
+  );
 }
 
 function sanitizeSearchInput(input: string): string {
@@ -392,84 +410,97 @@ function normalizeRpcRows(value: unknown): Record<string, unknown>[] {
 }
 
 async function gatewaySearchParcels(q: string, limit: number): Promise<unknown[]> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), PROPERTY_DB_GATEWAY_TIMEOUT_MS);
-  try {
-    const { url, key } = requireGatewayConfig("/api/parcels");
-    const params = new URLSearchParams({ q, limit: String(limit) });
-    const res = await fetch(`${url}/api/parcels/search?${params}`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${key}`,
-        ...getCloudflareAccessHeadersFromEnv(),
-      },
-      signal: controller.signal,
-      cache: "no-store",
-    });
-    if (!res.ok) {
-      // Upstream 4xx responses are treated as "no matches" for this query
-      // so user-facing search can continue trying alternative terms.
-      if (res.status < 500) {
-        return [];
+  for (let attempt = 0; attempt <= MAX_PROPERTY_DB_GATEWAY_RETRIES; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), PROPERTY_DB_GATEWAY_TIMEOUT_MS);
+    try {
+      const { url, key } = requireGatewayConfig("/api/parcels");
+      const params = new URLSearchParams({ q, limit: String(limit) });
+      const res = await fetch(`${url}/api/parcels/search?${params}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${key}`,
+          ...getCloudflareAccessHeadersFromEnv(),
+        },
+        signal: controller.signal,
+        cache: "no-store",
+      });
+      if (!res.ok) {
+        // Upstream 4xx responses are treated as "no matches" for this query
+        // so user-facing search can continue trying alternative terms.
+        if (res.status < 500) {
+          return [];
+        }
+        const errBody = await res.text().catch(() => "");
+        const gatewayError = new GatewayUnavailableError(
+          `[gatewaySearchParcels] failed: ${res.status} ${errBody.slice(0, 300)}`,
+          502,
+        );
+        if (attempt < MAX_PROPERTY_DB_GATEWAY_RETRIES && isRetryableGatewayFailure(gatewayError)) {
+          continue;
+        }
+        throw gatewayError;
       }
-      const errBody = await res.text().catch(() => "");
-      throw new GatewayUnavailableError(
-        `[gatewaySearchParcels] failed: ${res.status} ${errBody.slice(0, 300)}`,
-        502,
-      );
+      const text = await res.text().catch(() => "");
+      if (!text) return [];
+      return parseRpcResponseArray(text);
+    } catch (err) {
+      Sentry.captureException(err, {
+        tags: { route: "api.parcels", method: "UNKNOWN" },
+      });
+      const gatewayError = isGatewayUnavailableError(err)
+        ? err
+        : new GatewayUnavailableError(
+            `[gatewaySearchParcels] exception: ${
+              err instanceof Error && err.name === "AbortError"
+                ? `request timed out after ${PROPERTY_DB_GATEWAY_TIMEOUT_MS}ms`
+                : err instanceof Error
+                  ? err.message
+                  : String(err)
+            }`,
+          );
+      if (attempt < MAX_PROPERTY_DB_GATEWAY_RETRIES && isRetryableGatewayFailure(gatewayError)) {
+        continue;
+      }
+      throw gatewayError;
+    } finally {
+      clearTimeout(timeout);
     }
-    const text = await res.text().catch(() => "");
-    if (!text) return [];
-    return parseRpcResponseArray(text);
-  } catch (err) {
-    Sentry.captureException(err, {
-      tags: { route: "api.parcels", method: "UNKNOWN" },
-    });
-    if (isGatewayUnavailableError(err)) {
-      throw err;
-    }
-    const reason =
-      err instanceof Error && err.name === "AbortError"
-        ? `request timed out after ${PROPERTY_DB_GATEWAY_TIMEOUT_MS}ms`
-        : err instanceof Error
-          ? err.message
-          : String(err);
-    throw new GatewayUnavailableError(`[gatewaySearchParcels] exception: ${reason}`);
-  } finally {
-    clearTimeout(timeout);
   }
+
+  throw new GatewayUnavailableError("[gatewaySearchParcels] request failed after retries");
 }
 
 
-async function runWithConcurrency<T>(
-  tasks: Array<() => Promise<T>>,
-  maxConcurrent: number = 5,
-): Promise<PromiseSettledResult<T>[]> {
-  const limit = Math.max(1, maxConcurrent);
-  const results: Array<PromiseSettledResult<T>> = new Array(tasks.length);
-  let nextIndex = 0;
+async function runGatewayFallbackQueries(
+  tasks: Array<() => Promise<unknown[]>>,
+  stopOnFirstNonEmpty: boolean,
+): Promise<unknown[][]> {
+  const successfulResults: unknown[][] = [];
+  let firstGatewayError: GatewayUnavailableError | null = null;
 
-  const worker = async () => {
-    while (nextIndex < tasks.length) {
-      const currentIndex = nextIndex;
-      nextIndex += 1;
-      try {
-        const value = await tasks[currentIndex]();
-        results[currentIndex] = { status: "fulfilled", value };
-      } catch (reason) {
-        Sentry.captureException(reason, {
-          tags: { route: "api.parcels", method: "UNKNOWN" },
-        });
-        results[currentIndex] = { status: "rejected", reason };
+  for (const task of tasks) {
+    try {
+      const rows = await task();
+      successfulResults.push(rows);
+      if (stopOnFirstNonEmpty && rows.length > 0) {
+        return successfulResults;
+      }
+    } catch (reason) {
+      Sentry.captureException(reason, {
+        tags: { route: "api.parcels", method: "UNKNOWN" },
+      });
+      if (!firstGatewayError && isGatewayUnavailableError(reason)) {
+        firstGatewayError = reason;
       }
     }
-  };
+  }
 
-  await Promise.all(
-    Array.from({ length: Math.min(limit, tasks.length) }, () => worker()),
-  );
+  if (successfulResults.length === 0 && firstGatewayError) {
+    throw firstGatewayError;
+  }
 
-  return results;
+  return successfulResults;
 }
 
 function mapExternalParcelToApiShape(
@@ -776,34 +807,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const fallbackResults = await runWithConcurrency(
-      fallbackQueries,
-      hasSearch ? 1 : 5,
-    );
-    const fulfilled = fallbackResults.filter(
-      (result): result is PromiseFulfilledResult<unknown[]> =>
-        result.status === "fulfilled",
-    );
-    if (fulfilled.length === 0) {
-      const gatewayError = fallbackResults.find(
-        (result): result is PromiseRejectedResult =>
-          result.status === "rejected" && isGatewayUnavailableError(result.reason),
-      );
-      if (gatewayError) {
-        throw gatewayError.reason;
-      }
-      const firstRejection = fallbackResults.find(
-        (result): result is PromiseRejectedResult => result.status === "rejected",
-      );
-      if (firstRejection) {
-        const reason = firstRejection.reason instanceof Error
-          ? firstRejection.reason.message
-          : String(firstRejection.reason ?? "unknown error");
-        throw new GatewayUnavailableError(`[gatewaySearchParcels] ${reason}`, 502);
-      }
-    }
-
-    const parishResults = fulfilled.map((result) => result.value);
+    const parishResults = await runGatewayFallbackQueries(fallbackQueries, hasSearch);
 
     const externalRows = parishResults.flat();
     if (externalRows.length === 0) {
