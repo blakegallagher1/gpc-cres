@@ -77,6 +77,7 @@ const handlers: Map<AutomationEventType, RegisteredAutomationHandler[]> = new Ma
 
 /** Max time a single handler is allowed to run before being considered stuck. */
 const HANDLER_TIMEOUT_MS = 30_000;
+const STAGE_CHANGED_HANDLER_STAGGER_MS = 150;
 
 /** Window for idempotency dedup — events with the same key within this window are skipped. */
 const IDEMPOTENCY_WINDOW_MS = 10_000;
@@ -86,6 +87,10 @@ const IDEMPOTENCY_WINDOW_MS = 10_000;
  * Entries are auto-evicted after IDEMPOTENCY_WINDOW_MS.
  */
 const recentIdempotencyKeys = new Map<string, number>();
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 function computeIdempotencyKey(event: AutomationEvent): string {
   if (event.type === "agent.run.completed") {
@@ -164,7 +169,7 @@ export async function dispatchEvent(event: AutomationEvent): Promise<void> {
   // Time bucket: floor to 10s boundary for idempotency key stability.
   const timeBucket = Math.floor(Date.now() / IDEMPOTENCY_WINDOW_MS);
 
-  for (const handler of eventHandlers) {
+  for (const [index, handler] of eventHandlers.entries()) {
     const handlerName = handler.name || "anonymous";
     let eventId: string | undefined;
     const durableKey = `${idempotencyKey}:${handlerName}:${timeBucket}`;
@@ -256,6 +261,13 @@ export async function dispatchEvent(event: AutomationEvent): Promise<void> {
           // Silent
         }
       }
+    }
+
+    if (
+      event.type === "deal.stageChanged" &&
+      index < eventHandlers.length - 1
+    ) {
+      await sleep(STAGE_CHANGED_HANDLER_STAGGER_MS);
     }
   }
 

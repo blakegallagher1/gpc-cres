@@ -102,6 +102,7 @@ describe("handleAdvancement", () => {
     );
     getWorkflowPipelineStepMock.mockReturnValue(2);
     isEntitlementStrategyMock.mockReturnValue(true);
+    dbMock.prisma.task.count.mockResolvedValue(0);
   });
 
   it("ignores non task.completed events", async () => {
@@ -149,6 +150,23 @@ describe("handleAdvancement", () => {
       { status: "TODO" },
     ]);
     await handleAdvancement({ type: "task.completed", dealId: "d", taskId: "t", orgId: "o" });
+    expect(dbMock.prisma.task.findMany).toHaveBeenCalledWith({
+      where: { dealId: "d", deal: { orgId: "o" }, pipelineStep: 2 },
+      select: { status: true },
+      orderBy: { createdAt: "asc" },
+      take: 500,
+    });
+    expect(dbMock.prisma.task.create).not.toHaveBeenCalled();
+  });
+
+  it("does not suggest advancement when the 500-task cap indicates there may be more tasks", async () => {
+    dbMock.prisma.task.findMany.mockResolvedValue(
+      Array.from({ length: 500 }, () => ({ status: "DONE" })),
+    );
+    dbMock.prisma.task.count.mockResolvedValue(501);
+
+    await handleAdvancement({ type: "task.completed", dealId: "d", taskId: "t", orgId: "o" });
+
     expect(dbMock.prisma.task.create).not.toHaveBeenCalled();
   });
 

@@ -15,6 +15,7 @@ export type CreateTrajectoryLogFromRunInput = {
   status: "succeeded" | "failed" | "canceled";
   inputPreview?: string | null;
   queryIntent?: string | null;
+  signal?: AbortSignal;
 };
 
 export type CreateTrajectoryLogFromRunResult = {
@@ -187,9 +188,16 @@ function extractRiskEvents(
   });
 }
 
+function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) {
+    throw new Error("Agent learning promotion aborted");
+  }
+}
+
 export async function createTrajectoryLogFromRun(
   input: CreateTrajectoryLogFromRunInput,
 ): Promise<CreateTrajectoryLogFromRunResult> {
+  throwIfAborted(input.signal);
   const run = await prisma.run.findFirst({
     where: {
       id: input.runId,
@@ -211,6 +219,7 @@ export async function createTrajectoryLogFromRun(
   const outputJson = toJsonRecord(run.outputJson);
   const agentId = extractAgentId(outputJson);
   const taskInput = await resolveTaskInput(input.inputPreview, input.orgId, input.conversationId);
+  throwIfAborted(input.signal);
   const finalOutput =
     typeof outputJson.finalOutput === "string" ? outputJson.finalOutput : "";
   const evaluatorScore =

@@ -6,6 +6,11 @@ import {
   ingestKnowledge,
   type KnowledgeContentType,
 } from "@/lib/services/knowledgeBase.service";
+import { captureAutomationTimeout } from "./sentry";
+import { withTimeout } from "./timeout";
+
+const DELETE_KNOWLEDGE_TIMEOUT_MS = 5_000;
+const INGEST_KNOWLEDGE_TIMEOUT_MS = 15_000;
 
 type NumericLike = number | string | { toString(): string } | null | undefined;
 
@@ -276,14 +281,43 @@ export async function handleKnowledgeCapture(event: AutomationEvent): Promise<vo
   };
 
   if (AUTOMATION_CONFIG.knowledgeCapture.dedupeBeforeWrite) {
-    await deleteKnowledge(deal.orgId, sourceId);
+    const deleted = await withTimeout(
+      deleteKnowledge(deal.orgId, sourceId),
+      DELETE_KNOWLEDGE_TIMEOUT_MS,
+      "knowledgeCapture.deleteKnowledge",
+    );
+    if (deleted === null) {
+      captureAutomationTimeout({
+        label: `deleteKnowledge timed out after ${DELETE_KNOWLEDGE_TIMEOUT_MS}ms`,
+        handler: "knowledgeCapture",
+        eventType: event.type,
+        dealId: deal.id,
+        orgId: deal.orgId,
+        status: terminalStatus,
+      });
+      return;
+    }
   }
 
-  await ingestKnowledge(
-    deal.orgId,
-    "outcome_record" as KnowledgeContentType,
-    sourceId,
-    content,
-    metadata,
+  const ingested = await withTimeout(
+    ingestKnowledge(
+      deal.orgId,
+      "outcome_record" as KnowledgeContentType,
+      sourceId,
+      content,
+      metadata,
+    ),
+    INGEST_KNOWLEDGE_TIMEOUT_MS,
+    "knowledgeCapture.ingestKnowledge",
   );
+  if (ingested === null) {
+    captureAutomationTimeout({
+      label: `ingestKnowledge timed out after ${INGEST_KNOWLEDGE_TIMEOUT_MS}ms`,
+      handler: "knowledgeCapture",
+      eventType: event.type,
+      dealId: deal.id,
+      orgId: deal.orgId,
+      status: terminalStatus,
+    });
+  }
 }

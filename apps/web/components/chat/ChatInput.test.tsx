@@ -19,7 +19,7 @@ describe("ChatInput", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
 
-    expect(onSend).toHaveBeenCalledWith("Store this memory now");
+    expect(onSend).toHaveBeenCalledWith("Store this memory now", undefined);
   });
 
   it("submits the typed value through the normal controlled path", () => {
@@ -38,6 +38,6 @@ describe("ChatInput", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
 
-    expect(onSend).toHaveBeenCalledWith("Screen this property");
+    expect(onSend).toHaveBeenCalledWith("Screen this property", undefined);
   });
 });

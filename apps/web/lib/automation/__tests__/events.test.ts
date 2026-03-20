@@ -304,6 +304,53 @@ describe("dispatchEvent", () => {
 
     await expect(timeoutPromise).rejects.toThrow("timed out");
   });
+
+  it("stagger deal.stageChanged handlers by 150ms", async () => {
+    vi.useFakeTimers();
+    const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
+
+    const { dispatchEvent, registerHandler, _resetHandlers } = await loadModule();
+    _resetHandlers();
+    registerHandler("deal.stageChanged", vi.fn(async () => undefined));
+    registerHandler("deal.stageChanged", vi.fn(async () => undefined));
+
+    const promise = dispatchEvent({
+      type: "deal.stageChanged",
+      dealId: "deal-1",
+      from: "UNDERWRITING",
+      to: "DISPOSITION",
+      orgId: "org-1",
+    });
+
+    await vi.runAllTimersAsync();
+    await promise;
+
+    expect(setTimeoutSpy.mock.calls.some((call) => call[1] === 150)).toBe(true);
+    vi.useRealTimers();
+  });
+
+  it("does not add the stagger delay for non stageChanged events", async () => {
+    vi.useFakeTimers();
+    const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
+
+    const { dispatchEvent, registerHandler, _resetHandlers } = await loadModule();
+    _resetHandlers();
+    registerHandler("task.completed", vi.fn(async () => undefined));
+    registerHandler("task.completed", vi.fn(async () => undefined));
+
+    const promise = dispatchEvent({
+      type: "task.completed",
+      dealId: "deal-1",
+      taskId: "task-1",
+      orgId: "org-1",
+    });
+
+    await vi.runAllTimersAsync();
+    await promise;
+
+    expect(setTimeoutSpy.mock.calls.some((call) => call[1] === 150)).toBe(false);
+    vi.useRealTimers();
+  });
 });
 
 describe("classifyError", () => {

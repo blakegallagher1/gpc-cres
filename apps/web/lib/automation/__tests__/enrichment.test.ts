@@ -1,11 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { propertyDbRpcMock, createAutomationTaskMock, prismaMock } = vi.hoisted(() => ({
+const {
+  propertyDbRpcMock,
+  createAutomationTaskMock,
+  prismaMock,
+  captureAutomationTimeoutMock,
+} = vi.hoisted(() => ({
   propertyDbRpcMock: vi.fn(),
   createAutomationTaskMock: vi.fn(),
   prismaMock: {
     parcel: { findFirst: vi.fn(), update: vi.fn() },
   },
+  captureAutomationTimeoutMock: vi.fn(),
 }));
 
 vi.mock("@/lib/server/propertyDbRpc", () => ({
@@ -14,6 +20,10 @@ vi.mock("@/lib/server/propertyDbRpc", () => ({
 
 vi.mock("../notifications", () => ({
   createAutomationTask: createAutomationTaskMock,
+}));
+
+vi.mock("../sentry", () => ({
+  captureAutomationTimeout: captureAutomationTimeoutMock,
 }));
 
 vi.mock("@entitlement-os/db", () => ({
@@ -26,11 +36,13 @@ import {
   handleParcelCreated,
   normalizeAddress,
   scoreMatchConfidence,
+  searchPropertyDbMatches,
 } from "../enrichment";
 
 describe("enrichment helpers", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useRealTimers();
   });
 
   it("normalizes punctuation and whitespace in addresses", () => {
@@ -117,6 +129,87 @@ describe("enrichment helpers", () => {
       acreage: 1.25,
       floodZone: "X (100%)",
     });
+  });
+
+  it("continues searching when api_search_parcels times out", async () => {
+    vi.useFakeTimers();
+
+    propertyDbRpcMock
+      .mockReturnValueOnce(new Promise(() => {}))
+      .mockResolvedValueOnce([{ id: "prop-1", site_address: "123 Main St" }]);
+
+    const matchesPromise = searchPropertyDbMatches("123 Main St", "East Baton Rouge");
+
+    await vi.advanceTimersByTimeAsync(8_000);
+
+    await expect(matchesPromise).resolves.toEqual([
+      { id: "prop-1", site_address: "123 Main St" },
+    ]);
+    expect(captureAutomationTimeoutMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        handler: "enrichment",
+        label: "api_search_parcels timed out after 8000ms",
+      }),
+    );
+  });
+
+  it("returns partial enrichment data when parcel details time out", async () => {
+    vi.useFakeTimers();
+
+    propertyDbRpcMock
+      .mockReturnValueOnce(new Promise(() => {}))
+      .mockResolvedValueOnce({
+        flood: { zones: [{ zone_code: "X", overlap_pct: 100 }] },
+      });
+
+    const payloadPromise = getParcelEnrichmentPayload("prop-1");
+
+    await vi.advanceTimersByTimeAsync(5_000);
+
+    const payload = await payloadPromise;
+
+    expect(payload.details).toBeNull();
+    expect(payload.screening).toEqual({
+      flood: { zones: [{ zone_code: "X", overlap_pct: 100 }] },
+    });
+    expect(payload.updateData).toMatchObject({
+      propertyDbId: "prop-1",
+      floodZone: "X (100%)",
+    });
+    expect(captureAutomationTimeoutMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        handler: "enrichment",
+        label: "api_get_parcel timed out after 5000ms",
+      }),
+    );
+  });
+
+  it("returns parcel details when screening times out", async () => {
+    vi.useFakeTimers();
+
+    propertyDbRpcMock
+      .mockResolvedValueOnce({ parcel_uid: "015-4249-4", acreage: 1.25 })
+      .mockReturnValueOnce(new Promise(() => {}));
+
+    const payloadPromise = getParcelEnrichmentPayload("prop-1");
+
+    await vi.advanceTimersByTimeAsync(12_000);
+
+    const payload = await payloadPromise;
+
+    expect(payload.details).toEqual({ parcel_uid: "015-4249-4", acreage: 1.25 });
+    expect(payload.screening).toBeNull();
+    expect(payload.updateData).toMatchObject({
+      propertyDbId: "prop-1",
+      apn: "015-4249-4",
+      acreage: 1.25,
+    });
+    expect(captureAutomationTimeoutMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        handler: "enrichment",
+        label: "api_screen_full timed out after 12000ms",
+      }),
+    );
   });
 });
 

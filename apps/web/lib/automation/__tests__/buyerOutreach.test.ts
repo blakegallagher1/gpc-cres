@@ -3,7 +3,7 @@ const { dbMock } = vi.hoisted(() => ({
     prisma: {
       deal: { findFirst: vi.fn() },
       buyer: { findMany: vi.fn() },
-      outreach: { count: vi.fn(), findFirst: vi.fn() },
+      outreach: { count: vi.fn(), findMany: vi.fn() },
       task: { findFirst: vi.fn(), create: vi.fn() },
     },
   },
@@ -60,6 +60,7 @@ describe("findMatchingBuyers", () => {
     expect(arg.where.orgId).toBe("org-1");
     expect(arg.where.skuInterests).toEqual({ has: "OUTDOOR_STORAGE" });
     expect(arg.where.jurisdictionInterests).toEqual({ has: "jur-1" });
+    expect(arg.take).toBe(100);
   });
 
   it("returns matched buyers", async () => {
@@ -144,8 +145,9 @@ describe("handleBuyerOutreach", () => {
       { id: "b1", name: "Buyer A", company: "Co A", email: "a@test.com", buyerType: "operator" },
       { id: "b2", name: "Buyer B", company: null, email: "b@test.com", buyerType: "investor" },
     ]);
-    // Not in cool-off, not already contacted
-    dbMock.prisma.outreach.findFirst.mockResolvedValue(null);
+    dbMock.prisma.outreach.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
     dbMock.prisma.task.create.mockResolvedValue({ id: "t1" });
 
     await handleBuyerOutreach({
@@ -158,6 +160,24 @@ describe("handleBuyerOutreach", () => {
     expect(arg.data.description).toContain("Buyer A");
     expect(arg.data.description).toContain("Buyer B");
     expect(arg.data.pipelineStep).toBe(7);
+    expect(dbMock.prisma.outreach.findMany).toHaveBeenNthCalledWith(1, {
+      where: {
+        orgId: "o",
+        buyerId: { in: ["b1", "b2"] },
+        lastContactAt: { gte: expect.any(Date) },
+      },
+      select: { buyerId: true },
+      distinct: ["buyerId"],
+    });
+    expect(dbMock.prisma.outreach.findMany).toHaveBeenNthCalledWith(2, {
+      where: {
+        orgId: "o",
+        dealId: "d",
+        buyerId: { in: ["b1", "b2"] },
+      },
+      select: { buyerId: true },
+      distinct: ["buyerId"],
+    });
   });
 
   it("filters out buyers already contacted for this deal", async () => {
@@ -171,12 +191,9 @@ describe("handleBuyerOutreach", () => {
     dbMock.prisma.buyer.findMany.mockResolvedValue([
       { id: "b1", name: "Buyer A", company: null, email: "a@test.com", buyerType: "operator" },
     ]);
-    // b1 already contacted (findFirst returns a result for alreadyContacted check)
-    // The handler calls both isInCoolOff and alreadyContacted with findFirst
-    // First call: isInCoolOff → null, Second call: alreadyContacted → existing outreach
-    dbMock.prisma.outreach.findFirst
-      .mockResolvedValueOnce(null) // isInCoolOff → not in cool-off
-      .mockResolvedValueOnce({ id: "existing" }); // alreadyContacted → yes
+    dbMock.prisma.outreach.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ buyerId: "b1" }]);
 
     await handleBuyerOutreach({
       type: "deal.statusChanged", dealId: "d", from: "APPROVED", to: "EXIT_MARKETED", orgId: "o",
@@ -207,7 +224,9 @@ describe("handleBuyerOutreach", () => {
     dbMock.prisma.buyer.findMany.mockResolvedValue([
       { id: "b1", name: "Buyer A", company: "Co A", email: "a@test.com", buyerType: "operator" },
     ]);
-    dbMock.prisma.outreach.findFirst.mockResolvedValue(null);
+    dbMock.prisma.outreach.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
     dbMock.prisma.task.create.mockResolvedValue({ id: "t1" });
 
     await handleBuyerOutreach({

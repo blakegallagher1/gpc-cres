@@ -43,6 +43,7 @@ export async function findMatchingBuyers(
       email: true,
       buyerType: true,
     },
+    take: 100,
   });
 
   return buyers;
@@ -68,41 +69,51 @@ async function weeklyOutreachCount(
   });
 }
 
-/**
- * Check if a buyer is in cool-off period (contacted too recently).
- */
-async function isInCoolOff(
-  buyerId: string,
-  orgId: string
-): Promise<boolean> {
+async function loadBuyerEligibilityState(
+  buyerIds: string[],
+  dealId: string,
+  orgId: string,
+): Promise<{
+  coolOffBuyerIds: Set<string>;
+  contactedBuyerIds: Set<string>;
+}> {
+  if (buyerIds.length === 0) {
+    return {
+      coolOffBuyerIds: new Set<string>(),
+      contactedBuyerIds: new Set<string>(),
+    };
+  }
+
   const coolOffDate = new Date();
   coolOffDate.setDate(
     coolOffDate.getDate() - AUTOMATION_CONFIG.buyerOutreach.coolOffDays
   );
 
-  const recentOutreach = await prisma.outreach.findFirst({
-    where: {
-      buyerId,
-      orgId,
-      lastContactAt: { gte: coolOffDate },
-    },
-  });
+  const [recentOutreach, existingOutreach] = await Promise.all([
+    prisma.outreach.findMany({
+      where: {
+        orgId,
+        buyerId: { in: buyerIds },
+        lastContactAt: { gte: coolOffDate },
+      },
+      select: { buyerId: true },
+      distinct: ["buyerId"],
+    }),
+    prisma.outreach.findMany({
+      where: {
+        orgId,
+        dealId,
+        buyerId: { in: buyerIds },
+      },
+      select: { buyerId: true },
+      distinct: ["buyerId"],
+    }),
+  ]);
 
-  return recentOutreach !== null;
-}
-
-/**
- * Check if a buyer has already been contacted about this specific deal.
- */
-async function alreadyContacted(
-  buyerId: string,
-  dealId: string,
-  orgId: string
-): Promise<boolean> {
-  const existing = await prisma.outreach.findFirst({
-    where: { buyerId, dealId, orgId },
-  });
-  return existing !== null;
+  return {
+    coolOffBuyerIds: new Set(recentOutreach.map((outreach) => outreach.buyerId)),
+    contactedBuyerIds: new Set(existingOutreach.map((outreach) => outreach.buyerId)),
+  };
 }
 
 /**
@@ -164,18 +175,16 @@ export async function handleBuyerOutreach(
   }
 
   // Filter out buyers in cool-off or already contacted
-  const eligibleBuyers: typeof matchedBuyers = [];
-
-  for (const buyer of matchedBuyers) {
-    const [coolOff, contacted] = await Promise.all([
-      isInCoolOff(buyer.id, orgId),
-      alreadyContacted(buyer.id, dealId, orgId),
-    ]);
-
-    if (!contacted && !coolOff) {
-      eligibleBuyers.push(buyer);
-    }
-  }
+  const { coolOffBuyerIds, contactedBuyerIds } = await loadBuyerEligibilityState(
+    matchedBuyers.map((buyer) => buyer.id),
+    dealId,
+    orgId,
+  );
+  const eligibleBuyers = matchedBuyers.filter(
+    (buyer) =>
+      !coolOffBuyerIds.has(buyer.id) &&
+      !contactedBuyerIds.has(buyer.id),
+  );
 
   if (eligibleBuyers.length === 0) {
     console.log(
