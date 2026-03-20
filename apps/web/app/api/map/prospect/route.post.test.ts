@@ -281,6 +281,76 @@ describe("POST /api/map/prospect", () => {
     });
   });
 
+  it("maps tools SQL columnar responses with columns metadata", async () => {
+    resolveAuthMock.mockResolvedValue({ userId: "user-1", orgId: "org-1" });
+    fetchMock.mockResolvedValue(
+      makeJsonResponse({
+        columns: [
+          "id",
+          "site_address",
+          "owner_name",
+          "acreage",
+          "zoning",
+          "assessed_value",
+          "lat",
+          "lng",
+          "parish_name",
+          "parcel_id",
+        ],
+        rows: [
+          [
+            "p-4",
+            "9926 OAK TREE WAY",
+            "Columns Owner",
+            1.6,
+            "C3",
+            540000,
+            30.401,
+            -91.188,
+            "East Baton Rouge",
+            "parcel-4",
+          ],
+        ],
+        rowCount: 1,
+      }),
+    );
+
+    const req = new NextRequest("http://localhost/api/map/prospect", {
+      method: "POST",
+      body: JSON.stringify({
+        polygon: {
+          type: "Polygon",
+          coordinates: [[[-91.2, 30.45], [-91.2, 30.35], [-91.1, 30.35], [-91.1, 30.45], [-91.2, 30.45]]],
+        },
+        filters: { searchText: "9926 Oak Tree Way" },
+      }),
+    });
+
+    const res = await POST(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body).toEqual({
+      parcels: [
+        {
+          id: "p-4",
+          address: "9926 OAK TREE WAY",
+          owner: "Columns Owner",
+          acreage: 1.6,
+          zoning: "C3",
+          assessedValue: 540000,
+          floodZone: "",
+          lat: 30.401,
+          lng: -91.188,
+          parish: "East Baton Rouge",
+          parcelUid: "parcel-4",
+          propertyDbId: "parcel-4",
+        },
+      ],
+      total: 1,
+    });
+  });
+
   it("maps columnar gateway SQL responses", async () => {
     resolveAuthMock.mockResolvedValue({ userId: "user-1", orgId: "org-1" });
     fetchMock.mockResolvedValue(
