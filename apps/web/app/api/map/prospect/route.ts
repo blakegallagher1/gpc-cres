@@ -76,8 +76,11 @@ function normalizeProspectGatewayRows(value: unknown): Record<string, unknown>[]
     return [];
   }
 
-  const columnNames = Array.isArray(value.columnNames)
-    ? value.columnNames.filter((item): item is string => typeof item === "string")
+  const rawColumnNames = Array.isArray(value.columnNames)
+    ? value.columnNames
+    : value.columns;
+  const columnNames = Array.isArray(rawColumnNames)
+    ? rawColumnNames.filter((item): item is string => typeof item === "string")
     : null;
   if (columnNames?.length && Array.isArray(value.rows)) {
     return mapColumnarRows(columnNames, value.rows);
