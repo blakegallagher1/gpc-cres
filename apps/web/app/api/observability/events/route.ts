@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
-import {
 import * as Sentry from "@sentry/nextjs";
+import {
   attachRequestIdHeader,
   createRequestObservabilityContext,
   logServerObservability,
@@ -129,7 +129,10 @@ function sanitizeMetadata(metadata?: Record<string, unknown>) {
     return {};
   }
 
-  const { userId: _userId, userEmail: _userEmail, orgId: _orgId, ...safeMetadata } = metadata;
+  const safeMetadata = { ...metadata };
+  delete safeMetadata.userId;
+  delete safeMetadata.userEmail;
+  delete safeMetadata.orgId;
   return safeMetadata;
 }
 

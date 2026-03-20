@@ -4,8 +4,8 @@ import type { Prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { AppError } from "@/lib/errors";
 import { getDocumentProcessingService } from "@/lib/services/documentProcessing.service";
-import {
 import * as Sentry from "@sentry/nextjs";
+import {
   DocTypeSchema,
   PatchExtractionRequestSchema,
   type DocType,

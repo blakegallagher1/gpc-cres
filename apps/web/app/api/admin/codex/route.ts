@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { isEmailAllowed } from "@/lib/auth/allowedEmails";
-import {
 import * as Sentry from "@sentry/nextjs";
+import {
   CLIENT_INFO,
   parseCodexMessage,
   type JsonRpcNotification,

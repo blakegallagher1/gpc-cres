@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { isSchemaDriftError } from "@/lib/api/prismaSchemaFallback";
-import {
 import * as Sentry from "@sentry/nextjs";
+import {
   getRecentEvents,
   getAutomationStats,
   getHandlerHealth,

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
-import {
 import * as Sentry from "@sentry/nextjs";
+import {
   logCounterfactual,
   getCounterfactualLogs,
   getOutcomeSummary,

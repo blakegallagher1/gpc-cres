@@ -7,8 +7,8 @@ import {
   logRequestOutcome,
   logRequestStart,
 } from "@/lib/server/observability";
-import {
 import * as Sentry from "@sentry/nextjs";
+import {
   getCloudflareAccessHeadersFromEnv,
   logPropertyDbRuntimeHealth,
 } from "@/lib/server/propertyDbEnv";

@@ -4,8 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { ZodError, z } from "zod";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { toolRegistry } from "@/lib/agent/toolRegistry";
-import {
 import * as Sentry from "@sentry/nextjs";
+import {
   type ToolDestination,
   type ToolQuotaClass,
   type ToolRiskLevel,
@@ -111,16 +111,14 @@ function normalizeToolExecutionRequest(
     requestArgs = payload.arguments;
   } else {
     // Legacy payload shape: fields are flattened at the top level.
-    const {
-      toolName: _toolName,
-      tool: _tool,
-      arguments: _arguments,
-      context: _context,
-      conversationId: _conversationId,
-      dealId: _dealId,
-      runId: _runId,
-      ...legacyArgs
-    } = payload;
+    const legacyArgs = { ...payload };
+    delete legacyArgs.toolName;
+    delete legacyArgs.tool;
+    delete legacyArgs.arguments;
+    delete legacyArgs.context;
+    delete legacyArgs.conversationId;
+    delete legacyArgs.dealId;
+    delete legacyArgs.runId;
     requestArgs = legacyArgs;
   }
 
