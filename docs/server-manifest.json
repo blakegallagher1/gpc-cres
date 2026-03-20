@@ -1,0 +1,49 @@
+{
+  "meta": {
+    "description": "Machine-readable summary of the Windows PC backend + Cloudflare edge. Not loaded by production runtime; for operators, agents, and validation tooling."
+  },
+  "version": 1,
+  "lastReviewed": "2026-03-20",
+  "authoritativeDocs": [
+    "docs/SERVER_MANAGEMENT.md",
+    "docs/CLOUDFLARE.md",
+    "docs/claude/backend.md"
+  ],
+  "windowsPcBackend": {
+    "hostLabel": "BG",
+    "composeProjectPath": "C:\\\\gpc-cres-backend\\\\",
+    "os": {
+      "product": "Windows 11",
+      "note": "Build 22631+ is Windows 11-era; verify with `winver` on the host if this drifts."
+    },
+    "ssh": {
+      "hostname": "ssh.gallagherpropco.com",
+      "user": "cres_admin",
+      "access": "Cloudflare Access + cloudflared access ssh (see docs/SERVER_MANAGEMENT.md)"
+    },
+    "postgresql": {
+      "database": "entitlement_os",
+      "namingNote": "Compose may use a **service** name (e.g. `entitlement-db`) while `docker ps` shows a **container** name (e.g. `entitlement-os-postgres`). Both refer to the same consolidated DB; always confirm live names on BG.",
+      "remoteTcpHostname": "db.gallagherpropco.com",
+      "remoteTcpNote": "via `cloudflared access tcp` — see CLAUDE.md and docs/CLOUDFLARE.md"
+    },
+    "dockerServices": [
+      { "role": "fastapi-gateway", "internalPort": 8000, "publicHost": "api.gallagherpropco.com" },
+      { "role": "martin-tiles", "internalPort": 3000, "publicHost": "tiles.gallagherpropco.com" },
+      { "role": "qdrant", "internalPort": 6333, "publicHost": null },
+      { "role": "cloudflared", "internalPort": null, "publicHost": null },
+      { "role": "pgadmin", "internalPort": 5050, "publicHost": null },
+      { "role": "codex-server", "internalPort": [8765, 8787], "publicHost": "codex.gallagherpropco.com" }
+    ]
+  },
+  "vercelAndAppEnv": {
+    "description": "Gateway identity for server-side calls from Vercel; values are secrets — names only here.",
+    "variables": [
+      "LOCAL_API_URL",
+      "LOCAL_API_KEY",
+      "CF_ACCESS_CLIENT_ID",
+      "CF_ACCESS_CLIENT_SECRET"
+    ],
+    "equivalenceNote": "On the gateway host, the same bearer value is often configured as GATEWAY_API_KEY or API_KEYS (comma-separated)."
+  }
+}

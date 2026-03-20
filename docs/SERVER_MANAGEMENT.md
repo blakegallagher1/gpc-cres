@@ -11,7 +11,7 @@ Manage the Windows PC backend (BG) from your MacBook anywhere via Cloudflare Tun
 | Field | Value |
 |-------|-------|
 | Hostname | BG |
-| OS | Windows 10 (Build 22631.3296) |
+| OS | Windows 11 (build **22631** reported on host — verify with `winver` if this drifts) |
 | SSH User | `cres_admin` |
 | SSH Server | OpenSSH_for_Windows_8.6 |
 | Auth Method | SSH key (ed25519) + password fallback |
@@ -20,11 +20,13 @@ Manage the Windows PC backend (BG) from your MacBook anywhere via Cloudflare Tun
 
 ### Docker Services
 
-All services use a single PostgreSQL database (`entitlement_os` on `entitlement-db`). The legacy `local-postgis` container (`db` service) is stopped — its data was consolidated into `entitlement-db` on 2026-02-24.
+All services use a single PostgreSQL database (`entitlement_os`). The legacy `local-postgis` container (`db` service) is stopped — its data was consolidated into the current Postgres service on 2026-02-24.
 
-| Container | Service | Port |
+**Name drift:** Docker Compose **service** names (e.g. `entitlement-db`) and **`docker ps` container** names (e.g. `entitlement-os-postgres`) may differ; they refer to the same database. Confirm with `docker compose ps` / `docker ps` on BG. Canonical structured summary: `docs/server-manifest.json`.
+
+| Name (typical) | Service | Port |
 |-----------|---------|------|
-| entitlement-os-postgres | PostgreSQL (all data) | 5432 (internal) / 54323 (localhost) |
+| Postgres (see naming note above) | PostgreSQL (all data) | 5432 (internal) / 54323 (localhost) |
 | fastapi-gateway | FastAPI API | 8000 |
 | martin-tile-server | Vector tiles | 3000 |
 | qdrant | Vector search | 6333 |

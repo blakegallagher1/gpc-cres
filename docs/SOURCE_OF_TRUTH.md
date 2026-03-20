@@ -3,7 +3,7 @@
 Status: Authoritative
 Authority: Conflict resolution for all docs
 Owner: Platform engineering lead
-Last reviewed: 2026-03-09
+Last reviewed: 2026-03-20
 
 When docs conflict, this file decides which source wins.
 
@@ -18,6 +18,7 @@ When docs conflict, this file decides which source wins.
 | Release verification gate | `docs/runbooks/RELEASE_VERIFICATION.md` | Required pre/post release checks |
 | API/auth/header/error contracts | `docs/runbooks/API_CONTRACTS.md` | Active endpoint families and standards |
 | Infra/network operations | `docs/CLOUDFLARE.md`, `docs/SERVER_MANAGEMENT.md` | Cloudflare/host routing and ops |
+| PC backend identity (host, ports, env var *names*, naming notes) | `docs/server-manifest.json` | Must stay in sync with the two rows above; update all three in one change set when infra changes |
 | Developer conventions | `AGENTS.md`, `CLAUDE.md` | Execution and coding constraints |
 
 ## Conflict Rules

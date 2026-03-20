@@ -9,7 +9,7 @@ description: |
 
 ## Prerequisites
 
-- `Entitlement_OS_Meta_Prompt.md` (`Phase C`) and `Entitlement_OS_Phase_B_Restart_Part_*.md` when entitlement structure exists.
+- `docs/archive/2026-03-20-root-cleanup/Entitlement_OS_Meta_Prompt.md` (`Phase C`) and `docs/archive/2026-03-20-root-cleanup/Entitlement_OS_Phase_B_Restart_Part_*.md` when entitlement structure exists.
 - Baseline deal data in `DealTerms`, `EntitlementPath`, and current financial assumptions.
 - Prior phase output from `entitlement-os-phase-b-zoning-analysis`.
 

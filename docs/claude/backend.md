@@ -34,14 +34,14 @@ Separate subdomains for independent cache policies (tiles: 7d immutable; data: 6
 
 ## Database
 
-All services use a single PostgreSQL database: `entitlement_os` on the `entitlement-os-postgres` container. The legacy `local-postgis` container was removed on 2026-03-04. Both Supabase projects archived (2026-03-04). Vercel reaches this DB via Cloudflare Hyperdrive (config `ebd13ab7df60414d9ba8244299467e5e`) through the CF Worker `/db` endpoint.
+All services use a single PostgreSQL database: `entitlement_os`. The Postgres **Compose service name** and **container name** shown by `docker ps` may differ (e.g. service `entitlement-db` vs container name `entitlement-os-postgres`); see `docs/server-manifest.json` and `docs/SERVER_MANAGEMENT.md`. The legacy `local-postgis` container was removed on 2026-03-04. Both Supabase projects archived (2026-03-04). Vercel reaches this DB via Cloudflare Hyperdrive (config `ebd13ab7df60414d9ba8244299467e5e`) through the CF Worker `/db` endpoint.
 
 For production runtime traffic, this direct PostgreSQL path must **not** be used for authoritative parcel/property/deal reads or writes. That path is a control-plane aid for tooling.
 
 | Pool | Env Var | Target | Purpose |
 |------|---------|--------|---------|
-| `db_pool` | `DATABASE_URL` | `entitlement_os` on `entitlement-db` | Parcels, geometry, screening, tiles, stats |
-| `app_db_pool` | `APPLICATION_DATABASE_URL` | `entitlement_os` on `entitlement-db` (same DB) | Deals CRUD, runs, orgs |
+| `db_pool` | `DATABASE_URL` | `entitlement_os` (same physical DB as app pool; host is the gateway’s Postgres service) | Parcels, geometry, screening, tiles, stats |
+| `app_db_pool` | `APPLICATION_DATABASE_URL` | `entitlement_os` (same DB) | Deals CRUD, runs, orgs |
 
 Both pools: min 2, max 10 connections, 60s command timeout. Both point to the same consolidated database.
 

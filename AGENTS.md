@@ -1,818 +1,144 @@
-"""
-Entitlement OS Repository Guidelines (v3)
-
-Entitlement OS is an automation-first operating system for a repeatable
-entitlement-flip business in the Baton Rouge region.
-
-Authoritative architecture spec:
-- docs/SPEC.md
-
-This AGENTS.md governs Codex behavior in this repository.
-
-Design goals:
-- Preserve security invariants.
-- Enforce org-scoped data discipline.
-- Support controlled autonomy.
-- Eliminate legacy CAOA bootstrap behavior.
-- Maintain speed for interactive usage.
-- Enforce mutation rigor only when explicitly required.
-"""
-
-# =========================================================
-
-Last reviewed: 2026-02-25
-
-# ✅ PROJECT STATUS SNAPSHOT (2026-02-25)
-# =========================================================
-
-Current implementation status against `Entitlement_OS_Meta_Prompt.md`:
-
-- Phases `A` through `G` are completed and integrated.
-- Phase `H` verification gate completed: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build` all pass.
-- Security hardening pass completed across tenant isolation, org scoping, map XSS sanitization, auth consistency, and error normalization.
-- Property DB initialization path enforces fail-fast behavior for missing/placeholder credentials.
-- Supabase fully removed; auth uses NextAuth with local DB credentials, storage uses B2 via gateway.
-- Formal compliance evidence is captured in:
-  - `docs/ENTITLEMENT_OS_META_AUDIT_2026-02-17.md`
-  - `ROADMAP.md` item `EOS-001`
-
-**🟢 PRODUCTION VERIFICATION COMPLETE (2026-02-25):**
-- ✅ All 5 features from "Maximize Local Server Utilization" plan verified and working
-- ✅ Phase 1 (Gateway Caching): 2.62x speedup verified (1,727ms → 659ms)
-- ✅ Phase 2 (Batch Screening): Multi-parcel results keyed by parcel_id confirmed
-- ✅ Phase 3 (WebSocket Push): Operational event streaming (progress/done/error) live
-- ✅ Phase 4 (Qdrant Semantic Search): property_intelligence collection functional
-- ✅ Phase 5 (Error Handling): Invalid parcel IDs handled with partial batch success
-- ✅ Build verified: pnpm build ✅ | pnpm test (668 tests) ✅
-- **See `PRODUCTION_VERIFICATION_REPORT.md` for full test results, performance metrics, and deployment next steps**
-
-When planning follow-on work, treat A→G baseline as complete and prioritize net-new scope only.
-
-# =========================================================
-# 🚨 CAOA BOOTSTRAP DEPRECATION (CRITICAL OVERRIDE)
-# =========================================================
-
-This repository previously required a CAOA SYNC REPORT bootstrap process.
-
-That behavior is now deprecated.
-
-Codex MUST NOT:
-
-- Emit SYNC REPORT
-- Perform decision-log scanning
-- Compute file fingerprints
-- Traverse docs/ for institutional context
-- Inspect git state by default
-- Perform repository-wide bootstrap scans
-
-UNLESS:
-
-- Explicitly instructed to prepare a formal compliance artifact
-- Running in CI audit context
-- Explicitly asked to perform CAOA compliance
-
-Profile-aware execution rules take precedence over any legacy CAOA instructions.
-
-Bootstrap is disabled in normal interactive sessions.
-
----
-
-# =========================================================
-# 1️⃣ EXECUTION MODEL (PROFILE-AWARE — AUTHORITATIVE)
-# =========================================================
-
-Codex operates in strict profile-aware mode.
-
-Two execution classes exist:
-
-## A) ANALYSIS-ONLY PROFILES
-- architecture-intelligence
-- openai-frontier-intelligence
-
-## B) MUTATION PROFILES
-- fast-brain
-- mid-brain
-- deep-brain
-- swarm-brain
-- validation-brain
-- or explicit instruction to modify files
-
-Profile determines behavior.
-
-Intent determines mutation.
-
-No automatic escalation.
-
----
-
-# =========================================================
-# 2️⃣ ANALYSIS MODE (DEFAULT)
-# =========================================================
-
-Used when:
-- Producing strategy memos
-- Answering conceptual questions
-- Designing architecture
-- Reviewing system direction
-- Running architecture-intelligence
-- Running openai-frontier-intelligence
-- No explicit instruction to modify files
-
-In ANALYSIS MODE:
-
-- DO NOT scan entire repository.
-- DO NOT emit SYNC REPORT.
-- DO NOT inspect git state.
-- DO NOT fingerprint files.
-- DO NOT traverse docs for bootstrap.
-- DO NOT run shell commands.
-- DO NOT attempt file writes.
-- DO NOT generate patches.
-- DO NOT run apply_patch.
-- DO NOT execute migrations.
-- DO NOT run build/test commands.
-
-Allowed:
-- Read specific files if directly relevant.
-- Structured analysis.
-- Capability audits.
-- Strategic recommendations.
-- Risk modeling.
-- Roadmap synthesis.
-
-Default behavior is lightweight and direct.
-
-Speed is prioritized.
-
----
-
-# =========================================================
-# 3️⃣ MUTATION MODE (EXPLICIT ONLY)
-# =========================================================
-
-Triggered only when:
-
-- Explicit instruction to modify files
-- Explicit instruction to implement changes
-- Using mutation profiles (fast/mid/deep/swarm/validation)
-- CI codex-autofix or codex-review context
-
-In MUTATION MODE:
-
-Codex MUST:
-
-- Follow security invariants.
-- Enforce org_id scoping.
-- Maintain NextAuth session checks.
-- Preserve citation completeness.
-- Preserve evidence hashing determinism.
-- Maintain idempotency.
-- Keep changes minimal and focused.
-- Avoid unrelated refactors.
-- Never weaken Zod validation.
-- Never weaken schema enforcement.
-- Never weaken security boundaries.
-
-Only in MUTATION MODE may Codex:
-
-- Write files
-- Apply patches
-- Run migration commands
-- Suggest schema changes
-- Execute Golden Path checklists
-
-Mutation must be explicit and controlled.
-
----
-
-# =========================================================
-# 4️⃣ REPO STRUCTURE (AUTHORITATIVE)
-# =========================================================
-
-pnpm workspaces monorepo:
-
-- apps/web/ — Next.js App Router (UI + API)
-- apps/worker/ — Temporal worker (Node/TS)
-- packages/db/ — Prisma schema + client
-- packages/shared/ — Zod schemas + validators
-- packages/openai/ — Responses API wrapper (strict JSON schema)
-- packages/evidence/ — evidence fetch/hash/extract
-- packages/artifacts/ — PPTX/PDF generators
-- infra/docker/ — local dev infra
-- legacy/python/ — deprecated reference only
-
-Never modify legacy/python unless explicitly instructed.
-
----
-
-# =========================================================
-# 5️⃣ SECURITY INVARIANTS (NON-NEGOTIABLE)
-# =========================================================
-
-All DB rows are scoped by org_id.
-
-Every API route must:
-1. Authenticate session (NextAuth JWT).
-2. Confirm org membership.
-3. Scope all queries by org_id.
-
-File Storage (B2 via Gateway):
-- Private storage only.
-- Access via gateway signed URLs only.
-
-Secrets:
-- Never committed.
-- Server-side only.
-- Never expose service role keys to client.
-
-OpenAI API key:
-- Server-only usage.
-
-Violation of these rules is not allowed.
-
----
-
-# =========================================================
-# 6️⃣ CITATION & EVIDENCE DISCIPLINE
-# =========================================================
-
-- All AI outputs affecting business decisions must pass strict schema validation.
-- Citation completeness must be enforced server-side.
-- Fail closed on schema violations.
-- Evidence hashing must remain deterministic.
-- Artifact generation must remain idempotent via runs.input_hash.
-
-Never weaken validators for convenience.
-
----
-
-# =========================================================
-# 7️⃣ OPENAI USAGE CONTRACT
-# =========================================================
-
-All AI calls must:
-
-- Use packages/openai wrapper.
-- Enforce strict JSON Schema outputs.
-- Validate with Zod before acceptance.
-- Log telemetry where applicable.
-- Fail closed on malformed output.
-- Never silently parse loose JSON.
-
-Migration toward unified Responses API surface is preferred.
-
-Do not reintroduce legacy chat.completions patterns.
-
----
-
-# =========================================================
-# 8️⃣ TEMPORAL WORKER DISCIPLINE
-# =========================================================
-
-Worker flows must:
-
-- Be idempotent.
-- Be replay-safe.
-- Avoid non-deterministic side effects.
-- Enforce org scoping.
-- Respect autonomy guardrails.
-- Maintain explicit retry ceilings.
-- Maintain explicit cost ceilings.
-
-Durable execution must not introduce silent drift.
-
----
-
-# =========================================================
-# 9️⃣ DEVELOPMENT COMMANDS
-# =========================================================
-
-Run from repo root:
-
----
-
-## ROADMAP-FIRST IMPLEMENTATION PROTOCOL (MANDATORY)
-
-Before any implementation work in this repository:
-
-1. Read and follow `ROADMAP.md` as the single source of truth.
-2. Only implement items with status `Planned` (or an equivalent active status) and valid `ROADMAP item id`.
-3. Do not add new implementation items without the pre-add analysis check:
-   - Problem to solve
-   - Expected outcome + measurable success signal
-   - Evidence this is needed
-   - Alignment to existing architecture/security constraints
-   - Complexity/risk + rollback path
-   - Concrete acceptance criteria + test plan
-4. If an item is speculative or low-value, mark it as `Deferred` with explicit reason and revisit later; do not implement it silently.
-5. When you finish an item, mark it `Done` in `ROADMAP.md` with evidence references (tests, logs, migration IDs, files touched).
-
-Both Codex and CLAUDE sessions should treat `ROADMAP.md` as the planning gate and avoid implementation drift.
-
-- pnpm install
-- pnpm dev
-- pnpm build
-- pnpm lint
-- pnpm typecheck
-- pnpm test
-
-Database:
-
-- pnpm db:migrate
-- pnpm db:deploy
-- pnpm db:seed
-
-Local infra:
-
-- docker compose -f infra/docker/docker-compose.yml up -d
-
-Temporal UI:
-
-- http://localhost:8080
-
-Never run destructive commands without explicit instruction.
-
----
-
-# =========================================================
-# 🔟 TESTING RULES
-# =========================================================
-
-Unit tests:
-
-- Live alongside packages.
-- Must mock external APIs.
-- No live network calls.
-
-Required coverage areas:
-
-- Schema validation
-- Citation enforcement
-- Evidence hashing
-- Idempotency
-- Change detection
-
-Integration tests must not auto-run unless explicitly invoked.
-
-Never run tests during Analysis Mode.
-
----
-
-# =========================================================
-# 11️⃣ PERFORMANCE RULES
-# =========================================================
-
-- Do not scan entire repo unless necessary.
-- Do not bootstrap repository.
-- Do not emit SYNC REPORT.
-- Do not fingerprint files.
-- Do not inspect git unless required.
-- Keep IO minimal.
-- Respect profile-aware behavior.
-- Default to direct answer.
-
-Speed matters in analysis sessions.
-
----
-
-# =========================================================
-# 12️⃣ LEGACY PYTHON
-# =========================================================
-
-legacy/python/ is preserved for reference only.
-
-Do not delete.
-Do not refactor.
-Do not migrate unless explicitly requested.
-
----
-
-# =========================================================
-# ✅ DEFAULT BEHAVIOR SUMMARY
-# =========================================================
-
-If uncertain:
-
-- Assume ANALYSIS MODE.
-- Do not mutate files.
-- Do not bootstrap.
-- Do not emit SYNC REPORT.
-- Do not scan entire repo.
-- Provide concise, direct output.
-
-Mutation requires explicit instruction.
-
-Security and org scoping always override convenience.
-
----
-
-# =========================================================
-# 13 TEST COVERAGE MANDATE
-# =========================================================
-
-When modifying any API route handler or automation loop:
-
-1. **Existing tests must still pass** — run the relevant test suite before
-   and after your change.
-2. **New/modified handlers require tests** — if you touch a handler that has
-   no tests, write at minimum:
-   - Auth rejection (401)
-   - Org scope rejection (403)
-   - Input validation (bad payload → 400)
-   - Happy path (200)
-   - Idempotency (if applicable)
-3. **Coverage check** — after writing tests, verify they actually run:
-   ```
-   pnpm test -- --reporter=verbose 2>&1 | grep -E '(PASS|FAIL|✓|✗)'
-   ```
-4. **No test? No merge.** — the Mandatory Verification Protocol will catch
-   untested handlers during the build gate. Do not skip this.
-
----
-
-# =========================================================
-# 14 ERROR HANDLING PATTERN
-# =========================================================
-
-All error handling in Entitlement OS follows a consistent pattern:
-
-## API Route Errors
-```typescript
-import { NextResponse } from "next/server";
-import { ZodError } from "zod";
-
-// Wrap handler logic in try/catch
-try {
-  const validated = InputSchema.parse(body);
-  // ... logic
-} catch (err) {
-  if (err instanceof ZodError) {
-    return NextResponse.json(
-      { error: "Validation failed", details: err.flatten().fieldErrors },
-      { status: 400 }
-    );
-  }
-  console.error("[route-name]", err);
-  return NextResponse.json(
-    { error: "Internal server error" },
-    { status: 500 }
-  );
-}
+# AGENTS.md — Entitlement OS (gallagher-cres)
+
+## Project Overview
+
+Entitlement OS is a full-stack real estate entitlement intelligence platform. It provides
+parcel-level data, zoning analysis, entitlement tracking, and AI-powered research for
+commercial real estate development workflows. The platform is a pnpm monorepo with a
+Next.js frontend, shared TypeScript packages, a FastAPI gateway (`infra/local-api/main.py`)
+for parcel/tools behind Cloudflare Tunnel, and optional Python reference code under
+`legacy/python/`.
+
+**Production URLs:**
+- Frontend: Vercel (`gallagherpropco.com`)
+- Data/tools API: FastAPI gateway behind Cloudflare (`api.gallagherpropco.com` → host :8000)
+- Database: PostgreSQL via Prisma; Vercel runtime often uses Cloudflare Hyperdrive to Postgres
+
+**Auth & realtime:** NextAuth (app session); limited Supabase usage may remain for specific
+features—see `docs/SPEC.md` and `docs/claude/architecture.md` for the current contract.
+
+## Architecture Map
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ apps/web (gpc-agent-dashboard)                             │
+│ Next.js · React · TailwindCSS · Vercel                      │
+├─────────────────────────────────────────────────────────────┤
+│ packages/                                                    │
+│  shared · db (Prisma) · evidence · artifacts · openai ·     │
+│  server (@gpc/server)                                        │
+├─────────────────────────────────────────────────────────────┤
+│ apps/worker (@entitlement-os/worker)                         │
+│ Temporal worker — parked for v2; not built in default CI    │
+├─────────────────────────────────────────────────────────────┤
+│ infra/local-api/main.py + admin_router.py                   │
+│ FastAPI gateway (parcel, tools, screening, tiles proxy)       │
+├─────────────────────────────────────────────────────────────┤
+│ legacy/python/                                               │
+│ Frozen reference (original Python agents) — do not delete   │
+├─────────────────────────────────────────────────────────────┤
+│ External: OpenAI · county/GIS sources · Martin tiles · Qdrant│
+└─────────────────────────────────────────────────────────────┘
 ```
 
-## Rules
-- Never swallow errors silently
-- Always log errors with a route/function identifier prefix
-- Zod validation errors return 400 with field-level details
-- Auth errors return 401/403 with generic messages (no info leak)
-- Unexpected errors return 500 with generic message, log full error server-side
-- Never expose stack traces or internal details to the client
-- Temporal activities: throw `ApplicationFailure` with a typed error code
-
----
-
-# =========================================================
-# 15 MIGRATION SAFETY RULES
-# =========================================================
-
-Database migrations (Prisma) must follow these safety rules:
-
-## Before Creating a Migration
-1. **Backup awareness** — confirm the migration is reversible or document why not.
-2. **Check for data loss** — dropping columns, tables, or changing types can
-   destroy data. Always:
-   - Add new columns as nullable first
-   - Backfill data
-   - Then add NOT NULL constraint in a follow-up migration
-3. **Index impact** — adding indexes on large tables can lock the table.
-   Use `CREATE INDEX CONCURRENTLY` when possible (via raw SQL migration).
-
-## Migration Workflow
-```
-# Generate migration (do NOT apply)
-DATABASE_URL="postgresql://postgres:postgres@localhost:54323/entitlement_os?schema=public" \
-DIRECT_DATABASE_URL="postgresql://postgres:postgres@localhost:54323/entitlement_os?schema=public" \
-pnpm -C packages/db exec prisma migrate dev --create-only --name <migration_name>
-
-# Review the generated SQL
-cat packages/db/prisma/migrations/<timestamp>_<name>/migration.sql
-
-# Apply after review
-pnpm db:migrate
-
-# Verify
-pnpm -C packages/db run generate
-pnpm typecheck
-```
-
-## Rules
-- Never use `prisma db push` in production or against shared databases
-- Never use `prisma migrate reset` unless explicitly instructed
-- Always review generated SQL before applying
-- Two-phase migrations for destructive changes (add nullable → backfill → constrain)
-- Test migrations against seed data before pushing
-
----
-
-# =========================================================
-# MANDATORY VERIFICATION PROTOCOL (MVP)
-# =========================================================
-
-Every MUTATION MODE task MUST complete the following verification
-gate BEFORE reporting success or moving to the next task.
-
-## Verification Sequence (run in order)
-
-1. **Lint** — `pnpm lint`
-   - All ESLint rules must pass with zero errors.
-   - Warnings are acceptable only if pre-existing.
-
-2. **Type Check** — `pnpm typecheck`
-   - Strict-mode TypeScript must compile with zero errors.
-   - Never use `@ts-ignore` or `any` to silence new errors.
-
-3. **Unit Tests** — `pnpm test`
-   - All existing tests must pass.
-   - If you modified logic covered by tests, confirm the relevant
-     suite still passes.
-   - If you added new exported functions or tools, write at least
-     one test per function and confirm it passes.
-
-4. **Build** — `pnpm build`
-   - Full monorepo build must succeed.
-   - If build fails on missing env vars, provide stub env vars for the build step only:
-     ```
-     OPENAI_API_KEY=placeholder \
-     pnpm build
-     ```
-   - Build failures caused by YOUR changes are blockers.
-     Fix them before proceeding.
-   - Build failures caused by pre-existing env/infra issues
-     should be noted but are not blockers.
-
-5. **Diff Review** — `git diff --stat && git diff`
-   - Review your own diff before committing.
-   - Confirm no unintended file changes, no leftover debug code,
-     no secrets, no unrelated refactors.
-
-## Failure Protocol
-
-- If ANY step fails due to your changes: FIX IT before moving on.
-- Do NOT skip verification steps.
-- Do NOT report success until all 5 steps pass.
-- If you cannot fix a failure, STOP and report the exact error
-  to the user with your diagnosis.
-
-## Commit Gate (AUTO-EXECUTE VIA PR — FULL AUTONOMY)
-
-Once all 5 verification steps pass, AUTOMATICALLY execute the
-full pipeline below — do NOT stop and wait for user confirmation
-at ANY step. The task is NOT complete until the PR is merged to main.
-
-### Step 1: Branch + Commit + Push
-1. Create a short-lived feature branch from main:
-   `git checkout -b codex/<short-descriptive-name>`
-2. Stage only the files you intentionally changed.
-3. Commit with a clear imperative message.
-4. Push the feature branch:
-   `git push -u origin codex/<branch-name>`
-
-### Step 2: Create PR + Enable Auto-Merge
-5. Create a pull request against main:
-   `gh pr create --title "<imperative summary>" --body "<what changed and why>"`
-6. Immediately enable auto-merge (squash) on the PR:
-   `gh pr merge --auto --squash`
-   This ensures the PR merges automatically once all required checks pass.
-
-### Step 3: Monitor Checks Until Resolution
-7. Poll check status every 30–60 seconds until all checks complete:
-   `gh pr checks --watch`
-   Or manually: `gh pr checks` in a loop.
-8. If ALL checks pass → auto-merge will fire. Confirm merge completed:
-   `gh pr view --json state,mergeCommit`
-   Report the merge commit hash and confirm main is updated.
-9. If ANY check fails:
-   a. Read the failing check logs: `gh run view <run-id> --log-failed`
-   b. Diagnose and fix the failure on the same branch.
-   c. Re-run verification (lint, typecheck, test, build) locally.
-   d. Commit the fix, push to the same branch (the PR updates automatically).
-   e. Return to step 7 — monitor checks again.
-   f. Repeat until all checks pass and PR merges.
-10. After merge, clean up the remote branch:
-    `git push origin --delete codex/<branch-name>`
-    `git checkout main && git pull origin main`
-
-### Completion Criteria
-The task is DONE only when:
-- The PR has been merged to main (state = MERGED)
-- You have reported: PR URL, merge commit hash, files included
-
-Do NOT report success after just creating the PR.
-Do NOT stop and ask the user to check on CI.
-Do NOT leave a PR open and unmonitored.
-The full cycle — commit → PR → checks pass → merge — is YOUR responsibility.
-
-## Scope
-
-This protocol applies to ALL mutation work including but not limited to:
-- Feature implementation
-- Bug fixes
-- Dependency upgrades
-- Migration tasks (CSS, DB, API, etc.)
-- Refactors
-- Config changes that affect build output
-
-Analysis-only tasks are exempt.
-
----
-
-# =========================================================
-# 🔧 GITHUB OPERATIONS (FULL AUTONOMY)
-# =========================================================
-
-Codex has full `gh` CLI access via `GH_TOKEN` and is authorized to
-manage all GitHub operations for this repository autonomously.
-
-## Permissions Available
-The token has scopes: `repo`, `workflow`, `gist`, `read:org` (and broader).
-Codex may use ANY `gh` subcommand without asking for permission.
-
-## Branch Management
-- Create feature branches: `codex/<descriptive-name>`
-- Push branches to origin
-- Delete merged branches: `git push origin --delete <branch>`
-- Rebase or update branches as needed to resolve conflicts
-- Force-push ONLY to `codex/*` branches, NEVER to `main`
-
-## Pull Requests
-- Create PRs: `gh pr create`
-- Enable auto-merge: `gh pr merge --auto --squash`
-- Add labels: `gh pr edit --add-label <label>`
-- Add reviewers if configured: `gh pr edit --add-reviewer <user>`
-- Close stale PRs: `gh pr close <number>`
-- Monitor checks: `gh pr checks --watch`
-- View PR details: `gh pr view`
-- Comment on PRs: `gh pr comment`
-
-## Issues
-- Create issues: `gh issue create`
-- Close issues: `gh issue close <number>`
-- Add labels: `gh issue edit --add-label <label>`
-- Comment on issues: `gh issue comment`
-- List/search issues: `gh issue list`
-- Link PRs to issues via commit messages or PR body (`Closes #<number>`)
-
-## CI / Workflow Runs
-- List runs: `gh run list`
-- View run details: `gh run view <run-id>`
-- Read failure logs: `gh run view <run-id> --log-failed`
-- Re-run failed jobs: `gh run rerun <run-id> --failed`
-- Cancel runs: `gh run cancel <run-id>`
-- Watch runs: `gh run watch <run-id>`
-
-## Releases (when instructed)
-- Create releases: `gh release create`
-- Upload assets: `gh release upload`
-- List releases: `gh release list`
-
-## GitHub API (advanced)
-- Use `gh api` for anything not covered by dedicated subcommands
-- Example: `gh api repos/{owner}/{repo}/actions/workflows`
-- Example: `gh api repos/{owner}/{repo}/branches/main/protection`
-
-## Rules
-- NEVER force-push to `main`
-- NEVER delete `main` or any protected branch
-- NEVER modify branch protection rules
-- NEVER create or modify GitHub Actions secrets (use env vars from shell)
-- All branch operations on `codex/*` branches are fair game
-- Always clean up `codex/*` branches after merge
-- When fixing CI failures, push fixes to the SAME PR branch — do not create new PRs
-- If a PR has merge conflicts with main, rebase the branch:
-  `git fetch origin main && git rebase origin/main && git push --force-with-lease`
-
----
-
-# 16 PROD MAP / PARCEL OPERATIONS ADDENDUM (2026-02-19)
-
-- For map and prospecting incidents, treat these as first-line smoke checks:
-  - `GET /api/parcels?hasCoords=true`
-  - `GET /api/parcels?hasCoords=true&search=<address>`
-  - `GET /api/parcels/{parcelId}/geometry?detail_level=low`
-- If parcel points render but polygons do not, verify geometry fallback path executes in this order:
-  1. direct geometry lookup
-  2. address-normalized lookup
-  3. RPC fallback `rpc_get_parcel_geometry`
-- Do not expose raw Prisma or infrastructure errors to client responses. Return generic 4xx/5xx payloads and log internal details server-side.
-- Server-side parcel DB access routes through local Docker Compose stack via single Cloudflare Tunnel:
-  - **Tile operations** (vector tiles): `tiles.gallagherpropco.com` → martin:3000
-  - **Data/tools operations** (parcel search, memory): `api.gallagherpropco.com` → gateway:8000
-  - **Remote DB access**: `db.gallagherpropco.com` → entitlement-db:5432 (Cloudflare Access, Blake only). Creds: `postgres:postgres`. See `docs/CLOUDFLARE.md`.
-  - **Remote SSH**: `ssh cres_admin@ssh.gallagherpropco.com` (requires ProxyCommand in `~/.ssh/config`). See `docs/SERVER_MANAGEMENT.md`.
-  - Both use `LOCAL_API_URL` + `LOCAL_API_KEY` for service-to-service auth (Bearer token, single GATEWAY_API_KEY)
-  - Backend: Docker Compose at `C:\gpc-cres-backend\docker-compose.yml` — PostgreSQL (`entitlement_os` on `entitlement-db`) + Martin (MVT) + Qdrant (vector search)
-  - Tool-safe endpoints follow `/tools/<resource>.<action>` pattern (e.g., `/tools/parcel.bbox`, `/tools/parcel.lookup`)
-  - Cloudflare Tunnel ingress rules managed in dashboard (not local config file)
-- Production deploys using Vercel CLI should prefer archive mode for this repo size:
-  - `vercel --prod --yes --archive=tgz`
-- When PR automation is required, use standard PR flow from a fresh execution context if prior context blocks `gh pr create` policy checks.
-- Keep `main` as source of truth; after merge, sync local main and remove temporary branches.
-
-# 17 SKILLS ARCHITECTURE
-
-Skills are local, versioned instruction bundles that live in the repo root `skills/` directory.
-
-- `AGENTS.md` stays the baseline for cross-cutting execution behavior (security, auth, tenancy, org rules, error handling, and release protocol).
-- `skills/` carries domain-specific procedures loaded only when routed by intent.
-- `SKILL.md` files are deterministic modules used by Codex, Claude, Cursor, and any orchestrator with explicit or auto-routed loading.
-
-## Invocation Modes
-
-- Deterministic:
-  - A caller requests a specific skill by name (`underwriting`, `entitlement-os`, etc.).
-  - Load the matching `SKILL.md` and any required sub-skills.
-- Auto-routed:
-  - The model/dispatcher matches user intent against `SKILL.md` `description` criteria.
-  - If multiple matches are possible, prefer the most specific domain and highest-confidence intent.
-
-## Entitlement Sub-Skills
-
-- `entitlement-os` is sequenced and phase-based.
-- Load `skills/entitlement-os/phases/phase-a-discovery.md` through
-  `skills/entitlement-os/phases/phase-g-closing.md` as needed.
-- Phase order is part of that skill contract and should be preserved unless explicitly overridden by user scope.
-
-## Skill Authoring Rules
-
-- Every skill must include:
-  - A positive `Use when` criterion and negative `Don't use when` examples.
-  - `validation` criteria and testable outputs.
-  - Exact skill cross-references using canonical skill names.
-  - `version` in frontmatter.
-- Do not include secrets, internal URLs, or internal API keys in skill text.
-- Bump `version` on any behavior change.
-- Add security-sensitive validation gates (e.g., tenancy/permit/auth constraints) in surrounding runtime code, not in prompt text.
-
-## Shell Execution Rules
-
-- Default shell network policy is `deny-all`.
-- Per-workflow allowlists are scoped to only required domains.
-- API credentials are injected via `domain_secrets`; workflow text must never contain plaintext credentials.
-- Artifacts are written to shell filesystem paths; do not rely on stdout-only handoff.
-- Reuse container sessions only when workflow graph requires multi-step continuity.
-
-## Compaction Rules
-
-- Compaction is enabled by default on all Responses API calls.
-- Long-horizon workflows (especially entitlement multi-phase flows) MUST use `previous_response_id` chaining.
-- Persist `response_id` in Temporal workflow state so later steps can pass it forward deterministically for replay-safe continuation.
-
-## Cursor Cloud specific instructions
-
-### Services overview
-
-| Service | How to start | Port |
-|---|---|---|
-| PostgreSQL (PostGIS + pgvector) | `sudo dockerd &>/dev/null &` then `sudo docker compose -f infra/docker/docker-compose.yml up -d postgres` | 54323 |
-| Next.js dev server | `pnpm dev` (builds packages first, starts all watchers) | 3000 |
-| Cloudflare Agent (optional) | auto-starts with `pnpm dev` via workspace scripts | 8787 |
-| Temporal (optional) | `sudo docker compose -f infra/docker/docker-compose.yml up -d temporal temporal-ui` — also set `ENABLE_TEMPORAL=true` in `.env` | 7233, 8080 |
-
-### Database setup gotcha — migration chain has missing CREATE TABLE statements
-
-The Prisma migration chain references tables (`internal_entities`, `memory_event_log`, `deal_outcomes`, etc.) via ALTER TABLE / FK constraints before any migration creates them. Running `pnpm db:migrate` (`prisma migrate deploy`) on a fresh database **will fail**.
-
-**Workaround for fresh local dev:**
-1. Ensure PostgreSQL extensions are installed: `CREATE EXTENSION IF NOT EXISTS postgis; CREATE EXTENSION IF NOT EXISTS pg_trgm; CREATE EXTENSION IF NOT EXISTS vector;`
-2. Use `prisma db push --accept-data-loss` to sync the schema directly (safe for local dev).
-3. Baseline all migrations as applied:
-   ```bash
-   cd packages/db
-   for dir in $(ls -d prisma/migrations/*/); do
-     name=$(basename "$dir")
-     [ "$name" != "migration_lock.toml" ] && \
-     DATABASE_URL="postgresql://postgres:postgres@localhost:54323/entitlement_os?schema=public" \
-     DIRECT_DATABASE_URL="postgresql://postgres:postgres@localhost:54323/entitlement_os?schema=public" \
-     npx prisma migrate resolve --applied "$name" 2>/dev/null
-   done
-   ```
-
-### Build with placeholder env vars
-
-The build may require an OpenAI key. Use stub values:
+## Tech Stack
+
+- **Frontend**: Next.js, React, TailwindCSS, TypeScript
+- **App & API routes**: Next.js (Vercel)
+- **Database**: PostgreSQL with Prisma ORM (migrations in `packages/db/prisma/migrations`)
+- **Gateway**: FastAPI + asyncpg (`infra/local-api/`), documented in `docs/claude/backend.md`
+- **Package Manager**: pnpm 9.x (workspaces)
+- **Testing**: Vitest (unit + integration), Playwright (e2e)
+- **Linting**: ESLint 9.x with typescript-eslint
+- **CI/CD**: GitHub Actions (see `.github/workflows/ci.yml` — selected packages + `gpc-agent-dashboard`)
+- **Observability**: See `apps/web` observability modules and `docs/OBSERVABILITY_MONITOR.md`
+
+## Dependency Flow Rules (STRICT)
+
+Actual workspace packages live under `packages/`:
+
+| Package | Role |
+|---------|------|
+| `@entitlement-os/shared` | Shared schemas, enums, utilities |
+| `@entitlement-os/db` | Prisma client, migrations — **must not** import `apps/web` or domain app layers |
+| `@entitlement-os/evidence`, `@entitlement-os/artifacts` | Domain libraries |
+| `@entitlement-os/openai` | Agents, tools, Responses API integration |
+| `@gpc/server` | Server-side services (`packages/server`) |
+
+**Rules:**
+
+- Higher-level packages may import lower-level ones; never the reverse (no `packages/db` → `apps/web`).
+- `packages/db` must NEVER import from `apps/web` or from `@entitlement-os/openai` / `@entitlement-os/evidence` / `@entitlement-os/artifacts` / `@gpc/server`.
+- Circular dependencies between packages are a CI-blocking violation.
+- Prefer adding shared types to `@entitlement-os/shared` rather than new leaf packages unless `ROADMAP.md` approves a split.
+
+## Code Conventions
+
+- **TypeScript strict mode** everywhere (`"strict": true` in tsconfig)
+- **No `any` types** without explicit ESLint disable + documented reason
+- **Zod schemas** for all API request/response validation
+- **Server components by default** in Next.js — `'use client'` only when needed
+- **Named exports only** — no default exports except Next.js pages
+- **Barrel files** (`index.ts`) in each package for public API
+- **Absolute imports** via workspace packages (`@entitlement-os/db`, `@gpc/server`, etc.)
+
+## Testing Requirements
+
+- `pnpm test` must pass before any commit
+- Unit tests: Vitest, colocated in `__tests__/` or `*.test.ts`
+- Integration tests: `tests/` at root (episode, retrieval, reflection, reward, smoke)
+- E2E tests: Playwright in `apps/web/tests/`
+- Coverage target: 80% for new packages
+- All parcel data operations must have smoke tests against production
+
+## Linting & Pre-Commit
+
+- `pnpm lint` runs ESLint across all workspaces
+- `pnpm typecheck` runs TypeScript compiler checks across all packages
+- Pre-commit: lint + typecheck + test must all pass
+- No lint suppressions without a comment explaining why
+
+## Documentation Standards
+
+- `docs/` directory is the canonical documentation location
+- `docs/INDEX.md` is the documentation manifest
+- `docs/server-manifest.json` summarizes the Windows PC backend + tunnel + Vercel env **names** (not secrets); operators still use `docs/SERVER_MANAGEMENT.md` and `docs/CLOUDFLARE.md` for procedures
+- `docs/SPEC.md` is the product specification
+- Active implementation status: `ROADMAP.md` (not archived planning snapshots)
+- `docs/PLAN.md` is an **archived** snapshot — non-authoritative; use `ROADMAP.md` for current work
+- Architecture changes require updating `docs/` before merge
+- `AGENTS.md` at root is the agent behavior source of truth
+- `CLAUDE.md` at root contains Claude Code project instructions
+
+## CI/CD
+
+- GitHub Actions workflows in `.github/workflows/`
+- PR checks: lint → typecheck → test → build (see workflow for filtered packages)
+- Production deploys: Vercel (frontend); gateway on host per `docs/SERVER_MANAGEMENT.md`
+- Database migrations: `pnpm db:migrate:local` (dev) / `pnpm db:deploy` (prod)
+
+## What Agents Must NOT Do
+
+- Do NOT modify Prisma migration files that have been applied to production
+- Do NOT change production infrastructure without documenting in `docs/` per `ARCHIVE_POLICY.md`
+- Do NOT modify `.env`, `.env.local`, or `.env.login` files
+- Do NOT push to `main` directly — always use feature branches
+- Do NOT modify `packages/db/prisma/migrations/` without running `pnpm db:migrate:local` to verify
+- Do NOT add new pnpm workspace packages without updating root `pnpm-workspace.yaml` / lockfile
+- Do NOT remove or modify production observability instrumentation without review
+- Do NOT bypass ESLint rules without documented justification
+- Do NOT delete `legacy/python/` or `apps/worker/` without an explicit governance change (see `CLAUDE.md`)
+
+## Key Scripts
+
 ```bash
-OPENAI_API_KEY=sk-placeholder pnpm build
+pnpm dev                    # Start all services in dev mode
+pnpm build                  # Build all packages + apps
+pnpm lint                   # Lint all workspaces
+pnpm typecheck              # TypeScript compiler checks
+pnpm test                   # Run all tests
+pnpm db:migrate:local       # Apply DB migrations locally
+pnpm db:deploy              # Apply DB migrations to production
+pnpm smoke:endpoints        # Smoke test production endpoints
+pnpm observability:monitor:prod  # Monitor production observability
 ```
-
-### Pre-existing issues (as of 2026-03-04)
-
-- **Lint:** 5 `@ts-expect-error` directive errors in `packages/openai/src/tools/propertyMemoryTools.test.ts` — pre-existing, not caused by environment setup.
-- **Tests:** 1 assertion failure in `packages/openai` (`memoryTools.phase1.test.ts`) — pre-existing key mismatch in test mock.
-
-### Standard commands reference
-
-See `CLAUDE.md` and root `package.json` scripts. Key commands: `pnpm install`, `pnpm dev`, `pnpm build`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm db:migrate`, `pnpm db:seed`.
-
-### Docker in Cloud VM
-
-Docker must be started manually on each session: `sudo dockerd &>/dev/null &` — wait ~3 seconds before running docker commands. The Docker daemon uses `fuse-overlayfs` storage driver and `iptables-legacy`.

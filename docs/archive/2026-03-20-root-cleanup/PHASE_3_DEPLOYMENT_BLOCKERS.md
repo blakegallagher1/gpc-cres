@@ -1,12 +1,14 @@
 # Phase 3: Deployment Readiness Blockers
 
 **Status:** ✅ RESOLVED (2026-02-20 21:15 UTC) — All infrastructure blockers cleared, endpoints live
-**Last Updated:** 2026-02-20 21:15 UTC
+**Last Updated:** 2026-03-20 (repo hygiene note)
 **Discovery:** Windows 11 infrastructure audit revealed architecture mismatch; all deployment gaps now closed
 
 > **Status: Archived incident report (non-authoritative).**
 > This document is retained as a historical blocker log from the February 2026 rollout window.
 > Use `ROADMAP.md` for active execution status and `docs/SPEC.md` + `docs/claude/backend.md` for current architecture contracts.
+
+> **Repo hygiene (2026-03-20):** **Option B** (keep gateway on `:8000`, use `main.py`) is the live architecture. The former reference copies `infra/local-api/api_server.py` and `infra/local-api/tile_server.py` were **removed from the tree**; only git history retains them.
 
 ---
 
@@ -185,9 +187,7 @@ Once P0, P1, P2 are complete:
    - Verify coordinator → research agent → gateway parcel tools → real parcel data
    - Requires authenticated browser session
 
-3. [ ] **PRIORITY 3**: Decide on api_server.py integration strategy
-   - Option B recommended: Keep api_server.py as reference, existing gateway covers all needs
-   - api_server.py and tile_server.py in infra/local-api/ are reference implementations only
+3. [x] **PRIORITY 3**: ~~Decide on api_server.py integration strategy~~ — **Closed 2026-03-20:** Option B (canonical `main.py` gateway). Reference `api_server.py` / `tile_server.py` files removed from the repo; see git history if needed.
 
 ---
 

@@ -3,7 +3,7 @@
 Status: Authoritative
 Authority: Documentation navigation source of truth
 Owner: Platform engineering
-Last reviewed: 2026-03-11
+Last reviewed: 2026-03-20
 
 This is the canonical entrypoint for repository documentation.
 
@@ -35,6 +35,7 @@ This is the canonical entrypoint for repository documentation.
 
 ## Domain References
 
+- **Windows PC backend + env names (machine-readable):** `docs/server-manifest.json`
 - Cloudflare + networking: `docs/CLOUDFLARE.md`
 - Server management: `docs/SERVER_MANAGEMENT.md`
 - Chat runtime contract: `docs/chat-runtime.md`
@@ -45,3 +46,5 @@ This is the canonical entrypoint for repository documentation.
 
 Historical docs are retained for audit context but are non-authoritative.
 See `docs/ARCHIVE_POLICY.md` for marking and handling rules.
+
+- Root-captured prompts and status snapshots (moved **2026-03-20**): `docs/archive/2026-03-20-root-cleanup/README.md`

@@ -1,6 +1,7 @@
 {
   "version": 1,
-  "lastReviewed": "2026-03-10",
+  "lastReviewed": "2026-03-20",
+  "pcBackendManifest": "docs/server-manifest.json",
   "canonicalEntryPoint": "docs/INDEX.md",
   "sourceOfTruthMap": "docs/SOURCE_OF_TRUTH.md",
   "agentProtocol": "docs/AGENT_DOCS_PROTOCOL.md",

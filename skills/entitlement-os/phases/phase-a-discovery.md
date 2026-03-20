@@ -10,7 +10,7 @@ description: |
 ## Prerequisites
 
 - Request context is an entitlement workflow task and requests a phase-a entitlement audit.
-- `Entitlement_OS_Meta_Prompt.md` and `Entitlement_OS_Phase_A_Remaining.md`.
+- `docs/archive/2026-03-20-root-cleanup/Entitlement_OS_Meta_Prompt.md` and `docs/archive/2026-03-20-root-cleanup/Entitlement_OS_Phase_A_Remaining.md`.
 - `docs/ENTITLEMENT_OS_META_AUDIT_2026-02-17.md` for prior verification state.
 - Access to current app route tree and sidebar config.
 

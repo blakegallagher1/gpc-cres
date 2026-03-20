@@ -10,7 +10,7 @@ description: |
 ## Prerequisites
 
 - The request specifies a phase, roadmap item, or cross-phase objective.
-- Source context available: `Entitlement_OS_Meta_Prompt.md`, `docs/ENTITLEMENT_OS_META_AUDIT_2026-02-17.md`, and `ROADMAP.md`.
+- Source context available: `docs/archive/2026-03-20-root-cleanup/Entitlement_OS_Meta_Prompt.md`, `docs/ENTITLEMENT_OS_META_AUDIT_2026-02-17.md`, and `ROADMAP.md`.
 - Phase references available under `skills/entitlement-os/phases/`.
 - Required prior outputs are available for the selected phase:
   - Phase B depends on Phase A discovery output.

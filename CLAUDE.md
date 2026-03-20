@@ -18,7 +18,7 @@ Last reviewed: 2026-03-10
 
 **Architecture (verified 2026-03-04):** Docker Compose on Windows 11 — FastAPI gateway (:8000), Martin (:3000), single consolidated PostgreSQL (`entitlement-os-postgres`) + Qdrant on internal Docker network, Cloudflare Tunnel + Hyperdrive. Vercel reaches Postgres via Cloudflare Hyperdrive (config `ebd13ab7df60414d9ba8244299467e5e`) through CF Worker `/db` endpoint. Prisma gateway adapter: `packages/db/src/gateway-adapter.ts`. Both Supabase projects archived (2026-03-04).
 
-**Remote DB access:** `cloudflared access tcp --hostname db.gallagherpropco.com --url localhost:54399` — then connect on `localhost:54399` (user: `postgres`, password: `postgres`). Protected by Cloudflare Access (Blake only). See `docs/CLOUDFLARE.md` for full details.
+**Remote DB access:** `cloudflared access tcp --hostname db.gallagherpropco.com --url localhost:54399` — then connect on `localhost:54399` (user: `postgres`, password: `postgres`). Protected by Cloudflare Access (Blake only). See `docs/CLOUDFLARE.md` for full details. **Structured host/env summary (not secrets):** `docs/server-manifest.json`.
 
 **Remote SSH:** `ssh cres_admin@ssh.gallagherpropco.com` (requires `~/.ssh/config` ProxyCommand). See `docs/SERVER_MANAGEMENT.md` for server details, Docker services, and troubleshooting.
 
@@ -39,7 +39,7 @@ Last reviewed: 2026-03-10
 - Use `--archive=tgz` for Vercel CLI deploys (>15K files)
 
 ### Don't Do This
-- Don't delete `legacy/python/` or `apps/worker/` — parked for reference/v2
+- Don't delete `legacy/python/` or `apps/worker/` — parked for reference/v2 (Python porting source + Temporal worker sources; `apps/worker` is not built in default CI—see `.github/workflows/ci.yml`)
 - Don't use Chat Completions API — use OpenAI Responses API
 - Don't auto-advance deals past TRIAGE_DONE — all post-triage status transitions require human approval (see `gates.ts`)
 - Don't auto-send buyer outreach emails — `buyerOutreach.neverAutoSend` is `true`; handlers only create review tasks

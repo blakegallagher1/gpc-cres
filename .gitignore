@@ -23,6 +23,8 @@
 ############################
 node_modules/
 .next/
+# Alternate Next build output dirs (e.g. custom distDir / QA builds)
+apps/web/.next-*/
 out/
 .turbo/
 .vercel/
@@ -59,6 +61,11 @@ dist/
 .coverage
 htmlcov/
 .tox/
+
+############################
+# Local backup files (prefer git history)
+############################
+**/*.bak.*
 
 ############################
 # Misc

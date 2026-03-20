@@ -36,14 +36,15 @@ entitlement-os/
 │   ├── openai/              # 13 agents + ~28 tools + retry/response utils
 │   ├── shared/              # Zod schemas, enums, JSON schema utils
 │   ├── evidence/            # URL snapshot, text extraction, hash comparison
-│   └── artifacts/           # PDF + PPTX generation via Playwright + pptxgenjs
+│   ├── artifacts/           # PDF + PPTX generation via Playwright + pptxgenjs
+│   └── server/              # @gpc/server — shared service modules (imports db + shared)
 ├── infra/
 │   ├── cloudflare-agent/    # Cloudflare Worker + Durable Object for WebSocket agent chat
 │   ├── local-api/           # FastAPI server: tiles proxy, parcel search, screening (Python)
 │   ├── docker/              # docker-compose: Postgres + Temporal stack
 │   └── sql/                 # Property DB RPC function definitions
 ├── legacy/python/           # Original Python agents (frozen reference, do NOT delete)
-├── docs/                    # PLAN.md + SPEC.md + AUTOMATION-FRONTIER.md
+├── docs/                    # INDEX.md, SPEC.md, ROADMAP pointers, archived snapshots
 └── .github/workflows/       # CI (ci.yml)
 ```
 

@@ -7,6 +7,7 @@ Last reviewed: 2026-02-19
 > Use `ROADMAP.md` for active execution and `docs/SPEC.md` for current architecture contracts.
 > Treat every design, architecture, and stack claim below as historical only.
 
+> **Correction (2026-03-20):** The “What Exists Today” row for **`apps/worker/`** was wrong in the original snapshot: the repo contains a real `@entitlement-os/worker` package (Temporal), not an empty directory without `package.json`. Default CI does not build it; see `CLAUDE.md` and `.github/workflows/ci.yml`.
 
 Generated: 2026-02-05
 Revised: 2026-02-05 — Recentered on conversational agent architecture
@@ -35,7 +36,7 @@ This plan merges both. The primary interface is a **chat** — you talk to a Coo
 | **packages/openai/** | 50% | Responses API wrapper, retry logic, types. Missing: agent definitions, structured outputs, tool configs. |
 | **packages/evidence/** | 60% | Snapshot fetcher, text extractor. Missing: Supabase upload, DB writes, hash comparison. |
 | **packages/artifacts/** | 60% | PPTX + PDF generators, HTML templates (stubs). Missing: template content, versioning. |
-| **apps/worker/** | 5% | Empty skeleton. No package.json. |
+| **apps/worker/** | Parked | Temporal worker package exists; not built in default CI (see `CLAUDE.md`). |
 | **infra/docker/** | 100% | Postgres 16 + Temporal dev server + UI. Ready. |
 | **legacy/python/** | Reference | 12 agents with domain knowledge, scoring algorithms, EBR zoning matrix, prompts. Frozen. |
 

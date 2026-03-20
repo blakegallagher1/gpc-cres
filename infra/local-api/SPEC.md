@@ -171,6 +171,6 @@ psql postgresql://postgres:postgres@localhost:54323/entitlement_os -c "SELECT 1;
 
 ## Non-Goals and Legacy Notes
 
-- This spec does not describe legacy split servers (`api_server.py`, `tile_server.py`) as the active deployment path.
+- Legacy split-server prototypes (`api_server.py`, `tile_server.py`) were removed from the repo in 2026-03-20; they are not the active deployment path. Historical copies exist only in git history.
 - Do not document or depend on `/api/query`; current endpoint is `/db/query`.
 - Do not document app parcel/tile runtime as direct DB URI wiring.

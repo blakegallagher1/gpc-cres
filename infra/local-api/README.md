@@ -2,7 +2,7 @@
 
 **Docker Compose stack exposing local PostgreSQL + Martin tiles + Qdrant to Vercel cloud functions.**
 
-> **⚠️ DEPLOYMENT REALITY (verified 2026-02-20):** The actual deployment is a Docker Compose stack at `C:\gpc-cres-backend\docker-compose.yml`. The Python files in this directory (`api_server.py`, `tile_server.py`, `main.py`) are **reference implementations** that were never deployed. The deployed gateway runs on port :8000 with a single `GATEWAY_API_KEY`.
+> **⚠️ DEPLOYMENT REALITY (verified 2026-02-20):** Production uses a Docker Compose stack at `C:\gpc-cres-backend\docker-compose.yml`. The **canonical gateway in this repo** is `main.py` (+ `admin_router.py`) on port **:8000** with `GATEWAY_API_KEY` / `API_KEYS`. Older alternate implementations (`api_server.py`, `tile_server.py`) were removed from the tree in **2026-03-20**; use git history if you need that reference source.
 
 ---
 
@@ -26,7 +26,7 @@ curl -H "Authorization: Bearer $GATEWAY_API_KEY" \
 **Reference docs:**
 - [DEPLOYMENT.md](./DEPLOYMENT.md) - Legacy deployment guide (bare-metal, outdated)
 - [CLOUDFLARE_TUNNEL_SETUP.md](./CLOUDFLARE_TUNNEL_SETUP.md) - Tunnel configuration reference
-- `PHASE_3_DEPLOYMENT_BLOCKERS.md` (repo root) - Deployment verification evidence
+- `docs/archive/2026-03-20-root-cleanup/PHASE_3_DEPLOYMENT_BLOCKERS.md` — deployment verification evidence (archived)
 
 ---
 
@@ -66,7 +66,8 @@ infra/local-api/
 ├── README.md                      # This file
 ├── DEPLOYMENT.md                  # Complete deployment guide
 ├── CLOUDFLARE_TUNNEL_SETUP.md     # Tunnel configuration
-├── main.py                        # FastAPI server (461 lines)
+├── main.py                        # FastAPI gateway (canonical)
+├── admin_router.py                # /admin routes
 ├── requirements.txt               # Python dependencies
 ├── .env.example                   # Environment template
 └── .env                          # Actual config (git-ignored)

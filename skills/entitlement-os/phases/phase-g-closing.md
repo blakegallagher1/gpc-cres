@@ -9,7 +9,7 @@ description: |
 
 ## Prerequisites
 
-- `Entitlement_OS_Meta_Prompt.md` (`Phase G`) and closing handoff inputs from `phase-f-due-diligence`.
+- `docs/archive/2026-03-20-root-cleanup/Entitlement_OS_Meta_Prompt.md` (`Phase G`) and closing handoff inputs from `phase-f-due-diligence`.
 - Portfolio service read-path access scoped by `orgId`.
 - Historical triage predictions and outcome metrics available for calibration.
 
