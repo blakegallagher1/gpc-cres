@@ -67,6 +67,7 @@ function sanitizeSearchInput(input: string): string {
 }
 
 const STREET_SUFFIX_CANONICAL: Array<[RegExp, string]> = [
+  [/\bct\b/g, "court"],
   [/\bdr\b/g, "drive"],
   [/\bst\b/g, "street"],
   [/\brd\b/g, "road"],

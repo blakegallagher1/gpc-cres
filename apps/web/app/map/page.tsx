@@ -22,6 +22,12 @@ import {
   useMapChatState,
 } from "@/lib/chat/MapChatContext";
 import { mapFeaturesFromGeoJson } from "@/lib/chat/mapFeatureUtils";
+import {
+  buildSuggestionLookupText,
+  parcelMatchesSearch,
+  resolveSuggestionParcel,
+  type ParcelSearchSuggestion,
+} from "./searchHelpers";
 
 const MapChatPanel = dynamic(
   () => import("@/components/maps/MapChatPanel").then((m) => m.MapChatPanel),
@@ -82,28 +88,11 @@ interface ProspectApiResponse {
   error?: string;
 }
 
-interface ParcelSuggestion {
-  id: string;
-  address: string;
-  lat: number | null;
-  lng: number | null;
-  propertyDbId: string | null;
-}
-
 interface ParcelSuggestApiResponse {
-  suggestions: ParcelSuggestion[];
+  suggestions: ParcelSearchSuggestion[];
 }
 
 const SURROUNDING_PARCELS_RADIUS_MILES = 1.25;
-const STREET_SUFFIX_CANONICAL: Array<[RegExp, string]> = [
-  [/\bdr\b/g, "drive"],
-  [/\bst\b/g, "street"],
-  [/\brd\b/g, "road"],
-  [/\bave\b/g, "avenue"],
-  [/\bblvd\b/g, "boulevard"],
-  [/\bhwy\b/g, "highway"],
-  [/\bln\b/g, "lane"],
-];
 
 function distanceMiles(a: MapParcel, b: MapParcel): number {
   const toRad = (value: number) => (value * Math.PI) / 180;
@@ -126,32 +115,6 @@ function toFiniteNumber(...values: Array<unknown>): number | null {
     }
   }
   return null;
-}
-
-function canonicalizeSearchText(value: string): string {
-  let text = value
-    .toLowerCase()
-    .replace(/[^\w\s#-]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  for (const [pattern, replacement] of STREET_SUFFIX_CANONICAL) {
-    text = text.replace(pattern, replacement);
-  }
-  return text.replace(/\s+/g, " ").trim();
-}
-
-function parcelMatchesSearch(parcel: MapParcel, query: string): boolean {
-  const q = canonicalizeSearchText(query);
-  if (!q) return true;
-  return [
-    parcel.address,
-    parcel.currentZoning,
-    parcel.floodZone,
-    parcel.propertyDbId,
-  ].some((value) => {
-    if (!value) return false;
-    return canonicalizeSearchText(String(value)).includes(q);
-  });
 }
 
 export default function MapPage() {
@@ -180,12 +143,16 @@ export default function MapPage() {
   const [source, setSource] = useState<"org" | "property-db" | "org-fallback">("org");
   const [isSearchLoading, setIsSearchLoading] = useState(false);
   const [isSuggestLoading, setIsSuggestLoading] = useState(false);
-  const [suggestions, setSuggestions] = useState<ParcelSuggestion[]>([]);
+  const [suggestions, setSuggestions] = useState<ParcelSearchSuggestion[]>([]);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
+  const [searchLookupOverride, setSearchLookupOverride] = useState<string | null>(null);
+  const [selectedSuggestion, setSelectedSuggestion] =
+    useState<ParcelSearchSuggestion | null>(null);
   const [polygon, setPolygon] = useState<number[][][] | null>(null);
   const [polygonParcels, setPolygonParcels] = useState<MapParcel[] | null>(null);
   const [polygonError, setPolygonError] = useState<string | null>(null);
   const [isPolygonLoading, setIsPolygonLoading] = useState(false);
+  const lastAutoFocusedSearchRef = useRef("");
   const initialCenterFromUrl = useMemo<[number, number]>(() => {
     const latStr = searchParams.get("lat");
     const lngStr = searchParams.get("lng");
@@ -218,6 +185,34 @@ export default function MapPage() {
     process.env.NODE_ENV !== "production"
       ? " Start the dev server with NEXT_PUBLIC_DISABLE_AUTH=true or sign in."
       : " Please sign in and try again.";
+
+  const focusCoordinates = useCallback(
+    (lat: number, lng: number) => {
+      const nextZoom = typeof mapZoom === "number" ? Math.max(mapZoom, 16) : 16;
+      mapDispatch({
+        type: "SET_VIEWPORT",
+        center: [lng, lat],
+        zoom: nextZoom,
+      });
+      mapRef.current?.flyTo({
+        center: [lng, lat],
+        zoom: nextZoom,
+      });
+    },
+    [mapDispatch, mapZoom],
+  );
+
+  const focusParcel = useCallback(
+    (parcel: MapParcel) => {
+      mapDispatch({
+        type: "SELECT_PARCELS",
+        parcelIds: [parcel.id],
+      });
+      mapRef.current?.highlightParcels([parcel.id], "outline", undefined, 0);
+      focusCoordinates(parcel.lat, parcel.lng);
+    },
+    [focusCoordinates, mapDispatch],
+  );
 
   useEffect(() => {
     if (initializedFromUrlRef.current) return;
@@ -254,39 +249,47 @@ export default function MapPage() {
     const nextSearch = searchText.trim();
     if (!nextSearch) return;
 
+    setSearchLookupOverride(null);
+    setSelectedSuggestion(null);
     setDebouncedSearch(nextSearch);
     setSearchSubmitId((value) => value + 1);
     setSuggestions([]);
     setActiveSuggestionIndex(-1);
   };
 
-  const selectSuggestion = useCallback((suggestion: ParcelSuggestion) => {
+  const selectSuggestion = useCallback((suggestion: ParcelSearchSuggestion) => {
     const nextSearch = suggestion.address.trim();
     if (!nextSearch) return;
+    const nextLookupText = buildSuggestionLookupText(suggestion);
+    const resolvedParcel =
+      resolveSuggestionParcel(suggestion, searchParcels ?? []) ??
+      resolveSuggestionParcel(suggestion, parcels);
+
     setSearchText(nextSearch);
-    setDebouncedSearch(nextSearch);
+    setSearchLookupOverride(nextLookupText);
+    setDebouncedSearch(nextLookupText);
     setSearchSubmitId((value) => value + 1);
-      setSuggestions([]);
-      setActiveSuggestionIndex(-1);
-      if (
-        typeof suggestion.lat === "number" &&
-        Number.isFinite(suggestion.lat) &&
-        typeof suggestion.lng === "number" &&
-        Number.isFinite(suggestion.lng)
-      ) {
-        mapDispatch({
-          type: "SET_VIEWPORT",
-          center: [suggestion.lng, suggestion.lat],
-          zoom: typeof mapZoom === "number" ? Math.max(mapZoom, 14) : 14,
-        });
-        mapRef.current?.flyTo({
-          center: [suggestion.lng, suggestion.lat],
-          zoom: typeof mapZoom === "number" ? Math.max(mapZoom, 14) : 14,
-        });
-      }
-    },
-    [mapDispatch, mapZoom],
-  );
+    setSuggestions([]);
+    setActiveSuggestionIndex(-1);
+    setSelectedSuggestion(resolvedParcel ? null : suggestion);
+    if (resolvedParcel) {
+      focusParcel(resolvedParcel);
+      return;
+    }
+    if (
+      typeof suggestion.lat === "number" &&
+      Number.isFinite(suggestion.lat) &&
+      typeof suggestion.lng === "number" &&
+      Number.isFinite(suggestion.lng)
+    ) {
+      focusCoordinates(suggestion.lat, suggestion.lng);
+    }
+  }, [
+    focusCoordinates,
+    focusParcel,
+    parcels,
+    searchParcels,
+  ]);
 
   const handleSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "ArrowDown" && suggestions.length > 0) {
@@ -324,15 +327,17 @@ export default function MapPage() {
     const nextSearch = searchText.trim();
     if (!nextSearch) {
       setDebouncedSearch("");
+      setSearchLookupOverride(null);
+      setSelectedSuggestion(null);
       return;
     }
 
     const timeout = setTimeout(() => {
-      setDebouncedSearch(nextSearch);
+      setDebouncedSearch(searchLookupOverride?.trim() || nextSearch);
     }, 250);
 
     return () => clearTimeout(timeout);
-  }, [searchText]);
+  }, [searchLookupOverride, searchText]);
 
   useEffect(() => {
     const query = searchText.trim();
@@ -533,6 +538,18 @@ export default function MapPage() {
   }, [polygon, polygonParcels, visibleParcels]);
 
   useEffect(() => {
+    if (!selectedSuggestion) return;
+    const resolvedParcel =
+      resolveSuggestionParcel(selectedSuggestion, activeParcels) ??
+      resolveSuggestionParcel(selectedSuggestion, searchParcels ?? []) ??
+      resolveSuggestionParcel(selectedSuggestion, parcels);
+    if (!resolvedParcel) return;
+
+    focusParcel(resolvedParcel);
+    setSelectedSuggestion(null);
+  }, [activeParcels, focusParcel, parcels, searchParcels, selectedSuggestion]);
+
+  useEffect(() => {
     async function loadBaseParcels() {
       try {
         const res = await fetch("/api/parcels?hasCoords=true");
@@ -661,6 +678,23 @@ export default function MapPage() {
       active = false;
     };
   }, [debouncedSearch, parcels, searchSubmitId, polygon]);
+
+  useEffect(() => {
+    if (selectedSuggestion || !isSearchActive || searchParcels?.length !== 1) return;
+
+    const focusKey = `${searchSubmitId}:${debouncedSearch}`;
+    if (!focusKey || lastAutoFocusedSearchRef.current === focusKey) return;
+
+    lastAutoFocusedSearchRef.current = focusKey;
+    focusParcel(searchParcels[0]);
+  }, [
+    debouncedSearch,
+    focusParcel,
+    isSearchActive,
+    searchParcels,
+    searchSubmitId,
+    selectedSuggestion,
+  ]);
 
   useEffect(() => {
     if (!polygon) {
@@ -833,6 +867,8 @@ export default function MapPage() {
                         value={searchText}
                         onChange={(event) => {
                           setSearchText(event.target.value);
+                          setSearchLookupOverride(null);
+                          setSelectedSuggestion(null);
                           setActiveSuggestionIndex(-1);
                         }}
                         onKeyDown={handleSearchKeyDown}

@@ -639,7 +639,7 @@ describe("GET /api/parcels", () => {
     findManyMock.mockResolvedValue([
       {
         id: "org-parcel-1",
-        address: "7618 Copperfield Ct, Baton Rouge, LA",
+        address: "7618 Copperfield Court, Baton Rouge, LA",
         lat: 30.421,
         lng: -91.102,
         acreage: 0.4,
