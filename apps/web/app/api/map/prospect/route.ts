@@ -13,7 +13,8 @@ import {
   logPropertyDbRuntimeHealth,
 } from "@/lib/server/propertyDbEnv";
 
-const DEFAULT_GATEWAY_TIMEOUT_MS = 10_000;
+const DEFAULT_GATEWAY_TIMEOUT_MS = 25_000;
+const MAX_GATEWAY_RETRIES = 1;
 const STREET_SUFFIX_CANONICAL: Array<[RegExp, string]> = [
   [/\bdr\b/g, "drive"],
   [/\bst\b/g, "street"],
@@ -133,6 +134,25 @@ function getGatewayTimeoutMs(): number {
   return DEFAULT_GATEWAY_TIMEOUT_MS;
 }
 
+function isRetryableGatewayFailure(error: unknown): boolean {
+  if (error instanceof ProspectGatewayError) {
+    if (error.status >= 500) {
+      return true;
+    }
+    return error.message.toLowerCase().includes("timed out");
+  }
+  if (error instanceof Error) {
+    const message = error.message.toLowerCase();
+    return (
+      error.name === "AbortError" ||
+      message.includes("fetch failed") ||
+      message.includes("socket hang up") ||
+      message.includes("econnreset")
+    );
+  }
+  return false;
+}
+
 class ProspectGatewayError extends Error {
   status: number;
   code: "GATEWAY_UNCONFIGURED" | "GATEWAY_UNAVAILABLE";
@@ -160,61 +180,77 @@ async function gatewayPost(
   requestId?: string,
 ): Promise<unknown> {
   const { url, key } = config;
-  let res: Response;
   const timeoutMs = getGatewayTimeoutMs();
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    res = await fetch(`${url}${path}`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${key}`,
-        apikey: key,
-        "Content-Type": "application/json",
-        ...(requestId ? { "x-request-id": requestId } : {}),
-        ...getCloudflareAccessHeadersFromEnv(),
-      },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
-  } catch (error) {
-    Sentry.captureException(error, {
-      tags: { route: "api.map.prospect", method: "UNKNOWN" },
-    });
-    const reason =
-      error instanceof Error && error.name === "AbortError"
-        ? `request timed out after ${timeoutMs}ms`
-        : error instanceof Error
-          ? error.message
-          : String(error);
-    throw new ProspectGatewayError(
-      `[prospect] gateway ${path} request failed: ${reason}`,
-      "GATEWAY_UNAVAILABLE",
-    );
-  } finally {
-    clearTimeout(timeout);
+
+  for (let attempt = 0; attempt <= MAX_GATEWAY_RETRIES; attempt += 1) {
+    let res: Response;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      res = await fetch(`${url}${path}`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${key}`,
+          apikey: key,
+          "Content-Type": "application/json",
+          ...(requestId ? { "x-request-id": requestId } : {}),
+          ...getCloudflareAccessHeadersFromEnv(),
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+    } catch (error) {
+      Sentry.captureException(error, {
+        tags: { route: "api.map.prospect", method: "UNKNOWN" },
+      });
+      const gatewayError = new ProspectGatewayError(
+        `[prospect] gateway ${path} request failed: ${
+          error instanceof Error && error.name === "AbortError"
+            ? `request timed out after ${timeoutMs}ms`
+            : error instanceof Error
+              ? error.message
+              : String(error)
+        }`,
+        "GATEWAY_UNAVAILABLE",
+      );
+      if (attempt < MAX_GATEWAY_RETRIES && isRetryableGatewayFailure(gatewayError)) {
+        continue;
+      }
+      throw gatewayError;
+    } finally {
+      clearTimeout(timeout);
+    }
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      const gatewayError = new ProspectGatewayError(
+        `[prospect] gateway ${path} error ${res.status}: ${text.slice(0, 200)}`,
+        "GATEWAY_UNAVAILABLE",
+        res.status >= 500 ? 502 : 503,
+      );
+      if (attempt < MAX_GATEWAY_RETRIES && isRetryableGatewayFailure(gatewayError)) {
+        continue;
+      }
+      throw gatewayError;
+    }
+    try {
+      return await res.json();
+    } catch (error) {
+      Sentry.captureException(error, {
+        tags: { route: "api.map.prospect", method: "UNKNOWN" },
+      });
+      throw new ProspectGatewayError(
+        `[prospect] gateway ${path} invalid JSON: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        "GATEWAY_UNAVAILABLE",
+      );
+    }
   }
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    const status = res.status >= 500 ? 502 : 503;
-    throw new ProspectGatewayError(
-      `[prospect] gateway ${path} error ${res.status}: ${text.slice(0, 200)}`,
-      "GATEWAY_UNAVAILABLE",
-      status,
-    );
-  }
-  try {
-    return await res.json();
-  } catch (error) {
-    Sentry.captureException(error, {
-      tags: { route: "api.map.prospect", method: "UNKNOWN" },
-    });
-    const reason = error instanceof Error ? error.message : String(error);
-    throw new ProspectGatewayError(
-      `[prospect] gateway ${path} invalid JSON: ${reason}`,
-      "GATEWAY_UNAVAILABLE",
-    );
-  }
+
+  throw new ProspectGatewayError(
+    `[prospect] gateway ${path} request failed after retries`,
+    "GATEWAY_UNAVAILABLE",
+  );
 }
 
 // ---------------------------------------------------------------------------

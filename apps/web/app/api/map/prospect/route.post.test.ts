@@ -149,6 +149,48 @@ describe("POST /api/map/prospect", () => {
     expect(gatewayBody.sql).not.toContain("zoning_type");
   });
 
+  it("retries a transient gateway timeout once before failing", async () => {
+    resolveAuthMock.mockResolvedValue({ userId: "user-1", orgId: "org-1" });
+    const timeoutError = new Error("timed out");
+    timeoutError.name = "AbortError";
+    fetchMock
+      .mockRejectedValueOnce(timeoutError)
+      .mockResolvedValueOnce(
+        makeJsonResponse([
+          {
+            id: "p-retry-1",
+            site_address: "123 Retry St",
+            owner_name: "Retry Owner",
+            acreage: 1.5,
+            zoning: "C2",
+            assessed_value: 250000,
+            lat: 30.4,
+            lng: -91.16,
+            parish_name: "East Baton Rouge",
+            parcel_uid: "uid-retry-1",
+          },
+        ]),
+      );
+
+    const req = new NextRequest("http://localhost/api/map/prospect", {
+      method: "POST",
+      body: JSON.stringify({
+        polygon: {
+          type: "Polygon",
+          coordinates: [[[-91.2, 30.45], [-91.2, 30.35], [-91.1, 30.35], [-91.1, 30.45], [-91.2, 30.45]]],
+        },
+      }),
+    });
+
+    const res = await POST(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.total).toBe(1);
+    expect(body.parcels[0].address).toBe("123 Retry St");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it("returns an empty result when the gateway returns an empty set", async () => {
     resolveAuthMock.mockResolvedValue({ userId: "user-1", orgId: "org-1" });
     fetchMock.mockResolvedValue(makeJsonResponse([]));

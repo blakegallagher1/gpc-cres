@@ -181,6 +181,41 @@ describe("GET /api/parcels", () => {
     expect(body.parcels[0].propertyDbId).toBe("external-1");
   });
 
+  it("stops gateway search fallbacks after the first non-empty search hit", async () => {
+    ({ GET } = await import("./route"));
+    resolveAuthMock.mockResolvedValue({
+      userId: "99999999-9999-4999-8999-999999999999",
+      orgId: "11111111-1111-4111-8111-111111111111",
+    });
+    findManyMock.mockResolvedValue([]);
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      text: async () =>
+        JSON.stringify({
+          ok: true,
+          data: [
+            {
+              id: "external-search-1",
+              site_address: "4416 Heath Dr",
+              lat: 30.60188,
+              lng: -91.15151,
+              acreage: 0.23,
+              parcel_uid: "search-uid-1",
+            },
+          ],
+        }),
+    } as Response);
+
+    const req = new NextRequest("http://localhost/api/parcels?search=4416%20HEATH%20DR");
+    const res = await GET(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.source).toBe("property-db");
+    expect(body.parcels).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("returns degraded org fallback when gateway config is unavailable for gateway-backed parcel queries", async () => {
     logPropertyDbRuntimeHealthMock.mockReturnValueOnce(null);
     ({ GET } = await import("./route"));
@@ -552,7 +587,7 @@ describe("GET /api/parcels", () => {
 
       const req = new NextRequest("http://localhost/api/parcels?hasCoords=true");
       const pending = GET(req);
-      await vi.advanceTimersByTimeAsync(1600);
+      await vi.advanceTimersByTimeAsync(3200);
       const res = await pending;
       const body = await res.json();
 
