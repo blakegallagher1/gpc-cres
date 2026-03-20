@@ -10,6 +10,8 @@ import {
 export const runtime = "nodejs";
 
 const ROUTE_KEY = "parcel-geometry";
+const DEFAULT_PROPERTY_DB_GATEWAY_TIMEOUT_MS = 15_000;
+const MAX_PROPERTY_DB_GATEWAY_TIMEOUT_MS = 25_000;
 
 class ParcelGeometryGatewayError extends Error {
   status: number;
@@ -40,6 +42,22 @@ type GeoJsonGeometry = {
   type: "Polygon" | "MultiPolygon";
   coordinates: unknown;
 };
+
+function getGeometryGatewayTimeoutMs(): number {
+  const parsed = Number.parseInt(
+    process.env.PROPERTY_DB_GATEWAY_TIMEOUT_MS ??
+      String(DEFAULT_PROPERTY_DB_GATEWAY_TIMEOUT_MS),
+    10,
+  );
+
+  return Math.max(
+    1500,
+    Math.min(
+      MAX_PROPERTY_DB_GATEWAY_TIMEOUT_MS,
+      Number.isFinite(parsed) ? parsed : DEFAULT_PROPERTY_DB_GATEWAY_TIMEOUT_MS,
+    ),
+  );
+}
 
 function toRecord(value: unknown): Record<string, unknown> | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
@@ -217,11 +235,11 @@ export async function GET(
     const gatewayUrl = gatewayConfig.url.replace(/\/$/, "");
     const gatewayKey = gatewayConfig.key;
 
-    const GEOMETRY_TIMEOUT_MS = 8000;
+    const geometryTimeoutMs = getGeometryGatewayTimeoutMs();
     const url = `${gatewayUrl}/api/parcels/${encodeURIComponent(parcelId)}/geometry?detail_level=${detailLevel}`;
     let res: Response;
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), GEOMETRY_TIMEOUT_MS);
+    const timeout = setTimeout(() => controller.abort(), geometryTimeoutMs);
     try {
       res = await fetch(url, {
         headers: {
@@ -231,11 +249,8 @@ export async function GET(
         signal: controller.signal,
       });
     } catch (error) {
-      Sentry.captureException(error, {
-        tags: { route: "api.parcels.geometry", method: "GET" },
-      });
       const reason = error instanceof Error && error.name === "AbortError"
-        ? `request timed out after ${GEOMETRY_TIMEOUT_MS}ms`
+        ? `request timed out after ${geometryTimeoutMs}ms`
         : error instanceof Error ? error.message : String(error);
       throw new ParcelGeometryGatewayError(
         `[parcel-geometry] request failed: ${reason}`,
@@ -268,9 +283,6 @@ export async function GET(
     try {
       json = (await res.json()) as { ok: boolean; data?: Record<string, unknown> };
     } catch (error) {
-      Sentry.captureException(error, {
-        tags: { route: "api.parcels.geometry", method: "GET" },
-      });
       const reason = error instanceof Error ? error.message : String(error);
       throw new ParcelGeometryGatewayError(
         `[parcel-geometry] invalid JSON response: ${reason}`,
@@ -306,10 +318,6 @@ export async function GET(
   } catch (error) {
     Sentry.captureException(error, {
       tags: { route: "api.parcels.geometry", method: "GET" },
-    });
-    const err = error instanceof Error ? error : new Error(String(error));
-    Sentry.captureException(err, {
-      tags: { route: "/api/parcels/[parcelId]/geometry" },
     });
     if (error instanceof ParcelGeometryGatewayError) {
       const message =

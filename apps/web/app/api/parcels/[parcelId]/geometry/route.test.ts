@@ -44,6 +44,7 @@ describe("GET /api/parcels/[parcelId]/geometry", () => {
   let GET: typeof import("./route").GET;
   const originalLocalApiUrl = process.env.LOCAL_API_URL;
   const originalLocalApiKey = process.env.LOCAL_API_KEY;
+  const originalGatewayTimeout = process.env.PROPERTY_DB_GATEWAY_TIMEOUT_MS;
 
   beforeEach(async () => {
     vi.resetModules();
@@ -75,8 +76,10 @@ describe("GET /api/parcels/[parcelId]/geometry", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.useRealTimers();
     process.env.LOCAL_API_URL = originalLocalApiUrl;
     process.env.LOCAL_API_KEY = originalLocalApiKey;
+    process.env.PROPERTY_DB_GATEWAY_TIMEOUT_MS = originalGatewayTimeout;
   });
 
   it("returns 401 when unauthenticated", async () => {
@@ -180,6 +183,25 @@ describe("GET /api/parcels/[parcelId]/geometry", () => {
     expect(res.status).toBe(502);
     expect(body.error?.code).toBe("GATEWAY_UNAVAILABLE");
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses PROPERTY_DB_GATEWAY_TIMEOUT_MS for gateway requests and captures once", async () => {
+    process.env.PROPERTY_DB_GATEWAY_TIMEOUT_MS = "4321";
+    const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
+
+    fetchMock.mockRejectedValue(new Error("network down"));
+
+    const res = await GET(
+      new Request("http://localhost/api/parcels/abc-123/geometry?detail_level=low"),
+      { params: Promise.resolve({ parcelId: "abc-123" }) },
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(503);
+    expect(body.error?.code).toBe("GATEWAY_UNAVAILABLE");
+    expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 4321);
+    expect(sentryCaptureExceptionMock).toHaveBeenCalledTimes(1);
+    setTimeoutSpy.mockRestore();
   });
 
   it("returns 404 when the gateway reports no parcel geometry", async () => {
