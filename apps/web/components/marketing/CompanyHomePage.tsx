@@ -1,280 +1,203 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
-import { ArrowRight, Building2 } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { useRef } from "react";
 import { Button } from "@/components/ui/button";
 
-const heroEase: [number, number, number, number] = [0.22, 1, 0.36, 1];
+const HERO_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
+const HERO_REVEAL_DURATION_S = 0.72;
+const HERO_BACKGROUND_START_OPACITY = 0.18;
+const HERO_BACKGROUND_END_OPACITY = 0.42;
+const HERO_BACKGROUND_SHIFT_PX = 48;
 
-const operatingDisciplines = [
+const companyModel = [
   {
-    eyebrow: "Development",
-    title: "Source sites where the path matters as much as the dirt.",
-    body: "We look for commercial real estate opportunities where site context, entitlement friction, and timing can be turned into an edge.",
+    title: "BUY",
+    label: "What we buy",
+    items: [
+      "Commercial sites with real access, shape, and frontage.",
+      "Basis where entitlement work can create pricing edge.",
+      "Opportunities where local context changes the outcome.",
+    ],
   },
   {
-    eyebrow: "Investment",
-    title: "Commit capital after the real constraints are visible.",
-    body: "Underwriting is tied to parcel reality, approval path, and execution risk before momentum or narrative carries the deal too far.",
+    title: "BUILD",
+    label: "What we build",
+    items: [
+      "Plans tied to the parcel instead of abstract assumptions.",
+      "Execution paths grounded in approvals, infrastructure, and timing.",
+      "Projects where capital discipline stays attached from first read to delivery.",
+    ],
   },
   {
-    eyebrow: "Operating discipline",
-    title: "Keep the deal thread intact from first read to active execution.",
-    body: "Research, evidence, approvals, and decision gates stay attached to the opportunity instead of fragmenting across inboxes and meetings.",
+    title: "SELL",
+    label: "What we sell",
+    items: [
+      "Assets after the hard work has been made legible.",
+      "Stories supported by site reality, process, and positioning.",
+      "Outcomes timed for liquidity, not noise.",
+    ],
   },
 ] as const;
 
-const approachSteps = [
-  {
-    step: "01",
-    title: "Read the parcel first",
-    body: "Start with access, adjacency, surface risk, and site shape so the opportunity is grounded before anyone starts selling the story.",
+const heroSequence = {
+  hidden: {},
+  visible: {
+    transition: {
+      staggerChildren: 0.08,
+      delayChildren: 0.06,
+    },
   },
-  {
-    step: "02",
-    title: "Model the entitlement path",
-    body: "Bring jurisdiction posture, precedent, and process friction into the same pass before capital commitments are made.",
-  },
-  {
-    step: "03",
-    title: "Advance with evidence",
-    body: "Move through approvals, diligence, counterparties, and workflow execution with live context instead of disconnected updates.",
-  },
-  {
-    step: "04",
-    title: "Protect downside early",
-    body: "Gate decisions at the moments that actually expose money, time, and reputation rather than after the deal has already hardened.",
-  },
-] as const;
+};
 
 const sectionReveal = {
   hidden: { opacity: 0, y: 24 },
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.72, ease: heroEase },
+    transition: { duration: HERO_REVEAL_DURATION_S, ease: HERO_EASE },
   },
 };
 
+type CompanyModelRowProps = {
+  entry: (typeof companyModel)[number];
+  prefersReducedMotion: boolean;
+};
+
+function CompanyModelRow({ entry, prefersReducedMotion }: CompanyModelRowProps) {
+  return (
+    <motion.article
+      className="grid gap-6 border-t border-white/14 py-8 first:border-t-0 md:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)] md:items-end md:gap-10 lg:py-10"
+      variants={sectionReveal}
+    >
+      <div>
+        <h2 className="text-[clamp(4rem,14vw,11rem)] font-semibold leading-[0.82] tracking-[-0.09em] text-white">
+          {entry.title}
+        </h2>
+      </div>
+
+      <div className="max-w-md">
+        <p className="font-mono text-[0.7rem] uppercase tracking-[0.3em] text-white/46">{entry.label}</p>
+        <ul className="mt-4 space-y-3 text-sm leading-6 text-white/72 sm:text-base">
+          {entry.items.map((item) => (
+            <motion.li
+              className="border-b border-white/10 pb-3 last:border-b-0 last:pb-0"
+              key={item}
+              transition={{ duration: 0.2 }}
+              whileHover={prefersReducedMotion ? undefined : { x: 4 }}
+            >
+              {item}
+            </motion.li>
+          ))}
+        </ul>
+      </div>
+    </motion.article>
+  );
+}
+
 /**
  * Public homepage for Gallagher Property Company.
- * Presents the company as a CRE development and investment operator while preserving a clear path into the internal platform.
+ * Presents the company through a direct buy-build-sell operating frame while preserving access to the internal platform.
  */
 export function CompanyHomePage() {
   const heroRef = useRef<HTMLElement | null>(null);
-  const prefersReducedMotion = useReducedMotion();
+  const prefersReducedMotion = useReducedMotion() ?? false;
   const { scrollYProgress } = useScroll({
     target: heroRef,
-    offset: ["start start", "end start"],
+    offset: ["start start", "end end"],
   });
 
-  const heroImageY = useTransform(scrollYProgress, [0, 1], [0, prefersReducedMotion ? 0 : 92]);
-  const heroImageScale = useTransform(scrollYProgress, [0, 1], [1, prefersReducedMotion ? 1 : 1.06]);
-  const heroOverlayOpacity = useTransform(scrollYProgress, [0, 1], [0.48, prefersReducedMotion ? 0.48 : 0.7]);
+  const backgroundOpacity = useTransform(
+    scrollYProgress,
+    [0, 1],
+    [HERO_BACKGROUND_START_OPACITY, prefersReducedMotion ? HERO_BACKGROUND_START_OPACITY : HERO_BACKGROUND_END_OPACITY],
+  );
+  const backgroundShift = useTransform(scrollYProgress, [0, 1], [0, prefersReducedMotion ? 0 : HERO_BACKGROUND_SHIFT_PX]);
 
   return (
-    <div className="bg-background text-foreground" id="top">
-      <section className="relative isolate min-h-[100svh] overflow-hidden bg-black text-white" ref={heroRef}>
-        <motion.div className="absolute inset-0" style={{ scale: heroImageScale, y: heroImageY }}>
-          <Image
-            alt="Commercial corridor with development land, industrial buildings, and road infrastructure at first light"
-            className="object-cover object-center"
-            fill
-            priority
-            sizes="100vw"
-            src="/images/gpc-home-hero.png"
-          />
-        </motion.div>
-
-        <motion.div
-          className="absolute inset-0 bg-[linear-gradient(112deg,rgba(0,0,0,0.84)_0%,rgba(0,0,0,0.68)_28%,rgba(0,0,0,0.24)_62%,rgba(0,0,0,0.74)_100%)]"
-          style={{ opacity: heroOverlayOpacity }}
-        />
-        <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-black via-black/38 to-transparent" />
-
-        <div className="relative flex min-h-[100svh] items-end px-6 py-10 md:px-10 md:py-12 lg:px-16">
-          <motion.div
-            animate="visible"
-            className="max-w-2xl space-y-8"
-            initial="hidden"
-            variants={{
-              hidden: {},
-              visible: {
-                transition: {
-                  staggerChildren: 0.1,
-                  delayChildren: 0.08,
-                },
-              },
-            }}
-          >
-            <motion.div className="flex items-center gap-4" variants={sectionReveal}>
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[linear-gradient(180deg,rgba(59,130,246,0.92),rgba(15,23,42,0.92))] shadow-[0_16px_40px_rgba(0,0,0,0.28)]">
-                <Building2 className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <p className="font-mono text-[0.72rem] uppercase tracking-[0.28em] text-white/64">
-                  Baton Rouge, Louisiana
-                </p>
-                <p className="mt-1 text-sm text-white/78">Commercial real estate development and investment</p>
-              </div>
-            </motion.div>
-
-            <motion.div className="space-y-4" variants={sectionReveal}>
-              <h1 className="max-w-[10ch] text-5xl font-semibold tracking-[-0.055em] text-balance sm:text-6xl lg:text-7xl">
-                Gallagher Property Company
-              </h1>
-              <p className="max-w-[15ch] text-3xl font-medium leading-tight tracking-[-0.04em] text-white/92 sm:text-4xl">
-                Development and investment built on parcel truth.
-              </p>
-              <p className="max-w-xl text-base leading-7 text-white/72 sm:text-lg">
-                A commercial real estate company working where local context, entitlement discipline, and capital judgment create durable advantage.
-              </p>
-            </motion.div>
-
-            <motion.div className="flex flex-col gap-3 sm:flex-row" variants={sectionReveal}>
-              <motion.div whileHover={prefersReducedMotion ? undefined : { y: -2 }}>
-                <Button asChild className="h-12 bg-white px-5 text-sm font-semibold text-black hover:bg-white/90" size="lg">
-                  <Link href="#approach">
-                    See our approach
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Link>
-                </Button>
-              </motion.div>
-
-              <motion.div whileHover={prefersReducedMotion ? undefined : { y: -2 }}>
-                <Button
-                  asChild
-                  className="h-12 border-white/20 bg-white/6 px-5 text-sm font-semibold text-white hover:bg-white/12 hover:text-white"
-                  size="lg"
-                  variant="outline"
-                >
-                  <Link href="/login">Operator access</Link>
-                </Button>
-              </motion.div>
-            </motion.div>
-
-            <motion.p className="max-w-md text-sm leading-6 text-white/58" variants={sectionReveal}>
-              The public front door is the company. Active internal work runs through Entitlement OS.
-            </motion.p>
-          </motion.div>
-        </div>
-      </section>
-
+    <div className="bg-black text-white" id="top">
       <main>
-        <section className="border-b border-border bg-background px-6 py-20 md:px-10 lg:px-16">
-          <div className="mx-auto max-w-6xl">
-            <motion.div
-              className="max-w-2xl"
+        <section className="relative isolate min-h-[100svh] overflow-hidden bg-black" ref={heroRef}>
+          <motion.div
+            className="absolute inset-0"
+            style={{ opacity: backgroundOpacity, y: backgroundShift }}
+          >
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.1),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.08),transparent_28%)]" />
+            <div className="absolute inset-0 [background-image:linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:96px_96px]" />
+          </motion.div>
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0)_0%,rgba(0,0,0,0.24)_100%)]" />
+
+          <div className="relative flex min-h-[100svh] flex-col px-6 py-6 md:px-10 md:py-8 lg:px-16">
+            <motion.header
+              animate="visible"
+              className="flex flex-col gap-6 border-b border-white/14 pb-6 sm:flex-row sm:items-end sm:justify-between"
               initial="hidden"
-              variants={sectionReveal}
-              viewport={{ once: true, amount: 0.4 }}
-              whileInView="visible"
+              variants={heroSequence}
             >
-              <p className="font-mono text-[0.72rem] uppercase tracking-[0.28em] text-muted-foreground">Support</p>
-              <h2 className="mt-3 max-w-[12ch] text-3xl font-semibold tracking-[-0.04em] text-balance sm:text-4xl">
-                Development, investment, and deal control.
-              </h2>
-              <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground">
-                One company view of the opportunity, from site read to capital discipline.
-              </p>
+              <motion.div className="space-y-3" variants={sectionReveal}>
+                <p className="font-mono text-[0.72rem] uppercase tracking-[0.3em] text-white/52">Gallagher Property Company</p>
+                <div className="space-y-1">
+                  <p className="text-sm text-white/76">Baton Rouge, Louisiana</p>
+                  <p className="text-sm text-white/56">Commercial real estate development and investment</p>
+                </div>
+              </motion.div>
+
+              <motion.div className="flex items-center gap-4" variants={sectionReveal}>
+                <p className="max-w-xs text-sm leading-6 text-white/54">
+                  Direct language. Clear basis. Real estate decisions attached to the parcel.
+                </p>
+                <motion.div whileHover={prefersReducedMotion ? undefined : { x: 2 }}>
+                  <Link className="inline-flex items-center gap-2 text-sm font-medium text-white/88 transition-colors hover:text-white" href="/login">
+                    Operator access
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </motion.div>
+              </motion.div>
+            </motion.header>
+
+            <motion.div
+              animate="visible"
+              className="flex flex-1 flex-col justify-center py-10 md:py-14"
+              initial="hidden"
+              variants={heroSequence}
+            >
+              <h1 className="sr-only">Buy, build, sell commercial real estate.</h1>
+              <motion.div className="border-b border-white/14" variants={sectionReveal}>
+                <p className="max-w-lg text-base leading-7 text-white/62 sm:text-lg">
+                  Buy the right dirt. Build with the real constraints in view. Sell when the work has created clarity.
+                </p>
+              </motion.div>
+
+              <div className="mt-4">
+                {companyModel.map((entry) => (
+                  <CompanyModelRow
+                    entry={entry}
+                    key={entry.title}
+                    prefersReducedMotion={prefersReducedMotion}
+                  />
+                ))}
+              </div>
             </motion.div>
 
-            <div className="mt-12 grid divide-y divide-border border-y border-border md:grid-cols-3 md:divide-x md:divide-y-0">
-              {operatingDisciplines.map((discipline, index) => (
-                <motion.article
-                  className="py-6 md:px-6 md:first:pl-0 md:last:pr-0"
-                  initial="hidden"
-                  key={discipline.title}
-                  transition={{ delay: index * 0.08 }}
-                  variants={sectionReveal}
-                  viewport={{ once: true, amount: 0.45 }}
-                  whileInView="visible"
-                >
-                  <p className="font-mono text-[0.7rem] uppercase tracking-[0.24em] text-muted-foreground">
-                    {discipline.eyebrow}
+            <motion.footer
+              animate="visible"
+              className="border-t border-white/14 pt-6"
+              initial="hidden"
+              variants={heroSequence}
+            >
+              <motion.div
+                className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between"
+                variants={sectionReveal}
+              >
+                <div className="max-w-md space-y-2">
+                  <p className="font-mono text-[0.7rem] uppercase tracking-[0.3em] text-white/46">Final CTA</p>
+                  <p className="text-sm leading-6 text-white/64 sm:text-base">
+                    The public front door stays simple. Active internal execution still runs through Entitlement OS.
                   </p>
-                  <h3 className="mt-3 text-xl font-semibold tracking-[-0.03em]">{discipline.title}</h3>
-                  <p className="mt-3 max-w-sm text-sm leading-6 text-muted-foreground">{discipline.body}</p>
-                </motion.article>
-              ))}
-            </div>
-          </div>
-        </section>
+                </div>
 
-        <section
-          className="relative overflow-hidden bg-[linear-gradient(180deg,rgba(255,255,255,0)_0%,rgba(15,23,42,0.04)_22%,rgba(255,255,255,0)_100%)] px-6 py-20 md:px-10 lg:px-16"
-          id="approach"
-        >
-          <div className="absolute inset-x-0 top-0 h-px bg-border" />
-          <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)] lg:items-start">
-            <motion.div
-              className="max-w-lg lg:sticky lg:top-12"
-              initial="hidden"
-              variants={sectionReveal}
-              viewport={{ once: true, amount: 0.4 }}
-              whileInView="visible"
-            >
-              <p className="font-mono text-[0.72rem] uppercase tracking-[0.28em] text-muted-foreground">Detail</p>
-              <h2 className="mt-3 max-w-[11ch] text-3xl font-semibold tracking-[-0.04em] text-balance sm:text-4xl">
-                From site context to capital commitment.
-              </h2>
-              <p className="mt-4 text-base leading-7 text-muted-foreground">
-                The operating model stays simple: read what matters early, advance with evidence, and make the irreversible decisions only when the path is legible.
-              </p>
-            </motion.div>
-
-            <div className="space-y-8">
-              {approachSteps.map((step, index) => (
-                <motion.article
-                  className="grid gap-4 border-t border-border pt-5 md:grid-cols-[auto_1fr]"
-                  initial="hidden"
-                  key={step.step}
-                  transition={{ delay: index * 0.06 }}
-                  variants={sectionReveal}
-                  viewport={{ once: true, amount: 0.25 }}
-                  whileInView="visible"
-                >
-                  <p className="font-mono text-sm uppercase tracking-[0.26em] text-muted-foreground">{step.step}</p>
-                  <div>
-                    <h3 className="text-xl font-semibold tracking-[-0.03em]">{step.title}</h3>
-                    <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">{step.body}</p>
-                  </div>
-                </motion.article>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="relative overflow-hidden bg-black px-6 py-20 text-white md:px-10 lg:px-16">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.12),transparent_32%),linear-gradient(180deg,rgba(255,255,255,0.03)_0%,rgba(255,255,255,0)_44%)]" />
-
-          <div className="relative mx-auto grid max-w-6xl gap-12 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-start">
-            <motion.div
-              initial="hidden"
-              variants={sectionReveal}
-              viewport={{ once: true, amount: 0.4 }}
-              whileInView="visible"
-            >
-              <p className="font-mono text-[0.72rem] uppercase tracking-[0.28em] text-white/62">Final CTA</p>
-              <h2 className="mt-3 max-w-[10ch] text-3xl font-semibold tracking-[-0.04em] text-balance sm:text-4xl">
-                Enter the operating model.
-              </h2>
-              <p className="mt-4 max-w-lg text-base leading-7 text-white/68">
-                Publicly, Gallagher Property Company leads with development and investment judgment. Internally, active projects run through Entitlement OS.
-              </p>
-            </motion.div>
-
-            <motion.div
-              className="space-y-5"
-              initial="hidden"
-              variants={sectionReveal}
-              viewport={{ once: true, amount: 0.35 }}
-              whileInView="visible"
-            >
-              <div className="flex flex-col gap-3 sm:flex-row">
                 <motion.div whileHover={prefersReducedMotion ? undefined : { y: -2 }}>
                   <Button asChild className="h-12 bg-white px-5 text-sm font-semibold text-black hover:bg-white/90" size="lg">
                     <Link href="/login">
@@ -283,26 +206,8 @@ export function CompanyHomePage() {
                     </Link>
                   </Button>
                 </motion.div>
-
-                <motion.div whileHover={prefersReducedMotion ? undefined : { y: -2 }}>
-                  <Button
-                    asChild
-                    className="h-12 border-white/20 bg-white/6 px-5 text-sm font-semibold text-white hover:bg-white/12 hover:text-white"
-                    size="lg"
-                    variant="outline"
-                  >
-                    <Link href="#top">Back to top</Link>
-                  </Button>
-                </motion.div>
-              </div>
-
-              <div className="border-t border-white/14 pt-5">
-                <p className="font-mono text-[0.72rem] uppercase tracking-[0.26em] text-white/58">Gallagher Property Company</p>
-                <p className="mt-2 text-sm leading-6 text-white/62">
-                  Baton Rouge, Louisiana. Commercial real estate development, investment, and entitlement execution.
-                </p>
-              </div>
-            </motion.div>
+              </motion.div>
+            </motion.footer>
           </div>
         </section>
       </main>

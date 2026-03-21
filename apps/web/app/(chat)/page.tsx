@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { CompanyHomePage } from "@/components/marketing/CompanyHomePage";
 
 export const metadata: Metadata = {
-  title: "Gallagher Property Company | Development, Investment, and Entitlement Discipline",
+  title: "Gallagher Property Company | Buy, Build, Sell",
   description:
-    "Gallagher Property Company is a Baton Rouge-based commercial real estate development and investment company operating with site intelligence, entitlement rigor, and capital discipline.",
+    "Gallagher Property Company buys, builds, and sells commercial real estate with direct underwriting and disciplined execution.",
 };
 
 export default function HomePage() {
