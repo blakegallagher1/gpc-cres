@@ -9,6 +9,7 @@ import {
 } from "@/lib/server/observability";
 import * as Sentry from "@sentry/nextjs";
 import {
+  getCloudflareAccessHeadersFromEnv,
   logPropertyDbRuntimeHealth,
 } from "@/lib/server/propertyDbEnv";
 import { requestPropertyDbGateway } from "@/lib/server/propertyDbRpc";
