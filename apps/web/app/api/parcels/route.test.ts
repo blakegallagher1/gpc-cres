@@ -216,6 +216,39 @@ describe("GET /api/parcels", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it("parses gateway-backed parcel rows from JSON responses", async () => {
+    ({ GET } = await import("./route"));
+    resolveAuthMock.mockResolvedValue({
+      userId: "99999999-9999-4999-8999-999999999999",
+      orgId: "11111111-1111-4111-8111-111111111111",
+    });
+    findManyMock.mockResolvedValue([]);
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        data: [
+          {
+            id: "external-json-1",
+            site_address: "2774 Highland Rd",
+            lat: 30.4228,
+            lng: -91.179,
+            acreage: 0.11,
+            parcel_uid: "json-uid-1",
+          },
+        ],
+      }),
+    } as Response);
+
+    const req = new NextRequest("http://localhost/api/parcels?hasCoords=true");
+    const res = await GET(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.source).toBe("property-db");
+    expect(body.parcels[0].propertyDbId).toBe("external-json-1");
+  });
+
   it("returns degraded org fallback when gateway config is unavailable for gateway-backed parcel queries", async () => {
     logPropertyDbRuntimeHealthMock.mockReturnValueOnce(null);
     ({ GET } = await import("./route"));

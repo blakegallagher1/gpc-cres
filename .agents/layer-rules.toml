@@ -1,0 +1,22 @@
+# Layer rules for gallagher-cres (Entitlement OS)
+
+[project]
+name = "gallagher-cres"
+type = "typescript-monorepo"
+package_manager = "pnpm"
+
+[layers]
+L0 = ["packages/types", "packages/config"]
+L1 = ["packages/db"]
+L2 = ["packages/parcels", "packages/zoning", "packages/entitlements", "packages/evidence"]
+L3 = ["packages/api-client"]
+L4 = ["apps/web"]
+L5 = ["scripts/", "workers/"]
+
+[rules]
+leaf_packages = ["packages/types"]
+db_boundary = ["packages/db"]
+no_reverse_from = ["apps/web"]
+
+[special]
+immutable_paths = ["packages/db/migrations/"]

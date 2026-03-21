@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { createConfiguredCoordinator, dueDiligenceAgent } from "../../../src/agents/index.js";
-import { dueDiligenceTools } from "../../../src/tools/index.js";
+import { dueDiligenceTools, neptuneFloodTools } from "../../../src/tools/index.js";
 import { getToolIds } from "../_helpers/agentAssertions.js";
+
+const configuredDueDiligenceTools = [...dueDiligenceTools, ...neptuneFloodTools];
 
 describe("Phase 1 Agent Pack :: dueDiligence", () => {
   it("[MATRIX:agent:dueDiligence][PACK:handoff] verifies specialist handoff routing and contradiction resolution", () => {
@@ -11,12 +13,12 @@ describe("Phase 1 Agent Pack :: dueDiligence", () => {
 
     expect(handoff).toBeDefined();
     expect(handoff?.name).toBe(dueDiligenceAgent.name);
-    expect(getToolIds(handoff?.tools ?? [])).toEqual(getToolIds(dueDiligenceTools));
+    expect(getToolIds(handoff?.tools ?? [])).toEqual(getToolIds(configuredDueDiligenceTools));
   });
 
   it("[MATRIX:agent:dueDiligence][PACK:uncertainty] enforces uncertainty scoring, reanalysis triggers, and confidence boundaries", () => {
     const instructionText = dueDiligenceAgent.instructions.toLowerCase();
-    const toolIds = new Set(getToolIds(dueDiligenceTools));
+    const toolIds = new Set(getToolIds(configuredDueDiligenceTools));
 
     expect(toolIds.has("log_reasoning_trace")).toBe(true);
     expect(toolIds.has("share_analysis_finding")).toBe(true);

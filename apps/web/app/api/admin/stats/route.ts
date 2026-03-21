@@ -1,8 +1,113 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import { isSchemaDriftError } from "@/lib/api/prismaSchemaFallback";
 
 export const dynamic = "force-dynamic";
+
+type AdminRunRow = {
+  id: string;
+  runType: string;
+  status: string;
+  startedAt: Date;
+  finishedAt: Date | null;
+  error: string | null;
+  dealId: string | null;
+  memoryPromotionStatus: string | null;
+  memoryPromotedAt: Date | null;
+  memoryPromotionError: string | null;
+};
+
+async function countProceduralSkillEpisodes(orgId: string): Promise<number> {
+  try {
+    return await prisma.proceduralSkillEpisode.count({ where: { orgId } });
+  } catch (error: unknown) {
+    if (!isSchemaDriftError(error)) {
+      throw error;
+    }
+
+    console.warn(
+      "[admin/stats] procedural_skill_episodes unavailable; returning 0 for stats",
+      error instanceof Error ? error.message : String(error),
+    );
+    return 0;
+  }
+}
+
+async function getMemoryPromotionGroups(orgId: string) {
+  try {
+    return await prisma.run.groupBy({
+      by: ["memoryPromotionStatus"],
+      where: { orgId },
+      _count: true,
+    });
+  } catch (error: unknown) {
+    if (!isSchemaDriftError(error)) {
+      throw error;
+    }
+
+    console.warn(
+      "[admin/stats] run memory promotion fields unavailable; omitting promotion breakdown",
+      error instanceof Error ? error.message : String(error),
+    );
+    return [];
+  }
+}
+
+async function getAgentRuns(orgId: string, offset: number, limit: number): Promise<AdminRunRow[]> {
+  try {
+    return await prisma.run.findMany({
+      where: { orgId },
+      orderBy: { startedAt: "desc" },
+      skip: offset,
+      take: limit,
+      select: {
+        id: true,
+        runType: true,
+        status: true,
+        startedAt: true,
+        finishedAt: true,
+        error: true,
+        dealId: true,
+        memoryPromotionStatus: true,
+        memoryPromotedAt: true,
+        memoryPromotionError: true,
+      },
+    });
+  } catch (error: unknown) {
+    if (!isSchemaDriftError(error)) {
+      throw error;
+    }
+
+    console.warn(
+      "[admin/stats] run memory promotion fields unavailable; returning runs without promotion metadata",
+      error instanceof Error ? error.message : String(error),
+    );
+
+    const runs = await prisma.run.findMany({
+      where: { orgId },
+      orderBy: { startedAt: "desc" },
+      skip: offset,
+      take: limit,
+      select: {
+        id: true,
+        runType: true,
+        status: true,
+        startedAt: true,
+        finishedAt: true,
+        error: true,
+        dealId: true,
+      },
+    });
+
+    return runs.map((run) => ({
+      ...run,
+      memoryPromotionStatus: null,
+      memoryPromotedAt: null,
+      memoryPromotionError: null,
+    }));
+  }
+}
 
 export async function GET(request: NextRequest) {
   const auth = await resolveAuth(request);
@@ -67,12 +172,8 @@ export async function GET(request: NextRequest) {
         prisma.trajectoryLog.count({ where: { orgId } }),
         prisma.episodicEntry.count({ where: { orgId } }),
         prisma.proceduralSkill.count({ where: { orgId } }),
-        prisma.proceduralSkillEpisode.count({ where: { orgId } }),
-        prisma.run.groupBy({
-          by: ["memoryPromotionStatus"],
-          where: { orgId },
-          _count: true,
-        }),
+        countProceduralSkillEpisodes(orgId),
+        getMemoryPromotionGroups(orgId),
       ]);
 
     const promotionBreakdown = promotionGroups.reduce<Record<string, number>>((acc, group) => {
@@ -238,24 +339,7 @@ export async function GET(request: NextRequest) {
     const day7Ago = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
     const [runs, total, stats, dailyByRunType, learningCounts] = await Promise.all([
-      prisma.run.findMany({
-        where: { orgId },
-        orderBy: { startedAt: "desc" },
-        skip: offset,
-        take: limit,
-        select: {
-          id: true,
-          runType: true,
-          status: true,
-          startedAt: true,
-          finishedAt: true,
-          error: true,
-          dealId: true,
-          memoryPromotionStatus: true,
-          memoryPromotedAt: true,
-          memoryPromotionError: true,
-        },
-      }),
+      getAgentRuns(orgId, offset, limit),
       prisma.run.count({ where: { orgId } }),
       prisma.run.aggregate({
         where: { orgId, startedAt: { gte: day1Ago } },
@@ -319,7 +403,7 @@ export async function GET(request: NextRequest) {
       prisma.trajectoryLog.count({ where: { orgId } }).then((c) => ["trajectoryLogs", c] as const),
       prisma.episodicEntry.count({ where: { orgId } }).then((c) => ["episodicEntries", c] as const),
       prisma.proceduralSkill.count({ where: { orgId } }).then((c) => ["proceduralSkills", c] as const),
-      prisma.proceduralSkillEpisode.count({ where: { orgId } }).then((c) => ["proceduralSkillEpisodes", c] as const),
+      countProceduralSkillEpisodes(orgId).then((c) => ["proceduralSkillEpisodes", c] as const),
       prisma.memoryVerified.count({ where: { orgId } }).then((c) => ["memoryVerified", c] as const),
       prisma.internalEntity.count({ where: { orgId } }).then((c) => ["internalEntities", c] as const),
       prisma.deal.count({ where: { orgId } }).then((c) => ["deals", c] as const),

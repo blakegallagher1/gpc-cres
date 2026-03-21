@@ -310,16 +310,26 @@ async function queryWorkflowStats(): Promise<WorkflowStats | null> {
       }),
     ]);
 
-    // Check for duplicate idempotency keys via raw query
+    // Check for duplicate idempotency keys via raw query.
+    // Guard: column may not exist in production if migration hasn't run yet.
     const dupRows = await prisma.$queryRaw<Array<{ dup_count: number }>>`
-      SELECT count(*)::int AS dup_count
-      FROM (
-        SELECT idempotency_key
-        FROM automation_events
-        WHERE started_at >= ${since} AND idempotency_key IS NOT NULL
-        GROUP BY idempotency_key
-        HAVING count(*) > 1
-      ) dupes
+      SELECT CASE
+        WHEN EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'automation_events' AND column_name = 'idempotency_key'
+        )
+        THEN (
+          SELECT count(*)::int
+          FROM (
+            SELECT idempotency_key
+            FROM automation_events
+            WHERE started_at >= ${since} AND idempotency_key IS NOT NULL
+            GROUP BY idempotency_key
+            HAVING count(*) > 1
+          ) dupes
+        )
+        ELSE 0
+      END AS dup_count
     `;
 
     return {

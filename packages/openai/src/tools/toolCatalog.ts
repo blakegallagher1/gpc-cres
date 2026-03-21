@@ -303,6 +303,23 @@ export const TOOL_CATALOG: Record<string, ToolCatalogEntry> = {
   run_underwriting_workflow: { name: "run_underwriting_workflow", destination: "local", risk: "read", quotaClass: "unlimited", intents: ["finance", "due_diligence", "general"] },
   run_data_extraction_workflow: { name: "run_data_extraction_workflow", destination: "local", risk: "read", quotaClass: "unlimited", intents: ["research", "due_diligence", "general", "market_intel"] },
 
+  // --- External plugin tools (local adapters over vendor APIs, rate-limited) ---
+  create_issue: { name: "create_issue", destination: "local", risk: "write", quotaClass: "rateLimited", intents: ["operations"] },
+  list_issues: { name: "list_issues", destination: "local", risk: "read", quotaClass: "rateLimited", intents: ["operations"] },
+  get_pr_status: { name: "get_pr_status", destination: "local", risk: "read", quotaClass: "rateLimited", intents: ["operations"] },
+  list_recent_commits: { name: "list_recent_commits", destination: "local", risk: "read", quotaClass: "rateLimited", intents: ["operations"] },
+  get_deployment_status: { name: "get_deployment_status", destination: "local", risk: "read", quotaClass: "rateLimited", intents: ["operations"] },
+  list_deployments: { name: "list_deployments", destination: "local", risk: "read", quotaClass: "rateLimited", intents: ["operations"] },
+  get_build_logs: { name: "get_build_logs", destination: "local", risk: "read", quotaClass: "rateLimited", intents: ["operations"] },
+  list_env_vars: { name: "list_env_vars", destination: "local", risk: "read", quotaClass: "rateLimited", intents: ["operations"] },
+  check_tunnel_health: { name: "check_tunnel_health", destination: "local", risk: "read", quotaClass: "rateLimited", intents: ["operations"] },
+  purge_cache: { name: "purge_cache", destination: "local", risk: "destructive", quotaClass: "rateLimited", intents: ["operations"] },
+  get_hyperdrive_status: { name: "get_hyperdrive_status", destination: "local", risk: "read", quotaClass: "rateLimited", intents: ["operations"] },
+  list_workers: { name: "list_workers", destination: "local", risk: "read", quotaClass: "rateLimited", intents: ["operations"] },
+  lookup_flood_risk: { name: "lookup_flood_risk", destination: "local", risk: "read", quotaClass: "rateLimited", intents: ["due_diligence"] },
+  get_flood_zone: { name: "get_flood_zone", destination: "local", risk: "read", quotaClass: "rateLimited", intents: ["due_diligence"] },
+  get_flood_insurance_quote: { name: "get_flood_insurance_quote", destination: "local", risk: "read", quotaClass: "rateLimited", intents: ["due_diligence"] },
+
   // --- Remote MCP tools (OpenAI-managed over remote MCP, metered) ---
   gmaps_search_places: { name: "gmaps_search_places", destination: "mcp", risk: "read", quotaClass: "metered", intents: ["general", "research", "market_intel", "screener", "due_diligence"] },
   gmaps_compute_routes: { name: "gmaps_compute_routes", destination: "mcp", risk: "read", quotaClass: "metered", intents: ["general", "research", "market_intel", "due_diligence"] },

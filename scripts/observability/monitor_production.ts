@@ -21,6 +21,10 @@ import path from "node:path";
 import fs from "node:fs/promises";
 import type { Dirent } from "node:fs";
 import { config } from "dotenv";
+import {
+  buildProspectMonitorPayload,
+  resolveMonitorSearchAddress,
+} from "./monitor-payloads.js";
 
 const DEFAULT_MONITOR_ENV = ".env";
 const monitorEnvFile =
@@ -62,10 +66,7 @@ const SESSION_COOKIE =
   process.env.AUTH_COOKIE?.trim() ??
   "";
 
-const SEARCH_ADDRESS =
-  process.env.OBS_SEARCH_ADDRESS ??
-  process.env.MAP_SMOKE_SEARCH_ADDRESS ??
-  "2774 HIGHLAND RD";
+const SEARCH_ADDRESS = resolveMonitorSearchAddress(process.env);
 
 const OUTPUT_DIR = path.resolve(
   process.cwd(),
@@ -628,23 +629,11 @@ async function runOnce() {
             : JSON.stringify(comps.data).slice(0, 180),
     });
 
-    const polygon = {
-      type: "Polygon" as const,
-      coordinates: [
-        [
-          [-91.2405, 30.5001],
-          [-91.2405, 30.3734],
-          [-91.0701, 30.3734],
-          [-91.0701, 30.5001],
-          [-91.2405, 30.5001],
-        ],
-      ],
-    };
-
-    const prospect = await fetchJson("POST", "/api/map/prospect", {
-      polygon,
-      filters: { searchText: SEARCH_ADDRESS },
-    });
+    const prospect = await fetchJson(
+      "POST",
+      "/api/map/prospect",
+      buildProspectMonitorPayload(),
+    );
 
     const prospectObj = toRecord(prospect.data);
     const prospectArr = Array.isArray(prospectObj?.parcels) ? prospectObj.parcels : [];

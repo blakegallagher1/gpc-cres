@@ -1,0 +1,109 @@
+name: Harness CI — gallagher-cres
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint & Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+
+  architecture:
+    name: Architectural Constraints
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check packages/types has no internal imports
+        run: |
+          count=$(grep -rn "from '@gallagher-cres/" packages/types/src/ --include="*.ts" 2>/dev/null | wc -l)
+          if [ "$count" -gt 0 ]; then
+            echo "FAIL: packages/types has $count internal imports"
+            grep -rn "from '@gallagher-cres/" packages/types/src/ --include="*.ts"
+            exit 1
+          fi
+          echo "OK: packages/types has no internal imports"
+      - name: Check packages/db layer boundary
+        run: |
+          count=$(grep -rn "from.*apps/\|from.*packages/parcels\|from.*packages/zoning\|from.*packages/entitlements\|from.*packages/evidence\|from.*packages/api-client" packages/db/src/ --include="*.ts" 2>/dev/null | wc -l)
+          if [ "$count" -gt 0 ]; then
+            echo "FAIL: packages/db has $count imports from higher layers"
+            exit 1
+          fi
+          echo "OK: packages/db respects layer boundary"
+      - name: Check no reverse imports from apps/web
+        run: |
+          count=$(grep -rn "from.*apps/web\|from.*apps-web" packages/ --include="*.ts" --include="*.tsx" 2>/dev/null | wc -l)
+          if [ "$count" -gt 0 ]; then
+            echo "FAIL: apps/web imported by packages/"
+            exit 1
+          fi
+          echo "OK: No reverse imports"
+
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    needs: [lint]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+
+  docs-consistency:
+    name: Documentation Consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check required docs exist
+        run: |
+          for doc in AGENTS.md README.md; do
+            if [ ! -f "$doc" ]; then
+              echo "FAIL: $doc is missing"
+              exit 1
+            fi
+          done
+          echo "OK: All required docs present"
+      - name: Check for stale TODOs
+        run: |
+          count=$(grep -rn "TODO\|FIXME\|HACK" --include="*.ts" --include="*.tsx" --exclude-dir=node_modules | wc -l)
+          echo "Found $count TODO/FIXME/HACK markers"
