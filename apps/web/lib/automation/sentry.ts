@@ -42,6 +42,59 @@ export function captureAutomationDispatchError(
   });
 }
 
+type AutomationTimeoutMeta = {
+  label: string;
+  handler: string;
+  eventType?: string;
+  dealId?: string;
+  orgId?: string;
+  status?: string;
+};
+
+export function captureAutomationTimeout(meta: AutomationTimeoutMeta): void {
+  Sentry.addBreadcrumb({
+    category: "automation.timeout",
+    level: "warning",
+    message: meta.label,
+    data: {
+      handler: meta.handler,
+      eventType: meta.eventType,
+      dealId: meta.dealId,
+      orgId: meta.orgId,
+      status: meta.status,
+    },
+  });
+
+  Sentry.withScope((scope) => {
+    scope.setTags({
+      automation: true,
+      handler: meta.handler,
+      timeout: true,
+      ...(meta.eventType ? { eventType: meta.eventType } : {}),
+      ...(meta.orgId ? { orgId: meta.orgId } : {}),
+    });
+
+    if (meta.dealId) {
+      scope.setTag("dealId", meta.dealId);
+    }
+
+    if (meta.status) {
+      scope.setTag("status", meta.status);
+    }
+
+    scope.setContext("automation_timeout", {
+      label: meta.label,
+      handler: meta.handler,
+      eventType: meta.eventType,
+      dealId: meta.dealId,
+      orgId: meta.orgId,
+      status: meta.status,
+    });
+
+    Sentry.captureMessage(meta.label, "warning");
+  });
+}
+
 
 type CronMonitorMeta = {
   slug: string;

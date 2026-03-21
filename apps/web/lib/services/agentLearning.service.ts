@@ -18,6 +18,7 @@ export type PromoteRunToLongTermMemoryInput = {
   status: "succeeded" | "failed" | "canceled";
   inputPreview?: string | null;
   queryIntent?: string | null;
+  signal?: AbortSignal;
 };
 
 export type PromoteRunToLongTermMemoryResult = {
@@ -26,6 +27,12 @@ export type PromoteRunToLongTermMemoryResult = {
   promotedFactCount: number;
   updatedSkillCount: number;
 };
+
+function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) {
+    throw new Error("Agent learning promotion aborted");
+  }
+}
 
 export async function promoteRunToLongTermMemory(
   input: PromoteRunToLongTermMemoryInput,
@@ -36,10 +43,12 @@ export async function promoteRunToLongTermMemory(
   let updatedSkillCount = 0;
 
   if (AUTOMATION_CONFIG.agentLearning.createTrajectoryLogs) {
+    throwIfAborted(input.signal);
     const trajectory = await createTrajectoryLogFromRun(input);
     trajectoryLogId = trajectory.trajectoryLogId;
 
     if (AUTOMATION_CONFIG.agentLearning.createEpisodes) {
+      throwIfAborted(input.signal);
       const episode = await createEpisodicEntryFromTrajectoryLog({
         orgId: input.orgId,
         userId: input.userId,
@@ -53,13 +62,16 @@ export async function promoteRunToLongTermMemory(
         agentId: trajectory.agentId,
         taskInput: trajectory.taskInput,
         status: input.status,
+        signal: input.signal,
       });
       episodicEntryId = episode.episodicEntryId;
 
       if (AUTOMATION_CONFIG.agentLearning.promoteProcedures) {
+        throwIfAborted(input.signal);
         const procedureResult = await upsertProceduralSkillsFromEpisode({
           orgId: input.orgId,
           episodicEntryId: episode.episodicEntryId,
+          signal: input.signal,
         });
         updatedSkillCount = procedureResult.updatedSkillCount;
       }
@@ -67,12 +79,14 @@ export async function promoteRunToLongTermMemory(
   }
 
   if (AUTOMATION_CONFIG.agentLearning.promoteFacts) {
+    throwIfAborted(input.signal);
     const factResult = await promoteCandidateFactsFromRun({
       orgId: input.orgId,
       runId: input.runId,
       dealId: input.dealId ?? null,
       jurisdictionId: input.jurisdictionId ?? null,
       status: input.status,
+      signal: input.signal,
     });
     promotedFactCount = factResult.verified + factResult.drafted;
   }

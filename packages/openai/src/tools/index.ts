@@ -28,6 +28,7 @@ import * as shellWorkflowTools from "./shellWorkflowTools.js";
 import * as acquisitionTools from "./acquisitions/index.js";
 import * as assetManagementTools from "./asset-mgmt/index.js";
 import * as capitalMarketsTools from "./capital-markets/index.js";
+import { TOOL_REGISTRY } from "./toolRegistry.js";
 
 export {
   getDealContext,
@@ -191,6 +192,29 @@ export {
   capital_refinance_scenarios,
   capital_stack_optimization,
 } from "./capital-markets/index.js";
+export {
+  create_issue,
+  list_issues,
+  get_pr_status,
+  list_recent_commits,
+  get_deployment_status,
+  list_deployments,
+  get_build_logs,
+  list_env_vars,
+  check_tunnel_health,
+  purge_cache,
+  get_hyperdrive_status,
+  list_workers,
+  lookup_flood_risk,
+  get_flood_zone,
+  get_flood_insurance_quote,
+  githubPluginTools,
+  vercelPluginTools,
+  cloudflarePluginTools,
+  neptuneFloodTools,
+  opsPluginTools,
+  allPluginTools,
+} from "./pluginTools.js";
 
 const {
   hostedFileSearchTool,
@@ -321,6 +345,7 @@ const {
   capital_refinance_scenarios,
   capital_stack_optimization,
 } = capitalMarketsTools;
+const { allPluginTools: registeredPluginTools } = TOOL_REGISTRY;
 
 // --- Agent-specific tool collections ---
 
@@ -714,6 +739,7 @@ export const ALL_AGENT_TOOL_GROUPS = {
 export const ALL_AGENT_TOOLS = Object.freeze(
   [
     ...Object.values(ALL_AGENT_TOOL_GROUPS).flat(),
+    ...registeredPluginTools,
     acquisition_dcf_analysis,
     acquisition_cap_rate_evaluation,
     acquisition_rent_roll_analysis,

@@ -1,6 +1,10 @@
 import type { AutomationEvent } from "./events";
 import { runEntitlementStrategyAutopilot } from "@/lib/services/entitlementStrategyAutopilot.service";
 import { getAutomationDealContext, isEntitlementStrategy } from "./context";
+import { captureAutomationTimeout } from "./sentry";
+import { withTimeout } from "./timeout";
+
+const ENTITLEMENT_STRATEGY_TIMEOUT_MS = 25_000;
 
 /**
  * Entitlement strategy autopilot.
@@ -36,11 +40,26 @@ export async function handleEntitlementStrategyAutopilot(
       return;
     }
 
-    await runEntitlementStrategyAutopilot({
-      orgId: event.orgId,
-      dealId: event.dealId,
-      materializeTasks: true,
-    });
+    const result = await withTimeout(
+      runEntitlementStrategyAutopilot({
+        orgId: event.orgId,
+        dealId: event.dealId,
+        materializeTasks: true,
+      }),
+      ENTITLEMENT_STRATEGY_TIMEOUT_MS,
+      "entitlementStrategy.runEntitlementStrategyAutopilot",
+    );
+    if (result === null) {
+      captureAutomationTimeout({
+        label: `runEntitlementStrategyAutopilot timed out after ${ENTITLEMENT_STRATEGY_TIMEOUT_MS}ms`,
+        handler: "entitlementStrategy",
+        eventType: event.type,
+        dealId: event.dealId,
+        orgId: event.orgId,
+        status: "to" in event ? event.to : undefined,
+      });
+      return;
+    }
   } catch (error) {
     console.error(
       "[automation] Entitlement strategy autopilot failed:",

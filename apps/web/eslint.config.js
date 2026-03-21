@@ -6,10 +6,12 @@ module.exports = [
   {
     ignores: [
       ".next/**",
-      ".next-playwright-*/**",
+      ".next-*/**",
       "node_modules/**",
       "dist/**",
       "out/**",
+      "output/**",
+      "test-results/**",
     ]
   },
   {

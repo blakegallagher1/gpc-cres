@@ -34,17 +34,30 @@ import {
   dueDiligenceTools,
   entitlementsTools,
   financeTools,
+  get_build_logs,
+  get_deployment_status,
+  get_flood_insurance_quote,
+  get_flood_zone,
   getDealContext,
   get_document_extraction_summary,
+  get_hyperdrive_status,
   get_rent_roll,
   get_shared_context,
+  get_pr_status,
+  list_deployments,
+  list_env_vars,
+  list_issues,
+  list_recent_commits,
+  list_workers,
   legalTools,
   log_reasoning_trace,
+  lookup_flood_risk,
   marketIntelTools,
   marketTrajectoryTools,
   marketingTools,
   model_capital_stack,
   operationsTools,
+  purge_cache,
   query_document_extractions,
   researchTools,
   riskTools,
@@ -57,6 +70,8 @@ import {
   store_knowledge_entry,
   assess_uncertainty,
   buildGoogleMapsMcpServerTool,
+  check_tunnel_health,
+  create_issue,
 } from "../tools/index.js";
 import { LazyContext } from "./contextLoader.js";
 
@@ -333,6 +348,27 @@ function buildSpecialistAgentConfigs(): SpecialistAgentConfig[] {
     log_reasoning_trace,
   ] as const;
 
+  const operationsPluginTools = [
+    create_issue,
+    list_issues,
+    get_pr_status,
+    list_recent_commits,
+    get_deployment_status,
+    list_deployments,
+    get_build_logs,
+    list_env_vars,
+    check_tunnel_health,
+    purge_cache,
+    get_hyperdrive_status,
+    list_workers,
+  ] as const;
+
+  const dueDiligencePluginTools = [
+    lookup_flood_risk,
+    get_flood_zone,
+    get_flood_insurance_quote,
+  ] as const;
+
   return [
     {
       key: "legal",
@@ -364,7 +400,7 @@ function buildSpecialistAgentConfigs(): SpecialistAgentConfig[] {
     {
       key: "dueDiligence",
       agent: dueDiligenceAgent,
-      tools: dueDiligenceTools,
+      tools: [...dueDiligenceTools, ...dueDiligencePluginTools],
     },
     {
       key: "entitlements",
@@ -379,7 +415,7 @@ function buildSpecialistAgentConfigs(): SpecialistAgentConfig[] {
     {
       key: "operations",
       agent: operationsAgent,
-      tools: operationsTools,
+      tools: [...operationsTools, ...operationsPluginTools],
     },
     {
       key: "marketing",

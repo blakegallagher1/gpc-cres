@@ -82,6 +82,8 @@ async function getMarketExitCapRatePct(
       dataType: "comp_sale",
     },
     select: { data: true },
+    orderBy: { observedAt: "desc" },
+    take: 100,
   });
 
   const capRates: number[] = [];

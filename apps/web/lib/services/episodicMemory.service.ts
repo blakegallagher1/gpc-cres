@@ -18,6 +18,7 @@ export type CreateEpisodicEntryInput = {
   agentId: string;
   taskInput: string;
   status: "succeeded" | "failed" | "canceled";
+  signal?: AbortSignal;
 };
 
 export type CreateEpisodicEntryResult = {
@@ -112,9 +113,16 @@ function buildSummary(params: {
   ].join("\n");
 }
 
+function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) {
+    throw new Error("Agent learning promotion aborted");
+  }
+}
+
 export async function createEpisodicEntryFromTrajectoryLog(
   input: CreateEpisodicEntryInput,
 ): Promise<CreateEpisodicEntryResult> {
+  throwIfAborted(input.signal);
   const trajectoryLog = await prisma.trajectoryLog.findFirst({
     where: {
       id: input.trajectoryLogId,
@@ -156,7 +164,9 @@ export async function createEpisodicEntryFromTrajectoryLog(
   });
 
   const sourceId = `episode:${input.runId}:${input.agentId}:${taskType}`;
+  throwIfAborted(input.signal);
   await deleteKnowledge(input.orgId, sourceId).catch(() => 0);
+  throwIfAborted(input.signal);
   const knowledgeIds = await ingestKnowledge(
     input.orgId,
     "episodic_summary",
@@ -179,6 +189,7 @@ export async function createEpisodicEntryFromTrajectoryLog(
   );
   const embeddingId = knowledgeIds[0] ?? sourceId;
 
+  throwIfAborted(input.signal);
   const episode = await prisma.episodicEntry.upsert({
     where: {
       orgId_runId_agentId_taskType: {

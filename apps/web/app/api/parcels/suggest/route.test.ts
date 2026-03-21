@@ -121,6 +121,31 @@ describe("GET /api/parcels/suggest", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("matches ct queries against court addresses", async () => {
+    ({ GET } = await import("./route"));
+    resolveAuthMock.mockResolvedValue({
+      userId: "u-1",
+      orgId: "org-123",
+    });
+    findManyMock.mockResolvedValue([
+      {
+        id: "p-9",
+        address: "7618 Copperfield Court, Baton Rouge, LA",
+        lat: 30.42,
+        lng: -91.12,
+        propertyDbId: "uid-9",
+      },
+    ]);
+
+    const req = new NextRequest("http://localhost/api/parcels/suggest?q=7618%20copperfield%20ct");
+    const res = await GET(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.suggestions).toHaveLength(1);
+    expect(body.suggestions[0].address).toBe("7618 Copperfield Court, Baton Rouge, LA");
+  });
+
   it("falls back to contains matching when prefix query misses", async () => {
     ({ GET } = await import("./route"));
     resolveAuthMock.mockResolvedValue({

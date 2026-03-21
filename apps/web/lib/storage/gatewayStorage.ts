@@ -18,7 +18,8 @@ export function systemAuth(orgId: string): GatewayAuth {
 
 async function uploadBytesToGateway(
   formData: FormData,
-  auth: GatewayAuth
+  auth: GatewayAuth,
+  signal?: AbortSignal,
 ): Promise<Response> {
   const config = getGatewayConfig();
   if (!config) {
@@ -29,6 +30,7 @@ async function uploadBytesToGateway(
     cache: "no-store",
     headers: gatewayHeaders(config.key, auth),
     body: formData,
+    signal,
   });
 }
 
@@ -41,6 +43,7 @@ export type UploadArtifactParams = {
   contentType: string;
   bytes: Buffer;
   generatedByRunId?: string;
+  signal?: AbortSignal;
 };
 
 export async function uploadArtifactToGateway(params: UploadArtifactParams): Promise<{
@@ -61,7 +64,7 @@ export async function uploadArtifactToGateway(params: UploadArtifactParams): Pro
   }
   formData.append("file", new Blob([new Uint8Array(params.bytes)]), params.filename);
 
-  const res = await uploadBytesToGateway(formData, params.auth);
+  const res = await uploadBytesToGateway(formData, params.auth, params.signal);
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
     throw new Error(

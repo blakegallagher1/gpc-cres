@@ -95,6 +95,9 @@ All variables are optional unless noted.
 
 The monitor also reads aliases with `OBS_`-prefixed values first and falls back to legacy names.
 
+`OBS_SEARCH_ADDRESS` is used for the address-driven probes such as parcel search and comps lookup.
+`POST /api/map/prospect` uses a canonical polygon-only payload so the route-health check does not fail on address-filter edge cases.
+
 ## Manual Run
 
 ```bash

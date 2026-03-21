@@ -1,0 +1,91 @@
+#:schema https://developers.openai.com/codex/config-schema.json
+
+# ~/.codex/config.toml — User-level Codex config for Blake @ GPC
+# Install: mkdir -p ~/.codex && cp .codex/global-config-install.toml ~/.codex/config.toml
+#
+# Sets global defaults across all repos.
+# Project-level .codex/config.toml overrides these per-repo.
+
+# ---------------------------------------------------------------------------
+# Core
+# ---------------------------------------------------------------------------
+model                   = "gpt-5.2-codex"
+personality             = "pragmatic"
+approval_policy         = "on-request"
+sandbox_mode            = "workspace-write"
+file_opener             = "cursor"          # Change to "vscode" if using VS Code
+
+model_reasoning_effort  = "medium"
+model_reasoning_summary = "concise"
+
+web_search = "live"
+
+# ---------------------------------------------------------------------------
+# Context Management
+# ---------------------------------------------------------------------------
+project_doc_max_bytes           = 65536
+model_auto_compact_token_limit  = 100000
+tool_output_token_limit         = 10000
+
+# ---------------------------------------------------------------------------
+# Sandbox
+# ---------------------------------------------------------------------------
+[sandbox_workspace_write]
+network_access = true
+
+# ---------------------------------------------------------------------------
+# Shell Environment — minimal safe set; projects add their own
+# ---------------------------------------------------------------------------
+[shell_environment_policy]
+inherit    = "core"
+ignore_default_excludes = true
+include_only = [
+  "PATH", "HOME", "SHELL", "USER", "LANG", "TERM",
+  "GH_TOKEN",
+  "GITHUB_TOKEN",
+  "OPENAI_API_KEY",
+  "NODE_OPTIONS",
+  "GIT_AUTHOR_NAME",
+  "GIT_AUTHOR_EMAIL",
+  "GIT_COMMITTER_NAME",
+  "GIT_COMMITTER_EMAIL",
+  "EDITOR",
+  "SSH_AUTH_SOCK",
+]
+
+# ---------------------------------------------------------------------------
+# Features
+# ---------------------------------------------------------------------------
+[features]
+memory_tool          = true
+shell_tool           = true
+undo                 = true
+search_tool          = true
+collaboration_modes  = true
+personality          = true
+request_rule         = true
+apply_patch_freeform = true
+unified_exec         = true
+shell_snapshot       = true
+
+# ---------------------------------------------------------------------------
+# TUI
+# ---------------------------------------------------------------------------
+[tui]
+notifications      = true
+notification_method = "auto"
+animations         = true
+show_tooltips      = false
+status_line        = ["model", "context-remaining", "git-branch"]
+
+# ---------------------------------------------------------------------------
+# History & Memory
+# ---------------------------------------------------------------------------
+[history]
+persistence = "save-all"
+
+[memories]
+max_raw_memories_for_global = 50
+max_rollout_age_days        = 30
+max_rollouts_per_startup    = 3
+min_rollout_idle_hours      = 4

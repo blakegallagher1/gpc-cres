@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { createConfiguredCoordinator, operationsAgent } from "../../../src/agents/index.js";
-import { operationsTools } from "../../../src/tools/index.js";
+import { operationsTools, opsPluginTools } from "../../../src/tools/index.js";
 import { getToolIds } from "../_helpers/agentAssertions.js";
+
+const configuredOperationsTools = [...operationsTools, ...opsPluginTools];
 
 describe("Phase 1 Agent Pack :: operations", () => {
   it("[MATRIX:agent:operations][PACK:handoff] verifies specialist handoff routing and contradiction resolution", () => {
@@ -11,12 +13,12 @@ describe("Phase 1 Agent Pack :: operations", () => {
 
     expect(handoff).toBeDefined();
     expect(handoff?.name).toBe(operationsAgent.name);
-    expect(getToolIds(handoff?.tools ?? [])).toEqual(getToolIds(operationsTools));
+    expect(getToolIds(handoff?.tools ?? [])).toEqual(getToolIds(configuredOperationsTools));
   });
 
   it("[MATRIX:agent:operations][PACK:uncertainty] enforces uncertainty scoring, reanalysis triggers, and confidence boundaries", () => {
     const instructionText = operationsAgent.instructions.toLowerCase();
-    const toolIds = new Set(getToolIds(operationsTools));
+    const toolIds = new Set(getToolIds(configuredOperationsTools));
 
     expect(toolIds.has("log_reasoning_trace")).toBe(true);
     expect(toolIds.has("share_analysis_finding")).toBe(true);

@@ -10,10 +10,16 @@ const { dbMock, promoteRunToLongTermMemoryMock } = vi.hoisted(() => ({
   },
   promoteRunToLongTermMemoryMock: vi.fn(),
 }));
+const { captureAutomationTimeoutMock } = vi.hoisted(() => ({
+  captureAutomationTimeoutMock: vi.fn(),
+}));
 
 vi.mock("@entitlement-os/db", () => dbMock);
 vi.mock("@/lib/services/agentLearning.service", () => ({
   promoteRunToLongTermMemory: promoteRunToLongTermMemoryMock,
+}));
+vi.mock("../sentry", () => ({
+  captureAutomationTimeout: captureAutomationTimeoutMock,
 }));
 
 import { handleAgentLearningPromotion } from "../agentLearningPromotion";
@@ -35,6 +41,7 @@ const BASE_EVENT = {
 describe("handleAgentLearningPromotion", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useRealTimers();
     dbMock.prisma.run.update.mockResolvedValue(undefined);
     promoteRunToLongTermMemoryMock.mockResolvedValue({
       trajectoryLogId: "trajectory-1",
@@ -59,18 +66,21 @@ describe("handleAgentLearningPromotion", () => {
   it("marks the run as succeeded after successful promotion", async () => {
     await handleAgentLearningPromotion(BASE_EVENT);
 
-    expect(promoteRunToLongTermMemoryMock).toHaveBeenCalledWith({
-      runId: "run-1",
-      orgId: "org-1",
-      userId: "user-1",
-      conversationId: "conversation-1",
-      dealId: "deal-1",
-      jurisdictionId: "jurisdiction-1",
-      runType: "TRIAGE",
-      status: "succeeded",
-      inputPreview: "Summarize the zoning path.",
-      queryIntent: "entitlements",
-    });
+    expect(promoteRunToLongTermMemoryMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runId: "run-1",
+        orgId: "org-1",
+        userId: "user-1",
+        conversationId: "conversation-1",
+        dealId: "deal-1",
+        jurisdictionId: "jurisdiction-1",
+        runType: "TRIAGE",
+        status: "succeeded",
+        inputPreview: "Summarize the zoning path.",
+        queryIntent: "entitlements",
+        signal: expect.any(AbortSignal),
+      }),
+    );
     expect(dbMock.prisma.run.update).toHaveBeenNthCalledWith(2, {
       where: { id: "run-1" },
       data: {
@@ -93,5 +103,74 @@ describe("handleAgentLearningPromotion", () => {
         memoryPromotionError: "boom",
       },
     });
+  });
+
+  it("marks the run as skipped_timeout when promotion exceeds the timeout", async () => {
+    vi.useFakeTimers();
+    promoteRunToLongTermMemoryMock.mockReturnValue(new Promise(() => {}));
+
+    const promise = handleAgentLearningPromotion(BASE_EVENT);
+
+    await vi.advanceTimersByTimeAsync(20_000);
+
+    await expect(promise).resolves.toBeUndefined();
+    expect(captureAutomationTimeoutMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        handler: "agentLearningPromotion",
+        label: "promoteRunToLongTermMemory timed out after 20000ms",
+      }),
+    );
+    expect(dbMock.prisma.run.update).toHaveBeenNthCalledWith(2, {
+      where: { id: "run-1" },
+      data: {
+        memoryPromotionStatus: "skipped_timeout",
+        memoryPromotionError: "Timed out after 20000ms",
+      },
+    });
+  });
+
+  it("aborts the in-flight promotion when the timeout fires", async () => {
+    vi.useFakeTimers();
+    let receivedSignal: AbortSignal | null = null;
+    promoteRunToLongTermMemoryMock.mockImplementationOnce(
+      ({ signal }: { signal?: AbortSignal }) => {
+        receivedSignal = signal ?? null;
+        return new Promise(() => {});
+      },
+    );
+
+    const promise = handleAgentLearningPromotion(BASE_EVENT);
+
+    await vi.advanceTimersByTimeAsync(20_000);
+
+    await expect(promise).resolves.toBeUndefined();
+    expect(receivedSignal?.aborted).toBe(true);
+  });
+
+  it("swallows timeout-status write failures after the timeout fires", async () => {
+    vi.useFakeTimers();
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    promoteRunToLongTermMemoryMock.mockReturnValue(new Promise(() => {}));
+    dbMock.prisma.run.update
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error("write failed"));
+
+    const promise = handleAgentLearningPromotion(BASE_EVENT);
+
+    await vi.advanceTimersByTimeAsync(20_000);
+
+    await expect(promise).resolves.toBeUndefined();
+    expect(captureAutomationTimeoutMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        handler: "agentLearningPromotion",
+        label: "promoteRunToLongTermMemory timed out after 20000ms",
+      }),
+    );
+    expect(errorSpy).toHaveBeenCalledWith(
+      "[automation] Failed to record agent learning timeout:",
+      "write failed",
+    );
+
+    errorSpy.mockRestore();
   });
 });

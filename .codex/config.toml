@@ -67,7 +67,7 @@ memories    = true   # Persistent cross-session memory
 # Multi-agent Configuration — proper agent roles with model overrides
 # ---------------------------------------------------------------------------
 [agents]
-max_threads              = 6      # db + agent + web + worker + reviewer + explorer
+max_threads              = 11     # 6 core + 5 QA agents
 max_depth                = 2      # Allow agents to spawn sub-agents (default 1 = no nesting)
 job_max_runtime_seconds  = 1800   # 30 min timeout per agent job — prevents runaway threads
 
@@ -94,6 +94,28 @@ config_file = "agents/explorer.toml"
 [agents.shipper]
 description = "Post-task shipping agent. Commits, pushes, merges to main, and verifies Vercel deployment."
 config_file = "agents/shipper.toml"
+
+# --- QA Agents ---
+
+[agents.qa-smoke]
+description = "E2E smoke testing: auth, navigation, deal pipeline, chat, command center, admin. Uses Playwright."
+config_file = "agents/qa-smoke.toml"
+
+[agents.qa-api]
+description = "API route health, auth enforcement, org-scoping, Jest suites, Sentry correlation."
+config_file = "agents/qa-api.toml"
+
+[agents.qa-map]
+description = "Map pipeline: Martin tiles, parcel search, geometry rendering, Google Maps cache tools."
+config_file = "agents/qa-map.toml"
+
+[agents.qa-agents]
+description = "AI coordinator, tool catalog validation, chat pipeline, memory/learning, evidence generation."
+config_file = "agents/qa-agents.toml"
+
+[agents.qa-perf]
+description = "Performance: page load times, API latency, tile speed, bundle size, regression detection."
+config_file = "agents/qa-perf.toml"
 
 # ---------------------------------------------------------------------------
 # TUI & Notifications

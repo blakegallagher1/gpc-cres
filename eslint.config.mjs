@@ -7,7 +7,14 @@ export default [
   {
     ignores: [
       "**/node_modules/**",
+      "**/.next",
       "**/.next/**",
+      "**/.next-*",
+      "**/.next-*/**",
+      ".next",
+      ".next/**",
+      ".next-*",
+      ".next-*/**",
       "**/dist/**",
       "**/build/**",
       "**/coverage/**",
@@ -30,4 +37,3 @@ export default [
     },
   },
 ];
-
