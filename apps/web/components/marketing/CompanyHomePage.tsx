@@ -32,12 +32,12 @@ const companyModel = [
     ],
   },
   {
-    title: "SELL",
-    label: "What we sell",
+    title: "MANAGE",
+    label: "What we manage",
     items: [
-      "Assets after the hard work has been made legible.",
-      "Stories supported by site reality, process, and positioning.",
-      "Outcomes timed for liquidity, not noise.",
+      "Communities where resident experience and operations stay aligned.",
+      "Capital plans tied to long-term performance, not short-term noise.",
+      "Execution that preserves quality while improving income durability.",
     ],
   },
 ] as const;
@@ -99,7 +99,7 @@ function CompanyModelRow({ entry, prefersReducedMotion }: CompanyModelRowProps) 
 
 /**
  * Public homepage for Gallagher Property Company.
- * Presents the company through a direct buy-build-sell operating frame while preserving access to the internal platform.
+ * Presents the company through a direct buy-build-manage operating frame while preserving access to the internal platform.
  */
 export function CompanyHomePage() {
   const heroRef = useRef<HTMLElement | null>(null);
@@ -163,10 +163,10 @@ export function CompanyHomePage() {
               initial="hidden"
               variants={heroSequence}
             >
-              <h1 className="sr-only">Buy, build, sell commercial real estate.</h1>
+              <h1 className="sr-only">Buy, build, and manage Manufactured Home Communities.</h1>
               <motion.div className="border-b border-white/14" variants={sectionReveal}>
                 <p className="max-w-lg text-base leading-7 text-white/62 sm:text-lg">
-                  Buy the right dirt. Build with the real constraints in view. Sell when the work has created clarity.
+                  We buy, build, and manage Manufactured Home Communities.
                 </p>
               </motion.div>
 
