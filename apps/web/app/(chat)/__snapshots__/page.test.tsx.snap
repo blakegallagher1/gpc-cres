@@ -285,6 +285,103 @@ exports[`HomePage > renders the public Gallagher Property Company homepage 1`] =
               </a>
             </div>
           </div>
+          <div
+            style="opacity: 0; transform: translateY(24px);"
+          >
+            <section
+              class="mt-8 border-t border-white/14 pt-8"
+            >
+              <div
+                class="max-w-2xl space-y-3"
+              >
+                <p
+                  class="font-mono text-[0.7rem] uppercase tracking-[0.3em] text-white/46"
+                >
+                  Seller Intake
+                </p>
+                <h2
+                  class="text-2xl font-semibold tracking-tight text-white sm:text-3xl"
+                >
+                  Selling a site in Louisiana?
+                </h2>
+                <p
+                  class="text-sm leading-6 text-white/64 sm:text-base"
+                >
+                  Send the headline facts and we will review fit for acquisition.
+                </p>
+              </div>
+              <form
+                class="mt-6 grid gap-4 md:grid-cols-2"
+              >
+                <label
+                  class="space-y-2 text-sm text-white/82"
+                >
+                  Name
+                  <input
+                    class="w-full rounded-md border border-white/20 bg-black/30 px-3 py-2 text-white"
+                    name="name"
+                    required=""
+                    value=""
+                  />
+                </label>
+                <label
+                  class="space-y-2 text-sm text-white/82"
+                >
+                  Email
+                  <input
+                    class="w-full rounded-md border border-white/20 bg-black/30 px-3 py-2 text-white"
+                    name="email"
+                    required=""
+                    type="email"
+                    value=""
+                  />
+                </label>
+                <label
+                  class="space-y-2 text-sm text-white/82 md:col-span-2"
+                >
+                  Property address
+                  <input
+                    class="w-full rounded-md border border-white/20 bg-black/30 px-3 py-2 text-white"
+                    name="propertyAddress"
+                    required=""
+                    value=""
+                  />
+                </label>
+                <label
+                  class="space-y-2 text-sm text-white/82 md:col-span-2"
+                >
+                  Details (optional)
+                  <textarea
+                    class="min-h-28 w-full rounded-md border border-white/20 bg-black/30 px-3 py-2 text-white"
+                    name="details"
+                  />
+                </label>
+                <label
+                  aria-hidden="true"
+                  class="hidden"
+                >
+                  Company
+                  <input
+                    autocomplete="off"
+                    name="company"
+                    tabindex="-1"
+                    value=""
+                  />
+                </label>
+                <div
+                  class="md:col-span-2 flex items-center gap-4"
+                >
+                  <button
+                    class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border border-transparent text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-primary text-primary-foreground shadow-sm hover:-translate-y-px hover:bg-primary/92 hover:shadow-md h-10 px-4 py-2"
+                    disabled=""
+                    type="submit"
+                  >
+                    Submit Seller Intake
+                  </button>
+                </div>
+              </form>
+            </section>
+          </div>
         </footer>
       </div>
     </section>
