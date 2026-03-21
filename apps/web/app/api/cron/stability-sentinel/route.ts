@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
 import crypto from "node:crypto";
 import { prisma } from "@entitlement-os/db";
-import { requestPropertyDbGateway } from "@/lib/server/propertyDbRpc";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -87,12 +86,6 @@ const SENTINEL_GEOMETRY_PARCEL_ID =
 const PRODUCTION_MODE = process.env.SENTINEL_PRODUCTION_MODE === "false"
   ? false
   : BASE.includes("gallagherpropco.com");
-const MAP_PROPERTY_DB_PROBE_SQL = "SELECT 1 AS ok FROM ebr_parcels LIMIT 1";
-const MAP_PROPERTY_DB_PROBE_RUNS = Math.max(1, envInt("MAP_PROPERTY_DB_PROBE_RUNS", 1));
-const MAP_PROPERTY_DB_PROBE_TIMEOUT_MS = Math.max(
-  1500,
-  Math.min(THRESHOLDS.probeTimeoutMs, Math.floor((maxDuration * 1000) / 2)),
-);
 
 function percentile(values: number[], p: number): number {
   if (values.length === 0) {
@@ -163,37 +156,6 @@ function isSelfHostedSentinelWebhook(webhookUrl: string): boolean {
   }
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function hasPropertyDbProbeRows(value: unknown): boolean {
-  if (Array.isArray(value)) {
-    return value.length > 0;
-  }
-  if (!isRecord(value)) {
-    return false;
-  }
-  if (value.ok === false) {
-    return false;
-  }
-
-  if (Array.isArray(value.rows)) {
-    return value.rows.length > 0;
-  }
-
-  for (const candidate of [value.data, value.result, value.items, value.parcels]) {
-    if (Array.isArray(candidate) && candidate.length > 0) {
-      return true;
-    }
-    if (isRecord(candidate) && hasPropertyDbProbeRows(candidate)) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
 // ---------------------------------------------------------------------------
 // HTTP probes
 // ---------------------------------------------------------------------------
@@ -229,67 +191,6 @@ async function runProbe(endpoint: string, method: string, body?: string): Promis
   return runs;
 }
 
-async function runPropertyDbProbe(): Promise<ProbeRun[]> {
-  const runs: ProbeRun[] = [];
-
-  for (let i = 0; i < MAP_PROPERTY_DB_PROBE_RUNS; i++) {
-    const start = performance.now();
-    try {
-      const res = await requestPropertyDbGateway({
-        routeTag: "/api/cron/stability-sentinel",
-        path: "/tools/parcels.sql",
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          sql: MAP_PROPERTY_DB_PROBE_SQL,
-          limit: 1,
-        }),
-        requestId: `sentinel-property-db-${i + 1}`,
-        includeApiKey: true,
-        cache: "no-store",
-        timeoutMs: MAP_PROPERTY_DB_PROBE_TIMEOUT_MS,
-        maxRetries: 0,
-      });
-
-      const totalMs = Math.round(performance.now() - start);
-      if (!res.ok) {
-        const errorText = await res.text().catch(() => "");
-        runs.push({
-          status: res.status,
-          totalMs,
-          error: errorText.slice(0, 240) || `upstream ${res.status}`,
-        });
-        continue;
-      }
-
-      const payload = await res.json().catch(() => null);
-      if (!hasPropertyDbProbeRows(payload)) {
-        runs.push({
-          status: 502,
-          totalMs,
-          error: "property-db probe returned no rows or invalid JSON",
-        });
-        continue;
-      }
-
-      runs.push({ status: 200, totalMs });
-    } catch (err) {
-      Sentry.captureException(err, {
-        tags: { route: "api.cron.stability-sentinel", method: "UNKNOWN" },
-      });
-      runs.push({
-        status: 0,
-        totalMs: Math.round(performance.now() - start),
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
-  }
-
-  return runs;
-}
-
 // ---------------------------------------------------------------------------
 // Workflow stats via Prisma (available in Vercel via Hyperdrive)
 // ---------------------------------------------------------------------------
@@ -310,26 +211,16 @@ async function queryWorkflowStats(): Promise<WorkflowStats | null> {
       }),
     ]);
 
-    // Check for duplicate idempotency keys via raw query.
-    // Guard: column may not exist in production if migration hasn't run yet.
+    // Check for duplicate idempotency keys via raw query
     const dupRows = await prisma.$queryRaw<Array<{ dup_count: number }>>`
-      SELECT CASE
-        WHEN EXISTS (
-          SELECT 1 FROM information_schema.columns
-          WHERE table_name = 'automation_events' AND column_name = 'idempotency_key'
-        )
-        THEN (
-          SELECT count(*)::int
-          FROM (
-            SELECT idempotency_key
-            FROM automation_events
-            WHERE started_at >= ${since} AND idempotency_key IS NOT NULL
-            GROUP BY idempotency_key
-            HAVING count(*) > 1
-          ) dupes
-        )
-        ELSE 0
-      END AS dup_count
+      SELECT count(*)::int AS dup_count
+      FROM (
+        SELECT idempotency_key
+        FROM automation_events
+        WHERE started_at >= ${since} AND idempotency_key IS NOT NULL
+        GROUP BY idempotency_key
+        HAVING count(*) > 1
+      ) dupes
     `;
 
     return {
@@ -353,7 +244,6 @@ async function queryWorkflowStats(): Promise<WorkflowStats | null> {
 
 function evaluate(
   chatRuns: ProbeRun[],
-  propertyDbRuns: ProbeRun[],
   parcelsRuns: ProbeRun[],
   suggestRuns: ProbeRun[],
   geometryRuns: ProbeRun[],
@@ -391,22 +281,6 @@ function evaluate(
 
   let mapTotal = 0;
   let map5xx = 0;
-  const propertyDbFailures = propertyDbRuns.filter(
-    (run) => run.status < 200 || run.status >= 400,
-  );
-  checks.push({
-    name: "map_property_db_probe",
-    surface: "map",
-    status: propertyDbFailures.length > 0 ? "fail" : "pass",
-    value: propertyDbRuns.length - propertyDbFailures.length,
-    threshold: propertyDbRuns.length,
-    detail:
-      propertyDbFailures.length > 0
-        ? `${propertyDbFailures.length}/${propertyDbRuns.length} gateway parcel probes failed${
-            propertyDbFailures[0]?.error ? ` (${propertyDbFailures[0].error})` : ""
-          }`
-        : `Gateway parcel probe passed ${propertyDbRuns.length}/${propertyDbRuns.length} runs`,
-  });
 
   for (const check of mapChecks) {
     const counts = statusCounts(check.runs);
@@ -591,9 +465,8 @@ export async function GET(request: Request) {
   }
 
   try {
-    const [chatRuns, propertyDbRuns, parcelsRuns, suggestRuns, geometryRuns, workflow] = await Promise.all([
+    const [chatRuns, parcelsRuns, suggestRuns, geometryRuns, workflow] = await Promise.all([
       runProbe("/api/agent/tools/execute", "POST", '{"toolName":"search_parcels","arguments":{}}'),
-      runPropertyDbProbe(),
       runProbe("/api/parcels?hasCoords=true", "GET"),
       runProbe("/api/parcels/suggest?q=airline+hwy", "GET"),
       runProbe(`/api/parcels/${encodeURIComponent(SENTINEL_GEOMETRY_PARCEL_ID)}/geometry?detail_level=low`, "GET"),
@@ -602,7 +475,6 @@ export async function GET(request: Request) {
 
     const { verdict, checks, failCount, warnCount } = evaluate(
       chatRuns,
-      propertyDbRuns,
       parcelsRuns,
       suggestRuns,
       geometryRuns,
@@ -619,7 +491,6 @@ export async function GET(request: Request) {
       workflow: workflow ?? "unavailable",
       probes: {
         chat: chatRuns.map((r) => ({ status: r.status, ms: r.totalMs })),
-        propertyDb: propertyDbRuns.map((r) => ({ status: r.status, ms: r.totalMs })),
         parcels: parcelsRuns.map((r) => ({ status: r.status, ms: r.totalMs })),
         suggest: suggestRuns.map((r) => ({ status: r.status, ms: r.totalMs })),
         geometry: geometryRuns.map((r) => ({ status: r.status, ms: r.totalMs })),
