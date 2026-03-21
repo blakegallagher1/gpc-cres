@@ -1,8 +1,14 @@
 import { expect, test } from "@playwright/test";
 import { ensureCopilotClosed } from "./_helpers/ui";
 
+const LIVE_DB_E2E_ENABLED = process.env.PLAYWRIGHT_LIVE_DB_E2E === "true";
+
 test.describe("Chat learning", () => {
   test("stores a property fact through chat and makes it recallable", async ({ page }) => {
+    test.skip(
+      !LIVE_DB_E2E_ENABLED,
+      "Requires live DB/Hyperdrive connectivity; set PLAYWRIGHT_LIVE_DB_E2E=true to run.",
+    );
     test.setTimeout(240_000);
 
     const houseNumber = Date.now().toString().slice(-5);
@@ -12,7 +18,7 @@ test.describe("Chat learning", () => {
     const noi = 143_087;
     const saleDate = "2025-02-14";
 
-    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await page.goto("/chat", { waitUntil: "domcontentloaded" });
     await ensureCopilotClosed(page);
     await page.getByText("Loading...").waitFor({ state: "hidden", timeout: 15_000 }).catch(() => undefined);
     await page.waitForTimeout(5_000);

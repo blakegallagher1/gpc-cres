@@ -9,12 +9,14 @@ type MockConversationConfig = {
   messages: Array<Record<string, unknown>>;
 };
 
-async function openChat(page: Page, path = "/") {
+async function openChat(page: Page, path = "/chat") {
   await page.goto(path, { waitUntil: "domcontentloaded" });
   await ensureCopilotClosed(page);
   await page.getByText("Loading...").waitFor({ state: "hidden", timeout: 15_000 }).catch(() => undefined);
   await page.getByPlaceholder("Ask something complex...").waitFor({ state: "visible", timeout: 15_000 });
 }
+
+const LIVE_DB_E2E_ENABLED = process.env.PLAYWRIGHT_LIVE_DB_E2E === "true";
 
 async function openConversationSidebar(page: Page) {
   const openByClass = page
@@ -202,7 +204,7 @@ test.describe("Chat continuation", () => {
       });
     });
 
-    await openChat(page, `/?conversationId=${conversationId}`);
+    await openChat(page, `/chat?conversationId=${conversationId}`);
     await expect(page.getByText("Tool approval required: update_deal_status")).toBeVisible();
 
     await page.getByRole("button", { name: "Approve" }).click();
@@ -220,6 +222,10 @@ test.describe("Chat continuation", () => {
   });
 
   test("continues the same DB-backed conversation after reload and preserves recallable context", async ({ page }) => {
+    test.skip(
+      !LIVE_DB_E2E_ENABLED,
+      "Requires live DB/Hyperdrive connectivity; set PLAYWRIGHT_LIVE_DB_E2E=true to run.",
+    );
     test.setTimeout(240_000);
 
     const houseNumber = Date.now().toString().slice(-5);

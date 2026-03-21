@@ -1,6 +1,10 @@
 import { test, expect } from "@playwright/test";
 import { ensureCopilotClosed, clickNavAndWaitForURL } from "./_helpers/ui";
 
+const LIVE_DB_E2E_ENABLED = process.env.PLAYWRIGHT_LIVE_DB_E2E === "true";
+const ADMIN_API_E2E_ENABLED =
+  LIVE_DB_E2E_ENABLED && Boolean(process.env.ADMIN_API_KEY?.trim());
+
 test.describe("Admin Dashboard", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/admin", { waitUntil: "domcontentloaded" });
@@ -26,6 +30,10 @@ test.describe("Admin Dashboard", () => {
   });
 
   test("overview tab should load KPI cards", async ({ page }) => {
+    test.skip(
+      !LIVE_DB_E2E_ENABLED,
+      "Requires live DB-backed admin stats; set PLAYWRIGHT_LIVE_DB_E2E=true to run.",
+    );
     // Overview is the default tab
     await expect(page.getByRole("tab", { name: "Overview" })).toHaveAttribute(
       "data-state",
@@ -53,6 +61,10 @@ test.describe("Admin Dashboard", () => {
   });
 
   test("knowledge tab should render table and controls", async ({ page }) => {
+    test.skip(
+      !LIVE_DB_E2E_ENABLED,
+      "Requires live DB-backed admin stats; set PLAYWRIGHT_LIVE_DB_E2E=true to run.",
+    );
     await page.getByRole("tab", { name: "Knowledge" }).click();
     await expect(page.getByRole("tab", { name: "Knowledge" })).toHaveAttribute(
       "data-state",
@@ -82,6 +94,10 @@ test.describe("Admin Dashboard", () => {
   test("memory tab should render facts sub-tab by default", async ({
     page,
   }) => {
+    test.skip(
+      !LIVE_DB_E2E_ENABLED,
+      "Requires live DB-backed admin stats; set PLAYWRIGHT_LIVE_DB_E2E=true to run.",
+    );
     await page.getByRole("tab", { name: "Memory" }).click();
     await expect(page.getByRole("tab", { name: "Memory" })).toHaveAttribute(
       "data-state",
@@ -111,6 +127,10 @@ test.describe("Admin Dashboard", () => {
   });
 
   test("memory tab should switch to entities sub-tab", async ({ page }) => {
+    test.skip(
+      !LIVE_DB_E2E_ENABLED,
+      "Requires live DB-backed admin stats; set PLAYWRIGHT_LIVE_DB_E2E=true to run.",
+    );
     await page.getByRole("tab", { name: "Memory" }).click();
 
     // Wait for facts sub-tab to load first
@@ -133,6 +153,10 @@ test.describe("Admin Dashboard", () => {
   test("agents tab should render KPI cards and run table", async ({
     page,
   }) => {
+    test.skip(
+      !LIVE_DB_E2E_ENABLED,
+      "Requires live DB-backed admin stats; set PLAYWRIGHT_LIVE_DB_E2E=true to run.",
+    );
     await page.getByRole("tab", { name: "Agents" }).click();
     await expect(page.getByRole("tab", { name: "Agents" })).toHaveAttribute(
       "data-state",
@@ -155,6 +179,10 @@ test.describe("Admin Dashboard", () => {
   });
 
   test("system tab should render database table counts", async ({ page }) => {
+    test.skip(
+      !LIVE_DB_E2E_ENABLED,
+      "Requires live DB-backed admin stats; set PLAYWRIGHT_LIVE_DB_E2E=true to run.",
+    );
     await page.getByRole("tab", { name: "System" }).click();
     await expect(page.getByRole("tab", { name: "System" })).toHaveAttribute(
       "data-state",
@@ -171,6 +199,11 @@ test.describe("Admin Dashboard", () => {
 });
 
 test.describe("Admin Dashboard - API endpoints", () => {
+  test.skip(
+    !ADMIN_API_E2E_ENABLED,
+    "Requires ADMIN_API_KEY and live DB; set PLAYWRIGHT_LIVE_DB_E2E=true with ADMIN_API_KEY to run.",
+  );
+
   test("stats API should return 200 for each tab", async ({ request }) => {
     const tabs = ["overview", "knowledge", "memory", "agents", "system"];
     for (const tab of tabs) {
@@ -272,7 +305,7 @@ test.describe("Admin Dashboard - API endpoints", () => {
 
 test.describe("Admin Dashboard - Navigation", () => {
   test("should navigate to admin from homepage", async ({ page }) => {
-    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await page.goto("/chat", { waitUntil: "domcontentloaded" });
     await ensureCopilotClosed(page);
     await clickNavAndWaitForURL(page, "/admin", /\/admin/, {
       timeoutMs: 30_000,
