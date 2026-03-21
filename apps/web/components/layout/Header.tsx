@@ -31,12 +31,24 @@ export function Header() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [commandKeyLabel, setCommandKeyLabel] = useState("Ctrl");
   const router = useRouter();
   const pathname = usePathname();
   const isMapPage = pathname?.startsWith("/map");
   const { route, group } = getWorkspaceRouteContext(pathname);
   const RouteIcon = route.icon;
   const searchPlaceholder = `Search ${group.label.toLowerCase()}, parcels, runs, and workflows`;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    setCommandKeyLabel(/Mac|iPhone|iPad/.test(window.navigator.platform) ? "⌘" : "Ctrl");
+  }, []);
+
+  const openCommandSearch = () => {
+    setSearchFocused(true);
+    openCommandPalette();
+  };
 
   const handleSignOut = async () => {
     if (isSigningOut) return;
@@ -116,6 +128,16 @@ export function Header() {
                 "app-shell-panel relative flex h-11 items-center rounded-2xl px-3 transition-all",
                 searchFocused && "shadow-[0_18px_48px_-28px_rgba(15,23,42,0.45)]"
               )}
+              role="button"
+              tabIndex={0}
+              aria-label="Open desktop command search"
+              onClick={openCommandSearch}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  openCommandSearch();
+                }
+              }}
             >
               <Search className="h-4 w-4 text-muted-foreground" />
               <input
@@ -124,8 +146,7 @@ export function Header() {
                 className="h-full w-full border-0 bg-transparent px-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none"
                 readOnly
                 onFocus={(event) => {
-                  setSearchFocused(true);
-                  openCommandPalette();
+                  openCommandSearch();
                   event.target.blur();
                 }}
                 onBlur={() => setSearchFocused(false)}
@@ -145,11 +166,13 @@ export function Header() {
                   {WORKSPACE_ROUTE_COUNT} desks
                 </span>
                 <kbd className="rounded-md border border-border/60 bg-background/70 px-1.5 py-0.5 font-mono">
-                  <Command className="inline h-3 w-3" />
+                  {commandKeyLabel === "⌘" ? (
+                    <Command className="inline h-3 w-3" />
+                  ) : (
+                    commandKeyLabel
+                  )}
                 </kbd>
-                <kbd className="rounded-md border border-border/60 bg-background/70 px-1.5 py-0.5 font-mono">
-                  K
-                </kbd>
+                <kbd className="rounded-md border border-border/60 bg-background/70 px-1.5 py-0.5 font-mono">K</kbd>
               </div>
             </div>
           </div>

@@ -93,7 +93,10 @@ exports[`Header > renders route-aware operating-system chrome 1`] = `
       class="hidden flex-[0_1_34rem] xl:block"
     >
       <div
+        aria-label="Open desktop command search"
         class="app-shell-panel relative flex h-11 items-center rounded-2xl px-3 transition-all"
+        role="button"
+        tabindex="0"
       >
         <svg
           aria-hidden="true"
@@ -135,23 +138,7 @@ exports[`Header > renders route-aware operating-system chrome 1`] = `
           <kbd
             class="rounded-md border border-border/60 bg-background/70 px-1.5 py-0.5 font-mono"
           >
-            <svg
-              aria-hidden="true"
-              class="lucide lucide-command inline h-3 w-3"
-              fill="none"
-              height="24"
-              stroke="currentColor"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              viewBox="0 0 24 24"
-              width="24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3"
-              />
-            </svg>
+            Ctrl
           </kbd>
           <kbd
             class="rounded-md border border-border/60 bg-background/70 px-1.5 py-0.5 font-mono"
