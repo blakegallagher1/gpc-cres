@@ -1,5 +1,5 @@
 import type { HTMLAttributes } from "react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const { openCommandPaletteMock, toggleCopilotMock, pushMock, setThemeMock } =
@@ -63,6 +63,14 @@ describe("Header", () => {
     expect(
       screen.getByText("Search parcels, draw geofences, and move site context into active workflows."),
     ).toBeInTheDocument();
+    expect(screen.getByText("Ctrl")).toBeInTheDocument();
     expect(container.firstChild).toMatchSnapshot();
+  });
+
+  it("opens command search when shell is clicked", () => {
+    render(<Header />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open desktop command search" }));
+    expect(openCommandPaletteMock).toHaveBeenCalledTimes(1);
   });
 });
