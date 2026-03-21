@@ -88,7 +88,7 @@ export function ErrorFallback({ error, onRetry }: ErrorFallbackProps) {
               </Button>
             )}
             <Button variant="outline" asChild className="flex-1 gap-2">
-              <Link href="/">
+              <Link href="/chat">
                 <Home className="h-4 w-4" />
                 Go Home
               </Link>

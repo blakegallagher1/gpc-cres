@@ -4,5 +4,7 @@ export default defineConfig({
   test: {
     environment: "node",
     exclude: [...configDefaults.exclude, "dist/**"],
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
   },
 });

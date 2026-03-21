@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   computeNextSelection,
+  getDrawControlState,
   getGeometryStatusLabel,
   getGeoJsonSourceSafe,
   parcelPopupHtml,
@@ -178,5 +179,31 @@ describe("getGeometryStatusLabel", () => {
         propertyDbUnconfigured: false,
       }),
     ).toBe("Some shapes unavailable");
+  });
+});
+
+describe("getDrawControlState", () => {
+  it("returns an idle prompt when drawing is off", () => {
+    expect(getDrawControlState(false, false, 0)).toEqual({
+      label: "Draw area",
+      badge: "Off",
+      hint: "Sketch a polygon to search inside a tighter geography without leaving the map.",
+    });
+  });
+
+  it("returns point-aware copy while an area is being drawn", () => {
+    expect(getDrawControlState(true, false, 3)).toEqual({
+      label: "Drawing area",
+      badge: "3 pts",
+      hint: "Click to add points. Double-click or press Finish to close the area.",
+    });
+  });
+
+  it("returns active-area copy when a polygon already exists", () => {
+    expect(getDrawControlState(false, true, 0)).toEqual({
+      label: "Active area",
+      badge: "Live",
+      hint: "Search, compare, or save the current polygon before clearing it.",
+    });
   });
 });

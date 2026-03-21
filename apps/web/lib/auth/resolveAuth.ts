@@ -5,9 +5,12 @@ import { prisma } from "@entitlement-os/db";
 
 export type AuthResult = { userId: string; orgId: string };
 
+const DEFAULT_LOCAL_DEV_AUTH_ORG_ID = "00000000-0000-0000-0000-000000000001";
+const DEFAULT_LOCAL_DEV_AUTH_USER_ID = "00000000-0000-0000-0000-000000000003";
+
 function getLocalDevAuthResult(): AuthResult {
-  const userId = process.env.LOCAL_DEV_AUTH_USER_ID?.trim() || "dev-user";
-  const orgId = process.env.LOCAL_DEV_AUTH_ORG_ID?.trim() || "dev-org";
+  const userId = process.env.LOCAL_DEV_AUTH_USER_ID?.trim() || DEFAULT_LOCAL_DEV_AUTH_USER_ID;
+  const orgId = process.env.LOCAL_DEV_AUTH_ORG_ID?.trim() || DEFAULT_LOCAL_DEV_AUTH_ORG_ID;
   return { userId, orgId };
 }
 

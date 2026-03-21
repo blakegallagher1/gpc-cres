@@ -1,7 +1,3 @@
-'use client';
-
-import { DashboardShell } from '@/components/layout/DashboardShell';
-
-export default function ChatLayout({ children }: { children: React.ReactNode }) {
-  return <DashboardShell noPadding>{children}</DashboardShell>;
+export default function MarketingLayout({ children }: { children: React.ReactNode }) {
+  return children;
 }

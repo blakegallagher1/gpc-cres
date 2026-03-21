@@ -42,11 +42,14 @@ describe("resolveAuth", () => {
     expect(result).toBeNull();
   });
 
-  it("returns dev user when NEXT_PUBLIC_DISABLE_AUTH=true in test env", async () => {
+  it("returns seeded uuid identities when NEXT_PUBLIC_DISABLE_AUTH=true in test env", async () => {
     process.env.NEXT_PUBLIC_DISABLE_AUTH = "true";
     ({ resolveAuth } = await import("./resolveAuth"));
     const result = await resolveAuth();
-    expect(result).toEqual({ userId: "dev-user", orgId: "dev-org" });
+    expect(result).toEqual({
+      userId: "00000000-0000-0000-0000-000000000003",
+      orgId: "00000000-0000-0000-0000-000000000001",
+    });
   });
 
   it("returns configured local dev auth identity when override env vars are set", async () => {

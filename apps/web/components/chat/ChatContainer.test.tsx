@@ -43,6 +43,10 @@ vi.mock("@/components/chat/DealSelector", () => ({
   DealSelector: () => <div data-testid="deal-selector" />,
 }));
 
+vi.mock("@/hooks/useIsMobile", () => ({
+  useIsMobile: () => false,
+}));
+
 vi.mock("@/lib/chat/MapChatContext", () => ({
   buildMapContextInput: buildMapContextInputMock,
   useMapChatState: () => ({
@@ -115,7 +119,7 @@ describe("ChatContainer", () => {
   it("does not fetch a nonexistent conversation for a fresh websocket chat", async () => {
     const { ChatContainer } = await import("@/components/chat/ChatContainer");
 
-    render(<ChatContainer />);
+    const { container } = render(<ChatContainer />);
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith("/api/auth/token");
@@ -135,5 +139,6 @@ describe("ChatContainer", () => {
         enabled: true,
       }),
     );
+    expect(container.firstChild).toMatchSnapshot();
   });
 });

@@ -109,6 +109,85 @@ body {
   color: var(--color-foreground);
 }
 
+.app-shell {
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at top left, oklch(var(--muted) / 0.85), transparent 28%),
+    radial-gradient(circle at bottom right, oklch(var(--secondary) / 0.72), transparent 24%),
+    linear-gradient(180deg, oklch(var(--background)), oklch(var(--muted) / 0.36) 130%);
+}
+
+.dark .app-shell {
+  background:
+    radial-gradient(circle at top left, oklch(var(--foreground) / 0.035), transparent 26%),
+    radial-gradient(circle at bottom right, oklch(var(--muted) / 0.22), transparent 22%),
+    linear-gradient(180deg, oklch(var(--background)), oklch(var(--card)) 110%);
+}
+
+.app-shell::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, oklch(var(--border) / 0.12) 1px, transparent 1px),
+    linear-gradient(to bottom, oklch(var(--border) / 0.12) 1px, transparent 1px);
+  background-size: 96px 96px;
+  opacity: 0.35;
+}
+
+.app-shell::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent, oklch(var(--background) / 0.12));
+}
+
+.app-shell-panel {
+  background: oklch(var(--background) / 0.74);
+  border: 1px solid oklch(var(--border) / 0.65);
+  backdrop-filter: blur(18px);
+}
+
+.dark .app-shell-panel {
+  background: oklch(var(--card) / 0.64);
+}
+
+.chat-thread-surface {
+  background:
+    linear-gradient(180deg, oklch(var(--background) / 0.8), oklch(var(--background) / 0.58)),
+    linear-gradient(to right, oklch(var(--border) / 0.09) 1px, transparent 1px),
+    linear-gradient(to bottom, oklch(var(--border) / 0.09) 1px, transparent 1px);
+  background-size: auto, 48px 48px, 48px 48px;
+}
+
+.dark .chat-thread-surface {
+  background:
+    linear-gradient(180deg, oklch(var(--card) / 0.92), oklch(var(--background) / 0.84)),
+    linear-gradient(to right, oklch(var(--border) / 0.12) 1px, transparent 1px),
+    linear-gradient(to bottom, oklch(var(--border) / 0.12) 1px, transparent 1px);
+  background-size: auto, 48px 48px, 48px 48px;
+}
+
+.map-stat-value {
+  color: var(--map-text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.map-stat-label {
+  color: var(--map-text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;

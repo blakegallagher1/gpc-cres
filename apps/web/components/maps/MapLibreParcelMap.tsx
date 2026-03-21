@@ -44,6 +44,8 @@ import {
   type SaleComp,
 } from "./heatmapPresets";
 
+const MAP_DRAW_ACCENT_COLOR = "#6c8cff";
+
 type ParcelFeatureProperties = {
   id: string;
   address: string;
@@ -483,6 +485,40 @@ export function tileParcelPopupHtml(props: Record<string, unknown>): string {
   ].filter(Boolean);
 
   return `<div style="font-size:13px;line-height:1.4;color:inherit">${rows.join("")}</div>`;
+}
+
+/**
+ * Returns operator-facing copy for the draw-area control.
+ */
+export function getDrawControlState(
+  drawing: boolean,
+  hasPolygon: boolean,
+  pointCount: number,
+): { label: string; badge: string; hint: string } {
+  if (hasPolygon) {
+    return {
+      label: "Active area",
+      badge: "Live",
+      hint: "Search, compare, or save the current polygon before clearing it.",
+    };
+  }
+
+  if (drawing) {
+    return {
+      label: "Drawing area",
+      badge: `${pointCount} pts`,
+      hint:
+        pointCount > 0
+          ? "Click to add points. Double-click or press Finish to close the area."
+          : "Click on the map to start outlining a focused parcel search area.",
+    };
+  }
+
+  return {
+    label: "Draw area",
+    badge: "Off",
+    hint: "Sketch a polygon to search inside a tighter geography without leaving the map.",
+  };
 }
 
 function getVelocityColor(score: number): string {
@@ -1968,6 +2004,7 @@ function MapLibreDrawControl({
   onPolygonCleared: () => void;
 }) {
   const [drawing, setDrawing] = useState(false);
+  const [pointCount, setPointCount] = useState(0);
   const pointsRef = useRef<maplibregl.LngLat[]>([]);
   const sourceId = "draw-polygon-source";
   const lineLayerId = "draw-polygon-line";
@@ -1979,9 +2016,11 @@ function MapLibreDrawControl({
   }, [map]);
 
   const hasPolygon = Boolean(polygon && polygon[0] && polygon[0].length >= 4);
+  const drawState = getDrawControlState(drawing, hasPolygon, pointCount);
 
   const clearDrawing = useCallback(() => {
     pointsRef.current = [];
+    setPointCount(0);
     const m = mapRef.current;
     setGeoJsonSourceDataSafe(m, sourceId, {
       type: "FeatureCollection",
@@ -2010,6 +2049,7 @@ function MapLibreDrawControl({
     if (pointsRef.current.length === 0) return;
     pointsRef.current.pop();
     const pts = pointsRef.current;
+    setPointCount(pts.length);
     const features: GeoJSON.Feature[] = pts.map((p) => ({
       type: "Feature" as const,
       geometry: { type: "Point" as const, coordinates: [p.lng, p.lat] },
@@ -2055,7 +2095,7 @@ function MapLibreDrawControl({
           filter: ["==", ["get", "kind"], "point"],
           paint: {
             "circle-radius": 5,
-            "circle-color": "#7c3aed",
+            "circle-color": MAP_DRAW_ACCENT_COLOR,
             "circle-stroke-width": 2,
             "circle-stroke-color": "#ffffff",
           },
@@ -2068,7 +2108,7 @@ function MapLibreDrawControl({
           source: sourceId,
           filter: ["==", ["get", "kind"], "line"],
           paint: {
-            "line-color": "#7c3aed",
+            "line-color": MAP_DRAW_ACCENT_COLOR,
             "line-width": 2,
             "line-dasharray": [4, 2],
           },
@@ -2127,6 +2167,7 @@ function MapLibreDrawControl({
       if (!drawing || !mapInstance) return;
       pointsRef.current.push(e.lngLat);
       const pts = pointsRef.current;
+      setPointCount(pts.length);
       const features: GeoJSON.Feature[] = pts.map((p) => ({
         type: "Feature" as const,
         geometry: { type: "Point" as const, coordinates: [p.lng, p.lat] },
@@ -2185,77 +2226,85 @@ function MapLibreDrawControl({
   }, [drawing, clearDrawing]);
 
   return (
-    <div data-tour="draw-tool" className="absolute left-2 top-24 z-10">
-      <div className="flex flex-col gap-1 rounded-lg map-panel p-1 shadow-lg">
-        {!hasPolygon ? (
-          <button
-            type="button"
-            title="Draw polygon search area"
-            onClick={() => {
-              if (drawing) finishDrawing();
-              else {
+    <div data-tour="draw-tool" className="absolute left-3 top-24 z-10 w-[15.5rem]">
+      <div className="rounded-2xl border border-map-border map-panel px-3 py-3 shadow-xl">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-map-text-muted">
+              {drawState.label}
+            </p>
+            <p className="mt-2 text-[11px] leading-5 text-map-text-secondary">
+              {drawState.hint}
+            </p>
+          </div>
+          <span className="rounded-full border border-map-border bg-map-surface px-2 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-map-text-primary">
+            {drawState.badge}
+          </span>
+        </div>
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          {!hasPolygon ? (
+            <button
+              type="button"
+              title="Draw polygon search area"
+              onClick={() => {
+                if (drawing) {
+                  finishDrawing();
+                  return;
+                }
+
                 clearDrawing();
                 setDrawing(true);
-              }
-            }}
-            className={`map-btn flex h-8 w-8 items-center justify-center rounded transition-colors ${
-              drawing ? "bg-purple-500 text-white" : ""
-            }`}
-          >
-            <Pencil className="h-4 w-4" />
-          </button>
-        ) : (
-          <button
-            type="button"
-            title="Clear polygon"
-            onClick={() => {
-              clearDrawing();
-              onPolygonCleared();
-            }}
-            className="map-btn flex h-8 w-8 items-center justify-center rounded text-red-400 hover:text-red-300"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        )}
-        {drawing && (
-          <>
-            <button
-              type="button"
-              title="Undo last point (Cmd/Ctrl+Z)"
-              onClick={undoLastPoint}
-              className="map-btn flex h-8 w-8 items-center justify-center rounded"
+              }}
+              className={`inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-[10px] font-medium transition-colors ${
+                drawing
+                  ? "bg-map-accent text-white"
+                  : "map-btn text-map-text-primary"
+              }`}
             >
-              ↶
+              <Pencil className="h-3.5 w-3.5" />
+              {drawing ? "Finish area" : "Start draw"}
             </button>
+          ) : (
             <button
               type="button"
-              title="Finish drawing (or double-click)"
-              onClick={finishDrawing}
-              className="flex h-8 w-8 items-center justify-center rounded bg-green-500 text-white hover:bg-green-600"
-            >
-              <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M2 8l4 4 8-8" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              title="Cancel drawing"
+              title="Clear polygon"
               onClick={() => {
                 clearDrawing();
-                setDrawing(false);
+                onPolygonCleared();
               }}
-              className="map-btn flex h-8 w-8 items-center justify-center rounded"
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-map-accent px-3 text-[10px] font-medium text-white transition-opacity hover:opacity-90"
             >
-              <X className="h-4 w-4" />
+              <Trash2 className="h-3.5 w-3.5" />
+              Clear area
             </button>
-          </>
-        )}
-      </div>
-      {drawing && (
-        <div className="mt-1 rounded bg-purple-600/90 px-2 py-1 text-[10px] text-white shadow">
-          Click to add points, double-click to finish, Cmd/Ctrl+Z to undo
+          )}
+          {drawing && (
+            <>
+              <button
+                type="button"
+                title="Undo last point (Cmd/Ctrl+Z)"
+                onClick={undoLastPoint}
+                className="map-btn h-8 rounded-lg px-2.5 text-[10px]"
+              >
+                Undo
+              </button>
+              <button
+                type="button"
+                title="Cancel drawing"
+                onClick={() => {
+                  clearDrawing();
+                  setDrawing(false);
+                }}
+                className="map-btn inline-flex h-8 items-center gap-1 rounded-lg px-2.5 text-[10px]"
+              >
+                <X className="h-3.5 w-3.5" />
+                Cancel
+              </button>
+            </>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -2309,7 +2358,7 @@ function MapLibrePolygonOverlay({
           id: fillId,
           type: "fill",
           source: sourceId,
-          paint: { "fill-color": "#7c3aed", "fill-opacity": 0.08 },
+          paint: { "fill-color": MAP_DRAW_ACCENT_COLOR, "fill-opacity": 0.1 },
         });
       }
       if (!m.getLayer(lineId)) {
@@ -2318,7 +2367,7 @@ function MapLibrePolygonOverlay({
           type: "line",
           source: sourceId,
           paint: {
-            "line-color": "#7c3aed",
+            "line-color": MAP_DRAW_ACCENT_COLOR,
             "line-width": 2,
             "line-dasharray": [4, 2],
           },

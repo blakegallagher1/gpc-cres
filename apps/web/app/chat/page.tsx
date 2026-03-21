@@ -1,9 +1,6 @@
-import { redirect } from "next/navigation";
+import { ChatContainer } from "@/components/chat/ChatContainer";
 
-/**
- * /chat → redirect to / where the (chat) route group renders the chat UI.
- * This prevents 404s when users or navigation links reference /chat directly.
- */
-export default function ChatRedirectPage() {
-  redirect("/");
+/** Dedicated authenticated chat workspace now that `/` is the public company homepage. */
+export default function ChatPage() {
+  return <ChatContainer />;
 }

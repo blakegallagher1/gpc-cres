@@ -5,6 +5,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
+  RefreshCw,
   Search,
   MessageSquare,
   Filter,
@@ -29,6 +30,11 @@ interface ConversationSidebarProps {
 
 export type ConversationFilterMode = 'all' | 'deals' | 'no-deal';
 
+type ConversationFilterCounts = Record<ConversationFilterMode, number>;
+
+/**
+ * Applies sidebar search and scope filters to the conversation index.
+ */
 export function filterConversations({
   conversations,
   search,
@@ -85,6 +91,16 @@ function formatShortDate(value: string): string {
   });
 }
 
+function getConversationFilterCounts(
+  conversations: ConversationSummary[],
+): ConversationFilterCounts {
+  return {
+    all: conversations.length,
+    deals: conversations.filter((conversation) => Boolean(conversation.dealId)).length,
+    'no-deal': conversations.filter((conversation) => !conversation.dealId).length,
+  };
+}
+
 function ConversationListItem({
   conv,
   active,
@@ -98,21 +114,25 @@ function ConversationListItem({
     <button
       onClick={onSelect}
       className={cn(
-        'flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors',
-        active ? 'bg-muted' : 'hover:bg-muted/50',
+        'flex w-full items-start gap-2.5 rounded-2xl border px-3 py-3 text-left transition-colors',
+        active
+          ? 'border-border/70 bg-foreground/[0.04]'
+          : 'border-transparent hover:border-border/60 hover:bg-background/70',
       )}
     >
-      <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-background/70 text-muted-foreground">
+        <MessageSquare className="h-4 w-4" />
+      </span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">
           {conv.title && conv.title.trim().length > 0 ? conv.title : 'Untitled conversation'}
         </p>
-        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+        <div className="mt-1 flex items-center gap-2 text-[10px] text-muted-foreground">
           <CalendarClock className="h-3 w-3" />
           <span>{formatShortDate(conv.updatedAt)}</span>
           <span>{conv.messageCount} msgs</span>
           {conv.dealId ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[9px]">
+            <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/70 px-2 py-0.5 text-[9px]">
               <Building2 className="h-2.5 w-2.5" />
               Deal
             </span>
@@ -123,6 +143,9 @@ function ConversationListItem({
   );
 }
 
+/**
+ * Local conversation rail for the primary chat workspace.
+ */
 export function ConversationSidebar({
   conversations,
   activeConversationId,
@@ -147,18 +170,24 @@ export function ConversationSidebar({
       recentConversationIds,
     });
   }, [search, conversations, filter, onlyRecent, recentConversationIds]);
+  const filterCounts = useMemo(
+    () => getConversationFilterCounts(conversations),
+    [conversations],
+  );
 
   const recentLabel =
     onlyRecent || filter !== 'all' || search.trim().length > 0
       ? 'Filtered'
       : 'Recent';
+  const sortingLabel = onlyRecent ? 'Top 5 by local recency' : 'Sorted by last update';
 
   return (
     <>
       {!open && (
         <button
           onClick={onToggle}
-          className="absolute left-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="app-shell-panel absolute left-3 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-2xl text-muted-foreground shadow-lg transition-colors hover:text-foreground"
+          aria-label="Open conversation rail"
         >
           <PanelLeftOpen className="h-4 w-4" />
         </button>
@@ -166,112 +195,145 @@ export function ConversationSidebar({
 
       <div
         className={cn(
-          'flex h-full flex-col border-r bg-card/50 transition-all duration-200',
+          'flex h-full flex-col border-r border-border/60 bg-background/76 backdrop-blur-xl transition-all duration-200',
           open ? 'w-72' : 'w-0 overflow-hidden',
         )}
       >
-        <div className="flex items-center justify-between border-b px-3 py-2.5">
-          <span className="text-sm font-semibold">Conversations</span>
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
-              onClick={() => onConversationSelect(null)}
-              title="Start new chat"
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-            {onRefresh ? (
+        <div className="border-b border-border/60 px-4 py-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-muted-foreground">
+                Conversation Index
+              </p>
+              <h2 className="mt-1 text-sm font-semibold tracking-tight">Runs and briefs</h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Reopen prior threads or start a new operating run.
+              </p>
+            </div>
+            <div className="flex items-center gap-1">
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7"
-                onClick={onRefresh}
-                title="Refresh conversations"
+                className="h-8 w-8 rounded-xl"
+                onClick={() => onConversationSelect(null)}
+                title="Start new chat"
               >
-                <Filter className="h-4 w-4" />
+                <Plus className="h-4 w-4" />
               </Button>
-            ) : null}
-            <button
-              onClick={onToggle}
-              className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-            >
-              <PanelLeftClose className="h-4 w-4" />
-            </button>
+              {onRefresh ? (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-xl"
+                  onClick={onRefresh}
+                  title="Refresh conversations"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+              ) : null}
+              <button
+                onClick={onToggle}
+                className="flex h-8 w-8 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                aria-label="Close conversation rail"
+              >
+                <PanelLeftClose className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-4 flex items-center gap-2 text-[11px] text-muted-foreground">
+            <span>{conversations.length} total</span>
+            <span className="text-border">/</span>
+            <span>{hasRecentRecents ? 'Recent history available' : 'No recent history yet'}</span>
           </div>
         </div>
 
-        <div className="space-y-2 border-b px-3 py-2">
+        <div className="space-y-3 border-b border-border/60 px-4 py-4">
           <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+            <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search conversations..."
-              className="h-8 w-full rounded-md border-0 bg-muted pl-8 pr-3 text-xs placeholder:text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              placeholder="Search conversation titles"
+              className="h-9 w-full rounded-2xl border border-border/70 bg-background/80 pl-9 pr-3 text-xs placeholder:text-muted-foreground/70 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               disabled={loading}
             />
           </div>
 
-          <div className="flex items-center justify-between gap-2 text-xs">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between gap-2 text-[11px]">
+            <div className="flex items-center gap-1 rounded-full border border-border/70 bg-background/70 p-1">
               <button
                 onClick={() => setFilter('all')}
                 className={cn(
-                  'rounded-full px-2 py-1',
-                  filter === 'all' ? 'bg-muted font-medium' : 'text-muted-foreground',
+                  'rounded-full px-2.5 py-1 transition-colors',
+                  filter === 'all' ? 'bg-foreground/8 text-foreground' : 'text-muted-foreground',
                 )}
               >
-                All
+                All {filterCounts.all}
               </button>
               <button
                 onClick={() => setFilter('deals')}
                 className={cn(
-                  'rounded-full px-2 py-1',
-                  filter === 'deals' ? 'bg-muted font-medium' : 'text-muted-foreground',
+                  'rounded-full px-2.5 py-1 transition-colors',
+                  filter === 'deals' ? 'bg-foreground/8 text-foreground' : 'text-muted-foreground',
                 )}
               >
-                Deals
+                Deals {filterCounts.deals}
               </button>
               <button
                 onClick={() => setFilter('no-deal')}
                 className={cn(
-                  'rounded-full px-2 py-1',
-                  filter === 'no-deal' ? 'bg-muted font-medium' : 'text-muted-foreground',
+                  'rounded-full px-2.5 py-1 transition-colors',
+                  filter === 'no-deal' ? 'bg-foreground/8 text-foreground' : 'text-muted-foreground',
                 )}
               >
-                No Deal
+                General {filterCounts['no-deal']}
               </button>
             </div>
             <button
               onClick={() => setOnlyRecent((previous) => !previous)}
               className={cn(
-                'rounded-full px-2 py-1',
-                onlyRecent ? 'bg-muted font-medium' : 'text-muted-foreground',
+                'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 transition-colors',
+                onlyRecent
+                  ? 'border-border/70 bg-foreground/8 text-foreground'
+                  : 'border-border/70 text-muted-foreground',
                 !hasRecentRecents && 'opacity-50',
               )}
               disabled={!hasRecentRecents}
               title={hasRecentRecents ? 'Keep top 5 recents only' : 'No recents available'}
             >
+              <Filter className="h-3 w-3" />
               Top 5
             </button>
           </div>
+
+          <div className="flex items-center justify-between gap-3 text-[11px] text-muted-foreground">
+            <span>{filteredConversations.length} shown</span>
+            <span>{sortingLabel}</span>
+          </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-2 py-1">
+        <div className="flex-1 overflow-y-auto px-3 py-3">
           {loading ? (
-            <p className="px-2 py-4 text-center text-xs text-muted-foreground">Loading...</p>
+            <p className="px-3 py-6 text-center text-xs text-muted-foreground">Loading conversations...</p>
           ) : filteredConversations.length === 0 ? (
-            <p className="px-2 py-4 text-center text-xs text-muted-foreground">
-              {search.trim().length > 0
-                ? 'No matching conversations'
-                : 'No conversations yet'}
-            </p>
+            <div className="px-3 py-8 text-center">
+              <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-2xl border border-border/70 bg-background/80 text-muted-foreground">
+                <MessageSquare className="h-4 w-4" />
+              </div>
+              <p className="mt-3 text-sm font-medium text-foreground">
+                {search.trim().length > 0 ? 'No matching conversations' : 'No conversations yet'}
+              </p>
+              <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                {search.trim().length > 0
+                  ? 'Adjust the search or filter state to reopen a prior thread.'
+                  : 'Start a fresh run to create the first saved thread in this workspace.'}
+              </p>
+            </div>
           ) : (
-            <div className="space-y-0.5">
-              <div className="px-2 pt-1 text-[10px] font-semibold uppercase text-muted-foreground">
+            <div className="space-y-1">
+              <div className="px-3 pb-1 font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
                 {recentLabel}
               </div>
               {filteredConversations.map((conv) => (

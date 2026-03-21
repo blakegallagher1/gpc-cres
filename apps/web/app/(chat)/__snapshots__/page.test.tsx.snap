@@ -1,0 +1,463 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`HomePage > renders the public Gallagher Property Company homepage 1`] = `
+<div
+  class="bg-background text-foreground"
+  id="top"
+>
+  <section
+    class="relative isolate min-h-[100svh] overflow-hidden bg-black text-white"
+  >
+    <div
+      class="absolute inset-0"
+      style="transform: none;"
+    >
+      <img
+        alt="Commercial corridor with development land, industrial buildings, and road infrastructure at first light"
+        class="object-cover object-center"
+        sizes="100vw"
+        src="/images/gpc-home-hero.png"
+      />
+    </div>
+    <div
+      class="absolute inset-0 bg-[linear-gradient(112deg,rgba(0,0,0,0.84)_0%,rgba(0,0,0,0.68)_28%,rgba(0,0,0,0.24)_62%,rgba(0,0,0,0.74)_100%)]"
+      style="opacity: 0.48;"
+    />
+    <div
+      class="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-black via-black/38 to-transparent"
+    />
+    <div
+      class="relative flex min-h-[100svh] items-end px-6 py-10 md:px-10 md:py-12 lg:px-16"
+    >
+      <div
+        class="max-w-2xl space-y-8"
+      >
+        <div
+          class="flex items-center gap-4"
+          style="opacity: 0; transform: translateY(24px);"
+        >
+          <div
+            class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[linear-gradient(180deg,rgba(59,130,246,0.92),rgba(15,23,42,0.92))] shadow-[0_16px_40px_rgba(0,0,0,0.28)]"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-building2 lucide-building-2 h-6 w-6 text-white"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M10 12h4"
+              />
+              <path
+                d="M10 8h4"
+              />
+              <path
+                d="M14 21v-3a2 2 0 0 0-4 0v3"
+              />
+              <path
+                d="M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2"
+              />
+              <path
+                d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"
+              />
+            </svg>
+          </div>
+          <div>
+            <p
+              class="font-mono text-[0.72rem] uppercase tracking-[0.28em] text-white/64"
+            >
+              Baton Rouge, Louisiana
+            </p>
+            <p
+              class="mt-1 text-sm text-white/78"
+            >
+              Commercial real estate development and investment
+            </p>
+          </div>
+        </div>
+        <div
+          class="space-y-4"
+          style="opacity: 0; transform: translateY(24px);"
+        >
+          <h1
+            class="max-w-[10ch] text-5xl font-semibold tracking-[-0.055em] text-balance sm:text-6xl lg:text-7xl"
+          >
+            Gallagher Property Company
+          </h1>
+          <p
+            class="max-w-[15ch] text-3xl font-medium leading-tight tracking-[-0.04em] text-white/92 sm:text-4xl"
+          >
+            Development and investment built on parcel truth.
+          </p>
+          <p
+            class="max-w-xl text-base leading-7 text-white/72 sm:text-lg"
+          >
+            A commercial real estate company working where local context, entitlement discipline, and capital judgment create durable advantage.
+          </p>
+        </div>
+        <div
+          class="flex flex-col gap-3 sm:flex-row"
+          style="opacity: 0; transform: translateY(24px);"
+        >
+          <div>
+            <a
+              class="inline-flex items-center justify-center whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 rounded-md h-12 bg-white px-5 text-sm font-semibold text-black hover:bg-white/90"
+              href="#approach"
+            >
+              See our approach
+              <svg
+                aria-hidden="true"
+                class="lucide lucide-arrow-right ml-2 h-4 w-4"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M5 12h14"
+                />
+                <path
+                  d="m12 5 7 7-7 7"
+                />
+              </svg>
+            </a>
+          </div>
+          <div>
+            <a
+              class="inline-flex items-center justify-center whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border rounded-md h-12 border-white/20 bg-white/6 px-5 text-sm font-semibold text-white hover:bg-white/12 hover:text-white"
+              href="/login"
+            >
+              Operator access
+            </a>
+          </div>
+        </div>
+        <p
+          class="max-w-md text-sm leading-6 text-white/58"
+          style="opacity: 0; transform: translateY(24px);"
+        >
+          The public front door is the company. Active internal work runs through Entitlement OS.
+        </p>
+      </div>
+    </div>
+  </section>
+  <main>
+    <section
+      class="border-b border-border bg-background px-6 py-20 md:px-10 lg:px-16"
+    >
+      <div
+        class="mx-auto max-w-6xl"
+      >
+        <div
+          class="max-w-2xl"
+          style="opacity: 0; transform: translateY(24px);"
+        >
+          <p
+            class="font-mono text-[0.72rem] uppercase tracking-[0.28em] text-muted-foreground"
+          >
+            Support
+          </p>
+          <h2
+            class="mt-3 max-w-[12ch] text-3xl font-semibold tracking-[-0.04em] text-balance sm:text-4xl"
+          >
+            Development, investment, and deal control.
+          </h2>
+          <p
+            class="mt-4 max-w-2xl text-base leading-7 text-muted-foreground"
+          >
+            One company view of the opportunity, from site read to capital discipline.
+          </p>
+        </div>
+        <div
+          class="mt-12 grid divide-y divide-border border-y border-border md:grid-cols-3 md:divide-x md:divide-y-0"
+        >
+          <article
+            class="py-6 md:px-6 md:first:pl-0 md:last:pr-0"
+            style="opacity: 0; transform: translateY(24px);"
+          >
+            <p
+              class="font-mono text-[0.7rem] uppercase tracking-[0.24em] text-muted-foreground"
+            >
+              Development
+            </p>
+            <h3
+              class="mt-3 text-xl font-semibold tracking-[-0.03em]"
+            >
+              Source sites where the path matters as much as the dirt.
+            </h3>
+            <p
+              class="mt-3 max-w-sm text-sm leading-6 text-muted-foreground"
+            >
+              We look for commercial real estate opportunities where site context, entitlement friction, and timing can be turned into an edge.
+            </p>
+          </article>
+          <article
+            class="py-6 md:px-6 md:first:pl-0 md:last:pr-0"
+            style="opacity: 0; transform: translateY(24px);"
+          >
+            <p
+              class="font-mono text-[0.7rem] uppercase tracking-[0.24em] text-muted-foreground"
+            >
+              Investment
+            </p>
+            <h3
+              class="mt-3 text-xl font-semibold tracking-[-0.03em]"
+            >
+              Commit capital after the real constraints are visible.
+            </h3>
+            <p
+              class="mt-3 max-w-sm text-sm leading-6 text-muted-foreground"
+            >
+              Underwriting is tied to parcel reality, approval path, and execution risk before momentum or narrative carries the deal too far.
+            </p>
+          </article>
+          <article
+            class="py-6 md:px-6 md:first:pl-0 md:last:pr-0"
+            style="opacity: 0; transform: translateY(24px);"
+          >
+            <p
+              class="font-mono text-[0.7rem] uppercase tracking-[0.24em] text-muted-foreground"
+            >
+              Operating discipline
+            </p>
+            <h3
+              class="mt-3 text-xl font-semibold tracking-[-0.03em]"
+            >
+              Keep the deal thread intact from first read to active execution.
+            </h3>
+            <p
+              class="mt-3 max-w-sm text-sm leading-6 text-muted-foreground"
+            >
+              Research, evidence, approvals, and decision gates stay attached to the opportunity instead of fragmenting across inboxes and meetings.
+            </p>
+          </article>
+        </div>
+      </div>
+    </section>
+    <section
+      class="relative overflow-hidden bg-[linear-gradient(180deg,rgba(255,255,255,0)_0%,rgba(15,23,42,0.04)_22%,rgba(255,255,255,0)_100%)] px-6 py-20 md:px-10 lg:px-16"
+      id="approach"
+    >
+      <div
+        class="absolute inset-x-0 top-0 h-px bg-border"
+      />
+      <div
+        class="mx-auto grid max-w-6xl gap-12 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)] lg:items-start"
+      >
+        <div
+          class="max-w-lg lg:sticky lg:top-12"
+          style="opacity: 0; transform: translateY(24px);"
+        >
+          <p
+            class="font-mono text-[0.72rem] uppercase tracking-[0.28em] text-muted-foreground"
+          >
+            Detail
+          </p>
+          <h2
+            class="mt-3 max-w-[11ch] text-3xl font-semibold tracking-[-0.04em] text-balance sm:text-4xl"
+          >
+            From site context to capital commitment.
+          </h2>
+          <p
+            class="mt-4 text-base leading-7 text-muted-foreground"
+          >
+            The operating model stays simple: read what matters early, advance with evidence, and make the irreversible decisions only when the path is legible.
+          </p>
+        </div>
+        <div
+          class="space-y-8"
+        >
+          <article
+            class="grid gap-4 border-t border-border pt-5 md:grid-cols-[auto_1fr]"
+            style="opacity: 0; transform: translateY(24px);"
+          >
+            <p
+              class="font-mono text-sm uppercase tracking-[0.26em] text-muted-foreground"
+            >
+              01
+            </p>
+            <div>
+              <h3
+                class="text-xl font-semibold tracking-[-0.03em]"
+              >
+                Read the parcel first
+              </h3>
+              <p
+                class="mt-3 max-w-xl text-sm leading-6 text-muted-foreground"
+              >
+                Start with access, adjacency, surface risk, and site shape so the opportunity is grounded before anyone starts selling the story.
+              </p>
+            </div>
+          </article>
+          <article
+            class="grid gap-4 border-t border-border pt-5 md:grid-cols-[auto_1fr]"
+            style="opacity: 0; transform: translateY(24px);"
+          >
+            <p
+              class="font-mono text-sm uppercase tracking-[0.26em] text-muted-foreground"
+            >
+              02
+            </p>
+            <div>
+              <h3
+                class="text-xl font-semibold tracking-[-0.03em]"
+              >
+                Model the entitlement path
+              </h3>
+              <p
+                class="mt-3 max-w-xl text-sm leading-6 text-muted-foreground"
+              >
+                Bring jurisdiction posture, precedent, and process friction into the same pass before capital commitments are made.
+              </p>
+            </div>
+          </article>
+          <article
+            class="grid gap-4 border-t border-border pt-5 md:grid-cols-[auto_1fr]"
+            style="opacity: 0; transform: translateY(24px);"
+          >
+            <p
+              class="font-mono text-sm uppercase tracking-[0.26em] text-muted-foreground"
+            >
+              03
+            </p>
+            <div>
+              <h3
+                class="text-xl font-semibold tracking-[-0.03em]"
+              >
+                Advance with evidence
+              </h3>
+              <p
+                class="mt-3 max-w-xl text-sm leading-6 text-muted-foreground"
+              >
+                Move through approvals, diligence, counterparties, and workflow execution with live context instead of disconnected updates.
+              </p>
+            </div>
+          </article>
+          <article
+            class="grid gap-4 border-t border-border pt-5 md:grid-cols-[auto_1fr]"
+            style="opacity: 0; transform: translateY(24px);"
+          >
+            <p
+              class="font-mono text-sm uppercase tracking-[0.26em] text-muted-foreground"
+            >
+              04
+            </p>
+            <div>
+              <h3
+                class="text-xl font-semibold tracking-[-0.03em]"
+              >
+                Protect downside early
+              </h3>
+              <p
+                class="mt-3 max-w-xl text-sm leading-6 text-muted-foreground"
+              >
+                Gate decisions at the moments that actually expose money, time, and reputation rather than after the deal has already hardened.
+              </p>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+    <section
+      class="relative overflow-hidden bg-black px-6 py-20 text-white md:px-10 lg:px-16"
+    >
+      <div
+        class="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.12),transparent_32%),linear-gradient(180deg,rgba(255,255,255,0.03)_0%,rgba(255,255,255,0)_44%)]"
+      />
+      <div
+        class="relative mx-auto grid max-w-6xl gap-12 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-start"
+      >
+        <div
+          style="opacity: 0; transform: translateY(24px);"
+        >
+          <p
+            class="font-mono text-[0.72rem] uppercase tracking-[0.28em] text-white/62"
+          >
+            Final CTA
+          </p>
+          <h2
+            class="mt-3 max-w-[10ch] text-3xl font-semibold tracking-[-0.04em] text-balance sm:text-4xl"
+          >
+            Enter the operating model.
+          </h2>
+          <p
+            class="mt-4 max-w-lg text-base leading-7 text-white/68"
+          >
+            Publicly, Gallagher Property Company leads with development and investment judgment. Internally, active projects run through Entitlement OS.
+          </p>
+        </div>
+        <div
+          class="space-y-5"
+          style="opacity: 0; transform: translateY(24px);"
+        >
+          <div
+            class="flex flex-col gap-3 sm:flex-row"
+          >
+            <div>
+              <a
+                class="inline-flex items-center justify-center whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 rounded-md h-12 bg-white px-5 text-sm font-semibold text-black hover:bg-white/90"
+                href="/login"
+              >
+                Enter Entitlement OS
+                <svg
+                  aria-hidden="true"
+                  class="lucide lucide-arrow-right ml-2 h-4 w-4"
+                  fill="none"
+                  height="24"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  viewBox="0 0 24 24"
+                  width="24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M5 12h14"
+                  />
+                  <path
+                    d="m12 5 7 7-7 7"
+                  />
+                </svg>
+              </a>
+            </div>
+            <div>
+              <a
+                class="inline-flex items-center justify-center whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border rounded-md h-12 border-white/20 bg-white/6 px-5 text-sm font-semibold text-white hover:bg-white/12 hover:text-white"
+                href="#top"
+              >
+                Back to top
+              </a>
+            </div>
+          </div>
+          <div
+            class="border-t border-white/14 pt-5"
+          >
+            <p
+              class="font-mono text-[0.72rem] uppercase tracking-[0.26em] text-white/58"
+            >
+              Gallagher Property Company
+            </p>
+            <p
+              class="mt-2 text-sm leading-6 text-white/62"
+            >
+              Baton Rouge, Louisiana. Commercial real estate development, investment, and entitlement execution.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+`;

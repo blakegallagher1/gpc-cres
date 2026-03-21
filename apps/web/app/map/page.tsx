@@ -814,7 +814,7 @@ export default function MapPage() {
 
   return (
     <DashboardShell noPadding>
-      <div className="map-page h-screen flex flex-col relative">
+      <div className="map-page relative flex h-[calc(100svh-var(--app-header-height))] flex-col overflow-hidden">
         {!loading && (
           <>
             <MapChatPanel
@@ -856,8 +856,18 @@ export default function MapPage() {
               }}
               selectedParcelIds={selectedParcelIds}
               searchSlot={
-                <>
-                  <h2 className="text-[10px] font-semibold uppercase tracking-wider text-map-text-muted mb-2">Parcel Search</h2>
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-map-text-muted">
+                      Parcel Search
+                    </p>
+                    <h2 className="text-sm font-semibold text-map-text-primary">
+                      Filter the active geography.
+                    </h2>
+                    <p className="text-[11px] leading-5 text-map-text-secondary">
+                      Search by address, parcel id, or owner, then draw a polygon when you need a tighter site set.
+                    </p>
+                  </div>
                   <form
                     onSubmit={handleSearchSubmit}
                     className="flex flex-col gap-1.5"
@@ -878,7 +888,7 @@ export default function MapPage() {
                             setActiveSuggestionIndex(-1);
                           }, 120);
                         }}
-                        placeholder="Search parcel address, d..."
+                        placeholder="Search parcel address or database id"
                         className="h-8 text-xs bg-map-surface border-map-border text-map-text-primary placeholder:text-map-text-muted"
                       />
                       {(isSuggestLoading || suggestions.length > 0) && (
@@ -909,33 +919,64 @@ export default function MapPage() {
                         </div>
                       )}
                     </div>
-                    <Button
-                      type="submit"
-                      size="sm"
-                      disabled={!searchText.trim()}
-                      onClick={submitSearch}
-                      className="map-btn h-7 text-xs"
-                    >
-                      {isSearchLoading ? (
-                        <span className="inline-flex items-center gap-2">
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                          Searching
-                        </span>
-                      ) : (
-                        <>
-                          <Search className="mr-1.5 h-3 w-3" />
-                          Search
-                        </>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="submit"
+                        size="sm"
+                        disabled={!searchText.trim()}
+                        onClick={submitSearch}
+                        className="map-btn h-7 flex-1 text-xs"
+                      >
+                        {isSearchLoading ? (
+                          <span className="inline-flex items-center gap-2">
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            Searching
+                          </span>
+                        ) : (
+                          <>
+                            <Search className="mr-1.5 h-3 w-3" />
+                            Search
+                          </>
+                        )}
+                      </Button>
+                      {polygon && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="map-btn h-7 text-xs"
+                          onClick={clearPolygon}
+                        >
+                          Clear draw
+                        </Button>
                       )}
-                    </Button>
+                    </div>
                   </form>
-                  <p className="text-[10px] map-text-secondary mt-1.5">
-                    {statusText}
-                    {!polygon && debouncedSearch && !loadError
-                      ? ` \u2022 ${searchMatchCount} matches \u2022 ${nearbyParcelCount} nearby (${SURROUNDING_PARCELS_RADIUS_MILES} mi)`
-                      : ""}
-                  </p>
-                </>
+                  <div className="grid grid-cols-3 gap-2 border-t border-map-border pt-3">
+                    <div>
+                      <div className="map-stat-label">Visible</div>
+                      <div className="map-stat-value">{activeParcels.length}</div>
+                    </div>
+                    <div>
+                      <div className="map-stat-label">Matches</div>
+                      <div className="map-stat-value">{searchMatchCount}</div>
+                    </div>
+                    <div>
+                      <div className="map-stat-label">Nearby</div>
+                      <div className="map-stat-value">{polygon ? "Drawn" : nearbyParcelCount}</div>
+                    </div>
+                  </div>
+                  <div className="space-y-1 border-t border-map-border pt-3">
+                    <p className="text-[10px] text-map-text-secondary">
+                      {statusText}
+                      {!polygon && debouncedSearch && !loadError
+                        ? ` \u2022 ${nearbyParcelCount} nearby within ${SURROUNDING_PARCELS_RADIUS_MILES} mi`
+                        : ""}
+                    </p>
+                    <p className="text-[10px] text-map-text-muted">
+                      Source: {source === "org-fallback" ? "Org fallback" : source === "property-db" ? "Property database" : "Org parcels"}
+                    </p>
+                  </div>
+                </div>
               }
             />
           </>

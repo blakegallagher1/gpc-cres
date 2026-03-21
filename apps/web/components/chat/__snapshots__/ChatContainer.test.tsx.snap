@@ -1,0 +1,229 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`ChatContainer > does not fetch a nonexistent conversation for a fresh websocket chat 1`] = `
+<div
+  class="relative flex min-h-[calc(100svh-var(--app-header-height))] overflow-hidden"
+>
+  <div
+    data-active-conversation-id=""
+    data-testid="conversation-sidebar"
+  />
+  <div
+    class="flex min-w-0 flex-1 flex-col lg:flex-row"
+  >
+    <div
+      class="flex min-w-0 flex-1 flex-col"
+    >
+      <div
+        class="border-b border-border/60 px-4 py-5 sm:px-6"
+      >
+        <div
+          class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between"
+        >
+          <div
+            class="space-y-2"
+          >
+            <div>
+              <p
+                class="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground"
+              >
+                Acquisition Desk
+              </p>
+              <h2
+                class="mt-1 text-xl font-semibold tracking-tight"
+              >
+                Run analysis against live deal context.
+              </h2>
+            </div>
+            <p
+              class="max-w-2xl text-sm text-muted-foreground"
+            >
+              Use the main thread for diligence, zoning, site feasibility, investment questions, and document-backed agent work.
+            </p>
+          </div>
+          <div
+            class="flex flex-col gap-3 lg:min-w-[24rem] xl:min-w-[28rem] xl:items-end"
+          >
+            <div
+              data-testid="deal-selector"
+            />
+            <div
+              class="app-shell-panel grid gap-3 rounded-2xl px-4 py-3 text-[11px] sm:grid-cols-2 xl:w-full"
+            >
+              <div>
+                <p
+                  class="font-mono uppercase tracking-[0.18em] text-muted-foreground"
+                >
+                  Scope
+                </p>
+                <p
+                  class="mt-1 text-sm font-medium text-foreground"
+                >
+                  No deal scope
+                </p>
+              </div>
+              <div>
+                <p
+                  class="font-mono uppercase tracking-[0.18em] text-muted-foreground"
+                >
+                  Thread
+                </p>
+                <p
+                  class="mt-1 text-sm font-medium text-foreground"
+                >
+                  Draft thread
+                </p>
+              </div>
+              <div>
+                <p
+                  class="font-mono uppercase tracking-[0.18em] text-muted-foreground"
+                >
+                  Attachments
+                </p>
+                <p
+                  class="mt-1 text-sm font-medium text-foreground"
+                >
+                  Select a deal
+                </p>
+              </div>
+              <div>
+                <p
+                  class="font-mono uppercase tracking-[0.18em] text-muted-foreground"
+                >
+                  Transport
+                </p>
+                <p
+                  class="mt-1 text-sm font-medium text-foreground"
+                >
+                  Live socket
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div
+        class="min-h-0 flex-1"
+      >
+        <div
+          data-conversation-id=""
+          data-testid="message-list"
+        />
+      </div>
+      <div
+        data-testid="chat-input"
+      />
+    </div>
+    <aside
+      class="hidden w-[22rem] border-l border-border/60 bg-background/68 backdrop-blur-xl lg:flex lg:flex-col"
+    >
+      <div
+        class="border-b border-border/60 px-5 py-5"
+      >
+        <p
+          class="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground"
+        >
+          Run State
+        </p>
+        <h3
+          class="mt-1 text-sm font-semibold tracking-tight"
+        >
+          Agent context and verification
+        </h3>
+        <p
+          class="mt-2 text-xs leading-5 text-muted-foreground"
+        >
+          Current agent, saved-thread status, and verification details update here as the run progresses.
+        </p>
+      </div>
+      <div
+        class="grid grid-cols-2 gap-3 border-b border-border/60 px-5 py-4 text-[11px]"
+      >
+        <div>
+          <p
+            class="font-mono uppercase tracking-[0.18em] text-muted-foreground"
+          >
+            Conversation
+          </p>
+          <p
+            class="mt-1 text-sm font-medium text-foreground"
+          >
+            Draft until first response
+          </p>
+        </div>
+        <div>
+          <p
+            class="font-mono uppercase tracking-[0.18em] text-muted-foreground"
+          >
+            Agent
+          </p>
+          <p
+            class="mt-1 text-sm font-medium text-foreground"
+          >
+            Awaiting input
+          </p>
+        </div>
+        <div>
+          <p
+            class="font-mono uppercase tracking-[0.18em] text-muted-foreground"
+          >
+            Attachments
+          </p>
+          <p
+            class="mt-1 text-sm font-medium text-foreground"
+          >
+            Select deal
+          </p>
+        </div>
+        <div>
+          <p
+            class="font-mono uppercase tracking-[0.18em] text-muted-foreground"
+          >
+            Recent
+          </p>
+          <p
+            class="mt-1 text-sm font-medium text-foreground"
+          >
+            No recents yet
+          </p>
+        </div>
+      </div>
+      <div
+        class="min-h-0 flex-1 overflow-y-auto px-5 py-5"
+      >
+        <div
+          class="space-y-3"
+        >
+          <div
+            class="app-shell-panel rounded-2xl px-4 py-4"
+          >
+            <p
+              class="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground"
+            >
+              Awaiting run output
+            </p>
+            <p
+              class="mt-2 text-sm text-foreground"
+            >
+              The verification panel will populate after the first agent response or tool event.
+            </p>
+          </div>
+          <div
+            class="space-y-2 text-xs leading-5 text-muted-foreground"
+          >
+            <p>
+              Use a linked deal to enable file upload and preserve run context.
+            </p>
+            <p>
+              Saved threads will appear in the conversation rail and can be reopened at any time.
+            </p>
+            <p>
+              Tool calls, missing evidence, and verification steps will accumulate in this panel as the run advances.
+            </p>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+`;

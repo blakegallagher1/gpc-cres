@@ -27,13 +27,22 @@ interface ChatInputProps {
   isStreaming: boolean;
   onStop: () => void;
   canAttachFiles?: boolean;
+  placeholder?: string;
+  helperText?: string;
+  submitLabel?: string;
 }
 
+/**
+ * Shared chat composer used across the primary chat and map copilot surfaces.
+ */
 export function ChatInput({
   onSend,
   isStreaming,
   onStop,
   canAttachFiles = false,
+  placeholder = "Ask something complex...",
+  helperText = "AI agents may make mistakes. Always verify critical data.",
+  submitLabel = "Send",
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -112,28 +121,26 @@ export function ChatInput({
 
   return (
     <form
-      className="relative bg-gradient-to-t from-[#0c0e14] to-[#0c0e14]/80 px-4 pb-4 pt-2"
+      className="relative border-t border-border/60 bg-background/78 px-4 pb-4 pt-3 backdrop-blur-xl"
       onSubmit={handleFormSubmit}
     >
-      {/* Subtle glow line */}
-      <div className="glow-line absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-blue-500/30 to-transparent" />
+      <div className="glow-line absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-foreground/20 to-transparent" />
 
-      {/* File preview strip */}
       {pendingFiles.length > 0 && (
         <div className="mx-auto mb-2 flex max-w-4xl flex-wrap gap-2">
           {pendingFiles.map((file, index) => (
             <div
               key={`${file.name}-${index}`}
-              className="flex items-center gap-1.5 rounded-lg border border-[#2a2f3e] bg-[#1a1d28] px-2.5 py-1.5 text-xs text-slate-300"
+              className="flex items-center gap-1.5 rounded-xl border border-border/70 bg-background/80 px-2.5 py-1.5 text-xs text-foreground/85"
             >
               <span className="max-w-[180px] truncate">{file.name}</span>
-              <span className="text-slate-500">
+              <span className="text-muted-foreground">
                 ({formatFileSize(file.size)})
               </span>
               <button
                 type="button"
                 onClick={() => removeFile(index)}
-                className="ml-1 text-slate-500 hover:text-slate-300"
+                className="ml-1 text-muted-foreground transition-colors hover:text-foreground"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -142,12 +149,12 @@ export function ChatInput({
         </div>
       )}
 
-      <div className="mx-auto flex w-full max-w-4xl items-end gap-3 rounded-xl border border-[#2a2f3e] bg-[#1a1d28]/80 px-3 py-2 shadow-lg backdrop-blur-md transition-colors focus-within:border-blue-500/30">
+      <div className="mx-auto flex w-full max-w-5xl items-end gap-3 rounded-[1.35rem] border border-border/70 bg-background/82 px-3 py-2 shadow-[0_20px_60px_-32px_rgba(15,23,42,0.4)] backdrop-blur-md transition-colors focus-within:border-foreground/20">
         {canAttachFiles && (
           <>
             <button
               type="button"
-              className="shrink-0 p-2 text-slate-500 transition-colors hover:text-slate-300 disabled:opacity-50"
+              className="shrink-0 p-2 text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
               onClick={() => fileInputRef.current?.click()}
               disabled={isStreaming || pendingFiles.length >= MAX_FILES}
               title={
@@ -174,10 +181,10 @@ export function ChatInput({
             ref={textareaRef}
             value={draft}
             rows={1}
-            placeholder="Ask something complex..."
+            placeholder={placeholder}
             className={cn(
               'w-full resize-none bg-transparent px-3 py-2 text-sm',
-              'text-slate-100 placeholder:text-slate-500',
+              'text-foreground placeholder:text-muted-foreground',
               'focus-visible:outline-none',
               'disabled:cursor-not-allowed disabled:opacity-50'
             )}
@@ -197,7 +204,7 @@ export function ChatInput({
           <Button
             size="sm"
             variant="destructive"
-            className="h-9 shrink-0 rounded-lg bg-red-900/80 px-4 hover:bg-red-800"
+            className="h-9 shrink-0 rounded-xl px-4"
             onClick={onStop}
           >
             <Square className="h-4 w-4" />
@@ -206,17 +213,17 @@ export function ChatInput({
         ) : (
           <Button
             size="sm"
-            className="h-9 shrink-0 rounded-lg bg-blue-600 px-4 shadow-lg shadow-blue-600/20 hover:bg-blue-500"
+            className="h-9 shrink-0 rounded-xl px-4"
             type="submit"
           >
             <ArrowUp className="mr-1.5 h-4 w-4" />
-            Send
+            {submitLabel}
           </Button>
         )}
       </div>
 
-      <p className="mx-auto mt-2 max-w-4xl text-center font-mono text-[10px] text-slate-600">
-        AI agents may make mistakes. Always verify critical data.
+      <p className="mx-auto mt-2 max-w-5xl text-center font-mono text-[10px] text-muted-foreground">
+        {helperText}
       </p>
     </form>
   );

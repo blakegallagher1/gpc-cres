@@ -14,6 +14,8 @@ const PUBLIC_PATHS = [
   "/api/health",    // Health check (public)
 ];
 
+const PUBLIC_FILE_PATTERN = /\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|bmp|txt|xml|webmanifest)$/i;
+
 function getAllowedOrigins(): Set<string> {
   const env = process.env.ALLOWED_CORS_ORIGINS;
   const origins = env
@@ -78,11 +80,20 @@ function handleApiCors(req: NextRequest, requestId: string): NextResponse {
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const requestId = getOrCreateRequestId(request);
+  const isHomepage = pathname === "/";
 
   try {
     // API routes: handle CORS only (auth is checked per-route by resolveAuth)
     if (pathname.startsWith("/api/")) {
       return handleApiCors(request, requestId);
+    }
+
+    if (isHomepage) {
+      return nextResponseWithRequestId(request, requestId);
+    }
+
+    if (PUBLIC_FILE_PATTERN.test(pathname)) {
+      return nextResponseWithRequestId(request, requestId);
     }
 
     // Dev bypass — never active in production
@@ -105,7 +116,7 @@ export async function proxy(request: NextRequest) {
     if (isPublic) {
       // Logged-in users on /login → redirect home
       if (pathname.startsWith("/login") && token) {
-        return finalizeResponse(NextResponse.redirect(new URL("/", request.url)), requestId);
+        return finalizeResponse(NextResponse.redirect(new URL("/chat", request.url)), requestId);
       }
       return nextResponseWithRequestId(request, requestId);
     }

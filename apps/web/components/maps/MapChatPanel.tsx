@@ -5,8 +5,8 @@ import {
   useRef,
   useState,
 } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Map, ChevronRight, ChevronLeft } from "lucide-react";
-import { Card } from "@/components/ui/card";
 import { MessageList } from "@/components/chat/MessageList";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { parseSSEStream } from "@/lib/chat/stream";
@@ -28,6 +28,7 @@ import type {
 } from "@/lib/chat/types";
 
 const PANEL_WIDTH = 420;
+const PANEL_TRANSITION = { duration: 0.28, ease: [0.22, 1, 0.36, 1] as const };
 
 interface MapChatPanelProps {
   parcelCount?: number;
@@ -35,11 +36,15 @@ interface MapChatPanelProps {
   viewportLabel?: string;
 }
 
+/**
+ * Slide-in copilot for map-specific parcel and location analysis.
+ */
 export function MapChatPanel({
   parcelCount,
   selectedCount,
   viewportLabel,
 }: MapChatPanelProps) {
+  const reduceMotion = useReducedMotion();
   const mapState = useMapChatState();
   const mapDispatch = useMapChatDispatch();
   const [open, setOpen] = useState(false);
@@ -163,63 +168,71 @@ export function MapChatPanel({
     <>
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="absolute right-0 top-4 z-30 flex items-center gap-1.5 rounded-l-lg border border-r-0 border-border bg-background px-3 py-2 text-sm font-medium shadow-md transition-colors hover:bg-muted"
+        onClick={() => setOpen((value) => !value)}
+        className="absolute right-0 top-5 z-30 flex items-center gap-2 rounded-l-2xl border border-r-0 border-map-border bg-map-surface-overlay px-3 py-2 text-sm font-medium text-map-text-primary shadow-xl backdrop-blur-md transition-colors hover:bg-map-surface"
         title={open ? "Close Map Copilot" : "Open Map Copilot"}
       >
         <Map className="h-4 w-4" />
         Map Copilot
-        {open ? (
-          <ChevronRight className="h-4 w-4" />
-        ) : (
-          <ChevronLeft className="h-4 w-4" />
-        )}
+        {open ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
       </button>
 
-      {open && (
-        <div
-          className="absolute right-0 top-0 z-20 flex h-full flex-col map-panel shadow-xl rounded-none"
-          style={{ width: PANEL_WIDTH }}
-        >
-          <Card className="flex h-full flex-col rounded-none border-0 bg-transparent">
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={reduceMotion ? false : { opacity: 0, x: PANEL_WIDTH * 0.18 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: PANEL_WIDTH * 0.18 }}
+            transition={PANEL_TRANSITION}
+            className="absolute right-0 top-0 z-20 flex h-full flex-col map-panel rounded-none shadow-2xl"
+            style={{ width: PANEL_WIDTH }}
+          >
             <div className="flex flex-1 flex-col overflow-hidden">
-              <div className="border-b px-4 py-2">
-                <h3 className="text-sm font-semibold map-text-primary">
-                  Map Copilot
-                </h3>
-                <p className="text-xs map-text-secondary">
-                  Path of progress, permit heatmaps, gentrification indicators
+              <div className="border-b border-map-border px-4 py-4">
+                <p className="text-[10px] font-mono uppercase tracking-[0.22em] text-map-text-muted">
+                  Parcel Copilot
                 </p>
-                <div className="mt-1 flex items-center gap-1.5">
-                  <span className="inline-flex items-center rounded-full bg-emerald-500/20 text-emerald-400 px-2 py-0.5 text-[10px] font-medium">
-                    {parcelCount ?? 0} Parcels
-                  </span>
-                  <span className="inline-flex items-center rounded-full bg-sky-500/20 text-sky-400 px-2 py-0.5 text-[10px] font-medium">
-                    {selectedCount ?? 0} Selected
-                  </span>
+                <h3 className="mt-1 text-sm font-semibold text-map-text-primary">
+                  Ask for zoning pressure, permit heat, and site-selection context.
+                </h3>
+                <div className="mt-3 flex items-center gap-4 text-[11px] text-map-text-secondary">
+                  <span>{parcelCount ?? 0} parcels in view</span>
+                  <span>{selectedCount ?? 0} selected</span>
                 </div>
                 {viewportLabel ? (
-                  <p className="text-[10px] map-text-muted mt-1">{viewportLabel}</p>
+                  <p className="mt-2 text-[10px] text-map-text-muted">{viewportLabel}</p>
                 ) : null}
               </div>
               <div className="min-h-0 flex-1 overflow-hidden">
                 <MessageList
                   messages={messages}
                   isStreaming={isStreaming}
-                  onSuggestionClick={(s) => handleSend(s)}
+                  onSuggestionClick={(suggestion) => handleSend(suggestion)}
+                  emptyState={{
+                    eyebrow: "Map copilot",
+                    title: "Ask the map to explain what this geography means.",
+                    description:
+                      "Use the copilot for parcel clusters, zoning patterns, permit momentum, and site-selection follow-up while you stay in the map.",
+                    suggestions: [
+                      "Show parcels over 5 acres in this area",
+                      "Explain zoning on the selected parcels",
+                      "Summarize permit activity nearby",
+                      "Flag likely development constraints",
+                    ],
+                  }}
                 />
               </div>
-              <div className="border-t p-3">
-                <ChatInput
-                  onSend={handleSend}
-                  isStreaming={isStreaming}
-                  onStop={handleStop}
-                />
-              </div>
+              <ChatInput
+                onSend={handleSend}
+                isStreaming={isStreaming}
+                onStop={handleStop}
+                placeholder="Ask the map copilot about this geography..."
+                helperText="Use the map context directly. Selected parcels and viewport state are included in the request."
+              />
             </div>
-          </Card>
-        </div>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

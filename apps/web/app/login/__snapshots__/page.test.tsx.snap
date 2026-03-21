@@ -1,0 +1,598 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`LoginPage > renders the branded landing layout for login 1`] = `
+<div
+  class="bg-background text-foreground"
+>
+  <section
+    class="relative isolate min-h-[100svh] overflow-hidden bg-black text-white"
+  >
+    <div
+      class="absolute inset-0"
+      style="transform: none;"
+    >
+      <img
+        alt="Commercial parcels, infrastructure, and industrial buildings at blue hour"
+        class="object-cover object-center"
+        sizes="100vw"
+        src="/images/entitlement-os-login-hero.png"
+      />
+    </div>
+    <div
+      class="absolute inset-0 bg-[linear-gradient(112deg,rgba(0,0,0,0.88)_0%,rgba(0,0,0,0.76)_28%,rgba(0,0,0,0.30)_58%,rgba(0,0,0,0.80)_100%)]"
+      style="opacity: 0.56;"
+    />
+    <div
+      class="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-black via-black/48 to-transparent"
+    />
+    <div
+      class="relative flex min-h-[100svh] items-end px-6 py-10 md:px-10 md:py-12 lg:px-16"
+    >
+      <div
+        class="grid w-full gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)] lg:items-end"
+      >
+        <div
+          class="max-w-xl space-y-8"
+        >
+          <div
+            class="flex items-center gap-4"
+            style="opacity: 0; transform: translateY(24px);"
+          >
+            <img
+              alt=""
+              class="h-12 w-12 rounded-2xl"
+              height="48"
+              src="/icon.svg"
+              width="48"
+            />
+            <div>
+              <p
+                class="font-mono text-[0.72rem] uppercase tracking-[0.28em] text-white/62"
+              >
+                Gallagher Property Company
+              </p>
+              <p
+                class="mt-1 text-sm text-white/74"
+              >
+                Commercial real estate operating system
+              </p>
+            </div>
+          </div>
+          <div
+            class="space-y-4"
+            style="opacity: 0; transform: translateY(24px);"
+          >
+            <h1
+              class="max-w-[8.5ch] text-5xl font-semibold tracking-[-0.05em] text-balance sm:text-6xl lg:text-7xl"
+            >
+              Entitlement OS
+            </h1>
+            <p
+              class="max-w-[16ch] text-3xl font-medium leading-tight tracking-[-0.04em] text-white/92 sm:text-4xl"
+            >
+              Know the site before the room does.
+            </p>
+            <p
+              class="max-w-lg text-base leading-7 text-white/72 sm:text-lg"
+            >
+              One operating system for parcel intelligence, zoning context, active workflows, and durable deal memory.
+            </p>
+          </div>
+          <div
+            style="opacity: 0; transform: translateY(24px);"
+          >
+            <div
+              class="flex flex-col gap-3 sm:flex-row"
+            >
+              <div>
+                <button
+                  class="inline-flex items-center justify-center whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 rounded-md h-12 min-w-[13rem] bg-white px-5 text-sm font-semibold text-black hover:bg-white/90"
+                >
+                  Sign in with Google
+                  <svg
+                    aria-hidden="true"
+                    class="lucide lucide-arrow-right ml-2 h-4 w-4"
+                    fill="none"
+                    height="24"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    viewBox="0 0 24 24"
+                    width="24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M5 12h14"
+                    />
+                    <path
+                      d="m12 5 7 7-7 7"
+                    />
+                  </svg>
+                </button>
+              </div>
+              <div>
+                <button
+                  class="inline-flex items-center justify-center whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border rounded-md h-12 min-w-[11rem] border-white/20 bg-white/6 px-5 text-sm font-semibold text-white hover:bg-white/12 hover:text-white"
+                >
+                  Use password
+                </button>
+              </div>
+            </div>
+          </div>
+          <p
+            class="max-w-md text-sm leading-6 text-white/58"
+            style="opacity: 0; transform: translateY(24px);"
+          >
+            Approved operators move directly into live parcels, evidence, workflows, and memory without leaving the working surface.
+          </p>
+        </div>
+        <div
+          class="hidden space-y-5 lg:block"
+          style="opacity: 0; transform: translateY(24px);"
+        >
+          <div
+            class="border-t border-white/16 pt-4"
+          >
+            <p
+              class="font-mono text-[0.72rem] uppercase tracking-[0.28em] text-white/56"
+            >
+              Live operating layers
+            </p>
+          </div>
+          <div
+            class="space-y-4"
+          >
+            <div
+              class="border-t border-white/12 pt-4"
+            >
+              <div
+                class="flex items-start justify-between gap-4"
+              >
+                <div>
+                  <p
+                    class="font-mono text-[0.68rem] uppercase tracking-[0.22em] text-white/48"
+                  >
+                    01
+                  </p>
+                  <h3
+                    class="mt-2 text-lg font-semibold tracking-[-0.03em] text-white/94"
+                  >
+                    Parcel scan
+                  </h3>
+                </div>
+                <span
+                  class="font-mono text-[0.68rem] uppercase tracking-[0.22em] text-white/40"
+                >
+                  Live
+                </span>
+              </div>
+              <p
+                class="mt-3 text-sm leading-6 text-white/62"
+              >
+                Ownership, adjacency, drainage, and immediate site risk remain visible from the first pass.
+              </p>
+            </div>
+            <div
+              class="border-t border-white/12 pt-4"
+            >
+              <div
+                class="flex items-start justify-between gap-4"
+              >
+                <div>
+                  <p
+                    class="font-mono text-[0.68rem] uppercase tracking-[0.22em] text-white/48"
+                  >
+                    02
+                  </p>
+                  <h3
+                    class="mt-2 text-lg font-semibold tracking-[-0.03em] text-white/94"
+                  >
+                    Entitlement read
+                  </h3>
+                </div>
+                <span
+                  class="font-mono text-[0.68rem] uppercase tracking-[0.22em] text-white/40"
+                >
+                  Live
+                </span>
+              </div>
+              <p
+                class="mt-3 text-sm leading-6 text-white/62"
+              >
+                Zoning posture, precedent, and process friction stay connected to the actual geography.
+              </p>
+            </div>
+            <div
+              class="border-t border-white/12 pt-4"
+            >
+              <div
+                class="flex items-start justify-between gap-4"
+              >
+                <div>
+                  <p
+                    class="font-mono text-[0.68rem] uppercase tracking-[0.22em] text-white/48"
+                  >
+                    03
+                  </p>
+                  <h3
+                    class="mt-2 text-lg font-semibold tracking-[-0.03em] text-white/94"
+                  >
+                    Run coordination
+                  </h3>
+                </div>
+                <span
+                  class="font-mono text-[0.68rem] uppercase tracking-[0.22em] text-white/40"
+                >
+                  Live
+                </span>
+              </div>
+              <p
+                class="mt-3 text-sm leading-6 text-white/62"
+              >
+                Evidence, agent execution, and saved threads stay attached to the deal instead of splintering.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <main>
+    <section
+      class="border-b border-border bg-background px-6 py-20 md:px-10 lg:px-16"
+    >
+      <div
+        class="mx-auto max-w-6xl"
+      >
+        <div
+          class="max-w-2xl"
+          style="opacity: 0; transform: translateY(24px);"
+        >
+          <p
+            class="font-mono text-[0.72rem] uppercase tracking-[0.28em] text-muted-foreground"
+          >
+            Support
+          </p>
+          <h2
+            class="mt-3 max-w-[13ch] text-3xl font-semibold tracking-[-0.04em] text-balance sm:text-4xl"
+          >
+            Three live layers before the first call.
+          </h2>
+          <p
+            class="mt-4 max-w-2xl text-base leading-7 text-muted-foreground"
+          >
+            Parcel intelligence, entitlement context, and workflow memory arrive in one readable pass.
+          </p>
+        </div>
+        <div
+          class="mt-12 grid gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-start"
+        >
+          <figure
+            class="relative min-h-[24rem] overflow-hidden rounded-[2rem] border border-border/70 bg-muted/40"
+            style="opacity: 0; transform: translateY(24px);"
+          >
+            <img
+              alt="Industrial corridor and adjacent parcels at sunrise"
+              class="object-cover object-center"
+              sizes="(min-width: 1024px) 52vw, 100vw"
+              src="/images/gpc-home-hero.png"
+            />
+            <div
+              class="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.06)_0%,rgba(15,23,42,0.16)_36%,rgba(15,23,42,0.78)_100%)]"
+            />
+            <div
+              class="absolute inset-x-0 bottom-0 p-6 md:p-8"
+            >
+              <p
+                class="font-mono text-[0.68rem] uppercase tracking-[0.24em] text-white/64"
+              >
+                Field context
+              </p>
+              <h3
+                class="mt-3 max-w-md text-2xl font-semibold tracking-[-0.04em] text-white sm:text-[2rem]"
+              >
+                Read the physical story before the memo starts writing itself.
+              </h3>
+              <p
+                class="mt-4 max-w-lg text-sm leading-6 text-white/74"
+              >
+                Land, frontage, drainage, access, and neighboring industrial activity stay visible while the team decides whether the next hour of diligence is worth taking.
+              </p>
+            </div>
+          </figure>
+          <div
+            class="divide-y divide-border border-y border-border"
+          >
+            <article
+              class="py-6 first:pt-0 last:pb-0 md:py-7"
+              style="opacity: 0; transform: translateY(24px);"
+            >
+              <p
+                class="font-mono text-[0.7rem] uppercase tracking-[0.24em] text-muted-foreground"
+              >
+                Parcel intelligence
+              </p>
+              <h3
+                class="mt-3 text-xl font-semibold tracking-[-0.03em]"
+              >
+                Read the site before the first tour.
+              </h3>
+              <p
+                class="mt-3 max-w-sm text-sm leading-6 text-muted-foreground"
+              >
+                Boundary, ownership, adjacency, and surface-level risk stay visible while the opportunity is still moving fast.
+              </p>
+            </article>
+            <article
+              class="py-6 first:pt-0 last:pb-0 md:py-7"
+              style="opacity: 0; transform: translateY(24px);"
+            >
+              <p
+                class="font-mono text-[0.7rem] uppercase tracking-[0.24em] text-muted-foreground"
+              >
+                Entitlement context
+              </p>
+              <h3
+                class="mt-3 text-xl font-semibold tracking-[-0.03em]"
+              >
+                Bring zoning and precedent into the same working pass.
+              </h3>
+              <p
+                class="mt-3 max-w-sm text-sm leading-6 text-muted-foreground"
+              >
+                Jurisdiction signals, process detail, and comparable pathfinding show up before outside spend compounds.
+              </p>
+            </article>
+            <article
+              class="py-6 first:pt-0 last:pb-0 md:py-7"
+              style="opacity: 0; transform: translateY(24px);"
+            >
+              <p
+                class="font-mono text-[0.7rem] uppercase tracking-[0.24em] text-muted-foreground"
+              >
+                Workflow memory
+              </p>
+              <h3
+                class="mt-3 text-xl font-semibold tracking-[-0.03em]"
+              >
+                Keep the operating thread attached to the deal.
+              </h3>
+              <p
+                class="mt-3 max-w-sm text-sm leading-6 text-muted-foreground"
+              >
+                Evidence, agent runs, and execution context persist with the opportunity instead of dissolving into inbox noise.
+              </p>
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section
+      class="relative overflow-hidden bg-[linear-gradient(180deg,rgba(255,255,255,0)_0%,rgba(15,23,42,0.04)_24%,rgba(255,255,255,0)_100%)] px-6 py-20 md:px-10 lg:px-16"
+    >
+      <div
+        class="absolute inset-x-0 top-0 h-px bg-border"
+      />
+      <div
+        class="mx-auto grid max-w-6xl gap-12 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:items-start"
+      >
+        <div
+          class="max-w-lg lg:sticky lg:top-12"
+          style="opacity: 0; transform: translateY(24px);"
+        >
+          <p
+            class="font-mono text-[0.72rem] uppercase tracking-[0.28em] text-muted-foreground"
+          >
+            Detail
+          </p>
+          <h2
+            class="mt-3 max-w-[12ch] text-3xl font-semibold tracking-[-0.04em] text-balance sm:text-4xl"
+          >
+            From parcel scan to active deal room.
+          </h2>
+          <p
+            class="mt-4 text-base leading-7 text-muted-foreground"
+          >
+            Entitlement OS keeps the research, execution, and memory trail attached to the opportunity while the deal is still moving.
+          </p>
+        </div>
+        <div
+          class="space-y-8"
+        >
+          <article
+            class="grid gap-4 border-t border-border pt-5 md:grid-cols-[auto_1fr]"
+            style="opacity: 0; transform: translateY(24px);"
+          >
+            <p
+              class="font-mono text-sm uppercase tracking-[0.26em] text-muted-foreground"
+            >
+              01
+            </p>
+            <div>
+              <h3
+                class="text-xl font-semibold tracking-[-0.03em]"
+              >
+                Scan the parcel
+              </h3>
+              <p
+                class="mt-3 max-w-xl text-sm leading-6 text-muted-foreground"
+              >
+                Open with parcel context, ownership shape, and immediate site risk so the first call starts on facts, not speculation.
+              </p>
+            </div>
+          </article>
+          <article
+            class="grid gap-4 border-t border-border pt-5 md:grid-cols-[auto_1fr]"
+            style="opacity: 0; transform: translateY(24px);"
+          >
+            <p
+              class="font-mono text-sm uppercase tracking-[0.26em] text-muted-foreground"
+            >
+              02
+            </p>
+            <div>
+              <h3
+                class="text-xl font-semibold tracking-[-0.03em]"
+              >
+                Read the entitlement path
+              </h3>
+              <p
+                class="mt-3 max-w-xl text-sm leading-6 text-muted-foreground"
+              >
+                Layer zoning posture, process friction, and precedent into one operating view before capital and counsel are committed.
+              </p>
+            </div>
+          </article>
+          <article
+            class="grid gap-4 border-t border-border pt-5 md:grid-cols-[auto_1fr]"
+            style="opacity: 0; transform: translateY(24px);"
+          >
+            <p
+              class="font-mono text-sm uppercase tracking-[0.26em] text-muted-foreground"
+            >
+              03
+            </p>
+            <div>
+              <h3
+                class="text-xl font-semibold tracking-[-0.03em]"
+              >
+                Coordinate the work
+              </h3>
+              <p
+                class="mt-3 max-w-xl text-sm leading-6 text-muted-foreground"
+              >
+                Move from research into workflows, approvals, evidence packaging, and agent execution without switching surfaces.
+              </p>
+            </div>
+          </article>
+          <article
+            class="grid gap-4 border-t border-border pt-5 md:grid-cols-[auto_1fr]"
+            style="opacity: 0; transform: translateY(24px);"
+          >
+            <p
+              class="font-mono text-sm uppercase tracking-[0.26em] text-muted-foreground"
+            >
+              04
+            </p>
+            <div>
+              <h3
+                class="text-xl font-semibold tracking-[-0.03em]"
+              >
+                Preserve the learning
+              </h3>
+              <p
+                class="mt-3 max-w-xl text-sm leading-6 text-muted-foreground"
+              >
+                Capture decisions, artifacts, and durable memory so each deal improves the next one instead of restarting from scratch.
+              </p>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+    <section
+      class="relative overflow-hidden bg-black px-6 py-20 text-white md:px-10 lg:px-16"
+    >
+      <div
+        class="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.12),transparent_32%),linear-gradient(180deg,rgba(255,255,255,0.03)_0%,rgba(255,255,255,0)_44%)]"
+      />
+      <div
+        class="relative mx-auto grid max-w-6xl gap-12 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:items-start"
+      >
+        <div
+          style="opacity: 0; transform: translateY(24px);"
+        >
+          <p
+            class="font-mono text-[0.72rem] uppercase tracking-[0.28em] text-white/62"
+          >
+            Final CTA
+          </p>
+          <h2
+            class="mt-3 max-w-[12ch] text-3xl font-semibold tracking-[-0.04em] text-balance sm:text-4xl"
+          >
+            Enter the operating system.
+          </h2>
+          <p
+            class="mt-4 max-w-lg text-base leading-7 text-white/68"
+          >
+            Approved teams can move straight into live parcels, workflows, evidence, and memory capture from the same surface.
+          </p>
+          <div
+            class="mt-8 space-y-3 border-t border-white/12 pt-6"
+          >
+            <p
+              class="max-w-lg text-sm leading-6 text-white/56"
+            >
+              Google OAuth remains the default entry point for approved operators.
+            </p>
+            <p
+              class="max-w-lg text-sm leading-6 text-white/56"
+            >
+              Credential sign-in stays available as a fallback without changing the working surface.
+            </p>
+            <p
+              class="max-w-lg text-sm leading-6 text-white/56"
+            >
+              Saved threads, live parcels, and uploaded evidence persist into the next authenticated route.
+            </p>
+          </div>
+        </div>
+        <div
+          class="space-y-6"
+          style="opacity: 0; transform: translateY(24px);"
+        >
+          <div
+            class="flex flex-col gap-3 sm:flex-row"
+          >
+            <div>
+              <button
+                class="inline-flex items-center justify-center whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 rounded-md h-12 min-w-[13rem] bg-white px-5 text-sm font-semibold text-black hover:bg-white/90"
+              >
+                Sign in with Google
+                <svg
+                  aria-hidden="true"
+                  class="lucide lucide-arrow-right ml-2 h-4 w-4"
+                  fill="none"
+                  height="24"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  viewBox="0 0 24 24"
+                  width="24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M5 12h14"
+                  />
+                  <path
+                    d="m12 5 7 7-7 7"
+                  />
+                </svg>
+              </button>
+            </div>
+            <div>
+              <button
+                class="inline-flex items-center justify-center whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border rounded-md h-12 min-w-[11rem] border-white/20 bg-white/6 px-5 text-sm font-semibold text-white hover:bg-white/12 hover:text-white"
+              >
+                Use password
+              </button>
+            </div>
+          </div>
+          <div
+            class="border-t border-white/15 pt-6"
+          >
+            <button
+              class="font-mono text-xs uppercase tracking-[0.26em] text-white/72 transition-colors hover:text-white"
+              type="button"
+            >
+              Use credential sign-in
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+`;
