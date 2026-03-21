@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import useSWR from "swr";
 import { BuildingPermitsDashboard } from "@/components/market/BuildingPermitsDashboard";
 import { DashboardShell } from "@/components/layout/DashboardShell";
+import { WorkspaceHeader, WorkspaceToolbar } from "@/components/layout/WorkspaceHeader";
 import {
   Card,
   CardContent,
@@ -615,25 +616,39 @@ export default function MarketPage() {
 
   return (
     <DashboardShell>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Market Intelligence</h1>
-            <p className="text-sm text-muted-foreground">
-              Parish-level market data, comp sales, listings, live permit intelligence, and trends
-            </p>
-          </div>
-        </div>
+      <div className="workspace-page">
+        <WorkspaceHeader
+          eyebrow="Market desk"
+          title="Market Intelligence"
+          description="Parish-level market data, comp sales, listings, live permit intelligence, and trends"
+          stats={[
+            {
+              label: "Tracked parishes",
+              value: String(PARISHES.length),
+              detail: "Regional coverage across the active monitoring footprint.",
+            },
+            {
+              label: "Data lanes",
+              value: String(DATA_TYPES.length),
+              detail: "Sales, listings, permits, vacancy, and rent signals in one desk.",
+            },
+            {
+              label: "Current parish",
+              value: selectedParish,
+              detail: "Primary dashboard focus for the live summary and trend views.",
+            },
+          ]}
+        />
 
-        <Tabs defaultValue="parish" className="space-y-4">
-          <TabsList>
+        <Tabs defaultValue="parish" className="space-y-5">
+          <TabsList className="w-full justify-start overflow-x-auto">
             <TabsTrigger value="parish">Parish Dashboard</TabsTrigger>
             <TabsTrigger value="permits">Live Permits</TabsTrigger>
             <TabsTrigger value="feed">Recent Activity</TabsTrigger>
           </TabsList>
 
           <TabsContent value="parish" className="space-y-4">
-            <div className="flex items-center gap-3">
+            <WorkspaceToolbar>
               <Select
                 value={selectedParish}
                 onValueChange={setSelectedParish}
@@ -649,7 +664,7 @@ export default function MarketPage() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
+            </WorkspaceToolbar>
 
             <ParishDashboard parish={selectedParish} />
           </TabsContent>
@@ -659,7 +674,7 @@ export default function MarketPage() {
           </TabsContent>
 
           <TabsContent value="feed" className="space-y-4">
-            <div className="flex items-center gap-2">
+            <WorkspaceToolbar>
               <Button
                 variant={feedFilter === undefined ? "default" : "outline"}
                 size="sm"
@@ -677,7 +692,7 @@ export default function MarketPage() {
                   {dt.label}
                 </Button>
               ))}
-            </div>
+            </WorkspaceToolbar>
 
             <RecentFeed dataType={feedFilter} />
           </TabsContent>

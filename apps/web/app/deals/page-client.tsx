@@ -12,6 +12,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
+import { WorkspaceHeader, WorkspaceToolbar } from "@/components/layout/WorkspaceHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -378,6 +379,11 @@ function DealsPageContent({
       return true;
     });
   }, [deals, triageDecisionFilter, triageNeedsReviewOnly, triageMinScore, triageMaxScore]);
+  const activeFilterCount = [
+    statusFilter !== "all",
+    skuFilter !== "all",
+    search.trim().length > 0,
+  ].filter(Boolean).length;
 
   const hasLoadedRef = useRef(false);
   useEffect(() => {
@@ -391,15 +397,27 @@ function DealsPageContent({
   if (triageMode) {
     return (
       <DashboardShell>
-        <div className="space-y-6">
-          <div>
-            <h1 className="text-2xl font-bold">Triage Queue</h1>
-            <p className="text-sm text-muted-foreground">
-              Card-based triage queue with decision and score filters.
-            </p>
-          </div>
+        <div className="workspace-page">
+          <WorkspaceHeader
+            eyebrow="Decision desk"
+            title="Triage Queue"
+            description="Review score bands, operator holds, and the deals that need a decision before they move deeper into the pipeline."
+            stats={[
+              {
+                label: "Queue size",
+                value: String(triageModeDeals.length),
+                detail: "Deals currently visible after triage-specific filtering.",
+              },
+              {
+                label: "Review only",
+                value: triageNeedsReviewOnly ? "On" : "Off",
+                detail: "Restrict the queue to HOLD items that still need operator review.",
+                tone: triageNeedsReviewOnly ? "critical" : "default",
+              },
+            ]}
+          />
 
-          <div className="flex flex-wrap items-center gap-3">
+          <WorkspaceToolbar>
             <Select
               value={triageDecisionFilter}
               onValueChange={(value) =>
@@ -454,7 +472,7 @@ function DealsPageContent({
             >
               Exit Triage View
             </Button>
-          </div>
+          </WorkspaceToolbar>
 
           {loading ? (
             <Card>
@@ -536,25 +554,43 @@ function DealsPageContent({
 
   return (
     <DashboardShell>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Deals</h1>
-            <p className="text-sm text-muted-foreground">
-              Manage entitlement deals across your pipeline.
-            </p>
-          </div>
-          <Button asChild className="gap-2">
-            <Link href="/deals/new">
-              <Plus className="h-4 w-4" />
-              New Deal
-            </Link>
-          </Button>
-        </div>
+      <div className="workspace-page">
+        <WorkspaceHeader
+          eyebrow="Pipeline desk"
+          title="Deals"
+          description="Manage entitlement deals across the live pipeline, filter quickly, and move straight into the active file."
+          actions={
+            <Button asChild className="gap-2">
+              <Link href="/deals/new">
+                <Plus className="h-4 w-4" />
+                New Deal
+              </Link>
+            </Button>
+          }
+          stats={[
+            {
+              label: "Loaded deals",
+              value: deals.length.toLocaleString(),
+              detail: "Current result set after server and client-side filtering.",
+            },
+            {
+              label: "Active filters",
+              value: String(activeFilterCount),
+              detail:
+                activeFilterCount > 0
+                  ? "Status, SKU, or search constraints are active."
+                  : "Showing the full default pipeline view.",
+            },
+            {
+              label: "Selected",
+              value: String(selectedIds.size),
+              detail: "Rows ready for bulk status updates or deletion.",
+              tone: selectedIds.size > 0 ? "critical" : "default",
+            },
+          ]}
+        />
 
-        {/* Filters */}
-        <div className="flex flex-wrap items-center gap-3">
+        <WorkspaceToolbar>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-[160px]">
               <SelectValue placeholder="All statuses" />
@@ -619,7 +655,7 @@ function DealsPageContent({
               </div>
             )}
 
-            <div className="flex rounded-md border">
+            <div className="app-shell-panel flex rounded-xl">
               <Button
                 variant="ghost"
                 size="icon"
@@ -650,7 +686,7 @@ function DealsPageContent({
               </Button>
             </div>
           </div>
-        </div>
+        </WorkspaceToolbar>
 
         {search.trim() && searchPreview.length > 0 && (
           <Card>

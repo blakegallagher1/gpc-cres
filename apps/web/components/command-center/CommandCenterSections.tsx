@@ -46,7 +46,7 @@ function Surface({ title, description, action, children, className }: SurfacePro
   return (
     <section
       className={cn(
-        "rounded-2xl border border-border/70 bg-background/90 p-5 shadow-sm",
+        "workspace-surface rounded-2xl p-5 shadow-none",
         className,
       )}
     >
@@ -84,7 +84,7 @@ export function CommandCenterMetricStrip({
       {items.map((item) => (
         <div
           key={item.label}
-          className="rounded-2xl border border-border/70 bg-muted/30 px-4 py-4"
+          className="workspace-surface workspace-surface-muted rounded-2xl px-4 py-4 shadow-none"
         >
           {isLoading ? (
             <div className="space-y-2">

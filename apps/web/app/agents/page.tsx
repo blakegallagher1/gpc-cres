@@ -11,6 +11,7 @@ import {
   Settings,
 } from "lucide-react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
+import { WorkspaceHeader, WorkspaceToolbar } from "@/components/layout/WorkspaceHeader";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,6 +48,8 @@ export default function AgentsPage() {
   const [runInput, setRunInput] = useState("");
   const { runAgent, isLoading } = useAgentStore();
   const { agents, isLoading: agentsLoading } = useAgents();
+  const activeAgents = agents.filter((agent) => agent.status === "active").length;
+  const configuredTools = agents.reduce((sum, agent) => sum + agent.tools.length, 0);
 
   const filteredAgents = agents.filter((agent) => {
     const matchesSearch =
@@ -78,19 +81,36 @@ export default function AgentsPage() {
 
   return (
     <DashboardShell>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Agent Library</h1>
-            <p className="text-muted-foreground">
-              {agentsLoading ? "Loading agents..." : `${agents.length} specialized agents available`}
-            </p>
-          </div>
-        </div>
+      <div className="workspace-page">
+        <WorkspaceHeader
+          eyebrow="Automation desk"
+          title="Agent Library"
+          description={
+            agentsLoading
+              ? "Loading the current agent roster."
+              : `${agents.length} specialized agents available for orchestration, monitoring, and handoff work.`
+          }
+          stats={[
+            {
+              label: "Roster size",
+              value: String(agents.length),
+              detail: "Configured agents currently available in the library.",
+            },
+            {
+              label: "Active now",
+              value: String(activeAgents),
+              detail: "Agents currently marked active and ready for live work.",
+              tone: activeAgents > 0 ? "positive" : "default",
+            },
+            {
+              label: "Tool surface",
+              value: String(configuredTools),
+              detail: "Total tools attached across the visible agent fleet.",
+            },
+          ]}
+        />
 
-        {/* Filters */}
-        <div className="flex flex-col gap-3 sm:flex-row">
+        <WorkspaceToolbar className="flex-col items-stretch sm:flex-row">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -121,20 +141,19 @@ export default function AgentsPage() {
               <SelectItem value="error">Error</SelectItem>
             </SelectContent>
           </Select>
-        </div>
+        </WorkspaceToolbar>
 
-        {/* Agent Grid */}
         <div className="grid gap-4 md:grid-cols-2">
           {filteredAgents.map((agent) => (
             <Card
               key={agent.id}
-              className="group transition-all hover:border-primary/50 hover:shadow-md"
+              className="group transition-all hover:-translate-y-0.5 hover:border-primary/35"
             >
               <CardHeader className="pb-4">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-4">
                     <div
-                      className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl"
+                      className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-border/60 bg-background/65"
                       style={{ backgroundColor: `${agent.color}20` }}
                     >
                       <Bot
@@ -155,7 +174,7 @@ export default function AgentsPage() {
                     variant={agent.status === "active" ? "default" : "secondary"}
                     className={
                       agent.status === "active"
-                        ? "bg-green-500/10 text-green-500 hover:bg-green-500/20"
+                        ? "bg-green-500/10 text-green-600 hover:bg-green-500/20 dark:text-green-400"
                         : ""
                     }
                   >

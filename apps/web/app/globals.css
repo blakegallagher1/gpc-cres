@@ -68,6 +68,11 @@
   --sidebar-accent-foreground: 0.141 0.005 285.82;
   --sidebar-border: 0.92 0.004 286.32;
   --sidebar-ring: 0.871 0.006 286.29;
+  --shell-glow: 0.93 0.02 213.64;
+  --shell-surface: 0.994 0.002 286.32;
+  --shell-surface-elevated: 0.978 0.004 286.24;
+  --shell-line: 0.87 0.01 258.34;
+  --shell-grid: 0.53 0.016 285.94;
 }
 
 .dark {
@@ -98,31 +103,46 @@
   --sidebar-accent-foreground: 0.985 0 0;
   --sidebar-border: 0.218 0.006 285.75;
   --sidebar-ring: 0.871 0.006 286.29;
+  --shell-glow: 0.38 0.03 252.91;
+  --shell-surface: 0.218 0.006 285.75;
+  --shell-surface-elevated: 0.266 0.008 284.97;
+  --shell-line: 0.36 0.008 281.42;
+  --shell-grid: 0.72 0.01 285.96;
 }
 
 * {
   border-color: var(--color-border);
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
-  background-color: var(--color-background);
+  min-height: 100svh;
+  background:
+    radial-gradient(circle at top left, oklch(var(--shell-glow) / 0.16), transparent 26%),
+    radial-gradient(circle at 82% 12%, oklch(var(--shell-glow) / 0.09), transparent 22%),
+    linear-gradient(180deg, oklch(var(--color-background)), oklch(var(--shell-surface-elevated)) 140%);
   color: var(--color-foreground);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
 
 .app-shell {
   position: relative;
   isolation: isolate;
   background:
-    radial-gradient(circle at top left, oklch(var(--muted) / 0.85), transparent 28%),
-    radial-gradient(circle at bottom right, oklch(var(--secondary) / 0.72), transparent 24%),
-    linear-gradient(180deg, oklch(var(--background)), oklch(var(--muted) / 0.36) 130%);
+    radial-gradient(circle at top left, oklch(var(--shell-glow) / 0.2), transparent 24%),
+    radial-gradient(circle at bottom right, oklch(var(--shell-glow) / 0.1), transparent 22%),
+    linear-gradient(180deg, oklch(var(--color-background)), oklch(var(--shell-surface-elevated)) 130%);
 }
 
 .dark .app-shell {
   background:
-    radial-gradient(circle at top left, oklch(var(--foreground) / 0.035), transparent 26%),
-    radial-gradient(circle at bottom right, oklch(var(--muted) / 0.22), transparent 22%),
-    linear-gradient(180deg, oklch(var(--background)), oklch(var(--card)) 110%);
+    radial-gradient(circle at top left, oklch(var(--shell-glow) / 0.22), transparent 22%),
+    radial-gradient(circle at bottom right, oklch(var(--shell-glow) / 0.12), transparent 18%),
+    linear-gradient(180deg, oklch(var(--color-background)), oklch(var(--shell-surface)) 115%);
 }
 
 .app-shell::before {
@@ -132,10 +152,11 @@ body {
   z-index: -2;
   pointer-events: none;
   background-image:
-    linear-gradient(to right, oklch(var(--border) / 0.12) 1px, transparent 1px),
-    linear-gradient(to bottom, oklch(var(--border) / 0.12) 1px, transparent 1px);
-  background-size: 96px 96px;
-  opacity: 0.35;
+    linear-gradient(to right, oklch(var(--shell-grid) / 0.16) 1px, transparent 1px),
+    linear-gradient(to bottom, oklch(var(--shell-grid) / 0.16) 1px, transparent 1px);
+  background-size: 80px 80px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.82), transparent 92%);
+  opacity: 0.4;
 }
 
 .app-shell::after {
@@ -144,17 +165,158 @@ body {
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background: linear-gradient(180deg, transparent, oklch(var(--background) / 0.12));
+  background:
+    linear-gradient(180deg, transparent, oklch(var(--color-background) / 0.18)),
+    radial-gradient(circle at center, transparent 38%, oklch(var(--color-background) / 0.16) 100%);
 }
 
 .app-shell-panel {
-  background: oklch(var(--background) / 0.74);
-  border: 1px solid oklch(var(--border) / 0.65);
-  backdrop-filter: blur(18px);
+  background:
+    linear-gradient(180deg, oklch(var(--shell-surface) / 0.9), oklch(var(--color-background) / 0.76)),
+    linear-gradient(180deg, oklch(var(--shell-line) / 0.08), transparent);
+  border: 1px solid oklch(var(--shell-line) / 0.42);
+  box-shadow:
+    0 18px 48px -34px rgba(15, 23, 42, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(20px);
 }
 
 .dark .app-shell-panel {
-  background: oklch(var(--card) / 0.64);
+  background:
+    linear-gradient(180deg, oklch(var(--shell-surface-elevated) / 0.88), oklch(var(--shell-surface) / 0.8)),
+    linear-gradient(180deg, oklch(var(--shell-line) / 0.14), transparent);
+}
+
+.workspace-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding-bottom: 2rem;
+}
+
+.workspace-hero {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid oklch(var(--shell-line) / 0.42);
+  border-radius: 1.75rem;
+  padding: 1.25rem;
+  background:
+    radial-gradient(circle at top left, oklch(var(--shell-glow) / 0.12), transparent 28%),
+    linear-gradient(180deg, oklch(var(--shell-surface) / 0.92), oklch(var(--color-background) / 0.86));
+  box-shadow: 0 18px 60px -42px rgba(15, 23, 42, 0.44);
+}
+
+.workspace-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(to right, oklch(var(--shell-grid) / 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, oklch(var(--shell-grid) / 0.08) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: linear-gradient(135deg, rgba(0, 0, 0, 0.76), transparent 88%);
+}
+
+.dark .workspace-hero {
+  background:
+    radial-gradient(circle at top left, oklch(var(--shell-glow) / 0.18), transparent 24%),
+    linear-gradient(180deg, oklch(var(--shell-surface-elevated) / 0.92), oklch(var(--color-background) / 0.9));
+}
+
+.workspace-hero-grid {
+  position: relative;
+  display: grid;
+  gap: 1rem;
+}
+
+.workspace-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: oklch(var(--muted-foreground));
+}
+
+.workspace-title {
+  max-width: 18ch;
+  font-size: clamp(2rem, 3vw, 3.5rem);
+  font-weight: 600;
+  letter-spacing: -0.05em;
+  line-height: 0.96;
+  text-wrap: balance;
+}
+
+.workspace-subtitle {
+  max-width: 48rem;
+  font-size: 0.95rem;
+  line-height: 1.7;
+  color: oklch(var(--muted-foreground));
+}
+
+.workspace-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  border: 1px solid oklch(var(--shell-line) / 0.38);
+  border-radius: 1.25rem;
+  padding: 0.875rem 1rem;
+  background:
+    linear-gradient(180deg, oklch(var(--shell-surface) / 0.88), oklch(var(--color-background) / 0.76));
+  box-shadow: 0 18px 48px -36px rgba(15, 23, 42, 0.38);
+  backdrop-filter: blur(18px);
+}
+
+.workspace-stat-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.workspace-stat {
+  min-width: 0;
+  border: 1px solid oklch(var(--shell-line) / 0.36);
+  border-radius: 1.25rem;
+  padding: 0.95rem 1rem;
+  background: oklch(var(--color-background) / 0.54);
+  backdrop-filter: blur(16px);
+}
+
+.workspace-stat-label {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: oklch(var(--muted-foreground));
+}
+
+.workspace-stat-value {
+  margin-top: 0.45rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  color: oklch(var(--foreground));
+}
+
+.workspace-stat-detail {
+  margin-top: 0.45rem;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: oklch(var(--muted-foreground));
+}
+
+.workspace-surface {
+  border: 1px solid oklch(var(--shell-line) / 0.38);
+  border-radius: 1.5rem;
+  background:
+    linear-gradient(180deg, oklch(var(--shell-surface) / 0.88), oklch(var(--color-background) / 0.8));
+  box-shadow: 0 18px 48px -36px rgba(15, 23, 42, 0.35);
+  backdrop-filter: blur(18px);
+}
+
+.workspace-surface-muted {
+  background:
+    linear-gradient(180deg, oklch(var(--muted) / 0.42), oklch(var(--color-background) / 0.8));
 }
 
 .chat-thread-surface {
@@ -375,4 +537,29 @@ body {
 
 .upload-zone-breathe {
   animation: border-breathe 3s ease-in-out infinite;
+}
+
+::selection {
+  background: oklch(var(--primary) / 0.18);
+}
+
+@media (min-width: 1024px) {
+  .workspace-hero {
+    padding: 1.5rem 1.75rem;
+  }
+
+  .workspace-hero-grid {
+    grid-template-columns: minmax(0, 1.4fr) minmax(20rem, 0.9fr);
+    align-items: end;
+  }
+
+  .workspace-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }

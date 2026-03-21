@@ -1,0 +1,90 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`WorkspaceHeader > renders the shared workspace hero with actions and summary stats 1`] = `
+<section
+  class="workspace-hero"
+>
+  <div
+    class="workspace-hero-grid"
+  >
+    <div
+      class="space-y-5"
+    >
+      <div
+        class="space-y-3"
+      >
+        <p
+          class="workspace-eyebrow"
+        >
+          Pipeline desk
+        </p>
+        <div
+          class="space-y-3"
+        >
+          <h1
+            class="workspace-title"
+          >
+            Deals
+          </h1>
+          <p
+            class="workspace-subtitle"
+          >
+            Manage entitlement deals across the live pipeline.
+          </p>
+        </div>
+      </div>
+      <div
+        class="flex flex-wrap items-center gap-2.5"
+      >
+        <button
+          type="button"
+        >
+          New Deal
+        </button>
+      </div>
+    </div>
+    <div
+      class="workspace-stat-grid min-w-0 lg:min-w-[22rem]"
+    >
+      <article
+        class="workspace-stat"
+      >
+        <p
+          class="workspace-stat-label"
+        >
+          Loaded deals
+        </p>
+        <p
+          class="workspace-stat-value"
+        >
+          24
+        </p>
+        <p
+          class="workspace-stat-detail"
+        >
+          Current result set after filtering.
+        </p>
+      </article>
+      <article
+        class="workspace-stat"
+      >
+        <p
+          class="workspace-stat-label"
+        >
+          Selected
+        </p>
+        <p
+          class="workspace-stat-value text-destructive"
+        >
+          3
+        </p>
+        <p
+          class="workspace-stat-detail"
+        >
+          Rows ready for bulk updates.
+        </p>
+      </article>
+    </div>
+  </div>
+</section>
+`;

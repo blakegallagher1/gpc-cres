@@ -2,7 +2,7 @@
 
 exports[`Sidebar > renders the development and investment navigation frame 1`] = `
 <aside
-  class="fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-border/60 bg-background/78 backdrop-blur-2xl transition-[width,transform] duration-300 w-[var(--app-sidebar-expanded)]"
+  class="fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-border/60 bg-background/72 shadow-[24px_0_80px_-64px_rgba(15,23,42,0.55)] backdrop-blur-2xl transition-[width,transform] duration-300 w-[var(--app-sidebar-expanded)]"
 >
   <div
     class="flex h-[var(--app-header-height)] items-center border-b border-border/60 px-4"
@@ -11,7 +11,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
       class="flex min-w-0 items-center gap-3"
     >
       <div
-        class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-border/70 bg-background/70"
+        class="app-shell-panel flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl"
       >
         <svg
           aria-hidden="true"
@@ -87,7 +87,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
         class="text-right"
       >
         <span
-          class="rounded-full border border-border/70 px-2 py-1 text-[10px] font-mono uppercase tracking-[0.22em] text-muted-foreground"
+          class="app-shell-panel rounded-full px-2 py-1 text-[10px] font-mono uppercase tracking-[0.22em] text-muted-foreground"
         >
           15
            routes
@@ -126,11 +126,11 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
       >
         <a
           aria-current="page"
-          class="group relative flex min-h-12 items-start gap-3 overflow-hidden rounded-2xl px-3 py-3 text-left text-sm transition-colors text-foreground"
+          class="group relative flex min-h-12 items-start gap-3 overflow-hidden rounded-2xl px-3 py-3 text-left text-sm transition-[color,background-color] duration-200 text-foreground"
           href="/chat"
         >
           <span
-            class="absolute inset-0 rounded-2xl border border-border/70 bg-foreground/[0.04]"
+            class="app-shell-panel absolute inset-0 rounded-2xl"
             layoutid="workspace-active-pill"
             transition="[object Object]"
           />
@@ -171,7 +171,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
           </span>
         </a>
         <a
-          class="group relative flex min-h-12 items-start gap-3 overflow-hidden rounded-2xl px-3 py-3 text-left text-sm transition-colors text-muted-foreground hover:text-foreground"
+          class="group relative flex min-h-12 items-start gap-3 overflow-hidden rounded-2xl px-3 py-3 text-left text-sm transition-[color,background-color] duration-200 text-muted-foreground hover:text-foreground"
           href="/deals"
         >
           <span
@@ -218,7 +218,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
           </span>
         </a>
         <a
-          class="group relative flex min-h-12 items-start gap-3 overflow-hidden rounded-2xl px-3 py-3 text-left text-sm transition-colors text-muted-foreground hover:text-foreground"
+          class="group relative flex min-h-12 items-start gap-3 overflow-hidden rounded-2xl px-3 py-3 text-left text-sm transition-[color,background-color] duration-200 text-muted-foreground hover:text-foreground"
           href="/map"
         >
           <span
@@ -286,7 +286,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
         class="space-y-1"
       >
         <a
-          class="group relative flex min-h-12 items-start gap-3 overflow-hidden rounded-2xl px-3 py-3 text-left text-sm transition-colors text-muted-foreground hover:text-foreground"
+          class="group relative flex min-h-12 items-start gap-3 overflow-hidden rounded-2xl px-3 py-3 text-left text-sm transition-[color,background-color] duration-200 text-muted-foreground hover:text-foreground"
           href="/prospecting"
         >
           <span
@@ -352,7 +352,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
           </span>
         </a>
         <a
-          class="group relative flex min-h-12 items-start gap-3 overflow-hidden rounded-2xl px-3 py-3 text-left text-sm transition-colors text-muted-foreground hover:text-foreground"
+          class="group relative flex min-h-12 items-start gap-3 overflow-hidden rounded-2xl px-3 py-3 text-left text-sm transition-[color,background-color] duration-200 text-muted-foreground hover:text-foreground"
           href="/opportunities"
         >
           <span
@@ -425,7 +425,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
         class="space-y-1"
       >
         <a
-          class="group relative flex min-h-12 items-start gap-3 overflow-hidden rounded-2xl px-3 py-3 text-left text-sm transition-colors text-muted-foreground hover:text-foreground"
+          class="group relative flex min-h-12 items-start gap-3 overflow-hidden rounded-2xl px-3 py-3 text-left text-sm transition-[color,background-color] duration-200 text-muted-foreground hover:text-foreground"
           href="/portfolio"
         >
           <span
@@ -468,7 +468,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
           </span>
         </a>
         <a
-          class="group relative flex min-h-12 items-start gap-3 overflow-hidden rounded-2xl px-3 py-3 text-left text-sm transition-colors text-muted-foreground hover:text-foreground"
+          class="group relative flex min-h-12 items-start gap-3 overflow-hidden rounded-2xl px-3 py-3 text-left text-sm transition-[color,background-color] duration-200 text-muted-foreground hover:text-foreground"
           href="/wealth"
         >
           <span
@@ -533,7 +533,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
         class="space-y-1"
       >
         <a
-          class="group relative flex min-h-12 items-start gap-3 overflow-hidden rounded-2xl px-3 py-3 text-left text-sm transition-colors text-muted-foreground hover:text-foreground"
+          class="group relative flex min-h-12 items-start gap-3 overflow-hidden rounded-2xl px-3 py-3 text-left text-sm transition-[color,background-color] duration-200 text-muted-foreground hover:text-foreground"
           href="/command-center"
         >
           <span
@@ -584,7 +584,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
           </span>
         </a>
         <a
-          class="group relative flex min-h-12 items-start gap-3 overflow-hidden rounded-2xl px-3 py-3 text-left text-sm transition-colors text-muted-foreground hover:text-foreground"
+          class="group relative flex min-h-12 items-start gap-3 overflow-hidden rounded-2xl px-3 py-3 text-left text-sm transition-[color,background-color] duration-200 text-muted-foreground hover:text-foreground"
           href="/agents"
         >
           <span
@@ -643,7 +643,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
           </span>
         </a>
         <a
-          class="group relative flex min-h-12 items-start gap-3 overflow-hidden rounded-2xl px-3 py-3 text-left text-sm transition-colors text-muted-foreground hover:text-foreground"
+          class="group relative flex min-h-12 items-start gap-3 overflow-hidden rounded-2xl px-3 py-3 text-left text-sm transition-[color,background-color] duration-200 text-muted-foreground hover:text-foreground"
           href="/runs"
         >
           <span
@@ -683,7 +683,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
           </span>
         </a>
         <a
-          class="group relative flex min-h-12 items-start gap-3 overflow-hidden rounded-2xl px-3 py-3 text-left text-sm transition-colors text-muted-foreground hover:text-foreground"
+          class="group relative flex min-h-12 items-start gap-3 overflow-hidden rounded-2xl px-3 py-3 text-left text-sm transition-[color,background-color] duration-200 text-muted-foreground hover:text-foreground"
           href="/automation"
         >
           <span
@@ -745,7 +745,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
         class="space-y-1"
       >
         <a
-          class="group relative flex min-h-12 items-start gap-3 overflow-hidden rounded-2xl px-3 py-3 text-left text-sm transition-colors text-muted-foreground hover:text-foreground"
+          class="group relative flex min-h-12 items-start gap-3 overflow-hidden rounded-2xl px-3 py-3 text-left text-sm transition-[color,background-color] duration-200 text-muted-foreground hover:text-foreground"
           href="/reference"
         >
           <span
@@ -796,7 +796,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
           </span>
         </a>
         <a
-          class="group relative flex min-h-12 items-start gap-3 overflow-hidden rounded-2xl px-3 py-3 text-left text-sm transition-colors text-muted-foreground hover:text-foreground"
+          class="group relative flex min-h-12 items-start gap-3 overflow-hidden rounded-2xl px-3 py-3 text-left text-sm transition-[color,background-color] duration-200 text-muted-foreground hover:text-foreground"
           href="/market"
         >
           <span
@@ -845,7 +845,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
           </span>
         </a>
         <a
-          class="group relative flex min-h-12 items-start gap-3 overflow-hidden rounded-2xl px-3 py-3 text-left text-sm transition-colors text-muted-foreground hover:text-foreground"
+          class="group relative flex min-h-12 items-start gap-3 overflow-hidden rounded-2xl px-3 py-3 text-left text-sm transition-[color,background-color] duration-200 text-muted-foreground hover:text-foreground"
           href="/market/building-permits"
         >
           <span
@@ -919,7 +919,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
         class="space-y-1"
       >
         <a
-          class="group relative flex min-h-12 items-start gap-3 overflow-hidden rounded-2xl px-3 py-3 text-left text-sm transition-colors text-muted-foreground hover:text-foreground"
+          class="group relative flex min-h-12 items-start gap-3 overflow-hidden rounded-2xl px-3 py-3 text-left text-sm transition-[color,background-color] duration-200 text-muted-foreground hover:text-foreground"
           href="/admin"
         >
           <span

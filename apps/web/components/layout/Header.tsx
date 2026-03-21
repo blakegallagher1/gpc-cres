@@ -67,7 +67,7 @@ export function Header() {
   return (
     <header
       className={cn(
-        "fixed right-0 top-0 z-30 border-b border-border/60 bg-background/78 backdrop-blur-2xl transition-[left] duration-300",
+        "fixed right-0 top-0 z-30 border-b border-border/60 bg-background/72 shadow-[0_18px_48px_-40px_rgba(15,23,42,0.55)] backdrop-blur-2xl transition-[left] duration-300",
         "h-[var(--app-header-height)]",
         isMobile
           ? "left-0 px-3"
@@ -88,7 +88,7 @@ export function Header() {
           className="min-w-0 flex-1"
         >
           <div className="flex items-center gap-3">
-            <div className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-[1.15rem] border border-border/70 bg-background/70 md:flex">
+            <div className="app-shell-panel hidden h-11 w-11 shrink-0 items-center justify-center rounded-[1.15rem] md:flex">
               <RouteIcon className="h-5 w-5 text-foreground/85" />
             </div>
             <div className="min-w-0">
@@ -97,7 +97,7 @@ export function Header() {
                   Gallagher Property Company
                 </p>
                 {!isMobile && (
-                  <span className="rounded-full border border-border/70 bg-background/70 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                  <span className="app-shell-panel rounded-full px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
                     {group.label}
                   </span>
                 )}
@@ -162,17 +162,17 @@ export function Header() {
                 }}
               />
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span className="rounded-full border border-border/60 bg-background/70 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.18em]">
+                <span className="rounded-full border border-border/60 bg-background/65 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.18em]">
                   {WORKSPACE_ROUTE_COUNT} desks
                 </span>
-                <kbd className="rounded-md border border-border/60 bg-background/70 px-1.5 py-0.5 font-mono">
+                <kbd className="rounded-md border border-border/60 bg-background/65 px-1.5 py-0.5 font-mono">
                   {commandKeyLabel === "⌘" ? (
                     <Command className="inline h-3 w-3" />
                   ) : (
                     commandKeyLabel
                   )}
                 </kbd>
-                <kbd className="rounded-md border border-border/60 bg-background/70 px-1.5 py-0.5 font-mono">K</kbd>
+                <kbd className="rounded-md border border-border/60 bg-background/65 px-1.5 py-0.5 font-mono">K</kbd>
               </div>
             </div>
           </div>

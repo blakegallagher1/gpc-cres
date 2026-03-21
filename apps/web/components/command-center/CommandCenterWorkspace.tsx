@@ -258,10 +258,10 @@ export function CommandCenterWorkspace() {
       };
 
   return (
-    <div className="space-y-6 pb-8">
+    <div className="workspace-page">
       <motion.div
         {...sectionMotion}
-        className="rounded-3xl border border-border/70 bg-muted/20 px-5 py-5 md:px-6"
+        className="workspace-hero"
       >
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div className="space-y-3">

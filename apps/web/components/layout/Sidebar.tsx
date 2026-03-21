@@ -67,7 +67,7 @@ export function Sidebar() {
 
       <aside
         className={cn(
-          "fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-border/60 bg-background/78 backdrop-blur-2xl transition-[width,transform] duration-300",
+          "fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-border/60 bg-background/72 shadow-[24px_0_80px_-64px_rgba(15,23,42,0.55)] backdrop-blur-2xl transition-[width,transform] duration-300",
           "w-[var(--app-sidebar-expanded)]",
           isMobile
             ? cn(
@@ -81,7 +81,7 @@ export function Sidebar() {
       >
         <div className="flex h-[var(--app-header-height)] items-center border-b border-border/60 px-4">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-border/70 bg-background/70">
+            <div className="app-shell-panel flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl">
               <Building2 className="h-5 w-5 text-foreground/85" />
             </div>
             {isExpanded && (
@@ -110,7 +110,7 @@ export function Sidebar() {
                 </p>
               </div>
               <div className="text-right">
-                <span className="rounded-full border border-border/70 px-2 py-1 text-[10px] font-mono uppercase tracking-[0.22em] text-muted-foreground">
+                <span className="app-shell-panel rounded-full px-2 py-1 text-[10px] font-mono uppercase tracking-[0.22em] text-muted-foreground">
                   {WORKSPACE_ROUTE_COUNT} routes
                 </span>
                 <p className="mt-2 text-xs text-muted-foreground">{activeRoute.label} selected</p>
@@ -146,7 +146,7 @@ export function Sidebar() {
                       }}
                       aria-current={isActive ? "page" : undefined}
                       className={cn(
-                        "group relative flex min-h-12 items-start gap-3 overflow-hidden rounded-2xl px-3 py-3 text-left text-sm transition-colors",
+                        "group relative flex min-h-12 items-start gap-3 overflow-hidden rounded-2xl px-3 py-3 text-left text-sm transition-[color,background-color] duration-200",
                         isActive
                           ? "text-foreground"
                           : "text-muted-foreground hover:text-foreground"
@@ -157,7 +157,7 @@ export function Sidebar() {
                         <motion.span
                           layoutId="workspace-active-pill"
                           transition={reduceMotion ? { duration: 0 } : SIDEBAR_TRANSITION}
-                          className="absolute inset-0 rounded-2xl border border-border/70 bg-foreground/[0.04]"
+                          className="app-shell-panel absolute inset-0 rounded-2xl"
                         />
                       )}
                       <span

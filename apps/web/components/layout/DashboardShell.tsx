@@ -9,6 +9,7 @@ import { CommandPalette } from "@/components/command-palette/CommandPalette";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { CopilotPanel } from "@/components/copilot/CopilotPanel";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { PageTransition } from "@/components/transitions/PageTransition";
 
 interface DashboardShellProps {
   children: React.ReactNode;
@@ -52,13 +53,15 @@ export function DashboardShell({ children, noPadding }: DashboardShellProps) {
                 : "pl-[var(--app-sidebar-expanded)]"
           )}
         >
-          {noPadding ? (
-            children
-          ) : (
-            <div className="min-h-[calc(100svh-var(--app-header-height))] px-4 pb-6 pt-4 md:px-6 md:pb-8 md:pt-5">
-              {children}
-            </div>
-          )}
+          <PageTransition>
+            {noPadding ? (
+              children
+            ) : (
+              <div className="min-h-[calc(100svh-var(--app-header-height))] px-4 pb-6 pt-4 md:px-6 md:pb-8 md:pt-5">
+                {children}
+              </div>
+            )}
+          </PageTransition>
         </main>
         <CommandPalette />
         <CopilotPanel />
