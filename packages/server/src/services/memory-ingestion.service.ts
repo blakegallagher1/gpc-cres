@@ -148,17 +148,6 @@ export class EntityResolutionService {
     };
   }
 
-  /**
-   * @deprecated Replaced by pg_trgm SQL similarity() in findFuzzyMatch().
-   * Kept temporarily to avoid breaking callers; will be removed in next cleanup.
-   */
-  private static similarity(s1: string, s2: string): number {
-    const set1 = new Set(s1.split(' '));
-    const set2 = new Set(s2.split(' '));
-    const intersection = new Set([...set1].filter((x) => set2.has(x)));
-    const union = new Set([...set1, ...set2]);
-    return intersection.size / union.size;
-  }
 }
 
 // ============================================================================
@@ -400,9 +389,9 @@ export class MemoryIngestionService {
    */
   private static decomposeCompToFacts(comp: CompData): Array<{
     factType: string;
-    payload: Record<string, any>;
+    payload: Record<string, unknown>;
   }> {
-    const facts: Array<{ factType: string; payload: Record<string, any> }> = [];
+    const facts: Array<{ factType: string; payload: Record<string, unknown> }> = [];
 
     // Property characteristics
     if (comp.buildingSizeSf) {
@@ -505,7 +494,7 @@ export class MemoryIngestionService {
     orgId: string;
     entityId: string;
     factType: string;
-    newValue: Record<string, any>;
+    newValue: Record<string, unknown>;
   }): Promise<boolean> {
     // Simplified: check if an existing verified fact has a different value
     const existing = await prisma.memoryVerified.findFirst({
@@ -520,7 +509,7 @@ export class MemoryIngestionService {
     if (!existing) return false;
 
     // For numeric facts, check if difference > threshold
-    const existingValue = (existing.payloadJson as any)?.value;
+    const existingValue = (existing.payloadJson as Record<string, unknown>)?.value;
     const newVal = params.newValue.value;
 
     if (typeof existingValue === 'number' && typeof newVal === 'number') {
@@ -539,7 +528,7 @@ export class MemoryIngestionService {
     orgId: string;
     entityId: string;
     factType: string;
-    newValue: Record<string, any>;
+    newValue: Record<string, unknown>;
   }): Promise<boolean> {
     // Simplified: if there are existing facts and new value differs significantly
     const existing = await prisma.memoryVerified.findMany({
