@@ -753,24 +753,24 @@ model Outreach {
 }
 
 model Run {
-  id               String    @id @default(uuid()) @db.Uuid
-  orgId            String    @map("org_id") @db.Uuid
-  runType          run_type  @map("run_type")
-  dealId           String?   @map("deal_id") @db.Uuid
-  jurisdictionId   String?   @map("jurisdiction_id") @db.Uuid
-  sku              sku_type?
-  status           String    @db.Text // running|succeeded|failed|canceled
-  startedAt        DateTime  @default(now()) @map("started_at") @db.Timestamptz(6)
-  finishedAt       DateTime? @map("finished_at") @db.Timestamptz(6)
-  error            String?   @db.Text
-  openaiResponseId String?   @map("openai_response_id") @db.Text
-  inputHash        String?   @map("input_hash") @db.Text
-  outputJson       Json?     @map("output_json")
-  serializedState  Json?     @map("serialized_state")
-  trajectory       Json?     @map("trajectory")
+  id                    String    @id @default(uuid()) @db.Uuid
+  orgId                 String    @map("org_id") @db.Uuid
+  runType               run_type  @map("run_type")
+  dealId                String?   @map("deal_id") @db.Uuid
+  jurisdictionId        String?   @map("jurisdiction_id") @db.Uuid
+  sku                   sku_type?
+  status                String    @db.Text // running|succeeded|failed|canceled
+  startedAt             DateTime  @default(now()) @map("started_at") @db.Timestamptz(6)
+  finishedAt            DateTime? @map("finished_at") @db.Timestamptz(6)
+  error                 String?   @db.Text
+  openaiResponseId      String?   @map("openai_response_id") @db.Text
+  inputHash             String?   @map("input_hash") @db.Text
+  outputJson            Json?     @map("output_json")
+  serializedState       Json?     @map("serialized_state")
+  trajectory            Json?     @map("trajectory")
   memoryPromotionStatus String?   @map("memory_promotion_status") @db.Text
-  memoryPromotedAt     DateTime?  @map("memory_promoted_at") @db.Timestamptz(6)
-  memoryPromotionError String?    @map("memory_promotion_error") @db.Text
+  memoryPromotedAt      DateTime? @map("memory_promoted_at") @db.Timestamptz(6)
+  memoryPromotionError  String?   @map("memory_promotion_error") @db.Text
 
   org          Org           @relation(fields: [orgId], references: [id], onDelete: Cascade)
   deal         Deal?         @relation(fields: [dealId], references: [id], onDelete: Cascade)
@@ -1824,28 +1824,28 @@ model AssumptionActual {
 // ---------------------------------------------------------------------------
 
 model EpisodicEntry {
-  id                      String                   @id @default(uuid()) @db.Uuid
-  orgId                   String                   @map("org_id") @db.Uuid
-  agentId                 String                   @map("agent_id") @db.Text
-  taskType                String                   @map("task_type") @db.Text
-  summary                 String                   @db.Text
-  embeddingId             String                   @map("embedding_id") @db.Text
+  id                      String           @id @default(uuid()) @db.Uuid
+  orgId                   String           @map("org_id") @db.Uuid
+  agentId                 String           @map("agent_id") @db.Text
+  taskType                String           @map("task_type") @db.Text
+  summary                 String           @db.Text
+  embeddingId             String           @map("embedding_id") @db.Text
   outcome                 episodic_outcome
-  confidence              Float                    @db.DoublePrecision
-  tags                    String[]                 @default([])
-  runId                   String?                  @map("run_id") @db.Uuid
-  dealId                  String?                  @map("deal_id") @db.Uuid
-  jurisdictionId          String?                  @map("jurisdiction_id") @db.Uuid
-  conversationId          String?                  @map("conversation_id") @db.Uuid
-  userId                  String?                  @map("user_id") @db.Uuid
-  trajectoryLogId         String?                  @map("trajectory_log_id") @db.Uuid
-  finalOutputHash         String?                  @map("final_output_hash") @db.Text
-  toolSequence            String[]                 @default([]) @map("tool_sequence")
-  retrievalContextSummary Json?                    @map("retrieved_context_summary") @db.JsonB
-  metadata                Json?                    @db.JsonB
-  outcomeLinkedAt         DateTime?                @map("outcome_linked_at") @db.Timestamptz(6)
-  createdAt               DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt               DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
+  confidence              Float            @db.DoublePrecision
+  tags                    String[]         @default([])
+  runId                   String?          @map("run_id") @db.Uuid
+  dealId                  String?          @map("deal_id") @db.Uuid
+  jurisdictionId          String?          @map("jurisdiction_id") @db.Uuid
+  conversationId          String?          @map("conversation_id") @db.Uuid
+  userId                  String?          @map("user_id") @db.Uuid
+  trajectoryLogId         String?          @map("trajectory_log_id") @db.Uuid
+  finalOutputHash         String?          @map("final_output_hash") @db.Text
+  toolSequence            String[]         @default([]) @map("tool_sequence")
+  retrievalContextSummary Json?            @map("retrieved_context_summary") @db.JsonB
+  metadata                Json?            @db.JsonB
+  outcomeLinkedAt         DateTime?        @map("outcome_linked_at") @db.Timestamptz(6)
+  createdAt               DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   org                     Org                      @relation(fields: [orgId], references: [id], onDelete: Cascade)
   trajectoryLog           TrajectoryLog?           @relation(fields: [trajectoryLogId], references: [id], onDelete: SetNull)
@@ -1879,28 +1879,28 @@ model SemanticFact {
 }
 
 model ProceduralSkill {
-  id                   String                   @id @default(uuid()) @db.Uuid
-  orgId                String                   @map("org_id") @db.Uuid
-  name                 String                   @db.Text
-  description          String                   @db.Text
-  skillMdContent       String                   @map("skill_md_content") @db.Text
-  toolSequence         String[]                 @default([]) @map("tool_sequence")
-  successCount         Int                      @default(0) @map("success_count")
-  failCount            Int                      @default(0) @map("fail_count")
-  successRate          Float                    @default(0) @map("success_rate") @db.DoublePrecision
-  evaluatorAvgScore    Float                    @default(0) @map("evaluator_avg_score") @db.DoublePrecision
-  dedupeHash           String                   @map("dedupe_hash") @db.Text
-  embeddingId          String                   @map("embedding_id") @db.Text
-  taskType             String?                  @map("task_type") @db.Text
-  agentId              String?                  @map("agent_id") @db.Text
-  triggerConditions    Json?                    @map("trigger_conditions") @db.JsonB
-  evidenceRequirements Json?                    @map("evidence_requirements") @db.JsonB
-  failureModes         Json?                    @map("failure_modes") @db.JsonB
-  lastPromotedAt       DateTime?                @map("last_promoted_at") @db.Timestamptz(6)
-  createdAt            DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt            DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                   String    @id @default(uuid()) @db.Uuid
+  orgId                String    @map("org_id") @db.Uuid
+  name                 String    @db.Text
+  description          String    @db.Text
+  skillMdContent       String    @map("skill_md_content") @db.Text
+  toolSequence         String[]  @default([]) @map("tool_sequence")
+  successCount         Int       @default(0) @map("success_count")
+  failCount            Int       @default(0) @map("fail_count")
+  successRate          Float     @default(0) @map("success_rate") @db.DoublePrecision
+  evaluatorAvgScore    Float     @default(0) @map("evaluator_avg_score") @db.DoublePrecision
+  dedupeHash           String    @map("dedupe_hash") @db.Text
+  embeddingId          String    @map("embedding_id") @db.Text
+  taskType             String?   @map("task_type") @db.Text
+  agentId              String?   @map("agent_id") @db.Text
+  triggerConditions    Json?     @map("trigger_conditions") @db.JsonB
+  evidenceRequirements Json?     @map("evidence_requirements") @db.JsonB
+  failureModes         Json?     @map("failure_modes") @db.JsonB
+  lastPromotedAt       DateTime? @map("last_promoted_at") @db.Timestamptz(6)
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  org                   Org                      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org                     Org                      @relation(fields: [orgId], references: [id], onDelete: Cascade)
   proceduralSkillEpisodes ProceduralSkillEpisode[]
 
   @@unique([orgId, dedupeHash])
@@ -2391,4 +2391,29 @@ model POIDensityCache {
   @@index([orgId, lat, lng, radiusMeters])
   @@index([orgId, expiresAt])
   @@map("poi_density_caches")
+}
+
+model PublicMhcOwnerSubmission {
+  id                 String   @id @default(uuid()) @db.Uuid
+  firstName          String   @map("first_name") @db.Text
+  lastName           String   @map("last_name") @db.Text
+  email              String   @db.Text
+  phone              String   @db.Text
+  company            String?  @db.Text
+  locationAddress1   String   @map("location_address_1") @db.Text
+  locationAddress2   String?  @map("location_address_2") @db.Text
+  locationCity       String   @map("location_city") @db.Text
+  locationState      String   @map("location_state") @db.VarChar(2)
+  locationPostalCode String   @map("location_postal_code") @db.VarChar(10)
+  notes              String?  @db.Text
+  source             String?  @db.Text
+  honeypotValue      String?  @map("honeypot_value") @db.Text
+  ipAddress          String?  @map("ip_address") @db.Text
+  userAgent          String?  @map("user_agent") @db.Text
+  referrer           String?  @db.Text
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([createdAt], map: "idx_public_mhc_owner_submissions_created_at")
+  @@index([email], map: "idx_public_mhc_owner_submissions_email")
+  @@map("public_mhc_owner_submissions")
 }
