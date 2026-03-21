@@ -3,6 +3,7 @@ import { ensureCopilotClosed } from "./_helpers/ui";
 
 const KNOWLEDGE_SEARCH_ATTEMPTS = 15;
 const KNOWLEDGE_SEARCH_INTERVAL_MS = 5_000;
+const LIVE_DB_E2E_ENABLED = process.env.PLAYWRIGHT_LIVE_DB_E2E === "true";
 
 type KnowledgeSearchEntry = {
   contentType?: unknown;
@@ -36,6 +37,10 @@ test.describe("Chat knowledge learning", () => {
   test("stores a reusable knowledge entry through chat and makes it searchable", async ({
     page,
   }) => {
+    test.skip(
+      !LIVE_DB_E2E_ENABLED,
+      "Requires live DB/Hyperdrive connectivity; set PLAYWRIGHT_LIVE_DB_E2E=true to run.",
+    );
     test.setTimeout(300_000);
 
     const marker = `kb-e2e-${Date.now()}`;
@@ -49,7 +54,7 @@ test.describe("Chat knowledge learning", () => {
       `even when current occupancy looks strong. ` +
       `Explain the reasoning in 2 to 4 sentences, store it, and confirm after storing it.`;
 
-    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await page.goto("/chat", { waitUntil: "domcontentloaded" });
     await ensureCopilotClosed(page);
     await page.getByText("Loading...").waitFor({ state: "hidden", timeout: 15_000 }).catch(() => undefined);
     await page.waitForTimeout(5_000);
