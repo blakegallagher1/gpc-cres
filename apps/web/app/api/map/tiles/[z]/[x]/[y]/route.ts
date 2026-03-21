@@ -4,6 +4,7 @@ import * as Sentry from "@sentry/nextjs";
 
 const CACHE_MAX_AGE = 86400; // 24h — tiles are immutable for given xyz
 const CACHE_STALE = 604800; // 7d — allow CDN to serve stale while revalidating
+const TILE_FETCH_TIMEOUT_MS = 10_000; // 10s — prevent hanging if Martin is unresponsive
 
 type RouteParams = { params: Promise<{ z: string; x: string; y: string }> };
 
@@ -46,6 +47,8 @@ export async function GET(_req: Request, { params }: RouteParams) {
     ?? localApiUrl.replace("api.", "tiles.");
   const tileLayer = process.env.TILE_LAYER_NAME ?? "ebr_parcels";
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), TILE_FETCH_TIMEOUT_MS);
   try {
     const response = await fetch(
       `${tileBaseUrl}/${tileLayer}/${zi}/${xi}/${yi}`,
@@ -54,6 +57,7 @@ export async function GET(_req: Request, { params }: RouteParams) {
           Authorization: `Bearer ${localApiKey}`,
           ...getCloudflareAccessHeadersFromEnv(),
         },
+        signal: controller.signal,
       }
     );
 
@@ -81,13 +85,16 @@ export async function GET(_req: Request, { params }: RouteParams) {
       },
     });
   } catch (err) {
+    const isTimeout = err instanceof Error && err.name === "AbortError";
     Sentry.captureException(err, {
-      tags: { route: "api.map.tiles", method: "GET" },
+      tags: { route: "api.map.tiles", method: "GET", timeout: String(isTimeout) },
     });
-    console.error("[tiles] Proxy error:", err);
+    console.error("[tiles] Proxy error:", isTimeout ? `request timed out after ${TILE_FETCH_TIMEOUT_MS}ms` : err);
     return NextResponse.json(
-      { error: "Failed to fetch tile from local API" },
-      { status: 503 }
+      { error: isTimeout ? "Tile server request timed out" : "Failed to fetch tile from local API" },
+      { status: isTimeout ? 504 : 503 }
     );
+  } finally {
+    clearTimeout(timeout);
   }
 }

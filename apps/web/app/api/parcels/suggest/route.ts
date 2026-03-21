@@ -164,7 +164,12 @@ async function searchGateway(
       .filter((row): row is GatewayRow => row != null && typeof row === "object")
       .map(mapGatewayRowToSuggestion)
       .filter((row): row is SuggestionRow => row !== null);
-  } catch {
+  } catch (err) {
+    const isTimeout = err instanceof Error && err.name === "AbortError";
+    console.warn("[suggest] gateway search failed:", {
+      query,
+      reason: isTimeout ? `timed out after ${GATEWAY_TIMEOUT_MS}ms` : (err instanceof Error ? err.message : String(err)),
+    });
     return [];
   } finally {
     clearTimeout(timeout);
