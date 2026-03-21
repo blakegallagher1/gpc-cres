@@ -14,6 +14,8 @@ describe("HomePage", () => {
     expect(screen.getByText("What we buy")).toBeInTheDocument();
     expect(screen.getByText("What we build")).toBeInTheDocument();
     expect(screen.getByText("What we manage")).toBeInTheDocument();
+    expect(screen.getByText("Selling a site in Louisiana?")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Submit Seller Intake" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /enter entitlement os/i })).toHaveAttribute("href", "/login");
     expect(container.firstChild).toMatchSnapshot();
   });

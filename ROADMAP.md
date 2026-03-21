@@ -35,6 +35,27 @@ Only items meeting all checks are added below as `Planned`.
 
 ## Active Roadmap (Prioritized)
 
+### WEB-SELLER-INTAKE-001 — Public Seller Intake Hardening + Telemetry (P1)
+
+- **Priority:** P1
+- **Status:** Done (2026-03-21)
+- **Scope:** Add API and UI regression coverage for the public seller submission intake and document rollout guardrails.
+- **Problem:** The seller intake contract and homepage submission experience lacked route-level tests (validation, honeypot, rate-limit), component behavior tests (submit/success/error), and explicit analytics reason-code telemetry for failure triage.
+- **Expected Outcome (measurable):**
+  - Route tests validate success, required field failures, honeypot rejection, and rate limiting.
+  - Component tests lock required-field rendering and submit state transitions for success/error responses.
+  - Homepage assertions include new seller CTA/section copy.
+  - Submission telemetry emits `seller_submission_started`, `seller_submission_succeeded`, and `seller_submission_failed` (non-PII `reasonCode`).
+- **Risk/rollback:** Low; changes are additive to homepage UI, route contract, and tests.
+- **Acceptance Criteria / Tests:**
+  - `pnpm -C apps/web test -- app/api/seller-submissions/route.test.ts components/marketing/SellerSubmissionSection.test.tsx app/(chat)/page.test.tsx -u`
+  - Public intake contract documented for operations and future integrations.
+- **Evidence (2026-03-21):**
+  - Added `POST /api/seller-submissions` with schema validation, honeypot rejection, and IP-based rate limiting.
+  - Added seller submission homepage section + submit-state UX and observability event emission.
+  - Added route/component/homepage test coverage and updated homepage snapshot.
+  - Added public intake contract documentation in `docs/SELLER_INTAKE_CONTRACT.md`.
+
 ### DOC-001 — Documentation Contract Reconciliation (P0)
 
 - **Priority:** P0
