@@ -4,6 +4,7 @@ import {
   type FormEvent,
   type KeyboardEvent,
   useEffect,
+  useLayoutEffect,
   useRef,
   useCallback,
   useMemo,
@@ -19,11 +20,13 @@ import { ScreeningScorecard } from "@/components/maps/ScreeningScorecard";
 import type { MapParcel } from "@/components/maps/types";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import {
   useMapChatDispatch,
   useMapChatState,
 } from "@/lib/chat/MapChatContext";
 import { mapFeaturesFromGeoJson } from "@/lib/chat/mapFeatureUtils";
+import { useUIStore } from "@/stores/uiStore";
 import {
   buildSuggestionLookupText,
   parcelMatchesSearch,
@@ -123,6 +126,9 @@ export default function MapPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { setTheme } = useTheme();
+  const isMobile = useIsMobile();
+  const setSidebarCollapsed = useUIStore((state) => state.setSidebarCollapsed);
+  const setCopilotOpen = useUIStore((state) => state.setCopilotOpen);
   const mapState = useMapChatState();
   const mapDispatch = useMapChatDispatch();
   const mapRef = useRef<ParcelMapRef | null>(null);
@@ -131,9 +137,33 @@ export default function MapPage() {
   const initializedFromUrlRef = useRef(false);
 
   // Force dark mode on map page mount
-  useEffect(() => {
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    const previous = {
+      dark: root.classList.contains("dark"),
+      light: root.classList.contains("light"),
+      colorScheme: root.style.colorScheme,
+    };
+
     setTheme("dark");
+    root.classList.remove("light");
+    root.classList.add("dark");
+    root.style.colorScheme = "dark";
+
+    return () => {
+      root.classList.remove("dark");
+      root.classList.remove("light");
+      if (previous.dark) root.classList.add("dark");
+      if (previous.light) root.classList.add("light");
+      root.style.colorScheme = previous.colorScheme;
+    };
   }, [setTheme]);
+
+  useEffect(() => {
+    if (!isMobile) return;
+    setSidebarCollapsed(true);
+    setCopilotOpen(false);
+  }, [isMobile, setCopilotOpen, setSidebarCollapsed]);
 
   const [parcels, setParcels] = useState<MapParcel[]>([]);
   const [searchParcels, setSearchParcels] = useState<MapParcel[] | null>(null);
@@ -861,13 +891,13 @@ export default function MapPage() {
                 <div className="space-y-4">
                   <div className="space-y-1.5">
                     <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-map-text-muted">
-                      Parcel Search
+                      Active geography
                     </p>
                     <h2 className="text-sm font-semibold text-map-text-primary">
-                      Filter the active geography.
+                      Search and refine the working parcel set.
                     </h2>
                     <p className="text-[11px] leading-5 text-map-text-secondary">
-                      Search by address, parcel id, or owner, then draw a polygon when you need a tighter site set.
+                      Search by address, parcel id, or owner, then tighten the site set with a polygon when the view gets noisy.
                     </p>
                   </div>
                   <form
@@ -974,15 +1004,28 @@ export default function MapPage() {
                         ? ` \u2022 ${nearbyParcelCount} nearby within ${SURROUNDING_PARCELS_RADIUS_MILES} mi`
                         : ""}
                     </p>
-                    <p className="text-[10px] text-map-text-muted">
-                      Source: {source === "org-fallback" ? "Org fallback" : source === "property-db" ? "Property database" : "Org parcels"}
-                    </p>
+                    <div className="flex flex-wrap items-center gap-2 text-[10px] text-map-text-muted">
+                      <span>
+                        Source: {source === "org-fallback" ? "Org fallback" : source === "property-db" ? "Property database" : "Org parcels"}
+                      </span>
+                      {selectedParcelIds.size > 0 ? (
+                        <>
+                          <span className="h-1 w-1 rounded-full bg-map-border" />
+                          <span>{selectedParcelIds.size} selected for follow-up</span>
+                        </>
+                      ) : null}
+                    </div>
                   </div>
                   {selectedParcelIds.size === 1 && (
-                    <ScreeningScorecard
-                      parcelId={Array.from(selectedParcelIds)[0]}
-                      className="mt-3"
-                    />
+                    <div className="border-t border-map-border pt-3">
+                      <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-map-text-muted">
+                        Selection brief
+                      </p>
+                      <ScreeningScorecard
+                        parcelId={Array.from(selectedParcelIds)[0]}
+                        className="mt-2"
+                      />
+                    </div>
                   )}
                 </div>
               }

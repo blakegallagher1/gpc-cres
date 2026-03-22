@@ -164,16 +164,28 @@ export function MapChatPanel({
     abortControllerRef.current?.abort();
   }, []);
 
+  const contextSummary =
+    selectedCount && selectedCount > 0
+      ? `${selectedCount} selected`
+      : `${parcelCount ?? 0} in view`;
+
   return (
     <>
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="absolute right-0 top-5 z-30 flex items-center gap-2 rounded-l-2xl border border-r-0 border-map-border bg-map-surface-overlay px-3 py-2 text-sm font-medium text-map-text-primary shadow-xl backdrop-blur-md transition-colors hover:bg-map-surface"
+        className="absolute right-3 top-4 z-30 flex items-center gap-3 rounded-2xl border border-map-border bg-map-surface-overlay px-3 py-2 text-left text-sm font-medium text-map-text-primary shadow-xl backdrop-blur-md transition-colors hover:bg-map-surface"
         title={open ? "Close Map Copilot" : "Open Map Copilot"}
       >
-        <Map className="h-4 w-4" />
-        Map Copilot
+        <div className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-map-border bg-map-surface/70">
+          <Map className="h-4 w-4" />
+        </div>
+        <div className="min-w-0">
+          <div className="text-sm font-semibold">Map Copilot</div>
+          <div className="text-[10px] uppercase tracking-[0.16em] text-map-text-muted">
+            {contextSummary}
+          </div>
+        </div>
         {open ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
       </button>
 
@@ -185,22 +197,26 @@ export function MapChatPanel({
             exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: PANEL_WIDTH * 0.18 }}
             transition={PANEL_TRANSITION}
             className="absolute right-0 top-0 z-20 flex h-full flex-col map-panel rounded-none shadow-2xl"
-            style={{ width: PANEL_WIDTH }}
+            style={{ width: `min(${PANEL_WIDTH}px, calc(100vw - 1rem))` }}
           >
             <div className="flex flex-1 flex-col overflow-hidden">
               <div className="border-b border-map-border px-4 py-4">
                 <p className="text-[10px] font-mono uppercase tracking-[0.22em] text-map-text-muted">
-                  Parcel Copilot
+                  Map copilot
                 </p>
                 <h3 className="mt-1 text-sm font-semibold text-map-text-primary">
-                  Ask for zoning pressure, permit heat, and site-selection context.
+                  Ask for parcel pressure, permit momentum, and site-selection context.
                 </h3>
-                <div className="mt-3 flex items-center gap-4 text-[11px] text-map-text-secondary">
-                  <span>{parcelCount ?? 0} parcels in view</span>
-                  <span>{selectedCount ?? 0} selected</span>
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] text-map-text-secondary">
+                  <span className="rounded-full border border-map-border bg-map-surface px-2.5 py-1">
+                    {parcelCount ?? 0} in view
+                  </span>
+                  <span className="rounded-full border border-map-border bg-map-surface px-2.5 py-1">
+                    {selectedCount ?? 0} selected
+                  </span>
                 </div>
                 {viewportLabel ? (
-                  <p className="mt-2 text-[10px] text-map-text-muted">{viewportLabel}</p>
+                  <p className="mt-2 text-[10px] leading-4 text-map-text-muted">{viewportLabel}</p>
                 ) : null}
               </div>
               <div className="min-h-0 flex-1 overflow-hidden">
@@ -210,9 +226,9 @@ export function MapChatPanel({
                   onSuggestionClick={(suggestion) => handleSend(suggestion)}
                   emptyState={{
                     eyebrow: "Map copilot",
-                    title: "Ask the map to explain what this geography means.",
+                    title: "Use the live map state as your operating context.",
                     description:
-                      "Use the copilot for parcel clusters, zoning patterns, permit momentum, and site-selection follow-up while you stay in the map.",
+                      "Ask for parcel clusters, zoning patterns, permit momentum, and follow-up actions while staying inside the map workflow.",
                     suggestions: [
                       "Show parcels over 5 acres in this area",
                       "Explain zoning on the selected parcels",

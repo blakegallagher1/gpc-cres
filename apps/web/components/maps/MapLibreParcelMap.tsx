@@ -31,13 +31,12 @@ import {
   DARK_PARCEL_LINE_OPACITY,
   DARK_PARCEL_LINE_COLOR_SELECTED,
 } from "./mapStyles";
-import { Pencil, Trash2, X, Camera, Maximize2, ChevronDown, ChevronRight, Layers } from "lucide-react";
+import { MapWorkbenchPanel } from "./MapWorkbenchPanel";
 import { useStableOptions } from "@/lib/hooks/useStableOptions";
-import { SavedGeofences } from "./SavedGeofences";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import { ParcelComparisonSheet } from "./ParcelComparisonSheet";
 import { MapTour } from "./MapTour";
 import {
-  HEATMAP_PRESETS,
   HEATMAP_PRESET_MAP,
 } from "./heatmapPresets";
 import type {
@@ -591,6 +590,7 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
   const boundsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stableMapCallbacks = useStableOptions({ onParcelClick });
   const parcelByIdRef = useRef<Map<string, MapParcel>>(new Map());
+  const isMobile = useIsMobile();
 
   // Dark mode detection via MutationObserver
   const [isDark, setIsDark] = useState(false);
@@ -602,15 +602,16 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
     return () => observer.disconnect();
   }, []);
 
-  // Collapsible layer panel sections (3-group hierarchy)
-  const [baseSectionOpen, setBaseSectionOpen] = useState(true);
-  const [analysisSectionOpen, setAnalysisSectionOpen] = useState(true);
-  const [aiSectionOpen, setAiSectionOpen] = useState(false);
-
   // Bottom status bar: live coords + zoom
   const [cursorLng, setCursorLng] = useState<number | null>(null);
   const [cursorLat, setCursorLat] = useState<number | null>(null);
   const [currentZoom, setCurrentZoom] = useState(zoom);
+  const [drawing, setDrawing] = useState(false);
+  const [drawPointCount, setDrawPointCount] = useState(0);
+  const drawPointsRef = useRef<maplibregl.LngLat[]>([]);
+  const drawSourceId = "draw-polygon-source";
+  const drawLineLayerId = "draw-polygon-line";
+  const drawPointLayerId = "draw-polygon-points";
 
   // Stable ref for onViewStateChange to avoid stale closure in map event handlers
   const onViewStateChangeRef = useRef(onViewStateChange);
@@ -622,6 +623,11 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
   useEffect(() => {
     onMapReadyRef.current = onMapReady;
   }, [onMapReady]);
+
+  useEffect(() => {
+    if (!isMobile) return;
+    setLayerPanelOpen(false);
+  }, [isMobile]);
 
   useEffect(() => {
     selectedParcelIdsRef.current = selectedParcelIds;
@@ -641,6 +647,144 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
     }
     setInternalSelectedParcelIds(next);
   }, []);
+
+  const hasPolygon = Boolean(polygon && polygon[0] && polygon[0].length >= 4);
+  const drawState = getDrawControlState(drawing, hasPolygon, drawPointCount);
+
+  const clearDrawing = useCallback(() => {
+    drawPointsRef.current = [];
+    setDrawPointCount(0);
+    setGeoJsonSourceDataSafe(mapRef.current, drawSourceId, {
+      type: "FeatureCollection",
+      features: [],
+    });
+  }, [drawSourceId]);
+
+  const finishDrawing = useCallback(() => {
+    const pts = drawPointsRef.current;
+    if (pts.length < 3) {
+      clearDrawing();
+      setDrawing(false);
+      if (mapRef.current?.getCanvas().style.cursor) {
+        mapRef.current.getCanvas().style.cursor = "";
+      }
+      return;
+    }
+
+    const ring = pts.map((point) => [point.lng, point.lat] as [number, number]);
+    ring.push(ring[0]);
+    clearDrawing();
+    setDrawing(false);
+    if (mapRef.current?.getCanvas().style.cursor) {
+      mapRef.current.getCanvas().style.cursor = "";
+    }
+    onPolygonDrawn?.([ring]);
+  }, [clearDrawing, onPolygonDrawn]);
+
+  const ensureDrawSourceAndLayers = useCallback((map: maplibregl.Map): boolean => {
+    if (!map.isStyleLoaded()) return false;
+
+    if (!getGeoJsonSourceSafe(map, drawSourceId)) {
+      try {
+        map.addSource(drawSourceId, {
+          type: "geojson",
+          data: { type: "FeatureCollection", features: [] },
+        });
+      } catch {
+        return false;
+      }
+    }
+
+    try {
+      if (!map.getLayer(drawPointLayerId)) {
+        map.addLayer({
+          id: drawPointLayerId,
+          type: "circle",
+          source: drawSourceId,
+          filter: ["==", ["get", "kind"], "point"],
+          paint: {
+            "circle-radius": 5,
+            "circle-color": MAP_DRAW_ACCENT_COLOR,
+            "circle-stroke-width": 2,
+            "circle-stroke-color": "#ffffff",
+          },
+        });
+      }
+      if (!map.getLayer(drawLineLayerId)) {
+        map.addLayer({
+          id: drawLineLayerId,
+          type: "line",
+          source: drawSourceId,
+          filter: ["==", ["get", "kind"], "line"],
+          paint: {
+            "line-color": MAP_DRAW_ACCENT_COLOR,
+            "line-width": 2,
+            "line-dasharray": [4, 2],
+          },
+        });
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }, [drawLineLayerId, drawPointLayerId, drawSourceId]);
+
+  const syncDrawPreview = useCallback((points: maplibregl.LngLat[]) => {
+    const features: GeoJSON.Feature[] = points.map((point) => ({
+      type: "Feature" as const,
+      geometry: { type: "Point" as const, coordinates: [point.lng, point.lat] },
+      properties: { kind: "point" },
+    }));
+
+    if (points.length >= 2) {
+      features.push({
+        type: "Feature" as const,
+        geometry: {
+          type: "LineString" as const,
+          coordinates: [...points.map((point) => [point.lng, point.lat]), [points[0].lng, points[0].lat]],
+        },
+        properties: { kind: "line" },
+      });
+    }
+
+    setGeoJsonSourceDataSafe(mapRef.current, drawSourceId, {
+      type: "FeatureCollection",
+      features,
+    });
+  }, [drawSourceId]);
+
+  const startDrawing = useCallback(() => {
+    if (hasPolygon) return;
+    clearDrawing();
+    setDrawing(true);
+  }, [clearDrawing, hasPolygon]);
+
+  const toggleDrawing = useCallback(() => {
+    if (hasPolygon) return;
+    if (drawing) {
+      finishDrawing();
+      return;
+    }
+    startDrawing();
+  }, [drawing, finishDrawing, hasPolygon, startDrawing]);
+
+  const undoDrawPoint = useCallback(() => {
+    if (!drawing || drawPointsRef.current.length === 0) return;
+    drawPointsRef.current.pop();
+    setDrawPointCount(drawPointsRef.current.length);
+    syncDrawPreview(drawPointsRef.current);
+  }, [drawing, syncDrawPreview]);
+
+  const cancelDrawing = useCallback(() => {
+    clearDrawing();
+    setDrawing(false);
+  }, [clearDrawing]);
+
+  const clearPolygonSelection = useCallback(() => {
+    clearDrawing();
+    setDrawing(false);
+    onPolygonCleared?.();
+  }, [clearDrawing, onPolygonCleared]);
 
   const clearTemporaryLayers = useCallback((layerIds?: string[]) => {
     const map = mapRef.current;
@@ -877,6 +1021,25 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
     };
   }, []);
 
+  const toggleMapFullscreen = useCallback(() => {
+    const container = mapContainerRef.current;
+    if (!container) return;
+    if (!document.fullscreenElement) {
+      void container.requestFullscreen();
+      return;
+    }
+    void document.exitFullscreen();
+  }, []);
+
+  const downloadMapScreenshot = useCallback(() => {
+    const canvas = mapRef.current?.getCanvas();
+    if (!canvas) return;
+    const link = document.createElement("a");
+    link.download = `map-export-${new Date().toISOString().slice(0, 19).replace(/[:.]/g, "-")}.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+  }, []);
+
   useEffect(() => {
     const skipTags = new Set(["INPUT", "TEXTAREA", "SELECT"]);
     const shouldSkip = (event: KeyboardEvent) => {
@@ -892,23 +1055,12 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
 
       if (key === "F") {
         event.preventDefault();
-        const container = mapContainerRef.current;
-        if (!container) return;
-        if (!document.fullscreenElement) {
-          void container.requestFullscreen();
-        } else {
-          void document.exitFullscreen();
-        }
+        toggleMapFullscreen();
       }
 
       if (key === "S") {
         event.preventDefault();
-        const canvas = mapRef.current?.getCanvas();
-        if (!canvas) return;
-        const link = document.createElement("a");
-        link.download = `map-export-${new Date().toISOString().slice(0, 19).replace(/[:.]/g, "-")}.png`;
-        link.href = canvas.toDataURL("image/png");
-        link.click();
+        downloadMapScreenshot();
       }
 
       if (key === "L") {
@@ -930,7 +1082,95 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [downloadMapScreenshot, toggleMapFullscreen]);
+
+  useEffect(() => {
+    const handleActivateDraw = () => {
+      if (!drawing && !hasPolygon) {
+        startDrawing();
+      }
+    };
+
+    window.addEventListener("map:activate-draw", handleActivateDraw);
+    return () => window.removeEventListener("map:activate-draw", handleActivateDraw);
+  }, [drawing, hasPolygon, startDrawing]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!drawing) return;
+      const isUndo = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z";
+      if (!isUndo) return;
+      event.preventDefault();
+      undoDrawPoint();
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [drawing, undoDrawPoint]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (drawing) {
+      map.doubleClickZoom.disable();
+      return;
+    }
+    map.doubleClickZoom.enable();
+  }, [drawing]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const setup = () => {
+      ensureDrawSourceAndLayers(map);
+    };
+
+    const clickHandler = (event: maplibregl.MapMouseEvent) => {
+      if (!drawing) return;
+      const mapInstance = mapRef.current;
+      if (!mapInstance || !ensureDrawSourceAndLayers(mapInstance)) return;
+
+      drawPointsRef.current.push(event.lngLat);
+      setDrawPointCount(drawPointsRef.current.length);
+      syncDrawPreview(drawPointsRef.current);
+    };
+
+    const dblClickHandler = (event: maplibregl.MapMouseEvent) => {
+      if (!drawing) return;
+      event.preventDefault();
+      finishDrawing();
+    };
+
+    if (map.isStyleLoaded()) {
+      setup();
+    } else {
+      map.once("style.load", setup);
+    }
+
+    if (drawing) {
+      map.getCanvas().style.cursor = "crosshair";
+      map.on("click", clickHandler);
+      map.on("dblclick", dblClickHandler);
+      return () => {
+        map.off("click", clickHandler);
+        map.off("dblclick", dblClickHandler);
+        map.off("style.load", setup);
+      };
+    }
+
+    return () => {
+      map.off("style.load", setup);
+    };
+  }, [drawing, ensureDrawSourceAndLayers, finishDrawing, syncDrawPreview]);
+
+  useEffect(() => {
+    if (drawing) return;
+    if (mapRef.current?.getCanvas().style.cursor) {
+      mapRef.current.getCanvas().style.cursor = "";
+    }
+    clearDrawing();
+  }, [clearDrawing, drawing]);
 
   const mapCenter: [number, number] = center;
 
@@ -1775,262 +2015,52 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
   return (
     <div className="relative h-full w-full rounded-lg border">
       <div ref={mapContainerRef} style={{ height, width: "100%", backgroundColor: "#1e2230" }} />
-      {/* Toolbar with screenshot and fullscreen buttons */}
-      {showLayers && (
-        <div className="absolute left-2 top-2 z-10 flex flex-col gap-2 rounded-lg map-panel p-2 shadow-lg">
-          <button
-            type="button"
-            onClick={() => {
-              const canvas = mapRef.current?.getCanvas();
-              if (!canvas) return;
-              const link = document.createElement("a");
-              link.download = `map-export-${new Date().toISOString().slice(0, 19).replace(/[:.]/g, "-")}.png`;
-              link.href = canvas.toDataURL("image/png");
-              link.click();
-            }}
-            className="map-btn flex items-center justify-center p-1.5 rounded transition-colors"
-            title="Screenshot (S)"
-          >
-            <Camera className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              const container = mapContainerRef.current;
-              if (!container) return;
-              if (!document.fullscreenElement) {
-                void container.requestFullscreen();
-              } else {
-                void document.exitFullscreen();
-              }
-            }}
-            className="map-btn flex items-center justify-center p-1.5 rounded transition-colors"
-            title="Fullscreen (F)"
-          >
-            <Maximize2 className="h-4 w-4" />
-          </button>
-        </div>
-      )}
-
-      {/* Collapsible layer panel */}
-      {showLayers && layerPanelOpen && (
-        <div
-          data-tour="layers-panel"
-          className="absolute left-14 top-2 z-10 w-60 rounded-lg map-panel shadow-xl flex flex-col max-h-[calc(100vh-6rem)]"
-          onPointerDown={(event) => event.stopPropagation()}
-        >
-          {/* Panel header */}
-          <div className="flex items-center justify-between px-3 py-2 border-b border-map-border shrink-0">
-            <div className="flex items-center gap-1.5">
-              <Layers className="h-3.5 w-3.5 text-map-text-muted" />
-              <span className="text-xs font-semibold text-map-text-primary">Layers</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setLayerPanelOpen(false)}
-              className="map-btn p-0.5 rounded hover:bg-map-surface transition-colors"
-              title="Close panel (L)"
-            >
-              <X className="h-3.5 w-3.5 text-map-text-muted" />
-            </button>
-          </div>
-
-          {/* Scrollable body */}
-          <div className="overflow-y-auto flex-1 min-h-0">
-            {/* SEARCH */}
-            {searchSlot && (
-              <div className="px-3 py-2.5 border-b border-map-border">
-                {searchSlot}
-              </div>
-            )}
-
-            {/* BASE LAYERS */}
-            <div className="border-b border-map-border">
-              <button
-                type="button"
-                onClick={() => setBaseSectionOpen(!baseSectionOpen)}
-                className="map-btn w-full flex items-center justify-between px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-map-text-muted"
-              >
-                <span>Base Layers</span>
-                {baseSectionOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-              </button>
-              {baseSectionOpen && (
-                <div className="px-3 pb-2">
-                  <div className="flex gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setBaseLayer("Streets")}
-                      className={`map-btn flex-1 px-2 py-1 text-[11px] font-medium rounded transition-colors ${
-                        baseLayer === "Streets" ? "bg-map-accent text-white" : ""
-                      }`}
-                    >
-                      Streets
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setBaseLayer("Satellite")}
-                      className={`map-btn flex-1 px-2 py-1 text-[11px] font-medium rounded transition-colors ${
-                        baseLayer === "Satellite" ? "bg-map-accent text-white" : ""
-                      }`}
-                    >
-                      Satellite
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* ANALYSIS LAYERS */}
-            <div className="border-b border-map-border">
-              <button
-                type="button"
-                onClick={() => setAnalysisSectionOpen(!analysisSectionOpen)}
-                className="map-btn w-full flex items-center justify-between px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-map-text-muted"
-              >
-                <span>Analysis Layers</span>
-                {analysisSectionOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-              </button>
-              {analysisSectionOpen && (
-                <div className="px-3 pb-2 space-y-0.5">
-                  <label className="flex items-center gap-2 cursor-pointer py-0.5">
-                    <input
-                      type="checkbox"
-                      checked={showParcelBoundaries}
-                      onChange={(event) => setShowParcelBoundaries(event.target.checked)}
-                      className="rounded h-3.5 w-3.5 accent-map-accent"
-                    />
-                    <span className="text-[11px] text-map-text-primary">Parcels</span>
-                  </label>
-                  {geometryStatusLabel && (
-                    <div className="text-[10px] text-map-status-yellow ml-5">
-                      {geometryStatusLabel}
-                    </div>
-                  )}
-                  <label className="flex items-center gap-2 cursor-pointer py-0.5">
-                    <input
-                      type="checkbox"
-                      checked={showZoning}
-                      onChange={(event) => setShowZoning(event.target.checked)}
-                      className="rounded h-3.5 w-3.5 accent-map-accent"
-                    />
-                    <span className="text-[11px] text-map-text-primary">Zoning</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer py-0.5">
-                    <input
-                      type="checkbox"
-                      checked={showFlood}
-                      onChange={(event) => setShowFlood(event.target.checked)}
-                      className="rounded h-3.5 w-3.5 accent-map-accent"
-                    />
-                    <span className="text-[11px] text-map-text-primary">Flood Zones</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer py-0.5">
-                    <input
-                      type="checkbox"
-                      checked={showComps}
-                      onChange={(event) => setShowComps(event.target.checked)}
-                      className="rounded h-3.5 w-3.5 accent-map-accent"
-                    />
-                    <span className="text-[11px] text-map-text-primary">Comps</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer py-0.5">
-                    <input
-                      type="checkbox"
-                      checked={showHeatmap}
-                      onChange={(event) => setShowHeatmap(event.target.checked)}
-                      className="rounded h-3.5 w-3.5 accent-map-accent"
-                    />
-                    <span className="text-[11px] text-map-text-primary">Heatmap</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer py-0.5">
-                    <input
-                      type="checkbox"
-                      checked={showSoils}
-                      onChange={(event) => setShowSoils(event.target.checked)}
-                      className="rounded h-3.5 w-3.5 accent-map-accent"
-                    />
-                    <span className="text-[11px] text-map-text-primary">Soils</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer py-0.5">
-                    <input
-                      type="checkbox"
-                      checked={showWetlands}
-                      onChange={(event) => setShowWetlands(event.target.checked)}
-                      className="rounded h-3.5 w-3.5 accent-map-accent"
-                    />
-                    <span className="text-[11px] text-map-text-primary">Wetlands</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer py-0.5">
-                    <input
-                      type="checkbox"
-                      checked={showEpa}
-                      onChange={(event) => setShowEpa(event.target.checked)}
-                      className="rounded h-3.5 w-3.5 accent-map-accent"
-                    />
-                    <span className="text-[11px] text-map-text-primary">EPA Facilities</span>
-                  </label>
-                </div>
-              )}
-            </div>
-
-            {/* AI LAYERS */}
-            <div className="border-b border-map-border">
-              <button
-                type="button"
-                onClick={() => setAiSectionOpen(!aiSectionOpen)}
-                className="map-btn w-full flex items-center justify-between px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-map-text-muted"
-              >
-                <span>AI Layers</span>
-                {aiSectionOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-              </button>
-              {aiSectionOpen && (
-                <div className="px-3 pb-2">
-                  <p className="text-[10px] text-map-text-muted leading-relaxed">
-                    AI overlays from Map Copilot appear here when you run trajectory or heatmap queries.
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* GEOFENCES */}
-            {onPolygonDrawn && onPolygonCleared && (
-              <div className="border-b border-map-border px-3 py-2">
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-map-text-muted mb-1.5">Geofences</div>
-                <SavedGeofences
-                  currentPolygon={polygon}
-                  onApply={(coordinates) => onPolygonDrawn(coordinates)}
-                />
-              </div>
-            )}
-
-            {/* SELECTION */}
-            {effectiveSelectedIds.size > 0 && (
-              <div className="border-b border-map-border px-3 py-2">
-                <div className="text-[10px] text-map-text-secondary">
-                  Selected: {effectiveSelectedIds.size}
-                </div>
-                {effectiveSelectedIds.size >= 2 && (
-                  <button
-                    type="button"
-                    onClick={() => setCompareOpen(true)}
-                    className="map-btn w-full mt-1 rounded px-2 py-1 text-[10px] font-medium bg-map-accent text-white hover:opacity-90 transition-opacity"
-                  >
-                    Compare ({effectiveSelectedIds.size})
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Footer: shortcuts */}
-          <div className="px-3 py-1.5 border-t border-map-border flex items-center gap-3 text-[10px] text-map-text-muted shrink-0">
-            <span><kbd className="rounded border border-map-border px-1">L</kbd> Panel</span>
-            <span><kbd className="rounded border border-map-border px-1">F</kbd> Full</span>
-            <span><kbd className="rounded border border-map-border px-1">S</kbd> Snap</span>
-            <span><kbd className="rounded border border-map-border px-1">D</kbd> Draw</span>
-          </div>
-        </div>
-      )}
+      {showLayers ? (
+        <MapWorkbenchPanel
+          open={layerPanelOpen}
+          searchSlot={searchSlot}
+          baseLayer={baseLayer}
+          onBaseLayerChange={setBaseLayer}
+          geometryStatusLabel={geometryStatusLabel}
+          showParcelBoundaries={showParcelBoundaries}
+          setShowParcelBoundaries={setShowParcelBoundaries}
+          showZoning={showZoning}
+          setShowZoning={setShowZoning}
+          showFlood={showFlood}
+          setShowFlood={setShowFlood}
+          showSoils={showSoils}
+          setShowSoils={setShowSoils}
+          showWetlands={showWetlands}
+          setShowWetlands={setShowWetlands}
+          showEpa={showEpa}
+          setShowEpa={setShowEpa}
+          showTools={showTools}
+          showComps={showComps}
+          setShowComps={setShowComps}
+          showHeatmap={showHeatmap}
+          setShowHeatmap={setShowHeatmap}
+          activeHeatmapPreset={activeHeatmapPreset}
+          setActiveHeatmapPreset={setActiveHeatmapPreset}
+          showIsochrone={showIsochrone}
+          setShowIsochrone={setShowIsochrone}
+          measureMode={measureMode}
+          setMeasureMode={setMeasureMode}
+          drawing={drawing}
+          hasPolygon={hasPolygon}
+          drawState={drawState}
+          selectedCount={effectiveSelectedIds.size}
+          onToggleOpen={() => setLayerPanelOpen((open) => !open)}
+          onScreenshot={downloadMapScreenshot}
+          onToggleFullscreen={toggleMapFullscreen}
+          onToggleDrawing={toggleDrawing}
+          onUndoDraw={undoDrawPoint}
+          onCancelDraw={cancelDrawing}
+          onClearPolygon={clearPolygonSelection}
+          polygon={polygon}
+          onPolygonDrawn={onPolygonDrawn}
+          onOpenCompare={() => setCompareOpen(true)}
+        />
+      ) : null}
 
       {/* Status bar with coordinates and zoom */}
       {showLayers && (
@@ -2049,14 +2079,6 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
           </div>
         </div>
       )}
-      {showTools && onPolygonDrawn && onPolygonCleared && (
-        <MapLibreDrawControl
-          map={mapRef.current}
-          polygon={polygon}
-          onPolygonDrawn={onPolygonDrawn}
-          onPolygonCleared={onPolygonCleared}
-        />
-      )}
       {polygon && (
         <MapLibrePolygonOverlay map={mapRef.current} polygon={polygon} mapReady={mapReady} />
       )}
@@ -2069,18 +2091,6 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
       )}
       {showTools && (
         <>
-          <MapLibreAnalyticalToolbar
-            showComps={showComps}
-            setShowComps={setShowComps}
-            showHeatmap={showHeatmap}
-            setShowHeatmap={setShowHeatmap}
-            activeHeatmapPreset={activeHeatmapPreset}
-            setActiveHeatmapPreset={setActiveHeatmapPreset}
-            showIsochrone={showIsochrone}
-            setShowIsochrone={setShowIsochrone}
-            measureMode={measureMode}
-            setMeasureMode={setMeasureMode}
-          />
           <MapLibreMeasureTool
             map={mapRef.current}
             mode={measureMode}
@@ -2115,323 +2125,6 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
     </div>
   );
 });
-
-function MapLibreDrawControl({
-  map,
-  polygon,
-  onPolygonDrawn,
-  onPolygonCleared,
-}: {
-  map: maplibregl.Map | null;
-  polygon: number[][][] | null;
-  onPolygonDrawn: (coords: number[][][]) => void;
-  onPolygonCleared: () => void;
-}) {
-  const [drawing, setDrawing] = useState(false);
-  const [pointCount, setPointCount] = useState(0);
-  const pointsRef = useRef<maplibregl.LngLat[]>([]);
-  const sourceId = "draw-polygon-source";
-  const lineLayerId = "draw-polygon-line";
-  const pointLayerId = "draw-polygon-points";
-  const mapRef = useRef(map);
-
-  useEffect(() => {
-    mapRef.current = map;
-  }, [map]);
-
-  const hasPolygon = Boolean(polygon && polygon[0] && polygon[0].length >= 4);
-  const drawState = getDrawControlState(drawing, hasPolygon, pointCount);
-
-  const clearDrawing = useCallback(() => {
-    pointsRef.current = [];
-    setPointCount(0);
-    const m = mapRef.current;
-    setGeoJsonSourceDataSafe(m, sourceId, {
-      type: "FeatureCollection",
-      features: [],
-    });
-  }, []);
-
-  const finishDrawing = useCallback(() => {
-    const pts = pointsRef.current;
-    if (pts.length < 3) {
-      clearDrawing();
-      setDrawing(false);
-      mapRef.current?.getCanvas().style.cursor && (mapRef.current.getCanvas().style.cursor = "");
-      return;
-    }
-    const ring = pts.map((p) => [p.lng, p.lat] as [number, number]);
-    ring.push(ring[0]);
-    clearDrawing();
-    setDrawing(false);
-    mapRef.current?.getCanvas().style.cursor && (mapRef.current.getCanvas().style.cursor = "");
-    onPolygonDrawn([ring]);
-  }, [clearDrawing, onPolygonDrawn]);
-
-  const undoLastPoint = useCallback(() => {
-    if (!drawing) return;
-    if (pointsRef.current.length === 0) return;
-    pointsRef.current.pop();
-    const pts = pointsRef.current;
-    setPointCount(pts.length);
-    const features: GeoJSON.Feature[] = pts.map((p) => ({
-      type: "Feature" as const,
-      geometry: { type: "Point" as const, coordinates: [p.lng, p.lat] },
-      properties: { kind: "point" },
-    }));
-    if (pts.length >= 2) {
-      features.push({
-        type: "Feature" as const,
-        geometry: {
-          type: "LineString" as const,
-          coordinates: [...pts.map((p) => [p.lng, p.lat]), [pts[0].lng, pts[0].lat]],
-        },
-        properties: { kind: "line" },
-      });
-    }
-    const m = mapRef.current;
-    setGeoJsonSourceDataSafe(m, sourceId, {
-      type: "FeatureCollection",
-      features,
-    });
-  }, [drawing, sourceId]);
-
-  const ensureDrawSourceAndLayers = useCallback((m: maplibregl.Map): boolean => {
-    if (!m.isStyleLoaded()) return false;
-
-    if (!getGeoJsonSourceSafe(m, sourceId)) {
-      try {
-        m.addSource(sourceId, {
-          type: "geojson",
-          data: { type: "FeatureCollection", features: [] },
-        });
-      } catch {
-        return false;
-      }
-    }
-
-    try {
-      if (!m.getLayer(pointLayerId)) {
-        m.addLayer({
-          id: pointLayerId,
-          type: "circle",
-          source: sourceId,
-          filter: ["==", ["get", "kind"], "point"],
-          paint: {
-            "circle-radius": 5,
-            "circle-color": MAP_DRAW_ACCENT_COLOR,
-            "circle-stroke-width": 2,
-            "circle-stroke-color": "#ffffff",
-          },
-        });
-      }
-      if (!m.getLayer(lineLayerId)) {
-        m.addLayer({
-          id: lineLayerId,
-          type: "line",
-          source: sourceId,
-          filter: ["==", ["get", "kind"], "line"],
-          paint: {
-            "line-color": MAP_DRAW_ACCENT_COLOR,
-            "line-width": 2,
-            "line-dasharray": [4, 2],
-          },
-        });
-      }
-      return true;
-    } catch {
-      return false;
-    }
-  }, [lineLayerId, pointLayerId, sourceId]);
-
-  useEffect(() => {
-    const handleActivateDraw = () => {
-      if (!drawing && !hasPolygon) {
-        clearDrawing();
-        setDrawing(true);
-      }
-    };
-    window.addEventListener("map:activate-draw", handleActivateDraw);
-    return () => window.removeEventListener("map:activate-draw", handleActivateDraw);
-  }, [drawing, hasPolygon, clearDrawing]);
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (!drawing) return;
-      const isUndo = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z";
-      if (!isUndo) return;
-      event.preventDefault();
-      undoLastPoint();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [drawing, undoLastPoint]);
-
-  useEffect(() => {
-    const m = mapRef.current;
-    if (!m) return;
-
-    if (drawing) {
-      m.doubleClickZoom.disable();
-    } else {
-      m.doubleClickZoom.enable();
-    }
-  }, [drawing]);
-
-  useEffect(() => {
-    const m = mapRef.current;
-    if (!m) return;
-
-    const setup = () => {
-      ensureDrawSourceAndLayers(m);
-    };
-
-    const clickHandler = (e: maplibregl.MapMouseEvent) => {
-      const mapInstance = mapRef.current;
-      if (!drawing || !mapInstance) return;
-      pointsRef.current.push(e.lngLat);
-      const pts = pointsRef.current;
-      setPointCount(pts.length);
-      const features: GeoJSON.Feature[] = pts.map((p) => ({
-        type: "Feature" as const,
-        geometry: { type: "Point" as const, coordinates: [p.lng, p.lat] },
-        properties: { kind: "point" },
-      }));
-      if (pts.length >= 2) {
-        features.push({
-          type: "Feature" as const,
-          geometry: {
-            type: "LineString" as const,
-            coordinates: [...pts.map((p) => [p.lng, p.lat]), [pts[0].lng, pts[0].lat]],
-          },
-          properties: { kind: "line" },
-        });
-      }
-      if (!ensureDrawSourceAndLayers(mapInstance)) return;
-      setGeoJsonSourceDataSafe(mapInstance, sourceId, {
-        type: "FeatureCollection",
-        features,
-      });
-    };
-
-    const dblClickHandler = (e: maplibregl.MapMouseEvent) => {
-      if (!drawing) return;
-      e.preventDefault();
-      finishDrawing();
-    };
-
-    if (m.isStyleLoaded()) {
-      setup();
-    } else {
-      m.once("style.load", setup);
-    }
-    if (drawing) {
-      m.getCanvas().style.cursor = "crosshair";
-      m.on("click", clickHandler);
-      m.on("dblclick", dblClickHandler);
-      return () => {
-        if (!m) return;
-        m.off("click", clickHandler);
-        m.off("dblclick", dblClickHandler);
-        m.off("style.load", setup);
-      };
-    }
-    return () => {
-      if (!m) return;
-      m.off("style.load", setup);
-    };
-  }, [drawing, ensureDrawSourceAndLayers, finishDrawing]);
-
-  useEffect(() => {
-    if (!drawing) {
-      mapRef.current?.getCanvas().style.cursor && (mapRef.current.getCanvas().style.cursor = "");
-      clearDrawing();
-    }
-  }, [drawing, clearDrawing]);
-
-  return (
-    <div data-tour="draw-tool" className="absolute left-3 top-24 z-10 w-[15.5rem]">
-      <div className="rounded-2xl border border-map-border map-panel px-3 py-3 shadow-xl">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-map-text-muted">
-              {drawState.label}
-            </p>
-            <p className="mt-2 text-[11px] leading-5 text-map-text-secondary">
-              {drawState.hint}
-            </p>
-          </div>
-          <span className="rounded-full border border-map-border bg-map-surface px-2 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-map-text-primary">
-            {drawState.badge}
-          </span>
-        </div>
-
-        <div className="mt-3 flex flex-wrap gap-2">
-          {!hasPolygon ? (
-            <button
-              type="button"
-              title="Draw polygon search area"
-              onClick={() => {
-                if (drawing) {
-                  finishDrawing();
-                  return;
-                }
-
-                clearDrawing();
-                setDrawing(true);
-              }}
-              className={`inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-[10px] font-medium transition-colors ${
-                drawing
-                  ? "bg-map-accent text-white"
-                  : "map-btn text-map-text-primary"
-              }`}
-            >
-              <Pencil className="h-3.5 w-3.5" />
-              {drawing ? "Finish area" : "Start draw"}
-            </button>
-          ) : (
-            <button
-              type="button"
-              title="Clear polygon"
-              onClick={() => {
-                clearDrawing();
-                onPolygonCleared();
-              }}
-              className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-map-accent px-3 text-[10px] font-medium text-white transition-opacity hover:opacity-90"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              Clear area
-            </button>
-          )}
-          {drawing && (
-            <>
-              <button
-                type="button"
-                title="Undo last point (Cmd/Ctrl+Z)"
-                onClick={undoLastPoint}
-                className="map-btn h-8 rounded-lg px-2.5 text-[10px]"
-              >
-                Undo
-              </button>
-              <button
-                type="button"
-                title="Cancel drawing"
-                onClick={() => {
-                  clearDrawing();
-                  setDrawing(false);
-                }}
-                className="map-btn inline-flex h-8 items-center gap-1 rounded-lg px-2.5 text-[10px]"
-              >
-                <X className="h-3.5 w-3.5" />
-                Cancel
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function MapLibrePolygonOverlay({
   map,
@@ -2579,114 +2272,6 @@ function MapLibreTrajectoryLayer({
   }, [mapReady, hasData, trajectoryData]);
 
   return null;
-}
-
-interface MapLibreAnalyticalToolbarProps {
-  showComps: boolean;
-  setShowComps: (value: boolean | ((value: boolean) => boolean)) => void;
-  showHeatmap: boolean;
-  setShowHeatmap: (value: boolean | ((value: boolean) => boolean)) => void;
-  activeHeatmapPreset: HeatmapPresetKey;
-  setActiveHeatmapPreset: (key: HeatmapPresetKey) => void;
-  showIsochrone: boolean;
-  setShowIsochrone: (value: boolean | ((value: boolean) => boolean)) => void;
-  measureMode: "off" | "distance" | "area";
-  setMeasureMode: (mode: "off" | "distance" | "area") => void;
-}
-
-function MapLibreAnalyticalToolbar({
-  showComps,
-  setShowComps,
-  showHeatmap,
-  setShowHeatmap,
-  activeHeatmapPreset,
-  setActiveHeatmapPreset,
-  showIsochrone,
-  setShowIsochrone,
-  measureMode,
-  setMeasureMode,
-}: MapLibreAnalyticalToolbarProps) {
-  const [heatmapMenuOpen, setHeatmapMenuOpen] = useState(false);
-
-  return (
-    <div data-tour="analytical-toolbar" className="absolute left-2 top-40 z-10 flex flex-col gap-1 rounded-lg map-panel p-1 text-sm shadow-lg">
-      <button
-        title="Toggle Measurements"
-        onClick={() =>
-          setMeasureMode(measureMode === "off" ? "distance" : "off")
-        }
-        className={`h-8 w-8 rounded ${measureMode !== "off" ? "bg-blue-600 text-white" : "map-btn"}`}
-      >
-        ✎
-      </button>
-      <button
-        title="Comparable Sales"
-        onClick={() => setShowComps((value) => !value)}
-        className={`h-8 w-8 rounded text-xs font-bold ${showComps ? "bg-green-500 text-white" : "map-btn"}`}
-      >
-        $
-      </button>
-      <div className="relative">
-        <button
-          title="Heatmap"
-          onClick={() => {
-            if (!showHeatmap) {
-              setShowHeatmap(true);
-              setHeatmapMenuOpen(true);
-            } else {
-              setHeatmapMenuOpen((value) => !value);
-            }
-          }}
-          className={`h-8 w-8 rounded ${showHeatmap ? "bg-orange-500 text-white" : "map-btn"}`}
-        >
-          ◑
-        </button>
-        {showHeatmap && heatmapMenuOpen && (
-          <div className="absolute left-9 top-0 z-50 w-48 rounded-lg border border-map-border map-panel text-xs shadow-xl">
-            <div className="border-b border-map-border px-3 py-2 text-[10px] font-semibold uppercase text-map-text-muted">
-              Heatmap Preset
-            </div>
-            {HEATMAP_PRESETS.map((preset) => (
-              <button
-                key={preset.key}
-                type="button"
-                onClick={() => {
-                  setActiveHeatmapPreset(preset.key);
-                  setHeatmapMenuOpen(false);
-                }}
-                className={`flex w-full flex-col gap-0.5 px-3 py-2 text-left hover:bg-map-surface ${activeHeatmapPreset === preset.key ? "bg-orange-50/10" : ""}`}
-              >
-                <span className={`font-medium ${activeHeatmapPreset === preset.key ? "text-orange-400" : "text-map-text-primary"}`}>
-                  {preset.label}
-                  {activeHeatmapPreset === preset.key ? " ✓" : ""}
-                </span>
-                <span className="text-[10px] leading-tight text-map-text-muted">{preset.description}</span>
-              </button>
-            ))}
-            <div className="border-t border-map-border px-3 py-1.5">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowHeatmap(false);
-                  setHeatmapMenuOpen(false);
-                }}
-                className="w-full text-left text-[10px] text-red-500 hover:text-red-700"
-              >
-                Hide heatmap
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-      <button
-        title="Drive Time Isochrone"
-        onClick={() => setShowIsochrone((value) => !value)}
-        className={`h-8 w-8 rounded ${showIsochrone ? "bg-purple-500 text-white" : "map-btn"}`}
-      >
-        ⌖
-      </button>
-    </div>
-  );
 }
 
 function MapLibreMeasureTool({
