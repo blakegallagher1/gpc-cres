@@ -1,5 +1,12 @@
 import * as Sentry from "@sentry/nextjs";
-import type { DealStageKey, DealStatus } from "@entitlement-os/shared";
+import {
+  getRegisteredHandlers,
+  resetAutomationHandlerRegistry,
+  type AutomationEvent,
+} from "./types";
+
+export { registerHandler } from "./types";
+export type { AutomationEvent, AutomationEventType, AutomationHandler } from "./types";
 
 // ---------------------------------------------------------------------------
 // Error taxonomy
@@ -37,43 +44,6 @@ export function classifyError(error: unknown): AutomationErrorCode {
   if (msg.includes("unconfigured") || msg.includes("missing env") || msg.includes("gateway_unconfigured")) return "PERMANENT_CONFIG";
   return "UNKNOWN";
 }
-
-// ---------------------------------------------------------------------------
-// Event type definitions
-// ---------------------------------------------------------------------------
-
-export type AutomationEvent =
-  | { type: "parcel.created"; dealId: string; parcelId: string; orgId: string }
-  | { type: "parcel.enriched"; dealId: string; parcelId: string; orgId: string }
-  | { type: "triage.completed"; dealId: string; runId: string; decision: string; orgId: string }
-  | { type: "task.created"; dealId: string; taskId: string; orgId: string }
-  | { type: "task.completed"; dealId: string; taskId: string; orgId: string }
-  | { type: "deal.statusChanged"; dealId: string; from: DealStatus; to: DealStatus; orgId: string }
-  | { type: "deal.stageChanged"; dealId: string; from: DealStageKey | null; to: DealStageKey; orgId: string }
-  | { type: "upload.created"; dealId: string; uploadId: string; orgId: string }
-  | { type: "intake.received"; source: string; content: string; orgId: string }
-  | {
-      type: "agent.run.completed";
-      runId: string;
-      orgId: string;
-      userId: string;
-      conversationId?: string | null;
-      dealId?: string | null;
-      jurisdictionId?: string | null;
-      runType?: string | null;
-      status: "succeeded" | "failed" | "canceled";
-      inputPreview?: string | null;
-      queryIntent?: string | null;
-    };
-
-export type AutomationEventType = AutomationEvent["type"];
-export type AutomationHandler<TEvent extends AutomationEvent = AutomationEvent> = (
-  event: TEvent,
-) => Promise<void>;
-type RegisteredAutomationHandler = AutomationHandler<AutomationEvent>;
-
-// Handler registry
-const handlers: Map<AutomationEventType, RegisteredAutomationHandler[]> = new Map();
 
 /** Max time a single handler is allowed to run before being considered stuck. */
 const HANDLER_TIMEOUT_MS = 30_000;
@@ -121,15 +91,6 @@ function isDuplicateEvent(key: string): boolean {
   return false;
 }
 
-export function registerHandler<TEventType extends AutomationEventType>(
-  eventType: TEventType,
-  handler: AutomationHandler<Extract<AutomationEvent, { type: TEventType }>>,
-): void {
-  const existing = handlers.get(eventType) || [];
-  existing.push(handler as RegisteredAutomationHandler);
-  handlers.set(eventType, existing);
-}
-
 /**
  * Fire-and-forget event dispatch.
  * Handler errors are logged but NEVER propagated to caller.
@@ -159,7 +120,7 @@ export async function dispatchEvent(event: AutomationEvent): Promise<void> {
     });
   }
 
-  const eventHandlers = handlers.get(event.type) ?? [];
+  const eventHandlers = getRegisteredHandlers(event.type);
 
   // Extract dealId from event (not all events have it)
   const dealId = "dealId" in event ? event.dealId : undefined;
@@ -290,7 +251,7 @@ export async function dispatchEvent(event: AutomationEvent): Promise<void> {
 
 // Reset handlers and idempotency state (for testing only)
 export function _resetHandlers(): void {
-  handlers.clear();
+  resetAutomationHandlerRegistry();
   recentIdempotencyKeys.clear();
 }
 

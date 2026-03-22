@@ -3,7 +3,7 @@ import { prisma } from "@entitlement-os/db";
 import { promoteRunToLongTermMemory } from "@/lib/services/agentLearning.service";
 
 import { AUTOMATION_CONFIG } from "./config";
-import type { AutomationEvent } from "./events";
+import type { AutomationEvent } from "./types";
 import { captureAutomationTimeout } from "./sentry";
 import { withTimeout } from "./timeout";
 

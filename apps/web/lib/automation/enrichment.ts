@@ -2,7 +2,7 @@ import { prisma } from "@entitlement-os/db";
 import { propertyDbRpc } from "@/lib/server/propertyDbRpc";
 import { AUTOMATION_CONFIG } from "./config";
 import { createAutomationTask } from "./notifications";
-import type { AutomationEvent } from "./events";
+import type { AutomationEvent } from "./types";
 import { captureAutomationTimeout } from "./sentry";
 import { withTimeout } from "./timeout";
 

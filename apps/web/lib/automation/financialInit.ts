@@ -1,5 +1,5 @@
 import { prisma, type Prisma } from "@entitlement-os/db";
-import type { AutomationEvent } from "./events";
+import type { AutomationEvent } from "./types";
 import { AUTOMATION_CONFIG } from "./config";
 import {
   DEFAULT_ASSUMPTIONS,

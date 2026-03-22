@@ -1,4 +1,4 @@
-import type { AutomationEvent } from "./events";
+import type { AutomationEvent } from "./types";
 
 import { reinforceLearningFromDealOutcome } from "@/lib/services/outcomeReinforcement.service";
 

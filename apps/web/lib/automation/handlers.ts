@@ -1,4 +1,4 @@
-import { registerHandler } from "./events";
+import { registerHandler } from "./types";
 import { handleParcelCreated } from "./enrichment";
 import { handleTriageReadiness } from "./triage";
 import { handleTaskCreated, handleTaskCompleted } from "./taskExecution";

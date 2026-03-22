@@ -1,6 +1,6 @@
 import { prisma } from "@entitlement-os/db";
 import { createAutomationTask } from "./notifications";
-import type { AutomationEvent } from "./events";
+import type { AutomationEvent } from "./types";
 import type { DealStatus } from "@entitlement-os/shared";
 import {
   getAutomationDealContext,

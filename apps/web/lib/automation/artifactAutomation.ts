@@ -3,7 +3,7 @@ import type { ArtifactSpec, ArtifactType } from "@entitlement-os/shared";
 import { renderArtifactFromSpec } from "@entitlement-os/artifacts";
 import { uploadArtifactToGateway, systemAuth } from "@/lib/storage/gatewayStorage";
 import { createAutomationTask } from "./notifications";
-import type { AutomationEvent } from "./events";
+import type { AutomationEvent } from "./types";
 import {
   getAutomationDealContext,
   getCurrentWorkflowStage,

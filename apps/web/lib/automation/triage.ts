@@ -1,7 +1,7 @@
 import { prisma } from "@entitlement-os/db";
 import { AUTOMATION_CONFIG } from "./config";
 import { createAutomationTask } from "./notifications";
-import type { AutomationEvent } from "./events";
+import type { AutomationEvent } from "./types";
 import { resolveCanonicalDealWorkflowState } from "../../app/api/_lib/opportunityPhase3";
 
 /**

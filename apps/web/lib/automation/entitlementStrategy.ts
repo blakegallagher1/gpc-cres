@@ -1,4 +1,4 @@
-import type { AutomationEvent } from "./events";
+import type { AutomationEvent } from "./types";
 import { runEntitlementStrategyAutopilot } from "@/lib/services/entitlementStrategyAutopilot.service";
 import { getAutomationDealContext, isEntitlementStrategy } from "./context";
 import { captureAutomationTimeout } from "./sentry";

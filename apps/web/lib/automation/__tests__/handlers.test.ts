@@ -42,7 +42,7 @@ const {
   handleAgentLearningOutcomeReinforcementMock: vi.fn(),
 }));
 
-vi.mock("../events", () => ({
+vi.mock("../types", () => ({
   registerHandler: registerHandlerMock,
 }));
 
