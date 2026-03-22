@@ -61,11 +61,23 @@ export function AgentIndicator({ agentName }: AgentIndicatorProps) {
   const label = formatAgentLabel(agentName);
 
   return (
-    <div className="flex items-center gap-2 border-b border-[#1e2230] bg-[#0f1118]/40 px-6 py-2">
-      <span className={cn('h-2 w-2 rounded-full animate-pulse', color)} />
-      <span className="font-mono text-sm text-slate-500">
-        <span className="font-medium text-slate-300">{label}</span> is analyzing...
-      </span>
+    <div className="border-b border-border/60 px-4 py-3 sm:px-6">
+      <div className="app-shell-panel flex items-center justify-between gap-3 rounded-2xl px-4 py-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className={cn('h-2.5 w-2.5 shrink-0 rounded-full animate-pulse', color)} />
+          <div className="min-w-0">
+            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+              Active Handoff
+            </p>
+            <p className="truncate text-sm font-medium text-foreground">
+              {label} is executing the current step.
+            </p>
+          </div>
+        </div>
+        <p className="hidden text-xs text-muted-foreground xl:block">
+          Watch tools and verification in the inspector.
+        </p>
+      </div>
     </div>
   );
 }

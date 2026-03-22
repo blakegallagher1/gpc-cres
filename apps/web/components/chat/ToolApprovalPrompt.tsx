@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Button } from '@/components/ui/button';
 import type { ChatStreamEvent } from '@/lib/chat/types';
 
 interface ToolApprovalPromptProps {
@@ -50,41 +51,44 @@ export function ToolApprovalPrompt({
   };
 
   return (
-    <div className="mt-2 rounded-md border border-amber-300 bg-amber-100/70 p-2 text-xs dark:border-amber-700 dark:bg-amber-900/20">
-      <p className="font-medium text-amber-900 dark:text-amber-100">
+    <div className="mt-3 rounded-2xl border border-amber-500/35 bg-amber-500/10 p-3 text-xs">
+      <p className="font-medium text-amber-700 dark:text-amber-200">
         Tool approval required: {toolName}
       </p>
       {args ? (
-        <pre className="mt-1 max-h-28 overflow-auto whitespace-pre-wrap rounded bg-white/60 p-2 text-[11px] text-amber-950 dark:bg-black/20 dark:text-amber-100">
+        <pre className="mt-2 max-h-28 overflow-auto whitespace-pre-wrap rounded-xl border border-amber-500/20 bg-background/70 p-2 text-[11px] text-foreground">
           {JSON.stringify(args, null, 2)}
         </pre>
       ) : null}
       {status === 'idle' || status === 'error' ? (
         <div className="mt-2 flex items-center gap-2">
-          <button
+          <Button
             type="button"
+            size="sm"
             onClick={() => submit('approve')}
-            className="rounded bg-emerald-600 px-2 py-1 text-white hover:bg-emerald-700"
+            className="h-8 rounded-xl"
           >
             Approve
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            size="sm"
+            variant="destructive"
             onClick={() => submit('reject')}
-            className="rounded bg-rose-600 px-2 py-1 text-white hover:bg-rose-700"
+            className="h-8 rounded-xl"
           >
             Reject
-          </button>
+          </Button>
         </div>
       ) : null}
       {status === 'submitting' ? (
-        <p className="mt-2 text-amber-800 dark:text-amber-200">Submitting decision...</p>
+        <p className="mt-2 text-amber-700 dark:text-amber-200">Submitting decision...</p>
       ) : null}
       {status === 'done' ? (
         <p className="mt-2 text-emerald-700 dark:text-emerald-300">Decision submitted.</p>
       ) : null}
       {status === 'error' && errorMessage ? (
-        <p className="mt-2 text-rose-700 dark:text-rose-300">{errorMessage}</p>
+        <p className="mt-2 text-destructive">{errorMessage}</p>
       ) : null}
     </div>
   );

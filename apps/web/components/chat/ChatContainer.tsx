@@ -7,13 +7,16 @@ import {
   useRef,
   useState,
 } from 'react';
-import { AgentStatePanel } from '@/components/agent-state/AgentStatePanel';
 import { AgentTrustEnvelope } from '@/types';
 import { MessageList } from './MessageList';
 import { ChatInput } from './ChatInput';
 import { ConversationSidebar } from './ConversationSidebar';
 import { AgentIndicator } from './AgentIndicator';
 import { DealSelector } from './DealSelector';
+import {
+  ChatWorkspaceHero,
+  ChatWorkspaceInspector,
+} from './ChatWorkspacePanels';
 import { parseSSEStream } from '@/lib/chat/stream';
 import { useStableOptions } from '@/lib/hooks/useStableOptions';
 import { useIsMobile } from '@/hooks/useIsMobile';
@@ -259,6 +262,7 @@ export function ChatContainer() {
         : 'No recents yet',
     [hasRecentConversations, recentConversationIds.length],
   );
+  const activeAgentLabel = currentAgent ?? agentSummary?.lastAgentName ?? 'Coordinator';
   const threadStatusLabel = conversationId ? 'Saved thread' : 'Draft thread';
   const attachmentStatusLabel = selectedDealId ? 'Deal linked' : 'Select a deal';
   const transportLabel = WS_ENABLED ? 'Live socket' : 'HTTP stream';
@@ -520,7 +524,7 @@ export function ChatContainer() {
         const fileList = uploaded
           .map((f) => `${f.filename} (${f.contentType})`)
           .join(', ');
-        fileContext = `[Attached ${uploaded.length} file${uploaded.length > 1 ? 's' : ''}: ${fileList}]\n`;
+        fileContext = `[Attached ${uploaded.length} file${uploaded.length > 1 ? 's' : ''}: ${fileList}]\\n`;
       }
 
       const messageForAgent = fileContext + (text || 'Please review the attached files.');
@@ -668,49 +672,21 @@ export function ChatContainer() {
 
       <div className="flex min-w-0 flex-1 flex-col lg:flex-row">
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="border-b border-border/60 px-4 py-5 sm:px-6">
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-              <div className="space-y-2">
-                <div>
-                  <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
-                    Acquisition Desk
-                  </p>
-                  <h2 className="mt-1 text-xl font-semibold tracking-tight">
-                    Run analysis against live deal context.
-                  </h2>
-                </div>
-                <p className="max-w-2xl text-sm text-muted-foreground">
-                  Use the main thread for diligence, zoning, site feasibility, investment
-                  questions, and document-backed agent work.
-                </p>
-              </div>
-
-              <div className="flex flex-col gap-3 lg:min-w-[24rem] xl:min-w-[28rem] xl:items-end">
-                <DealSelector
-                  selectedDealId={selectedDealId}
-                  onSelect={setSelectedDealId}
-                />
-                <div className="app-shell-panel grid gap-3 rounded-2xl px-4 py-3 text-[11px] sm:grid-cols-2 xl:w-full">
-                  <div>
-                    <p className="font-mono uppercase tracking-[0.18em] text-muted-foreground">Scope</p>
-                    <p className="mt-1 text-sm font-medium text-foreground">{scopeLabel}</p>
-                  </div>
-                  <div>
-                    <p className="font-mono uppercase tracking-[0.18em] text-muted-foreground">Thread</p>
-                    <p className="mt-1 text-sm font-medium text-foreground">{threadStatusLabel}</p>
-                  </div>
-                  <div>
-                    <p className="font-mono uppercase tracking-[0.18em] text-muted-foreground">Attachments</p>
-                    <p className="mt-1 text-sm font-medium text-foreground">{attachmentStatusLabel}</p>
-                  </div>
-                  <div>
-                    <p className="font-mono uppercase tracking-[0.18em] text-muted-foreground">Transport</p>
-                    <p className="mt-1 text-sm font-medium text-foreground">{transportLabel}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <ChatWorkspaceHero
+            activeAgentLabel={activeAgentLabel}
+            attachmentStatusLabel={attachmentStatusLabel}
+            conversationCount={conversations.length}
+            dealSelector={(
+              <DealSelector
+                selectedDealId={selectedDealId}
+                onSelect={setSelectedDealId}
+              />
+            )}
+            recentConversationLabel={messageSectionTitle}
+            scopeLabel={scopeLabel}
+            threadStatusLabel={threadStatusLabel}
+            transportLabel={transportLabel}
+          />
 
           {currentAgent && <AgentIndicator agentName={currentAgent} />}
 
@@ -741,86 +717,22 @@ export function ChatContainer() {
             isStreaming={isStreaming}
             onStop={stableChatInputOptions.onStop}
             canAttachFiles={!!selectedDealId}
-            placeholder="Ask about a parcel, deal, or capital question..."
-            helperText="Enter sends. Shift+Enter adds a new line. Verify critical outputs before acting."
+            orientationHint="Include scope, target output, and any underwriting, diligence, or entitlement constraints in the first line."
+            placeholder="Ask for a screen, memo, checklist, comparison, or action plan..."
+            helperText="Enter sends. Shift+Enter adds a new line. Review tool activity, evidence, and assumptions before acting."
+            submitLabel="Run"
           />
         </div>
 
-        <aside className="hidden w-[22rem] border-l border-border/60 bg-background/68 backdrop-blur-xl lg:flex lg:flex-col">
-          <div className="border-b border-border/60 px-5 py-5">
-            <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
-              Run State
-            </p>
-            <h3 className="mt-1 text-sm font-semibold tracking-tight">Agent context and verification</h3>
-            <p className="mt-2 text-xs leading-5 text-muted-foreground">
-              Current agent, saved-thread status, and verification details update here as the run progresses.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 border-b border-border/60 px-5 py-4 text-[11px]">
-            <div>
-              <p className="font-mono uppercase tracking-[0.18em] text-muted-foreground">Conversation</p>
-              <p className="mt-1 text-sm font-medium text-foreground">
-                {conversationId ? 'Saved thread' : 'Draft until first response'}
-              </p>
-            </div>
-            <div>
-              <p className="font-mono uppercase tracking-[0.18em] text-muted-foreground">Agent</p>
-              <p className="mt-1 text-sm font-medium text-foreground">
-                {currentAgent ?? agentSummary?.lastAgentName ?? 'Awaiting input'}
-              </p>
-            </div>
-            <div>
-              <p className="font-mono uppercase tracking-[0.18em] text-muted-foreground">Attachments</p>
-              <p className="mt-1 text-sm font-medium text-foreground">
-                {selectedDealId ? 'Enabled' : 'Select deal'}
-              </p>
-            </div>
-            <div>
-              <p className="font-mono uppercase tracking-[0.18em] text-muted-foreground">Recent</p>
-              <p className="mt-1 text-sm font-medium text-foreground">{messageSectionTitle}</p>
-            </div>
-          </div>
-
-          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
-            {agentSummary && AUI_MESSAGE_ENHANCEMENTS ? (
-              <AgentStatePanel
-                lastAgentName={agentSummary.lastAgentName ?? currentAgent ?? 'Coordinator'}
-                plan={agentSummary.verificationSteps}
-                confidence={agentSummary.confidence}
-                missingEvidence={agentSummary.missingEvidence ?? []}
-                verificationSteps={agentSummary.verificationSteps ?? []}
-                evidenceCitations={agentSummary.evidenceCitations ?? []}
-                toolsInvoked={agentSummary.toolsInvoked ?? []}
-                packVersionsUsed={agentSummary.packVersionsUsed ?? []}
-                proofChecks={agentSummary.proofChecks ?? []}
-                retryAttempts={agentSummary.retryAttempts}
-                retryMaxAttempts={agentSummary.retryMaxAttempts}
-                retryMode={agentSummary.retryMode}
-                fallbackLineage={agentSummary.fallbackLineage}
-                fallbackReason={agentSummary.fallbackReason}
-                toolFailureDetails={agentSummary.toolFailures}
-                errorSummary={agentSummary.errorSummary ?? null}
-              />
-            ) : (
-              <div className="space-y-3">
-                <div className="app-shell-panel rounded-2xl px-4 py-4">
-                  <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-                    Awaiting run output
-                  </p>
-                  <p className="mt-2 text-sm text-foreground">
-                    The verification panel will populate after the first agent response or tool event.
-                  </p>
-                </div>
-                <div className="space-y-2 text-xs leading-5 text-muted-foreground">
-                  <p>Use a linked deal to enable file upload and preserve run context.</p>
-                  <p>Saved threads will appear in the conversation rail and can be reopened at any time.</p>
-                  <p>Tool calls, missing evidence, and verification steps will accumulate in this panel as the run advances.</p>
-                </div>
-              </div>
-            )}
-          </div>
-        </aside>
+        <ChatWorkspaceInspector
+          activeAgentLabel={activeAgentLabel}
+          agentSummary={agentSummary}
+          attachmentStatusLabel={selectedDealId ? 'Enabled' : 'Select deal'}
+          conversationCount={conversations.length}
+          recentConversationLabel={messageSectionTitle}
+          threadStatusLabel={conversationId ? 'Saved thread' : 'Draft until first response'}
+          useAgentSummaryPanel={AUI_MESSAGE_ENHANCEMENTS}
+        />
       </div>
     </div>
   );
