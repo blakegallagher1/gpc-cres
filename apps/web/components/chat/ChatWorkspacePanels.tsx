@@ -363,48 +363,14 @@ export function ChatWorkspaceHero({
           </div>
         </div>
 
-        <div className="grid gap-2 md:hidden">
-          <div className="grid gap-2 sm:grid-cols-2">
-            <div className="workspace-surface workspace-surface-muted rounded-xl px-3 py-3 shadow-none">
-              <p className="workspace-stat-label">Scope</p>
-              <p className="mt-1 text-sm font-medium text-foreground">{scopeLabel}</p>
-            </div>
-            <div className="workspace-surface workspace-surface-muted rounded-xl px-3 py-3 shadow-none">
-              <p className="workspace-stat-label">Thread</p>
-              <p className="mt-1 text-sm font-medium text-foreground">{threadStatusLabel}</p>
-            </div>
-            <div className="workspace-surface workspace-surface-muted rounded-xl px-3 py-3 shadow-none">
-              <p className="workspace-stat-label">Agent</p>
-              <p className="mt-1 text-sm font-medium text-foreground">{activeAgentLabel}</p>
-            </div>
-            <div className="workspace-surface workspace-surface-muted rounded-xl px-3 py-3 shadow-none">
-              <p className="workspace-stat-label">Saved Runs</p>
-              <p className="mt-1 text-sm font-medium text-foreground">{conversationCount}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="hidden gap-3 md:grid md:grid-cols-2 xl:grid-cols-4">
-          <div className="workspace-surface workspace-surface-muted rounded-2xl px-4 py-4 shadow-none">
-            <p className="workspace-stat-label">Scope</p>
-            <p className="mt-2 text-lg font-semibold tracking-tight text-foreground">{scopeLabel}</p>
-            <p className="mt-2 text-sm text-muted-foreground">{attachmentStatusLabel}</p>
-          </div>
-          <div className="workspace-surface workspace-surface-muted rounded-2xl px-4 py-4 shadow-none">
-            <p className="workspace-stat-label">Thread</p>
-            <p className="mt-2 text-lg font-semibold tracking-tight text-foreground">{threadStatusLabel}</p>
-            <p className="mt-2 text-sm text-muted-foreground">{recentConversationLabel}</p>
-          </div>
-          <div className="workspace-surface workspace-surface-muted rounded-2xl px-4 py-4 shadow-none">
-            <p className="workspace-stat-label">Active Agent</p>
-            <p className="mt-2 text-lg font-semibold tracking-tight text-foreground">{activeAgentLabel}</p>
-            <p className="mt-2 text-sm text-muted-foreground">Coordinator or current specialist.</p>
-          </div>
-          <div className="workspace-surface workspace-surface-muted rounded-2xl px-4 py-4 shadow-none">
-            <p className="workspace-stat-label">Saved Runs</p>
-            <p className="mt-2 text-lg font-semibold tracking-tight text-foreground">{conversationCount}</p>
-            <p className="mt-2 text-sm text-muted-foreground">Reopen prior threads without losing context.</p>
-          </div>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+          <span><span className="font-medium text-foreground">{scopeLabel}</span> scope</span>
+          <span className="hidden sm:inline">&middot;</span>
+          <span><span className="font-medium text-foreground">{threadStatusLabel}</span> thread</span>
+          <span className="hidden sm:inline">&middot;</span>
+          <span><span className="font-medium text-foreground">{activeAgentLabel}</span> agent</span>
+          <span className="hidden sm:inline">&middot;</span>
+          <span><span className="font-medium text-foreground">{conversationCount}</span> saved</span>
         </div>
       </div>
     </motion.section>

@@ -129,148 +129,55 @@ exports[`ChatContainer > does not fetch a nonexistent conversation for a fresh w
             </div>
           </div>
           <div
-            class="grid gap-2 md:hidden"
+            class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground"
           >
-            <div
-              class="grid gap-2 sm:grid-cols-2"
-            >
-              <div
-                class="workspace-surface workspace-surface-muted rounded-xl px-3 py-3 shadow-none"
-              >
-                <p
-                  class="workspace-stat-label"
-                >
-                  Scope
-                </p>
-                <p
-                  class="mt-1 text-sm font-medium text-foreground"
-                >
-                  No deal scope
-                </p>
-              </div>
-              <div
-                class="workspace-surface workspace-surface-muted rounded-xl px-3 py-3 shadow-none"
-              >
-                <p
-                  class="workspace-stat-label"
-                >
-                  Thread
-                </p>
-                <p
-                  class="mt-1 text-sm font-medium text-foreground"
-                >
-                  Draft thread
-                </p>
-              </div>
-              <div
-                class="workspace-surface workspace-surface-muted rounded-xl px-3 py-3 shadow-none"
-              >
-                <p
-                  class="workspace-stat-label"
-                >
-                  Agent
-                </p>
-                <p
-                  class="mt-1 text-sm font-medium text-foreground"
-                >
-                  Coordinator
-                </p>
-              </div>
-              <div
-                class="workspace-surface workspace-surface-muted rounded-xl px-3 py-3 shadow-none"
-              >
-                <p
-                  class="workspace-stat-label"
-                >
-                  Saved Runs
-                </p>
-                <p
-                  class="mt-1 text-sm font-medium text-foreground"
-                >
-                  0
-                </p>
-              </div>
-            </div>
-          </div>
-          <div
-            class="hidden gap-3 md:grid md:grid-cols-2 xl:grid-cols-4"
-          >
-            <div
-              class="workspace-surface workspace-surface-muted rounded-2xl px-4 py-4 shadow-none"
-            >
-              <p
-                class="workspace-stat-label"
-              >
-                Scope
-              </p>
-              <p
-                class="mt-2 text-lg font-semibold tracking-tight text-foreground"
+            <span>
+              <span
+                class="font-medium text-foreground"
               >
                 No deal scope
-              </p>
-              <p
-                class="mt-2 text-sm text-muted-foreground"
-              >
-                Select a deal
-              </p>
-            </div>
-            <div
-              class="workspace-surface workspace-surface-muted rounded-2xl px-4 py-4 shadow-none"
+              </span>
+               scope
+            </span>
+            <span
+              class="hidden sm:inline"
             >
-              <p
-                class="workspace-stat-label"
-              >
-                Thread
-              </p>
-              <p
-                class="mt-2 text-lg font-semibold tracking-tight text-foreground"
+              ·
+            </span>
+            <span>
+              <span
+                class="font-medium text-foreground"
               >
                 Draft thread
-              </p>
-              <p
-                class="mt-2 text-sm text-muted-foreground"
-              >
-                No recents yet
-              </p>
-            </div>
-            <div
-              class="workspace-surface workspace-surface-muted rounded-2xl px-4 py-4 shadow-none"
+              </span>
+               thread
+            </span>
+            <span
+              class="hidden sm:inline"
             >
-              <p
-                class="workspace-stat-label"
-              >
-                Active Agent
-              </p>
-              <p
-                class="mt-2 text-lg font-semibold tracking-tight text-foreground"
+              ·
+            </span>
+            <span>
+              <span
+                class="font-medium text-foreground"
               >
                 Coordinator
-              </p>
-              <p
-                class="mt-2 text-sm text-muted-foreground"
-              >
-                Coordinator or current specialist.
-              </p>
-            </div>
-            <div
-              class="workspace-surface workspace-surface-muted rounded-2xl px-4 py-4 shadow-none"
+              </span>
+               agent
+            </span>
+            <span
+              class="hidden sm:inline"
             >
-              <p
-                class="workspace-stat-label"
-              >
-                Saved Runs
-              </p>
-              <p
-                class="mt-2 text-lg font-semibold tracking-tight text-foreground"
+              ·
+            </span>
+            <span>
+              <span
+                class="font-medium text-foreground"
               >
                 0
-              </p>
-              <p
-                class="mt-2 text-sm text-muted-foreground"
-              >
-                Reopen prior threads without losing context.
-              </p>
-            </div>
+              </span>
+               saved
+            </span>
           </div>
         </div>
       </section>

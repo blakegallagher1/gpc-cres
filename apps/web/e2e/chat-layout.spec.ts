@@ -97,6 +97,14 @@ async function mockChatShell(page: Page, options: MockChatShellOptions = {}) {
       body: JSON.stringify({ token: "playwright-token" }),
     });
   });
+
+  await page.route("**/api/notifications/unread-count", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ count: 0 }),
+    });
+  });
 }
 
 async function expectComposerReachable(page: Page, maxBottomPx: number) {
