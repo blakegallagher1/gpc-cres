@@ -50,7 +50,59 @@ jobs:
       - name: Build
         run: pnpm --filter gpc-agent-dashboard build
 
-  chat-learning-chromium:
+  e2e-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: "true"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".node-version"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Create .env from .env.example
+        run: cp .env.example .env
+
+      - name: Generate Prisma client
+        run: pnpm --filter @entitlement-os/db generate
+
+      - name: Build packages
+        run: pnpm --filter @entitlement-os/shared build && pnpm --filter @entitlement-os/db build && pnpm --filter @entitlement-os/evidence build && pnpm --filter @entitlement-os/artifacts build && pnpm --filter @entitlement-os/openai build
+
+      - name: Install Chromium for Playwright
+        run: pnpm -C apps/web exec playwright install --with-deps chromium
+
+      - name: Run UI E2E specs (no DB required)
+        run: >-
+          pnpm -C apps/web exec playwright test
+          e2e/agents.spec.ts
+          e2e/chat-layout.spec.ts
+          e2e/command-center-kpi.spec.ts
+          e2e/navigation.spec.ts
+          e2e/workflows.spec.ts
+          --project chromium --workers=1
+
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-ui-${{ github.run_id }}
+          path: |
+            apps/web/playwright-report/**
+            apps/web/test-results/**
+
+  e2e-db:
     if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -83,6 +135,7 @@ jobs:
       # Seed data currently provisions the local owner as ...0002; keep CI E2E aligned.
       PLAYWRIGHT_LOCAL_DEV_AUTH_USER_ID: "00000000-0000-0000-0000-000000000002"
       PLAYWRIGHT_ENABLE_TEMPORAL: "false"
+      PLAYWRIGHT_LIVE_DB_E2E: "true"
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
     steps:
       - name: Checkout
@@ -134,19 +187,25 @@ jobs:
         if: steps.required-secrets.outputs.available == 'true'
         run: pnpm -C apps/web exec playwright install --with-deps chromium
 
-      - name: Run chat-learning Chromium gate
+      - name: Run DB-dependent E2E specs
         if: steps.required-secrets.outputs.available == 'true'
-        run: pnpm -C apps/web exec playwright test e2e/chat-learning.spec.ts --project chromium --workers=1
+        run: >-
+          pnpm -C apps/web exec playwright test
+          e2e/admin.spec.ts
+          e2e/chat-continuation.spec.ts
+          e2e/chat-knowledge-learning.spec.ts
+          e2e/chat-learning.spec.ts
+          --project chromium --workers=1
 
-      - name: Skip chat-learning Chromium gate (missing secret)
+      - name: Skip E2E DB specs (missing secret)
         if: steps.required-secrets.outputs.available != 'true'
-        run: echo "::notice::Skipping chat-learning Chromium PR gate because OPENAI_API_KEY is not configured."
+        run: echo "::notice::Skipping DB-dependent E2E specs because OPENAI_API_KEY is not configured."
 
       - name: Upload Playwright artifacts
         if: failure() && steps.required-secrets.outputs.available == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: chat-learning-chromium-${{ github.run_id }}
+          name: e2e-db-${{ github.run_id }}
           path: |
             apps/web/playwright-report/**
             apps/web/test-results/**
