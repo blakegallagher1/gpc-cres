@@ -285,104 +285,253 @@ exports[`HomePage > renders the public Gallagher Property Company homepage 1`] =
               </a>
             </div>
           </div>
-          <div
-            style="opacity: 0; transform: translateY(24px);"
-          >
-            <section
-              class="mt-8 border-t border-white/14 pt-8"
-            >
-              <div
-                class="max-w-2xl space-y-3"
-              >
-                <p
-                  class="font-mono text-[0.7rem] uppercase tracking-[0.3em] text-white/46"
-                >
-                  Seller Intake
-                </p>
-                <h2
-                  class="text-2xl font-semibold tracking-tight text-white sm:text-3xl"
-                >
-                  Selling a site in Louisiana?
-                </h2>
-                <p
-                  class="text-sm leading-6 text-white/64 sm:text-base"
-                >
-                  Send the headline facts and we will review fit for acquisition.
-                </p>
-              </div>
-              <form
-                class="mt-6 grid gap-4 md:grid-cols-2"
-              >
-                <label
-                  class="space-y-2 text-sm text-white/82"
-                >
-                  Name
-                  <input
-                    class="w-full rounded-md border border-white/20 bg-black/30 px-3 py-2 text-white"
-                    name="name"
-                    required=""
-                    value=""
-                  />
-                </label>
-                <label
-                  class="space-y-2 text-sm text-white/82"
-                >
-                  Email
-                  <input
-                    class="w-full rounded-md border border-white/20 bg-black/30 px-3 py-2 text-white"
-                    name="email"
-                    required=""
-                    type="email"
-                    value=""
-                  />
-                </label>
-                <label
-                  class="space-y-2 text-sm text-white/82 md:col-span-2"
-                >
-                  Property address
-                  <input
-                    class="w-full rounded-md border border-white/20 bg-black/30 px-3 py-2 text-white"
-                    name="propertyAddress"
-                    required=""
-                    value=""
-                  />
-                </label>
-                <label
-                  class="space-y-2 text-sm text-white/82 md:col-span-2"
-                >
-                  Details (optional)
-                  <textarea
-                    class="min-h-28 w-full rounded-md border border-white/20 bg-black/30 px-3 py-2 text-white"
-                    name="details"
-                  />
-                </label>
-                <label
-                  aria-hidden="true"
-                  class="hidden"
-                >
-                  Company
-                  <input
-                    autocomplete="off"
-                    name="company"
-                    tabindex="-1"
-                    value=""
-                  />
-                </label>
-                <div
-                  class="md:col-span-2 flex items-center gap-4"
-                >
-                  <button
-                    class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border border-transparent text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-primary text-primary-foreground shadow-sm hover:-translate-y-px hover:bg-primary/92 hover:shadow-md h-10 px-4 py-2"
-                    disabled=""
-                    type="submit"
-                  >
-                    Submit Seller Intake
-                  </button>
-                </div>
-              </form>
-            </section>
-          </div>
         </footer>
+      </div>
+    </section>
+    <section
+      class="border-t border-white/14 bg-black px-6 py-12 md:px-10 lg:px-16"
+      id="owner-submission"
+    >
+      <div
+        class="mx-auto grid w-full max-w-6xl gap-8 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] md:gap-12"
+      >
+        <div
+          class="space-y-4"
+        >
+          <p
+            class="font-mono text-[0.7rem] uppercase tracking-[0.3em] text-white/46"
+          >
+            For sellers
+          </p>
+          <h2
+            class="text-2xl font-semibold tracking-tight text-white sm:text-3xl"
+          >
+            Submit a community for review
+          </h2>
+          <p
+            class="max-w-md text-sm leading-6 text-white/64 sm:text-base"
+          >
+            If you are considering a sale of a manufactured housing community, share the core details below. Our acquisitions team reviews each submission directly.
+          </p>
+        </div>
+        <form
+          class="space-y-5"
+        >
+          <div
+            class="grid gap-4 sm:grid-cols-2"
+          >
+            <div
+              class="space-y-2"
+            >
+              <label
+                class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                for="ownerName"
+              >
+                Owner name
+              </label>
+              <input
+                class="flex h-11 w-full rounded-xl border border-input/80 bg-background/82 px-3 py-2 text-sm shadow-black/[0.02] backdrop-blur-sm file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                id="ownerName"
+                name="ownerName"
+                required=""
+              />
+            </div>
+            <div
+              class="space-y-2"
+            >
+              <label
+                class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                for="ownerEmail"
+              >
+                Email
+              </label>
+              <input
+                class="flex h-11 w-full rounded-xl border border-input/80 bg-background/82 px-3 py-2 text-sm shadow-black/[0.02] backdrop-blur-sm file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                id="ownerEmail"
+                name="ownerEmail"
+                required=""
+                type="email"
+              />
+            </div>
+          </div>
+          <div
+            class="grid gap-4 sm:grid-cols-2"
+          >
+            <div
+              class="space-y-2"
+            >
+              <label
+                class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                for="ownerPhone"
+              >
+                Phone
+              </label>
+              <input
+                class="flex h-11 w-full rounded-xl border border-input/80 bg-background/82 px-3 py-2 text-sm shadow-black/[0.02] backdrop-blur-sm file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                id="ownerPhone"
+                name="ownerPhone"
+                type="tel"
+              />
+            </div>
+            <div
+              class="space-y-2"
+            >
+              <label
+                class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                for="communityName"
+              >
+                Community name
+              </label>
+              <input
+                class="flex h-11 w-full rounded-xl border border-input/80 bg-background/82 px-3 py-2 text-sm shadow-black/[0.02] backdrop-blur-sm file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                id="communityName"
+                name="communityName"
+                required=""
+              />
+            </div>
+          </div>
+          <div
+            class="grid gap-4 sm:grid-cols-3"
+          >
+            <div
+              class="space-y-2 sm:col-span-2"
+            >
+              <label
+                class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                for="propertyAddress"
+              >
+                Property address
+              </label>
+              <input
+                class="flex h-11 w-full rounded-xl border border-input/80 bg-background/82 px-3 py-2 text-sm shadow-black/[0.02] backdrop-blur-sm file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                id="propertyAddress"
+                name="propertyAddress"
+                required=""
+              />
+            </div>
+            <div
+              class="space-y-2"
+            >
+              <label
+                class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                for="propertyCity"
+              >
+                City
+              </label>
+              <input
+                class="flex h-11 w-full rounded-xl border border-input/80 bg-background/82 px-3 py-2 text-sm shadow-black/[0.02] backdrop-blur-sm file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                id="propertyCity"
+                name="propertyCity"
+                required=""
+              />
+            </div>
+          </div>
+          <div
+            class="grid gap-4 sm:grid-cols-3"
+          >
+            <div
+              class="space-y-2"
+            >
+              <label
+                class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                for="propertyState"
+              >
+                State
+              </label>
+              <input
+                class="flex h-11 w-full rounded-xl border border-input/80 bg-background/82 px-3 py-2 text-sm shadow-black/[0.02] backdrop-blur-sm file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                id="propertyState"
+                name="propertyState"
+                required=""
+              />
+            </div>
+            <div
+              class="space-y-2"
+            >
+              <label
+                class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                for="siteCount"
+              >
+                Site count (optional)
+              </label>
+              <input
+                class="flex h-11 w-full rounded-xl border border-input/80 bg-background/82 px-3 py-2 text-sm shadow-black/[0.02] backdrop-blur-sm file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                id="siteCount"
+                min="0"
+                name="siteCount"
+                type="number"
+              />
+            </div>
+            <div
+              class="space-y-2"
+            >
+              <label
+                class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                for="occupancy"
+              >
+                Occupancy (optional)
+              </label>
+              <input
+                class="flex h-11 w-full rounded-xl border border-input/80 bg-background/82 px-3 py-2 text-sm shadow-black/[0.02] backdrop-blur-sm file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                id="occupancy"
+                name="occupancy"
+                placeholder="e.g. 92%"
+              />
+            </div>
+          </div>
+          <div
+            class="space-y-2"
+          >
+            <label
+              class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              for="askingPrice"
+            >
+              Asking price or guidance (optional)
+            </label>
+            <input
+              class="flex h-11 w-full rounded-xl border border-input/80 bg-background/82 px-3 py-2 text-sm shadow-black/[0.02] backdrop-blur-sm file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              id="askingPrice"
+              name="askingPrice"
+              placeholder="e.g. $12,500,000"
+            />
+          </div>
+          <div
+            class="space-y-2"
+          >
+            <label
+              class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              for="notes"
+            >
+              Additional notes
+            </label>
+            <textarea
+              class="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              id="notes"
+              name="notes"
+              placeholder="Tell us anything relevant about operations, timing, or tenancy."
+              rows="5"
+            />
+          </div>
+          <div
+            class="space-y-3 border-t border-white/14 pt-4"
+          >
+            <p
+              class="text-xs text-white/60"
+            >
+              Information is used for acquisition review only.
+            </p>
+            <div
+              class="flex flex-wrap items-center gap-3"
+            >
+              <button
+                class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border border-transparent text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-primary text-primary-foreground shadow-sm hover:-translate-y-px hover:bg-primary/92 hover:shadow-md h-10 px-4 py-2"
+                type="submit"
+              >
+                Submit property
+              </button>
+            </div>
+          </div>
+        </form>
       </div>
     </section>
   </main>

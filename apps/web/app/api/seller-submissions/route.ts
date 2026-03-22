@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { checkRateLimit } from "@/lib/server/rateLimiter";
-import { recordObservabilityEvent } from "@/lib/server/observability";
+import * as Sentry from "@sentry/nextjs";
 
 const ROUTE_KEY = "seller-submissions";
 
@@ -25,13 +25,7 @@ export async function POST(req: NextRequest) {
   const ip = getClientIp(req);
 
   if (!checkRateLimit(`${ROUTE_KEY}:${ip}`, 5, 60)) {
-    await recordObservabilityEvent({
-      source: "api",
-      event: "seller_submission_rate_limited",
-      route: "/api/seller-submissions",
-      level: "warning",
-      metadata: { reasonCode: "rate_limited" },
-    });
+    console.warn("[seller-submissions] rate limited", { ip });
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   }
 
@@ -48,25 +42,11 @@ export async function POST(req: NextRequest) {
   }
 
   if (parsed.data.company && parsed.data.company.length > 0) {
-    await recordObservabilityEvent({
-      source: "api",
-      event: "seller_submission_rejected",
-      route: "/api/seller-submissions",
-      level: "warning",
-      metadata: { reasonCode: "honeypot" },
-    });
+    console.warn("[seller-submissions] honeypot triggered");
     return NextResponse.json({ error: "Rejected" }, { status: 400 });
   }
 
-  await recordObservabilityEvent({
-    source: "api",
-    event: "seller_submission_received",
-    route: "/api/seller-submissions",
-    level: "info",
-    metadata: {
-      hasDetails: Boolean(parsed.data.details),
-    },
-  });
+  console.info("[seller-submissions] submission received", { hasDetails: Boolean(parsed.data.details) });
 
   return NextResponse.json({ ok: true }, { status: 200 });
 }
