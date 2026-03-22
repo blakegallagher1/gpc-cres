@@ -19,103 +19,111 @@ exports[`ChatContainer > does not fetch a nonexistent conversation for a fresh w
       <div
         data-testid="chat-input"
       />
-      <section
-        class="workspace-hero shrink-0 px-4 py-4 sm:px-6"
+      <div
+        class="shrink-0 border-b border-border/40 px-4 py-2.5 sm:px-5"
       >
         <div
-          class="workspace-hero-grid gap-5"
+          class="flex items-center gap-3"
         >
           <div
-            class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between"
+            class="hidden min-w-0 flex-1 items-center gap-4 text-[11px] text-muted-foreground md:flex"
           >
-            <div
-              class="max-w-2xl space-y-3"
-            >
-              <p
-                class="workspace-eyebrow"
-              >
-                Run Desk
-              </p>
-              <div
-                class="space-y-2"
-              >
-                <h2
-                  class="workspace-title max-w-3xl text-[clamp(1.55rem,2.4vw,2.2rem)]"
-                >
-                  Set scope, ask for the deliverable, keep the run moving.
-                </h2>
-                <p
-                  class="workspace-subtitle max-w-2xl"
-                >
-                  The thread is the working surface. Keep scope, evidence, and approvals close as the run moves.
-                </p>
-              </div>
-            </div>
-            <div
-              class="flex min-w-0 flex-wrap items-center gap-2 xl:max-w-sm xl:justify-end"
-            >
-              <div
-                data-testid="deal-selector"
-              />
-            </div>
-          </div>
-          <div
-            class="grid gap-4 border-t border-border/60 pt-4 text-[11px] sm:grid-cols-2 xl:grid-cols-4"
-          >
-            <div>
-              <p
-                class="workspace-stat-label"
+            <span>
+              <span
+                class="workspace-stat-label mr-1.5"
               >
                 Scope
-              </p>
-              <p
-                class="mt-1 text-sm font-medium text-foreground"
+              </span>
+              <span
+                class="text-foreground/90"
               >
                 No deal scope
-              </p>
-            </div>
-            <div>
-              <p
-                class="workspace-stat-label"
+              </span>
+            </span>
+            <span
+              class="text-border/60"
+            >
+              |
+            </span>
+            <span>
+              <span
+                class="workspace-stat-label mr-1.5"
               >
                 Thread
-              </p>
-              <p
-                class="mt-1 text-sm font-medium text-foreground"
+              </span>
+              <span
+                class="text-foreground/90"
               >
                 Draft thread
-                 · 
+              </span>
+              <span
+                class="ml-1 text-muted-foreground/50"
+              >
+                · 
                 Live socket
-              </p>
-            </div>
-            <div>
-              <p
-                class="workspace-stat-label"
+              </span>
+            </span>
+            <span
+              class="text-border/60"
+            >
+              |
+            </span>
+            <span>
+              <span
+                class="workspace-stat-label mr-1.5"
               >
                 Agent
-              </p>
-              <p
-                class="mt-1 text-sm font-medium text-foreground"
+              </span>
+              <span
+                class="text-foreground/90"
               >
                 Coordinator
-              </p>
-            </div>
-            <div>
-              <p
-                class="workspace-stat-label"
+              </span>
+            </span>
+            <span
+              class="text-border/60"
+            >
+              |
+            </span>
+            <span>
+              <span
+                class="workspace-stat-label mr-1.5"
               >
-                History
-              </p>
-              <p
-                class="mt-1 text-sm font-medium text-foreground"
+                Runs
+              </span>
+              <span
+                class="text-foreground/90"
               >
                 0
-                 saved
-              </p>
-            </div>
+              </span>
+            </span>
+          </div>
+          <div
+            class="min-w-0 flex-1 text-xs text-muted-foreground md:hidden"
+          >
+            <span
+              class="text-foreground/90"
+            >
+              Coordinator
+            </span>
+            <span
+              class="mx-1.5 text-border/60"
+            >
+              ·
+            </span>
+            <span>
+              Draft thread
+            </span>
+          </div>
+          <div
+            class="flex shrink-0 items-center gap-2"
+          >
+            <div
+              data-testid="deal-selector"
+            />
           </div>
         </div>
-      </section>
+      </div>
       <div
         class="min-h-0 flex-1 overflow-hidden"
       >
@@ -126,10 +134,10 @@ exports[`ChatContainer > does not fetch a nonexistent conversation for a fresh w
       </div>
     </div>
     <aside
-      class="hidden w-[22rem] border-l border-border/60 bg-background/72 backdrop-blur-xl lg:flex lg:flex-col"
+      class="hidden w-[19rem] border-l border-border/40 bg-background lg:flex lg:flex-col"
     >
       <div
-        class="border-b border-border/60 px-5 py-4"
+        class="border-b border-border/40 px-4 py-3"
       >
         <p
           class="workspace-eyebrow text-[10px]"
@@ -137,76 +145,79 @@ exports[`ChatContainer > does not fetch a nonexistent conversation for a fresh w
           Live Execution
         </p>
         <h3
-          class="mt-1 text-sm font-semibold tracking-tight text-foreground"
+          class="mt-0.5 text-xs font-semibold tracking-tight text-foreground"
         >
           Verification and specialist coverage
         </h3>
-        <p
-          class="mt-2 text-xs leading-5 text-muted-foreground"
-        >
-          Keep the thread central and pull detail from this lane when the run needs a check.
-        </p>
       </div>
       <div
-        class="min-h-0 flex-1 overflow-y-auto px-5 py-5"
+        class="min-h-0 flex-1 overflow-y-auto px-4 py-4"
       >
         <div
-          class="space-y-5"
+          class="space-y-4"
         >
           <div
-            class="grid grid-cols-2 gap-3 border-b border-border/60 pb-4 text-[11px]"
+            class="grid grid-cols-2 gap-x-4 gap-y-2 text-[11px]"
           >
-            <div>
-              <p
+            <div
+              class="flex items-baseline justify-between"
+            >
+              <span
                 class="workspace-stat-label"
               >
                 Thread
-              </p>
-              <p
-                class="mt-1 text-sm font-medium text-foreground"
+              </span>
+              <span
+                class="text-xs text-foreground"
               >
                 Draft until first response
-              </p>
+              </span>
             </div>
-            <div>
-              <p
+            <div
+              class="flex items-baseline justify-between"
+            >
+              <span
                 class="workspace-stat-label"
               >
                 Agent
-              </p>
-              <p
-                class="mt-1 text-sm font-medium text-foreground"
+              </span>
+              <span
+                class="text-xs text-foreground"
               >
                 Coordinator
-              </p>
+              </span>
             </div>
-            <div>
-              <p
+            <div
+              class="flex items-baseline justify-between"
+            >
+              <span
                 class="workspace-stat-label"
               >
-                Attachments
-              </p>
-              <p
-                class="mt-1 text-sm font-medium text-foreground"
+                Attach
+              </span>
+              <span
+                class="text-xs text-foreground"
               >
                 Select deal
-              </p>
+              </span>
             </div>
-            <div>
-              <p
+            <div
+              class="flex items-baseline justify-between"
+            >
+              <span
                 class="workspace-stat-label"
               >
                 History
-              </p>
-              <p
-                class="mt-1 text-sm font-medium text-foreground"
+              </span>
+              <span
+                class="text-xs text-foreground"
               >
                 No recents yet
-              </p>
+              </span>
             </div>
           </div>
           <div
-            class="space-y-4"
+            class="space-y-3"
             data-orientation="horizontal"
             dir="ltr"
           >
@@ -263,140 +274,111 @@ exports[`ChatContainer > does not fetch a nonexistent conversation for a fresh w
             </div>
             <div
               aria-labelledby="radix-_r_0_-trigger-guide"
-              class="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 mt-0 space-y-4"
+              class="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 mt-0 space-y-3"
               data-orientation="horizontal"
               data-state="active"
               id="radix-_r_0_-content-guide"
               role="tabpanel"
               tabindex="0"
             >
-              <section
-                class="space-y-3"
+              <div
+                class="space-y-2 text-sm leading-6"
               >
                 <div
-                  class="flex items-center justify-between gap-3"
+                  class="flex items-start gap-2.5"
                 >
+                  <span
+                    class="mt-0.5 flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-full border border-border/60 text-[9px] font-semibold text-muted-foreground"
+                  >
+                    1
+                  </span>
                   <div>
                     <p
-                      class="workspace-eyebrow text-[10px]"
+                      class="text-xs font-medium text-foreground"
                     >
-                      Run Brief
+                      Set the scope
                     </p>
-                    <h4
-                      class="mt-1 text-sm font-semibold tracking-tight text-foreground"
+                    <p
+                      class="text-xs text-muted-foreground"
                     >
-                      What this desk expects
-                    </h4>
+                      Lead with a parcel, address, deal, market, or uploaded file so the agent can anchor the run.
+                    </p>
                   </div>
+                </div>
+                <div
+                  class="flex items-start gap-2.5"
+                >
                   <span
-                    class="text-[11px] text-muted-foreground"
+                    class="mt-0.5 flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-full border border-border/60 text-[9px] font-semibold text-muted-foreground"
                   >
-                    0
-                     saved
+                    2
                   </span>
-                </div>
-                <div
-                  class="space-y-3 border-t border-border/60 pt-3 text-sm leading-6"
-                >
-                  <div
-                    class="flex items-start gap-3"
-                  >
-                    <span
-                      class="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-border/70 text-[10px] font-semibold text-foreground"
+                  <div>
+                    <p
+                      class="text-xs font-medium text-foreground"
                     >
-                      1
-                    </span>
-                    <div>
-                      <p
-                        class="font-medium text-foreground"
-                      >
-                        Set the scope
-                      </p>
-                      <p
-                        class="text-muted-foreground"
-                      >
-                        Lead with a parcel, address, deal, market, or uploaded file so the agent can anchor the run.
-                      </p>
-                    </div>
-                  </div>
-                  <div
-                    class="flex items-start gap-3"
-                  >
-                    <span
-                      class="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-border/70 text-[10px] font-semibold text-foreground"
+                      Ask for the deliverable
+                    </p>
+                    <p
+                      class="text-xs text-muted-foreground"
                     >
-                      2
-                    </span>
-                    <div>
-                      <p
-                        class="font-medium text-foreground"
-                      >
-                        Ask for the deliverable
-                      </p>
-                      <p
-                        class="text-muted-foreground"
-                      >
-                        Request a screen, memo, checklist, comparison, or action plan instead of a vague answer.
-                      </p>
-                    </div>
-                  </div>
-                  <div
-                    class="flex items-start gap-3"
-                  >
-                    <span
-                      class="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-border/70 text-[10px] font-semibold text-foreground"
-                    >
-                      3
-                    </span>
-                    <div>
-                      <p
-                        class="font-medium text-foreground"
-                      >
-                        Verify before acting
-                      </p>
-                      <p
-                        class="text-muted-foreground"
-                      >
-                        Inspect tool activity, handoffs, evidence gaps, and cited sources before making a decision.
-                      </p>
-                    </div>
+                      Request a screen, memo, checklist, comparison, or action plan instead of a vague answer.
+                    </p>
                   </div>
                 </div>
                 <div
-                  class="space-y-2 border-t border-border/60 pt-3 text-xs leading-5 text-muted-foreground"
+                  class="flex items-start gap-2.5"
                 >
-                  <p>
-                    <span
-                      class="font-medium text-foreground"
+                  <span
+                    class="mt-0.5 flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-full border border-border/60 text-[9px] font-semibold text-muted-foreground"
+                  >
+                    3
+                  </span>
+                  <div>
+                    <p
+                      class="text-xs font-medium text-foreground"
                     >
-                      Stateful thread
-                      :
-                    </span>
-                     
-                    Saved runs reopen from the left rail so the operating context stays intact across turns.
-                  </p>
-                  <p>
-                    <span
-                      class="font-medium text-foreground"
+                      Verify before acting
+                    </p>
+                    <p
+                      class="text-xs text-muted-foreground"
                     >
-                      Specialist handoffs
-                      :
-                    </span>
-                     
-                    The coordinator can delegate work to research, finance, risk, entitlements, diligence, and other specialists.
-                  </p>
-                  <p>
-                    <span
-                      class="font-medium text-foreground"
-                    >
-                      Tool-backed execution
-                      :
-                    </span>
-                     
-                    Live tool calls, approvals, artifacts, and map references surface in the thread while the run is active.
-                  </p>
+                      Inspect tool activity, handoffs, evidence gaps, and cited sources before making a decision.
+                    </p>
+                  </div>
                 </div>
-              </section>
+              </div>
+              <div
+                class="space-y-1 border-t border-border/40 pt-3 text-[11px] leading-5 text-muted-foreground"
+              >
+                <p>
+                  <span
+                    class="text-foreground/80"
+                  >
+                    Stateful thread
+                  </span>
+                   
+                  Saved runs reopen from the left rail so the operating context stays intact across turns.
+                </p>
+                <p>
+                  <span
+                    class="text-foreground/80"
+                  >
+                    Specialist handoffs
+                  </span>
+                   
+                  The coordinator can delegate work to research, finance, risk, entitlements, diligence, and other specialists.
+                </p>
+                <p>
+                  <span
+                    class="text-foreground/80"
+                  >
+                    Tool-backed execution
+                  </span>
+                   
+                  Live tool calls, approvals, artifacts, and map references surface in the thread while the run is active.
+                </p>
+              </div>
             </div>
             <div
               aria-labelledby="radix-_r_0_-trigger-verification"
@@ -410,7 +392,7 @@ exports[`ChatContainer > does not fetch a nonexistent conversation for a fresh w
             />
             <div
               aria-labelledby="radix-_r_0_-trigger-coverage"
-              class="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 mt-0 space-y-4"
+              class="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 mt-0 space-y-3"
               data-orientation="horizontal"
               data-state="inactive"
               hidden=""

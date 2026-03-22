@@ -76,8 +76,8 @@ describe("ChatWorkspaceInspector", () => {
     );
 
     expect(screen.getByText("Verification and specialist coverage")).toBeInTheDocument();
-    expect(screen.getByText("What this desk expects")).toBeInTheDocument();
-    expect(screen.getByText("Stateful thread:")).toBeInTheDocument();
+    expect(screen.getByText("Set the scope")).toBeInTheDocument();
+    expect(screen.getByText("Stateful thread")).toBeInTheDocument();
     expect(
       screen.queryByText("Verification fills in after the first response."),
     ).not.toBeInTheDocument();
@@ -105,7 +105,7 @@ describe("ChatWorkspaceInspector", () => {
       />,
     );
 
-    expect(screen.getByText("What this desk expects")).toBeInTheDocument();
+    expect(screen.getByText("Set the scope")).toBeInTheDocument();
 
     rerender(
       <ChatWorkspaceInspector

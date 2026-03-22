@@ -142,9 +142,7 @@ test.describe("Chat layout", () => {
     await openChat(page);
 
     await expect(page.getByRole("banner")).toContainText("Acquisition desk");
-    await expect(page.getByRole("main")).toContainText(
-      "Set scope, ask for the deliverable, keep the run moving.",
-    );
+    await expect(page.getByRole("main")).toContainText("Start from a concrete ask");
 
     const viewport = page.viewportSize();
 
