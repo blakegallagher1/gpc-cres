@@ -41,8 +41,11 @@ jobs:
       - name: Lint
         run: pnpm --filter gpc-agent-dashboard lint
 
-      - name: Tests
-        run: pnpm --filter gpc-agent-dashboard test
+      - name: Tests with coverage
+        run: pnpm --filter gpc-agent-dashboard exec vitest run --coverage --configLoader runner
+
+      - name: Package tests with coverage
+        run: pnpm --filter @entitlement-os/openai exec vitest run --coverage && pnpm --filter @entitlement-os/shared exec vitest run --coverage
 
       - name: Build
         run: pnpm --filter gpc-agent-dashboard build

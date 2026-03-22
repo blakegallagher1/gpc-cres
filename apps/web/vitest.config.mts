@@ -22,5 +22,26 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./test-utils/setup.ts"],
     exclude: ["e2e/**", "node_modules/**", ".next/**", "**/production-verification*"],
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "json-summary", "html"],
+      reportsDirectory: "./coverage",
+      include: ["app/**/*.ts", "app/**/*.tsx", "lib/**/*.ts", "components/**/*.ts", "components/**/*.tsx"],
+      exclude: [
+        "**/*.test.ts",
+        "**/*.test.tsx",
+        "**/*.spec.ts",
+        "**/__tests__/**",
+        "**/test-utils/**",
+        "e2e/**",
+        "**/*.d.ts",
+      ],
+      thresholds: {
+        statements: 33,
+        branches: 28,
+        functions: 29,
+        lines: 34,
+      },
+    },
   },
 });
