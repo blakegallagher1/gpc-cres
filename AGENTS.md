@@ -193,7 +193,7 @@ ssh cres_admin@ssh.gallagherpropco.com
 - Do NOT modify Prisma migration files that have been applied to production
 - Do NOT change production infrastructure without documenting in `docs/` per `ARCHIVE_POLICY.md`
 - Do NOT modify `.env`, `.env.local`, or `.env.login` files
-- Do NOT push to `main` directly — always use feature branches
+- Prefer feature branches for large changes, but pushing small fixes directly to `main` is acceptable
 - Do NOT modify `packages/db/prisma/migrations/` without running `pnpm db:migrate:local` to verify
 - Do NOT add new pnpm workspace packages without updating root `pnpm-workspace.yaml` / lockfile
 - Do NOT remove or modify production observability instrumentation without review
