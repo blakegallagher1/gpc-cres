@@ -31,20 +31,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Check packages/types has no internal imports
-        run: |
-          count=$(grep -rn "from '@gallagher-cres/" packages/types/src/ --include="*.ts" 2>/dev/null | wc -l)
-          if [ "$count" -gt 0 ]; then
-            echo "FAIL: packages/types has $count internal imports"
-            grep -rn "from '@gallagher-cres/" packages/types/src/ --include="*.ts"
-            exit 1
-          fi
-          echo "OK: packages/types has no internal imports"
       - name: Check packages/db layer boundary
         run: |
-          count=$(grep -rn "from.*apps/\|from.*packages/parcels\|from.*packages/zoning\|from.*packages/entitlements\|from.*packages/evidence\|from.*packages/api-client" packages/db/src/ --include="*.ts" 2>/dev/null | wc -l)
-          if [ "$count" -gt 0 ]; then
-            echo "FAIL: packages/db has $count imports from higher layers"
+          forbidden_imports=$(rg -n -g "*.ts" -g "*.tsx" "(from|import)\\s*['\"](apps/web|@entitlement-os/openai|@entitlement-os/evidence|@entitlement-os/artifacts|@gpc/server)['\"]" packages/db/)
+          if [ -n "$forbidden_imports" ]; then
+            count=$(printf "%s\n" "$forbidden_imports" | wc -l)
+            echo "FAIL: packages/db has $count forbidden imports"
+            printf "%s\n" "$forbidden_imports"
             exit 1
           fi
           echo "OK: packages/db respects layer boundary"

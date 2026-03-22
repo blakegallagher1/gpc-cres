@@ -116,6 +116,78 @@ Actual workspace packages live under `packages/`:
 - Production deploys: Vercel (frontend); gateway on host per `docs/SERVER_MANAGEMENT.md`
 - Database migrations: `pnpm db:migrate:local` (dev) / `pnpm db:deploy` (prod)
 
+## Server Access (Windows 11 Backend)
+
+The production backend runs on a 12-core i7 Windows 11 machine via Docker Compose.
+
+**Services:**
+| Service | Internal Port | Public URL |
+|---------|--------------|------------|
+| FastAPI gateway | :8000 | `https://api.gallagherpropco.com` |
+| Martin tile server | :3000 | `https://tiles.gallagherpropco.com` |
+| PostgreSQL | :5432 | `https://db.gallagherpropco.com` (via `cloudflared` tunnel) |
+| Qdrant vector DB | :6333 | `https://qdrant.gallagherpropco.com` |
+
+All external access goes through Cloudflare Tunnel.
+
+**Admin API (preferred over SSH):**
+```bash
+# Health check
+curl -H "Authorization: Bearer $ADMIN_API_KEY" https://api.gallagherpropco.com/admin/health
+
+# Query database
+curl -X POST -H "Authorization: Bearer $ADMIN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"sql": "SELECT count(*) FROM ebr_parcels"}' \
+  https://api.gallagherpropco.com/admin/db/query
+
+# Container logs
+curl -H "Authorization: Bearer $ADMIN_API_KEY" https://api.gallagherpropco.com/admin/containers/gateway/logs
+
+# Key endpoints: /admin/health, /admin/db/schema, /admin/db/query, /admin/db/tables,
+# /admin/containers, /admin/containers/{name}/logs, /admin/containers/{name}/restart,
+# /admin/deploy/gateway, /admin/deploy/reload, /admin/env
+```
+
+**Gateway API (parcel/screening data):**
+```bash
+# Parcel search
+curl -H "Authorization: Bearer $LOCAL_API_KEY" \
+  "https://api.gallagherpropco.com/api/parcel/search?q=KEYWORD"
+
+# Parcel bbox search (map)
+curl -H "Authorization: Bearer $LOCAL_API_KEY" \
+  "https://api.gallagherpropco.com/api/parcel/bbox?west=-91.2&south=30.3&east=-91.0&north=30.5"
+
+# Full screening
+curl -H "Authorization: Bearer $LOCAL_API_KEY" \
+  "https://api.gallagherpropco.com/api/screening/full?parcel_id=PARCEL_ID"
+```
+
+**Direct DB access (when Admin API is insufficient):**
+```bash
+# Start tunnel (runs in foreground — use a separate terminal)
+cloudflared access tcp --hostname db.gallagherpropco.com --url localhost:54399
+
+# Then connect
+psql postgresql://postgres:postgres@localhost:54399/entitlement_os
+```
+
+**SSH (last resort — prefer Admin API):**
+```bash
+ssh cres_admin@ssh.gallagherpropco.com
+# Requires ProxyCommand in ~/.ssh/config — see docs/SERVER_MANAGEMENT.md
+```
+
+**Env vars available** (set in shell, passed via `.codex/config.toml`):
+- `ADMIN_API_KEY` — Admin API bearer token
+- `LOCAL_API_KEY` — Gateway API bearer token
+- `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET` — Cloudflare Access service token (bypasses CF Access 403)
+
+**Vercel → Postgres:** Cloudflare Hyperdrive (config `ebd13ab7df60414d9ba8244299467e5e`) through CF Worker `/db` endpoint. Prisma adapter: `packages/db/src/gateway-adapter.ts`.
+
+**Reference docs:** `docs/SERVER_MANAGEMENT.md`, `docs/CLOUDFLARE.md`, `docs/server-manifest.json`
+
 ## What Agents Must NOT Do
 
 - Do NOT modify Prisma migration files that have been applied to production
