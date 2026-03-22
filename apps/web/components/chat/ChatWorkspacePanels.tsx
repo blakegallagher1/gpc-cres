@@ -3,7 +3,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { PanelLeftOpen, PanelRightOpen } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -23,10 +22,8 @@ import {
 
 interface ChatWorkspaceHeroProps {
   activeAgentLabel: string;
-  attachmentStatusLabel: string;
   conversationCount: number;
   dealSelector: ReactNode;
-  recentConversationLabel: string;
   scopeLabel: string;
   threadStatusLabel: string;
   transportLabel: string;
@@ -127,7 +124,7 @@ function InspectorBody({
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 gap-3 text-[11px]">
+      <div className="grid grid-cols-2 gap-3 border-b border-border/60 pb-4 text-[11px]">
         <div>
           <p className="workspace-stat-label">Thread</p>
           <p className="mt-1 text-sm font-medium text-foreground">{threadStatusLabel}</p>
@@ -154,7 +151,7 @@ function InspectorBody({
         </TabsList>
 
         <TabsContent value="guide" className="mt-0 space-y-4">
-          <section className="space-y-3 rounded-2xl border border-border/60 bg-background/72 px-4 py-4">
+          <section className="space-y-3">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="workspace-eyebrow text-[10px]">Run Brief</p>
@@ -162,9 +159,9 @@ function InspectorBody({
                   What this desk expects
                 </h4>
               </div>
-              <Badge variant="outline">{conversationCount} saved</Badge>
+              <span className="text-[11px] text-muted-foreground">{conversationCount} saved</span>
             </div>
-            <div className="space-y-3 text-sm leading-6">
+            <div className="space-y-3 border-t border-border/60 pt-3 text-sm leading-6">
               {CHAT_WORKSPACE_STEPS.map((step, index) => (
                 <div key={step.title} className="flex items-start gap-3">
                   <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-border/70 text-[10px] font-semibold text-foreground">
@@ -177,21 +174,12 @@ function InspectorBody({
                 </div>
               ))}
             </div>
-          </section>
-
-          <section className="space-y-3 rounded-2xl border border-border/60 bg-background/72 px-4 py-4">
-            <div>
-              <p className="workspace-eyebrow text-[10px]">Desk Contract</p>
-              <h4 className="mt-1 text-sm font-semibold tracking-tight text-foreground">
-                Current operating behavior
-              </h4>
-            </div>
-            <div className="space-y-3 text-sm leading-6">
+            <div className="space-y-2 border-t border-border/60 pt-3 text-xs leading-5 text-muted-foreground">
               {CHAT_WORKSPACE_CAPABILITIES.slice(0, 3).map((capability) => (
-                <div key={capability.label}>
-                  <p className="font-medium text-foreground">{capability.label}</p>
-                  <p className="text-muted-foreground">{capability.detail}</p>
-                </div>
+                <p key={capability.label}>
+                  <span className="font-medium text-foreground">{capability.label}:</span>{' '}
+                  {capability.detail}
+                </p>
               ))}
             </div>
           </section>
@@ -206,7 +194,7 @@ function InspectorBody({
         </TabsContent>
 
         <TabsContent value="coverage" className="mt-0 space-y-4">
-          <section className="space-y-3 rounded-2xl border border-border/60 bg-background/72 px-4 py-4">
+          <section className="space-y-3">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="workspace-eyebrow text-[10px]">Specialist Coverage</p>
@@ -214,32 +202,37 @@ function InspectorBody({
                   Agents on this desk
                 </h4>
               </div>
-              <Badge variant="secondary">{agents.length}</Badge>
+              <span className="text-[11px] text-muted-foreground">{agents.length} loaded</span>
             </div>
-            <div className="space-y-3">
-              {highlightedAgents.map((agent) => (
-                <div key={agent.id} className="rounded-xl border border-border/60 px-3 py-3">
+            <div className="overflow-hidden border-y border-border/60">
+              {highlightedAgents.map((agent, index) => (
+                <div
+                  key={agent.id}
+                  className={index === highlightedAgents.length - 1 ? 'py-3' : 'border-b border-border/60 py-3'}
+                >
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-sm font-medium text-foreground">
                       {formatWorkspaceAgentLabel(agent.name)}
                     </p>
-                    <Badge variant="outline">{agent.model}</Badge>
+                    <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                      {agent.model}
+                    </span>
                   </div>
                   <p className="mt-1 text-xs leading-5 text-muted-foreground">
                     {agent.description}
                   </p>
                 </div>
               ))}
-              {overflowAgentCount > 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  +{overflowAgentCount} additional specialists remain available through the
-                  coordinator handoff loop.
-                </p>
-              ) : null}
             </div>
+            {overflowAgentCount > 0 ? (
+              <p className="text-xs text-muted-foreground">
+                +{overflowAgentCount} additional specialists remain available through the
+                coordinator handoff loop.
+              </p>
+            ) : null}
           </section>
 
-          <section className="space-y-3 rounded-2xl border border-border/60 bg-background/72 px-4 py-4">
+          <section className="space-y-3 border-t border-border/60 pt-4">
             <div>
               <p className="workspace-eyebrow text-[10px]">Coverage Notes</p>
               <h4 className="mt-1 text-sm font-semibold tracking-tight text-foreground">
@@ -264,10 +257,8 @@ function InspectorBody({
 /** Compact run brief for the primary chat workspace. */
 export function ChatWorkspaceHero({
   activeAgentLabel,
-  attachmentStatusLabel,
   conversationCount,
   dealSelector,
-  recentConversationLabel,
   scopeLabel,
   threadStatusLabel,
   transportLabel,
@@ -286,91 +277,67 @@ export function ChatWorkspaceHero({
 
   return (
     <motion.section className="workspace-hero shrink-0 px-4 py-4 sm:px-6" {...motionProps}>
-      <div className="workspace-hero-grid gap-4">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div className="max-w-3xl space-y-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="workspace-eyebrow">Run Desk</p>
-              <Badge variant="secondary">{threadStatusLabel}</Badge>
-              <Badge variant="secondary">{transportLabel}</Badge>
-            </div>
+      <div className="workspace-hero-grid gap-5">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+          <div className="max-w-2xl space-y-3">
+            <p className="workspace-eyebrow">Run Desk</p>
             <div className="space-y-2">
-              <h2 className="workspace-title max-w-4xl text-[clamp(1.7rem,3vw,2.6rem)]">
+              <h2 className="workspace-title max-w-3xl text-[clamp(1.55rem,2.4vw,2.2rem)]">
                 Set scope, ask for the deliverable, keep the run moving.
               </h2>
-              <p className="workspace-subtitle max-w-3xl">
-                The thread is the working surface. History, specialist coverage, and
-                verification stay close without taking over the screen.
+              <p className="workspace-subtitle max-w-2xl">
+                The thread is the working surface. Keep scope, evidence, and approvals close
+                as the run moves.
               </p>
             </div>
           </div>
 
-          <div className="flex min-w-0 max-w-xl flex-col gap-3 xl:w-[29rem]">
-            <div className="flex flex-wrap items-center gap-2">
-              {dealSelector}
-              {isMobile ? (
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-9 rounded-xl"
-                    onClick={onOpenHistory}
-                  >
-                    <PanelLeftOpen className="mr-2 h-4 w-4" />
-                    History
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-9 rounded-xl"
-                    onClick={onOpenInspector}
-                  >
-                    <PanelRightOpen className="mr-2 h-4 w-4" />
-                    Inspector
-                  </Button>
-                </>
-              ) : null}
-            </div>
-
-            <div className="workspace-surface workspace-surface-muted rounded-2xl px-4 py-3 text-sm leading-6 shadow-none md:hidden">
-              <p className="workspace-eyebrow text-[10px]">Run Brief</p>
-              <p className="mt-2 text-foreground">
-                Lead with scope, name the deliverable, then verify approvals and evidence
-                before acting.
-              </p>
-            </div>
-
-            <div className="workspace-toolbar hidden gap-3 md:grid md:grid-cols-3">
-              <div>
-                <p className="workspace-eyebrow text-[10px]">Scope</p>
-                <p className="mt-1 text-sm font-medium text-foreground">
-                  Parcel, deal, market, or file.
-                </p>
-              </div>
-              <div>
-                <p className="workspace-eyebrow text-[10px]">Ask For</p>
-                <p className="mt-1 text-sm font-medium text-foreground">
-                  Memo, screen, checklist, comparison, or action plan.
-                </p>
-              </div>
-              <div>
-                <p className="workspace-eyebrow text-[10px]">Verify</p>
-                <p className="mt-1 text-sm font-medium text-foreground">
-                  Check approvals, evidence, and thread state before acting.
-                </p>
-              </div>
-            </div>
+          <div className="flex min-w-0 flex-wrap items-center gap-2 xl:max-w-sm xl:justify-end">
+            {dealSelector}
+            {isMobile ? (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 rounded-xl"
+                  onClick={onOpenHistory}
+                >
+                  <PanelLeftOpen className="mr-2 h-4 w-4" />
+                  History
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 rounded-xl"
+                  onClick={onOpenInspector}
+                >
+                  <PanelRightOpen className="mr-2 h-4 w-4" />
+                  Inspector
+                </Button>
+              </>
+            ) : null}
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-          <span><span className="font-medium text-foreground">{scopeLabel}</span> scope</span>
-          <span className="hidden sm:inline">&middot;</span>
-          <span><span className="font-medium text-foreground">{threadStatusLabel}</span> thread</span>
-          <span className="hidden sm:inline">&middot;</span>
-          <span><span className="font-medium text-foreground">{activeAgentLabel}</span> agent</span>
-          <span className="hidden sm:inline">&middot;</span>
-          <span><span className="font-medium text-foreground">{conversationCount}</span> saved</span>
+        <div className="grid gap-4 border-t border-border/60 pt-4 text-[11px] sm:grid-cols-2 xl:grid-cols-4">
+          <div>
+            <p className="workspace-stat-label">Scope</p>
+            <p className="mt-1 text-sm font-medium text-foreground">{scopeLabel}</p>
+          </div>
+          <div>
+            <p className="workspace-stat-label">Thread</p>
+            <p className="mt-1 text-sm font-medium text-foreground">
+              {threadStatusLabel} · {transportLabel}
+            </p>
+          </div>
+          <div>
+            <p className="workspace-stat-label">Agent</p>
+            <p className="mt-1 text-sm font-medium text-foreground">{activeAgentLabel}</p>
+          </div>
+          <div>
+            <p className="workspace-stat-label">History</p>
+            <p className="mt-1 text-sm font-medium text-foreground">{conversationCount} saved</p>
+          </div>
         </div>
       </div>
     </motion.section>

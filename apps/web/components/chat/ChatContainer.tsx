@@ -766,7 +766,7 @@ export function ChatContainer() {
   const stableMessageListOptions = useStableOptions({
     onSuggestionClick: handleSend,
   });
-  const showMobileLaunchComposer = isMobile && visibleMessages.length === 0;
+  const showLaunchComposer = visibleMessages.length === 0;
   const showConversationRailTrigger =
     !isMobile || visibleMessages.length > 0 || conversationId !== null;
   const chatInput = (
@@ -798,11 +798,10 @@ export function ChatContainer() {
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:flex-row">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          {showMobileLaunchComposer ? chatInput : null}
+          {showLaunchComposer ? chatInput : null}
 
           <ChatWorkspaceHero
             activeAgentLabel={activeAgentLabel}
-            attachmentStatusLabel={attachmentStatusLabel}
             conversationCount={conversations.length}
             dealSelector={(
               <DealSelector
@@ -810,7 +809,6 @@ export function ChatContainer() {
                 onSelect={setSelectedDealId}
               />
             )}
-            recentConversationLabel={messageSectionTitle}
             scopeLabel={scopeLabel}
             threadStatusLabel={threadStatusLabel}
             transportLabel={transportLabel}
@@ -830,9 +828,9 @@ export function ChatContainer() {
               onToolApprovalEvents={handleToolApprovalEvents}
               emptyState={{
                 eyebrow: 'New run',
-                title: 'Start with a parcel, market, or capital question.',
+                title: 'Start from a concrete ask.',
                 description:
-                  'Attach diligence, reopen a saved thread, or launch a fresh acquisition run from the operator surface.',
+                  'Lead with the parcel, deal, market, or file, then name the screen, memo, checklist, comparison, or action plan.',
                 suggestions: [
                   'Screen this site for entitlement risk',
                   'Summarize zoning and setbacks',
@@ -843,7 +841,7 @@ export function ChatContainer() {
             />
           </div>
 
-          {showMobileLaunchComposer ? null : chatInput}
+          {showLaunchComposer ? null : chatInput}
         </div>
 
         <ChatWorkspaceInspector

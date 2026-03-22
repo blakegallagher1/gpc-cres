@@ -39,6 +39,7 @@ This is the canonical entrypoint for repository documentation.
 - Cloudflare + networking: `docs/CLOUDFLARE.md`
 - Server management: `docs/SERVER_MANAGEMENT.md`
 - Chat runtime contract: `docs/chat-runtime.md`
+- Chat surface extraction + reduction brief: `docs/chat-surface-extraction-2026-03-22.md`
 - Seller intake API contract: `docs/SELLER_INTAKE_CONTRACT.md`
 - Opportunity-platform generalization roadmap: `docs/OPPORTUNITY_OS_GENERALIZATION_ROADMAP.md`
 - Internal architecture set: `docs/claude/architecture.md`, `docs/claude/backend.md`, `docs/claude/conventions.md`, `docs/claude/workflows.md`, `docs/claude/reference.md`
