@@ -1706,6 +1706,46 @@ async def screen_full(
     }
 
 
+# =============================================================================
+# Cached Screening Summary
+# =============================================================================
+
+
+@app.get("/api/screening/cached/{parcel_id}")
+async def get_cached_screening(
+    parcel_id: str,
+    api_key: str = Depends(verify_api_key),
+    conn: asyncpg.Connection = Depends(get_db),
+):
+    """
+    Get cached parcel screening summary from materialized view.
+    Returns comprehensive screening data for flood, soils, wetlands, EPA.
+    """
+    row = await conn.fetchrow(
+        """
+        SELECT
+            parcel_id, id, address, owner, area_sqft, assessed_value,
+            geom, centroid, flood_zone_count, flood_zones,
+            in_sfha, soil_unit_count, soil_units, has_hydric,
+            wetland_count, wetlands, has_wetlands,
+            epa_facility_count, epa_facilities, has_environmental_constraints,
+            has_nearby_epa_facilities, created_at
+        FROM mv_parcel_screening_summary
+        WHERE parcel_id = $1
+           OR lower(parcel_id) = lower($1)
+           OR replace(parcel_id, '-', '') = replace($1, '-', '')
+        LIMIT 1
+        """,
+        parcel_id,
+    )
+
+    if not row:
+        raise HTTPException(status_code=404, detail=f"Parcel '{parcel_id}' not found")
+
+    return {
+        "ok": True,
+        "data": dict(row),
+    }
 
 
 # =============================================================================
