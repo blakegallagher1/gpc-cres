@@ -1,15 +1,35 @@
-import { render, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { useAgentWebSocketMock, mapDispatchMock, buildMapContextInputMock } =
+const CHAT_CONTAINER_TEST_TIMEOUT_MS = 15_000;
+const RESTORED_SUMMARY_CONVERSATION_ID = "11111111-1111-4111-8111-111111111111";
+
+const { useAgentWebSocketMock, mapDispatchMock, buildMapContextInputMock, useIsMobileMock } =
   vi.hoisted(() => ({
     useAgentWebSocketMock: vi.fn(),
     mapDispatchMock: vi.fn(),
     buildMapContextInputMock: vi.fn(() => undefined),
+    useIsMobileMock: vi.fn(() => false),
   }));
 
 vi.mock("@/components/agent-state/AgentStatePanel", () => ({
-  AgentStatePanel: () => <div data-testid="agent-state-panel" />,
+  AgentStatePanel: ({
+    confidence,
+    lastAgentName,
+    verificationSteps,
+  }: {
+    confidence?: number;
+    lastAgentName?: string;
+    verificationSteps?: string[];
+  }) => (
+    <div data-testid="agent-state-panel">
+      <p>{lastAgentName}</p>
+      <p>{Math.round((confidence ?? 0) * 100)}%</p>
+      {verificationSteps?.map((step) => <p key={step}>{step}</p>)}
+      <button type="button">Show details</button>
+    </div>
+  ),
 }));
 
 vi.mock("@/components/chat/MessageList", () => ({
@@ -25,11 +45,17 @@ vi.mock("@/components/chat/ChatInput", () => ({
 vi.mock("@/components/chat/ConversationSidebar", () => ({
   ConversationSidebar: ({
     activeConversationId,
+    open,
+    mobile,
   }: {
     activeConversationId: string | null;
+    open?: boolean;
+    mobile?: boolean;
   }) => (
     <div
       data-active-conversation-id={activeConversationId ?? ""}
+      data-mobile={mobile ? "true" : "false"}
+      data-open={open ? "true" : "false"}
       data-testid="conversation-sidebar"
     />
   ),
@@ -44,7 +70,7 @@ vi.mock("@/components/chat/DealSelector", () => ({
 }));
 
 vi.mock("@/hooks/useIsMobile", () => ({
-  useIsMobile: () => false,
+  useIsMobile: useIsMobileMock,
 }));
 
 vi.mock("@/lib/chat/MapChatContext", () => ({
@@ -72,6 +98,7 @@ describe("ChatContainer", () => {
   beforeEach(() => {
     process.env.NEXT_PUBLIC_AGENT_WS_URL = "wss://agents.example.com";
     window.history.replaceState({}, "", "/chat");
+    useIsMobileMock.mockReturnValue(false);
 
     useAgentWebSocketMock.mockReset();
     useAgentWebSocketMock.mockReturnValue({
@@ -102,6 +129,49 @@ describe("ChatContainer", () => {
         });
       }
 
+      if (url === `/api/chat/conversations/${RESTORED_SUMMARY_CONVERSATION_ID}`) {
+        return new Response(
+          JSON.stringify({
+            conversation: {
+              id: RESTORED_SUMMARY_CONVERSATION_ID,
+              title: "Saved underwriting run",
+              dealId: null,
+              createdAt: "2026-03-21T14:00:00.000Z",
+              updatedAt: "2026-03-21T14:05:00.000Z",
+              messages: [
+                {
+                  id: "msg-summary-1",
+                  role: "assistant",
+                  content: "Underwriting screen complete.",
+                  agentName: "finance",
+                  createdAt: "2026-03-21T14:04:00.000Z",
+                  metadata: {
+                    kind: "chat_assistant_message",
+                    runId: "run-restored-1",
+                    trust: {
+                      lastAgentName: "finance",
+                      confidence: 0.82,
+                      toolsInvoked: ["underwriting_model"],
+                      missingEvidence: ["Rent roll not attached"],
+                      verificationSteps: ["Confirm current rent roll"],
+                      proofChecks: ["Compared leverage to debt yield floor"],
+                      evidenceCitations: [],
+                      durationMs: 1420,
+                      errorSummary: null,
+                      toolFailures: [],
+                    },
+                  },
+                },
+              ],
+            },
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
       throw new Error(`Unexpected fetch: ${url}`);
     });
 
@@ -116,29 +186,90 @@ describe("ChatContainer", () => {
     vi.restoreAllMocks();
   });
 
-  it("does not fetch a nonexistent conversation for a fresh websocket chat", async () => {
-    const { ChatContainer } = await import("@/components/chat/ChatContainer");
+  it(
+    "does not fetch a nonexistent conversation for a fresh websocket chat",
+    async () => {
+      const { ChatContainer } = await import("@/components/chat/ChatContainer");
 
-    const { container } = render(<ChatContainer />);
+      const { container } = render(<ChatContainer />);
 
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith("/api/auth/token");
-      expect(fetchMock).toHaveBeenCalledWith("/api/chat/conversations");
-    });
+      await waitFor(() => {
+        expect(fetchMock).toHaveBeenCalledWith("/api/auth/token");
+        expect(fetchMock).toHaveBeenCalledWith("/api/chat/conversations");
+      });
 
-    const fetchedUrls = fetchMock.mock.calls.map(([input]) => String(input));
+      const fetchedUrls = fetchMock.mock.calls.map(([input]) => String(input));
 
-    expect(fetchedUrls).toContain("/api/auth/token");
-    expect(fetchedUrls).toContain("/api/chat/conversations");
-    expect(fetchedUrls).not.toContain("/api/chat/conversations/draft-session-1");
-    expect(window.location.search).toBe("");
-    expect(useAgentWebSocketMock).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        sessionId: "draft-session-1",
-        token: "jwt-token",
-        enabled: true,
-      }),
-    );
-    expect(container.firstChild).toMatchSnapshot();
-  });
+      expect(fetchedUrls).toContain("/api/auth/token");
+      expect(fetchedUrls).toContain("/api/chat/conversations");
+      expect(fetchedUrls).not.toContain("/api/chat/conversations/draft-session-1");
+      expect(window.location.search).toBe("");
+      expect(useAgentWebSocketMock).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          sessionId: "draft-session-1",
+          token: "jwt-token",
+          enabled: true,
+        }),
+      );
+      expect(container.firstChild).toMatchSnapshot();
+    },
+    CHAT_CONTAINER_TEST_TIMEOUT_MS,
+  );
+
+  it(
+    "shows mobile workspace controls without opening the history rail by default",
+    async () => {
+      useIsMobileMock.mockReturnValue(true);
+      const { ChatContainer } = await import("@/components/chat/ChatContainer");
+
+      render(<ChatContainer />);
+
+      await waitFor(() => {
+        expect(fetchMock).toHaveBeenCalledWith("/api/auth/token");
+        expect(fetchMock).toHaveBeenCalledWith("/api/chat/conversations");
+      });
+
+      expect(screen.getByRole("button", { name: "History" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Inspector" })).toBeInTheDocument();
+      expect(screen.getByTestId("conversation-sidebar")).toHaveAttribute("data-mobile", "true");
+      expect(screen.getByTestId("conversation-sidebar")).toHaveAttribute("data-open", "false");
+
+      fireEvent.click(screen.getByRole("button", { name: "History" }));
+
+      expect(screen.getByTestId("conversation-sidebar")).toHaveAttribute("data-open", "true");
+    },
+    CHAT_CONTAINER_TEST_TIMEOUT_MS,
+  );
+
+  it(
+    "restores verification context when reopening a saved conversation",
+    async () => {
+      window.history.replaceState(
+        {},
+        "",
+        `/chat?conversationId=${RESTORED_SUMMARY_CONVERSATION_ID}`,
+      );
+      const { ChatContainer } = await import("@/components/chat/ChatContainer");
+
+      render(<ChatContainer />);
+
+      await waitFor(() => {
+        expect(fetchMock).toHaveBeenCalledWith(
+          `/api/chat/conversations/${RESTORED_SUMMARY_CONVERSATION_ID}`,
+        );
+      });
+
+      const user = userEvent.setup();
+      const verificationTab = screen.getByRole("tab", { name: "Verification" });
+      await user.click(verificationTab);
+
+      await waitFor(() => {
+        expect(verificationTab).toHaveAttribute("aria-selected", "true");
+      });
+
+      expect(await screen.findByText("82%")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Show details" })).toBeInTheDocument();
+    },
+    CHAT_CONTAINER_TEST_TIMEOUT_MS,
+  );
 });

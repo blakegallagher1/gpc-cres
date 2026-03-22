@@ -130,6 +130,11 @@ function createTrustSnapshot(event: ChatStreamEvent): ChatTrustSnapshot | undefi
     runId: event.runId,
     errorSummary: event.trust.errorSummary,
     toolFailures: event.trust.toolFailures,
+    retryAttempts: event.trust.retryAttempts,
+    retryMaxAttempts: event.trust.retryMaxAttempts,
+    retryMode: event.trust.retryMode,
+    fallbackLineage: event.trust.fallbackLineage,
+    fallbackReason: event.trust.fallbackReason,
   };
 }
 

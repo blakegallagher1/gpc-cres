@@ -2,141 +2,140 @@
 
 exports[`ChatContainer > does not fetch a nonexistent conversation for a fresh websocket chat 1`] = `
 <div
-  class="relative flex min-h-[calc(100svh-var(--app-header-height))] overflow-hidden"
+  class="relative flex h-[calc(100svh-var(--app-header-height))] min-h-[calc(100svh-var(--app-header-height))] overflow-hidden"
 >
   <div
     data-active-conversation-id=""
+    data-mobile="false"
+    data-open="true"
     data-testid="conversation-sidebar"
   />
   <div
-    class="flex min-w-0 flex-1 flex-col lg:flex-row"
+    class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:flex-row"
   >
     <div
-      class="flex min-w-0 flex-1 flex-col"
+      class="flex min-h-0 min-w-0 flex-1 flex-col"
     >
       <section
-        class="workspace-hero px-4 py-5 sm:px-6"
+        class="workspace-hero shrink-0 px-4 py-4 sm:px-6"
       >
         <div
-          class="workspace-hero-grid gap-5"
+          class="workspace-hero-grid gap-4"
         >
           <div
-            class="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between"
+            class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between"
           >
             <div
-              class="max-w-3xl space-y-4"
+              class="max-w-3xl space-y-3"
             >
               <div
-                class="space-y-3"
+                class="flex flex-wrap items-center gap-2"
               >
                 <p
                   class="workspace-eyebrow"
                 >
-                  Agent Operating Desk
+                  Run Desk
                 </p>
                 <div
-                  class="space-y-2"
+                  class="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary/85 text-secondary-foreground hover:bg-secondary"
                 >
-                  <h2
-                    class="workspace-title max-w-4xl text-[clamp(2.2rem,4vw,3.75rem)]"
-                  >
-                    Run acquisition, entitlement, and capital work from one thread.
-                  </h2>
-                  <p
-                    class="workspace-subtitle max-w-3xl"
-                  >
-                    Keep scope attached, ask for a concrete output, and watch the live tool, evidence, and handoff lane as specialists take over.
-                  </p>
+                  Draft thread
+                </div>
+                <div
+                  class="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary/85 text-secondary-foreground hover:bg-secondary"
+                >
+                  Live socket
                 </div>
               </div>
               <div
-                class="flex flex-wrap gap-2"
+                class="space-y-2"
               >
-                <div
-                  class="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary/85 text-secondary-foreground hover:bg-secondary"
+                <h2
+                  class="workspace-title max-w-4xl text-[clamp(1.7rem,3vw,2.6rem)]"
                 >
-                  Stateful thread
-                </div>
-                <div
-                  class="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary/85 text-secondary-foreground hover:bg-secondary"
+                  Set scope, ask for the deliverable, keep the run moving.
+                </h2>
+                <p
+                  class="workspace-subtitle max-w-3xl"
                 >
-                  Specialist handoffs
-                </div>
-                <div
-                  class="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary/85 text-secondary-foreground hover:bg-secondary"
-                >
-                  Tool-backed runs
-                </div>
-                <div
-                  class="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary/85 text-secondary-foreground hover:bg-secondary"
-                >
-                  Verification visible
-                </div>
+                  The thread is the working surface. History, specialist coverage, and verification stay close without taking over the screen.
+                </p>
               </div>
             </div>
             <div
-              class="flex min-w-0 max-w-xl flex-col gap-3 xl:w-[27rem]"
+              class="flex min-w-0 max-w-xl flex-col gap-3 xl:w-[29rem]"
             >
               <div
-                data-testid="deal-selector"
-              />
+                class="flex flex-wrap items-center gap-2"
+              >
+                <div
+                  data-testid="deal-selector"
+                />
+              </div>
               <div
-                class="workspace-toolbar flex-col items-start gap-3"
+                class="workspace-surface workspace-surface-muted rounded-2xl px-4 py-3 text-sm leading-6 shadow-none md:hidden"
+              >
+                <p
+                  class="workspace-eyebrow text-[10px]"
+                >
+                  Run Brief
+                </p>
+                <p
+                  class="mt-2 text-foreground"
+                >
+                  Lead with scope, name the deliverable, then verify approvals and evidence before acting.
+                </p>
+              </div>
+              <div
+                class="workspace-toolbar hidden gap-3 md:grid md:grid-cols-3"
               >
                 <div>
                   <p
                     class="workspace-eyebrow text-[10px]"
                   >
-                    Prompt Shape
+                    Scope
                   </p>
-                  <h3
-                    class="mt-1 text-sm font-semibold tracking-tight text-foreground"
+                  <p
+                    class="mt-1 text-sm font-medium text-foreground"
                   >
-                    Ask like an operator, not a browser.
-                  </h3>
+                    Parcel, deal, market, or file.
+                  </p>
                 </div>
-                <div
-                  class="grid gap-3 text-sm leading-6 text-muted-foreground"
-                >
-                  <div>
-                    <span
-                      class="font-mono text-[11px] uppercase tracking-[0.18em] text-foreground"
-                    >
-                      Scope
-                    </span>
-                     
-                    Address, parcel id, deal, market, or attached file.
-                  </div>
-                  <div>
-                    <span
-                      class="font-mono text-[11px] uppercase tracking-[0.18em] text-foreground"
-                    >
-                      Output
-                    </span>
-                     
-                    Screen, memo, checklist, comparison, model note, or action plan.
-                  </div>
-                  <div>
-                    <span
-                      class="font-mono text-[11px] uppercase tracking-[0.18em] text-foreground"
-                    >
-                      Constraints
-                    </span>
-                     
-                    State assumptions, timing, approval bar, or decision thresholds up front.
-                  </div>
+                <div>
+                  <p
+                    class="workspace-eyebrow text-[10px]"
+                  >
+                    Ask For
+                  </p>
+                  <p
+                    class="mt-1 text-sm font-medium text-foreground"
+                  >
+                    Memo, screen, checklist, comparison, or action plan.
+                  </p>
+                </div>
+                <div>
+                  <p
+                    class="workspace-eyebrow text-[10px]"
+                  >
+                    Verify
+                  </p>
+                  <p
+                    class="mt-1 text-sm font-medium text-foreground"
+                  >
+                    Check approvals, evidence, and thread state before acting.
+                  </p>
                 </div>
               </div>
             </div>
           </div>
           <div
-            class="grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]"
+            class="grid gap-2 md:hidden"
           >
             <div
-              class="workspace-stat-grid md:grid-cols-2 xl:grid-cols-4"
+              class="grid gap-2 sm:grid-cols-2"
             >
               <div
-                class="workspace-stat"
+                class="workspace-surface workspace-surface-muted rounded-xl px-3 py-3 shadow-none"
               >
                 <p
                   class="workspace-stat-label"
@@ -144,18 +143,13 @@ exports[`ChatContainer > does not fetch a nonexistent conversation for a fresh w
                   Scope
                 </p>
                 <p
-                  class="workspace-stat-value text-xl"
+                  class="mt-1 text-sm font-medium text-foreground"
                 >
                   No deal scope
                 </p>
-                <p
-                  class="workspace-stat-detail"
-                >
-                  Deal-linked scope unlocks uploads and stronger context.
-                </p>
               </div>
               <div
-                class="workspace-stat"
+                class="workspace-surface workspace-surface-muted rounded-xl px-3 py-3 shadow-none"
               >
                 <p
                   class="workspace-stat-label"
@@ -163,18 +157,13 @@ exports[`ChatContainer > does not fetch a nonexistent conversation for a fresh w
                   Thread
                 </p>
                 <p
-                  class="workspace-stat-value text-xl"
+                  class="mt-1 text-sm font-medium text-foreground"
                 >
                   Draft thread
                 </p>
-                <p
-                  class="workspace-stat-detail"
-                >
-                  Reopen saved runs from the rail without losing the working thread.
-                </p>
               </div>
               <div
-                class="workspace-stat"
+                class="workspace-surface workspace-surface-muted rounded-xl px-3 py-3 shadow-none"
               >
                 <p
                   class="workspace-stat-label"
@@ -182,166 +171,111 @@ exports[`ChatContainer > does not fetch a nonexistent conversation for a fresh w
                   Agent
                 </p>
                 <p
-                  class="workspace-stat-value text-xl"
+                  class="mt-1 text-sm font-medium text-foreground"
                 >
                   Coordinator
                 </p>
-                <p
-                  class="workspace-stat-detail"
-                >
-                  Coordinator or specialist currently driving the run.
-                </p>
               </div>
               <div
-                class="workspace-stat"
+                class="workspace-surface workspace-surface-muted rounded-xl px-3 py-3 shadow-none"
               >
                 <p
                   class="workspace-stat-label"
                 >
-                  Transport
+                  Saved Runs
                 </p>
                 <p
-                  class="workspace-stat-value text-xl"
+                  class="mt-1 text-sm font-medium text-foreground"
                 >
-                  Live socket
-                </p>
-                <p
-                  class="workspace-stat-detail"
-                >
-                  Streaming transport currently carrying tool and model events.
+                  0
                 </p>
               </div>
             </div>
+          </div>
+          <div
+            class="hidden gap-3 md:grid md:grid-cols-2 xl:grid-cols-4"
+          >
             <div
-              class="workspace-surface workspace-surface-muted rounded-2xl p-5 shadow-none"
+              class="workspace-surface workspace-surface-muted rounded-2xl px-4 py-4 shadow-none"
             >
-              <div
-                class="border-b border-border/60 pb-4"
+              <p
+                class="workspace-stat-label"
               >
-                <p
-                  class="workspace-eyebrow text-[10px]"
-                >
-                  Run Playbook
-                </p>
-                <h3
-                  class="mt-1 text-sm font-semibold tracking-tight text-foreground"
-                >
-                  Make the first turn high signal.
-                </h3>
-              </div>
-              <div
-                class="mt-4 space-y-4"
+                Scope
+              </p>
+              <p
+                class="mt-2 text-lg font-semibold tracking-tight text-foreground"
               >
-                <div
-                  class="flex items-start gap-3"
-                >
-                  <div
-                    class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border/70 text-[11px] font-semibold text-foreground"
-                  >
-                    1
-                  </div>
-                  <div>
-                    <p
-                      class="text-sm font-medium text-foreground"
-                    >
-                      Set the scope
-                    </p>
-                    <p
-                      class="mt-1 text-sm leading-6 text-muted-foreground"
-                    >
-                      Lead with a parcel, address, deal, market, or uploaded file so the agent can anchor the run.
-                    </p>
-                  </div>
-                </div>
-                <div
-                  class="flex items-start gap-3"
-                >
-                  <div
-                    class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border/70 text-[11px] font-semibold text-foreground"
-                  >
-                    2
-                  </div>
-                  <div>
-                    <p
-                      class="text-sm font-medium text-foreground"
-                    >
-                      Ask for the deliverable
-                    </p>
-                    <p
-                      class="mt-1 text-sm leading-6 text-muted-foreground"
-                    >
-                      Request a screen, memo, checklist, comparison, or action plan instead of a vague answer.
-                    </p>
-                  </div>
-                </div>
-                <div
-                  class="flex items-start gap-3"
-                >
-                  <div
-                    class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border/70 text-[11px] font-semibold text-foreground"
-                  >
-                    3
-                  </div>
-                  <div>
-                    <p
-                      class="text-sm font-medium text-foreground"
-                    >
-                      Verify before acting
-                    </p>
-                    <p
-                      class="mt-1 text-sm leading-6 text-muted-foreground"
-                    >
-                      Inspect tool activity, handoffs, evidence gaps, and cited sources before making a decision.
-                    </p>
-                  </div>
-                </div>
-                <div
-                  class="grid gap-3 border-t border-border/60 pt-4 text-sm md:grid-cols-3 xl:grid-cols-1"
-                >
-                  <div>
-                    <p
-                      class="workspace-stat-label"
-                    >
-                      Attachments
-                    </p>
-                    <p
-                      class="mt-2 text-foreground"
-                    >
-                      Select a deal
-                    </p>
-                  </div>
-                  <div>
-                    <p
-                      class="workspace-stat-label"
-                    >
-                      Saved Runs
-                    </p>
-                    <p
-                      class="mt-2 text-foreground"
-                    >
-                      0
-                    </p>
-                  </div>
-                  <div>
-                    <p
-                      class="workspace-stat-label"
-                    >
-                      Recent Activity
-                    </p>
-                    <p
-                      class="mt-2 text-foreground"
-                    >
-                      No recents yet
-                    </p>
-                  </div>
-                </div>
-              </div>
+                No deal scope
+              </p>
+              <p
+                class="mt-2 text-sm text-muted-foreground"
+              >
+                Select a deal
+              </p>
+            </div>
+            <div
+              class="workspace-surface workspace-surface-muted rounded-2xl px-4 py-4 shadow-none"
+            >
+              <p
+                class="workspace-stat-label"
+              >
+                Thread
+              </p>
+              <p
+                class="mt-2 text-lg font-semibold tracking-tight text-foreground"
+              >
+                Draft thread
+              </p>
+              <p
+                class="mt-2 text-sm text-muted-foreground"
+              >
+                No recents yet
+              </p>
+            </div>
+            <div
+              class="workspace-surface workspace-surface-muted rounded-2xl px-4 py-4 shadow-none"
+            >
+              <p
+                class="workspace-stat-label"
+              >
+                Active Agent
+              </p>
+              <p
+                class="mt-2 text-lg font-semibold tracking-tight text-foreground"
+              >
+                Coordinator
+              </p>
+              <p
+                class="mt-2 text-sm text-muted-foreground"
+              >
+                Coordinator or current specialist.
+              </p>
+            </div>
+            <div
+              class="workspace-surface workspace-surface-muted rounded-2xl px-4 py-4 shadow-none"
+            >
+              <p
+                class="workspace-stat-label"
+              >
+                Saved Runs
+              </p>
+              <p
+                class="mt-2 text-lg font-semibold tracking-tight text-foreground"
+              >
+                0
+              </p>
+              <p
+                class="mt-2 text-sm text-muted-foreground"
+              >
+                Reopen prior threads without losing context.
+              </p>
             </div>
           </div>
         </div>
       </section>
       <div
-        class="min-h-0 flex-1"
+        class="min-h-0 flex-1 overflow-hidden"
       >
         <div
           data-conversation-id=""
@@ -352,11 +286,11 @@ exports[`ChatContainer > does not fetch a nonexistent conversation for a fresh w
         data-testid="chat-input"
       />
     </div>
-    <div
-      class="hidden w-[23rem] border-l border-border/60 bg-background/72 backdrop-blur-xl lg:flex lg:flex-col"
+    <aside
+      class="hidden w-[22rem] border-l border-border/60 bg-background/72 backdrop-blur-xl lg:flex lg:flex-col"
     >
       <div
-        class="border-b border-border/60 px-5 py-5"
+        class="border-b border-border/60 px-5 py-4"
       >
         <p
           class="workspace-eyebrow text-[10px]"
@@ -366,65 +300,13 @@ exports[`ChatContainer > does not fetch a nonexistent conversation for a fresh w
         <h3
           class="mt-1 text-sm font-semibold tracking-tight text-foreground"
         >
-          Tool, agent, and verification control lane
+          Verification and specialist coverage
         </h3>
         <p
           class="mt-2 text-xs leading-5 text-muted-foreground"
         >
-          This rail keeps stateful thread context, specialist coverage, and run verification visible while the thread stays focused on the work.
+          Keep the thread central and pull detail from this lane when the run needs a check.
         </p>
-      </div>
-      <div
-        class="grid grid-cols-2 gap-3 border-b border-border/60 px-5 py-4 text-[11px]"
-      >
-        <div>
-          <p
-            class="workspace-stat-label"
-          >
-            Thread
-          </p>
-          <p
-            class="mt-1 text-sm font-medium text-foreground"
-          >
-            Draft until first response
-          </p>
-        </div>
-        <div>
-          <p
-            class="workspace-stat-label"
-          >
-            Agent
-          </p>
-          <p
-            class="mt-1 text-sm font-medium text-foreground"
-          >
-            Coordinator
-          </p>
-        </div>
-        <div>
-          <p
-            class="workspace-stat-label"
-          >
-            Attachments
-          </p>
-          <p
-            class="mt-1 text-sm font-medium text-foreground"
-          >
-            Select deal
-          </p>
-        </div>
-        <div>
-          <p
-            class="workspace-stat-label"
-          >
-            History
-          </p>
-          <p
-            class="mt-1 text-sm font-medium text-foreground"
-          >
-            No recents yet
-          </p>
-        </div>
       </div>
       <div
         class="min-h-0 flex-1 overflow-y-auto px-5 py-5"
@@ -432,382 +314,297 @@ exports[`ChatContainer > does not fetch a nonexistent conversation for a fresh w
         <div
           class="space-y-5"
         >
-          <section
-            class="space-y-3 border-b border-border/60 pb-5"
-          >
-            <div
-              class="flex items-center justify-between gap-3"
-            >
-              <div>
-                <p
-                  class="workspace-eyebrow text-[10px]"
-                >
-                  Execution Contract
-                </p>
-                <h4
-                  class="mt-1 text-sm font-semibold tracking-tight text-foreground"
-                >
-                  What this desk expects from the user
-                </h4>
-              </div>
-              <div
-                class="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground"
-              >
-                0
-                 saved
-              </div>
-            </div>
-            <div
-              class="space-y-3 text-sm leading-6"
-            >
-              <div
-                class="flex items-start gap-3"
-              >
-                <span
-                  class="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-border/70 text-[10px] font-semibold text-foreground"
-                >
-                  1
-                </span>
-                <div>
-                  <p
-                    class="font-medium text-foreground"
-                  >
-                    Set the scope
-                  </p>
-                  <p
-                    class="text-muted-foreground"
-                  >
-                    Lead with a parcel, address, deal, market, or uploaded file so the agent can anchor the run.
-                  </p>
-                </div>
-              </div>
-              <div
-                class="flex items-start gap-3"
-              >
-                <span
-                  class="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-border/70 text-[10px] font-semibold text-foreground"
-                >
-                  2
-                </span>
-                <div>
-                  <p
-                    class="font-medium text-foreground"
-                  >
-                    Ask for the deliverable
-                  </p>
-                  <p
-                    class="text-muted-foreground"
-                  >
-                    Request a screen, memo, checklist, comparison, or action plan instead of a vague answer.
-                  </p>
-                </div>
-              </div>
-              <div
-                class="flex items-start gap-3"
-              >
-                <span
-                  class="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-border/70 text-[10px] font-semibold text-foreground"
-                >
-                  3
-                </span>
-                <div>
-                  <p
-                    class="font-medium text-foreground"
-                  >
-                    Verify before acting
-                  </p>
-                  <p
-                    class="text-muted-foreground"
-                  >
-                    Inspect tool activity, handoffs, evidence gaps, and cited sources before making a decision.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </section>
-          <section
-            class="space-y-3 border-b border-border/60 pb-5"
+          <div
+            class="grid grid-cols-2 gap-3 text-[11px]"
           >
             <div>
               <p
-                class="workspace-eyebrow text-[10px]"
+                class="workspace-stat-label"
               >
-                Capabilities Live
+                Thread
               </p>
-              <h4
-                class="mt-1 text-sm font-semibold tracking-tight text-foreground"
-              >
-                Current product contract
-              </h4>
-            </div>
-            <div
-              class="space-y-3 text-sm leading-6"
-            >
-              <div>
-                <p
-                  class="font-medium text-foreground"
-                >
-                  Stateful thread
-                </p>
-                <p
-                  class="text-muted-foreground"
-                >
-                  Saved runs reopen from the left rail so the operating context stays intact across turns.
-                </p>
-              </div>
-              <div>
-                <p
-                  class="font-medium text-foreground"
-                >
-                  Specialist handoffs
-                </p>
-                <p
-                  class="text-muted-foreground"
-                >
-                  The coordinator can delegate work to research, finance, risk, entitlements, diligence, and other specialists.
-                </p>
-              </div>
-              <div>
-                <p
-                  class="font-medium text-foreground"
-                >
-                  Tool-backed execution
-                </p>
-                <p
-                  class="text-muted-foreground"
-                >
-                  Live tool calls, approvals, artifacts, and map references surface in the thread while the run is active.
-                </p>
-              </div>
-              <div>
-                <p
-                  class="font-medium text-foreground"
-                >
-                  Verification lane
-                </p>
-                <p
-                  class="text-muted-foreground"
-                >
-                  Confidence, missing evidence, proof checks, and tool failures accumulate in the inspector as output arrives.
-                </p>
-              </div>
-            </div>
-          </section>
-          <section
-            class="space-y-3 border-b border-border/60 pb-5"
-          >
-            <div
-              class="flex items-center justify-between gap-3"
-            >
-              <div>
-                <p
-                  class="workspace-eyebrow text-[10px]"
-                >
-                  Specialist Coverage
-                </p>
-                <h4
-                  class="mt-1 text-sm font-semibold tracking-tight text-foreground"
-                >
-                  Agents on this desk
-                </h4>
-              </div>
-              <div
-                class="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary/85 text-secondary-foreground hover:bg-secondary"
-              >
-                13
-              </div>
-            </div>
-            <div
-              class="space-y-3"
-            >
-              <div
-                class="rounded-xl border border-border/60 px-3 py-3"
-              >
-                <div
-                  class="flex items-center justify-between gap-3"
-                >
-                  <p
-                    class="text-sm font-medium text-foreground"
-                  >
-                    Coordinator
-                  </p>
-                  <div
-                    class="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground"
-                  >
-                    gpt-5.2
-                  </div>
-                </div>
-                <p
-                  class="mt-1 text-xs leading-5 text-muted-foreground"
-                >
-                  Routes to specialists, manages deal context
-                </p>
-              </div>
-              <div
-                class="rounded-xl border border-border/60 px-3 py-3"
-              >
-                <div
-                  class="flex items-center justify-between gap-3"
-                >
-                  <p
-                    class="text-sm font-medium text-foreground"
-                  >
-                    Finance
-                  </p>
-                  <div
-                    class="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground"
-                  >
-                    gpt-5.2
-                  </div>
-                </div>
-                <p
-                  class="mt-1 text-xs leading-5 text-muted-foreground"
-                >
-                  Pro formas, debt sizing, IRR/equity analysis
-                </p>
-              </div>
-              <div
-                class="rounded-xl border border-border/60 px-3 py-3"
-              >
-                <div
-                  class="flex items-center justify-between gap-3"
-                >
-                  <p
-                    class="text-sm font-medium text-foreground"
-                  >
-                    Legal
-                  </p>
-                  <div
-                    class="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground"
-                  >
-                    gpt-5.2
-                  </div>
-                </div>
-                <p
-                  class="mt-1 text-xs leading-5 text-muted-foreground"
-                >
-                  Zoning, entitlements, Louisiana civil law
-                </p>
-              </div>
-              <div
-                class="rounded-xl border border-border/60 px-3 py-3"
-              >
-                <div
-                  class="flex items-center justify-between gap-3"
-                >
-                  <p
-                    class="text-sm font-medium text-foreground"
-                  >
-                    Research
-                  </p>
-                  <div
-                    class="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground"
-                  >
-                    gpt-5.2
-                  </div>
-                </div>
-                <p
-                  class="mt-1 text-xs leading-5 text-muted-foreground"
-                >
-                  Land scouting, market analysis, comps
-                </p>
-              </div>
-              <div
-                class="rounded-xl border border-border/60 px-3 py-3"
-              >
-                <div
-                  class="flex items-center justify-between gap-3"
-                >
-                  <p
-                    class="text-sm font-medium text-foreground"
-                  >
-                    Risk
-                  </p>
-                  <div
-                    class="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground"
-                  >
-                    gpt-5.1
-                  </div>
-                </div>
-                <p
-                  class="mt-1 text-xs leading-5 text-muted-foreground"
-                >
-                  Flood, environmental, financial, regulatory risk
-                </p>
-              </div>
-              <div
-                class="rounded-xl border border-border/60 px-3 py-3"
-              >
-                <div
-                  class="flex items-center justify-between gap-3"
-                >
-                  <p
-                    class="text-sm font-medium text-foreground"
-                  >
-                    Screener
-                  </p>
-                  <div
-                    class="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground"
-                  >
-                    gpt-5.1
-                  </div>
-                </div>
-                <p
-                  class="mt-1 text-xs leading-5 text-muted-foreground"
-                >
-                  Triage scoring (KILL/HOLD/ADVANCE)
-                </p>
-              </div>
               <p
-                class="text-xs text-muted-foreground"
+                class="mt-1 text-sm font-medium text-foreground"
               >
-                +
-                7
-                 additional specialists remain available through the coordinator handoff loop.
+                Draft until first response
               </p>
             </div>
-          </section>
-          <section
-            class="space-y-3"
-          >
             <div>
               <p
-                class="workspace-eyebrow text-[10px]"
+                class="workspace-stat-label"
+              >
+                Agent
+              </p>
+              <p
+                class="mt-1 text-sm font-medium text-foreground"
+              >
+                Coordinator
+              </p>
+            </div>
+            <div>
+              <p
+                class="workspace-stat-label"
+              >
+                Attachments
+              </p>
+              <p
+                class="mt-1 text-sm font-medium text-foreground"
+              >
+                Select deal
+              </p>
+            </div>
+            <div>
+              <p
+                class="workspace-stat-label"
+              >
+                History
+              </p>
+              <p
+                class="mt-1 text-sm font-medium text-foreground"
+              >
+                No recents yet
+              </p>
+            </div>
+          </div>
+          <div
+            class="space-y-4"
+            data-orientation="horizontal"
+            dir="ltr"
+          >
+            <div
+              aria-orientation="horizontal"
+              class="inline-flex min-h-11 items-center gap-1 rounded-2xl border border-border/70 bg-background/78 p-1.5 text-muted-foreground shadow-sm backdrop-blur-sm w-full justify-start"
+              data-orientation="horizontal"
+              role="tablist"
+              style="outline-color: none; outline-style: none; outline-width: initial;"
+              tabindex="0"
+            >
+              <button
+                aria-controls="radix-_r_0_-content-guide"
+                aria-selected="true"
+                class="inline-flex min-h-8 items-center justify-center whitespace-nowrap rounded-xl border border-transparent px-3 py-1.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:border-border/70 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+                data-orientation="horizontal"
+                data-radix-collection-item=""
+                data-state="active"
+                id="radix-_r_0_-trigger-guide"
+                role="tab"
+                tabindex="-1"
+                type="button"
+              >
+                Guide
+              </button>
+              <button
+                aria-controls="radix-_r_0_-content-verification"
+                aria-selected="false"
+                class="inline-flex min-h-8 items-center justify-center whitespace-nowrap rounded-xl border border-transparent px-3 py-1.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:border-border/70 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+                data-orientation="horizontal"
+                data-radix-collection-item=""
+                data-state="inactive"
+                id="radix-_r_0_-trigger-verification"
+                role="tab"
+                tabindex="-1"
+                type="button"
               >
                 Verification
-              </p>
-              <h4
-                class="mt-1 text-sm font-semibold tracking-tight text-foreground"
+              </button>
+              <button
+                aria-controls="radix-_r_0_-content-coverage"
+                aria-selected="false"
+                class="inline-flex min-h-8 items-center justify-center whitespace-nowrap rounded-xl border border-transparent px-3 py-1.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:border-border/70 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+                data-orientation="horizontal"
+                data-radix-collection-item=""
+                data-state="inactive"
+                id="radix-_r_0_-trigger-coverage"
+                role="tab"
+                tabindex="-1"
+                type="button"
               >
-                Live output quality and evidence
-              </h4>
+                Coverage
+              </button>
             </div>
             <div
-              class="space-y-3 rounded-2xl border border-border/60 bg-background/70 px-4 py-4"
+              aria-labelledby="radix-_r_0_-trigger-guide"
+              class="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 mt-0 space-y-4"
+              data-orientation="horizontal"
+              data-state="active"
+              id="radix-_r_0_-content-guide"
+              role="tabpanel"
+              tabindex="0"
             >
-              <p
-                class="text-sm font-medium text-foreground"
+              <section
+                class="space-y-3 rounded-2xl border border-border/60 bg-background/72 px-4 py-4"
               >
-                The live verification panel fills in after the first response.
-              </p>
-              <div
-                class="space-y-2 text-xs leading-5 text-muted-foreground"
+                <div
+                  class="flex items-center justify-between gap-3"
+                >
+                  <div>
+                    <p
+                      class="workspace-eyebrow text-[10px]"
+                    >
+                      Run Brief
+                    </p>
+                    <h4
+                      class="mt-1 text-sm font-semibold tracking-tight text-foreground"
+                    >
+                      What this desk expects
+                    </h4>
+                  </div>
+                  <div
+                    class="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground"
+                  >
+                    0
+                     saved
+                  </div>
+                </div>
+                <div
+                  class="space-y-3 text-sm leading-6"
+                >
+                  <div
+                    class="flex items-start gap-3"
+                  >
+                    <span
+                      class="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-border/70 text-[10px] font-semibold text-foreground"
+                    >
+                      1
+                    </span>
+                    <div>
+                      <p
+                        class="font-medium text-foreground"
+                      >
+                        Set the scope
+                      </p>
+                      <p
+                        class="text-muted-foreground"
+                      >
+                        Lead with a parcel, address, deal, market, or uploaded file so the agent can anchor the run.
+                      </p>
+                    </div>
+                  </div>
+                  <div
+                    class="flex items-start gap-3"
+                  >
+                    <span
+                      class="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-border/70 text-[10px] font-semibold text-foreground"
+                    >
+                      2
+                    </span>
+                    <div>
+                      <p
+                        class="font-medium text-foreground"
+                      >
+                        Ask for the deliverable
+                      </p>
+                      <p
+                        class="text-muted-foreground"
+                      >
+                        Request a screen, memo, checklist, comparison, or action plan instead of a vague answer.
+                      </p>
+                    </div>
+                  </div>
+                  <div
+                    class="flex items-start gap-3"
+                  >
+                    <span
+                      class="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-border/70 text-[10px] font-semibold text-foreground"
+                    >
+                      3
+                    </span>
+                    <div>
+                      <p
+                        class="font-medium text-foreground"
+                      >
+                        Verify before acting
+                      </p>
+                      <p
+                        class="text-muted-foreground"
+                      >
+                        Inspect tool activity, handoffs, evidence gaps, and cited sources before making a decision.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </section>
+              <section
+                class="space-y-3 rounded-2xl border border-border/60 bg-background/72 px-4 py-4"
               >
-                <p>
-                  Tool calls and approval prompts will show up in the thread as they happen.
-                </p>
-                <p>
-                  Confidence, missing evidence, and proof checks will accumulate here.
-                </p>
-                <p>
-                  Keep this lane open when you need to validate assumptions before actioning the result.
-                </p>
-              </div>
+                <div>
+                  <p
+                    class="workspace-eyebrow text-[10px]"
+                  >
+                    Desk Contract
+                  </p>
+                  <h4
+                    class="mt-1 text-sm font-semibold tracking-tight text-foreground"
+                  >
+                    Current operating behavior
+                  </h4>
+                </div>
+                <div
+                  class="space-y-3 text-sm leading-6"
+                >
+                  <div>
+                    <p
+                      class="font-medium text-foreground"
+                    >
+                      Stateful thread
+                    </p>
+                    <p
+                      class="text-muted-foreground"
+                    >
+                      Saved runs reopen from the left rail so the operating context stays intact across turns.
+                    </p>
+                  </div>
+                  <div>
+                    <p
+                      class="font-medium text-foreground"
+                    >
+                      Specialist handoffs
+                    </p>
+                    <p
+                      class="text-muted-foreground"
+                    >
+                      The coordinator can delegate work to research, finance, risk, entitlements, diligence, and other specialists.
+                    </p>
+                  </div>
+                  <div>
+                    <p
+                      class="font-medium text-foreground"
+                    >
+                      Tool-backed execution
+                    </p>
+                    <p
+                      class="text-muted-foreground"
+                    >
+                      Live tool calls, approvals, artifacts, and map references surface in the thread while the run is active.
+                    </p>
+                  </div>
+                </div>
+              </section>
             </div>
-          </section>
+            <div
+              aria-labelledby="radix-_r_0_-trigger-verification"
+              class="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 mt-0"
+              data-orientation="horizontal"
+              data-state="inactive"
+              hidden=""
+              id="radix-_r_0_-content-verification"
+              role="tabpanel"
+              tabindex="0"
+            />
+            <div
+              aria-labelledby="radix-_r_0_-trigger-coverage"
+              class="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 mt-0 space-y-4"
+              data-orientation="horizontal"
+              data-state="inactive"
+              hidden=""
+              id="radix-_r_0_-content-coverage"
+              role="tabpanel"
+              tabindex="0"
+            />
+          </div>
         </div>
       </div>
-    </div>
+    </aside>
   </div>
 </div>
 `;

@@ -123,7 +123,7 @@ export function ChatInput({
 
   return (
     <form
-      className="relative border-t border-border/60 bg-background/78 px-4 pb-4 pt-3 backdrop-blur-xl"
+      className="relative shrink-0 border-t border-border/60 bg-background/78 px-4 pb-4 pt-3 backdrop-blur-xl"
       onSubmit={handleFormSubmit}
     >
       <div className="glow-line absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-foreground/20 to-transparent" />

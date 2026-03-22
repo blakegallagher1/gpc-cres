@@ -145,20 +145,123 @@ function parseToolCalls(value: unknown): ChatMessage['toolCalls'] {
   return mapped.length > 0 ? mapped : [];
 }
 
+function parseStringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const items = value.filter((entry): entry is string => typeof entry === 'string');
+  return items.length > 0 ? items : [];
+}
+
+function parseNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function parseTrustSnapshot(
+  value: unknown,
+  fallbackAgentName?: string,
+): ChatMessage['trust'] {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return undefined;
+  }
+
+  const trust = value as Record<string, unknown>;
+  const evidenceCitations = Array.isArray(trust.evidenceCitations)
+    ? trust.evidenceCitations.filter(
+        (entry): entry is Record<string, unknown> =>
+          typeof entry === 'object' && entry !== null && !Array.isArray(entry),
+      )
+    : undefined;
+
+  const snapshot: ChatMessage['trust'] = {
+    lastAgentName:
+      typeof trust.lastAgentName === 'string' ? trust.lastAgentName : fallbackAgentName,
+    confidence: parseNumber(trust.confidence),
+    toolsInvoked: parseStringArray(trust.toolsInvoked),
+    packVersionsUsed: parseStringArray(trust.packVersionsUsed),
+    missingEvidence: parseStringArray(trust.missingEvidence),
+    verificationSteps: parseStringArray(trust.verificationSteps),
+    proofChecks: parseStringArray(trust.proofChecks),
+    evidenceCitations,
+    durationMs: parseNumber(trust.durationMs),
+    errorSummary:
+      typeof trust.errorSummary === 'string' || trust.errorSummary === null
+        ? trust.errorSummary
+        : undefined,
+    toolFailures: parseStringArray(trust.toolFailures),
+    retryAttempts: parseNumber(trust.retryAttempts),
+    retryMaxAttempts: parseNumber(trust.retryMaxAttempts),
+    retryMode: typeof trust.retryMode === 'string' ? trust.retryMode : undefined,
+    fallbackLineage: parseStringArray(trust.fallbackLineage),
+    fallbackReason:
+      typeof trust.fallbackReason === 'string' ? trust.fallbackReason : undefined,
+    runId: typeof trust.runId === 'string' ? trust.runId : undefined,
+  };
+
+  const hasContent = Object.values(snapshot).some((entry) =>
+    Array.isArray(entry) ? entry.length > 0 : entry !== undefined,
+  );
+
+  return hasContent ? snapshot : undefined;
+}
+
+function toAgentTrustEnvelope(
+  trust: ChatMessage['trust'],
+  fallbackAgentName?: string,
+): AgentTrustEnvelope | null {
+  if (!trust) {
+    return null;
+  }
+
+  return {
+    toolsInvoked: trust.toolsInvoked ?? [],
+    packVersionsUsed: trust.packVersionsUsed ?? [],
+    evidenceCitations: trust.evidenceCitations ?? [],
+    confidence: trust.confidence ?? 0,
+    missingEvidence: trust.missingEvidence ?? [],
+    verificationSteps: trust.verificationSteps ?? [],
+    toolFailures: trust.toolFailures ?? [],
+    proofChecks: trust.proofChecks ?? [],
+    retryAttempts: trust.retryAttempts,
+    retryMaxAttempts: trust.retryMaxAttempts,
+    retryMode: trust.retryMode,
+    fallbackLineage: trust.fallbackLineage,
+    fallbackReason: trust.fallbackReason,
+    lastAgentName: trust.lastAgentName ?? fallbackAgentName,
+    errorSummary: trust.errorSummary ?? null,
+    durationMs: trust.durationMs,
+  };
+}
+
+function getLatestAgentSummary(messages: ChatMessage[]): AgentTrustEnvelope | null {
+  const latestMessageWithTrust = [...messages]
+    .reverse()
+    .find((message) => message.trust !== undefined);
+
+  return toAgentTrustEnvelope(
+    latestMessageWithTrust?.trust,
+    latestMessageWithTrust?.agentName,
+  );
+}
+
 function toChatMessageFromApi(msg: RawConversationMessage): ChatMessage {
   const metadata = parseMetadata(msg.metadata);
   const mapFeatures = Array.isArray(metadata?.mapFeatures)
     ? (metadata?.mapFeatures as ChatMessage['mapFeatures'])
     : undefined;
+  const agentName = isString(msg.agentName) ? msg.agentName : undefined;
+  const trust = parseTrustSnapshot(metadata?.trust, agentName);
 
   return {
     id: normalizeConversationId(msg.id) ?? crypto.randomUUID(),
     role: isString(msg.role) ? (msg.role as ChatMessage['role']) : 'assistant',
     content: safeToString(msg.content, ''),
-    agentName: isString(msg.agentName) ? msg.agentName : undefined,
+    agentName,
     toolCalls: parseToolCalls(msg.toolCalls),
     createdAt: normalizeConversationId(msg.createdAt) ?? new Date().toISOString(),
     metadata,
+    trust,
     mapFeatures,
   };
 }
@@ -170,6 +273,7 @@ export function ChatContainer() {
   const mapState = useMapChatState();
   const mapDispatch = useMapChatDispatch();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
   const isMobile = useIsMobile();
   const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -248,6 +352,12 @@ export function ChatContainer() {
 
   useEffect(() => {
     setSidebarOpen(!isMobile);
+  }, [isMobile]);
+
+  useEffect(() => {
+    if (!isMobile) {
+      setInspectorOpen(false);
+    }
   }, [isMobile]);
 
   const hasRecentConversations = useMemo(
@@ -376,6 +486,7 @@ export function ChatContainer() {
           setSelectedDealId(normalizeConversationId(convo.dealId));
         }
 
+        setAgentSummary(getLatestAgentSummary(loaded));
         setMessages(loaded);
       } finally {
         void reloadConversations();
@@ -655,9 +766,22 @@ export function ChatContainer() {
   const stableMessageListOptions = useStableOptions({
     onSuggestionClick: handleSend,
   });
+  const showMobileLaunchComposer = isMobile && visibleMessages.length === 0;
+  const showConversationRailTrigger =
+    !isMobile || visibleMessages.length > 0 || conversationId !== null;
+  const chatInput = (
+    <ChatInput
+      onSend={stableChatInputOptions.onSend}
+      isStreaming={isStreaming}
+      onStop={stableChatInputOptions.onStop}
+      canAttachFiles={!!selectedDealId}
+      helperText="Scope + deliverable + constraints. Enter sends. Shift+Enter adds a line."
+      submitLabel="Run"
+    />
+  );
 
   return (
-    <div className="relative flex min-h-[calc(100svh-var(--app-header-height))] overflow-hidden">
+    <div className="relative flex h-[calc(100svh-var(--app-header-height))] min-h-[calc(100svh-var(--app-header-height))] overflow-hidden">
       <ConversationSidebar
         conversations={conversations}
         activeConversationId={conversationId}
@@ -668,10 +792,14 @@ export function ChatContainer() {
         loading={isLoadingConversations}
         hasRecentRecents={hasRecentConversations}
         recentConversationIds={recentConversationIds}
+        mobile={isMobile}
+        showCollapsedTrigger={showConversationRailTrigger}
       />
 
-      <div className="flex min-w-0 flex-1 flex-col lg:flex-row">
-        <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:flex-row">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {showMobileLaunchComposer ? chatInput : null}
+
           <ChatWorkspaceHero
             activeAgentLabel={activeAgentLabel}
             attachmentStatusLabel={attachmentStatusLabel}
@@ -686,11 +814,14 @@ export function ChatContainer() {
             scopeLabel={scopeLabel}
             threadStatusLabel={threadStatusLabel}
             transportLabel={transportLabel}
+            isMobile={isMobile}
+            onOpenHistory={() => setSidebarOpen(true)}
+            onOpenInspector={() => setInspectorOpen(true)}
           />
 
           {currentAgent && <AgentIndicator agentName={currentAgent} />}
 
-          <div className="min-h-0 flex-1">
+          <div className="min-h-0 flex-1 overflow-hidden">
             <MessageList
               messages={visibleMessages}
               isStreaming={isStreaming}
@@ -712,16 +843,7 @@ export function ChatContainer() {
             />
           </div>
 
-          <ChatInput
-            onSend={stableChatInputOptions.onSend}
-            isStreaming={isStreaming}
-            onStop={stableChatInputOptions.onStop}
-            canAttachFiles={!!selectedDealId}
-            orientationHint="Include scope, target output, and any underwriting, diligence, or entitlement constraints in the first line."
-            placeholder="Ask for a screen, memo, checklist, comparison, or action plan..."
-            helperText="Enter sends. Shift+Enter adds a new line. Review tool activity, evidence, and assumptions before acting."
-            submitLabel="Run"
-          />
+          {showMobileLaunchComposer ? null : chatInput}
         </div>
 
         <ChatWorkspaceInspector
@@ -732,6 +854,19 @@ export function ChatContainer() {
           recentConversationLabel={messageSectionTitle}
           threadStatusLabel={conversationId ? 'Saved thread' : 'Draft until first response'}
           useAgentSummaryPanel={AUI_MESSAGE_ENHANCEMENTS}
+        />
+
+        <ChatWorkspaceInspector
+          activeAgentLabel={activeAgentLabel}
+          agentSummary={agentSummary}
+          attachmentStatusLabel={selectedDealId ? 'Enabled' : 'Select deal'}
+          conversationCount={conversations.length}
+          recentConversationLabel={messageSectionTitle}
+          threadStatusLabel={conversationId ? 'Saved thread' : 'Draft until first response'}
+          useAgentSummaryPanel={AUI_MESSAGE_ENHANCEMENTS}
+          mobile
+          open={inspectorOpen}
+          onOpenChange={setInspectorOpen}
         />
       </div>
     </div>
