@@ -257,7 +257,7 @@ function renderSystemContent(
   if (!eventKind) return null;
 
   const wrapperClass = cn(
-    'rounded-2xl border border-border/60 border-l-[3px] px-3 py-3 text-sm',
+    'rounded-xl border border-border/60 border-l-[3px] px-3 py-2.5 text-sm',
     style.border,
     style.bg,
   );
@@ -284,7 +284,6 @@ function renderSystemContent(
             ))}
           </div>
         )}
-        <MessageActions conversationId={conversationId} messageId={message.id} message={message} />
       </div>
     );
   }
@@ -301,7 +300,6 @@ function renderSystemContent(
           <AgentStatusChip agentName={message.agentName} mode="active" />
           <span className="text-muted-foreground">Active agent changed.</span>
         </div>
-        <MessageActions conversationId={conversationId} messageId={message.id} message={message} />
       </div>
     );
   }
@@ -319,7 +317,6 @@ function renderSystemContent(
           <AgentStatusChip agentName={handoffTarget} mode="handoff" />
           <span className="text-muted-foreground">{message.content}</span>
         </div>
-        <MessageActions conversationId={conversationId} messageId={message.id} message={message} />
       </div>
     );
   }
@@ -337,7 +334,6 @@ function renderSystemContent(
           <ToolStatusChip toolName={toolName} status={status} />
           <span className="text-muted-foreground">{message.content}</span>
         </div>
-        <MessageActions conversationId={conversationId} messageId={message.id} message={message} />
       </div>
     );
   }
@@ -445,6 +441,7 @@ export function MessageBubble({
   const isSystemEvent = effectiveEventKind !== undefined && effectiveEventKind !== 'assistant';
   const hasEvent = effectiveEventKind !== undefined;
   const systemContent = renderSystemContent(message, conversationId, onToolApprovalEvents);
+  const showAssistantAvatar = !isUser && !isSystemEvent;
 
   const agentBorder = !isUser && message.agentName
     ? getAgentBorderColor(message.agentName)
@@ -455,18 +452,28 @@ export function MessageBubble({
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2, ease: 'easeOut' }}
-      className={cn('flex w-full gap-3', isUser ? 'justify-end' : 'justify-start')}
+      className={cn(
+        'flex w-full gap-3',
+        isUser ? 'justify-end' : 'justify-start',
+        isSystemEvent && 'pl-11',
+      )}
     >
       {/* Assistant avatar */}
-      {!isUser ? (
+      {showAssistantAvatar ? (
         <div className="app-shell-panel mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full">
           <span className="font-mono text-[10px] font-medium text-foreground">G</span>
         </div>
-      ) : (
+      ) : isUser ? (
         <ClipboardList className="mt-2 h-7 w-7 shrink-0 text-muted-foreground" />
-      )}
+      ) : null}
 
-      <div className={cn('max-w-[84%] space-y-1', isUser && 'items-end')}>
+      <div
+        className={cn(
+          'space-y-1',
+          isSystemEvent ? 'max-w-[92%]' : 'max-w-[84%]',
+          isUser && 'items-end',
+        )}
+      >
         {/* Agent label */}
         {!isSystemEvent && !isUser && message.agentName && (
           <div className="flex items-center gap-1.5 pb-0.5">

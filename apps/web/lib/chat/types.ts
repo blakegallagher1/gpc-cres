@@ -37,6 +37,11 @@ export type ChatTrustSnapshot = {
   durationMs?: number;
   errorSummary?: string | null;
   toolFailures?: string[];
+  retryAttempts?: number;
+  retryMaxAttempts?: number;
+  retryMode?: string;
+  fallbackLineage?: string[];
+  fallbackReason?: string;
   runId?: string;
 };
 

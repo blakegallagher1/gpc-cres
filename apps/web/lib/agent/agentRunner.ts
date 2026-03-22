@@ -18,6 +18,7 @@ import {
 import { PrismaChatSession } from "@/lib/chat/session";
 import { buildPreferenceContext } from "@/lib/services/preferenceService";
 import { buildMemoryContext } from "@/lib/services/memoryContextBuilder";
+import type { AgentTrustEnvelope } from "@/types";
 import {
   buildBusinessMemoryContext,
   captureBusinessChatMemory,
@@ -104,6 +105,10 @@ type PersistedAgentSummary = {
   openaiResponseId: string | null;
   inputHash: string;
 };
+
+type PersistableAssistantTrust =
+  | AgentTrustEnvelope
+  | PersistedAgentSummary["trust"];
 
 function toStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
@@ -421,7 +426,7 @@ function mapTemporalTrustForEvents(trust: AgentRunWorkflowOutput["trust"]) {
     toolsInvoked: trust.toolsInvoked,
     packVersionsUsed: trust.packVersionsUsed,
     evidenceCitations: trust.evidenceCitations,
-    evidenceHash: trust.evidenceHash,
+    evidenceHash: trust.evidenceHash ?? null,
     confidence: trust.confidence,
     missingEvidence: trust.missingEvidence,
     verificationSteps: trust.verificationSteps,
@@ -618,11 +623,13 @@ export async function runAgentWorkflow(params: AgentRunInput) {
   const buildAssistantMessageMetadata = (
     runId: string,
     openaiResponseId: string | null,
+    trust?: PersistableAssistantTrust | null,
   ) =>
     toJsonValue({
       kind: "chat_assistant_message",
       runId,
       openaiResponseId,
+      ...(trust ? { trust } : {}),
       ...(referencedMapFeatures.length > 0
         ? { mapFeatures: referencedMapFeatures }
         : {}),
@@ -1027,6 +1034,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
               metadata: buildAssistantMessageMetadata(
                 workflowResult.runId,
                 workflowResult.openaiResponseId,
+                mapTemporalTrustForEvents(workflowResult.trust),
               ),
             },
           ]);
@@ -1039,6 +1047,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
               metadata: buildAssistantMessageMetadata(
                 workflowResult.runId,
                 workflowResult.openaiResponseId,
+                mapTemporalTrustForEvents(workflowResult.trust),
               ),
             },
           });
@@ -1176,6 +1185,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
             metadata: buildAssistantMessageMetadata(
               result.runId,
               result.openaiResponseId,
+              result.trust,
             ),
           },
         ]);
@@ -1188,6 +1198,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
             metadata: buildAssistantMessageMetadata(
               result.runId,
               result.openaiResponseId,
+              result.trust,
             ),
           },
         });
@@ -1239,6 +1250,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
           metadata: buildAssistantMessageMetadata(
             result.runId,
             result.openaiResponseId,
+            result.trust,
           ),
         },
       ]);
@@ -1251,6 +1263,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
           metadata: buildAssistantMessageMetadata(
             result.runId,
             result.openaiResponseId,
+            result.trust,
           ),
         },
       });

@@ -1,6 +1,6 @@
 import type { HTMLAttributes } from "react";
 import { render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { toggleSidebarMock } = vi.hoisted(() => ({
   toggleSidebarMock: vi.fn(),
@@ -44,8 +44,14 @@ vi.mock("@/hooks/useIsMobile", () => ({
 import { Sidebar } from "@/components/layout/Sidebar";
 
 describe("Sidebar", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-21T12:00:00.000Z"));
+  });
+
   afterEach(() => {
     vi.clearAllMocks();
+    vi.useRealTimers();
   });
 
   it("renders the development and investment navigation frame", () => {
