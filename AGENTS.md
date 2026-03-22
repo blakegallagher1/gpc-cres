@@ -118,7 +118,9 @@ Actual workspace packages live under `packages/`:
 
 ## Shipping Runbook (Codex Agents)
 
-When your work is done and tests pass, follow this sequence to ship:
+**MANDATORY: Always ship your work.** When verification passes (tests, lint, typecheck, build),
+you MUST commit and push to GitHub before reporting completion. Never leave changes uncommitted.
+Do not ask for permission to ship — shipping is part of completing the task. Follow this sequence:
 
 1. **Stage**: `git add <files>` (never `git add -A` unless you're sure)
 2. **Commit**: Use `~/.codex/bin/gcommit "feat(scope): message"` — NOT raw `git commit`.
