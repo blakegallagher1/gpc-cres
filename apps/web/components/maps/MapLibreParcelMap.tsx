@@ -171,12 +171,18 @@ function getSavedOverlaysFallback(): {
   parcelBoundaries: boolean;
   zoning: boolean;
   flood: boolean;
+  soils: boolean;
+  wetlands: boolean;
+  epa: boolean;
 } {
   const saved = getSavedOverlays();
   return {
     parcelBoundaries: saved["Parcel Boundaries"] !== false,
     zoning: saved["Zoning Overlay"] === true,
     flood: saved["Flood Zones"] === true,
+    soils: saved["Soils"] === true,
+    wetlands: saved["Wetlands"] === true,
+    epa: saved["EPA Facilities"] === true,
   };
 }
 
@@ -563,6 +569,9 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
   const [showParcelBoundaries, setShowParcelBoundaries] = useState<boolean>(() => getSavedOverlaysFallback().parcelBoundaries);
   const [showZoning, setShowZoning] = useState<boolean>(() => getSavedOverlaysFallback().zoning);
   const [showFlood, setShowFlood] = useState<boolean>(() => getSavedOverlaysFallback().flood);
+  const [showSoils, setShowSoils] = useState<boolean>(() => getSavedOverlaysFallback().soils);
+  const [showWetlands, setShowWetlands] = useState<boolean>(() => getSavedOverlaysFallback().wetlands);
+  const [showEpa, setShowEpa] = useState<boolean>(() => getSavedOverlaysFallback().epa);
   const [showComps, setShowComps] = useState(false);
   const [showHeatmap, setShowHeatmap] = useState(false);
   const [activeHeatmapPreset, setActiveHeatmapPreset] = useState<HeatmapPresetKey>("sale_activity");
@@ -1155,6 +1164,24 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
               minzoom: 5,
               maxzoom: 22,
             },
+            "soils-tiles": {
+              type: "vector",
+              tiles: [getMartinParcelTileUrl("soils")],
+              minzoom: 5,
+              maxzoom: 22,
+            },
+            "wetlands-tiles": {
+              type: "vector",
+              tiles: [getMartinParcelTileUrl("wetlands")],
+              minzoom: 5,
+              maxzoom: 22,
+            },
+            "epa-tiles": {
+              type: "vector",
+              tiles: [getMartinParcelTileUrl("epa_facilities")],
+              minzoom: 5,
+              maxzoom: 22,
+            },
             "parcel-point-source": {
               type: "geojson",
               data: pointSource,
@@ -1371,6 +1398,65 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
                   "AO", "rgba(249, 115, 22, 0.5)",
                   "transparent",
                 ],
+              },
+            },
+            {
+              id: "soils-tiles-fill",
+              type: "fill",
+              source: "soils-tiles",
+              "source-layer": "soils",
+              layout: {
+                visibility: showLayers && showSoils ? "visible" : "none",
+              },
+              paint: {
+                "fill-color": [
+                  "match", ["get", "hydric_rating"],
+                  "Hydric", "#dc2626",
+                  "Partially Hydric", "#f59e0b",
+                  "Non-Hydric", "#16a34a",
+                  "#9ca3af",
+                ],
+                "fill-opacity": 0.25,
+              },
+            },
+            {
+              id: "wetlands-tiles-fill",
+              type: "fill",
+              source: "wetlands-tiles",
+              "source-layer": "wetlands",
+              layout: {
+                visibility: showLayers && showWetlands ? "visible" : "none",
+              },
+              paint: {
+                "fill-color": "#3b82f6",
+                "fill-opacity": 0.3,
+                "fill-outline-color": "#2563eb",
+              },
+            },
+            {
+              id: "epa-tiles-circle",
+              type: "circle",
+              source: "epa-tiles",
+              "source-layer": "epa_facilities",
+              layout: {
+                visibility: showLayers && showEpa ? "visible" : "none",
+              },
+              paint: {
+                "circle-radius": [
+                  "interpolate", ["linear"], ["get", "violations_count"],
+                  0, 4,
+                  10, 8,
+                  50, 14,
+                ],
+                "circle-color": [
+                  "interpolate", ["linear"], ["get", "violations_count"],
+                  0, "#16a34a",
+                  5, "#f59e0b",
+                  20, "#dc2626",
+                ],
+                "circle-stroke-width": 1.5,
+                "circle-stroke-color": "rgba(0, 0, 0, 0.5)",
+                "circle-opacity": 0.8,
               },
             },
             {
@@ -1620,6 +1706,9 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
       map.setLayoutProperty("zoning-tiles-fill", "visibility", showLayers && showZoning ? "visible" : "none");
       map.setLayoutProperty("parcels-flood-layer", "visibility", showLayers && showFlood ? "visible" : "none");
       map.setLayoutProperty("fema-flood-tiles-fill", "visibility", showLayers && showFlood ? "visible" : "none");
+      map.setLayoutProperty("soils-tiles-fill", "visibility", showLayers && showSoils ? "visible" : "none");
+      map.setLayoutProperty("wetlands-tiles-fill", "visibility", showLayers && showWetlands ? "visible" : "none");
+      map.setLayoutProperty("epa-tiles-circle", "visibility", showLayers && showEpa ? "visible" : "none");
       map.setLayoutProperty("base-dark", "visibility", isDark && baseLayer !== "Satellite" ? "visible" : "none");
       map.setLayoutProperty("base-streets", "visibility", !isDark && baseLayer !== "Satellite" ? "visible" : "none");
       map.setLayoutProperty("base-satellite", "visibility", baseLayer === "Satellite" ? "visible" : "none");
@@ -1635,6 +1724,9 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
     showParcelBoundaries,
     showZoning,
     showFlood,
+    showSoils,
+    showWetlands,
+    showEpa,
     baseLayer,
     isDark,
     effectiveSelectedIds,
@@ -1656,10 +1748,13 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
           "Parcel Boundaries": showParcelBoundaries,
           "Zoning Overlay": showZoning,
           "Flood Zones": showFlood,
+          "Soils": showSoils,
+          "Wetlands": showWetlands,
+          "EPA Facilities": showEpa,
         })
       );
     } catch {}
-  }, [baseLayer, showParcelBoundaries, showZoning, showFlood, mapReady]);
+  }, [baseLayer, showParcelBoundaries, showZoning, showFlood, showSoils, showWetlands, showEpa, mapReady]);
 
   if (mapError) {
     return (
@@ -1844,6 +1939,33 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
                       className="rounded h-3.5 w-3.5 accent-map-accent"
                     />
                     <span className="text-[11px] text-map-text-primary">Heatmap</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer py-0.5">
+                    <input
+                      type="checkbox"
+                      checked={showSoils}
+                      onChange={(event) => setShowSoils(event.target.checked)}
+                      className="rounded h-3.5 w-3.5 accent-map-accent"
+                    />
+                    <span className="text-[11px] text-map-text-primary">Soils</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer py-0.5">
+                    <input
+                      type="checkbox"
+                      checked={showWetlands}
+                      onChange={(event) => setShowWetlands(event.target.checked)}
+                      className="rounded h-3.5 w-3.5 accent-map-accent"
+                    />
+                    <span className="text-[11px] text-map-text-primary">Wetlands</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer py-0.5">
+                    <input
+                      type="checkbox"
+                      checked={showEpa}
+                      onChange={(event) => setShowEpa(event.target.checked)}
+                      className="rounded h-3.5 w-3.5 accent-map-accent"
+                    />
+                    <span className="text-[11px] text-map-text-primary">EPA Facilities</span>
                   </label>
                 </div>
               )}
