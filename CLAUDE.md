@@ -16,13 +16,30 @@ Last reviewed: 2026-03-10
 **Live at:** gallagherpropco.com
 **Deployed on:** Vercel (frontend) + Local 12-core i7 Windows 11 (Docker Compose: FastAPI gateway :8000, Martin tiles :3000, PostgreSQL/Qdrant internal, Cloudflare Tunnel + Hyperdrive)
 
-**Architecture (verified 2026-03-04):** Docker Compose on Windows 11 — FastAPI gateway (:8000), Martin (:3000), single consolidated PostgreSQL (`entitlement-os-postgres`) + Qdrant on internal Docker network, Cloudflare Tunnel + Hyperdrive. Vercel reaches Postgres via Cloudflare Hyperdrive (config `ebd13ab7df60414d9ba8244299467e5e`) through CF Worker `/db` endpoint. Prisma gateway adapter: `packages/db/src/gateway-adapter.ts`. Both Supabase projects archived (2026-03-04).
+**Architecture (verified 2026-03-21):** TWO Docker Compose stacks on Windows 11, on SEPARATE Docker networks. See "Database Topology" below. Vercel reaches app DB via Cloudflare Hyperdrive (config `ebd13ab7df60414d9ba8244299467e5e`) through CF Worker `/db` endpoint. Prisma gateway adapter: `packages/db/src/gateway-adapter.ts`. Both Supabase projects archived (2026-03-04).
 
-**Remote DB access:** `cloudflared access tcp --hostname db.gallagherpropco.com --url localhost:54399` — then connect on `localhost:54399` (user: `postgres`, password: `postgres`). Protected by Cloudflare Access (Blake only). See `docs/CLOUDFLARE.md` for full details. **Structured host/env summary (not secrets):** `docs/server-manifest.json`.
+**Remote DB access:** See "Database Topology" section below. The CF DB tunnel (`db.gallagherpropco.com`) connects to the **app DB only** — it does NOT have property/screening tables. To query property data, use the gateway's `/tools/parcels.sql` endpoint.
 
-**Remote SSH:** `ssh cres_admin@ssh.gallagherpropco.com` (requires `~/.ssh/config` ProxyCommand). See `docs/SERVER_MANAGEMENT.md` for server details, Docker services, and troubleshooting.
+**Remote SSH:** `ssh cres_admin@ssh.gallagherpropco.com` (requires `~/.ssh/config` ProxyCommand). If you get `websocket: bad handshake`, sshd is stopped on the Windows PC — see `docs/SERVER_MANAGEMENT.md` troubleshooting.
 
-**Admin API (preferred over SSH):** `https://api.gallagherpropco.com/admin` with `Authorization: Bearer $ADMIN_API_KEY`. Key endpoints: `/admin/health`, `/admin/db/schema`, `/admin/db/query`, `/admin/containers/{name}/logs`, `/admin/deploy/gateway`. See `docs/SERVER_MANAGEMENT.md` for full reference.
+**Admin API:** `https://api.gallagherpropco.com/admin` with `Authorization: Bearer $ADMIN_API_KEY` (in `~/.zshrc`). **NOTE:** Admin routes exist in repo code (`infra/local-api/admin_router.py`) but are NOT deployed on the production gateway yet. Deploy requires SSH.
+
+## Database Topology (CRITICAL — verified 2026-03-21)
+
+The Windows PC runs **two separate Docker networks** with **two Postgres containers**:
+
+| Database | Docker Network | Contains | Accessible Via |
+|----------|---------------|----------|---------------|
+| **Property DB** | `172.18.x` | `ebr_parcels` (198K), `fema_flood`, `soils`, `wetlands`, `epa_facilities`, `mv_parcel_intelligence` | Gateway only (`api.gallagherpropco.com`) |
+| **App DB** | `172.19.x` | Prisma tables (`deals`, `conversations`, `parcels`, `automation_events`, etc.) | CF tunnel (`db.gallagherpropco.com`) + Hyperdrive |
+
+**Key implications:**
+- `cloudflared access tcp --hostname db.gallagherpropco.com` → connects to **App DB** (172.19.x). Property tables (`ebr_parcels`, etc.) DO NOT EXIST here.
+- Gateway at `api.gallagherpropco.com` → connects to **Property DB** (172.18.x). This is the ONLY remote path to property data.
+- To query property data: use `/tools/parcels.sql` endpoint (SELECT only, table allowlist: `ebr_parcels, epa_facilities, fema_flood, ldeq_permits, soils, traffic_counts, wetlands`)
+- To run DDL on property DB: requires SSH → `docker exec` into the property DB container. No other path exists.
+- The deployed gateway code differs from the repo — deployed has `/tools/screen.*` routes, repo has `/api/screening/*`. Screen endpoints on prod return 500 (broken).
+- Windows Firewall blocks ALL LAN ports (22, 5432, 54323, 8000, 8765, 445). Only Cloudflare Tunnel services are accessible remotely.
 
 ## Key Rules
 

@@ -137,12 +137,74 @@ Upgrade only if you need higher limits or advanced Zero Trust features.
 
 ---
 
+## Database Topology (CRITICAL)
+
+The Windows PC runs **two Docker Compose stacks on separate Docker networks**:
+
+```
+Network 172.18.x (Production stack — C:\gpc-cres-backend\docker-compose.yml)
+├── FastAPI gateway (:8000) → connects to property DB
+├── Martin tile server (:3000) → reads from property DB
+├── Property DB PostgreSQL → ebr_parcels (198K), fema_flood, soils, wetlands, epa_facilities
+├── Qdrant (:6333)
+└── Cloudflare Tunnel (cloudflared)
+
+Network 172.19.x (Repo stack — infra/docker/docker-compose.yml)
+├── App DB PostgreSQL → Prisma tables (deals, conversations, parcels, etc.)
+└── Temporal services
+```
+
+### Accessing Property Data (ebr_parcels, screening tables)
+
+| Method | Works? | Notes |
+|--------|--------|-------|
+| Gateway `/tools/parcels.sql` | **YES** | SELECT only. Table allowlist enforced. This is the primary remote path. |
+| Gateway `/api/parcels/search` | **YES** | Parcel search via gateway. |
+| CF DB tunnel (`db.gallagherpropco.com`) | **NO** | Connects to App DB (172.19.x). Property tables don't exist here. |
+| SSH → `docker exec` | **YES** (when sshd is running) | Full DDL access. Required for materialized views, schema changes. |
+| Direct LAN (192.168.1.164) | **NO** | Windows Firewall blocks all TCP ports. Only ICMP (ping) allowed. |
+
+### Accessing App Data (deals, conversations, Prisma)
+
+| Method | Works? | Notes |
+|--------|--------|-------|
+| CF DB tunnel → `psql postgresql://postgres:postgres@localhost:54399/entitlement_os` | **YES** | Full read/write access. |
+| Hyperdrive → CF Worker `/db` | **YES** | Used by Vercel app via Prisma. |
+| SSH → `docker exec` | **YES** (when sshd is running) | |
+
+### Running DDL on Property DB
+
+The only way to run DDL (CREATE, ALTER, DROP) on the property DB is via SSH:
+
+```bash
+# 1. Verify SSH works
+ssh cres_admin@ssh.gallagherpropco.com "echo ok"
+
+# 2. Execute SQL
+cat infra/sql/my-migration.sql | ssh cres_admin@ssh.gallagherpropco.com \
+  'docker exec -i entitlement-os-postgres psql -U postgres -d entitlement_os'
+```
+
+If SSH is down (sshd stopped), you MUST start it from the Windows PC:
+```powershell
+# PowerShell as Administrator on the Windows PC
+Start-Service sshd
+```
+
+---
+
 ## Troubleshooting
 
 ### SSH: "websocket: bad handshake"
-- OpenSSH Server (sshd) is likely stopped on the PC
-- RDP in or have someone run: `Start-Service sshd` in PowerShell (Admin)
-- Confirm it's running: `Get-Service sshd`
+- **Root cause:** OpenSSH Server (sshd) is stopped on the Windows PC
+- **Fix:** Start sshd from the Windows PC: `Start-Service sshd` in PowerShell (Admin)
+- **Confirm:** `Get-Service sshd` should show "Running"
+- **Note:** SSH is flaky even when running. Expect intermittent `bad handshake` errors. Add 8-45s delays between SSH commands. Short commands succeed more often than piped data.
+
+### CF DB tunnel shows no property tables
+- **Root cause:** `db.gallagherpropco.com` tunnel connects to the App DB container (172.19.x network), NOT the property DB container (172.18.x network)
+- **This is by design.** Property tables (`ebr_parcels`, `fema_flood`, etc.) are only in the property DB.
+- **Workaround:** Use the gateway's `/tools/parcels.sql` endpoint for SELECT queries on property data.
 
 ### SSH: connection timeout
 - Confirm the SSH ingress rule in the tunnel config
@@ -160,6 +222,12 @@ Upgrade only if you need higher limits or advanced Zero Trust features.
 ### Docker commands fail over SSH
 - Ensure Docker Desktop is running on Windows
 - Use forward slashes in `SERVER_PATH` (e.g. `C:/gpc-cres-backend`)
+
+### Gateway deployed code differs from repo
+- The deployed gateway has `/tools/screen.*` endpoints (broken — return 500)
+- The repo has `/api/screening/*` endpoints (correct but not deployed)
+- Admin router (`/admin/*`) exists in repo but is NOT deployed
+- Deploy requires SSH: `ssh cres_admin@ssh.gallagherpropco.com` then rebuild the gateway container
 
 ### Docker credential helper fails over SSH
 When deploying via SSH, Docker Desktop's credential helper can fail (`A specified logon session does not exist`). Workaround:
