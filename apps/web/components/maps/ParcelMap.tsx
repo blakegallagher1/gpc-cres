@@ -5,25 +5,17 @@ import {
   MapLibreParcelMap,
   type MapLibreParcelMapRef,
 } from "./MapLibreParcelMap";
+import type {
+  MapParcel,
+  MapTrajectoryData,
+  MapTrajectoryVelocityDatum,
+} from "./types";
+
+export type { MapParcel, MapTrajectoryData, MapTrajectoryVelocityDatum } from "./types";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-
-export interface MapParcel {
-  id: string;
-  address: string;
-  lat: number;
-  lng: number;
-  dealId?: string;
-  dealName?: string;
-  dealStatus?: string;
-  floodZone?: string | null;
-  currentZoning?: string | null;
-  propertyDbId?: string | null;
-  geometryLookupKey?: string | null;
-  acreage?: number | null;
-}
 
 interface ParcelMapProps {
   parcels: MapParcel[];
@@ -36,8 +28,8 @@ interface ParcelMapProps {
   polygon?: number[][][] | null;
   onPolygonDrawn?: (coordinates: number[][][]) => void;
   onPolygonCleared?: () => void;
-  trajectoryData?: { type: "FeatureCollection"; features: unknown[] } | null;
-  trajectoryVelocityData?: { parcel_id: string; velocity_of_change: number }[] | null;
+  trajectoryData?: MapTrajectoryData | null;
+  trajectoryVelocityData?: MapTrajectoryVelocityDatum[] | null;
   highlightParcelIds?: Set<string>;
   selectedParcelIds?: Set<string>;
   onSelectionChange?: (ids: Set<string>) => void;

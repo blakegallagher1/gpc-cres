@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
-import { ParcelMap, type MapParcel } from "@/components/maps/ParcelMap";
+import { ParcelMap } from "@/components/maps/ParcelMap";
+import type { MapParcel } from "@/components/maps/types";
 import type { ProspectParcel } from "./ProspectResults";
 
 // ---------------------------------------------------------------------------

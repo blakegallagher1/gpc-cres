@@ -1,6 +1,6 @@
 "use client";
 
-import type { MapParcel } from "./ParcelMap";
+import type { MapParcel } from "./types";
 
 interface ParcelComparisonSheetProps {
   open: boolean;

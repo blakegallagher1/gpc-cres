@@ -33,16 +33,20 @@ import {
 } from "./mapStyles";
 import { Pencil, Trash2, X, Camera, Maximize2, ChevronDown, ChevronRight, Layers } from "lucide-react";
 import { useStableOptions } from "@/lib/hooks/useStableOptions";
-import type { MapParcel } from "./ParcelMap";
 import { SavedGeofences } from "./SavedGeofences";
 import { ParcelComparisonSheet } from "./ParcelComparisonSheet";
 import { MapTour } from "./MapTour";
 import {
   HEATMAP_PRESETS,
   HEATMAP_PRESET_MAP,
-  type HeatmapPresetKey,
-  type SaleComp,
 } from "./heatmapPresets";
+import type {
+  HeatmapPresetKey,
+  MapParcel,
+  MapTrajectoryData,
+  MapTrajectoryVelocityDatum,
+  SaleComp,
+} from "./types";
 
 const MAP_DRAW_ACCENT_COLOR = "#6c8cff";
 
@@ -84,8 +88,6 @@ type IsochroneResult = {
   parcelCount: number;
 };
 
-type VelocityParcel = { parcel_id: string; velocity_of_change: number };
-
 interface MapLibreParcelMapProps {
   parcels: MapParcel[];
   center?: [number, number];
@@ -100,9 +102,9 @@ interface MapLibreParcelMapProps {
   onPolygonDrawn?: (coordinates: number[][][]) => void;
   onPolygonCleared?: () => void;
   /** Legacy: GeoJSON FeatureCollection from Market Trajectory agent. */
-  trajectoryData?: { type: "FeatureCollection"; features: unknown[] } | null;
+  trajectoryData?: MapTrajectoryData | null;
   /** Velocity overlay: parcel_id + velocity_of_change; colored choropleth. */
-  trajectoryVelocityData?: VelocityParcel[] | null;
+  trajectoryVelocityData?: MapTrajectoryVelocityDatum[] | null;
   /** Externally controlled highlight (e.g. ProspectMap selectedIds). */
   highlightParcelIds?: Set<string>;
   /** Externally controlled selected ids. */

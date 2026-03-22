@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import type { ParcelItem } from "@/components/deals/ParcelTable";
-import type { MapParcel } from "./ParcelMap";
+import type { MapParcel } from "./types";
 
 const ParcelMap = dynamic(() => import("./ParcelMap").then((m) => m.ParcelMap), {
   ssr: false,

@@ -7,7 +7,7 @@ import {
   parcelPopupHtml,
   setGeoJsonSourceDataSafe,
 } from "./MapLibreParcelMap";
-import type { MapParcel } from "./ParcelMap";
+import type { MapParcel } from "./types";
 
 const baseParcel: MapParcel = {
   id: "p-1",

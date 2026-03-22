@@ -1,14 +1,7 @@
 import type { HeatmapLayerSpecification } from "maplibre-gl";
-import type { MapParcel } from "./ParcelMap";
+import type { HeatmapPresetKey, MapParcel, SaleComp } from "./types";
 
-export type HeatmapPresetKey = "sale_activity" | "price_density" | "development_activity";
-
-export interface SaleComp {
-  lat: number;
-  lng: number;
-  saleDate: string | null;
-  pricePerAcre: number | null;
-}
+export type { HeatmapPresetKey, SaleComp } from "./types";
 
 export interface HeatmapPreset {
   key: HeatmapPresetKey;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { MapParcel } from "@/components/maps/ParcelMap";
+import type { MapParcel } from "@/components/maps/types";
 import {
   buildSuggestionLookupText,
   parcelMatchesSearch,

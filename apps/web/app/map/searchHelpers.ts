@@ -1,4 +1,4 @@
-import type { MapParcel } from "@/components/maps/ParcelMap";
+import type { MapParcel } from "@/components/maps/types";
 
 const STREET_SUFFIX_CANONICAL: Array<[RegExp, string]> = [
   [/\bct\b/g, "court"],
