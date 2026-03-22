@@ -7,15 +7,11 @@ export type ScreeningSummary = {
   address: string | null;
   in_sfha: boolean;
   flood_zone_count: number;
-  flood_zones: unknown[];
   has_hydric: boolean;
   soil_unit_count: number;
-  soil_units: unknown[];
   has_wetlands: boolean;
   wetland_count: number;
-  wetlands: unknown[];
   epa_facility_count: number;
-  epa_facilities: unknown[];
   has_environmental_constraints: boolean;
   has_nearby_epa_facilities: boolean;
 };

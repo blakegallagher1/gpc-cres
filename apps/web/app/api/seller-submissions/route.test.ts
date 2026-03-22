@@ -3,23 +3,21 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { POST } from "./route";
 
-const { checkRateLimitMock, recordObservabilityEventMock } = vi.hoisted(() => ({
+const { checkRateLimitMock } = vi.hoisted(() => ({
   checkRateLimitMock: vi.fn(),
-  recordObservabilityEventMock: vi.fn(),
 }));
 
 vi.mock("@/lib/server/rateLimiter", () => ({
   checkRateLimit: checkRateLimitMock,
 }));
 
-vi.mock("@/lib/server/observability", () => ({
-  recordObservabilityEvent: recordObservabilityEventMock,
+vi.mock("@sentry/nextjs", () => ({
+  captureException: vi.fn(),
 }));
 
 describe("POST /api/seller-submissions", () => {
   beforeEach(() => {
     checkRateLimitMock.mockReset();
-    recordObservabilityEventMock.mockReset();
     checkRateLimitMock.mockReturnValue(true);
   });
 
@@ -74,9 +72,6 @@ describe("POST /api/seller-submissions", () => {
 
     expect(res.status).toBe(400);
     await expect(res.json()).resolves.toEqual({ error: "Rejected" });
-    expect(recordObservabilityEventMock).toHaveBeenCalledWith(
-      expect.objectContaining({ event: "seller_submission_rejected" }),
-    );
   });
 
   it("returns 429 when the IP exceeds route rate limit", async () => {
