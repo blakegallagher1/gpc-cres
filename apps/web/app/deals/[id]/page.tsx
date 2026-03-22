@@ -38,6 +38,7 @@ import {
 import { EnvironmentalAssessmentsPanel } from "@/components/deals/EnvironmentalAssessmentsPanel";
 import { DealFinancingPanel } from "@/components/deals/DealFinancingPanel";
 import { RiskRegisterPanel } from "@/components/deals/RiskRegisterPanel";
+import { ScreeningScorecard } from "@/components/maps/ScreeningScorecard";
 import { TriageResultPanel } from "@/components/deals/TriageResultPanel";
 import { RunTriageButton } from "@/components/deals/RunTriageButton";
 import { ActivityTimeline } from "@/components/deals/ActivityTimeline";
@@ -1127,6 +1128,9 @@ export default function DealDetailPage() {
 
               {/* Right column */}
               <div className="space-y-4">
+                {deal.parcels?.length > 0 && deal.parcels[0]?.propertyDbId && (
+                  <ScreeningScorecard parcelId={deal.parcels[0].propertyDbId} />
+                )}
                 <DealStakeholdersPanel dealId={deal.id} />
                 <RiskRegisterPanel dealId={deal.id} />
 
