@@ -60,6 +60,17 @@ $backupTask = @{
 Register-ScheduledTask @backupTask -Force
 Write-Host "Created task: AgentOS-AppDB-Backup (daily 1:00 AM) — uses docker exec, no extra config needed"
 
+# Property DB backup: daily at 1:30 AM (uses docker exec — no host-level pg_dump needed)
+$backupPropertyDbScript = Join-Path $RepoRoot "infra\scripts\backup-property-db.ps1"
+$propertyBackupTask = @{
+    TaskName = "AgentOS-PropertyDB-Backup"
+    Action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-ExecutionPolicy Bypass -File `"$backupPropertyDbScript`""
+    Trigger = New-ScheduledTaskTrigger -Daily -At "1:30AM"
+    Settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
+}
+Register-ScheduledTask @propertyBackupTask -Force
+Write-Host "Created task: AgentOS-PropertyDB-Backup (daily 1:30 AM) — uses docker exec, no extra config needed"
+
 Write-Host "`nCrontab equivalents (Linux/macOS):"
 Write-Host "# Memory cleanup: daily at 2:00 AM"
 Write-Host "0 2 * * * cd $RepoRoot && npx tsx packages/openai/src/agentos/jobs/memoryCleanup.ts"
@@ -72,3 +83,6 @@ Write-Host "0 4 * * 0 cd $RepoRoot && npx tsx packages/openai/src/agentos/jobs/b
 Write-Host ""
 Write-Host "# App DB backup: daily at 1:00 AM (uses docker exec)"
 Write-Host "0 1 * * * cd $RepoRoot && powershell -File infra/scripts/backup-app-db.ps1"
+Write-Host ""
+Write-Host "# Property DB backup: daily at 1:30 AM (uses docker exec)"
+Write-Host "30 1 * * * cd $RepoRoot && powershell -File infra/scripts/backup-property-db.ps1"
