@@ -93,11 +93,33 @@ vi.mock("@/lib/chat/useAgentWebSocket", () => ({
 describe("ChatContainer", () => {
   const originalWsUrl = process.env.NEXT_PUBLIC_AGENT_WS_URL;
   const originalFetch = globalThis.fetch;
+  const originalLocalStorage = window.localStorage;
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     process.env.NEXT_PUBLIC_AGENT_WS_URL = "wss://agents.example.com";
     window.history.replaceState({}, "", "/chat");
+    const localStorageStore = new Map<string, string>();
+    const localStorageMock = {
+      getItem: vi.fn((key: string) => localStorageStore.get(key) ?? null),
+      setItem: vi.fn((key: string, value: string) => {
+        localStorageStore.set(key, value);
+      }),
+      removeItem: vi.fn((key: string) => {
+        localStorageStore.delete(key);
+      }),
+      clear: vi.fn(() => {
+        localStorageStore.clear();
+      }),
+      key: vi.fn((index: number) => Array.from(localStorageStore.keys())[index] ?? null),
+      get length() {
+        return localStorageStore.size;
+      },
+    } satisfies Storage;
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: localStorageMock,
+    });
     useIsMobileMock.mockReturnValue(false);
 
     useAgentWebSocketMock.mockReset();
@@ -181,6 +203,10 @@ describe("ChatContainer", () => {
 
   afterEach(() => {
     process.env.NEXT_PUBLIC_AGENT_WS_URL = originalWsUrl;
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: originalLocalStorage,
+    });
     vi.unstubAllGlobals();
     globalThis.fetch = originalFetch;
     vi.restoreAllMocks();

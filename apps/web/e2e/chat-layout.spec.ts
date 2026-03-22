@@ -141,8 +141,10 @@ test.describe("Chat layout", () => {
   test("keeps the run surface usable on first desktop load", async ({ page }) => {
     await openChat(page);
 
-    await expect(page.getByText("Run Desk")).toBeVisible();
-    await expect(page.getByText("Start from a concrete ask")).toBeVisible();
+    await expect(page.getByRole("banner")).toContainText("Acquisition desk");
+    await expect(page.getByRole("main")).toContainText(
+      "Set scope, ask for the deliverable, keep the run moving.",
+    );
 
     const viewport = page.viewportSize();
 
