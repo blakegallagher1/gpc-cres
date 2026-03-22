@@ -113,32 +113,46 @@ function ConversationListItem({
   return (
     <button
       onClick={onSelect}
+      aria-current={active ? 'page' : undefined}
       className={cn(
-        'flex w-full items-start gap-2.5 rounded-2xl border px-3 py-3 text-left transition-colors',
+        'group flex w-full items-start gap-3 rounded-xl border border-transparent px-3 py-3 text-left transition-colors',
         active
-          ? 'border-border/70 bg-foreground/[0.04]'
-          : 'border-transparent hover:border-border/60 hover:bg-background/70',
+          ? 'border-border/70 bg-foreground/[0.05]'
+          : 'hover:border-border/60 hover:bg-background/70',
       )}
     >
-      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-background/70 text-muted-foreground">
-        <MessageSquare className="h-4 w-4" />
+      <span className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/60 bg-background/80 text-muted-foreground">
+        <MessageSquare className="h-3.5 w-3.5" />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">
-          {conv.title && conv.title.trim().length > 0 ? conv.title : 'Untitled conversation'}
-        </p>
-        <div className="mt-1 flex items-center gap-2 text-[10px] text-muted-foreground">
-          <CalendarClock className="h-3 w-3" />
-          <span>{formatShortDate(conv.updatedAt)}</span>
+        <div className="flex items-start justify-between gap-3">
+          <p className="truncate text-sm font-medium text-foreground">
+            {conv.title && conv.title.trim().length > 0 ? conv.title : 'Untitled conversation'}
+          </p>
+          <span className="shrink-0 text-[10px] text-muted-foreground">
+            {formatShortDate(conv.updatedAt)}
+          </span>
+        </div>
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
           <span>{conv.messageCount} msgs</span>
-          {conv.dealId ? (
-            <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/70 px-2 py-0.5 text-[9px]">
-              <Building2 className="h-2.5 w-2.5" />
-              Deal
-            </span>
+          <span className="text-border">/</span>
+          <span>{conv.dealId ? 'Deal-linked' : 'General scope'}</span>
+          {active ? (
+            <>
+              <span className="text-border">/</span>
+              <span className="font-medium text-foreground">Active</span>
+            </>
           ) : null}
         </div>
       </div>
+      {conv.dealId ? (
+        <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/80 px-2 py-1 text-[9px] uppercase tracking-[0.16em] text-muted-foreground">
+          <Building2 className="h-2.5 w-2.5" />
+          Deal
+        </span>
+      ) : (
+        <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-border/80 transition-colors group-hover:bg-foreground/25" />
+      )}
     </button>
   );
 }
@@ -203,11 +217,11 @@ export function ConversationSidebar({
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-muted-foreground">
-                Conversation Index
+                Run History
               </p>
-              <h2 className="mt-1 text-sm font-semibold tracking-tight">Runs and briefs</h2>
+              <h2 className="mt-1 text-sm font-semibold tracking-tight">Saved threads</h2>
               <p className="mt-1 text-xs text-muted-foreground">
-                Reopen prior threads or start a new operating run.
+                Reopen prior runs, search the archive, or fork a fresh operating thread.
               </p>
             </div>
             <div className="flex items-center gap-1">
@@ -242,9 +256,9 @@ export function ConversationSidebar({
           </div>
 
           <div className="mt-4 flex items-center gap-2 text-[11px] text-muted-foreground">
-            <span>{conversations.length} total</span>
+            <span>{conversations.length} saved</span>
             <span className="text-border">/</span>
-            <span>{hasRecentRecents ? 'Recent history available' : 'No recent history yet'}</span>
+            <span>{hasRecentRecents ? 'Local recents available' : 'No local recents yet'}</span>
           </div>
         </div>
 
@@ -255,7 +269,7 @@ export function ConversationSidebar({
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search conversation titles"
+              placeholder="Search titles or reopen a prior run"
               className="h-9 w-full rounded-2xl border border-border/70 bg-background/80 pl-9 pr-3 text-xs placeholder:text-muted-foreground/70 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               disabled={loading}
             />
@@ -301,10 +315,10 @@ export function ConversationSidebar({
                 !hasRecentRecents && 'opacity-50',
               )}
               disabled={!hasRecentRecents}
-              title={hasRecentRecents ? 'Keep top 5 recents only' : 'No recents available'}
+              title={hasRecentRecents ? 'Keep local top 5 recents only' : 'No recents available'}
             >
               <Filter className="h-3 w-3" />
-              Top 5
+              Local Top 5
             </button>
           </div>
 

@@ -27,6 +27,7 @@ interface ChatInputProps {
   isStreaming: boolean;
   onStop: () => void;
   canAttachFiles?: boolean;
+  orientationHint?: string;
   placeholder?: string;
   helperText?: string;
   submitLabel?: string;
@@ -40,6 +41,7 @@ export function ChatInput({
   isStreaming,
   onStop,
   canAttachFiles = false,
+  orientationHint,
   placeholder = "Ask something complex...",
   helperText = "AI agents may make mistakes. Always verify critical data.",
   submitLabel = "Send",
@@ -125,6 +127,15 @@ export function ChatInput({
       onSubmit={handleFormSubmit}
     >
       <div className="glow-line absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-foreground/20 to-transparent" />
+
+      {orientationHint ? (
+        <div className="mx-auto mb-2 flex max-w-5xl items-start gap-3 rounded-2xl border border-border/60 bg-background/65 px-3 py-2 text-xs text-muted-foreground">
+          <span className="font-mono uppercase tracking-[0.18em] text-foreground/85">
+            Prompt
+          </span>
+          <p className="leading-5">{orientationHint}</p>
+        </div>
+      ) : null}
 
       {pendingFiles.length > 0 && (
         <div className="mx-auto mb-2 flex max-w-4xl flex-wrap gap-2">
@@ -222,7 +233,7 @@ export function ChatInput({
         )}
       </div>
 
-      <p className="mx-auto mt-2 max-w-5xl text-center font-mono text-[10px] text-muted-foreground">
+      <p className="mx-auto mt-2 max-w-5xl text-center font-mono text-[10px] leading-5 text-muted-foreground">
         {helperText}
       </p>
     </form>

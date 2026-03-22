@@ -47,12 +47,12 @@ interface MessageBubbleProps {
 
 function ToolResultCard({ name, result }: { name: string; result: unknown }) {
   return (
-    <div className="my-2 rounded-lg border border-[#2a2f3e] bg-[#0f1118]/80 px-3 py-2 text-xs">
-      <div className="mb-1 flex items-center gap-2 font-mono text-[11px] font-medium uppercase tracking-wide text-slate-500">
+    <div className="my-2 rounded-2xl border border-border/60 bg-background/75 px-3 py-3 text-xs">
+      <div className="mb-2 flex items-center gap-2 font-mono text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
         <FileText className="h-3.5 w-3.5" />
         <span>{name}</span>
       </div>
-      <pre className="overflow-x-auto whitespace-pre-wrap rounded bg-[#0c0e14] p-2 font-mono text-emerald-400/80">
+      <pre className="overflow-x-auto whitespace-pre-wrap rounded-xl border border-border/60 bg-muted/35 p-3 font-mono text-foreground/80">
         {typeof result === 'string' ? result : JSON.stringify(result, null, 2)}
       </pre>
     </div>
@@ -115,9 +115,9 @@ function EventHeader({
   rightAction?: ReactNode;
 }) {
   return (
-    <div className="mb-1 flex items-center justify-between gap-2 text-xs text-slate-500">
+    <div className="mb-1 flex items-center justify-between gap-2 text-xs text-muted-foreground">
       <span>
-        <span className="font-mono font-medium text-slate-300">{title}</span>
+        <span className="font-mono font-medium text-foreground">{title}</span>
         {agentName ? ` · ${agentName}` : ''}
       </span>
       {rightAction}
@@ -175,7 +175,8 @@ function MessageActions({
 
   const hasSource = Boolean(sourceUrl);
 
-  const btnClass = "inline-flex items-center gap-1 rounded-full border border-[#2a2f3e] bg-[#1a1d28] px-2.5 py-1 text-slate-400 hover:bg-[#252a38] hover:text-slate-200 transition-colors";
+  const btnClass =
+    'inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/80 px-2.5 py-1 text-muted-foreground transition-colors hover:border-foreground/20 hover:bg-background hover:text-foreground';
 
   return (
     <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
@@ -208,21 +209,21 @@ function MessageActions({
   );
 }
 
-/** Event styling: left-border accent color + dark transparent bg */
+/** Event styling: left-border accent color + muted panel surface. */
 const eventStyles: Record<string, { border: string; bg: string; text: string }> = {
-  agent_progress: { border: 'border-l-indigo-500', bg: 'bg-indigo-500/8', text: 'text-indigo-200' },
-  agent_switch: { border: 'border-l-amber-500', bg: 'bg-amber-500/8', text: 'text-amber-200' },
-  handoff: { border: 'border-l-indigo-400', bg: 'bg-indigo-500/8', text: 'text-indigo-200' },
-  tool_start: { border: 'border-l-slate-500', bg: 'bg-slate-500/8', text: 'text-slate-300' },
-  tool_end: { border: 'border-l-slate-500', bg: 'bg-slate-500/8', text: 'text-slate-300' },
-  tool_approval: { border: 'border-l-amber-500', bg: 'bg-amber-500/8', text: 'text-amber-200' },
-  agent_summary: { border: 'border-l-emerald-500', bg: 'bg-emerald-500/8', text: 'text-emerald-200' },
-  error: { border: 'border-l-red-500', bg: 'bg-red-500/8', text: 'text-red-200' },
-  tool_result: { border: 'border-l-violet-500', bg: 'bg-violet-500/8', text: 'text-violet-200' },
+  agent_progress: { border: 'border-l-indigo-500', bg: 'bg-indigo-500/8', text: 'text-indigo-700 dark:text-indigo-200' },
+  agent_switch: { border: 'border-l-amber-500', bg: 'bg-amber-500/8', text: 'text-amber-700 dark:text-amber-200' },
+  handoff: { border: 'border-l-indigo-400', bg: 'bg-indigo-500/8', text: 'text-indigo-700 dark:text-indigo-200' },
+  tool_start: { border: 'border-l-slate-500', bg: 'bg-muted/50', text: 'text-foreground' },
+  tool_end: { border: 'border-l-slate-500', bg: 'bg-muted/50', text: 'text-foreground' },
+  tool_approval: { border: 'border-l-amber-500', bg: 'bg-amber-500/8', text: 'text-amber-700 dark:text-amber-200' },
+  agent_summary: { border: 'border-l-emerald-500', bg: 'bg-emerald-500/8', text: 'text-emerald-700 dark:text-emerald-200' },
+  error: { border: 'border-l-red-500', bg: 'bg-destructive/8', text: 'text-destructive' },
+  tool_result: { border: 'border-l-violet-500', bg: 'bg-violet-500/8', text: 'text-violet-700 dark:text-violet-200' },
 };
 
 function getEventStyle(kind: string) {
-  return eventStyles[kind] ?? { border: 'border-l-slate-500', bg: 'bg-slate-500/8', text: 'text-slate-300' };
+  return eventStyles[kind] ?? { border: 'border-l-slate-500', bg: 'bg-muted/50', text: 'text-foreground' };
 }
 
 function getEffectiveEventKind(
@@ -256,7 +257,7 @@ function renderSystemContent(
   if (!eventKind) return null;
 
   const wrapperClass = cn(
-    'rounded-lg border-l-2 px-3 py-2 text-sm',
+    'rounded-2xl border border-border/60 border-l-[3px] px-3 py-3 text-sm',
     style.border,
     style.bg,
   );
@@ -267,16 +268,16 @@ function renderSystemContent(
         <EventHeader
           title="Agent Progress"
           agentName={message.agentName}
-          rightAction={Icon ? <Icon className="h-3 w-3 text-slate-500" /> : undefined}
+          rightAction={Icon ? <Icon className={cn('h-3 w-3', style.text)} /> : undefined}
         />
-        <p className="text-xs text-slate-400">{message.content}</p>
+        <p className="text-xs text-muted-foreground">{message.content}</p>
         {Array.isArray(message.toolCalls) && message.toolCalls.length > 0 && (
           <div className="mt-2 space-y-1">
-            <p className="font-mono text-[11px] font-medium text-indigo-400">Tools in-flight</p>
+            <p className={cn('font-mono text-[11px] font-medium', style.text)}>Tools in-flight</p>
             {message.toolCalls.map((toolCall, i) => (
               <p
                 key={`${message.id}-progress-tool-${i}`}
-                className="font-mono text-xs text-indigo-300"
+                className={cn('font-mono text-xs', style.text)}
               >
                 {toolCall.name}
               </p>
@@ -294,11 +295,11 @@ function renderSystemContent(
         <EventHeader
           title="Agent Switched"
           agentName={message.agentName}
-          rightAction={Icon ? <Icon className="h-3 w-3 text-slate-500" /> : undefined}
+          rightAction={Icon ? <Icon className={cn('h-3 w-3', style.text)} /> : undefined}
         />
         <div className="flex items-center gap-2 text-xs">
           <AgentStatusChip agentName={message.agentName} mode="active" />
-          <span className="text-slate-400">Active agent changed.</span>
+          <span className="text-muted-foreground">Active agent changed.</span>
         </div>
         <MessageActions conversationId={conversationId} messageId={message.id} message={message} />
       </div>
@@ -312,11 +313,11 @@ function renderSystemContent(
         <EventHeader
           title="Agent Handoff"
           agentName={message.agentName}
-          rightAction={Icon ? <Icon className="h-3 w-3 text-slate-500" /> : undefined}
+          rightAction={Icon ? <Icon className={cn('h-3 w-3', style.text)} /> : undefined}
         />
         <div className="flex items-center gap-2 text-xs">
           <AgentStatusChip agentName={handoffTarget} mode="handoff" />
-          <span className="text-slate-400">{message.content}</span>
+          <span className="text-muted-foreground">{message.content}</span>
         </div>
         <MessageActions conversationId={conversationId} messageId={message.id} message={message} />
       </div>
@@ -330,11 +331,11 @@ function renderSystemContent(
       <div className={wrapperClass}>
         <EventHeader
           title={eventKind === 'tool_start' ? 'Tool Started' : 'Tool Completed'}
-          rightAction={Icon ? <Icon className="h-3 w-3 text-slate-500" /> : undefined}
+          rightAction={Icon ? <Icon className={cn('h-3 w-3', style.text)} /> : undefined}
         />
         <div className="flex items-center gap-2 text-xs">
           <ToolStatusChip toolName={toolName} status={status} />
-          <span className="text-slate-400">{message.content}</span>
+          <span className="text-muted-foreground">{message.content}</span>
         </div>
         <MessageActions conversationId={conversationId} messageId={message.id} message={message} />
       </div>
@@ -355,9 +356,9 @@ function renderSystemContent(
       <div className={wrapperClass}>
         <EventHeader
           title="Tool Approval Required"
-          rightAction={Icon ? <Icon className="h-3 w-3 text-amber-400" /> : undefined}
+          rightAction={Icon ? <Icon className={cn('h-3 w-3', style.text)} /> : undefined}
         />
-        <p className="text-xs text-slate-400">{message.content}</p>
+        <p className="text-xs text-muted-foreground">{message.content}</p>
         {runId && toolCallId ? (
           <ToolApprovalPrompt
             runId={runId}
@@ -381,24 +382,24 @@ function renderSystemContent(
         <EventHeader
           title="Agent Summary"
           agentName={agent}
-          rightAction={Icon ? <Icon className="h-3 w-3 text-slate-500" /> : undefined}
+          rightAction={Icon ? <Icon className={cn('h-3 w-3', style.text)} /> : undefined}
         />
         <div className="grid gap-1 font-mono text-xs sm:grid-cols-2">
-          <p className="text-slate-400">
-            Confidence: <strong className="text-emerald-400">{completion}</strong>
+          <p className="text-muted-foreground">
+            Confidence: <strong className="text-emerald-600 dark:text-emerald-400">{completion}</strong>
           </p>
-          <p className="text-slate-400">
-            Evidence gaps: <strong className="text-amber-400">{message.trust?.missingEvidence?.length ?? 0}</strong>
+          <p className="text-muted-foreground">
+            Evidence gaps: <strong className="text-amber-600 dark:text-amber-400">{message.trust?.missingEvidence?.length ?? 0}</strong>
           </p>
-          <p className="text-slate-400">
-            Tools: <strong className="text-slate-200">{message.trust?.toolsInvoked?.length ?? 0}</strong>
+          <p className="text-muted-foreground">
+            Tools: <strong className="text-foreground">{message.trust?.toolsInvoked?.length ?? 0}</strong>
           </p>
-          <p className="text-slate-400">
-            Duration: <strong className="text-slate-200">{message.trust?.durationMs ?? 'n/a'} ms</strong>
+          <p className="text-muted-foreground">
+            Duration: <strong className="text-foreground">{message.trust?.durationMs ?? 'n/a'} ms</strong>
           </p>
         </div>
         {message.trust?.errorSummary ? (
-          <p className="mt-2 rounded border border-amber-800/50 bg-amber-900/20 px-2 py-1 text-xs text-amber-300">
+          <p className="mt-2 rounded-xl border border-amber-500/35 bg-amber-500/10 px-2 py-1 text-xs text-amber-700 dark:text-amber-300">
             {message.trust.errorSummary}
           </p>
         ) : null}
@@ -410,8 +411,8 @@ function renderSystemContent(
   if (eventKind === 'error') {
     return (
       <div className={wrapperClass}>
-        <EventHeader title="Agent Error" rightAction={Icon ? <Icon className="h-3 w-3 text-red-400" /> : undefined} />
-        <p className="text-xs text-red-300">{message.content}</p>
+        <EventHeader title="Agent Error" rightAction={Icon ? <Icon className={cn('h-3 w-3', style.text)} /> : undefined} />
+        <p className="text-xs text-destructive">{message.content}</p>
         <MessageActions conversationId={conversationId} messageId={message.id} message={message} />
       </div>
     );
@@ -420,7 +421,7 @@ function renderSystemContent(
   if (eventKind === 'tool_result') {
     return (
       <div className={wrapperClass}>
-        <EventHeader title="Tool Result" rightAction={Icon ? <Icon className="h-3 w-3 text-slate-500" /> : undefined} />
+        <EventHeader title="Tool Result" rightAction={Icon ? <Icon className={cn('h-3 w-3', style.text)} /> : undefined} />
         <ToolResultCard
           name={message.agentName ?? 'tool'}
           result={message.content.length > 0 ? message.content : 'No result available'}
@@ -447,7 +448,7 @@ export function MessageBubble({
 
   const agentBorder = !isUser && message.agentName
     ? getAgentBorderColor(message.agentName)
-    : 'border-l-slate-600';
+    : 'border-l-border';
 
   return (
     <motion.div
@@ -458,11 +459,11 @@ export function MessageBubble({
     >
       {/* Assistant avatar */}
       {!isUser ? (
-        <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#1e2230] to-[#2a2f3e] ring-1 ring-[#2a2f3e]">
-          <span className="font-mono text-[10px] font-medium text-blue-400">G</span>
+        <div className="app-shell-panel mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full">
+          <span className="font-mono text-[10px] font-medium text-foreground">G</span>
         </div>
       ) : (
-        <ClipboardList className="mt-2 h-7 w-7 shrink-0 text-slate-600" />
+        <ClipboardList className="mt-2 h-7 w-7 shrink-0 text-muted-foreground" />
       )}
 
       <div className={cn('max-w-[84%] space-y-1', isUser && 'items-end')}>
@@ -475,7 +476,7 @@ export function MessageBubble({
                 getAgentColor(message.agentName),
               )}
             />
-            <span className="font-mono text-[11px] font-medium text-slate-500">
+            <span className="font-mono text-[11px] font-medium text-muted-foreground">
               {formatAgentLabel(message.agentName)}
             </span>
           </div>
@@ -487,11 +488,11 @@ export function MessageBubble({
           <>
             <div
               className={cn(
-                'rounded-lg px-4 py-3 text-sm leading-relaxed',
+                'rounded-2xl px-4 py-3 text-sm leading-relaxed',
                 isUser
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
+                  ? 'bg-primary text-primary-foreground shadow-[0_18px_48px_-32px_rgba(15,23,42,0.45)]'
                   : cn(
-                      'border-l-4 bg-[#1a1d28] text-slate-200',
+                      'border border-border/60 border-l-[3px] bg-background/80 text-foreground',
                       agentBorder,
                     ),
               )}
@@ -554,15 +555,15 @@ export function MessageBubble({
           </>
         )}
 
-        <p className={cn('font-mono text-[10px] text-slate-600', isUser ? 'text-right' : 'text-left')}>
+        <p className={cn('font-mono text-[10px] text-muted-foreground', isUser ? 'text-right' : 'text-left')}>
           {formatDateDisplay(message.createdAt)}
         </p>
       </div>
 
       {/* User avatar */}
       {isUser && (
-        <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-600">
-          <span className="font-mono text-[10px] font-medium text-white">U</span>
+        <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary">
+          <span className="font-mono text-[10px] font-medium text-primary-foreground">U</span>
         </div>
       )}
     </motion.div>
