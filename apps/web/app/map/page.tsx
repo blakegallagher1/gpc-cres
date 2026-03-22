@@ -15,6 +15,7 @@ import { useTheme } from "next-themes";
 import { Loader2, Search } from "lucide-react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import type { MapParcel, ParcelMapRef } from "@/components/maps/ParcelMap";
+import { ScreeningScorecard } from "@/components/maps/ScreeningScorecard";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -976,6 +977,12 @@ export default function MapPage() {
                       Source: {source === "org-fallback" ? "Org fallback" : source === "property-db" ? "Property database" : "Org parcels"}
                     </p>
                   </div>
+                  {selectedParcelIds.size === 1 && (
+                    <ScreeningScorecard
+                      parcelId={Array.from(selectedParcelIds)[0]}
+                      className="mt-3"
+                    />
+                  )}
                 </div>
               }
             />
