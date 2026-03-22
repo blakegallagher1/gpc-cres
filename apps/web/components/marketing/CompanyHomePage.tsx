@@ -5,7 +5,7 @@ import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion
 import { ArrowRight } from "lucide-react";
 import { useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { SellerSubmissionSection } from "@/components/marketing/SellerSubmissionSection";
+import { MhcOwnerSubmissionSection } from "@/components/marketing/MhcOwnerSubmissionSection";
 
 const HERO_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 const HERO_REVEAL_DURATION_S = 0.72;
@@ -209,12 +209,10 @@ export function CompanyHomePage() {
                 </motion.div>
               </motion.div>
 
-              <motion.div variants={sectionReveal}>
-                <SellerSubmissionSection />
-              </motion.div>
             </motion.footer>
           </div>
         </section>
+        <MhcOwnerSubmissionSection />
       </main>
     </div>
   );
