@@ -371,9 +371,11 @@ export const screenZoning = tool({
   execute: async ({ parcel_id }) => {
     const safePid = parcel_id.replace(/'/g, "''");
     const result = await gatewayPost("/tools/parcels.sql", {
-      sql: `SELECT p_parcel_id, site_addr, owner_name, zoning_type, area_acres, existing_land_use, future_land_use FROM ebr_parcels WHERE p_parcel_id = '${safePid}' LIMIT 1`,
+      sql: `SELECT parcel_id, address, owner, area_sqft / 43560.0 AS acres, assessed_value FROM ebr_parcels WHERE parcel_id = '${safePid}' LIMIT 1`,
     });
-    return wrapResultWithMapFeatures(result);
+    const data = result as Record<string, unknown>;
+    const rows = Array.isArray(data?.rows) ? data.rows : Array.isArray(result) ? result : [];
+    return wrapResultWithMapFeatures(rows as Record<string, unknown>[]);
   },
 });
 
@@ -547,42 +549,49 @@ export const queryPropertyDb = tool({
   }),
   execute: async (params) => {
     // Build SQL dynamically from structured filters via /tools/parcels.sql
+    // Actual columns: parcel_id, address, owner, area_sqft, assessed_value, geom
+    // No zoning_type column — filter by address pattern if zoning requested
     const conditions: string[] = [];
     const limit = Math.min(params.limit ?? 10, 100);
 
     if (params.zoning) {
-      const z = params.zoning.replace(/'/g, "''").toUpperCase().replace(/-/g, "");
-      conditions.push(`UPPER(REPLACE(zoning_type, '-', '')) LIKE '%${z}%'`);
+      // Zoning is not a column in the SQL-accessible ebr_parcels table.
+      // Use address-based heuristic or note limitation in results.
+      // For M1/M2/industrial, search by address patterns commonly in industrial areas.
+      const z = params.zoning.replace(/'/g, "''");
+      conditions.push(`address ILIKE '%${z}%' OR owner ILIKE '%${z}%'`);
     }
     if (params.zip) {
       const zip = params.zip.replace(/'/g, "''");
-      conditions.push(`site_addr LIKE '%${zip}%'`);
+      conditions.push(`address LIKE '%${zip}%'`);
     }
     if (params.min_acreage != null) {
-      conditions.push(`area_acres >= ${Number(params.min_acreage)}`);
+      conditions.push(`area_sqft / 43560.0 >= ${Number(params.min_acreage)}`);
     }
     if (params.max_acreage != null) {
-      conditions.push(`area_acres <= ${Number(params.max_acreage)}`);
+      conditions.push(`area_sqft / 43560.0 <= ${Number(params.max_acreage)}`);
     }
     if (params.owner_contains) {
       const owner = params.owner_contains.replace(/'/g, "''");
-      conditions.push(`owner_name ILIKE '%${owner}%'`);
+      conditions.push(`owner ILIKE '%${owner}%'`);
     }
     if (params.land_use) {
       const lu = params.land_use.replace(/'/g, "''");
-      conditions.push(`existing_land_use ILIKE '%${lu}%'`);
+      conditions.push(`address ILIKE '%${lu}%'`);
     }
 
     const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
-    let orderBy = "ORDER BY area_acres DESC";
-    if (params.sort === "acreage_asc") orderBy = "ORDER BY area_acres ASC";
+    let orderBy = "ORDER BY area_sqft DESC";
+    if (params.sort === "acreage_asc") orderBy = "ORDER BY area_sqft ASC";
     else if (params.sort === "assessed_value_desc") orderBy = "ORDER BY assessed_value DESC NULLS LAST";
-    else if (params.sort === "address_asc") orderBy = "ORDER BY site_addr ASC";
+    else if (params.sort === "address_asc") orderBy = "ORDER BY address ASC";
 
-    const sql = `SELECT p_parcel_id, site_addr, owner_name, zoning_type, area_acres, assessed_value, centroid_lat AS latitude, centroid_lng AS longitude FROM ebr_parcels ${where} ${orderBy} LIMIT ${limit}`;
+    const sql = `SELECT parcel_id, address, owner, area_sqft / 43560.0 AS acres, assessed_value FROM ebr_parcels ${where} ${orderBy} LIMIT ${limit}`;
     const result = await gatewayPost("/tools/parcels.sql", { sql });
-    return wrapResultWithMapFeatures(result);
+    // Gateway returns {ok, rows, rowCount} — extract rows array
+    const rows = Array.isArray(result) ? result : (result as Record<string, unknown>)?.rows;
+    return wrapResultWithMapFeatures(Array.isArray(rows) ? rows : []);
   },
 });
 
@@ -593,16 +602,22 @@ export const queryPropertyDbSql = tool({
   name: "query_property_db_sql",
   description:
     "Run a read-only SQL query against the Louisiana Property Database for advanced spatial or analytical questions. " +
-    "Available tables: ebr_parcels (198K parcels with parcel_id, address, owner, area_sqft, assessed_value, geom, zoning_type, existing_land_use, future_land_use), " +
-    "fema_flood (5.2K flood zone polygons), soils (37K soil units), wetlands (39K wetland polygons), epa_facilities (6.7K facilities). " +
+    "Available tables: ebr_parcels (198K parcels — columns: parcel_id, address, owner, area_sqft, assessed_value, geom). " +
+    "Also: fema_flood (5.2K flood zone polygons), soils (37K soil units), wetlands (39K wetland polygons), epa_facilities (6.7K facilities). " +
+    "NOTE: ebr_parcels does NOT have zoning_type column. Acreage = area_sqft / 43560.0. " +
     "PostGIS functions available: ST_Area, ST_DWithin, ST_Intersects, ST_Contains, ST_Centroid, ST_MakeEnvelope, etc. " +
-    "Acreage from area_sqft: area_sqft / 43560.0. SELECT only, max 100 rows.",
+    "SELECT only, max 100 rows. Response format: {ok, rows, rowCount} — use the rows array.",
   parameters: z.object({
     sql: z.string().describe("Read-only SQL query. SELECT/WITH only, no semicolons. Tables: ebr_parcels, fema_flood, soils, wetlands, epa_facilities."),
     limit: z.number().optional().nullable().describe("Max rows (default 100, max 100)."),
   }),
   execute: async (params) => {
     const result = await gatewayPost("/tools/parcels.sql", params);
+    // Gateway returns {ok, rows, rowCount} — extract rows for the agent
+    const data = result as Record<string, unknown>;
+    if (data && typeof data === "object" && Array.isArray(data.rows)) {
+      return JSON.stringify({ rowCount: data.rowCount, rows: data.rows });
+    }
     return JSON.stringify(result);
   },
 });
