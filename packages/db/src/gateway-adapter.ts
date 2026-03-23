@@ -30,6 +30,18 @@ interface GatewayResponse {
   ok?: boolean;
 }
 
+function getCfAccessHeaders(): Record<string, string> {
+  const clientId = process.env.CF_ACCESS_CLIENT_ID?.trim();
+  const clientSecret = process.env.CF_ACCESS_CLIENT_SECRET?.trim();
+  if (clientId && clientSecret) {
+    return {
+      "CF-Access-Client-Id": clientId,
+      "CF-Access-Client-Secret": clientSecret,
+    };
+  }
+  return {};
+}
+
 async function gatewayFetch(
   baseUrl: string,
   apiKey: string,
@@ -40,6 +52,7 @@ async function gatewayFetch(
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
+      ...getCfAccessHeaders(),
     },
     body: JSON.stringify(body),
   });
