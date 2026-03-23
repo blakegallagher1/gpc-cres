@@ -532,11 +532,8 @@ export const screenFull = tool({
 export const queryPropertyDb = tool({
   name: "query_property_db",
   description:
-    "PRIMARY tool for finding parcels by criteria. Searches 198K+ EBR parcels with structured filters. " +
-    "USE THIS when the user asks to find parcels by: ZIP code, zoning type, acreage range, owner name, or land use. " +
-    "Examples: 'find parcels zoned M1 in 70808', 'large parcels over 5 acres zoned industrial', 'parcels owned by LLC'. " +
-    "This queries the STATEWIDE parcel layer, NOT the internal org deals/parcels table. " +
-    "For complex spatial or analytical queries that these filters cannot express, use query_property_db_sql instead.",
+    "Simple structured parcel search with preset filters. For COUNT, GROUP BY, aggregate, or spatial queries, use query_property_db_sql instead (it is strictly more capable). " +
+    "This tool is a convenience wrapper for basic filter combinations only.",
   parameters: z.object({
     zoning: z.string().optional().nullable().describe("Zoning type to filter by (e.g. 'C2', 'M1', 'A1'). Case/hyphen insensitive."),
     zip: z.string().optional().nullable().describe("ZIP code to filter parcels by (matched in situs address)."),
@@ -549,17 +546,13 @@ export const queryPropertyDb = tool({
   }),
   execute: async (params) => {
     // Build SQL dynamically from structured filters via /tools/parcels.sql
-    // Actual columns: parcel_id, address, owner, area_sqft, assessed_value, geom
-    // No zoning_type column — filter by address pattern if zoning requested
+    // Columns: parcel_id, address, owner, area_sqft, assessed_value, zoning_type, geom
     const conditions: string[] = [];
     const limit = Math.min(params.limit ?? 10, 100);
 
     if (params.zoning) {
-      // Zoning is not a column in the SQL-accessible ebr_parcels table.
-      // Use address-based heuristic or note limitation in results.
-      // For M1/M2/industrial, search by address patterns commonly in industrial areas.
-      const z = params.zoning.replace(/'/g, "''");
-      conditions.push(`address ILIKE '%${z}%' OR owner ILIKE '%${z}%'`);
+      const z = params.zoning.replace(/'/g, "''").toUpperCase().replace(/-/g, "");
+      conditions.push(`UPPER(REPLACE(zoning_type, '-', '')) = '${z}'`);
     }
     if (params.zip) {
       const zip = params.zip.replace(/'/g, "''");
@@ -587,7 +580,7 @@ export const queryPropertyDb = tool({
     else if (params.sort === "assessed_value_desc") orderBy = "ORDER BY assessed_value DESC NULLS LAST";
     else if (params.sort === "address_asc") orderBy = "ORDER BY address ASC";
 
-    const sql = `SELECT parcel_id, address, owner, area_sqft / 43560.0 AS acres, assessed_value FROM ebr_parcels ${where} ${orderBy} LIMIT ${limit}`;
+    const sql = `SELECT parcel_id, address, owner, area_sqft / 43560.0 AS acres, assessed_value, zoning_type FROM ebr_parcels ${where} ${orderBy} LIMIT ${limit}`;
     const result = await gatewayPost("/tools/parcels.sql", { sql });
     // Gateway returns {ok, rows, rowCount} — extract rows array
     const rows = Array.isArray(result) ? result : (result as Record<string, unknown>)?.rows;
