@@ -4,6 +4,7 @@ import { proxyToUpstream } from "./upstream";
 import { matchRoute } from "./routes";
 import { cacheGet, cacheSet, buildCacheKey } from "./cache";
 import { validateSyncToken, handleSyncBatch, getSyncStatus, SyncBatch } from "./sync";
+import { searchParcelsD1, getParcelD1, getScreeningD1 } from "./d1-search";
 
 function jsonResponse(body: unknown, status = 200, source = "gateway"): Response {
   return Response.json(body, {
@@ -104,6 +105,35 @@ export default {
           { data: cached.data, source: cached.source, staleness_seconds: cached.staleness_seconds },
           200,
           cached.source
+        );
+      }
+    }
+
+    // Generic cache missed — try D1 parcel tables as secondary fallback
+    if (env.DB) {
+      let d1Result: unknown | null = null;
+
+      if (url.pathname === "/parcels/search") {
+        const searchResult = await searchParcelsD1(env.DB, {
+          address: url.searchParams.get("address") ?? undefined,
+          limit: url.searchParams.get("limit") ? Number(url.searchParams.get("limit")) : 50,
+        });
+        if (searchResult) d1Result = searchResult.data;
+      } else if (url.pathname.match(/^\/parcels\/[^/]+$/) && request.method === "GET") {
+        const parcelId = decodeURIComponent(url.pathname.split("/")[2]);
+        d1Result = await getParcelD1(env.DB, parcelId);
+      } else if (url.pathname.match(/^\/screening\/[^/]+\/[^/]+$/) && request.method === "GET") {
+        const parts = url.pathname.split("/");
+        const screenType = parts[2];
+        const parcelId = decodeURIComponent(parts[3]);
+        d1Result = await getScreeningD1(env.DB, parcelId, screenType);
+      }
+
+      if (d1Result) {
+        return jsonResponse(
+          { data: d1Result, source: "d1-cache", staleness_seconds: null },
+          200,
+          "d1-cache"
         );
       }
     }
