@@ -301,6 +301,7 @@ export type AgentExecutionParams = {
     toolCallId: string;
     action: "approve" | "reject";
   };
+  skipRunPersistence?: boolean;
 };
 
 export function toDatabaseRunId(runId: string): string {
@@ -1365,12 +1366,13 @@ export async function executeAgentWorkflow(
     params.queryIntentOverride ??
     inferQueryIntentFromDealContext(dealRoutingContext) ??
     inferQueryIntentFromText(userTextForIntent);
+  const skipRunPersistence = params.skipRunPersistence === true;
   const runId = toDatabaseRunId(
     params.runId ??
       `agent-run-${hashJsonSha256({ inputHash, runType: params.runType ?? "ENRICHMENT" })}`,
   );
 
-  if (params.runId) {
+  if (!skipRunPersistence && params.runId) {
     const existingRun = (await prisma.run.findUnique({
       where: { id: runId },
       select: {
@@ -1390,16 +1392,27 @@ export async function executeAgentWorkflow(
     }
   }
 
-  const dbRun = await upsertRunRecord({
-    runId,
-    orgId: params.orgId,
-    runType: params.runType ?? "ENRICHMENT",
-    dealId: params.dealId ?? null,
-    jurisdictionId: params.jurisdictionId ?? null,
-    sku: params.sku ?? null,
-    inputHash,
-    status: "running",
-  });
+  const dbRun: RunRecordSnapshot = skipRunPersistence
+    ? {
+        id: runId,
+        status: "running",
+        inputHash,
+        outputJson: {},
+        serializedState: null,
+        openaiResponseId: params.executionLeaseToken ?? null,
+        startedAt,
+        finishedAt: null,
+      }
+    : ((await upsertRunRecord({
+        runId,
+        orgId: params.orgId,
+        runType: params.runType ?? "ENRICHMENT",
+        dealId: params.dealId ?? null,
+        jurisdictionId: params.jurisdictionId ?? null,
+        sku: params.sku ?? null,
+        inputHash,
+        status: "running",
+      })) as RunRecordSnapshot);
 
   const state: ToolEventState = {
     toolsInvoked: new Set(),
@@ -1499,6 +1512,7 @@ export async function executeAgentWorkflow(
     partialOutput?: string;
     note?: string;
   }) => {
+    if (skipRunPersistence) return;
     if (!latestSerializedRunState) return;
     const serializedState = serializeRunStateEnvelope({
       serializedRunState: latestSerializedRunState,
@@ -2256,29 +2270,31 @@ export async function executeAgentWorkflow(
         ? (trajectoryRecorder.snapshot() as unknown as Prisma.InputJsonValue)
         : undefined;
 
-      const persisted = await persistFinalRunResult({
-        runId: dbRun.id,
-        status: "running",
-        openaiResponseId,
-        outputJson,
-        trajectory: pendingTrajectory,
-        serializedState: latestSerializedRunState
-          ? (serializeRunStateEnvelope({
-              serializedRunState: latestSerializedRunState,
-              checkpoint: {
-                kind: "approval_pending",
-                at: new Date().toISOString(),
-                runId: dbRun.id,
-                toolName: pendingApprovalState.toolName,
-                toolCallId: pendingApprovalState.toolCallId,
-                lastAgentName,
-                correlationId: params.correlationId,
-                partialOutput: finalText,
-              },
-            }) as unknown as Prisma.InputJsonValue)
-          : undefined,
-        executionLeaseToken: params.executionLeaseToken,
-      });
+      const persisted = skipRunPersistence
+        ? true
+        : await persistFinalRunResult({
+            runId: dbRun.id,
+            status: "running",
+            openaiResponseId,
+            outputJson,
+            trajectory: pendingTrajectory,
+            serializedState: latestSerializedRunState
+              ? (serializeRunStateEnvelope({
+                  serializedRunState: latestSerializedRunState,
+                  checkpoint: {
+                    kind: "approval_pending",
+                    at: new Date().toISOString(),
+                    runId: dbRun.id,
+                    toolName: pendingApprovalState.toolName,
+                    toolCallId: pendingApprovalState.toolCallId,
+                    lastAgentName,
+                    correlationId: params.correlationId,
+                    partialOutput: finalText,
+                  },
+                }) as unknown as Prisma.InputJsonValue)
+              : undefined,
+            executionLeaseToken: params.executionLeaseToken,
+          });
 
       if (!persisted) {
         const replay = await loadRunExecutionResult(dbRun.id);
@@ -2477,27 +2493,29 @@ export async function executeAgentWorkflow(
       ? (trajectoryRecorder.snapshot() as unknown as Prisma.InputJsonValue)
       : undefined;
 
-    const persisted = await persistFinalRunResult({
-      runId: dbRun.id,
-      status,
-      openaiResponseId,
-      outputJson: outputJson as unknown as Prisma.InputJsonValue,
-      trajectory: finalTrajectory,
-      serializedState: latestSerializedRunState
-        ? (serializeRunStateEnvelope({
-            serializedRunState: latestSerializedRunState,
-            checkpoint: {
-              kind: "final_result",
-              at: new Date().toISOString(),
-              runId: dbRun.id,
-              lastAgentName,
-              correlationId: params.correlationId,
-              partialOutput: finalText,
-            },
-          }) as unknown as Prisma.InputJsonValue)
-        : undefined,
-      executionLeaseToken: params.executionLeaseToken,
-    });
+    const persisted = skipRunPersistence
+      ? true
+      : await persistFinalRunResult({
+          runId: dbRun.id,
+          status,
+          openaiResponseId,
+          outputJson: outputJson as unknown as Prisma.InputJsonValue,
+          trajectory: finalTrajectory,
+          serializedState: latestSerializedRunState
+            ? (serializeRunStateEnvelope({
+                serializedRunState: latestSerializedRunState,
+                checkpoint: {
+                  kind: "final_result",
+                  at: new Date().toISOString(),
+                  runId: dbRun.id,
+                  lastAgentName,
+                  correlationId: params.correlationId,
+                  partialOutput: finalText,
+                },
+              }) as unknown as Prisma.InputJsonValue)
+            : undefined,
+          executionLeaseToken: params.executionLeaseToken,
+        });
 
     if (!persisted) {
       const replay = await loadRunExecutionResult(dbRun.id);
@@ -2509,7 +2527,7 @@ export async function executeAgentWorkflow(
       );
     }
 
-    if (AUTOMATION_CONFIG.agentLearning.enabled && status !== "running") {
+    if (!skipRunPersistence && AUTOMATION_CONFIG.agentLearning.enabled && status !== "running") {
       const inputPreview =
         typeof firstUserInput === "string" ? firstUserInput.slice(0, 2000) : null;
 
@@ -2562,7 +2580,7 @@ export async function executeAgentWorkflow(
       conversationId: params.conversationId,
     });
 
-    if (!ingestionOnly) {
+    if (!skipRunPersistence && !ingestionOnly) {
       void autoFeedRun({
         orgId: params.orgId,
         runId: dbRun.id,

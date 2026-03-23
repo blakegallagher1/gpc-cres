@@ -8,7 +8,7 @@ import {
 } from "@entitlement-os/openai/planning";
 import { randomUUID } from "node:crypto";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
-import { runAgentWorkflow } from "@/lib/agent/agentRunner";
+import { isDatabaseConnectivityError, runAgentWorkflow } from "@/lib/agent/agentRunner";
 import type { AgentStreamEvent } from "@/lib/agent/executeAgent";
 import { extractAndMergeConversationPreferences } from "@/lib/services/preferenceExtraction.service";
 import { shouldUseAppDatabaseDevFallback } from "@/lib/server/appDbEnv";
@@ -327,13 +327,13 @@ export async function POST(req: NextRequest) {
           ? `${JSON.stringify(structured)}\n\n${message}`
           : `${fallbackPrefix}${message}`;
 
-        const workflow = await runAgentWorkflow({
+        const workflowArgs = {
           orgId: auth.orgId,
           userId: auth.userId,
           conversationId: requestedConversationId ?? null,
           message: contextMessage,
           dealId: dealId ?? null,
-          runType: "ENRICHMENT",
+          runType: "ENRICHMENT" as const,
           maxTurns: 15,
           correlationId,
           persistConversation: true,
@@ -349,7 +349,30 @@ export async function POST(req: NextRequest) {
             }
             writer?.enqueue(event as Record<string, unknown>);
           },
-        });
+        };
+        let workflow;
+        try {
+          workflow = await runAgentWorkflow(workflowArgs);
+        } catch (workflowError) {
+          if (!isDatabaseConnectivityError(workflowError)) {
+            throw workflowError;
+          }
+          console.warn(
+            `[chat-route][${correlationId}] app DB unavailable; retrying in ephemeral mode`,
+          );
+          writer.enqueue({
+            type: "status",
+            status: "degraded_mode",
+            message: "Running without chat persistence while database connectivity recovers.",
+          });
+          workflow = await runAgentWorkflow({
+            ...workflowArgs,
+            persistConversation: false,
+            conversationId: null,
+            dealId: null,
+            ephemeralMode: true,
+          });
+        }
 
         if (workflow.conversationId) {
           void extractAndMergeConversationPreferences({

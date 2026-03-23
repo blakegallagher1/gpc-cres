@@ -52,6 +52,8 @@ export type AgentRunInput = {
   onEvent?: (event: AgentStreamEvent) => void;
   /** Force routing to a specific query intent (e.g. "market_trajectory"). */
   intent?: string;
+  /** Skip app DB usage and run without persistence. */
+  ephemeralMode?: boolean;
 };
 
 type DealContext = {
@@ -421,6 +423,20 @@ function shouldUseTemporalAgentFlow(): boolean {
   return typeof temporalAddress === "string" && temporalAddress.length > 0;
 }
 
+export function isDatabaseConnectivityError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  if (!message) return false;
+  const lowered = message.toLowerCase();
+  return (
+    lowered.includes("gateway db proxy error") ||
+    lowered.includes("prismaclientinitializationerror") ||
+    lowered.includes("origin database does not support ssl") ||
+    lowered.includes("connect econnrefused") ||
+    lowered.includes("connection terminated unexpectedly") ||
+    lowered.includes("database error")
+  );
+}
+
 function mapTemporalTrustForEvents(trust: AgentRunWorkflowOutput["trust"]) {
   return {
     toolsInvoked: trust.toolsInvoked,
@@ -596,6 +612,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
     injectSystemContext = true,
     onEvent,
     intent: intentOverride,
+    ephemeralMode = false,
   } = params;
 
   if (!message && !(input && input.length > 0)) {
@@ -634,6 +651,66 @@ export async function runAgentWorkflow(params: AgentRunInput) {
         ? { mapFeatures: referencedMapFeatures }
         : {}),
     });
+
+  if (ephemeralMode) {
+    const ephemeralAgentInput = input && input.length > 0
+      ? [...input]
+      : message
+        ? [{ role: "user", content: message } satisfies AgentInputMessage]
+        : [];
+    const ephemeralSystemContext = buildSystemContext(
+      orgId,
+      userId,
+      dealId ?? undefined,
+      jurisdictionId ?? undefined,
+      sku ?? undefined,
+      undefined,
+    );
+    if (
+      injectSystemContext &&
+      ephemeralSystemContext.length > 0 &&
+      ephemeralAgentInput.length > 0 &&
+      ephemeralAgentInput[0].role === "user"
+    ) {
+      ephemeralAgentInput[0] = {
+        ...ephemeralAgentInput[0],
+        content: `${ephemeralSystemContext}\n\n${ephemeralAgentInput[0].content}`,
+      };
+    }
+    const ephemeralIntentHint =
+      message ?? [...ephemeralAgentInput].reverse().find((entry) => entry.role === "user")?.content;
+    const result = await executeAgentWorkflow({
+      orgId,
+      userId,
+      conversationId: "agent-run",
+      input: ephemeralAgentInput,
+      runId: `agent-ephemeral-${buildRequestFingerprint({
+        orgId,
+        userId,
+        conversationId: null,
+        message,
+        input: input ?? null,
+        dealId: dealId ?? null,
+        jurisdictionId: jurisdictionId ?? null,
+        sku: sku ?? null,
+        runType,
+        maxTurns,
+        runInputCorrelationId: requestedCorrelationId ?? null,
+      })}`,
+      runType,
+      maxTurns,
+      intentHint: ephemeralIntentHint,
+      queryIntentOverride: intentOverride as import("@entitlement-os/openai").QueryIntent | undefined,
+      previousResponseId: null,
+      onEvent: emitEvent,
+      skipRunPersistence: true,
+    });
+    return {
+      result,
+      conversationId: null,
+      agentInput: ephemeralAgentInput,
+    };
+  }
 
   let conversationId = requestedConversationId ?? null;
   let chatSession: PrismaChatSession | null = null;

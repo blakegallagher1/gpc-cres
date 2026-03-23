@@ -2,9 +2,10 @@ import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createSseWriter } from "./sseWriter";
 
-const { resolveAuthMock, runAgentWorkflowMock } = vi.hoisted(() => ({
+const { resolveAuthMock, runAgentWorkflowMock, isDatabaseConnectivityErrorMock } = vi.hoisted(() => ({
   resolveAuthMock: vi.fn(),
   runAgentWorkflowMock: vi.fn(),
+  isDatabaseConnectivityErrorMock: vi.fn(() => false),
 }));
 const { setupAgentTracingMock } = vi.hoisted(() => ({
   setupAgentTracingMock: vi.fn(),
@@ -22,6 +23,7 @@ vi.mock("@/lib/auth/resolveAuth", () => ({
 
 vi.mock("@/lib/agent/agentRunner", () => ({
   runAgentWorkflow: runAgentWorkflowMock,
+  isDatabaseConnectivityError: isDatabaseConnectivityErrorMock,
 }));
 
 vi.mock("@entitlement-os/openai", () => ({
@@ -43,6 +45,8 @@ describe("POST /api/chat", () => {
   beforeEach(() => {
     resolveAuthMock.mockReset();
     runAgentWorkflowMock.mockReset();
+    isDatabaseConnectivityErrorMock.mockReset();
+    isDatabaseConnectivityErrorMock.mockReturnValue(false);
     setupAgentTracingMock.mockReset();
     extractAndMergeConversationPreferencesMock.mockReset();
     shouldUseAppDatabaseDevFallbackMock.mockReset();
@@ -159,5 +163,33 @@ describe("POST /api/chat", () => {
     expect(text).toContain('"code":"system_configuration_error"');
     expect(text).toContain("System configuration error");
     expect(runAgentWorkflowMock).not.toHaveBeenCalled();
+  });
+
+  it("retries in ephemeral mode when DB connectivity fails", async () => {
+    resolveAuthMock.mockResolvedValue({
+      userId: "99999999-9999-4999-8999-999999999999",
+      orgId: "11111111-1111-4111-8111-111111111111",
+    });
+    isDatabaseConnectivityErrorMock.mockReturnValue(true);
+    runAgentWorkflowMock
+      .mockRejectedValueOnce(new Error("Gateway DB proxy error (500): Database error"))
+      .mockResolvedValueOnce({ conversationId: null });
+
+    const req = new NextRequest("http://localhost/api/chat", {
+      method: "POST",
+      body: JSON.stringify({ message: "How many parcels are zoned C2 in East Baton Rouge?" }),
+    });
+    const res = await POST(req);
+    const text = await res.text();
+
+    expect(res.status).toBe(200);
+    expect(runAgentWorkflowMock).toHaveBeenCalledTimes(2);
+    expect(runAgentWorkflowMock.mock.calls[1][0]).toMatchObject({
+      persistConversation: false,
+      conversationId: null,
+      dealId: null,
+      ephemeralMode: true,
+    });
+    expect(text).toContain('"status":"degraded_mode"');
   });
 });
