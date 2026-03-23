@@ -140,7 +140,7 @@ export default {
 
     // No cache available
     return jsonResponse(
-      { data: null, source: "gateway", staleness_seconds: null, error: "upstream unavailable, no cache", _debug: { status: result.status, upstream_error: result.data, upstream_path: route.upstreamPath } },
+      { data: null, source: "gateway", staleness_seconds: null, error: "upstream unavailable, no cache" },
       502,
       "gateway"
     );
