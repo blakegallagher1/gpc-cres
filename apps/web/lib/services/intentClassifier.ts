@@ -7,7 +7,7 @@ import {
   DEFAULT_INTENT_CLASSIFICATION,
 } from "@/lib/schemas/intentClassification";
 
-const INTENT_CLASSIFICATION_MODEL = "gpt-4o-mini";
+const INTENT_CLASSIFICATION_MODEL = "gpt-5.4-mini";
 
 const intentClassificationJsonSchema = zodToOpenAiJsonSchema(
   "IntentClassification",

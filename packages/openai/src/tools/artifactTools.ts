@@ -311,7 +311,7 @@ async function generateNarrative(
 ): Promise<string> {
   try {
     const { text } = await createTextResponse({
-      model: "gpt-4o-mini",
+      model: "gpt-5.4-mini",
       maxOutputTokens: maxTokens,
       temperature: 0.4,
       systemPrompt,

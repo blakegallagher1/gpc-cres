@@ -289,7 +289,7 @@ async function generateNarrative(prompt: string, systemPrompt: string, maxTokens
   try {
     const { createTextResponse } = await import("@entitlement-os/openai");
     const { text } = await createTextResponse({
-      model: "gpt-4o-mini",
+      model: "gpt-5.4-mini",
       maxOutputTokens: maxTokens,
       temperature: 0.4,
       systemPrompt,

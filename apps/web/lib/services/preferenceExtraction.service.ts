@@ -61,7 +61,7 @@ async function extractPreferencesFromMessages(
   const transcript = buildTranscript(messages);
 
   const response = await createStrictJsonResponse<PreferenceExtractionPayload>({
-    model: process.env.PREFERENCE_EXTRACTION_MODEL ?? "gpt-4o-mini",
+    model: process.env.PREFERENCE_EXTRACTION_MODEL ?? "gpt-5.4-mini",
     input: [
       {
         role: "system",

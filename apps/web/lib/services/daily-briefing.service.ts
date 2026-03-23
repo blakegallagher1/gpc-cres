@@ -182,7 +182,7 @@ export class DailyBriefingService {
   }): Promise<string> {
     try {
       const { text } = await createTextResponse({
-        model: "gpt-4o-mini",
+        model: "gpt-5.4-mini",
         maxOutputTokens: 300,
         temperature: undefined,
         systemPrompt: "You are a concise CRE operations briefing assistant for Gallagher Property Company. Write a 2-4 sentence morning briefing highlighting the most important items. Be direct and actionable. No greetings or sign-offs.",

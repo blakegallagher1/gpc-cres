@@ -327,7 +327,7 @@ async function classifyWithLLM(
 
   try {
     const { text: content } = await createTextResponse({
-      model: "gpt-4.1-mini",
+      model: "gpt-5.4-mini",
       temperature: 0,
       systemPrompt: `You are a commercial real estate document classifier. Classify the document into exactly one type.
 Return JSON with: { "doc_type": string, "confidence": number }
@@ -630,7 +630,7 @@ async function extractStructuredData(
 
   try {
     const { text: content } = await createTextResponse({
-      model: "gpt-4.1-mini",
+      model: "gpt-5.4-mini",
       temperature: 0,
       systemPrompt: `You are a CRE document data extractor. Extract structured data from the document text.
 Return valid JSON matching the schema below. Use null for fields you cannot find. Use empty arrays [] for list fields with no matches.

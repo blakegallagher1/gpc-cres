@@ -6,7 +6,7 @@ import { createRequire } from "node:module";
 
 const requireModule = createRequire(import.meta.url);
 
-const SUMMARY_MODEL = process.env.OPENAI_SUMMARY_MODEL ?? "gpt-4.1-mini";
+const SUMMARY_MODEL = process.env.OPENAI_SUMMARY_MODEL ?? "gpt-5.4-mini";
 
 type OpenAIResponsesResult = {
   output_text?: string;
