@@ -1,0 +1,16 @@
+name = "gpc-gateway-proxy"
+main = "src/index.ts"
+compatibility_date = "2026-03-01"
+
+[vars]
+UPSTREAM_GATEWAY_URL = "https://api.gallagherpropco.com"
+
+# D1 binding — will be created later
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "gpc-gateway-cache"
+# database_id = "<created-later>"
+
+# Cron triggers — enabled in Phase 5
+# [triggers]
+# crons = ["*/2 * * * *"]
