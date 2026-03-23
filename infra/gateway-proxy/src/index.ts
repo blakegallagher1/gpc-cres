@@ -2,6 +2,7 @@ import { Env } from "./types";
 import { validateBearer } from "./auth";
 import { proxyToUpstream } from "./upstream";
 import { matchRoute } from "./routes";
+import { cacheGet, cacheSet, buildCacheKey } from "./cache";
 
 function jsonResponse(body: unknown, status = 200, source = "gateway"): Response {
   return Response.json(body, {
@@ -59,6 +60,11 @@ export default {
     const result = await proxyToUpstream(env, route.upstreamMethod, route.upstreamPath, body, requestId);
 
     if (result.ok) {
+      // Cache the successful response in D1 (fire-and-forget)
+      if (env.DB) {
+        const cacheKey = buildCacheKey(url.pathname, url.searchParams);
+        ctx.waitUntil(cacheSet(env.DB, cacheKey, result.data));
+      }
       return jsonResponse(
         { data: result.data, source: "gateway", staleness_seconds: null },
         200,
@@ -66,9 +72,22 @@ export default {
       );
     }
 
-    // Pass-through mode — no D1 fallback yet
+    // Upstream failed — try D1 cache fallback
+    if (env.DB) {
+      const cacheKey = buildCacheKey(url.pathname, url.searchParams);
+      const cached = await cacheGet(env.DB, cacheKey);
+      if (cached) {
+        return jsonResponse(
+          { data: cached.data, source: cached.source, staleness_seconds: cached.staleness_seconds },
+          200,
+          cached.source
+        );
+      }
+    }
+
+    // No cache available
     return jsonResponse(
-      { data: null, source: "gateway", staleness_seconds: null, error: "upstream unavailable" },
+      { data: null, source: "gateway", staleness_seconds: null, error: "upstream unavailable, no cache" },
       502,
       "gateway"
     );
