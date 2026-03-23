@@ -1,7 +1,7 @@
 import { Env, UpstreamResult } from "./types";
 import { upstreamHeaders } from "./auth";
 
-const UPSTREAM_TIMEOUT_MS = 3000;
+const UPSTREAM_TIMEOUT_MS = 8000;
 
 export async function proxyToUpstream(
   env: Env,
