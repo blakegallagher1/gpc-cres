@@ -656,10 +656,12 @@ export async function runAgentWorkflow(params: AgentRunInput) {
     });
 
     if (!contextDeal) {
-      throw new Error("Deal not found or access denied");
+      // Non-fatal: if deal lookup fails (DB unreachable or deal doesn't exist),
+      // continue without deal context rather than blocking the entire chat.
+      console.warn(`[agentRunner] Deal ${dealId} not found for org ${orgId} — continuing without deal context`);
     }
 
-    jurisdictionContext = contextDeal.jurisdiction
+    jurisdictionContext = contextDeal?.jurisdiction
       ? {
           id: contextDeal.jurisdiction.id,
           name: contextDeal.jurisdiction.name,
