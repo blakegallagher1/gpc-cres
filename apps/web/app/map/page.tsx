@@ -574,16 +574,21 @@ export default function MapPage() {
       return;
     }
 
+    // Don't debounce-search NL queries — they route to the agent on submit
+    if (isNaturalLanguageQuery(nextSearch)) {
+      return;
+    }
+
     const timeout = setTimeout(() => {
       setDebouncedSearch(searchLookupOverride?.trim() || nextSearch);
     }, 250);
 
     return () => clearTimeout(timeout);
-  }, [searchLookupOverride, searchText]);
+  }, [isNaturalLanguageQuery, searchLookupOverride, searchText]);
 
   useEffect(() => {
     const query = searchText.trim();
-    if (query.length < 2) {
+    if (query.length < 2 || isNaturalLanguageQuery(query)) {
       setSuggestions([]);
       setActiveSuggestionIndex(-1);
       setIsSuggestLoading(false);
