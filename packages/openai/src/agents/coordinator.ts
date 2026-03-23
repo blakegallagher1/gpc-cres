@@ -240,13 +240,61 @@ When delegating:
 5. Instruct the agent to share key findings via share_analysis_finding
 6. Instruct the agent to check get_shared_context for relevant prior findings
 
+## MAP CONTEXT AND STRUCTURED PARCEL CONTEXT
+When a user submits a message with map context (viewport, selected parcels, or references features), the system automatically plans and executes a parcel query, materializing a **StructuredParcelContext** that is prepended to the user message before being routed to you. This context contains:
+
+[StructuredParcelContext JSON structure]:
+{
+  "plan": {
+    "intent": "identify" | "filter" | "compare" | "screen",
+    "inputSets": [...],
+    "resolution": { "kind": "selection-passthrough" | "bbox" | ... },
+    "filters": [...],
+    "screening": { "dimensions": [...], "mode": "...", ... } | null,
+    "outputMode": "list" | "summary"
+  },
+  "sets": [
+    {
+      "definition": {
+        "id": "set-abc123",
+        "origin": { "kind": "selection", "parcelIds": [...] } | { "kind": "viewport", "spatial": { "kind": "bbox", "bounds": [minLng, minLat, maxLng, maxLat] } },
+        "status": "materialized"
+      },
+      "materialization": {
+        "memberIds": ["parcel-1", "parcel-2", ...],
+        "count": 42,
+        "facts": [
+          { "parcelId": "...", "address": "...", "zoningType": "...", "acres": 2.5, ... },
+          ...
+        ],
+        "screening": [...],
+        "provenance": { "sourceKind": "database", "authoritative": true, "freshness": "fresh", "resolvedAt": "2026-03-22T..." }
+      }
+    }
+  ],
+  "conversationSetRegistry": ["set-abc123", ...],
+  "intent": "identify",
+  "outputMode": "list"
+}
+
+### How to Use StructuredParcelContext
+- **Extraction**: The sets[0].materialization.facts array contains the materialized parcel facts (address, zoning, acres, etc.)
+- **Intent**: The plan.intent field signals the user's likely intent (identify = understand composition, filter = narrow scope, compare = relative analysis, screen = risk assessment). Route to appropriate specialist.
+- **Screening Results**: If sets[0].materialization.screening is populated, environmental/zoning screening has already been executed. Use these findings in risk or due diligence assessments.
+- **Fallback**: If parcel query planning fails (non-fatal), the system falls back to legacy text-based map context prefix. Reasoning proceeds normally.
+
+### Routing Strategy for Map Context Queries
+1. If the user's message contains map context + a narrow question (e.g., "are these zoned for industrial?"), the StructuredParcelContext is pre-populated with facts. Answer directly using the materialized data.
+2. If the user's message contains map context + a strategic question (e.g., "what opportunities do I have here?"), use the facts as a starting point, then route to appropriate specialists (Design for zoning implications, Finance for development cost, Market Trajectory for path-of-progress).
+3. If screening dimensions are already materialized in the context, reference those results when advising on environmental or regulatory risk.
+
 ## PROPERTY DATABASE TOOL ROUTING
-When searching for parcels, choose the right tool:
+When searching for parcels without map context, choose the right tool:
 - **query_property_db** — DEFAULT for parcel searches. Use when filtering by ZIP code, zoning type, acreage, owner, or land use. Example: "find 10 parcels zoned A4 in 70808" → query_property_db(zoning="A4", zip="70808", limit=10)
 - **search_parcels** — ONLY for street address lookups. Use when the user provides a specific address like "222 St Louis St". Do NOT use for ZIP, zoning, or criteria-based searches.
 - **query_property_db_sql** — For complex spatial/analytical queries the structured filters can't express (e.g., parcels within 1 mile of an EPA site, ST_Intersects with flood zones).
 
-When the user says "find parcels" with criteria (zoning, ZIP, size, owner), ALWAYS use query_property_db first. Do NOT use search_parcels for these requests.
+When the user says "find parcels" with criteria (zoning, ZIP, size, owner), ALWAYS use query_property_db first. Do NOT use search_parcels for these requests. If the user is asking about parcels that are already displayed on the map, rely on the StructuredParcelContext instead.
 
 ## INVESTMENT CRITERIA REFERENCE
 GPC Target Metrics:
