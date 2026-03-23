@@ -25,6 +25,7 @@ import {
   useMapChatDispatch,
   useMapChatState,
 } from "@/lib/chat/MapChatContext";
+import type { MapFeature } from "@/lib/chat/mapActionTypes";
 import { mapFeaturesFromGeoJson } from "@/lib/chat/mapFeatureUtils";
 import { useUIStore } from "@/stores/uiStore";
 import {
@@ -484,6 +485,18 @@ export default function MapPage() {
       return acc;
     }, []);
 
+  const mapParcelToFeature = useCallback(
+    (parcel: MapParcel): MapFeature => ({
+      parcelId: parcel.id,
+      address: parcel.address,
+      zoningType: parcel.currentZoning ?? undefined,
+      acres: parcel.acreage ?? undefined,
+      center: { lat: parcel.lat, lng: parcel.lng },
+      label: parcel.address,
+    }),
+    [],
+  );
+
   const loadPolygonParcels = useCallback(
     async (coords: number[][][]) => {
     setIsPolygonLoading(true);
@@ -568,6 +581,18 @@ export default function MapPage() {
     if (polygon) return polygonParcels ?? [];
     return visibleParcels;
   }, [polygon, polygonParcels, visibleParcels]);
+
+  useEffect(() => {
+    const selectedFeatures = mapState.selectedParcelIds
+      .map((parcelId) => activeParcels.find((parcel) => parcel.id === parcelId))
+      .filter((parcel): parcel is MapParcel => Boolean(parcel))
+      .map(mapParcelToFeature);
+
+    mapDispatch({
+      type: "SET_SELECTED_PARCEL_FEATURES",
+      features: selectedFeatures,
+    });
+  }, [activeParcels, mapDispatch, mapParcelToFeature, mapState.selectedParcelIds]);
 
   useEffect(() => {
     if (!selectedSuggestion) return;
@@ -786,6 +811,20 @@ export default function MapPage() {
   }, [mapDispatch, mapState.viewportLabel, statusText]);
 
   useEffect(() => {
+    mapDispatch({
+      type: "SET_SPATIAL_SELECTION",
+      selection: polygon
+        ? {
+            kind: "polygon",
+            coordinates: polygon,
+            parcelIds: polygonParcels?.map((parcel) => parcel.id),
+            label: statusText,
+          }
+        : null,
+    });
+  }, [mapDispatch, polygon, polygonParcels, statusText]);
+
+  useEffect(() => {
     const nextAction = mapState.pendingActions[0];
     if (!nextAction || !mapRef.current || !isMapReady) return;
 
@@ -876,11 +915,12 @@ export default function MapPage() {
                   parcelIds: Array.from(ids),
                 });
               }}
-              onViewStateChange={(center, zoom) => {
+              onViewStateChange={(center, zoom, bounds) => {
                 mapDispatch({
                   type: "SET_VIEWPORT",
                   center: [center[1], center[0]],
                   zoom,
+                  bounds,
                 });
               }}
               onMapReady={() => {

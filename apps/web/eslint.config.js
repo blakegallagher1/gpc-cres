@@ -11,6 +11,7 @@ module.exports = [
       "dist/**",
       "out/**",
       "output/**",
+      "coverage/**",
       "test-results/**",
     ]
   },

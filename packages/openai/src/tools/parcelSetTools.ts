@@ -36,6 +36,7 @@ class GatewayAdapterImpl implements GatewayAdapter {
     bounds: [number, number, number, number];
     limit?: number;
   }): Promise<ParcelFacts[]> {
+    const [west, south, east, north] = query.bounds;
     const res = await fetch(`${this.gatewayUrl}/tools/parcel.bbox`, {
       method: "POST",
       headers: {
@@ -43,7 +44,10 @@ class GatewayAdapterImpl implements GatewayAdapter {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        bounds: query.bounds,
+        west,
+        south,
+        east,
+        north,
         ...(query.limit ? { limit: query.limit } : {}),
       }),
     });
@@ -54,7 +58,7 @@ class GatewayAdapterImpl implements GatewayAdapter {
 
     const data = await res.json();
     // Cast gateway response to ParcelFacts for structural compatibility
-    const result = Array.isArray(data) ? data : data.parcels ?? [];
+    const result = Array.isArray(data) ? data : data.parcels ?? data.data ?? [];
     return (result as unknown as ParcelFacts[]) || [];
   }
 

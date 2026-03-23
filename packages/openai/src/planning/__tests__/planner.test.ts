@@ -166,6 +166,37 @@ describe("ParcelQueryPlanner", () => {
       }
     });
 
+    it("should create a selection set from polygon parcel ids when no explicit selection exists", () => {
+      const mapContext: MapContextInput = {
+        spatialSelection: {
+          kind: "polygon",
+          coordinates: [[
+            [-91.2, 30.4],
+            [-91.1, 30.4],
+            [-91.1, 30.5],
+            [-91.2, 30.5],
+            [-91.2, 30.4],
+          ]],
+          parcelIds: ["polygon-1", "polygon-2"],
+          label: "Drawn polygon",
+        },
+      };
+
+      const plan = planner.plan({
+        message: "Summarize this polygon",
+        orgId: testOrgId,
+        mapContext,
+        registry,
+        conversationId: testConversationId,
+      });
+
+      expect(plan.inputSets).toHaveLength(1);
+      expect(plan.inputSets[0].origin.kind).toBe("selection");
+      if (plan.inputSets[0].origin.kind === "selection") {
+        expect(plan.inputSets[0].origin.parcelIds).toEqual(["polygon-1", "polygon-2"]);
+      }
+    });
+
     it("should carry orgId on all created sets", () => {
       const mapContext: MapContextInput = {
         selectedParcelIds: ["p1"],
@@ -185,6 +216,29 @@ describe("ParcelQueryPlanner", () => {
       plan.inputSets.forEach((set) => {
         expect(set.orgId).toBe(testOrgId);
       });
+    });
+
+    it("should not create mixed selection and viewport sets under a single plan", () => {
+      const mapContext: MapContextInput = {
+        selectedParcelIds: ["p1"],
+        viewportBounds: {
+          west: -91.22,
+          south: 30.41,
+          east: -91.16,
+          north: 30.48,
+        },
+      };
+
+      const plan = planner.plan({
+        message: "Identify these parcels",
+        orgId: testOrgId,
+        mapContext,
+        registry,
+        conversationId: testConversationId,
+      });
+
+      expect(plan.inputSets).toHaveLength(1);
+      expect(plan.inputSets[0].origin.kind).toBe("selection");
     });
   });
 
@@ -207,8 +261,12 @@ describe("ParcelQueryPlanner", () => {
 
     it("should use bbox strategy for viewport-scoped filter queries", () => {
       const mapContext: MapContextInput = {
-        center: { lat: 30.5, lng: -91.2 },
-        zoom: 13,
+        viewportBounds: {
+          west: -91.24,
+          south: 30.39,
+          east: -91.12,
+          north: 30.51,
+        },
       };
 
       const plan = planner.plan({

@@ -167,7 +167,13 @@ export function MapChatPanel({
   const contextSummary =
     selectedCount && selectedCount > 0
       ? `${selectedCount} selected`
+      : mapState.spatialSelection
+        ? "polygon active"
       : `${parcelCount ?? 0} in view`;
+
+  const helperText = mapState.spatialSelection
+    ? "Use the map context directly. Selected parcels, viewport bounds, and the active polygon are included in the request."
+    : "Use the map context directly. Selected parcels and viewport state are included in the request.";
 
   return (
     <>
@@ -243,7 +249,7 @@ export function MapChatPanel({
                 isStreaming={isStreaming}
                 onStop={handleStop}
                 placeholder="Ask the map copilot about this geography..."
-                helperText="Use the map context directly. Selected parcels and viewport state are included in the request."
+                helperText={helperText}
               />
             </div>
           </motion.div>

@@ -11,9 +11,7 @@ import {
   ParcelQueryPlan,
   ParcelQueryIntent,
   ParcelSetDefinition,
-  ParcelSetOrigin,
   ParcelSetStatus,
-  ParcelSetLifecycle,
   ParcelFilter,
   ResolutionStrategy,
   ScreeningStrategy,
@@ -60,10 +58,15 @@ export class ParcelQueryPlanner {
 
     // Classify intent from message heuristics
     const hasSelectedParcels = !!(
-      mapContext?.selectedParcelIds && mapContext.selectedParcelIds.length > 0
+      mapContext?.selectedParcelIds?.length ||
+      mapContext?.spatialSelection?.parcelIds?.length
     );
     const hasMapContext = !!(
-      mapContext?.center || mapContext?.zoom || hasSelectedParcels
+      mapContext?.center ||
+      mapContext?.zoom ||
+      mapContext?.viewportBounds ||
+      mapContext?.spatialSelection ||
+      hasSelectedParcels
     );
 
     const intent = this.classifyIntent(message, hasMapContext, hasSelectedParcels);
@@ -232,19 +235,18 @@ export class ParcelQueryPlanner {
     registry: ParcelSetRegistry,
     conversationId: string
   ): ParcelSetDefinition[] {
-    const sets: ParcelSetDefinition[] = [];
     const now = new Date().toISOString();
+    const selectionParcelIds = this.deriveSelectionParcelIds(mapContext);
 
-    // Create selection set if selectedParcelIds are present
-    if (mapContext?.selectedParcelIds && mapContext.selectedParcelIds.length > 0) {
+    if (selectionParcelIds.length > 0) {
       const selectionSetId = randomUUID();
       const selectionSet: ParcelSetDefinition = {
         id: selectionSetId,
         orgId,
-        label: mapContext.viewportLabel || "Selected parcels",
+        label: this.resolveSelectionLabel(mapContext),
         origin: {
           kind: "selection",
-          parcelIds: mapContext.selectedParcelIds,
+          parcelIds: selectionParcelIds,
           source: "map",
         },
         lifecycle: {
@@ -253,25 +255,24 @@ export class ParcelQueryPlanner {
         },
         status: "unresolved" as ParcelSetStatus,
         createdAt: now,
-        metadata: {},
+        metadata: this.buildSelectionMetadata(mapContext, selectionParcelIds),
       };
       registry.register(conversationId, selectionSet);
-      sets.push(selectionSet);
+      return [selectionSet];
     }
 
-    // Create viewport set if center and zoom are present
-    if (mapContext?.center !== undefined && mapContext.center !== null && mapContext.zoom !== undefined) {
+    const scopeBounds = this.deriveScopeBounds(mapContext);
+    if (scopeBounds) {
       const viewportSetId = randomUUID();
-      const bbox = this.bboxFromCenterZoom(mapContext.center, mapContext.zoom);
       const viewportSet: ParcelSetDefinition = {
         id: viewportSetId,
         orgId,
-        label: "Viewport parcels",
+        label: this.resolveViewportLabel(mapContext),
         origin: {
           kind: "viewport",
           spatial: {
             kind: "bbox",
-            bounds: bbox,
+            bounds: scopeBounds,
           },
         },
         lifecycle: {
@@ -280,16 +281,13 @@ export class ParcelQueryPlanner {
         },
         status: "unresolved" as ParcelSetStatus,
         createdAt: now,
-        metadata: {
-          center: mapContext.center,
-          zoom: mapContext.zoom,
-        },
+        metadata: this.buildViewportMetadata(mapContext, scopeBounds),
       };
       registry.register(conversationId, viewportSet);
-      sets.push(viewportSet);
+      return [viewportSet];
     }
 
-    return sets;
+    return [];
   }
 
   /**
@@ -311,6 +309,102 @@ export class ParcelQueryPlanner {
       center.lng + halfWidth, // east
       center.lat + halfHeight, // north
     ];
+  }
+
+  /**
+   * Resolve the primary selection IDs from either explicit parcel selection or
+   * an active polygon selection that has already been materialized by the map.
+   */
+  private deriveSelectionParcelIds(mapContext: MapContextInput | null): string[] {
+    const directSelection = mapContext?.selectedParcelIds?.filter(Boolean) ?? [];
+    if (directSelection.length > 0) {
+      return directSelection;
+    }
+
+    return mapContext?.spatialSelection?.parcelIds?.filter(Boolean) ?? [];
+  }
+
+  /**
+   * Resolve the best available bounding box for viewport-scoped planning.
+   */
+  private deriveScopeBounds(
+    mapContext: MapContextInput | null,
+  ): [number, number, number, number] | null {
+    const spatialBounds = mapContext?.spatialSelection?.bbox;
+    if (spatialBounds) {
+      return [
+        spatialBounds.west,
+        spatialBounds.south,
+        spatialBounds.east,
+        spatialBounds.north,
+      ];
+    }
+
+    const viewportBounds = mapContext?.viewportBounds;
+    if (viewportBounds) {
+      return [
+        viewportBounds.west,
+        viewportBounds.south,
+        viewportBounds.east,
+        viewportBounds.north,
+      ];
+    }
+
+    if (mapContext?.center && mapContext.zoom !== undefined) {
+      return this.bboxFromCenterZoom(mapContext.center, mapContext.zoom);
+    }
+
+    return null;
+  }
+
+  private resolveSelectionLabel(mapContext: MapContextInput | null): string {
+    if (mapContext?.selectedParcelIds?.length) {
+      return mapContext.viewportLabel || "Selected parcels";
+    }
+
+    return mapContext?.spatialSelection?.label || mapContext?.viewportLabel || "Polygon parcel set";
+  }
+
+  private resolveViewportLabel(mapContext: MapContextInput | null): string {
+    if (mapContext?.spatialSelection) {
+      return mapContext.spatialSelection.label || "Polygon search extent";
+    }
+
+    return mapContext?.viewportLabel || "Viewport parcels";
+  }
+
+  private buildSelectionMetadata(
+    mapContext: MapContextInput | null,
+    parcelIds: string[],
+  ): Record<string, unknown> {
+    return {
+      selectedParcelCount: parcelIds.length,
+      selectedParcels: mapContext?.selectedParcels ?? [],
+      viewportBounds: mapContext?.viewportBounds ?? null,
+      viewportLabel: mapContext?.viewportLabel ?? null,
+      center: mapContext?.center ?? null,
+      zoom: mapContext?.zoom ?? null,
+      spatialSelection: mapContext?.spatialSelection ?? null,
+    };
+  }
+
+  private buildViewportMetadata(
+    mapContext: MapContextInput | null,
+    bounds: [number, number, number, number],
+  ): Record<string, unknown> {
+    return {
+      boundsSource: mapContext?.spatialSelection
+        ? "spatial-selection"
+        : mapContext?.viewportBounds
+          ? "viewport-bounds"
+          : "center-zoom",
+      bounds,
+      viewportBounds: mapContext?.viewportBounds ?? null,
+      viewportLabel: mapContext?.viewportLabel ?? null,
+      center: mapContext?.center ?? null,
+      zoom: mapContext?.zoom ?? null,
+      spatialSelection: mapContext?.spatialSelection ?? null,
+    };
   }
 
   /**
