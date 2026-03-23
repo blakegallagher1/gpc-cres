@@ -59,7 +59,9 @@ describe("Sidebar", () => {
 
     expect(screen.getByText("Gallagher Property Company")).toBeInTheDocument();
     expect(screen.getByText("Development and investment OS")).toBeInTheDocument();
-    expect(screen.getByText("Execution")).toBeInTheDocument();
+    expect(screen.getByText("Operate")).toBeInTheDocument();
+    expect(screen.getByText("Intelligence")).toBeInTheDocument();
+    expect(screen.getByText("System")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Chat/i })).toBeInTheDocument();
     expect(container.firstChild).toMatchSnapshot();
   });

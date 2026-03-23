@@ -59,9 +59,9 @@ describe("Header", () => {
     const { container } = render(<Header />);
 
     expect(screen.getByText("Gallagher Property Company")).toBeInTheDocument();
-    expect(screen.getByText("Parcel intelligence map")).toBeInTheDocument();
+    expect(screen.getByText("Map")).toBeInTheDocument();
     expect(
-      screen.getByText("Search parcels, draw geofences, and move site context into active workflows."),
+      screen.getByText("Spatial intelligence, prospecting, and parcel analysis"),
     ).toBeInTheDocument();
     expect(screen.getByText("Ctrl")).toBeInTheDocument();
     expect(container.firstChild).toMatchSnapshot();

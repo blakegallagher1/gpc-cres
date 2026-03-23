@@ -593,30 +593,59 @@ export function ChatContainer() {
       const text = content.trim();
       if (!text && (!files || files.length === 0)) return;
 
-      // Upload files to deal if present
+      // Upload files to deal if selected, or extract content client-side
       let fileContext = '';
-      if (files && files.length > 0 && selectedDealId) {
-        const uploaded: { filename: string; contentType: string; id: string }[] = [];
+      if (files && files.length > 0) {
+        const uploaded: { filename: string; contentType: string; id?: string; contentPreview?: string }[] = [];
+        const { extractFileContent, canExtractFileContent } = await import('@/lib/chat/fileContentExtractor');
+
         try {
           for (const file of files) {
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('kind', 'other');
-            const res = await fetch(`/api/deals/${selectedDealId}/uploads`, {
-              method: 'POST',
-              body: formData,
-            });
-            if (!res.ok) {
-              throw new Error(`Failed to upload ${file.name}`);
+            if (selectedDealId) {
+              // Deal-specific upload path (persists to B2 storage)
+              const formData = new FormData();
+              formData.append('file', file);
+              formData.append('kind', 'other');
+
+              const res = await fetch(`/api/deals/${selectedDealId}/uploads`, {
+                method: 'POST',
+                body: formData,
+              });
+
+              if (!res.ok) {
+                throw new Error(`Failed to upload ${file.name}`);
+              }
+
+              const data = (await res.json()) as {
+                upload: { id: string; filename: string; contentType: string };
+              };
+
+              const uploadedFile: typeof uploaded[number] = {
+                filename: data.upload.filename,
+                contentType: data.upload.contentType,
+                id: data.upload.id,
+              };
+
+              if (canExtractFileContent(file)) {
+                const content = await extractFileContent(file);
+                if (content) uploadedFile.contentPreview = content;
+              }
+
+              uploaded.push(uploadedFile);
+            } else {
+              // No deal selected — extract content client-side only (no server upload)
+              const uploadedFile: typeof uploaded[number] = {
+                filename: file.name,
+                contentType: file.type || 'application/octet-stream',
+              };
+
+              if (canExtractFileContent(file)) {
+                const content = await extractFileContent(file);
+                if (content) uploadedFile.contentPreview = content;
+              }
+
+              uploaded.push(uploadedFile);
             }
-            const data = (await res.json()) as {
-              upload: { id: string; filename: string; contentType: string };
-            };
-            uploaded.push({
-              filename: data.upload.filename,
-              contentType: data.upload.contentType,
-              id: data.upload.id,
-            });
           }
         } catch (err) {
           setMessages((current) =>
@@ -632,10 +661,21 @@ export function ChatContainer() {
           );
           return;
         }
-        const fileList = uploaded
-          .map((f) => `${f.filename} (${f.contentType})`)
-          .join(', ');
-        fileContext = `[Attached ${uploaded.length} file${uploaded.length > 1 ? 's' : ''}: ${fileList}]\\n`;
+
+        // Build context including file content when available
+        const fileContextParts: string[] = [];
+        fileContextParts.push(
+          `[Attached ${uploaded.length} file${uploaded.length > 1 ? 's' : ''}]`
+        );
+
+        for (const f of uploaded) {
+          fileContextParts.push(`[File: ${f.filename} (${f.contentType})]`);
+          if (f.contentPreview) {
+            fileContextParts.push(`[Content]:\n${f.contentPreview}\n[End]`);
+          }
+        }
+
+        fileContext = fileContextParts.join('\n') + '\n';
       }
 
       const messageForAgent = fileContext + (text || 'Please review the attached files.');
@@ -774,7 +814,7 @@ export function ChatContainer() {
       onSend={stableChatInputOptions.onSend}
       isStreaming={isStreaming}
       onStop={stableChatInputOptions.onStop}
-      canAttachFiles={!!selectedDealId}
+      canAttachFiles={true}
       helperText="Scope + deliverable + constraints. Enter sends. Shift+Enter adds a line."
       submitLabel="Run"
     />
@@ -847,7 +887,7 @@ export function ChatContainer() {
         <ChatWorkspaceInspector
           activeAgentLabel={activeAgentLabel}
           agentSummary={agentSummary}
-          attachmentStatusLabel={selectedDealId ? 'Enabled' : 'Select deal'}
+          attachmentStatusLabel="Enabled"
           conversationCount={conversations.length}
           recentConversationLabel={messageSectionTitle}
           threadStatusLabel={conversationId ? 'Saved thread' : 'Draft until first response'}
@@ -857,7 +897,7 @@ export function ChatContainer() {
         <ChatWorkspaceInspector
           activeAgentLabel={activeAgentLabel}
           agentSummary={agentSummary}
-          attachmentStatusLabel={selectedDealId ? 'Enabled' : 'Select deal'}
+          attachmentStatusLabel="Enabled"
           conversationCount={conversations.length}
           recentConversationLabel={messageSectionTitle}
           threadStatusLabel={conversationId ? 'Saved thread' : 'Draft until first response'}

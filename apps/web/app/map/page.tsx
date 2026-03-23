@@ -40,6 +40,11 @@ const MapChatPanel = dynamic(
   { ssr: false }
 );
 
+const MapProspectingPanel = dynamic(
+  () => import("@/components/maps/MapProspectingPanel").then((m) => m.MapProspectingPanel),
+  { ssr: false }
+);
+
 const ParcelMap = dynamic(
   () => import("@/components/maps/ParcelMap").then((m) => m.ParcelMap),
   {
@@ -136,6 +141,7 @@ export default function MapPage() {
   const [isMapReady, setIsMapReady] = useState(false);
   const [mapRefVersion, setMapRefVersion] = useState(0);
   const initializedFromUrlRef = useRef(false);
+  const [activePanel, setActivePanel] = useState<"chat" | "prospecting" | null>("chat");
 
   // Force dark mode on map page mount
   useLayoutEffect(() => {
@@ -165,6 +171,15 @@ export default function MapPage() {
     setSidebarCollapsed(true);
     setCopilotOpen(false);
   }, [isMobile, setCopilotOpen, setSidebarCollapsed]);
+
+  useEffect(() => {
+    const mode = searchParams.get("mode");
+    if (mode === "prospecting") {
+      setActivePanel("prospecting");
+    } else {
+      setActivePanel("chat");
+    }
+  }, [searchParams]);
 
   const [parcels, setParcels] = useState<MapParcel[]>([]);
   const [searchParcels, setSearchParcels] = useState<MapParcel[] | null>(null);
@@ -888,11 +903,18 @@ export default function MapPage() {
       <div className="map-page relative flex h-[calc(100svh-var(--app-header-height))] flex-col overflow-hidden">
         {!loading && (
           <>
-            <MapChatPanel
-              parcelCount={activeParcels.length}
-              selectedCount={selectedParcelIds.size}
-              viewportLabel={statusText}
-            />
+            {activePanel === "chat" && (
+              <MapChatPanel
+                parcelCount={activeParcels.length}
+                selectedCount={selectedParcelIds.size}
+                viewportLabel={statusText}
+              />
+            )}
+            {activePanel === "prospecting" && (
+              <MapProspectingPanel
+                polygon={polygon}
+              />
+            )}
             <ParcelMap
               ref={attachMapRef}
               parcels={activeParcels}

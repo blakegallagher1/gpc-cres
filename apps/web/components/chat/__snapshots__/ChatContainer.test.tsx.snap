@@ -198,7 +198,7 @@ exports[`ChatContainer > does not fetch a nonexistent conversation for a fresh w
               <span
                 class="text-xs text-foreground"
               >
-                Select deal
+                Enabled
               </span>
             </div>
             <div
