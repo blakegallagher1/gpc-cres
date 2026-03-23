@@ -1551,6 +1551,11 @@ export async function executeAgentWorkflow(
     }
 
     const coordinator = createIntentAwareCoordinator(queryIntent);
+    // Diagnostic: log tools BEFORE filtering to catch stale tool injection
+    const preFilterTools = (coordinator.tools ?? [])
+      .map((t) => getToolName(t))
+      .filter((n): n is string => !!n);
+    console.log(`[agent-pre-filter] intent=${queryIntent} toolCount=${preFilterTools.length} hasQueryPropertyDb=${preFilterTools.includes("query_property_db")} tools=[${preFilterTools.join(",")}]`);
     // Apply tool policy: filter by intent + exclude tools not suitable for web runtime.
     // Agent SDK doesn't expose clone(), so we mutate the tools array directly.
     if (coordinator.tools && coordinator.tools.length > 0) {
