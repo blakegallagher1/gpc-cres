@@ -151,7 +151,7 @@ def main():
 
             log.info(f"Pushing batch {total_batches} ({len(batch)} parcels)...")
             try:
-                result = push_batch(gateway_url, sync_token, batch)
+                result = push_batch(gateway_url, str(sync_token), batch)
                 log.info(f"  -> synced: {result}")
             except Exception as e:
                 log.error(f"  -> FAILED: {e}")
