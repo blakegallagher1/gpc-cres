@@ -18,21 +18,21 @@ export function matchRoute(pathname: string, method: string): RouteMatch | null 
     };
   }
 
-  // GET /parcels/:id
-  const parcelMatch = pathname.match(/^\/parcels\/([^/]+)$/);
-  if (parcelMatch && method === "GET") {
-    return {
-      upstreamMethod: "POST",
-      upstreamPath: "/tools/parcel.lookup",
-      buildBody: () => ({ parcel_id: decodeURIComponent(parcelMatch[1]) }),
-    };
-  }
-
   // POST /parcels/sql
   if (pathname === "/parcels/sql" && method === "POST") {
     return {
       upstreamMethod: "POST",
       upstreamPath: "/tools/parcels.sql",
+    };
+  }
+
+  // GET /parcels/:id
+  const parcelMatch = pathname.match(/^\/parcels\/([^/]+)$/);
+  if (parcelMatch && method === "GET" && parcelMatch[1] !== "sql") {
+    return {
+      upstreamMethod: "POST",
+      upstreamPath: "/tools/parcel.lookup",
+      buildBody: () => ({ parcel_id: decodeURIComponent(parcelMatch[1]) }),
     };
   }
 
