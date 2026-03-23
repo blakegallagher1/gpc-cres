@@ -252,6 +252,8 @@ describe("/api/deals route", () => {
           },
         },
         orderBy: { createdAt: "desc" },
+        take: 50,
+        skip: 0,
       });
       expect(fetchMock).not.toHaveBeenCalled();
     });

@@ -15,7 +15,7 @@ interface GatewayEnvelope<T> {
   parcels?: T;
 }
 
-const DEFAULT_GATEWAY_TIMEOUT_MS = 25_000;
+const DEFAULT_GATEWAY_TIMEOUT_MS = 8_000;
 const MAX_RETRIES = 1;
 
 interface PropertyDbGatewayRequestOptions {

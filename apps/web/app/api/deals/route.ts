@@ -146,6 +146,11 @@ export async function GET(request: NextRequest) {
     const sku = searchParams.get("sku");
     const jurisdictionId = searchParams.get("jurisdictionId");
     const search = searchParams.get("search");
+    const limit = Math.min(
+      Math.max(parseInt(searchParams.get("limit") ?? "50", 10) || 50, 1),
+      200,
+    );
+    const offset = Math.max(parseInt(searchParams.get("offset") ?? "0", 10) || 0, 0);
 
     const where: Record<string, unknown> = { orgId: auth.orgId };
     if (status) where.status = status;
@@ -167,6 +172,8 @@ export async function GET(request: NextRequest) {
         },
       },
       orderBy: { createdAt: "desc" },
+      take: limit,
+      skip: offset,
     });
 
     const result = deals.map((d: typeof deals[number]) => {
@@ -533,9 +540,8 @@ export async function PATCH(request: NextRequest) {
 
     const targetLegacyStatus = parsed.data.status;
     const targetStageKey = resolveStageKeyFromLegacyStatus(targetLegacyStatus);
-    let updatedCount = 0;
-
-    for (const deal of deals) {
+    // Compute workflow state for each deal (sync, no DB)
+    const dealUpdates = deals.map((deal) => {
       const existingLegacySku = (deal.legacySku ?? deal.sku) as SkuType;
       const existingLegacyStatus = (deal.legacyStatus ?? deal.status) as z.infer<
         typeof DealStatusSchema
@@ -563,56 +569,62 @@ export async function PATCH(request: NextRequest) {
       const previousStageKey =
         deal.currentStageKey ??
         resolveStageKeyFromLegacyStatus(existingLegacyStatus);
+      return { deal, workflowState, compatibility, previousStageKey, existingLegacyStatus };
+    });
 
-      await prisma.deal.update({
-        where: { id: deal.id },
-        data: {
-          assetClass: workflowState.assetClass,
-          strategy: workflowState.strategy,
-          workflowTemplateKey: workflowState.workflowTemplateKey,
-          currentStageKey: workflowState.currentStageKey,
-          sku: compatibility.sku,
-          status: compatibility.status,
-          legacySku: compatibility.legacySku,
-          legacyStatus: compatibility.legacyStatus,
-        },
-      });
-      updatedCount += 1;
-
-      if (
-        workflowState.currentStageKey &&
-        workflowState.currentStageKey !== previousStageKey
-      ) {
-        await prisma.dealStageHistory.create({
+    // Run all deal updates in parallel (each is independent)
+    await Promise.all(
+      dealUpdates.map(async ({ deal, workflowState, compatibility, previousStageKey, existingLegacyStatus }) => {
+        await prisma.deal.update({
+          where: { id: deal.id },
           data: {
-            dealId: deal.id,
-            orgId: auth.orgId,
-            fromStageKey: previousStageKey,
-            toStageKey: workflowState.currentStageKey,
-            changedBy: auth.userId,
-            note: "Stage updated from legacy compatibility hint.",
+            assetClass: workflowState.assetClass,
+            strategy: workflowState.strategy,
+            workflowTemplateKey: workflowState.workflowTemplateKey,
+            currentStageKey: workflowState.currentStageKey,
+            sku: compatibility.sku,
+            status: compatibility.status,
+            legacySku: compatibility.legacySku,
+            legacyStatus: compatibility.legacyStatus,
           },
         });
 
-        dispatchEvent({
-          type: "deal.stageChanged",
-          dealId: deal.id,
-          from: previousStageKey,
-          to: workflowState.currentStageKey,
-          orgId: auth.orgId,
-        }).catch(() => {});
-      }
+        if (
+          workflowState.currentStageKey &&
+          workflowState.currentStageKey !== previousStageKey
+        ) {
+          await prisma.dealStageHistory.create({
+            data: {
+              dealId: deal.id,
+              orgId: auth.orgId,
+              fromStageKey: previousStageKey,
+              toStageKey: workflowState.currentStageKey,
+              changedBy: auth.userId,
+              note: "Stage updated from legacy compatibility hint.",
+            },
+          });
 
-      if (existingLegacyStatus !== compatibility.status) {
-        dispatchEvent({
-          type: "deal.statusChanged",
-          dealId: deal.id,
-          from: existingLegacyStatus as import("@entitlement-os/shared").DealStatus,
-          to: compatibility.status as import("@entitlement-os/shared").DealStatus,
-          orgId: auth.orgId,
-        }).catch(() => {});
-      }
-    }
+          dispatchEvent({
+            type: "deal.stageChanged",
+            dealId: deal.id,
+            from: previousStageKey,
+            to: workflowState.currentStageKey,
+            orgId: auth.orgId,
+          }).catch(() => {});
+        }
+
+        if (existingLegacyStatus !== compatibility.status) {
+          dispatchEvent({
+            type: "deal.statusChanged",
+            dealId: deal.id,
+            from: existingLegacyStatus as import("@entitlement-os/shared").DealStatus,
+            to: compatibility.status as import("@entitlement-os/shared").DealStatus,
+            orgId: auth.orgId,
+          }).catch(() => {});
+        }
+      }),
+    );
+    const updatedCount = dealUpdates.length;
 
     return NextResponse.json({
       action: "update-status",

@@ -8,7 +8,13 @@ import {
   searchKnowledgeBase,
   type KnowledgeSearchResult,
 } from "@/lib/services/knowledgeBase.service";
-import * as XLSX from "xlsx";
+import type * as XLSXType from "xlsx";
+
+let _xlsx: typeof XLSXType | null = null;
+async function getXLSX(): Promise<typeof XLSXType> {
+  if (!_xlsx) _xlsx = await import("xlsx");
+  return _xlsx;
+}
 
 const WORKBOOK_EXTENSIONS = new Set([".xlsx", ".xlsm", ".xls"]);
 const MAX_SUMMARY_SHEETS = 6;
@@ -178,11 +184,11 @@ function parseCurrency(raw: string): number | null {
   return parseNumericCandidate(raw);
 }
 
-function extractWorkbookFacts(workbook: XLSX.WorkBook, filename: string): WorkbookExtraction {
+function extractWorkbookFacts(workbook: XLSXType.WorkBook, filename: string, xlsx: typeof XLSXType): WorkbookExtraction {
   const sheetNames = workbook.SheetNames.slice();
   const rowsBySheet = sheetNames.map((sheetName) => {
     const sheet = workbook.Sheets[sheetName];
-    const rawRows = XLSX.utils.sheet_to_json<(string | number | boolean | Date | null)[]>(sheet, {
+    const rawRows = xlsx.utils.sheet_to_json<(string | number | boolean | Date | null)[]>(sheet, {
       header: 1,
       raw: false,
       blankrows: false,
@@ -417,8 +423,9 @@ class InstitutionalKnowledgeIngestService {
       await fetchObjectBytesFromGateway(upload.storageObjectKey, systemAuth(orgId))
     );
     const sha256 = createHash("sha256").update(artifactBytes).digest("hex");
-    const workbook = XLSX.read(artifactBytes, { type: "buffer", cellDates: true });
-    const extracted = extractWorkbookFacts(workbook, upload.filename);
+    const xlsx = await getXLSX();
+    const workbook = xlsx.read(artifactBytes, { type: "buffer", cellDates: true });
+    const extracted = extractWorkbookFacts(workbook, upload.filename, xlsx);
     const sourceId = buildSourceId(upload, extracted.metadata);
 
     const artifactMetadata = {

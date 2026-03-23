@@ -428,30 +428,49 @@ async function runGatewayFallbackQueries(
   tasks: Array<() => Promise<unknown[]>>,
   stopOnFirstNonEmpty: boolean,
 ): Promise<unknown[][]> {
+  // When we can stop on first non-empty result, run sequentially (short-circuit)
+  if (stopOnFirstNonEmpty) {
+    const successfulResults: unknown[][] = [];
+    let firstGatewayError: GatewayUnavailableError | null = null;
+    for (const task of tasks) {
+      try {
+        const rows = await task();
+        successfulResults.push(rows);
+        if (rows.length > 0) return successfulResults;
+      } catch (reason) {
+        Sentry.captureException(reason, {
+          tags: { route: "api.parcels", method: "UNKNOWN" },
+        });
+        if (!firstGatewayError && isGatewayUnavailableError(reason)) {
+          firstGatewayError = reason;
+        }
+      }
+    }
+    if (successfulResults.length === 0 && firstGatewayError) {
+      throw firstGatewayError;
+    }
+    return successfulResults;
+  }
+
+  // Otherwise, run all queries in parallel
+  const settled = await Promise.allSettled(tasks.map((task) => task()));
   const successfulResults: unknown[][] = [];
   let firstGatewayError: GatewayUnavailableError | null = null;
-
-  for (const task of tasks) {
-    try {
-      const rows = await task();
-      successfulResults.push(rows);
-      if (stopOnFirstNonEmpty && rows.length > 0) {
-        return successfulResults;
-      }
-    } catch (reason) {
-      Sentry.captureException(reason, {
+  for (const result of settled) {
+    if (result.status === "fulfilled") {
+      successfulResults.push(result.value);
+    } else {
+      Sentry.captureException(result.reason, {
         tags: { route: "api.parcels", method: "UNKNOWN" },
       });
-      if (!firstGatewayError && isGatewayUnavailableError(reason)) {
-        firstGatewayError = reason;
+      if (!firstGatewayError && isGatewayUnavailableError(result.reason)) {
+        firstGatewayError = result.reason;
       }
     }
   }
-
   if (successfulResults.length === 0 && firstGatewayError) {
     throw firstGatewayError;
   }
-
   return successfulResults;
 }
 

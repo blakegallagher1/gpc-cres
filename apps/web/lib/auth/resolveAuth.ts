@@ -8,6 +8,29 @@ export type AuthResult = { userId: string; orgId: string };
 const DEFAULT_LOCAL_DEV_AUTH_ORG_ID = "00000000-0000-0000-0000-000000000001";
 const DEFAULT_LOCAL_DEV_AUTH_USER_ID = "00000000-0000-0000-0000-000000000003";
 
+// In-memory TTL cache for coordinator-memory membership checks.
+// Avoids a DB round-trip on every agent tool call within the same process (~10-20 per chat turn).
+const MEMBERSHIP_CACHE_TTL_MS = 60_000;
+const membershipCache = new Map<string, { validUntil: number }>();
+
+function checkMembershipCache(userId: string, orgId: string): boolean {
+  const key = `${userId}:${orgId}`;
+  const entry = membershipCache.get(key);
+  if (entry && entry.validUntil > Date.now()) return true;
+  if (entry) membershipCache.delete(key);
+  return false;
+}
+
+function setMembershipCache(userId: string, orgId: string): void {
+  const key = `${userId}:${orgId}`;
+  membershipCache.set(key, { validUntil: Date.now() + MEMBERSHIP_CACHE_TTL_MS });
+  // Prevent unbounded growth — evict oldest entries if cache gets large
+  if (membershipCache.size > 500) {
+    const firstKey = membershipCache.keys().next().value;
+    if (firstKey) membershipCache.delete(firstKey);
+  }
+}
+
 function getLocalDevAuthResult(): AuthResult {
   const userId = process.env.LOCAL_DEV_AUTH_USER_ID?.trim() || DEFAULT_LOCAL_DEV_AUTH_USER_ID;
   const orgId = process.env.LOCAL_DEV_AUTH_ORG_ID?.trim() || DEFAULT_LOCAL_DEV_AUTH_ORG_ID;
@@ -66,12 +89,19 @@ export async function resolveAuth(request?: Request): Promise<AuthResult | null>
     agentOrgId.length > 0 &&
     agentUserId.length > 0
   ) {
+    // Check TTL cache first to avoid DB round-trip on repeated tool calls
+    if (checkMembershipCache(agentUserId, agentOrgId)) {
+      return { userId: agentUserId, orgId: agentOrgId };
+    }
     const membership = await prisma.orgMembership.findFirst({
       where: { userId: agentUserId, orgId: agentOrgId },
       orderBy: { createdAt: "asc" },
       select: { orgId: true },
     });
-    if (membership) return { userId: agentUserId, orgId: agentOrgId };
+    if (membership) {
+      setMembershipCache(agentUserId, agentOrgId);
+      return { userId: agentUserId, orgId: agentOrgId };
+    }
     return null;
   }
 

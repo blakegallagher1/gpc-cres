@@ -301,6 +301,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const effectiveConversationId = requestedConversationId ?? randomUUID();
   const encoder = new TextEncoder();
   let writer:
     | ReturnType<typeof createSseWriter>
@@ -311,17 +312,20 @@ export async function POST(req: NextRequest) {
       writer = createSseWriter(controller, encoder);
 
       try {
-        // Build structured parcel context from planner/executor, with fallback to text prefix
+        // Emit a thinking event immediately so the client sees TTFB while we plan
+        if (mapContext) {
+          writer.enqueue({ type: "status", status: "planning", message: "Analyzing map context..." });
+        }
+
+        // Build structured parcel context — may make 1-3 gateway calls (600-2300ms)
         const { structured, fallbackPrefix } = await buildParcelContext(
           mapContext,
           message,
           auth.orgId,
-          requestedConversationId ?? randomUUID(),
+          effectiveConversationId,
         );
-
-        // Construct message: structured context or fallback prefix + user message
         const contextMessage = structured
-          ? `${JSON.stringify(structured, null, 2)}\n\n${message}`
+          ? `${JSON.stringify(structured)}\n\n${message}`
           : `${fallbackPrefix}${message}`;
 
         const workflow = await runAgentWorkflow({
