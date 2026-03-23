@@ -26,10 +26,10 @@
     "@entitlement-os/artifacts": "workspace:*",
     "@entitlement-os/db": "workspace:*",
     "@entitlement-os/shared": "workspace:*",
-    "@openai/agents": "^0.4.15",
+    "@openai/agents": "^0.7.2",
     "@qdrant/js-client-rest": "^1.17.0",
     "@sentry/node": "^10.43.0",
-    "openai": "^6.29.0",
+    "openai": "^6.32.0",
     "zod": "^4.1.12"
   },
   "devDependencies": {
