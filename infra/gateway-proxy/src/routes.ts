@@ -4,17 +4,13 @@ export interface RouteMatch {
   buildBody?: (params: URLSearchParams) => unknown;
 }
 
-export function matchRoute(pathname: string, method: string): RouteMatch | null {
-  // GET /parcels/search?address=...&polygon=...&limit=...
+export function matchRoute(pathname: string, method: string, searchParams?: URLSearchParams): RouteMatch | null {
+  // GET /parcels/search?q=...&limit=... — pass through to upstream gateway search
   if (pathname === "/parcels/search" && method === "GET") {
+    const qs = searchParams?.toString() ?? "";
     return {
-      upstreamMethod: "POST",
-      upstreamPath: "/tools/parcel.bbox",
-      buildBody: (params) => ({
-        address: params.get("address") || undefined,
-        polygon: params.get("polygon") || undefined,
-        limit: params.get("limit") ? Number(params.get("limit")) : 50,
-      }),
+      upstreamMethod: "GET",
+      upstreamPath: `/api/parcels/search${qs ? `?${qs}` : ""}`,
     };
   }
 
@@ -41,7 +37,6 @@ export function matchRoute(pathname: string, method: string): RouteMatch | null 
   if (screenMatch && method === "GET") {
     const type = screenMatch[1];
     const parcelId = decodeURIComponent(screenMatch[2]);
-    // Don't match /screening/full/:parcelId here — that's the next route
     if (type === "full") return null;
     return {
       upstreamMethod: "POST",

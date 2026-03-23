@@ -3,28 +3,20 @@ import { matchRoute } from "../src/routes";
 
 describe("matchRoute", () => {
   describe("GET /parcels/search", () => {
-    it("matches and maps to POST /tools/parcel.bbox", () => {
-      const route = matchRoute("/parcels/search", "GET");
+    it("matches and maps to GET /api/parcels/search with query params", () => {
+      const params = new URLSearchParams({ q: "Airline Hwy", limit: "10" });
+      const route = matchRoute("/parcels/search", "GET", params);
       expect(route).not.toBeNull();
-      expect(route!.upstreamMethod).toBe("POST");
-      expect(route!.upstreamPath).toBe("/tools/parcel.bbox");
+      expect(route!.upstreamMethod).toBe("GET");
+      expect(route!.upstreamPath).toContain("/api/parcels/search?");
+      expect(route!.upstreamPath).toContain("q=Airline");
+      expect(route!.upstreamPath).toContain("limit=10");
     });
 
-    it("builds body from search params", () => {
-      const route = matchRoute("/parcels/search", "GET");
-      const params = new URLSearchParams({ address: "123 Main St", limit: "10" });
-      const body = route!.buildBody!(params);
-      expect(body).toEqual({
-        address: "123 Main St",
-        polygon: undefined,
-        limit: 10,
-      });
-    });
-
-    it("defaults limit to 50", () => {
-      const route = matchRoute("/parcels/search", "GET");
-      const body = route!.buildBody!(new URLSearchParams({ address: "test" }));
-      expect((body as any).limit).toBe(50);
+    it("passes through empty params", () => {
+      const route = matchRoute("/parcels/search", "GET", new URLSearchParams());
+      expect(route).not.toBeNull();
+      expect(route!.upstreamPath).toBe("/api/parcels/search");
     });
   });
 

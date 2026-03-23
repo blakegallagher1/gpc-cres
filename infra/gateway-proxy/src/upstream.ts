@@ -33,7 +33,7 @@ export async function proxyToUpstream(
     return { ok: res.ok, status: res.status, data, raw };
   } catch (err) {
     const message = err instanceof Error ? err.message : "upstream error";
-    return { ok: false, status: 0, data: { error: message }, raw: "" };
+    return { ok: false, status: 0, data: { error: message, type: err instanceof Error ? err.constructor.name : "unknown" }, raw: "" };
   } finally {
     clearTimeout(timeout);
   }

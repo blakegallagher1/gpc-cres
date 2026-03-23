@@ -68,7 +68,7 @@ export default {
     const requestId = crypto.randomUUID();
 
     // Route matching
-    const route = matchRoute(url.pathname, request.method);
+    const route = matchRoute(url.pathname, request.method, url.searchParams);
     if (!route) {
       return jsonResponse({ error: "not found" }, 404);
     }
@@ -140,7 +140,7 @@ export default {
 
     // No cache available
     return jsonResponse(
-      { data: null, source: "gateway", staleness_seconds: null, error: "upstream unavailable, no cache" },
+      { data: null, source: "gateway", staleness_seconds: null, error: "upstream unavailable, no cache", _debug: { status: result.status, upstream_error: result.data, upstream_path: route.upstreamPath } },
       502,
       "gateway"
     );
