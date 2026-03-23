@@ -72,6 +72,53 @@ function delayMs(valueMs: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, valueMs));
 }
 
+function readGatewayErrorText(payload: unknown): string {
+  if (!payload || typeof payload !== "object") return "";
+  const record = payload as Record<string, unknown>;
+  const parts = [
+    typeof record.error === "string" ? record.error : "",
+    typeof record.detail === "string" ? record.detail : "",
+    typeof record.message === "string" ? record.message : "",
+  ].filter((value) => value.length > 0);
+  return parts.join(" ").trim();
+}
+
+async function maybeRecoverZoningCountQuery(
+  sql: string,
+  payload: unknown,
+): Promise<unknown | null> {
+  const loweredSql = sql.toLowerCase();
+  if (!loweredSql.includes("from ebr_parcels")) return null;
+  if (!loweredSql.includes("count(")) return null;
+  if (!loweredSql.includes("zoning_type")) return null;
+
+  const errorText = readGatewayErrorText(payload).toLowerCase();
+  if (!errorText.includes("zoning_type")) return null;
+  if (!errorText.includes("does not exist")) return null;
+
+  const zoningMatch = sql.match(/=\s*'([^']+)'/i);
+  const zoning = zoningMatch?.[1]?.trim();
+  if (!zoning) return null;
+
+  const fallback = await gatewayPost("/tools/parcel.search", {
+    zoning,
+    limit: 1,
+  });
+  const fallbackData = fallback as Record<string, unknown>;
+  if (typeof fallbackData?.count !== "number") return null;
+
+  return {
+    rowCount: 1,
+    rows: [
+      {
+        zoning_type: zoning.toUpperCase(),
+        cnt: fallbackData.count,
+      },
+    ],
+    fallback: "parcel_search_count",
+  };
+}
+
 /** Call a gateway POST endpoint and return the JSON body. */
 export async function gatewayPost(path: string, body: Record<string, unknown>): Promise<unknown> {
   const PROPERTY_DB_URL = getGatewayUrl();
@@ -625,6 +672,10 @@ export const queryPropertyDbSql = tool({
       return JSON.stringify({ error: "Only SELECT/WITH queries are allowed." });
     }
     const result = await gatewayPost("/tools/parcels.sql", { sql: trimmed });
+    const recovered = await maybeRecoverZoningCountQuery(trimmed, result);
+    if (recovered) {
+      return JSON.stringify(recovered);
+    }
     const data = result as Record<string, unknown>;
     if (data && typeof data === "object" && Array.isArray(data.rows)) {
       // Wrap with map features so parcels can be highlighted on the map

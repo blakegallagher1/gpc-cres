@@ -118,4 +118,40 @@ describe("propertyDbTools rpc key enforcement", () => {
       "[propertyDbTools] Missing required LOCAL_API_URL.",
     );
   });
+
+  it("falls back to parcel.search count when zoning_type is missing in SQL path", async () => {
+    process.env.LOCAL_API_URL = "https://api.example.com";
+    process.env.LOCAL_API_KEY = "local-api-key";
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          ok: false,
+          error: "Database error",
+          detail: 'column "zoning_type" does not exist',
+        }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ok: true, count: 11936 }),
+      } as Response);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { queryPropertyDbSql } = await import("./propertyDbTools");
+    const output = await queryPropertyDbSql.execute({
+      sql: "SELECT zoning_type, COUNT(*) AS cnt FROM ebr_parcels WHERE zoning_type = 'C2' GROUP BY zoning_type",
+    });
+    const parsed = JSON.parse(output as string) as {
+      rowCount: number;
+      rows: Array<{ zoning_type: string; cnt: number }>;
+      fallback?: string;
+    };
+
+    expect(parsed.rowCount).toBe(1);
+    expect(parsed.rows[0]).toEqual({ zoning_type: "C2", cnt: 11936 });
+    expect(parsed.fallback).toBe("parcel_search_count");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://api.example.com/tools/parcels.sql");
+    expect(fetchMock.mock.calls[1]?.[0]).toBe("https://api.example.com/tools/parcel.search");
+  });
 });
