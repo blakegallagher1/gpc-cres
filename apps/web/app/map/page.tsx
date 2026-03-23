@@ -321,6 +321,9 @@ export default function MapPage() {
     return nlPatterns.some((p) => p.test(q));
   }, []);
 
+  // Track the last NL query's conversation ID for "Continue in chat"
+  const lastNlConversationIdRef = useRef<string | null>(null);
+
   // Send NL query to agent and parse results into cards
   const handleNlQuery = useCallback(async (query: string) => {
     setNlQueryLoading(true);
@@ -338,11 +341,14 @@ export default function MapPage() {
         setNlQueryLoading(false);
         return;
       }
-      // Parse SSE stream
+      // Parse SSE stream — collect text, tool results, map actions, and conversation ID
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let fullText = "";
       let buffer = "";
+      let conversationId: string | null = null;
+      const toolRows: Array<Record<string, unknown>> = [];
+      let rowCount: number | null = null;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -369,23 +375,98 @@ export default function MapPage() {
             if (event.type === "text" || event.type === "response_text_done") {
               fullText = event.text ?? fullText;
             }
+            // Capture tool results with row data (from SQL queries)
+            if (event.type === "tool_result" || event.type === "tool_end") {
+              try {
+                const resultData = typeof event.result === "string"
+                  ? JSON.parse(event.result)
+                  : event.result;
+                if (resultData?.rows && Array.isArray(resultData.rows)) {
+                  toolRows.push(...resultData.rows);
+                  if (typeof resultData.rowCount === "number") {
+                    rowCount = resultData.rowCount;
+                  }
+                }
+              } catch { /* not structured data */ }
+            }
+            // Capture conversation ID from done event
+            if (event.type === "done" && event.conversationId) {
+              conversationId = event.conversationId;
+              lastNlConversationIdRef.current = conversationId;
+            }
           } catch {
             // Skip malformed events
           }
         }
       }
 
-      // Create a result card from the agent's response
-      if (fullText.trim()) {
+      // Build a result card from the agent response + tool data
+      if (fullText.trim() || toolRows.length > 0) {
         const cardId = `nl-${Date.now()}`;
+        const cardTitle = query.length > 60 ? `${query.slice(0, 57)}...` : query;
+
+        // Try to build a structured table card from SQL rows
+        let columns: Array<{ key: string; label: string; align?: "left" | "right" }> | undefined;
+        let rows: Array<Record<string, string | number | null>> | undefined;
+        let stats: Array<{ label: string; value: string | number }> | undefined;
+        let cardType: "count" | "list" | "detail" = "count";
+
+        if (toolRows.length > 0) {
+          // Infer columns from first row
+          const firstRow = toolRows[0];
+          const keys = Object.keys(firstRow);
+          columns = keys.map((key) => ({
+            key,
+            label: key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+            align: (typeof firstRow[key] === "number" ? "right" : "left") as "left" | "right",
+          }));
+          rows = toolRows.map((r) => {
+            const mapped: Record<string, string | number | null> = {};
+            for (const key of keys) {
+              const v = r[key];
+              mapped[key] = typeof v === "number" ? Math.round(v * 100) / 100
+                : v == null ? null
+                : String(v);
+            }
+            return mapped;
+          });
+          cardType = toolRows.length === 1 ? "detail" : "list";
+
+          // Build stats from aggregate queries (single-row results with count-like columns)
+          if (toolRows.length <= 3 && keys.some((k) => /cnt|count|total|avg|sum/i.test(k))) {
+            stats = [];
+            for (const row of toolRows) {
+              for (const key of keys) {
+                const v = row[key];
+                if (v != null) {
+                  stats.push({
+                    label: key.replace(/_/g, " "),
+                    value: typeof v === "number" ? v.toLocaleString() : String(v),
+                  });
+                }
+              }
+            }
+            cardType = "count";
+          }
+        }
+
+        const subtitle = rowCount != null
+          ? `${rowCount} result${rowCount !== 1 ? "s" : ""}`
+          : toolRows.length > 0
+          ? `${toolRows.length} result${toolRows.length !== 1 ? "s" : ""}`
+          : "AI Analysis";
+
         setResultCards((prev) => [
           ...prev,
           {
             id: cardId,
-            title: query.length > 60 ? `${query.slice(0, 57)}...` : query,
-            subtitle: "AI Analysis",
-            narrative: fullText.trim().slice(0, 1000),
-            type: "count" as const,
+            title: cardTitle,
+            subtitle,
+            stats,
+            columns,
+            rows,
+            narrative: fullText.trim().slice(0, 1000) || undefined,
+            type: cardType,
           },
         ]);
       }
