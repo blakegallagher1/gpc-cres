@@ -129,6 +129,8 @@ def main():
         log.error("SYNC_TOKEN not set")
         sys.exit(1)
 
+    assert sync_token is not None or args.dry_run
+
     since_ts = 0 if args.full else load_last_sync()
     sync_start = int(time.time())
 
