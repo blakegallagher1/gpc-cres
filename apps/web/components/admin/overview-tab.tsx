@@ -4,6 +4,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AdminTabNotice } from "@/components/admin/AdminTabNotice";
 import {
   BarChart,
   Bar,
@@ -13,6 +14,11 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { Database, Brain, Bot, Building2 } from "lucide-react";
+
+interface AdminTabError {
+  message: string;
+  detail?: string;
+}
 
 interface OverviewData {
   knowledgeCount: number;
@@ -26,6 +32,8 @@ interface OverviewData {
 interface Props {
   data: OverviewData | undefined;
   isLoading: boolean;
+  error?: AdminTabError;
+  onRetry: () => void;
 }
 
 const kpiCards = [
@@ -45,10 +53,12 @@ function formatRelativeTime(dateStr: string): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
-export default function OverviewTab({ data, isLoading }: Props) {
-  if (isLoading || !data) {
+export default function OverviewTab({ data, isLoading, error, onRetry }: Props) {
+  const hasData = Boolean(data);
+
+  if (isLoading && !hasData) {
     return (
-      <div className="space-y-6 pt-4">
+      <div className="space-y-4 pt-4">
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-24" />
@@ -62,8 +72,24 @@ export default function OverviewTab({ data, isLoading }: Props) {
     );
   }
 
+  if (!data) {
+    return (
+      <div className="space-y-6 pt-4">
+        {error ? <AdminTabNotice hasData={false} onRetry={onRetry} /> : null}
+        <Card>
+          <CardContent className="py-10">
+            <p className="text-sm text-muted-foreground">
+              Overview metrics will appear here once the admin data service responds.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 pt-4">
+      {error ? <AdminTabNotice hasData={true} onRetry={onRetry} /> : null}
       {/* KPI Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {kpiCards.map(({ key, label, icon: Icon }) => (

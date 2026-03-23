@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback, useMemo } from "react";
+import { useEffect, useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   CommandDialog,
@@ -10,7 +10,7 @@ import {
   CommandItem,
   CommandList,
   CommandSeparator,
-} from "@/components/ui/command";
+} from "../ui/command";
 import {
   LayoutDashboard,
   Bot,
@@ -25,11 +25,18 @@ import {
   Keyboard,
   Presentation,
   Sparkles,
+  MapPinned,
+  FileSearch,
+  MessageSquareText,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { useAgents } from "@/lib/hooks/useAgents";
+import { Button } from "../ui/button";
+import { useAgents } from "../../lib/hooks/useAgents";
 import { useTheme } from "next-themes";
-import { useUIStore } from "@/stores/uiStore";
+import { useUIStore } from "../../stores/uiStore";
+import {
+  GLOBAL_SEARCH_MIN_QUERY_LENGTH,
+  type GlobalSearchResponse,
+} from "../../lib/search/globalSearch";
 
 interface Command {
   id: string;
@@ -40,12 +47,20 @@ interface Command {
   keywords?: string[];
 }
 
+const SEARCH_DEBOUNCE_MS = 180;
+
 export function CommandPalette() {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const { agents } = useAgents();
   const { commandPaletteOpen, setCommandPaletteOpen, toggleCopilot } =
     useUIStore();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<GlobalSearchResponse | null>(
+    null,
+  );
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
 
   const navigate = useCallback(
     (path: string) => {
@@ -172,6 +187,96 @@ export function CommandPalette() {
     [navigate, theme, setTheme, agents, setCommandPaletteOpen, toggleCopilot]
   );
 
+  const trimmedQuery = searchQuery.trim();
+  const hasActiveSearch = trimmedQuery.length >= GLOBAL_SEARCH_MIN_QUERY_LENGTH;
+
+  useEffect(() => {
+    if (!commandPaletteOpen) {
+      setSearchQuery("");
+      setSearchResults(null);
+      setSearchError(null);
+      setIsSearching(false);
+    }
+  }, [commandPaletteOpen]);
+
+  useEffect(() => {
+    if (!commandPaletteOpen || !hasActiveSearch) {
+      setSearchResults(null);
+      setSearchError(null);
+      setIsSearching(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(async () => {
+      setIsSearching(true);
+      setSearchError(null);
+
+      try {
+        const response = await fetch(
+          `/api/search?q=${encodeURIComponent(trimmedQuery)}&limit=5`,
+          {
+            signal: controller.signal,
+            headers: { Accept: "application/json" },
+          },
+        );
+
+        if (!response.ok) {
+          const payload = (await response.json().catch(() => null)) as
+            | { error?: string }
+            | null;
+          throw new Error(payload?.error ?? "Search is unavailable right now.");
+        }
+
+        const payload = (await response.json()) as GlobalSearchResponse;
+        setSearchResults(payload);
+      } catch (error) {
+        if (controller.signal.aborted) {
+          return;
+        }
+        setSearchResults(null);
+        setSearchError(
+          error instanceof Error
+            ? error.message
+            : "Search is unavailable right now.",
+        );
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsSearching(false);
+        }
+      }
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timeoutId);
+    };
+  }, [commandPaletteOpen, hasActiveSearch, trimmedQuery]);
+
+  const hasRemoteResults = useMemo(() => {
+    if (!searchResults) {
+      return false;
+    }
+
+    return Object.values(searchResults.groups).some((group) => group.length > 0);
+  }, [searchResults]);
+
+  const partialResultError = useMemo(() => {
+    if (!searchResults) {
+      return null;
+    }
+
+    const unavailableSources = Object.entries(searchResults.errors)
+      .filter(([, message]) => typeof message === "string" && message.length > 0)
+      .map(([source]) => source);
+
+    if (unavailableSources.length === 0) {
+      return null;
+    }
+
+    return `Some sources are unavailable: ${unavailableSources.join(", ")}.`;
+  }, [searchResults]);
+
   // Keyboard shortcut listener
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -248,69 +353,241 @@ export function CommandPalette() {
       </Button>
 
       <CommandDialog open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen}>
-        <CommandInput placeholder="Type a command or search..." />
+        <CommandInput
+          placeholder="Search deals, parcels, runs, knowledge, conversations, or commands..."
+          value={searchQuery}
+          onValueChange={setSearchQuery}
+        />
         <CommandList>
-          <CommandEmpty>No results found.</CommandEmpty>
+          <CommandEmpty>
+            {hasActiveSearch
+              ? isSearching
+                ? "Searching..."
+                : searchError ?? "No matching content or commands."
+              : "No results found."}
+          </CommandEmpty>
 
-          <CommandGroup heading="Navigation">
-            {commands
-              .filter((c) => c.id.startsWith("nav-"))
-              .map((command) => (
-                <CommandItem
-                  key={command.id}
-                  onSelect={command.action}
-                  keywords={command.keywords}
-                >
-                  <command.icon className="mr-2 h-4 w-4" />
-                  <span>{command.title}</span>
-                  {command.shortcut && (
-                    <kbd className="ml-auto text-xs text-muted-foreground">
-                      {command.shortcut}
-                    </kbd>
-                  )}
-                </CommandItem>
-              ))}
-          </CommandGroup>
+          {hasActiveSearch ? (
+            <>
+              {searchResults?.groups.deals.length ? (
+                <CommandGroup heading="Deals">
+                  {searchResults.groups.deals.map((result) => (
+                    <CommandItem
+                      key={`deal-${result.id}`}
+                      value={`${result.title} ${result.subtitle ?? ""}`}
+                      keywords={["deal", result.title.toLowerCase()]}
+                      onSelect={() => navigate(result.href)}
+                    >
+                      <Presentation className="mr-2 h-4 w-4" />
+                      <div className="flex min-w-0 flex-1 flex-col">
+                        <span className="truncate">{result.title}</span>
+                        {result.subtitle ? (
+                          <span className="truncate text-xs text-muted-foreground">
+                            {result.subtitle}
+                          </span>
+                        ) : null}
+                      </div>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              ) : null}
 
-          <CommandSeparator />
+              {searchResults?.groups.parcels.length ? (
+                <CommandGroup heading="Parcels">
+                  {searchResults.groups.parcels.map((result) => (
+                    <CommandItem
+                      key={`parcel-${result.id}`}
+                      value={`${result.title} ${result.subtitle ?? ""}`}
+                      keywords={["parcel", result.title.toLowerCase()]}
+                      onSelect={() => navigate(result.href)}
+                    >
+                      <MapPinned className="mr-2 h-4 w-4" />
+                      <div className="flex min-w-0 flex-1 flex-col">
+                        <span className="truncate">{result.title}</span>
+                        {result.subtitle ? (
+                          <span className="truncate text-xs text-muted-foreground">
+                            {result.subtitle}
+                          </span>
+                        ) : null}
+                      </div>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              ) : null}
 
-          <CommandGroup heading="Agents">
-            {commands
-              .filter((c) => c.id.startsWith("agent-"))
-              .slice(0, 5)
-              .map((command) => (
-                <CommandItem
-                  key={command.id}
-                  onSelect={command.action}
-                  keywords={command.keywords}
-                >
-                  <command.icon className="mr-2 h-4 w-4" />
-                  <span>{command.title}</span>
-                </CommandItem>
-              ))}
-          </CommandGroup>
+              {searchResults?.groups.knowledge.length ? (
+                <CommandGroup heading="Knowledge">
+                  {searchResults.groups.knowledge.map((result) => (
+                    <CommandItem
+                      key={`knowledge-${result.id}`}
+                      value={`${result.title} ${result.subtitle ?? ""}`}
+                      keywords={["knowledge", result.title.toLowerCase()]}
+                      onSelect={() => navigate(result.href)}
+                    >
+                      <FileSearch className="mr-2 h-4 w-4" />
+                      <div className="flex min-w-0 flex-1 flex-col">
+                        <span className="truncate">{result.title}</span>
+                        {result.subtitle ? (
+                          <span className="truncate text-xs text-muted-foreground">
+                            {result.subtitle}
+                          </span>
+                        ) : null}
+                      </div>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              ) : null}
 
-          <CommandSeparator />
+              {searchResults?.groups.runs.length ? (
+                <CommandGroup heading="Runs">
+                  {searchResults.groups.runs.map((result) => (
+                    <CommandItem
+                      key={`run-${result.id}`}
+                      value={`${result.title} ${result.subtitle ?? ""}`}
+                      keywords={["run", result.title.toLowerCase()]}
+                      onSelect={() => navigate(result.href)}
+                    >
+                      <Play className="mr-2 h-4 w-4" />
+                      <div className="flex min-w-0 flex-1 flex-col">
+                        <span className="truncate">{result.title}</span>
+                        {result.subtitle ? (
+                          <span className="truncate text-xs text-muted-foreground">
+                            {result.subtitle}
+                          </span>
+                        ) : null}
+                      </div>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              ) : null}
 
-          <CommandGroup heading="Quick Actions">
-            {commands
-              .filter((c) => c.id.startsWith("action-"))
-              .map((command) => (
-                <CommandItem
-                  key={command.id}
-                  onSelect={command.action}
-                  keywords={command.keywords}
-                >
-                  <command.icon className="mr-2 h-4 w-4" />
-                  <span>{command.title}</span>
-                  {command.shortcut && (
-                    <kbd className="ml-auto text-xs text-muted-foreground">
-                      {command.shortcut}
-                    </kbd>
-                  )}
-                </CommandItem>
-              ))}
-          </CommandGroup>
+              {searchResults?.groups.conversations.length ? (
+                <CommandGroup heading="Conversations">
+                  {searchResults.groups.conversations.map((result) => (
+                    <CommandItem
+                      key={`conversation-${result.id}`}
+                      value={`${result.title} ${result.subtitle ?? ""}`}
+                      keywords={["conversation", "chat", result.title.toLowerCase()]}
+                      onSelect={() => navigate(result.href)}
+                    >
+                      <MessageSquareText className="mr-2 h-4 w-4" />
+                      <div className="flex min-w-0 flex-1 flex-col">
+                        <span className="truncate">{result.title}</span>
+                        {result.subtitle ? (
+                          <span className="truncate text-xs text-muted-foreground">
+                            {result.subtitle}
+                          </span>
+                        ) : null}
+                      </div>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              ) : null}
+
+              {partialResultError ? (
+                <div className="px-3 py-2 text-xs text-muted-foreground">
+                  {partialResultError}
+                </div>
+              ) : null}
+
+              {searchError ? (
+                <div className="px-3 py-2 text-xs text-muted-foreground">
+                  {searchError}
+                </div>
+              ) : null}
+
+              {!hasRemoteResults ? <CommandSeparator /> : null}
+
+              <CommandGroup heading="Commands">
+                {commands
+                  .filter((command) =>
+                    command.title.toLowerCase().includes(trimmedQuery.toLowerCase()) ||
+                    command.keywords?.some((keyword) =>
+                      keyword.toLowerCase().includes(trimmedQuery.toLowerCase()),
+                    ),
+                  )
+                  .slice(0, 8)
+                  .map((command) => (
+                    <CommandItem
+                      key={command.id}
+                      onSelect={command.action}
+                      keywords={command.keywords}
+                      value={command.title}
+                    >
+                      <command.icon className="mr-2 h-4 w-4" />
+                      <span>{command.title}</span>
+                      {command.shortcut && (
+                        <kbd className="ml-auto text-xs text-muted-foreground">
+                          {command.shortcut}
+                        </kbd>
+                      )}
+                    </CommandItem>
+                  ))}
+              </CommandGroup>
+            </>
+          ) : (
+            <>
+              <CommandGroup heading="Navigation">
+                {commands
+                  .filter((c) => c.id.startsWith("nav-"))
+                  .map((command) => (
+                    <CommandItem
+                      key={command.id}
+                      onSelect={command.action}
+                      keywords={command.keywords}
+                    >
+                      <command.icon className="mr-2 h-4 w-4" />
+                      <span>{command.title}</span>
+                      {command.shortcut && (
+                        <kbd className="ml-auto text-xs text-muted-foreground">
+                          {command.shortcut}
+                        </kbd>
+                      )}
+                    </CommandItem>
+                  ))}
+              </CommandGroup>
+
+              <CommandSeparator />
+
+              <CommandGroup heading="Agents">
+                {commands
+                  .filter((c) => c.id.startsWith("agent-"))
+                  .slice(0, 5)
+                  .map((command) => (
+                    <CommandItem
+                      key={command.id}
+                      onSelect={command.action}
+                      keywords={command.keywords}
+                    >
+                      <command.icon className="mr-2 h-4 w-4" />
+                      <span>{command.title}</span>
+                    </CommandItem>
+                  ))}
+              </CommandGroup>
+
+              <CommandSeparator />
+
+              <CommandGroup heading="Quick Actions">
+                {commands
+                  .filter((c) => c.id.startsWith("action-"))
+                  .map((command) => (
+                    <CommandItem
+                      key={command.id}
+                      onSelect={command.action}
+                      keywords={command.keywords}
+                    >
+                      <command.icon className="mr-2 h-4 w-4" />
+                      <span>{command.title}</span>
+                      {command.shortcut && (
+                        <kbd className="ml-auto text-xs text-muted-foreground">
+                          {command.shortcut}
+                        </kbd>
+                      )}
+                    </CommandItem>
+                  ))}
+              </CommandGroup>
+            </>
+          )}
         </CommandList>
       </CommandDialog>
     </>

@@ -1,0 +1,305 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`SettingsPage > renders a real settings surface instead of a dead route 1`] = `
+<div>
+  <div
+    class="space-y-6"
+  >
+    <section
+      class="rounded-2xl border border-border/60 bg-card px-5 py-5"
+    >
+      <div
+        class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between"
+      >
+        <div
+          class="space-y-3"
+        >
+          <div
+            class="inline-flex items-center rounded-full border text-[11px] font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground w-fit gap-2 px-3 py-1 uppercase tracking-[0.22em]"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-command h-3.5 w-3.5"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3"
+              />
+            </svg>
+            Settings
+          </div>
+          <div
+            class="space-y-2"
+          >
+            <h1
+              class="text-2xl font-semibold tracking-tight"
+            >
+              Operator settings
+            </h1>
+            <p
+              class="max-w-3xl text-sm text-muted-foreground"
+            >
+              This replaces the dead palette route with a real settings surface for learned preferences, operator tooling, and workspace controls.
+            </p>
+          </div>
+        </div>
+        <a
+          class="inline-flex items-center gap-2 rounded-md border border-border bg-muted px-3 py-2 text-sm font-medium text-foreground transition hover:bg-muted/80"
+          href="/admin/codex"
+        >
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-sparkles h-4 w-4"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"
+            />
+            <path
+              d="M20 2v4"
+            />
+            <path
+              d="M22 4h-4"
+            />
+            <circle
+              cx="4"
+              cy="20"
+              r="2"
+            />
+          </svg>
+          Open Codex workspace
+        </a>
+      </div>
+    </section>
+    <section
+      class="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]"
+    >
+      <div
+        class="workspace-surface rounded-[1.5rem] border bg-card/85 text-card-foreground shadow-none"
+      >
+        <div
+          class="flex flex-col space-y-1.5 p-5 md:p-6"
+        >
+          <div
+            class="flex items-center gap-2"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-user-cog h-4 w-4 text-muted-foreground"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M10 15H6a4 4 0 0 0-4 4v2"
+              />
+              <path
+                d="m14.305 16.53.923-.382"
+              />
+              <path
+                d="m15.228 13.852-.923-.383"
+              />
+              <path
+                d="m16.852 12.228-.383-.923"
+              />
+              <path
+                d="m16.852 17.772-.383.924"
+              />
+              <path
+                d="m19.148 12.228.383-.923"
+              />
+              <path
+                d="m19.53 18.696-.382-.924"
+              />
+              <path
+                d="m20.772 13.852.924-.383"
+              />
+              <path
+                d="m20.772 16.148.924.383"
+              />
+              <circle
+                cx="18"
+                cy="15"
+                r="3"
+              />
+              <circle
+                cx="9"
+                cy="7"
+                r="4"
+              />
+            </svg>
+            <h3
+              class="font-semibold tracking-[-0.03em] text-base"
+            >
+              Learned preferences
+            </h3>
+          </div>
+        </div>
+        <div
+          class="p-5 pt-0 md:p-6 md:pt-0"
+        >
+          <div>
+            Workspace preferences
+          </div>
+        </div>
+      </div>
+      <div
+        class="space-y-4"
+      >
+        <a
+          class="block rounded-2xl border border-border/60 bg-card px-5 py-5 transition hover:bg-muted/30"
+          href="/admin/codex"
+        >
+          <div
+            class="mb-4 flex h-10 w-10 items-center justify-center rounded-xl border border-border/60 bg-muted/40"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-bot h-5 w-5 text-foreground"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M12 8V4H8"
+              />
+              <rect
+                height="12"
+                rx="2"
+                width="16"
+                x="4"
+                y="8"
+              />
+              <path
+                d="M2 14h2"
+              />
+              <path
+                d="M20 14h2"
+              />
+              <path
+                d="M15 13v2"
+              />
+              <path
+                d="M9 13v2"
+              />
+            </svg>
+          </div>
+          <h2
+            class="text-base font-semibold"
+          >
+            Copilot and Codex
+          </h2>
+          <p
+            class="mt-2 text-sm text-muted-foreground"
+          >
+            Reconnect Codex, inspect the operator workspace, and review AI tooling access.
+          </p>
+        </a>
+        <a
+          class="block rounded-2xl border border-border/60 bg-card px-5 py-5 transition hover:bg-muted/30"
+          href="/command-center"
+        >
+          <div
+            class="mb-4 flex h-10 w-10 items-center justify-center rounded-xl border border-border/60 bg-muted/40"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-bell h-5 w-5 text-foreground"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M10.268 21a2 2 0 0 0 3.464 0"
+              />
+              <path
+                d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"
+              />
+            </svg>
+          </div>
+          <h2
+            class="text-base font-semibold"
+          >
+            Notifications
+          </h2>
+          <p
+            class="mt-2 text-sm text-muted-foreground"
+          >
+            Decide which events should interrupt you versus stay in the command center.
+          </p>
+        </a>
+        <a
+          class="block rounded-2xl border border-border/60 bg-card px-5 py-5 transition hover:bg-muted/30"
+          href="/admin"
+        >
+          <div
+            class="mb-4 flex h-10 w-10 items-center justify-center rounded-xl border border-border/60 bg-muted/40"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-shield h-5 w-5 text-foreground"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"
+              />
+            </svg>
+          </div>
+          <h2
+            class="text-base font-semibold"
+          >
+            Security and access
+          </h2>
+          <p
+            class="mt-2 text-sm text-muted-foreground"
+          >
+            Review admin access paths and session expectations for the current workspace.
+          </p>
+        </a>
+      </div>
+    </section>
+  </div>
+</div>
+`;
