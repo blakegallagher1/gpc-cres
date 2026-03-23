@@ -1,6 +1,11 @@
 import { NextRequest } from "next/server";
-import type { MapContextInput } from "@entitlement-os/shared";
+import type { MapContextInput, StructuredParcelContext } from "@entitlement-os/shared";
 import { setupAgentTracing } from "@entitlement-os/openai";
+import {
+  ParcelQueryPlanner,
+  ParcelQueryExecutor,
+  ParcelSetRegistry,
+} from "@entitlement-os/openai/planning";
 import { randomUUID } from "node:crypto";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { runAgentWorkflow } from "@/lib/agent/agentRunner";
@@ -11,6 +16,141 @@ import { sanitizeChatErrorMessage } from "./_lib/errorHandling";
 import { createSseWriter, sseEvent } from "./sseWriter";
 import * as Sentry from "@sentry/nextjs";
 
+/**
+ * Simple GatewayAdapter for chat route — delegates to LOCAL_API_URL
+ */
+class GatewayAdapterForChatRoute {
+  constructor(private gatewayUrl?: string, private gatewayKey?: string) {}
+
+  async searchParcelsByBbox(query: { bounds: [number, number, number, number]; limit?: number }) {
+    if (!this.gatewayUrl || !this.gatewayKey) {
+      return [];
+    }
+    const res = await fetch(`${this.gatewayUrl}/tools/parcel.bbox`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.gatewayKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(query),
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : data.parcels ?? [];
+  }
+
+  async getParcelDetails(parcelIds: string[]) {
+    if (!this.gatewayUrl || !this.gatewayKey) {
+      return [];
+    }
+    const promises = parcelIds.map((id) =>
+      fetch(`${this.gatewayUrl}/tools/parcel.lookup`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.gatewayKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ parcel_id: id }),
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .catch(() => null),
+    );
+    const results = await Promise.all(promises);
+    return results.filter((r) => r !== null);
+  }
+
+  async screenParcels(parcelIds: string[], dimensions: string[]) {
+    // Non-critical: screening is optional on first turn
+    return [];
+  }
+}
+
+/**
+ * Build StructuredParcelContext by planning and executing parcel query
+ * Fallback to text prefix if planning fails (non-fatal)
+ */
+async function buildParcelContext(
+  mapContext: MapContextInput | null | undefined,
+  message: string,
+  orgId: string,
+  conversationId: string,
+): Promise<{
+  structured: StructuredParcelContext | null;
+  fallbackPrefix: string;
+}> {
+  try {
+    // Only plan if we have map context and a non-empty message
+    if (!mapContext || !message) {
+      return {
+        structured: null,
+        fallbackPrefix: buildMapContextPrefix(mapContext),
+      };
+    }
+
+    // Create registry + planner per-conversation
+    const registry = new ParcelSetRegistry();
+    const planner = new ParcelQueryPlanner();
+    const executor = new ParcelQueryExecutor(
+      new GatewayAdapterForChatRoute(process.env.LOCAL_API_URL, process.env.LOCAL_API_KEY),
+    );
+
+    // Plan the query
+    const plan = planner.plan({
+      message,
+      orgId,
+      mapContext,
+      registry,
+      conversationId,
+    });
+
+    // Execute the plan
+    const executionResult = await executor.execute(plan, registry, conversationId);
+
+    // Build StructuredParcelContext from execution result
+    const structured: StructuredParcelContext = {
+      plan,
+      sets: executionResult.sets.map((ms) => {
+        let analytics = null;
+        if (ms.materialization) {
+          // Build SetAnalytics from materialization data
+          // For initial implementation, use minimal but complete structure
+          analytics = {
+            totalCount: ms.materialization.count,
+            distributions: {}, // Can be enriched with zoning, parish, etc. in future
+            screeningSummary: null, // Derived from screening results if needed
+            topConstraints: [], // Most impactful constraints if needed
+            scoringSummary: null, // Can be computed from facts if needed
+          };
+        }
+        return {
+          definition: ms.definition,
+          materialization: ms.materialization,
+          analytics,
+        };
+      }),
+      conversationSetRegistry: registry.listSetIds(conversationId),
+      intent: plan.intent,
+      outputMode: plan.outputMode,
+    };
+
+    return {
+      structured,
+      fallbackPrefix: "", // If structured context succeeded, don't need fallback
+    };
+  } catch (err) {
+    // Non-fatal: planning failed, use text prefix fallback
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn("[chat-route] ParcelContext planning failed, using fallback prefix:", message);
+    return {
+      structured: null,
+      fallbackPrefix: buildMapContextPrefix(mapContext),
+    };
+  }
+}
+
+/**
+ * Legacy text-based map context (fallback)
+ */
 function buildMapContextPrefix(mapContext: MapContextInput | null | undefined): string {
   const center = mapContext?.center;
   const selected = mapContext?.selectedParcelIds ?? [];
@@ -131,13 +271,24 @@ export async function POST(req: NextRequest) {
       writer = createSseWriter(controller, encoder);
 
       try {
-        const mapContextPrefix = buildMapContextPrefix(mapContext);
+        // Build structured parcel context from planner/executor, with fallback to text prefix
+        const { structured, fallbackPrefix } = await buildParcelContext(
+          mapContext,
+          message,
+          auth.orgId,
+          requestedConversationId ?? randomUUID(),
+        );
+
+        // Construct message: structured context or fallback prefix + user message
+        const contextMessage = structured
+          ? `${JSON.stringify(structured, null, 2)}\n\n${message}`
+          : `${fallbackPrefix}${message}`;
 
         const workflow = await runAgentWorkflow({
           orgId: auth.orgId,
           userId: auth.userId,
           conversationId: requestedConversationId ?? null,
-          message: `${mapContextPrefix}${message}`,
+          message: contextMessage,
           dealId: dealId ?? null,
           runType: "ENRICHMENT",
           maxTurns: 15,
