@@ -28,6 +28,7 @@ import * as shellWorkflowTools from "./shellWorkflowTools.js";
 import * as acquisitionTools from "./acquisitions/index.js";
 import * as assetManagementTools from "./asset-mgmt/index.js";
 import * as capitalMarketsTools from "./capital-markets/index.js";
+import * as parcelSetTools from "./parcelSetTools.js";
 import { TOOL_REGISTRY } from "./toolRegistry.js";
 
 export {
@@ -192,6 +193,12 @@ export {
   capital_refinance_scenarios,
   capital_stack_optimization,
 } from "./capital-markets/index.js";
+
+export {
+  describeParcelSet,
+  listParcelSets,
+} from "./parcelSetTools.js";
+
 export {
   create_issue,
   list_issues,
@@ -345,6 +352,10 @@ const {
   capital_refinance_scenarios,
   capital_stack_optimization,
 } = capitalMarketsTools;
+const {
+  describeParcelSet,
+  listParcelSets,
+} = parcelSetTools;
 const { allPluginTools: registeredPluginTools } = TOOL_REGISTRY;
 
 // --- Agent-specific tool collections ---
@@ -418,6 +429,8 @@ export const coordinatorTools = [
   compare_document_vs_deal_terms,
   search_document_content,
   run_underwriting_workflow,
+  describeParcelSet,
+  listParcelSets,
 ];
 
 /** Tools available to the Legal / Entitlements agent. */
