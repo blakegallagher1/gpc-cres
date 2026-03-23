@@ -422,7 +422,8 @@ export const coordinatorTools = [
   screenLdeq,
   screenFull,
   screenBatch,
-  queryPropertyDb,
+  // queryPropertyDb removed — strictly inferior to queryPropertyDbSql,
+  // agent kept picking it despite routing rules and tool policy exclusion.
   queryPropertyDbSql,
   computeDriveTimeArea,
   get_area_summary,
@@ -481,7 +482,6 @@ export const researchTools = [
   predict_entitlement_path,
   get_entitlement_feature_primitives,
   get_entitlement_intelligence_kpis,
-  queryPropertyDb,
   queryPropertyDbSql,
 ];
 
@@ -565,7 +565,6 @@ export const screenerTools = [
   get_shared_context,
   assess_uncertainty,
   log_reasoning_trace,
-  queryPropertyDb,
   queryPropertyDbSql,
   recall_property_intelligence,
 ];

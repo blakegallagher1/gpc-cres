@@ -49,7 +49,8 @@ export const TOOL_NAME_ALIASES: Record<string, string> = {
 
   searchParcels: "search_parcels",
   getParcelDetails: "get_parcel_details",
-  queryPropertyDb: "query_property_db",
+  // queryPropertyDb removed — use queryPropertyDbSql for all property queries
+  queryPropertyDb: "query_property_db_sql",
   queryPropertyDbSql: "query_property_db_sql",
   screenZoning: "screen_zoning",
   screenFlood: "screen_flood",
