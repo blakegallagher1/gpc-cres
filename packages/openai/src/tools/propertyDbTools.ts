@@ -285,7 +285,7 @@ function extractMapFeatures(
   return features;
 }
 
-function wrapResultWithMapFeatures(result: unknown): string {
+export function wrapResultWithMapFeatures(result: unknown): string {
   const text = JSON.stringify(result);
   const features = extractMapFeatures(result);
   if (features.length === 0) return text;
