@@ -22,24 +22,6 @@ function isInternalFailureMessage(message: string): boolean {
   );
 }
 
-function isGatewayProxyErrorMessage(message: string): boolean {
-  const normalized = message.toLowerCase();
-  return (
-    normalized.includes("gateway db proxy error") ||
-    (normalized.includes("proxy error") && /\b5\d{2}\b/.test(normalized))
-  );
-}
-
-function isInvalidQueryParametersMessage(message: string): boolean {
-  const normalized = message.toLowerCase();
-  return (
-    normalized.includes("invalid query parameters") ||
-    normalized.includes("must be a valid uuid") ||
-    normalized.includes("query parameter") ||
-    normalized.includes("savedsearchid must be a valid uuid")
-  );
-}
-
 function isSystemConfigurationErrorMessage(message: string): boolean {
   const normalized = message.toLowerCase();
   return (
@@ -64,23 +46,6 @@ export function sanitizeChatErrorMessage(
   message: string,
   correlationId?: string,
 ): ChatClientErrorPayload {
-  if (isGatewayProxyErrorMessage(message)) {
-    return {
-      code: "upstream_service_error",
-      correlationId,
-      message:
-        "The requested analysis could not start. Link a deal if this command is deal-specific, then try again.",
-    };
-  }
-
-  if (isInvalidQueryParametersMessage(message)) {
-    return {
-      code: "invalid_query_parameters",
-      correlationId,
-      message: "This panel could not load with the current filters. Retry or reset the selection.",
-    };
-  }
-
   if (!isGuardrailTripwireMessage(message)) {
     if (
       isInternalFailureMessage(message) ||

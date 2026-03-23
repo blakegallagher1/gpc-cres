@@ -12,7 +12,6 @@ export interface DealSummary {
   name: string;
   sku: string;
   status: string;
-  currentStageKey?: string | null;
   jurisdiction?: { name: string } | null;
   createdAt: string;
   triageTier?: string | null;
