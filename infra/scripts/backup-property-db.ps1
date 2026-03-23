@@ -10,7 +10,7 @@ param(
     [string]$BackupDir = "C:\backups\property-db",
     [int]$RetentionDays = 30,
     [string]$ContainerName = "local-postgis",
-    [string]$DbName = "postgres",
+    [string]$DbName = "cres_db",
     [string]$User = "postgres"
 )
 
