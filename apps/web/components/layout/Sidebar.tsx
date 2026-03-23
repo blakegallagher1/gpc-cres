@@ -1,16 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { usePathname } from "next/navigation";
-import { Building2, ChevronsLeft, ChevronsRight, Menu } from "lucide-react";
+import { Building2, ChevronDown, ChevronRight, ChevronsLeft, ChevronsRight, Menu } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/stores/uiStore";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import {
   getWorkspaceRouteContext,
+  PINNED_NAV_ITEM,
+  FOOTER_NAV_ITEMS,
   WORKSPACE_NAV_GROUPS,
   WORKSPACE_ROUTE_COUNT,
 } from "./workspaceRoutes";
@@ -27,6 +29,32 @@ export function Sidebar() {
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
   const isMobile = useIsMobile();
   const { route: activeRoute, group: activeGroup } = getWorkspaceRouteContext(pathname);
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+
+  // Load collapsed groups from localStorage on mount
+  useEffect(() => {
+    const stored = localStorage.getItem("sidebar-collapsed-groups");
+    if (stored) {
+      try {
+        setCollapsedGroups(JSON.parse(stored));
+      } catch {
+        // Ignore parse errors
+      }
+    }
+  }, []);
+
+  // Persist collapsed groups to localStorage
+  const toggleGroupCollapse = (groupLabel: string) => {
+    setCollapsedGroups((prev) => {
+      const updated = {
+        ...prev,
+        [groupLabel]: !prev[groupLabel],
+      };
+      localStorage.setItem("sidebar-collapsed-groups", JSON.stringify(updated));
+      return updated;
+    });
+  };
+
   const todayLabel = useMemo(
     () =>
       new Intl.DateTimeFormat("en-US", {
@@ -120,71 +148,187 @@ export function Sidebar() {
         )}
 
         <nav className="flex-1 overflow-y-auto px-3 py-4">
-          {WORKSPACE_NAV_GROUPS.map((group) => (
-            <div key={group.label} className="mb-5">
-              {isExpanded && (
-                <div className="mb-2 flex items-center justify-between gap-2 px-3">
-                  <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground/80">
-                    {group.label}
-                  </p>
-                  <span className="rounded-full border border-border/60 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-                    {group.items.length}
-                  </span>
-                </div>
-              )}
-              <div className="space-y-1">
-                {group.items.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = activeRoute.href === item.href;
-
-                  return (
-                    <Link
-                      key={item.id}
-                      href={item.href}
-                      onClick={() => {
-                        if (isMobile) toggleSidebar();
-                      }}
-                      aria-current={isActive ? "page" : undefined}
+          {/* Pinned Chat Item */}
+          {isExpanded && (
+            <div className="mb-3 pb-3 border-b border-white/10">
+              {(() => {
+                const Icon = PINNED_NAV_ITEM.icon;
+                const isActive = activeRoute.href === PINNED_NAV_ITEM.href;
+                return (
+                  <Link
+                    href={PINNED_NAV_ITEM.href}
+                    onClick={() => {
+                      if (isMobile) toggleSidebar();
+                    }}
+                    aria-current={isActive ? "page" : undefined}
+                    className={cn(
+                      "group relative flex min-h-12 items-start gap-3 overflow-hidden rounded-2xl px-3 py-3 text-left text-sm transition-[color,background-color] duration-200",
+                      isActive
+                        ? "text-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                    title={!isExpanded ? PINNED_NAV_ITEM.label : undefined}
+                  >
+                    {isActive && (
+                      <motion.span
+                        layoutId="workspace-active-pill"
+                        transition={reduceMotion ? { duration: 0 } : SIDEBAR_TRANSITION}
+                        className="app-shell-panel absolute inset-0 rounded-2xl"
+                      />
+                    )}
+                    <span
                       className={cn(
-                        "group relative flex min-h-12 items-start gap-3 overflow-hidden rounded-2xl px-3 py-3 text-left text-sm transition-[color,background-color] duration-200",
+                        "relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors",
                         isActive
-                          ? "text-foreground"
-                          : "text-muted-foreground hover:text-foreground"
+                          ? "border-border bg-background/70 text-foreground"
+                          : "border-transparent bg-transparent text-muted-foreground group-hover:border-border/60 group-hover:bg-background/60 group-hover:text-foreground"
                       )}
-                      title={!isExpanded ? item.label : undefined}
                     >
-                      {isActive && (
-                        <motion.span
-                          layoutId="workspace-active-pill"
-                          transition={reduceMotion ? { duration: 0 } : SIDEBAR_TRANSITION}
-                          className="app-shell-panel absolute inset-0 rounded-2xl"
-                        />
-                      )}
-                      <span
-                        className={cn(
-                          "relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors",
-                          isActive
-                            ? "border-border bg-background/70 text-foreground"
-                            : "border-transparent bg-transparent text-muted-foreground group-hover:border-border/60 group-hover:bg-background/60 group-hover:text-foreground"
-                        )}
-                      >
-                        <Icon className="h-4 w-4" />
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <span className="relative z-10 min-w-0 flex-1">
+                      <span className="block truncate font-medium">{PINNED_NAV_ITEM.label}</span>
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {PINNED_NAV_ITEM.description}
                       </span>
-                      {isExpanded && (
-                        <span className="relative z-10 min-w-0 flex-1">
-                          <span className="block truncate font-medium">{item.label}</span>
-                          <span className="block truncate text-xs text-muted-foreground">
-                            {item.description}
-                          </span>
-                        </span>
-                      )}
-                    </Link>
-                  );
-                })}
-              </div>
+                    </span>
+                  </Link>
+                );
+              })()}
             </div>
-          ))}
+          )}
+
+          {/* Nav Groups with Collapse */}
+          {WORKSPACE_NAV_GROUPS.map((group) => {
+            const isCollapsed = collapsedGroups[group.label];
+            return (
+              <div key={group.label} className="mb-5">
+                {isExpanded && (
+                  <button
+                    onClick={() => toggleGroupCollapse(group.label)}
+                    className="mb-2 flex w-full items-center justify-between gap-2 px-3 text-left hover:opacity-80 transition-opacity"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      {isCollapsed ? (
+                        <ChevronRight className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                      )}
+                      <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground/80">
+                        {group.label}
+                      </p>
+                    </div>
+                    <span className="rounded-full border border-border/60 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground flex-shrink-0">
+                      {group.items.length}
+                    </span>
+                  </button>
+                )}
+                {!isCollapsed && (
+                  <div className="space-y-1">
+                    {group.items.map((item) => {
+                      const Icon = item.icon;
+                      const isActive = activeRoute.href === item.href;
+
+                      return (
+                        <Link
+                          key={item.id}
+                          href={item.href}
+                          onClick={() => {
+                            if (isMobile) toggleSidebar();
+                          }}
+                          aria-current={isActive ? "page" : undefined}
+                          className={cn(
+                            "group relative flex min-h-12 items-start gap-3 overflow-hidden rounded-2xl px-3 py-3 text-left text-sm transition-[color,background-color] duration-200",
+                            isActive
+                              ? "text-foreground"
+                              : "text-muted-foreground hover:text-foreground"
+                          )}
+                          title={!isExpanded ? item.label : undefined}
+                        >
+                          {isActive && (
+                            <motion.span
+                              layoutId="workspace-active-pill"
+                              transition={reduceMotion ? { duration: 0 } : SIDEBAR_TRANSITION}
+                              className="app-shell-panel absolute inset-0 rounded-2xl"
+                            />
+                          )}
+                          <span
+                            className={cn(
+                              "relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors",
+                              isActive
+                                ? "border-border bg-background/70 text-foreground"
+                                : "border-transparent bg-transparent text-muted-foreground group-hover:border-border/60 group-hover:bg-background/60 group-hover:text-foreground"
+                            )}
+                          >
+                            <Icon className="h-4 w-4" />
+                          </span>
+                          {isExpanded && (
+                            <span className="relative z-10 min-w-0 flex-1">
+                              <span className="block truncate font-medium">{item.label}</span>
+                              <span className="block truncate text-xs text-muted-foreground">
+                                {item.description}
+                              </span>
+                            </span>
+                          )}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </nav>
+
+        {/* Footer Items */}
+        {isExpanded && (
+          <div className="border-t border-white/10 px-3 py-3 mt-3 pt-3">
+            <div className="flex items-center gap-2">
+              {FOOTER_NAV_ITEMS.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeRoute.href === item.href;
+                return (
+                  <Link
+                    key={item.id}
+                    href={item.href}
+                    onClick={() => {
+                      if (isMobile) toggleSidebar();
+                    }}
+                    aria-current={isActive ? "page" : undefined}
+                    className={cn(
+                      "group relative flex flex-1 min-h-10 items-center justify-center gap-2 overflow-hidden rounded-xl px-2 py-2 text-left text-xs transition-[color,background-color] duration-200",
+                      isActive
+                        ? "text-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                    title={item.label}
+                  >
+                    {isActive && (
+                      <motion.span
+                        layoutId="workspace-active-pill"
+                        transition={reduceMotion ? { duration: 0 } : SIDEBAR_TRANSITION}
+                        className="app-shell-panel absolute inset-0 rounded-xl"
+                      />
+                    )}
+                    <span
+                      className={cn(
+                        "relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border transition-colors",
+                        isActive
+                          ? "border-border bg-background/70 text-foreground"
+                          : "border-transparent bg-transparent text-muted-foreground group-hover:border-border/60 group-hover:bg-background/60 group-hover:text-foreground"
+                      )}
+                    >
+                      <Icon className="h-3 w-3" />
+                    </span>
+                    <span className="relative z-10 text-[10px] font-medium hidden sm:inline">
+                      {item.label}
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <div className="border-t border-border/60 p-3">
           <div className="app-shell-panel flex items-center gap-3 rounded-2xl px-3 py-3">

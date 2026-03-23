@@ -5,16 +5,14 @@ import {
   Bot,
   Briefcase,
   Building2,
-  Crosshair,
   FileSearch,
-  FileText,
+  LayoutDashboard,
   Map,
   MessageSquare,
   PieChart,
-  Play,
+  Settings,
   Shield,
   Sparkles,
-  Wallet,
 } from "lucide-react";
 
 /**
@@ -46,86 +44,78 @@ export interface WorkspaceRouteContext {
 }
 
 const DEFAULT_ROUTE: WorkspaceNavItem = {
-  id: "workspace",
+  id: "chat",
   href: "/chat",
-  icon: Building2,
-  label: "Workspace",
-  title: "Gallagher workspace",
-  description: "Operate across development, investment, and entitlement workflows.",
+  icon: MessageSquare,
+  label: "Chat",
+  title: "Chat",
+  description: "AI assistant for ad-hoc queries and agent interactions",
 };
+
+/**
+ * Pinned item — always visible above groups.
+ */
+export const PINNED_NAV_ITEM: WorkspaceNavItem = {
+  id: "chat",
+  href: "/chat",
+  icon: MessageSquare,
+  label: "Chat",
+  description: "AI assistant for ad-hoc queries and agent interactions",
+  title: "Chat",
+};
+
+/**
+ * Footer items — below groups, above user profile.
+ */
+export const FOOTER_NAV_ITEMS: WorkspaceNavItem[] = [
+  {
+    id: "settings",
+    href: "/settings",
+    icon: Settings,
+    label: "Settings",
+    description: "User preferences and configuration",
+    title: "Settings",
+  },
+  {
+    id: "admin",
+    href: "/admin",
+    icon: Shield,
+    label: "Admin",
+    description: "System configuration and user management",
+    title: "Admin",
+  },
+];
 
 /**
  * Canonical authenticated navigation structure for the application shell.
  */
 export const WORKSPACE_NAV_GROUPS: WorkspaceNavGroup[] = [
   {
-    label: "Execution",
+    label: "Operate",
     items: [
       {
-        id: "chat",
-        href: "/chat",
-        icon: MessageSquare,
-        label: "Chat",
-        title: "Acquisition desk",
-        description: "Run diligence, entitlement, and capital questions against live deal context.",
+        id: "command-center",
+        href: "/command-center",
+        icon: LayoutDashboard,
+        label: "Command Center",
+        description: "Daily cockpit, AI operating brief, priority queue",
+        title: "Command Center",
       },
       {
         id: "deals",
         href: "/deals",
         icon: Briefcase,
         label: "Deals",
-        title: "Deal pipeline",
-        description: "Review live projects, underwriting progress, and deal-room movement.",
+        description: "Pipeline hub with Kanban board and deal details",
+        title: "Deals",
       },
       {
         id: "map",
         href: "/map",
         icon: Map,
         label: "Map",
-        title: "Parcel intelligence map",
-        description: "Search parcels, draw geofences, and move site context into active workflows.",
-      },
-    ],
-  },
-  {
-    label: "Development",
-    items: [
-      {
-        id: "prospecting",
-        href: "/prospecting",
-        icon: Crosshair,
-        label: "Prospecting",
-        title: "Prospecting workspace",
-        description: "Surface target sites, run screening filters, and shape the next acquisition set.",
-      },
-      {
-        id: "opportunities",
-        href: "/opportunities",
-        icon: Sparkles,
-        label: "Opportunities",
-        title: "Opportunity inbox",
-        description: "Triage sourced opportunities and route them into the operating pipeline.",
-      },
-    ],
-  },
-  {
-    label: "Capital",
-    items: [
-      {
-        id: "portfolio",
-        href: "/portfolio",
-        icon: PieChart,
-        label: "Portfolio",
-        title: "Portfolio view",
-        description: "Track holdings, concentration, deployment, and portfolio-level performance.",
-      },
-      {
-        id: "wealth",
-        href: "/wealth",
-        icon: Wallet,
-        label: "Wealth",
-        title: "Wealth operations",
-        description: "Monitor entity structure, tax timing, and owner-level coordination.",
+        description: "Spatial intelligence, prospecting, and parcel analysis",
+        title: "Map",
       },
     ],
   },
@@ -133,90 +123,73 @@ export const WORKSPACE_NAV_GROUPS: WorkspaceNavGroup[] = [
     label: "Intelligence",
     items: [
       {
-        id: "command-center",
-        href: "/command-center",
+        id: "opportunities",
+        href: "/opportunities",
         icon: Sparkles,
-        label: "Command Center",
-        title: "Command center",
-        description: "Review the current operating brief, priority queue, and portfolio pulse.",
+        label: "Opportunities",
+        description: "Match inbox from automated scans",
+        title: "Opportunities",
       },
+      {
+        id: "market-intel",
+        href: "/market",
+        icon: BarChart3,
+        label: "Market Intel",
+        description: "Parish data, permits, and market analysis",
+        title: "Market Intel",
+      },
+      {
+        id: "portfolio",
+        href: "/portfolio",
+        icon: PieChart,
+        label: "Portfolio",
+        description: "Financial analytics and portfolio tracking",
+        title: "Portfolio",
+      },
+    ],
+  },
+  {
+    label: "System",
+    items: [
       {
         id: "agents",
         href: "/agents",
         icon: Bot,
-        label: "Agents",
-        title: "Agent roster",
-        description: "Inspect active agents, responsibilities, and orchestration coverage.",
-      },
-      {
-        id: "runs",
-        href: "/runs",
-        icon: Play,
-        label: "Runs",
-        title: "Run history",
-        description: "Audit completed runs, trace output quality, and reopen prior execution paths.",
+        label: "Agents & Runs",
+        description: "Agent roster and run history",
+        title: "Agents & Runs",
       },
       {
         id: "automation",
         href: "/automation",
         icon: Activity,
         label: "Automation",
-        title: "Automation ledger",
-        description: "Monitor recurring jobs, recent outcomes, and operational drift.",
+        description: "Background job configuration and monitoring",
+        title: "Automation",
       },
-    ],
-  },
-  {
-    label: "Reference",
-    items: [
       {
         id: "reference",
         href: "/reference",
         icon: FileSearch,
         label: "Reference Data",
-        title: "Reference data",
-        description: "Maintain source records, lookup tables, and supporting operating context.",
-      },
-      {
-        id: "market-settings",
-        href: "/market",
-        icon: BarChart3,
-        label: "Market Intel",
-        title: "Market intelligence",
-        description: "Track the local market picture and supporting intelligence feeds.",
-      },
-      {
-        id: "building-permits",
-        href: "/market/building-permits",
-        icon: FileText,
-        label: "Permit Intel",
-        title: "Permit intelligence",
-        description: "Monitor permit activity and development velocity signals across the market.",
-      },
-    ],
-  },
-  {
-    label: "Admin",
-    items: [
-      {
-        id: "admin",
-        href: "/admin",
-        icon: Shield,
-        label: "Admin",
-        title: "Admin controls",
-        description: "Access system controls, operational tooling, and governance surfaces.",
+        description: "Parish rules, zoning codes, and reference data",
+        title: "Reference Data",
       },
     ],
   },
 ];
 
-const ALL_WORKSPACE_ROUTES = WORKSPACE_NAV_GROUPS.flatMap((group) => group.items);
+const ALL_WORKSPACE_ROUTES = [
+  PINNED_NAV_ITEM,
+  ...WORKSPACE_NAV_GROUPS.flatMap((group) => group.items),
+  ...FOOTER_NAV_ITEMS,
+];
 const DEFAULT_GROUP = WORKSPACE_NAV_GROUPS[0]!;
 
 /**
  * Total number of canonical authenticated routes in the operating-system shell.
  */
-export const WORKSPACE_ROUTE_COUNT = ALL_WORKSPACE_ROUTES.length;
+export const WORKSPACE_ROUTE_COUNT = WORKSPACE_NAV_GROUPS.flatMap((group) => group.items).length;
 
 /**
  * Resolves the closest matching route descriptor for the current pathname.
@@ -236,8 +209,28 @@ export function getWorkspaceRouteContext(pathname: string | null): WorkspaceRout
     };
   }
 
+  // Check pinned item first
+  if (pathname === PINNED_NAV_ITEM.href || pathname.startsWith(`${PINNED_NAV_ITEM.href}/`)) {
+    return {
+      route: PINNED_NAV_ITEM,
+      group: DEFAULT_GROUP,
+    };
+  }
+
+  // Check footer items
+  const footerMatch = FOOTER_NAV_ITEMS.find(
+    (item) => pathname === item.href || pathname.startsWith(`${item.href}/`)
+  );
+  if (footerMatch) {
+    return {
+      route: footerMatch,
+      group: DEFAULT_GROUP,
+    };
+  }
+
+  // Check grouped items
   const matchedRoute =
-    [...ALL_WORKSPACE_ROUTES]
+    [...WORKSPACE_NAV_GROUPS.flatMap((group) => group.items)]
       .sort((left, right) => right.href.length - left.href.length)
       .find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`)) ?? DEFAULT_ROUTE;
 
