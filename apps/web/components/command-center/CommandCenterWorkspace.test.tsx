@@ -218,4 +218,101 @@ describe("CommandCenterWorkspace", () => {
     expect(screen.getByRole("button", { name: "Export" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Refresh" })).toBeInTheDocument();
   });
+
+  it("shows cached opportunity fallback when refresh fails", () => {
+    useSWRMock.mockImplementation((url: string) => {
+      if (url === "/api/intelligence/daily-briefing") {
+        return {
+          data: {
+            generatedAt: "2026-03-20T12:00:00.000Z",
+            summary: "Cached briefing",
+            sections: {
+              newActivity: { label: "Last 24 hours", items: [] },
+              needsAttention: { label: "Needs attention", items: [] },
+              automationActivity: { label: "Automation", items: [] },
+              pipelineSnapshot: { label: "Pipeline", stages: [] },
+            },
+          },
+          error: undefined,
+          isLoading: false,
+          mutate: vi.fn(),
+        };
+      }
+
+      if (url === "/api/portfolio") {
+        return {
+          data: { deals: [], metrics: { totalDeals: 0, byStatus: {} } },
+          error: undefined,
+          isLoading: false,
+          mutate: vi.fn(),
+        };
+      }
+
+      if (url === "/api/intelligence/deadlines") {
+        return {
+          data: { total: 0, deadlines: [] },
+          error: undefined,
+          isLoading: false,
+          mutate: vi.fn(),
+        };
+      }
+
+      if (url === "/api/opportunities?limit=6") {
+        return {
+          data: {
+            total: 1,
+            opportunities: [
+              {
+                id: "opp-1",
+                matchScore: "86",
+                priorityScore: 91,
+                parcelData: {
+                  parish: "EBR",
+                  parcelUid: "123",
+                  ownerName: "Owner",
+                  address: "2774 HIGHLAND RD",
+                  acreage: 1.5,
+                  lat: 0,
+                  lng: 0,
+                },
+                parcelId: "parcel-1",
+                feedbackSignal: "new",
+                thesis: {
+                  summary: "Assemblage is clear and access looks favorable.",
+                  whyNow: "Zoning cycle is open.",
+                  angle: "Truck parking",
+                  nextBestAction: "Verify zoning by district.",
+                  confidence: 0.82,
+                  keyRisks: [],
+                  signals: [],
+                },
+                savedSearch: {
+                  id: "search-1",
+                  name: "Truck Parking",
+                },
+                createdAt: "2026-03-20T11:15:00.000Z",
+              },
+            ],
+          },
+          error: new Error("fetch failed"),
+          isLoading: false,
+          mutate: vi.fn(),
+        };
+      }
+
+      return {
+        data: undefined,
+        error: undefined,
+        isLoading: false,
+        mutate: vi.fn(),
+      };
+    });
+
+    render(<CommandCenterWorkspace />);
+
+    expect(
+      screen.getByText("Opportunity data could not be refreshed. Using cached data."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+  });
 });

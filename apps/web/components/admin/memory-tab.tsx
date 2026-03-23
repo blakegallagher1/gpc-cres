@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,12 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import { Trash2, ChevronLeft, ChevronRight } from "lucide-react";
-import type { KeyedMutator } from "swr";
+import { AdminTabNotice } from "@/components/admin/AdminTabNotice";
+
+interface AdminTabError {
+  message: string;
+  detail?: string;
+}
 
 interface VerifiedFactRow {
   id: string;
@@ -42,7 +47,7 @@ interface EntityRow {
 
 interface MemoryData {
   subTab: "facts" | "entities";
-  rows: VerifiedFactRow[] | EntityRow[];
+  rows: Array<VerifiedFactRow | EntityRow>;
   total: number;
   page: number;
 }
@@ -50,11 +55,13 @@ interface MemoryData {
 interface Props {
   data: MemoryData | undefined;
   isLoading: boolean;
-  mutate: KeyedMutator<Record<string, unknown>>;
+  mutate: () => void | Promise<unknown>;
   page: number;
   onPageChange: (page: number) => void;
   subTab: "facts" | "entities";
   onSubTabChange: (subTab: "facts" | "entities") => void;
+  error?: AdminTabError;
+  onRetry: () => void;
 }
 
 function formatRelativeTime(dateStr: string): string {
@@ -73,10 +80,21 @@ function confidenceColor(weight: number): string {
   return "bg-red-500";
 }
 
-export default function MemoryTab({ data, isLoading, mutate, page, onPageChange, subTab, onSubTabChange }: Props) {
+export default function MemoryTab({
+  data,
+  isLoading,
+  mutate,
+  page,
+  onPageChange,
+  subTab,
+  onSubTabChange,
+  error,
+  onRetry,
+}: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const hasData = Boolean(data);
 
   async function handleDeleteMemory(id: string) {
     if (confirmDeleteId !== id) {
@@ -97,7 +115,7 @@ export default function MemoryTab({ data, isLoading, mutate, page, onPageChange,
     }
   }
 
-  if (isLoading || !data) {
+  if (isLoading && !hasData) {
     return (
       <div className="space-y-4 pt-4">
         <Skeleton className="h-10 w-48" />
@@ -106,8 +124,24 @@ export default function MemoryTab({ data, isLoading, mutate, page, onPageChange,
     );
   }
 
+  if (!data) {
+    return (
+      <div className="space-y-4 pt-4">
+        {error ? <AdminTabNotice hasData={false} onRetry={onRetry} /> : null}
+        <Card>
+          <CardContent className="py-10">
+            <p className="text-sm text-muted-foreground">
+              Memory records will appear here once the storage service responds.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4 pt-4">
+      {error ? <AdminTabNotice hasData={true} onRetry={onRetry} /> : null}
       {/* Sub-tab pills */}
       <div className="flex gap-2">
         <Button
@@ -152,9 +186,8 @@ export default function MemoryTab({ data, isLoading, mutate, page, onPageChange,
                   </TableRow>
                 ) : (
                   (data.rows as VerifiedFactRow[]).map((row) => (
-                    <>
+                    <Fragment key={row.id}>
                       <TableRow
-                        key={row.id}
                         className="cursor-pointer hover:bg-muted/50"
                         onClick={() => setExpandedId(expandedId === row.id ? null : row.id)}
                       >
@@ -194,7 +227,7 @@ export default function MemoryTab({ data, isLoading, mutate, page, onPageChange,
                         </TableCell>
                       </TableRow>
                       {expandedId === row.id && (
-                        <TableRow key={`${row.id}-detail`}>
+                        <TableRow>
                           <TableCell colSpan={7} className="bg-muted/30 p-4">
                             <pre className="text-xs overflow-x-auto">
                               {JSON.stringify(row.payloadJson, null, 2)}
@@ -202,7 +235,7 @@ export default function MemoryTab({ data, isLoading, mutate, page, onPageChange,
                           </TableCell>
                         </TableRow>
                       )}
-                    </>
+                    </Fragment>
                   ))
                 )}
               </TableBody>

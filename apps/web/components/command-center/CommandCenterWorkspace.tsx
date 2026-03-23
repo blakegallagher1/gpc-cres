@@ -344,34 +344,30 @@ export function CommandCenterWorkspace() {
             {...sectionMotion}
             transition={reduceMotion ? undefined : { ...revealTransition, delay: 0.2 }}
           >
-            {opportunitiesError ? (
-              <div className="rounded-2xl border border-destructive/40 bg-destructive/5 px-4 py-4 text-sm text-destructive">
-                {opportunitiesError.message}
-              </div>
-            ) : (
-              <OpportunityRadarSection
+            <OpportunityRadarSection
                 opportunities={opportunities}
                 total={opportunitiesResponse?.total ?? 0}
                 isLoading={opportunitiesLoading}
+                error={opportunitiesError}
+                onRetry={() => {
+                  void mutateOpportunities();
+                }}
               />
-            )}
           </motion.div>
 
           <motion.div
             {...sectionMotion}
             transition={reduceMotion ? undefined : { ...revealTransition, delay: 0.25 }}
           >
-            {portfolioError ? (
-              <div className="rounded-2xl border border-destructive/40 bg-destructive/5 px-4 py-4 text-sm text-destructive">
-                {portfolioError.message}
-              </div>
-            ) : (
-              <PipelineFlowSection
-                briefing={briefing}
-                cadenceBuckets={cadenceBuckets}
-                isLoading={briefingLoading || portfolioLoading}
-              />
-            )}
+            <PipelineFlowSection
+              briefing={briefing}
+              cadenceBuckets={cadenceBuckets}
+              isLoading={briefingLoading || portfolioLoading}
+              error={portfolioError}
+              onRetry={() => {
+                void mutatePortfolio();
+              }}
+            />
           </motion.div>
 
           <motion.div
@@ -402,6 +398,9 @@ export function CommandCenterWorkspace() {
             deadlines={deadlines}
             isLoading={deadlinesLoading}
             error={deadlinesError}
+            onRetry={() => {
+              void mutateDeadlines();
+            }}
           />
           <AutomationStreamSection
             items={briefing?.sections.automationActivity.items ?? []}

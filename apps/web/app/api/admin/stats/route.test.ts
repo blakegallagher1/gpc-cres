@@ -105,6 +105,18 @@ describe("GET /api/admin/stats", () => {
     expect(await response.json()).toEqual({ error: "Unauthorized" });
   });
 
+  it("returns 400 for invalid tab names", async () => {
+    const response = await GET(
+      new NextRequest("http://localhost/api/admin/stats?tab=invalid"),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: "Invalid tab parameter",
+      detail: "Expected one of: overview, knowledge, memory, agents, system, all",
+    });
+  });
+
   it("returns overview data when procedural skill episodes table is missing", async () => {
     setupOverviewMocks();
     proceduralSkillEpisodeCountMock.mockRejectedValueOnce({
@@ -217,4 +229,30 @@ describe("GET /api/admin/stats", () => {
       }),
     ]);
   });
+
+  it("returns partial overview errors with fallback values", async () => {
+    setupOverviewMocks();
+    memoryVerifiedCountMock.mockRejectedValueOnce(new Error("db unavailable"));
+    proceduralSkillEpisodeCountMock.mockResolvedValueOnce(9);
+
+    const response = await GET(
+      new NextRequest("http://localhost/api/admin/stats?tab=overview"),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.errors).toMatchObject({
+      overview: {
+        message: "Unable to load this section",
+        detail: "db unavailable",
+      },
+    });
+    expect(body.overview).toMatchObject({
+      knowledgeCount: 11,
+      verifiedCount: 0,
+      entityCount: 4,
+      proceduralSkillEpisodeCount: 9,
+    });
+  });
+
 });

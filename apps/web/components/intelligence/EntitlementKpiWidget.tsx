@@ -2,7 +2,7 @@
 
 import { type ComponentType, useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
-import { Activity, Gauge, Timer, TrendingUp } from "lucide-react";
+import { Activity, Gauge, RefreshCw, Timer, TrendingUp } from "lucide-react";
 import {
   CartesianGrid,
   Legend,
@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const fetcher = async (url: string) => {
@@ -124,14 +125,15 @@ function Metric({
 }
 
 export function EntitlementKpiWidget() {
-  const { data: jurisdictionData, isLoading: loadingJurisdictions } = useSWR<JurisdictionResponse>(
-    "/api/jurisdictions",
-    fetcher,
-    {
-      revalidateOnFocus: false,
-      dedupingInterval: 300_000,
-    },
-  );
+  const {
+    data: jurisdictionData,
+    isLoading: loadingJurisdictions,
+    error: jurisdictionsError,
+    mutate: mutateJurisdictions,
+  } = useSWR<JurisdictionResponse>("/api/jurisdictions", fetcher, {
+    revalidateOnFocus: false,
+    dedupingInterval: 300_000,
+  });
 
   const [jurisdictionId, setJurisdictionId] = useState<string>("");
   const jurisdictionOptions = jurisdictionData?.jurisdictions ?? [];
@@ -149,10 +151,18 @@ export function EntitlementKpiWidget() {
     data: kpi,
     isLoading: loadingKpis,
     error: kpiError,
+    mutate: mutateKpi,
   } = useSWR<EntitlementKpiResponse>(kpiUrl, fetcher, {
     revalidateOnFocus: false,
     dedupingInterval: 120_000,
   });
+
+  const handleRetryKpi = () => {
+    void mutateJurisdictions();
+    void mutateKpi();
+  };
+  const hasKpi = Boolean(kpi);
+  const hasJurisdictions = jurisdictionOptions.length > 0;
 
   const trendData = useMemo(() => {
     const points = kpi?.trend ?? [];
@@ -208,19 +218,51 @@ export function EntitlementKpiWidget() {
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {!loadingJurisdictions && jurisdictionOptions.length === 0 && (
+        {kpiError ? (
+          <div className="rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2">
+            <p className="text-sm text-destructive">
+              {hasKpi
+                ? "Showing the last KPI snapshot while the monitor retries."
+                : "Unable to load entitlement KPI monitor."}
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-2"
+              onClick={handleRetryKpi}
+            >
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Retry
+            </Button>
+          </div>
+        ) : null}
+
+        {jurisdictionsError && !hasJurisdictions ? (
+          <div className="rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2">
+            <p className="text-sm text-destructive">Unable to load jurisdictions.</p>
+            <Button variant="outline" size="sm" className="mt-2" onClick={handleRetryKpi}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Retry
+            </Button>
+          </div>
+        ) : null}
+
+        {!loadingJurisdictions && jurisdictionOptions.length === 0 && !jurisdictionsError ? (
           <p className="text-sm text-muted-foreground">
             No jurisdictions found. Add a jurisdiction to enable entitlement KPI monitoring.
           </p>
-        )}
+        ) : null}
 
-        {kpiError && (
-          <p className="text-sm text-red-600 dark:text-red-400">
-            {kpiError.message}
+        {loadingJurisdictions && jurisdictionOptions.length === 0 ? (
+          <div className="space-y-3">
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-56 w-full" />
+          </div>
+        ) : kpiError && !kpi ? (
+          <p className="text-sm text-muted-foreground">
+            No cached KPI snapshot is available yet.
           </p>
-        )}
-
-        {loadingKpis ? (
+        ) : loadingKpis ? (
           <div className="space-y-3">
             <Skeleton className="h-20 w-full" />
             <Skeleton className="h-56 w-full" />

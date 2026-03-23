@@ -11,6 +11,7 @@ import {
   Clock3,
   ExternalLink,
   Loader2,
+  RefreshCw,
   Sparkles,
   Zap,
 } from "lucide-react";
@@ -130,6 +131,7 @@ export function OperatingBriefSection({
   error?: Error;
   onRetry: () => void;
 }) {
+  const hasData = Boolean(briefing);
   return (
     <Surface
       title="Operating brief"
@@ -146,7 +148,7 @@ export function OperatingBriefSection({
         ) : undefined
       }
     >
-      {isLoading ? (
+      {isLoading && !hasData ? (
         <div className="space-y-4">
           <Skeleton className="h-5 w-2/3" />
           <Skeleton className="h-4 w-full" />
@@ -156,15 +158,23 @@ export function OperatingBriefSection({
             <Skeleton className="h-12 w-full" />
           </div>
         </div>
-      ) : error ? (
+      ) : error && !hasData ? (
         <div className="flex flex-col items-start gap-3">
-          <p className="text-sm text-destructive">{error.message}</p>
+          <p className="text-sm text-destructive">Unable to load operating brief.</p>
           <Button variant="outline" size="sm" onClick={onRetry}>
             Retry briefing
           </Button>
         </div>
       ) : briefing ? (
         <div className="space-y-5">
+          {error ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-300/40 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+              <span>Using cached operating brief while retrying.</span>
+              <Button size="sm" variant="outline" onClick={onRetry} className="h-7 px-2">
+                Retry
+              </Button>
+            </div>
+          ) : null}
           <p className="max-w-3xl text-base leading-7 text-foreground">{briefing.summary}</p>
           <div className="rounded-xl border border-border/60">
             {briefing.sections.newActivity.items.length > 0 ? (
@@ -262,10 +272,14 @@ export function OpportunityRadarSection({
   opportunities,
   total,
   isLoading,
+  error,
+  onRetry,
 }: {
   opportunities: CommandCenterOpportunityItem[];
   total: number;
   isLoading: boolean;
+  error?: Error;
+  onRetry: () => void;
 }) {
   return (
     <Surface
@@ -280,14 +294,31 @@ export function OpportunityRadarSection({
         </Button>
       }
     >
-      {isLoading ? (
+      {isLoading && opportunities.length === 0 ? (
         <div className="space-y-3">
           {[...Array(4)].map((_, index) => (
             <Skeleton key={index} className="h-20 w-full" />
           ))}
         </div>
+      ) : error && opportunities.length === 0 ? (
+        <div className="flex flex-col gap-3">
+          <p className="text-sm text-destructive">Unable to load opportunities.</p>
+          <Button variant="outline" size="sm" onClick={onRetry}>
+            <RefreshCw className="mr-2 h-3.5 w-3.5" />
+            Retry opportunities
+          </Button>
+        </div>
       ) : opportunities.length > 0 ? (
         <div className="divide-y divide-border/60 rounded-xl border border-border/60">
+          {error ? (
+            <div className="border-b border-border/60 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-500/10 dark:text-amber-200">
+              Opportunity data could not be refreshed. Using cached data.
+              <Button size="sm" variant="ghost" onClick={onRetry} className="ml-3 h-6 px-2">
+                <RefreshCw className="mr-1 h-3.5 w-3.5" />
+                Retry
+              </Button>
+            </div>
+          ) : null}
           {opportunities.map((item) => {
             const matchScore = Math.round(Number(item.matchScore));
             return (
@@ -349,10 +380,14 @@ export function PipelineFlowSection({
   briefing,
   cadenceBuckets,
   isLoading,
+  error,
+  onRetry,
 }: {
   briefing?: CommandCenterBriefing;
   cadenceBuckets: CommandCenterPipelineDayBucket[];
   isLoading: boolean;
+  error?: Error;
+  onRetry: () => void;
 }) {
   const stages = briefing?.sections.pipelineSnapshot.stages ?? [];
   const totalActive = stages.reduce((sum, stage) => sum + stage.count, 0);
@@ -366,13 +401,22 @@ export function PipelineFlowSection({
       description="Stage distribution and 14-day activity across active deals."
       action={briefing ? <Badge variant="secondary">{totalActive} active</Badge> : undefined}
     >
-      {isLoading ? (
+      {isLoading && !briefing ? (
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
           <Skeleton className="h-56 w-full" />
           <Skeleton className="h-56 w-full" />
         </div>
       ) : briefing ? (
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+          {error ? (
+            <div className="col-span-2 rounded-xl border border-amber-300/40 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+              Pipeline snapshot could not be refreshed. Showing cached values.
+              <Button size="sm" variant="outline" onClick={onRetry} className="ml-3 h-6 px-2">
+                <RefreshCw className="mr-1 h-3.5 w-3.5" />
+                Retry
+              </Button>
+            </div>
+          ) : null}
           <div className="space-y-3">
             {PIPELINE_STAGES.filter((stage) =>
               stages.some((entry) => entry.status === stage.key),
@@ -442,6 +486,14 @@ export function PipelineFlowSection({
             </div>
           </div>
         </div>
+      ) : error ? (
+        <div className="flex flex-col gap-3">
+          <p className="text-sm text-destructive">Unable to load pipeline flow.</p>
+          <Button variant="outline" size="sm" onClick={onRetry}>
+            <RefreshCw className="mr-2 h-3.5 w-3.5" />
+            Retry pipeline
+          </Button>
+        </div>
       ) : (
         <p className="text-sm text-muted-foreground">Pipeline data is unavailable.</p>
       )}
@@ -470,10 +522,12 @@ export function DeadlineLoadSection({
   deadlines,
   isLoading,
   error,
+  onRetry,
 }: {
   deadlines: CommandCenterDeadlineItem[];
   isLoading: boolean;
   error?: Error;
+  onRetry: () => void;
 }) {
   const { buckets, maxCount } = buildDeadlineTimeline(deadlines);
   const urgencyCounts = countDeadlineUrgencies(deadlines);
@@ -494,20 +548,33 @@ export function DeadlineLoadSection({
       }
       className="xl:sticky xl:top-24"
     >
-      {isLoading ? (
+      {isLoading && deadlines.length === 0 ? (
         <div className="space-y-3">
           {[...Array(4)].map((_, index) => (
             <Skeleton key={index} className="h-10 w-full" />
           ))}
           <Skeleton className="h-24 w-full" />
         </div>
-      ) : error ? (
+      ) : error && deadlines.length === 0 ? (
         <div className="flex items-center gap-3 rounded-xl border border-destructive/40 bg-destructive/5 px-4 py-4 text-sm text-destructive">
           <AlertCircle className="h-4 w-4" />
-          {error.message}
+          Unable to load deadlines.
+          <Button size="sm" variant="outline" onClick={onRetry} className="ml-auto h-7 px-2">
+            <RefreshCw className="mr-1 h-3.5 w-3.5" />
+            Retry
+          </Button>
         </div>
       ) : deadlines.length > 0 ? (
         <div className="space-y-5">
+          {error ? (
+            <div className="rounded-xl border border-amber-300/40 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+              Deadline data could not be refreshed. Showing cached values.
+              <Button size="sm" variant="ghost" onClick={onRetry} className="ml-3 h-6 px-2">
+                <RefreshCw className="mr-1 h-3.5 w-3.5" />
+                Retry
+              </Button>
+            </div>
+          ) : null}
           <div className="space-y-2">
             {buckets.map((bucket) => (
               <div key={bucket.label} className="space-y-1">

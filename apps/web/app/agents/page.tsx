@@ -190,7 +190,7 @@ export default function AgentsPage() {
                 <div className="flex flex-wrap gap-4 text-sm">
                   <div className="flex items-center gap-1.5 text-muted-foreground">
                     <Wrench className="h-4 w-4" />
-                    <span>{agent.tools.length} tools</span>
+                    <span>{agent.tools.length} catalog tools</span>
                   </div>
                   <div className="flex items-center gap-1.5 text-muted-foreground">
                     <GitBranch className="h-4 w-4" />
@@ -200,6 +200,19 @@ export default function AgentsPage() {
                     <Play className="h-4 w-4" />
                     <span>{formatNumber(agent.run_count)} runs</span>
                   </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {agent.tools.slice(0, 3).map((tool) => (
+                    <Badge key={tool.name} variant="outline" className="text-xs">
+                      {tool.name}
+                    </Badge>
+                  ))}
+                  {agent.tools.length > 3 ? (
+                    <Badge variant="secondary" className="text-xs">
+                      +{agent.tools.length - 3} more
+                    </Badge>
+                  ) : null}
                 </div>
 
                 <div className="flex gap-2">

@@ -87,6 +87,94 @@ function makeTurnInput(text: string): Array<{ type: "text"; text: string }> {
   return [{ type: "text", text }];
 }
 
+function formatConnectionPanelDetail(detail: string | null): string {
+  if (!detail) {
+    return "The Codex relay is unavailable. Retry the connection or check the upstream Codex service.";
+  }
+
+  const normalized = detail.toLowerCase();
+
+  if (
+    normalized.includes("websocket") ||
+    normalized.includes("relay") ||
+    normalized.includes("upstream") ||
+    normalized.includes("reconnect") ||
+    normalized.includes("timed out")
+  ) {
+    return "The Codex relay is unavailable. Retry the connection or check the upstream Codex service.";
+  }
+
+  return detail;
+}
+
+function resolveConnectionPanelState(params: {
+  socketStatus: "idle" | "connecting" | "connected" | "reconnecting" | "failed";
+  isConnected: boolean;
+  connectionError: string | null;
+  statusError: string | null;
+  messageCount: number;
+}): null | {
+  title: string;
+  body: string;
+  tone: "neutral" | "warning" | "danger";
+  cta: string;
+} {
+  if (params.messageCount > 0 || params.isConnected) {
+    return null;
+  }
+
+  const detail = formatConnectionPanelDetail(
+    params.connectionError ?? params.statusError ?? null,
+  );
+
+  if (params.socketStatus === "failed") {
+    return {
+      title: "Codex is offline",
+      body: detail,
+      tone: "danger",
+      cta: "Retry connection",
+    };
+  }
+
+  if (params.socketStatus === "reconnecting") {
+    return {
+      title: "Reconnecting to Codex",
+      body: detail,
+      tone: "warning",
+      cta: "Reconnect now",
+    };
+  }
+
+  if (params.socketStatus === "connecting" && params.connectionError) {
+    return {
+      title: "Waiting on Codex relay",
+      body: detail,
+      tone: "warning",
+      cta: "Retry connection",
+    };
+  }
+
+  if (params.socketStatus === "connecting") {
+    return {
+      title: "Connecting to Codex",
+      body: "Establishing the relay and upstream session.",
+      tone: "neutral",
+      cta: "Retry connection",
+    };
+  }
+
+  if (params.socketStatus === "idle") {
+    return {
+      title: "Codex session not connected",
+      body: detail,
+      tone: "warning",
+      cta: "Connect",
+    };
+  }
+
+  return null;
+}
+
 function parseUnifiedDiff(diff: string): TurnDiffFile[] {
   const files: TurnDiffFile[] = [];
   let current: TurnDiffFile | null = null;
@@ -904,6 +992,13 @@ export default function CodexAdminPage() {
 
   const waitingOnApproval = approvalCount > 0;
   const turnStatusText = computeTurnStatusMessage(turnState, waitingOnApproval);
+  const connectionPanel = resolveConnectionPanelState({
+    socketStatus,
+    isConnected,
+    connectionError,
+    statusError,
+    messageCount: messages.length,
+  });
 
   return (
     <main className="min-h-screen bg-gray-950 p-4 text-gray-100">
@@ -919,21 +1014,56 @@ export default function CodexAdminPage() {
             waitingOnApproval={waitingOnApproval}
           />
 
-          {socketStatus === "connecting" && messages.length === 0 ? (
-            <section className="flex flex-1 items-center justify-center rounded-md border border-gray-800 bg-gray-900">
-              <div className="animate-pulse text-sm text-gray-300">Connecting to Codex...</div>
-            </section>
-          ) : socketStatus === "failed" ? (
-            <section className="flex flex-1 items-center justify-center rounded-md border border-red-700/70 bg-red-950/20 text-center">
-              <div>
-                <p className="mb-2 text-xl font-semibold text-red-200">Connection Failed</p>
-                <p className="mb-4 text-sm text-red-100">{connectionError ?? statusError ?? "Unable to reach Codex relay."}</p>
+          {connectionPanel ? (
+            <section
+              className={`flex flex-1 items-center justify-center rounded-md text-center ${
+                connectionPanel.tone === "danger"
+                  ? "border border-red-700/70 bg-red-950/20"
+                  : connectionPanel.tone === "warning"
+                    ? "border border-amber-700/60 bg-amber-950/10"
+                    : "border border-gray-800 bg-gray-900"
+              }`}
+            >
+              <div className="max-w-md px-6">
+                <p
+                  className={`mb-2 text-xl font-semibold ${
+                    connectionPanel.tone === "danger"
+                      ? "text-red-200"
+                      : connectionPanel.tone === "warning"
+                        ? "text-amber-100"
+                        : "text-gray-100"
+                  }`}
+                >
+                  {connectionPanel.title}
+                </p>
+                <p
+                  className={`mb-4 text-sm ${
+                    connectionPanel.tone === "danger"
+                      ? "text-red-100"
+                      : connectionPanel.tone === "warning"
+                        ? "text-amber-50/90"
+                        : "text-gray-300"
+                  }`}
+                >
+                  {connectionPanel.body}
+                </p>
+                {socketStatus === "connecting" && !connectionError ? (
+                  <div className="mb-4 animate-pulse text-xs uppercase tracking-[0.24em] text-gray-500">
+                    Handshake in progress
+                  </div>
+                ) : null}
                 <button
                   type="button"
                   onClick={reconnect}
-                  className="rounded-md border border-red-400/60 bg-red-600/10 px-4 py-2 text-sm text-red-100"
+                  className={`rounded-md px-4 py-2 text-sm ${
+                    connectionPanel.tone === "danger"
+                      ? "border border-red-400/60 bg-red-600/10 text-red-100"
+                      : connectionPanel.tone === "warning"
+                        ? "border border-amber-400/60 bg-amber-500/10 text-amber-100"
+                        : "border border-gray-600 bg-gray-800 text-gray-100"
+                  }`}
                 >
-                  Retry
+                  {connectionPanel.cta}
                 </button>
               </div>
             </section>

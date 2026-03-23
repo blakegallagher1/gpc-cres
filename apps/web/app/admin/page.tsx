@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import useSWR from "swr";
 import dynamic from "next/dynamic";
 import { DashboardShell } from "@/components/layout/DashboardShell";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Shield } from "lucide-react";
 
@@ -24,6 +24,20 @@ const SystemTab = dynamic(() => import("@/components/admin/system-tab"), {
   loading: () => <AdminTabSkeleton />,
 });
 
+interface AdminTabError {
+  message: string;
+  detail?: string;
+}
+
+interface AdminStatsApiResponse {
+  overview?: unknown;
+  knowledge?: unknown;
+  memory?: unknown;
+  agents?: unknown;
+  system?: unknown;
+  errors?: Record<string, AdminTabError>;
+}
+
 function AdminTabSkeleton() {
   return (
     <div className="space-y-4 pt-4">
@@ -37,7 +51,14 @@ function AdminTabSkeleton() {
   );
 }
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json());
+const fetcher = async (url: string): Promise<AdminStatsApiResponse> => {
+  const response = await fetch(url);
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error("Unable to refresh admin data right now.");
+  }
+  return payload;
+};
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState("overview");
@@ -46,7 +67,6 @@ export default function AdminPage() {
   const [contentType, setContentType] = useState("");
   const [memorySubTab, setMemorySubTab] = useState<"facts" | "entities">("facts");
 
-  // Reset page when switching tabs or changing filters
   function handleTabChange(tab: string) {
     setActiveTab(tab);
     setPage(1);
@@ -65,8 +85,33 @@ export default function AdminPage() {
     {
       refreshInterval: 30_000,
       revalidateOnFocus: false,
-    }
+    },
   );
+
+  const [cachedTabs, setCachedTabs] = useState<Partial<AdminStatsApiResponse>>({});
+
+  useEffect(() => {
+    if (!data) {
+      return;
+    }
+
+    setCachedTabs((previous) => {
+      const next = { ...previous };
+
+      if (data.overview) next.overview = data.overview;
+      if (data.knowledge) next.knowledge = data.knowledge;
+      if (data.memory) next.memory = data.memory;
+      if (data.agents) next.agents = data.agents;
+      if (data.system) next.system = data.system;
+
+      return next;
+    });
+  }, [data]);
+
+  const tabErrors = data?.errors ?? {};
+  const activeTabError: AdminTabError | undefined = error
+    ? { message: "Unable to refresh this section right now." }
+    : (tabErrors[activeTab] as AdminTabError | undefined);
 
   return (
     <DashboardShell>
@@ -86,50 +131,137 @@ export default function AdminPage() {
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="knowledge">Knowledge</TabsTrigger>
             <TabsTrigger value="memory">Memory</TabsTrigger>
-          <TabsTrigger value="agents">Agents</TabsTrigger>
-          <TabsTrigger value="codex">Codex</TabsTrigger>
-          <TabsTrigger value="system">System</TabsTrigger>
+            <TabsTrigger value="agents">Agents</TabsTrigger>
+            <TabsTrigger value="codex">Codex</TabsTrigger>
+            <TabsTrigger value="system">System</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview">
-            <OverviewTab data={data?.overview} isLoading={isLoading} />
+            <OverviewTab
+              data={(data?.overview ?? cachedTabs.overview) as {
+                knowledgeCount: number;
+                verifiedCount: number;
+                entityCount: number;
+                runs24h: number;
+                recentActivity: { type: string; summary: string; createdAt: string }[];
+                knowledgeByType: { contentType: string; count: number }[];
+              } | undefined}
+              isLoading={isLoading}
+              error={activeTabError}
+              onRetry={() => {
+                void mutate();
+              }}
+            />
           </TabsContent>
+
           <TabsContent value="knowledge">
             <KnowledgeTab
-              data={data?.knowledge}
+              data={(data?.knowledge ?? cachedTabs.knowledge) as {
+                rows: { id: string; contentType: string; sourceId: string; contentText: string; metadata: Record<string, unknown>; createdAt: string }[];
+                total: number;
+                page: number;
+                contentTypes: string[];
+              } | undefined}
               isLoading={isLoading}
               mutate={mutate}
               page={page}
               onPageChange={setPage}
               search={search}
-              onSearchChange={(v) => { setSearch(v); setPage(1); }}
+              onSearchChange={(value) => {
+                setSearch(value);
+                setPage(1);
+              }}
               contentType={contentType}
-              onContentTypeChange={(v) => { setContentType(v); setPage(1); }}
+              onContentTypeChange={(value) => {
+                setContentType(value);
+                setPage(1);
+              }}
+              error={activeTab === "knowledge" ? (activeTabError as AdminTabError | undefined) : undefined}
+              onRetry={() => {
+                void mutate();
+              }}
             />
           </TabsContent>
+
           <TabsContent value="memory">
             <MemoryTab
-              data={data?.memory}
+              data={(data?.memory ?? cachedTabs.memory) as {
+                subTab: "facts" | "entities";
+                rows: Array<
+                  | {
+                      id: string;
+                      entityId: string;
+                      entityAddress: string;
+                      entityType: string;
+                      factType: string;
+                      sourceType: string;
+                      economicWeight: number;
+                      volatilityClass: string;
+                      payloadJson: Record<string, unknown>;
+                      tier: number;
+                      createdAt: string;
+                    }
+                  | {
+                      id: string;
+                      canonicalAddress: string | null;
+                      parcelId: string | null;
+                      type: string;
+                      factsCount: number;
+                      createdAt: string;
+                    }
+                >;
+                total: number;
+                page: number;
+              } | undefined}
               isLoading={isLoading}
               mutate={mutate}
               page={page}
               onPageChange={setPage}
               subTab={memorySubTab}
-              onSubTabChange={(v) => { setMemorySubTab(v); setPage(1); }}
+              onSubTabChange={(value) => {
+                setMemorySubTab(value);
+                setPage(1);
+              }}
+              error={activeTab === "memory" ? (activeTabError as AdminTabError | undefined) : undefined}
+              onRetry={() => {
+                void mutate();
+              }}
             />
           </TabsContent>
+
           <TabsContent value="agents">
             <AgentsTab
-              data={data?.agents}
+              data={(data?.agents ?? cachedTabs.agents) as {
+                runs: {
+                  id: string;
+                  runType: string;
+                  status: string;
+                  startedAt: string;
+                  finishedAt: string | null;
+                  durationMs: number | null;
+                  error: string | null;
+                  dealId: string | null;
+                }[];
+                total: number;
+                page: number;
+                stats: { total24h: number; successRate: number };
+                dailyByRunType: { runType: string; count: number }[];
+              } | undefined}
               isLoading={isLoading}
               page={page}
               onPageChange={setPage}
+              error={activeTab === "agents" ? (activeTabError as AdminTabError | undefined) : undefined}
+              onRetry={() => {
+                void mutate();
+              }}
             />
           </TabsContent>
+
           <TabsContent value="codex">
             <div className="grid gap-4">
               <div className="rounded-lg border border-border/60 bg-card p-3 text-sm text-muted-foreground">
-                Codex chat is embedded below. Use "Open full page" to switch to a standalone layout.
+                Codex chat is embedded below. Use "Open full page" to switch to a
+                standalone layout.
               </div>
               <a
                 className="w-fit rounded-md border border-border bg-muted px-3 py-1.5 text-sm text-foreground transition hover:bg-muted/80"
@@ -147,8 +279,16 @@ export default function AdminPage() {
               />
             </div>
           </TabsContent>
+
           <TabsContent value="system">
-            <SystemTab data={data?.system} isLoading={isLoading} />
+            <SystemTab
+              data={(data?.system ?? cachedTabs.system) as { tableCounts: Record<string, number> } | undefined}
+              isLoading={isLoading}
+              error={activeTab === "system" ? (activeTabError as AdminTabError | undefined) : undefined}
+              onRetry={() => {
+                void mutate();
+              }}
+            />
           </TabsContent>
         </Tabs>
       </div>

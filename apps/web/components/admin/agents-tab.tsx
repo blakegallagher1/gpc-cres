@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,10 +19,15 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
-  Legend,
 } from "recharts";
 import { Button } from "@/components/ui/button";
-import { Bot, CheckCircle, ChevronLeft, ChevronRight, Clock, Zap } from "lucide-react";
+import { AdminTabNotice } from "@/components/admin/AdminTabNotice";
+import { Bot, CheckCircle, ChevronLeft, ChevronRight, Zap } from "lucide-react";
+
+interface AdminTabError {
+  message: string;
+  detail?: string;
+}
 
 interface RunRow {
   id: string;
@@ -48,6 +53,8 @@ interface Props {
   isLoading: boolean;
   page: number;
   onPageChange: (page: number) => void;
+  error?: AdminTabError;
+  onRetry: () => void;
 }
 
 function statusBadge(status: string) {
@@ -71,10 +78,11 @@ function formatRelativeTime(dateStr: string): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
-export default function AgentsTab({ data, isLoading, page, onPageChange }: Props) {
+export default function AgentsTab({ data, isLoading, page, onPageChange, error, onRetry }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const hasData = Boolean(data);
 
-  if (isLoading || !data) {
+  if (isLoading && !hasData) {
     return (
       <div className="space-y-4 pt-4">
         <div className="grid gap-4 md:grid-cols-3">
@@ -88,6 +96,21 @@ export default function AgentsTab({ data, isLoading, page, onPageChange }: Props
     );
   }
 
+  if (!data) {
+    return (
+      <div className="space-y-4 pt-4">
+        {error ? <AdminTabNotice hasData={false} onRetry={onRetry} /> : null}
+        <Card>
+          <CardContent className="py-10">
+            <p className="text-sm text-muted-foreground">
+              Agent run telemetry will appear here once the admin service is available.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   const kpis = [
     { label: "Runs (24h)", value: data.stats.total24h, icon: Bot },
     { label: "Success Rate", value: `${data.stats.successRate}%`, icon: CheckCircle },
@@ -96,6 +119,7 @@ export default function AgentsTab({ data, isLoading, page, onPageChange }: Props
 
   return (
     <div className="space-y-6 pt-4">
+      {error ? <AdminTabNotice hasData={true} onRetry={onRetry} /> : null}
       {/* KPI Cards */}
       <div className="grid gap-4 md:grid-cols-3">
         {kpis.map(({ label, value, icon: Icon }) => (
@@ -156,9 +180,8 @@ export default function AgentsTab({ data, isLoading, page, onPageChange }: Props
                 </TableRow>
               ) : (
                 data.runs.map((run) => (
-                  <>
+                  <Fragment key={run.id}>
                     <TableRow
-                      key={run.id}
                       className="cursor-pointer hover:bg-muted/50"
                       onClick={() => setExpandedId(expandedId === run.id ? null : run.id)}
                     >
@@ -177,7 +200,7 @@ export default function AgentsTab({ data, isLoading, page, onPageChange }: Props
                       </TableCell>
                     </TableRow>
                     {expandedId === run.id && run.error && (
-                      <TableRow key={`${run.id}-detail`}>
+                      <TableRow>
                         <TableCell colSpan={5} className="bg-muted/30 p-4">
                           <div className="text-sm">
                             <span className="font-medium text-destructive">Error:</span>
@@ -188,7 +211,7 @@ export default function AgentsTab({ data, isLoading, page, onPageChange }: Props
                         </TableCell>
                       </TableRow>
                     )}
-                  </>
+                  </Fragment>
                 ))
               )}
             </TableBody>
