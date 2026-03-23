@@ -213,7 +213,7 @@ describe("ChatContainer", () => {
   });
 
   it(
-    "does not fetch a nonexistent conversation for a fresh websocket chat",
+    "does not fetch a nonexistent conversation for a fresh chat session",
     async () => {
       const { ChatContainer } = await import("@/components/chat/ChatContainer");
 
@@ -232,9 +232,9 @@ describe("ChatContainer", () => {
       expect(window.location.search).toBe("");
       expect(useAgentWebSocketMock).toHaveBeenLastCalledWith(
         expect.objectContaining({
-          sessionId: "draft-session-1",
+          sessionId: null,
           token: "jwt-token",
-          enabled: true,
+          enabled: false,
         }),
       );
       expect(container.firstChild).toMatchSnapshot();

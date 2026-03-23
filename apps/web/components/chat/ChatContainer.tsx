@@ -304,9 +304,9 @@ export function ChatContainer() {
     presenterRef.current = presenterState;
   }, [presenterState]);
 
-  // Fetch NextAuth JWT for WebSocket auth
+  // Fetch NextAuth JWT for chat transport auth.
+  // In REST mode this is sent as Bearer token to avoid cookie-only auth failures.
   useEffect(() => {
-    if (!WS_ENABLED) return;
     let cancelled = false;
     const fetchToken = async () => {
       try {
@@ -717,7 +717,11 @@ export function ChatContainer() {
       try {
         const response = await fetch('/api/chat', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+          },
+          credentials: 'include',
           signal: controller.signal,
           body: JSON.stringify({
             message: messageForAgent,
@@ -761,7 +765,7 @@ export function ChatContainer() {
         setCurrentAgent(null);
       }
     },
-    [applyEvent, mapDispatch, mapState, selectedDealId, wsSendMessage],
+    [applyEvent, authToken, mapDispatch, mapState, selectedDealId, wsSendMessage],
   );
 
   const handleStop = useCallback(() => {

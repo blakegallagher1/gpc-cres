@@ -1,6 +1,6 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`ChatContainer > does not fetch a nonexistent conversation for a fresh websocket chat 1`] = `
+exports[`ChatContainer > does not fetch a nonexistent conversation for a fresh chat session 1`] = `
 <div
   class="relative flex h-[calc(100svh-var(--app-header-height))] min-h-[calc(100svh-var(--app-header-height))] overflow-hidden"
 >
@@ -60,7 +60,7 @@ exports[`ChatContainer > does not fetch a nonexistent conversation for a fresh w
                 class="ml-1 text-muted-foreground/50"
               >
                 · 
-                Live socket
+                HTTP stream
               </span>
             </span>
             <span
