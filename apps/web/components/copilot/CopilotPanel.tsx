@@ -9,7 +9,8 @@ import {
   useRef,
   useState,
 } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import {
   Bot,
   FileText,
@@ -41,9 +42,31 @@ const COMMAND_LIBRARY_PRESET_IDS = new Set([
   "dd",
 ]);
 
-type CopilotIcon = ComponentType<{ className?: string }>;
+const DEAL_SCOPED_ACTIONS = new Set([
+  "underwrite",
+  "underwrite-quick",
+  "loi",
+  "loi-qa",
+]);
 
-const DEFAULT_ACTIONS: (CopilotCommand & { icon: CopilotIcon })[] = COMMAND_LIBRARY
+const DEAL_PATH_MARKERS = new Set(["deal-room", "deals", "deal-room-v2"]);
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-9a-f][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const DEAL_REQUIRED_QUERY_KEYS = ["dealId", "deal_id", "projectId", "project_id"];
+
+const DEAL_SCOPE_HINTS = [
+  "underwrite",
+  "full underwriting",
+  "loi",
+  "letter of intent",
+  "financing",
+];
+
+type CopilotIcon = ComponentType<{ className?: string }>;
+type CopilotPanelAction = CopilotCommand & { icon: CopilotIcon };
+
+const DEFAULT_ACTIONS: CopilotPanelAction[] = COMMAND_LIBRARY
   .filter((item) => COMMAND_LIBRARY_PRESET_IDS.has(item.id))
   .map((item) => {
     const iconById: Record<string, CopilotIcon> = {
@@ -59,7 +82,7 @@ const DEFAULT_ACTIONS: (CopilotCommand & { icon: CopilotIcon })[] = COMMAND_LIBR
     };
   });
 
-const FALLBACK_ACTION: CopilotCommand & { icon: CopilotIcon } = {
+const FALLBACK_ACTION: CopilotPanelAction = {
   id: "underwrite",
   label: "Run Full Underwriting",
   description: "Comprehensive underwriting analysis",
@@ -89,6 +112,16 @@ const COMMAND_LIBRARY_ITEMS: (CopilotCommand & { icon?: CopilotIcon })[] = COMMA
     };
   }
 );
+
+const getLibraryActionById = (actionId: string | undefined) =>
+  COMMAND_LIBRARY_ITEMS.find((item) => item.id === actionId);
+
+const toPanelAction = (
+  action: CopilotCommand & { icon?: CopilotIcon },
+): CopilotPanelAction => ({
+  ...action,
+  icon: action.icon ?? Zap,
+});
 
 const COMMAND_HISTORY_STORAGE_KEY = "copilot.commandHistory.v1";
 const FAVORITE_COMMANDS_STORAGE_KEY = "copilot.favoriteCommands.v1";
@@ -169,20 +202,52 @@ type HistoryEntry = {
   createdAt: string;
 };
 
-function extractProjectId(pathname: string) {
+function isDealUuid(value: string) {
+  return UUID_RE.test(value);
+}
+
+function extractProjectIdFromPath(pathname: string) {
   const segments = pathname.split("/").filter(Boolean);
-  const dealRoomIndex = segments.indexOf("deal-room");
-  if (dealRoomIndex >= 0 && segments[dealRoomIndex + 1]) {
-    return segments[dealRoomIndex + 1];
+  for (let i = 0; i < segments.length; i += 1) {
+    const segment = segments[i];
+    if (DEAL_PATH_MARKERS.has(segment)) {
+      const next = segments[i + 1];
+      if (next && isDealUuid(next)) return next;
+    }
+  }
+
+  const maybeUuid = segments.find((segment) => isDealUuid(segment));
+  return maybeUuid ?? null;
+}
+
+function extractProjectIdFromQuery(searchParams: URLSearchParams | null) {
+  if (!searchParams) return null;
+  for (const key of DEAL_REQUIRED_QUERY_KEYS) {
+    const value = searchParams.get(key);
+    if (value && isDealUuid(value)) return value;
   }
   return null;
+}
+
+function isDealScopedAction(actionId?: string, query = "") {
+  if (!actionId) return false;
+  if (DEAL_SCOPED_ACTIONS.has(actionId)) return true;
+  const normalized = query.toLowerCase();
+  return DEAL_SCOPE_HINTS.some((hint) => normalized.includes(hint));
 }
 
 export function CopilotPanel() {
   const { copilotOpen, toggleCopilot } = useUIStore();
   const isMobile = useIsMobile();
   const pathname = usePathname();
-  const projectId = useMemo(() => pathname ? extractProjectId(pathname) : null, [pathname]);
+  const searchParams = useSearchParams();
+  const projectId = useMemo(() => {
+    if (!pathname) return null;
+    return (
+      extractProjectIdFromQuery(searchParams ?? null) ??
+      extractProjectIdFromPath(pathname)
+    );
+  }, [pathname, searchParams]);
   const [selectedAction, setSelectedAction] = useState(
     DEFAULT_ACTIONS[0] ?? FALLBACK_ACTION
   );
@@ -272,6 +337,9 @@ export function CopilotPanel() {
     () => normalizedCurrentPrompt || selectedAction?.prompt || "",
     [normalizedCurrentPrompt, selectedAction?.prompt]
   );
+  const activeActionId = selectedAction?.id || FALLBACK_ACTION.id;
+  const activeActionRequiresDeal = isDealScopedAction(activeActionId, runnablePrompt);
+  const requiresDealPrompt = activeActionRequiresDeal && !projectId;
   const isFavorite =
     normalizedCurrentPrompt.length > 0 &&
     normalizedFavoritePromptSet.has(normalizedCurrentPrompt.toLowerCase());
@@ -331,11 +399,44 @@ export function CopilotPanel() {
     setQueryForSuggestion("");
     setIsPromptFocused(false);
     if (actionId) {
-      const action = DEFAULT_ACTIONS.find((item) => item.id === actionId);
+      const action = getLibraryActionById(actionId);
       if (action) {
-        setSelectedAction(action);
+        setSelectedAction(toPanelAction(action));
       }
     }
+  };
+
+  const normalizeCopilotError = (rawError: unknown) => {
+    const rawMessage =
+      rawError instanceof Error
+        ? rawError.message
+        : typeof rawError === "string"
+          ? rawError
+          : "";
+    const normalizedMessage = rawMessage.trim();
+
+    if (!normalizedMessage) {
+      return "The copilot run could not complete. Please try again.";
+    }
+
+    const lowered = normalizedMessage.toLowerCase();
+    if (lowered.includes("gateway db proxy error")) {
+      return "The copilot service returned an internal error. Please retry the command.";
+    }
+
+    if (/\bstatus\s+5\d{2}\b/.test(lowered)) {
+      return "The copilot service returned an internal error. Please retry the command.";
+    }
+
+    if (lowered.includes("failed to connect") || lowered.includes("failed to fetch")) {
+      return "The copilot connection failed. Please try again.";
+    }
+
+    if (activeActionRequiresDeal && !projectId && lowered.includes("project")) {
+      return "Link a deal to enable financial commands. Pick a deal from Deals first.";
+    }
+
+    return normalizedMessage;
   };
 
   const handleRun = async () => {
@@ -343,6 +444,11 @@ export function CopilotPanel() {
 
     const query = runnablePrompt;
     if (!query) return;
+
+    if (activeActionRequiresDeal && !projectId) {
+      setError("Link a deal to enable financial commands. Pick a deal from Deals first.");
+      return;
+    }
 
     const apiBaseUrl = getBackendBaseUrl();
     if (!apiBaseUrl) {
@@ -399,7 +505,7 @@ export function CopilotPanel() {
           }
           if (payloadType === "error" && typeof chunk.data.message === "string") {
             setStreaming(false);
-            setError(chunk.data.message);
+            setError(normalizeCopilotError(chunk.data.message));
             return;
           }
           if (chunk.event === "complete") {
@@ -411,14 +517,12 @@ export function CopilotPanel() {
         },
         onError: (err) => {
           setStreaming(false);
-          setError(err.message);
+          setError(normalizeCopilotError(err));
         },
       });
     } catch (error) {
       setStreaming(false);
-      setError(
-        error instanceof Error ? error.message : "Unable to start copilot stream."
-      );
+      setError(normalizeCopilotError(error));
     } finally {
       setStreaming(false);
     }
@@ -585,6 +689,15 @@ export function CopilotPanel() {
               <CardTitle className="text-sm">Live Output</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
+              {requiresDealPrompt ? (
+                <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-1.5 text-xs text-amber-700 dark:text-amber-300">
+                  Link a deal to enable financial commands.{" "}
+                  <Link href="/deals" className="font-medium underline underline-offset-2">
+                    Link a deal
+                  </Link>{" "}
+                  before running this action.
+                </p>
+              ) : null}
               <div className="flex items-center gap-2">
                 <Badge variant="secondary">
                   {selectedAction?.agent || FALLBACK_ACTION.agent}
@@ -596,7 +709,7 @@ export function CopilotPanel() {
               <div className="min-h-[120px] whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">
                 {output || "Run a command to see streaming output."}
               </div>
-                {error && <p className="text-xs text-destructive">{error}</p>}
+              {error && <p className="text-xs text-destructive">{error}</p>}
             </CardContent>
           </Card>
 
