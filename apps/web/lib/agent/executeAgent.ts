@@ -44,7 +44,7 @@ import {
 } from "@entitlement-os/openai";
 import { AgentTrustEnvelope } from "@/types";
 import type { MapActionPayload } from "@/lib/chat/mapActionTypes";
-import { parseToolResultMapFeatures } from "@/lib/chat/toolResultWrapper";
+import { parseToolResultMapFeatures, parseToolResultMapAction } from "@/lib/chat/toolResultWrapper";
 import { autoFeedRun } from "@/lib/agent/dataAgentAutoFeed.service";
 import { isSchemaDriftError } from "@/lib/api/prismaSchemaFallback";
 import { AUTOMATION_CONFIG } from "@/lib/automation/config";
@@ -805,6 +805,16 @@ function emitMapActionsFromToolResult(
         },
         label: `${toolName} results (${geoFeatures.length})`,
       } as MapActionPayload,
+      toolCallId: toolCallId ?? null,
+    });
+  }
+
+  // Handle explicit __mapAction (e.g., isochrone overlay from spatial tools)
+  const explicitAction = parseToolResultMapAction(result);
+  if (explicitAction) {
+    emit({
+      type: "map_action",
+      payload: explicitAction,
       toolCallId: toolCallId ?? null,
     });
   }

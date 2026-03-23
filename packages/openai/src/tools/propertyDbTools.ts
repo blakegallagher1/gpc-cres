@@ -601,22 +601,50 @@ export const queryPropertyDb = tool({
 export const queryPropertyDbSql = tool({
   name: "query_property_db_sql",
   description:
-    "Run a read-only SQL query against the Louisiana Property Database for advanced spatial or analytical questions. " +
-    "Available tables: ebr_parcels (198K parcels — columns: parcel_id, address, owner, area_sqft, assessed_value, geom). " +
-    "Also: fema_flood (5.2K flood zone polygons), soils (37K soil units), wetlands (39K wetland polygons), epa_facilities (6.7K facilities). " +
-    "NOTE: ebr_parcels does NOT have zoning_type column. Acreage = area_sqft / 43560.0. " +
-    "PostGIS functions available: ST_Area, ST_DWithin, ST_Intersects, ST_Contains, ST_Centroid, ST_MakeEnvelope, etc. " +
-    "SELECT only, max 100 rows. Response format: {ok, rows, rowCount} — use the rows array.",
+    "Run a read-only SQL query against the Louisiana Property Database. USE THIS for aggregate queries (COUNT, SUM, AVG, GROUP BY), " +
+    "spatial queries (ST_DWithin, ST_Intersects), complex filtering, and any question the structured query_property_db tool cannot express.\n\n" +
+    "SCHEMA:\n" +
+    "  ebr_parcels (198K rows): parcel_id TEXT, address TEXT, owner TEXT, area_sqft NUMERIC, assessed_value NUMERIC, zoning_type TEXT, geom GEOMETRY(MultiPolygon,4326), created_at TIMESTAMP\n" +
+    "  fema_flood (5.2K rows): gid INT, dfirm_id TEXT, fld_zone TEXT, zone_subty TEXT, sfha_tf TEXT, geom GEOMETRY\n" +
+    "  soils (37K rows): gid INT, musym TEXT, muname TEXT, hydgrp TEXT, hydric_rating TEXT, geom GEOMETRY\n" +
+    "  wetlands (39K rows): gid INT, wetland_type TEXT, attribute TEXT, geom GEOMETRY\n" +
+    "  epa_facilities (6.7K rows): gid INT, facility_name TEXT, street TEXT, city TEXT, state TEXT, zip TEXT, latitude NUMERIC, longitude NUMERIC, geom GEOMETRY(Point,4326)\n\n" +
+    "TIPS:\n" +
+    "  - Acreage: area_sqft / 43560.0\n" +
+    "  - PostGIS: ST_DWithin(geom, ST_SetSRID(ST_MakePoint(lng,lat),4326), meters), ST_Intersects, ST_Contains, ST_Area, ST_Centroid\n" +
+    "  - Distance in meters: ST_Distance(geom::geography, point::geography)\n" +
+    "  - Always include parcel_id and address in SELECT for map display\n" +
+    "  - Use LIMIT (max 500 for data, no limit needed for COUNT/aggregate)\n" +
+    "  - SELECT only, no DDL/DML. Gateway enforces table allowlist.\n\n" +
+    "EXAMPLES:\n" +
+    "  Count by zoning: SELECT zoning_type, COUNT(*) AS cnt FROM ebr_parcels WHERE zoning_type IS NOT NULL GROUP BY zoning_type ORDER BY cnt DESC\n" +
+    "  Large parcels: SELECT parcel_id, address, owner, area_sqft/43560.0 AS acres FROM ebr_parcels WHERE area_sqft/43560.0 >= 5 ORDER BY area_sqft DESC LIMIT 20\n" +
+    "  Near a point: SELECT parcel_id, address, area_sqft/43560.0 AS acres FROM ebr_parcels WHERE ST_DWithin(geom::geography, ST_SetSRID(ST_MakePoint(-91.1,30.45),4326)::geography, 1609) LIMIT 20\n" +
+    "  Flood zone check: SELECT e.parcel_id, e.address, f.fld_zone FROM ebr_parcels e JOIN fema_flood f ON ST_Intersects(e.geom, f.geom) WHERE e.parcel_id = '001-5096-7'",
   parameters: z.object({
-    sql: z.string().describe("Read-only SQL query. SELECT/WITH only, no semicolons. Tables: ebr_parcels, fema_flood, soils, wetlands, epa_facilities."),
-    limit: z.number().optional().nullable().describe("Max rows (default 100, max 100)."),
+    sql: z.string().describe("Read-only SQL query (SELECT/WITH only). Include parcel_id + address columns when returning parcels for map display."),
   }),
   execute: async (params) => {
-    const result = await gatewayPost("/tools/parcels.sql", params);
-    // Gateway returns {ok, rows, rowCount} — extract rows for the agent
+    // Validate SELECT-only (defense in depth — gateway also enforces)
+    const trimmed = params.sql.trim().replace(/;+$/, "");
+    const firstWord = trimmed.split(/\s+/)[0]?.toUpperCase();
+    if (firstWord !== "SELECT" && firstWord !== "WITH") {
+      return JSON.stringify({ error: "Only SELECT/WITH queries are allowed." });
+    }
+    const result = await gatewayPost("/tools/parcels.sql", { sql: trimmed });
     const data = result as Record<string, unknown>;
     if (data && typeof data === "object" && Array.isArray(data.rows)) {
-      return JSON.stringify({ rowCount: data.rowCount, rows: data.rows });
+      // Wrap with map features so parcels can be highlighted on the map
+      const rows = data.rows as Record<string, unknown>[];
+      const features = extractMapFeatures(rows);
+      if (features.length > 0) {
+        return JSON.stringify({
+          rowCount: data.rowCount,
+          rows,
+          [MAP_FEATURES_KEY]: features,
+        });
+      }
+      return JSON.stringify({ rowCount: data.rowCount, rows });
     }
     return JSON.stringify(result);
   },

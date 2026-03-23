@@ -1,10 +1,11 @@
-import type { MapFeature } from "./mapActionTypes";
+import type { MapActionPayload, MapFeature } from "./mapActionTypes";
 
 /**
- * Marker field name embedded in tool result JSON.
- * executeAgent.ts scans for this after tool_end events.
+ * Marker field names embedded in tool result JSON.
+ * executeAgent.ts scans for these after tool_end events.
  */
 const MAP_FEATURES_KEY = "__mapFeatures";
+const MAP_ACTION_KEY = "__mapAction";
 
 /**
  * Wraps a tool's text result with structured map features.
@@ -50,6 +51,34 @@ export function parseToolResultMapFeatures(
   if (!Array.isArray(features) || features.length === 0) return null;
 
   return features as MapFeature[];
+}
+
+/**
+ * Parse a map action from a tool result (e.g., addLayer for isochrone overlays).
+ * Returns null if no map action present.
+ */
+export function parseToolResultMapAction(
+  result: unknown
+): MapActionPayload | null {
+  if (!result) return null;
+
+  let obj: Record<string, unknown>;
+  if (typeof result === "string") {
+    try {
+      obj = JSON.parse(result);
+    } catch {
+      return null;
+    }
+  } else if (typeof result === "object") {
+    obj = result as Record<string, unknown>;
+  } else {
+    return null;
+  }
+
+  const action = obj[MAP_ACTION_KEY];
+  if (!action || typeof action !== "object") return null;
+
+  return action as MapActionPayload;
 }
 
 /**

@@ -289,12 +289,31 @@ When a user submits a message with map context (viewport, selected parcels, or r
 3. If screening dimensions are already materialized in the context, reference those results when advising on environmental or regulatory risk.
 
 ## PROPERTY DATABASE TOOL ROUTING
-When searching for parcels without map context, choose the right tool:
-- **query_property_db** — DEFAULT for parcel searches. Use when filtering by ZIP code, zoning type, acreage, owner, or land use. Example: "find 10 parcels zoned A4 in 70808" → query_property_db(zoning="A4", zip="70808", limit=10)
-- **search_parcels** — ONLY for street address lookups. Use when the user provides a specific address like "222 St Louis St". Do NOT use for ZIP, zoning, or criteria-based searches.
-- **query_property_db_sql** — For complex spatial/analytical queries the structured filters can't express (e.g., parcels within 1 mile of an EPA site, ST_Intersects with flood zones).
+Choose the right tool for each query type:
 
-When the user says "find parcels" with criteria (zoning, ZIP, size, owner), ALWAYS use query_property_db first. Do NOT use search_parcels for these requests. If the user is asking about parcels that are already displayed on the map, rely on the StructuredParcelContext instead.
+- **query_property_db** — Structured filters (zoning, ZIP, acreage, owner). Example: "find 10 parcels zoned A4 in 70808" → query_property_db(zoning="A4", zip="70808", limit=10)
+- **search_parcels** — ONLY for street address geocoding. Use when user provides a specific address like "222 St Louis St".
+- **query_property_db_sql** — PRIMARY tool for analytical and aggregate queries. Use for:
+  - COUNT/aggregate: "how many parcels are zoned C2?" → SELECT zoning_type, COUNT(*) FROM ebr_parcels WHERE zoning_type = 'C2' GROUP BY zoning_type
+  - Owner searches: "what does ExxonMobil own?" → SELECT ... FROM ebr_parcels WHERE owner ILIKE '%exxon%'
+  - Spatial queries: "parcels within 1 mile of this point" → ST_DWithin(geom::geography, ...)
+  - Complex filters: acreage ranges, assessed value ranges, multi-condition WHERE
+  - Market analytics: GROUP BY zoning_type, AVG(assessed_value), distribution queries
+  ALWAYS include parcel_id and address in SELECT when returning parcels (enables map highlighting).
+  Schema: ebr_parcels(parcel_id, address, owner, area_sqft, assessed_value, zoning_type, geom)
+- **compute_drive_time_area** — For drive-time/travel-time spatial queries. Use when user asks about parcels "within X minutes" of a location.
+  1. Call compute_drive_time_area to get the isochrone polygon (rendered on map automatically)
+  2. Use the returned geojsonGeometry in a query_property_db_sql call: WHERE ST_Within(geom, ST_SetSRID(ST_GeomFromGeoJSON('...'), 4326))
+- **screen_full** — Run comprehensive site screening (flood, soils, wetlands, EPA, traffic, LDEQ) on a specific parcel.
+- **recall_property_intelligence** — Check for stored analysis/notes on a parcel before providing details.
+
+ROUTING RULES:
+1. If user asks "how many" or "count" or "total" → query_property_db_sql with COUNT(*)
+2. If user asks about a specific address → search_parcels to geocode, then get_parcel_details + screen_full
+3. If user asks "find parcels" with criteria → query_property_db_sql (more flexible than query_property_db)
+4. If user asks about drive time / travel time → compute_drive_time_area first, then query_property_db_sql
+5. If user asks "tell me about [parcel]" → get_parcel_details + screen_full + recall_property_intelligence
+6. If parcels already in StructuredParcelContext → use those facts, don't re-query
 
 ## INVESTMENT CRITERIA REFERENCE
 GPC Target Metrics:
