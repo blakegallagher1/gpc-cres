@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import {
+  buildMapContextInput,
   useMapChatDispatch,
   useMapChatState,
 } from "@/lib/chat/MapChatContext";
@@ -42,6 +43,11 @@ const MapChatPanel = dynamic(
 
 const MapProspectingPanel = dynamic(
   () => import("@/components/maps/MapProspectingPanel").then((m) => m.MapProspectingPanel),
+  { ssr: false }
+);
+
+const MapResultCardStack = dynamic(
+  () => import("@/components/maps/MapResultCard").then((m) => m.MapResultCardStack),
   { ssr: false }
 );
 
@@ -196,6 +202,10 @@ export default function MapPage() {
   const [searchLookupOverride, setSearchLookupOverride] = useState<string | null>(null);
   const [selectedSuggestion, setSelectedSuggestion] =
     useState<ParcelSearchSuggestion | null>(null);
+  const [nlQueryLoading, setNlQueryLoading] = useState(false);
+  const [resultCards, setResultCards] = useState<
+    Array<import("@/components/maps/MapResultCard").MapResultCardData>
+  >([]);
   const [polygon, setPolygon] = useState<number[][][] | null>(null);
   const [polygonParcels, setPolygonParcels] = useState<MapParcel[] | null>(null);
   const [polygonError, setPolygonError] = useState<string | null>(null);
@@ -292,10 +302,112 @@ export default function MapPage() {
     searchParams,
   ]);
 
+  // Detect if a query is natural language (vs address/parcel ID lookup)
+  const isNaturalLanguageQuery = useCallback((query: string): boolean => {
+    const q = query.toLowerCase().trim();
+    // NL indicators: question words, action words, aggregate words
+    const nlPatterns = [
+      /^(how many|count|total|average|show me|find|identify|list|compare|what|which|where|tell me|who owns)/,
+      /\b(within|near|zoned|greater than|less than|at least|more than|acres|acreage|industrial|commercial|residential)\b/,
+      /\b(between|around|drive|minute|mile|radius|flood|wetland|epa|owner|assessed)\b/,
+      /\bparcel(s)?\b.*\b(that|which|where|with)\b/,
+    ];
+    // Address patterns: starts with number, looks like "123 Main St"
+    const addressPattern = /^\d+\s+\w/;
+    // Parcel ID pattern: digits-digits-digits
+    const parcelIdPattern = /^\d{3}-\d{3,}/;
+    if (parcelIdPattern.test(q)) return false;
+    if (addressPattern.test(q) && !nlPatterns.some((p) => p.test(q))) return false;
+    return nlPatterns.some((p) => p.test(q));
+  }, []);
+
+  // Send NL query to agent and parse results into cards
+  const handleNlQuery = useCallback(async (query: string) => {
+    setNlQueryLoading(true);
+    try {
+      const mapContextInput = buildMapContextInput(mapState);
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: query,
+          mapContext: mapContextInput,
+        }),
+      });
+      if (!res.ok || !res.body) {
+        setNlQueryLoading(false);
+        return;
+      }
+      // Parse SSE stream
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let fullText = "";
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const jsonStr = line.slice(6).trim();
+          if (!jsonStr || jsonStr === "[DONE]") continue;
+          try {
+            const event = JSON.parse(jsonStr);
+            // Handle map actions from tool results
+            if (event.type === "map_action" && event.payload) {
+              mapDispatch({ type: "MAP_ACTION_RECEIVED", payload: event.payload });
+            }
+            // Collect text deltas
+            if (event.type === "text_delta" || event.type === "response_text_delta") {
+              fullText += event.delta ?? event.text ?? "";
+            }
+            // Handle full text output
+            if (event.type === "text" || event.type === "response_text_done") {
+              fullText = event.text ?? fullText;
+            }
+          } catch {
+            // Skip malformed events
+          }
+        }
+      }
+
+      // Create a result card from the agent's response
+      if (fullText.trim()) {
+        const cardId = `nl-${Date.now()}`;
+        setResultCards((prev) => [
+          ...prev,
+          {
+            id: cardId,
+            title: query.length > 60 ? `${query.slice(0, 57)}...` : query,
+            subtitle: "AI Analysis",
+            narrative: fullText.trim().slice(0, 1000),
+            type: "count" as const,
+          },
+        ]);
+      }
+    } catch (err) {
+      console.error("[map] NL query failed:", err);
+    } finally {
+      setNlQueryLoading(false);
+    }
+  }, [mapState, mapDispatch]);
+
   const handleSearchSubmit = (event?: FormEvent<HTMLFormElement>) => {
     event?.preventDefault();
     const nextSearch = searchText.trim();
     if (!nextSearch) return;
+
+    // Route NL queries to the agent
+    if (isNaturalLanguageQuery(nextSearch)) {
+      setSuggestions([]);
+      setActiveSuggestionIndex(-1);
+      void handleNlQuery(nextSearch);
+      return;
+    }
 
     setSearchLookupOverride(null);
     setSelectedSuggestion(null);
@@ -982,7 +1094,7 @@ export default function MapPage() {
                             setActiveSuggestionIndex(-1);
                           }, 120);
                         }}
-                        placeholder="Search parcel address or database id"
+                        placeholder="Ask a question or search by address..."
                         className="h-8 text-xs bg-map-surface border-map-border text-map-text-primary placeholder:text-map-text-muted"
                       />
                       {(isSuggestLoading || suggestions.length > 0) && (
@@ -1021,10 +1133,10 @@ export default function MapPage() {
                         onClick={submitSearch}
                         className="map-btn h-7 flex-1 text-xs"
                       >
-                        {isSearchLoading ? (
+                        {isSearchLoading || nlQueryLoading ? (
                           <span className="inline-flex items-center gap-2">
                             <Loader2 className="h-3 w-3 animate-spin" />
-                            Searching
+                            {nlQueryLoading ? "Analyzing" : "Searching"}
                           </span>
                         ) : (
                           <>
@@ -1093,6 +1205,17 @@ export default function MapPage() {
               }
             />
           </>
+        )}
+        {/* NL query result cards */}
+        {resultCards.length > 0 && (
+          <MapResultCardStack
+            cards={resultCards}
+            onDismiss={(id) => setResultCards((prev) => prev.filter((c) => c.id !== id))}
+            onContinueInChat={(card) => {
+              setActivePanel("chat");
+              setResultCards((prev) => prev.filter((c) => c.id !== card.id));
+            }}
+          />
         )}
       </div>
     </DashboardShell>
