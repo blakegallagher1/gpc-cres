@@ -2056,6 +2056,7 @@ def _serialize_row(row: asyncpg.Record) -> dict:
 
 
 @app.post("/db/query")
+@app.post("/db")
 async def db_query_proxy(
     request: Request,
     api_key: str = Depends(verify_api_key),
