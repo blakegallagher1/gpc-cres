@@ -60,11 +60,11 @@ export function MapResultCard({ card, onDismiss, onContinueInChat }: MapResultCa
 
   return (
     <motion.div
-      initial={reduceMotion ? false : { opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 12 }}
+      initial={reduceMotion ? false : { opacity: 0, y: -20, scale: 0.97 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -20, scale: 0.97 }}
       transition={CARD_TRANSITION}
-      className="pointer-events-auto w-[380px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-map-border bg-map-surface-overlay shadow-2xl backdrop-blur-md"
+      className="pointer-events-auto w-[440px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-map-accent/30 bg-map-surface-overlay shadow-2xl ring-1 ring-map-accent/20 backdrop-blur-md"
     >
       {/* Header */}
       <div className="flex items-start gap-3 border-b border-map-border px-4 py-3">
@@ -212,7 +212,7 @@ interface MapResultCardStackProps {
 
 export function MapResultCardStack({ cards, onDismiss, onContinueInChat }: MapResultCardStackProps) {
   return (
-    <div className="pointer-events-none absolute bottom-4 left-4 z-30 flex flex-col gap-3">
+    <div className="pointer-events-none absolute left-1/2 top-4 z-40 flex -translate-x-1/2 flex-col gap-3">
       <AnimatePresence>
         {cards.map((card) => (
           <MapResultCard
