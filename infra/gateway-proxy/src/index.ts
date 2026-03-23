@@ -3,6 +3,7 @@ import { validateBearer } from "./auth";
 import { proxyToUpstream } from "./upstream";
 import { matchRoute } from "./routes";
 import { cacheGet, cacheSet, buildCacheKey } from "./cache";
+import { validateSyncToken, handleSyncBatch, getSyncStatus, SyncBatch } from "./sync";
 
 function jsonResponse(body: unknown, status = 200, source = "gateway"): Response {
   return Response.json(body, {
@@ -36,9 +37,31 @@ export default {
       return jsonResponse({ status: "ok", service: "gpc-gateway-proxy" });
     }
 
-    // Auth check
+    // Sync endpoints — separate auth via X-Sync-Token
+    if (url.pathname === "/admin/sync" && request.method === "POST") {
+      if (!validateSyncToken(request, env)) {
+        return jsonResponse({ error: "unauthorized" }, 401);
+      }
+      if (!env.DB) {
+        return jsonResponse({ error: "D1 not configured" }, 500);
+      }
+      const batch = await request.json() as SyncBatch;
+      const syncResult = await handleSyncBatch(env.DB, batch);
+      return jsonResponse({ ok: true, ...syncResult });
+    }
+
+    // Auth check (all other routes)
     if (!validateBearer(request, env)) {
       return jsonResponse({ error: "unauthorized" }, 401);
+    }
+
+    // Sync status — uses Bearer auth
+    if (url.pathname === "/admin/sync/status" && request.method === "GET") {
+      if (!env.DB) {
+        return jsonResponse({ error: "D1 not configured" }, 500);
+      }
+      const status = await getSyncStatus(env.DB);
+      return jsonResponse(status);
     }
 
     const requestId = crypto.randomUUID();
