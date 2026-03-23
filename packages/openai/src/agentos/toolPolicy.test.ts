@@ -43,6 +43,25 @@ describe("toolPolicy", () => {
     ]);
   });
 
+  it("supports excluding legacy tools from a caller-specific runtime", () => {
+    const tools = [
+      { type: "function", name: "query_property_db" },
+      { type: "function", name: "query_property_db_sql" },
+      { type: "function", name: "search_parcels" },
+    ];
+
+    const filtered = filterToolsForIntent("land_search", tools, {
+      allowFallback: false,
+      allowNamelessTools: false,
+      excludedToolNames: ["query_property_db"],
+    }) as Array<{ name?: string }>;
+
+    expect(filtered.map((tool) => tool.name)).toEqual([
+      "query_property_db_sql",
+      "search_parcels",
+    ]);
+  });
+
   it("keeps org SQL available for research where org-scoped analytics are expected", () => {
     const tools = [
       { type: "function", name: "query_property_db" },

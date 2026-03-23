@@ -15,6 +15,7 @@ import { shouldUseAppDatabaseDevFallback } from "@/lib/server/appDbEnv";
 import { sanitizeChatErrorMessage } from "./_lib/errorHandling";
 import { createSseWriter, sseEvent } from "./sseWriter";
 import * as Sentry from "@sentry/nextjs";
+import { buildGatewayHeaders } from "./gatewayHeaders";
 
 /**
  * Simple GatewayAdapter for chat route — delegates to LOCAL_API_URL
@@ -26,13 +27,12 @@ class GatewayAdapterForChatRoute {
     if (!this.gatewayUrl || !this.gatewayKey) {
       return [];
     }
+    const gatewayUrl = this.gatewayUrl;
+    const gatewayHeaders = buildGatewayHeaders(this.gatewayKey);
     const [west, south, east, north] = query.bounds;
-    const res = await fetch(`${this.gatewayUrl}/tools/parcel.bbox`, {
+    const res = await fetch(`${gatewayUrl}/tools/parcel.bbox`, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${this.gatewayKey}`,
-        "Content-Type": "application/json",
-      },
+      headers: gatewayHeaders,
       body: JSON.stringify({
         west,
         south,
@@ -50,13 +50,12 @@ class GatewayAdapterForChatRoute {
     if (!this.gatewayUrl || !this.gatewayKey) {
       return [];
     }
+    const gatewayUrl = this.gatewayUrl;
+    const gatewayHeaders = buildGatewayHeaders(this.gatewayKey);
     const promises = parcelIds.map((id) =>
-      fetch(`${this.gatewayUrl}/tools/parcel.lookup`, {
+      fetch(`${gatewayUrl}/tools/parcel.lookup`, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${this.gatewayKey}`,
-          "Content-Type": "application/json",
-        },
+        headers: gatewayHeaders,
         body: JSON.stringify({ parcel_id: id }),
       })
         .then((res) => (res.ok ? res.json() : null))

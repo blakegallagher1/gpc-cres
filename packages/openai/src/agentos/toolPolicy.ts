@@ -18,6 +18,10 @@ export type ToolFilterOptions = {
    */
   additionalAllowedTools?: readonly string[];
   /**
+   * Exact tool names to remove after intent filtering.
+   */
+  excludedToolNames?: readonly string[];
+  /**
    * Whether to return all incoming tools when the intent filter yields no matches.
    */
   allowFallback?: boolean;
@@ -167,6 +171,7 @@ export function filterToolsForIntent(
   const policy = buildToolPolicy(intent);
   const extraAllowedTools = options.additionalAllowedTools ?? [];
   const policyAllowedSet = new Set([...policy.exact, ...extraAllowedTools]);
+  const excludedToolNames = new Set(options.excludedToolNames ?? []);
 
   const filtered = tools.filter((tool) => {
     if (isHostedToolLike(tool)) {
@@ -176,6 +181,10 @@ export function filterToolsForIntent(
     const name = getToolDefinitionName(tool);
     if (!name) {
       return options.allowNamelessTools === true;
+    }
+
+    if (excludedToolNames.has(name)) {
+      return false;
     }
 
     if (policyAllowedSet.has(name)) {

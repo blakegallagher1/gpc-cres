@@ -219,7 +219,7 @@ describe("plugin tools", () => {
   });
 
   it("registers the plugin tools in the executable tool list", () => {
-    const toolNames = ALL_AGENT_TOOLS.flatMap((tool) => {
+    const toolNames = ALL_AGENT_TOOLS.flatMap((tool: unknown) => {
       if (!tool || typeof tool !== "object") {
         return [];
       }

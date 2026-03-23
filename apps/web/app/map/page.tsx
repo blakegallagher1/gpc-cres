@@ -35,6 +35,11 @@ import {
   resolveSuggestionParcel,
   type ParcelSearchSuggestion,
 } from "./searchHelpers";
+import {
+  extractNlQueryFinalText,
+  extractNlQueryRows,
+  extractNlQueryTextDelta,
+} from "./nlQueryStream";
 
 const MapChatPanel = dynamic(
   () => import("@/components/maps/MapChatPanel").then((m) => m.MapChatPanel),
@@ -368,26 +373,22 @@ export default function MapPage() {
               mapDispatch({ type: "MAP_ACTION_RECEIVED", payload: event.payload });
             }
             // Collect text deltas
-            if (event.type === "text_delta" || event.type === "response_text_delta") {
-              fullText += event.delta ?? event.text ?? "";
+            const textDelta = extractNlQueryTextDelta(event);
+            if (textDelta) {
+              fullText += textDelta;
             }
             // Handle full text output
-            if (event.type === "text" || event.type === "response_text_done") {
-              fullText = event.text ?? fullText;
+            const finalText = extractNlQueryFinalText(event);
+            if (finalText) {
+              fullText = finalText;
             }
             // Capture tool results with row data (from SQL queries)
-            if (event.type === "tool_result" || event.type === "tool_end") {
-              try {
-                const resultData = typeof event.result === "string"
-                  ? JSON.parse(event.result)
-                  : event.result;
-                if (resultData?.rows && Array.isArray(resultData.rows)) {
-                  toolRows.push(...resultData.rows);
-                  if (typeof resultData.rowCount === "number") {
-                    rowCount = resultData.rowCount;
-                  }
-                }
-              } catch { /* not structured data */ }
+            const parsedRows = extractNlQueryRows(event);
+            if (parsedRows) {
+              toolRows.push(...parsedRows.rows);
+              if (typeof parsedRows.rowCount === "number") {
+                rowCount = parsedRows.rowCount;
+              }
             }
             // Capture conversation ID from done event
             if (event.type === "done" && event.conversationId) {

@@ -44,7 +44,7 @@ import {
 } from "@entitlement-os/openai";
 import { AgentTrustEnvelope } from "@/types";
 import type { MapActionPayload } from "@/lib/chat/mapActionTypes";
-import { parseToolResultMapFeatures, parseToolResultMapAction } from "@/lib/chat/toolResultWrapper";
+import { parseToolResultMapFeatures } from "@/lib/chat/toolResultWrapper";
 import { autoFeedRun } from "@/lib/agent/dataAgentAutoFeed.service";
 import { isSchemaDriftError } from "@/lib/api/prismaSchemaFallback";
 import { AUTOMATION_CONFIG } from "@/lib/automation/config";
@@ -52,6 +52,7 @@ import { dispatchEvent } from "@/lib/automation/events";
 import { isLocalAppRuntime } from "@/lib/server/appDbEnv";
 import { getDealReaderById } from "@/lib/services/deal-reader";
 import { logger } from "./loggerAdapter";
+import { buildMapActionEventsFromToolResult } from "./mapActionEvents";
 import { unifiedRetrieval } from "./retrievalAdapter";
 
 const DATA_AGENT_RETRIEVAL_LIMIT = 6;
@@ -320,6 +321,7 @@ const MISSING_EVIDENCE_RETRY_THRESHOLD = 3;
 const MISSING_EVIDENCE_RETRY_MAX_ATTEMPTS = 3;
 const MISSING_EVIDENCE_RETRY_MODE = "missing-evidence-policy";
 const MEMORY_ENFORCEMENT_MAX_RETRIES = 1;
+const WEB_RUNTIME_EXCLUDED_TOOLS = ["query_property_db"] as const;
 
 type ToolEventState = {
   toolsInvoked: Set<string>;
@@ -741,82 +743,8 @@ function emitMapActionsFromToolResult(
   toolCallId: string | null | undefined,
   emit: (event: AgentStreamEvent) => void,
 ): void {
-  const features = parseToolResultMapFeatures(result);
-  if (!features || features.length === 0) return;
-
-  // Highlight all parcel IDs
-  const parcelIds = features
-    .map((f) => f.parcelId)
-    .filter((id): id is string => !!id);
-
-  if (parcelIds.length > 0) {
-    emit({
-      type: "map_action",
-      payload: {
-        action: "highlight",
-        parcelIds,
-        style: "pulse",
-        durationMs: 0,
-      } as MapActionPayload,
-      toolCallId: toolCallId ?? null,
-    });
-  }
-
-  // Fly to the centroid of the first feature with coordinates
-  const firstWithCenter = features.find(
-    (f) => f.center && typeof f.center.lat === "number" && typeof f.center.lng === "number",
-  );
-  if (firstWithCenter?.center) {
-    emit({
-      type: "map_action",
-      payload: {
-        action: "flyTo",
-        center: [firstWithCenter.center.lng, firstWithCenter.center.lat],
-        zoom: features.length === 1 ? 17 : 14,
-        parcelId: firstWithCenter.parcelId,
-      } as MapActionPayload,
-      toolCallId: toolCallId ?? null,
-    });
-  }
-
-  // Add a temporary GeoJSON layer for features with full geometry
-  const geoFeatures = features
-    .filter((f) => f.geometry)
-    .map((f) => ({
-      type: "Feature" as const,
-      properties: {
-        parcelId: f.parcelId,
-        address: f.address,
-        zoning: f.zoningType,
-        label: f.label,
-      },
-      geometry: f.geometry!,
-    }));
-
-  if (geoFeatures.length > 0) {
-    emit({
-      type: "map_action",
-      payload: {
-        action: "addLayer",
-        layerId: `tool-result-${toolCallId ?? Date.now()}`,
-        geojson: {
-          type: "FeatureCollection",
-          features: geoFeatures,
-        },
-        label: `${toolName} results (${geoFeatures.length})`,
-      } as MapActionPayload,
-      toolCallId: toolCallId ?? null,
-    });
-  }
-
-  // Handle explicit __mapAction (e.g., isochrone overlay from spatial tools)
-  const explicitAction = parseToolResultMapAction(result);
-  if (explicitAction) {
-    emit({
-      type: "map_action",
-      payload: explicitAction,
-      toolCallId: toolCallId ?? null,
-    });
+  for (const event of buildMapActionEventsFromToolResult(toolName, result, toolCallId)) {
+    emit(event);
   }
 }
 
@@ -1633,6 +1561,7 @@ export async function executeAgentWorkflow(
               [...(baseCoordinator.tools ?? [])],
               {
                 additionalAllowedTools: [...WEB_ADDITIONAL_TOOL_ALLOWLIST],
+                excludedToolNames: [...WEB_RUNTIME_EXCLUDED_TOOLS],
                 allowFallback: false,
                 allowNamelessTools: false,
               },

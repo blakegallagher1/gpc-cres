@@ -28,11 +28,6 @@ interface GeoJsonFeature {
   geometry: GeoJsonPolygon;
 }
 
-interface GeoJsonFeatureCollection {
-  type: "FeatureCollection";
-  features: GeoJsonFeature[];
-}
-
 // ---------------------------------------------------------------------------
 // Isochrone computation via Google Routes API
 // ---------------------------------------------------------------------------
