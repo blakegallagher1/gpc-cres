@@ -25,6 +25,7 @@
   "dependencies": {
     "@entitlement-os/artifacts": "workspace:*",
     "@entitlement-os/db": "workspace:*",
+    "@entitlement-os/gateway-client": "workspace:^",
     "@entitlement-os/shared": "workspace:*",
     "@openai/agents": "^0.7.2",
     "@qdrant/js-client-rest": "^1.17.0",
