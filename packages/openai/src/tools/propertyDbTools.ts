@@ -144,28 +144,34 @@ export async function rpc(fnName: string, body: Record<string, unknown>): Promis
         error: "Could not geocode address. Try the query_property_db tool with structured filters (zip, zoning, owner name) instead.",
         suggestion: "Use query_property_db tool with structured filters",
       };
-      return gatewayPost("/tools/parcel.point", {
-        lat: geo.lat,
-        lng: geo.lng,
+      return gatewayPost("/tools/parcel.bbox", {
+        min_lat: geo.lat - 0.005,
+        max_lat: geo.lat + 0.005,
+        min_lng: geo.lng - 0.005,
+        max_lng: geo.lng + 0.005,
         limit: (body.limit_rows ?? body.p_limit_rows ?? 5) as number,
       });
     }
-    case "api_screen_zoning":
-      return gatewayPost("/api/screening/zoning", { parcelId: body.parcel_id ?? body.p_parcel_id });
+    case "api_screen_zoning": {
+      const pid = String(body.parcel_id ?? body.p_parcel_id).replace(/'/g, "''");
+      return gatewayPost("/tools/parcels.sql", {
+        sql: `SELECT p_parcel_id, zoning_type, existing_land_use, future_land_use FROM ebr_parcels WHERE p_parcel_id = '${pid}' LIMIT 1`,
+      });
+    }
     case "api_screen_flood":
-      return gatewayPost("/api/screening/flood", { parcelId: body.parcel_id ?? body.p_parcel_id });
+      return gatewayPost("/tools/screen.flood", { parcel_id: body.parcel_id ?? body.p_parcel_id });
     case "api_screen_soils":
-      return gatewayPost("/api/screening/soils", { parcelId: body.parcel_id ?? body.p_parcel_id });
+      return gatewayPost("/tools/screen.soils", { parcel_id: body.parcel_id ?? body.p_parcel_id });
     case "api_screen_wetlands":
-      return gatewayPost("/api/screening/wetlands", { parcelId: body.parcel_id ?? body.p_parcel_id });
+      return gatewayPost("/tools/screen.wetlands", { parcel_id: body.parcel_id ?? body.p_parcel_id });
     case "api_screen_epa":
-      return gatewayPost("/api/screening/epa", { parcelId: body.parcel_id ?? body.p_parcel_id, radiusMiles: body.radius_miles ?? 1.0 });
+      return gatewayPost("/tools/screen.epa", { parcel_id: body.parcel_id ?? body.p_parcel_id, radius_miles: body.radius_miles ?? 1.0 });
     case "api_screen_traffic":
-      return gatewayPost("/api/screening/traffic", { parcelId: body.parcel_id ?? body.p_parcel_id, radiusMiles: body.radius_miles ?? 0.5 });
+      return gatewayPost("/tools/screen.traffic", { parcel_id: body.parcel_id ?? body.p_parcel_id, radius_miles: body.radius_miles ?? 0.5 });
     case "api_screen_ldeq":
-      return gatewayPost("/api/screening/ldeq", { parcelId: body.parcel_id ?? body.p_parcel_id, radiusMiles: body.radius_miles ?? 1.0 });
+      return gatewayPost("/tools/screen.ldeq", { parcel_id: body.parcel_id ?? body.p_parcel_id, radius_miles: body.radius_miles ?? 1.0 });
     case "api_screen_full":
-      return gatewayPost("/api/screening/full", { parcelId: body.parcel_id ?? body.p_parcel_id });
+      return gatewayPost("/tools/screen.full", { parcel_id: body.parcel_id ?? body.p_parcel_id });
     default:
       return { error: `Unknown RPC function: ${fnName}` };
   }
@@ -363,7 +369,10 @@ export const screenZoning = tool({
       .describe("The parcel number (e.g. '001-5096-7')"),
   }),
   execute: async ({ parcel_id }) => {
-    const result = await gatewayPost("/api/screening/zoning", { parcelId: parcel_id });
+    const safePid = parcel_id.replace(/'/g, "''");
+    const result = await gatewayPost("/tools/parcels.sql", {
+      sql: `SELECT p_parcel_id, site_addr, owner_name, zoning_type, area_acres, existing_land_use, future_land_use FROM ebr_parcels WHERE p_parcel_id = '${safePid}' LIMIT 1`,
+    });
     return wrapResultWithMapFeatures(result);
   },
 });
@@ -537,11 +546,42 @@ export const queryPropertyDb = tool({
     limit: z.number().optional().nullable().describe("Max results to return (default 10, max 100)."),
   }),
   execute: async (params) => {
-    // Strip null/undefined params — gateway treats null as an explicit filter
-    const cleaned = Object.fromEntries(
-      Object.entries(params).filter(([, v]) => v != null)
-    );
-    const result = await gatewayPost("/tools/parcels.search", cleaned);
+    // Build SQL dynamically from structured filters via /tools/parcels.sql
+    const conditions: string[] = [];
+    const limit = Math.min(params.limit ?? 10, 100);
+
+    if (params.zoning) {
+      const z = params.zoning.replace(/'/g, "''").toUpperCase().replace(/-/g, "");
+      conditions.push(`UPPER(REPLACE(zoning_type, '-', '')) LIKE '%${z}%'`);
+    }
+    if (params.zip) {
+      const zip = params.zip.replace(/'/g, "''");
+      conditions.push(`site_addr LIKE '%${zip}%'`);
+    }
+    if (params.min_acreage != null) {
+      conditions.push(`area_acres >= ${Number(params.min_acreage)}`);
+    }
+    if (params.max_acreage != null) {
+      conditions.push(`area_acres <= ${Number(params.max_acreage)}`);
+    }
+    if (params.owner_contains) {
+      const owner = params.owner_contains.replace(/'/g, "''");
+      conditions.push(`owner_name ILIKE '%${owner}%'`);
+    }
+    if (params.land_use) {
+      const lu = params.land_use.replace(/'/g, "''");
+      conditions.push(`existing_land_use ILIKE '%${lu}%'`);
+    }
+
+    const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+    let orderBy = "ORDER BY area_acres DESC";
+    if (params.sort === "acreage_asc") orderBy = "ORDER BY area_acres ASC";
+    else if (params.sort === "assessed_value_desc") orderBy = "ORDER BY assessed_value DESC NULLS LAST";
+    else if (params.sort === "address_asc") orderBy = "ORDER BY site_addr ASC";
+
+    const sql = `SELECT p_parcel_id, site_addr, owner_name, zoning_type, area_acres, assessed_value, centroid_lat AS latitude, centroid_lng AS longitude FROM ebr_parcels ${where} ${orderBy} LIMIT ${limit}`;
+    const result = await gatewayPost("/tools/parcels.sql", { sql });
     return wrapResultWithMapFeatures(result);
   },
 });

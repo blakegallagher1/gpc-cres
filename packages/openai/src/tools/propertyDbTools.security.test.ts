@@ -64,7 +64,7 @@ describe("propertyDbTools rpc key enforcement", () => {
       headers: { "User-Agent": "EntitlementOS/1.0 (gallagherpropco.com)" },
     });
 
-    expect(fetchMock.mock.calls[1]?.[0]).toBe("https://api.example.com/tools/parcel.point");
+    expect(fetchMock.mock.calls[1]?.[0]).toBe("https://api.example.com/tools/parcel.bbox");
     expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
       method: "POST",
       headers: {
@@ -73,11 +73,12 @@ describe("propertyDbTools rpc key enforcement", () => {
         "Content-Type": "application/json",
       },
     });
-    expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({
-      lat: 30.4515,
-      lng: -91.1871,
-      limit: 7,
-    });
+    const bboxBody = JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body));
+    expect(bboxBody.limit).toBe(7);
+    expect(bboxBody.min_lat).toBeCloseTo(30.4465, 3);
+    expect(bboxBody.max_lat).toBeCloseTo(30.4565, 3);
+    expect(bboxBody.min_lng).toBeCloseTo(-91.1921, 3);
+    expect(bboxBody.max_lng).toBeCloseTo(-91.1821, 3);
   });
 
   it("throws when LOCAL_API_KEY is missing", async () => {
