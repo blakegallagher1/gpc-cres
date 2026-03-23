@@ -111,7 +111,7 @@ interface MapLibreParcelMapProps {
   /** Called when selection changes. */
   onSelectionChange?: (ids: Set<string>) => void;
   /** Called on moveend with map center and zoom. */
-  onViewStateChange?: (center: [number, number], zoom: number) => void;
+  onViewStateChange?: (center: [number, number], zoom: number, bounds?: ViewportBounds) => void;
   /** Called once the MapLibre style is loaded and imperative APIs are safe. */
   onMapReady?: () => void;
   /** Optional search UI rendered at the top of the layer panel. */
@@ -1899,13 +1899,18 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
           if (boundsTimerRef.current) clearTimeout(boundsTimerRef.current);
           boundsTimerRef.current = setTimeout(() => {
             const b = map.getBounds();
-            setViewportBounds({
+            const bounds = {
               west: b.getWest(),
               south: b.getSouth(),
               east: b.getEast(),
               north: b.getNorth(),
-            });
-            onViewStateChangeRef.current?.([map.getCenter().lat, map.getCenter().lng], map.getZoom());
+            };
+            setViewportBounds(bounds);
+            onViewStateChangeRef.current?.(
+              [map.getCenter().lat, map.getCenter().lng],
+              map.getZoom(),
+              bounds,
+            );
           }, 300);
         });
       });

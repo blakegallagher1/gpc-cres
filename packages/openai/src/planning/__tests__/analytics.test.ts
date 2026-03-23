@@ -4,8 +4,6 @@ import {
 } from "../analytics";
 import type {
   ParcelSetMaterialization,
-  ParcelFacts,
-  ParcelScreeningResult,
 } from "@entitlement-os/shared";
 
 describe("computeAnalytics", () => {

@@ -10,6 +10,7 @@ import type {
   MapTrajectoryData,
   MapTrajectoryVelocityDatum,
 } from "./types";
+import type { ViewportBounds } from "./useParcelGeometry";
 
 export type { MapParcel, MapTrajectoryData, MapTrajectoryVelocityDatum } from "./types";
 
@@ -33,7 +34,7 @@ interface ParcelMapProps {
   highlightParcelIds?: Set<string>;
   selectedParcelIds?: Set<string>;
   onSelectionChange?: (ids: Set<string>) => void;
-  onViewStateChange?: (center: [number, number], zoom: number) => void;
+  onViewStateChange?: (center: [number, number], zoom: number, bounds?: ViewportBounds) => void;
   onMapReady?: () => void;
   searchSlot?: React.ReactNode;
 }

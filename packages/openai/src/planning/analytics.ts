@@ -104,7 +104,7 @@ function computeDistributions(
  */
 function computeScreeningSummary(
   screening: ParcelSetMaterialization["screening"],
-  totalFactsCount: number
+  _totalFactsCount: number
 ): ScreeningSummary | null {
   if (screening.length === 0) {
     return null;

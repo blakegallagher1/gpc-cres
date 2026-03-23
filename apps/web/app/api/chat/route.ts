@@ -26,17 +26,24 @@ class GatewayAdapterForChatRoute {
     if (!this.gatewayUrl || !this.gatewayKey) {
       return [];
     }
+    const [west, south, east, north] = query.bounds;
     const res = await fetch(`${this.gatewayUrl}/tools/parcel.bbox`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${this.gatewayKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(query),
+      body: JSON.stringify({
+        west,
+        south,
+        east,
+        north,
+        ...(query.limit ? { limit: query.limit } : {}),
+      }),
     });
     if (!res.ok) return [];
     const data = await res.json();
-    return Array.isArray(data) ? data : data.parcels ?? [];
+    return Array.isArray(data) ? data : data.parcels ?? data.data ?? [];
   }
 
   async getParcelDetails(parcelIds: string[]) {
@@ -154,12 +161,18 @@ async function buildParcelContext(
 function buildMapContextPrefix(mapContext: MapContextInput | null | undefined): string {
   const center = mapContext?.center;
   const selected = mapContext?.selectedParcelIds ?? [];
+  const selectedParcels = mapContext?.selectedParcels ?? [];
+  const viewportBounds = mapContext?.viewportBounds;
+  const spatialSelection = mapContext?.spatialSelection;
   const referenced = mapContext?.referencedFeatures ?? [];
   const hasContext =
     Boolean(center) ||
     typeof mapContext?.zoom === "number" ||
+    Boolean(viewportBounds) ||
     selected.length > 0 ||
+    selectedParcels.length > 0 ||
     referenced.length > 0 ||
+    Boolean(spatialSelection) ||
     Boolean(mapContext?.viewportLabel);
 
   if (!hasContext) {
@@ -170,6 +183,23 @@ function buildMapContextPrefix(mapContext: MapContextInput | null | undefined): 
     referenced.length > 0
       ? referenced
           .map((feature) =>
+            [
+              feature.parcelId,
+              feature.label,
+              feature.address,
+              feature.zoning,
+              feature.acres ? `${feature.acres} acres` : null,
+            ]
+              .filter((value) => typeof value === "string" && value.length > 0)
+              .join(" | "),
+          )
+          .join("; ")
+      : "none";
+
+  const selectedText =
+    selectedParcels.length > 0
+      ? selectedParcels
+          .map((feature) =>
             [feature.parcelId, feature.address, feature.zoning]
               .filter((value) => typeof value === "string" && value.length > 0)
               .join(" | "),
@@ -177,11 +207,21 @@ function buildMapContextPrefix(mapContext: MapContextInput | null | undefined): 
           .join("; ")
       : "none";
 
+  const boundsText = viewportBounds
+    ? `${viewportBounds.west},${viewportBounds.south},${viewportBounds.east},${viewportBounds.north}`
+    : "unknown";
+
+  const spatialText = spatialSelection
+    ? `kind=${spatialSelection.kind}; parcelIds=${
+        spatialSelection.parcelIds?.length ? spatialSelection.parcelIds.join(",") : "none"
+      }; label=${spatialSelection.label ?? "unknown"}`
+    : "none";
+
   return `[Map Context]\ncenter=${center ? `${center.lat},${center.lng}` : "unknown"}\nzoom=${
     typeof mapContext?.zoom === "number" ? mapContext.zoom.toFixed(2) : "unknown"
   }\nselectedParcelIds=${selected.length > 0 ? selected.join(",") : "none"}\nviewportLabel=${
     mapContext?.viewportLabel ?? "unknown"
-  }\nreferencedFeatures=${referencedText}\n[/Map Context]\n\n`;
+  }\nviewportBounds=${boundsText}\nselectedParcels=${selectedText}\nspatialSelection=${spatialText}\nreferencedFeatures=${referencedText}\n[/Map Context]\n\n`;
 }
 
 function toClientErrorPayload(message: string, correlationId: string): Record<string, unknown> {
