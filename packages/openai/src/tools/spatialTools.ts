@@ -14,16 +14,28 @@ import { z } from "zod";
 const GOOGLE_API_TIMEOUT_MS = 15_000;
 
 // ---------------------------------------------------------------------------
-// Isochrone computation via Google Routes API
+// Inline GeoJSON types (avoids @types/geojson dependency)
 // ---------------------------------------------------------------------------
 
-interface IsochroneResult {
-  polygon: GeoJSON.Feature;
-  origin: { lat: number; lng: number };
-  travelTimeMinutes: number;
-  mode: string;
-  computedAt: string;
+interface GeoJsonPolygon {
+  type: "Polygon";
+  coordinates: Array<Array<[number, number]>>;
 }
+
+interface GeoJsonFeature {
+  type: "Feature";
+  properties: Record<string, unknown>;
+  geometry: GeoJsonPolygon;
+}
+
+interface GeoJsonFeatureCollection {
+  type: "FeatureCollection";
+  features: GeoJsonFeature[];
+}
+
+// ---------------------------------------------------------------------------
+// Isochrone computation via Google Routes API
+// ---------------------------------------------------------------------------
 
 /**
  * Compute a drive-time isochrone polygon using Google Routes API.
@@ -34,7 +46,7 @@ async function computeGoogleIsochrone(
   travelTimeMinutes: number,
   mode: "driving" | "walking" | "bicycling",
   apiKey: string,
-): Promise<GeoJSON.Feature | null> {
+): Promise<GeoJsonFeature | null> {
   // Google Maps doesn't have a direct isochrone API, but we can approximate
   // using Distance Matrix to sample reachable distances in multiple directions,
   // then construct a polygon from the reachable points.
@@ -149,7 +161,7 @@ function approximateRadiusIsochrone(
   origin: { lat: number; lng: number },
   travelTimeMinutes: number,
   mode: "driving" | "walking" | "bicycling",
-): GeoJSON.Feature {
+): GeoJsonFeature {
   const speedKmH = mode === "driving" ? 50 : mode === "bicycling" ? 12 : 4;
   const radiusKm = (speedKmH * travelTimeMinutes) / 60;
   const radiusDeg = radiusKm / 111.32;
@@ -258,7 +270,7 @@ export const computeDriveTimeArea = tool({
 
     // Compute isochrone
     const apiKey = process.env.GOOGLE_MAPS_API_KEY?.trim();
-    let polygon: GeoJSON.Feature;
+    let polygon: GeoJsonFeature;
     let method: string;
 
     if (apiKey && apiKey.startsWith("AIza")) {
