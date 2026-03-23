@@ -1550,24 +1550,21 @@ export async function executeAgentWorkflow(
       });
     }
 
-    const baseCoordinator = createIntentAwareCoordinator(queryIntent) as Agent & {
-      clone?: (config: { tools: Agent["tools"] }) => Agent;
-    };
-    const coordinator =
-      typeof baseCoordinator.clone === "function"
-            ? baseCoordinator.clone({
-            tools: filterToolsForIntent(
-              queryIntent,
-              [...(baseCoordinator.tools ?? [])],
-              {
-                additionalAllowedTools: [...WEB_ADDITIONAL_TOOL_ALLOWLIST],
-                excludedToolNames: [...WEB_RUNTIME_EXCLUDED_TOOLS],
-                allowFallback: false,
-                allowNamelessTools: false,
-              },
-            ) as Agent["tools"],
-          })
-        : baseCoordinator;
+    const coordinator = createIntentAwareCoordinator(queryIntent);
+    // Apply tool policy: filter by intent + exclude tools not suitable for web runtime.
+    // Agent SDK doesn't expose clone(), so we mutate the tools array directly.
+    if (coordinator.tools && coordinator.tools.length > 0) {
+      coordinator.tools = filterToolsForIntent(
+        queryIntent,
+        [...coordinator.tools],
+        {
+          additionalAllowedTools: [...WEB_ADDITIONAL_TOOL_ALLOWLIST],
+          excludedToolNames: [...WEB_RUNTIME_EXCLUDED_TOOLS],
+          allowFallback: true,
+          allowNamelessTools: false,
+        },
+      ) as Agent["tools"];
+    }
     const configuredToolNames = (coordinator.tools ?? [])
       .map((tool) => getToolName(tool))
       .filter((name): name is string => typeof name === "string" && name.length > 0);
