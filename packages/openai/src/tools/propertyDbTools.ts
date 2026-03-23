@@ -83,30 +83,24 @@ function readGatewayErrorText(payload: unknown): string {
   return parts.join(" ").trim();
 }
 
-async function maybeRecoverZoningCountQuery(
-  sql: string,
-  payload: unknown,
-): Promise<unknown | null> {
+function extractZoningCodeForCount(sql: string): string | null {
   const loweredSql = sql.toLowerCase();
   if (!loweredSql.includes("from ebr_parcels")) return null;
   if (!loweredSql.includes("count(")) return null;
-  if (!loweredSql.includes("zoning_type")) return null;
-
-  const errorText = readGatewayErrorText(payload).toLowerCase();
-  if (!errorText.includes("zoning_type")) return null;
-  if (!errorText.includes("does not exist")) return null;
-
+  if (!/(zoning|zone|zonetype|zoningcode|zoning_type)/i.test(sql)) return null;
   const zoningMatch = sql.match(/=\s*'([^']+)'/i);
   const zoning = zoningMatch?.[1]?.trim();
   if (!zoning) return null;
+  return zoning;
+}
 
+async function countByZoningViaParcelSearch(zoning: string): Promise<unknown | null> {
   const fallback = await gatewayPost("/tools/parcel.search", {
     zoning,
     limit: 1,
   });
   const fallbackData = fallback as Record<string, unknown>;
   if (typeof fallbackData?.count !== "number") return null;
-
   return {
     rowCount: 1,
     rows: [
@@ -117,6 +111,19 @@ async function maybeRecoverZoningCountQuery(
     ],
     fallback: "parcel_search_count",
   };
+}
+
+async function maybeRecoverZoningCountQuery(
+  sql: string,
+  payload: unknown,
+): Promise<unknown | null> {
+  const zoning = extractZoningCodeForCount(sql);
+  if (!zoning) return null;
+
+  const errorText = readGatewayErrorText(payload).toLowerCase();
+  if (!/(zoning|zone|zonetype|zoningcode|zoning_type)/i.test(errorText)) return null;
+  if (!errorText.includes("does not exist")) return null;
+  return countByZoningViaParcelSearch(zoning);
 }
 
 /** Call a gateway POST endpoint and return the JSON body. */
@@ -670,6 +677,13 @@ export const queryPropertyDbSql = tool({
     const firstWord = trimmed.split(/\s+/)[0]?.toUpperCase();
     if (firstWord !== "SELECT" && firstWord !== "WITH") {
       return JSON.stringify({ error: "Only SELECT/WITH queries are allowed." });
+    }
+    const shortcutZoning = extractZoningCodeForCount(trimmed);
+    if (shortcutZoning) {
+      const shortcutResult = await countByZoningViaParcelSearch(shortcutZoning);
+      if (shortcutResult) {
+        return JSON.stringify(shortcutResult);
+      }
     }
     const result = await gatewayPost("/tools/parcels.sql", { sql: trimmed });
     const recovered = await maybeRecoverZoningCountQuery(trimmed, result);
