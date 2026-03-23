@@ -63,7 +63,10 @@ type RawConversationResponse = {
 const CHAT_RECENTS_KEY = 'chat.recentConversationIds';
 const MAX_RECENTS = 5;
 const AUI_MESSAGE_ENHANCEMENTS = process.env.NEXT_PUBLIC_AUI_MESSAGE_ENHANCEMENTS !== 'false';
-const WS_ENABLED = Boolean(process.env.NEXT_PUBLIC_AGENT_WS_URL);
+// Force REST mode — CF Worker WebSocket path has stale tool schemas that include
+// query_property_db. The REST /api/chat path uses the fixed Vercel coordinator.
+// Re-enable when CF Worker tool-schemas.json is regenerated and deployed.
+const WS_ENABLED = false; // was: Boolean(process.env.NEXT_PUBLIC_AGENT_WS_URL)
 
 function isString(value: unknown): value is string {
   return typeof value === 'string';
