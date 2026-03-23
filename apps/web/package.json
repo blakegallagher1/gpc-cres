@@ -14,6 +14,7 @@
     "@entitlement-os/artifacts": "workspace:*",
     "@entitlement-os/db": "workspace:*",
     "@entitlement-os/evidence": "workspace:*",
+    "@entitlement-os/gateway-client": "workspace:^",
     "@entitlement-os/openai": "workspace:*",
     "@entitlement-os/shared": "workspace:*",
     "@gpc/server": "workspace:*",
