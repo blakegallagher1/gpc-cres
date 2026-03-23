@@ -38,6 +38,7 @@ export type CreateStrictJsonResponseParams = {
   store?: boolean;
   promptCacheKey?: string | null;
   promptCacheRetention?: OpenAI.Responses.ResponseCreateParams["prompt_cache_retention"];
+  safetyIdentifier?: string | null;
 };
 
 const OPENAI_CLIENT_MAX_RETRIES = 0;
@@ -510,6 +511,7 @@ export type ResponseCreateBaseParams = {
   promptCacheRetention?: OpenAI.Responses.ResponseCreateParams["prompt_cache_retention"];
   parallelToolCalls?: OpenAI.Responses.ResponseCreateParams["parallel_tool_calls"];
   applyDefaultReasoning?: boolean;
+  safetyIdentifier?: string | null;
 };
 
 export function buildResponseCreateParams(
@@ -554,6 +556,9 @@ export function buildResponseCreateParams(
     ...(options.promptCacheRetention
       ? { prompt_cache_retention: options.promptCacheRetention }
       : {}),
+    ...(options.safetyIdentifier
+      ? { safety_identifier: options.safetyIdentifier }
+      : {}),
     store: options.store ?? false,
     ...continuation,
   };
@@ -581,6 +586,7 @@ export type CreateTextResponseParams = {
   store?: boolean;
   promptCacheKey?: string | null;
   promptCacheRetention?: OpenAI.Responses.ResponseCreateParams["prompt_cache_retention"];
+  safetyIdentifier?: string | null;
 };
 
 /**
@@ -591,7 +597,7 @@ export async function createTextResponse(
   params: CreateTextResponseParams,
 ): Promise<{ text: string; responseId: string | null }> {
   const client = getClient(params.apiKey);
-  const model = params.model ?? "gpt-4o-mini";
+  const model = params.model ?? "gpt-5.4-mini";
 
   const response = (await withExponentialBackoff(
     async () =>
@@ -615,8 +621,9 @@ export async function createTextResponse(
           previousResponseId: params.previousResponseId,
           store: params.store,
           promptCacheKey:
-            params.promptCacheKey !== undefined ? params.promptCacheKey : undefined,
-          promptCacheRetention: params.promptCacheRetention,
+            params.promptCacheKey !== undefined ? params.promptCacheKey : "entitlement-os",
+          promptCacheRetention: params.promptCacheRetention ?? "24h",
+          safetyIdentifier: params.safetyIdentifier ?? undefined,
           applyDefaultReasoning: false,
         }),
       ),
@@ -686,7 +693,8 @@ export async function createStrictJsonResponse<T>(
         contextManagement: params.contextManagement,
         compaction: params.compaction,
         previousResponseId: params.previousResponseId,
-        promptCacheRetention: params.promptCacheRetention,
+        promptCacheRetention: params.promptCacheRetention ?? "24h",
+        safetyIdentifier: params.safetyIdentifier ?? undefined,
         include,
         applyDefaultReasoning: config.enabled,
       });

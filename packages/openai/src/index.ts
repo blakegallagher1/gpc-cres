@@ -18,3 +18,4 @@ export * from "./tools/resilientToolWrapper.js";
 export * from "./tools/resilientZoningTool.js";
 export * from "./agentos/index.js";
 export * from "./planning/index.js";
+export * from "./safety.js";
