@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   Plus,
   Search,
+  Kanban,
   LayoutGrid,
   List,
   Download,
@@ -36,36 +37,14 @@ import { DealCard, type DealSummary } from "@/components/deals/DealCard";
 import { StatusBadge } from "@/components/deals/StatusBadge";
 import { SkuBadge } from "@/components/deals/SkuBadge";
 import { TriageIndicator } from "@/components/deals/TriageIndicator";
+import { DealBoard } from "@/components/deals/DealBoard";
+import {
+  DEAL_STATUSES,
+  DEAL_STATUS_LABELS,
+  type BoardStatus,
+} from "@/components/deals/dealStatusMeta";
 import { formatDate } from "@/lib/utils";
 import { toast } from "sonner";
-
-const DEAL_STATUSES = [
-  "INTAKE",
-  "TRIAGE_DONE",
-  "PREAPP",
-  "CONCEPT",
-  "NEIGHBORS",
-  "SUBMITTED",
-  "HEARING",
-  "APPROVED",
-  "EXIT_MARKETED",
-  "EXITED",
-  "KILLED",
-];
-
-const DEAL_STATUS_LABEL: Record<string, string> = {
-  INTAKE: "Intake",
-  TRIAGE_DONE: "Triage Done",
-  PREAPP: "Pre-App",
-  CONCEPT: "Concept",
-  NEIGHBORS: "Neighbors",
-  SUBMITTED: "Submitted",
-  HEARING: "Hearing",
-  APPROVED: "Approved",
-  EXIT_MARKETED: "Exit Marketing",
-  EXITED: "Exited",
-  KILLED: "Killed",
-};
 
 const RECENT_SEARCH_KEY = "deals-page-recent-searches";
 const MAX_RECENT_SEARCHES = 8;
@@ -95,13 +74,13 @@ function DealsPageContent({
 }: DealsPageProps) {
   const [deals, setDeals] = useState<DealSummary[]>(initialDeals);
   const [loading, setLoading] = useState(false);
-  const [view, setView] = useState<"grid" | "table">("table");
+  const [view, setView] = useState<"grid" | "table" | "board">("table");
   const [statusFilter, setStatusFilter] = useState(initialStatusFilter);
   const [skuFilter, setSkuFilter] = useState(initialSkuFilter);
   const [search, setSearch] = useState(initialSearch);
   const [isExporting, setIsExporting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [bulkStatus, setBulkStatus] = useState("INTAKE");
+  const [bulkStatus, setBulkStatus] = useState<keyof typeof DEAL_STATUS_LABELS>("INTAKE");
   const [bulkAction, setBulkAction] = useState<"delete" | "status" | null>(null);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [triageDecisionFilter, setTriageDecisionFilter] =
@@ -109,6 +88,7 @@ function DealsPageContent({
   const [triageMinScore, setTriageMinScore] = useState("");
   const [triageMaxScore, setTriageMaxScore] = useState("");
   const [triageNeedsReviewOnly, setTriageNeedsReviewOnly] = useState(false);
+  const [movingDealIds, setMovingDealIds] = useState<Set<string>>(new Set());
   const router = useRouter();
   const pathname = usePathname();
   const triageMode = initialTriageMode;
@@ -290,7 +270,8 @@ function DealsPageContent({
         );
       }
 
-      toast.success(`Updated ${payload?.updated ?? ids.length} deals to ${DEAL_STATUS_LABEL[bulkStatus] ?? bulkStatus}`);
+      const statusLabel = DEAL_STATUS_LABELS[bulkStatus];
+      toast.success(`Updated ${payload?.updated ?? ids.length} deals to ${statusLabel}`);
       setSelectedIds(new Set());
       await loadDeals();
     } catch (error) {
@@ -318,7 +299,7 @@ function DealsPageContent({
   }, []);
 
   useEffect(() => {
-    if (view === "grid") {
+    if (view !== "table") {
       setSelectedIds(new Set());
     }
   }, [view]);
@@ -379,6 +360,51 @@ function DealsPageContent({
       return true;
     });
   }, [deals, triageDecisionFilter, triageNeedsReviewOnly, triageMinScore, triageMaxScore]);
+
+  const handleMoveDealToStatus = useCallback(
+    async (dealId: string, status: BoardStatus) => {
+      setMovingDealIds((previous) => {
+        const next = new Set(previous);
+        next.add(dealId);
+        return next;
+      });
+
+      try {
+        const res = await fetch("/api/deals", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "update-status",
+            ids: [dealId],
+            status,
+          }),
+        });
+
+        const payload = await res.json().catch(() => null);
+        if (!res.ok) {
+          throw new Error(
+            payload && typeof payload === "object" && "error" in payload
+              ? String(payload.error)
+              : "Failed to move deal",
+          );
+        }
+
+        await loadDeals();
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to move deal");
+      } finally {
+        setMovingDealIds((previous) => {
+          const next = new Set(previous);
+          next.delete(dealId);
+          return next;
+        });
+      }
+    },
+    [loadDeals],
+  );
+
+  const isBoardBusy = movingDealIds.size > 0;
+
   const activeFilterCount = [
     statusFilter !== "all",
     skuFilter !== "all",
@@ -669,7 +695,7 @@ function DealsPageContent({
               <Button
                 variant={view === "table" ? "secondary" : "ghost"}
                 size="icon"
-                className="rounded-none"
+                className="rounded-r-none"
                 onClick={() => setView("table")}
                 aria-label="Table view"
               >
@@ -678,11 +704,21 @@ function DealsPageContent({
               <Button
                 variant={view === "grid" ? "secondary" : "ghost"}
                 size="icon"
-                className="rounded-l-none"
+                className="rounded-none"
                 onClick={() => setView("grid")}
                 aria-label="Grid view"
               >
                 <LayoutGrid className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={view === "board" ? "secondary" : "ghost"}
+                size="icon"
+                className="rounded-l-none"
+                onClick={() => setView("board")}
+                aria-label="Board view"
+                disabled={isBoardBusy}
+              >
+                <Kanban className="h-4 w-4" />
               </Button>
             </div>
           </div>
@@ -694,14 +730,15 @@ function DealsPageContent({
               <p className="text-sm font-medium">Search preview</p>
               <div className="space-y-2">
                 {searchPreview.map((deal) => (
-                  <div
+                  <Link
                     key={deal.id}
-                    className="flex items-center justify-between gap-2 rounded border border-dashed px-2 py-1 text-xs text-muted-foreground"
+                    href={`/deals/${deal.id}`}
+                    className="flex items-center justify-between gap-2 rounded border border-dashed px-2 py-1 text-xs text-muted-foreground hover:underline"
                   >
                     <span className="truncate">{deal.name}</span>
                     <span>{deal.sku}</span>
                     <span>{deal.jurisdiction?.name ?? "Unknown"}</span>
-                  </div>
+                  </Link>
                 ))}
               </div>
             </CardContent>
@@ -715,14 +752,19 @@ function DealsPageContent({
               <span className="text-sm text-muted-foreground">
                 {selectedIds.size} selected
               </span>
-              <Select value={bulkStatus} onValueChange={setBulkStatus}>
+              <Select
+                value={bulkStatus}
+                onValueChange={(value) =>
+                  setBulkStatus(value as keyof typeof DEAL_STATUS_LABELS)
+                }
+              >
                 <SelectTrigger className="w-[190px]">
                   <SelectValue placeholder="Bulk status" />
                 </SelectTrigger>
                 <SelectContent>
                   {DEAL_STATUSES.map((status) => (
                     <SelectItem key={status} value={status}>
-                      {DEAL_STATUS_LABEL[status] ?? status.replace(/_/g, " ")}
+                      {DEAL_STATUS_LABELS[status] ?? status.replace(/_/g, " ")}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -781,6 +823,12 @@ function DealsPageContent({
               </Button>
             </CardContent>
           </Card>
+        ) : view === "board" ? (
+          <DealBoard
+            deals={deals}
+            movingDealIds={movingDealIds}
+            onMoveStatus={handleMoveDealToStatus}
+          />
         ) : view === "grid" ? (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {deals.map((deal) => (
