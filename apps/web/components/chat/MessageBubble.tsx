@@ -26,6 +26,7 @@ import { ToolApprovalPrompt } from './ToolApprovalPrompt';
 import type { ChatMessage, ChatStreamEvent } from '@/lib/chat/types';
 import { MiniMapMessage } from './MiniMapMessage';
 import { useMapChatDispatch } from '@/lib/chat/MapChatContext';
+import { StructuredMessageRenderer } from './StructuredMessageRenderer';
 
 type MessageBubbleEventMap = Record<string, ComponentType<{ className?: string }>>;
 
@@ -504,7 +505,7 @@ export function MessageBubble({
                     ),
               )}
             >
-              <p className="whitespace-pre-wrap break-words">{message.content}</p>
+              <StructuredMessageRenderer content={message.content} />
               {Array.isArray(message.mapFeatures) && message.mapFeatures.length > 0 ? (
                 <MiniMapMessage
                   features={message.mapFeatures}

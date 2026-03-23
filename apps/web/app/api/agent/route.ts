@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { runAgentWorkflow } from "@/lib/agent/agentRunner";
 import type { AgentInputMessage } from "@/lib/agent/executeAgent";
+import { sanitizeChatErrorMessage } from "@/app/api/chat/_lib/errorHandling";
 import * as Sentry from "@sentry/nextjs";
 
 type AgentApiPayload = {
@@ -22,38 +23,11 @@ function sseEvent(data: Record<string, unknown>): string {
   return `data: ${JSON.stringify(data)}\n\n`;
 }
 
-function isInternalFailureMessage(message: string): boolean {
-  const normalized = message.toLowerCase();
-  return (
-    normalized.includes("prisma") ||
-    normalized.includes("findmany") ||
-    normalized.includes("public.") ||
-    normalized.includes("user_preferences") ||
-    normalized.includes("the table")
-  );
-}
-
-function isSystemConfigurationErrorMessage(message: string): boolean {
-  const normalized = message.toLowerCase();
-  return (
-    normalized.includes("invalid schema for response_format") ||
-    normalized.includes("response_format") ||
-    normalized.includes("not a valid format") ||
-    normalized.includes("json_schema") ||
-    normalized.includes("outputtype")
-  );
-}
-
 function toClientErrorPayload(message: string, correlationId: string): Record<string, unknown> {
-  if (isInternalFailureMessage(message) || isSystemConfigurationErrorMessage(message)) {
-    return {
-      type: "error",
-      code: "system_configuration_error",
-      correlationId,
-      message: "System configuration error. Please contact admin.",
-    };
-  }
-  return { type: "error", message };
+  return {
+    type: "error",
+    ...sanitizeChatErrorMessage(message, correlationId),
+  };
 }
 
 function parseInputPayload(input: unknown): AgentInputMessage[] | null {
