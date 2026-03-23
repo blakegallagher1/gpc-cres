@@ -486,7 +486,7 @@
   {
     "type": "function",
     "name": "search_parcels",
-    "description": "Search for parcels by STREET ADDRESS only (geocodes the address to coordinates, then finds nearby parcels). Only use this when the user provides a specific street address like '222 St Louis St'. Do NOT use this for ZIP code, zoning, acreage, or owner-based searches — use query_property_db instead. For a known parcel number, use get_parcel_details.",
+    "description": "Search for parcels by STREET ADDRESS only (geocodes the address to coordinates, then finds nearby parcels). Only use this when the user provides a specific street address like '222 St Louis St'. Do NOT use this for ZIP code, zoning, acreage, or owner-based searches \u2014 use query_property_db instead. For a known parcel number, use get_parcel_details.",
     "parameters": {
       "type": "object",
       "properties": {
@@ -1169,7 +1169,7 @@
   {
     "type": "function",
     "name": "store_knowledge_entry",
-    "description": "Store an agent analysis pattern, reasoning trace, or general conclusion in the knowledge base. NOT for property-specific facts (comps, prices, cap rates, NOI, lender terms, tour notes) — use store_memory for those. This tool is for meta-level insights, analytical patterns, and reasoning chains that inform future deal analyses.",
+    "description": "Store an agent analysis pattern, reasoning trace, or general conclusion in the knowledge base. NOT for property-specific facts (comps, prices, cap rates, NOI, lender terms, tour notes) \u2014 use store_memory for those. This tool is for meta-level insights, analytical patterns, and reasoning chains that inform future deal analyses.",
     "parameters": {
       "type": "object",
       "properties": {
@@ -1319,7 +1319,7 @@
   {
     "type": "function",
     "name": "share_analysis_finding",
-    "description": "Publish an analysis finding to the shared context so other specialist agents can reference it. Use this when you discover something that would be relevant to other agents' analyses — for example, Risk agent discovering flood zone issues that Finance should factor into insurance costs, or Research finding market data that Design should consider for site planning. Include a confidence level and any caveats.",
+    "description": "Publish an analysis finding to the shared context so other specialist agents can reference it. Use this when you discover something that would be relevant to other agents' analyses \u2014 for example, Risk agent discovering flood zone issues that Finance should factor into insurance costs, or Research finding market data that Design should consider for site planning. Include a confidence level and any caveats.",
     "parameters": {
       "type": "object",
       "properties": {
@@ -1402,7 +1402,7 @@
   {
     "type": "function",
     "name": "assess_uncertainty",
-    "description": "Quantify the uncertainty in your current analysis and identify what information would most reduce it. Use this before making final recommendations to ensure you've identified the key unknowns. This drives autonomous information-seeking behavior — the system can then prioritize gathering the most impactful missing data.",
+    "description": "Quantify the uncertainty in your current analysis and identify what information would most reduce it. Use this before making final recommendations to ensure you've identified the key unknowns. This drives autonomous information-seeking behavior \u2014 the system can then prioritize gathering the most impactful missing data.",
     "parameters": {
       "type": "object",
       "properties": {
@@ -3306,115 +3306,6 @@
         "operationId"
       ],
       "additionalProperties": false
-    }
-  },
-  {
-    "type": "function",
-    "name": "query_property_db",
-    "description": "PRIMARY tool for finding parcels by criteria. Searches 198K+ EBR parcels with structured filters. USE THIS when the user asks to find parcels by: ZIP code, zoning type, acreage range, owner name, or land use. Examples: 'find parcels zoned M1 in 70808', 'large parcels over 5 acres zoned industrial', 'parcels owned by LLC'. This queries the STATEWIDE parcel layer, NOT the internal org deals/parcels table. For complex spatial or analytical queries that these filters cannot express, use query_property_db_sql instead.",
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "zoning": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "Zoning type to filter by (e.g. 'C2', 'M1', 'A1'). Case/hyphen insensitive."
-        },
-        "zip": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "ZIP code to filter parcels by (matched in situs address)."
-        },
-        "min_acreage": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "Minimum parcel acreage."
-        },
-        "max_acreage": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "Maximum parcel acreage."
-        },
-        "owner_contains": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "Filter parcels where owner name contains this text (case-insensitive)."
-        },
-        "land_use": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "Filter by existing land use classification."
-        },
-        "sort": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "Sort order: 'acreage_desc' (default), 'acreage_asc', 'assessed_value_desc', 'address_asc'."
-        },
-        "limit": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "Max results to return (default 10, max 100)."
-        }
-      },
-      "additionalProperties": false,
-      "required": [
-        "zoning",
-        "zip",
-        "min_acreage",
-        "max_acreage",
-        "owner_contains",
-        "land_use",
-        "sort",
-        "limit"
-      ]
     }
   },
   {
