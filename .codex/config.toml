@@ -62,6 +62,7 @@ include_only = [
 [features]
 multi_agent = true   # Spawn child agents for parallel package work
 memories    = true   # Persistent cross-session memory
+plugins     = true   # Enable repo-local plugin discovery for shared Codex workflows
 
 # ---------------------------------------------------------------------------
 # Multi-agent Configuration — proper agent roles with model overrides
@@ -225,4 +226,10 @@ enabled = true
 
 [[skills.config]]
 path = ".codex/skills/memory-conflict-repl-check"
+enabled = true
+
+# ---------------------------------------------------------------------------
+# Plugins — repo-scoped plugin bundles checked into gallagher-cres
+# ---------------------------------------------------------------------------
+[plugins."build-web-apps"]
 enabled = true
