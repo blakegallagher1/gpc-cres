@@ -5,6 +5,7 @@ import { matchRoute } from "./routes";
 import { cacheGet, cacheSet, buildCacheKey } from "./cache";
 import { validateSyncToken, handleSyncBatch, getSyncStatus, SyncBatch } from "./sync";
 import { searchParcelsD1, getParcelD1, getScreeningD1 } from "./d1-search";
+import { runHealthCheck, saveHealthCheck } from "./health";
 
 function jsonResponse(body: unknown, status = 200, source = "gateway"): Response {
   return Response.json(body, {
@@ -63,6 +64,30 @@ export default {
       }
       const status = await getSyncStatus(env.DB);
       return jsonResponse(status);
+    }
+
+    // Deploy report endpoint
+    if (url.pathname === "/admin/deploys/report" && request.method === "POST") {
+      if (!validateBearer(request, env)) {
+        return jsonResponse({ error: "unauthorized" }, 401);
+      }
+      if (!env.DB) return jsonResponse({ error: "D1 not configured" }, 500);
+      const body = await request.json() as { commit?: string; status?: string; triggered_by?: string };
+      const now = Math.floor(Date.now() / 1000);
+      await env.DB.prepare(
+        "INSERT INTO deploys (deployed_at, commit_hash, status, triggered_by) VALUES (?, ?, ?, ?)"
+      ).bind(now, body.commit ?? "unknown", body.status ?? "unknown", body.triggered_by ?? "unknown").run();
+      return jsonResponse({ ok: true });
+    }
+
+    // Health check history
+    if (url.pathname === "/admin/health/history" && request.method === "GET") {
+      if (!env.DB) return jsonResponse({ error: "D1 not configured" }, 500);
+      const limit = Math.min(Number(url.searchParams.get("limit") ?? 100), 720);
+      const rows = await env.DB.prepare(
+        "SELECT * FROM health_checks ORDER BY checked_at DESC LIMIT ?"
+      ).bind(limit).all();
+      return jsonResponse(rows.results);
     }
 
     const requestId = crypto.randomUUID();
@@ -144,5 +169,17 @@ export default {
       502,
       "gateway"
     );
+  },
+
+  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    const result = await runHealthCheck(env);
+
+    if (env.DB) {
+      ctx.waitUntil(saveHealthCheck(env.DB, result));
+    }
+
+    if (!result.gateway_ok) {
+      console.error(`[HEALTH ALERT] Gateway DOWN. Action: ${result.action_taken}. Probes: ${JSON.stringify(result.probes)}`);
+    }
   },
 } satisfies ExportedHandler<Env>;

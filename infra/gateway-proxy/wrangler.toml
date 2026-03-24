@@ -14,6 +14,5 @@ binding = "DB"
 database_name = "gpc-gateway-cache"
 database_id = "52176b29-712b-4da2-a41d-1c2c80119ceb"
 
-# Cron triggers — enabled in Phase 5
-# [triggers]
-# crons = ["*/2 * * * *"]
+[triggers]
+crons = ["*/2 * * * *"]
