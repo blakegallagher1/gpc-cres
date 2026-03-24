@@ -41,9 +41,38 @@ The Windows PC runs **two separate Docker networks** with **two Postgres contain
 - The deployed gateway code differs from the repo — deployed has `/tools/screen.*` routes, repo has `/api/screening/*`. Screen endpoints on prod return 500 (broken).
 - Windows Firewall blocks ALL LAN ports (22, 5432, 54323, 8000, 8765, 445). Only Cloudflare Tunnel services are accessible remotely.
 
+## Gateway Proxy (gateway.gallagherpropco.com)
+
+All property data requests go through the CF Worker at `gateway.gallagherpropco.com`. The Worker proxies to the Windows gateway when online, falls back to D1 (Cloudflare edge SQLite) when offline. Every response includes `X-GPC-Source: gateway | d1-cache | d1-stale` header.
+
+- **Worker code:** `infra/gateway-proxy/` (TypeScript, deployed via `wrangler deploy`)
+- **Client package:** `packages/gateway-client/` — `GatewayClient` class used by web app + agent tools
+- **Server singleton:** `apps/web/lib/server/gatewayClient.ts` — `getGatewayClient()`
+- **D1 database:** `gpc-gateway-cache` (id: `52176b29-712b-4da2-a41d-1c2c80119ceb`)
+- **Admin dashboard:** `infra/admin-dashboard/` (CF Pages, deploy via `wrangler pages deploy`)
+- **CI/CD:** `.github/workflows/deploy-gateway.yml` — auto-deploys on push to `infra/local-api/**`
+- **Health monitoring:** CF Cron every 2 min with auto-restart, history in D1
+- **Data sync:** Windows PC pushes to D1 every 15 min via `infra/gateway-proxy/scripts/sync-to-d1.py`
+- **Env vars (Vercel):** `GATEWAY_PROXY_URL`, `GATEWAY_PROXY_TOKEN` (replacing direct `LOCAL_API_KEY`, `CF_ACCESS_CLIENT_*`)
+- **Worker secrets:** `GATEWAY_PROXY_TOKEN`, `LOCAL_API_KEY`, `CF_ACCESS_CLIENT_ID`, `CF_ACCESS_CLIENT_SECRET`, `SYNC_TOKEN`
+
+### Key endpoints
+| Route | Auth | Purpose |
+|-------|------|---------|
+| GET /health | None | Worker health check |
+| GET /parcels/search?q=...&limit=... | Bearer | Search parcels (proxied) |
+| GET /parcels/:id | Bearer | Get parcel details (proxied) |
+| POST /parcels/sql | Bearer | Run SQL query (proxied) |
+| GET /screening/:type/:parcelId | Bearer | Environmental screening (proxied) |
+| POST /admin/sync | X-Sync-Token | Receive parcel data batches |
+| GET /admin/sync/status | Bearer | Sync status |
+| POST /admin/deploys/report | Bearer | Record deploy event |
+| GET /admin/health/history | Bearer | Health check history |
+
 ## Key Rules
 
 ### Do This
+- Use `getGatewayClient()` from `@/lib/server/gatewayClient` for property data — do not call gateway directly
 - Use `.nullable()` (not `.optional()`) for Zod tool parameters — OpenAI structured outputs requires it
 - Use plain `z.string()` — never `z.string().url()` or `z.string().email()` (OpenAI rejects `format:` constraints)
 - Wire agent tools in `createConfiguredCoordinator()`, not on module-level exports

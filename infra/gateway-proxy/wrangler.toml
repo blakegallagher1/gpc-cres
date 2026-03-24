@@ -1,0 +1,18 @@
+name = "gpc-gateway-proxy"
+main = "src/index.ts"
+compatibility_date = "2026-03-01"
+
+routes = [
+  { pattern = "gateway.gallagherpropco.com/*", zone_name = "gallagherpropco.com" }
+]
+
+[vars]
+UPSTREAM_GATEWAY_URL = "https://api.gallagherpropco.com"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "gpc-gateway-cache"
+database_id = "52176b29-712b-4da2-a41d-1c2c80119ceb"
+
+[triggers]
+crons = ["*/2 * * * *"]

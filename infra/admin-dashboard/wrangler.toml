@@ -1,0 +1,12 @@
+name = "gpc-admin-dashboard"
+pages_build_output_dir = "./public"
+compatibility_date = "2026-03-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "gpc-gateway-cache"
+database_id = "52176b29-712b-4da2-a41d-1c2c80119ceb"
+
+[vars]
+GATEWAY_PROXY_URL = "https://gateway.gallagherpropco.com"
+UPSTREAM_GATEWAY_URL = "https://api.gallagherpropco.com"

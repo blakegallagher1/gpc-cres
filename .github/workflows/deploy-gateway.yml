@@ -1,0 +1,133 @@
+name: Deploy Gateway
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'infra/local-api/**'
+  workflow_dispatch:
+
+jobs:
+  deploy-gateway:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CI: "true"
+      CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+      CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check required secrets
+        id: required-secrets
+        run: |
+          if [[ -n "${{ secrets.WINDOWS_SSH_KEY }}" && -n "${{ secrets.CF_ACCESS_CLIENT_ID }}" && -n "${{ secrets.CF_ACCESS_CLIENT_SECRET }}" && -n "${{ secrets.GATEWAY_ADMIN_TOKEN }}" ]]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::One or more required secrets are missing: WINDOWS_SSH_KEY, CF_ACCESS_CLIENT_ID, CF_ACCESS_CLIENT_SECRET, GATEWAY_ADMIN_TOKEN"
+          fi
+
+      - name: Install cloudflared
+        if: steps.required-secrets.outputs.available == 'true'
+        run: |
+          curl -sL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o cloudflared
+          chmod +x cloudflared
+          sudo mv cloudflared /usr/local/bin/
+
+      - name: Configure SSH key
+        if: steps.required-secrets.outputs.available == 'true'
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.WINDOWS_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+
+      - name: Configure SSH config
+        if: steps.required-secrets.outputs.available == 'true'
+        run: |
+          cat >> ~/.ssh/config << 'SSHEOF'
+          Host gpc-windows
+            HostName ssh.gallagherpropco.com
+            User cres_admin
+            IdentityFile ~/.ssh/id_ed25519
+            ProxyCommand cloudflared access ssh --hostname %h
+            StrictHostKeyChecking no
+            ConnectTimeout 30
+            ServerAliveInterval 60
+            ServerAliveCountMax 3
+          SSHEOF
+
+      - name: Deploy gateway to Windows PC
+        if: steps.required-secrets.outputs.available == 'true'
+        run: |
+          set -e
+          echo "::group::Pulling latest code and rebuilding gateway"
+          ssh gpc-windows 'cd C:\gpc-cres-backend && git pull --ff-only && docker compose up -d --build gateway'
+          echo "::endgroup::"
+          echo "Waiting 30s for gateway startup..."
+          sleep 30
+
+      - name: Health check
+        if: steps.required-secrets.outputs.available == 'true'
+        id: health-check
+        run: |
+          set -e
+          echo "::group::Probing gateway health endpoint"
+          RETRY_LIMIT=5
+          RETRY_COUNT=0
+          STATUS="000"
+
+          while [ $RETRY_COUNT -lt $RETRY_LIMIT ] && [ "$STATUS" != "200" ]; do
+            STATUS=$(curl -s -o /dev/null -w '%{http_code}' \
+              -H "Authorization: Bearer ${{ secrets.GATEWAY_ADMIN_TOKEN }}" \
+              -H "CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID" \
+              -H "CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET" \
+              --max-time 10 \
+              --connect-timeout 5 \
+              https://api.gallagherpropco.com/health 2>/dev/null || echo "000")
+
+            if [ "$STATUS" != "200" ]; then
+              RETRY_COUNT=$((RETRY_COUNT + 1))
+              if [ $RETRY_COUNT -lt $RETRY_LIMIT ]; then
+                echo "Health check failed (attempt $RETRY_COUNT/$RETRY_LIMIT, status: $STATUS). Retrying in 10s..."
+                sleep 10
+              fi
+            fi
+          done
+
+          echo "::endgroup::"
+          echo "Final health check status: $STATUS"
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+
+          if [ "$STATUS" != "200" ]; then
+            echo "::error::Gateway health check failed with status $STATUS after $RETRY_LIMIT attempts"
+            exit 1
+          fi
+          echo "::notice::Gateway health check passed"
+
+      - name: Report successful deployment
+        if: steps.required-secrets.outputs.available == 'true' && success()
+        run: |
+          COMMIT=$(git rev-parse --short HEAD)
+          COMMIT_FULL=$(git rev-parse HEAD)
+          BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          AUTHOR=$(git log -1 --format='%an')
+          MESSAGE=$(git log -1 --format='%B' | head -1)
+
+          echo "::notice::Gateway deployed successfully"
+          echo "Commit: $COMMIT_FULL"
+          echo "Branch: $BRANCH"
+          echo "Author: $AUTHOR"
+          echo "Message: $MESSAGE"
+
+      - name: Report deployment failure
+        if: steps.required-secrets.outputs.available == 'true' && failure()
+        run: |
+          COMMIT=$(git rev-parse --short HEAD)
+          echo "::error::Gateway deployment failed for commit $COMMIT"
+          exit 1
+
+      - name: Skip deployment (missing secrets)
+        if: steps.required-secrets.outputs.available != 'true'
+        run: echo "::notice::Skipping gateway deployment because one or more required secrets are not configured."
