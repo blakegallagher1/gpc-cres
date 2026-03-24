@@ -115,3 +115,4 @@ parcel_data_updated/
 .worktrees/
 
 apps/web/tsconfig.tsbuildinfo
+infra/gateway-proxy/.wrangler/
