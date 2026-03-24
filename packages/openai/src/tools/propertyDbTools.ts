@@ -650,12 +650,21 @@ export const queryPropertyDbSql = tool({
   description:
     "Run a read-only SQL query against the Louisiana Property Database. USE THIS for aggregate queries (COUNT, SUM, AVG, GROUP BY), " +
     "spatial queries (ST_DWithin, ST_Intersects), complex filtering, and any question the structured query_property_db tool cannot express.\n\n" +
-    "SCHEMA:\n" +
-    "  ebr_parcels (198K rows): parcel_id TEXT, address TEXT, owner TEXT, area_sqft NUMERIC, assessed_value NUMERIC, zoning_type TEXT, geom GEOMETRY(MultiPolygon,4326), created_at TIMESTAMP\n" +
-    "  fema_flood (5.2K rows): gid INT, dfirm_id TEXT, fld_zone TEXT, zone_subty TEXT, sfha_tf TEXT, geom GEOMETRY\n" +
-    "  soils (37K rows): gid INT, musym TEXT, muname TEXT, hydgrp TEXT, hydric_rating TEXT, geom GEOMETRY\n" +
-    "  wetlands (39K rows): gid INT, wetland_type TEXT, attribute TEXT, geom GEOMETRY\n" +
-    "  epa_facilities (6.7K rows): gid INT, facility_name TEXT, street TEXT, city TEXT, state TEXT, zip TEXT, latitude NUMERIC, longitude NUMERIC, geom GEOMETRY(Point,4326)\n\n" +
+    "SCHEMA (exact columns — do NOT assume columns that are not listed):\n" +
+    "  ebr_parcels (560K rows, multi-parish — NOT just EBR despite the table name):\n" +
+    "    parcel_id TEXT, address TEXT (street address only — NO zip code, NO city, NO state), owner TEXT,\n" +
+    "    area_sqft NUMERIC, assessed_value NUMERIC, zoning_type TEXT (34% populated, NULL for many parcels),\n" +
+    "    geom GEOMETRY(MultiPolygon,4326), created_at TIMESTAMP, id UUID\n" +
+    "    NOTE: There is NO zip column, NO city column, NO parish column. Do NOT try to extract zip/city from the address field — it only contains street addresses like '123 MAIN ST'.\n" +
+    "  fema_flood (5.2K rows): id UUID, zone TEXT, bfe TEXT, panel_id TEXT, parish TEXT, geom GEOMETRY, effective_date TEXT\n" +
+    "  soils (37K rows): id UUID, mapunit_key TEXT, drainage_class TEXT, hydric_rating TEXT, shrink_swell TEXT, parish TEXT, geom GEOMETRY\n" +
+    "  wetlands (39K rows): id UUID, wetland_type TEXT, parish TEXT, geom GEOMETRY\n" +
+    "  epa_facilities (6.7K rows): id UUID, name TEXT, street_address TEXT, city TEXT, state TEXT, zip TEXT, registry_id TEXT, status TEXT, violations_last_3yr INT, penalties_last_3yr INT, lat NUMERIC, lon NUMERIC, parish TEXT, geom GEOMETRY(Point,4326)\n\n" +
+    "IMPORTANT CONSTRAINTS:\n" +
+    "  - ebr_parcels has NO zip, city, parish, or county column. If asked to break down by zip/city/parish, explain that this data is not available in the current schema.\n" +
+    "  - Only epa_facilities has zip/city columns.\n" +
+    "  - fema_flood, soils, wetlands, epa_facilities have a 'parish' column. ebr_parcels does NOT.\n" +
+    "  - Zoning is only ~34% populated — always mention this caveat when reporting zoning counts.\n\n" +
     "TIPS:\n" +
     "  - Acreage: area_sqft / 43560.0\n" +
     "  - PostGIS: ST_DWithin(geom, ST_SetSRID(ST_MakePoint(lng,lat),4326), meters), ST_Intersects, ST_Contains, ST_Area, ST_Centroid\n" +
