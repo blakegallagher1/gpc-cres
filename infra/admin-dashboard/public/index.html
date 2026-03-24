@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GPC Admin Dashboard</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+      border-bottom: 1px solid #333;
+      padding-bottom: 20px;
+    }
+
+    .header h1 {
+      font-size: 24px;
+      font-weight: 600;
+    }
+
+    .status-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+    }
+
+    .status-dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    .status-dot.healthy { background: #10b981; }
+    .status-dot.down { background: #ef4444; animation: none; }
+    .status-dot.degraded { background: #f59e0b; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 2px solid #333;
+      margin-bottom: 30px;
+    }
+
+    .tab-button {
+      padding: 12px 20px;
+      background: none;
+      border: none;
+      color: #999;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      border-bottom: 3px solid transparent;
+      transition: all 0.2s;
+    }
+
+    .tab-button:hover {
+      color: #e0e0e0;
+    }
+
+    .tab-button.active {
+      color: #3b82f6;
+      border-bottom-color: #3b82f6;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .card {
+      background: #16213e;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .card h3 {
+      font-size: 16px;
+      margin-bottom: 15px;
+      color: #3b82f6;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .stat {
+      background: #0f3460;
+      padding: 15px;
+      border-radius: 6px;
+      border-left: 3px solid #3b82f6;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      text-transform: uppercase;
+      color: #999;
+      margin-bottom: 5px;
+    }
+
+    .stat-value {
+      font-size: 20px;
+      font-weight: 600;
+      font-family: "Monaco", "Courier New", monospace;
+    }
+
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      font-family: "Monaco", "Courier New", monospace;
+    }
+
+    .table th {
+      background: #0f3460;
+      padding: 10px;
+      text-align: left;
+      border-bottom: 1px solid #333;
+      color: #3b82f6;
+      font-weight: 600;
+    }
+
+    .table td {
+      padding: 10px;
+      border-bottom: 1px solid #222;
+    }
+
+    .table tr:hover {
+      background: #0f3460;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 13px;
+      text-transform: uppercase;
+      color: #999;
+    }
+
+    textarea, input {
+      width: 100%;
+      background: #0f3460;
+      border: 1px solid #333;
+      color: #e0e0e0;
+      padding: 10px;
+      border-radius: 4px;
+      font-family: "Monaco", "Courier New", monospace;
+      font-size: 12px;
+    }
+
+    textarea:focus, input:focus {
+      outline: none;
+      border-color: #3b82f6;
+      background: #16213e;
+    }
+
+    textarea {
+      min-height: 300px;
+      resize: vertical;
+    }
+
+    .button {
+      background: #3b82f6;
+      border: none;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+
+    .button:hover:not(:disabled) {
+      background: #2563eb;
+    }
+
+    .button:disabled {
+      background: #555;
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+
+    .button.secondary {
+      background: #555;
+      margin-right: 10px;
+    }
+
+    .button.secondary:hover {
+      background: #666;
+    }
+
+    .button.danger {
+      background: #ef4444;
+    }
+
+    .button.danger:hover {
+      background: #dc2626;
+    }
+
+    .loading {
+      color: #999;
+      font-size: 12px;
+      margin-top: 10px;
+    }
+
+    .error {
+      background: #7f1d1d;
+      border: 1px solid #991b1b;
+      color: #fca5a5;
+      padding: 10px;
+      border-radius: 4px;
+      margin-bottom: 15px;
+      font-size: 12px;
+    }
+
+    .success {
+      background: #064e3b;
+      border: 1px solid #047857;
+      color: #86efac;
+      padding: 10px;
+      border-radius: 4px;
+      margin-bottom: 15px;
+      font-size: 12px;
+    }
+
+    .chart {
+      display: flex;
+      gap: 4px;
+      align-items: flex-end;
+      height: 100px;
+      margin: 20px 0;
+    }
+
+    .chart-bar {
+      flex: 1;
+      background: #3b82f6;
+      border-radius: 3px 3px 0 0;
+      min-height: 5px;
+      position: relative;
+    }
+
+    .chart-bar.down {
+      background: #ef4444;
+    }
+
+    .chart-bar:hover {
+      opacity: 0.8;
+    }
+
+    .container-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #0f3460;
+      padding: 15px;
+      border-radius: 6px;
+      margin-bottom: 10px;
+      border-left: 3px solid #3b82f6;
+    }
+
+    .container-item.down {
+      border-left-color: #ef4444;
+    }
+
+    .container-info {
+      flex: 1;
+    }
+
+    .container-name {
+      font-weight: 600;
+      margin-bottom: 3px;
+    }
+
+    .container-status {
+      font-size: 12px;
+      color: #999;
+      font-family: "Monaco", "Courier New", monospace;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 10px;
+    }
+
+    .last-update {
+      font-size: 11px;
+      color: #666;
+      margin-top: 15px;
+      text-align: right;
+    }
+
+    .uptime-bar {
+      height: 24px;
+      background: #0f3460;
+      border-radius: 4px;
+      overflow: hidden;
+      display: flex;
+      margin: 10px 0;
+    }
+
+    .uptime-segment {
+      flex: 1;
+      background: #10b981;
+      border-right: 1px solid #1a1a2e;
+    }
+
+    .uptime-segment.down {
+      background: #ef4444;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>GPC Admin Dashboard</h1>
+      <div class="status-indicator">
+        <div class="status-dot healthy" id="globalStatus"></div>
+        <span id="statusText">Loading...</span>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-button active" data-tab="health">Health</button>
+      <button class="tab-button" data-tab="containers">Containers</button>
+      <button class="tab-button" data-tab="sql">SQL</button>
+      <button class="tab-button" data-tab="deploys">Deploys</button>
+      <button class="tab-button" data-tab="sync">Sync</button>
+    </div>
+
+    <!-- Health Tab -->
+    <div id="health" class="tab-content active">
+      <div class="card">
+        <h3>Gateway Health</h3>
+        <div class="grid">
+          <div class="stat">
+            <div class="stat-label">Status</div>
+            <div class="stat-value" id="healthStatus">—</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Last Check</div>
+            <div class="stat-value" id="lastCheck">—</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Response Time</div>
+            <div class="stat-value" id="responseTime">—</div>
+          </div>
+        </div>
+
+        <h3 style="margin-top: 25px;">24-Hour Uptime</h3>
+        <div class="uptime-bar" id="uptimeChart"></div>
+        <div class="last-update" id="lastUpdate"></div>
+      </div>
+    </div>
+
+    <!-- Containers Tab -->
+    <div id="containers" class="tab-content">
+      <div class="card">
+        <h3>Docker Containers</h3>
+        <div id="containersList" style="display: flex; flex-direction: column; gap: 10px;">
+          <div class="loading">Loading...</div>
+        </div>
+        <div class="last-update" id="containersLastUpdate"></div>
+      </div>
+    </div>
+
+    <!-- SQL Tab -->
+    <div id="sql" class="tab-content">
+      <div class="card">
+        <h3>Execute SQL</h3>
+        <div id="sqlError" class="error" style="display: none;"></div>
+        <div id="sqlSuccess" class="success" style="display: none;"></div>
+
+        <div class="form-group">
+          <label>Query</label>
+          <textarea id="sqlInput" placeholder="SELECT * FROM parcels LIMIT 10;"></textarea>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+          <button class="button" onclick="executeSql()">Run Query</button>
+          <button class="button secondary" onclick="clearSqlResults()">Clear</button>
+          <div id="sqlLoading" class="loading" style="display: none; margin-top: 10px;">Executing...</div>
+        </div>
+
+        <h3>Results</h3>
+        <div id="sqlResults" style="max-height: 400px; overflow-x: auto; display: none;">
+          <table class="table" id="resultsTable">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div id="noResults" style="color: #999; font-size: 13px;">No results yet</div>
+      </div>
+    </div>
+
+    <!-- Deploys Tab -->
+    <div id="deploys" class="tab-content">
+      <div class="card">
+        <h3>Recent Deployments</h3>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Deployed At</th>
+              <th>Commit</th>
+              <th>Message</th>
+              <th>Status</th>
+              <th>Duration</th>
+            </tr>
+          </thead>
+          <tbody id="deploysList">
+            <tr><td colspan="5" style="text-align: center; color: #999;">Loading...</td></tr>
+          </tbody>
+        </table>
+        <div class="last-update" id="deploysLastUpdate"></div>
+      </div>
+    </div>
+
+    <!-- Sync Tab -->
+    <div id="sync" class="tab-content">
+      <div class="card">
+        <h3>Sync Status</h3>
+        <div class="grid">
+          <div class="stat">
+            <div class="stat-label">Last Sync</div>
+            <div class="stat-value" id="lastSyncTime">—</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Total Parcels</div>
+            <div class="stat-value" id="totalParcels">—</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Total Screening</div>
+            <div class="stat-value" id="totalScreening">—</div>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 20px; margin-top: 25px;">
+          <button class="button" onclick="forceSync()" id="syncButton">Force Sync</button>
+          <div id="syncLoading" class="loading" style="display: none;">Syncing...</div>
+        </div>
+
+        <h3>Sync Details</h3>
+        <div id="syncDetails" style="font-size: 13px; background: #0f3460; padding: 15px; border-radius: 6px; font-family: 'Monaco', monospace; color: #10b981;">
+          No sync details available
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Tab switching
+    document.querySelectorAll('.tab-button').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const tabName = e.target.dataset.tab;
+        document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        e.target.classList.add('active');
+        document.getElementById(tabName).classList.add('active');
+        loadTabData(tabName);
+      });
+    });
+
+    let pollIntervals = {};
+
+    function loadTabData(tabName) {
+      if (tabName === 'health') {
+        loadHealth();
+        if (!pollIntervals.health) {
+          pollIntervals.health = setInterval(loadHealth, 30000);
+        }
+      } else if (tabName === 'containers') {
+        loadContainers();
+        if (!pollIntervals.containers) {
+          pollIntervals.containers = setInterval(loadContainers, 30000);
+        }
+      } else if (tabName === 'deploys') {
+        loadDeploys();
+        if (!pollIntervals.deploys) {
+          pollIntervals.deploys = setInterval(loadDeploys, 60000);
+        }
+      } else if (tabName === 'sync') {
+        loadSync();
+        if (!pollIntervals.sync) {
+          pollIntervals.sync = setInterval(loadSync, 60000);
+        }
+      }
+    }
+
+    async function loadHealth() {
+      try {
+        const res = await fetch('/api/health');
+        const data = await res.json();
+
+        const status = data.proxy?.status || 'down';
+        const statusEl = document.getElementById('healthStatus');
+        const statusDot = document.getElementById('globalStatus');
+
+        statusEl.textContent = status === 'ok' ? 'Healthy' : 'Down';
+        statusDot.className = `status-dot ${status === 'ok' ? 'healthy' : 'down'}`;
+        document.getElementById('statusText').textContent = status === 'ok' ? 'Healthy' : 'Degraded';
+
+        document.getElementById('lastCheck').textContent = new Date().toLocaleTimeString();
+        document.getElementById('responseTime').textContent = data.proxy?.response_time_ms ? `${data.proxy.response_time_ms}ms` : '—';
+
+        // Render uptime chart
+        if (data.health_history && Array.isArray(data.health_history)) {
+          const chart = document.getElementById('uptimeChart');
+          chart.innerHTML = '';
+          const max24h = Math.max(1, Math.min(data.health_history.length, 720));
+          const recent = data.health_history.slice(-max24h);
+          recent.forEach(check => {
+            const bar = document.createElement('div');
+            bar.className = `chart-bar ${check.status === 'ok' ? 'healthy' : 'down'}`;
+            bar.style.height = '100%';
+            bar.title = `${new Date(check.checked_at).toLocaleTimeString()}: ${check.status}`;
+            chart.appendChild(bar);
+          });
+          document.getElementById('lastUpdate').textContent = `${max24h} checks in last 24h`;
+        }
+      } catch (err) {
+        document.getElementById('healthStatus').textContent = 'Error';
+        document.getElementById('globalStatus').className = 'status-dot degraded';
+        console.error('Health load failed:', err);
+      }
+    }
+
+    async function loadContainers() {
+      try {
+        const res = await fetch('/api/containers');
+        const data = await res.json();
+        const list = document.getElementById('containersList');
+        list.innerHTML = '';
+
+        if (data.error) {
+          list.innerHTML = `<div class="error">${data.error}</div>`;
+          return;
+        }
+
+        if (!data.containers || !Array.isArray(data.containers)) {
+          list.innerHTML = '<div style="color: #999;">No containers found</div>';
+          return;
+        }
+
+        data.containers.forEach(c => {
+          const item = document.createElement('div');
+          item.className = `container-item ${c.state === 'running' ? '' : 'down'}`;
+          item.innerHTML = `
+            <div class="container-info">
+              <div class="container-name">${c.name}</div>
+              <div class="container-status">${c.image} • ${c.state}</div>
+            </div>
+            <div class="button-group">
+              <button class="button secondary" disabled>Restart</button>
+              <button class="button secondary" disabled>Logs</button>
+            </div>
+          `;
+          list.appendChild(item);
+        });
+
+        document.getElementById('containersLastUpdate').textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
+      } catch (err) {
+        document.getElementById('containersList').innerHTML = `<div class="error">${err.message}</div>`;
+      }
+    }
+
+    async function executeSql() {
+      const sql = document.getElementById('sqlInput').value.trim();
+      if (!sql) return;
+
+      document.getElementById('sqlError').style.display = 'none';
+      document.getElementById('sqlSuccess').style.display = 'none';
+      document.getElementById('sqlLoading').style.display = 'block';
+      document.getElementById('sqlResults').style.display = 'none';
+
+      try {
+        const res = await fetch('/api/sql', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sql })
+        });
+
+        const data = await res.json();
+        document.getElementById('sqlLoading').style.display = 'none';
+
+        if (data.error) {
+          document.getElementById('sqlError').textContent = data.error;
+          document.getElementById('sqlError').style.display = 'block';
+          return;
+        }
+
+        if (data.rows && data.rows.length > 0) {
+          const table = document.getElementById('resultsTable');
+          const thead = table.querySelector('thead');
+          const tbody = table.querySelector('tbody');
+
+          thead.innerHTML = '';
+          tbody.innerHTML = '';
+
+          const headers = Object.keys(data.rows[0]);
+          const headerRow = document.createElement('tr');
+          headers.forEach(h => {
+            const th = document.createElement('th');
+            th.textContent = h;
+            headerRow.appendChild(th);
+          });
+          thead.appendChild(headerRow);
+
+          data.rows.forEach(row => {
+            const tr = document.createElement('tr');
+            headers.forEach(h => {
+              const td = document.createElement('td');
+              td.textContent = String(row[h] || '');
+              tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+          });
+
+          document.getElementById('noResults').style.display = 'none';
+          document.getElementById('sqlResults').style.display = 'block';
+          document.getElementById('sqlSuccess').textContent = `${data.rows.length} row(s) returned`;
+          document.getElementById('sqlSuccess').style.display = 'block';
+        } else {
+          document.getElementById('noResults').style.display = 'block';
+          document.getElementById('sqlSuccess').textContent = 'Query executed successfully (0 rows)';
+          document.getElementById('sqlSuccess').style.display = 'block';
+        }
+      } catch (err) {
+        document.getElementById('sqlError').textContent = err.message;
+        document.getElementById('sqlError').style.display = 'block';
+      } finally {
+        document.getElementById('sqlLoading').style.display = 'none';
+      }
+    }
+
+    function clearSqlResults() {
+      document.getElementById('sqlInput').value = '';
+      document.getElementById('sqlResults').style.display = 'none';
+      document.getElementById('noResults').style.display = 'block';
+      document.getElementById('sqlError').style.display = 'none';
+      document.getElementById('sqlSuccess').style.display = 'none';
+    }
+
+    async function loadDeploys() {
+      try {
+        const res = await fetch('/api/deploys');
+        const data = await res.json();
+        const tbody = document.getElementById('deploysList');
+        tbody.innerHTML = '';
+
+        if (!Array.isArray(data) || data.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #999;">No deployments found</td></tr>';
+          return;
+        }
+
+        data.forEach(d => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${new Date(d.deployed_at).toLocaleString()}</td>
+            <td><code style="color: #3b82f6;">${(d.commit || '—').substring(0, 7)}</code></td>
+            <td>${d.message || '—'}</td>
+            <td><span class="status-dot ${d.status === 'success' ? 'healthy' : 'down'}" style="display: inline-block; margin-right: 5px;"></span>${d.status || '—'}</td>
+            <td>${d.duration_seconds ? `${d.duration_seconds}s` : '—'}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+        document.getElementById('deploysLastUpdate').textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
+      } catch (err) {
+        document.getElementById('deploysList').innerHTML = `<tr><td colspan="5"><div class="error">${err.message}</div></td></tr>`;
+      }
+    }
+
+    async function loadSync() {
+      try {
+        const res = await fetch('/api/sync');
+        const data = await res.json();
+
+        document.getElementById('lastSyncTime').textContent = data.last_sync_at ? new Date(data.last_sync_at).toLocaleString() : '—';
+        document.getElementById('totalParcels').textContent = (data.total_parcels || 0).toLocaleString();
+        document.getElementById('totalScreening').textContent = (data.total_screening || 0).toLocaleString();
+
+        const details = `Last sync: ${data.last_sync_at || 'Never'}\nRows synced: ${data.rows_synced || 0}\nStatus: ${data.status || 'Unknown'}`;
+        document.getElementById('syncDetails').textContent = details;
+      } catch (err) {
+        document.getElementById('syncDetails').textContent = `Error: ${err.message}`;
+      }
+    }
+
+    function forceSync() {
+      const btn = document.getElementById('syncButton');
+      btn.disabled = true;
+      document.getElementById('syncLoading').style.display = 'block';
+      // Placeholder — would call POST /api/sync
+      setTimeout(() => {
+        loadSync();
+        btn.disabled = false;
+        document.getElementById('syncLoading').style.display = 'none';
+      }, 2000);
+    }
+
+    // Load health on page load
+    loadHealth();
+  </script>
+</body>
+</html>
