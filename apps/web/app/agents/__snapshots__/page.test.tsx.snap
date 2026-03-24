@@ -73,7 +73,7 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
           />
         </svg>
         <input
-          class="flex h-11 w-full rounded-xl border border-input/80 bg-background/82 px-3 py-2 text-sm shadow-black/[0.02] backdrop-blur-sm file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 pl-10"
+          class="flex h-11 w-full rounded-xl border border-input/70 bg-background/46 px-3 py-2 text-sm backdrop-blur-sm file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 pl-10"
           placeholder="Search agents..."
           value=""
         />
@@ -82,7 +82,7 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
         aria-autocomplete="none"
         aria-controls="radix-_r_0_"
         aria-expanded="false"
-        class="flex h-10 items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1 w-[140px]"
+        class="flex h-10 items-center justify-between rounded-xl border border-input/70 bg-background/46 px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1 w-[140px]"
         data-state="closed"
         dir="ltr"
         role="combobox"
@@ -115,7 +115,7 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
         aria-autocomplete="none"
         aria-controls="radix-_r_1_"
         aria-expanded="false"
-        class="flex h-10 items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1 w-[140px]"
+        class="flex h-10 items-center justify-between rounded-xl border border-input/70 bg-background/46 px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1 w-[140px]"
         data-state="closed"
         dir="ltr"
         role="combobox"
@@ -149,10 +149,10 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
       class="grid gap-4 md:grid-cols-2"
     >
       <div
-        class="workspace-surface rounded-[1.5rem] border bg-card/85 text-card-foreground shadow-none group transition-all hover:-translate-y-0.5 hover:border-primary/35"
+        class="workspace-surface rounded-[1.15rem] bg-card/55 text-card-foreground shadow-none group transition-all hover:-translate-y-0.5 hover:border-primary/35"
       >
         <div
-          class="flex flex-col space-y-1.5 p-5 md:p-6 pb-4"
+          class="flex flex-col space-y-1.5 p-4 md:p-5 pb-4"
         >
           <div
             class="flex items-start justify-between"
@@ -218,14 +218,14 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
               </div>
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-green-500/10 text-green-600 hover:bg-green-500/20 dark:text-green-400"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-green-500/10 text-green-600 hover:bg-green-500/20 dark:text-green-400"
             >
               Active
             </div>
           </div>
         </div>
         <div
-          class="p-5 pt-0 md:p-6 md:pt-0 space-y-4"
+          class="p-4 pt-0 md:p-5 md:pt-0 space-y-4"
         >
           <p
             class="text-sm text-muted-foreground line-clamp-2"
@@ -325,22 +325,22 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
             class="flex flex-wrap gap-2"
           >
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground text-xs"
             >
               search_knowledge_base
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground text-xs"
             >
               store_knowledge_entry
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground text-xs"
             >
               search_similar_episodes
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary/85 text-secondary-foreground hover:bg-secondary text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary/65 text-secondary-foreground hover:bg-secondary/90 text-xs"
             >
               +
               4
@@ -354,7 +354,7 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
               aria-controls="radix-_r_2_"
               aria-expanded="false"
               aria-haspopup="dialog"
-              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border border-transparent text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-primary text-primary-foreground shadow-sm hover:-translate-y-px hover:bg-primary/92 hover:shadow-md h-10 px-4 py-2 flex-1"
+              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border border-transparent text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-primary text-primary-foreground hover:-translate-y-px hover:bg-primary/92 h-10 px-4 py-2 flex-1"
               data-state="closed"
               type="button"
             >
@@ -378,7 +378,7 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
               Run Agent
             </button>
             <a
-              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background/78 backdrop-blur-sm hover:bg-accent/72 hover:text-accent-foreground h-10 px-4 py-2"
+              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background/42 hover:bg-accent/40 hover:text-accent-foreground h-10 px-4 py-2"
               href="/agents/coordinator"
             >
               <svg
@@ -409,10 +409,10 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
         </div>
       </div>
       <div
-        class="workspace-surface rounded-[1.5rem] border bg-card/85 text-card-foreground shadow-none group transition-all hover:-translate-y-0.5 hover:border-primary/35"
+        class="workspace-surface rounded-[1.15rem] bg-card/55 text-card-foreground shadow-none group transition-all hover:-translate-y-0.5 hover:border-primary/35"
       >
         <div
-          class="flex flex-col space-y-1.5 p-5 md:p-6 pb-4"
+          class="flex flex-col space-y-1.5 p-4 md:p-5 pb-4"
         >
           <div
             class="flex items-start justify-between"
@@ -478,14 +478,14 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
               </div>
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-green-500/10 text-green-600 hover:bg-green-500/20 dark:text-green-400"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-green-500/10 text-green-600 hover:bg-green-500/20 dark:text-green-400"
             >
               Active
             </div>
           </div>
         </div>
         <div
-          class="p-5 pt-0 md:p-6 md:pt-0 space-y-4"
+          class="p-4 pt-0 md:p-5 md:pt-0 space-y-4"
         >
           <p
             class="text-sm text-muted-foreground line-clamp-2"
@@ -585,22 +585,22 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
             class="flex flex-wrap gap-2"
           >
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground text-xs"
             >
               search_knowledge_base
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground text-xs"
             >
               store_knowledge_entry
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground text-xs"
             >
               search_similar_episodes
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary/85 text-secondary-foreground hover:bg-secondary text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary/65 text-secondary-foreground hover:bg-secondary/90 text-xs"
             >
               +
               3
@@ -614,7 +614,7 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
               aria-controls="radix-_r_5_"
               aria-expanded="false"
               aria-haspopup="dialog"
-              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border border-transparent text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-primary text-primary-foreground shadow-sm hover:-translate-y-px hover:bg-primary/92 hover:shadow-md h-10 px-4 py-2 flex-1"
+              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border border-transparent text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-primary text-primary-foreground hover:-translate-y-px hover:bg-primary/92 h-10 px-4 py-2 flex-1"
               data-state="closed"
               type="button"
             >
@@ -638,7 +638,7 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
               Run Agent
             </button>
             <a
-              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background/78 backdrop-blur-sm hover:bg-accent/72 hover:text-accent-foreground h-10 px-4 py-2"
+              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background/42 hover:bg-accent/40 hover:text-accent-foreground h-10 px-4 py-2"
               href="/agents/finance"
             >
               <svg
@@ -669,10 +669,10 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
         </div>
       </div>
       <div
-        class="workspace-surface rounded-[1.5rem] border bg-card/85 text-card-foreground shadow-none group transition-all hover:-translate-y-0.5 hover:border-primary/35"
+        class="workspace-surface rounded-[1.15rem] bg-card/55 text-card-foreground shadow-none group transition-all hover:-translate-y-0.5 hover:border-primary/35"
       >
         <div
-          class="flex flex-col space-y-1.5 p-5 md:p-6 pb-4"
+          class="flex flex-col space-y-1.5 p-4 md:p-5 pb-4"
         >
           <div
             class="flex items-start justify-between"
@@ -738,14 +738,14 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
               </div>
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-green-500/10 text-green-600 hover:bg-green-500/20 dark:text-green-400"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-green-500/10 text-green-600 hover:bg-green-500/20 dark:text-green-400"
             >
               Active
             </div>
           </div>
         </div>
         <div
-          class="p-5 pt-0 md:p-6 md:pt-0 space-y-4"
+          class="p-4 pt-0 md:p-5 md:pt-0 space-y-4"
         >
           <p
             class="text-sm text-muted-foreground line-clamp-2"
@@ -845,22 +845,22 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
             class="flex flex-wrap gap-2"
           >
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground text-xs"
             >
               search_knowledge_base
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground text-xs"
             >
               store_knowledge_entry
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground text-xs"
             >
               search_similar_episodes
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary/85 text-secondary-foreground hover:bg-secondary text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary/65 text-secondary-foreground hover:bg-secondary/90 text-xs"
             >
               +
               3
@@ -874,7 +874,7 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
               aria-controls="radix-_r_8_"
               aria-expanded="false"
               aria-haspopup="dialog"
-              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border border-transparent text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-primary text-primary-foreground shadow-sm hover:-translate-y-px hover:bg-primary/92 hover:shadow-md h-10 px-4 py-2 flex-1"
+              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border border-transparent text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-primary text-primary-foreground hover:-translate-y-px hover:bg-primary/92 h-10 px-4 py-2 flex-1"
               data-state="closed"
               type="button"
             >
@@ -898,7 +898,7 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
               Run Agent
             </button>
             <a
-              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background/78 backdrop-blur-sm hover:bg-accent/72 hover:text-accent-foreground h-10 px-4 py-2"
+              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background/42 hover:bg-accent/40 hover:text-accent-foreground h-10 px-4 py-2"
               href="/agents/legal"
             >
               <svg
@@ -929,10 +929,10 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
         </div>
       </div>
       <div
-        class="workspace-surface rounded-[1.5rem] border bg-card/85 text-card-foreground shadow-none group transition-all hover:-translate-y-0.5 hover:border-primary/35"
+        class="workspace-surface rounded-[1.15rem] bg-card/55 text-card-foreground shadow-none group transition-all hover:-translate-y-0.5 hover:border-primary/35"
       >
         <div
-          class="flex flex-col space-y-1.5 p-5 md:p-6 pb-4"
+          class="flex flex-col space-y-1.5 p-4 md:p-5 pb-4"
         >
           <div
             class="flex items-start justify-between"
@@ -998,14 +998,14 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
               </div>
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-green-500/10 text-green-600 hover:bg-green-500/20 dark:text-green-400"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-green-500/10 text-green-600 hover:bg-green-500/20 dark:text-green-400"
             >
               Active
             </div>
           </div>
         </div>
         <div
-          class="p-5 pt-0 md:p-6 md:pt-0 space-y-4"
+          class="p-4 pt-0 md:p-5 md:pt-0 space-y-4"
         >
           <p
             class="text-sm text-muted-foreground line-clamp-2"
@@ -1105,22 +1105,22 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
             class="flex flex-wrap gap-2"
           >
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground text-xs"
             >
               search_knowledge_base
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground text-xs"
             >
               store_knowledge_entry
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground text-xs"
             >
               search_similar_episodes
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary/85 text-secondary-foreground hover:bg-secondary text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary/65 text-secondary-foreground hover:bg-secondary/90 text-xs"
             >
               +
               3
@@ -1134,7 +1134,7 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
               aria-controls="radix-_r_b_"
               aria-expanded="false"
               aria-haspopup="dialog"
-              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border border-transparent text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-primary text-primary-foreground shadow-sm hover:-translate-y-px hover:bg-primary/92 hover:shadow-md h-10 px-4 py-2 flex-1"
+              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border border-transparent text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-primary text-primary-foreground hover:-translate-y-px hover:bg-primary/92 h-10 px-4 py-2 flex-1"
               data-state="closed"
               type="button"
             >
@@ -1158,7 +1158,7 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
               Run Agent
             </button>
             <a
-              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background/78 backdrop-blur-sm hover:bg-accent/72 hover:text-accent-foreground h-10 px-4 py-2"
+              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background/42 hover:bg-accent/40 hover:text-accent-foreground h-10 px-4 py-2"
               href="/agents/research"
             >
               <svg
@@ -1189,10 +1189,10 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
         </div>
       </div>
       <div
-        class="workspace-surface rounded-[1.5rem] border bg-card/85 text-card-foreground shadow-none group transition-all hover:-translate-y-0.5 hover:border-primary/35"
+        class="workspace-surface rounded-[1.15rem] bg-card/55 text-card-foreground shadow-none group transition-all hover:-translate-y-0.5 hover:border-primary/35"
       >
         <div
-          class="flex flex-col space-y-1.5 p-5 md:p-6 pb-4"
+          class="flex flex-col space-y-1.5 p-4 md:p-5 pb-4"
         >
           <div
             class="flex items-start justify-between"
@@ -1258,14 +1258,14 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
               </div>
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-green-500/10 text-green-600 hover:bg-green-500/20 dark:text-green-400"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-green-500/10 text-green-600 hover:bg-green-500/20 dark:text-green-400"
             >
               Active
             </div>
           </div>
         </div>
         <div
-          class="p-5 pt-0 md:p-6 md:pt-0 space-y-4"
+          class="p-4 pt-0 md:p-5 md:pt-0 space-y-4"
         >
           <p
             class="text-sm text-muted-foreground line-clamp-2"
@@ -1365,22 +1365,22 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
             class="flex flex-wrap gap-2"
           >
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground text-xs"
             >
               search_knowledge_base
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground text-xs"
             >
               store_knowledge_entry
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground text-xs"
             >
               search_similar_episodes
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary/85 text-secondary-foreground hover:bg-secondary text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary/65 text-secondary-foreground hover:bg-secondary/90 text-xs"
             >
               +
               3
@@ -1394,7 +1394,7 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
               aria-controls="radix-_r_e_"
               aria-expanded="false"
               aria-haspopup="dialog"
-              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border border-transparent text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-primary text-primary-foreground shadow-sm hover:-translate-y-px hover:bg-primary/92 hover:shadow-md h-10 px-4 py-2 flex-1"
+              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border border-transparent text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-primary text-primary-foreground hover:-translate-y-px hover:bg-primary/92 h-10 px-4 py-2 flex-1"
               data-state="closed"
               type="button"
             >
@@ -1418,7 +1418,7 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
               Run Agent
             </button>
             <a
-              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background/78 backdrop-blur-sm hover:bg-accent/72 hover:text-accent-foreground h-10 px-4 py-2"
+              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background/42 hover:bg-accent/40 hover:text-accent-foreground h-10 px-4 py-2"
               href="/agents/risk"
             >
               <svg
@@ -1449,10 +1449,10 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
         </div>
       </div>
       <div
-        class="workspace-surface rounded-[1.5rem] border bg-card/85 text-card-foreground shadow-none group transition-all hover:-translate-y-0.5 hover:border-primary/35"
+        class="workspace-surface rounded-[1.15rem] bg-card/55 text-card-foreground shadow-none group transition-all hover:-translate-y-0.5 hover:border-primary/35"
       >
         <div
-          class="flex flex-col space-y-1.5 p-5 md:p-6 pb-4"
+          class="flex flex-col space-y-1.5 p-4 md:p-5 pb-4"
         >
           <div
             class="flex items-start justify-between"
@@ -1518,14 +1518,14 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
               </div>
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-green-500/10 text-green-600 hover:bg-green-500/20 dark:text-green-400"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-green-500/10 text-green-600 hover:bg-green-500/20 dark:text-green-400"
             >
               Active
             </div>
           </div>
         </div>
         <div
-          class="p-5 pt-0 md:p-6 md:pt-0 space-y-4"
+          class="p-4 pt-0 md:p-5 md:pt-0 space-y-4"
         >
           <p
             class="text-sm text-muted-foreground line-clamp-2"
@@ -1625,22 +1625,22 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
             class="flex flex-wrap gap-2"
           >
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground text-xs"
             >
               search_knowledge_base
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground text-xs"
             >
               store_knowledge_entry
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground text-xs"
             >
               search_similar_episodes
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary/85 text-secondary-foreground hover:bg-secondary text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary/65 text-secondary-foreground hover:bg-secondary/90 text-xs"
             >
               +
               3
@@ -1654,7 +1654,7 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
               aria-controls="radix-_r_h_"
               aria-expanded="false"
               aria-haspopup="dialog"
-              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border border-transparent text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-primary text-primary-foreground shadow-sm hover:-translate-y-px hover:bg-primary/92 hover:shadow-md h-10 px-4 py-2 flex-1"
+              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border border-transparent text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-primary text-primary-foreground hover:-translate-y-px hover:bg-primary/92 h-10 px-4 py-2 flex-1"
               data-state="closed"
               type="button"
             >
@@ -1678,7 +1678,7 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
               Run Agent
             </button>
             <a
-              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background/78 backdrop-blur-sm hover:bg-accent/72 hover:text-accent-foreground h-10 px-4 py-2"
+              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background/42 hover:bg-accent/40 hover:text-accent-foreground h-10 px-4 py-2"
               href="/agents/screener"
             >
               <svg
@@ -1709,10 +1709,10 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
         </div>
       </div>
       <div
-        class="workspace-surface rounded-[1.5rem] border bg-card/85 text-card-foreground shadow-none group transition-all hover:-translate-y-0.5 hover:border-primary/35"
+        class="workspace-surface rounded-[1.15rem] bg-card/55 text-card-foreground shadow-none group transition-all hover:-translate-y-0.5 hover:border-primary/35"
       >
         <div
-          class="flex flex-col space-y-1.5 p-5 md:p-6 pb-4"
+          class="flex flex-col space-y-1.5 p-4 md:p-5 pb-4"
         >
           <div
             class="flex items-start justify-between"
@@ -1778,14 +1778,14 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
               </div>
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-green-500/10 text-green-600 hover:bg-green-500/20 dark:text-green-400"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-green-500/10 text-green-600 hover:bg-green-500/20 dark:text-green-400"
             >
               Active
             </div>
           </div>
         </div>
         <div
-          class="p-5 pt-0 md:p-6 md:pt-0 space-y-4"
+          class="p-4 pt-0 md:p-5 md:pt-0 space-y-4"
         >
           <p
             class="text-sm text-muted-foreground line-clamp-2"
@@ -1885,22 +1885,22 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
             class="flex flex-wrap gap-2"
           >
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground text-xs"
             >
               search_knowledge_base
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground text-xs"
             >
               store_knowledge_entry
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground text-xs"
             >
               search_similar_episodes
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary/85 text-secondary-foreground hover:bg-secondary text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary/65 text-secondary-foreground hover:bg-secondary/90 text-xs"
             >
               +
               3
@@ -1914,7 +1914,7 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
               aria-controls="radix-_r_k_"
               aria-expanded="false"
               aria-haspopup="dialog"
-              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border border-transparent text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-primary text-primary-foreground shadow-sm hover:-translate-y-px hover:bg-primary/92 hover:shadow-md h-10 px-4 py-2 flex-1"
+              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border border-transparent text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-primary text-primary-foreground hover:-translate-y-px hover:bg-primary/92 h-10 px-4 py-2 flex-1"
               data-state="closed"
               type="button"
             >
@@ -1938,7 +1938,7 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
               Run Agent
             </button>
             <a
-              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background/78 backdrop-blur-sm hover:bg-accent/72 hover:text-accent-foreground h-10 px-4 py-2"
+              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background/42 hover:bg-accent/40 hover:text-accent-foreground h-10 px-4 py-2"
               href="/agents/due-diligence"
             >
               <svg
@@ -1969,10 +1969,10 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
         </div>
       </div>
       <div
-        class="workspace-surface rounded-[1.5rem] border bg-card/85 text-card-foreground shadow-none group transition-all hover:-translate-y-0.5 hover:border-primary/35"
+        class="workspace-surface rounded-[1.15rem] bg-card/55 text-card-foreground shadow-none group transition-all hover:-translate-y-0.5 hover:border-primary/35"
       >
         <div
-          class="flex flex-col space-y-1.5 p-5 md:p-6 pb-4"
+          class="flex flex-col space-y-1.5 p-4 md:p-5 pb-4"
         >
           <div
             class="flex items-start justify-between"
@@ -2038,14 +2038,14 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
               </div>
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-green-500/10 text-green-600 hover:bg-green-500/20 dark:text-green-400"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-green-500/10 text-green-600 hover:bg-green-500/20 dark:text-green-400"
             >
               Active
             </div>
           </div>
         </div>
         <div
-          class="p-5 pt-0 md:p-6 md:pt-0 space-y-4"
+          class="p-4 pt-0 md:p-5 md:pt-0 space-y-4"
         >
           <p
             class="text-sm text-muted-foreground line-clamp-2"
@@ -2145,22 +2145,22 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
             class="flex flex-wrap gap-2"
           >
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground text-xs"
             >
               search_knowledge_base
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground text-xs"
             >
               store_knowledge_entry
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground text-xs"
             >
               search_similar_episodes
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary/85 text-secondary-foreground hover:bg-secondary text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary/65 text-secondary-foreground hover:bg-secondary/90 text-xs"
             >
               +
               3
@@ -2174,7 +2174,7 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
               aria-controls="radix-_r_n_"
               aria-expanded="false"
               aria-haspopup="dialog"
-              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border border-transparent text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-primary text-primary-foreground shadow-sm hover:-translate-y-px hover:bg-primary/92 hover:shadow-md h-10 px-4 py-2 flex-1"
+              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border border-transparent text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-primary text-primary-foreground hover:-translate-y-px hover:bg-primary/92 h-10 px-4 py-2 flex-1"
               data-state="closed"
               type="button"
             >
@@ -2198,7 +2198,7 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
               Run Agent
             </button>
             <a
-              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background/78 backdrop-blur-sm hover:bg-accent/72 hover:text-accent-foreground h-10 px-4 py-2"
+              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background/42 hover:bg-accent/40 hover:text-accent-foreground h-10 px-4 py-2"
               href="/agents/entitlements"
             >
               <svg
@@ -2229,10 +2229,10 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
         </div>
       </div>
       <div
-        class="workspace-surface rounded-[1.5rem] border bg-card/85 text-card-foreground shadow-none group transition-all hover:-translate-y-0.5 hover:border-primary/35"
+        class="workspace-surface rounded-[1.15rem] bg-card/55 text-card-foreground shadow-none group transition-all hover:-translate-y-0.5 hover:border-primary/35"
       >
         <div
-          class="flex flex-col space-y-1.5 p-5 md:p-6 pb-4"
+          class="flex flex-col space-y-1.5 p-4 md:p-5 pb-4"
         >
           <div
             class="flex items-start justify-between"
@@ -2298,14 +2298,14 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
               </div>
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-green-500/10 text-green-600 hover:bg-green-500/20 dark:text-green-400"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-green-500/10 text-green-600 hover:bg-green-500/20 dark:text-green-400"
             >
               Active
             </div>
           </div>
         </div>
         <div
-          class="p-5 pt-0 md:p-6 md:pt-0 space-y-4"
+          class="p-4 pt-0 md:p-5 md:pt-0 space-y-4"
         >
           <p
             class="text-sm text-muted-foreground line-clamp-2"
@@ -2405,22 +2405,22 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
             class="flex flex-wrap gap-2"
           >
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground text-xs"
             >
               search_knowledge_base
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground text-xs"
             >
               store_knowledge_entry
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground text-xs"
             >
               search_similar_episodes
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary/85 text-secondary-foreground hover:bg-secondary text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary/65 text-secondary-foreground hover:bg-secondary/90 text-xs"
             >
               +
               3
@@ -2434,7 +2434,7 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
               aria-controls="radix-_r_q_"
               aria-expanded="false"
               aria-haspopup="dialog"
-              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border border-transparent text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-primary text-primary-foreground shadow-sm hover:-translate-y-px hover:bg-primary/92 hover:shadow-md h-10 px-4 py-2 flex-1"
+              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border border-transparent text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-primary text-primary-foreground hover:-translate-y-px hover:bg-primary/92 h-10 px-4 py-2 flex-1"
               data-state="closed"
               type="button"
             >
@@ -2458,7 +2458,7 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
               Run Agent
             </button>
             <a
-              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background/78 backdrop-blur-sm hover:bg-accent/72 hover:text-accent-foreground h-10 px-4 py-2"
+              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background/42 hover:bg-accent/40 hover:text-accent-foreground h-10 px-4 py-2"
               href="/agents/design"
             >
               <svg
@@ -2489,10 +2489,10 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
         </div>
       </div>
       <div
-        class="workspace-surface rounded-[1.5rem] border bg-card/85 text-card-foreground shadow-none group transition-all hover:-translate-y-0.5 hover:border-primary/35"
+        class="workspace-surface rounded-[1.15rem] bg-card/55 text-card-foreground shadow-none group transition-all hover:-translate-y-0.5 hover:border-primary/35"
       >
         <div
-          class="flex flex-col space-y-1.5 p-5 md:p-6 pb-4"
+          class="flex flex-col space-y-1.5 p-4 md:p-5 pb-4"
         >
           <div
             class="flex items-start justify-between"
@@ -2558,14 +2558,14 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
               </div>
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-green-500/10 text-green-600 hover:bg-green-500/20 dark:text-green-400"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-green-500/10 text-green-600 hover:bg-green-500/20 dark:text-green-400"
             >
               Active
             </div>
           </div>
         </div>
         <div
-          class="p-5 pt-0 md:p-6 md:pt-0 space-y-4"
+          class="p-4 pt-0 md:p-5 md:pt-0 space-y-4"
         >
           <p
             class="text-sm text-muted-foreground line-clamp-2"
@@ -2665,22 +2665,22 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
             class="flex flex-wrap gap-2"
           >
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground text-xs"
             >
               search_knowledge_base
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground text-xs"
             >
               store_knowledge_entry
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground text-xs"
             >
               search_similar_episodes
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary/85 text-secondary-foreground hover:bg-secondary text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary/65 text-secondary-foreground hover:bg-secondary/90 text-xs"
             >
               +
               3
@@ -2694,7 +2694,7 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
               aria-controls="radix-_r_t_"
               aria-expanded="false"
               aria-haspopup="dialog"
-              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border border-transparent text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-primary text-primary-foreground shadow-sm hover:-translate-y-px hover:bg-primary/92 hover:shadow-md h-10 px-4 py-2 flex-1"
+              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border border-transparent text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-primary text-primary-foreground hover:-translate-y-px hover:bg-primary/92 h-10 px-4 py-2 flex-1"
               data-state="closed"
               type="button"
             >
@@ -2718,7 +2718,7 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
               Run Agent
             </button>
             <a
-              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background/78 backdrop-blur-sm hover:bg-accent/72 hover:text-accent-foreground h-10 px-4 py-2"
+              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background/42 hover:bg-accent/40 hover:text-accent-foreground h-10 px-4 py-2"
               href="/agents/operations"
             >
               <svg
@@ -2749,10 +2749,10 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
         </div>
       </div>
       <div
-        class="workspace-surface rounded-[1.5rem] border bg-card/85 text-card-foreground shadow-none group transition-all hover:-translate-y-0.5 hover:border-primary/35"
+        class="workspace-surface rounded-[1.15rem] bg-card/55 text-card-foreground shadow-none group transition-all hover:-translate-y-0.5 hover:border-primary/35"
       >
         <div
-          class="flex flex-col space-y-1.5 p-5 md:p-6 pb-4"
+          class="flex flex-col space-y-1.5 p-4 md:p-5 pb-4"
         >
           <div
             class="flex items-start justify-between"
@@ -2818,14 +2818,14 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
               </div>
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-green-500/10 text-green-600 hover:bg-green-500/20 dark:text-green-400"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-green-500/10 text-green-600 hover:bg-green-500/20 dark:text-green-400"
             >
               Active
             </div>
           </div>
         </div>
         <div
-          class="p-5 pt-0 md:p-6 md:pt-0 space-y-4"
+          class="p-4 pt-0 md:p-5 md:pt-0 space-y-4"
         >
           <p
             class="text-sm text-muted-foreground line-clamp-2"
@@ -2925,22 +2925,22 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
             class="flex flex-wrap gap-2"
           >
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground text-xs"
             >
               search_knowledge_base
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground text-xs"
             >
               store_knowledge_entry
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground text-xs"
             >
               search_similar_episodes
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary/85 text-secondary-foreground hover:bg-secondary text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary/65 text-secondary-foreground hover:bg-secondary/90 text-xs"
             >
               +
               3
@@ -2954,7 +2954,7 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
               aria-controls="radix-_r_10_"
               aria-expanded="false"
               aria-haspopup="dialog"
-              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border border-transparent text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-primary text-primary-foreground shadow-sm hover:-translate-y-px hover:bg-primary/92 hover:shadow-md h-10 px-4 py-2 flex-1"
+              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border border-transparent text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-primary text-primary-foreground hover:-translate-y-px hover:bg-primary/92 h-10 px-4 py-2 flex-1"
               data-state="closed"
               type="button"
             >
@@ -2978,7 +2978,7 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
               Run Agent
             </button>
             <a
-              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background/78 backdrop-blur-sm hover:bg-accent/72 hover:text-accent-foreground h-10 px-4 py-2"
+              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background/42 hover:bg-accent/40 hover:text-accent-foreground h-10 px-4 py-2"
               href="/agents/marketing"
             >
               <svg
@@ -3009,10 +3009,10 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
         </div>
       </div>
       <div
-        class="workspace-surface rounded-[1.5rem] border bg-card/85 text-card-foreground shadow-none group transition-all hover:-translate-y-0.5 hover:border-primary/35"
+        class="workspace-surface rounded-[1.15rem] bg-card/55 text-card-foreground shadow-none group transition-all hover:-translate-y-0.5 hover:border-primary/35"
       >
         <div
-          class="flex flex-col space-y-1.5 p-5 md:p-6 pb-4"
+          class="flex flex-col space-y-1.5 p-4 md:p-5 pb-4"
         >
           <div
             class="flex items-start justify-between"
@@ -3078,14 +3078,14 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
               </div>
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-green-500/10 text-green-600 hover:bg-green-500/20 dark:text-green-400"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-green-500/10 text-green-600 hover:bg-green-500/20 dark:text-green-400"
             >
               Active
             </div>
           </div>
         </div>
         <div
-          class="p-5 pt-0 md:p-6 md:pt-0 space-y-4"
+          class="p-4 pt-0 md:p-5 md:pt-0 space-y-4"
         >
           <p
             class="text-sm text-muted-foreground line-clamp-2"
@@ -3185,22 +3185,22 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
             class="flex flex-wrap gap-2"
           >
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground text-xs"
             >
               search_knowledge_base
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground text-xs"
             >
               store_knowledge_entry
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground text-xs"
             >
               search_similar_episodes
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary/85 text-secondary-foreground hover:bg-secondary text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary/65 text-secondary-foreground hover:bg-secondary/90 text-xs"
             >
               +
               3
@@ -3214,7 +3214,7 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
               aria-controls="radix-_r_13_"
               aria-expanded="false"
               aria-haspopup="dialog"
-              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border border-transparent text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-primary text-primary-foreground shadow-sm hover:-translate-y-px hover:bg-primary/92 hover:shadow-md h-10 px-4 py-2 flex-1"
+              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border border-transparent text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-primary text-primary-foreground hover:-translate-y-px hover:bg-primary/92 h-10 px-4 py-2 flex-1"
               data-state="closed"
               type="button"
             >
@@ -3238,7 +3238,7 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
               Run Agent
             </button>
             <a
-              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background/78 backdrop-blur-sm hover:bg-accent/72 hover:text-accent-foreground h-10 px-4 py-2"
+              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background/42 hover:bg-accent/40 hover:text-accent-foreground h-10 px-4 py-2"
               href="/agents/tax"
             >
               <svg
@@ -3269,10 +3269,10 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
         </div>
       </div>
       <div
-        class="workspace-surface rounded-[1.5rem] border bg-card/85 text-card-foreground shadow-none group transition-all hover:-translate-y-0.5 hover:border-primary/35"
+        class="workspace-surface rounded-[1.15rem] bg-card/55 text-card-foreground shadow-none group transition-all hover:-translate-y-0.5 hover:border-primary/35"
       >
         <div
-          class="flex flex-col space-y-1.5 p-5 md:p-6 pb-4"
+          class="flex flex-col space-y-1.5 p-4 md:p-5 pb-4"
         >
           <div
             class="flex items-start justify-between"
@@ -3338,14 +3338,14 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
               </div>
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-green-500/10 text-green-600 hover:bg-green-500/20 dark:text-green-400"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-green-500/10 text-green-600 hover:bg-green-500/20 dark:text-green-400"
             >
               Active
             </div>
           </div>
         </div>
         <div
-          class="p-5 pt-0 md:p-6 md:pt-0 space-y-4"
+          class="p-4 pt-0 md:p-5 md:pt-0 space-y-4"
         >
           <p
             class="text-sm text-muted-foreground line-clamp-2"
@@ -3445,22 +3445,22 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
             class="flex flex-wrap gap-2"
           >
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground text-xs"
             >
               search_knowledge_base
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground text-xs"
             >
               store_knowledge_entry
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/76 text-foreground text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground text-xs"
             >
               search_similar_episodes
             </div>
             <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-medium tracking-[0.01em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary/85 text-secondary-foreground hover:bg-secondary text-xs"
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary/65 text-secondary-foreground hover:bg-secondary/90 text-xs"
             >
               +
               3
@@ -3474,7 +3474,7 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
               aria-controls="radix-_r_16_"
               aria-expanded="false"
               aria-haspopup="dialog"
-              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border border-transparent text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-primary text-primary-foreground shadow-sm hover:-translate-y-px hover:bg-primary/92 hover:shadow-md h-10 px-4 py-2 flex-1"
+              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border border-transparent text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-primary text-primary-foreground hover:-translate-y-px hover:bg-primary/92 h-10 px-4 py-2 flex-1"
               data-state="closed"
               type="button"
             >
@@ -3498,7 +3498,7 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
               Run Agent
             </button>
             <a
-              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background/78 backdrop-blur-sm hover:bg-accent/72 hover:text-accent-foreground h-10 px-4 py-2"
+              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background/42 hover:bg-accent/40 hover:text-accent-foreground h-10 px-4 py-2"
               href="/agents/market-intel"
             >
               <svg

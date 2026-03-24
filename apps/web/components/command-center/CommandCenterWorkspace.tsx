@@ -265,7 +265,7 @@ export function CommandCenterWorkspace() {
       >
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div className="space-y-3">
-            <Badge variant="outline" className="gap-2 px-3 py-1">
+            <Badge variant="outline" className="gap-2">
               <Radar className="h-3.5 w-3.5" />
               Operator workspace
             </Badge>
@@ -375,8 +375,9 @@ export function CommandCenterWorkspace() {
             transition={reduceMotion ? undefined : { ...revealTransition, delay: 0.3 }}
             className="space-y-3"
           >
-            <div className="px-1">
-              <h2 className="text-sm font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+            <div className="workspace-section">
+              <p className="workspace-section-kicker">Command center</p>
+              <h2 className="mt-2 text-sm font-semibold uppercase tracking-[0.22em] text-muted-foreground">
                 Entitlement calibration
               </h2>
               <p className="mt-2 text-sm text-muted-foreground">
@@ -406,11 +407,12 @@ export function CommandCenterWorkspace() {
             items={briefing?.sections.automationActivity.items ?? []}
             isLoading={briefingLoading}
           />
-          <div className="rounded-2xl border border-border/70 bg-background/90 p-5 shadow-sm">
-            <div className="flex items-center gap-2 border-b border-border/60 pb-4">
+          <div className="workspace-section">
+            <div className="workspace-section-header">
               <Sparkles className="h-4 w-4 text-primary" />
               <div>
-                <h2 className="text-sm font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                <p className="workspace-section-kicker">Command center</p>
+                <h2 className="mt-2 text-sm font-semibold uppercase tracking-[0.22em] text-muted-foreground">
                   Next move
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
@@ -418,24 +420,24 @@ export function CommandCenterWorkspace() {
                 </p>
               </div>
             </div>
-            <div className="mt-4 space-y-3 text-sm">
+            <div className="workspace-list mt-4 text-sm">
               <Link
                 href="/runs"
-                className="flex items-center justify-between rounded-xl border border-border/60 px-4 py-3 transition-colors hover:bg-muted/40"
+                className="workspace-list-row items-center justify-between transition-colors hover:bg-muted/18"
               >
                 <span>Inspect recent runs</span>
                 <RefreshCw className="h-4 w-4 text-muted-foreground" />
               </Link>
               <Link
                 href="/agents"
-                className="flex items-center justify-between rounded-xl border border-border/60 px-4 py-3 transition-colors hover:bg-muted/40"
+                className="workspace-list-row items-center justify-between transition-colors hover:bg-muted/18"
               >
                 <span>Open agent roster</span>
                 <ArrowRight className="h-4 w-4 text-muted-foreground" />
               </Link>
               <Link
                 href="/automation"
-                className="flex items-center justify-between rounded-xl border border-border/60 px-4 py-3 transition-colors hover:bg-muted/40"
+                className="workspace-list-row items-center justify-between transition-colors hover:bg-muted/18"
               >
                 <span>Review automation health</span>
                 <ArrowRight className="h-4 w-4 text-muted-foreground" />

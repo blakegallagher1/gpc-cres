@@ -2,7 +2,7 @@
 
 exports[`Header > renders route-aware operating-system chrome 1`] = `
 <header
-  class="fixed right-0 top-0 z-30 border-b border-border/60 bg-background/72 shadow-[0_18px_48px_-40px_rgba(15,23,42,0.55)] backdrop-blur-2xl transition-[left] duration-300 h-[var(--app-header-height)] px-4 md:px-6 left-[var(--app-sidebar-expanded)]"
+  class="fixed right-0 top-0 z-30 border-b border-border/50 bg-background/72 backdrop-blur-2xl transition-[left] duration-300 h-[var(--app-header-height)] px-4 md:px-6 left-[var(--app-sidebar-expanded)]"
 >
   <div
     class="flex h-full w-full items-center justify-between gap-3"
@@ -16,7 +16,7 @@ exports[`Header > renders route-aware operating-system chrome 1`] = `
         class="flex items-center gap-3"
       >
         <div
-          class="app-shell-panel hidden h-11 w-11 shrink-0 items-center justify-center rounded-[1.15rem] md:flex"
+          class="hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/50 bg-background/36 md:flex"
         >
           <svg
             aria-hidden="true"
@@ -46,24 +46,24 @@ exports[`Header > renders route-aware operating-system chrome 1`] = `
           class="min-w-0"
         >
           <div
-            class="flex flex-wrap items-center gap-2"
+            class="flex flex-wrap items-center gap-3"
           >
             <p
-              class="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground"
+              class="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground/80"
             >
               Gallagher Property Company
             </p>
             <span
-              class="app-shell-panel rounded-full px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground"
+              class="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground/75"
             >
               Operate
             </span>
           </div>
           <div
-            class="flex min-w-0 items-center gap-2"
+            class="mt-1 flex min-w-0 items-center gap-2"
           >
             <h1
-              class="truncate text-base font-semibold tracking-tight md:text-lg"
+              class="truncate text-base font-semibold tracking-[-0.03em] md:text-xl"
             >
               Map
             </h1>
@@ -72,7 +72,7 @@ exports[`Header > renders route-aware operating-system chrome 1`] = `
             class="mt-1 flex min-w-0 items-center gap-2 text-sm text-muted-foreground"
           >
             <span
-              class="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground"
+              class="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground/80"
             >
               3
                routes
@@ -94,7 +94,7 @@ exports[`Header > renders route-aware operating-system chrome 1`] = `
     >
       <div
         aria-label="Open desktop command search"
-        class="app-shell-panel relative flex h-11 items-center rounded-2xl px-3 transition-all"
+        class="relative flex h-11 items-center rounded-xl border border-border/55 bg-background/40 px-3 transition-all"
         role="button"
         tabindex="0"
       >
@@ -130,18 +130,18 @@ exports[`Header > renders route-aware operating-system chrome 1`] = `
           class="flex items-center gap-2 text-xs text-muted-foreground"
         >
           <span
-            class="rounded-full border border-border/60 bg-background/65 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.18em]"
+            class="font-mono text-[10px] uppercase tracking-[0.18em]"
           >
             9
              desks
           </span>
           <kbd
-            class="rounded-md border border-border/60 bg-background/65 px-1.5 py-0.5 font-mono"
+            class="rounded-md border border-border/55 bg-background/55 px-1.5 py-0.5 font-mono"
           >
             Ctrl
           </kbd>
           <kbd
-            class="rounded-md border border-border/60 bg-background/65 px-1.5 py-0.5 font-mono"
+            class="rounded-md border border-border/55 bg-background/55 px-1.5 py-0.5 font-mono"
           >
             K
           </kbd>
@@ -153,7 +153,7 @@ exports[`Header > renders route-aware operating-system chrome 1`] = `
     >
       <button
         aria-label="Open command search"
-        class="inline-flex items-center justify-center whitespace-nowrap border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-transparent bg-transparent hover:bg-accent/60 hover:text-accent-foreground h-10 w-10 rounded-xl text-muted-foreground lg:hidden"
+        class="inline-flex items-center justify-center whitespace-nowrap border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-transparent bg-transparent hover:bg-accent/60 hover:text-accent-foreground h-10 w-10 rounded-xl text-muted-foreground lg:hidden"
       >
         <svg
           aria-hidden="true"
@@ -180,7 +180,7 @@ exports[`Header > renders route-aware operating-system chrome 1`] = `
       </button>
       <button
         aria-label="Toggle theme"
-        class="inline-flex items-center justify-center whitespace-nowrap border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-transparent bg-transparent hover:bg-accent/60 hover:text-accent-foreground h-10 w-10 rounded-xl text-muted-foreground"
+        class="inline-flex items-center justify-center whitespace-nowrap border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-transparent bg-transparent hover:bg-accent/60 hover:text-accent-foreground h-10 w-10 rounded-xl text-muted-foreground"
       >
         <svg
           aria-hidden="true"
@@ -230,7 +230,7 @@ exports[`Header > renders route-aware operating-system chrome 1`] = `
         data-testid="notification-feed"
       />
       <button
-        class="inline-flex items-center justify-center whitespace-nowrap border border-transparent text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-primary text-primary-foreground shadow-sm hover:-translate-y-px hover:bg-primary/92 hover:shadow-md h-10 px-4 py-2 gap-2 rounded-xl"
+        class="inline-flex items-center justify-center whitespace-nowrap border border-transparent text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-primary text-primary-foreground hover:-translate-y-px hover:bg-primary/92 h-10 px-4 py-2 gap-2 rounded-xl"
       >
         <svg
           aria-hidden="true"
@@ -257,7 +257,7 @@ exports[`Header > renders route-aware operating-system chrome 1`] = `
         </span>
       </button>
       <button
-        class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-transparent bg-transparent hover:bg-accent/60 hover:text-accent-foreground h-10 px-4 py-2 text-muted-foreground"
+        class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-transparent bg-transparent hover:bg-accent/60 hover:text-accent-foreground h-10 px-4 py-2 text-muted-foreground"
       >
         Sign Out
       </button>

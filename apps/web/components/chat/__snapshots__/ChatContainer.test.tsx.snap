@@ -223,7 +223,7 @@ exports[`ChatContainer > does not fetch a nonexistent conversation for a fresh c
           >
             <div
               aria-orientation="horizontal"
-              class="inline-flex min-h-11 items-center gap-1 rounded-2xl border border-border/70 bg-background/78 p-1.5 text-muted-foreground shadow-sm backdrop-blur-sm w-full justify-start"
+              class="inline-flex min-h-10 items-center gap-1 rounded-xl border-b border-border/70 bg-transparent p-0 text-muted-foreground w-full justify-start"
               data-orientation="horizontal"
               role="tablist"
               style="outline-color: none; outline-style: none; outline-width: initial;"
@@ -232,7 +232,7 @@ exports[`ChatContainer > does not fetch a nonexistent conversation for a fresh c
               <button
                 aria-controls="radix-_r_0_-content-guide"
                 aria-selected="true"
-                class="inline-flex min-h-8 items-center justify-center whitespace-nowrap rounded-xl border border-transparent px-3 py-1.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:border-border/70 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+                class="inline-flex min-h-9 items-center justify-center whitespace-nowrap border-b-2 border-transparent px-3 py-1.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:border-foreground/80 data-[state=active]:text-foreground"
                 data-orientation="horizontal"
                 data-radix-collection-item=""
                 data-state="active"
@@ -246,7 +246,7 @@ exports[`ChatContainer > does not fetch a nonexistent conversation for a fresh c
               <button
                 aria-controls="radix-_r_0_-content-verification"
                 aria-selected="false"
-                class="inline-flex min-h-8 items-center justify-center whitespace-nowrap rounded-xl border border-transparent px-3 py-1.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:border-border/70 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+                class="inline-flex min-h-9 items-center justify-center whitespace-nowrap border-b-2 border-transparent px-3 py-1.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:border-foreground/80 data-[state=active]:text-foreground"
                 data-orientation="horizontal"
                 data-radix-collection-item=""
                 data-state="inactive"
@@ -260,7 +260,7 @@ exports[`ChatContainer > does not fetch a nonexistent conversation for a fresh c
               <button
                 aria-controls="radix-_r_0_-content-coverage"
                 aria-selected="false"
-                class="inline-flex min-h-8 items-center justify-center whitespace-nowrap rounded-xl border border-transparent px-3 py-1.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:border-border/70 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+                class="inline-flex min-h-9 items-center justify-center whitespace-nowrap border-b-2 border-transparent px-3 py-1.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:border-foreground/80 data-[state=active]:text-foreground"
                 data-orientation="horizontal"
                 data-radix-collection-item=""
                 data-state="inactive"

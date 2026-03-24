@@ -11,254 +11,115 @@ exports[`HomePage > renders the public Gallagher Property Company homepage 1`] =
     >
       <div
         class="absolute inset-0"
-        style="opacity: 0.18; transform: none;"
+        style="transform: none;"
       >
-        <div
-          class="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.1),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.08),transparent_28%)]"
-        />
-        <div
-          class="absolute inset-0 [background-image:linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:96px_96px]"
+        <img
+          alt="Manufactured housing community with surrounding streets and tree cover"
+          class="object-cover object-center"
+          data-nimg="fill"
+          decoding="async"
+          sizes="100vw"
+          src="/_next/image?url=%2Fimages%2Fgpc-home-hero.png&w=3840&q=75"
+          srcset="/_next/image?url=%2Fimages%2Fgpc-home-hero.png&w=640&q=75 640w, /_next/image?url=%2Fimages%2Fgpc-home-hero.png&w=750&q=75 750w, /_next/image?url=%2Fimages%2Fgpc-home-hero.png&w=828&q=75 828w, /_next/image?url=%2Fimages%2Fgpc-home-hero.png&w=1080&q=75 1080w, /_next/image?url=%2Fimages%2Fgpc-home-hero.png&w=1200&q=75 1200w, /_next/image?url=%2Fimages%2Fgpc-home-hero.png&w=1920&q=75 1920w, /_next/image?url=%2Fimages%2Fgpc-home-hero.png&w=2048&q=75 2048w, /_next/image?url=%2Fimages%2Fgpc-home-hero.png&w=3840&q=75 3840w"
+          style="position: absolute; height: 100%; width: 100%; left: 0px; top: 0px; right: 0px; bottom: 0px; color: transparent;"
         />
       </div>
       <div
-        class="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0)_0%,rgba(0,0,0,0.24)_100%)]"
+        class="absolute inset-0 bg-[linear-gradient(102deg,rgba(0,0,0,0.88)_0%,rgba(0,0,0,0.72)_32%,rgba(0,0,0,0.26)_58%,rgba(0,0,0,0.82)_100%)]"
+        style="opacity: 0.46;"
+      />
+      <div
+        class="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-black via-black/56 to-transparent"
       />
       <div
         class="relative flex min-h-[100svh] flex-col px-6 py-6 md:px-10 md:py-8 lg:px-16"
       >
         <header
-          class="flex flex-col gap-6 border-b border-white/14 pb-6 sm:flex-row sm:items-end sm:justify-between"
+          class="flex items-center justify-between gap-4 border-b border-white/14 pb-5"
         >
           <div
-            class="space-y-3"
+            class="space-y-1"
             style="opacity: 0; transform: translateY(24px);"
           >
             <p
-              class="font-mono text-[0.72rem] uppercase tracking-[0.3em] text-white/52"
+              class="font-mono text-[0.72rem] uppercase tracking-[0.3em] text-white/56"
             >
               Gallagher Property Company
             </p>
-            <div
-              class="space-y-1"
+            <p
+              class="text-sm text-white/74"
             >
-              <p
-                class="text-sm text-white/76"
-              >
-                Baton Rouge, Louisiana
-              </p>
-              <p
-                class="text-sm text-white/56"
-              >
-                Commercial real estate development and investment
-              </p>
-            </div>
+              Baton Rouge, Louisiana
+            </p>
           </div>
           <div
-            class="flex items-center gap-4"
             style="opacity: 0; transform: translateY(24px);"
           >
-            <p
-              class="max-w-xs text-sm leading-6 text-white/54"
+            <a
+              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 py-2 h-10 border-white/18 bg-white/6 px-4 text-white hover:bg-white/12 hover:text-white"
+              href="/login"
             >
-              Direct language. Clear basis. Real estate decisions attached to the parcel.
-            </p>
-            <div>
-              <a
-                class="inline-flex items-center gap-2 text-sm font-medium text-white/88 transition-colors hover:text-white"
-                href="/login"
+              Operator access
+              <svg
+                aria-hidden="true"
+                class="lucide lucide-arrow-right ml-2 h-4 w-4"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
               >
-                Operator access
-                <svg
-                  aria-hidden="true"
-                  class="lucide lucide-arrow-right h-4 w-4"
-                  fill="none"
-                  height="24"
-                  stroke="currentColor"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  viewBox="0 0 24 24"
-                  width="24"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M5 12h14"
-                  />
-                  <path
-                    d="m12 5 7 7-7 7"
-                  />
-                </svg>
-              </a>
-            </div>
+                <path
+                  d="M5 12h14"
+                />
+                <path
+                  d="m12 5 7 7-7 7"
+                />
+              </svg>
+            </a>
           </div>
         </header>
         <div
-          class="flex flex-1 flex-col justify-center py-10 md:py-14"
-        >
-          <h1
-            class="sr-only"
-          >
-            Buy, build, and manage Manufactured Home Communities.
-          </h1>
-          <div
-            class="border-b border-white/14"
-            style="opacity: 0; transform: translateY(24px);"
-          >
-            <p
-              class="max-w-lg text-base leading-7 text-white/62 sm:text-lg"
-            >
-              We buy, build, and manage Manufactured Home Communities.
-            </p>
-          </div>
-          <div
-            class="mt-4"
-          >
-            <article
-              class="grid gap-6 border-t border-white/14 py-8 first:border-t-0 md:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)] md:items-end md:gap-10 lg:py-10"
-              style="opacity: 0; transform: translateY(24px);"
-            >
-              <div>
-                <h2
-                  class="text-[clamp(4rem,14vw,11rem)] font-semibold leading-[0.82] tracking-[-0.09em] text-white"
-                >
-                  BUY
-                </h2>
-              </div>
-              <div
-                class="max-w-md"
-              >
-                <p
-                  class="font-mono text-[0.7rem] uppercase tracking-[0.3em] text-white/46"
-                >
-                  What we buy
-                </p>
-                <ul
-                  class="mt-4 space-y-3 text-sm leading-6 text-white/72 sm:text-base"
-                >
-                  <li
-                    class="border-b border-white/10 pb-3 last:border-b-0 last:pb-0"
-                  >
-                    Commercial sites with real access, shape, and frontage.
-                  </li>
-                  <li
-                    class="border-b border-white/10 pb-3 last:border-b-0 last:pb-0"
-                  >
-                    Basis where entitlement work can create pricing edge.
-                  </li>
-                  <li
-                    class="border-b border-white/10 pb-3 last:border-b-0 last:pb-0"
-                  >
-                    Opportunities where local context changes the outcome.
-                  </li>
-                </ul>
-              </div>
-            </article>
-            <article
-              class="grid gap-6 border-t border-white/14 py-8 first:border-t-0 md:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)] md:items-end md:gap-10 lg:py-10"
-              style="opacity: 0; transform: translateY(24px);"
-            >
-              <div>
-                <h2
-                  class="text-[clamp(4rem,14vw,11rem)] font-semibold leading-[0.82] tracking-[-0.09em] text-white"
-                >
-                  BUILD
-                </h2>
-              </div>
-              <div
-                class="max-w-md"
-              >
-                <p
-                  class="font-mono text-[0.7rem] uppercase tracking-[0.3em] text-white/46"
-                >
-                  What we build
-                </p>
-                <ul
-                  class="mt-4 space-y-3 text-sm leading-6 text-white/72 sm:text-base"
-                >
-                  <li
-                    class="border-b border-white/10 pb-3 last:border-b-0 last:pb-0"
-                  >
-                    Plans tied to the parcel instead of abstract assumptions.
-                  </li>
-                  <li
-                    class="border-b border-white/10 pb-3 last:border-b-0 last:pb-0"
-                  >
-                    Execution paths grounded in approvals, infrastructure, and timing.
-                  </li>
-                  <li
-                    class="border-b border-white/10 pb-3 last:border-b-0 last:pb-0"
-                  >
-                    Projects where capital discipline stays attached from first read to delivery.
-                  </li>
-                </ul>
-              </div>
-            </article>
-            <article
-              class="grid gap-6 border-t border-white/14 py-8 first:border-t-0 md:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)] md:items-end md:gap-10 lg:py-10"
-              style="opacity: 0; transform: translateY(24px);"
-            >
-              <div>
-                <h2
-                  class="text-[clamp(4rem,14vw,11rem)] font-semibold leading-[0.82] tracking-[-0.09em] text-white"
-                >
-                  MANAGE
-                </h2>
-              </div>
-              <div
-                class="max-w-md"
-              >
-                <p
-                  class="font-mono text-[0.7rem] uppercase tracking-[0.3em] text-white/46"
-                >
-                  What we manage
-                </p>
-                <ul
-                  class="mt-4 space-y-3 text-sm leading-6 text-white/72 sm:text-base"
-                >
-                  <li
-                    class="border-b border-white/10 pb-3 last:border-b-0 last:pb-0"
-                  >
-                    Communities where resident experience and operations stay aligned.
-                  </li>
-                  <li
-                    class="border-b border-white/10 pb-3 last:border-b-0 last:pb-0"
-                  >
-                    Capital plans tied to long-term performance, not short-term noise.
-                  </li>
-                  <li
-                    class="border-b border-white/10 pb-3 last:border-b-0 last:pb-0"
-                  >
-                    Execution that preserves quality while improving income durability.
-                  </li>
-                </ul>
-              </div>
-            </article>
-          </div>
-        </div>
-        <footer
-          class="border-t border-white/14 pt-6"
+          class="grid min-h-[calc(100svh-7.5rem)] flex-1 gap-12 py-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(18rem,0.95fr)] lg:items-end lg:py-14"
         >
           <div
-            class="flex flex-col gap-5 md:flex-row md:items-end md:justify-between"
-            style="opacity: 0; transform: translateY(24px);"
+            class="max-w-3xl space-y-8"
           >
             <div
-              class="max-w-md space-y-2"
+              class="space-y-3"
+              style="opacity: 0; transform: translateY(24px);"
             >
               <p
-                class="font-mono text-[0.7rem] uppercase tracking-[0.3em] text-white/46"
+                class="font-mono text-[0.72rem] uppercase tracking-[0.3em] text-white/58"
               >
-                Final CTA
+                Buy. Build. Manage.
+              </p>
+              <h1
+                class="max-w-[9ch] text-[clamp(3.6rem,8vw,7.4rem)] font-semibold tracking-[-0.08em] text-white"
+              >
+                Gallagher Property Company
+              </h1>
+              <p
+                class="max-w-[18ch] text-[clamp(1.5rem,3vw,2.8rem)] font-medium leading-tight tracking-[-0.05em] text-white/92"
+              >
+                Parcel-first real estate decisions with operating discipline.
               </p>
               <p
-                class="text-sm leading-6 text-white/64 sm:text-base"
+                class="max-w-xl text-base leading-7 text-white/72 sm:text-lg"
               >
-                The public front door stays simple. Active internal execution still runs through Entitlement OS.
+                We acquire, entitle, develop, and operate manufactured housing communities with the site, the process, and the execution trail visible from the first pass.
               </p>
             </div>
-            <div>
+            <div
+              class="flex flex-wrap items-center gap-3"
+              style="opacity: 0; transform: translateY(24px);"
+            >
               <a
-                class="inline-flex items-center justify-center whitespace-nowrap border border-transparent tracking-[-0.01em] transition-[background-color,border-color,color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 shadow-sm hover:-translate-y-px hover:shadow-md rounded-xl h-12 bg-white px-5 text-sm font-semibold text-black hover:bg-white/90"
+                class="inline-flex items-center justify-center whitespace-nowrap border border-transparent tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 hover:-translate-y-px rounded-xl h-12 bg-white px-5 text-sm font-semibold text-black hover:bg-white/90"
                 href="/login"
               >
                 Enter Entitlement OS
@@ -283,9 +144,278 @@ exports[`HomePage > renders the public Gallagher Property Company homepage 1`] =
                   />
                 </svg>
               </a>
+              <p
+                class="max-w-sm text-sm leading-6 text-white/58"
+              >
+                Internal execution stays inside one operating system for parcel intelligence, workflows, evidence, and memory.
+              </p>
             </div>
           </div>
-        </footer>
+          <div
+            class="space-y-5 border-t border-white/14 pt-5"
+            style="opacity: 0; transform: translateY(24px);"
+          >
+            <p
+              class="font-mono text-[0.72rem] uppercase tracking-[0.28em] text-white/56"
+            >
+              Internal working lanes
+            </p>
+            <div
+              class="space-y-4"
+            >
+              <div
+                class="border-t border-white/10 pt-4"
+              >
+                <h2
+                  class="text-lg font-semibold tracking-[-0.03em] text-white/94"
+                >
+                  Parcel intelligence
+                </h2>
+                <p
+                  class="mt-2 text-sm leading-6 text-white/64"
+                >
+                  Boundaries, ownership, adjacency, utilities, and immediate site friction in one view.
+                </p>
+              </div>
+              <div
+                class="border-t border-white/10 pt-4"
+              >
+                <h2
+                  class="text-lg font-semibold tracking-[-0.03em] text-white/94"
+                >
+                  Entitlement path
+                </h2>
+                <p
+                  class="mt-2 text-sm leading-6 text-white/64"
+                >
+                  Zoning posture, process sequence, and precedent attached to the real geography.
+                </p>
+              </div>
+              <div
+                class="border-t border-white/10 pt-4"
+              >
+                <h2
+                  class="text-lg font-semibold tracking-[-0.03em] text-white/94"
+                >
+                  Operating memory
+                </h2>
+                <p
+                  class="mt-2 text-sm leading-6 text-white/64"
+                >
+                  Evidence, workflows, and decisions preserved so the next deal starts ahead.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section
+      class="border-t border-white/10 bg-black px-6 py-20 md:px-10 lg:px-16"
+    >
+      <div
+        class="mx-auto max-w-6xl"
+      >
+        <div
+          class="max-w-2xl"
+          style="opacity: 0; transform: translateY(24px);"
+        >
+          <p
+            class="font-mono text-[0.72rem] uppercase tracking-[0.28em] text-white/56"
+          >
+            Operating model
+          </p>
+          <h2
+            class="mt-3 max-w-[14ch] text-3xl font-semibold tracking-[-0.04em] text-balance sm:text-4xl"
+          >
+            One job per phase. One standard of discipline.
+          </h2>
+          <p
+            class="mt-4 max-w-2xl text-base leading-7 text-white/64"
+          >
+            The model is simple on purpose: acquire with basis discipline, execute against the parcel, and operate for durable performance.
+          </p>
+        </div>
+        <div
+          class="mt-12"
+        >
+          <article
+            class="grid gap-6 border-t border-white/12 py-8 md:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)] md:items-start md:gap-10"
+            style="opacity: 0; transform: translateY(24px);"
+          >
+            <div
+              class="space-y-2"
+            >
+              <p
+                class="font-mono text-[0.68rem] uppercase tracking-[0.28em] text-white/44"
+              >
+                Acquire with basis discipline
+              </p>
+              <h2
+                class="text-[clamp(2.4rem,8vw,5.8rem)] font-semibold tracking-[-0.08em] text-white"
+              >
+                Buy
+              </h2>
+            </div>
+            <div
+              class="space-y-3"
+            >
+              <p
+                class="border-t border-white/8 pt-3 text-sm leading-6 text-white/72 sm:text-base"
+              >
+                Site shape, frontage, access, and context are readable before the first tour.
+              </p>
+              <p
+                class="border-t border-white/8 pt-3 text-sm leading-6 text-white/72 sm:text-base"
+              >
+                Entitlement upside is pursued only where the parcel can actually carry it.
+              </p>
+              <p
+                class="border-t border-white/8 pt-3 text-sm leading-6 text-white/72 sm:text-base"
+              >
+                Basis stays attached to the local process, not to generic market optimism.
+              </p>
+            </div>
+          </article>
+          <article
+            class="grid gap-6 border-t border-white/12 py-8 md:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)] md:items-start md:gap-10"
+            style="opacity: 0; transform: translateY(24px);"
+          >
+            <div
+              class="space-y-2"
+            >
+              <p
+                class="font-mono text-[0.68rem] uppercase tracking-[0.28em] text-white/44"
+              >
+                Execute against the parcel
+              </p>
+              <h2
+                class="text-[clamp(2.4rem,8vw,5.8rem)] font-semibold tracking-[-0.08em] text-white"
+              >
+                Build
+              </h2>
+            </div>
+            <div
+              class="space-y-3"
+            >
+              <p
+                class="border-t border-white/8 pt-3 text-sm leading-6 text-white/72 sm:text-base"
+              >
+                Development paths are tied to approvals, utilities, timing, and precedent.
+              </p>
+              <p
+                class="border-t border-white/8 pt-3 text-sm leading-6 text-white/72 sm:text-base"
+              >
+                Operating assumptions stay grounded in what the site can support.
+              </p>
+              <p
+                class="border-t border-white/8 pt-3 text-sm leading-6 text-white/72 sm:text-base"
+              >
+                The same working thread runs from first scan through delivery.
+              </p>
+            </div>
+          </article>
+          <article
+            class="grid gap-6 border-t border-white/12 py-8 md:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)] md:items-start md:gap-10"
+            style="opacity: 0; transform: translateY(24px);"
+          >
+            <div
+              class="space-y-2"
+            >
+              <p
+                class="font-mono text-[0.68rem] uppercase tracking-[0.28em] text-white/44"
+              >
+                Operate for durable performance
+              </p>
+              <h2
+                class="text-[clamp(2.4rem,8vw,5.8rem)] font-semibold tracking-[-0.08em] text-white"
+              >
+                Manage
+              </h2>
+            </div>
+            <div
+              class="space-y-3"
+            >
+              <p
+                class="border-t border-white/8 pt-3 text-sm leading-6 text-white/72 sm:text-base"
+              >
+                Communities are managed for resident experience and income durability.
+              </p>
+              <p
+                class="border-t border-white/8 pt-3 text-sm leading-6 text-white/72 sm:text-base"
+              >
+                Capital plans are evaluated against operational reality, not reporting theater.
+              </p>
+              <p
+                class="border-t border-white/8 pt-3 text-sm leading-6 text-white/72 sm:text-base"
+              >
+                Decisions compound because the operating memory stays attached to the asset.
+              </p>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+    <section
+      class="border-t border-white/10 bg-zinc-950 px-6 py-20 md:px-10 lg:px-16"
+    >
+      <div
+        class="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-start"
+      >
+        <div
+          style="opacity: 0; transform: translateY(24px);"
+        >
+          <p
+            class="font-mono text-[0.72rem] uppercase tracking-[0.28em] text-white/56"
+          >
+            Entitlement OS
+          </p>
+          <h2
+            class="mt-3 max-w-[12ch] text-3xl font-semibold tracking-[-0.04em] text-balance sm:text-4xl"
+          >
+            The internal desk stays attached to the land.
+          </h2>
+        </div>
+        <div
+          class="space-y-5"
+          style="opacity: 0; transform: translateY(24px);"
+        >
+          <p
+            class="max-w-2xl text-base leading-7 text-white/68"
+          >
+            Entitlement OS keeps parcel context, approvals, evidence, workflows, and run history in the same operating thread so execution quality compounds instead of restarting.
+          </p>
+          <div
+            class="border-t border-white/10 pt-5"
+          >
+            <a
+              class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border border-transparent tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 hover:-translate-y-px py-2 h-11 bg-white px-5 text-sm font-semibold text-black hover:bg-white/90"
+              href="/login"
+            >
+              Enter the operating system
+              <svg
+                aria-hidden="true"
+                class="lucide lucide-arrow-right ml-2 h-4 w-4"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M5 12h14"
+                />
+                <path
+                  d="m12 5 7 7-7 7"
+                />
+              </svg>
+            </a>
+          </div>
+        </div>
       </div>
     </section>
     <section
@@ -330,7 +460,7 @@ exports[`HomePage > renders the public Gallagher Property Company homepage 1`] =
                 Owner name
               </label>
               <input
-                class="flex h-11 w-full rounded-xl border border-input/80 bg-background/82 px-3 py-2 text-sm shadow-black/[0.02] backdrop-blur-sm file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                class="flex h-11 w-full rounded-xl border border-input/70 bg-background/46 px-3 py-2 text-sm backdrop-blur-sm file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 id="ownerName"
                 name="ownerName"
                 required=""
@@ -346,7 +476,7 @@ exports[`HomePage > renders the public Gallagher Property Company homepage 1`] =
                 Email
               </label>
               <input
-                class="flex h-11 w-full rounded-xl border border-input/80 bg-background/82 px-3 py-2 text-sm shadow-black/[0.02] backdrop-blur-sm file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                class="flex h-11 w-full rounded-xl border border-input/70 bg-background/46 px-3 py-2 text-sm backdrop-blur-sm file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 id="ownerEmail"
                 name="ownerEmail"
                 required=""
@@ -367,7 +497,7 @@ exports[`HomePage > renders the public Gallagher Property Company homepage 1`] =
                 Phone
               </label>
               <input
-                class="flex h-11 w-full rounded-xl border border-input/80 bg-background/82 px-3 py-2 text-sm shadow-black/[0.02] backdrop-blur-sm file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                class="flex h-11 w-full rounded-xl border border-input/70 bg-background/46 px-3 py-2 text-sm backdrop-blur-sm file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 id="ownerPhone"
                 name="ownerPhone"
                 type="tel"
@@ -383,7 +513,7 @@ exports[`HomePage > renders the public Gallagher Property Company homepage 1`] =
                 Community name
               </label>
               <input
-                class="flex h-11 w-full rounded-xl border border-input/80 bg-background/82 px-3 py-2 text-sm shadow-black/[0.02] backdrop-blur-sm file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                class="flex h-11 w-full rounded-xl border border-input/70 bg-background/46 px-3 py-2 text-sm backdrop-blur-sm file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 id="communityName"
                 name="communityName"
                 required=""
@@ -403,7 +533,7 @@ exports[`HomePage > renders the public Gallagher Property Company homepage 1`] =
                 Property address
               </label>
               <input
-                class="flex h-11 w-full rounded-xl border border-input/80 bg-background/82 px-3 py-2 text-sm shadow-black/[0.02] backdrop-blur-sm file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                class="flex h-11 w-full rounded-xl border border-input/70 bg-background/46 px-3 py-2 text-sm backdrop-blur-sm file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 id="propertyAddress"
                 name="propertyAddress"
                 required=""
@@ -419,7 +549,7 @@ exports[`HomePage > renders the public Gallagher Property Company homepage 1`] =
                 City
               </label>
               <input
-                class="flex h-11 w-full rounded-xl border border-input/80 bg-background/82 px-3 py-2 text-sm shadow-black/[0.02] backdrop-blur-sm file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                class="flex h-11 w-full rounded-xl border border-input/70 bg-background/46 px-3 py-2 text-sm backdrop-blur-sm file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 id="propertyCity"
                 name="propertyCity"
                 required=""
@@ -439,7 +569,7 @@ exports[`HomePage > renders the public Gallagher Property Company homepage 1`] =
                 State
               </label>
               <input
-                class="flex h-11 w-full rounded-xl border border-input/80 bg-background/82 px-3 py-2 text-sm shadow-black/[0.02] backdrop-blur-sm file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                class="flex h-11 w-full rounded-xl border border-input/70 bg-background/46 px-3 py-2 text-sm backdrop-blur-sm file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 id="propertyState"
                 name="propertyState"
                 required=""
@@ -455,7 +585,7 @@ exports[`HomePage > renders the public Gallagher Property Company homepage 1`] =
                 Site count (optional)
               </label>
               <input
-                class="flex h-11 w-full rounded-xl border border-input/80 bg-background/82 px-3 py-2 text-sm shadow-black/[0.02] backdrop-blur-sm file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                class="flex h-11 w-full rounded-xl border border-input/70 bg-background/46 px-3 py-2 text-sm backdrop-blur-sm file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 id="siteCount"
                 min="0"
                 name="siteCount"
@@ -472,7 +602,7 @@ exports[`HomePage > renders the public Gallagher Property Company homepage 1`] =
                 Occupancy (optional)
               </label>
               <input
-                class="flex h-11 w-full rounded-xl border border-input/80 bg-background/82 px-3 py-2 text-sm shadow-black/[0.02] backdrop-blur-sm file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                class="flex h-11 w-full rounded-xl border border-input/70 bg-background/46 px-3 py-2 text-sm backdrop-blur-sm file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 id="occupancy"
                 name="occupancy"
                 placeholder="e.g. 92%"
@@ -489,7 +619,7 @@ exports[`HomePage > renders the public Gallagher Property Company homepage 1`] =
               Asking price or guidance (optional)
             </label>
             <input
-              class="flex h-11 w-full rounded-xl border border-input/80 bg-background/82 px-3 py-2 text-sm shadow-black/[0.02] backdrop-blur-sm file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              class="flex h-11 w-full rounded-xl border border-input/70 bg-background/46 px-3 py-2 text-sm backdrop-blur-sm file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               id="askingPrice"
               name="askingPrice"
               placeholder="e.g. $12,500,000"
@@ -505,7 +635,7 @@ exports[`HomePage > renders the public Gallagher Property Company homepage 1`] =
               Additional notes
             </label>
             <textarea
-              class="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              class="flex min-h-[80px] w-full rounded-xl border border-input/70 bg-background/46 px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               id="notes"
               name="notes"
               placeholder="Tell us anything relevant about operations, timing, or tenancy."
@@ -524,7 +654,7 @@ exports[`HomePage > renders the public Gallagher Property Company homepage 1`] =
               class="flex flex-wrap items-center gap-3"
             >
               <button
-                class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border border-transparent text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-primary text-primary-foreground shadow-sm hover:-translate-y-px hover:bg-primary/92 hover:shadow-md h-10 px-4 py-2"
+                class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border border-transparent text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-primary text-primary-foreground hover:-translate-y-px hover:bg-primary/92 h-10 px-4 py-2"
                 type="submit"
               >
                 Submit property

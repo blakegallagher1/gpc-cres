@@ -41,19 +41,17 @@ export function WorkspaceHeader({
         <div className="space-y-5">
           <div className="space-y-3">
             <p className="workspace-eyebrow">{eyebrow}</p>
-            <div className="space-y-3">
-              <h1 className="workspace-title">{title}</h1>
-              <p className="workspace-subtitle">{description}</p>
-            </div>
+            <h1 className="workspace-title">{title}</h1>
+            <p className="workspace-subtitle">{description}</p>
           </div>
           {actions ? <div className="flex flex-wrap items-center gap-2.5">{actions}</div> : null}
         </div>
 
         {stats && stats.length > 0 ? (
-          <WorkspaceStatGrid
-            className="min-w-0 lg:min-w-[22rem]"
-            items={stats}
-          />
+          <div className="space-y-3 min-w-0 lg:min-w-[22rem]">
+            <p className="workspace-section-kicker">Live view</p>
+            <WorkspaceStatGrid items={stats} />
+          </div>
         ) : null}
       </div>
     </section>

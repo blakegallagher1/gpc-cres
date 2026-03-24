@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import useSWR from "swr";
 import dynamic from "next/dynamic";
 import { DashboardShell } from "@/components/layout/DashboardShell";
+import { WorkspaceHeader } from "@/components/layout/WorkspaceHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Shield } from "lucide-react";
@@ -115,16 +116,18 @@ export default function AdminPage() {
 
   return (
     <DashboardShell>
-      <div className="space-y-6">
-        <div className="flex items-center gap-3">
-          <Shield className="h-6 w-6 text-muted-foreground" />
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Admin</h1>
-            <p className="text-sm text-muted-foreground">
-              Knowledge base, memory, agents, and system configuration
-            </p>
-          </div>
-        </div>
+      <div className="workspace-page">
+        <WorkspaceHeader
+          eyebrow="System desk"
+          title="Admin"
+          description="Knowledge base, memory, agents, and system configuration in one control surface."
+          actions={
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Shield className="h-4 w-4" />
+              <span className="workspace-section-kicker">Restricted access</span>
+            </div>
+          }
+        />
 
         <Tabs value={activeTab} onValueChange={handleTabChange}>
           <TabsList>

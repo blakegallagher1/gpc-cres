@@ -47,16 +47,15 @@ function Surface({ title, description, action, children, className }: SurfacePro
   return (
     <section
       className={cn(
-        "workspace-surface rounded-2xl p-5 shadow-none",
+        "workspace-section space-y-4",
         className,
       )}
     >
-      <div className="mb-4 flex items-start justify-between gap-3 border-b border-border/60 pb-4">
+      <div className="workspace-section-header">
         <div>
-          <h2 className="text-sm font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-            {title}
-          </h2>
-          <p className="mt-2 text-sm text-muted-foreground">{description}</p>
+          <p className="workspace-section-kicker">Command center</p>
+          <h2 className="workspace-section-heading mt-2">{title}</h2>
+          <p className="workspace-section-copy mt-2">{description}</p>
         </div>
         {action}
       </div>
@@ -81,11 +80,11 @@ export function CommandCenterMetricStrip({
   isLoading: boolean;
 }) {
   return (
-    <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+    <section className="workspace-kpi-grid">
       {items.map((item) => (
         <div
           key={item.label}
-          className="workspace-surface workspace-surface-muted rounded-2xl px-4 py-4 shadow-none"
+          className="workspace-kpi"
         >
           {isLoading ? (
             <div className="space-y-2">
@@ -95,7 +94,7 @@ export function CommandCenterMetricStrip({
             </div>
           ) : (
             <>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              <p className="workspace-section-kicker">
                 {item.label}
               </p>
               <p
@@ -176,14 +175,14 @@ export function OperatingBriefSection({
             </div>
           ) : null}
           <p className="max-w-3xl text-base leading-7 text-foreground">{briefing.summary}</p>
-          <div className="rounded-xl border border-border/60">
+          <div className="workspace-list">
             {briefing.sections.newActivity.items.length > 0 ? (
               briefing.sections.newActivity.items.map((item, index) => (
                 <div
                   key={`${item}-${index}`}
                   className={cn(
-                    "flex items-start gap-3 px-4 py-3 text-sm",
-                    index > 0 && "border-t border-border/60",
+                    "workspace-list-row text-sm",
+                    index === 0 && "pt-0",
                   )}
                 >
                   <span className="mt-0.5 h-2 w-2 rounded-full bg-primary/60" />
@@ -198,7 +197,7 @@ export function OperatingBriefSection({
                 </div>
               ))
             ) : (
-              <div className="px-4 py-6 text-sm text-muted-foreground">
+              <div className="py-6 text-sm text-muted-foreground">
                 No new activity landed in the last 24 hours.
               </div>
             )}
@@ -234,12 +233,12 @@ export function PriorityQueueSection({
           ))}
         </div>
       ) : items.length > 0 ? (
-        <div className="divide-y divide-border/60 rounded-xl border border-border/60">
+        <div className="workspace-list">
           {items.map((item) => (
             <Link
               key={`${item.dealId}-${item.title}`}
               href={`/deals/${item.dealId}`}
-              className="group flex items-start gap-4 px-4 py-4 transition-colors hover:bg-muted/40"
+              className="workspace-list-row group items-start transition-colors hover:bg-muted/18"
             >
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive">
                 <AlertTriangle className="h-4 w-4" />
@@ -258,7 +257,7 @@ export function PriorityQueueSection({
           ))}
         </div>
       ) : (
-        <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-5">
+        <div className="flex items-center gap-3 border-t border-border/50 py-5">
           <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
           <p className="text-sm text-muted-foreground">No items are waiting for intervention.</p>
         </div>
@@ -309,7 +308,7 @@ export function OpportunityRadarSection({
           </Button>
         </div>
       ) : opportunities.length > 0 ? (
-        <div className="divide-y divide-border/60 rounded-xl border border-border/60">
+        <div className="workspace-list">
           {error ? (
             <div className="border-b border-border/60 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-500/10 dark:text-amber-200">
               Opportunity data could not be refreshed. Using cached data.
@@ -325,7 +324,7 @@ export function OpportunityRadarSection({
               <Link
                 key={item.id}
                 href="/opportunities"
-                className="group grid gap-3 px-4 py-4 transition-colors hover:bg-muted/40 md:grid-cols-[minmax(0,1fr)_auto]"
+                className="workspace-list-row group grid gap-3 transition-colors hover:bg-muted/18 md:grid-cols-[minmax(0,1fr)_auto]"
               >
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">

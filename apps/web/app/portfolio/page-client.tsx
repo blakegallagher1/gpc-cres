@@ -23,6 +23,7 @@ import {
   Clock,
 } from "lucide-react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
+import { WorkspaceHeader } from "@/components/layout/WorkspaceHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -620,14 +621,12 @@ function PortfolioPageContent({
 
     return (
       <DashboardShell>
-        <div className="space-y-6">
-          <div>
-            <h1 className="text-2xl font-bold">Outcome Tracking</h1>
-            <p className="text-sm text-muted-foreground">
-              Compare projected vs. actual performance, detect systematic biases,
-              and calibrate triage scoring.
-            </p>
-          </div>
+        <div className="workspace-page">
+          <WorkspaceHeader
+            eyebrow="Portfolio desk"
+            title="Outcome Tracking"
+            description="Compare projected versus actual performance, detect systematic biases, and recalibrate triage scoring."
+          />
 
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
             <Card>
@@ -791,7 +790,13 @@ function PortfolioPageContent({
   if (activeTab === "buyers") {
     return (
       <DashboardShell>
-        <Card>
+        <div className="workspace-page">
+          <WorkspaceHeader
+            eyebrow="Portfolio desk"
+            title="Buyers"
+            description="Operator-facing buyer roster with linked deals and contact context."
+          />
+          <Card>
           <CardHeader>
             <CardTitle>Buyers</CardTitle>
           </CardHeader>
@@ -837,7 +842,8 @@ function PortfolioPageContent({
               </div>
             )}
           </CardContent>
-        </Card>
+          </Card>
+        </div>
       </DashboardShell>
     );
   }
@@ -1113,34 +1119,46 @@ function PortfolioPageContent({
 
   return (
     <DashboardShell>
-      {/* Page Header */}
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Portfolio Analytics</h1>
-          <p className="text-sm text-muted-foreground">
-            Real-time overview of your development pipeline
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleExportPortfolioReport}
-            disabled={isExporting || !data}
-          >
-            <Download className="mr-2 h-4 w-4" />
-            {isExporting ? "Exporting..." : "Export"}
-          </Button>
-          <Link
-            href="/portfolio/holdings"
-            className="text-sm font-medium text-primary hover:underline"
-          >
-            View Holdings →
-          </Link>
-        </div>
-      </div>
+      <div className="workspace-page">
+        <WorkspaceHeader
+          eyebrow="Portfolio desk"
+          title="Portfolio Analytics"
+          description="Real-time overview of the development pipeline, capital posture, and portfolio concentration."
+          actions={
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleExportPortfolioReport}
+                disabled={isExporting || !data}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                {isExporting ? "Exporting..." : "Export"}
+              </Button>
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/portfolio/holdings">View Holdings</Link>
+              </Button>
+            </div>
+          }
+          stats={[
+            {
+              label: "Active deals",
+              value: String(metrics?.totalDeals ?? 0),
+              detail: "Deals currently loaded into portfolio analytics.",
+            },
+            {
+              label: "Acreage",
+              value: `${(metrics?.totalAcreage ?? 0).toFixed(1)} ac`,
+              detail: "Tracked acreage across the live portfolio.",
+            },
+            {
+              label: "Pipeline",
+              value: `${deals.length}`,
+              detail: "Total deals carried across active and completed states.",
+            },
+          ]}
+        />
 
-      {/* Summary Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           label="Active Deals"
@@ -1172,7 +1190,6 @@ function PortfolioPageContent({
         />
       </div>
 
-      {/* Enhanced metrics row */}
       <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           label="Total Equity Deployed"
@@ -1200,7 +1217,6 @@ function PortfolioPageContent({
         />
       </div>
 
-      {/* Pipeline + Charts Row */}
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
         <PipelineFunnel deals={deals} />
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
@@ -1214,7 +1230,6 @@ function PortfolioPageContent({
         <DealAgingDepthPanel deals={activeDeals} />
       </div>
 
-      {/* Analytics Tabs */}
       <Tabs defaultValue="concentration" className="mt-6">
         <TabsList>
           <TabsTrigger value="concentration">Concentration Risk</TabsTrigger>
@@ -1279,7 +1294,6 @@ function PortfolioPageContent({
         </TabsContent>
       </Tabs>
 
-      {/* Active Deals Table */}
       <Card className="mt-6">
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Active Deals</CardTitle>
@@ -1377,6 +1391,7 @@ function PortfolioPageContent({
           )}
         </CardContent>
       </Card>
+      </div>
     </DashboardShell>
   );
 }

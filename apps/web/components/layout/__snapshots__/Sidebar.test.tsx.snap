@@ -2,7 +2,7 @@
 
 exports[`Sidebar > renders the development and investment navigation frame 1`] = `
 <aside
-  class="fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-border/60 bg-background/72 shadow-[24px_0_80px_-64px_rgba(15,23,42,0.55)] backdrop-blur-2xl transition-[width,transform] duration-300 w-[var(--app-sidebar-expanded)]"
+  class="fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-border/55 bg-background/72 backdrop-blur-2xl transition-[width,transform] duration-300 w-[var(--app-sidebar-expanded)]"
 >
   <div
     class="flex h-[var(--app-header-height)] items-center border-b border-border/60 px-4"
@@ -11,7 +11,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
       class="flex min-w-0 items-center gap-3"
     >
       <div
-        class="app-shell-panel flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl"
+        class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border/55 bg-background/44"
       >
         <svg
           aria-hidden="true"
@@ -47,7 +47,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
         class="min-w-0"
       >
         <h1
-          class="truncate text-sm font-semibold tracking-tight"
+          class="truncate text-sm font-semibold tracking-[-0.03em]"
         >
           Gallagher Property Company
         </h1>
@@ -87,7 +87,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
         class="text-right"
       >
         <span
-          class="app-shell-panel rounded-full px-2 py-1 text-[10px] font-mono uppercase tracking-[0.22em] text-muted-foreground"
+          class="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground"
         >
           9
            routes
@@ -200,7 +200,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
           href="/command-center"
         >
           <span
-            class="relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border/60 group-hover:bg-background/60 group-hover:text-foreground"
+            class="relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border/50 group-hover:bg-background/36 group-hover:text-foreground"
           >
             <svg
               aria-hidden="true"
@@ -265,7 +265,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
           href="/deals"
         >
           <span
-            class="relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border/60 group-hover:bg-background/60 group-hover:text-foreground"
+            class="relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border/50 group-hover:bg-background/36 group-hover:text-foreground"
           >
             <svg
               aria-hidden="true"
@@ -312,7 +312,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
           href="/map"
         >
           <span
-            class="relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border/60 group-hover:bg-background/60 group-hover:text-foreground"
+            class="relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border/50 group-hover:bg-background/36 group-hover:text-foreground"
           >
             <svg
               aria-hidden="true"
@@ -401,7 +401,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
           href="/opportunities"
         >
           <span
-            class="relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border/60 group-hover:bg-background/60 group-hover:text-foreground"
+            class="relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border/50 group-hover:bg-background/36 group-hover:text-foreground"
           >
             <svg
               aria-hidden="true"
@@ -452,7 +452,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
           href="/market"
         >
           <span
-            class="relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border/60 group-hover:bg-background/60 group-hover:text-foreground"
+            class="relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border/50 group-hover:bg-background/36 group-hover:text-foreground"
           >
             <svg
               aria-hidden="true"
@@ -501,7 +501,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
           href="/portfolio"
         >
           <span
-            class="relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border/60 group-hover:bg-background/60 group-hover:text-foreground"
+            class="relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border/50 group-hover:bg-background/36 group-hover:text-foreground"
           >
             <svg
               aria-hidden="true"
@@ -587,7 +587,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
           href="/agents"
         >
           <span
-            class="relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border/60 group-hover:bg-background/60 group-hover:text-foreground"
+            class="relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border/50 group-hover:bg-background/36 group-hover:text-foreground"
           >
             <svg
               aria-hidden="true"
@@ -646,7 +646,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
           href="/automation"
         >
           <span
-            class="relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border/60 group-hover:bg-background/60 group-hover:text-foreground"
+            class="relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border/50 group-hover:bg-background/36 group-hover:text-foreground"
           >
             <svg
               aria-hidden="true"
@@ -686,7 +686,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
           href="/reference"
         >
           <span
-            class="relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border/60 group-hover:bg-background/60 group-hover:text-foreground"
+            class="relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border/50 group-hover:bg-background/36 group-hover:text-foreground"
           >
             <svg
               aria-hidden="true"
@@ -736,7 +736,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
     </div>
   </nav>
   <div
-    class="border-t border-white/10 px-3 py-3 mt-3 pt-3"
+    class="mt-3 border-t border-border/50 px-3 py-3 pt-3"
   >
     <div
       class="flex items-center gap-2"
@@ -747,7 +747,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
         title="Settings"
       >
         <span
-          class="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border/60 group-hover:bg-background/60 group-hover:text-foreground"
+          class="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border/50 group-hover:bg-background/36 group-hover:text-foreground"
         >
           <svg
             aria-hidden="true"
@@ -784,7 +784,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
         title="Admin"
       >
         <span
-          class="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border/60 group-hover:bg-background/60 group-hover:text-foreground"
+          class="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border/50 group-hover:bg-background/36 group-hover:text-foreground"
         >
           <svg
             aria-hidden="true"

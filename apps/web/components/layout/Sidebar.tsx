@@ -95,7 +95,7 @@ export function Sidebar() {
 
       <aside
         className={cn(
-          "fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-border/60 bg-background/72 shadow-[24px_0_80px_-64px_rgba(15,23,42,0.55)] backdrop-blur-2xl transition-[width,transform] duration-300",
+          "fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-border/55 bg-background/72 backdrop-blur-2xl transition-[width,transform] duration-300",
           "w-[var(--app-sidebar-expanded)]",
           isMobile
             ? cn(
@@ -106,15 +106,15 @@ export function Sidebar() {
               ? "w-[var(--app-sidebar-collapsed)]"
               : "w-[var(--app-sidebar-expanded)]"
         )}
-      >
+        >
         <div className="flex h-[var(--app-header-height)] items-center border-b border-border/60 px-4">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="app-shell-panel flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border/55 bg-background/44">
               <Building2 className="h-5 w-5 text-foreground/85" />
             </div>
             {isExpanded && (
               <div className="min-w-0">
-                <h1 className="truncate text-sm font-semibold tracking-tight">
+                <h1 className="truncate text-sm font-semibold tracking-[-0.03em]">
                   Gallagher Property Company
                 </h1>
                 <p className="truncate text-xs text-muted-foreground">
@@ -138,7 +138,7 @@ export function Sidebar() {
                 </p>
               </div>
               <div className="text-right">
-                <span className="app-shell-panel rounded-full px-2 py-1 text-[10px] font-mono uppercase tracking-[0.22em] text-muted-foreground">
+                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
                   {WORKSPACE_ROUTE_COUNT} routes
                 </span>
                 <p className="mt-2 text-xs text-muted-foreground">{activeRoute.label} selected</p>
@@ -249,15 +249,15 @@ export function Sidebar() {
                             <motion.span
                               layoutId="workspace-active-pill"
                               transition={reduceMotion ? { duration: 0 } : SIDEBAR_TRANSITION}
-                              className="app-shell-panel absolute inset-0 rounded-2xl"
+                              className="absolute inset-0 rounded-2xl border border-border/60 bg-background/52"
                             />
                           )}
                           <span
                             className={cn(
                               "relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors",
                               isActive
-                                ? "border-border bg-background/70 text-foreground"
-                                : "border-transparent bg-transparent text-muted-foreground group-hover:border-border/60 group-hover:bg-background/60 group-hover:text-foreground"
+                                ? "border-border/60 bg-background/64 text-foreground"
+                                : "border-transparent bg-transparent text-muted-foreground group-hover:border-border/50 group-hover:bg-background/36 group-hover:text-foreground"
                             )}
                           >
                             <Icon className="h-4 w-4" />
@@ -282,7 +282,7 @@ export function Sidebar() {
 
         {/* Footer Items */}
         {isExpanded && (
-          <div className="border-t border-white/10 px-3 py-3 mt-3 pt-3">
+          <div className="mt-3 border-t border-border/50 px-3 py-3 pt-3">
             <div className="flex items-center gap-2">
               {FOOTER_NAV_ITEMS.map((item) => {
                 const Icon = item.icon;
@@ -307,15 +307,15 @@ export function Sidebar() {
                       <motion.span
                         layoutId="workspace-active-pill"
                         transition={reduceMotion ? { duration: 0 } : SIDEBAR_TRANSITION}
-                        className="app-shell-panel absolute inset-0 rounded-xl"
+                        className="absolute inset-0 rounded-xl border border-border/60 bg-background/52"
                       />
                     )}
                     <span
                       className={cn(
                         "relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border transition-colors",
                         isActive
-                          ? "border-border bg-background/70 text-foreground"
-                          : "border-transparent bg-transparent text-muted-foreground group-hover:border-border/60 group-hover:bg-background/60 group-hover:text-foreground"
+                          ? "border-border/60 bg-background/64 text-foreground"
+                          : "border-transparent bg-transparent text-muted-foreground group-hover:border-border/50 group-hover:bg-background/36 group-hover:text-foreground"
                       )}
                     >
                       <Icon className="h-3 w-3" />

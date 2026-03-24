@@ -5,18 +5,17 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center whitespace-nowrap rounded-xl border border-transparent text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+  "inline-flex items-center justify-center whitespace-nowrap rounded-xl border border-transparent text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
   {
     variants: {
       variant: {
         default:
-          "bg-primary text-primary-foreground shadow-sm hover:-translate-y-px hover:bg-primary/92 hover:shadow-md",
+          "bg-primary text-primary-foreground hover:-translate-y-px hover:bg-primary/92",
         destructive:
-          "bg-destructive text-destructive-foreground shadow-sm hover:-translate-y-px hover:bg-destructive/92",
-        outline:
-          "border-input bg-background/78 backdrop-blur-sm hover:bg-accent/72 hover:text-accent-foreground",
+          "bg-destructive text-destructive-foreground hover:-translate-y-px hover:bg-destructive/92",
+        outline: "border-input bg-background/42 hover:bg-accent/40 hover:text-accent-foreground",
         secondary:
-          "border-border/70 bg-secondary/78 text-secondary-foreground hover:bg-secondary/92",
+          "border-border/60 bg-secondary/56 text-secondary-foreground hover:bg-secondary/78",
         ghost: "border-transparent bg-transparent hover:bg-accent/60 hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
       },

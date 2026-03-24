@@ -4,16 +4,15 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import {
-  MapPin,
-  Sparkles,
-  Loader2,
-  Eye,
-  X,
-  Plus,
   ArrowRight,
   Check,
+  Eye,
+  Loader2,
+  MapPin,
+  Plus,
+  Sparkles,
+  X,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -36,7 +35,7 @@ interface ParcelData {
 
 interface OpportunityItem {
   id: string;
-  matchScore: string; // Decimal comes as string
+  matchScore: string;
   priorityScore: number;
   parcelData: ParcelData;
   parcelId: string;
@@ -63,14 +62,14 @@ interface OpportunityFeedProps {
 }
 
 function scoreColor(score: number): string {
-  if (score >= 80) return "text-green-600 bg-green-50";
-  if (score >= 60) return "text-yellow-600 bg-yellow-50";
-  return "text-muted-foreground bg-muted";
+  if (score >= 80) return "border-primary/25 bg-primary/10 text-foreground";
+  if (score >= 60) return "border-border/70 bg-muted/30 text-foreground";
+  return "border-border/60 bg-background/34 text-muted-foreground";
 }
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
-  const hours = Math.floor(diff / 3600000);
+  const hours = Math.floor(diff / 3_600_000);
   if (hours < 1) return "just now";
   if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
@@ -93,14 +92,11 @@ export function OpportunityFeed({
     }
     return `/api/opportunities?${params.toString()}`;
   }, [limit, savedSearchId]);
-  const {
-    data,
-    isLoading,
-    mutate,
-  } = useSWR<{ opportunities: OpportunityItem[]; total: number }>(
+
+  const { data, isLoading, mutate } = useSWR<{ opportunities: OpportunityItem[]; total: number }>(
     opportunitiesQuery,
     fetcher,
-    { revalidateOnFocus: false, dedupingInterval: 60000 }
+    { revalidateOnFocus: false, dedupingInterval: 60_000 },
   );
 
   const opportunities = data?.opportunities ?? [];
@@ -118,8 +114,8 @@ export function OpportunityFeed({
     });
   }, [opportunities]);
 
-  const handleDismiss = async (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
+  const handleDismiss = async (event: React.MouseEvent, id: string) => {
+    event.stopPropagation();
     await fetch(`/api/opportunities/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -128,21 +124,19 @@ export function OpportunityFeed({
     mutate();
   };
 
-  const handleCreateDeal = (e: React.MouseEvent, opp: OpportunityItem) => {
-    e.stopPropagation();
-    // Record positive operator feedback before entering deal creation.
+  const handleCreateDeal = (event: React.MouseEvent, opp: OpportunityItem) => {
+    event.stopPropagation();
+
     fetch(`/api/opportunities/${opp.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "pursue" }),
     }).catch(() => {});
 
-    // Navigate to deal creation with pre-populated parcel data
     const params = new URLSearchParams();
     if (opp.parcelData.address) params.set("address", opp.parcelData.address);
     if (opp.parcelData.parish) params.set("parish", opp.parcelData.parish);
-    if (opp.parcelData.acreage)
-      params.set("acreage", String(opp.parcelData.acreage));
+    if (opp.parcelData.acreage) params.set("acreage", String(opp.parcelData.acreage));
     if (opp.parcelId) params.set("propertyDbId", opp.parcelId);
 
     router.push(`/deals/new?${params.toString()}`);
@@ -162,6 +156,7 @@ export function OpportunityFeed({
       setSelectedIds(new Set());
       return;
     }
+
     setSelectedIds(new Set(opportunities.map((opp) => opp.id)));
   };
 
@@ -182,7 +177,7 @@ export function OpportunityFeed({
         throw new Error(
           payload && "error" in payload
             ? String(payload.error)
-            : `Failed to ${action} selected opportunities`
+            : `Failed to ${action} selected opportunities`,
         );
       }
 
@@ -194,9 +189,7 @@ export function OpportunityFeed({
       await mutate();
     } catch (error) {
       toast.error(
-        error instanceof Error
-          ? error.message
-          : `Failed to ${action} selected opportunities`
+        error instanceof Error ? error.message : `Failed to ${action} selected opportunities`,
       );
     } finally {
       setBulkAction(null);
@@ -204,281 +197,250 @@ export function OpportunityFeed({
   };
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between gap-2">
+    <section className="workspace-section space-y-4">
+      <div className="workspace-section-header">
+        <div className="space-y-2">
+          <p className="workspace-section-kicker">Prospecting</p>
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10">
-              <Sparkles className="h-4 w-4 text-emerald-500" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-full border border-border/60 bg-background/42">
+              <Sparkles className="h-4 w-4 text-foreground" />
             </div>
-            <CardTitle className="text-base">Opportunities</CardTitle>
-            {total > 0 && (
-              <Badge variant="secondary" className="ml-1">
-                {total}
-              </Badge>
+            <h2 className="workspace-section-heading">Opportunities</h2>
+            {total > 0 ? <Badge variant="secondary">{total}</Badge> : null}
+          </div>
+          <p className="workspace-section-copy">
+            Saved-search matches ranked for operator review, deal creation, or dismissal.
+          </p>
+        </div>
+
+        {opportunities.length > 0 ? (
+          <label className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+            <Checkbox
+              checked={
+                opportunities.length > 0 && selectedIds.size === opportunities.length
+                  ? true
+                  : selectedIds.size > 0
+                    ? "indeterminate"
+                    : false
+              }
+              onCheckedChange={toggleSelectAll}
+              aria-label="Select all opportunities"
+            />
+            Select visible
+          </label>
+        ) : null}
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={selectedIds.size === 0 || bulkAction === "seen"}
+            onClick={() => handleBulkAction("seen")}
+          >
+            {bulkAction === "seen" ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Check className="h-3.5 w-3.5" />
             )}
-          </div>
-
-          {opportunities.length > 0 ? (
-            <label className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
-              <Checkbox
-                checked={
-                  opportunities.length > 0 && selectedIds.size === opportunities.length
-                    ? true
-                    : selectedIds.size > 0
-                      ? "indeterminate"
-                      : false
-                }
-                onCheckedChange={toggleSelectAll}
-                aria-label="Select all opportunities"
-              />
-              Select visible
-            </label>
-          ) : null}
+            Mark seen
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={selectedIds.size === 0 || bulkAction === "dismiss"}
+            onClick={() => handleBulkAction("dismiss")}
+          >
+            {bulkAction === "dismiss" ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <X className="h-3.5 w-3.5" />
+            )}
+            Dismiss
+          </Button>
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={selectedIds.size === 0 || bulkAction === "seen"}
-              onClick={() => handleBulkAction("seen")}
-            >
-              {bulkAction === "seen" ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Check className="h-3.5 w-3.5" />
-              )}
-              Mark seen
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={selectedIds.size === 0 || bulkAction === "dismiss"}
-              onClick={() => handleBulkAction("dismiss")}
-            >
-              {bulkAction === "dismiss" ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <X className="h-3.5 w-3.5" />
-              )}
-              Dismiss
-            </Button>
-          </div>
+        <SavedSearchBuilder onCreated={() => mutate()} />
+      </div>
 
-          <SavedSearchBuilder onCreated={() => mutate()} />
+      {selectedIds.size > 0 ? (
+        <p className="workspace-inline-meta">{selectedIds.size} selected</p>
+      ) : null}
+
+      {isLoading ? (
+        <div className="space-y-3">
+          {[...Array(3)].map((_, index) => (
+            <Skeleton key={index} className="h-20 w-full" />
+          ))}
         </div>
+      ) : opportunities.length > 0 ? (
+        <div className="workspace-list">
+          {opportunities.map((opp) => {
+            const score = opp.priorityScore;
+            const isUnseen = !opp.seenAt;
+            const isPursued = opp.feedbackSignal === "pursued";
 
-        {selectedIds.size > 0 && (
-          <p className="text-xs text-muted-foreground">{selectedIds.size} selected</p>
-        )}
-      </CardHeader>
+            return (
+              <div
+                key={opp.id}
+                className={cn("workspace-list-row group", isUnseen && "bg-primary/[0.03]")}
+              >
+                <div className="mt-1">
+                  <Checkbox
+                    checked={selectedIds.has(opp.id)}
+                    onCheckedChange={(checked) =>
+                      toggleSelection(opp.id, checked === true || checked === "indeterminate")
+                    }
+                    onClick={(event) => event.stopPropagation()}
+                    aria-label={`Select opportunity ${opp.parcelData.address || opp.id}`}
+                  />
+                </div>
 
-      <CardContent>
-        {isLoading ? (
-          <div className="space-y-3">
-            {[...Array(3)].map((_, i) => (
-              <Skeleton key={i} className="h-20 w-full" />
-            ))}
-          </div>
-        ) : opportunities.length > 0 ? (
-          <div className="space-y-2">
-            {opportunities.map((opp) => {
-              const score = opp.priorityScore;
-              const isUnseen = !opp.seenAt;
-              const isPursued = opp.feedbackSignal === "pursued";
-
-              return (
                 <div
-                  key={opp.id}
                   className={cn(
-                    "group relative rounded-lg border p-3 transition-colors hover:bg-muted/50",
-                    isUnseen && "border-primary/20 bg-primary/[0.02]"
+                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border text-sm font-bold",
+                    scoreColor(score),
                   )}
                 >
-                  <div className="flex items-start gap-3">
-                    <div className="mt-1">
-                      <Checkbox
-                        checked={selectedIds.has(opp.id)}
-                        onCheckedChange={(checked) =>
-                          toggleSelection(opp.id, checked === true || checked === "indeterminate")
-                        }
-                        onClick={(event) => event.stopPropagation()}
-                        aria-label={`Select opportunity ${opp.parcelData.address || opp.id}`}
-                      />
-                    </div>
+                  {Math.round(score)}
+                </div>
 
-                    {/* Score badge */}
-                    <div
-                      className={cn(
-                        "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-bold",
-                        scoreColor(score)
-                      )}
-                    >
-                      {Math.round(score)}
-                    </div>
-
-                    {/* Content */}
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium">
-                            {opp.parcelData.address || "No address"}
-                          </p>
-                          <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <MapPin className="h-3 w-3" />
-                              {opp.parcelData.parish}
-                            </span>
-                            {opp.parcelData.acreage && (
-                              <>
-                                <span>·</span>
-                                <span>
-                                  {Number(opp.parcelData.acreage).toFixed(1)} ac
-                                </span>
-                              </>
-                            )}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">
+                        {opp.parcelData.address || "No address"}
+                      </p>
+                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <MapPin className="h-3 w-3" />
+                          {opp.parcelData.parish}
+                        </span>
+                        {opp.parcelData.acreage ? (
+                          <>
                             <span>·</span>
-                            <span>{opp.parcelData.ownerName}</span>
-                          </div>
-                        </div>
-
-                        {/* Dismiss button */}
-                        <button
-                          onClick={(e) => handleDismiss(e, opp.id)}
-                          className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
-                          title="Dismiss"
-                        >
-                          <X className="h-4 w-4 text-muted-foreground hover:text-foreground" />
-                        </button>
+                            <span>{Number(opp.parcelData.acreage).toFixed(1)} ac</span>
+                          </>
+                        ) : null}
+                        <span>·</span>
+                        <span>{opp.parcelData.ownerName}</span>
                       </div>
+                    </div>
 
-                      {/* Meta + actions */}
-                        <div className="mt-2 flex items-center justify-between">
-                          <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                            <Badge
-                              variant="outline"
-                              className="h-5 text-[10px]"
-                            >
-                              {opp.savedSearch.name}
-                            </Badge>
-                            <Badge
-                              variant="secondary"
-                              className="h-5 text-[10px]"
-                            >
-                              {Math.round(opp.thesis.confidence * 100)}% confidence
-                            </Badge>
-                            <span>{timeAgo(opp.createdAt)}</span>
-                            {isUnseen && (
-                              <span className="flex items-center gap-0.5 text-primary">
-                                <Eye className="h-3 w-3" />
-                                New
-                              </span>
-                            )}
-                            {isPursued && (
-                              <span className="flex items-center gap-0.5 text-emerald-600">
-                                <Check className="h-3 w-3" />
-                                Pursued
-                              </span>
-                            )}
-                          </div>
+                    <button
+                      onClick={(event) => handleDismiss(event, opp.id)}
+                      className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+                      title="Dismiss"
+                    >
+                      <X className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                    </button>
+                  </div>
 
-                          <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 gap-1 text-xs"
-                          onClick={(e) => handleCreateDeal(e, opp)}
-                        >
-                          <Plus className="h-3 w-3" />
-                          Create Deal
-                          </Button>
-                        </div>
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
+                      <Badge variant="outline">{opp.savedSearch.name}</Badge>
+                      <Badge variant="secondary">
+                        {Math.round(opp.thesis.confidence * 100)}% confidence
+                      </Badge>
+                      <span>{timeAgo(opp.createdAt)}</span>
+                      {isUnseen ? (
+                        <span className="flex items-center gap-0.5 text-primary">
+                          <Eye className="h-3 w-3" />
+                          New
+                        </span>
+                      ) : null}
+                      {isPursued ? (
+                        <span className="flex items-center gap-0.5 text-foreground">
+                          <Check className="h-3 w-3" />
+                          Pursued
+                        </span>
+                      ) : null}
+                    </div>
 
-                      <div className="mt-3 rounded-lg border border-emerald-200/70 bg-emerald-50/40 p-3">
-                        <p className="text-xs font-medium text-foreground">
-                          {opp.thesis.summary}
-                        </p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {opp.thesis.whyNow}
-                        </p>
-                        <div className="mt-2 grid gap-2 text-xs sm:grid-cols-2">
-                          <div>
-                            <p className="font-medium text-foreground">Angle</p>
-                            <p className="mt-0.5 text-muted-foreground">
-                              {opp.thesis.angle}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="font-medium text-foreground">Next Best Action</p>
-                            <p className="mt-0.5 text-muted-foreground">
-                              {opp.thesis.nextBestAction}
-                            </p>
-                          </div>
-                        </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 gap-1 text-xs"
+                      onClick={(event) => handleCreateDeal(event, opp)}
+                    >
+                      <Plus className="h-3 w-3" />
+                      Create Deal
+                    </Button>
+                  </div>
 
-                        <div className="mt-2 flex flex-wrap gap-1.5">
-                          {opp.thesis.signals.slice(0, 3).map((signalText) => (
-                            <Badge
-                              key={signalText}
-                              variant="outline"
-                              className="border-emerald-300/70 bg-white text-[10px] text-emerald-700"
-                            >
-                              {signalText}
-                            </Badge>
-                          ))}
-                        </div>
-
-                        <div className="mt-2">
-                          <p className="text-[11px] font-medium text-foreground">Key Risks</p>
-                          <ul className="mt-1 space-y-1 text-[11px] text-muted-foreground">
-                            {opp.thesis.keyRisks.slice(0, 2).map((risk) => (
-                              <li key={risk}>• {risk}</li>
-                            ))}
-                          </ul>
-                        </div>
+                  <div className="mt-4 grid gap-4 border-t border-border/40 pt-4 text-xs sm:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+                    <div className="space-y-2">
+                      <p className="font-medium text-foreground">{opp.thesis.summary}</p>
+                      <p className="text-muted-foreground">{opp.thesis.whyNow}</p>
+                    </div>
+                    <div className="space-y-2">
+                      <div>
+                        <p className="workspace-section-kicker">Angle</p>
+                        <p className="mt-1 text-muted-foreground">{opp.thesis.angle}</p>
+                      </div>
+                      <div>
+                        <p className="workspace-section-kicker">Next action</p>
+                        <p className="mt-1 text-muted-foreground">{opp.thesis.nextBestAction}</p>
                       </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
 
-            {showViewAllLink && total > opportunities.length && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full text-xs"
-                  onClick={() => router.push(inboxHref)}
-                >
-                View all {total} opportunities
-                <ArrowRight className="ml-1 h-3 w-3" />
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {opp.thesis.signals.slice(0, 3).map((signalText) => (
+                      <Badge key={signalText} variant="outline">
+                        {signalText}
+                      </Badge>
+                    ))}
+                  </div>
+
+                  <div className="mt-3">
+                    <p className="workspace-section-kicker">Key risks</p>
+                    <ul className="mt-2 space-y-1 text-[11px] text-muted-foreground">
+                      {opp.thesis.keyRisks.slice(0, 2).map((risk) => (
+                        <li key={risk}>• {risk}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          {showViewAllLink && total > opportunities.length ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full text-xs"
+              onClick={() => router.push(inboxHref)}
+            >
+              View all {total} opportunities
+              <ArrowRight className="ml-1 h-3 w-3" />
+            </Button>
+          ) : null}
+        </div>
+      ) : (
+        <div className="flex flex-col items-center gap-2 border-t border-border/50 py-6 text-center">
+          <Sparkles className="h-8 w-8 text-muted-foreground/40" />
+          <p className="text-sm text-muted-foreground">
+            {savedSearchId ? "No matches for this saved search yet." : "No opportunities yet."}
+          </p>
+          <p className="text-xs text-muted-foreground/60">
+            {savedSearchId
+              ? "Run the saved search from prospecting to generate fresh parcel matches."
+              : "Create a saved search to start surfacing matches from 560K parcels."}
+          </p>
+          <SavedSearchBuilder
+            onCreated={() => mutate()}
+            trigger={
+              <Button variant="outline" size="sm" className="mt-1 gap-1.5">
+                <Plus className="h-3.5 w-3.5" />
+                Create Saved Search
               </Button>
-            )}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center gap-2 py-6 text-center">
-            <Sparkles className="h-8 w-8 text-muted-foreground/40" />
-            <p className="text-sm text-muted-foreground">
-              {savedSearchId ? "No matches for this saved search yet." : "No opportunities yet."}
-            </p>
-            <p className="text-xs text-muted-foreground/60">
-              {savedSearchId
-                ? "Run the saved search from prospecting to generate fresh parcel matches."
-                : "Create a saved search to start surfacing matches from 560K parcels."}
-            </p>
-            <SavedSearchBuilder
-              onCreated={() => mutate()}
-              trigger={
-                <Button variant="outline" size="sm" className="mt-1 gap-1.5">
-                  <Plus className="h-3.5 w-3.5" />
-                  Create Saved Search
-                </Button>
-              }
-            />
-          </div>
-        )}
-      </CardContent>
-    </Card>
+            }
+          />
+        </div>
+      )}
+    </section>
   );
 }

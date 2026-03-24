@@ -15,7 +15,6 @@ import {
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { WorkspaceHeader, WorkspaceToolbar } from "@/components/layout/WorkspaceHeader";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -501,21 +500,17 @@ function DealsPageContent({
           </WorkspaceToolbar>
 
           {loading ? (
-            <Card>
-              <CardContent className="py-10 text-center text-sm text-muted-foreground">
+            <div className="workspace-section py-10 text-center text-sm text-muted-foreground">
                 Loading triage queue...
-              </CardContent>
-            </Card>
+            </div>
           ) : triageModeDeals.length === 0 ? (
-            <Card>
-              <CardContent className="py-16 text-center">
+            <div className="workspace-section py-16 text-center">
                 <p className="text-muted-foreground">
                   No matching triage candidates.
                 </p>
-              </CardContent>
-            </Card>
+            </div>
           ) : (
-            <Card>
+            <div className="workspace-surface overflow-hidden">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -571,7 +566,7 @@ function DealsPageContent({
                   })}
                 </TableBody>
               </Table>
-            </Card>
+            </div>
           )}
         </div>
       </DashboardShell>
@@ -681,7 +676,7 @@ function DealsPageContent({
               </div>
             )}
 
-            <div className="app-shell-panel flex rounded-xl">
+            <div className="flex rounded-xl border border-border/60 bg-background/36">
               <Button
                 variant="ghost"
                 size="icon"
@@ -725,15 +720,17 @@ function DealsPageContent({
         </WorkspaceToolbar>
 
         {search.trim() && searchPreview.length > 0 && (
-          <Card>
-            <CardContent className="space-y-2 pt-3">
-              <p className="text-sm font-medium">Search preview</p>
-              <div className="space-y-2">
+          <div className="workspace-section space-y-3">
+              <div>
+                <p className="workspace-section-kicker">Deals</p>
+                <h2 className="workspace-section-heading mt-2">Search preview</h2>
+              </div>
+              <div className="workspace-list">
                 {searchPreview.map((deal) => (
                   <Link
                     key={deal.id}
                     href={`/deals/${deal.id}`}
-                    className="flex items-center justify-between gap-2 rounded border border-dashed px-2 py-1 text-xs text-muted-foreground hover:underline"
+                    className="workspace-list-row items-center justify-between gap-2 text-xs text-muted-foreground hover:text-foreground"
                   >
                     <span className="truncate">{deal.name}</span>
                     <span>{deal.sku}</span>
@@ -741,14 +738,13 @@ function DealsPageContent({
                   </Link>
                 ))}
               </div>
-            </CardContent>
-          </Card>
+          </div>
         )}
 
         {/* Bulk actions */}
         {selectedIds.size > 0 && view === "table" && (
-          <Card>
-            <CardContent className="flex flex-wrap items-center gap-2 py-3">
+          <div className="workspace-section">
+            <div className="flex flex-wrap items-center gap-2 py-1">
               <span className="text-sm text-muted-foreground">
                 {selectedIds.size} selected
               </span>
@@ -798,20 +794,17 @@ function DealsPageContent({
               >
                 Clear
               </Button>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         )}
 
         {/* Content */}
         {loading ? (
-          <Card>
-            <CardContent className="py-10 text-center text-sm text-muted-foreground">
+          <div className="workspace-section py-10 text-center text-sm text-muted-foreground">
               Loading deals...
-            </CardContent>
-          </Card>
+          </div>
         ) : deals.length === 0 ? (
-          <Card>
-            <CardContent className="py-16 text-center">
+          <div className="workspace-section py-16 text-center">
               <p className="text-muted-foreground">
                 No deals yet. Create your first deal or ask the chat to create one.
               </p>
@@ -821,8 +814,7 @@ function DealsPageContent({
                   New Deal
                 </Link>
               </Button>
-            </CardContent>
-          </Card>
+          </div>
         ) : view === "board" ? (
           <DealBoard
             deals={deals}
@@ -836,7 +828,7 @@ function DealsPageContent({
             ))}
           </div>
         ) : (
-          <Card>
+          <div className="workspace-surface overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -914,7 +906,7 @@ function DealsPageContent({
                 ))}
               </TableBody>
             </Table>
-          </Card>
+          </div>
         )}
       </div>
     </DashboardShell>

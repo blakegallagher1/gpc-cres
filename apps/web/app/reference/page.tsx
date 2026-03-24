@@ -5,9 +5,9 @@ import useSWR from "swr";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertCircle, CalendarClock } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DashboardShell } from "@/components/layout/DashboardShell";
+import { WorkspaceHeader } from "@/components/layout/WorkspaceHeader";
 
 export async function referenceFetcher<T>(url: string): Promise<T> {
   const response = await fetch(url);
@@ -20,7 +20,7 @@ export async function referenceFetcher<T>(url: string): Promise<T> {
         message = payload.error;
       }
     } catch {
-      // Ignore JSON parse failures for non-OK responses and preserve fallback text.
+      // Preserve fallback text when the response body is not JSON.
     }
     throw new Error(message);
   }
@@ -79,7 +79,7 @@ function ReferenceErrorState({
   return (
     <div
       role="alert"
-      className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+      className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
     >
       <div className="flex items-start gap-2">
         <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -104,44 +104,49 @@ function ReferencePageContent() {
 
   const { data: evidenceResponse, error: evidenceError } = useSWR<{ sources: EvidenceSource[] }>(
     "/api/evidence?includeSnapshots=false",
-    referenceFetcher
+    referenceFetcher,
   );
   const { data: jurisdictionsResponse, error: jurisdictionsError } = useSWR<{
     jurisdictions: JurisdictionItem[];
-  }>(
-    "/api/jurisdictions",
-    referenceFetcher
-  );
+  }>("/api/jurisdictions", referenceFetcher);
 
   const evidenceSources = evidenceResponse?.sources ?? [];
   const jurisdictions = jurisdictionsResponse?.jurisdictions ?? [];
 
   return (
     <DashboardShell>
-      <Tabs
-        value={activeTab}
-        onValueChange={(value) => {
-          if (value === "evidence" || value === "jurisdictions") {
-            router.replace(`/reference?tab=${value}`);
-          }
-        }}
-      >
-        <div className="border-b px-4 pt-4">
+      <div className="workspace-page">
+        <WorkspaceHeader
+          eyebrow="Reference desk"
+          title="Reference"
+          description="Evidence sources, jurisdiction metadata, and pack health in one operating reference surface."
+        />
+
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => {
+            if (value === "evidence" || value === "jurisdictions") {
+              router.replace(`/reference?tab=${value}`);
+            }
+          }}
+        >
           <TabsList>
             <TabsTrigger value="evidence">Evidence Sources</TabsTrigger>
             <TabsTrigger value="jurisdictions">Jurisdictions</TabsTrigger>
           </TabsList>
-        </div>
 
-        <TabsContent value="evidence" className="mt-0 space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Evidence Sources</CardTitle>
-              <CardDescription>
-                Source registry used for entitlement packets and parish monitoring.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
+          <TabsContent value="evidence" className="mt-0">
+            <section className="workspace-section space-y-4">
+              <div className="workspace-section-header">
+                <div>
+                  <p className="workspace-section-kicker">Reference</p>
+                  <h2 className="workspace-section-heading mt-2">Evidence sources</h2>
+                  <p className="workspace-section-copy mt-2">
+                    Source registry used for entitlement packets and parish monitoring.
+                  </p>
+                </div>
+              </div>
+
               {evidenceError ? (
                 <ReferenceErrorState
                   title="Unable to load evidence sources."
@@ -150,42 +155,47 @@ function ReferencePageContent() {
               ) : evidenceSources.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No evidence sources found.</p>
               ) : (
-                <div className="space-y-2">
+                <div className="workspace-list">
                   {evidenceSources.map((source) => (
                     <div
                       key={source.id}
-                      className={`rounded-lg border p-3 ${
-                        sourceId === source.id ? "border-primary bg-primary/5" : ""
-                      }`}
+                      className={`workspace-list-row ${sourceId === source.id ? "bg-primary/[0.04]" : ""}`}
                     >
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <p className="font-medium">{source.title ?? source.domain}</p>
-                        <div className="flex items-center gap-2">
-                          {source.isOfficial ? <Badge>Official</Badge> : null}
-                          <Badge variant="outline">{source.freshness?.freshnessState ?? "unknown"}</Badge>
+                      <div className="w-full space-y-2">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="font-medium">{source.title ?? source.domain}</p>
+                          <div className="flex items-center gap-2">
+                            {source.isOfficial ? <Badge>Official</Badge> : null}
+                            <Badge variant="outline">
+                              {source.freshness?.freshnessState ?? "unknown"}
+                            </Badge>
+                          </div>
+                        </div>
+                        <p className="break-all text-sm text-muted-foreground">{source.url}</p>
+                        <div className="workspace-inline-meta">
+                          <span>Snapshots {source.snapshotCount}</span>
+                          <span>Freshness {source.freshness?.freshnessScore ?? 0}</span>
                         </div>
                       </div>
-                      <p className="text-sm text-muted-foreground break-all">{source.url}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Snapshots: {source.snapshotCount} · Freshness score: {source.freshness?.freshnessScore ?? 0}
-                      </p>
                     </div>
                   ))}
                 </div>
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+            </section>
+          </TabsContent>
 
-        <TabsContent value="jurisdictions" className="mt-0 space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Jurisdictions</CardTitle>
-              <CardDescription>
-                Jurisdiction metadata, source-health context, and parish pack status.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
+          <TabsContent value="jurisdictions" className="mt-0">
+            <section className="workspace-section space-y-4">
+              <div className="workspace-section-header">
+                <div>
+                  <p className="workspace-section-kicker">Reference</p>
+                  <h2 className="workspace-section-heading mt-2">Jurisdictions</h2>
+                  <p className="workspace-section-copy mt-2">
+                    Jurisdiction metadata, source-health context, and parish pack status.
+                  </p>
+                </div>
+              </div>
+
               {jurisdictionsError ? (
                 <ReferenceErrorState
                   title="Unable to load jurisdictions."
@@ -194,46 +204,49 @@ function ReferencePageContent() {
               ) : jurisdictions.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No jurisdictions found.</p>
               ) : (
-                <div className="space-y-2">
+                <div className="workspace-list">
                   {jurisdictions.map((jurisdiction) => (
-                    <div key={jurisdiction.id} className="rounded-lg border p-3">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <p className="font-medium">
-                          {jurisdiction.name} · {jurisdiction.kind}
+                    <div key={jurisdiction.id} className="workspace-list-row">
+                      <div className="w-full space-y-2">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="font-medium">
+                            {jurisdiction.name} · {jurisdiction.kind}
+                          </p>
+                          <Badge
+                            variant={jurisdiction.packContext.hasPack ? "outline" : "destructive"}
+                          >
+                            {jurisdiction.packContext.hasPack ? "Pack current" : "No pack"}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {jurisdiction.state} · {jurisdiction.officialDomains.length} official domains
                         </p>
-                        <Badge variant={jurisdiction.packContext.hasPack ? "outline" : "destructive"}>
-                          {jurisdiction.packContext.hasPack ? "Pack current" : "No pack"}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        {jurisdiction.state} · {jurisdiction.officialDomains.length} official domains
-                      </p>
-                      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                        <span>Active seed sources: {jurisdiction.seedSourceCount}</span>
-                        <span>Deals: {jurisdiction.dealCount}</span>
-                        <span>
-                          Pack age: {jurisdiction.packContext.stalenessDays ?? "n/a"} day(s)
-                        </span>
-                        {jurisdiction.packContext.isStale ? (
-                          <span className="inline-flex items-center gap-1 text-amber-600">
-                            <AlertCircle className="h-3.5 w-3.5" /> Stale
-                          </span>
-                        ) : null}
-                        {jurisdiction.packContext.missingEvidence.length > 0 ? (
-                          <span className="inline-flex items-center gap-1 text-red-600">
-                            <CalendarClock className="h-3.5 w-3.5" />
-                            {jurisdiction.packContext.missingEvidence.length} action item(s)
-                          </span>
-                        ) : null}
+                        <div className="workspace-inline-meta">
+                          <span>Seed sources {jurisdiction.seedSourceCount}</span>
+                          <span>Deals {jurisdiction.dealCount}</span>
+                          <span>Pack age {jurisdiction.packContext.stalenessDays ?? "n/a"}d</span>
+                          {jurisdiction.packContext.isStale ? (
+                            <span className="inline-flex items-center gap-1 text-amber-600">
+                              <AlertCircle className="h-3.5 w-3.5" />
+                              Stale
+                            </span>
+                          ) : null}
+                          {jurisdiction.packContext.missingEvidence.length > 0 ? (
+                            <span className="inline-flex items-center gap-1 text-red-600">
+                              <CalendarClock className="h-3.5 w-3.5" />
+                              {jurisdiction.packContext.missingEvidence.length} action items
+                            </span>
+                          ) : null}
+                        </div>
                       </div>
                     </div>
                   ))}
                 </div>
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+            </section>
+          </TabsContent>
+        </Tabs>
+      </div>
     </DashboardShell>
   );
 }
@@ -241,9 +254,7 @@ function ReferencePageContent() {
 function ReferencePageLoading() {
   return (
     <DashboardShell>
-      <div className="py-24 text-center text-sm text-muted-foreground">
-        Loading reference...
-      </div>
+      <div className="py-24 text-center text-sm text-muted-foreground">Loading reference...</div>
     </DashboardShell>
   );
 }

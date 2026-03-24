@@ -26,7 +26,7 @@ interface DealCardProps {
 export function DealCard({ deal }: DealCardProps) {
   return (
     <Link href={`/deals/${deal.id}`}>
-      <Card className="cursor-pointer transition-all hover:shadow-md">
+      <Card className="group cursor-pointer transition-colors hover:bg-background/62">
         <CardHeader className="flex flex-row items-start justify-between gap-2 pb-3">
           <div className="min-w-0 flex-1">
             <CardTitle className="truncate text-base">{deal.name}</CardTitle>
@@ -41,7 +41,7 @@ export function DealCard({ deal }: DealCardProps) {
             <SkuBadge sku={deal.sku} />
             <StatusBadge status={deal.status} />
           </div>
-          <p className="text-xs text-muted-foreground">
+          <p className="workspace-inline-meta">
             Created {formatDate(deal.createdAt)}
           </p>
         </CardContent>
