@@ -81,17 +81,31 @@ def escape_sql(s):
     return "'" + str(s).replace("'", "''") + "'"
 
 
-def gateway_sql(session, gateway_url, token, sql, limit=None):
-    """Execute SQL via gateway, with retries."""
+def gateway_sql(session, gateway_url, token, sql, limit=None, upstream_mode=False, cf_headers=None):
+    """Execute SQL via gateway, with retries.
+
+    upstream_mode: if True, hit /tools/parcels.sql (upstream) instead of /parcels/sql (proxy),
+                   and parse response without 'data' wrapper. Adds cache-bust param.
+    """
     body = {"sql": sql}
     if limit:
         body["limit"] = limit
+
+    if upstream_mode:
+        endpoint = f"{gateway_url}/tools/parcels.sql?_cb={int(time.time())}"
+    else:
+        endpoint = f"{gateway_url}/parcels/sql"
+
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    if cf_headers:
+        headers.update(cf_headers)
+
     for attempt in range(MAX_RETRIES):
         try:
             resp = session.post(
-                f"{gateway_url}/parcels/sql",
+                endpoint,
                 json=body,
-                headers={"Authorization": f"Bearer {token}"},
+                headers=headers,
                 timeout=30,
             )
             if resp.status_code != 200:
@@ -99,11 +113,19 @@ def gateway_sql(session, gateway_url, token, sql, limit=None):
                 time.sleep(2 ** attempt)
                 continue
             data = resp.json()
-            if not data.get("data", {}).get("ok", True):
-                err = data["data"].get("error", "unknown")
-                log.error(f"SQL error: {err}")
-                return None
-            return data["data"].get("rows", [])
+            if upstream_mode:
+                # Upstream returns {ok, rows, ...} directly
+                if not data.get("ok", True):
+                    log.error(f"SQL error: {data.get('error', 'unknown')}")
+                    return None
+                return data.get("rows", [])
+            else:
+                # Proxy wraps in {data: {ok, rows, ...}}
+                if not data.get("data", {}).get("ok", True):
+                    err = data["data"].get("error", "unknown")
+                    log.error(f"SQL error: {err}")
+                    return None
+                return data["data"].get("rows", [])
         except Exception as e:
             log.warning(f"Request error: {e}, retry {attempt+1}")
             time.sleep(2 ** attempt)
@@ -128,12 +150,14 @@ def get_d1_state():
     return 0, None
 
 
-def fetch_parcels(gateway_url, token, cursor="", limit=GATEWAY_ROW_LIMIT):
+def fetch_parcels(gateway_url, token, cursor="", limit=GATEWAY_ROW_LIMIT,
+                   upstream_mode=False, cf_headers=None):
     """Fetch parcels using keyset pagination."""
     session = requests.Session()
+    kw = dict(upstream_mode=upstream_mode, cf_headers=cf_headers)
 
     # Get upstream count
-    rows = gateway_sql(session, gateway_url, token, "SELECT count(*) as total FROM ebr_parcels")
+    rows = gateway_sql(session, gateway_url, token, "SELECT count(*) as total FROM ebr_parcels", **kw)
     total = rows[0]["total"] if rows else 0
     log.info(f"Upstream parcels: {total}")
 
@@ -147,7 +171,7 @@ def fetch_parcels(gateway_url, token, cursor="", limit=GATEWAY_ROW_LIMIT):
         else:
             sql = f"SELECT * FROM ebr_parcels ORDER BY parcel_id"
 
-        rows = gateway_sql(session, gateway_url, token, sql, limit=limit)
+        rows = gateway_sql(session, gateway_url, token, sql, limit=limit, **kw)
         if rows is None:
             log.error(f"Failed to fetch after cursor '{cursor}', stopping")
             break
@@ -285,12 +309,20 @@ def main():
     args = parser.parse_args()
 
     load_env()
-    token = os.environ.get("GATEWAY_PROXY_TOKEN")
     sync_token = os.environ.get("SYNC_TOKEN")
-    gateway_url = os.environ.get("GATEWAY_PROXY_URL", "https://gateway.gallagherpropco.com")
+    proxy_url = os.environ.get("GATEWAY_PROXY_URL", "https://gateway.gallagherpropco.com")
 
-    if not token:
-        log.error("GATEWAY_PROXY_TOKEN not set")
+    # Fetch from upstream directly (bypasses proxy D1 cache)
+    upstream_url = os.environ.get("UPSTREAM_GATEWAY_URL", "https://api.gallagherpropco.com")
+    upstream_token = os.environ.get("LOCAL_API_KEY")
+    cf_headers = {}
+    if os.environ.get("CF_ACCESS_CLIENT_ID"):
+        cf_headers["CF-Access-Client-Id"] = os.environ["CF_ACCESS_CLIENT_ID"]
+    if os.environ.get("CF_ACCESS_CLIENT_SECRET"):
+        cf_headers["CF-Access-Client-Secret"] = os.environ["CF_ACCESS_CLIENT_SECRET"]
+
+    if not upstream_token:
+        log.error("LOCAL_API_KEY not set")
         sys.exit(1)
 
     # Acquire lock
@@ -298,18 +330,21 @@ def main():
 
     start = time.time()
 
-    # Determine sync mode
+    # Determine sync mode — always fetch from upstream
+    fetch_kw = dict(upstream_mode=True, cf_headers=cf_headers)
+
     if args.full:
-        log.info("Full sync mode")
-        parcels, upstream_total = fetch_parcels(gateway_url, token)
+        log.info("Full sync mode (fetching from upstream)")
+        parcels, upstream_total = fetch_parcels(upstream_url, upstream_token, **fetch_kw)
     else:
         # Incremental: check D1 state, only fetch new parcels
         d1_count, d1_max_id = get_d1_state()
         log.info(f"D1 state: {d1_count} parcels, max_id: {d1_max_id}")
 
-        # Quick count check
+        # Quick count check from upstream
         session = requests.Session()
-        rows = gateway_sql(session, gateway_url, token, "SELECT count(*) as total FROM ebr_parcels")
+        rows = gateway_sql(session, upstream_url, upstream_token,
+                           "SELECT count(*) as total FROM ebr_parcels", **fetch_kw)
         upstream_total = rows[0]["total"] if rows else 0
         session.close()
         log.info(f"Upstream parcels: {upstream_total}")
@@ -322,7 +357,7 @@ def main():
         # Fetch only parcels after the max D1 parcel_id
         cursor = d1_max_id or ""
         log.info(f"Incremental sync from cursor: {cursor}")
-        parcels, _ = fetch_parcels(gateway_url, token, cursor=cursor)
+        parcels, _ = fetch_parcels(upstream_url, upstream_token, cursor=cursor, **fetch_kw)
 
         if not parcels:
             log.info("No new parcels found")
@@ -337,10 +372,10 @@ def main():
 
     synced_at = int(time.time())
 
-    # Try /sync/push first (faster), fall back to wrangler
+    # Try /sync/push on proxy (faster), fall back to wrangler
     if sync_token and not args.use_wrangler:
         log.info(f"Pushing {len(parcels)} parcels via /sync/push...")
-        success, total_batches = push_to_sync_endpoint(gateway_url, sync_token, parcels)
+        success, total_batches = push_to_sync_endpoint(proxy_url, sync_token, parcels)
         if success < total_batches * 0.5:
             log.warning(f"Push had too many failures ({success}/{total_batches}), falling back to wrangler")
             success, total_batches = write_via_wrangler(parcels, synced_at)
