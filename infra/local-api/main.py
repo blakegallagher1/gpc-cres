@@ -873,13 +873,13 @@ async def tools_parcels_sql(
 ):
     """
     Run a read-only SQL query against the property database.
-    SELECT/WITH only. Table allowlist enforced. Max 100 rows.
+    SELECT/WITH only. Table allowlist enforced. Max 1000 rows (default 100).
     """
     if not db_pool:
         raise HTTPException(status_code=503, detail="Property database not configured")
     body = await request.json()
     sql = (body.get("sql") or "").strip()
-    limit = min(int(body.get("limit", 100) or 100), 100)
+    limit = min(int(body.get("limit", 100) or 100), 1000)
 
     if not sql:
         return {"ok": False, "error": "Missing 'sql' field."}

@@ -40,7 +40,8 @@ export default {
     }
 
     // Sync endpoints — separate auth via X-Sync-Token
-    if (url.pathname === "/admin/sync" && request.method === "POST") {
+    // Support both /admin/sync (legacy) and /sync/push (bypasses /admin/* WAF challenge)
+    if ((url.pathname === "/admin/sync" || url.pathname === "/sync/push") && request.method === "POST") {
       if (!validateSyncToken(request, env)) {
         return jsonResponse({ error: "unauthorized" }, 401);
       }
