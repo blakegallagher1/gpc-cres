@@ -12,6 +12,7 @@ import {
 } from "@/lib/server/propertyDbEnv";
 import { isPrismaConnectivityError } from "@/lib/server/devParcelFallback";
 import { requestPropertyDbGateway } from "@/lib/server/propertyDbRpc";
+import { getGatewayClient } from "@/lib/server/gatewayClient";
 import * as Sentry from "@sentry/nextjs";
 
 const PROPERTY_DB_PARISHES = [
@@ -390,33 +391,31 @@ function normalizeRpcRows(value: unknown): Record<string, unknown>[] {
 
 async function gatewaySearchParcels(q: string, limit: number): Promise<unknown[]> {
   try {
-    const params = new URLSearchParams({ q, limit: String(limit) });
-    const res = await requestPropertyDbGateway({
-      routeTag: "/api/parcels",
-      path: `/api/parcels/search?${params.toString()}`,
-      method: "GET",
-      cache: "no-store",
-    });
-    if (!res.ok) {
-      // Upstream 4xx responses are treated as "no matches" for this query
-      // so user-facing search can continue trying alternative terms.
-      if (res.status < 500) {
-        return [];
-      }
-      const errBody = await res.text().catch(() => "");
+    const client = getGatewayClient();
+    const result = await client.searchParcels({ address: q, limit });
+
+    if (result.error) {
+      // If the CF Worker itself is unreachable, throw gateway unavailable
       throw new GatewayUnavailableError(
-        `[gatewaySearchParcels] failed: ${res.status} ${errBody.slice(0, 300)}`,
+        `[gatewaySearchParcels] proxy error: ${result.error}`,
         502,
       );
     }
-    return parseGatewayRowsResponse(res);
+
+    // The upstream returns { ok, count, data } or { parcels } or just []
+    const data = result.data as unknown;
+    if (typeof data === "object" && data !== null && !Array.isArray(data)) {
+      const obj = data as Record<string, unknown>;
+      if (Array.isArray(obj.data)) return obj.data;
+      if (Array.isArray(obj.parcels)) return obj.parcels;
+    }
+    if (Array.isArray(data)) return data;
+    return [];
   } catch (err) {
+    if (isGatewayUnavailableError(err)) throw err;
     Sentry.captureException(err, {
       tags: { route: "api.parcels", method: "UNKNOWN" },
     });
-    if (isGatewayUnavailableError(err)) {
-      throw err;
-    }
     throw new GatewayUnavailableError(
       `[gatewaySearchParcels] exception: ${err instanceof Error ? err.message : String(err)}`,
     );

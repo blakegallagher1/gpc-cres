@@ -40,7 +40,7 @@ describe("GatewayClient", () => {
     mockFetch.mockResolvedValue(mockResponse({ data: [{ id: 1 }], source: "gateway", staleness_seconds: null }));
     const result = await client.searchParcels({ address: "Airline Hwy", limit: 5 });
     expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining("address=Airline+Hwy"),
+      expect.stringContaining("q=Airline+Hwy"),
       expect.anything()
     );
     expect(result.data).toEqual([{ id: 1 }]);

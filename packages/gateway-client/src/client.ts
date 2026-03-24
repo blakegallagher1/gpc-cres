@@ -53,7 +53,7 @@ export class GatewayClient {
 
   async searchParcels(params: BboxSearch): Promise<GatewayResponse<unknown[]>> {
     const qs = new URLSearchParams();
-    if (params.address) qs.set("address", params.address);
+    if (params.address) qs.set("q", params.address);
     if (params.polygon) qs.set("polygon", params.polygon);
     if (params.limit) qs.set("limit", String(params.limit));
     return this.request(`/parcels/search?${qs.toString()}`);
