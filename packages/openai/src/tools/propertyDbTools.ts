@@ -659,10 +659,10 @@ export const queryPropertyDbSql = tool({
     "  fema_flood (5.2K rows): id UUID, zone TEXT, bfe TEXT, panel_id TEXT, parish TEXT, geom GEOMETRY, effective_date TEXT\n" +
     "  soils (37K rows): id UUID, mapunit_key TEXT, drainage_class TEXT, hydric_rating TEXT, shrink_swell TEXT, parish TEXT, geom GEOMETRY\n" +
     "  wetlands (39K rows): id UUID, wetland_type TEXT, parish TEXT, geom GEOMETRY\n" +
-    "  epa_facilities (6.7K rows): id UUID, name TEXT, street_address TEXT, city TEXT, state TEXT, zip TEXT, registry_id TEXT, status TEXT, violations_last_3yr INT, penalties_last_3yr INT, lat NUMERIC, lon NUMERIC, parish TEXT, geom GEOMETRY(Point,4326)\n\n" +
+    "  epa_facilities (6.7K rows): id UUID, name TEXT, street_address TEXT, city TEXT, state TEXT, zip TEXT, registry_id TEXT, status TEXT, violations_last_3yr INT, penalties_last_3yr INT, lat NUMERIC, lon NUMERIC, parish TEXT, geom GEOMETRY(Point,4326)\n" +
+    "  zcta (516 rows — Louisiana ZIP code polygons): id SERIAL, zip TEXT, state_fips TEXT, land_area_sqm BIGINT, lat NUMERIC, lon NUMERIC, geom GEOMETRY(MultiPolygon,4326)\n\n" +
     "IMPORTANT CONSTRAINTS:\n" +
-    "  - ebr_parcels has NO zip, city, parish, or county column. If asked to break down by zip/city/parish, explain that this data is not available in the current schema.\n" +
-    "  - Only epa_facilities has zip/city columns.\n" +
+    "  - ebr_parcels has NO zip, city, or parish column. To get ZIP codes for parcels, JOIN with zcta: SELECT z.zip, COUNT(*) FROM ebr_parcels p JOIN zcta z ON ST_Intersects(p.geom, z.geom) WHERE ... GROUP BY z.zip\n" +
     "  - fema_flood, soils, wetlands, epa_facilities have a 'parish' column. ebr_parcels does NOT.\n" +
     "  - Zoning is only ~34% populated — always mention this caveat when reporting zoning counts.\n\n" +
     "TIPS:\n" +
