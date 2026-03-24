@@ -14,7 +14,7 @@ const PUBLIC_PATHS = [
   "/api/health",    // Health check (public)
 ];
 
-const PUBLIC_FILE_PATTERN = /\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|bmp|txt|xml|webmanifest)$/i;
+const PUBLIC_FILE_PATTERN = /\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|bmp|txt|xml|webmanifest|mp4|webm|ogg)$/i;
 
 function getAllowedOrigins(): Set<string> {
   const env = process.env.ALLOWED_CORS_ORIGINS;

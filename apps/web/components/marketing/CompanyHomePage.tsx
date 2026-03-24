@@ -4,11 +4,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
 import { ArrowRight } from "lucide-react";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { MhcOwnerSubmissionSection } from "@/components/marketing/MhcOwnerSubmissionSection";
 
 const HERO_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
+const HOME_HERO_POSTER = "/images/gpc-home-hero-poster.webp";
+const HOME_HERO_VIDEO = "/video/gpc-home-hero-video.mp4";
 const HERO_REVEAL = {
   hidden: { opacity: 0, y: 24 },
   visible: {
@@ -102,6 +104,7 @@ function CompanyModelRow({ entry, prefersReducedMotion }: CompanyModelRowProps) 
 export function CompanyHomePage() {
   const heroRef = useRef<HTMLElement | null>(null);
   const prefersReducedMotion = useReducedMotion() ?? false;
+  const [heroVideoReady, setHeroVideoReady] = useState(false);
   const { scrollYProgress } = useScroll({
     target: heroRef,
     offset: ["start start", "end start"],
@@ -117,17 +120,34 @@ export function CompanyHomePage() {
         <section className="relative isolate min-h-[100svh] overflow-hidden bg-black" ref={heroRef}>
           <motion.div className="absolute inset-0" style={{ scale: heroImageScale, y: heroImageY }}>
             <Image
-              alt="Manufactured housing community with surrounding streets and tree cover"
+              alt="Blue-hour aerial view of a Louisiana housing community beside wetlands and industrial lights"
               className="object-cover object-center"
               fill
               priority
               sizes="100vw"
-              src="/images/gpc-home-hero.png"
+              src={HOME_HERO_POSTER}
             />
+            {prefersReducedMotion ? null : (
+              <video
+                aria-hidden="true"
+                autoPlay
+                className={`absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-700 ${
+                  heroVideoReady ? "opacity-100" : "opacity-0"
+                }`}
+                loop
+                muted
+                onCanPlay={() => setHeroVideoReady(true)}
+                onLoadedData={() => setHeroVideoReady(true)}
+                playsInline
+                poster={HOME_HERO_POSTER}
+              >
+                <source src={HOME_HERO_VIDEO} type="video/mp4" />
+              </video>
+            )}
           </motion.div>
 
           <motion.div
-            className="absolute inset-0 bg-[linear-gradient(102deg,rgba(0,0,0,0.88)_0%,rgba(0,0,0,0.72)_32%,rgba(0,0,0,0.26)_58%,rgba(0,0,0,0.82)_100%)]"
+            className="absolute inset-0 bg-[linear-gradient(100deg,rgba(2,6,23,0.9)_0%,rgba(2,6,23,0.68)_34%,rgba(2,6,23,0.18)_60%,rgba(2,6,23,0.74)_100%)]"
             style={{ opacity: heroOverlayOpacity }}
           />
           <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-black via-black/56 to-transparent" />

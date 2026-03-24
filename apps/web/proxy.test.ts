@@ -32,6 +32,14 @@ describe("proxy", () => {
     expect(getTokenMock).not.toHaveBeenCalled();
   });
 
+  it("allows public video asset requests without consulting auth", async () => {
+    const response = await proxy(new NextRequest("http://localhost/video/gpc-home-hero-video.mp4"));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
+    expect(getTokenMock).not.toHaveBeenCalled();
+  });
+
   it("redirects authenticated users from login to the chat workspace", async () => {
     getTokenMock.mockResolvedValue({ sub: "user-1" });
 

@@ -452,11 +452,11 @@ export function LoginLanding() {
                 whileInView="visible"
               >
                 <Image
-                  alt="Industrial corridor and adjacent parcels at sunrise"
+                  alt="Blue-hour view across water, roads, and adjacent housing pads"
                   className="object-cover object-center"
                   fill
                   sizes="(min-width: 1024px) 52vw, 100vw"
-                  src="/images/gpc-home-hero.png"
+                  src="/images/gpc-login-support.webp"
                 />
                 <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.06)_0%,rgba(15,23,42,0.16)_36%,rgba(15,23,42,0.78)_100%)]" />
                 <div className="absolute inset-x-0 bottom-0 p-6 md:p-8">
