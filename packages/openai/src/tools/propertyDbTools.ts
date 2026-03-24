@@ -652,17 +652,19 @@ export const queryPropertyDbSql = tool({
     "spatial queries (ST_DWithin, ST_Intersects), complex filtering, and any question the structured query_property_db tool cannot express.\n\n" +
     "SCHEMA (exact columns — do NOT assume columns that are not listed):\n" +
     "  ebr_parcels (560K rows, multi-parish — NOT just EBR despite the table name):\n" +
-    "    parcel_id TEXT, address TEXT (street address only — NO zip code, NO city, NO state), owner TEXT,\n" +
+    "    parcel_id TEXT, address TEXT (street only, no city/state), owner TEXT, zip TEXT (ZCTA zip code, 99.95% populated),\n" +
     "    area_sqft NUMERIC, assessed_value NUMERIC, zoning_type TEXT (34% populated, NULL for many parcels),\n" +
     "    geom GEOMETRY(MultiPolygon,4326), created_at TIMESTAMP, id UUID\n" +
-    "    NOTE: There is NO zip column, NO city column, NO parish column. Do NOT try to extract zip/city from the address field — it only contains street addresses like '123 MAIN ST'.\n" +
+    "    NOTE: No city or parish column. zip is from ZCTA spatial join, not from address text.\n" +
     "  fema_flood (5.2K rows): id UUID, zone TEXT, bfe TEXT, panel_id TEXT, parish TEXT, geom GEOMETRY, effective_date TEXT\n" +
     "  soils (37K rows): id UUID, mapunit_key TEXT, drainage_class TEXT, hydric_rating TEXT, shrink_swell TEXT, parish TEXT, geom GEOMETRY\n" +
     "  wetlands (39K rows): id UUID, wetland_type TEXT, parish TEXT, geom GEOMETRY\n" +
     "  epa_facilities (6.7K rows): id UUID, name TEXT, street_address TEXT, city TEXT, state TEXT, zip TEXT, registry_id TEXT, status TEXT, violations_last_3yr INT, penalties_last_3yr INT, lat NUMERIC, lon NUMERIC, parish TEXT, geom GEOMETRY(Point,4326)\n" +
     "  zcta (516 rows — Louisiana ZIP code polygons): id SERIAL, zip TEXT, state_fips TEXT, land_area_sqm BIGINT, lat NUMERIC, lon NUMERIC, geom GEOMETRY(MultiPolygon,4326)\n\n" +
     "IMPORTANT CONSTRAINTS:\n" +
-    "  - ebr_parcels has NO zip, city, or parish column. To get ZIP codes for parcels, JOIN with zcta: SELECT z.zip, COUNT(*) FROM ebr_parcels p JOIN zcta z ON ST_Intersects(p.geom, z.geom) WHERE ... GROUP BY z.zip\n" +
+    "  - ebr_parcels has zip (from ZCTA spatial join) but NO city or parish column.\n" +
+    "  - For ZIP breakdowns: SELECT zip, COUNT(*) FROM ebr_parcels WHERE zoning_type = 'A4' GROUP BY zip ORDER BY count DESC\n" +
+    "  - Do NOT use CTEs, subqueries, or temp table names that match non-allowed table names — the gateway parser will reject them.\n" +
     "  - fema_flood, soils, wetlands, epa_facilities have a 'parish' column. ebr_parcels does NOT.\n" +
     "  - Zoning is only ~34% populated — always mention this caveat when reporting zoning counts.\n\n" +
     "TIPS:\n" +
