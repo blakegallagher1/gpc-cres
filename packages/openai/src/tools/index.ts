@@ -30,6 +30,7 @@ import * as assetManagementTools from "./asset-mgmt/index.js";
 import * as capitalMarketsTools from "./capital-markets/index.js";
 import * as parcelSetTools from "./parcelSetTools.js";
 import * as spatialTools from "./spatialTools.js";
+import * as browserTools from "./browserTools.js";
 import { TOOL_REGISTRY } from "./toolRegistry.js";
 
 export {
@@ -224,6 +225,8 @@ export {
   allPluginTools,
 } from "./pluginTools.js";
 
+export { browser_task } from "./browserTools.js";
+
 const {
   hostedFileSearchTool,
   hostedWebSearchPreviewTool,
@@ -357,6 +360,7 @@ const {
   listParcelSets,
 } = parcelSetTools;
 const { computeDriveTimeArea } = spatialTools;
+const { browser_task } = browserTools;
 const { allPluginTools: registeredPluginTools } = TOOL_REGISTRY;
 
 // --- Agent-specific tool collections ---
@@ -850,6 +854,8 @@ export const entitlementOsTools = (() => {
     calculate_depreciation_schedule,
     calculate_cost_segregation_estimate,
     calculate_1031_deadlines,
+    // Browser/CUA-specific
+    browser_task,
     // Acquisition/Asset/Capital Markets tools
     acquisition_dcf_analysis,
     acquisition_cap_rate_evaluation,
