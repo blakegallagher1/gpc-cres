@@ -2,6 +2,21 @@
  * Core types for the CUA worker
  */
 
+import type { Browser, BrowserContext, Page } from "playwright";
+
+export type BrowserSession = {
+  browser: Browser;
+  context: BrowserContext;
+  page: Page;
+  captureScreenshot: (label: string) => Promise<{
+    path: string;
+    capturedAt: string;
+    url: string;
+  }>;
+  readState: () => Promise<{ currentUrl: string; pageTitle: string }>;
+  close: () => Promise<void>;
+};
+
 export type TaskRequest = {
   url: string;
   instructions: string;
@@ -50,6 +65,7 @@ export type TaskState = {
   result?: TaskResult;
   startedAt: string;
   completedAt?: string;
+  signal?: AbortSignal;
 };
 
 /**
