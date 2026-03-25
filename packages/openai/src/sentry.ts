@@ -44,6 +44,12 @@ export function initAgentsSentry(): void {
       process.env.SENTRY_AGENTS_TRACES_SAMPLE_RATE,
       process.env.NODE_ENV === "production" ? 0.2 : 1,
     ),
+    integrations: [
+      Sentry.openAIIntegration({
+        recordInputs: false,
+        recordOutputs: false,
+      }),
+    ],
   });
   sentryInitialized = true;
 }
@@ -92,9 +98,9 @@ export async function traceAgentRun<T>(
   return Sentry.startSpan(
     {
       name: `agent.${agentName}.run`,
-      op: "agent.run",
+      op: "gen_ai.invoke_agent",
       attributes: {
-        "agent.name": agentName,
+        "gen_ai.agent.name": agentName,
         ...(context.model ? { "agent.model": String(context.model) } : {}),
         ...(context.dealId ? { "agent.deal_id": String(context.dealId) } : {}),
         ...(context.orgId ? { "agent.org_id": String(context.orgId) } : {}),
@@ -130,10 +136,10 @@ export function instrumentAgentTools(agentName: string, tools: readonly unknown[
             Sentry.startSpan(
               {
                 name: `tool.${toolName}`,
-                op: "agent.tool",
+                op: "gen_ai.execute_tool",
                 attributes: {
-                  "agent.name": agentName,
-                  "tool.name": toolName,
+                  "gen_ai.agent.name": agentName,
+                  "gen_ai.tool.name": toolName,
                 },
               },
               async () => {

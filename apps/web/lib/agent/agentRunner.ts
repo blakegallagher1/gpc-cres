@@ -1,4 +1,5 @@
 import { prisma, type Prisma } from "@entitlement-os/db";
+import * as Sentry from "@sentry/nextjs";
 import { randomUUID } from "node:crypto";
 import {
   executeAgentWorkflow,
@@ -761,6 +762,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
   }
 
   if (conversationId) {
+    Sentry.setConversationId(conversationId);
     if (!persistConversation) {
       const conversation = await prisma.conversation.findFirst({
         where: { id: conversationId, orgId },
