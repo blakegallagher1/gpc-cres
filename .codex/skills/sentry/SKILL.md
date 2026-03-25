@@ -1,12 +1,6 @@
 ---
 name: sentry
-description: "Use when the user asks to inspect Sentry issues/events, summarize recent production errors, or pull Sentry health data for Entitlement OS using read-only queries."
-triggers:
-  - "sentry"
-  - "sentry issue"
-  - "sentry incidents"
-  - "sentry events"
-  - "production errors"
+description: "Read-only Sentry observability for Entitlement OS. Use when the user asks to inspect Sentry issues or events, summarize recent production errors, investigate Sentry incidents, or pull Sentry health data via read-only queries."
 ---
 
 # Sentry (Read-only Observability)
