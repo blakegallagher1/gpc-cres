@@ -30,6 +30,7 @@ import { getAgentColor, getAgentBorderColor, formatAgentLabel } from './AgentInd
 import { ToolCallCard } from './ToolCallCard';
 import { TriageResultCard } from './TriageResultCard';
 import { ArtifactDownloadCard } from './ArtifactDownloadCard';
+import { BrowserSessionCard } from './BrowserSessionCard';
 import { AgentStatusChip } from './AgentStatusChip';
 import { ToolStatusChip } from './ToolStatusChip';
 import { ToolApprovalPrompt } from './ToolApprovalPrompt';
@@ -82,6 +83,14 @@ function formatDateDisplay(value: string): string {
     minute: '2-digit',
   });
   return formatted === 'N/A' ? '' : formatted;
+}
+
+function safeParseJSON(str: string): unknown {
+  try {
+    return JSON.parse(str);
+  } catch {
+    return null;
+  }
 }
 
 function findSourceUrl(message: ChatMessage): string | null {
@@ -583,20 +592,45 @@ export function MessageBubble({
             )}
 
             {Array.isArray(message.toolCalls) && message.toolCalls.length > 0 ? (
-              message.toolCalls.map((tc, i) => (
-                <ToolCallCard
-                  key={`${message.id}-tool-${i}`}
-                  name={tc.name}
-                  args={tc.args}
-                  result={
-                    typeof tc.result === 'string'
-                      ? tc.result
-                      : tc.result
-                        ? JSON.stringify(tc.result)
-                        : undefined
+              message.toolCalls.map((tc, i) => {
+                // Detect browser_task tool and render special card
+                if (tc.name === 'browser_task' && tc.result) {
+                  const parsed = typeof tc.result === 'string'
+                    ? safeParseJSON(tc.result)
+                    : tc.result;
+                  if (parsed && typeof parsed === 'object') {
+                    return (
+                      <BrowserSessionCard
+                        key={`${message.id}-browser-${i}`}
+                        url={(parsed as Record<string, unknown>).source?.url ?? (parsed as Record<string, unknown>).url ?? ''}
+                        success={(parsed as Record<string, unknown>).success ?? false}
+                        screenshots={((parsed as Record<string, unknown>).screenshots ?? []) as string[]}
+                        turns={(parsed as Record<string, unknown>).turns ?? 0}
+                        modeUsed={(parsed as Record<string, unknown>).modeUsed ?? 'native'}
+                        cost={(parsed as Record<string, unknown>).cost as { inputTokens: number; outputTokens: number } | undefined}
+                        data={(parsed as Record<string, unknown>).data}
+                        error={(parsed as Record<string, unknown>).error as string | undefined}
+                        finalMessage={(parsed as Record<string, unknown>).finalMessage as string | undefined}
+                        source={(parsed as Record<string, unknown>).source as { url: string; fetchedAt: string } | undefined}
+                      />
+                    );
                   }
-                />
-              ))
+                }
+                return (
+                  <ToolCallCard
+                    key={`${message.id}-tool-${i}`}
+                    name={tc.name}
+                    args={tc.args}
+                    result={
+                      typeof tc.result === 'string'
+                        ? tc.result
+                        : tc.result
+                          ? JSON.stringify(tc.result)
+                          : undefined
+                    }
+                  />
+                );
+              })
             ) : null}
 
             {message.triageResult ? (
