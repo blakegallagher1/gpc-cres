@@ -17,7 +17,7 @@ export const useAgentStore = create((set): AgentStoreState => ({
     try {
       // Agent runs are now handled through the chat interface at /
       // This store is kept for API compatibility
-      console.info("Agent runs are handled through the chat interface");
+      return;
     } finally {
       set({ isLoading: false });
     }

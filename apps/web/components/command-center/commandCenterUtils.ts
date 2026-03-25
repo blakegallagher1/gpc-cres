@@ -5,6 +5,10 @@ import type {
   CommandCenterPortfolioDeal,
   CommandCenterUrgency,
 } from "./commandCenterTypes";
+import {
+  formatOperatorDate,
+  formatOperatorRelativeTime,
+} from "@/lib/formatters/operatorFormatters";
 
 const ACTIVE_PIPELINE_STATUSES = new Set([
   "INTAKE",
@@ -42,24 +46,7 @@ export async function fetchCommandCenterJson<T>(url: string): Promise<T> {
 
 /** Formats a timestamp into a compact relative age for compact operator feeds. */
 export function timeAgo(dateString: string): string {
-  const diff = Date.now() - new Date(dateString).getTime();
-  const minutes = Math.floor(diff / 60000);
-
-  if (minutes < 1) {
-    return "just now";
-  }
-
-  if (minutes < 60) {
-    return `${minutes}m ago`;
-  }
-
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) {
-    return `${hours}h ago`;
-  }
-
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
+  return formatOperatorRelativeTime(dateString);
 }
 
 /** Formats deadline urgency into the short labels used in the command-center rail. */
@@ -169,7 +156,7 @@ export function buildPipelineDayTimeline(
     const dateKey = buildDateKey(day);
     const bucket: CommandCenterPipelineDayBucket = {
       dateKey,
-      label: day.toLocaleDateString("en-US", {
+      label: formatOperatorDate(day, {
         weekday: "short",
         month: "short",
         day: "numeric",

@@ -7,6 +7,7 @@ import {
   getNotificationService,
 } from "@/lib/services/notification.service";
 import * as Sentry from "@sentry/nextjs";
+import { logger, serializeErrorForLogs } from "@/lib/logger";
 import {
   computeEvidenceHash,
   computeSourceCaptureManifestHash,
@@ -1279,9 +1280,12 @@ export async function GET(req: Request) {
         config: alertDecisionConfig,
       });
       if (!decision.shouldSend) {
-        console.log(
-          `[source-ingestion] alert suppressed for ${summary.orgId}: reason=${decision.reason}, prior=${decision.priorMatchCount}, manifest=${summary.sourceManifestHash}`,
-        );
+        logger.info("Cron source-ingestion alert suppressed", {
+          orgId: summary.orgId,
+          reason: decision.reason,
+          priorMatchCount: decision.priorMatchCount,
+          sourceManifestHash: summary.sourceManifestHash,
+        });
         continue;
       }
 
@@ -1348,13 +1352,15 @@ export async function GET(req: Request) {
       },
     };
 
-    console.log("[source-ingestion] summary:", summary.stats);
+    logger.info("Cron source-ingestion summary", {
+      summary: summary.stats,
+    });
     return NextResponse.json(summary);
   } catch (error) {
     Sentry.captureException(error, {
       tags: { route: "api.cron.source-ingestion", method: "GET" },
     });
-    console.error("[cron/source-ingestion] failed:", error);
+    logger.error("Cron source-ingestion failed", serializeErrorForLogs(error));
     return NextResponse.json(
       {
         error: "Source ingestion failed",

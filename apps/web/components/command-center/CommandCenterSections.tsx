@@ -18,6 +18,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatOperatorTime } from "@/lib/formatters/operatorFormatters";
 import { cn } from "@/lib/utils";
 import { PIPELINE_STAGES } from "@/lib/data/portfolioConstants";
 import type {
@@ -138,11 +139,7 @@ export function OperatingBriefSection({
       action={
         briefing ? (
           <Badge variant="secondary">
-            Generated{" "}
-            {new Date(briefing.generatedAt).toLocaleTimeString([], {
-              hour: "numeric",
-              minute: "2-digit",
-            })}
+            Generated {formatOperatorTime(briefing.generatedAt)}
           </Badge>
         ) : undefined
       }

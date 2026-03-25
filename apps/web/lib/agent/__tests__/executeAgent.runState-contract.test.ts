@@ -24,8 +24,10 @@ vi.mock("@entitlement-os/openai", () => ({
   buildAgentStreamRunOptions: vi.fn(() => ({})),
   captureAgentError: vi.fn(),
   captureAgentWarning: vi.fn(),
+  filterToolsForIntent: vi.fn((_: unknown, tools: unknown[]) => tools),
   getAgentOsConfig: vi.fn(() => ({ enabled: false })),
   getProofGroupsForIntent: vi.fn(() => []),
+  getToolDefinitionName: vi.fn(() => null),
   setupAgentTracing: vi.fn(),
   serializeRunStateEnvelope: vi.fn((input: unknown) => input),
   deserializeRunStateEnvelope: vi.fn(() => null),
@@ -37,6 +39,7 @@ vi.mock("@entitlement-os/openai", () => ({
   isAgentOsFeatureEnabled: vi.fn(() => false),
   maybeTrimToolOutput: vi.fn((value: unknown) => ({ value, wasTrimmed: false })),
   runCriticEvaluation: vi.fn(async () => {}),
+  WEB_ADDITIONAL_TOOL_ALLOWLIST: [],
 }));
 vi.mock("@/lib/services/deal-reader", () => ({
   getDealReaderById: vi.fn(async () => null),
@@ -64,6 +67,7 @@ vi.mock("../retrievalAdapter", () => ({
 }));
 vi.mock("../loggerAdapter", () => ({
   logger: {
+    debug: vi.fn(),
     info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),

@@ -2,6 +2,7 @@ import { prisma } from "@entitlement-os/db";
 import { AUTOMATION_CONFIG } from "./config";
 import { createAutomationTask } from "./notifications";
 import type { AutomationEvent } from "./types";
+import { logger } from "@/lib/logger";
 import {
   projectLegacyDealCompatibility,
   resolveCanonicalDealWorkflowState,
@@ -135,9 +136,10 @@ export async function handleIntakeReceived(
   const criteria = matchesGpcCriteria(parsed);
 
   if (!criteria.matches) {
-    console.log(
-      `[automation] Intake from "${source}" does not match GPC criteria: ${criteria.reasons.filter((r) => r.startsWith("No")).join("; ")}`
-    );
+    logger.info("Automation intake skipped non-matching criteria", {
+      source,
+      reasons: criteria.reasons.filter((reason) => reason.startsWith("No")),
+    });
     return;
   }
 
@@ -153,9 +155,11 @@ export async function handleIntakeReceived(
   });
 
   if (todayCount >= AUTOMATION_CONFIG.intake.maxAutoCreatedPerDay) {
-    console.log(
-      `[automation] Daily auto-intake limit (${AUTOMATION_CONFIG.intake.maxAutoCreatedPerDay}) reached. Skipping intake from "${source}".`
-    );
+    logger.info("Automation intake skipped daily limit", {
+      source,
+      orgId,
+      limit: AUTOMATION_CONFIG.intake.maxAutoCreatedPerDay,
+    });
     return;
   }
 
@@ -174,9 +178,11 @@ export async function handleIntakeReceived(
     });
 
     if (existingDeal) {
-      console.log(
-        `[automation] Intake from "${source}" matches existing deal "${existingDeal.name}" (${existingDeal.id}). Skipping.`
-      );
+      logger.info("Automation intake skipped existing deal match", {
+        source,
+        existingDealId: existingDeal.id,
+        existingDealName: existingDeal.name,
+      });
       return;
     }
   }
@@ -192,9 +198,10 @@ export async function handleIntakeReceived(
   });
 
   if (!jurisdiction) {
-    console.log(
-      `[automation] No jurisdiction found for parish "${parish}" in org ${orgId}. Cannot auto-create deal.`
-    );
+    logger.info("Automation intake skipped missing jurisdiction", {
+      parish,
+      orgId,
+    });
     return;
   }
 
@@ -284,7 +291,9 @@ export async function handleIntakeReceived(
     dueAt: vetoDeadline,
   });
 
-  console.log(
-    `[automation] Auto-created deal "${deal.name}" (${deal.id}) from ${source} intake. 24h veto window.`
-  );
+  logger.info("Automation intake auto-created deal", {
+    dealId: deal.id,
+    dealName: deal.name,
+    source,
+  });
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import * as Sentry from "@sentry/nextjs";
 import { z } from "zod";
+import { logger, serializeErrorForLogs } from "@/lib/logger";
 import { checkRateLimit } from "@/lib/server/rateLimiter";
 
 export const runtime = "nodejs";
@@ -161,7 +162,7 @@ export async function POST(request: NextRequest) {
   const submission = parsed.data;
   const honeypotValue = normalizeText(submission[HONEYPOT_FIELD]);
   if (honeypotValue) {
-    console.warn("[public.mhc-owner-submissions] honeypot triggered", {
+    logger.warn("Public MHC owner submission honeypot triggered", {
       requestId,
       clientIp,
       route: ROUTE_KEY,
@@ -172,7 +173,7 @@ export async function POST(request: NextRequest) {
   try {
     const created = await persistSubmission(submission, clientIp, request);
 
-    console.info("[public.mhc-owner-submissions] submission persisted", {
+    logger.info("Public MHC owner submission persisted", {
       requestId,
       submissionId: created.id,
       source: normalizeText(submission.source),
@@ -202,10 +203,10 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    console.error("[public.mhc-owner-submissions] failed to persist submission", {
+    logger.error("Public MHC owner submission failed to persist", {
       requestId,
       clientIp,
-      error,
+      ...serializeErrorForLogs(error),
     });
 
     return failureResponse(requestId, 500, "INTERNAL_ERROR", "Unable to process submission at this time.");

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
-import { isEmailAllowed } from "@/lib/auth/allowedEmails";
 import * as Sentry from "@sentry/nextjs";
+import { logger } from "@/lib/logger";
+import { resolveRouteAuth } from "@/lib/auth/routeAuth";
 import {
   CLIENT_INFO,
   parseCodexMessage,
@@ -40,21 +40,6 @@ interface RelayConnection {
   heartbeatTimer?: ReturnType<typeof setInterval> | null;
 }
 
-type AdminAuthState =
-  | {
-      status: "authorized";
-      auth: {
-        userId: string;
-        orgId: string;
-      };
-    }
-  | {
-      status: "unauthenticated";
-    }
-  | {
-      status: "forbidden";
-    };
-
 const relayConnections = new Map<string, RelayConnection>();
 const encoder = new TextEncoder();
 
@@ -64,11 +49,10 @@ function isAuthBypassedForLocalDev(): boolean {
 
 /** Always-on structured logging for relay lifecycle events. */
 function logRelay(connectionId: string, event: string, detail?: unknown) {
-  if (detail !== undefined) {
-    console.log(`${LOG_PREFIX} [${connectionId}] ${event}`, detail);
-    return;
-  }
-  console.log(`${LOG_PREFIX} [${connectionId}] ${event}`);
+  logger.info(`${LOG_PREFIX} ${event}`, {
+    connectionId,
+    detail,
+  });
 }
 
 /** Debug-only logging for verbose message content and stale-relay guards. */
@@ -97,35 +81,6 @@ function summarizeWsPayload(raw: unknown): string {
   }
 
   return Object.prototype.toString.call(raw);
-}
-
-async function resolveAdminAuth(): Promise<AdminAuthState> {
-  if (isAuthBypassedForLocalDev()) {
-    return {
-      status: "authorized",
-      auth: {
-        userId: "local-dev-user",
-        orgId: "local-dev-org",
-      },
-    };
-  }
-
-  const session = await auth();
-  if (!session?.user) {
-    return { status: "unauthenticated" };
-  }
-
-  if (!isEmailAllowed(session.user.email)) {
-    return { status: "forbidden" };
-  }
-
-  const userId = session.user.id;
-  const orgId = (session.user as unknown as { orgId?: string }).orgId;
-  if (!userId || !orgId) {
-    return { status: "unauthenticated" };
-  }
-
-  return { status: "authorized", auth: { userId, orgId } };
 }
 
 function parsePostBody(raw: unknown): RelayPayload | null {
@@ -538,7 +493,10 @@ function waitForRelayConnection(connectionId: string): Promise<RelayConnection |
 }
 
 export async function GET(request: NextRequest) {
-  const auth = await resolveAdminAuth();
+  const auth = await resolveRouteAuth({
+    kind: "admin",
+    localBypassEnabled: isAuthBypassedForLocalDev(),
+  });
   if (auth.status === "unauthenticated") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -620,7 +578,10 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await resolveAdminAuth();
+  const auth = await resolveRouteAuth({
+    kind: "admin",
+    localBypassEnabled: isAuthBypassedForLocalDev(),
+  });
   if (auth.status === "unauthenticated") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

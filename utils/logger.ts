@@ -40,6 +40,9 @@ const retrievalStats: RetrievalCounter = {
  */
 export const logger = {
   debug(message: string, context?: Record<string, unknown>): void {
+    if (!isDebugLogEnabled()) {
+      return;
+    }
     console.debug(formatEvent("debug", message, context));
   },
   info(message: string, context?: Record<string, unknown>): void {
@@ -52,6 +55,10 @@ export const logger = {
     console.error(formatEvent("error", message, context));
   },
 };
+
+function isDebugLogEnabled(): boolean {
+  return process.env.NODE_ENV !== "production" || process.env.LOG_LEVEL?.toLowerCase() === "debug";
+}
 
 /**
  * Log a retrieval run and record source counts to make observability queries easy.

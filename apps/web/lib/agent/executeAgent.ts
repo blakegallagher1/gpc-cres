@@ -1569,7 +1569,12 @@ export async function executeAgentWorkflow(
     const preFilterTools = (coordinator.tools ?? [])
       .map((t) => getToolName(t))
       .filter((n): n is string => !!n);
-    console.log(`[agent-pre-filter] intent=${queryIntent} toolCount=${preFilterTools.length} hasQueryPropertyDb=${preFilterTools.includes("query_property_db")} tools=[${preFilterTools.join(",")}]`);
+    logger.debug("Agent pre-filter tool inventory", {
+      queryIntent,
+      toolCount: preFilterTools.length,
+      hasQueryPropertyDb: preFilterTools.includes("query_property_db"),
+      tools: preFilterTools,
+    });
     // Apply tool policy: filter by intent + exclude tools not suitable for web runtime.
     // Agent SDK doesn't expose clone(), so we mutate the tools array directly.
     if (coordinator.tools && coordinator.tools.length > 0) {
@@ -1595,9 +1600,12 @@ export async function executeAgentWorkflow(
         name === "record_memory_event" ||
         name === "lookup_entity_by_address",
     );
-    console.log(
-      `[agent-run-start] run=${dbRun.id} intent=${queryIntent} tools=[${configuredToolNames.join(",")}] memoryTools=[${configuredMemoryTools.join(",") || "NONE"}]`,
-    );
+    logger.debug("Agent run starting", {
+      runId: dbRun.id,
+      queryIntent,
+      tools: configuredToolNames,
+      memoryTools: configuredMemoryTools,
+    });
     emit({ type: "agent_switch", agentName: "Coordinator" });
 
     let runInput: ReturnType<typeof buildAgentInputItems> | RunState<
@@ -1674,13 +1682,14 @@ export async function executeAgentWorkflow(
       .filter((name): name is string => Boolean(name));
     const memoryToolsPresent = coordinatorToolNames.filter((name) => MEMORY_TOOL_NAMES.has(name));
     const missingMemoryTools = [...MEMORY_TOOL_NAMES].filter((name) => !memoryToolsPresent.includes(name));
-    console.log(
-      `[agent-run-tools] run=${dbRun.id} intent=${queryIntent} toolCount=${coordinatorToolNames.length} tools=${coordinatorToolNames.join(",")}`,
-    );
-    console.log(
-      `[agent-run-tools] run=${dbRun.id} memoryToolsPresent=${memoryToolsPresent.join(",") || "none"} ` +
-        `memoryToolsMissing=${missingMemoryTools.join(",") || "none"}`,
-    );
+    logger.debug("Agent run tool registry", {
+      runId: dbRun.id,
+      queryIntent,
+      toolCount: coordinatorToolNames.length,
+      tools: coordinatorToolNames,
+      memoryToolsPresent,
+      memoryToolsMissing: missingMemoryTools,
+    });
 
     const runAttempt = async (
       attemptInput: AgentRunInput,
@@ -1809,13 +1818,21 @@ export async function executeAgentWorkflow(
           const toolName = getToolName(toolPayload) ?? getToolName(current);
           if (toolName) {
             state.toolsInvoked.add(toolName);
-            console.log(`[agent-tool] ${toolName} invoked (run=${dbRun.id}, attempt=${label})`);
+            logger.debug("Agent tool invoked", {
+              runId: dbRun.id,
+              attemptLabel: label,
+              toolName,
+            });
             if (
               toolName === "store_memory" ||
               toolName.startsWith("get_entity") ||
               toolName === "record_memory_event"
             ) {
-              console.log(`[memory-tool] ✓ ${toolName} called — memory system is active`);
+              logger.debug("Agent memory tool invoked", {
+                runId: dbRun.id,
+                attemptLabel: label,
+                toolName,
+              });
             }
             const output = extractToolOutput(toolPayload) ?? extractToolOutput(current);
             const args = extractToolArgs(toolPayload) ?? extractToolArgs(current);
@@ -1989,9 +2006,11 @@ export async function executeAgentWorkflow(
           pendingApprovalState = enforcementResult.pendingApprovalState;
           break;
         }
-        console.warn(
-          `[agent-memory-enforcement] run=${dbRun.id} did not observe store_memory on attempt ${enforcementAttempt}; retrying=${enforcementAttempt < MEMORY_ENFORCEMENT_MAX_RETRIES}`,
-        );
+        logger.warn("Agent memory enforcement retrying", {
+          runId: dbRun.id,
+          attempt: enforcementAttempt,
+          retrying: enforcementAttempt < MEMORY_ENFORCEMENT_MAX_RETRIES,
+        });
       }
 
       if (enforcementAttempted && !state.toolsInvoked.has("store_memory")) {
@@ -2033,9 +2052,11 @@ export async function executeAgentWorkflow(
         if (hasAddressMemoryLookup(state)) {
           break;
         }
-        console.warn(
-          `[agent-memory-lookup-enforcement] run=${dbRun.id} did not observe address memory lookup on attempt ${lookupEnforcementAttempt}; retrying=${lookupEnforcementAttempt < MEMORY_ENFORCEMENT_MAX_RETRIES}`,
-        );
+        logger.warn("Agent memory lookup enforcement retrying", {
+          runId: dbRun.id,
+          attempt: lookupEnforcementAttempt,
+          retrying: lookupEnforcementAttempt < MEMORY_ENFORCEMENT_MAX_RETRIES,
+        });
       }
 
       if (lookupEnforcementAttempted && !hasAddressMemoryLookup(state)) {
@@ -2388,7 +2409,13 @@ export async function executeAgentWorkflow(
     const memoryToolsUsed = sortedToolsInvoked.filter(
       (t) => t === "store_memory" || t === "get_entity_truth" || t === "get_entity_memory" || t === "record_memory_event",
     );
-    console.log(`[agent-run-complete] run=${dbRun.id} status=${status} tools=[${sortedToolsInvoked.join(",")}] memoryTools=[${memoryToolsUsed.join(",") || "NONE"}] intent=${queryIntent}`);
+    logger.info("Agent run completed", {
+      runId: dbRun.id,
+      status,
+      queryIntent,
+      tools: sortedToolsInvoked,
+      memoryTools: memoryToolsUsed,
+    });
 
     const trust: AgentTrustEnvelope = {
       toolsInvoked: sortedToolsInvoked,

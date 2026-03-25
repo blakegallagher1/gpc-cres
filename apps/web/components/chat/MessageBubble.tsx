@@ -15,6 +15,7 @@ import {
   Rocket,
   Link as LinkIcon,
 } from 'lucide-react';
+import { formatOperatorTime } from '@/lib/formatters/operatorFormatters';
 import { cn } from '@/lib/utils';
 import { getAgentColor, getAgentBorderColor, formatAgentLabel } from './AgentIndicator';
 import { ToolCallCard } from './ToolCallCard';
@@ -63,14 +64,11 @@ function ToolResultCard({ name, result }: { name: string; result: unknown }) {
 export type { ChatMessage } from '@/lib/chat/types';
 
 function formatDateDisplay(value: string): string {
-  try {
-    return new Date(value).toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } catch {
-    return '';
-  }
+  const formatted = formatOperatorTime(value, {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  return formatted === 'N/A' ? '' : formatted;
 }
 
 function findSourceUrl(message: ChatMessage): string | null {

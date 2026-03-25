@@ -6,6 +6,7 @@ import { AUTOMATION_CONFIG } from "./config";
 import type { AutomationEvent } from "./types";
 import { captureAutomationTimeout } from "./sentry";
 import { withTimeout } from "./timeout";
+import { logger } from "@/lib/logger";
 
 type AgentRunCompletedEvent = Extract<AutomationEvent, { type: "agent.run.completed" }>;
 
@@ -78,10 +79,9 @@ export async function handleAgentLearningPromotion(
           },
         });
       } catch (error) {
-        console.error(
-          "[automation] Failed to record agent learning timeout:",
-          error instanceof Error ? error.message : String(error),
-        );
+        logger.error("Automation failed to record agent learning timeout", {
+          errorMessage: error instanceof Error ? error.message : String(error),
+        });
       }
       return;
     }

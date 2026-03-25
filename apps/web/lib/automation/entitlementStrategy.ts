@@ -3,6 +3,7 @@ import { runEntitlementStrategyAutopilot } from "@/lib/services/entitlementStrat
 import { getAutomationDealContext, isEntitlementStrategy } from "./context";
 import { captureAutomationTimeout } from "./sentry";
 import { withTimeout } from "./timeout";
+import { logger } from "@/lib/logger";
 
 const ENTITLEMENT_STRATEGY_TIMEOUT_MS = 25_000;
 
@@ -61,9 +62,8 @@ export async function handleEntitlementStrategyAutopilot(
       return;
     }
   } catch (error) {
-    console.error(
-      "[automation] Entitlement strategy autopilot failed:",
-      error instanceof Error ? error.message : String(error),
-    );
+    logger.error("Automation entitlement strategy autopilot failed", {
+      errorMessage: error instanceof Error ? error.message : String(error),
+    });
   }
 }

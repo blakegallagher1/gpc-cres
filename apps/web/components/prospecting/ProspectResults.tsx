@@ -21,6 +21,10 @@ import {
   CheckSquare,
   Square,
 } from "lucide-react";
+import {
+  formatOperatorAcreage,
+  formatOperatorCurrency,
+} from "@/lib/formatters/operatorFormatters";
 import { toast } from "sonner";
 
 // ---------------------------------------------------------------------------
@@ -389,7 +393,13 @@ export function ProspectResults({
                     {p.owner}
                   </td>
                   <td className="py-2 pr-4 text-right tabular-nums">
-                    {p.acreage != null ? p.acreage.toFixed(2) : "—"}
+                    {p.acreage != null
+                      ? formatOperatorAcreage(p.acreage, {
+                          includeUnit: false,
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })
+                      : "—"}
                   </td>
                   <td className="py-2 pr-4">
                     {p.zoning ? (
@@ -402,7 +412,10 @@ export function ProspectResults({
                   </td>
                   <td className="py-2 pr-4 text-right tabular-nums">
                     {p.assessedValue != null
-                      ? `$${p.assessedValue.toLocaleString()}`
+                      ? formatOperatorCurrency(p.assessedValue, {
+                          minimumFractionDigits: 0,
+                          maximumFractionDigits: 0,
+                        })
                       : "—"}
                   </td>
                   <td className="py-2 pr-4 text-xs">{p.floodZone || "—"}</td>

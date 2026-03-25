@@ -10,17 +10,12 @@ import {
 } from 'react';
 import { ArrowUp, Paperclip, Square, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { formatOperatorFileSize } from '@/lib/formatters/operatorFormatters';
 import { cn } from '@/lib/utils';
 
 const MAX_FILES = 5;
 const ACCEPTED_FILE_TYPES =
   '.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.png,.jpg,.jpeg,.tiff,.tif';
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes}B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
-}
 
 interface ChatInputProps {
   onSend: (content: string, files?: File[]) => void;
@@ -146,7 +141,7 @@ export function ChatInput({
             >
               <span className="max-w-[180px] truncate">{file.name}</span>
               <span className="text-muted-foreground">
-                ({formatFileSize(file.size)})
+                ({formatOperatorFileSize(file.size)})
               </span>
               <button
                 type="button"

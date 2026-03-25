@@ -36,7 +36,19 @@ module.exports = [
       "@next/next": nextPlugin
     },
     rules: {
-      ...nextPlugin.configs["core-web-vitals"].rules
+      ...nextPlugin.configs["core-web-vitals"].rules,
+      "no-console": ["error", { allow: ["warn", "error"] }]
     }
+  },
+  {
+    files: [
+      "**/*.test.{js,jsx,ts,tsx}",
+      "**/__tests__/**/*.{js,jsx,ts,tsx}",
+      "scripts/**/*.{js,jsx,ts,tsx}",
+      "lib/server/observability.ts",
+    ],
+    rules: {
+      "no-console": "off",
+    },
   }
 ];

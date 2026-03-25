@@ -1,4 +1,5 @@
 import type { AutomationEvent } from "./types";
+import { logger } from "@/lib/logger";
 
 function resolveTerminalOutcomeStatus(
   event: AutomationEvent,
@@ -35,9 +36,8 @@ export async function handleOutcomeCapture(event: AutomationEvent): Promise<void
       toStatus: terminalStatus,
     });
   } catch (err) {
-    console.error(
-      "[automation] outcome capture failed:",
-      err instanceof Error ? err.message : String(err),
-    );
+    logger.error("Automation outcome capture failed", {
+      errorMessage: err instanceof Error ? err.message : String(err),
+    });
   }
 }

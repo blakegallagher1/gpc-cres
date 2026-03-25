@@ -1,5 +1,6 @@
 import { prisma } from "@entitlement-os/db";
 import type { Prisma } from "@entitlement-os/db";
+import { logger } from "@/lib/logger";
 
 export type AutomationNotificationType =
   | "veto_review"
@@ -97,10 +98,9 @@ export async function createAutomationTask(params: CreateAutomationTaskParams) {
     }
   } catch (err) {
     // Never let notification creation failure break automation
-    console.error(
-      "[automation] Failed to create notification:",
-      err instanceof Error ? err.message : String(err)
-    );
+    logger.error("Automation failed to create notification", {
+      errorMessage: err instanceof Error ? err.message : String(err),
+    });
   }
 
   return task;

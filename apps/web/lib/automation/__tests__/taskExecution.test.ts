@@ -55,11 +55,11 @@ describe("handleTaskCreated", () => {
     dbMock.prisma.task.findFirst.mockResolvedValue({ id: "t", title: "Check flood zone data", status: "TODO" });
     dbMock.prisma.task.count.mockResolvedValue(2); // < maxConcurrentPerDeal (5)
 
-    const consoleSpy = vi.spyOn(console, "log").mockImplementation();
+    const consoleSpy = vi.spyOn(console, "info").mockImplementation();
     await handleTaskCreated({ type: "task.created", dealId: "d", taskId: "t", orgId: "o" });
 
-    expect(consoleSpy).toHaveBeenCalledWith(
-      expect.stringContaining("agent-executable")
+    expect(String(consoleSpy.mock.calls[0]?.[0] ?? "")).toContain(
+      "Automation task execution marked task as agent-executable",
     );
     consoleSpy.mockRestore();
   });

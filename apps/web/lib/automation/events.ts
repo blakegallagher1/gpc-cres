@@ -1,4 +1,5 @@
 import * as Sentry from "@sentry/nextjs";
+import { logger } from "@/lib/logger";
 import {
   getRegisteredHandlers,
   resetAutomationHandlerRegistry,
@@ -108,10 +109,9 @@ export async function dispatchEvent(event: AutomationEvent): Promise<void> {
     const { ensureHandlersRegistered } = await import("./handlers");
     ensureHandlersRegistered();
   } catch (error) {
-    console.error(
-      "[automation] handler registration failed:",
-      error instanceof Error ? error.message : String(error),
-    );
+    logger.error("Automation handler registration failed", {
+      errorMessage: error instanceof Error ? error.message : String(error),
+    });
     Sentry.captureException(error instanceof Error ? error : new Error(String(error)), {
       tags: {
         automation: true,
@@ -208,10 +208,12 @@ export async function dispatchEvent(event: AutomationEvent): Promise<void> {
         });
       });
 
-      console.error(
-        `[automation][${errorCode}] Handler error for ${event.type}/${handlerName}:`,
-        err instanceof Error ? err.message : String(err)
-      );
+      logger.error("Automation handler execution failed", {
+        errorCode,
+        eventType: event.type,
+        handlerName,
+        errorMessage: err instanceof Error ? err.message : String(err),
+      });
 
       // Record failure with error code
       if (eventId) {
@@ -242,10 +244,9 @@ export async function dispatchEvent(event: AutomationEvent): Promise<void> {
       }),
     )
     .catch((error) => {
-      console.error(
-        "[automation] proactive trigger evaluation failed:",
-        error instanceof Error ? error.message : String(error),
-      );
+      logger.error("Automation proactive trigger evaluation failed", {
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
     });
 }
 

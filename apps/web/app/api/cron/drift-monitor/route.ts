@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { trackDrift } from "@/lib/services/driftFreezeService";
 import * as Sentry from "@sentry/nextjs";
+import { logger, serializeErrorForLogs } from "@/lib/logger";
 
 function verifyCronSecret(req: Request): boolean {
   const secret = (process.env.CRON_SECRET || "").trim();
@@ -51,7 +52,7 @@ export async function GET(req: Request) {
     Sentry.captureException(err, {
       tags: { route: "api.cron.drift-monitor", method: "GET" },
     });
-    console.error("[cron/drift-monitor] failed:", err);
+    logger.error("Cron drift-monitor failed", serializeErrorForLogs(err));
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

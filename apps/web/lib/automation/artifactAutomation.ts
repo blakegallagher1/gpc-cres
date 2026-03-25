@@ -11,6 +11,7 @@ import {
 } from "./context";
 import { captureAutomationTimeout } from "./sentry";
 import { withTimeout } from "./timeout";
+import { logger } from "@/lib/logger";
 
 const ARTIFACT_RENDER_TIMEOUT_MS = 15_000;
 const ARTIFACT_UPLOAD_TIMEOUT_MS = 10_000;
@@ -279,19 +280,22 @@ export async function handleArtifactOnStatusChange(event: AutomationEvent): Prom
         pipelineStep,
       });
 
-      console.log(
-        `[automation] Auto-generated BUYER_TEASER_PDF v${nextVersion} for deal ${dealId}`
-      );
+      logger.info("Automation BUYER_TEASER_PDF auto-generated", {
+        dealId,
+        version: nextVersion,
+      });
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       await failArtifactRun(run.id, msg);
-      console.error(`[automation] BUYER_TEASER_PDF auto-gen failed for ${dealId}:`, msg);
+      logger.error("Automation BUYER_TEASER_PDF auto-generation failed", {
+        dealId,
+        errorMessage: msg,
+      });
     }
   } catch (error) {
-    console.error(
-      "[automation] handleArtifactOnStatusChange error:",
-      error instanceof Error ? error.message : String(error)
-    );
+    logger.error("Automation artifact status-change handler failed", {
+      errorMessage: error instanceof Error ? error.message : String(error),
+    });
   }
 }
 
@@ -343,10 +347,9 @@ export async function handleTriageArtifactNotification(event: AutomationEvent): 
       })),
     });
   } catch (err) {
-    console.error(
-      "[automation] handleTriageArtifactNotification error:",
-      err instanceof Error ? err.message : String(err)
-    );
+    logger.error("Automation triage artifact notification failed", {
+      errorMessage: err instanceof Error ? err.message : String(err),
+    });
   }
 }
 
@@ -547,7 +550,10 @@ async function ensureTriagePdfGenerated(dealId: string, orgId: string): Promise<
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     await failArtifactRun(run.id, msg);
-    console.error("[automation] TRIAGE_PDF auto-generation failed:", msg);
+    logger.error("Automation TRIAGE_PDF auto-generation failed", {
+      dealId,
+      errorMessage: msg,
+    });
     return null;
   }
 }

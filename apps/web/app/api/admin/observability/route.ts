@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
-import { isEmailAllowed } from "@/lib/auth/allowedEmails";
+import { resolveRouteAuth } from "@/lib/auth/routeAuth";
 import {
   attachRequestIdHeader,
   createRequestObservabilityContext,
@@ -15,58 +14,8 @@ export const runtime = "nodejs";
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 200;
 
-type AdminAuthState =
-  | {
-      status: "authorized";
-      auth: {
-        userId: string;
-        orgId: string;
-      };
-    }
-  | {
-      status: "unauthenticated";
-    }
-  | {
-      status: "forbidden";
-    };
-
 function isAuthBypassedForLocalDev(): boolean {
   return process.env.NODE_ENV !== "production" && process.env.OBSERVABILITY_ADMIN_LOCAL_BYPASS === "true";
-}
-
-async function resolveAdminAuth(): Promise<AdminAuthState> {
-  if (isAuthBypassedForLocalDev()) {
-    return {
-      status: "authorized",
-      auth: {
-        userId: "local-dev-user",
-        orgId: "local-dev-org",
-      },
-    };
-  }
-
-  const session = await auth();
-  if (!session?.user) {
-    return { status: "unauthenticated" };
-  }
-
-  if (!isEmailAllowed(session.user.email)) {
-    return { status: "forbidden" };
-  }
-
-  const userId = session.user.id;
-  const orgId = (session.user as { orgId?: string | null }).orgId;
-  if (!userId || !orgId) {
-    return { status: "unauthenticated" };
-  }
-
-  return {
-    status: "authorized",
-    auth: {
-      userId,
-      orgId,
-    },
-  };
 }
 
 function parseLimit(rawLimit: string | null): number | null {
@@ -121,7 +70,10 @@ export async function GET(request: NextRequest) {
   const context = createRequestObservabilityContext(request, "/api/admin/observability");
   const withRequestId = (response: NextResponse) => attachRequestIdHeader(response, context.requestId);
   const authBypassed = isAuthBypassedForLocalDev();
-  const authState = await resolveAdminAuth();
+  const authState = await resolveRouteAuth({
+    kind: "admin",
+    localBypassEnabled: authBypassed,
+  });
   if (authState.status === "unauthenticated") {
     return withRequestId(NextResponse.json({ error: "Unauthorized" }, { status: 401 }));
   }
