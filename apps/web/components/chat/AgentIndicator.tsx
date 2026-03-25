@@ -1,5 +1,7 @@
 'use client';
 
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 const agentColors: Record<string, string> = {
@@ -62,22 +64,29 @@ export function AgentIndicator({ agentName }: AgentIndicatorProps) {
 
   return (
     <div className="border-b border-border/60 px-4 py-3 sm:px-6">
-      <div className="app-shell-panel flex items-center justify-between gap-3 rounded-2xl px-4 py-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <span className={cn('h-2.5 w-2.5 shrink-0 rounded-full animate-pulse', color)} />
-          <div className="min-w-0">
-            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-              Active Handoff
-            </p>
-            <p className="truncate text-sm font-medium text-foreground">
-              {label} is executing the current step.
-            </p>
+      <Card className="app-shell-panel border-border/60 bg-transparent">
+        <CardContent className="flex items-center justify-between gap-3 p-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className={cn('h-2.5 w-2.5 shrink-0 rounded-full animate-pulse', color)} />
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+                  Active Handoff
+                </p>
+                <Badge variant="outline" className="border-border/70 bg-background/55 text-[9px]">
+                  {label}
+                </Badge>
+              </div>
+              <p className="truncate text-sm font-medium text-foreground">
+                {label} is executing the current step.
+              </p>
+            </div>
           </div>
-        </div>
-        <p className="hidden text-xs text-muted-foreground xl:block">
-          Watch tools and verification in the inspector.
-        </p>
-      </div>
+          <p className="hidden text-xs text-muted-foreground xl:block">
+            Watch tools and verification in the inspector.
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -1,5 +1,22 @@
 import { type ReactElement, type ReactNode, useMemo, useState } from "react";
 import { ChevronDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Card, CardContent } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import {
   extractFinancialKpis,
@@ -84,30 +101,30 @@ function renderMarkdownTable(rows: string[]): ReactElement[] {
   const bodyRows = parsedRows.slice(2).filter((row) => row.some(Boolean));
 
   return [
-    <div key="markdown-table" className="my-2 overflow-x-auto rounded-lg border border-border/60">
-      <table className="min-w-full text-xs">
-        <thead className="bg-muted/60">
-          <tr>
+    <Card key="markdown-table" className="my-2 overflow-hidden border-border/60 bg-background/75">
+      <Table className="min-w-full text-xs">
+        <TableHeader className="bg-muted/35">
+          <TableRow>
             {headers.map((header, i) => (
-              <th key={`${header}-${i}`} className="px-3 py-1.5 text-left font-medium">
+              <TableHead key={`${header}-${i}`} className="h-auto px-3 py-2 text-left font-medium normal-case tracking-normal">
                 {stripInlineMarkdown(header)}
-              </th>
+              </TableHead>
             ))}
-          </tr>
-        </thead>
-        <tbody>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {bodyRows.map((row, rowIndex) => (
-            <tr key={`row-${rowIndex}`} className="border-t border-border/50">
+            <TableRow key={`row-${rowIndex}`}>
               {headers.map((_, i) => (
-                <td key={`${rowIndex}-${i}`} className="px-3 py-1.5">
+                <TableCell key={`${rowIndex}-${i}`} className="px-3 py-2 text-xs">
                   {stripInlineMarkdown(row[i] ?? "")}
-                </td>
+                </TableCell>
               ))}
-            </tr>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
-    </div>,
+        </TableBody>
+      </Table>
+    </Card>,
   ];
 }
 
@@ -159,12 +176,12 @@ function renderMarkdownText(content: string): MarkdownNode[] {
         index += 1;
       }
       nodes.push(
-        <pre
+        <ScrollArea
           key={`code-${index}`}
-          className="my-2 overflow-x-auto rounded-lg border border-border/60 bg-muted/35 p-2 text-xs"
+          className="my-2 max-h-64 rounded-lg border border-border/60 bg-muted/35"
         >
-          {fenceLines.join("\n")}
-        </pre>,
+          <pre className="p-2 text-xs">{fenceLines.join("\n")}</pre>
+        </ScrollArea>,
       );
       index = Math.min(index + 1, lines.length);
       continue;
@@ -192,7 +209,7 @@ function renderMarkdownText(content: string): MarkdownNode[] {
         index += 1;
       }
       nodes.push(
-        <ul key={`ul-${index}`} className="ml-4 list-disc space-y-1 text-sm leading-relaxed">
+        <ul key={`ul-${index}`} className="ml-4 flex list-disc flex-col gap-1 text-sm leading-relaxed">
           {items.map((item, itemIndex) => (
             <li key={`${itemIndex}-${item}`}>{stripInlineMarkdown(item)}</li>
           ))}
@@ -212,7 +229,7 @@ function renderMarkdownText(content: string): MarkdownNode[] {
         index += 1;
       }
       nodes.push(
-        <ol key={`ol-${index}`} className="ml-4 list-decimal space-y-1 text-sm leading-relaxed">
+        <ol key={`ol-${index}`} className="ml-4 flex list-decimal flex-col gap-1 text-sm leading-relaxed">
           {items.map((item, itemIndex) => (
             <li key={`${itemIndex}-${item}`}>{stripInlineMarkdown(item)}</li>
           ))}
@@ -240,32 +257,35 @@ function renderObjectArrayTable(
   if (!headers.length) return null;
 
   return (
-    <div className="space-y-1.5">
+    <div className="flex flex-col gap-1.5">
       <p className="font-medium text-xs text-muted-foreground">{title}</p>
-      <div className="overflow-x-auto rounded-lg border border-border/60">
-        <table className="min-w-full text-xs">
-          <thead className="bg-muted/60">
-            <tr>
+      <Card className="overflow-hidden border-border/60 bg-background/75">
+        <Table className="min-w-full text-xs">
+          <TableHeader className="bg-muted/35">
+            <TableRow>
               {headers.map((header) => (
-                <th key={header} className="px-2 py-1.5 text-left font-medium">
+                <TableHead
+                  key={header}
+                  className="h-auto px-2 py-2 text-left font-medium normal-case tracking-normal"
+                >
                   {header}
-                </th>
+                </TableHead>
               ))}
-            </tr>
-          </thead>
-          <tbody>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {rows.map((row, i) => (
-              <tr key={`${title}-${i}`} className="border-t border-border/50">
+              <TableRow key={`${title}-${i}`}>
                 {headers.map((header) => (
-                  <td key={`${title}-${i}-${header}`} className="px-2 py-1.5">
+                  <TableCell key={`${title}-${i}-${header}`} className="px-2 py-2 text-xs">
                     {formatTableValue(row[header])}
-                  </td>
+                  </TableCell>
                 ))}
-              </tr>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </TableBody>
+        </Table>
+      </Card>
     </div>
   );
 }
@@ -302,10 +322,13 @@ function SectionCard({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-lg border border-border/60 bg-background/80 p-2.5 text-xs">
-      <h4 className="mb-2 font-medium text-muted-foreground">{title}</h4>
-      {children}
-    </section>
+    <Card className="border-border/60 bg-background/80 text-xs">
+      <CardContent className="flex flex-col gap-2 p-2.5">
+        <h4 className="font-medium text-muted-foreground">{title}</h4>
+        <Separator />
+        {children}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -316,14 +339,27 @@ function CollapsibleSection({
   title: string;
   children: ReactNode;
 }) {
+  const [open, setOpen] = useState(false);
+
   return (
-    <details className="group rounded-lg border border-border/60 bg-background/75 p-2.5">
-      <summary className="flex cursor-pointer list-none items-center justify-between text-xs text-muted-foreground">
-        <span className="font-medium">{title}</span>
-        <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
-      </summary>
-      <div className="mt-2">{children}</div>
-    </details>
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <Card className="border-border/60 bg-background/75">
+        <CollapsibleTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            className="flex h-auto w-full items-center justify-between rounded-none px-2.5 py-2 text-xs text-muted-foreground"
+          >
+            <span className="font-medium">{title}</span>
+            <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")} />
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <Separator />
+          <CardContent className="pt-2.5">{children}</CardContent>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
   );
 }
 
@@ -349,9 +385,11 @@ export function StructuredMessageRenderer({ content }: StructuredMessageRenderer
 
   if (!parsed || !safePayload) {
     return (
-      <pre className="whitespace-pre-wrap break-words font-mono text-sm leading-relaxed">
-        {content}
-      </pre>
+      <ScrollArea className="max-h-72 rounded-xl border border-border/60 bg-muted/20">
+        <pre className="whitespace-pre-wrap break-words p-3 font-mono text-sm leading-relaxed">
+          {content}
+        </pre>
+      </ScrollArea>
     );
   }
 
@@ -363,14 +401,14 @@ export function StructuredMessageRenderer({ content }: StructuredMessageRenderer
   const planSummary = typeof executionPlan?.summary === "string" ? executionPlan.summary : "";
 
   return (
-    <div className="space-y-2">
+    <div className="flex flex-col gap-2">
       <p className="text-xs font-medium text-muted-foreground">Structured assistant report</p>
 
       <FinancialKpiCards metrics={metrics} />
 
       <SectionCard title="Task Understanding">
         {taskUnderstanding ? (
-          <div className="space-y-2">
+          <div className="flex flex-col gap-2">
             {typeof taskUnderstanding.summary === "string" ? (
               <div>{renderMarkdownText(taskUnderstanding.summary)}</div>
             ) : (
@@ -397,10 +435,10 @@ export function StructuredMessageRenderer({ content }: StructuredMessageRenderer
       </SectionCard>
 
       <CollapsibleSection title="Execution Plan">
-        <div className="space-y-2">
+        <div className="flex flex-col gap-2">
           {planSummary ? <p className="text-foreground/90">{planSummary}</p> : null}
           {steps.length > 0 ? (
-            <ol className="list-inside list-decimal space-y-2">
+            <ol className="flex list-inside list-decimal flex-col gap-2">
               {steps.map((step, index) => {
                 const stepSummary = typeof step.summary === "string" ? step.summary : "";
                 const responsibility =
@@ -410,7 +448,7 @@ export function StructuredMessageRenderer({ content }: StructuredMessageRenderer
                 const timeline = typeof step.timeline === "string" ? step.timeline : null;
 
                 return (
-                  <li key={`${agent}-${index}`} className="space-y-1 text-xs">
+                  <li key={`${agent}-${index}`} className="flex flex-col gap-1 text-xs">
                     <p className="font-medium">{`${index + 1}. ${agent}`}</p>
                     {stepSummary ? <p className="text-foreground/85">{stepSummary}</p> : null}
                     {responsibility ? (
@@ -442,7 +480,7 @@ export function StructuredMessageRenderer({ content }: StructuredMessageRenderer
 
       {keyAssumptions.length > 0 ? (
         <SectionCard title="Key Assumptions">
-          <ul className="ml-4 list-disc space-y-1">
+          <ul className="ml-4 flex list-disc flex-col gap-1">
             {keyAssumptions.map((assumption, assumptionIndex) => (
               <li key={`${assumptionIndex}-${assumption}`}>{assumption}</li>
             ))}
@@ -452,7 +490,7 @@ export function StructuredMessageRenderer({ content }: StructuredMessageRenderer
 
       {sources.length > 0 ? (
         <SectionCard title="Sources">
-          <ul className="ml-4 list-disc space-y-1">
+          <ul className="ml-4 flex list-disc flex-col gap-1">
             {sources.map((source, sourceIndex) => (
               <li key={`${sourceIndex}-${source}`} className="break-all">
                 {source}
@@ -462,23 +500,25 @@ export function StructuredMessageRenderer({ content }: StructuredMessageRenderer
         </SectionCard>
       ) : null}
 
-      <button
+      <Button
         type="button"
-        className="text-xs text-muted-foreground underline underline-offset-2"
+        variant="ghost"
+        size="sm"
+        className="h-7 justify-start px-1.5 text-xs text-muted-foreground"
         aria-expanded={showRaw}
         aria-controls="structured-message-raw"
         onClick={() => setShowRaw((prev) => !prev)}
       >
         {showRaw ? "Hide Raw" : "View Raw"}
-      </button>
+      </Button>
 
       {showRaw ? (
-        <pre
+        <ScrollArea
           id="structured-message-raw"
-          className="max-h-64 overflow-auto rounded-lg border border-border/60 bg-muted/40 p-2 text-xs whitespace-pre-wrap"
+          className="max-h-64 rounded-lg border border-border/60 bg-muted/40"
         >
-          {parsed.raw}
-        </pre>
+          <pre className="whitespace-pre-wrap p-2 text-xs">{parsed.raw}</pre>
+        </ScrollArea>
       ) : null}
     </div>
   );

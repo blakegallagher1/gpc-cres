@@ -9,6 +9,10 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Map, ChevronRight, ChevronLeft } from "lucide-react";
 import { MessageList } from "@/components/chat/MessageList";
 import { ChatInput } from "@/components/chat/ChatInput";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 import { parseSSEStream } from "@/lib/chat/stream";
 import {
   applyStreamingEvent,
@@ -173,14 +177,15 @@ export function MapChatPanel({
 
   const helperText = mapState.spatialSelection
     ? "Use the map context directly. Selected parcels, viewport bounds, and the active polygon are included in the request."
-    : "Use the map context directly. Selected parcels and viewport state are included in the request.";
+      : "Use the map context directly. Selected parcels and viewport state are included in the request.";
 
   return (
     <>
-      <button
+      <Button
         type="button"
+        variant="outline"
         onClick={() => setOpen((value) => !value)}
-        className="absolute right-3 top-4 z-30 flex items-center gap-3 rounded-2xl border border-map-border bg-map-surface-overlay px-3 py-2 text-left text-sm font-medium text-map-text-primary shadow-xl backdrop-blur-md transition-colors hover:bg-map-surface"
+        className="absolute right-3 top-4 z-30 h-auto justify-start gap-3 border-map-border bg-map-surface-overlay px-3 py-2 text-left text-sm font-medium text-map-text-primary shadow-xl backdrop-blur-md hover:bg-map-surface"
         title={open ? "Close Map Copilot" : "Open Map Copilot"}
       >
         <div className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-map-border bg-map-surface/70">
@@ -193,7 +198,7 @@ export function MapChatPanel({
           </div>
         </div>
         {open ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-      </button>
+      </Button>
 
       <AnimatePresence initial={false}>
         {open && (
@@ -214,18 +219,19 @@ export function MapChatPanel({
                   Ask for parcel pressure, permit momentum, and site-selection context.
                 </h3>
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] text-map-text-secondary">
-                  <span className="rounded-full border border-map-border bg-map-surface px-2.5 py-1">
+                  <Badge variant="outline" className="px-2.5 py-1 text-[9px]">
                     {parcelCount ?? 0} in view
-                  </span>
-                  <span className="rounded-full border border-map-border bg-map-surface px-2.5 py-1">
+                  </Badge>
+                  <Badge variant="outline" className="px-2.5 py-1 text-[9px]">
                     {selectedCount ?? 0} selected
-                  </span>
+                  </Badge>
                 </div>
                 {viewportLabel ? (
                   <p className="mt-2 text-[10px] leading-4 text-map-text-muted">{viewportLabel}</p>
                 ) : null}
               </div>
-              <div className="min-h-0 flex-1 overflow-hidden">
+              <Separator className="bg-map-border" />
+              <ScrollArea className="min-h-0 flex-1">
                 <MessageList
                   messages={messages}
                   isStreaming={isStreaming}
@@ -243,7 +249,7 @@ export function MapChatPanel({
                     ],
                   }}
                 />
-              </div>
+              </ScrollArea>
               <ChatInput
                 onSend={handleSend}
                 isStreaming={isStreaming}

@@ -19,8 +19,17 @@ import { DashboardShell } from "@/components/layout/DashboardShell";
 import type { ParcelMapRef } from "@/components/maps/ParcelMap";
 import { ScreeningScorecard } from "@/components/maps/ScreeningScorecard";
 import type { MapParcel } from "@/components/maps/types";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import {
   buildMapContextInput,
@@ -106,9 +115,28 @@ const SURROUNDING_PARCELS_RADIUS_MILES = 1.25;
 const SEARCH_PARAMS_EVENT = "map:search-params-change";
 
 let historySearchParamsPatched = false;
+let originalPushState: typeof window.history.pushState | null = null;
+let originalReplaceState: typeof window.history.replaceState | null = null;
 
 function emitSearchParamsChange() {
   window.dispatchEvent(new Event(SEARCH_PARAMS_EVENT));
+}
+
+function restoreHistoryMethods() {
+  if (!historySearchParamsPatched || typeof window === "undefined") {
+    return;
+  }
+
+  if (originalPushState) {
+    window.history.pushState = originalPushState;
+  }
+  if (originalReplaceState) {
+    window.history.replaceState = originalReplaceState;
+  }
+
+  originalPushState = null;
+  originalReplaceState = null;
+  historySearchParamsPatched = false;
 }
 
 function ensureHistorySearchParamsPatched() {
@@ -118,14 +146,15 @@ function ensureHistorySearchParamsPatched() {
 
   historySearchParamsPatched = true;
 
-  const { pushState, replaceState } = window.history;
+  originalPushState = window.history.pushState;
+  originalReplaceState = window.history.replaceState;
   window.history.pushState = function pushStatePatched(...args) {
-    const result = pushState.apply(this, args);
+    const result = originalPushState?.apply(this, args);
     emitSearchParamsChange();
     return result;
   };
   window.history.replaceState = function replaceStatePatched(...args) {
-    const result = replaceState.apply(this, args);
+    const result = originalReplaceState?.apply(this, args);
     emitSearchParamsChange();
     return result;
   };
@@ -143,6 +172,7 @@ function subscribeToSearchParams(onStoreChange: () => void) {
   return () => {
     window.removeEventListener("popstate", onStoreChange);
     window.removeEventListener(SEARCH_PARAMS_EVENT, onStoreChange);
+    restoreHistoryMethods();
   };
 }
 
@@ -789,6 +819,11 @@ export function MapPageClient() {
   const hasNoSearchResults =
     isSearchActive && searchParcels !== null && searchParcels.length === 0;
   const searchMatchCount = searchParcels?.length ?? 0;
+  const showSuggestionSurface =
+    searchText.trim().length >= 2 &&
+    !isNaturalLanguageQuery(searchText) &&
+    (isSuggestLoading || suggestions.length > 0);
+
   const nearbyParcelCount = useMemo(() => {
     if (!isSearchActive || !searchParcels || searchParcels.length === 0) return 0;
     const matchIds = new Set(searchParcels.map((parcel) => parcel.id));
@@ -1212,8 +1247,8 @@ export function MapPageClient() {
               }}
               selectedParcelIds={selectedParcelIds}
               searchSlot={
-                <div className="space-y-4">
-                  <div className="space-y-1.5">
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-1.5">
                     <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-map-text-muted">
                       Active geography
                     </p>
@@ -1228,53 +1263,77 @@ export function MapPageClient() {
                     onSubmit={handleSearchSubmit}
                     className="flex flex-col gap-1.5"
                   >
-                    <div className="relative">
-                      <Input
-                        value={searchText}
-                        onChange={(event) => {
-                          setSearchText(event.target.value);
-                          setSearchLookupOverride(null);
-                          setSelectedSuggestion(null);
-                          setActiveSuggestionIndex(-1);
-                        }}
-                        onKeyDown={handleSearchKeyDown}
-                        onBlur={() => {
-                          setTimeout(() => {
-                            setSuggestions([]);
-                            setActiveSuggestionIndex(-1);
-                          }, 120);
-                        }}
-                        placeholder="Ask a question or search by address..."
-                        className="h-8 text-xs bg-map-surface border-map-border text-map-text-primary placeholder:text-map-text-muted"
-                      />
-                      {(isSuggestLoading || suggestions.length > 0) && (
-                        <div className="absolute z-20 mt-1 w-full rounded-md border border-map-border bg-map-surface shadow-lg">
-                          {isSuggestLoading ? (
-                            <div className="px-2 py-1.5 text-[10px] text-map-text-muted">
-                              Matching addresses...
-                            </div>
-                          ) : (
-                            <div className="max-h-44 overflow-y-auto">
-                              {suggestions.map((suggestion, index) => (
-                                <button
-                                  key={`${suggestion.id}-${index}`}
-                                  type="button"
-                                  onMouseDown={(event) => event.preventDefault()}
-                                  onClick={() => selectSuggestion(suggestion)}
-                                  className={`w-full px-2 py-1.5 text-left text-[10px] transition-colors ${
-                                    index === activeSuggestionIndex
-                                      ? "bg-map-accent/25 text-map-text-primary"
-                                      : "text-map-text-secondary hover:bg-map-surface-elevated hover:text-map-text-primary"
-                                  }`}
-                                >
-                                  {suggestion.address}
-                                </button>
-                              ))}
-                            </div>
-                          )}
+                    <Popover open={showSuggestionSurface}>
+                      <PopoverTrigger asChild>
+                        <div>
+                          <Input
+                            value={searchText}
+                            onChange={(event) => {
+                              setSearchText(event.target.value);
+                              setSearchLookupOverride(null);
+                              setSelectedSuggestion(null);
+                              setActiveSuggestionIndex(-1);
+                            }}
+                            onKeyDown={handleSearchKeyDown}
+                            onBlur={() => {
+                              setTimeout(() => {
+                                setSuggestions([]);
+                                setActiveSuggestionIndex(-1);
+                              }, 120);
+                            }}
+                            placeholder="Ask a question or search by address..."
+                            className="h-8 bg-map-surface text-xs border-map-border text-map-text-primary placeholder:text-map-text-muted"
+                          />
                         </div>
-                      )}
-                    </div>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        align="start"
+                        className="w-[var(--radix-popover-trigger-width)] border-map-border bg-map-surface p-0"
+                        onOpenAutoFocus={(event) => event.preventDefault()}
+                      >
+                        <Command className="bg-map-surface text-map-text-primary">
+                          <CommandList className="max-h-44">
+                            {isSuggestLoading ? (
+                              <div className="px-3 py-2 text-[10px] text-map-text-muted">
+                                Matching addresses...
+                              </div>
+                            ) : (
+                              <>
+                                <CommandEmpty className="py-3 text-[10px] text-map-text-muted">
+                                  No address suggestions
+                                </CommandEmpty>
+                                <CommandGroup heading="Suggested matches">
+                                  {suggestions.map((suggestion, index) => (
+                                    <CommandItem
+                                      key={`${suggestion.id}-${index}`}
+                                      value={suggestion.address}
+                                      onMouseDown={(event) => event.preventDefault()}
+                                      onSelect={() => selectSuggestion(suggestion)}
+                                      className={
+                                        index === activeSuggestionIndex
+                                          ? "bg-map-accent/25 text-map-text-primary"
+                                          : "text-map-text-secondary"
+                                      }
+                                    >
+                                      <div className="flex min-w-0 flex-col gap-0.5 py-0.5">
+                                        <span className="truncate text-[10px] font-medium">
+                                          {suggestion.address}
+                                        </span>
+                                        {suggestion.propertyDbId ? (
+                                          <span className="text-[9px] text-map-text-muted">
+                                            Property DB match
+                                          </span>
+                                        ) : null}
+                                      </div>
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </>
+                            )}
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                     <div className="flex items-center gap-2">
                       <Button
                         type="submit"
@@ -1321,7 +1380,7 @@ export function MapPageClient() {
                       <div className="map-stat-value">{polygon ? "Drawn" : nearbyParcelCount}</div>
                     </div>
                   </div>
-                  <div className="space-y-1 border-t border-map-border pt-3">
+                  <div className="flex flex-col gap-1 border-t border-map-border pt-3">
                     <p className="text-[10px] text-map-text-secondary">
                       {statusText}
                       {!polygon && debouncedSearch && !loadError
@@ -1329,14 +1388,13 @@ export function MapPageClient() {
                         : ""}
                     </p>
                     <div className="flex flex-wrap items-center gap-2 text-[10px] text-map-text-muted">
-                      <span>
+                      <Badge variant="outline" className="px-2 py-0.5 text-[9px]">
                         Source: {source === "org-fallback" ? "Org fallback" : source === "property-db" ? "Property database" : "Org parcels"}
-                      </span>
+                      </Badge>
                       {selectedParcelIds.size > 0 ? (
-                        <>
-                          <span className="h-1 w-1 rounded-full bg-map-border" />
-                          <span>{selectedParcelIds.size} selected for follow-up</span>
-                        </>
+                        <Badge variant="secondary" className="px-2 py-0.5 text-[9px]">
+                          {selectedParcelIds.size} selected for follow-up
+                        </Badge>
                       ) : null}
                     </div>
                   </div>

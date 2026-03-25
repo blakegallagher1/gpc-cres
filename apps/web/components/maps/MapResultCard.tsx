@@ -3,6 +3,17 @@
 import { useCallback, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { X, ChevronDown, ChevronUp, MapPin, Layers, BarChart3, FileSearch } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 const CARD_TRANSITION = { duration: 0.22, ease: [0.22, 1, 0.36, 1] as const };
 
@@ -48,6 +59,7 @@ interface MapResultCardProps {
 export function MapResultCard({ card, onDismiss, onContinueInChat }: MapResultCardProps) {
   const reduceMotion = useReducedMotion();
   const [expanded, setExpanded] = useState(true);
+  const tableColumns = card.columns ?? [];
 
   const Icon = card.type === "count" ? BarChart3
     : card.type === "detail" ? FileSearch
@@ -109,49 +121,48 @@ export function MapResultCard({ card, onDismiss, onContinueInChat }: MapResultCa
                 {card.stats.slice(0, 6).map((stat) => (
                   <div key={stat.label} className="bg-map-surface-overlay px-3 py-2 text-center">
                     <div className="text-xs font-semibold text-map-text-primary">{stat.value}</div>
-                    <div className="mt-0.5 text-[9px] uppercase tracking-[0.12em] text-map-text-muted">
-                      {stat.label}
+                    <div className="mt-1 flex justify-center">
+                      <Badge variant="outline" className="px-1.5 py-0 text-[8px]">
+                        {stat.label}
+                      </Badge>
                     </div>
                   </div>
                 ))}
               </div>
             )}
 
-            {/* Table */}
             {card.rows && card.columns && card.rows.length > 0 && (
-              <div className="max-h-48 overflow-y-auto border-b border-map-border">
-                <table className="w-full text-[11px]">
-                  <thead>
-                    <tr className="border-b border-map-border bg-map-surface/50">
-                      {card.columns.map((col) => (
-                        <th
-                          key={col.key}
-                          className={`px-3 py-1.5 font-medium text-map-text-muted ${
-                            col.align === "right" ? "text-right" : "text-left"
-                          }`}
-                        >
-                          {col.label}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {card.rows.slice(0, 20).map((row, i) => (
-                      <tr key={i} className="border-b border-map-border/50 hover:bg-map-surface/30">
-                        {card.columns!.map((col) => (
-                          <td
-                            key={col.key}
-                            className={`px-3 py-1.5 text-map-text-primary ${
-                              col.align === "right" ? "text-right" : "text-left"
-                            }`}
+              <div className="border-b border-map-border">
+                <ScrollArea className="max-h-48">
+                  <Table className="text-[11px]">
+                    <TableHeader className="bg-map-surface/50">
+                      <TableRow>
+                        {tableColumns.map((column) => (
+                          <TableHead
+                            key={column.key}
+                            className={column.align === "right" ? "text-right" : "text-left"}
                           >
-                            {row[col.key] ?? "—"}
-                          </td>
+                            {column.label}
+                          </TableHead>
                         ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {card.rows.slice(0, 20).map((row, index) => (
+                        <TableRow key={index}>
+                          {tableColumns.map((column) => (
+                            <TableCell
+                              key={column.key}
+                              className={column.align === "right" ? "text-right" : "text-left"}
+                            >
+                              {row[column.key] ?? "—"}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
                 {card.rows.length > 20 && (
                   <div className="px-3 py-1.5 text-center text-[10px] text-map-text-muted">
                     Showing 20 of {card.rows.length} results
@@ -163,34 +174,40 @@ export function MapResultCard({ card, onDismiss, onContinueInChat }: MapResultCa
             {/* Narrative */}
             {card.narrative && (
               <div className="border-b border-map-border px-4 py-3">
+                <Badge variant="outline" className="mb-2 px-2 py-0.5 text-[9px]">
+                  Narrative
+                </Badge>
                 <p className="text-xs leading-relaxed text-map-text-primary">{card.narrative}</p>
               </div>
             )}
 
-            {/* Actions */}
             <div className="flex flex-wrap items-center gap-2 px-4 py-3">
               {card.actions?.map((action) => (
-                <button
+                <Button
                   key={action.label}
                   type="button"
                   onClick={action.onClick}
-                  className={`rounded-lg px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                  size="sm"
+                  variant={action.variant === "primary" ? "default" : "outline"}
+                  className={
                     action.variant === "primary"
-                      ? "bg-map-accent text-white hover:bg-map-accent/90"
-                      : "border border-map-border bg-map-surface/50 text-map-text-primary hover:bg-map-surface"
-                  }`}
+                      ? "bg-map-accent text-[11px] text-white hover:bg-map-accent/90"
+                      : "border-map-border bg-map-surface/50 text-[11px] text-map-text-primary hover:bg-map-surface"
+                  }
                 >
                   {action.label}
-                </button>
+                </Button>
               ))}
               {onContinueInChat && (
-                <button
+                <Button
                   type="button"
+                  size="sm"
+                  variant="outline"
                   onClick={handleContinueInChat}
-                  className="ml-auto rounded-lg border border-map-border bg-map-surface/50 px-3 py-1.5 text-[11px] font-medium text-map-text-muted transition-colors hover:bg-map-surface hover:text-map-text-primary"
+                  className="ml-auto border-map-border bg-map-surface/50 text-[11px] text-map-text-muted hover:bg-map-surface hover:text-map-text-primary"
                 >
                   Continue in chat
-                </button>
+                </Button>
               )}
             </div>
           </motion.div>

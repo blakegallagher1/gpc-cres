@@ -91,7 +91,7 @@ describe("MapWorkbenchPanel", () => {
       screen.getByRole("button", { name: "Toggle map fullscreen" }),
     ).toBeVisible();
 
-    await user.click(screen.getByRole("button", { name: "Satellite" }));
+    await user.click(screen.getByRole("radio", { name: "Satellite" }));
     await user.click(screen.getByRole("button", { name: "Start draw" }));
 
     expect(onBaseLayerChange).toHaveBeenCalledWith("Satellite");

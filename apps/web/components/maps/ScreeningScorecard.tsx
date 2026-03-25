@@ -1,5 +1,7 @@
 "use client";
 
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useParcelScreening } from "@/hooks/useParcelScreening";
 import { cn } from "@/lib/utils";
 import { Droplets, Mountain, TreePine, Factory } from "lucide-react";
@@ -23,11 +25,11 @@ export function ScreeningScorecard({ parcelId, className }: Props) {
   if (!parcelId) return null;
   if (isLoading) {
     return (
-      <div className={cn("animate-pulse rounded-lg border border-border/40 bg-muted/20 p-3", className)}>
-        <div className="h-4 w-32 rounded bg-muted/40" />
+      <div className={cn("flex flex-col gap-2 rounded-lg border border-border/40 bg-muted/20 p-3", className)}>
+        <Skeleton className="h-4 w-32" />
         <div className="mt-2 grid grid-cols-2 gap-2">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-12 rounded bg-muted/30" />
+            <Skeleton key={i} className="h-12 rounded-lg" />
           ))}
         </div>
       </div>
@@ -71,7 +73,7 @@ export function ScreeningScorecard({ parcelId, className }: Props) {
   ];
 
   return (
-    <div className={cn("space-y-1.5", className)}>
+    <div className={cn("flex flex-col gap-1.5", className)}>
       <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
         Site Screening
       </p>
@@ -89,6 +91,12 @@ export function ScreeningScorecard({ parcelId, className }: Props) {
               <div className="flex items-center gap-1.5">
                 <span className="font-medium">{item.label}</span>
                 <StatusDot ok={item.ok} />
+                <Badge
+                  variant={item.ok ? "secondary" : "destructive"}
+                  className="px-1.5 py-0 text-[8px]"
+                >
+                  {item.ok ? "Clear" : "Flag"}
+                </Badge>
               </div>
               <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
                 {item.detail}

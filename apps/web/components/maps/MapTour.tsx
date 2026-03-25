@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 
 type TourStep = {
   id: string;
@@ -64,39 +68,38 @@ export function MapTour() {
 
   if (!open) {
     return (
-        <button
+        <Button
           type="button"
+          size="sm"
+          variant="outline"
           onClick={() => {
             setIndex(0);
             setOpen(true);
           }}
-          className="absolute bottom-3 left-3 z-20 rounded-xl border border-map-border bg-map-surface-overlay px-3 py-2 text-[11px] font-medium text-map-text-primary shadow-xl backdrop-blur-md transition-colors hover:bg-map-surface"
+          className="absolute bottom-3 left-3 z-20 border-map-border bg-map-surface-overlay text-[11px] text-map-text-primary shadow-xl backdrop-blur-md hover:bg-map-surface"
         >
           Map Guide
-        </button>
+        </Button>
       );
   }
 
   return (
-    <div className="absolute bottom-3 left-3 z-20 w-[20rem] rounded-2xl border border-map-border bg-map-surface-overlay px-4 py-4 text-xs text-map-text-primary shadow-2xl backdrop-blur-md">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-map-text-muted">
+    <Card className="absolute bottom-3 left-3 z-20 w-[20rem] border-map-border bg-map-surface-overlay text-xs text-map-text-primary shadow-2xl backdrop-blur-md">
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-map-text-muted">
             Map Guide
-          </p>
-          <h3 className="mt-1 text-sm font-semibold">
-            Navigate layers, draw tools, and saved areas.
-          </h3>
+            </p>
+            <CardTitle className="mt-1 text-sm">Navigate layers, draw tools, and saved areas.</CardTitle>
+          </div>
+          <Button type="button" size="sm" variant="outline" onClick={() => setOpen(false)} className="h-7 px-2.5 text-[10px]">
+            Close
+          </Button>
         </div>
-        <button
-          type="button"
-          onClick={() => setOpen(false)}
-          className="map-btn h-7 rounded-lg px-2.5 text-[10px]"
-        >
-          Close
-        </button>
-      </div>
+      </CardHeader>
 
+      <CardContent className="pt-0">
       <div className="mt-4 flex gap-1.5">
         {MAP_TOUR_STEPS.map((tourStep, tourStepIndex) => (
           <button
@@ -111,14 +114,19 @@ export function MapTour() {
         ))}
       </div>
 
-      <div className="mt-4 border-t border-map-border pt-4">
+      <Separator className="mt-4 bg-map-border" />
+
+      <div className="mt-4">
         <div className="flex items-center justify-between gap-3">
-          <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-map-text-muted">
-            Step {index + 1}/{MAP_TOUR_STEPS.length}
+          <p className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.22em] text-map-text-muted">
+            <span>Step</span>
+            <span>
+              {index + 1}/{MAP_TOUR_STEPS.length}
+            </span>
           </p>
-          <p className="text-[10px] text-map-text-muted">
+          <Badge variant="outline" className="px-2 py-0.5 text-[9px]">
             {targetVisible ? "Highlighted on map" : "Control unavailable"}
-          </p>
+          </Badge>
         </div>
         <div className="mt-2 text-sm font-semibold">{step.title}</div>
         <p className="mt-2 text-[11px] leading-5 text-map-text-secondary">{step.body}</p>
@@ -130,41 +138,48 @@ export function MapTour() {
       </div>
 
       <div className="mt-4 flex items-center justify-between gap-2">
-        <button
+        <Button
           type="button"
+          size="sm"
+          variant="outline"
           onClick={() => setIndex((value) => Math.max(0, value - 1))}
           disabled={index === 0}
-          className="map-btn rounded-lg px-2.5 py-1 text-[10px] disabled:opacity-40"
+          className="px-2.5 text-[10px] disabled:opacity-40"
         >
           Back
-        </button>
+        </Button>
         <div className="flex gap-2">
-          <button
+          <Button
             type="button"
+            size="sm"
+            variant="outline"
             onClick={() => setOpen(false)}
-            className="map-btn rounded-lg px-2.5 py-1 text-[10px]"
+            className="px-2.5 text-[10px]"
           >
             Dismiss
-          </button>
+          </Button>
           {index < MAP_TOUR_STEPS.length - 1 ? (
-            <button
+            <Button
               type="button"
+              size="sm"
               onClick={() => setIndex((value) => Math.min(MAP_TOUR_STEPS.length - 1, value + 1))}
-              className="rounded-lg bg-map-accent px-2.5 py-1 text-[10px] font-medium text-white"
+              className="bg-map-accent px-2.5 text-[10px] font-medium text-white hover:bg-map-accent/90"
             >
               Next
-            </button>
+            </Button>
           ) : (
-            <button
+            <Button
               type="button"
+              size="sm"
               onClick={() => setOpen(false)}
-              className="rounded-lg bg-map-accent px-2.5 py-1 text-[10px] font-medium text-white"
+              className="bg-map-accent px-2.5 text-[10px] font-medium text-white hover:bg-map-accent/90"
             >
               Done
-            </button>
+            </Button>
           )}
         </div>
       </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

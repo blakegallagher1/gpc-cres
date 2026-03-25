@@ -1,6 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type SavedGeofence = {
   id: string;
@@ -147,7 +152,7 @@ export function SavedGeofences({ currentPolygon, onApply }: SavedGeofencesProps)
   };
 
   return (
-    <div data-tour="geofences" className="space-y-2 text-xs">
+    <div data-tour="geofences" className="flex flex-col gap-2 text-xs">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-map-text-muted">
@@ -157,15 +162,17 @@ export function SavedGeofences({ currentPolygon, onApply }: SavedGeofencesProps)
             Reusable parcel search areas for repeat prospecting and site review.
           </p>
         </div>
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
           onClick={() => {
             void load();
           }}
-          className="map-btn h-7 rounded-lg px-2.5 text-[10px]"
+          className="h-7 text-[10px]"
         >
           Refresh
-        </button>
+        </Button>
       </div>
 
       <div className="flex items-center justify-between gap-3 text-[10px] text-map-text-muted">
@@ -178,20 +185,20 @@ export function SavedGeofences({ currentPolygon, onApply }: SavedGeofencesProps)
       </div>
 
       <div className="flex gap-1.5">
-        <input
+        <Input
           value={name}
           onChange={(event) => setName(event.target.value)}
           placeholder="Geofence name"
-          className="min-w-0 flex-1 rounded-lg border border-map-border bg-map-surface px-2.5 py-1.5 text-map-text-primary placeholder:text-map-text-muted"
+          className="min-w-0 h-8 flex-1 border-map-border bg-map-surface text-[11px] text-map-text-primary placeholder:text-map-text-muted"
         />
-        <button
+        <Button
           type="button"
           disabled={!currentPolygon || !name.trim() || isSaving}
           onClick={save}
-          className="rounded-lg bg-map-accent px-2.5 py-1.5 text-[10px] font-medium text-white disabled:opacity-40"
+          className="h-8 bg-map-accent px-2.5 text-[10px] font-medium text-white hover:bg-map-accent/90 disabled:opacity-40"
         >
           {isSaving ? "Saving..." : "Save area"}
-        </button>
+        </Button>
       </div>
 
       {error ? (
@@ -200,11 +207,18 @@ export function SavedGeofences({ currentPolygon, onApply }: SavedGeofencesProps)
         </div>
       ) : null}
 
-      <div className="max-h-40 space-y-1.5 overflow-auto">
+      <ScrollArea className="h-40">
+        <div className="flex flex-col gap-1.5 pr-2">
         {loading ? (
-          <div className="rounded-xl border border-map-border bg-map-surface/40 px-3 py-3 text-map-text-muted">
-            Loading geofences...
-          </div>
+          Array.from({ length: 3 }).map((_, index) => (
+            <div
+              key={index}
+              className="rounded-xl border border-map-border bg-map-surface/40 px-3 py-3"
+            >
+              <Skeleton className="h-3 w-28 bg-map-surface-elevated" />
+              <Skeleton className="mt-2 h-2.5 w-20 bg-map-surface-elevated" />
+            </div>
+          ))
         ) : null}
         {!loading && items.length === 0 ? (
           <div className="rounded-xl border border-dashed border-map-border bg-map-surface/30 px-3 py-3 text-[11px] leading-5 text-map-text-muted">
@@ -226,35 +240,40 @@ export function SavedGeofences({ currentPolygon, onApply }: SavedGeofencesProps)
                 </p>
               </div>
               {activePolygonSignature === getPolygonSignature(item.coordinates) ? (
-                <span className="rounded-full border border-map-border bg-map-accent-surface px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-map-text-primary">
+                <Badge variant="secondary" className="px-2 py-0.5 text-[9px]">
                   Active
-                </span>
+                </Badge>
               ) : null}
             </div>
 
             <div className="mt-2 flex items-center gap-2">
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="sm"
                 onClick={() => onApply(item.coordinates)}
-                className="map-btn rounded-lg px-2.5 py-1 text-[10px]"
+                className="h-7 px-2.5 text-[10px]"
                 title={item.name}
               >
                 Apply
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => {
                   void remove(item.id);
                 }}
                 disabled={pendingDeleteId === item.id}
-                className="rounded-lg px-2.5 py-1 text-[10px] text-red-400 transition-colors hover:bg-red-500/10 hover:text-red-300 disabled:opacity-40"
+                className="h-7 px-2.5 text-[10px] text-red-400 hover:bg-red-500/10 hover:text-red-300 disabled:opacity-40"
               >
                 {pendingDeleteId === item.id ? "Deleting..." : "Delete"}
-              </button>
+              </Button>
             </div>
           </div>
         ))}
-      </div>
+        </div>
+      </ScrollArea>
     </div>
   );
 }

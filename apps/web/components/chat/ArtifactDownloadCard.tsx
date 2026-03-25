@@ -1,7 +1,9 @@
 'use client';
 
 import { FileText, FileSpreadsheet, Presentation, Download } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 const fileConfig: Record<string, { icon: React.ElementType; accent: string }> = {
@@ -30,33 +32,34 @@ export function ArtifactDownloadCard({
 }: ArtifactDownloadCardProps) {
   const config = getFileConfig(fileType);
   const Icon = config.icon;
+  const [, accentText] = config.accent.split(' ');
 
   return (
-    <div className={cn(
-      'my-2 flex items-center gap-3 rounded-lg border border-[#2a2f3e] border-l-4 bg-[#12141c]/80 p-3 transition-colors hover:bg-[#1a1d28]',
-      config.accent.split(' ')[0],
-    )}>
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#1e2230]">
-        <Icon className={cn('h-5 w-5', config.accent.split(' ')[1])} />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="truncate font-mono text-sm font-medium text-slate-200">{name}</p>
-        <p className="font-mono text-xs text-slate-500">
-          {fileType.toUpperCase()}
-          {version ? ` v${version}` : ''}
-        </p>
-      </div>
-      <Button
-        variant="outline"
-        size="sm"
-        className="border-[#2a2f3e] bg-transparent text-slate-300 hover:bg-[#1e2230] hover:text-white"
-        asChild
-      >
-        <a href={downloadUrl} download>
-          <Download className="mr-1.5 h-3.5 w-3.5" />
-          Download
-        </a>
-      </Button>
-    </div>
+    <Card className="my-2 border-border/70 bg-background/75">
+      <CardContent className="flex items-center gap-3 p-3">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-muted/25">
+          <Icon className={cn('h-5 w-5', accentText)} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-mono text-sm font-medium text-foreground">{name}</p>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <Badge variant="secondary" className="px-1.5 py-0 text-[9px]">
+              {fileType.toUpperCase()}
+            </Badge>
+            {version ? (
+              <Badge variant="outline" className="px-1.5 py-0 text-[9px]">
+                v{version}
+              </Badge>
+            ) : null}
+          </div>
+        </div>
+        <Button variant="outline" size="sm" className="shrink-0" asChild>
+          <a href={downloadUrl} download>
+            <Download className="mr-1.5 h-3.5 w-3.5" />
+            Download
+          </a>
+        </Button>
+      </CardContent>
+    </Card>
   );
 }

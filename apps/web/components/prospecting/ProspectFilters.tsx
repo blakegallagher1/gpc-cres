@@ -1,9 +1,12 @@
 "use client";
 
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -58,11 +61,15 @@ export function ProspectFilters({
   return (
     <Card className={disabled ? "opacity-60" : ""}>
       <CardHeader className="pb-3">
-        <CardTitle className="text-sm">Filters</CardTitle>
+        <div className="flex items-center justify-between gap-3">
+          <CardTitle className="text-sm">Filters</CardTitle>
+          <Badge variant="outline" className="px-2 py-0.5 text-[9px]">
+            Polygon scoped
+          </Badge>
+        </div>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Address / parcel text search */}
-        <div className="space-y-1.5">
+      <CardContent className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1.5">
           <Label className="text-xs">Property Search</Label>
           <Input
             type="text"
@@ -74,38 +81,38 @@ export function ProspectFilters({
           />
         </div>
 
-        {/* Zoning multi-select */}
-        <div className="space-y-1.5">
+        <Separator />
+
+        <div className="flex flex-col gap-1.5">
           <Label className="text-xs">Zoning Codes</Label>
-          <div className="flex flex-wrap gap-1">
-            {ZONING_OPTIONS.map((opt) => {
-              const active = filters.zoningCodes.includes(opt.code);
-              return (
-                <button
-                  key={opt.code}
-                  disabled={disabled}
-                  onClick={() => {
-                    const next = active
-                      ? filters.zoningCodes.filter((c) => c !== opt.code)
-                      : [...filters.zoningCodes, opt.code];
-                    update({ zoningCodes: next });
-                  }}
-                  className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors ${
-                    active
-                      ? "bg-purple-100 text-purple-700 ring-1 ring-purple-300"
-                      : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-                  }`}
-                  title={opt.label}
-                >
-                  {opt.code}
-                </button>
-              );
-            })}
-          </div>
+          <ToggleGroup
+            type="multiple"
+            variant="outline"
+            size="sm"
+            value={filters.zoningCodes}
+            onValueChange={(value: string[]) => update({ zoningCodes: value })}
+            className="flex flex-wrap justify-start gap-1 rounded-xl border border-border/60 bg-background/30 p-1"
+            disabled={disabled}
+          >
+            {ZONING_OPTIONS.map((option) => (
+              <ToggleGroupItem
+                key={option.code}
+                value={option.code}
+                variant="outline"
+                size="sm"
+                className="rounded-full px-2.5 text-[10px]"
+                title={option.label}
+                aria-label={option.label}
+              >
+                {option.code}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
         </div>
 
-        {/* Acreage range */}
-        <div className="space-y-1.5">
+        <Separator />
+
+        <div className="flex flex-col gap-1.5">
           <Label className="text-xs">Acreage</Label>
           <div className="flex gap-2">
             <Input
@@ -135,8 +142,7 @@ export function ProspectFilters({
           </div>
         </div>
 
-        {/* Assessed value range */}
-        <div className="space-y-1.5">
+        <div className="flex flex-col gap-1.5">
           <Label className="text-xs">Assessed Value ($)</Label>
           <div className="flex gap-2">
             <Input
@@ -170,7 +176,6 @@ export function ProspectFilters({
           </div>
         </div>
 
-        {/* Flood zone exclusion */}
         <div className="flex items-center justify-between gap-2">
           <Label className="text-xs">Exclude flood zones</Label>
           <Switch

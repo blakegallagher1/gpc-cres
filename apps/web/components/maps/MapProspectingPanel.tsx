@@ -2,13 +2,16 @@
 
 import {
   useCallback,
-  useRef,
   useState,
 } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Search, ChevronRight, ChevronLeft, Loader2 } from "lucide-react";
 import { ProspectFilters, type ProspectFilterState } from "@/components/prospecting/ProspectFilters";
 import { ProspectResults, type ProspectParcel } from "@/components/prospecting/ProspectResults";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 
 const PANEL_WIDTH = 420;
@@ -95,10 +98,11 @@ export function MapProspectingPanel({
 
   return (
     <>
-      <button
+      <Button
         type="button"
+        variant="outline"
         onClick={() => setOpen((value) => !value)}
-        className="absolute right-3 top-16 z-30 flex items-center gap-3 rounded-2xl border border-map-border bg-map-surface-overlay px-3 py-2 text-left text-sm font-medium text-map-text-primary shadow-xl backdrop-blur-md transition-colors hover:bg-map-surface"
+        className="absolute right-3 top-16 z-30 h-auto justify-start gap-3 border-map-border bg-map-surface-overlay px-3 py-2 text-left text-sm font-medium text-map-text-primary shadow-xl backdrop-blur-md hover:bg-map-surface"
         title={open ? "Close Prospecting" : "Open Prospecting"}
       >
         <div className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-map-border bg-map-surface/70">
@@ -111,7 +115,7 @@ export function MapProspectingPanel({
           </div>
         </div>
         {open ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-      </button>
+      </Button>
 
       <AnimatePresence initial={false}>
         {open && (
@@ -131,55 +135,58 @@ export function MapProspectingPanel({
                 <h3 className="mt-1 text-sm font-semibold text-map-text-primary">
                   Filter parcels within the polygon
                 </h3>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Badge variant="outline" className="px-2.5 py-1 text-[9px]">
+                    {panelLabel}
+                  </Badge>
+                </div>
               </div>
 
-              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 space-y-4">
-                {/* Filters */}
-                <ProspectFilters
-                  filters={filters}
-                  onChange={handleFilterChange}
-                  disabled={!polygon}
-                />
+              <ScrollArea className="min-h-0 flex-1">
+                <div className="flex flex-col gap-4 px-4 py-4">
+                  <ProspectFilters
+                    filters={filters}
+                    onChange={handleFilterChange}
+                    disabled={!polygon}
+                  />
 
-                {/* Search Button */}
-                <button
-                  onClick={handleSearch}
-                  disabled={!polygon || loading}
-                  className="w-full rounded-lg bg-map-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-map-accent/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-                  {loading ? "Searching..." : "Search"}
-                </button>
+                  <Button
+                    onClick={handleSearch}
+                    disabled={!polygon || loading}
+                    className="w-full bg-map-accent text-sm font-medium text-white hover:bg-map-accent/90"
+                  >
+                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {loading ? "Searching..." : "Search"}
+                  </Button>
 
-                {/* Results */}
-                {searched && (
-                  <div className="border-t border-map-border pt-4">
-                    <h4 className="text-xs font-semibold text-map-text-primary mb-2">
-                      Results ({parcels.length})
-                    </h4>
-                    {parcels.length === 0 ? (
-                      <p className="text-[10px] text-map-text-muted">
-                        No parcels match your filters
-                      </p>
-                    ) : (
-                      <div className="space-y-1 max-h-64 overflow-y-auto">
+                  {searched && (
+                    <div className="pt-1">
+                      <Separator className="mb-4 bg-map-border" />
+                      <h4 className="mb-2 text-xs font-semibold text-map-text-primary">
+                        Results ({parcels.length})
+                      </h4>
+                      {parcels.length === 0 ? (
+                        <p className="text-[10px] text-map-text-muted">
+                          No parcels match your filters
+                        </p>
+                      ) : (
                         <ProspectResults
                           parcels={parcels}
                           selectedIds={selectedIds}
                           onSelectionChange={setSelectedIds}
                           polygon={polygon}
                         />
-                      </div>
-                    )}
-                  </div>
-                )}
+                      )}
+                    </div>
+                  )}
 
-                {!polygon && (
-                  <div className="rounded-lg border border-map-border bg-map-surface/50 px-3 py-2 text-[10px] text-map-text-muted">
-                    Draw a polygon on the map to enable prospecting filters
-                  </div>
-                )}
-              </div>
+                  {!polygon && (
+                    <div className="rounded-lg border border-map-border bg-map-surface/50 px-3 py-2 text-[10px] text-map-text-muted">
+                      Draw a polygon on the map to enable prospecting filters
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
             </div>
           </motion.div>
         )}
