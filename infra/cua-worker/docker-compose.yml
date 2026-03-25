@@ -1,0 +1,34 @@
+# CUA Worker — standalone compose for browser automation
+# Merge into the main docker-compose.yml on the Windows server
+version: "3.8"
+
+services:
+  cua-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gpc-cua-worker
+    restart: unless-stopped
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - API_KEY=${GATEWAY_API_KEY}
+      - PORT=3001
+      - BROWSER_MODE=headless
+      - DEFAULT_MODEL=gpt-5.4
+      - MAX_TURNS=24
+      - SCREENSHOT_DIR=/tmp/cua-data/screenshots
+    ports:
+      - "127.0.0.1:3001:3001"
+    volumes:
+      - cua-data:/tmp/cua-data
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    # Chromium needs shared memory
+    shm_size: '1gb'
+
+volumes:
+  cua-data:
