@@ -22,6 +22,10 @@ export type MapPopupAction =
       lat: number;
       lng: number;
       address?: string;
+    }
+  | {
+      type: "screen_parcel";
+      parcelId: string;
     };
 
 type MapPopupValueRow = {
@@ -46,6 +50,8 @@ type MapPopupActionDescriptor = {
 export interface MapPopupViewModel {
   title: string;
   subtitle?: string | null;
+  identityRows?: MapPopupValueRow[];
+  riskChips?: string[];
   rows: MapPopupValueRow[];
   links: MapPopupLink[];
   actions: MapPopupActionDescriptor[];
@@ -62,6 +68,13 @@ export function buildParcelPopupViewModel(parcel: MapParcel): MapPopupViewModel 
   return {
     title: parcel.address,
     subtitle: parcel.dealName ?? null,
+    identityRows: [
+      { label: "Parcel", value: parcel.propertyDbId ?? parcel.id },
+      { label: "Coords", value: coordinates },
+    ],
+    riskChips: [parcel.currentZoning, parcel.floodZone].filter(
+      (chip): chip is string => Boolean(chip && chip.trim().length > 0),
+    ),
     rows: [
       parcel.acreage != null
         ? { label: "Acreage", value: `${Number(parcel.acreage).toFixed(2)} acres` }
@@ -87,9 +100,9 @@ export function buildParcelPopupViewModel(parcel: MapParcel): MapPopupViewModel 
         action: { type: "create_deal", parcelId: parcel.id },
       },
       {
-        label: "Triage",
+        label: "Screen",
         tone: "warning",
-        action: { type: "create_deal", parcelId: parcel.id, triage: true },
+        action: { type: "screen_parcel", parcelId: parcel.id },
       },
       {
         label: "Comps",
@@ -143,6 +156,8 @@ export function buildTileParcelPopupViewModel(
   return {
     title: address,
     subtitle: parcelId ? `Parcel ${parcelId}` : null,
+    identityRows: parcelId ? [{ label: "Parcel", value: parcelId }] : [],
+    riskChips: [],
     rows: [
       owner ? { label: "Owner", value: owner } : null,
       acreage && areaSqft != null
@@ -239,6 +254,30 @@ function MapPopupContent(params: {
           <div className="text-[11px] text-map-text-muted">{viewModel.subtitle}</div>
         ) : null}
       </div>
+
+      {viewModel.identityRows && viewModel.identityRows.length > 0 ? (
+        <div className="grid grid-cols-1 gap-1.5 rounded border border-map-border bg-map-surface/60 p-2">
+          {viewModel.identityRows.map((row) => (
+            <div key={`${row.label}:${row.value}`} className="flex justify-between gap-3 text-[10px]">
+              <span className="text-map-text-muted">{row.label}</span>
+              <span className="truncate text-map-text-secondary">{row.value}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {viewModel.riskChips && viewModel.riskChips.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {viewModel.riskChips.map((chip) => (
+            <span
+              key={chip}
+              className="rounded-full border border-map-border bg-map-surface px-2 py-0.5 text-[10px] text-map-text-secondary"
+            >
+              {chip}
+            </span>
+          ))}
+        </div>
+      ) : null}
 
       {viewModel.rows.length > 0 ? (
         <div className="space-y-1.5">

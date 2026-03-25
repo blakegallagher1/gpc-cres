@@ -17,8 +17,10 @@ import { useTheme } from "next-themes";
 import { Loader2, Search } from "lucide-react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import type { ParcelMapRef } from "@/components/maps/ParcelMap";
+import { MapParcelDataGrid } from "@/components/maps/MapParcelDataGrid";
+import { MapSituationStrip } from "@/components/maps/MapSituationStrip";
 import { ScreeningScorecard } from "@/components/maps/ScreeningScorecard";
-import type { MapParcel } from "@/components/maps/types";
+import type { MapHudState, MapParcel } from "@/components/maps/types";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -279,6 +281,12 @@ export function MapPageClient() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [searchSubmitId, setSearchSubmitId] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [lastDataRefreshAt, setLastDataRefreshAt] = useState<number | null>(null);
+  const [lastRequestLatencyMs, setLastRequestLatencyMs] = useState<number | null>(null);
+  const [mapHudState, setMapHudState] = useState<MapHudState>({
+    activeOverlays: [],
+    drawMode: "idle",
+  });
   const [source, setSource] = useState<"org" | "property-db" | "org-fallback">("org");
   const [isSearchLoading, setIsSearchLoading] = useState(false);
   const [isSuggestLoading, setIsSuggestLoading] = useState(false);
@@ -357,6 +365,11 @@ export function MapPageClient() {
     },
     [focusCoordinates, mapDispatch],
   );
+
+  const markRequestComplete = useCallback((startedAt: number) => {
+    setLastRequestLatencyMs(Math.max(1, Date.now() - startedAt));
+    setLastDataRefreshAt(Date.now());
+  }, []);
 
   useEffect(() => {
     if (initializedFromUrlRef.current) return;
@@ -769,6 +782,7 @@ export function MapPageClient() {
     async (coords: number[][][]) => {
       setIsPolygonLoading(true);
       setPolygonError(null);
+      const startedAt = Date.now();
       try {
         const result = await requestProspectParcels({
           polygon: coords,
@@ -782,6 +796,7 @@ export function MapPageClient() {
         }
 
         setPolygonParcels(result.parcels);
+        markRequestComplete(startedAt);
       } catch {
         setPolygonParcels([]);
         setPolygonError("Polygon search failed. Please try again.");
@@ -789,7 +804,7 @@ export function MapPageClient() {
         setIsPolygonLoading(false);
       }
     },
-    [debouncedSearch]
+    [debouncedSearch, markRequestComplete]
   );
 
   const visibleParcels = useMemo(() => {
@@ -870,6 +885,7 @@ export function MapPageClient() {
 
   useEffect(() => {
     async function loadBaseParcels() {
+      const startedAt = Date.now();
       try {
         const res = await fetch("/api/parcels?hasCoords=true");
         if (!res.ok) {
@@ -897,6 +913,7 @@ export function MapPageClient() {
         }
         if (lastViewportRefreshKeyRef.current === null) {
           setParcels(mapped);
+          markRequestComplete(startedAt);
         }
       } catch {
         setLoadError("Failed to load parcels. Please refresh and try again.");
@@ -905,7 +922,7 @@ export function MapPageClient() {
       }
     }
     loadBaseParcels();
-  }, []);
+  }, [markRequestComplete]);
 
   useEffect(() => {
     const bounds = mapState.viewportBounds;
@@ -926,6 +943,7 @@ export function MapPageClient() {
     let active = true;
 
     async function refreshViewportParcels() {
+      const startedAt = Date.now();
       try {
         const result = await requestViewportParcels({
           bounds: boundsForRefresh,
@@ -941,6 +959,7 @@ export function MapPageClient() {
         }
         setLoadError(null);
         setParcels(result.parcels);
+        markRequestComplete(startedAt);
       } catch {
         if (active && parcels.length === 0) {
           setLoadError("Failed to refresh viewport parcels. Please try again.");
@@ -953,7 +972,7 @@ export function MapPageClient() {
     return () => {
       active = false;
     };
-  }, [authDisabledHint, mapState.viewportBounds, parcels.length, polygon]);
+  }, [authDisabledHint, mapState.viewportBounds, markRequestComplete, parcels.length, polygon]);
 
   useEffect(() => {
     const next = new URLSearchParams(searchParams.toString());
@@ -981,6 +1000,7 @@ export function MapPageClient() {
         return;
       }
 
+      const startedAt = Date.now();
       setIsSearchLoading(Boolean(debouncedSearch));
       if (!debouncedSearch) {
         setSearchParcels(null);
@@ -1031,6 +1051,7 @@ export function MapPageClient() {
           setLoadError(null);
         }
         setSearchParcels(effectiveResults);
+        markRequestComplete(startedAt);
       } catch {
         if (active) {
           setSearchParcels([]);
@@ -1046,7 +1067,7 @@ export function MapPageClient() {
     return () => {
       active = false;
     };
-  }, [debouncedSearch, parcels, searchSubmitId, polygon]);
+  }, [debouncedSearch, markRequestComplete, parcels, searchSubmitId, polygon]);
 
   useEffect(() => {
     if (selectedSuggestion || !isSearchActive || searchParcels?.length !== 1) return;
@@ -1116,6 +1137,19 @@ export function MapPageClient() {
     source,
     visibleParcels.length,
   ]);
+
+  const dataFreshnessLabel = useMemo(() => {
+    if (!lastDataRefreshAt) return "No sync yet";
+    const diffSeconds = Math.floor((Date.now() - lastDataRefreshAt) / 1000);
+    if (diffSeconds < 5) return "Live";
+    if (diffSeconds < 60) return `${diffSeconds}s ago`;
+    return `${Math.floor(diffSeconds / 60)}m ago`;
+  }, [lastDataRefreshAt, parcels.length, searchParcels?.length]);
+
+  const latencyLabel = useMemo(() => {
+    if (lastRequestLatencyMs == null) return "n/a";
+    return `${lastRequestLatencyMs}ms`;
+  }, [lastRequestLatencyMs]);
 
   useEffect(() => {
     if (mapState.viewportLabel === statusText) return;
@@ -1200,19 +1234,28 @@ export function MapPageClient() {
       <div className="map-page relative flex h-[calc(100svh-var(--app-header-height))] flex-col overflow-hidden">
         {!loading && (
           <>
-            {activePanel === "chat" && (
-              <MapChatPanel
-                parcelCount={activeParcels.length}
-                selectedCount={selectedParcelIds.size}
-                viewportLabel={statusText}
-              />
-            )}
-            {activePanel === "prospecting" && (
-              <MapProspectingPanel
-                polygon={polygon}
-              />
-            )}
-            <ParcelMap
+            <MapSituationStrip
+              selectedCount={selectedParcelIds.size}
+              overlayCount={mapHudState.activeOverlays.length}
+              drawMode={mapHudState.drawMode}
+              dataFreshnessLabel={dataFreshnessLabel}
+              latencyLabel={latencyLabel}
+            />
+            <div className="relative flex min-h-0 flex-1">
+              <div className="relative min-w-0 flex-1">
+                {activePanel === "chat" && (
+                  <MapChatPanel
+                    parcelCount={activeParcels.length}
+                    selectedCount={selectedParcelIds.size}
+                    viewportLabel={statusText}
+                  />
+                )}
+                {activePanel === "prospecting" && (
+                  <MapProspectingPanel
+                    polygon={polygon}
+                  />
+                )}
+                <ParcelMap
               ref={attachMapRef}
               parcels={activeParcels}
               center={mapCenter}
@@ -1245,6 +1288,7 @@ export function MapPageClient() {
               onMapReady={() => {
                 setIsMapReady(true);
               }}
+              onHudStateChange={setMapHudState}
               selectedParcelIds={selectedParcelIds}
               searchSlot={
                 <div className="flex flex-col gap-4">
@@ -1412,6 +1456,27 @@ export function MapPageClient() {
                 </div>
               }
             />
+              </div>
+              <div className="hidden xl:block">
+                <MapParcelDataGrid
+                  parcels={activeParcels}
+                  selectedIds={selectedParcelIds}
+                  onFocusParcel={focusParcel}
+                  onToggleParcel={(parcelId) => {
+                    const next = new Set(selectedParcelIds);
+                    if (next.has(parcelId)) {
+                      next.delete(parcelId);
+                    } else {
+                      next.add(parcelId);
+                    }
+                    mapDispatch({
+                      type: "SELECT_PARCELS",
+                      parcelIds: Array.from(next),
+                    });
+                  }}
+                />
+              </div>
+            </div>
           </>
         )}
         {/* NL query result cards */}
