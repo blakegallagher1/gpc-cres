@@ -88,15 +88,17 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         )
         print(f"✅ Property DB pool created")
         set_admin_db_pool(db_pool)
-    # Application DB (deals, orgs) - for /deals endpoint
+    # Application DB (deals, orgs, Prisma proxy) — primary path for Vercel
     if APPLICATION_DATABASE_URL:
         app_db_pool = await asyncpg.create_pool(
             APPLICATION_DATABASE_URL,
-            min_size=2,
-            max_size=10,
-            command_timeout=60,
+            min_size=5,
+            max_size=30,
+            command_timeout=30,
+            max_inactive_connection_lifetime=300,
+            statement_cache_size=100,
         )
-        print(f"✅ Application DB pool created")
+        print(f"✅ Application DB pool created (min=5, max=30)")
 
     yield
 
@@ -2033,83 +2035,153 @@ async def storage_delete_object(
 # Prisma SQL Proxy  (Vercel → gateway → local Postgres)
 # =============================================================================
 
+# Postgres OID → Prisma ColumnType mapping (mirrors db-proxy.ts)
+_PG_OID_TO_PRISMA: dict[int, int] = {
+    16: 5, 20: 1, 21: 0, 23: 0, 25: 7, 114: 11, 700: 2, 701: 3,
+    790: 4, 1043: 6, 1082: 8, 1083: 9, 1114: 10, 1184: 10, 1700: 4,
+    2950: 15, 3802: 11, 1042: 6, 17: 13, 1009: 71, 1015: 71,
+    1016: 65, 1007: 64, 1000: 69, 2951: 78,
+}
 
-def _serialize_row(row: asyncpg.Record) -> dict:
-    """Convert an asyncpg Record to a JSON-safe dict."""
-    out = {}
-    for k, v in dict(row).items():
-        if v is None:
-            out[k] = None
-        elif isinstance(v, (str, int, float, bool)):
-            out[k] = v
-        elif hasattr(v, "isoformat"):
-            out[k] = v.isoformat()
-        elif isinstance(v, (bytes, bytearray, memoryview)):
-            out[k] = "<binary>"
-        elif isinstance(v, (list, dict)):
-            out[k] = v
-        elif hasattr(v, "as_tuple"):  # Decimal
-            out[k] = str(v)
-        else:
-            out[k] = str(v)
-    return out
+_ISO_DT_RE = re.compile(r"^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}")
+_ISO_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def _coerce_arg(v):
+    """Coerce JSON args to asyncpg-compatible Python types (datetime, etc)."""
+    if v is None:
+        return None
+    if isinstance(v, str):
+        if _ISO_DT_RE.match(v):
+            try:
+                return datetime.fromisoformat(v)
+            except ValueError:
+                pass
+        if _ISO_DATE_RE.match(v):
+            try:
+                return datetime.fromisoformat(v).date()
+            except ValueError:
+                pass
+    return v
+
+
+def _serialize_value(v):
+    if v is None:
+        return None
+    if isinstance(v, (str, int, float, bool)):
+        return v
+    if hasattr(v, "isoformat"):
+        return v.isoformat()
+    if isinstance(v, (bytes, bytearray, memoryview)):
+        return list(bytes(v))
+    if isinstance(v, (list, dict)):
+        return v
+    if hasattr(v, "as_tuple"):
+        return str(v)
+    return str(v)
+
+
+# Active transactions keyed by txId
+_active_tx: dict[str, asyncpg.Connection] = {}
 
 
 @app.post("/db/query")
 @app.post("/db")
 async def db_query_proxy(
     request: Request,
+    response: Response,
     api_key: str = Depends(verify_api_key),
-    conn=Depends(get_app_db),
 ):
     """
-    Prisma SQL proxy — executes parameterized queries against the application DB.
-    Used by the Prisma gateway driver adapter on Vercel.
-
-    Single query:  { "sql": "SELECT ...", "params": [...] }
-    Transaction:   { "transaction": [ { "sql": "...", "params": [...] }, ... ] }
+    Prisma-compatible SQL proxy — returns columnar format for the gateway adapter.
+    Supports transaction control via action: begin/commit/rollback.
     """
+    # Prevent CF from caching DB responses
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    response.headers["CDN-Cache-Control"] = "no-store"
+
+    if not app_db_pool:
+        raise HTTPException(status_code=503, detail="Application database not available")
+
     body = await request.json()
+    action = body.get("action")
 
-    # --- Transaction mode ---
-    tx_stmts = body.get("transaction")
-    if tx_stmts and isinstance(tx_stmts, list):
-        results = []
-        async with conn.transaction():
-            for stmt in tx_stmts:
-                sql = (stmt.get("sql") or "").strip()
-                params = stmt.get("params") or []
-                if not sql:
-                    continue
-                if sql.upper().startswith("SELECT") or "RETURNING" in sql.upper():
-                    rows = await conn.fetch(sql, *params)
-                    results.append({
-                        "rows": [_serialize_row(r) for r in rows],
-                        "rowCount": len(rows),
-                    })
-                else:
-                    status = await conn.execute(sql, *params)
-                    count = int(status.split()[-1]) if status else 0
-                    results.append({"rows": [], "rowCount": count})
-        return {"results": results}
+    # --- Transaction control ---
+    if action == "begin":
+        conn = await app_db_pool.acquire()
+        tx = conn.transaction()
+        await tx.start()
+        tx_id = str(_uuid.uuid4())
+        _active_tx[tx_id] = conn
+        # Auto-cleanup after 30s
+        import asyncio
+        async def _cleanup():
+            await asyncio.sleep(30)
+            c = _active_tx.pop(tx_id, None)
+            if c:
+                try:
+                    await c.reset()
+                except Exception:
+                    pass
+                await app_db_pool.release(c)
+        asyncio.ensure_future(_cleanup())
+        return {"txId": tx_id}
 
-    # --- Single query mode ---
+    if action == "commit" and body.get("txId"):
+        conn = _active_tx.pop(body["txId"], None)
+        if not conn:
+            raise HTTPException(status_code=404, detail="Transaction not found")
+        try:
+            await conn.execute("COMMIT")
+        finally:
+            await app_db_pool.release(conn)
+        return {"ok": True}
+
+    if action == "rollback" and body.get("txId"):
+        conn = _active_tx.pop(body["txId"], None)
+        if not conn:
+            raise HTTPException(status_code=404, detail="Transaction not found")
+        try:
+            await conn.execute("ROLLBACK")
+        finally:
+            await app_db_pool.release(conn)
+        return {"ok": True}
+
+    # --- Query execution ---
     sql = (body.get("sql") or "").strip()
-    params = body.get("params") or []
+    raw_args = body.get("args") or body.get("params") or []
+    args = [_coerce_arg(a) for a in raw_args]
 
     if not sql:
         raise HTTPException(status_code=400, detail="Missing 'sql' field")
 
-    if sql.upper().startswith("SELECT") or "RETURNING" in sql.upper():
-        rows = await conn.fetch(sql, *params)
+    # Use transaction client if txId provided
+    tx_conn = None
+    if body.get("txId"):
+        tx_conn = _active_tx.get(body["txId"])
+        if not tx_conn:
+            raise HTTPException(status_code=404, detail="Transaction not found")
+
+    async def _exec(conn):
+        stmt = await conn.prepare(sql)
+        attrs = stmt.get_attributes()
+        column_names = [a.name for a in attrs]
+        column_types = [_PG_OID_TO_PRISMA.get(a.type.oid, 7) for a in attrs]
+
+        records = await stmt.fetch(*args)
+        rows = [[_serialize_value(v) for v in record.values()] for record in records]
         return {
-            "rows": [_serialize_row(r) for r in rows],
+            "columnNames": column_names,
+            "columnTypes": column_types,
+            "rows": rows,
             "rowCount": len(rows),
         }
+
+    if tx_conn:
+        return await _exec(tx_conn)
     else:
-        status = await conn.execute(sql, *params)
-        count = int(status.split()[-1]) if status else 0
-        return {"rows": [], "rowCount": count}
+        async with app_db_pool.acquire() as conn:
+            return await _exec(conn)
 
 
 # =============================================================================

@@ -91,7 +91,7 @@ export async function handleDbProxy(request: Request, env: Env): Promise<Respons
   try {
     // --- Transaction control (begin/commit/rollback) ---
     if (body.action === "begin") {
-      const client = new Client({ connectionString: env.HYPERDRIVE.connectionString });
+      const client = new Client(env.HYPERDRIVE.connectionString);
       transientClient = client;
       shouldCloseTransientClient = true;
       await client.connect();
@@ -145,7 +145,7 @@ export async function handleDbProxy(request: Request, env: Env): Promise<Respons
       if (!txClient) return Response.json({ error: "Transaction not found" }, { status: 404 });
       client = txClient;
     } else {
-      client = new Client({ connectionString: env.HYPERDRIVE.connectionString });
+      client = new Client(env.HYPERDRIVE.connectionString);
       transientClient = client;
       shouldCloseTransientClient = true;
       await client.connect();

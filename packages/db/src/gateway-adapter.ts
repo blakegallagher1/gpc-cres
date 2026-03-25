@@ -42,27 +42,65 @@ function getCfAccessHeaders(): Record<string, string> {
   return {};
 }
 
+const GATEWAY_TIMEOUT_MS = 15_000;
+const MAX_RETRIES = 2;
+const RETRY_DELAY_MS = 500;
+
 async function gatewayFetch(
   baseUrl: string,
   apiKey: string,
   body: Record<string, unknown>,
 ): Promise<GatewayResponse> {
-  const res = await fetch(`${baseUrl}/db`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-      ...getCfAccessHeaders(),
-    },
-    body: JSON.stringify(body),
-  });
+  let lastError: Error | null = null;
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Gateway DB proxy error (${res.status}): ${text}`);
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      await new Promise((r) => setTimeout(r, RETRY_DELAY_MS * attempt));
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), GATEWAY_TIMEOUT_MS);
+
+    try {
+      const res = await fetch(`${baseUrl}/db?_t=${Date.now()}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+          "Cache-Control": "no-cache",
+          ...getCfAccessHeaders(),
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeout);
+
+      if (!res.ok) {
+        const text = await res.text();
+        const err = new Error(`Gateway DB proxy error (${res.status}): ${text}`);
+        // Only retry on 502/503/504 (upstream issues)
+        if (res.status >= 502 && res.status <= 504 && attempt < MAX_RETRIES) {
+          lastError = err;
+          continue;
+        }
+        throw err;
+      }
+
+      return res.json() as Promise<GatewayResponse>;
+    } catch (err) {
+      clearTimeout(timeout);
+      lastError = err instanceof Error ? err : new Error(String(err));
+      // Retry on network/timeout errors
+      if (lastError.name === "AbortError") {
+        lastError = new Error(`Gateway DB proxy timeout after ${GATEWAY_TIMEOUT_MS}ms`);
+      }
+      if (attempt < MAX_RETRIES) continue;
+      throw lastError;
+    }
   }
 
-  return res.json() as Promise<GatewayResponse>;
+  throw lastError ?? new Error("Gateway DB proxy: unexpected retry exhaustion");
 }
 
 function createQueryable(baseUrl: string, apiKey: string, txId?: string) {

@@ -552,6 +552,9 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
     onMapReadyRef.current = onMapReady;
   }, [onMapReady]);
 
+  const hasPolygon = Boolean(polygon && polygon[0] && polygon[0].length >= 4);
+  const drawState = getDrawControlState(drawing, hasPolygon, drawPointCount);
+
   useEffect(() => {
     const activeOverlays = [
       showParcelBoundaries ? "parcels" : null,
@@ -605,9 +608,6 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
     }
     setInternalSelectedParcelIds(next);
   }, []);
-
-  const hasPolygon = Boolean(polygon && polygon[0] && polygon[0].length >= 4);
-  const drawState = getDrawControlState(drawing, hasPolygon, drawPointCount);
 
   const clearDrawing = useCallback(() => {
     drawPointsRef.current = [];
