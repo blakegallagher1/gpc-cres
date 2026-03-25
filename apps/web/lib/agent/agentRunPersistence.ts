@@ -118,6 +118,7 @@ export async function upsertRunRecord(params: {
       sku: normalizeSku(params.sku),
       status: params.status ?? "running",
       inputHash: params.inputHash,
+      startedAt: new Date(),
     },
     update: {
       orgId: params.orgId,
@@ -127,7 +128,6 @@ export async function upsertRunRecord(params: {
       sku: normalizeSku(params.sku),
       status: params.status ?? "running",
       inputHash: params.inputHash,
-      ...(params.status === "running" ? { startedAt: new Date() } : {}),
     },
   });
 }
