@@ -6,6 +6,7 @@ import {
   type MapLibreParcelMapRef,
 } from "./MapLibreParcelMap";
 import type {
+  MapHudState,
   MapParcel,
   MapTrajectoryData,
   MapTrajectoryVelocityDatum,
@@ -36,6 +37,7 @@ interface ParcelMapProps {
   onSelectionChange?: (ids: Set<string>) => void;
   onViewStateChange?: (center: [number, number], zoom: number, bounds?: ViewportBounds) => void;
   onMapReady?: () => void;
+  onHudStateChange?: (state: MapHudState) => void;
   searchSlot?: React.ReactNode;
 }
 
@@ -63,6 +65,7 @@ export const ParcelMap = forwardRef<MapLibreParcelMapRef, ParcelMapProps>(functi
   onSelectionChange,
   onViewStateChange,
   onMapReady,
+  onHudStateChange,
   searchSlot,
 }, ref) {
   const mlCenter: [number, number] = useMemo(() => [center[1], center[0]], [center]);
@@ -87,6 +90,7 @@ export const ParcelMap = forwardRef<MapLibreParcelMapRef, ParcelMapProps>(functi
       onSelectionChange={onSelectionChange}
       onViewStateChange={onViewStateChange}
       onMapReady={onMapReady}
+      onHudStateChange={onHudStateChange}
       searchSlot={searchSlot}
     />
   );

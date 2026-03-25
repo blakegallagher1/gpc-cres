@@ -46,3 +46,11 @@ export interface SaleComp {
   saleDate: string | null;
   pricePerAcre: number | null;
 }
+
+/**
+ * Lightweight map HUD state pushed to parent surfaces.
+ */
+export interface MapHudState {
+  activeOverlays: string[];
+  drawMode: "idle" | "drawing" | "polygon";
+}

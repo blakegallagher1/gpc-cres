@@ -33,6 +33,11 @@ describe("map popup view models", () => {
     expect(viewModel).toEqual({
       title: "123 Main St",
       subtitle: "Deal One",
+      identityRows: [
+        { label: "Parcel", value: "p-1" },
+        { label: "Coords", value: "30.450000,-91.180000" },
+      ],
+      riskChips: ["C2", "X"],
       rows: [
         { label: "Acreage", value: "1.25 acres" },
         { label: "Status", value: "TRIAGE DONE" },
@@ -56,9 +61,9 @@ describe("map popup view models", () => {
           action: { type: "create_deal", parcelId: "p-1" },
         },
         {
-          label: "Triage",
+          label: "Screen",
           tone: "warning",
-          action: { type: "create_deal", parcelId: "p-1", triage: true },
+          action: { type: "screen_parcel", parcelId: "p-1" },
         },
         {
           label: "Comps",
@@ -89,6 +94,8 @@ describe("map popup view models", () => {
     ).toEqual({
       title: "456 River Rd",
       subtitle: "Parcel tile-1",
+      identityRows: [{ label: "Parcel", value: "tile-1" }],
+      riskChips: [],
       rows: [
         { label: "Owner", value: "Owner LLC" },
         { label: "Area", value: "1.00 acres (43,560 sqft)" },

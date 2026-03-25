@@ -48,6 +48,7 @@ import {
 } from "./heatmapPresets";
 import type {
   HeatmapPresetKey,
+  MapHudState,
   MapParcel,
   MapTrajectoryData,
   MapTrajectoryVelocityDatum,
@@ -121,6 +122,8 @@ interface MapLibreParcelMapProps {
   onViewStateChange?: (center: [number, number], zoom: number, bounds?: ViewportBounds) => void;
   /** Called once the MapLibre style is loaded and imperative APIs are safe. */
   onMapReady?: () => void;
+  /** Called whenever overlay/draw state changes for outer HUD surfaces. */
+  onHudStateChange?: (state: MapHudState) => void;
   /** Optional search UI rendered at the top of the layer panel. */
   searchSlot?: React.ReactNode;
 }
@@ -479,6 +482,7 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
   onSelectionChange,
   onViewStateChange,
   onMapReady,
+  onHudStateChange,
   searchSlot,
 }, ref) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -547,6 +551,36 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
   useEffect(() => {
     onMapReadyRef.current = onMapReady;
   }, [onMapReady]);
+
+  useEffect(() => {
+    const activeOverlays = [
+      showParcelBoundaries ? "parcels" : null,
+      showZoning ? "zoning" : null,
+      showFlood ? "flood" : null,
+      showSoils ? "soils" : null,
+      showWetlands ? "wetlands" : null,
+      showEpa ? "epa" : null,
+      showComps ? "comps" : null,
+      showHeatmap ? "heatmap" : null,
+      showIsochrone ? "isochrone" : null,
+    ].filter((value): value is string => Boolean(value));
+
+    const drawMode: MapHudState["drawMode"] = drawing ? "drawing" : hasPolygon ? "polygon" : "idle";
+    onHudStateChange?.({ activeOverlays, drawMode });
+  }, [
+    drawing,
+    hasPolygon,
+    onHudStateChange,
+    showComps,
+    showEpa,
+    showFlood,
+    showHeatmap,
+    showIsochrone,
+    showParcelBoundaries,
+    showSoils,
+    showWetlands,
+    showZoning,
+  ]);
 
   useEffect(() => {
     if (!isMobile) return;
@@ -914,6 +948,11 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
       return;
     }
 
+    if (action.type === "screen_parcel") {
+      updateSelection(action.parcelId, false);
+      return;
+    }
+
     const params = new URLSearchParams({
       parcelId: action.parcelId,
       lat: String(action.lat),
@@ -923,7 +962,7 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
       params.set("address", action.address);
     }
     window.open(`/comps?${params.toString()}`, "_blank", "noopener,noreferrer");
-  }, []);
+  }, [updateSelection]);
 
   const toggleMapFullscreen = useCallback(() => {
     const container = mapContainerRef.current;
@@ -1614,7 +1653,17 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
               },
               paint: {
                 "fill-color": ["get", "fillColor"],
-                "fill-opacity": ["case", ["==", ["get", "selected"], true], 0.4, 0.2],
+                "fill-opacity": [
+                  "interpolate",
+                  ["linear"],
+                  ["zoom"],
+                  10,
+                  ["case", ["==", ["get", "selected"], true], 0.44, 0.24],
+                  14,
+                  ["case", ["==", ["get", "selected"], true], 0.36, 0.18],
+                  18,
+                  ["case", ["==", ["get", "selected"], true], 0.3, 0.12],
+                ],
               },
             },
             {
@@ -1626,7 +1675,17 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
               },
               paint: {
                 "fill-color": ["get", "fillColor"],
-                "fill-opacity": ["case", ["get", "selected"], 0.4, 0.25],
+                "fill-opacity": [
+                  "interpolate",
+                  ["linear"],
+                  ["zoom"],
+                  9,
+                  ["case", ["get", "selected"], 0.5, 0.32],
+                  13,
+                  ["case", ["get", "selected"], 0.42, 0.24],
+                  18,
+                  ["case", ["get", "selected"], 0.34, 0.16],
+                ],
               },
             },
             {
@@ -1638,8 +1697,28 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
               },
               paint: {
                 "line-color": ["case", ["get", "selected"], "#000000", ["get", "strokeColor"]],
-                "line-width": ["case", ["get", "selected"], 3, 2],
-                "line-opacity": ["case", ["get", "selected"], 1, 0.8],
+                "line-width": [
+                  "interpolate",
+                  ["linear"],
+                  ["zoom"],
+                  9,
+                  ["case", ["get", "selected"], 3.4, 2.3],
+                  14,
+                  ["case", ["get", "selected"], 2.8, 1.9],
+                  18,
+                  ["case", ["get", "selected"], 2.2, 1.4],
+                ],
+                "line-opacity": [
+                  "interpolate",
+                  ["linear"],
+                  ["zoom"],
+                  9,
+                  ["case", ["get", "selected"], 1, 0.95],
+                  14,
+                  ["case", ["get", "selected"], 1, 0.86],
+                  18,
+                  ["case", ["get", "selected"], 0.95, 0.76],
+                ],
               },
             },
             {
