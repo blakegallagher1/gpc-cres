@@ -23,7 +23,7 @@ import {
   createTrajectoryRecorder,
   captureAgentError,
   captureAgentWarning,
-  createIntentAwareCoordinator,
+  createConfiguredCoordinator,
   extractUsageSummary,
   evaluateProofCompliance,
   inferQueryIntentFromDealContext,
@@ -331,7 +331,7 @@ type AgentRunAttemptState = {
 
 type AgentRunInput =
   | ReturnType<typeof buildAgentInputItems>
-  | RunState<unknown, ReturnType<typeof createIntentAwareCoordinator>>;
+  | RunState<unknown, ReturnType<typeof createConfiguredCoordinator>>;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -1413,7 +1413,7 @@ export async function executeAgentWorkflow(
       });
     }
 
-    const coordinator = createIntentAwareCoordinator(queryIntent);
+    const coordinator = createConfiguredCoordinator({ intent: queryIntent });
     const {
       preFilterTools,
       configuredToolNames,
@@ -1436,7 +1436,7 @@ export async function executeAgentWorkflow(
 
     let runInput: ReturnType<typeof buildAgentInputItems> | RunState<
       unknown,
-      ReturnType<typeof createIntentAwareCoordinator>
+      ReturnType<typeof createConfiguredCoordinator>
     > = [
       userMessage(buildRuntimeClockContextMessage()),
       ...buildAgentInputItems(params.input),
