@@ -199,6 +199,10 @@ export async function upsertProceduralSkillsFromEpisode(
     return { updatedSkillCount: 0, skillIds: [] };
   }
 
+  if (cluster.episode.toolSequence.length === 0) {
+    return { updatedSkillCount: 0, skillIds: [] };
+  }
+
   const successRate =
     cluster.supportingEpisodes.length / Math.max(1, cluster.allClusterEpisodes.length);
 
@@ -355,3 +359,9 @@ export async function upsertProceduralSkillsFromEpisode(
     skillIds: [skill.id],
   };
 }
+
+export const __testables = {
+  loadEpisodeCluster,
+  normalizeToolSequence,
+  buildProcedureDedupeHash,
+};

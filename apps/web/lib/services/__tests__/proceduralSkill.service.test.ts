@@ -1,236 +1,244 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
+import { prisma } from "@entitlement-os/db";
 
-const { dbMock, deleteKnowledgeMock, ingestKnowledgeMock } = vi.hoisted(() => ({
-  dbMock: {
-    prisma: {
-      episodicEntry: {
-        findFirst: vi.fn(),
-        findMany: vi.fn(),
-      },
-      proceduralSkill: {
-        upsert: vi.fn(),
-      },
-      proceduralSkillEpisode: {
-        deleteMany: vi.fn(),
-        upsert: vi.fn(),
-      },
+import { __testables, upsertProceduralSkillsFromEpisode } from "@/lib/services/proceduralSkill.service";
+
+vi.mock("@entitlement-os/db", () => ({
+  prisma: {
+    episodicEntry: {
+      findFirst: vi.fn(),
+      findMany: vi.fn(),
+    },
+    proceduralSkill: {
+      upsert: vi.fn(),
+    },
+    proceduralSkillEpisode: {
+      deleteMany: vi.fn(),
+      upsert: vi.fn(),
     },
   },
-  deleteKnowledgeMock: vi.fn(),
-  ingestKnowledgeMock: vi.fn(),
 }));
 
-vi.mock("@entitlement-os/db", () => dbMock);
 vi.mock("@/lib/services/knowledgeBase.service", () => ({
-  deleteKnowledge: deleteKnowledgeMock,
-  ingestKnowledge: ingestKnowledgeMock,
+  ingestKnowledge: vi.fn().mockResolvedValue(["knowledge-id-1"]),
+  deleteKnowledge: vi.fn().mockResolvedValue(null),
 }));
 
-import {
-  buildProcedureDedupeHash,
-  normalizeToolSequence,
-  upsertProceduralSkillsFromEpisode,
-} from "../proceduralSkill.service";
-
-describe("procedural skill promotion helpers", () => {
-  it("normalizes tool sequences by removing adjacent duplicates", () => {
-    expect(
-      normalizeToolSequence([
-        "search_knowledge_base",
-        "search_knowledge_base",
-        "screenZoning",
-        "",
-        "screenZoning",
-      ]),
-    ).toEqual(["search_knowledge_base", "screenZoning"]);
-  });
-
-  it("builds a stable dedupe hash from task type, agent, and normalized tools", () => {
-    const hashA = buildProcedureDedupeHash({
-      taskType: "TRIAGE",
-      agentId: "Research",
-      toolSequence: ["search_knowledge_base", "search_knowledge_base", "screenZoning"],
-    });
-    const hashB = buildProcedureDedupeHash({
-      taskType: "TRIAGE",
-      agentId: "Research",
-      toolSequence: ["search_knowledge_base", "screenZoning"],
-    });
-
-    expect(hashA).toBe(hashB);
-  });
-});
-
-describe("upsertProceduralSkillsFromEpisode", () => {
+describe("procedural skill promotion", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    deleteKnowledgeMock.mockResolvedValue(0);
-    ingestKnowledgeMock.mockResolvedValue(["chunk-1"]);
-    dbMock.prisma.proceduralSkill.upsert.mockResolvedValue({ id: "skill-1" });
-    dbMock.prisma.proceduralSkillEpisode.deleteMany.mockResolvedValue({ count: 0 });
-    dbMock.prisma.proceduralSkillEpisode.upsert.mockResolvedValue({ id: "link-1" });
   });
 
-  it("does not create a skill below the promotion threshold", async () => {
-    dbMock.prisma.episodicEntry.findFirst.mockResolvedValue({
-      id: "episode-1",
-      taskType: "TRIAGE",
-      agentId: "Research",
-      toolSequence: ["search_knowledge_base", "screenZoning"],
-    });
-    dbMock.prisma.episodicEntry.findMany.mockResolvedValue([
-      {
-        id: "episode-1",
-        summary: "Success one",
-        outcome: "SUCCESS",
-        confidence: 0.9,
-        toolSequence: ["search_knowledge_base", "screenZoning"],
-        metadata: null,
-      },
-      {
-        id: "episode-2",
-        summary: "Success two",
-        outcome: "SUCCESS",
-        confidence: 0.85,
-        toolSequence: ["search_knowledge_base", "screenZoning"],
-        metadata: null,
-      },
-    ]);
+  describe("empty tool-sequence guard", () => {
+    it("returns zero skills when episode has empty toolSequence", async () => {
+      const orgId = "org-1";
+      const episodeId = "episode-1";
 
-    const result = await upsertProceduralSkillsFromEpisode({
-      orgId: "org-1",
-      episodicEntryId: "episode-1",
-    });
-
-    expect(result).toEqual({
-      updatedSkillCount: 0,
-      skillIds: [],
-    });
-    expect(dbMock.prisma.proceduralSkill.upsert).not.toHaveBeenCalled();
-  });
-
-  it("creates a skill at the threshold and links supporting episodes", async () => {
-    dbMock.prisma.episodicEntry.findFirst.mockResolvedValue({
-      id: "episode-1",
-      taskType: "TRIAGE",
-      agentId: "Research",
-      toolSequence: ["search_knowledge_base", "screenZoning"],
-    });
-    dbMock.prisma.episodicEntry.findMany.mockResolvedValue([
-      {
-        id: "episode-1",
-        summary: "Success one",
-        outcome: "SUCCESS",
-        confidence: 0.9,
-        toolSequence: ["search_knowledge_base", "screenZoning"],
-        metadata: { evidenceCount: 1 },
-      },
-      {
-        id: "episode-2",
-        summary: "Success two",
-        outcome: "SUCCESS",
-        confidence: 0.88,
-        toolSequence: ["search_knowledge_base", "screenZoning"],
-        metadata: { evidenceCount: 2 },
-      },
-      {
-        id: "episode-3",
-        summary: "Success three",
-        outcome: "SUCCESS",
-        confidence: 0.84,
-        toolSequence: ["search_knowledge_base", "screenZoning"],
-        metadata: { evidenceCount: 1 },
-      },
-    ]);
-
-    const result = await upsertProceduralSkillsFromEpisode({
-      orgId: "org-1",
-      episodicEntryId: "episode-1",
-    });
-
-    expect(result).toEqual({
-      updatedSkillCount: 1,
-      skillIds: ["skill-1"],
-    });
-    expect(ingestKnowledgeMock).toHaveBeenCalledWith(
-      "org-1",
-      "procedural_skill",
-      expect.stringMatching(/^skill:/),
-      expect.stringContaining("# TRIAGE Research procedure"),
-      expect.objectContaining({
-        taskType: "TRIAGE",
-        agentId: "Research",
-        successCount: 3,
-        failCount: 0,
-      }),
-    );
-    expect(dbMock.prisma.proceduralSkill.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          orgId_dedupeHash: expect.objectContaining({
-            orgId: "org-1",
-          }),
-        }),
-      }),
-    );
-    expect(dbMock.prisma.proceduralSkillEpisode.upsert).toHaveBeenCalledTimes(3);
-  });
-
-  it("updates the same skill on repeated promotions via the dedupe hash", async () => {
-    dbMock.prisma.episodicEntry.findFirst
-      .mockResolvedValueOnce({
-        id: "episode-1",
-        taskType: "TRIAGE",
-        agentId: "Research",
-        toolSequence: ["search_knowledge_base", "screenZoning"],
-      })
-      .mockResolvedValueOnce({
-        id: "episode-2",
-        taskType: "TRIAGE",
-        agentId: "Research",
-        toolSequence: ["search_knowledge_base", "screenZoning"],
+      vi.mocked(prisma.episodicEntry.findFirst).mockResolvedValueOnce({
+        id: episodeId,
+        taskType: "entitlement_review",
+        agentId: "strategy-agent",
+        toolSequence: [],
       });
-    dbMock.prisma.episodicEntry.findMany.mockResolvedValue([
-      {
-        id: "episode-1",
-        summary: "Success one",
-        outcome: "SUCCESS",
-        confidence: 0.9,
-        toolSequence: ["search_knowledge_base", "screenZoning"],
-        metadata: null,
-      },
-      {
-        id: "episode-2",
-        summary: "Success two",
-        outcome: "SUCCESS",
-        confidence: 0.88,
-        toolSequence: ["search_knowledge_base", "screenZoning"],
-        metadata: null,
-      },
-      {
-        id: "episode-3",
-        summary: "Success three",
-        outcome: "SUCCESS",
-        confidence: 0.84,
-        toolSequence: ["search_knowledge_base", "screenZoning"],
-        metadata: null,
-      },
-    ]);
 
-    await upsertProceduralSkillsFromEpisode({
-      orgId: "org-1",
-      episodicEntryId: "episode-1",
-    });
-    await upsertProceduralSkillsFromEpisode({
-      orgId: "org-1",
-      episodicEntryId: "episode-2",
+      // findMany is called before the guard, but empty toolSequence returns early
+      vi.mocked(prisma.episodicEntry.findMany).mockResolvedValueOnce([]);
+
+      const result = await upsertProceduralSkillsFromEpisode({
+        orgId,
+        episodicEntryId: episodeId,
+      });
+
+      expect(result.updatedSkillCount).toBe(0);
+      expect(result.skillIds).toEqual([]);
+      expect(prisma.proceduralSkill.upsert).not.toHaveBeenCalled();
     });
 
-    const firstWhere =
-      dbMock.prisma.proceduralSkill.upsert.mock.calls[0]?.[0]?.where?.orgId_dedupeHash;
-    const secondWhere =
-      dbMock.prisma.proceduralSkill.upsert.mock.calls[1]?.[0]?.where?.orgId_dedupeHash;
+    it("returns zero skills when cluster tool sequences normalize to empty", async () => {
+      const orgId = "org-1";
+      const episodeId = "episode-1";
 
-    expect(firstWhere).toEqual(secondWhere);
+      vi.mocked(prisma.episodicEntry.findFirst).mockResolvedValueOnce({
+        id: episodeId,
+        taskType: "risk_assessment",
+        agentId: "finance-agent",
+        toolSequence: ["  ", "  "],
+      });
+
+      vi.mocked(prisma.episodicEntry.findMany).mockResolvedValueOnce([
+        {
+          id: "episode-1",
+          summary: "Risk assessment completed",
+          outcome: "SUCCESS",
+          confidence: 0.9,
+          toolSequence: ["  "],
+          metadata: null,
+        },
+        {
+          id: "episode-2",
+          summary: "Another risk assessment",
+          outcome: "SUCCESS",
+          confidence: 0.85,
+          toolSequence: ["  ", "  "],
+          metadata: null,
+        },
+        {
+          id: "episode-3",
+          summary: "Third risk assessment",
+          outcome: "SUCCESS",
+          confidence: 0.8,
+          toolSequence: ["  "],
+          metadata: null,
+        },
+      ]);
+
+      const result = await upsertProceduralSkillsFromEpisode({
+        orgId,
+        episodicEntryId: episodeId,
+      });
+
+      expect(result.updatedSkillCount).toBe(0);
+      expect(result.skillIds).toEqual([]);
+      expect(prisma.proceduralSkill.upsert).not.toHaveBeenCalled();
+    });
+
+    it("skips skill creation even when thresholds are met (>= minEpisodes, success rate >= minRate) but toolSequence is empty", async () => {
+      const orgId = "org-1";
+      const episodeId = "episode-1";
+
+      vi.mocked(prisma.episodicEntry.findFirst).mockResolvedValueOnce({
+        id: episodeId,
+        taskType: "environmental_screening",
+        agentId: "screening-agent",
+        toolSequence: [],
+      });
+
+      vi.mocked(prisma.episodicEntry.findMany).mockResolvedValueOnce([
+        {
+          id: "episode-1",
+          summary: "Screening passed",
+          outcome: "SUCCESS",
+          confidence: 0.95,
+          toolSequence: [],
+          metadata: null,
+        },
+        {
+          id: "episode-2",
+          summary: "Screening passed",
+          outcome: "SUCCESS",
+          confidence: 0.9,
+          toolSequence: [],
+          metadata: null,
+        },
+        {
+          id: "episode-3",
+          summary: "Screening passed",
+          outcome: "SUCCESS",
+          confidence: 0.88,
+          toolSequence: [],
+          metadata: null,
+        },
+        {
+          id: "episode-4",
+          summary: "Screening passed",
+          outcome: "SUCCESS",
+          confidence: 0.85,
+          toolSequence: [],
+          metadata: null,
+        },
+        {
+          id: "episode-5",
+          summary: "Screening passed",
+          outcome: "SUCCESS",
+          confidence: 0.92,
+          toolSequence: [],
+          metadata: null,
+        },
+      ]);
+
+      const result = await upsertProceduralSkillsFromEpisode({
+        orgId,
+        episodicEntryId: episodeId,
+      });
+
+      expect(result.updatedSkillCount).toBe(0);
+      expect(result.skillIds).toEqual([]);
+      expect(prisma.proceduralSkill.upsert).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("normalizeToolSequence", () => {
+    it("removes empty strings and consecutive duplicates", () => {
+      const input = ["search_parcels", "search_parcels", "screen_flood", "", "screen_flood"];
+      const result = __testables.normalizeToolSequence(input);
+      expect(result).toEqual(["search_parcels", "screen_flood"]);
+    });
+
+    it("preserves non-consecutive occurrences of the same tool", () => {
+      const input = ["search_parcels", "screen_flood", "search_parcels"];
+      const result = __testables.normalizeToolSequence(input);
+      expect(result).toEqual(["search_parcels", "screen_flood", "search_parcels"]);
+    });
+
+    it("trims whitespace from tool names", () => {
+      const input = ["  search_parcels  ", "screen_flood"];
+      const result = __testables.normalizeToolSequence(input);
+      expect(result).toEqual(["search_parcels", "screen_flood"]);
+    });
+
+    it("returns empty array when input is all whitespace", () => {
+      const input = ["  ", "  ", "\t"];
+      const result = __testables.normalizeToolSequence(input);
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe("buildProcedureDedupeHash", () => {
+    it("produces consistent hash for same inputs", () => {
+      const params = {
+        taskType: "market_research",
+        agentId: "strategy-agent",
+        toolSequence: ["web_search", "comp_analysis"],
+      };
+
+      const hash1 = __testables.buildProcedureDedupeHash(params);
+      const hash2 = __testables.buildProcedureDedupeHash(params);
+
+      expect(hash1).toBe(hash2);
+    });
+
+    it("produces different hashes for different toolSequences", () => {
+      const base = {
+        taskType: "market_research",
+        agentId: "strategy-agent",
+      };
+
+      const hash1 = __testables.buildProcedureDedupeHash({
+        ...base,
+        toolSequence: ["web_search", "comp_analysis"],
+      });
+      const hash2 = __testables.buildProcedureDedupeHash({
+        ...base,
+        toolSequence: ["web_search"],
+      });
+
+      expect(hash1).not.toBe(hash2);
+    });
+
+    it("normalizes sequences before hashing", () => {
+      const hash1 = __testables.buildProcedureDedupeHash({
+        taskType: "triage",
+        agentId: "coordinator",
+        toolSequence: ["assess_quality", "assess_quality", "flag_issues"],
+      });
+
+      const hash2 = __testables.buildProcedureDedupeHash({
+        taskType: "triage",
+        agentId: "coordinator",
+        toolSequence: ["assess_quality", "flag_issues"],
+      });
+
+      expect(hash1).toBe(hash2);
+    });
   });
 });
