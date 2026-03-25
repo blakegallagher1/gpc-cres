@@ -727,11 +727,160 @@ export const taxTools = [
 ];
 
 /**
+ * EntitlementOS — Single unified agent with all tools (~115 unique tools).
+ * Replaces the 17-agent (coordinator + 16 specialists) architecture.
+ * All tools are deduplicated by name into this single array for the unified agent.
+ */
+export const entitlementOsTools = (() => {
+  const toolMap = new Map<string, unknown>();
+
+  // Base coordinator tools (comprehensive set)
+  [
+    query_org_sql,
+    getDealContext,
+    listDeals,
+    createDeal,
+    updateDealStatus,
+    createTask,
+    updateTask,
+    listTasks,
+    searchParcels,
+    getParcelDetails,
+    updateParcel,
+    generate_artifact,
+    record_memory_event,
+    get_entity_memory,
+    store_memory,
+    get_entity_truth,
+    lookup_entity_by_address,
+    ingest_comps,
+    search_knowledge_base,
+    search_procedural_skills,
+    search_similar_episodes,
+    store_knowledge_entry,
+    get_shared_context,
+    share_analysis_finding,
+    assess_uncertainty,
+    request_reanalysis,
+    record_deal_outcome,
+    log_reasoning_trace,
+    recommend_entitlement_path,
+    analyze_comparable_sales,
+    optimize_debt_structure,
+    estimate_phase_ii_scope,
+    analyze_title_commitment,
+    generate_zoning_compliance_checklist,
+    predict_entitlement_path,
+    get_entitlement_feature_primitives,
+    get_entitlement_intelligence_kpis,
+    get_jurisdiction_pack,
+    create_tasks,
+    attach_artifact,
+    record_outcome,
+    triage_deal,
+    generate_dd_checklist,
+    run_underwriting,
+    summarize_comps,
+    evaluate_run,
+    screenZoning,
+    screenFlood,
+    screenSoils,
+    screenWetlands,
+    screenEpa,
+    screenTraffic,
+    screenLdeq,
+    screenFull,
+    screenBatch,
+    queryPropertyDbSql,
+    computeDriveTimeArea,
+    get_area_summary,
+    get_poi_density,
+    query_document_extractions,
+    get_document_extraction_summary,
+    compare_document_vs_deal_terms,
+    search_document_content,
+    run_underwriting_workflow,
+    describeParcelSet,
+    listParcelSets,
+    // Legal/Entitlements-specific
+    zoningMatrixLookup,
+    parishPackLookup,
+    // Research-specific
+    evidenceSnapshot,
+    run_data_extraction_workflow,
+    // Risk-specific
+    floodZoneLookup,
+    compareEvidenceHash,
+    // Finance-specific
+    calculate_proforma,
+    calculate_debt_sizing,
+    calculate_development_budget,
+    get_rent_roll,
+    model_capital_stack,
+    stress_test_deal,
+    model_exit_scenarios,
+    analyze_portfolio,
+    get_historical_accuracy,
+    // Screener-specific
+    parcelTriageScore,
+    hardFilterCheck,
+    addParcelToDeal,
+    recall_property_intelligence,
+    // Marketing/Dispositions-specific
+    searchBuyers,
+    addBuyer,
+    logOutreach,
+    // Due Diligence-specific
+    store_property_finding,
+    // Operations-specific
+    create_milestone_schedule,
+    estimate_project_timeline,
+    // Market Intel-specific
+    search_comparable_sales,
+    calculate_market_metrics,
+    query_market_data,
+    analyze_market_workflow,
+    // Design-specific
+    calculate_site_capacity,
+    estimate_construction_cost,
+    // Market Trajectory-specific
+    queryBuildingPermits,
+    searchNearbyPlaces,
+    // Tax-specific
+    calculate_depreciation_schedule,
+    calculate_cost_segregation_estimate,
+    calculate_1031_deadlines,
+    // Acquisition/Asset/Capital Markets tools
+    acquisition_dcf_analysis,
+    acquisition_cap_rate_evaluation,
+    acquisition_rent_roll_analysis,
+    acquisition_internal_comparable_sales,
+    acquisition_investment_returns,
+    asset_lease_admin_summary,
+    asset_tenant_exposure_analysis,
+    asset_noi_optimization_plan,
+    asset_capital_plan_summary,
+    asset_operations_health,
+    capital_debt_sizing_overview,
+    capital_lender_outreach_brief,
+    capital_disposition_analysis,
+    capital_refinance_scenarios,
+    capital_stack_optimization,
+  ].forEach((tool) => {
+    toolMap.set((tool as any).function?.name || (tool as any).name || 'unknown', tool);
+  });
+
+  return Array.from(toolMap.values());
+})();
+
+/**
  * Canonical grouped export of all agent tool arrays.
  *
  * This keeps a single source of truth for tool collection membership
  * in call sites that need "all tools across agents" (for example
  * route-level registry builders in apps/web).
+ *
+ * @deprecated — Specialist tool arrays are now deprecated. Use entitlementOsTools for the unified agent.
  */
 export const ALL_AGENT_TOOL_GROUPS = {
   coordinatorTools,
