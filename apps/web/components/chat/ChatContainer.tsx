@@ -17,6 +17,7 @@ import {
   ChatWorkspaceHero,
   ChatWorkspaceInspector,
 } from './ChatWorkspacePanels';
+import { useCuaModel } from './CuaModelToggle';
 import { parseSSEStream } from '@/lib/chat/stream';
 import { useStableOptions } from '@/lib/hooks/useStableOptions';
 import { useIsMobile } from '@/hooks/useIsMobile';
@@ -278,6 +279,7 @@ export function ChatContainer() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const isMobile = useIsMobile();
+  const [cuaModel, setCuaModel] = useCuaModel();
   const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [transportSessionId, setTransportSessionId] = useState<string | null>(null);
@@ -850,6 +852,7 @@ export function ChatContainer() {
           <ChatWorkspaceHero
             activeAgentLabel={activeAgentLabel}
             conversationCount={conversations.length}
+            cuaModel={cuaModel}
             dealSelector={(
               <DealSelector
                 selectedDealId={selectedDealId}
@@ -862,6 +865,7 @@ export function ChatContainer() {
             isMobile={isMobile}
             onOpenHistory={() => setSidebarOpen(true)}
             onOpenInspector={() => setInspectorOpen(true)}
+            onCuaModelChange={setCuaModel}
           />
 
           {currentAgent && <AgentIndicator agentName={currentAgent} />}

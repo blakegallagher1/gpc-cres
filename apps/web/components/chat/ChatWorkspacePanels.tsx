@@ -19,6 +19,7 @@ import {
   CHAT_WORKSPACE_CAPABILITIES,
   CHAT_WORKSPACE_STEPS,
 } from './chatWorkspaceContent';
+import { CuaModelToggle, type CuaModel } from './CuaModelToggle';
 
 /* ------------------------------------------------------------------ */
 /*  Props                                                              */
@@ -27,6 +28,7 @@ import {
 interface ChatWorkspaceHeroProps {
   activeAgentLabel: string;
   conversationCount: number;
+  cuaModel?: CuaModel;
   dealSelector: ReactNode;
   scopeLabel: string;
   threadStatusLabel: string;
@@ -34,6 +36,7 @@ interface ChatWorkspaceHeroProps {
   isMobile: boolean;
   onOpenHistory: () => void;
   onOpenInspector: () => void;
+  onCuaModelChange?: (model: CuaModel) => void;
 }
 
 interface ChatWorkspaceInspectorProps {
@@ -247,6 +250,7 @@ function InspectorBody({
 export function ChatWorkspaceHero({
   activeAgentLabel,
   conversationCount,
+  cuaModel,
   dealSelector,
   scopeLabel,
   threadStatusLabel,
@@ -254,6 +258,7 @@ export function ChatWorkspaceHero({
   isMobile,
   onOpenHistory,
   onOpenInspector,
+  onCuaModelChange,
 }: ChatWorkspaceHeroProps) {
   const reduceMotion = useReducedMotion();
   const motionProps = reduceMotion || process.env.NODE_ENV === 'test'
@@ -304,6 +309,9 @@ export function ChatWorkspaceHero({
         {/* Actions */}
         <div className="flex shrink-0 items-center gap-2">
           {dealSelector}
+          {cuaModel && onCuaModelChange ? (
+            <CuaModelToggle model={cuaModel} onModelChange={onCuaModelChange} />
+          ) : null}
           {isMobile ? (
             <>
               <Button
