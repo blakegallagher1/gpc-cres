@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -48,10 +48,62 @@ export function MessageList({
   conversationId,
   emptyState = DEFAULT_EMPTY_STATE,
 }: MessageListProps) {
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const previousMessageCountRef = useRef(messages.length);
+  const isNearBottomRef = useRef(true);
+  const [showJumpToLatest, setShowJumpToLatest] = useState(false);
+
+  const getViewportElement = () =>
+    scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]') as HTMLDivElement | null;
+
+  const isNearBottom = (element: HTMLDivElement) => {
+    const distanceFromBottom = element.scrollHeight - element.scrollTop - element.clientHeight;
+    return distanceFromBottom <= 120;
+  };
+
+  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+    bottomRef.current?.scrollIntoView({ behavior });
+  };
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const viewport = getViewportElement();
+    if (!viewport) {
+      return;
+    }
+
+    const handleScroll = () => {
+      const nextIsNearBottom = isNearBottom(viewport);
+      isNearBottomRef.current = nextIsNearBottom;
+
+      if (nextIsNearBottom) {
+        setShowJumpToLatest(false);
+      }
+    };
+
+    handleScroll();
+    viewport.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+      viewport.removeEventListener('scroll', handleScroll);
+    };
+  }, [messages.length]);
+
+  useEffect(() => {
+    const previousMessageCount = previousMessageCountRef.current;
+    const hasNewMessage = messages.length > previousMessageCount;
+    const latestMessage = messages[messages.length - 1];
+    const userSentMessage = hasNewMessage && latestMessage?.role === 'user';
+    const shouldAutoScroll = isNearBottomRef.current || userSentMessage;
+
+    if (shouldAutoScroll) {
+      scrollToBottom('smooth');
+      setShowJumpToLatest(false);
+    } else if (hasNewMessage || isStreaming) {
+      setShowJumpToLatest(true);
+    }
+
+    previousMessageCountRef.current = messages.length;
   }, [messages.length, isStreaming]);
 
   if (messages.length === 0) {
@@ -95,16 +147,17 @@ export function MessageList({
   }
 
   return (
-    <ScrollArea className="chat-thread-surface h-full">
-      <div className="mx-auto flex w-full max-w-[54rem] flex-col gap-3 px-4 py-6 sm:px-6">
-        {messages.map((msg) => (
-          <MessageBubble
-            key={msg.id}
-            message={msg}
-            conversationId={conversationId}
-            onToolApprovalEvents={onToolApprovalEvents}
-          />
-        ))}
+    <div className="relative h-full">
+      <ScrollArea ref={scrollAreaRef} className="chat-thread-surface h-full">
+        <div className="mx-auto flex w-full max-w-[54rem] flex-col gap-3 px-4 py-6 sm:px-6">
+          {messages.map((msg) => (
+            <MessageBubble
+              key={msg.id}
+              message={msg}
+              conversationId={conversationId}
+              onToolApprovalEvents={onToolApprovalEvents}
+            />
+          ))}
 
         {/* Streaming indicator */}
         {isStreaming && (
@@ -124,8 +177,25 @@ export function MessageList({
           </div>
         )}
 
-        <div ref={bottomRef} />
-      </div>
-    </ScrollArea>
+          <div ref={bottomRef} />
+        </div>
+      </ScrollArea>
+      {showJumpToLatest && (
+        <div className="pointer-events-none absolute bottom-4 right-4 z-10">
+          <Button
+            type="button"
+            size="sm"
+            className="pointer-events-auto rounded-full shadow-lg"
+            onClick={() => {
+              scrollToBottom('smooth');
+              isNearBottomRef.current = true;
+              setShowJumpToLatest(false);
+            }}
+          >
+            Jump to latest
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }
