@@ -39,23 +39,28 @@ vi.mock("@entitlement-os/db", () => ({
   },
 }));
 
-vi.mock("node:module", () => ({
-  createRequire: () => (moduleName: string) => {
-    if (moduleName !== "openai") {
-      throw new Error(`Unexpected module request: ${moduleName}`);
-    }
+vi.mock("node:module", async (importOriginal) => {
+  const original = await importOriginal<typeof import("node:module")>();
+  return {
+    ...original,
+    default: original,
+    createRequire: () => (moduleName: string) => {
+      if (moduleName !== "openai") {
+        throw new Error(`Unexpected module request: ${moduleName}`);
+      }
 
-    return {
-      default: class OpenAI {
-        public embeddings = {
-          create: mockOpenAIEmbeddingCreate,
-        };
+      return {
+        default: class OpenAI {
+          public embeddings = {
+            create: mockOpenAIEmbeddingCreate,
+          };
 
-        constructor(_options: unknown) {}
-      },
-    };
-  },
-}));
+          constructor(_options: unknown) {}
+        },
+      };
+    },
+  };
+});
 
 vi.mock("../openTelemetry/setup.ts", () => ({
   withSpan: async (_name: string, fn: () => Promise<unknown> | unknown) => fn(),

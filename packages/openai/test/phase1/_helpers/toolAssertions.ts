@@ -24,7 +24,8 @@ export type AgentToolLike = {
 };
 
 export function readRepoSource(repoRelativePath: string): string {
-  const repoRoot = path.resolve(process.cwd(), "../..");
+  // Use __dirname for reliable resolution regardless of cwd
+  const repoRoot = path.resolve(__dirname, "../../../../..");
   const sourcePath = path.join(repoRoot, repoRelativePath);
   return fs.readFileSync(sourcePath, "utf8");
 }
