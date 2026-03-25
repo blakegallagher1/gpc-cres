@@ -4,9 +4,12 @@ import {
   getDrawControlState,
   getGeometryStatusLabel,
   getGeoJsonSourceSafe,
-  parcelPopupHtml,
   setGeoJsonSourceDataSafe,
 } from "./MapLibreParcelMap";
+import {
+  buildParcelPopupViewModel,
+  buildTileParcelPopupViewModel,
+} from "./MapPopupPresenter";
 import type { MapParcel } from "./types";
 
 const baseParcel: MapParcel = {
@@ -16,9 +19,9 @@ const baseParcel: MapParcel = {
   lng: -91.18,
 };
 
-describe("parcelPopupHtml sanitization", () => {
-  it("renders expected popup content on happy path", () => {
-    const html = parcelPopupHtml({
+describe("map popup view models", () => {
+  it("builds the parcel popup view model with typed actions", () => {
+    const viewModel = buildParcelPopupViewModel({
       ...baseParcel,
       dealName: "Deal One",
       dealStatus: "TRIAGE_DONE",
@@ -27,47 +30,78 @@ describe("parcelPopupHtml sanitization", () => {
       floodZone: "X",
     });
 
-    expect(html).toContain("123 Main St");
-    expect(html).toContain("Deal One");
-    expect(html).toContain("Status: TRIAGE DONE");
-    expect(html).toContain("1.25 acres");
-    expect(html).toContain("Zoning: C2");
-    expect(html).toContain("Flood: X");
+    expect(viewModel).toEqual({
+      title: "123 Main St",
+      subtitle: "Deal One",
+      rows: [
+        { label: "Acreage", value: "1.25 acres" },
+        { label: "Status", value: "TRIAGE DONE" },
+        { label: "Zoning", value: "C2" },
+        { label: "Flood", value: "X" },
+      ],
+      links: [
+        {
+          label: "Street View",
+          href: "https://www.google.com/maps/@30.450000,-91.180000,3a,75y,0h,90t/data=!3m6!1e1",
+        },
+        {
+          label: "Google Maps",
+          href: "https://www.google.com/maps/search/?api=1&query=30.450000,-91.180000",
+        },
+      ],
+      actions: [
+        {
+          label: "+ Deal",
+          tone: "primary",
+          action: { type: "create_deal", parcelId: "p-1" },
+        },
+        {
+          label: "Triage",
+          tone: "warning",
+          action: { type: "create_deal", parcelId: "p-1", triage: true },
+        },
+        {
+          label: "Comps",
+          tone: "secondary",
+          action: {
+            type: "open_comps",
+            parcelId: "p-1",
+            lat: 30.45,
+            lng: -91.18,
+            address: "123 Main St",
+          },
+        },
+      ],
+    });
   });
 
-  it("escapes user-sourced HTML to block script injection", () => {
-    const html = parcelPopupHtml({
-      ...baseParcel,
-      address: `<img src=x onerror="alert('xss')">`,
-      dealName: `<script>alert("xss")</script>`,
-      dealStatus: `HEARING"><script>alert(1)</script>`,
-      currentZoning: `<b>C2</b>`,
-      floodZone: `<svg onload=alert(1)>`,
+  it("builds the tile popup view model without inline actions", () => {
+    expect(
+      buildTileParcelPopupViewModel({
+        address: "456 River Rd",
+        parcel_id: "tile-1",
+        owner: "Owner LLC",
+        area_sqft: 43560,
+        assessed_value: 500000,
+        lat: 30.44,
+        lng: -91.19,
+      }),
+    ).toEqual({
+      title: "456 River Rd",
+      subtitle: "Parcel tile-1",
+      rows: [
+        { label: "Owner", value: "Owner LLC" },
+        { label: "Area", value: "1.00 acres (43,560 sqft)" },
+        { label: "Assessed", value: "$500,000" },
+      ],
+      links: [
+        {
+          label: "Street View",
+          href: "https://www.google.com/maps/@30.440000,-91.190000,3a,75y,0h,90t/data=!3m6!1e1",
+        },
+      ],
+      actions: [],
     });
-
-    expect(html).not.toContain("<script>");
-    expect(html).not.toContain("<img");
-    expect(html).not.toContain("<svg");
-    expect(html).toContain("&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;");
-    expect(html).toContain("&lt;img src=x onerror=&quot;alert(&#39;xss&#39;)&quot;&gt;");
-    expect(html).toContain("&lt;b&gt;C2&lt;/b&gt;");
-  });
-
-  it("handles optional/null parcel fields without throwing", () => {
-    const html = parcelPopupHtml({
-      ...baseParcel,
-      acreage: null,
-      dealName: undefined,
-      dealStatus: undefined,
-      currentZoning: null,
-      floodZone: null,
-    });
-
-    expect(html).toContain("123 Main St");
-    expect(html).not.toContain("Status:");
-    expect(html).not.toContain("Zoning:");
-    expect(html).not.toContain("Flood:");
-    expect(html).not.toContain("acres");
   });
 });
 

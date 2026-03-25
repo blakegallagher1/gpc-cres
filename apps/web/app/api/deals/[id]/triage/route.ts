@@ -20,6 +20,7 @@ import { uploadArtifactToGateway } from "@/lib/storage/gatewayStorage";
 import { captureAutomationDispatchError } from "@/lib/automation/sentry";
 import { resolveStageKeyFromLegacyStatus } from "@/app/api/_lib/opportunityPhase3";
 import * as Sentry from "@sentry/nextjs";
+import { logger } from "@/lib/logger";
 
 // POST /api/deals/[id]/triage - run triage via Temporal
 const TEMPORAL_TASK_QUEUE = process.env.TEMPORAL_TASK_QUEUE || "entitlement-os";
@@ -540,7 +541,10 @@ async function generateTriagePdf(params: TriagePdfParams): Promise<void> {
       data: { status: "succeeded", finishedAt: new Date() },
     });
 
-    console.log(`Auto-generated TRIAGE_PDF v${nextVersion} for deal ${dealId}`);
+    logger.info("Deal triage auto-generated TRIAGE_PDF", {
+      dealId,
+      version: nextVersion,
+    });
   } catch (error) {
     Sentry.captureException(error, {
       tags: { route: "api.deals.triage", method: "GET" },

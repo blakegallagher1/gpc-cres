@@ -217,14 +217,12 @@ describe("GET /api/parcels/[parcelId]/geometry", () => {
     expect(res.status).toBe(404);
     expect(body.error?.code).toBe("GEOMETRY_UNAVAILABLE");
     expect(body.error?.message).toBe("Parcel geometry unavailable");
-    expect(infoSpy).toHaveBeenCalledWith(
-      "[parcel-geometry] gateway returned no geometry row",
-      expect.objectContaining({
-        parcelId: "missing",
-        detailLevel: "low",
-        status: 404,
-      }),
+    expect(String(infoSpy.mock.calls[0]?.[0] ?? "")).toContain(
+      "Parcel geometry gateway returned no row",
     );
+    expect(String(infoSpy.mock.calls[0]?.[0] ?? "")).toContain("\"parcelId\":\"missing\"");
+    expect(String(infoSpy.mock.calls[0]?.[0] ?? "")).toContain("\"detailLevel\":\"low\"");
+    expect(String(infoSpy.mock.calls[0]?.[0] ?? "")).toContain("\"status\":404");
     infoSpy.mockRestore();
   });
 

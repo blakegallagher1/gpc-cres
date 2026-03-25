@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
+import { logger } from "@/lib/logger";
 import { checkRateLimit } from "@/lib/server/rateLimiter";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import {
@@ -261,7 +262,7 @@ export async function GET(
     }
 
     if (res.status === 404) {
-      console.info("[parcel-geometry] gateway returned no geometry row", {
+      logger.info("Parcel geometry gateway returned no row", {
         parcelId,
         detailLevel,
         status: res.status,

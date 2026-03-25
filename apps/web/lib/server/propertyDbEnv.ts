@@ -1,4 +1,5 @@
 import "server-only";
+import { logger } from "@/lib/logger";
 
 export interface GatewayConfig {
   url: string;
@@ -76,14 +77,17 @@ export function logPropertyDbRuntimeHealth(routeTag: string): GatewayConfig | nu
   loggedHealthChecks.add(key);
 
   if (!config) {
-    console.warn(
-      `[property-db-health] route=${routeTag} status=invalid reason=missing_or_placeholder_env`,
-    );
+    logger.warn("Property DB runtime health invalid", {
+      routeTag,
+      reason: "missing_or_placeholder_env",
+    });
     return null;
   }
 
-  console.info(
-    `[property-db-health] route=${routeTag} status=ok host=${hostFromUrl(config.url)} key_present=true`,
-  );
+  logger.info("Property DB runtime health ok", {
+    routeTag,
+    host: hostFromUrl(config.url),
+    keyPresent: true,
+  });
   return config;
 }

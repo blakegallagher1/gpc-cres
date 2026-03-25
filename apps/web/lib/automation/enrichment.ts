@@ -5,6 +5,7 @@ import { createAutomationTask } from "./notifications";
 import type { AutomationEvent } from "./types";
 import { captureAutomationTimeout } from "./sentry";
 import { withTimeout } from "./timeout";
+import { logger, serializeErrorForLogs } from "@/lib/logger";
 
 type PropertyDbRecord = Record<string, unknown>;
 export type ParcelEnrichmentUpdate = Record<string, unknown>;
@@ -375,11 +376,13 @@ export async function handleParcelCreated(
     // High confidence + single match → auto-apply
     try {
       await applyEnrichment(parcelId, propertyDbId);
-      console.log(
-        `[automation] Auto-enriched parcel ${parcelId} with confidence ${confidence}`,
-      );
+      logger.info("Automation parcel auto-enrichment applied", {
+        parcelId,
+        propertyDbId,
+        confidence,
+      });
     } catch (err) {
-      console.error("[automation] Auto-enrichment failed:", err);
+      logger.error("Automation parcel auto-enrichment failed", serializeErrorForLogs(err));
       await createAutomationTask({
         orgId,
         dealId,

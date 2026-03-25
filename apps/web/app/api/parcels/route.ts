@@ -10,6 +10,7 @@ import {
 import {
   logPropertyDbRuntimeHealth,
 } from "@/lib/server/propertyDbEnv";
+import { logger } from "@/lib/logger";
 import { isPrismaConnectivityError } from "@/lib/server/devParcelFallback";
 import { requestPropertyDbGateway } from "@/lib/server/propertyDbRpc";
 import { getGatewayClient } from "@/lib/server/gatewayClient";
@@ -351,7 +352,7 @@ function logParcelsDevPayload(
   details: Record<string, unknown>,
 ): void {
   if (process.env.NODE_ENV === "production") return;
-  console.info("[/api/parcels][dev-payload]", {
+  logger.info("Parcels dev payload", {
     phase,
     ...details,
   });

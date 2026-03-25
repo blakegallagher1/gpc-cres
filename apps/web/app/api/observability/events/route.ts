@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import * as Sentry from "@sentry/nextjs";
+import { logger, serializeErrorForLogs } from "@/lib/logger";
 import {
   attachRequestIdHeader,
   createRequestObservabilityContext,
@@ -329,7 +330,7 @@ export async function POST(req: NextRequest) {
     Sentry.captureException(error, {
       tags: { route: "api.observability.events", method: "POST" },
     });
-    console.error("[observability-events] Failed to record client telemetry", error);
+    logger.error("Observability events failed to record client telemetry", serializeErrorForLogs(error));
     return withRequestId(
       NextResponse.json(
         { error: "Failed to record observability events" },

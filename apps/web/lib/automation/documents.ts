@@ -3,6 +3,7 @@ import { createAutomationTask } from "./notifications";
 import type { AutomationEvent } from "./types";
 import { prisma } from "@entitlement-os/db";
 import path from "node:path";
+import { logger } from "@/lib/logger";
 
 /**
  * Document type classification based on filename and content type.
@@ -116,9 +117,12 @@ export async function handleUploadCreated(
       where: { id: uploadId },
       data: { kind: classification.kind },
     });
-    console.log(
-      `[automation] Auto-classified "${upload.filename}" as "${classification.kind}" (${(classification.confidence * 100).toFixed(0)}% confidence)`
-    );
+    logger.info("Automation document auto-classified upload", {
+      uploadId,
+      filename: upload.filename,
+      kind: classification.kind,
+      confidence: classification.confidence,
+    });
     if (workbook && classification.kind === "financial") {
       triggerWorkbookKnowledgeIngest(uploadId, dealId, orgId);
     }
@@ -165,10 +169,10 @@ function triggerDocumentProcessing(
     const service = getDocumentProcessingService();
     return service.processUpload(uploadId, dealId, orgId);
   }).catch((err) => {
-    console.error(
-      `[automation] Document processing failed for upload ${uploadId}:`,
-      err instanceof Error ? err.message : String(err)
-    );
+    logger.error("Automation document processing failed", {
+      uploadId,
+      errorMessage: err instanceof Error ? err.message : String(err),
+    });
   });
 }
 
@@ -183,9 +187,9 @@ function triggerWorkbookKnowledgeIngest(
       return service.ingestWorkbookUpload(uploadId, dealId, orgId);
     })
     .catch((err) => {
-      console.error(
-        `[automation] Workbook knowledge ingest failed for upload ${uploadId}:`,
-        err instanceof Error ? err.message : String(err)
-      );
+      logger.error("Automation workbook knowledge ingest failed", {
+        uploadId,
+        errorMessage: err instanceof Error ? err.message : String(err),
+      });
     });
 }

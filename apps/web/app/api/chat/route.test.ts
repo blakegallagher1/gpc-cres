@@ -41,6 +41,14 @@ vi.mock("@/lib/server/appDbEnv", () => ({
 
 import { POST } from "./route";
 
+function parseSsePayloads(body: string): Array<Record<string, unknown>> {
+  return body
+    .split("\n\n")
+    .map((chunk) => chunk.trim())
+    .filter((chunk) => chunk.startsWith("data: "))
+    .map((chunk) => JSON.parse(chunk.slice(6)) as Record<string, unknown>);
+}
+
 describe("POST /api/chat", () => {
   beforeEach(() => {
     resolveAuthMock.mockReset();
@@ -85,6 +93,36 @@ describe("POST /api/chat", () => {
     expect(text).toContain("Request blocked by safety guardrails");
   });
 
+  it("returns 401 when unauthenticated", async () => {
+    resolveAuthMock.mockResolvedValue(null);
+
+    const req = new NextRequest("http://localhost/api/chat", {
+      method: "POST",
+      body: JSON.stringify({ message: "hello" }),
+    });
+    const res = await POST(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(401);
+    expect(body).toEqual({ error: "Unauthorized" });
+    expect(runAgentWorkflowMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 500 when auth resolution throws", async () => {
+    resolveAuthMock.mockRejectedValue(new Error("auth down"));
+
+    const req = new NextRequest("http://localhost/api/chat", {
+      method: "POST",
+      body: JSON.stringify({ message: "hello" }),
+    });
+    const res = await POST(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(body).toEqual({ error: "Authentication service unavailable" });
+    expect(runAgentWorkflowMock).not.toHaveBeenCalled();
+  });
+
   it("passes map context to agent workflow when provided", async () => {
     resolveAuthMock.mockResolvedValue({
       userId: "99999999-9999-4999-8999-999999999999",
@@ -126,6 +164,84 @@ describe("POST /api/chat", () => {
     // Fallback path: message contains [Map Context] text prefix
     // Either path is valid — the key is that the user message is preserved
     expect(msg).toContain("Show me the selected parcel.");
+  });
+
+  it("streams current chat SSE event names and payload shapes unchanged", async () => {
+    resolveAuthMock.mockResolvedValue({
+      userId: "99999999-9999-4999-8999-999999999999",
+      orgId: "11111111-1111-4111-8111-111111111111",
+    });
+    runAgentWorkflowMock.mockImplementation(
+      async (args: {
+        onEvent?: (event: Record<string, unknown>) => void;
+      }) => {
+        args.onEvent?.({ type: "agent_switch", agentName: "Coordinator" });
+        args.onEvent?.({
+          type: "tool_approval_requested",
+          name: "screen_full",
+          args: { parcel_id: "parcel-1" },
+          toolCallId: "tool-1",
+          runId: "run-1",
+        });
+        args.onEvent?.({
+          type: "agent_progress",
+          runId: "run-1",
+          status: "running",
+          partialOutput: "Checking parcel context",
+          toolsInvoked: ["screen_full"],
+          lastAgentName: "Coordinator",
+        });
+        args.onEvent?.({
+          type: "done",
+          runId: "run-1",
+          status: "succeeded",
+          conversationId: "conv-1",
+        });
+        return {
+          conversationId: "conv-1",
+        };
+      },
+    );
+
+    const req = new NextRequest("http://localhost/api/chat", {
+      method: "POST",
+      body: JSON.stringify({ message: "Run parcel screening" }),
+    });
+    const res = await POST(req);
+    const payloads = parseSsePayloads(await res.text());
+
+    expect(res.status).toBe(200);
+    expect(payloads.map((payload) => payload.type)).toEqual([
+      "agent_switch",
+      "tool_approval_requested",
+      "agent_progress",
+      "done",
+    ]);
+    expect(payloads[0]).toEqual({
+      type: "agent_switch",
+      agentName: "Coordinator",
+    });
+    expect(payloads[1]).toEqual({
+      type: "tool_approval_requested",
+      name: "screen_full",
+      args: { parcel_id: "parcel-1" },
+      toolCallId: "tool-1",
+      runId: "run-1",
+    });
+    expect(payloads[2]).toEqual({
+      type: "agent_progress",
+      runId: "run-1",
+      status: "running",
+      partialOutput: "Checking parcel context",
+      toolsInvoked: ["screen_full"],
+      lastAgentName: "Coordinator",
+    });
+    expect(payloads[3]).toEqual({
+      type: "done",
+      runId: "run-1",
+      status: "succeeded",
+      conversationId: "conv-1",
+    });
   });
 
   it("treats late SSE enqueues after stream close as a no-op", () => {

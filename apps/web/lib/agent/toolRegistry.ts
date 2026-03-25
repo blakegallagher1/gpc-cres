@@ -9,6 +9,7 @@ import {
   type ToolCatalogEntry,
 } from "@entitlement-os/openai";
 import { hydrateRequiredNullableToolArgs } from "./toolInvokeInput";
+import { logger } from "./loggerAdapter";
 
 /**
  * Tool Registry — maps tool names to their execute functions.
@@ -156,7 +157,10 @@ for (const [toolName, specialistKey] of Object.entries(CONSULT_SPECIALIST_MAP)) 
       return { result: result.finalOutput ?? "(No output from specialist)", status: "ok" };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      console.error(`[consult] ${toolName} failed:`, message);
+      logger.error("Consult tool execution failed", {
+        toolName,
+        errorMessage: message,
+      });
       return { result: `Specialist consultation failed: ${message}`, status: "error" };
     }
   };

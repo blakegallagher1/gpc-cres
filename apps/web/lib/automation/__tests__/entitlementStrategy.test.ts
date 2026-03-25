@@ -118,7 +118,9 @@ describe("handleEntitlementStrategyAutopilot", () => {
 
     expect(runEntitlementStrategyAutopilotMock).toHaveBeenCalledTimes(1);
     expect(errorSpy).toHaveBeenCalledTimes(1);
-    expect(String(errorSpy.mock.calls[0]?.[0])).toContain("Entitlement strategy autopilot failed");
+    expect(String(errorSpy.mock.calls[0]?.[0])).toContain(
+      "Automation entitlement strategy autopilot failed",
+    );
 
     errorSpy.mockRestore();
   });

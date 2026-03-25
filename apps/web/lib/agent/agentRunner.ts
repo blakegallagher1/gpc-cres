@@ -27,6 +27,7 @@ import { buildLearningContext } from "@/lib/services/learningContextBuilder";
 import { mapFeaturesFromActionPayload, mergeMapFeatures } from "@/lib/chat/mapFeatureUtils";
 import { parseToolResultMapFeatures } from "@/lib/chat/toolResultWrapper";
 import type { MapFeature } from "@/lib/chat/mapActionTypes";
+import { logger } from "./loggerAdapter";
 
 const LOCAL_LEASE_GRACE_MS = 15 * 60 * 1000;
 const LOCAL_LEASE_WAIT_MS = 60_000 * 10;
@@ -735,7 +736,10 @@ export async function runAgentWorkflow(params: AgentRunInput) {
     if (!contextDeal) {
       // Non-fatal: if deal lookup fails (DB unreachable or deal doesn't exist),
       // continue without deal context rather than blocking the entire chat.
-      console.warn(`[agentRunner] Deal ${dealId} not found for org ${orgId} — continuing without deal context`);
+      logger.warn("Agent runner missing deal context", {
+        dealId,
+        orgId,
+      });
     }
 
     jurisdictionContext = contextDeal?.jurisdiction

@@ -3,6 +3,7 @@ import { AUTOMATION_CONFIG } from "./config";
 import { isAgentExecutable, getHumanOnlyReason } from "./taskAllowlist";
 import { createAutomationTask } from "./notifications";
 import type { AutomationEvent } from "./types";
+import { logger } from "@/lib/logger";
 
 /**
  * #4 Task Execution: Detect agent-executable tasks and flag them for auto-run.
@@ -38,9 +39,11 @@ export async function handleTaskCreated(
   const humanReason = getHumanOnlyReason(task.title);
   if (humanReason) {
     // Log but don't create a task for human-only tasks — they're already human tasks
-    console.log(
-      `[automation] Task "${task.title}" is human-only: ${humanReason}`
-    );
+    logger.info("Automation task execution skipped human-only task", {
+      taskId,
+      title: task.title,
+      reason: humanReason,
+    });
     return;
   }
 
@@ -56,16 +59,21 @@ export async function handleTaskCreated(
   if (
     inProgressCount >= AUTOMATION_CONFIG.taskExecution.maxConcurrentPerDeal
   ) {
-    console.log(
-      `[automation] Concurrent task limit (${AUTOMATION_CONFIG.taskExecution.maxConcurrentPerDeal}) reached for deal ${dealId}. Task "${task.title}" queued.`
-    );
+    logger.info("Automation task execution skipped concurrent limit", {
+      dealId,
+      taskId,
+      title: task.title,
+      limit: AUTOMATION_CONFIG.taskExecution.maxConcurrentPerDeal,
+    });
     return;
   }
 
   // Task is agent-executable and under concurrent limit
-  console.log(
-    `[automation] Task "${task.title}" is agent-executable. Ready for auto-run.`
-  );
+  logger.info("Automation task execution marked task as agent-executable", {
+    dealId,
+    taskId,
+    title: task.title,
+  });
 }
 
 /**

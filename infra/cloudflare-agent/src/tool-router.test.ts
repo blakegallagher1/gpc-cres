@@ -28,7 +28,7 @@ describe("tool-router gateway Access header propagation", () => {
     };
   }
 
-  it("adds Access headers when env values are present", async () => {
+  it("adds Access headers for gateway tools when env values are present", async () => {
     fetchMock.mockResolvedValue(
       new Response(JSON.stringify({ ok: true }), {
         status: 200,
@@ -42,7 +42,7 @@ describe("tool-router gateway Access header propagation", () => {
       CF_ACCESS_CLIENT_SECRET: "client-secret",
     };
 
-    await executeTool(env, "query_property_db", '{"owner_contains":"LLC"}', "user-token", {
+    await executeTool(env, "query_property_db_sql", '{"sql":"SELECT 1"}', "user-token", {
       conversationId: "conv-1",
     });
 
@@ -54,7 +54,7 @@ describe("tool-router gateway Access header propagation", () => {
     expect(headers["CF-Access-Client-Secret"]).toBe("client-secret");
   });
 
-  it("omits Access headers when env values are absent", async () => {
+  it("omits Access headers for gateway tools when env values are absent", async () => {
     fetchMock.mockResolvedValue(
       new Response(JSON.stringify({ ok: true }), {
         status: 200,
@@ -64,7 +64,7 @@ describe("tool-router gateway Access header propagation", () => {
 
     const env = baseEnv();
 
-    await executeTool(env, "query_property_db", '{"owner_contains":"LLC"}', "user-token", {
+    await executeTool(env, "query_property_db_sql", '{"sql":"SELECT 1"}', "user-token", {
       conversationId: "conv-1",
     });
 

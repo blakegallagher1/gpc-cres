@@ -13,6 +13,7 @@ import {
   Building2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { formatOperatorDate } from '@/lib/formatters/operatorFormatters';
 import { cn } from '@/lib/utils';
 import type { ConversationSummary } from '@/lib/chat/types';
 
@@ -85,11 +86,7 @@ export function filterConversations({
 }
 
 function formatShortDate(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return 'N/A';
-  }
-  return date.toLocaleDateString([], {
+  return formatOperatorDate(value, {
     month: 'short',
     day: 'numeric',
   });

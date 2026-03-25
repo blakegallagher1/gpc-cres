@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { recomputeAllSegments } from "@/lib/jobs/calibrationRecompute";
 import * as Sentry from "@sentry/nextjs";
+import { logger, serializeErrorForLogs } from "@/lib/logger";
 
 function verifyCronSecret(req: Request): boolean {
   const secret = (process.env.CRON_SECRET || "").trim();
@@ -52,8 +53,7 @@ export async function GET(req: Request) {
     Sentry.captureException(err, {
       tags: { route: "api.cron.calibration", method: "GET" },
     });
-    console.error("[cron/calibration] failed:", err);
+    logger.error("Cron calibration failed", serializeErrorForLogs(err));
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
-

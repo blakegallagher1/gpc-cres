@@ -21,6 +21,10 @@ import {
   CheckSquare,
   Square,
 } from "lucide-react";
+import {
+  formatOperatorAcreage,
+  formatOperatorCurrency,
+} from "@/lib/formatters/operatorFormatters";
 import { toast } from "sonner";
 
 // ---------------------------------------------------------------------------
@@ -321,7 +325,16 @@ export function ProspectResults({
             <thead>
               <tr className="border-b text-left text-xs text-muted-foreground">
                 <th className="pb-2 pr-2">
-                  <button onClick={toggleAll} className="hover:text-foreground">
+                  <button
+                    type="button"
+                    onClick={toggleAll}
+                    className="hover:text-foreground"
+                    aria-label={
+                      selectedIds.size === parcels.length
+                        ? "Deselect all prospect parcels"
+                        : "Select all prospect parcels"
+                    }
+                  >
                     {selectedIds.size === parcels.length ? (
                       <CheckSquare className="h-4 w-4" />
                     ) : (
@@ -329,41 +342,71 @@ export function ProspectResults({
                     )}
                   </button>
                 </th>
-                <th
-                  className="cursor-pointer pb-2 pr-4 hover:text-foreground"
-                  onClick={() => toggleSort("address")}
-                >
-                  Address <SortIcon field="address" />
+                <th className="pb-2 pr-4">
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 hover:text-foreground"
+                    onClick={() => toggleSort("address")}
+                    aria-label="Sort by address"
+                  >
+                    <span>Address</span>
+                    <SortIcon field="address" />
+                  </button>
                 </th>
-                <th
-                  className="cursor-pointer pb-2 pr-4 hover:text-foreground"
-                  onClick={() => toggleSort("owner")}
-                >
-                  Owner <SortIcon field="owner" />
+                <th className="pb-2 pr-4">
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 hover:text-foreground"
+                    onClick={() => toggleSort("owner")}
+                    aria-label="Sort by owner"
+                  >
+                    <span>Owner</span>
+                    <SortIcon field="owner" />
+                  </button>
                 </th>
-                <th
-                  className="cursor-pointer pb-2 pr-4 text-right hover:text-foreground"
-                  onClick={() => toggleSort("acreage")}
-                >
-                  Acres <SortIcon field="acreage" />
+                <th className="pb-2 pr-4 text-right">
+                  <button
+                    type="button"
+                    className="ml-auto inline-flex items-center gap-1 hover:text-foreground"
+                    onClick={() => toggleSort("acreage")}
+                    aria-label="Sort by acreage"
+                  >
+                    <span>Acres</span>
+                    <SortIcon field="acreage" />
+                  </button>
                 </th>
-                <th
-                  className="cursor-pointer pb-2 pr-4 hover:text-foreground"
-                  onClick={() => toggleSort("zoning")}
-                >
-                  Zoning <SortIcon field="zoning" />
+                <th className="pb-2 pr-4">
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 hover:text-foreground"
+                    onClick={() => toggleSort("zoning")}
+                    aria-label="Sort by zoning"
+                  >
+                    <span>Zoning</span>
+                    <SortIcon field="zoning" />
+                  </button>
                 </th>
-                <th
-                  className="cursor-pointer pb-2 pr-4 text-right hover:text-foreground"
-                  onClick={() => toggleSort("assessedValue")}
-                >
-                  Assessed Value <SortIcon field="assessedValue" />
+                <th className="pb-2 pr-4 text-right">
+                  <button
+                    type="button"
+                    className="ml-auto inline-flex items-center gap-1 hover:text-foreground"
+                    onClick={() => toggleSort("assessedValue")}
+                    aria-label="Sort by assessed value"
+                  >
+                    <span>Assessed Value</span>
+                    <SortIcon field="assessedValue" />
+                  </button>
                 </th>
-                <th
-                  className="cursor-pointer pb-2 pr-4 hover:text-foreground"
-                  onClick={() => toggleSort("floodZone")}
-                >
-                  Flood Zone <SortIcon field="floodZone" />
+                <th className="pb-2 pr-4">
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 hover:text-foreground"
+                    onClick={() => toggleSort("floodZone")}
+                    aria-label="Sort by flood zone"
+                  >
+                    <span>Flood Zone</span>
+                    <SortIcon field="floodZone" />
+                  </button>
                 </th>
               </tr>
             </thead>
@@ -372,24 +415,42 @@ export function ProspectResults({
                 <tr
                   key={p.id}
                   className={`border-b last:border-0 hover:bg-muted/50 ${
-                    selectedIds.has(p.id) ? "bg-purple-50" : ""
+                    selectedIds.has(p.id) ? "bg-muted/40" : ""
                   }`}
                 >
                   <td className="py-2 pr-2">
-                    <button onClick={() => toggleOne(p.id)}>
+                    <button
+                      type="button"
+                      onClick={() => toggleOne(p.id)}
+                      aria-label={
+                        selectedIds.has(p.id)
+                          ? `Deselect ${p.address}`
+                          : `Select ${p.address}`
+                      }
+                    >
                       {selectedIds.has(p.id) ? (
-                        <CheckSquare className="h-4 w-4 text-purple-600" />
+                        <CheckSquare className="h-4 w-4 text-foreground" />
                       ) : (
                         <Square className="h-4 w-4 text-muted-foreground" />
                       )}
                     </button>
                   </td>
-                  <td className="py-2 pr-4 font-medium">{p.address}</td>
+                  <td className="py-2 pr-4 font-medium">
+                    <span className="block max-w-[18rem] truncate">{p.address}</span>
+                  </td>
                   <td className="py-2 pr-4 text-muted-foreground">
+                    <span className="block max-w-[14rem] truncate">
                     {p.owner}
+                    </span>
                   </td>
                   <td className="py-2 pr-4 text-right tabular-nums">
-                    {p.acreage != null ? p.acreage.toFixed(2) : "—"}
+                    {p.acreage != null
+                      ? formatOperatorAcreage(p.acreage, {
+                          includeUnit: false,
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })
+                      : "—"}
                   </td>
                   <td className="py-2 pr-4">
                     {p.zoning ? (
@@ -402,7 +463,10 @@ export function ProspectResults({
                   </td>
                   <td className="py-2 pr-4 text-right tabular-nums">
                     {p.assessedValue != null
-                      ? `$${p.assessedValue.toLocaleString()}`
+                      ? formatOperatorCurrency(p.assessedValue, {
+                          minimumFractionDigits: 0,
+                          maximumFractionDigits: 0,
+                        })
                       : "—"}
                   </td>
                   <td className="py-2 pr-4 text-xs">{p.floodZone || "—"}</td>

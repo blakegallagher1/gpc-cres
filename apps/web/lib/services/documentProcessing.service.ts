@@ -1,72 +1,32 @@
 import { prisma } from "@entitlement-os/db";
-import type { Prisma } from "@entitlement-os/db";
-import { fetchObjectBytesFromGateway, systemAuth } from "@/lib/storage/gatewayStorage";
-import { getNotificationService } from "./notification.service";
 import { AppError } from "@/lib/errors";
-import { createTextResponse } from "@entitlement-os/openai";
+import { logger } from "@/lib/logger";
+import type { DocType } from "@/lib/validation/extractionSchemas";
 import {
-  DocTypeSchema,
-  type DocType,
+  MIN_TEXT_FOR_EXTRACTION,
+  classifyDocumentUpload,
+  extractDocumentTextForUpload,
+  extractStructuredDocumentData,
+  indexDocumentInQdrant,
+} from "./documentProcessingExtraction";
+import {
+  autoFillDealFields,
+  createDocumentExtraction,
+  createReviewNotification,
   DOC_TYPE_LABELS,
-  serializeExtractionPayload,
-  validateExtractionPayload,
-} from "@/lib/validation/extractionSchemas";
+  findExistingDocumentExtraction,
+  getDocumentExtraction,
+  getDocumentExtractionsByDeal,
+  getUnreviewedExtractionCount,
+  type DocumentExtractionResponse,
+  reviewDocumentExtraction,
+} from "./documentProcessingPersistence";
 
 export { DOC_TYPE_LABELS };
 
-const MIN_TEXT_FOR_EXTRACTION = 50;
-const ADDITIONAL_LLM_DOC_TYPES = ["rent_roll", "trailing_financials"] as const;
-
-type ExtractionWithOptionalUpload = {
-  id: string;
-  orgId: string;
-  uploadId: string;
-  dealId: string;
-  docType: string;
-  extractedData: unknown;
-  rawText: string | null;
-  confidence: Prisma.Decimal | number | string;
-  extractedAt: Date;
-  reviewed: boolean;
-  reviewedBy: string | null;
-  reviewedAt: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
-  upload?: {
-    id: string;
-    filename: string;
-    kind: string;
-    contentType: string;
-    sizeBytes: number;
-    createdAt: Date;
-  } | null;
-};
-
-export type DocumentExtractionResponse = {
-  id: string;
-  orgId: string;
-  uploadId: string;
-  dealId: string;
-  docType: DocType;
-  extractedData: Record<string, unknown>;
-  rawText: string | null;
-  confidence: number;
-  extractedAt: Date;
-  reviewed: boolean;
-  reviewedBy: string | null;
-  reviewedAt: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
-  upload?: {
-    id: string;
-    filename: string;
-    kind: string;
-    contentType: string;
-    sizeBytes: number;
-    createdAt: Date;
-  } | null;
-};
-
+/**
+ * Result returned after processing a newly uploaded document.
+ */
 export type ProcessUploadResult = {
   created: boolean;
   extractionId: string;
@@ -74,1186 +34,174 @@ export type ProcessUploadResult = {
   extractedData: Record<string, unknown>;
 };
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function normalizeDocType(docType: string): DocType {
-  const parsed = DocTypeSchema.safeParse(docType);
-  return parsed.success ? parsed.data : "other";
-}
-
-async function indexDocumentInQdrant(input: {
-  orgId: string;
-  uploadId: string;
-  dealId: string;
-  docType: string;
-  filename: string;
-  rawText: string;
-}): Promise<void> {
-  const { canUseQdrantHybridRetrieval, getAgentOsConfig, DocumentIntelligenceStore } =
-    await import("@entitlement-os/openai");
-  if (!canUseQdrantHybridRetrieval()) return;
-  const config = getAgentOsConfig();
-  if (!config.qdrant.url) return;
-
-  const store = new DocumentIntelligenceStore(config.qdrant.url);
-  await store.upsert({
-    orgId: input.orgId,
-    uploadId: input.uploadId,
-    dealId: input.dealId,
-    docType: input.docType,
-    filename: input.filename,
-    rawText: input.rawText,
-  });
-}
-
-function toNumber(value: Prisma.Decimal | number | string): number {
-  if (typeof value === "number") return value;
-  if (typeof value === "string") return Number(value);
-  return Number(value.toString());
-}
-
-function serializeExtraction(
-  extraction: ExtractionWithOptionalUpload
-): DocumentExtractionResponse {
-  const docType = normalizeDocType(extraction.docType);
-
-  return {
-    id: extraction.id,
-    orgId: extraction.orgId,
-    uploadId: extraction.uploadId,
-    dealId: extraction.dealId,
-    docType,
-    extractedData: serializeExtractionPayload(docType, extraction.extractedData),
-    rawText: extraction.rawText,
-    confidence: toNumber(extraction.confidence),
-    extractedAt: extraction.extractedAt,
-    reviewed: extraction.reviewed,
-    reviewedBy: extraction.reviewedBy,
-    reviewedAt: extraction.reviewedAt,
-    createdAt: extraction.createdAt,
-    updatedAt: extraction.updatedAt,
-    upload: extraction.upload ?? undefined,
-  };
-}
-
-function isPrismaUniqueConstraintError(error: unknown): boolean {
-  if (!(error instanceof Error)) {
-    return false;
-  }
-
-  const withCode = error as Error & { code?: string };
-  return withCode.code === "P2002";
-}
-
-function hasOwnProperty(
-  value: object,
-  property: string
-): boolean {
-  return Object.prototype.hasOwnProperty.call(value, property);
-}
-
-// ---------------------------------------------------------------------------
-// Classification — enhanced regex + LLM
-// ---------------------------------------------------------------------------
-
-const ENHANCED_CLASSIFICATION_RULES: ReadonlyArray<{
-  pattern: RegExp;
-  docType: DocType;
-  confidence: number;
-}> = [
-  // PSA / Purchase Agreement
-  { pattern: /purchase\s*(and|&)?\s*sale\s*agree/i, docType: "psa", confidence: 0.95 },
-  { pattern: /\bpsa\b/i, docType: "psa", confidence: 0.9 },
-  { pattern: /purchase\s*agreement/i, docType: "psa", confidence: 0.9 },
-  { pattern: /contract\s*of\s*sale/i, docType: "psa", confidence: 0.85 },
-  // Phase I ESA
-  { pattern: /phase\s*[1i]\b.*(?:esa|environmental)/i, docType: "phase_i_esa", confidence: 0.95 },
-  { pattern: /environmental\s*site\s*assessment/i, docType: "phase_i_esa", confidence: 0.9 },
-  { pattern: /\besa\b/i, docType: "phase_i_esa", confidence: 0.7 },
-  // Financing Commitment
-  { pattern: /financing\s*commitment/i, docType: "financing_commitment", confidence: 0.95 },
-  { pattern: /loan\s*commitment/i, docType: "financing_commitment", confidence: 0.92 },
-  { pattern: /commitment\s*letter/i, docType: "financing_commitment", confidence: 0.82 },
-  // Title Commitment
-  { pattern: /title\s*commitment/i, docType: "title_commitment", confidence: 0.95 },
-  { pattern: /title\s*report/i, docType: "title_commitment", confidence: 0.85 },
-  { pattern: /preliminary\s*title/i, docType: "title_commitment", confidence: 0.85 },
-  // Survey
-  { pattern: /\bsurvey\b/i, docType: "survey", confidence: 0.85 },
-  { pattern: /\balta\b/i, docType: "survey", confidence: 0.9 },
-  { pattern: /\bplat\b/i, docType: "survey", confidence: 0.8 },
-  { pattern: /boundary\s*(survey|map)/i, docType: "survey", confidence: 0.9 },
-  // Zoning Letter
-  { pattern: /zoning\s*(letter|verification|confirmation)/i, docType: "zoning_letter", confidence: 0.95 },
-  { pattern: /zoning\s*compliance/i, docType: "zoning_letter", confidence: 0.85 },
-  { pattern: /conditional\s*use\s*permit/i, docType: "zoning_letter", confidence: 0.8 },
-  { pattern: /\bcup\b.*(?:permit|zoning)/i, docType: "zoning_letter", confidence: 0.8 },
-  // Appraisal
-  { pattern: /appraisal/i, docType: "appraisal", confidence: 0.9 },
-  { pattern: /valuation\s*report/i, docType: "appraisal", confidence: 0.85 },
-  // Lease
-  { pattern: /\blease\b/i, docType: "lease", confidence: 0.85 },
-  { pattern: /lease\s*abstract/i, docType: "lease", confidence: 0.9 },
-  // Rent Roll (multi-tenant)
-  { pattern: /rent\s*roll/i, docType: "rent_roll" as DocType, confidence: 0.95 },
-  { pattern: /tenant\s*roster/i, docType: "rent_roll" as DocType, confidence: 0.9 },
-  { pattern: /occupancy\s*report/i, docType: "rent_roll" as DocType, confidence: 0.85 },
-  { pattern: /rent\s*schedule/i, docType: "rent_roll" as DocType, confidence: 0.85 },
-  // Trailing Financials (T3/T6/T12)
-  { pattern: /trailing\s*(?:3|6|12|three|six|twelve)\s*month/i, docType: "trailing_financials" as DocType, confidence: 0.95 },
-  { pattern: /\b(?:t3|t6|t12)\b/i, docType: "trailing_financials" as DocType, confidence: 0.9 },
-  { pattern: /operating\s*statement/i, docType: "trailing_financials" as DocType, confidence: 0.85 },
-  { pattern: /income\s*(?:and|&)\s*expense\s*statement/i, docType: "trailing_financials" as DocType, confidence: 0.85 },
-  { pattern: /actual\s*(?:income|financials|operating)/i, docType: "trailing_financials" as DocType, confidence: 0.8 },
-  // LOI
-  { pattern: /letter\s*of\s*intent/i, docType: "loi", confidence: 0.9 },
-  { pattern: /\bloi\b/i, docType: "loi", confidence: 0.85 },
-];
-
-function classifyByFilename(filename: string): { docType: DocType; confidence: number } {
-  for (const rule of ENHANCED_CLASSIFICATION_RULES) {
-    if (rule.pattern.test(filename)) {
-      return { docType: rule.docType, confidence: rule.confidence };
-    }
-  }
-  return { docType: "other", confidence: 0.3 };
-}
-
-// ---------------------------------------------------------------------------
-// Text extraction
-// ---------------------------------------------------------------------------
-
-async function extractTextFromPdf(buffer: Buffer): Promise<string> {
-  try {
-    const { extractText } = await import("unpdf");
-    const result = await extractText(new Uint8Array(buffer), { mergePages: true });
-    const text = String(result.text ?? "").trim();
-    return text;
-  } catch (err) {
-    console.error("[doc-processing] PDF text extraction failed:", err);
-    return "";
-  }
-}
-
-function isScannedPdf(text: string, pageCount?: number): boolean {
-  // Heuristic: if extracted text is very short relative to expected content,
-  // it's likely a scanned PDF (image-based)
-  if (!text || text.length < 50) return true;
-  // If we have page count info, check chars per page
-  if (pageCount && pageCount > 0) {
-    const charsPerPage = text.length / pageCount;
-    return charsPerPage < 100; // Less than 100 chars/page = likely scanned
-  }
-  return false;
-}
-
 /**
- * OCR fallback for scanned PDFs using Tesseract.js.
- * Converts each PDF page to an image, then runs OCR.
- * Returns concatenated text from all pages.
+ * Facade service for document extraction, review, and persistence workflows.
  */
-async function ocrPdfBuffer(buffer: Buffer): Promise<string> {
-  const tesseractModuleName = ["tesseract", "js"].join(".");
-  const { createWorker } = (await import(tesseractModuleName)) as {
-    createWorker: (
-      language?: string
-    ) => Promise<{
-      recognize: (image: Buffer | Uint8Array | string) => Promise<{ data: { text: string } }>;
-      terminate: () => Promise<void>;
-    }>;
-  };
-  const unpdf = (await import("unpdf")) as Record<string, unknown>;
-  const renderPageAsImage = unpdf.renderPageAsImage as
-    | ((pdf: Uint8Array, page: number, options?: { scale?: number }) => Promise<Uint8Array | null>)
-    | undefined;
-  const getDocumentProxy = unpdf.getDocumentProxy as
-    | ((pdf: Uint8Array) => Promise<{ numPages: number }>)
-    | undefined;
-
-  if (!renderPageAsImage || !getDocumentProxy) {
-    console.warn("[doc-processing] OCR fallback unavailable: unpdf missing required OCR exports");
-    return "";
-  }
-
-  const doc = await getDocumentProxy(new Uint8Array(buffer));
-  const pageCount = doc.numPages;
-  if (pageCount === 0) return "";
-
-  // Limit to first 20 pages to keep processing time reasonable
-  const maxPages = Math.min(pageCount, 20);
-  const worker = await createWorker("eng");
-  const pageTexts: string[] = [];
-
-  try {
-    for (let i = 1; i <= maxPages; i += 1) {
-      try {
-        const imageResult = await renderPageAsImage(new Uint8Array(buffer), i, {
-          scale: 2, // 2x for better OCR accuracy
-        });
-        if (!imageResult) continue;
-
-        // renderPageAsImage returns a Uint8Array PNG
-        const imageBuffer = Buffer.from(imageResult);
-        const {
-          data: { text },
-        } = await worker.recognize(imageBuffer);
-
-        if (text && text.trim().length > 0) {
-          pageTexts.push(text.trim());
-        }
-      } catch (pageErr) {
-        console.warn(`[doc-processing] OCR failed on page ${i}:`, pageErr);
-        // Continue with other pages
-      }
-    }
-  } finally {
-    await worker.terminate();
-  }
-
-  return pageTexts.join("\n\n");
-}
-
-// ---------------------------------------------------------------------------
-// LLM-based classification
-// ---------------------------------------------------------------------------
-
-async function classifyWithLLM(
-  text: string,
-  filename: string
-): Promise<{ docType: DocType; confidence: number }> {
-  const truncatedText = text.slice(0, 3000); // First 3K chars for classification
-
-  try {
-    const { text: content } = await createTextResponse({
-      model: "gpt-5.4-mini",
-      temperature: 0,
-      systemPrompt: `You are a commercial real estate document classifier. Classify the document into exactly one type.
-Return JSON with: { "doc_type": string, "confidence": number }
-
-Valid doc_type values:
-- "psa" — Purchase & Sale Agreement
-- "phase_i_esa" — Phase I Environmental Site Assessment
-- "title_commitment" — Title Commitment / Title Report
-- "survey" — Survey / ALTA / Plat / Boundary
-- "zoning_letter" — Zoning Letter / Verification / CUP
-- "appraisal" — Appraisal / Valuation Report
-- "lease" — Lease / Lease Abstract
-- "loi" — Letter of Intent
-- "rent_roll" — Rent Roll / Tenant Roster / Occupancy Report (multi-tenant schedule)
-- "trailing_financials" — Trailing Financials / T3 / T6 / T12 / Operating Statement / Income & Expense Statement
-- "other" — Does not match any above
-
-confidence: 0.0 to 1.0 (your confidence in the classification)`,
-      userPrompt: `Filename: ${filename}\n\nDocument text (first 3000 chars):\n${truncatedText}`,
-    });
-
-    if (!content) return { docType: "other", confidence: 0.3 };
-
-    const parsed = JSON.parse(content);
-    const docType = typeof parsed.doc_type === "string" ? parsed.doc_type : "";
-    const confidence = typeof parsed.confidence === "number" ? parsed.confidence : 0.5;
-
-    // Validate doc_type
-    if (docType in DOC_TYPE_LABELS || ADDITIONAL_LLM_DOC_TYPES.includes(docType as (typeof ADDITIONAL_LLM_DOC_TYPES)[number])) {
-      return { docType: docType as DocType, confidence: Math.min(confidence, 0.98) };
-    }
-    return { docType: "other", confidence: 0.3 };
-  } catch (err) {
-    console.error("[doc-processing] LLM classification failed:", err);
-    return { docType: "other", confidence: 0.3 };
-  }
-}
-
-// ---------------------------------------------------------------------------
-// LLM-based structured extraction per doc type
-// ---------------------------------------------------------------------------
-
-const EXTRACTION_PROMPTS: Record<DocType | "rent_roll" | "trailing_financials", string> = {
-  psa: `Extract ALL of the following fields from this Purchase & Sale Agreement (PSA).
-For dollar amounts, extract as plain numbers (no commas, no "$"). For dates use YYYY-MM-DD. For lists, include every distinct item found.
-
-Required JSON schema:
-{
-  "purchase_price": number or null — the total agreed purchase price,
-  "earnest_money": number or null — earnest money / initial deposit amount,
-  "due_diligence_period_days": number or null — number of calendar days for the due diligence / inspection period,
-  "dd_start_date": "YYYY-MM-DD" or null — date the due diligence period begins (effective date if not explicit),
-  "closing_date": "YYYY-MM-DD" or null — scheduled closing date,
-  "contingencies": ["string"] — list of buyer contingencies (financing, inspection, appraisal, title, environmental, etc.),
-  "seller_representations": ["string"] — list of seller representations and warranties,
-  "special_provisions": ["string"] — any special provisions, addenda, or amendments,
-  "buyer_entity": "string" or null — full legal name of the purchasing entity,
-  "seller_entity": "string" or null — full legal name of the selling entity
-}`,
-
-  phase_i_esa: `Extract ALL of the following fields from this Phase I Environmental Site Assessment (ESA).
-Focus on environmental findings, recognized conditions, and recommendations.
-
-Required JSON schema:
-{
-  "recs": ["string"] — list of Recognized Environmental Conditions (RECs) identified. Include each REC as a separate item with a brief description,
-  "de_minimis_conditions": ["string"] — list of de minimis conditions (minor issues not rising to REC level),
-  "historical_uses": ["string"] — list of historical uses of the property found in records review (e.g., "Gas station 1960-1985", "Agricultural use pre-1950"),
-  "adjoining_property_concerns": ["string"] — environmental concerns from adjacent/nearby properties,
-  "recommended_phase_ii": true/false — whether the report recommends a Phase II investigation,
-  "phase_ii_scope": "string" or null — recommended scope of Phase II if recommended (e.g., "soil sampling at former UST location"),
-  "report_date": "YYYY-MM-DD" or null — date of the ESA report,
-  "consultant": "string" or null — name of the environmental consulting firm
-}`,
-
-  title_commitment: `Extract ALL of the following fields from this Title Commitment / Title Report.
-Carefully distinguish between Schedule A (requirements) and Schedule B (exceptions/encumbrances).
-
-Required JSON schema:
-{
-  "commitment_date": "YYYY-MM-DD" or null — effective date of the commitment,
-  "policy_amount": number or null — proposed policy amount in dollars,
-  "requirements": ["string"] — Schedule A/B-I requirements that must be satisfied before policy issuance,
-  "exceptions": ["string"] — Schedule B-II exceptions to coverage (each exception as a separate string),
-  "easements": ["string"] — easements identified (extract from exceptions if embedded there),
-  "liens": ["string"] — mortgages, judgment liens, tax liens, mechanic's liens identified,
-  "encumbrances": ["string"] — other encumbrances: restrictive covenants, deed restrictions, HOA declarations,
-  "title_company": "string" or null — name of the title company / underwriter
-}`,
-
-  survey: `Extract ALL of the following fields from this Survey / ALTA / Plat / Boundary document.
-For setbacks, extract in feet. For acreage, extract the total even if composed of multiple tracts.
-
-Required JSON schema:
-{
-  "total_acreage": number or null — total acreage (e.g., 5.23),
-  "dimensions": "string" or null — overall lot dimensions or legal description summary (e.g., "330ft x 660ft irregular"),
-  "flood_zone": "string" or null — FEMA flood zone designation (e.g., "Zone X", "Zone AE", "Zone A"),
-  "flood_zone_panel": "string" or null — FIRM panel number (e.g., "22033C0375D"),
-  "easement_locations": ["string"] — describe each easement with location and type (e.g., "15ft utility easement along north boundary"),
-  "utility_locations": ["string"] — describe utility locations (e.g., "Water main along Main Street frontage", "Overhead power NW corner"),
-  "setbacks": { "front": number or null, "side": number or null, "rear": number or null } — required setbacks in feet,
-  "encroachments": ["string"] — any encroachments found (e.g., "Fence from adjacent parcel encroaches 2ft along east line"),
-  "surveyor": "string" or null — name of surveyor or survey firm,
-  "survey_date": "YYYY-MM-DD" or null — date of the survey
-}`,
-
-  zoning_letter: `Extract ALL of the following fields from this Zoning Letter / Zoning Verification / Zoning Compliance document.
-For dimensional standards, extract numeric values in the units used (feet for setbacks/height, percentage for lot coverage).
-
-Required JSON schema:
-{
-  "current_zoning": "string" or null — current zoning district code (e.g., "M-1", "C-2", "A-1"),
-  "permitted_uses": ["string"] — uses permitted by-right in this zoning district,
-  "conditional_uses": ["string"] — uses allowed by conditional use permit / special exception,
-  "dimensional_standards": {
-    "max_height": number or null — maximum building height in feet,
-    "lot_coverage": number or null — maximum lot coverage as percentage (e.g., 60 for 60%),
-    "far": number or null — floor area ratio (e.g., 1.5),
-    "setbacks": { "front": number or null, "side": number or null, "rear": number or null } — required setbacks in feet
-  },
-  "variance_required": true/false — whether a variance or special exception is needed for the proposed use,
-  "overlay_districts": ["string"] — any overlay districts that apply (e.g., "Historic Overlay", "Airport Noise Zone"),
-  "jurisdiction": "string" or null — name of the zoning jurisdiction / municipality
-}`,
-
-  appraisal: `Extract ALL of the following fields from this Appraisal / Valuation Report.
-For dollar amounts, extract as plain numbers. For cap rate, extract as decimal (e.g., 0.065 for 6.5%).
-
-Required JSON schema:
-{
-  "appraised_value": number or null — final reconciled appraised value in dollars,
-  "effective_date": "YYYY-MM-DD" or null — effective date of the appraisal,
-  "property_type": "string" or null — property type classification (e.g., "Industrial", "Retail", "Office", "Multifamily", "Land"),
-  "total_sf": number or null — total building area in square feet,
-  "total_acreage": number or null — site/land area in acres,
-  "approach_values": {
-    "sales_comparison": number or null — value from sales comparison approach,
-    "income": number or null — value from income capitalization approach,
-    "cost": number or null — value from cost approach
-  },
-  "cap_rate": number or null — overall capitalization rate as decimal (0.065 = 6.5%),
-  "noi": number or null — net operating income used in income approach,
-  "highest_best_use": "string" or null — highest and best use conclusion,
-  "appraiser": "string" or null — name of appraiser or appraisal firm
-}`,
-
-  financing_commitment: `Extract ALL of the following fields from this Financing Commitment / Loan Commitment Letter.
-For percentages, return numeric percentages (e.g., 7.25 for 7.25%).
-
-Required JSON schema:
-{
-  "lender_name": "string" or null — lender or issuing institution,
-  "loan_amount": number or null — committed principal amount in dollars,
-  "interest_rate": number or null — annual interest rate percentage (e.g., 7.25),
-  "loan_term_months": number or null — loan term in months,
-  "dscr_requirement": number or null — minimum DSCR covenant,
-  "ltv_percent": number or null — maximum LTV percentage (e.g., 70 for 70%),
-  "commitment_date": "YYYY-MM-DD" or null — commitment letter date,
-  "expiry_date": "YYYY-MM-DD" or null — commitment expiration date,
-  "conditions": ["string"] — major funding/closing conditions
-}`,
-
-  lease: `Extract ALL of the following fields from this Lease / Rent Roll / Lease Abstract.
-For dollar amounts, extract as plain numbers. lease_type must be one of: "NNN", "gross", or "modified_gross".
-
-Required JSON schema:
-{
-  "tenant_name": "string" or null — full legal name of the tenant,
-  "lease_type": "NNN" or "gross" or "modified_gross" or null — lease structure type,
-  "term_years": number or null — lease term in years (e.g., 5, 10.5),
-  "start_date": "YYYY-MM-DD" or null — lease commencement date,
-  "expiration_date": "YYYY-MM-DD" or null — lease expiration date,
-  "base_rent": number or null — annual base rent in dollars,
-  "rent_per_sf": number or null — rent per square foot per year,
-  "escalation_structure": "string" or null — describe rent escalation (e.g., "3% annual increase", "CPI-based", "Fixed bumps: $12/SF yr1, $12.50/SF yr2"),
-  "renewal_options": ["string"] — each renewal option as a string (e.g., "Two 5-year options at fair market value"),
-  "tenant_improvements": "string" or null — TI allowance or description (e.g., "$25/SF tenant improvement allowance"),
-  "expense_stops": "string" or null — expense stop / base year provisions,
-  "security_deposit": number or null — security deposit amount in dollars
-}`,
-
-  loi: `Extract ALL of the following fields from this Letter of Intent (LOI).
-For dollar amounts, extract as plain numbers.
-
-Required JSON schema:
-{
-  "purchase_price": number or null — proposed purchase price,
-  "earnest_money": number or null — proposed earnest money / deposit,
-  "due_diligence_days": number or null — proposed due diligence period in calendar days,
-  "closing_timeline": "string" or null — proposed closing timeline (e.g., "45 days from execution", "March 15, 2026"),
-  "contingencies": ["string"] — list of contingencies or conditions precedent,
-  "buyer_entity": "string" or null — buyer entity name,
-  "seller_entity": "string" or null — seller / property owner entity name,
-  "expiration_date": "YYYY-MM-DD" or null — LOI expiration date,
-  "financing_terms": "string" or null — proposed financing terms (e.g., "Cash at closing", "70% LTV conventional")
-}`,
-
-  rent_roll: `Extract ALL of the following fields from this Rent Roll / Tenant Roster / Occupancy Report.
-For dollar amounts, extract as plain numbers. For dates use YYYY-MM-DD. Extract EVERY tenant row found.
-Required JSON schema:
-{
-  "as_of_date": "YYYY-MM-DD" or null — the effective / as-of date of the rent roll,
-  "property_name": "string" or null — property name or address,
-  "total_units": integer or null — total unit/suite count,
-  "total_rentable_sf": number or null — total rentable square footage,
-  "occupied_units": integer or null — number of currently occupied units,
-  "occupied_sf": number or null — occupied square footage,
-  "vacancy_rate_pct": number or null — vacancy rate as a percentage (e.g., 5.2 for 5.2%),
-  "total_monthly_rent": number or null — sum of all monthly rents,
-  "total_annual_rent": number or null — sum of all annual rents (or monthly × 12),
-  "avg_rent_per_sf": number or null — average rent per square foot per year,
-  "avg_rent_per_unit": number or null — average rent per unit per month,
-  "tenants": [
-    {
-      "tenant_name": "string" or null,
-      "suite_unit": "string" or null — suite/unit number,
-      "rentable_sf": number or null,
-      "lease_start": "YYYY-MM-DD" or null,
-      "lease_end": "YYYY-MM-DD" or null,
-      "monthly_rent": number or null,
-      "annual_rent": number or null,
-      "rent_per_sf": number or null — annual rent per SF,
-      "lease_type": "NNN" or "gross" or "modified_gross" or null,
-      "status": "occupied" or "vacant" or "month_to_month" or "notice_to_vacate" or null
-    }
-  ],
-  "weighted_avg_lease_term_years": number or null — weighted average remaining lease term,
-  "near_term_expirations": [
-    {
-      "tenant_name": "string" or null,
-      "expiration_date": "YYYY-MM-DD" or null,
-      "annual_rent": number or null,
-      "sf": number or null
-    }
-  ] — leases expiring within the next 24 months
-}
-IMPORTANT: Extract every tenant/unit row. For vacant units, include with status "vacant" and null rent fields.
-If computed totals are not on the document, calculate them from the individual rows.`,
-
-  trailing_financials: `Extract ALL of the following fields from this Operating Statement / Trailing Financials
-(T3/T6/T12).
-For dollar amounts, extract as plain numbers. Identify the period type (T3=3 months, T6=6 months, T12=12 months).
-Required JSON schema:
-{
-  "period_type": "T3" or "T6" or "T12" or null — the trailing period (3, 6, or 12 months),
-  "period_start": "YYYY-MM-DD" or null — start of the reporting period,
-  "period_end": "YYYY-MM-DD" or null — end of the reporting period,
-  "property_name": "string" or null — property name or address,
-  "gross_potential_rent": number or null — gross potential rent / scheduled rent,
-  "vacancy_loss": number or null — vacancy and credit loss (as a positive number),
-  "effective_gross_income": number or null — gross potential rent minus vacancy loss,
-  "other_income": number or null — other income (parking, laundry, late fees, etc.),
-  "total_revenue": number or null — total revenue / effective gross income + other income,
-  "real_estate_taxes": number or null,
-  "insurance": number or null,
-  "utilities": number or null,
-  "repairs_maintenance": number or null — repairs and maintenance,
-  "management_fees": number or null,
-  "general_administrative": number or null — G&A / administrative expenses,
-  "other_expenses": number or null — any other operating expenses,
-  "total_expenses": number or null — total operating expenses,
-  "noi": number or null — net operating income (total_revenue minus total_expenses),
-  "capex_reserves": number or null — capital expenditure reserves / replacement reserves,
-  "net_cash_flow": number or null — NOI minus capex reserves,
-  "expense_ratio_pct": number or null — total_expenses / total_revenue × 100,
-  "noi_margin_pct": number or null — NOI / total_revenue × 100,
-  "opex_per_sf": number or null — total_expenses / total building SF (if available),
-  "annualized_noi": number or null — for T3/T6 only: NOI × (12 / period_months),
-  "annualized_revenue": number or null — for T3/T6 only: revenue × (12 / period_months)
-}
-IMPORTANT: If this is a T3 or T6, always calculate and include annualized_noi and annualized_revenue.
-If the document shows both actual and budget columns, extract the ACTUAL column.`,
-
-  other: `Extract any structured information you can identify from this document:
-{
-  "document_title": "string" or null — the document's title or heading,
-  "document_date": "YYYY-MM-DD" or null — the date of the document,
-  "key_parties": ["string"] — names of key parties mentioned,
-  "key_figures": [{ "label": "string", "value": "string" }] — important numerical or factual data points,
-  "summary": "string" or null — 2-3 sentence summary of the document's content and purpose
-}`,
-};
-
-async function extractStructuredData(
-  text: string,
-  docType: DocType
-): Promise<{
-  data: Record<string, unknown>;
-  confidence: number;
-  valid: boolean;
-  issues: string[];
-}> {
-  if (!text || text.length < 20) {
-    return { data: {}, confidence: 0, valid: false, issues: [] };
-  }
-
-  // Use up to 12K chars for extraction (fits in context window with room for response)
-  const truncatedText = text.slice(0, 12000);
-
-  try {
-    const { text: content } = await createTextResponse({
-      model: "gpt-5.4-mini",
-      temperature: 0,
-      systemPrompt: `You are a CRE document data extractor. Extract structured data from the document text.
-Return valid JSON matching the schema below. Use null for fields you cannot find. Use empty arrays [] for list fields with no matches.
-Include a top-level "extraction_confidence" field (0.0-1.0) indicating your overall confidence.
-
-${EXTRACTION_PROMPTS[docType]}`,
-      userPrompt: truncatedText,
-    });
-
-    if (!content) return { data: {}, confidence: 0, valid: false, issues: [] };
-
-    const parsed = JSON.parse(content) as unknown;
-    if (!isRecord(parsed)) {
-      return {
-        data: {},
-        confidence: 0,
-        valid: false,
-        issues: ["root: Extractor did not return a JSON object"],
-      };
-    }
-
-    const confidence =
-      typeof parsed.extraction_confidence === "number"
-        ? parsed.extraction_confidence
-        : 0.5;
-
-    const { extraction_confidence: _unusedConfidence, ...rawData } = parsed;
-    const validated = validateExtractionPayload(docType, rawData);
-    if (!validated.success) {
-      return {
-        data: {},
-        confidence: 0,
-        valid: false,
-        issues: validated.issues,
-      };
-    }
-
-    return {
-      data: validated.data,
-      confidence: Math.min(confidence, 0.98),
-      valid: true,
-      issues: [],
-    };
-  } catch (err) {
-    console.error("[doc-processing] LLM extraction failed:", err);
-    return { data: {}, confidence: 0, valid: false, issues: [] };
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Service
-// ---------------------------------------------------------------------------
-
 export class DocumentProcessingService {
   /**
-   * Process a newly uploaded document:
-   * 1. Download from storage
-   * 2. Extract text (PDF or skip for non-PDFs)
-   * 3. Classify with regex + LLM
-   * 4. Extract structured data via LLM
-   * 5. Store extraction results
-   * 6. Auto-fill deal fields if confidence > 0.85, else create review notification
+   * Processes an uploaded document without changing the public service contract.
    */
   async processUpload(
     uploadId: string,
     dealId: string,
-    orgId: string
+    orgId: string,
   ): Promise<ProcessUploadResult> {
-    // Load the upload record
     const upload = await prisma.upload.findFirst({
       where: { id: uploadId, dealId, deal: { orgId } },
+      select: {
+        id: true,
+        orgId: true,
+        storageObjectKey: true,
+        contentType: true,
+        filename: true,
+      },
     });
 
     if (!upload) {
       throw new AppError("Upload not found", "NOT_FOUND", 404);
     }
 
-    // Check if already extracted
-    const existing = await prisma.documentExtraction.findFirst({
-      where: { uploadId, orgId },
-    });
+    const existing = await findExistingDocumentExtraction(uploadId, orgId);
     if (existing) {
-      console.log(`[doc-processing] Upload ${uploadId} already extracted, skipping`);
-      const serialized = serializeExtraction(existing);
+      logger.debug("Document processing skipped existing extraction", {
+        uploadId,
+        extractionId: existing.id,
+      });
       return {
         created: false,
-        extractionId: serialized.id,
-        docType: serialized.docType,
-        extractedData: serialized.extractedData,
+        extractionId: existing.id,
+        docType: existing.docType,
+        extractedData: existing.extractedData,
       };
     }
 
-    // Only process PDFs for text extraction (skip images, spreadsheets, etc.)
-    const isPdf = upload.contentType === "application/pdf" || upload.filename.toLowerCase().endsWith(".pdf");
-    const isDoc = upload.contentType.includes("word") || /\.docx?$/i.test(upload.filename);
+    const extractedText = await extractDocumentTextForUpload(upload);
+    const classification = await classifyDocumentUpload(upload.filename, extractedText);
+    const extractionDocType = classification.docType === "other" ? "other" : classification.docType;
 
-    let extractedText = "";
-
-    if (isPdf) {
-      // Download from Gateway (B2)
-      const arrayBuf = await fetchObjectBytesFromGateway(
-        upload.storageObjectKey,
-        systemAuth(upload.orgId)
-      );
-      const buffer = Buffer.from(arrayBuf);
-      extractedText = await extractTextFromPdf(buffer);
-
-      if (isScannedPdf(extractedText)) {
-        console.log(`[doc-processing] Scanned PDF detected for "${upload.filename}" — attempting OCR fallback`);
-        try {
-          const ocrText = await ocrPdfBuffer(buffer);
-          if (ocrText && ocrText.length >= MIN_TEXT_FOR_EXTRACTION) {
-            extractedText = ocrText;
-            console.log(`[doc-processing] OCR extracted ${ocrText.length} chars from "${upload.filename}"`);
-          } else {
-            console.log(`[doc-processing] OCR yielded insufficient text for "${upload.filename}"`);
-          }
-        } catch (ocrErr) {
-          console.error(`[doc-processing] OCR fallback failed for "${upload.filename}":`, ocrErr);
-          // Continue with whatever text we have — OCR is best-effort
-        }
-      }
-    } else if (isDoc) {
-      try {
-        const { extractRawText } = await import("mammoth");
-        const arrayBuf = await fetchObjectBytesFromGateway(
-          upload.storageObjectKey,
-          systemAuth(upload.orgId)
-        );
-        const result = await extractRawText({ buffer: Buffer.from(arrayBuf) });
-        extractedText = result.value ?? "";
-        console.log(`[doc-processing] Extracted ${extractedText.length} chars from Word doc "${upload.filename}"`);
-      } catch (docErr) {
-        console.error(`[doc-processing] Word doc extraction failed for "${upload.filename}":`, docErr);
-      }
-    }
-
-    // Step 1: Classify — combine regex + LLM
-    const regexResult = classifyByFilename(upload.filename);
-    let finalDocType = regexResult.docType;
-    let classificationConfidence = regexResult.confidence;
-
-    // If regex is uncertain or we have extracted text, use LLM
-    if (
-      extractedText.length > MIN_TEXT_FOR_EXTRACTION &&
-      (regexResult.confidence < 0.85 || regexResult.docType === "other")
-    ) {
-      const llmResult = await classifyWithLLM(extractedText, upload.filename);
-      if (llmResult.confidence > regexResult.confidence) {
-        finalDocType = llmResult.docType;
-        classificationConfidence = llmResult.confidence;
-      }
-    }
-
-    // Step 2: Extract structured data via LLM
     let extractedData: Record<string, unknown> = {};
     let extractionConfidence = 0;
     let payloadValidationIssues: string[] = [];
 
-    if (extractedText.length >= MIN_TEXT_FOR_EXTRACTION && finalDocType !== "other") {
-      const result = await extractStructuredData(extractedText, finalDocType);
-      if (result.valid) {
-        extractedData = result.data;
-        extractionConfidence = result.confidence;
+    if (extractedText.length >= MIN_TEXT_FOR_EXTRACTION) {
+      const structured = await extractStructuredDocumentData(extractedText, extractionDocType);
+      if (structured.valid) {
+        extractedData = structured.data;
+        extractionConfidence = structured.confidence;
       } else {
-        payloadValidationIssues = result.issues;
-      }
-    } else if (finalDocType === "other" && extractedText.length >= MIN_TEXT_FOR_EXTRACTION) {
-      // Even for "other" docs, try to extract something
-      const result = await extractStructuredData(extractedText, "other");
-      if (result.valid) {
-        extractedData = result.data;
-        extractionConfidence = result.confidence;
-      } else {
-        payloadValidationIssues = result.issues;
+        payloadValidationIssues = structured.issues;
       }
     }
 
-    // Overall confidence = min of classification and extraction
     const overallConfidence =
       payloadValidationIssues.length > 0
         ? 0
         : Object.keys(extractedData).length > 0
-          ? Math.min(classificationConfidence, extractionConfidence)
-          : classificationConfidence * 0.5; // Halve if no data extracted
+          ? Math.min(classification.confidence, extractionConfidence)
+          : classification.confidence * 0.5;
 
     if (payloadValidationIssues.length > 0) {
-      console.error(
-        `[doc-processing] Invalid ${finalDocType} extraction payload for upload ${uploadId}: ${payloadValidationIssues.join("; ")}`
-      );
-    }
-
-    // Step 3: Store extraction
-    let createdExtraction: ExtractionWithOptionalUpload;
-    try {
-      createdExtraction = await prisma.documentExtraction.create({
-        data: {
-          orgId,
-          uploadId,
-          dealId,
-          docType: finalDocType,
-          extractedData: extractedData as Prisma.InputJsonValue,
-          rawText: extractedText || null,
-          confidence: overallConfidence,
-        },
+      logger.error("Document processing payload validation failed", {
+        uploadId,
+        docType: extractionDocType,
+        issues: payloadValidationIssues,
       });
-    } catch (error) {
-      if (isPrismaUniqueConstraintError(error)) {
-        const alreadyCreated = await prisma.documentExtraction.findFirst({
-          where: { uploadId, orgId },
-        });
-        if (alreadyCreated) {
-          const serialized = serializeExtraction(alreadyCreated);
-          return {
-            created: false,
-            extractionId: serialized.id,
-            docType: serialized.docType,
-            extractedData: serialized.extractedData,
-          };
-        }
-      }
-
-      throw error;
     }
 
-    console.log(
-      `[doc-processing] Extracted "${upload.filename}" as ${finalDocType} (confidence: ${(overallConfidence * 100).toFixed(0)}%)`
-    );
+    const persisted = await createDocumentExtraction({
+      orgId,
+      uploadId,
+      dealId,
+      docType: extractionDocType,
+      extractedData,
+      rawText: extractedText || null,
+      confidence: overallConfidence,
+    });
 
-    // Step 3b: Index document text in Qdrant for semantic search (fire-and-forget)
-    if (extractedText && extractedText.length >= MIN_TEXT_FOR_EXTRACTION) {
+    logger.info("Document processing extraction stored", {
+      uploadId,
+      dealId,
+      orgId,
+      filename: upload.filename,
+      docType: extractionDocType,
+      confidence: overallConfidence,
+      created: persisted.created,
+    });
+
+    if (extractedText.length >= MIN_TEXT_FOR_EXTRACTION) {
       indexDocumentInQdrant({
         orgId,
         uploadId,
         dealId,
-        docType: finalDocType,
+        docType: extractionDocType,
         filename: upload.filename,
         rawText: extractedText,
-      }).catch((err) => {
-        console.error(`[doc-processing] Qdrant indexing failed for "${upload.filename}":`, err);
+      }).catch((error) => {
+        logger.error("Document processing Qdrant indexing failed", {
+          uploadId,
+          filename: upload.filename,
+          errorMessage: error instanceof Error ? error.message : String(error),
+        });
       });
     }
 
-    // Step 4: Auto-fill or create review notification
-    if (overallConfidence >= 0.85 && Object.keys(extractedData).length > 0) {
-      await this.autoFillDealFields(dealId, orgId, finalDocType, extractedData);
-    } else if (Object.keys(extractedData).length > 0) {
-      // Create review notification for lower confidence extractions
-      await this.createReviewNotification(
-        orgId,
-        dealId,
-        uploadId,
-        upload.filename,
-        finalDocType,
-        overallConfidence
-      );
+    if (Object.keys(extractedData).length > 0) {
+      if (overallConfidence >= 0.85) {
+        await autoFillDealFields(dealId, orgId, extractionDocType, extractedData);
+      } else {
+        await createReviewNotification(
+          orgId,
+          dealId,
+          uploadId,
+          upload.filename,
+          extractionDocType,
+          overallConfidence,
+        );
+      }
     }
 
-    const serialized = serializeExtraction(createdExtraction);
     return {
-      created: true,
-      extractionId: serialized.id,
-      docType: serialized.docType,
-      extractedData: serialized.extractedData,
+      created: persisted.created,
+      extractionId: persisted.extraction.id,
+      docType: persisted.extraction.docType,
+      extractedData: persisted.extraction.extractedData,
     };
   }
 
   /**
-   * Auto-fill deal/parcel fields from high-confidence extractions.
-   * Only fills fields that are currently empty — never overwrites user data.
+   * Auto-fills deal fields from high-confidence extractions.
    */
   async autoFillDealFields(
     dealId: string,
     orgId: string,
     docType: DocType,
-    data: Record<string, unknown>
+    data: Record<string, unknown>,
   ): Promise<void> {
-    try {
-      const ensureAutomationTask = async (
-        title: string,
-        description: string,
-        pipelineStep: number,
-        dueInDays: number,
-      ): Promise<void> => {
-        const existing = await prisma.task.findFirst({
-          where: { orgId, dealId, title },
-          select: { id: true },
-        });
-        if (existing) return;
-
-        await prisma.task.create({
-          data: {
-            orgId,
-            dealId,
-            title,
-            description,
-            pipelineStep,
-            dueAt: new Date(Date.now() + dueInDays * 24 * 60 * 60 * 1000),
-          },
-        });
-      };
-
-      const asNumber = (value: unknown): number | null => {
-        if (typeof value === "number" && Number.isFinite(value)) return value;
-        if (typeof value === "string") {
-          const parsed = Number(value.replace(/[$,%\s,]/g, ""));
-          return Number.isFinite(parsed) ? parsed : null;
-        }
-        return null;
-      };
-
-      const parcels = await prisma.parcel.findMany({
-        where: { dealId },
-        select: { id: true, floodZone: true, acreage: true, currentZoning: true, envNotes: true, soilsNotes: true },
-      });
-
-      // Survey → flood zone, acreage
-      if (docType === "survey") {
-        for (const parcel of parcels) {
-          const updates: Record<string, unknown> = {};
-          if (!parcel.floodZone && data.flood_zone) updates.floodZone = String(data.flood_zone);
-          if (!parcel.acreage && data.total_acreage) updates.acreage = Number(data.total_acreage);
-          if (Object.keys(updates).length > 0) {
-            await prisma.parcel.update({ where: { id: parcel.id }, data: updates });
-          }
-        }
-      }
-
-      // Zoning letter → current zoning
-      if (docType === "zoning_letter" && data.current_zoning) {
-        for (const parcel of parcels) {
-          if (!parcel.currentZoning) {
-            await prisma.parcel.update({
-              where: { id: parcel.id },
-              data: { currentZoning: String(data.current_zoning) },
-            });
-          }
-        }
-      }
-
-      // Phase I ESA → env notes + structured record
-      if (docType === "phase_i_esa") {
-        const recs = data.recs as string[] | undefined;
-        const phaseIiScope = data.phase_ii_scope;
-        const consultant = data.consultant;
-        const reportDate = data.report_date;
-        const phaseIiRecommended = data.recommended_phase_ii;
-        const deMinimis = data.de_minimis_conditions as string[] | undefined;
-
-        const existingAssessment = await prisma.environmentalAssessment.findFirst({
-          where: {
-            orgId,
-            dealId,
-            reportType: "Phase I ESA",
-            consultantName: consultant ? String(consultant) : undefined,
-            phaseIiScope: phaseIiScope ? String(phaseIiScope) : undefined,
-            phaseIiRecommended:
-              typeof phaseIiRecommended === "boolean" ? phaseIiRecommended : undefined,
-          },
-          select: { id: true },
-        });
-
-        if (!existingAssessment && (recs?.length || deMinimis?.length || consultant || phaseIiScope)) {
-          await prisma.environmentalAssessment.create({
-            data: {
-              orgId,
-              dealId,
-              reportType: "Phase I ESA",
-              reportDate: reportDate ? new Date(String(reportDate)) : null,
-              consultantName: consultant ? String(consultant) : null,
-              reportTitle: "Phase I Environmental Site Assessment",
-              recs: recs ?? [],
-              deMinimisConditions: deMinimis ?? [],
-              phaseIiRecommended: typeof phaseIiRecommended === "boolean" ? phaseIiRecommended : null,
-              phaseIiScope: phaseIiScope ? String(phaseIiScope) : null,
-            },
-          });
-        }
-
-        if (recs && recs.length > 0) {
-          await ensureAutomationTask(
-            "[AUTO] Schedule Phase II ESA",
-            `RECs detected in Phase I ESA. Schedule Phase II ESA scoping and proposal. RECs: ${recs.join("; ")}`,
-            4,
-            7,
-          );
-
-          for (const parcel of parcels) {
-            if (!parcel.envNotes) {
-              await prisma.parcel.update({
-                where: { id: parcel.id },
-                data: { envNotes: `RECs: ${recs.join("; ")}` },
-              });
-            }
-          }
-        }
-      }
-
-      // Appraisal → appraisal gap renegotiation task
-      if (docType === "appraisal") {
-        const appraisedValue = asNumber(data.appraised_value);
-        if (appraisedValue !== null) {
-          const terms = await prisma.dealTerms.findFirst({
-            where: { orgId, dealId },
-            select: { offerPrice: true },
-          });
-          const offerPrice =
-            terms?.offerPrice != null ? Number(terms.offerPrice.toString()) : null;
-          if (
-            offerPrice !== null &&
-            offerPrice > 0 &&
-            appraisedValue < offerPrice * 0.95
-          ) {
-            const gap = Math.round(offerPrice - appraisedValue);
-            await ensureAutomationTask(
-              "[AUTO][HIGH] Appraisal Gap — Renegotiate",
-              `Appraised value ${appraisedValue.toLocaleString()} is below offer ${offerPrice.toLocaleString()} (gap ${gap.toLocaleString()}). Review valuation gap and renegotiate terms.`,
-              3,
-              3,
-            );
-          }
-        }
-      }
-
-      // Financing commitment → compare extracted terms to modeled financing and flag discrepancies
-      if (docType === "financing_commitment") {
-        const extractedLoanAmount = asNumber(data.loan_amount);
-        const extractedRate = asNumber(data.interest_rate);
-        const extractedTerm = asNumber(data.loan_term_months);
-        const extractedDscr = asNumber(data.dscr_requirement);
-        const extractedLtvRaw = asNumber(data.ltv_percent);
-        const extractedLtv =
-          extractedLtvRaw === null ? null : extractedLtvRaw > 1 ? extractedLtvRaw / 100 : extractedLtvRaw;
-        const extractedLender =
-          typeof data.lender_name === "string" ? data.lender_name.trim() : null;
-
-        const latestFinancing = await prisma.dealFinancing.findFirst({
-          where: { orgId, dealId },
-          orderBy: { createdAt: "desc" },
-          select: {
-            lenderName: true,
-            loanAmount: true,
-            interestRate: true,
-            loanTermMonths: true,
-            dscrRequirement: true,
-            ltvPercent: true,
-          },
-        });
-
-        if (latestFinancing) {
-          const discrepancies: string[] = [];
-          const modelLoanAmount =
-            latestFinancing.loanAmount != null
-              ? Number(latestFinancing.loanAmount.toString())
-              : null;
-          const modelRate =
-            latestFinancing.interestRate != null
-              ? Number(latestFinancing.interestRate.toString())
-              : null;
-          const modelDscr =
-            latestFinancing.dscrRequirement != null
-              ? Number(latestFinancing.dscrRequirement.toString())
-              : null;
-          const modelLtvRaw =
-            latestFinancing.ltvPercent != null
-              ? Number(latestFinancing.ltvPercent.toString())
-              : null;
-          const modelLtv =
-            modelLtvRaw === null ? null : modelLtvRaw > 1 ? modelLtvRaw / 100 : modelLtvRaw;
-
-          if (
-            extractedLender &&
-            latestFinancing.lenderName &&
-            extractedLender.toLowerCase() !== latestFinancing.lenderName.toLowerCase()
-          ) {
-            discrepancies.push(
-              `Lender mismatch: extracted "${extractedLender}" vs modeled "${latestFinancing.lenderName}"`,
-            );
-          }
-          if (
-            extractedLoanAmount !== null &&
-            modelLoanAmount !== null &&
-            Math.abs(extractedLoanAmount - modelLoanAmount) > Math.max(50_000, modelLoanAmount * 0.05)
-          ) {
-            discrepancies.push(
-              `Loan amount mismatch: extracted ${Math.round(extractedLoanAmount).toLocaleString()} vs modeled ${Math.round(modelLoanAmount).toLocaleString()}`,
-            );
-          }
-          if (
-            extractedRate !== null &&
-            modelRate !== null &&
-            Math.abs(extractedRate - modelRate) > 0.5
-          ) {
-            discrepancies.push(
-              `Interest rate mismatch: extracted ${extractedRate}% vs modeled ${modelRate}%`,
-            );
-          }
-          if (
-            extractedTerm !== null &&
-            latestFinancing.loanTermMonths !== null &&
-            Math.abs(extractedTerm - latestFinancing.loanTermMonths) > 6
-          ) {
-            discrepancies.push(
-              `Loan term mismatch: extracted ${Math.round(extractedTerm)} months vs modeled ${latestFinancing.loanTermMonths} months`,
-            );
-          }
-          if (
-            extractedDscr !== null &&
-            modelDscr !== null &&
-            Math.abs(extractedDscr - modelDscr) > 0.1
-          ) {
-            discrepancies.push(
-              `DSCR requirement mismatch: extracted ${extractedDscr} vs modeled ${modelDscr}`,
-            );
-          }
-          if (
-            extractedLtv !== null &&
-            modelLtv !== null &&
-            Math.abs(extractedLtv - modelLtv) > 0.03
-          ) {
-            discrepancies.push(
-              `LTV mismatch: extracted ${(extractedLtv * 100).toFixed(1)}% vs modeled ${(modelLtv * 100).toFixed(1)}%`,
-            );
-          }
-
-          if (discrepancies.length > 0) {
-            await ensureAutomationTask(
-              "[AUTO] Financing Commitment Discrepancy Review",
-              `Extracted financing terms differ from modeled DealFinancing terms:\n- ${discrepancies.join("\n- ")}`,
-              4,
-              3,
-            );
-          }
-        }
-      }
-
-      console.log(`[doc-processing] Auto-filled deal fields from ${docType} extraction`);
-    } catch (err) {
-      console.error("[doc-processing] Auto-fill failed:", err);
-    }
+    return autoFillDealFields(dealId, orgId, docType, data);
   }
 
   /**
-   * Create a review notification for low-confidence extractions.
-   */
-  private async createReviewNotification(
-    orgId: string,
-    dealId: string,
-    uploadId: string,
-    filename: string,
-    docType: DocType,
-    confidence: number
-  ): Promise<void> {
-    try {
-      const notificationService = getNotificationService();
-      const members = await prisma.orgMembership.findMany({
-        where: { orgId },
-        select: { userId: true },
-      });
-
-      const label = DOC_TYPE_LABELS[docType] || docType;
-      const pct = (confidence * 100).toFixed(0);
-
-      for (const member of members) {
-        await notificationService.create({
-          orgId,
-          userId: member.userId,
-          dealId,
-          type: "AUTOMATION",
-          title: `Review document extraction: "${filename}"`,
-          body: `Extracted data from "${filename}" classified as ${label} with ${pct}% confidence. Please review and confirm the extracted fields.`,
-          priority: confidence < 0.5 ? "MEDIUM" : "LOW",
-          actionUrl: `/deals/${dealId}?tab=documents&extraction=${uploadId}`,
-          sourceAgent: "document-processor",
-          metadata: { uploadId, docType, confidence },
-        });
-      }
-    } catch (err) {
-      console.error("[doc-processing] Review notification failed:", err);
-    }
-  }
-
-  /**
-   * Get all extractions for a deal.
+   * Returns all extractions for a deal.
    */
   async getExtractionsByDeal(
     dealId: string,
-    orgId: string
+    orgId: string,
   ): Promise<DocumentExtractionResponse[]> {
-    const rows = await prisma.documentExtraction.findMany({
-      where: { dealId, orgId },
-      include: {
-        upload: {
-          select: { id: true, filename: true, kind: true, contentType: true, sizeBytes: true, createdAt: true },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-    });
-
-    return rows.map((row) => serializeExtraction(row));
+    return getDocumentExtractionsByDeal(dealId, orgId);
   }
 
   /**
-   * Get a single extraction by ID.
+   * Returns one extraction by id.
    */
   async getExtraction(
     extractionId: string,
-    orgId: string
+    orgId: string,
   ): Promise<DocumentExtractionResponse | null> {
-    const row = await prisma.documentExtraction.findFirst({
-      where: { id: extractionId, orgId },
-      include: {
-        upload: {
-          select: { id: true, filename: true, kind: true, contentType: true, sizeBytes: true, createdAt: true },
-        },
-      },
-    });
-
-    return row ? serializeExtraction(row) : null;
+    return getDocumentExtraction(extractionId, orgId);
   }
 
   /**
-   * Mark extraction as reviewed, optionally update extracted data.
+   * Reviews and optionally updates a persisted extraction.
    */
   async reviewExtraction(
     extractionId: string,
@@ -1263,81 +211,27 @@ export class DocumentProcessingService {
       dealId?: string;
       extractedData?: Record<string, unknown>;
       docType?: DocType;
-    }
+    },
   ): Promise<DocumentExtractionResponse> {
-    const extraction = await prisma.documentExtraction.findFirst({
-      where: {
-        id: extractionId,
-        orgId,
-        ...(updates?.dealId ? { dealId: updates.dealId } : {}),
-      },
-    });
-
-    if (!extraction) {
-      throw new AppError("Extraction not found", "NOT_FOUND", 404);
-    }
-
-    const updateData: Prisma.DocumentExtractionUpdateInput = {
-      reviewed: true,
-      reviewer: { connect: { id: userId } },
-      reviewedAt: new Date(),
-    };
-
-    const normalizedDocType = normalizeDocType(extraction.docType);
-    const nextDocType = updates?.docType ?? normalizedDocType;
-    const hasExtractedDataUpdate = Boolean(
-      updates && hasOwnProperty(updates, "extractedData")
-    );
-    const docTypeChanged = nextDocType !== normalizedDocType;
-
-    if (hasExtractedDataUpdate || docTypeChanged) {
-      const sourcePayload =
-        hasExtractedDataUpdate && updates?.extractedData !== undefined
-          ? updates.extractedData
-          : extraction.extractedData;
-      const validated = validateExtractionPayload(nextDocType, sourcePayload);
-      if (!validated.success) {
-        throw new AppError("Invalid extraction payload", "BAD_REQUEST", 400);
-      }
-      if (hasExtractedDataUpdate) {
-        updateData.extractedData = validated.data as Prisma.InputJsonValue;
-      }
-    }
-    if (nextDocType !== normalizedDocType) {
-      updateData.docType = nextDocType;
-    }
-
-    const updated = await prisma.documentExtraction.update({
-      where: { id: extractionId },
-      data: updateData,
-    });
-
-    // Auto-fill deal fields with the confirmed extraction data
-    const finalDocType = nextDocType;
-    const finalData = updates?.extractedData
-      ? serializeExtractionPayload(finalDocType, updates.extractedData)
-      : serializeExtractionPayload(finalDocType, extraction.extractedData);
-    if (Object.keys(finalData).length > 0) {
-      await this.autoFillDealFields(extraction.dealId, extraction.orgId, finalDocType, finalData);
-    }
-
-    return serializeExtraction(updated);
+    return reviewDocumentExtraction(extractionId, orgId, userId, updates);
   }
 
   /**
-   * Get count of unreviewed extractions for a deal.
+   * Returns the unreviewed extraction count for a deal.
    */
   async getUnreviewedCount(dealId: string, orgId: string): Promise<number> {
-    return prisma.documentExtraction.count({
-      where: { dealId, orgId, reviewed: false },
-    });
+    return getUnreviewedExtractionCount(dealId, orgId);
   }
 }
 
-// Singleton
-let _instance: DocumentProcessingService | null = null;
+let instance: DocumentProcessingService | null = null;
 
+/**
+ * Returns the document processing singleton.
+ */
 export function getDocumentProcessingService(): DocumentProcessingService {
-  if (!_instance) _instance = new DocumentProcessingService();
-  return _instance;
+  if (!instance) {
+    instance = new DocumentProcessingService();
+  }
+  return instance;
 }

@@ -25,7 +25,7 @@ describe("MapWorkbenchPanel", () => {
     const onBaseLayerChange = vi.fn();
     const onToggleDrawing = vi.fn();
 
-    const { container } = render(
+    render(
       <MapWorkbenchPanel
         open
         searchSlot={<div>Search content</div>}
@@ -81,13 +81,21 @@ describe("MapWorkbenchPanel", () => {
     expect(screen.getByText("Display")).toBeInTheDocument();
     expect(screen.getByText("Comparable sales")).toBeInTheDocument();
     expect(screen.getByText("Saved geofences")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Collapse map workbench" }),
+    ).toHaveAttribute("aria-expanded", "true");
+    expect(
+      screen.getByRole("button", { name: "Export map screenshot" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Toggle map fullscreen" }),
+    ).toBeVisible();
 
     await user.click(screen.getByRole("button", { name: "Satellite" }));
     await user.click(screen.getByRole("button", { name: "Start draw" }));
 
     expect(onBaseLayerChange).toHaveBeenCalledWith("Satellite");
     expect(onToggleDrawing).toHaveBeenCalledTimes(1);
-    expect(container.firstChild).toMatchSnapshot();
   });
 
   it("keeps the dock controls visible when collapsed", async () => {

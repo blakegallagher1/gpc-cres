@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { runMarketMonitoring } from "@/lib/automation/marketMonitoring";
 import * as Sentry from "@sentry/nextjs";
+import { logger, serializeErrorForLogs } from "@/lib/logger";
 
 function verifyCronSecret(req: Request): boolean {
   const secret = (process.env.CRON_SECRET || "").trim();
@@ -34,7 +35,7 @@ export async function GET(req: Request) {
     Sentry.captureException(error, {
       tags: { route: "api.cron.market-monitor", method: "GET" },
     });
-    console.error("[cron.market-monitor] failed:", error);
+    logger.error("Cron market-monitor failed", serializeErrorForLogs(error));
     return NextResponse.json(
       { error: "Failed to run market monitor" },
       { status: 500 },

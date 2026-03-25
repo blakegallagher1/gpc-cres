@@ -23,6 +23,7 @@ import {
 } from "@/lib/storage/gatewayStorage";
 import { hashJsonSha256 } from "@entitlement-os/shared/crypto";
 import { runWithCronMonitor } from "@/lib/automation/sentry";
+import { logger, serializeErrorForLogs } from "@/lib/logger";
 import * as Sentry from "@sentry/nextjs";
 
 const SKUS: SkuType[] = ["SMALL_BAY_FLEX", "OUTDOOR_STORAGE", "TRUCK_PARKING"];
@@ -241,11 +242,16 @@ export async function GET(req: Request) {
 
           if (current && Date.now() - current.generatedAt.getTime() < STALE_DAYS * 86_400_000) {
             skipped.push(label);
-            console.log(`[parish-pack-refresh] ${label} — fresh (${Math.round((Date.now() - current.generatedAt.getTime()) / 86_400_000)}d old), skipping`);
+            logger.info("Cron parish-pack-refresh skipped fresh pack", {
+              label,
+              ageDays: Math.round((Date.now() - current.generatedAt.getTime()) / 86_400_000),
+            });
             continue;
           }
 
-          console.log(`[parish-pack-refresh] ${label} — stale or missing, refreshing...`);
+          logger.info("Cron parish-pack-refresh refreshing pack", {
+            label,
+          });
 
           // Create Run record
           const run = await prisma.run.create({
@@ -429,7 +435,9 @@ export async function GET(req: Request) {
           let packStatus: string;
           if (validation.ok) {
             packStatus = "current";
-            console.log(`[parish-pack-refresh] ${label} — generated and validated`);
+            logger.info("Cron parish-pack-refresh generated validated pack", {
+              label,
+            });
           } else {
             // Store as draft if citation validation fails — pack is still useful
             packStatus = "draft";
@@ -512,16 +520,23 @@ export async function GET(req: Request) {
           });
 
           refreshed.push(label);
-          console.log(
-            `[parish-pack-refresh] ${label} — stored v${nextVersion} (${packStatus}), ${evidenceTexts.length} evidence sources, ${response.toolSources.webSearchSources.length} web search sources`
-          );
+          logger.info("Cron parish-pack-refresh stored pack", {
+            label,
+            version: nextVersion,
+            packStatus,
+            evidenceSourceCount: evidenceTexts.length,
+            webSearchSourceCount: response.toolSources.webSearchSources.length,
+          });
         } catch (err) {
           Sentry.captureException(err, {
             tags: { route: "api.cron.parish-pack-refresh", method: "GET" },
           });
           const msg = err instanceof Error ? err.message : String(err);
           errors.push(`${label}: ${msg}`);
-          console.error(`[parish-pack-refresh] ${label} — FAILED: ${msg}`);
+          logger.error("Cron parish-pack-refresh failed for label", {
+            label,
+            errorMessage: msg,
+          });
         }
       }
     }
@@ -543,13 +558,15 @@ export async function GET(req: Request) {
       errors: errors.length > 0 ? errors : undefined,
     };
 
-        console.log("[parish-pack-refresh] Complete:", JSON.stringify(summary.stats));
+        logger.info("Cron parish-pack-refresh complete", {
+          summary: summary.stats,
+        });
         return NextResponse.json(summary);
       } catch (error) {
         Sentry.captureException(error, {
           tags: { route: "api.cron.parish-pack-refresh", method: "GET" },
         });
-        console.error("[cron/parish-pack-refresh] Failed:", error);
+        logger.error("Cron parish-pack-refresh request failed", serializeErrorForLogs(error));
         return NextResponse.json(
           { error: "Parish pack refresh failed", details: String(error) },
           { status: 500 }

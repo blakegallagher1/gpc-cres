@@ -12,6 +12,7 @@ import {
 } from "@entitlement-os/evidence";
 import { runWithCronMonitor } from "@/lib/automation/sentry";
 import * as Sentry from "@sentry/nextjs";
+import { logger, serializeErrorForLogs } from "@/lib/logger";
 
 const MAX_TIMEOUT_MS = 60_000;
 const MAX_RETRIES = 3;
@@ -126,9 +127,12 @@ export async function GET(req: Request) {
           firstCapture: snapshotCount <= 1,
         };
 
-        console.log(
-          `[change-detection] ${label} — ${captureResult.changed ? (snapshotCount <= 1 ? "first capture" : "CHANGED") : "unchanged"}`
-        );
+        logger.info("Cron change-detection captured source result", {
+          label,
+          result: captureResult.changed
+            ? (snapshotCount <= 1 ? "first_capture" : "changed")
+            : "unchanged",
+        });
       } catch (error) {
         Sentry.captureException(error, {
           tags: { route: "api.cron.change-detection", method: "GET" },
@@ -139,7 +143,11 @@ export async function GET(req: Request) {
           error: errorMsg,
           unreachable: true,
         };
-        console.error(`[change-detection] ${label} — FAILED after ${MAX_RETRIES} retries: ${errorMsg}`);
+        logger.error("Cron change-detection source failed after retries", {
+          label,
+          maxRetries: MAX_RETRIES,
+          errorMessage: errorMsg,
+        });
       }
 
       results.push(result);
@@ -150,9 +158,11 @@ export async function GET(req: Request) {
 
     // 4. Guardrail: If >50% unreachable, log alert
     if (stats.networkAlert) {
-      console.error(
-        `[change-detection] ALERT: ${stats.unreachable}/${stats.total} sources unreachable (${(stats.unreachableRatio * 100).toFixed(0)}%). Possible network issue.`
-      );
+      logger.error("Cron change-detection network alert", {
+        unreachable: stats.unreachable,
+        total: stats.total,
+        unreachableRatio: stats.unreachableRatio,
+      });
     }
 
     // 5. For material changes: create review tasks for active deals in affected jurisdictions
@@ -186,9 +196,11 @@ export async function GET(req: Request) {
           },
         });
         tasksCreated++;
-        console.log(
-          `[change-detection] Created review task for deal "${deal.name}" (${deal.id}) — ${jurisdictionName} changes`
-        );
+        logger.info("Cron change-detection created review task", {
+          dealId: deal.id,
+          dealName: deal.name,
+          jurisdictionName,
+        });
       }
     }
 
@@ -234,13 +246,15 @@ export async function GET(req: Request) {
       },
     };
 
-        console.log("[change-detection] Complete:", JSON.stringify(summary.stats));
+        logger.info("Cron change-detection complete", {
+          summary: summary.stats,
+        });
         return NextResponse.json(summary);
       } catch (error) {
         Sentry.captureException(error, {
           tags: { route: "api.cron.change-detection", method: "GET" },
         });
-        console.error("[cron/change-detection] Failed:", error);
+        logger.error("Cron change-detection failed", serializeErrorForLogs(error));
         return NextResponse.json(
           { error: "Change detection failed", details: String(error) },
           { status: 500 }

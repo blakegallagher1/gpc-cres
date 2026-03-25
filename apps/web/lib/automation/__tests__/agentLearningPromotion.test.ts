@@ -166,10 +166,10 @@ describe("handleAgentLearningPromotion", () => {
         label: "promoteRunToLongTermMemory timed out after 20000ms",
       }),
     );
-    expect(errorSpy).toHaveBeenCalledWith(
-      "[automation] Failed to record agent learning timeout:",
-      "write failed",
+    expect(String(errorSpy.mock.calls[0]?.[0] ?? "")).toContain(
+      "Automation failed to record agent learning timeout",
     );
+    expect(String(errorSpy.mock.calls[0]?.[0] ?? "")).toContain("write failed");
 
     errorSpy.mockRestore();
   });

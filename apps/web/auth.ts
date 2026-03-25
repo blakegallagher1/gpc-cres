@@ -6,6 +6,7 @@ import { randomUUID } from "node:crypto";
 import { timingSafeEqual } from "node:crypto";
 import { prisma } from "@entitlement-os/db";
 import { isEmailAllowed } from "@/lib/auth/allowedEmails";
+import { logger, serializeErrorForLogs } from "@/lib/logger";
 
 const ENABLE_BREAK_GLASS_FALLBACK =
   process.env.AUTH_ENABLE_CREDENTIALS_FALLBACK === "true";
@@ -33,9 +34,9 @@ async function isValidPassword(password: string, passwordHash?: string | null): 
   if (!fallback) return false;
 
   if (!hasWarnedAboutFallback) {
-    console.warn(
-      "[auth] break-glass fallback password path is enabled. Disable AUTH_ENABLE_CREDENTIALS_FALLBACK after incident recovery.",
-    );
+    logger.warn("Auth break-glass fallback password path enabled", {
+      recommendation: "Disable AUTH_ENABLE_CREDENTIALS_FALLBACK after incident recovery.",
+    });
     hasWarnedAboutFallback = true;
   }
 
@@ -57,18 +58,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
       async authorize(credentials) {
         try {
-          console.log("[auth] authorize called, email:", credentials?.email);
           const email = (credentials.email as string | undefined)
             ?.trim()
             .toLowerCase();
           const password = credentials.password as string | undefined;
+          logger.debug("Auth credentials authorize requested", {
+            email,
+          });
 
           if (!email || !password) {
-            console.log("[auth] missing email or password");
+            logger.debug("Auth credentials authorize rejected", {
+              reason: "missing_email_or_password",
+            });
             return null;
           }
           if (!isEmailAllowed(email)) {
-            console.log("[auth] email not allowed:", email);
+            logger.debug("Auth credentials authorize rejected", {
+              email,
+              reason: "email_not_allowed",
+            });
             return null;
           }
 
@@ -77,13 +85,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             select: { id: true, email: true, passwordHash: true },
           });
           if (!user) {
-            console.log("[auth] user not found");
+            logger.debug("Auth credentials authorize rejected", {
+              email,
+              reason: "user_not_found",
+            });
             return null;
           }
 
           const valid = await isValidPassword(password, user.passwordHash);
           if (!valid) {
-            console.log("[auth] invalid password");
+            logger.debug("Auth credentials authorize rejected", {
+              email,
+              reason: "invalid_password",
+            });
             return null;
           }
 
@@ -93,14 +107,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             select: { orgId: true },
           });
           if (!membership) {
-            console.log("[auth] no org membership");
+            logger.debug("Auth credentials authorize rejected", {
+              email,
+              reason: "no_org_membership",
+            });
             return null;
           }
 
-          console.log("[auth] authorize success for", email);
+          logger.debug("Auth credentials authorize succeeded", {
+            email,
+            orgId: membership.orgId,
+          });
           return { id: user.id, email: user.email, orgId: membership.orgId };
         } catch (error) {
-          console.error("[auth] authorize error:", error);
+          logger.error("Auth credentials authorize failed", serializeErrorForLogs(error));
           return null;
         }
       },
@@ -115,7 +135,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // For OAuth (Google), enforce the email allowlist.
       const email = user.email?.trim().toLowerCase();
       if (!email || !isEmailAllowed(email)) {
-        console.log("[auth] OAuth email not allowed:", email);
+        logger.debug("Auth OAuth sign-in rejected", {
+          email,
+          reason: "email_not_allowed",
+        });
         return "/login?error=unauthorized";
       }
 
@@ -134,7 +157,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               select: { id: true },
             });
             if (!defaultOrg) {
-              console.error("[auth] no org exists for auto-provisioning");
+              logger.error("Auth OAuth auto-provisioning failed", {
+                email,
+                reason: "missing_default_org",
+              });
               return "/login?error=auth_unavailable";
             }
             await prisma.user.create({
@@ -143,16 +169,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             await prisma.orgMembership.create({
               data: { userId, orgId: defaultOrg.id, role: "member" },
             });
-            console.log("[auth] auto-provisioned OAuth user:", email);
+            logger.info("Auth OAuth user auto-provisioned", {
+              email,
+              orgId: defaultOrg.id,
+            });
           }
           break; // success — exit retry loop
         } catch (error) {
           if (attempt === 0) {
-            console.warn("[auth] OAuth provisioning failed, retrying:", error);
+            logger.warn("Auth OAuth provisioning failed, retrying", {
+              email,
+              attempt,
+              ...serializeErrorForLogs(error),
+            });
             await new Promise((r) => setTimeout(r, 500));
             continue;
           }
-          console.error("[auth] OAuth user provisioning error after retry:", error);
+          logger.error("Auth OAuth user provisioning failed after retry", {
+            email,
+            ...serializeErrorForLogs(error),
+          });
           return "/login?error=auth_unavailable";
         }
       }
@@ -191,11 +227,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               break;
             } catch (error) {
               if (attempt === 0) {
-                console.warn("[auth] jwt callback DB lookup failed, retrying:", error);
+                logger.warn("Auth JWT callback DB lookup failed, retrying", {
+                  email,
+                  attempt,
+                  ...serializeErrorForLogs(error),
+                });
                 await new Promise((r) => setTimeout(r, 500));
                 continue;
               }
-              console.error("[auth] jwt callback DB lookup failed after retry:", error);
+              logger.error("Auth JWT callback DB lookup failed after retry", {
+                email,
+                ...serializeErrorForLogs(error),
+              });
             }
           }
         }

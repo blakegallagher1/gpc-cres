@@ -40,9 +40,17 @@ export function DashboardShell({ children, noPadding }: DashboardShellProps) {
   return (
     <AuthGuard>
       <div className="app-shell min-h-screen" style={APP_SHELL_STYLE}>
+        <a
+          href="#main-content"
+          className="sr-only absolute left-4 top-4 z-[70] rounded-md bg-background px-3 py-2 text-sm font-medium text-foreground shadow-lg focus:not-sr-only focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+        >
+          Skip to main content
+        </a>
         <Sidebar />
         <Header />
         <main
+          id="main-content"
+          tabIndex={-1}
           className={cn(
             "relative min-h-screen transition-[padding] duration-300",
             "pt-[var(--app-header-height)]",

@@ -1,9 +1,7 @@
 import { assistant as assistantMessage, run, RunState, user as userMessage } from "@openai/agents";
-import type { Agent } from "@openai/agents";
 import {
   AgentReport,
   AgentReportSchema,
-  SKU_TYPES,
   AGENT_RUN_STATE_KEYS,
   AGENT_RUN_STATE_SCHEMA_VERSION,
   type DataAgentRetrievalContext,
@@ -26,7 +24,6 @@ import {
   captureAgentError,
   captureAgentWarning,
   createIntentAwareCoordinator,
-  deserializeRunStateEnvelope,
   extractUsageSummary,
   evaluateProofCompliance,
   inferQueryIntentFromDealContext,
@@ -34,37 +31,43 @@ import {
   isAgentOsFeatureEnabled,
   maybeTrimToolOutput,
   type QueryIntent,
-  filterToolsForIntent,
-  getToolDefinitionName,
-  WEB_ADDITIONAL_TOOL_ALLOWLIST,
   getProofGroupsForIntent,
-  runCriticEvaluation,
   serializeRunStateEnvelope,
   setupAgentTracing,
 } from "@entitlement-os/openai";
 import { AgentTrustEnvelope } from "@/types";
 import type { MapActionPayload } from "@/lib/chat/mapActionTypes";
 import { parseToolResultMapFeatures } from "@/lib/chat/toolResultWrapper";
-import { autoFeedRun } from "@/lib/agent/dataAgentAutoFeed.service";
 import { isSchemaDriftError } from "@/lib/api/prismaSchemaFallback";
-import { AUTOMATION_CONFIG } from "@/lib/automation/config";
-import { dispatchEvent } from "@/lib/automation/events";
 import { isLocalAppRuntime } from "@/lib/server/appDbEnv";
 import { getDealReaderById } from "@/lib/services/deal-reader";
 import { logger } from "./loggerAdapter";
-import { buildMapActionEventsFromToolResult } from "./mapActionEvents";
+import { runAgentPostRunEffects } from "./agentPostRunEffects";
+import { applyAgentToolPolicy } from "./agentToolPolicy";
+import {
+  type AgentExecutionResult,
+  persistFinalRunResult,
+  readSerializedRunStateFromStoredValue,
+  upsertRunRecord,
+} from "./agentRunPersistence";
+import {
+  emitAgentSummary,
+  emitAgentSwitch,
+  emitDone,
+  emitError,
+  emitHandoff,
+  emitMapActionsFromToolResult,
+  emitTextDelta,
+  emitToolApprovalRequested,
+  emitToolEnd,
+  emitToolStart,
+} from "./agentStreamEmitter";
+import { buildFinalTrust, buildPendingApprovalTrust } from "./agentTrust";
 import { unifiedRetrieval } from "./retrievalAdapter";
 
 const DATA_AGENT_RETRIEVAL_LIMIT = 6;
 const DB_UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-const MEMORY_TOOL_NAMES = new Set([
-  "store_memory",
-  "get_entity_memory",
-  "get_entity_truth",
-  "record_memory_event",
-  "lookup_entity_by_address",
-]);
 const PROPERTY_DATA_HINT_RE = /\b(?:comp|comps|sale|sales|sold|sold for|price|prices|noi|cap rate|cap-rate|lender|tour|correction|corrections|listing|offer|asking|bought|purchased|rent|rental|valuation|cap|value)\b/i;
 const PROPERTY_ADDRESS_RE = /\b\d{1,6}\s+[a-z0-9.'"\-]+(?:\s+[a-z0-9.'"\-]+){0,6}\s+(?:st|street|ave|avenue|blvd|boulevard|rd|road|dr|drive|ln|lane|ct|court|pl|place|pkwy|parkway|hwy|highway|trl|trail|way|terr|terrace|cir|circle|ct\.|st\.|ave\.|blvd\.|rd\.|dr\.|ln\.|pl\.|hwy\.)\b/i;
 const PROPERTY_NUMERIC_FACT_RE = /\$[\d][\d,.]*\s*(?:[kKmM]|million|thousand)?\b|\b\d+(?:\.\d+)?\s*%/;
@@ -252,27 +255,6 @@ export type AgentStreamEvent =
       toolCallId?: string | null;
     };
 
-type AgentExecutionResult = {
-  runId: string;
-  status: "running" | "succeeded" | "failed" | "canceled";
-  finalOutput: string;
-  finalReport: AgentReport | null;
-  toolsInvoked: string[];
-  trust: AgentTrustEnvelope;
-  openaiResponseId: string | null;
-  inputHash: string;
-  startedAt: Date;
-  finishedAt: Date;
-};
-
-function normalizeSku(sku: string | null | undefined): (typeof SKU_TYPES)[number] | null {
-  if (!sku) return null;
-  if ((SKU_TYPES as readonly string[]).includes(sku)) {
-    return sku as (typeof SKU_TYPES)[number];
-  }
-  return null;
-}
-
 export type AgentExecutionParams = {
   orgId: string;
   userId: string;
@@ -322,7 +304,6 @@ const MISSING_EVIDENCE_RETRY_THRESHOLD = 3;
 const MISSING_EVIDENCE_RETRY_MAX_ATTEMPTS = 3;
 const MISSING_EVIDENCE_RETRY_MODE = "missing-evidence-policy";
 const MEMORY_ENFORCEMENT_MAX_RETRIES = 1;
-const WEB_RUNTIME_EXCLUDED_TOOLS = ["query_property_db"] as const;
 
 type ToolEventState = {
   toolsInvoked: Set<string>;
@@ -734,21 +715,6 @@ function extractToolOutput(payload: Record<string, unknown>): unknown {
   return null;
 }
 
-/**
- * Inspects a tool result for __mapFeatures and emits map_action SSE events
- * (highlight, flyTo, addLayer) so the map UI can react in real-time.
- */
-function emitMapActionsFromToolResult(
-  toolName: string,
-  result: unknown,
-  toolCallId: string | null | undefined,
-  emit: (event: AgentStreamEvent) => void,
-): void {
-  for (const event of buildMapActionEventsFromToolResult(toolName, result, toolCallId)) {
-    emit(event);
-  }
-}
-
 function extractSerializedRunStateCandidate(payload: Record<string, unknown>): string | null {
   const candidates = [
     payload.state,
@@ -991,17 +957,6 @@ function hasAddressMemoryLookup(state: ToolEventState): boolean {
   );
 }
 
-function buildVerificationSteps(missingEvidence: string[]): string[] {
-  const steps = [
-    "Re-run with stricter input (full parcel identifiers and target jurisdiction).",
-    "Verify official seed-source snapshots for each cited claim.",
-  ];
-  if (missingEvidence.some((entry) => entry.includes("evidence_snapshot"))) {
-    steps.push("Re-run evidence_snapshot for sources that returned errors.");
-  }
-  return steps;
-}
-
 function buildFallbackOutput(
   status: AgentExecutionResult["status"],
   missingEvidence: string[],
@@ -1183,19 +1138,6 @@ function parseTrustFromRunOutput(output: unknown): AgentTrustEnvelope {
   return trust;
 }
 
-function readSerializedRunStateFromStoredValue(value: unknown): string | null {
-  const envelope = deserializeRunStateEnvelope(value);
-  if (envelope) {
-    return envelope.serializedRunState;
-  }
-
-  if (isRecord(value) && typeof value.serializedRunState === "string") {
-    return value.serializedRunState;
-  }
-
-  return null;
-}
-
 function runRecordToExecutionResult(dbRun: RunRecordSnapshot): AgentExecutionResult {
   const output = isRecord(dbRun.outputJson) ? dbRun.outputJson : {};
   const runState = isRecord(output.runState) ? output.runState : {};
@@ -1239,99 +1181,6 @@ async function loadRunExecutionResult(runId: string): Promise<AgentExecutionResu
 
   if (!runRecord) return null;
   return runRecordToExecutionResult(runRecord as RunRecordSnapshot);
-}
-
-async function persistFinalRunResult(params: {
-  runId: string;
-  status: AgentExecutionResult["status"];
-  openaiResponseId: string | null;
-  outputJson: Prisma.InputJsonValue;
-  trajectory?: Prisma.InputJsonValue;
-  serializedState?: Prisma.InputJsonValue | null;
-  executionLeaseToken?: string;
-}): Promise<boolean> {
-  if (!params.executionLeaseToken) {
-    await prisma.run.update({
-      where: { id: params.runId },
-      data: {
-        status: params.status,
-        finishedAt: new Date(),
-        openaiResponseId: params.openaiResponseId,
-        outputJson: params.outputJson,
-        trajectory: params.trajectory ?? undefined,
-        serializedState: params.serializedState ?? undefined,
-      },
-    });
-    return true;
-  }
-
-  const updated = await prisma.run.updateMany({
-    where: { id: params.runId, openaiResponseId: params.executionLeaseToken },
-    data: {
-      status: params.status,
-      finishedAt: new Date(),
-      openaiResponseId: params.openaiResponseId,
-      outputJson: params.outputJson,
-      trajectory: params.trajectory ?? undefined,
-      serializedState: params.serializedState ?? undefined,
-    },
-  });
-
-  return updated.count === 1;
-}
-
-async function upsertRunRecord(params: {
-  runId: string;
-  orgId: string;
-  runType: string;
-  inputHash: string;
-  dealId?: string | null;
-  jurisdictionId?: string | null;
-  sku?: string | null;
-  status?: "running" | "succeeded" | "failed" | "canceled";
-}) {
-  const runType = (params.runType ?? "ENRICHMENT") as
-    | "TRIAGE"
-    | "PARISH_PACK_REFRESH"
-    | "ARTIFACT_GEN"
-    | "BUYER_LIST_BUILD"
-    | "CHANGE_DETECT"
-    | "ENRICHMENT"
-    | "INTAKE_PARSE"
-    | "DOCUMENT_CLASSIFY"
-    | "BUYER_OUTREACH_DRAFT"
-    | "ADVANCEMENT_CHECK"
-    | "OPPORTUNITY_SCAN"
-    | "DEADLINE_MONITOR";
-
-  return prisma.run.upsert({
-    where: { id: params.runId },
-    create: {
-      id: params.runId,
-      orgId: params.orgId,
-      runType,
-      dealId: params.dealId ?? null,
-      jurisdictionId: params.jurisdictionId ?? null,
-      sku: normalizeSku(params.sku),
-      status: params.status ?? "running",
-      inputHash: params.inputHash,
-    },
-    update: {
-      status: params.status ?? "running",
-      inputHash: params.inputHash,
-      finishedAt: null,
-    },
-    select: {
-      id: true,
-      status: true,
-      inputHash: true,
-      outputJson: true,
-      serializedState: true,
-      openaiResponseId: true,
-      startedAt: true,
-      finishedAt: true,
-    },
-  });
 }
 
 export async function executeAgentWorkflow(
@@ -1565,40 +1414,25 @@ export async function executeAgentWorkflow(
     }
 
     const coordinator = createIntentAwareCoordinator(queryIntent);
-    // Diagnostic: log tools BEFORE filtering to catch stale tool injection
-    const preFilterTools = (coordinator.tools ?? [])
-      .map((t) => getToolName(t))
-      .filter((n): n is string => !!n);
-    console.log(`[agent-pre-filter] intent=${queryIntent} toolCount=${preFilterTools.length} hasQueryPropertyDb=${preFilterTools.includes("query_property_db")} tools=[${preFilterTools.join(",")}]`);
-    // Apply tool policy: filter by intent + exclude tools not suitable for web runtime.
-    // Agent SDK doesn't expose clone(), so we mutate the tools array directly.
-    if (coordinator.tools && coordinator.tools.length > 0) {
-      coordinator.tools = filterToolsForIntent(
-        queryIntent,
-        [...coordinator.tools],
-        {
-          additionalAllowedTools: [...WEB_ADDITIONAL_TOOL_ALLOWLIST],
-          excludedToolNames: [...WEB_RUNTIME_EXCLUDED_TOOLS],
-          allowFallback: true,
-          allowNamelessTools: false,
-        },
-      ) as Agent["tools"];
-    }
-    const configuredToolNames = (coordinator.tools ?? [])
-      .map((tool) => getToolName(tool))
-      .filter((name): name is string => typeof name === "string" && name.length > 0);
-    const configuredMemoryTools = configuredToolNames.filter(
-      (name) =>
-        name === "store_memory" ||
-        name === "get_entity_truth" ||
-        name === "get_entity_memory" ||
-        name === "record_memory_event" ||
-        name === "lookup_entity_by_address",
-    );
-    console.log(
-      `[agent-run-start] run=${dbRun.id} intent=${queryIntent} tools=[${configuredToolNames.join(",")}] memoryTools=[${configuredMemoryTools.join(",") || "NONE"}]`,
-    );
-    emit({ type: "agent_switch", agentName: "Coordinator" });
+    const {
+      preFilterTools,
+      configuredToolNames,
+      memoryToolsPresent,
+      missingMemoryTools,
+    } = applyAgentToolPolicy(coordinator, queryIntent);
+    logger.debug("Agent pre-filter tool inventory", {
+      queryIntent,
+      toolCount: preFilterTools.length,
+      hasQueryPropertyDb: preFilterTools.includes("query_property_db"),
+      tools: preFilterTools,
+    });
+    logger.debug("Agent run starting", {
+      runId: dbRun.id,
+      queryIntent,
+      tools: configuredToolNames,
+      memoryTools: memoryToolsPresent,
+    });
+    emitAgentSwitch(emit, "Coordinator");
 
     let runInput: ReturnType<typeof buildAgentInputItems> | RunState<
       unknown,
@@ -1669,18 +1503,14 @@ export async function executeAgentWorkflow(
         sku: params.sku ?? null,
       },
     } as Parameters<typeof run>[2];
-    const coordinatorToolNames = (coordinator.tools ?? [])
-      .map((tool) => getToolDefinitionName(tool))
-      .filter((name): name is string => Boolean(name));
-    const memoryToolsPresent = coordinatorToolNames.filter((name) => MEMORY_TOOL_NAMES.has(name));
-    const missingMemoryTools = [...MEMORY_TOOL_NAMES].filter((name) => !memoryToolsPresent.includes(name));
-    console.log(
-      `[agent-run-tools] run=${dbRun.id} intent=${queryIntent} toolCount=${coordinatorToolNames.length} tools=${coordinatorToolNames.join(",")}`,
-    );
-    console.log(
-      `[agent-run-tools] run=${dbRun.id} memoryToolsPresent=${memoryToolsPresent.join(",") || "none"} ` +
-        `memoryToolsMissing=${missingMemoryTools.join(",") || "none"}`,
-    );
+    logger.debug("Agent run tool registry", {
+      runId: dbRun.id,
+      queryIntent,
+      toolCount: configuredToolNames.length,
+      tools: configuredToolNames,
+      memoryToolsPresent,
+      memoryToolsMissing: missingMemoryTools,
+    });
 
     const runAttempt = async (
       attemptInput: AgentRunInput,
@@ -1733,7 +1563,7 @@ export async function executeAgentWorkflow(
                 ? (current.agent?.["name"] as string)
                 : "Coordinator";
             lastAgentName = agentName;
-            emit({ type: "agent_switch", agentName });
+            emitAgentSwitch(emit, agentName);
             continue;
           }
 
@@ -1746,14 +1576,7 @@ export async function executeAgentWorkflow(
             const fromAgent = handoff.from ?? lastAgentName;
             const toAgent = handoff.to;
             lastAgentName = toAgent;
-            emit({
-              type: "handoff",
-              from: fromAgent,
-              to: toAgent,
-              fromAgent,
-              toAgent,
-            });
-            emit({ type: "agent_switch", agentName: toAgent });
+            emitHandoff(emit, { from: fromAgent, to: toAgent });
             continue;
           }
 
@@ -1767,7 +1590,7 @@ export async function executeAgentWorkflow(
                 state.hadOutputText = true;
                 if (streamText) {
                   state.didEmitTextDelta = true;
-                  emit({ type: "text_delta", content: delta });
+                  emitTextDelta(emit, delta);
                 }
               }
             }
@@ -1789,8 +1612,7 @@ export async function executeAgentWorkflow(
                   : "tool");
             const toolCallId = extractApprovalItemToolCallId(approvalItem);
             const args = extractApprovalItemArgs(approvalItem);
-            emit({
-              type: "tool_approval_requested",
+            emitToolApprovalRequested(emit, {
               name: toolName,
               args,
               toolCallId,
@@ -1809,13 +1631,21 @@ export async function executeAgentWorkflow(
           const toolName = getToolName(toolPayload) ?? getToolName(current);
           if (toolName) {
             state.toolsInvoked.add(toolName);
-            console.log(`[agent-tool] ${toolName} invoked (run=${dbRun.id}, attempt=${label})`);
+            logger.debug("Agent tool invoked", {
+              runId: dbRun.id,
+              attemptLabel: label,
+              toolName,
+            });
             if (
               toolName === "store_memory" ||
               toolName.startsWith("get_entity") ||
               toolName === "record_memory_event"
             ) {
-              console.log(`[memory-tool] ✓ ${toolName} called — memory system is active`);
+              logger.debug("Agent memory tool invoked", {
+                runId: dbRun.id,
+                attemptLabel: label,
+                toolName,
+              });
             }
             const output = extractToolOutput(toolPayload) ?? extractToolOutput(current);
             const args = extractToolArgs(toolPayload) ?? extractToolArgs(current);
@@ -1830,8 +1660,7 @@ export async function executeAgentWorkflow(
               itemType.includes("tool_output");
 
             if (indicatesToolStart && output === null) {
-              emit({
-                type: "tool_start",
+              emitToolStart(emit, {
                 name: toolName,
                 args,
                 toolCallId,
@@ -1840,15 +1669,18 @@ export async function executeAgentWorkflow(
 
             if (output !== null) {
               const trimmedOutput = maybeTrimToolOutput(output);
-              emit({
-                type: "tool_end",
+              emitToolEnd(emit, {
                 name: toolName,
                 result: trimmedOutput.value,
                 status: "completed",
                 toolCallId,
               });
               collectToolOutputSignals(toolName, output, state, args);
-              emitMapActionsFromToolResult(toolName, output, toolCallId, emit);
+              emitMapActionsFromToolResult(emit, {
+                toolName,
+                result: output,
+                toolCallId,
+              });
               await persistCheckpoint({
                 kind: "tool_completion",
                 toolName,
@@ -1856,8 +1688,7 @@ export async function executeAgentWorkflow(
                 partialOutput: attemptText,
               });
             } else if (indicatesToolEnd) {
-              emit({
-                type: "tool_end",
+              emitToolEnd(emit, {
                 name: toolName,
                 status: "completed",
                 toolCallId,
@@ -1886,7 +1717,7 @@ export async function executeAgentWorkflow(
           state.hadOutputText = true;
           if (streamText) {
             state.didEmitTextDelta = true;
-            emit({ type: "text_delta", content: finalOutputText });
+            emitTextDelta(emit, finalOutputText);
           }
         }
       }
@@ -1905,7 +1736,7 @@ export async function executeAgentWorkflow(
       if (!state.hadOutputText && attemptText.length > 0) {
         if (streamText) {
           state.didEmitTextDelta = true;
-          emit({ type: "text_delta", content: attemptText });
+          emitTextDelta(emit, attemptText);
         }
       }
 
@@ -1989,9 +1820,11 @@ export async function executeAgentWorkflow(
           pendingApprovalState = enforcementResult.pendingApprovalState;
           break;
         }
-        console.warn(
-          `[agent-memory-enforcement] run=${dbRun.id} did not observe store_memory on attempt ${enforcementAttempt}; retrying=${enforcementAttempt < MEMORY_ENFORCEMENT_MAX_RETRIES}`,
-        );
+        logger.warn("Agent memory enforcement retrying", {
+          runId: dbRun.id,
+          attempt: enforcementAttempt,
+          retrying: enforcementAttempt < MEMORY_ENFORCEMENT_MAX_RETRIES,
+        });
       }
 
       if (enforcementAttempted && !state.toolsInvoked.has("store_memory")) {
@@ -2033,9 +1866,11 @@ export async function executeAgentWorkflow(
         if (hasAddressMemoryLookup(state)) {
           break;
         }
-        console.warn(
-          `[agent-memory-lookup-enforcement] run=${dbRun.id} did not observe address memory lookup on attempt ${lookupEnforcementAttempt}; retrying=${lookupEnforcementAttempt < MEMORY_ENFORCEMENT_MAX_RETRIES}`,
-        );
+        logger.warn("Agent memory lookup enforcement retrying", {
+          runId: dbRun.id,
+          attempt: lookupEnforcementAttempt,
+          retrying: lookupEnforcementAttempt < MEMORY_ENFORCEMENT_MAX_RETRIES,
+        });
       }
 
       if (lookupEnforcementAttempted && !hasAddressMemoryLookup(state)) {
@@ -2110,7 +1945,7 @@ export async function executeAgentWorkflow(
 
     if ((!state.didEmitTextDelta || deferTextUntilFinal) && finalText.length > 0) {
       state.didEmitTextDelta = true;
-      emit({ type: "text_delta", content: finalText });
+      emitTextDelta(emit, finalText);
     }
   } catch (error) {
     status = "failed";
@@ -2125,7 +1960,7 @@ export async function executeAgentWorkflow(
     errorMessage = error instanceof Error ? error.message : "Agent execution failed";
     state.toolErrorMessages.push(errorMessage);
     state.missingEvidence.add(`Execution failure: ${errorMessage}`);
-    emit({ type: "error", message: errorMessage });
+    emitError(emit, errorMessage);
   } finally {
     if (status === "succeeded") {
       const sanitizedOutput = sanitizeOutputText(finalText);
@@ -2192,28 +2027,20 @@ export async function executeAgentWorkflow(
     }
 
     if (pendingApprovalState) {
-      const approvalTrust: AgentTrustEnvelope = {
+      const approvalEvidenceCitations = dedupeEvidenceCitations(state.evidenceCitations);
+      const approvalTrust = buildPendingApprovalTrust({
         toolsInvoked: [...state.toolsInvoked].sort(),
         packVersionsUsed: [...state.packVersionsUsed].sort(),
-        evidenceCitations: dedupeEvidenceCitations(state.evidenceCitations),
-        evidenceHash: computeEvidenceHash(dedupeEvidenceCitations(state.evidenceCitations)),
-        confidence: 0.5,
-        missingEvidence: [],
-        verificationSteps: [
-          `Awaiting human approval for tool: ${pendingApprovalState.toolName ?? "tool"}`,
-        ],
+        evidenceHash: computeEvidenceHash(approvalEvidenceCitations),
         lastAgentName,
-        errorSummary: null,
         durationMs: Date.now() - startedAtMs,
-        toolFailures: [],
-        proofChecks: [],
         retryAttempts: params.retryAttempts ?? 1,
         retryMaxAttempts: params.retryMaxAttempts ?? (params.retryAttempts ?? 1),
         retryMode: params.retryMode ?? "local",
-        evidenceRetryPolicy: undefined,
         fallbackLineage: params.fallbackLineage,
         fallbackReason: params.fallbackReason,
-      };
+        toolName: pendingApprovalState.toolName,
+      });
 
       const runState: AgentRunState = {
         schemaVersion: AGENT_RUN_STATE_SCHEMA_VERSION,
@@ -2304,8 +2131,7 @@ export async function executeAgentWorkflow(
         );
       }
 
-      emit({
-        type: "done",
+      emitDone(emit, {
         runId: dbRun.id,
         status: "canceled",
         conversationId: normalizeOpenAiConversationId(params.conversationId),
@@ -2388,18 +2214,23 @@ export async function executeAgentWorkflow(
     const memoryToolsUsed = sortedToolsInvoked.filter(
       (t) => t === "store_memory" || t === "get_entity_truth" || t === "get_entity_memory" || t === "record_memory_event",
     );
-    console.log(`[agent-run-complete] run=${dbRun.id} status=${status} tools=[${sortedToolsInvoked.join(",")}] memoryTools=[${memoryToolsUsed.join(",") || "NONE"}] intent=${queryIntent}`);
+    logger.info("Agent run completed", {
+      runId: dbRun.id,
+      status,
+      queryIntent,
+      tools: sortedToolsInvoked,
+      memoryTools: memoryToolsUsed,
+    });
 
-    const trust: AgentTrustEnvelope = {
+    const trust = buildFinalTrust({
       toolsInvoked: sortedToolsInvoked,
       packVersionsUsed: [...state.packVersionsUsed].sort(),
       evidenceCitations: normalizedEvidenceCitations,
       evidenceHash,
-      confidence: Math.max(0, Math.min(1, confidence)),
+      confidence,
       missingEvidence,
-      verificationSteps: buildVerificationSteps(missingEvidence),
       lastAgentName,
-      errorSummary: errorMessage,
+      errorSummary: errorMessage ?? null,
       durationMs: Date.now() - startedAtMs,
       toolFailures: state.toolErrorMessages,
       proofChecks,
@@ -2409,7 +2240,7 @@ export async function executeAgentWorkflow(
       evidenceRetryPolicy,
       fallbackLineage: params.fallbackLineage,
       fallbackReason: params.fallbackReason,
-    };
+    });
 
     if (status !== "succeeded") {
       const fallback = buildFallbackOutput(status, missingEvidence);
@@ -2527,125 +2358,37 @@ export async function executeAgentWorkflow(
       );
     }
 
-    if (!skipRunPersistence && AUTOMATION_CONFIG.agentLearning.enabled && status !== "running") {
-      const inputPreview =
-        typeof firstUserInput === "string" ? firstUserInput.slice(0, 2000) : null;
-
-      await prisma.run.update({
-        where: { id: dbRun.id },
-        data: {
-          memoryPromotionStatus: "pending",
-          memoryPromotionError: null,
-          memoryPromotedAt: null,
-        },
-      });
-
-      void dispatchEvent({
-        type: "agent.run.completed",
-        runId: dbRun.id,
-        orgId: params.orgId,
-        userId: params.userId,
-        conversationId: params.conversationId ?? null,
-        dealId: params.dealId ?? null,
-        jurisdictionId: params.jurisdictionId ?? null,
-        runType: params.runType ?? null,
-        status:
-          status === "succeeded"
-            ? "succeeded"
-            : status === "failed"
-              ? "failed"
-              : "canceled",
-        inputPreview,
-        queryIntent: queryIntent ?? null,
-      }).catch((error) => {
-        logger.warn("Agent learning event dispatch failed", {
-          runId: dbRun.id,
-          error: String(error),
-        });
-      });
-    }
-
-    emit({
-      type: "agent_summary",
+    emitAgentSummary(emit, {
       runId: dbRun.id,
       trust,
     });
     const doneStatus: "succeeded" | "failed" | "canceled" = status === "failed"
       ? "failed"
       : "succeeded";
-    emit({
-      type: "done",
+    emitDone(emit, {
       runId: dbRun.id,
       status: doneStatus,
       conversationId: params.conversationId,
     });
-
-    if (!skipRunPersistence && !ingestionOnly) {
-      void autoFeedRun({
-        orgId: params.orgId,
-        runId: dbRun.id,
-        runType: params.runType ?? "ENRICHMENT",
-        agentIntent:
-          firstUserInput && typeof firstUserInput === "string"
-            ? firstUserInput.slice(0, 280)
-            : "agent run",
-        finalOutputText: finalText,
-        finalReport: finalReport ? (finalReport as unknown as Record<string, unknown>) : null,
-        confidence: trust.confidence,
-        evidenceHash:
-          trust.evidenceHash ??
-          computeEvidenceHash(
-            trust.evidenceCitations.map((citation) => ({
-              tool: citation.tool ?? "agent_tool",
-              sourceId: citation.sourceId,
-              snapshotId: citation.snapshotId,
-              contentHash: citation.contentHash,
-              url: citation.url,
-              isOfficial: citation.isOfficial,
-            })),
-          ) ??
-          "no-evidence-hash",
-        toolsInvoked: trust.toolsInvoked,
-        evidenceCitations: trust.evidenceCitations.map((citation) => ({
-          tool: citation.tool,
-          sourceId: citation.sourceId,
-          snapshotId: citation.snapshotId,
-          contentHash: citation.contentHash,
-          url: citation.url,
-          isOfficial: citation.isOfficial,
-        })),
-        retrievalMeta: {
-          runId: dbRun.id,
-          queryIntent: queryIntent ?? null,
-          status,
-          schemaVersion: AGENT_RUN_STATE_SCHEMA_VERSION,
-          retrievalContext: retrievalContext ?? null,
-          retrievalSummary: summarizeRetrievalContext(retrievalContext),
-        },
-        subjectId: dbRun.id,
-        autoScore: trust.confidence,
-      }).catch((error) => {
-        logger.warn("Data Agent auto-feed failed after local run", {
-          runId: dbRun.id,
-          error: String(error),
-        });
-      });
-    }
-    if (isAgentOsFeatureEnabled("criticEvaluation")) {
-      void runCriticEvaluation({
-        runId: dbRun.id,
-        orgId: params.orgId,
-        finalOutput: finalText,
-        toolsInvoked: trust.toolsInvoked,
-        toolFailures: trust.toolFailures,
-        missingEvidence: trust.missingEvidence,
-      }).catch((error) => {
-        logger.warn("AgentOS critic evaluation failed", {
-          runId: dbRun.id,
-          error: String(error),
-        });
-      });
-    }
+    await runAgentPostRunEffects({
+      runId: dbRun.id,
+      orgId: params.orgId,
+      userId: params.userId,
+      conversationId: params.conversationId ?? null,
+      dealId: params.dealId ?? null,
+      jurisdictionId: params.jurisdictionId ?? null,
+      runType: params.runType ?? null,
+      status,
+      firstUserInput,
+      queryIntent: queryIntent ?? null,
+      skipRunPersistence,
+      ingestionOnly,
+      finalText,
+      finalReport: finalReport ?? null,
+      trust,
+      retrievalContext: retrievalContext ?? null,
+      retrievalSummary: summarizeRetrievalContext(retrievalContext),
+    });
 
     return {
       runId: dbRun.id,

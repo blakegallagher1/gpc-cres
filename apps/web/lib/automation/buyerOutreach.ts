@@ -7,6 +7,7 @@ import {
   getCurrentWorkflowStage,
   getWorkflowPipelineStep,
 } from "./context";
+import { logger } from "@/lib/logger";
 
 /**
  * #10 Buyer Outreach: Match buyers to deals and draft outreach suggestions.
@@ -149,9 +150,11 @@ export async function handleBuyerOutreach(
   // Check weekly rate limit
   const weeklyCount = await weeklyOutreachCount(dealId, orgId);
   if (weeklyCount >= AUTOMATION_CONFIG.buyerOutreach.maxEmailsPerDealPerWeek) {
-    console.log(
-      `[automation] Weekly outreach limit (${AUTOMATION_CONFIG.buyerOutreach.maxEmailsPerDealPerWeek}) reached for deal ${dealId}`
-    );
+    logger.info("Automation buyer outreach skipped weekly limit", {
+      dealId,
+      orgId,
+      limit: AUTOMATION_CONFIG.buyerOutreach.maxEmailsPerDealPerWeek,
+    });
     return;
   }
 
@@ -187,9 +190,10 @@ export async function handleBuyerOutreach(
   );
 
   if (eligibleBuyers.length === 0) {
-    console.log(
-      `[automation] All ${matchedBuyers.length} matched buyers for deal ${dealId} are in cool-off or already contacted`
-    );
+    logger.info("Automation buyer outreach skipped due to buyer eligibility", {
+      dealId,
+      matchedBuyerCount: matchedBuyers.length,
+    });
     return;
   }
 

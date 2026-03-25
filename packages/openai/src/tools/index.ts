@@ -265,7 +265,6 @@ const {
   screenLdeq,
   screenFull,
   screenBatch,
-  queryPropertyDb,
   queryPropertyDbSql,
 } = propertyDbTools;
 const { query_org_sql } = databaseTools;

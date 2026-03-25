@@ -151,7 +151,7 @@ describe("handleIntakeReceived", () => {
   });
 
   it("skips intakes that do not match GPC criteria", async () => {
-    const consoleSpy = vi.spyOn(console, "log").mockImplementation();
+    const consoleSpy = vi.spyOn(console, "info").mockImplementation();
     await handleIntakeReceived({
       type: "intake.received",
       source: "email",
@@ -159,7 +159,9 @@ describe("handleIntakeReceived", () => {
       orgId: "o",
     });
     expect(dbMock.prisma.deal.count).not.toHaveBeenCalled();
-    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("does not match"));
+    expect(String(consoleSpy.mock.calls[0]?.[0] ?? "")).toContain(
+      "Automation intake skipped non-matching criteria",
+    );
     consoleSpy.mockRestore();
   });
 

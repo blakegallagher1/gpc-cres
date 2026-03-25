@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
 import crypto from "node:crypto";
 import { prisma } from "@entitlement-os/db";
+import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -233,7 +234,9 @@ async function queryWorkflowStats(): Promise<WorkflowStats | null> {
     Sentry.captureException(err, {
       tags: { route: "api.cron.stability-sentinel", method: "UNKNOWN" },
     });
-    console.error("[sentinel-cron] Workflow stats query failed:", err instanceof Error ? err.message : String(err));
+    logger.error("Cron stability-sentinel workflow stats query failed", {
+      errorMessage: err instanceof Error ? err.message : String(err),
+    });
     return null;
   }
 }

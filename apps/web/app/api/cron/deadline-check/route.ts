@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { runDeadlineMonitoring } from "@/lib/automation/deadlineMonitoring";
 import * as Sentry from "@sentry/nextjs";
+import { logger, serializeErrorForLogs } from "@/lib/logger";
 
 function verifyCronSecret(req: Request): boolean {
   const secret = (process.env.CRON_SECRET || "").trim();
@@ -34,7 +35,7 @@ export async function GET(req: Request) {
     Sentry.captureException(error, {
       tags: { route: "api.cron.deadline-check", method: "GET" },
     });
-    console.error("[cron.deadline-check] failed:", error);
+    logger.error("Cron deadline-check failed", serializeErrorForLogs(error));
     return NextResponse.json(
       { error: "Failed to run deadline monitoring" },
       { status: 500 },

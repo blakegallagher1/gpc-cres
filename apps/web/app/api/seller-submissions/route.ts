@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { checkRateLimit } from "@/lib/server/rateLimiter";
 import * as Sentry from "@sentry/nextjs";
+import { logger } from "@/lib/logger";
 
 const ROUTE_KEY = "seller-submissions";
 
@@ -42,11 +43,13 @@ export async function POST(req: NextRequest) {
   }
 
   if (parsed.data.company && parsed.data.company.length > 0) {
-    console.warn("[seller-submissions] honeypot triggered");
+    logger.warn("Seller submissions honeypot triggered");
     return NextResponse.json({ error: "Rejected" }, { status: 400 });
   }
 
-  console.info("[seller-submissions] submission received", { hasDetails: Boolean(parsed.data.details) });
+  logger.info("Seller submission received", {
+    hasDetails: Boolean(parsed.data.details),
+  });
 
   return NextResponse.json({ ok: true }, { status: 200 });
 }

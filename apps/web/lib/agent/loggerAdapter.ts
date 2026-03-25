@@ -1,3 +1,3 @@
-import { logger, recordDataAgentAutoFeed } from "../../../../utils/logger";
+import { logger, recordDataAgentAutoFeed } from "@/lib/logger";
 
 export { logger, recordDataAgentAutoFeed };
