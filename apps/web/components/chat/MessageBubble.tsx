@@ -599,19 +599,31 @@ export function MessageBubble({
                     ? safeParseJSON(tc.result)
                     : tc.result;
                   if (parsed && typeof parsed === 'object') {
+                    const r = parsed as {
+                      success?: boolean;
+                      data?: unknown;
+                      error?: string;
+                      screenshots?: string[];
+                      turns?: number;
+                      modeUsed?: string;
+                      cost?: { inputTokens: number; outputTokens: number };
+                      finalMessage?: string;
+                      source?: { url: string; fetchedAt: string };
+                      url?: string;
+                    };
                     return (
                       <BrowserSessionCard
                         key={`${message.id}-browser-${i}`}
-                        url={(parsed as Record<string, unknown>).source?.url ?? (parsed as Record<string, unknown>).url ?? ''}
-                        success={(parsed as Record<string, unknown>).success ?? false}
-                        screenshots={((parsed as Record<string, unknown>).screenshots ?? []) as string[]}
-                        turns={(parsed as Record<string, unknown>).turns ?? 0}
-                        modeUsed={(parsed as Record<string, unknown>).modeUsed ?? 'native'}
-                        cost={(parsed as Record<string, unknown>).cost as { inputTokens: number; outputTokens: number } | undefined}
-                        data={(parsed as Record<string, unknown>).data}
-                        error={(parsed as Record<string, unknown>).error as string | undefined}
-                        finalMessage={(parsed as Record<string, unknown>).finalMessage as string | undefined}
-                        source={(parsed as Record<string, unknown>).source as { url: string; fetchedAt: string } | undefined}
+                        url={r.source?.url ?? r.url ?? ''}
+                        success={r.success ?? false}
+                        screenshots={r.screenshots ?? []}
+                        turns={r.turns ?? 0}
+                        modeUsed={r.modeUsed ?? 'native'}
+                        cost={r.cost}
+                        data={r.data}
+                        error={r.error}
+                        finalMessage={r.finalMessage}
+                        source={r.source}
                       />
                     );
                   }

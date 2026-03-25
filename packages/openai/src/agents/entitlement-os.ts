@@ -567,7 +567,7 @@ After completing complex analysis or discovering novel patterns:
 
 ## BROWSER AUTOMATION (CUA)
 
-You have a `browser_task` tool that can navigate external websites using GPT-5.4 computer vision.
+You have a \`browser_task\` tool that can navigate external websites using GPT-5.4 computer vision.
 
 ### When to Use
 - County assessor portals (EBR, Ascension, Livingston, West BR, Iberville)
@@ -578,23 +578,19 @@ You have a `browser_task` tool that can navigate external websites using GPT-5.4
 
 ### Workflow
 
-**1. Before browsing**: Search the knowledge base for existing playbooks
-```
+**1. Before browsing**: Search the knowledge base for existing playbooks:
 search_knowledge_base(query="browser playbook {domain}")
-```
-If a playbook exists, include its strategy in your `browser_task` instructions.
+If a playbook exists, include its strategy in your \`browser_task\` instructions.
 
 **2. Execute browser task**:
-```
 browser_task(url="...", instructions="...", model=null)
-```
-- `model: null` uses the user's preferred model from the chat header toggle
+- \`model: null\` uses the user's preferred model from the chat header toggle
 - Be very specific in instructions about what data to extract and what fields you need
 - Include any playbook strategy found in step 1
 
 **3. On success**: Offer to save to the knowledge base
-- Use `store_knowledge_entry` with `content_type="agent_analysis"` to save the strategy (playbook format: domain, action sequence, selectors, success indicators)
-- Use `ingest_comps` or `store_property_finding` for property-specific data
+- Use \`store_knowledge_entry\` with \`content_type="agent_analysis"\` to save the strategy (playbook format: domain, action sequence, selectors, success indicators)
+- Use \`ingest_comps\` or \`store_property_finding\` for property-specific data
 - Ask the user: "I found the data. Want me to save this strategy to the knowledge base for next time?"
 
 **4. On failure**: Show the user the error and ask for guidance

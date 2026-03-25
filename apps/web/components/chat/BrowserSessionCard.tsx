@@ -62,6 +62,23 @@ function JSONViewer({ data }: { data: unknown }) {
   );
 }
 
+function ErrorAlert({ error }: { error?: string }) {
+  if (!error) return null;
+  return (
+    <div className="rounded-lg border border-destructive/25 bg-destructive/8 p-3">
+      <div className="flex gap-2">
+        <AlertCircle className="h-4 w-4 shrink-0 text-destructive mt-0.5" />
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-wide text-destructive font-medium mb-1">
+            Error
+          </p>
+          <p className="text-xs text-destructive/85">{error}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function BrowserSessionCard({
   url,
   success,
@@ -81,7 +98,7 @@ export function BrowserSessionCard({
   const duration = estimateDuration(turns);
   const costStr = formatCost(cost);
   const lastScreenshot = screenshots?.[screenshots.length - 1];
-  const hasData = data && typeof data === 'object' && Object.keys(data as object).length > 0;
+  const hasData = data != null && typeof data === 'object' && Object.keys(data as Record<string, unknown>).length > 0;
 
   return (
     <Card
@@ -148,22 +165,10 @@ export function BrowserSessionCard({
         </div>
 
         {/* Error Alert */}
-        {error && (
-          <div className="rounded-lg border border-destructive/25 bg-destructive/8 p-3">
-            <div className="flex gap-2">
-              <AlertCircle className="h-4 w-4 shrink-0 text-destructive mt-0.5" />
-              <div>
-                <p className="font-mono text-[10px] uppercase tracking-wide text-destructive font-medium mb-1">
-                  Error
-                </p>
-                <p className="text-xs text-destructive/85">{error}</p>
-              </div>
-            </div>
-          </div>
-        )}
+        <ErrorAlert error={error} />
 
         {/* Actions Collapsible */}
-        {finalMessage && (
+        {finalMessage ? (
           <Collapsible open={actionsOpen} onOpenChange={setActionsOpen}>
             <CollapsibleTrigger asChild>
               <Button
@@ -185,10 +190,10 @@ export function BrowserSessionCard({
               </div>
             </CollapsibleContent>
           </Collapsible>
-        )}
+        ) : null}
 
         {/* Data Collapsible */}
-        {hasData && (
+        {hasData ? (
           <Collapsible open={dataOpen} onOpenChange={setDataOpen}>
             <CollapsibleTrigger asChild>
               <Button
@@ -206,11 +211,11 @@ export function BrowserSessionCard({
               <JSONViewer data={data} />
             </CollapsibleContent>
           </Collapsible>
-        )}
+        ) : null}
 
         {/* Action Buttons */}
         <div className="flex flex-wrap gap-2 pt-1">
-          {onSaveToKnowledgeBase && (
+          {onSaveToKnowledgeBase ? (
             <Button
               size="sm"
               variant="outline"
@@ -220,8 +225,8 @@ export function BrowserSessionCard({
               <BookOpen className="h-3 w-3" />
               Save to Knowledge Base
             </Button>
-          )}
-          {lastScreenshot && (
+          ) : null}
+          {lastScreenshot ? (
             <Button
               size="sm"
               variant="outline"
@@ -236,15 +241,15 @@ export function BrowserSessionCard({
               <Download className="h-3 w-3" />
               Download
             </Button>
-          )}
+          ) : null}
         </div>
 
         {/* Source Info */}
-        {source?.fetchedAt && (
+        {source?.fetchedAt ? (
           <div className="pt-2 text-xs text-muted-foreground font-mono">
             Fetched at {new Date(source.fetchedAt).toLocaleString()}
           </div>
-        )}
+        ) : null}
       </CardContent>
     </Card>
   );
