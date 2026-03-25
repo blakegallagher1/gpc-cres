@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
@@ -23,7 +24,8 @@ type MatrixFile = {
 };
 
 function loadMatrix(): MatrixFile {
-  const repoRoot = path.resolve(process.cwd(), "../..");
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  const repoRoot = path.resolve(__dirname, "../../..");
   const matrixPath = path.join(repoRoot, "docs/testing/test-matrix-starter.json");
   const raw = fs.readFileSync(matrixPath, "utf8");
   return JSON.parse(raw) as MatrixFile;
@@ -33,37 +35,23 @@ describe("test matrix starter", () => {
   it("captures the expected core inventory counts", () => {
     const matrix = loadMatrix();
 
-    expect(matrix.summary.counts.agents).toBe(13);
+    // Unified consolidation: Single EntitlementOS agent (coordinator + all specialists)
+    expect(matrix.summary.counts.agents).toBe(1);
     expect(matrix.summary.counts.tools).toBe(55);
     expect(matrix.summary.counts.api_routes).toBe(66);
     expect(matrix.summary.counts.automation_modules).toBe(15);
     expect(matrix.summary.counts.features).toBeGreaterThanOrEqual(10);
-    expect(matrix.summary.counts.total_components).toBeGreaterThanOrEqual(159);
+    expect(matrix.summary.counts.total_components).toBeGreaterThanOrEqual(122);
   });
 
-  it("contains all named specialist/coordinator agents", () => {
+  it("contains the unified EntitlementOS agent as the core coordinator", () => {
     const matrix = loadMatrix();
     const componentIds = new Set(matrix.components.map((c) => c.id));
 
-    const requiredAgents = [
-      "agent:coordinator",
-      "agent:legal",
-      "agent:research",
-      "agent:risk",
-      "agent:finance",
-      "agent:screener",
-      "agent:dueDiligence",
-      "agent:entitlements",
-      "agent:design",
-      "agent:operations",
-      "agent:marketing",
-      "agent:tax",
-      "agent:marketIntel",
-    ];
-
-    for (const agent of requiredAgents) {
-      expect(componentIds.has(agent)).toBe(true);
-    }
+    // Unified consolidation: Single EntitlementOS agent with comprehensive tooling
+    // replaces the 13-agent multi-agent architecture. The agent provides all
+    // capabilities previously distributed across specialist agents.
+    expect(componentIds.has("agent:coordinator")).toBe(true);
   });
 
   it("contains the tool pass-through capability and all typed tools", () => {

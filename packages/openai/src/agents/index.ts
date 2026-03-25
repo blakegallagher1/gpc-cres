@@ -7,6 +7,7 @@ import {
   buildGoogleMapsMcpServerTool,
 } from "../tools/index.js";
 import { createEntitlementOSAgent } from "./entitlement-os.js";
+import { coordinatorInputGuardrail } from "../guardrails/inputGuardrails.js";
 
 export { createEntitlementOSAgent } from "./entitlement-os.js";
 
@@ -33,13 +34,6 @@ export function createConfiguredCoordinator(options?: {
         ...(googleMapsMcpTool ? [googleMapsMcpTool] : []),
       ],
     ) as Agent["tools"],
+    inputGuardrails: [coordinatorInputGuardrail],
   });
-}
-
-/**
- * Legacy alias for createConfiguredCoordinator.
- * Kept for backward compatibility during transition.
- */
-export function createIntentAwareCoordinator(intent: QueryIntent): Agent<unknown, any> {
-  return createConfiguredCoordinator({ intent });
 }

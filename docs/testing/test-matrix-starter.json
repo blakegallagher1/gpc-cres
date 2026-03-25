@@ -41,21 +41,22 @@
   },
   "summary": {
     "counts": {
-      "agents": 13,
+      "agents": 1,
       "tools": 55,
       "api_routes": 66,
       "automation_modules": 15,
       "features": 10,
-      "total_components": 159
+      "total_components": 147
     },
     "baseline_targets": {
-      "agents": 13,
+      "agents": 1,
       "tools": 54,
       "tool_capabilities_including_pass_through": 55,
       "api_routes": 66,
       "automation_modules": 15
     },
     "notes": [
+      "Unified consolidation: Single EntitlementOS agent (coordinator) with comprehensive 128-tool set replaces 13-agent multi-agent architecture.",
       "Tool baseline includes webSearchPreviewTool pass-through capability.",
       "Feature components model runtime/scoring/intelligence capabilities that are not route/agent/tool files."
     ]
@@ -67,210 +68,6 @@
       "name": "coordinator",
       "path": "packages/openai/src/agents/coordinator.ts",
       "risk_tier": "P0",
-      "owner": "TBD",
-      "status": "todo",
-      "required_tests": [
-        "unit",
-        "contract",
-        "integration",
-        "resilience",
-        "regression"
-      ],
-      "notes": ""
-    },
-    {
-      "id": "agent:design",
-      "type": "agent",
-      "name": "design",
-      "path": "packages/openai/src/agents/design.ts",
-      "risk_tier": "P1",
-      "owner": "TBD",
-      "status": "todo",
-      "required_tests": [
-        "unit",
-        "contract",
-        "integration",
-        "resilience",
-        "regression"
-      ],
-      "notes": ""
-    },
-    {
-      "id": "agent:dueDiligence",
-      "type": "agent",
-      "name": "dueDiligence",
-      "path": "packages/openai/src/agents/dueDiligence.ts",
-      "risk_tier": "P1",
-      "owner": "TBD",
-      "status": "todo",
-      "required_tests": [
-        "unit",
-        "contract",
-        "integration",
-        "resilience",
-        "regression"
-      ],
-      "notes": ""
-    },
-    {
-      "id": "agent:entitlements",
-      "type": "agent",
-      "name": "entitlements",
-      "path": "packages/openai/src/agents/entitlements.ts",
-      "risk_tier": "P1",
-      "owner": "TBD",
-      "status": "todo",
-      "required_tests": [
-        "unit",
-        "contract",
-        "integration",
-        "resilience",
-        "regression"
-      ],
-      "notes": ""
-    },
-    {
-      "id": "agent:finance",
-      "type": "agent",
-      "name": "finance",
-      "path": "packages/openai/src/agents/finance.ts",
-      "risk_tier": "P1",
-      "owner": "TBD",
-      "status": "todo",
-      "required_tests": [
-        "unit",
-        "contract",
-        "integration",
-        "resilience",
-        "regression"
-      ],
-      "notes": ""
-    },
-    {
-      "id": "agent:legal",
-      "type": "agent",
-      "name": "legal",
-      "path": "packages/openai/src/agents/legal.ts",
-      "risk_tier": "P1",
-      "owner": "TBD",
-      "status": "todo",
-      "required_tests": [
-        "unit",
-        "contract",
-        "integration",
-        "resilience",
-        "regression"
-      ],
-      "notes": ""
-    },
-    {
-      "id": "agent:marketing",
-      "type": "agent",
-      "name": "marketing",
-      "path": "packages/openai/src/agents/marketing.ts",
-      "risk_tier": "P1",
-      "owner": "TBD",
-      "status": "todo",
-      "required_tests": [
-        "unit",
-        "contract",
-        "integration",
-        "resilience",
-        "regression"
-      ],
-      "notes": ""
-    },
-    {
-      "id": "agent:marketIntel",
-      "type": "agent",
-      "name": "marketIntel",
-      "path": "packages/openai/src/agents/marketIntel.ts",
-      "risk_tier": "P1",
-      "owner": "TBD",
-      "status": "todo",
-      "required_tests": [
-        "unit",
-        "contract",
-        "integration",
-        "resilience",
-        "regression"
-      ],
-      "notes": ""
-    },
-    {
-      "id": "agent:operations",
-      "type": "agent",
-      "name": "operations",
-      "path": "packages/openai/src/agents/operations.ts",
-      "risk_tier": "P1",
-      "owner": "TBD",
-      "status": "todo",
-      "required_tests": [
-        "unit",
-        "contract",
-        "integration",
-        "resilience",
-        "regression"
-      ],
-      "notes": ""
-    },
-    {
-      "id": "agent:research",
-      "type": "agent",
-      "name": "research",
-      "path": "packages/openai/src/agents/research.ts",
-      "risk_tier": "P1",
-      "owner": "TBD",
-      "status": "todo",
-      "required_tests": [
-        "unit",
-        "contract",
-        "integration",
-        "resilience",
-        "regression"
-      ],
-      "notes": ""
-    },
-    {
-      "id": "agent:risk",
-      "type": "agent",
-      "name": "risk",
-      "path": "packages/openai/src/agents/risk.ts",
-      "risk_tier": "P1",
-      "owner": "TBD",
-      "status": "todo",
-      "required_tests": [
-        "unit",
-        "contract",
-        "integration",
-        "resilience",
-        "regression"
-      ],
-      "notes": ""
-    },
-    {
-      "id": "agent:screener",
-      "type": "agent",
-      "name": "screener",
-      "path": "packages/openai/src/agents/screener.ts",
-      "risk_tier": "P1",
-      "owner": "TBD",
-      "status": "todo",
-      "required_tests": [
-        "unit",
-        "contract",
-        "integration",
-        "resilience",
-        "regression"
-      ],
-      "notes": ""
-    },
-    {
-      "id": "agent:tax",
-      "type": "agent",
-      "name": "tax",
-      "path": "packages/openai/src/agents/tax.ts",
-      "risk_tier": "P1",
       "owner": "TBD",
       "status": "todo",
       "required_tests": [

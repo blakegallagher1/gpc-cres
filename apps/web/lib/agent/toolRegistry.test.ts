@@ -9,7 +9,7 @@ describe("toolRegistry", () => {
     expect(total).toBeGreaterThan(0);
   });
 
-  test("contains known executable tools from coordinator and agent groups", () => {
+  test("contains known executable tools from EntitlementOS agent", () => {
     const requiredTools = [
       "screen_batch",
       "run_underwriting_workflow",
@@ -20,7 +20,6 @@ describe("toolRegistry", () => {
       "query_document_extractions",
       "search_nearby_places",
       "get_historical_accuracy",
-      "consult_finance_specialist",
     ];
 
     const missing = requiredTools.filter(

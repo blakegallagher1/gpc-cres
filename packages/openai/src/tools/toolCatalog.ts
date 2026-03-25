@@ -329,12 +329,6 @@ export const TOOL_CATALOG: Record<string, ToolCatalogEntry> = {
   // --- Hosted tools (OpenAI-managed, metered) ---
   web_search_preview: { name: "web_search_preview", destination: "hosted", risk: "read", quotaClass: "metered", intents: ["general", "research", "market_intel", "market_trajectory"] },
   file_search: { name: "file_search", destination: "hosted", risk: "read", quotaClass: "metered", intents: ["general", "research"] },
-
-  // --- Specialist consult (local, read — delegates to specialist agent) ---
-  consult_finance_specialist: { name: "consult_finance_specialist", destination: "local", risk: "read", quotaClass: "unlimited", intents: ["general"] },
-  consult_risk_specialist: { name: "consult_risk_specialist", destination: "local", risk: "read", quotaClass: "unlimited", intents: ["general"] },
-  consult_legal_specialist: { name: "consult_legal_specialist", destination: "local", risk: "read", quotaClass: "unlimited", intents: ["general"] },
-  consult_market_trajectory_specialist: { name: "consult_market_trajectory_specialist", destination: "local", risk: "read", quotaClass: "unlimited", intents: ["general"] },
 };
 
 /** Get catalog entries for a specific intent (agent role). */

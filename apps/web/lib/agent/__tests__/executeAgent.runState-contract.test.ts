@@ -19,7 +19,7 @@ vi.mock("@openai/agents", () => ({
 vi.mock("@entitlement-os/openai", () => ({
   inferQueryIntentFromText: vi.fn(() => "analysis"),
   inferQueryIntentFromDealContext: vi.fn(() => null),
-  createIntentAwareCoordinator: vi.fn(() => ({ id: "coordinator-agent" })),
+  createConfiguredCoordinator: vi.fn(() => ({ id: "coordinator-agent" })),
   evaluateProofCompliance: vi.fn(() => []),
   buildAgentStreamRunOptions: vi.fn(() => ({})),
   captureAgentError: vi.fn(),
@@ -173,7 +173,7 @@ describe("executeAgentWorkflow", () => {
     const openAiRuntime = (await vi.importMock("@entitlement-os/openai")) as {
       inferQueryIntentFromText: ReturnType<typeof vi.fn>;
       inferQueryIntentFromDealContext: ReturnType<typeof vi.fn>;
-      createIntentAwareCoordinator: ReturnType<typeof vi.fn>;
+      createConfiguredCoordinator: ReturnType<typeof vi.fn>;
     };
     const dealReader = (await vi.importMock("@/lib/services/deal-reader")) as {
       getDealReaderById: ReturnType<typeof vi.fn>;
@@ -182,7 +182,7 @@ describe("executeAgentWorkflow", () => {
     dealReader.getDealReaderById.mockResolvedValue(null);
     openAiRuntime.inferQueryIntentFromDealContext.mockReturnValue(null);
     openAiRuntime.inferQueryIntentFromText.mockReturnValue("analysis");
-    openAiRuntime.createIntentAwareCoordinator.mockReturnValue({ id: "coordinator-agent" });
+    openAiRuntime.createConfiguredCoordinator.mockReturnValue({ id: "coordinator-agent" });
   });
 
   it("routes by deal strategy and opportunity kind before falling back to text intent", async () => {
@@ -237,7 +237,7 @@ describe("executeAgentWorkflow", () => {
         opportunityKind: "PROPERTY",
       }),
     );
-    expect(openAiRuntime.createIntentAwareCoordinator).toHaveBeenCalledWith("asset_management");
+    expect(openAiRuntime.createConfiguredCoordinator).toHaveBeenCalledWith({ intent: "asset_management" });
   });
 
   it("persists AgentRunOutputJson with required runState contract fields", async () => {

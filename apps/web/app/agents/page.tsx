@@ -88,7 +88,7 @@ export default function AgentsPage() {
           description={
             agentsLoading
               ? "Loading the current agent roster."
-              : `${agents.length} specialized agents available for orchestration, monitoring, and handoff work.`
+              : "A unified AI agent with comprehensive domain expertise across finance, legal, entitlements, risk, and operations for complete deal analysis and decision support."
           }
           stats={[
             {

@@ -60,7 +60,7 @@ describe("AgentsPage", () => {
     const { container } = render(<AgentsPage />);
 
     expect(screen.getByText("Tool surface")).toBeInTheDocument();
-    expect(screen.getByText("79")).toBeInTheDocument();
+    expect(screen.getByText("28")).toBeInTheDocument();
     expect(screen.getAllByText(/catalog tools/)[0]).toBeInTheDocument();
     expect(screen.getAllByText("search_knowledge_base")[0]).toBeInTheDocument();
     expect(container.firstChild).toMatchSnapshot();

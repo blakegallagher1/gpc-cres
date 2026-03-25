@@ -7,7 +7,7 @@ describe("toolPolicy", () => {
     const tools = [
       { type: "function", name: "store_knowledge_entry" },
       { type: "function", name: "store_memory" },
-      { type: "function", name: "consult_finance_specialist" },
+      { type: "function", name: "finance_calculate_proforma" },
     ];
 
     const filtered = filterToolsForIntent("acquisition_underwriting", tools, {
@@ -19,7 +19,7 @@ describe("toolPolicy", () => {
     expect(filtered.map((tool) => tool.name)).toEqual([
       "store_knowledge_entry",
       "store_memory",
-      "consult_finance_specialist",
+      "finance_calculate_proforma",
     ]);
   });
 

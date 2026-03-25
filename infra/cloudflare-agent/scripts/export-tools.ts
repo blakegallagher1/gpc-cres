@@ -80,50 +80,6 @@ async function main() {
     });
   }
 
-  // Add consult tool stubs (these are agent.asTool() at runtime, but we define them as
-  // function tools with a simple input schema for the Worker)
-  const consultTools = [
-    {
-      name: "consult_finance_specialist",
-      description:
-        "Consult Finance Agent for focused underwriting/capital-structure questions while the Coordinator retains control.",
-    },
-    {
-      name: "consult_risk_specialist",
-      description:
-        "Consult Risk Agent for focused hazard/compliance/uncertainty checks while the Coordinator retains control.",
-    },
-    {
-      name: "consult_legal_specialist",
-      description:
-        "Consult Legal Agent for focused contract/zoning/legal-risk questions while the Coordinator retains control.",
-    },
-    {
-      name: "consult_market_trajectory_specialist",
-      description:
-        "Consult Market Trajectory Agent for neighborhood growth analysis, permit activity mapping, and gentrification indicator tracking.",
-    },
-  ];
-
-  for (const ct of consultTools) {
-    schemas.push({
-      type: "function",
-      name: ct.name,
-      description: ct.description,
-      parameters: {
-        type: "object",
-        properties: {
-          input: {
-            type: "string",
-            description: "The question or analysis request to pass to the specialist agent",
-          },
-        },
-        required: ["input"],
-        additionalProperties: false,
-      },
-    });
-  }
-
   // Add hosted tool declarations
   schemas.push({
     type: "web_search_preview" as any,

@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { coordinatorAgent, createConfiguredCoordinator, specialistAgents } from "../../../src/agents/index.js";
-import { coordinatorTools } from "../../../src/tools/index.js";
+import { createConfiguredCoordinator, createEntitlementOSAgent } from "../../../src/agents/index.js";
+import { entitlementOsTools } from "../../../src/tools/index.js";
 
-describe("Phase 1 Agent Pack :: coordinator", () => {
+describe("Phase 1 Agent Pack :: coordinator (unified EntitlementOS)", () => {
   const memoryTools = [
     "record_memory_event",
     "get_entity_memory",
@@ -11,41 +11,33 @@ describe("Phase 1 Agent Pack :: coordinator", () => {
     "get_entity_truth",
   ];
 
-  it("[MATRIX:agent:coordinator][PACK:handoff] verifies specialist handoff routing and contradiction resolution", () => {
+  it("[MATRIX:agent:coordinator][PACK:unified] verifies unified EntitlementOS agent core identity", () => {
     const configured = createConfiguredCoordinator();
-    const configuredHandoffs = configured.handoffs ?? [];
 
-    expect(configured.name).toBe("Coordinator");
-    expect(configuredHandoffs).toHaveLength(specialistAgents.length);
-
-    const specialistNames = new Set(specialistAgents.map((agent) => agent.name));
-    for (const handoff of configuredHandoffs) {
-      expect(specialistNames.has(handoff.name)).toBe(true);
-      expect(Array.isArray(handoff.tools)).toBe(true);
-      expect((handoff.tools ?? []).length).toBeGreaterThan(0);
-    }
+    expect(configured.name).toBe("EntitlementOS");
+    // Unified agent has empty handoffs array (no specialist delegation)
+    expect(configured.handoffs).toEqual([]);
   });
 
   it("[MATRIX:agent:coordinator][PACK:uncertainty] enforces uncertainty scoring, reanalysis triggers, and confidence boundaries", () => {
-    const instructionText = coordinatorAgent.instructions;
+    const agent = createEntitlementOSAgent();
+    const instructionText = agent.instructions;
 
-    expect(instructionText.includes("assess_uncertainty")).toBe(true);
-    expect(instructionText.includes("request_reanalysis")).toBe(true);
-    expect(instructionText.includes("log_reasoning_trace")).toBe(true);
+    expect(instructionText.includes("Confidence level")).toBe(true);
+    expect(instructionText.includes("robustness")).toBe(true);
+    expect(instructionText.includes("sensitivities")).toBe(true);
 
-    const coordinatorToolNames = new Set(
-      coordinatorTools
+    const configuredToolNames = new Set(
+      entitlementOsTools
         .map((tool) => ("name" in (tool as object) ? (tool as { name?: string }).name : undefined))
         .filter((name): name is string => Boolean(name)),
     );
 
-    expect(coordinatorToolNames.has("assess_uncertainty")).toBe(true);
-    expect(coordinatorToolNames.has("request_reanalysis")).toBe(true);
-    expect(coordinatorToolNames.has("log_reasoning_trace")).toBe(true);
+    expect(configuredToolNames.has("assess_uncertainty")).toBe(true);
   });
 
   it("[MATRIX:agent:coordinator][PACK:hosted-tools] excludes hosted web search from direct coordinator toolset", () => {
-    const hasHostedWebSearch = coordinatorTools.some(
+    const hasHostedWebSearch = entitlementOsTools.some(
       (tool) =>
         "type" in (tool as object) &&
         (tool as { type?: string }).type === "web_search_preview",
@@ -54,7 +46,7 @@ describe("Phase 1 Agent Pack :: coordinator", () => {
     expect(hasHostedWebSearch).toBe(false);
   });
 
-  it("[MATRIX:agent:coordinator][PACK:agent-as-tool] exposes specialist consult tools while preserving handoffs", () => {
+  it("[MATRIX:agent:coordinator][PACK:unified-agent] unified EntitlementOS agent has comprehensive tool coverage", () => {
     const configured = createConfiguredCoordinator();
     const toolNames = new Set(
       (configured.tools ?? [])
@@ -62,10 +54,10 @@ describe("Phase 1 Agent Pack :: coordinator", () => {
         .filter((name): name is string => Boolean(name)),
     );
 
-    expect(toolNames.has("consult_finance_specialist")).toBe(true);
-    expect(toolNames.has("consult_risk_specialist")).toBe(true);
-    expect(toolNames.has("consult_legal_specialist")).toBe(true);
-    expect((configured.handoffs ?? []).length).toBeGreaterThan(0);
+    expect(toolNames.has("calculate_proforma")).toBe(true);
+    expect(toolNames.has("assess_uncertainty")).toBe(true);
+    expect(toolNames.has("screen_zoning")).toBe(true);
+    expect((configured.tools ?? []).length).toBeGreaterThan(100);
   });
 
   it("[MATRIX:agent:coordinator][PACK:guardrails] wires coordinator input guardrail", () => {
@@ -95,8 +87,8 @@ describe("Phase 1 Agent Pack :: coordinator", () => {
         .filter((name): name is string => Boolean(name)),
     );
 
-    const coordinatorToolNames = new Set(
-      coordinatorTools
+    const entitlementOsToolNames = new Set(
+      entitlementOsTools
         .map((tool) =>
           "name" in (tool as object) ? (tool as { name?: string }).name : undefined,
         )
@@ -104,32 +96,29 @@ describe("Phase 1 Agent Pack :: coordinator", () => {
     );
 
     for (const toolName of memoryTools) {
-      expect(coordinatorToolNames.has(toolName)).toBe(true);
+      expect(entitlementOsToolNames.has(toolName)).toBe(true);
       expect(configuredToolNames.has(toolName)).toBe(true);
     }
   });
 
   it("[MATRIX:agent:coordinator][PACK:contract] validates structured output schema and required evidence fields", () => {
-    const instructionText = coordinatorAgent.instructions;
+    const agent = createEntitlementOSAgent();
+    const instructionText = agent.instructions;
 
-    expect(instructionText.includes("Task Understanding")).toBe(true);
-    expect(instructionText.includes("Execution Plan")).toBe(true);
-    expect(instructionText.includes("Agent Outputs")).toBe(true);
-    expect(instructionText.includes("Synthesis")).toBe(true);
+    expect(instructionText.includes("Recommendation")).toBe(true);
     expect(instructionText.includes("Key Assumptions")).toBe(true);
-    expect(instructionText.includes("Uncertainty Map")).toBe(true);
+    expect(instructionText.includes("Data Gaps")).toBe(true);
     expect(instructionText.includes("Next Steps")).toBe(true);
-    expect(instructionText.includes("CONSULT-AS-TOOL VS HANDOFF ROUTING")).toBe(true);
-    expect(instructionText.includes("consult_finance_specialist")).toBe(true);
-    expect(instructionText.includes("consult_risk_specialist")).toBe(true);
-    expect(instructionText.includes("consult_legal_specialist")).toBe(true);
+    expect(instructionText.includes("QUALITY CHECKLIST")).toBe(true);
+    expect(instructionText.includes("store_knowledge_entry")).toBe(true);
   });
 
   it("[MATRIX:agent:coordinator][PACK:memory-protocol] hardens memory tool protocol in instructions", () => {
-    const instructionText = coordinatorAgent.instructions;
+    const agent = createEntitlementOSAgent();
+    const instructionText = agent.instructions;
 
-    expect(instructionText.includes("You MUST use these tools whenever data is provided or referenced")).toBe(true);
-    expect(instructionText.includes("ALWAYS call `store_memory` for EACH distinct fact BEFORE any analysis text")).toBe(true);
-    expect(instructionText.includes("runtime enforcement")).toBe(false);
+    expect(instructionText.includes("Continuous Learning")).toBe(true);
+    expect(instructionText.includes("knowledge base")).toBe(true);
+    expect(instructionText.includes("store_knowledge_entry")).toBe(true);
   });
 });

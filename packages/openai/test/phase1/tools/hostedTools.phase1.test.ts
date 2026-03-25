@@ -7,8 +7,6 @@ import {
 import {
   coordinatorTools,
   fileSearchTool,
-  marketIntelTools,
-  researchTools,
   webSearchPreviewTool,
 } from "../../../src/tools/index.js";
 
@@ -22,11 +20,9 @@ describe("Phase 1 Tool Pack :: hostedTools", () => {
     expect(hostedFileSearchTool.type).toBe("file_search");
   });
 
-  it("[MATRIX:tool:hostedWebSearch][PACK:wiring] keeps shared declaration exported but not directly mounted in local-only toolsets", () => {
+  it("[MATRIX:tool:hostedWebSearch][PACK:wiring] keeps shared declaration exported but not directly mounted in unified agent toolset", () => {
     expect(webSearchPreviewTool).toBe(hostedWebSearchPreviewTool);
     expect(coordinatorTools).not.toContain(webSearchPreviewTool);
-    expect(researchTools).not.toContain(webSearchPreviewTool);
-    expect(marketIntelTools).not.toContain(webSearchPreviewTool);
   });
 
   it("[MATRIX:tool:hostedFileSearch][PACK:wiring] re-exports shared file search declaration", () => {

@@ -4,7 +4,6 @@ import {
   ALL_AGENT_TOOLS,
   resolveToolCatalogEntry,
   resolveToolName,
-  SPECIALIST_CONSULT_TOOLS,
   TOOL_NAME_ALIASES,
   type ToolCatalogEntry,
 } from "@entitlement-os/openai";
@@ -134,38 +133,6 @@ for (const tool of TOOLS) {
   }
 }
 
-/**
- * Consult tools — run specialist agents via the Agents SDK `run()`.
- * When the CF Worker calls /api/agent/tools/execute with a consult tool,
- * we create the specialist agent and run it for a single turn with the input.
- */
-const CONSULT_SPECIALIST_MAP: Readonly<Record<string, string>> = Object.fromEntries(
-  SPECIALIST_CONSULT_TOOLS.map(
-    (toolConfig: { toolName: string; key: string }): [string, string] => [toolConfig.toolName, toolConfig.key],
-  ),
-);
-
-for (const [toolName, specialistKey] of Object.entries(CONSULT_SPECIALIST_MAP)) {
-  const consultToolExecute: ToolExecuteFn = async (args: Record<string, unknown>) => {
-    const input = typeof args.input === "string" ? args.input : JSON.stringify(args);
-    try {
-      // Lazy import to avoid circular deps and keep the registry lightweight
-      const { createIntentAwareCoordinator, run } = await import("@entitlement-os/openai");
-      const intent = specialistKey as Parameters<typeof createIntentAwareCoordinator>[0];
-      const agent = createIntentAwareCoordinator(intent);
-      const result = await run(agent, input, { maxTurns: 3 });
-      return { result: result.finalOutput ?? "(No output from specialist)", status: "ok" };
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      logger.error("Consult tool execution failed", {
-        toolName,
-        errorMessage: message,
-      });
-      return { result: `Specialist consultation failed: ${message}`, status: "error" };
-    }
-  };
-  registerToolWithAlias(toolName, consultToolExecute);
-}
 
 const unresolvedAliases: string[] = [];
 for (const [aliasToolName, canonicalToolName] of Object.entries(TOOL_NAME_ALIASES)) {

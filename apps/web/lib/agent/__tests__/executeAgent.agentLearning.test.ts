@@ -31,7 +31,7 @@ vi.mock("@openai/agents", () => ({
 vi.mock("@entitlement-os/openai", () => ({
   inferQueryIntentFromText: vi.fn(() => "analysis"),
   inferQueryIntentFromDealContext: vi.fn(() => null),
-  createIntentAwareCoordinator: vi.fn(() => ({ id: "coordinator-agent", tools: [] })),
+  createConfiguredCoordinator: vi.fn(() => ({ id: "coordinator-agent", tools: [] })),
   evaluateProofCompliance: vi.fn(() => []),
   buildAgentStreamRunOptions: vi.fn(() => ({})),
   captureAgentError: vi.fn(),

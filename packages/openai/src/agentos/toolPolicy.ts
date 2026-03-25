@@ -58,71 +58,71 @@ export const WEB_ADDITIONAL_TOOL_ALLOWLIST = [
 const TOOL_POLICY_BY_INTENT: Record<string, ToolPolicyDefinition> = {
   finance: {
     exact: ["calculate_proforma", "calculate_debt_sizing", "query_org_sql", ...PROPERTY_DB_QUERY_TOOLS],
-    prefixes: ["consult_", "finance_", "calculate_", "debt_", "underwrite_", "market_"],
+    prefixes: ["finance_", "calculate_", "debt_", "underwrite_", "market_"],
   },
   acquisition_underwriting: {
     exact: ["get_deal_context", "get_rent_roll", "get_document_extraction_summary"],
-    prefixes: ["consult_", "acquisition_", "finance_", "market_", "capital_"],
+    prefixes: ["acquisition_", "finance_", "market_", "capital_"],
   },
   asset_management: {
     exact: ["get_deal_context", "get_rent_roll"],
-    prefixes: ["consult_", "asset_", "operations_", "task_", "capital_"],
+    prefixes: ["asset_", "operations_", "task_", "capital_"],
   },
   capital_markets: {
     exact: ["get_deal_context", "get_rent_roll", "model_capital_stack", "get_document_extraction_summary"],
-    prefixes: ["consult_", "capital_", "finance_", "market_"],
+    prefixes: ["capital_", "finance_", "market_"],
   },
   legal: {
     exact: [],
-    prefixes: ["consult_", "legal_", "zoning_", "entitlement_", "due_diligence_"],
+    prefixes: ["legal_", "zoning_", "entitlement_", "due_diligence_"],
   },
   entitlements: {
     exact: [],
-    prefixes: ["consult_", "entitlement_", "zoning_", "permit_", "parish_"],
+    prefixes: ["entitlement_", "zoning_", "permit_", "parish_"],
   },
   due_diligence: {
     exact: ["query_org_sql", ...PROPERTY_DB_QUERY_TOOLS],
-    prefixes: ["consult_", "due_diligence_", "risk_", "flood_", "evidence_"],
+    prefixes: ["due_diligence_", "risk_", "flood_", "evidence_"],
   },
   risk: {
     exact: ["query_org_sql", ...PROPERTY_DB_QUERY_TOOLS],
-    prefixes: ["consult_", "risk_", "flood_", "screen_", "hazard_", "evidence_"],
+    prefixes: ["risk_", "flood_", "screen_", "hazard_", "evidence_"],
   },
   marketing: {
     exact: [],
-    prefixes: ["consult_", "marketing_", "buyer_", "outreach_", "market_"],
+    prefixes: ["marketing_", "buyer_", "outreach_", "market_"],
   },
   operations: {
     exact: [],
-    prefixes: ["consult_", "operations_", "task_", "project_", "schedule_"],
+    prefixes: ["operations_", "task_", "project_", "schedule_"],
   },
   tax: {
     exact: [],
-    prefixes: ["consult_", "tax_", "finance_", "calculate_"],
+    prefixes: ["tax_", "finance_", "calculate_"],
   },
   design: {
     exact: [],
-    prefixes: ["consult_", "design_", "site_", "entitlement_"],
+    prefixes: ["design_", "site_", "entitlement_"],
   },
   market_intel: {
     exact: [],
-    prefixes: ["consult_", "market_", "comps_", "research_"],
+    prefixes: ["market_", "comps_", "research_"],
   },
   screener: {
     exact: [...PROPERTY_DB_QUERY_TOOLS],
-    prefixes: ["consult_", "screen_", "triage_", "parcel_", "risk_", "finance_"],
+    prefixes: ["screen_", "triage_", "parcel_", "risk_", "finance_"],
   },
   research: {
     exact: ["query_org_sql", ...PROPERTY_DB_QUERY_TOOLS],
-    prefixes: ["consult_", "research_", "market_", "evidence_"],
+    prefixes: ["research_", "market_", "evidence_"],
   },
   land_search: {
     exact: [...PROPERTY_DB_QUERY_TOOLS],
-    prefixes: ["consult_", "search_", "parcel_", "screen_", "evidence_"],
+    prefixes: ["search_", "parcel_", "screen_", "evidence_"],
   },
   general: {
     exact: ["query_org_sql", ...PROPERTY_DB_QUERY_TOOLS],
-    prefixes: ["consult_"],
+    prefixes: [],
   },
 };
 

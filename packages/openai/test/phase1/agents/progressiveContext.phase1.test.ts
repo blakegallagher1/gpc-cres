@@ -1,23 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { createIntentAwareCoordinator } from "../../../src/agents/index.js";
+import { createEntitlementOSAgent } from "../../../src/agents/index.js";
 
-describe("Phase 1 Agent Pack :: progressive context", () => {
-  it("[MATRIX:agent:progressive-context][PACK:lazy] defers specialist context assembly until specialist instructions are resolved", async () => {
-    const coordinator = createIntentAwareCoordinator("general");
-    const firstSpecialist = (coordinator.handoffs ?? [])[0];
+describe("Phase 1 Agent Pack :: unified agent context", () => {
+  it("[MATRIX:agent:unified-context][PACK:comprehensive] unified EntitlementOS agent loads complete domain instructions", () => {
+    const agent = createEntitlementOSAgent();
 
-    expect(firstSpecialist).toBeDefined();
-    expect(typeof firstSpecialist.instructions).toBe("function");
+    expect(agent.instructions).toBeDefined();
+    expect(typeof agent.instructions).toBe("string");
 
-    const instructions = await (
-      firstSpecialist.instructions as (
-        runContext: unknown,
-        agent: typeof firstSpecialist,
-      ) => Promise<string>
-    )({} as never, firstSpecialist);
-
-    expect(instructions.includes("## Specialist Metadata")).toBe(true);
-    expect(instructions.includes("## Runtime Resources")).toBe(true);
-    expect(instructions.includes("CORE CAPABILITIES")).toBe(true);
+    // Verify key domain areas are covered in unified instructions
+    expect(agent.instructions.includes("CORE OPERATING PRINCIPLES")).toBe(true);
+    expect(agent.instructions.includes("DEAL PIPELINE")).toBe(true);
+    expect(agent.instructions.includes("GPC Focus Areas")).toBe(true);
+    expect(agent.instructions.includes("Investment Criteria")).toBe(true);
+    expect(agent.instructions.includes("Louisiana-Specific")).toBe(true);
   });
 });

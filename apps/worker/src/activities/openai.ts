@@ -39,7 +39,7 @@ import {
   createTrajectoryRecorder,
   captureAgentError,
   captureAgentWarning,
-  createIntentAwareCoordinator,
+  createConfiguredCoordinator,
   extractUsageSummary,
   evaluateProofCompliance,
   inferQueryIntentFromText,
@@ -1045,7 +1045,7 @@ export async function runAgentTurn(
       firstUserInput,
     });
 
-    const baseCoordinator = createIntentAwareCoordinator(queryIntent) as {
+    const baseCoordinator = createConfiguredCoordinator({ intent: queryIntent }) as {
       tools?: unknown[];
       clone?: (config: { tools: unknown[] }) => Parameters<typeof run>[0];
     };
