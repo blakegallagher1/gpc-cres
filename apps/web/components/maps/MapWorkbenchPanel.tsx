@@ -181,6 +181,8 @@ export function MapWorkbenchPanel({
           onClick={onToggleOpen}
           className="map-btn inline-flex h-11 w-11 items-center justify-center rounded-2xl shadow-lg"
           title={open ? "Collapse workbench (L)" : "Open workbench (L)"}
+          aria-label={open ? "Collapse map workbench" : "Open map workbench"}
+          aria-expanded={open}
         >
           {open ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         </button>
@@ -189,6 +191,7 @@ export function MapWorkbenchPanel({
           onClick={onScreenshot}
           className="map-btn inline-flex h-10 w-10 items-center justify-center rounded-2xl shadow-lg"
           title="Export screenshot (S)"
+          aria-label="Export map screenshot"
         >
           <Camera className="h-4 w-4" />
         </button>
@@ -197,6 +200,7 @@ export function MapWorkbenchPanel({
           onClick={onToggleFullscreen}
           className="map-btn inline-flex h-10 w-10 items-center justify-center rounded-2xl shadow-lg"
           title="Toggle fullscreen (F)"
+          aria-label="Toggle map fullscreen"
         >
           <Maximize2 className="h-4 w-4" />
         </button>

@@ -32,7 +32,7 @@ export function InputBar({ value, disabled, isLoading, onValueChange, onSubmit }
           }}
           placeholder={isLoading ? "Steering active turn..." : "Ask Codex..."}
           rows={3}
-          className="min-h-[60px] w-full resize-none rounded-md border border-gray-700 bg-gray-950 p-2 text-sm text-gray-100 outline-none focus:border-cyan-500"
+          className="min-h-[60px] w-full resize-none rounded-md border border-gray-700 bg-gray-950 p-2 text-sm text-gray-100 focus:border-cyan-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/70 focus-visible:ring-offset-0"
         />
         <button
           type="button"

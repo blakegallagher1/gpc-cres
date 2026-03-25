@@ -147,6 +147,7 @@ export function ChatInput({
                 type="button"
                 onClick={() => removeFile(index)}
                 className="ml-1 text-muted-foreground transition-colors hover:text-foreground"
+                aria-label={`Remove ${file.name}`}
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -163,6 +164,11 @@ export function ChatInput({
               className="shrink-0 p-2 text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
               onClick={() => fileInputRef.current?.click()}
               disabled={isStreaming || pendingFiles.length >= MAX_FILES}
+              aria-label={
+                pendingFiles.length >= MAX_FILES
+                  ? `Attach files disabled. Maximum ${MAX_FILES} files reached.`
+                  : "Attach files"
+              }
               title={
                 pendingFiles.length >= MAX_FILES
                   ? `Max ${MAX_FILES} files`

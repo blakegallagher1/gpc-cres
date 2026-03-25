@@ -14,6 +14,13 @@ import "maplibre-gl/dist/maplibre-gl.css";
 
 import { useParcelGeometry, type ViewportBounds } from "./useParcelGeometry";
 import {
+  buildParcelPopupViewModel,
+  buildTileParcelPopupViewModel,
+  presentMapPopup,
+  type MapPopupAction,
+} from "./MapPopupPresenter";
+import { bindMapInteractionHandlers } from "./mapLibreAdapter";
+import {
   getStreetTileUrls,
   getSatelliteTileUrl,
   getParcelTileUrl,
@@ -402,96 +409,13 @@ export function computeNextSelection(
   return next;
 }
 
-export function escapeHtml(value: string): string {
+function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
-}
-
-export function parcelPopupHtml(parcel: MapParcel): string {
-  const safeAddress = escapeHtml(parcel.address);
-  const safeDealName = parcel.dealName ? escapeHtml(parcel.dealName) : null;
-  const safeDealStatus = parcel.dealStatus ? escapeHtml(parcel.dealStatus.replace(/_/g, " ")) : null;
-  const safeZoning = parcel.currentZoning ? escapeHtml(parcel.currentZoning) : null;
-  const safeFloodZone = parcel.floodZone ? escapeHtml(parcel.floodZone) : null;
-  const safeId = escapeHtml(parcel.id);
-  const svLat = parcel.lat.toFixed(6);
-  const svLng = parcel.lng.toFixed(6);
-  const streetViewUrl = `https://www.google.com/maps/@${svLat},${svLng},3a,75y,0h,90t/data=!3m6!1e1`;
-  const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${svLat},${svLng}`;
-
-  const rows = [
-    `<div style="font-weight:600;margin-bottom:2px;">${safeAddress}</div>`,
-    safeDealName
-      ? `<div style="opacity:0.7;font-size:11px;">${safeDealName}</div>`
-      : "",
-    parcel.acreage != null
-      ? `<div style="font-size:11px;">${Number(parcel.acreage).toFixed(2)} acres</div>`
-      : "",
-    safeDealStatus
-      ? `<div style="font-size:11px;">Status: ${safeDealStatus}</div>`
-      : "",
-    safeZoning
-      ? `<div style="font-size:11px;">Zoning: ${safeZoning}</div>`
-      : "",
-    safeFloodZone
-      ? `<div style="font-size:11px;">Flood: ${safeFloodZone}</div>`
-      : "",
-    `<div style="margin-top:6px;padding-top:6px;border-top:1px solid currentColor;opacity:0.3;"></div><div style="display:flex;gap:6px;align-items:center;">
-      <a href="${streetViewUrl}" target="_blank" rel="noopener noreferrer" style="font-size:11px;color:#6c8cff;text-decoration:none;">Street View</a>
-      <a href="${googleMapsUrl}" target="_blank" rel="noopener noreferrer" style="font-size:11px;opacity:0.7;text-decoration:none;">Google Maps</a>
-    </div>`,
-    `<div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;">
-      <button type="button" onclick="window.dispatchEvent(new CustomEvent('map:add-to-deal',{detail:{parcelId:'${safeId}'},bubbles:true}))" style="font-size:11px;padding:3px 8px;border-radius:3px;border:1px solid #6d28d9;background:#7c3aed;color:#fff;cursor:pointer;">+ Deal</button>
-      <button type="button" onclick="window.dispatchEvent(new CustomEvent('map:run-triage',{detail:{parcelId:'${safeId}'},bubbles:true}))" style="font-size:11px;padding:3px 8px;border-radius:3px;border:1px solid #b45309;background:#f59e0b;color:#fff;cursor:pointer;">Triage</button>
-      <button type="button" onclick="window.dispatchEvent(new CustomEvent('map:view-comps',{detail:{parcelId:'${safeId}'},bubbles:true}))" style="font-size:11px;padding:3px 8px;border-radius:3px;border:1px solid #0369a1;background:#0284c7;color:#fff;cursor:pointer;">Comps</button>
-    </div>`,
-  ].filter(Boolean);
-
-  return `<div style="font-size:13px;line-height:1.4;min-width:200px;color:inherit;">${rows.join("")}</div>`;
-}
-
-/** Popup HTML for vector tile parcels (from Martin/PostGIS). */
-export function tileParcelPopupHtml(props: Record<string, unknown>): string {
-  const address = props.address ? escapeHtml(String(props.address)) : "Unknown address";
-  const parcelId = props.parcel_id ? escapeHtml(String(props.parcel_id)) : null;
-  const owner = props.owner ? escapeHtml(String(props.owner)) : null;
-  const areaSqft = typeof props.area_sqft === "number" ? props.area_sqft : null;
-  const assessed = typeof props.assessed_value === "number" ? props.assessed_value : null;
-  const acreage = areaSqft ? (areaSqft / 43560).toFixed(2) : null;
-  const latRaw = typeof props.lat === "number" ? props.lat : typeof props.latitude === "number" ? props.latitude : null;
-  const lngRaw = typeof props.lng === "number" ? props.lng : typeof props.longitude === "number" ? props.longitude : null;
-  const hasCoords = latRaw != null && lngRaw != null;
-  const svLat = hasCoords ? Number(latRaw).toFixed(6) : null;
-  const svLng = hasCoords ? Number(lngRaw).toFixed(6) : null;
-  const streetViewUrl =
-    svLat && svLng
-      ? `https://www.google.com/maps/@${svLat},${svLng},3a,75y,0h,90t/data=!3m6!1e1`
-      : null;
-
-  const rows = [
-    `<div style="font-weight:600;margin-bottom:2px;">${address}</div>`,
-    parcelId
-      ? `<div style="opacity:0.7;font-size:11px;">Parcel: ${parcelId}</div>`
-      : "",
-    owner
-      ? `<div style="font-size:11px;">Owner: ${owner}</div>`
-      : "",
-    acreage
-      ? `<div style="font-size:11px;">${acreage} acres (${areaSqft!.toLocaleString()} sqft)</div>`
-      : "",
-    assessed != null
-      ? `<div style="font-size:11px;">Assessed: $${assessed.toLocaleString()}</div>`
-      : "",
-    streetViewUrl
-      ? `<div style="margin-top:6px;padding-top:6px;border-top:1px solid currentColor;opacity:0.2;"></div><div><a href="${streetViewUrl}" target="_blank" rel="noopener noreferrer" style="font-size:11px;color:inherit;opacity:0.8;text-decoration:none;">Street View</a></div>`
-      : "",
-  ].filter(Boolean);
-
-  return `<div style="font-size:13px;line-height:1.4;color:inherit">${rows.join("")}</div>`;
 }
 
 /**
@@ -981,44 +905,24 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
     parcelByIdRef.current = parcelById;
   }, [parcelById]);
 
-  useEffect(() => {
-    const handleAddToDeal = (event: Event) => {
-      const parcelId = (event as CustomEvent<{ parcelId: string }>).detail?.parcelId;
-      if (!parcelId) return;
-      popupRef.current?.remove();
-      popupRef.current = null;
-      window.location.href = `/deals/new?parcelId=${encodeURIComponent(parcelId)}`;
-    };
+  const handlePopupAction = useCallback((action: MapPopupAction) => {
+    if (action.type === "create_deal") {
+      const href = action.triage
+        ? `/deals/new?parcelId=${encodeURIComponent(action.parcelId)}&step=triage`
+        : `/deals/new?parcelId=${encodeURIComponent(action.parcelId)}`;
+      window.location.href = href;
+      return;
+    }
 
-    const handleRunTriage = (event: Event) => {
-      const parcelId = (event as CustomEvent<{ parcelId: string }>).detail?.parcelId;
-      if (!parcelId) return;
-      popupRef.current?.remove();
-      popupRef.current = null;
-      window.location.href = `/deals/new?parcelId=${encodeURIComponent(parcelId)}&step=triage`;
-    };
-
-    const handleViewComps = (event: Event) => {
-      const parcelId = (event as CustomEvent<{ parcelId: string }>).detail?.parcelId;
-      if (!parcelId) return;
-      const parcel = parcelByIdRef.current.get(parcelId);
-      const params = new URLSearchParams({ parcelId });
-      if (parcel) {
-        params.set("lat", String(parcel.lat));
-        params.set("lng", String(parcel.lng));
-        if (parcel.address) params.set("address", parcel.address);
-      }
-      window.open(`/comps?${params.toString()}`, "_blank", "noopener,noreferrer");
-    };
-
-    window.addEventListener("map:add-to-deal", handleAddToDeal);
-    window.addEventListener("map:run-triage", handleRunTriage);
-    window.addEventListener("map:view-comps", handleViewComps);
-    return () => {
-      window.removeEventListener("map:add-to-deal", handleAddToDeal);
-      window.removeEventListener("map:run-triage", handleRunTriage);
-      window.removeEventListener("map:view-comps", handleViewComps);
-    };
+    const params = new URLSearchParams({
+      parcelId: action.parcelId,
+      lat: String(action.lat),
+      lng: String(action.lng),
+    });
+    if (action.address) {
+      params.set("address", action.address);
+    }
+    window.open(`/comps?${params.toString()}`, "_blank", "noopener,noreferrer");
   }, []);
 
   const toggleMapFullscreen = useCallback(() => {
@@ -1817,102 +1721,46 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
         hideBoundaryLayerVisibility();
         fitBounds();
 
-        const handleFeatureClick = (e: maplibregl.MapLayerMouseEvent) => {
-          const feature = e.features?.[0];
-          const parcelId = feature?.properties?.id as string | undefined;
-          if (!parcelId) return;
-
-          const isMultiSelect = e.originalEvent?.ctrlKey || e.originalEvent?.metaKey;
-          updateSelection(parcelId, isMultiSelect);
-
-          stableMapCallbacks.onParcelClick?.(parcelId);
-
-          const parcel = parcelByIdRef.current.get(parcelId);
-          if (parcel && mapRef.current) {
-            popupRef.current?.remove();
-            popupRef.current = new maplibregl.Popup({ closeOnClick: true })
-              .setLngLat([e.lngLat.lng, e.lngLat.lat])
-              .setHTML(parcelPopupHtml(parcel))
-              .addTo(mapRef.current);
-          }
-        };
-
-        const clearHoverCursor = () => {
-          const container = map.getCanvas();
-          if (!container) return;
-          container.style.cursor = "";
-        };
-
-        map.on("click", "parcels-boundary-line", handleFeatureClick);
-        map.on("click", "parcels-boundary-fill", handleFeatureClick);
-        map.on("click", "parcel-points", handleFeatureClick);
-
-        // Click handler for vector tile parcels (all 560K parcels from Martin)
-        const handleTileParcelClick = (e: maplibregl.MapLayerMouseEvent) => {
-          const feature = e.features?.[0];
-          if (!feature?.properties) return;
-          // If this parcel is also in the GeoJSON layers, skip — the GeoJSON
-          // handler will fire instead (it's registered first).
-          const tileParcelId = feature.properties.id as string | undefined;
-          if (tileParcelId && parcelByIdRef.current.has(tileParcelId)) return;
-
-          popupRef.current?.remove();
-          popupRef.current = new maplibregl.Popup({ closeOnClick: true })
-            .setLngLat([e.lngLat.lng, e.lngLat.lat])
-            .setHTML(tileParcelPopupHtml(feature.properties))
-            .addTo(map);
-        };
-
-        map.on("click", "parcel-tiles-fill", handleTileParcelClick);
-
-        map.on("mouseenter", "parcels-boundary-line", () => {
-          map.getCanvas().style.cursor = "pointer";
-        });
-        map.on("mouseenter", "parcels-boundary-fill", () => {
-          map.getCanvas().style.cursor = "pointer";
-        });
-        map.on("mouseenter", "parcel-points", () => {
-          map.getCanvas().style.cursor = "pointer";
-        });
-        map.on("mouseenter", "parcel-tiles-fill", () => {
-          map.getCanvas().style.cursor = "pointer";
-        });
-        map.on("mouseleave", "parcels-boundary-line", clearHoverCursor);
-        map.on("mouseleave", "parcels-boundary-fill", clearHoverCursor);
-        map.on("mouseleave", "parcel-points", clearHoverCursor);
-        map.on("mouseleave", "parcel-tiles-fill", clearHoverCursor);
-
-        // Track cursor position for status bar
-        map.on("mousemove", (e) => {
-          setCursorLng(Math.round(e.lngLat.lng * 10000) / 10000);
-          setCursorLat(Math.round(e.lngLat.lat * 10000) / 10000);
+        const removeInteractionHandlers = bindMapInteractionHandlers({
+          map,
+          fitBounds,
+          onParcelClick: stableMapCallbacks.onParcelClick,
+          updateSelection,
+          getParcelById: (parcelId) => parcelByIdRef.current.get(parcelId),
+          openParcelPopup: (parcel, lngLat) => {
+            if (!mapRef.current) {
+              return;
+            }
+            presentMapPopup({
+              map: mapRef.current,
+              popupRef,
+              lngLat,
+              viewModel: buildParcelPopupViewModel(parcel),
+              onAction: handlePopupAction,
+            });
+          },
+          openTilePopup: (properties, lngLat) => {
+            if (!mapRef.current) {
+              return;
+            }
+            presentMapPopup({
+              map: mapRef.current,
+              popupRef,
+              lngLat,
+              viewModel: buildTileParcelPopupViewModel(properties),
+            });
+          },
+          setCursor: (lng, lat) => {
+            setCursorLng(lng);
+            setCursorLat(lat);
+          },
+          setZoom: setCurrentZoom,
+          setViewportBounds,
+          onViewStateChange: onViewStateChangeRef.current,
+          boundsTimerRef,
         });
 
-        // Track zoom level for status bar
-        map.on("zoomend", () => {
-          setCurrentZoom(Math.round(map.getZoom() * 100) / 100);
-        });
-
-        map.on("moveend", () => {
-          fitBounds();
-          // Debounced viewport bounds update for geometry loading
-          if (boundsTimerRef.current) clearTimeout(boundsTimerRef.current);
-          boundsTimerRef.current = setTimeout(() => {
-            const b = map.getBounds();
-            const bounds = {
-              west: b.getWest(),
-              south: b.getSouth(),
-              east: b.getEast(),
-              north: b.getNorth(),
-            };
-            setViewportBounds(bounds);
-            onViewStateChangeRef.current?.(
-              [map.getCenter().lat, map.getCenter().lng],
-              map.getZoom(),
-              bounds,
-            );
-          }, 300);
-        });
+        map.once("remove", removeInteractionHandlers);
       });
     } catch (error) {
       const message =
@@ -1934,7 +1782,7 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
         mapRef.current = null;
       }
     };
-  }, [clearTemporaryLayers, updateSelection]);
+  }, [clearTemporaryLayers, handlePopupAction, updateSelection]);
 
   useEffect(() => {
     if (!mapRef.current || !mapReady) return;
