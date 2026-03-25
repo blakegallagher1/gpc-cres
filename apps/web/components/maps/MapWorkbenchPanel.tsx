@@ -14,6 +14,12 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { SavedGeofences } from "./SavedGeofences";
 import { HEATMAP_PRESETS } from "./heatmapPresets";
 import type { HeatmapPresetKey } from "./types";
@@ -92,11 +98,10 @@ function OverlayToggleRow({
           <div className="mt-1 text-[10px] leading-4 text-map-text-muted">{description}</div>
         ) : null}
       </div>
-      <input
-        type="checkbox"
+      <Checkbox
         checked={checked}
-        onChange={(event) => onChange(event.target.checked)}
-        className="mt-0.5 h-3.5 w-3.5 shrink-0 rounded accent-map-accent"
+        onCheckedChange={(value) => onChange(value === true)}
+        className="mt-0.5 border-map-accent"
       />
     </label>
   );
@@ -176,34 +181,40 @@ export function MapWorkbenchPanel({
   return (
     <div className="pointer-events-none absolute left-3 top-3 bottom-12 z-20 flex items-start gap-3">
       <div className="pointer-events-auto flex flex-col gap-2">
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="icon"
           onClick={onToggleOpen}
-          className="map-btn inline-flex h-11 w-11 items-center justify-center rounded-2xl shadow-lg"
+          className="h-11 w-11 border-map-border bg-map-surface-overlay text-map-text-primary shadow-lg hover:bg-map-surface"
           title={open ? "Collapse workbench (L)" : "Open workbench (L)"}
           aria-label={open ? "Collapse map workbench" : "Open map workbench"}
           aria-expanded={open}
         >
           {open ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          variant="outline"
+          size="icon"
           onClick={onScreenshot}
-          className="map-btn inline-flex h-10 w-10 items-center justify-center rounded-2xl shadow-lg"
+          className="h-10 w-10 border-map-border bg-map-surface-overlay text-map-text-primary shadow-lg hover:bg-map-surface"
           title="Export screenshot (S)"
           aria-label="Export map screenshot"
         >
           <Camera className="h-4 w-4" />
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          variant="outline"
+          size="icon"
           onClick={onToggleFullscreen}
-          className="map-btn inline-flex h-10 w-10 items-center justify-center rounded-2xl shadow-lg"
+          className="h-10 w-10 border-map-border bg-map-surface-overlay text-map-text-primary shadow-lg hover:bg-map-surface"
           title="Toggle fullscreen (F)"
           aria-label="Toggle map fullscreen"
         >
           <Maximize2 className="h-4 w-4" />
-        </button>
+        </Button>
       </div>
 
       <AnimatePresence initial={false}>
@@ -234,9 +245,9 @@ export function MapWorkbenchPanel({
                   </p>
                 </div>
                 <div className="flex flex-col items-end gap-2 text-right">
-                  <span className="rounded-full border border-map-border bg-map-surface px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-map-text-primary">
+                  <Badge variant="outline" className="px-2.5 py-1 text-[9px]">
                     {selectedCount} selected
-                  </span>
+                  </Badge>
                   <span className="text-[10px] text-map-text-muted">
                     {hasPolygon ? "Polygon live" : `${baseLayer} base`}
                   </span>
@@ -244,7 +255,7 @@ export function MapWorkbenchPanel({
               </div>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto">
+            <ScrollArea className="min-h-0 flex-1">
               {searchSlot ? (
                 <section className="border-b border-map-border px-4 py-4">{searchSlot}</section>
               ) : null}
@@ -260,29 +271,33 @@ export function MapWorkbenchPanel({
                     </h3>
                   </div>
                   {geometryStatusLabel ? (
-                    <span className="text-[10px] text-map-status-yellow">{geometryStatusLabel}</span>
+                    <Badge variant="secondary" className="px-2 py-0.5 text-[9px]">
+                      {geometryStatusLabel}
+                    </Badge>
                   ) : null}
                 </div>
 
-                <div className="mt-3 grid grid-cols-2 gap-2">
+                <ToggleGroup
+                  type="single"
+                  value={baseLayer}
+                  onValueChange={(value: string) => value && onBaseLayerChange(value)}
+                  className="mt-3 grid w-full grid-cols-2 gap-2 rounded-xl border-0 bg-transparent p-0"
+                >
                   {["Streets", "Satellite"].map((option) => (
-                    <button
+                    <ToggleGroupItem
                       key={option}
-                      type="button"
-                      onClick={() => onBaseLayerChange(option)}
-                      className={cn(
-                        "rounded-xl border px-3 py-2 text-[11px] font-medium transition-colors",
-                        baseLayer === option
-                          ? "border-map-accent bg-map-accent text-white"
-                          : "border-map-border bg-map-surface/55 text-map-text-secondary hover:border-map-accent-muted hover:bg-map-surface hover:text-map-text-primary",
-                      )}
+                      value={option}
+                      variant="outline"
+                      aria-label={option}
+                      title={option}
+                      className="rounded-xl border-map-border bg-map-surface/55 text-[11px] text-map-text-secondary data-[state=on]:border-map-accent data-[state=on]:bg-map-accent data-[state=on]:text-white"
                     >
                       {option}
-                    </button>
+                    </ToggleGroupItem>
                   ))}
-                </div>
+                </ToggleGroup>
 
-                <div className="mt-3 space-y-2">
+                <div className="mt-3 flex flex-col gap-2">
                   <OverlayToggleRow
                     checked={showParcelBoundaries}
                     label="Parcels"
@@ -333,14 +348,6 @@ export function MapWorkbenchPanel({
 
                   <div className="mt-3 grid grid-cols-2 gap-2">
                     <ToolButton
-                      active={measureMode !== "off"}
-                      label={measureMode === "off" ? "Measure" : "Measuring"}
-                      onClick={() =>
-                        setMeasureMode(measureMode === "off" ? "distance" : "off")
-                      }
-                      icon={<Ruler className="h-4 w-4" />}
-                    />
-                    <ToolButton
                       active={showComps}
                       label="Comparable sales"
                       onClick={() => setShowComps((value) => !value)}
@@ -360,28 +367,60 @@ export function MapWorkbenchPanel({
                     />
                   </div>
 
+                  <div className="mt-3 flex flex-col gap-2">
+                    <p className="text-[10px] uppercase tracking-[0.16em] text-map-text-muted">
+                      Measure mode
+                    </p>
+                    <ToggleGroup
+                      type="single"
+                      value={measureMode}
+                      onValueChange={(value: string) =>
+                        setMeasureMode(
+                          (value as "off" | "distance" | "area" | "") || "off",
+                        )
+                      }
+                      className="grid w-full grid-cols-3 gap-2 rounded-xl border-0 bg-transparent p-0"
+                    >
+                      <ToggleGroupItem value="off" variant="outline" size="sm" className="text-[10px]" aria-label="Off" title="Off">
+                        Off
+                      </ToggleGroupItem>
+                      <ToggleGroupItem value="distance" variant="outline" size="sm" className="text-[10px]" aria-label="Distance" title="Distance">
+                        <Ruler className="mr-1 h-3.5 w-3.5" />
+                        Distance
+                      </ToggleGroupItem>
+                      <ToggleGroupItem value="area" variant="outline" size="sm" className="text-[10px]" aria-label="Area" title="Area">
+                        Area
+                      </ToggleGroupItem>
+                    </ToggleGroup>
+                  </div>
+
                   {showHeatmap ? (
-                    <div className="mt-3 space-y-2">
+                    <div className="mt-3 flex flex-col gap-2">
                       <p className="text-[10px] uppercase tracking-[0.16em] text-map-text-muted">
                         Heatmap preset
                       </p>
-                      <div className="flex flex-wrap gap-2">
+                      <ToggleGroup
+                        type="single"
+                        value={activeHeatmapPreset}
+                        onValueChange={(value: string) =>
+                          value && setActiveHeatmapPreset(value as HeatmapPresetKey)
+                        }
+                        className="flex w-full flex-wrap justify-start gap-2 rounded-xl border-0 bg-transparent p-0"
+                      >
                         {HEATMAP_PRESETS.map((preset) => (
-                          <button
+                          <ToggleGroupItem
                             key={preset.key}
-                            type="button"
-                            onClick={() => setActiveHeatmapPreset(preset.key)}
-                            className={cn(
-                              "rounded-full border px-2.5 py-1 text-[10px] font-medium transition-colors",
-                              activeHeatmapPreset === preset.key
-                                ? "border-map-accent bg-map-accent text-white"
-                                : "border-map-border bg-map-surface/55 text-map-text-secondary hover:border-map-accent-muted hover:bg-map-surface hover:text-map-text-primary",
-                            )}
+                            value={preset.key}
+                            variant="outline"
+                            size="sm"
+                            aria-label={preset.label}
+                            title={preset.label}
+                            className="rounded-full border-map-border bg-map-surface/55 text-[10px] text-map-text-secondary data-[state=on]:border-map-accent data-[state=on]:bg-map-accent data-[state=on]:text-white"
                           >
                             {preset.label}
-                          </button>
+                          </ToggleGroupItem>
                         ))}
-                      </div>
+                      </ToggleGroup>
                     </div>
                   ) : null}
                 </section>
@@ -398,57 +437,63 @@ export function MapWorkbenchPanel({
                         {drawState.hint}
                       </p>
                     </div>
-                    <span className="rounded-full border border-map-border bg-map-surface px-2 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-map-text-primary">
+                    <Badge variant="outline" className="px-2 py-1 text-[9px]">
                       {drawState.badge}
-                    </span>
+                    </Badge>
                   </div>
 
                   <div className="mt-3 flex flex-wrap gap-2">
                     {!hasPolygon ? (
-                      <button
+                      <Button
                         type="button"
+                        size="sm"
                         title="Draw polygon search area"
                         onClick={onToggleDrawing}
                         className={cn(
-                          "inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-[10px] font-medium transition-colors",
+                          "h-8 gap-1.5 px-3 text-[10px] font-medium",
                           drawing
-                            ? "border border-map-accent bg-map-accent text-white"
-                            : "map-btn text-map-text-primary",
+                            ? "border-map-accent bg-map-accent text-white hover:bg-map-accent/90"
+                            : "border-map-border bg-map-surface/55 text-map-text-primary hover:bg-map-surface",
                         )}
                       >
                         <Pencil className="h-3.5 w-3.5" />
                         {drawing ? "Finish area" : "Start draw"}
-                      </button>
+                      </Button>
                     ) : (
-                      <button
+                      <Button
                         type="button"
+                        size="sm"
                         title="Clear polygon"
                         onClick={onClearPolygon}
-                        className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-map-accent bg-map-accent px-3 text-[10px] font-medium text-white transition-opacity hover:opacity-90"
+                        className="h-8 gap-1.5 border-map-accent bg-map-accent px-3 text-[10px] font-medium text-white hover:bg-map-accent/90"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                         Clear area
-                      </button>
+                      </Button>
                     )}
                     {drawing ? (
                       <>
-                        <button
+                        <Button
                           type="button"
+                          size="sm"
+                          variant="outline"
                           title="Undo last point (Cmd/Ctrl+Z)"
                           onClick={onUndoDraw}
-                          className="map-btn h-8 rounded-lg px-2.5 text-[10px]"
+                          className="h-8 border-map-border px-2.5 text-[10px] text-map-text-primary hover:bg-map-surface"
                         >
                           Undo
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                           type="button"
+                          size="sm"
+                          variant="outline"
                           title="Cancel drawing"
                           onClick={onCancelDraw}
-                          className="map-btn inline-flex h-8 items-center gap-1 rounded-lg px-2.5 text-[10px]"
+                          className="h-8 gap-1 border-map-border px-2.5 text-[10px] text-map-text-primary hover:bg-map-surface"
                         >
                           <X className="h-3.5 w-3.5" />
                           Cancel
-                        </button>
+                        </Button>
                       </>
                     ) : null}
                   </div>
@@ -484,20 +529,22 @@ export function MapWorkbenchPanel({
                       </p>
                     </div>
                     {selectedCount >= 2 ? (
-                      <button
+                      <Button
                         type="button"
+                        size="sm"
                         onClick={onOpenCompare}
-                        className="rounded-lg border border-map-accent bg-map-accent px-3 py-2 text-[10px] font-medium text-white transition-opacity hover:opacity-90"
+                        className="border-map-accent bg-map-accent px-3 py-2 text-[10px] font-medium text-white hover:bg-map-accent/90"
                       >
                         Compare
-                      </button>
+                      </Button>
                     ) : null}
                   </div>
                 </section>
               ) : null}
-            </div>
+            </ScrollArea>
 
-            <div className="flex items-center gap-3 border-t border-map-border px-4 py-2 text-[10px] text-map-text-muted">
+            <Separator className="bg-map-border" />
+            <div className="flex items-center gap-3 px-4 py-2 text-[10px] text-map-text-muted">
               <span>
                 <kbd className="rounded border border-map-border px-1">L</kbd> Panel
               </span>

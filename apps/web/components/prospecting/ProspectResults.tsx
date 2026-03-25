@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -10,7 +11,18 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Loader2,
   ChevronUp,
@@ -18,8 +30,6 @@ import {
   Briefcase,
   Play,
   Save,
-  CheckSquare,
-  Square,
 } from "lucide-react";
 import {
   formatOperatorAcreage,
@@ -238,9 +248,9 @@ export function ProspectResults({
             </CardTitle>
             <CardDescription>
               {selectedIds.size > 0 && (
-                <span className="font-medium text-purple-600">
+                <Badge variant="secondary" className="px-2 py-0.5 text-[9px]">
                   {selectedIds.size} selected
-                </span>
+                </Badge>
               )}
             </CardDescription>
           </div>
@@ -320,29 +330,23 @@ export function ProspectResults({
         </div>
       </CardHeader>
       <CardContent>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b text-left text-xs text-muted-foreground">
-                <th className="pb-2 pr-2">
-                  <button
-                    type="button"
-                    onClick={toggleAll}
-                    className="hover:text-foreground"
+        <Separator className="mb-4" />
+        <ScrollArea className="max-h-[26rem]">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-11">
+                  <Checkbox
+                    checked={selectedIds.size === parcels.length && parcels.length > 0}
+                    onCheckedChange={toggleAll}
                     aria-label={
                       selectedIds.size === parcels.length
                         ? "Deselect all prospect parcels"
                         : "Select all prospect parcels"
                     }
-                  >
-                    {selectedIds.size === parcels.length ? (
-                      <CheckSquare className="h-4 w-4" />
-                    ) : (
-                      <Square className="h-4 w-4" />
-                    )}
-                  </button>
-                </th>
-                <th className="pb-2 pr-4">
+                  />
+                </TableHead>
+                <TableHead>
                   <button
                     type="button"
                     className="inline-flex items-center gap-1 hover:text-foreground"
@@ -352,8 +356,8 @@ export function ProspectResults({
                     <span>Address</span>
                     <SortIcon field="address" />
                   </button>
-                </th>
-                <th className="pb-2 pr-4">
+                </TableHead>
+                <TableHead>
                   <button
                     type="button"
                     className="inline-flex items-center gap-1 hover:text-foreground"
@@ -363,8 +367,8 @@ export function ProspectResults({
                     <span>Owner</span>
                     <SortIcon field="owner" />
                   </button>
-                </th>
-                <th className="pb-2 pr-4 text-right">
+                </TableHead>
+                <TableHead className="text-right">
                   <button
                     type="button"
                     className="ml-auto inline-flex items-center gap-1 hover:text-foreground"
@@ -374,8 +378,8 @@ export function ProspectResults({
                     <span>Acres</span>
                     <SortIcon field="acreage" />
                   </button>
-                </th>
-                <th className="pb-2 pr-4">
+                </TableHead>
+                <TableHead>
                   <button
                     type="button"
                     className="inline-flex items-center gap-1 hover:text-foreground"
@@ -385,8 +389,8 @@ export function ProspectResults({
                     <span>Zoning</span>
                     <SortIcon field="zoning" />
                   </button>
-                </th>
-                <th className="pb-2 pr-4 text-right">
+                </TableHead>
+                <TableHead className="text-right">
                   <button
                     type="button"
                     className="ml-auto inline-flex items-center gap-1 hover:text-foreground"
@@ -396,8 +400,8 @@ export function ProspectResults({
                     <span>Assessed Value</span>
                     <SortIcon field="assessedValue" />
                   </button>
-                </th>
-                <th className="pb-2 pr-4">
+                </TableHead>
+                <TableHead>
                   <button
                     type="button"
                     className="inline-flex items-center gap-1 hover:text-foreground"
@@ -407,74 +411,68 @@ export function ProspectResults({
                     <span>Flood Zone</span>
                     <SortIcon field="floodZone" />
                   </button>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {sorted.map((p) => (
-                <tr
-                  key={p.id}
-                  className={`border-b last:border-0 hover:bg-muted/50 ${
-                    selectedIds.has(p.id) ? "bg-muted/40" : ""
-                  }`}
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sorted.map((parcel) => (
+                <TableRow
+                  key={parcel.id}
+                  data-state={selectedIds.has(parcel.id) ? "selected" : undefined}
                 >
-                  <td className="py-2 pr-2">
-                    <button
-                      type="button"
-                      onClick={() => toggleOne(p.id)}
+                  <TableCell className="w-11">
+                    <Checkbox
+                      checked={selectedIds.has(parcel.id)}
+                      onCheckedChange={() => toggleOne(parcel.id)}
                       aria-label={
-                        selectedIds.has(p.id)
-                          ? `Deselect ${p.address}`
-                          : `Select ${p.address}`
+                        selectedIds.has(parcel.id)
+                          ? `Deselect ${parcel.address}`
+                          : `Select ${parcel.address}`
                       }
-                    >
-                      {selectedIds.has(p.id) ? (
-                        <CheckSquare className="h-4 w-4 text-foreground" />
-                      ) : (
-                        <Square className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </button>
-                  </td>
-                  <td className="py-2 pr-4 font-medium">
-                    <span className="block max-w-[18rem] truncate">{p.address}</span>
-                  </td>
-                  <td className="py-2 pr-4 text-muted-foreground">
-                    <span className="block max-w-[14rem] truncate">
-                    {p.owner}
-                    </span>
-                  </td>
-                  <td className="py-2 pr-4 text-right tabular-nums">
-                    {p.acreage != null
-                      ? formatOperatorAcreage(p.acreage, {
+                    />
+                  </TableCell>
+                  <TableCell className="font-medium">
+                    <span className="block max-w-[18rem] truncate">{parcel.address}</span>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    <span className="block max-w-[14rem] truncate">{parcel.owner}</span>
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {parcel.acreage != null
+                      ? formatOperatorAcreage(parcel.acreage, {
                           includeUnit: false,
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,
                         })
                       : "—"}
-                  </td>
-                  <td className="py-2 pr-4">
-                    {p.zoning ? (
-                      <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium">
-                        {p.zoning}
-                      </span>
+                  </TableCell>
+                  <TableCell>
+                    {parcel.zoning ? (
+                      <Badge variant="outline" className="px-2 py-0.5 text-[9px]">
+                        {parcel.zoning}
+                      </Badge>
                     ) : (
                       "—"
                     )}
-                  </td>
-                  <td className="py-2 pr-4 text-right tabular-nums">
-                    {p.assessedValue != null
-                      ? formatOperatorCurrency(p.assessedValue, {
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {parcel.assessedValue != null
+                      ? formatOperatorCurrency(parcel.assessedValue, {
                           minimumFractionDigits: 0,
                           maximumFractionDigits: 0,
                         })
                       : "—"}
-                  </td>
-                  <td className="py-2 pr-4 text-xs">{p.floodZone || "—"}</td>
-                </tr>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="secondary" className="px-2 py-0.5 text-[9px]">
+                      {parcel.floodZone || "N/A"}
+                    </Badge>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </TableBody>
+          </Table>
+        </ScrollArea>
       </CardContent>
     </Card>
   );

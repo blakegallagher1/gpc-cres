@@ -12,7 +12,13 @@ import {
   CalendarClock,
   Building2,
 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { formatOperatorDate } from '@/lib/formatters/operatorFormatters';
 import { cn } from '@/lib/utils';
 import type { ConversationSummary } from '@/lib/chat/types';
@@ -112,11 +118,13 @@ function ConversationListItem({
   onSelect: () => void;
 }) {
   return (
-    <button
+    <Button
+      type="button"
+      variant="ghost"
       onClick={onSelect}
       aria-current={active ? 'page' : undefined}
       className={cn(
-        'group flex w-full items-start gap-3 rounded-xl border border-transparent px-3 py-3 text-left transition-colors',
+        '!h-auto !w-full !justify-start !items-start group gap-3 border border-transparent px-3 py-3 text-left transition-colors',
         active
           ? 'border-border/70 bg-foreground/[0.05]'
           : 'hover:border-border/60 hover:bg-background/70',
@@ -147,14 +155,14 @@ function ConversationListItem({
         </div>
       </div>
       {conv.dealId ? (
-        <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/80 px-2 py-1 text-[9px] uppercase tracking-[0.16em] text-muted-foreground">
+        <Badge variant="secondary" className="inline-flex items-center gap-1 px-2 py-0.5 text-[9px] uppercase tracking-[0.16em]">
           <Building2 className="h-2.5 w-2.5" />
           Deal
-        </span>
+        </Badge>
       ) : (
         <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-border/80 transition-colors group-hover:bg-foreground/25" />
       )}
-    </button>
+    </Button>
   );
 }
 
@@ -213,6 +221,7 @@ export function ConversationSidebar({
           </div>
           <div className="flex items-center gap-1">
             <Button
+              type="button"
               variant="ghost"
               size="icon"
               className="h-8 w-8 rounded-xl"
@@ -229,6 +238,7 @@ export function ConversationSidebar({
             </Button>
             {onRefresh ? (
               <Button
+                type="button"
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8 rounded-xl"
@@ -238,13 +248,16 @@ export function ConversationSidebar({
                 <RefreshCw className="h-4 w-4" />
               </Button>
             ) : null}
-            <button
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
               onClick={onToggle}
-              className="flex h-8 w-8 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              className="h-8 w-8 rounded-xl text-muted-foreground hover:bg-accent hover:text-foreground"
               aria-label={mobile ? 'Close history' : 'Close conversation rail'}
             >
               <PanelLeftClose className="h-4 w-4" />
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -255,64 +268,50 @@ export function ConversationSidebar({
         </div>
       </div>
 
-      <div className="space-y-3 border-b border-border/60 px-4 py-4">
+      <div className="flex flex-col gap-3 border-b border-border/60 px-4 py-4">
         <div className="relative">
           <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-          <input
+          <Input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search conversations"
-            className="h-9 w-full rounded-2xl border border-border/70 bg-background/80 pl-9 pr-3 text-xs placeholder:text-muted-foreground/70 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="h-9 w-full rounded-2xl pl-9 pr-3 text-xs placeholder:text-muted-foreground/70"
             disabled={loading}
           />
         </div>
 
         <div className="flex items-center justify-between gap-2 text-[11px]">
-          <div className="flex items-center gap-1 rounded-full border border-border/70 bg-background/70 p-1">
-            <button
-              type="button"
-              onClick={() => setFilter('all')}
-              className={cn(
-                'rounded-full px-2.5 py-1 font-medium transition-colors',
-                filter === 'all'
-                  ? 'bg-foreground text-background'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              All {filterCounts.all}
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilter('deals')}
-              className={cn(
-                'rounded-full px-2.5 py-1 font-medium transition-colors',
-                filter === 'deals'
-                  ? 'bg-foreground text-background'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              Deals {filterCounts.deals}
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilter('no-deal')}
-              className={cn(
-                'rounded-full px-2.5 py-1 font-medium transition-colors',
-                filter === 'no-deal'
-                  ? 'bg-foreground text-background'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              General {filterCounts['no-deal']}
-            </button>
-          </div>
+          <Tabs value={filter} onValueChange={(value) => setFilter(value as ConversationFilterMode)} className="w-full">
+            <TabsList className="grid h-auto w-full grid-cols-3 gap-1 rounded-full border border-border/70 bg-background/70 p-1">
+              <TabsTrigger value="all" className="h-8 gap-2 rounded-full border-b-0 px-2.5 py-1 text-[11px]">
+                <span>All</span>
+                <Badge variant="secondary" className="px-1.5 py-0 text-[9px]">
+                  {filterCounts.all}
+                </Badge>
+              </TabsTrigger>
+              <TabsTrigger value="deals" className="h-8 gap-2 rounded-full border-b-0 px-2.5 py-1 text-[11px]">
+                <span>Deals</span>
+                <Badge variant="secondary" className="px-1.5 py-0 text-[9px]">
+                  {filterCounts.deals}
+                </Badge>
+              </TabsTrigger>
+              <TabsTrigger value="no-deal" className="h-8 gap-2 rounded-full border-b-0 px-2.5 py-1 text-[11px]">
+                <span>General</span>
+                <Badge variant="secondary" className="px-1.5 py-0 text-[9px]">
+                  {filterCounts['no-deal']}
+                </Badge>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
 
-          <button
+          <Button
             type="button"
+            variant={onlyRecent ? 'secondary' : 'outline'}
+            size="sm"
             onClick={() => setOnlyRecent((value) => !value)}
             className={cn(
-              'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 font-medium transition-colors',
+              'inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-medium transition-colors',
               onlyRecent
                 ? 'border-foreground/20 bg-foreground text-background'
                 : 'border-border/70 text-muted-foreground hover:text-foreground',
@@ -323,7 +322,7 @@ export function ConversationSidebar({
           >
             <CalendarClock className="h-3.5 w-3.5" />
             {recentLabel}
-          </button>
+          </Button>
         </div>
 
         <div className="flex items-center justify-between text-[11px] text-muted-foreground">
@@ -335,35 +334,47 @@ export function ConversationSidebar({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+      <Separator />
+
+      <div className="min-h-0 flex-1 px-3 py-3">
         {loading ? (
-          <div className="space-y-2 px-1 py-2 text-xs text-muted-foreground">
-            Loading conversations...
+          <div className="flex flex-col gap-2 px-1 py-2">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div key={index} className="flex items-center gap-3 rounded-xl border border-border/40 px-3 py-3">
+                <Skeleton className="size-7 rounded-full" />
+                <div className="flex min-w-0 flex-1 flex-col gap-2">
+                  <Skeleton className="h-3 w-3/4" />
+                  <Skeleton className="h-2.5 w-1/2" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : filteredConversations.length === 0 ? (
-          <div className="space-y-2 rounded-2xl border border-dashed border-border/70 bg-background/60 px-4 py-5 text-sm text-muted-foreground">
+          <div className="flex flex-col gap-2 rounded-2xl border border-dashed border-border/70 bg-background/60 px-4 py-5 text-sm text-muted-foreground">
             <p className="font-medium text-foreground">No conversations match this view.</p>
             <p>Start a new run or widen the filters.</p>
           </div>
         ) : (
-          <div className="space-y-1">
-            <div className="px-3 pb-1 font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-              {recentLabel}
+          <ScrollArea className="h-full pr-1">
+            <div className="flex flex-col gap-1">
+              <div className="px-3 pb-1 font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+                {recentLabel}
+              </div>
+              {filteredConversations.map((conversation) => (
+                <ConversationListItem
+                  key={conversation.id}
+                  conv={conversation}
+                  active={conversation.id === activeConversationId}
+                  onSelect={() => {
+                    onConversationSelect(conversation.id);
+                    if (mobile) {
+                      onToggle();
+                    }
+                  }}
+                />
+              ))}
             </div>
-            {filteredConversations.map((conversation) => (
-              <ConversationListItem
-                key={conversation.id}
-                conv={conversation}
-                active={conversation.id === activeConversationId}
-                onSelect={() => {
-                  onConversationSelect(conversation.id);
-                  if (mobile) {
-                    onToggle();
-                  }
-                }}
-              />
-            ))}
-          </div>
+          </ScrollArea>
         )}
       </div>
     </>
@@ -372,7 +383,10 @@ export function ConversationSidebar({
   return (
     <>
       {!open && showCollapsedTrigger ? (
-        <button
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
           onClick={onToggle}
           className={cn(
             'app-shell-panel flex h-10 w-10 items-center justify-center text-muted-foreground shadow-lg transition-colors hover:text-foreground',
@@ -383,7 +397,7 @@ export function ConversationSidebar({
           aria-label={mobile ? 'Open history' : 'Open conversation rail'}
         >
           <PanelLeftOpen className="h-4 w-4" />
-        </button>
+        </Button>
       ) : null}
 
       {mobile ? (

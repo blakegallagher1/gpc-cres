@@ -24,115 +24,132 @@ exports[`MapTour > renders the themed guide and highlights available steps 1`] =
     Geofences
   </div>
   <div
-    class="absolute bottom-3 left-3 z-20 w-[20rem] rounded-2xl border border-map-border bg-map-surface-overlay px-4 py-4 text-xs text-map-text-primary shadow-2xl backdrop-blur-md"
+    class="workspace-surface rounded-[1.15rem] absolute bottom-3 left-3 z-20 w-[20rem] border-map-border bg-map-surface-overlay text-xs text-map-text-primary shadow-2xl backdrop-blur-md"
   >
     <div
-      class="flex items-start justify-between gap-3"
-    >
-      <div>
-        <p
-          class="font-mono text-[10px] uppercase tracking-[0.22em] text-map-text-muted"
-        >
-          Map Guide
-        </p>
-        <h3
-          class="mt-1 text-sm font-semibold"
-        >
-          Navigate layers, draw tools, and saved areas.
-        </h3>
-      </div>
-      <button
-        class="map-btn h-7 rounded-lg px-2.5 text-[10px]"
-        type="button"
-      >
-        Close
-      </button>
-    </div>
-    <div
-      class="mt-4 flex gap-1.5"
-    >
-      <button
-        aria-label="Go to Layer Controls"
-        class="h-1.5 flex-1 rounded-full transition-colors bg-map-accent"
-        type="button"
-      />
-      <button
-        aria-label="Go to Draw Tool"
-        class="h-1.5 flex-1 rounded-full transition-colors bg-map-border"
-        type="button"
-      />
-      <button
-        aria-label="Go to Analytics"
-        class="h-1.5 flex-1 rounded-full transition-colors bg-map-border"
-        type="button"
-      />
-      <button
-        aria-label="Go to Saved Geofences"
-        class="h-1.5 flex-1 rounded-full transition-colors bg-map-border"
-        type="button"
-      />
-    </div>
-    <div
-      class="mt-4 border-t border-map-border pt-4"
+      class="flex flex-col space-y-1.5 p-4 md:p-5 pb-3"
     >
       <div
-        class="flex items-center justify-between gap-3"
+        class="flex items-start justify-between gap-3"
       >
-        <p
-          class="font-mono text-[10px] uppercase tracking-[0.22em] text-map-text-muted"
-        >
-          Step 
-          1
-          /
-          4
-        </p>
-        <p
-          class="text-[10px] text-map-text-muted"
-        >
-          Highlighted on map
-        </p>
-      </div>
-      <div
-        class="mt-2 text-sm font-semibold"
-      >
-        Layer Controls
-      </div>
-      <p
-        class="mt-2 text-[11px] leading-5 text-map-text-secondary"
-      >
-        Toggle parcel boundaries, zoning, and flood overlays from here.
-      </p>
-      <p
-        class="mt-3 text-[10px] leading-5 text-map-text-muted"
-      >
-        The active control is outlined directly in the map surface.
-      </p>
-    </div>
-    <div
-      class="mt-4 flex items-center justify-between gap-2"
-    >
-      <button
-        class="map-btn rounded-lg px-2.5 py-1 text-[10px] disabled:opacity-40"
-        disabled=""
-        type="button"
-      >
-        Back
-      </button>
-      <div
-        class="flex gap-2"
-      >
+        <div>
+          <p
+            class="font-mono text-[10px] uppercase tracking-[0.22em] text-map-text-muted"
+          >
+            Map Guide
+          </p>
+          <h3
+            class="font-semibold tracking-[-0.03em] mt-1 text-sm"
+          >
+            Navigate layers, draw tools, and saved areas.
+          </h3>
+        </div>
         <button
-          class="map-btn rounded-lg px-2.5 py-1 text-[10px]"
+          class="inline-flex items-center justify-center whitespace-nowrap border font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background/42 hover:bg-accent/40 hover:text-accent-foreground rounded-lg h-7 px-2.5 text-[10px]"
           type="button"
         >
-          Dismiss
+          Close
         </button>
+      </div>
+    </div>
+    <div
+      class="p-4 md:p-5 md:pt-0 pt-0"
+    >
+      <div
+        class="mt-4 flex gap-1.5"
+      >
         <button
-          class="rounded-lg bg-map-accent px-2.5 py-1 text-[10px] font-medium text-white"
+          aria-label="Go to Layer Controls"
+          class="h-1.5 flex-1 rounded-full transition-colors bg-map-accent"
+          type="button"
+        />
+        <button
+          aria-label="Go to Draw Tool"
+          class="h-1.5 flex-1 rounded-full transition-colors bg-map-border"
+          type="button"
+        />
+        <button
+          aria-label="Go to Analytics"
+          class="h-1.5 flex-1 rounded-full transition-colors bg-map-border"
+          type="button"
+        />
+        <button
+          aria-label="Go to Saved Geofences"
+          class="h-1.5 flex-1 rounded-full transition-colors bg-map-border"
+          type="button"
+        />
+      </div>
+      <div
+        class="shrink-0 h-[1px] w-full mt-4 bg-map-border"
+        data-orientation="horizontal"
+        role="none"
+      />
+      <div
+        class="mt-4"
+      >
+        <div
+          class="flex items-center justify-between gap-3"
+        >
+          <p
+            class="flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.22em] text-map-text-muted"
+          >
+            <span>
+              Step
+            </span>
+            <span>
+              1
+              /
+              4
+            </span>
+          </p>
+          <div
+            class="inline-flex items-center rounded-full border font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground px-2 py-0.5 text-[9px]"
+          >
+            Highlighted on map
+          </div>
+        </div>
+        <div
+          class="mt-2 text-sm font-semibold"
+        >
+          Layer Controls
+        </div>
+        <p
+          class="mt-2 text-[11px] leading-5 text-map-text-secondary"
+        >
+          Toggle parcel boundaries, zoning, and flood overlays from here.
+        </p>
+        <p
+          class="mt-3 text-[10px] leading-5 text-map-text-muted"
+        >
+          The active control is outlined directly in the map surface.
+        </p>
+      </div>
+      <div
+        class="mt-4 flex items-center justify-between gap-2"
+      >
+        <button
+          class="inline-flex items-center justify-center whitespace-nowrap border font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background/42 hover:bg-accent/40 hover:text-accent-foreground h-9 rounded-lg px-2.5 text-[10px] disabled:opacity-40"
+          disabled=""
           type="button"
         >
-          Next
+          Back
         </button>
+        <div
+          class="flex gap-2"
+        >
+          <button
+            class="inline-flex items-center justify-center whitespace-nowrap border font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background/42 hover:bg-accent/40 hover:text-accent-foreground h-9 rounded-lg px-2.5 text-[10px]"
+            type="button"
+          >
+            Dismiss
+          </button>
+          <button
+            class="inline-flex items-center justify-center whitespace-nowrap border border-transparent tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 hover:-translate-y-px h-9 rounded-lg bg-map-accent px-2.5 text-[10px] font-medium text-white hover:bg-map-accent/90"
+            type="button"
+          >
+            Next
+          </button>
+        </div>
       </div>
     </div>
   </div>

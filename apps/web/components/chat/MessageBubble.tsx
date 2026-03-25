@@ -15,6 +15,15 @@ import {
   Rocket,
   Link as LinkIcon,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { formatOperatorTime } from '@/lib/formatters/operatorFormatters';
 import { cn } from '@/lib/utils';
 import { getAgentColor, getAgentBorderColor, formatAgentLabel } from './AgentIndicator';
@@ -49,15 +58,19 @@ interface MessageBubbleProps {
 
 function ToolResultCard({ name, result }: { name: string; result: unknown }) {
   return (
-    <div className="my-2 rounded-2xl border border-border/60 bg-background/75 px-3 py-3 text-xs">
-      <div className="mb-2 flex items-center gap-2 font-mono text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-        <FileText className="h-3.5 w-3.5" />
-        <span>{name}</span>
-      </div>
-      <pre className="overflow-x-auto whitespace-pre-wrap rounded-xl border border-border/60 bg-muted/35 p-3 font-mono text-foreground/80">
-        {typeof result === 'string' ? result : JSON.stringify(result, null, 2)}
-      </pre>
-    </div>
+    <Card className="my-2 border-border/60 bg-background/75">
+      <CardContent className="flex flex-col gap-2 p-3 text-xs">
+        <div className="flex items-center gap-2 font-mono text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          <FileText className="h-3.5 w-3.5" />
+          <span>{name}</span>
+        </div>
+        <ScrollArea className="max-h-64 rounded-xl border border-border/60 bg-muted/35">
+          <pre className="whitespace-pre-wrap p-3 font-mono text-foreground/80">
+            {typeof result === 'string' ? result : JSON.stringify(result, null, 2)}
+          </pre>
+        </ScrollArea>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -173,38 +186,76 @@ function MessageActions({
   };
 
   const hasSource = Boolean(sourceUrl);
-
-  const btnClass =
-    'inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/80 px-2.5 py-1 text-muted-foreground transition-colors hover:border-foreground/20 hover:bg-background hover:text-foreground';
+  const actions = [
+    {
+      key: 'copy',
+      label: 'Copy',
+      icon: ClipboardCopy,
+      onClick: onCopy,
+      disabled: false,
+    },
+    {
+      key: 'reopen',
+      label: 'Reopen',
+      icon: RefreshCcw,
+      onClick: onReopen,
+      disabled: !conversationId,
+    },
+    {
+      key: 'share',
+      label: 'Share link',
+      icon: LinkIcon,
+      onClick: onCopyLink,
+      disabled: !shareHref,
+    },
+    {
+      key: 'source',
+      label: 'Open source',
+      icon: ExternalLink,
+      onClick: onOpenSource,
+      disabled: !hasSource,
+    },
+  ].filter((action) => !action.disabled);
 
   return (
-    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-      <button type="button" onClick={onCopy} className={btnClass}>
-        <ClipboardCopy className="h-3 w-3" />
-        Copy
-      </button>
+    <TooltipProvider delayDuration={120}>
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+        {actions.map((action) => {
+          const Icon = action.icon;
+          return (
+            <Tooltip key={action.key}>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={action.onClick}
+                  className="h-7 rounded-full px-2.5 text-xs text-muted-foreground"
+                >
+                  <Icon className="h-3 w-3" />
+                  {action.label}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{action.label}</TooltipContent>
+            </Tooltip>
+          );
+        })}
+      </div>
+    </TooltipProvider>
+  );
+}
 
-      {conversationId ? (
-        <button type="button" onClick={onReopen} className={btnClass}>
-          <RefreshCcw className="h-3 w-3" />
-          Reopen
-        </button>
-      ) : null}
-
-      {shareHref ? (
-        <button type="button" onClick={onCopyLink} className={btnClass}>
-          <LinkIcon className="h-3 w-3" />
-          Share link
-        </button>
-      ) : null}
-
-      {hasSource ? (
-        <button type="button" onClick={onOpenSource} className={btnClass}>
-          <ExternalLink className="h-3 w-3" />
-          Open source
-        </button>
-      ) : null}
-    </div>
+function SystemEventFrame({
+  className,
+  children,
+}: {
+  className: string;
+  children: ReactNode;
+}) {
+  return (
+    <Card className={className}>
+      <CardContent className="px-3 py-2.5">{children}</CardContent>
+    </Card>
   );
 }
 
@@ -263,7 +314,7 @@ function renderSystemContent(
 
   if (eventKind === 'agent_progress' && message.agentName) {
     return (
-      <div className={wrapperClass}>
+      <SystemEventFrame className={wrapperClass}>
         <EventHeader
           title="Agent Progress"
           agentName={message.agentName}
@@ -271,7 +322,7 @@ function renderSystemContent(
         />
         <p className="text-xs text-muted-foreground">{message.content}</p>
         {Array.isArray(message.toolCalls) && message.toolCalls.length > 0 && (
-          <div className="mt-2 space-y-1">
+          <div className="mt-2 flex flex-col gap-1">
             <p className={cn('font-mono text-[11px] font-medium', style.text)}>Tools in-flight</p>
             {message.toolCalls.map((toolCall, i) => (
               <p
@@ -283,13 +334,13 @@ function renderSystemContent(
             ))}
           </div>
         )}
-      </div>
+      </SystemEventFrame>
     );
   }
 
   if (eventKind === 'agent_switch' && message.agentName) {
     return (
-      <div className={wrapperClass}>
+      <SystemEventFrame className={wrapperClass}>
         <EventHeader
           title="Agent Switched"
           agentName={message.agentName}
@@ -299,14 +350,14 @@ function renderSystemContent(
           <AgentStatusChip agentName={message.agentName} mode="active" />
           <span className="text-muted-foreground">Active agent changed.</span>
         </div>
-      </div>
+      </SystemEventFrame>
     );
   }
 
   if (eventKind === 'handoff') {
     const handoffTarget = message.agentName ?? 'Specialist';
     return (
-      <div className={wrapperClass}>
+      <SystemEventFrame className={wrapperClass}>
         <EventHeader
           title="Agent Handoff"
           agentName={message.agentName}
@@ -316,7 +367,7 @@ function renderSystemContent(
           <AgentStatusChip agentName={handoffTarget} mode="handoff" />
           <span className="text-muted-foreground">{message.content}</span>
         </div>
-      </div>
+      </SystemEventFrame>
     );
   }
 
@@ -324,7 +375,7 @@ function renderSystemContent(
     const toolName = message.toolCalls?.[0]?.name ?? message.agentName ?? 'tool';
     const status = eventKind === 'tool_start' ? 'running' : 'completed';
     return (
-      <div className={wrapperClass}>
+      <SystemEventFrame className={wrapperClass}>
         <EventHeader
           title={eventKind === 'tool_start' ? 'Tool Started' : 'Tool Completed'}
           rightAction={Icon ? <Icon className={cn('h-3 w-3', style.text)} /> : undefined}
@@ -333,7 +384,7 @@ function renderSystemContent(
           <ToolStatusChip toolName={toolName} status={status} />
           <span className="text-muted-foreground">{message.content}</span>
         </div>
-      </div>
+      </SystemEventFrame>
     );
   }
 
@@ -348,7 +399,7 @@ function renderSystemContent(
     const args = message.toolCalls?.[0]?.args;
 
     return (
-      <div className={wrapperClass}>
+      <SystemEventFrame className={wrapperClass}>
         <EventHeader
           title="Tool Approval Required"
           rightAction={Icon ? <Icon className={cn('h-3 w-3', style.text)} /> : undefined}
@@ -363,7 +414,7 @@ function renderSystemContent(
             onEvents={onToolApprovalEvents}
           />
         ) : null}
-      </div>
+      </SystemEventFrame>
     );
   }
 
@@ -373,7 +424,7 @@ function renderSystemContent(
     const agent = message.trust?.lastAgentName ?? message.agentName ?? 'Coordinator';
 
     return (
-      <div className={wrapperClass}>
+      <SystemEventFrame className={wrapperClass}>
         <EventHeader
           title="Agent Summary"
           agentName={agent}
@@ -399,30 +450,30 @@ function renderSystemContent(
           </p>
         ) : null}
         <MessageActions conversationId={conversationId} messageId={message.id} message={message} />
-      </div>
+      </SystemEventFrame>
     );
   }
 
   if (eventKind === 'error') {
     return (
-      <div className={wrapperClass}>
+      <SystemEventFrame className={wrapperClass}>
         <EventHeader title="Agent Error" rightAction={Icon ? <Icon className={cn('h-3 w-3', style.text)} /> : undefined} />
         <p className="text-xs text-destructive">{message.content}</p>
         <MessageActions conversationId={conversationId} messageId={message.id} message={message} />
-      </div>
+      </SystemEventFrame>
     );
   }
 
   if (eventKind === 'tool_result') {
     return (
-      <div className={wrapperClass}>
+      <SystemEventFrame className={wrapperClass}>
         <EventHeader title="Tool Result" rightAction={Icon ? <Icon className={cn('h-3 w-3', style.text)} /> : undefined} />
         <ToolResultCard
           name={message.agentName ?? 'tool'}
           result={message.content.length > 0 ? message.content : 'No result available'}
         />
         <MessageActions conversationId={conversationId} messageId={message.id} message={message} />
-      </div>
+      </SystemEventFrame>
     );
   }
 
@@ -468,7 +519,7 @@ export function MessageBubble({
 
       <div
         className={cn(
-          'space-y-1',
+          'flex flex-col gap-1',
           isSystemEvent ? 'max-w-[92%]' : 'max-w-[84%]',
           isUser && 'items-end',
         )}
@@ -492,34 +543,44 @@ export function MessageBubble({
           <div className="py-0.5">{systemContent}</div>
         ) : (
           <>
-            <div
-              className={cn(
-                'rounded-2xl px-4 py-3 text-sm leading-relaxed',
-                isUser
-                  ? 'bg-primary text-primary-foreground shadow-[0_18px_48px_-32px_rgba(15,23,42,0.45)]'
-                  : cn(
-                      'border border-border/60 border-l-[3px] bg-background/80 text-foreground',
-                      agentBorder,
-                    ),
-              )}
-            >
-              <StructuredMessageRenderer content={message.content} />
-              {Array.isArray(message.mapFeatures) && message.mapFeatures.length > 0 ? (
-                <MiniMapMessage
-                  features={message.mapFeatures}
-                  onParcelClick={(parcelId) => {
-                    mapDispatch({ type: 'SELECT_PARCELS', parcelIds: [parcelId] });
-                  }}
-                />
-              ) : null}
-              {!hasEvent ? (
-                <MessageActions
-                  conversationId={conversationId}
-                  messageId={message.id}
-                  message={message}
-                />
-              ) : null}
-            </div>
+            {isUser ? (
+              <div className="rounded-2xl bg-primary px-4 py-3 text-sm leading-relaxed text-primary-foreground shadow-[0_18px_48px_-32px_rgba(15,23,42,0.45)]">
+                <StructuredMessageRenderer content={message.content} />
+                {!hasEvent ? (
+                  <MessageActions
+                    conversationId={conversationId}
+                    messageId={message.id}
+                    message={message}
+                  />
+                ) : null}
+              </div>
+            ) : (
+              <Card
+                className={cn(
+                  'border border-border/60 border-l-[3px] bg-background/80 text-foreground',
+                  agentBorder,
+                )}
+              >
+                <CardContent className="px-4 py-3 text-sm leading-relaxed">
+                  <StructuredMessageRenderer content={message.content} />
+                  {Array.isArray(message.mapFeatures) && message.mapFeatures.length > 0 ? (
+                    <MiniMapMessage
+                      features={message.mapFeatures}
+                      onParcelClick={(parcelId) => {
+                        mapDispatch({ type: 'SELECT_PARCELS', parcelIds: [parcelId] });
+                      }}
+                    />
+                  ) : null}
+                  {!hasEvent ? (
+                    <MessageActions
+                      conversationId={conversationId}
+                      messageId={message.id}
+                      message={message}
+                    />
+                  ) : null}
+                </CardContent>
+              </Card>
+            )}
 
             {Array.isArray(message.toolCalls) && message.toolCalls.length > 0 ? (
               message.toolCalls.map((tc, i) => (

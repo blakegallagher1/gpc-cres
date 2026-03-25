@@ -1,6 +1,10 @@
 "use client";
 
 import { memo, useEffect, useRef } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import type { MapFeature } from "@/lib/chat/mapActionTypes";
 
 type MapLibreModule = typeof import("maplibre-gl");
@@ -162,34 +166,38 @@ export const MiniMapMessage = memo(function MiniMapMessage({
   if (features.length === 0) return null;
 
   return (
-    <div
-      className={`mt-3 overflow-hidden rounded-xl border border-[#2a2f3e] bg-[#11141d] ${className ?? ""}`}
-    >
-      <div className="flex items-center justify-between border-b border-[#2a2f3e] px-3 py-2">
-        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-slate-500">
-          Map Preview
-        </span>
-        <span className="text-[11px] text-slate-400">
-          {features.length} parcel{features.length === 1 ? "" : "s"}
-        </span>
-      </div>
+    <Card className={`mt-3 overflow-hidden border-border/70 bg-background/80 ${className ?? ""}`}>
+      <CardHeader className="px-3 py-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+            Map Preview
+          </span>
+          <Badge variant="outline" className="px-1.5 py-0 text-[9px]">
+            {features.length} parcel{features.length === 1 ? "" : "s"}
+          </Badge>
+        </div>
+      </CardHeader>
+      <Separator />
       <div
         ref={containerRef}
         data-testid="message-mini-map"
         style={{ height, width: "100%" }}
       />
-      <div className="flex flex-wrap gap-2 border-t border-[#2a2f3e] px-3 py-2">
+      <Separator />
+      <CardContent className="flex flex-wrap gap-2 px-3 py-2.5">
         {features.slice(0, 3).map((feature) => (
-          <button
+          <Button
             key={feature.parcelId}
             type="button"
+            variant="outline"
+            size="sm"
             onClick={() => onParcelClick?.(feature.parcelId)}
-            className="rounded-full border border-[#334155] bg-[#18202c] px-2.5 py-1 text-[11px] text-slate-300 transition-colors hover:border-[#fb923c] hover:text-white"
+            className="h-7 rounded-full px-2.5 text-[11px]"
           >
             {feature.label ?? feature.address ?? feature.parcelId}
-          </button>
+          </Button>
         ))}
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 });

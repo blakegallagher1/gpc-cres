@@ -9,7 +9,9 @@ import {
   type FormEvent,
 } from 'react';
 import { ArrowUp, Paperclip, Square, X } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import { formatOperatorFileSize } from '@/lib/formatters/operatorFormatters';
 import { cn } from '@/lib/utils';
 
@@ -135,23 +137,28 @@ export function ChatInput({
       {pendingFiles.length > 0 && (
         <div className="mx-auto mb-2 flex max-w-4xl flex-wrap gap-2">
           {pendingFiles.map((file, index) => (
-            <div
+            <Badge
               key={`${file.name}-${index}`}
-              className="flex items-center gap-1.5 rounded-xl border border-border/70 bg-background/80 px-2.5 py-1.5 text-xs text-foreground/85"
+              variant="secondary"
+              className="flex items-center gap-1.5 px-2 py-1 text-[10px] uppercase tracking-[0.16em]"
             >
-              <span className="max-w-[180px] truncate">{file.name}</span>
-              <span className="text-muted-foreground">
+              <span className="max-w-[180px] truncate font-normal text-foreground">
+                {file.name}
+              </span>
+              <span className="font-normal text-muted-foreground">
                 ({formatOperatorFileSize(file.size)})
               </span>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={() => removeFile(index)}
-                className="ml-1 text-muted-foreground transition-colors hover:text-foreground"
+                className="ml-1 h-5 w-5 rounded-full text-muted-foreground hover:bg-background/60 hover:text-foreground"
                 aria-label={`Remove ${file.name}`}
               >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
+                <X className="h-3 w-3" />
+              </Button>
+            </Badge>
           ))}
         </div>
       )}
@@ -159,9 +166,11 @@ export function ChatInput({
       <div className="mx-auto flex w-full max-w-5xl items-end gap-3 rounded-[1.35rem] border border-border/70 bg-background/82 px-3 py-2 shadow-[0_20px_60px_-32px_rgba(15,23,42,0.4)] backdrop-blur-md transition-colors focus-within:border-foreground/20">
         {canAttachFiles && (
           <>
-            <button
+            <Button
               type="button"
-              className="shrink-0 p-2 text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+              variant="ghost"
+              size="icon"
+              className="shrink-0 rounded-xl text-muted-foreground hover:bg-accent/60 hover:text-foreground"
               onClick={() => fileInputRef.current?.click()}
               disabled={isStreaming || pendingFiles.length >= MAX_FILES}
               aria-label={
@@ -176,7 +185,7 @@ export function ChatInput({
               }
             >
               <Paperclip className="h-5 w-5" />
-            </button>
+            </Button>
             <input
               ref={fileInputRef}
               type="file"
@@ -189,15 +198,14 @@ export function ChatInput({
         )}
 
         <div className="relative flex-1">
-          <textarea
+          <Textarea
             ref={textareaRef}
             value={draft}
             rows={1}
             placeholder={placeholder}
             className={cn(
-              'w-full resize-none bg-transparent px-3 py-2 text-sm',
-              'text-foreground placeholder:text-muted-foreground',
-              'focus-visible:outline-none',
+              'min-h-0 resize-none border-0 bg-transparent px-3 py-2 text-sm shadow-none',
+              'text-foreground placeholder:text-muted-foreground focus-visible:ring-0',
               'disabled:cursor-not-allowed disabled:opacity-50'
             )}
             onChange={handleChange}
