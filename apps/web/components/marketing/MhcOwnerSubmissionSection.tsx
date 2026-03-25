@@ -9,6 +9,11 @@ import { Textarea } from "@/components/ui/textarea";
 type SubmissionState = "idle" | "submitting" | "success" | "error";
 
 const SIMULATED_SUBMIT_DELAY_MS = 900;
+const sellerNotes = [
+  "Direct review by the acquisitions desk.",
+  "Confidential first pass with no broker theater.",
+  "Fast read on site, operations, and timing.",
+] as const;
 
 export function MhcOwnerSubmissionSection() {
   const [submissionState, setSubmissionState] = useState<SubmissionState>("idle");
@@ -46,74 +51,80 @@ export function MhcOwnerSubmissionSection() {
   }
 
   return (
-    <section className="border-t border-white/14 bg-black px-6 py-12 md:px-10 lg:px-16" id="owner-submission">
+    <section className="border-t border-white/14 bg-zinc-950 px-6 py-16 md:px-10 lg:px-16" id="owner-submission">
       <div className="mx-auto grid w-full max-w-6xl gap-8 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] md:gap-12">
-        <div className="space-y-4">
-          <p className="font-mono text-[0.7rem] uppercase tracking-[0.3em] text-white/46">For sellers</p>
-          <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">Submit a community for review</h2>
+        <div className="space-y-5">
+          <p className="font-mono text-[0.7rem] uppercase tracking-[0.3em] text-white/46">Acquisition desk</p>
+          <h2 className="max-w-[10ch] text-2xl font-semibold tracking-[-0.04em] text-white sm:text-4xl">Send the asset.</h2>
           <p className="max-w-md text-sm leading-6 text-white/64 sm:text-base">
-            If you are considering a sale of a manufactured housing community, share the core details below.
-            Our acquisitions team reviews each submission directly.
+            If a community is in play, send the facts. We review the site, the operating posture, and the timing directly.
           </p>
+          <div className="space-y-3 border-t border-white/10 pt-5">
+            {sellerNotes.map((note) => (
+              <p className="border-t border-white/8 pt-3 text-sm leading-6 text-white/56 first:border-t-0 first:pt-0" key={note}>
+                {note}
+              </p>
+            ))}
+          </div>
         </div>
 
-        <form className="space-y-5" onSubmit={handleSubmit}>
+        <form className="space-y-5 border-t border-white/10 pt-5" onSubmit={handleSubmit}>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="ownerName">Owner name</Label>
-              <Input id="ownerName" name="ownerName" required />
+              <Label className="font-mono text-[0.68rem] uppercase tracking-[0.24em] text-white/54" htmlFor="ownerName">Owner name</Label>
+              <Input className="border-white/14 bg-white/[0.03] text-white placeholder:text-white/34" id="ownerName" name="ownerName" required />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="ownerEmail">Email</Label>
-              <Input id="ownerEmail" name="ownerEmail" required type="email" />
+              <Label className="font-mono text-[0.68rem] uppercase tracking-[0.24em] text-white/54" htmlFor="ownerEmail">Email</Label>
+              <Input className="border-white/14 bg-white/[0.03] text-white placeholder:text-white/34" id="ownerEmail" name="ownerEmail" required type="email" />
             </div>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="ownerPhone">Phone</Label>
-              <Input id="ownerPhone" name="ownerPhone" type="tel" />
+              <Label className="font-mono text-[0.68rem] uppercase tracking-[0.24em] text-white/54" htmlFor="ownerPhone">Phone</Label>
+              <Input className="border-white/14 bg-white/[0.03] text-white placeholder:text-white/34" id="ownerPhone" name="ownerPhone" type="tel" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="communityName">Community name</Label>
-              <Input id="communityName" name="communityName" required />
+              <Label className="font-mono text-[0.68rem] uppercase tracking-[0.24em] text-white/54" htmlFor="communityName">Community name</Label>
+              <Input className="border-white/14 bg-white/[0.03] text-white placeholder:text-white/34" id="communityName" name="communityName" required />
             </div>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="propertyAddress">Property address</Label>
-              <Input id="propertyAddress" name="propertyAddress" required />
+              <Label className="font-mono text-[0.68rem] uppercase tracking-[0.24em] text-white/54" htmlFor="propertyAddress">Property address</Label>
+              <Input className="border-white/14 bg-white/[0.03] text-white placeholder:text-white/34" id="propertyAddress" name="propertyAddress" required />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="propertyCity">City</Label>
-              <Input id="propertyCity" name="propertyCity" required />
+              <Label className="font-mono text-[0.68rem] uppercase tracking-[0.24em] text-white/54" htmlFor="propertyCity">City</Label>
+              <Input className="border-white/14 bg-white/[0.03] text-white placeholder:text-white/34" id="propertyCity" name="propertyCity" required />
             </div>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-2">
-              <Label htmlFor="propertyState">State</Label>
-              <Input id="propertyState" name="propertyState" required />
+              <Label className="font-mono text-[0.68rem] uppercase tracking-[0.24em] text-white/54" htmlFor="propertyState">State</Label>
+              <Input className="border-white/14 bg-white/[0.03] text-white placeholder:text-white/34" id="propertyState" name="propertyState" required />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="siteCount">Site count (optional)</Label>
-              <Input id="siteCount" min={0} name="siteCount" type="number" />
+              <Label className="font-mono text-[0.68rem] uppercase tracking-[0.24em] text-white/54" htmlFor="siteCount">Site count (optional)</Label>
+              <Input className="border-white/14 bg-white/[0.03] text-white placeholder:text-white/34" id="siteCount" min={0} name="siteCount" type="number" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="occupancy">Occupancy (optional)</Label>
-              <Input id="occupancy" name="occupancy" placeholder="e.g. 92%" />
+              <Label className="font-mono text-[0.68rem] uppercase tracking-[0.24em] text-white/54" htmlFor="occupancy">Occupancy (optional)</Label>
+              <Input className="border-white/14 bg-white/[0.03] text-white placeholder:text-white/34" id="occupancy" name="occupancy" placeholder="e.g. 92%" />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="askingPrice">Asking price or guidance (optional)</Label>
-            <Input id="askingPrice" name="askingPrice" placeholder="e.g. $12,500,000" />
+            <Label className="font-mono text-[0.68rem] uppercase tracking-[0.24em] text-white/54" htmlFor="askingPrice">Asking price or guidance (optional)</Label>
+            <Input className="border-white/14 bg-white/[0.03] text-white placeholder:text-white/34" id="askingPrice" name="askingPrice" placeholder="e.g. $12,500,000" />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="notes">Additional notes</Label>
-            <Textarea id="notes" name="notes" placeholder="Tell us anything relevant about operations, timing, or tenancy." rows={5} />
+            <Label className="font-mono text-[0.68rem] uppercase tracking-[0.24em] text-white/54" htmlFor="notes">Additional notes</Label>
+            <Textarea className="border-white/14 bg-white/[0.03] text-white placeholder:text-white/34" id="notes" name="notes" placeholder="Tell us anything relevant about operations, timing, or tenancy." rows={5} />
           </div>
 
           <div className="space-y-3 border-t border-white/14 pt-4">

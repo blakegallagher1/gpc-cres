@@ -13,9 +13,9 @@ describe("HomePage", () => {
     expect(screen.getByRole("heading", { name: "Buy" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Build" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Manage" })).toBeInTheDocument();
-    expect(screen.getByText("Acquire with basis discipline")).toBeInTheDocument();
-    expect(screen.getByText("Execute against the parcel")).toBeInTheDocument();
-    expect(screen.getByText("Operate for durable performance")).toBeInTheDocument();
+    expect(screen.getAllByText("Basis before story").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Approvals before spend").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Operations before optics").length).toBeGreaterThan(0);
     expect(screen.getByRole("link", { name: /enter entitlement os/i })).toHaveAttribute("href", "/login");
     expect(container.firstChild).toMatchSnapshot();
   });
