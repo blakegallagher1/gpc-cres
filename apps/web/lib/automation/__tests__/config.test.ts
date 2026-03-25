@@ -153,12 +153,12 @@ describe("AUTOMATION_CONFIG", () => {
       expect(AUTOMATION_CONFIG.agentLearning.createTrajectoryLogs).toBe(true);
       expect(AUTOMATION_CONFIG.agentLearning.createEpisodes).toBe(true);
       expect(AUTOMATION_CONFIG.agentLearning.injectEpisodes).toBe(true);
-      expect(AUTOMATION_CONFIG.agentLearning.injectProcedures).toBe(false);
+      expect(AUTOMATION_CONFIG.agentLearning.injectProcedures).toBe(true);
       expect(AUTOMATION_CONFIG.agentLearning.promoteFacts).toBe(false);
-      expect(AUTOMATION_CONFIG.agentLearning.promoteProcedures).toBe(false);
+      expect(AUTOMATION_CONFIG.agentLearning.promoteProcedures).toBe(true);
       expect(AUTOMATION_CONFIG.agentLearning.minConfidenceForFactPromotion).toBe(0.72);
       expect(AUTOMATION_CONFIG.agentLearning.minEpisodesForSkill).toBe(3);
-      expect(AUTOMATION_CONFIG.agentLearning.minSkillSuccessRate).toBe(0.67);
+      expect(AUTOMATION_CONFIG.agentLearning.minSkillSuccessRate).toBe(0.60);
       expect(AUTOMATION_CONFIG.agentLearning.maxSimilarEpisodes).toBe(2);
       expect(AUTOMATION_CONFIG.agentLearning.maxProcedures).toBe(2);
     });
