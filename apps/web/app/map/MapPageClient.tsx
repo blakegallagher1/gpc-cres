@@ -16,10 +16,21 @@ import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { Loader2, Search } from "lucide-react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
+import { MapOperatorConsole } from "@/components/maps/MapOperatorConsole";
 import type { ParcelMapRef } from "@/components/maps/ParcelMap";
-import { MapParcelDataGrid } from "@/components/maps/MapParcelDataGrid";
 import { MapSituationStrip } from "@/components/maps/MapSituationStrip";
 import { ScreeningScorecard } from "@/components/maps/ScreeningScorecard";
+import {
+  readMapTrackedParcels,
+  removeTrackedParcel,
+  summarizeTrackedParcels,
+  syncTrackedParcelsWithVisible,
+  updateTrackedParcel,
+  upsertTrackedParcels,
+  writeMapTrackedParcels,
+  type MapTrackedParcel,
+  type MapTrackedParcelStatus,
+} from "@/components/maps/mapOperatorNotebook";
 import type { MapHudState, MapParcel } from "@/components/maps/types";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -218,6 +229,20 @@ function toFiniteNumber(...values: Array<unknown>): number | null {
   return null;
 }
 
+function trackedParcelToMapParcel(entry: MapTrackedParcel): MapParcel {
+  return {
+    id: entry.parcelId,
+    address: entry.address,
+    lat: entry.lat,
+    lng: entry.lng,
+    currentZoning: entry.currentZoning ?? null,
+    acreage: entry.acreage ?? null,
+    floodZone: entry.floodZone ?? null,
+    propertyDbId: null,
+    geometryLookupKey: entry.parcelId,
+  };
+}
+
 /**
  * Client controller for the interactive `/map` route.
  */
@@ -299,12 +324,32 @@ export function MapPageClient() {
   const [resultCards, setResultCards] = useState<
     Array<import("@/components/maps/MapResultCard").MapResultCardData>
   >([]);
+  const [trackedParcels, setTrackedParcels] = useState<MapTrackedParcel[]>([]);
+  const [trackedParcelsHydrated, setTrackedParcelsHydrated] = useState(false);
   const [polygon, setPolygon] = useState<number[][][] | null>(null);
   const [polygonParcels, setPolygonParcels] = useState<MapParcel[] | null>(null);
   const [polygonError, setPolygonError] = useState<string | null>(null);
   const [isPolygonLoading, setIsPolygonLoading] = useState(false);
   const lastAutoFocusedSearchRef = useRef("");
   const lastViewportRefreshKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    setTrackedParcels(readMapTrackedParcels(window.localStorage));
+    setTrackedParcelsHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!trackedParcelsHydrated || typeof window === "undefined") {
+      return;
+    }
+
+    writeMapTrackedParcels(window.localStorage, trackedParcels);
+  }, [trackedParcels, trackedParcelsHydrated]);
+
   const initialCenterFromUrl = useMemo<[number, number]>(() => {
     const latStr = searchParams.get("lat");
     const lngStr = searchParams.get("lng");
@@ -852,18 +897,86 @@ export function MapPageClient() {
     if (polygon) return polygonParcels ?? [];
     return visibleParcels;
   }, [polygon, polygonParcels, visibleParcels]);
+  const trackedParcelsById = useMemo(
+    () => new Map(trackedParcels.map((entry) => [entry.parcelId, entry])),
+    [trackedParcels],
+  );
+  const trackedParcelIds = useMemo(
+    () => new Set(trackedParcels.map((entry) => entry.parcelId)),
+    [trackedParcels],
+  );
+  const trackedSummary = useMemo(
+    () => summarizeTrackedParcels(trackedParcels),
+    [trackedParcels],
+  );
+  const selectedParcels = useMemo(
+    () =>
+      mapState.selectedParcelIds
+        .map((parcelId) => {
+          const activeParcel = activeParcels.find((parcel) => parcel.id === parcelId);
+          if (activeParcel) {
+            return activeParcel;
+          }
+
+          const trackedParcel = trackedParcelsById.get(parcelId);
+          return trackedParcel ? trackedParcelToMapParcel(trackedParcel) : null;
+        })
+        .filter((parcel): parcel is MapParcel => Boolean(parcel)),
+    [activeParcels, mapState.selectedParcelIds, trackedParcelsById],
+  );
 
   useEffect(() => {
-    const selectedFeatures = mapState.selectedParcelIds
-      .map((parcelId) => activeParcels.find((parcel) => parcel.id === parcelId))
-      .filter((parcel): parcel is MapParcel => Boolean(parcel))
-      .map(mapParcelToFeature);
+    setTrackedParcels((current) => syncTrackedParcelsWithVisible(current, activeParcels));
+  }, [activeParcels]);
+
+  const focusTrackedParcel = useCallback(
+    (entry: MapTrackedParcel) => {
+      const parcel = activeParcels.find((candidate) => candidate.id === entry.parcelId);
+      if (parcel) {
+        focusParcel(parcel);
+        return;
+      }
+
+      mapDispatch({
+        type: "SELECT_PARCELS",
+        parcelIds: [entry.parcelId],
+      });
+      mapRef.current?.highlightParcels([entry.parcelId], "outline", undefined, 0);
+      focusCoordinates(entry.lat, entry.lng);
+    },
+    [activeParcels, focusCoordinates, focusParcel, mapDispatch],
+  );
+
+  const saveTrackedSelection = useCallback(
+    (draft: {
+      note: string;
+      task: string;
+      status: MapTrackedParcelStatus;
+    }) => {
+      setTrackedParcels((current) => upsertTrackedParcels(current, selectedParcels, draft));
+    },
+    [selectedParcels],
+  );
+
+  const removeTrackedSelection = useCallback((parcelId: string) => {
+    setTrackedParcels((current) => removeTrackedParcel(current, parcelId));
+  }, []);
+
+  const updateTrackedSelectionStatus = useCallback(
+    (parcelId: string, status: MapTrackedParcelStatus) => {
+      setTrackedParcels((current) => updateTrackedParcel(current, parcelId, { status }));
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const selectedFeatures = selectedParcels.map(mapParcelToFeature);
 
     mapDispatch({
       type: "SET_SELECTED_PARCEL_FEATURES",
       features: selectedFeatures,
     });
-  }, [activeParcels, mapDispatch, mapParcelToFeature, mapState.selectedParcelIds]);
+  }, [mapDispatch, mapParcelToFeature, selectedParcels]);
 
   useEffect(() => {
     if (!selectedSuggestion) return;
@@ -1150,6 +1263,15 @@ export function MapPageClient() {
     if (lastRequestLatencyMs == null) return "n/a";
     return `${lastRequestLatencyMs}ms`;
   }, [lastRequestLatencyMs]);
+  const sourceLabel = useMemo(() => {
+    if (source === "org-fallback") {
+      return "Source: Org fallback";
+    }
+    if (source === "property-db") {
+      return "Source: Property database";
+    }
+    return "Source: Org parcels";
+  }, [source]);
 
   useEffect(() => {
     if (mapState.viewportLabel === statusText) return;
@@ -1236,6 +1358,9 @@ export function MapPageClient() {
           <>
             <MapSituationStrip
               selectedCount={selectedParcelIds.size}
+              trackedCount={trackedSummary.totalCount}
+              openTaskCount={trackedSummary.openCount}
+              analysisCount={resultCards.length}
               overlayCount={mapHudState.activeOverlays.length}
               drawMode={mapHudState.drawMode}
               dataFreshnessLabel={dataFreshnessLabel}
@@ -1290,6 +1415,7 @@ export function MapPageClient() {
               }}
               onHudStateChange={setMapHudState}
               selectedParcelIds={selectedParcelIds}
+              highlightParcelIds={trackedParcelIds}
               searchSlot={
                 <div className="flex flex-col gap-4">
                   <div className="flex flex-col gap-1.5">
@@ -1433,7 +1559,7 @@ export function MapPageClient() {
                     </p>
                     <div className="flex flex-wrap items-center gap-2 text-[10px] text-map-text-muted">
                       <Badge variant="outline" className="px-2 py-0.5 text-[9px]">
-                        Source: {source === "org-fallback" ? "Org fallback" : source === "property-db" ? "Property database" : "Org parcels"}
+                        {sourceLabel}
                       </Badge>
                       {selectedParcelIds.size > 0 ? (
                         <Badge variant="secondary" className="px-2 py-0.5 text-[9px]">
@@ -1457,10 +1583,22 @@ export function MapPageClient() {
               }
             />
               </div>
-              <div className="hidden xl:block">
-                <MapParcelDataGrid
+              <div className="hidden xl:flex xl:min-w-[29rem] xl:max-w-[31rem]">
+                <MapOperatorConsole
                   parcels={activeParcels}
                   selectedIds={selectedParcelIds}
+                  selectedParcels={selectedParcels}
+                  trackedParcels={trackedParcels}
+                  visibleCount={activeParcels.length}
+                  searchMatchCount={searchMatchCount}
+                  nearbyCount={polygon ? activeParcels.length : nearbyParcelCount}
+                  resultCount={resultCards.length}
+                  statusText={statusText}
+                  sourceLabel={sourceLabel}
+                  dataFreshnessLabel={dataFreshnessLabel}
+                  latencyLabel={latencyLabel}
+                  activePanel={activePanel}
+                  onActivePanelChange={setActivePanel}
                   onFocusParcel={focusParcel}
                   onToggleParcel={(parcelId) => {
                     const next = new Set(selectedParcelIds);
@@ -1474,6 +1612,13 @@ export function MapPageClient() {
                       parcelIds: Array.from(next),
                     });
                   }}
+                  onClearSelection={() => {
+                    mapDispatch({ type: "DESELECT_ALL" });
+                  }}
+                  onSaveSelection={saveTrackedSelection}
+                  onFocusTrackedParcel={focusTrackedParcel}
+                  onRemoveTrackedParcel={removeTrackedSelection}
+                  onUpdateTrackedParcelStatus={updateTrackedSelectionStatus}
                 />
               </div>
             </div>

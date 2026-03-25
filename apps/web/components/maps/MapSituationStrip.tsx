@@ -4,6 +4,9 @@ import { Badge } from "@/components/ui/badge";
 
 export interface MapSituationStripProps {
   selectedCount: number;
+  trackedCount: number;
+  openTaskCount: number;
+  analysisCount: number;
   overlayCount: number;
   drawMode: "idle" | "drawing" | "polygon";
   dataFreshnessLabel: string;
@@ -12,6 +15,9 @@ export interface MapSituationStripProps {
 
 export function MapSituationStrip({
   selectedCount,
+  trackedCount,
+  openTaskCount,
+  analysisCount,
   overlayCount,
   drawMode,
   dataFreshnessLabel,
@@ -24,10 +30,19 @@ export function MapSituationStrip({
           {selectedCount} selected
         </Badge>
         <Badge variant="outline" className="px-2 py-0.5 text-[9px]">
+          {trackedCount} tracked
+        </Badge>
+        <Badge variant="outline" className="px-2 py-0.5 text-[9px]">
+          {openTaskCount} open tasks
+        </Badge>
+        <Badge variant="outline" className="px-2 py-0.5 text-[9px]">
           {overlayCount} overlays active
         </Badge>
         <Badge variant="outline" className="px-2 py-0.5 text-[9px]">
           Draw: {drawMode}
+        </Badge>
+        <Badge variant="outline" className="px-2 py-0.5 text-[9px]">
+          {analysisCount} analyses
         </Badge>
         <Badge variant="secondary" className="px-2 py-0.5 text-[9px]">
           Freshness: {dataFreshnessLabel}

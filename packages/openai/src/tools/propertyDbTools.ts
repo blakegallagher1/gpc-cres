@@ -213,19 +213,19 @@ export async function rpc(fnName: string, body: Record<string, unknown>): Promis
       });
     }
     case "api_screen_flood":
-      return gatewayPost("/tools/screen.flood", { parcel_id: body.parcel_id ?? body.p_parcel_id });
+      return gatewayPost("/api/screening/flood", { parcelId: String(body.parcel_id ?? body.p_parcel_id) });
     case "api_screen_soils":
-      return gatewayPost("/tools/screen.soils", { parcel_id: body.parcel_id ?? body.p_parcel_id });
+      return gatewayPost("/api/screening/soils", { parcelId: String(body.parcel_id ?? body.p_parcel_id) });
     case "api_screen_wetlands":
-      return gatewayPost("/tools/screen.wetlands", { parcel_id: body.parcel_id ?? body.p_parcel_id });
+      return gatewayPost("/api/screening/wetlands", { parcelId: String(body.parcel_id ?? body.p_parcel_id) });
     case "api_screen_epa":
-      return gatewayPost("/tools/screen.epa", { parcel_id: body.parcel_id ?? body.p_parcel_id, radius_miles: body.radius_miles ?? 1.0 });
+      return gatewayPost("/api/screening/epa", { parcelId: String(body.parcel_id ?? body.p_parcel_id), radius_miles: body.radius_miles ?? 1.0 });
     case "api_screen_traffic":
-      return gatewayPost("/tools/screen.traffic", { parcel_id: body.parcel_id ?? body.p_parcel_id, radius_miles: body.radius_miles ?? 0.5 });
+      return gatewayPost("/api/screening/traffic", { parcelId: String(body.parcel_id ?? body.p_parcel_id), radius_miles: body.radius_miles ?? 0.5 });
     case "api_screen_ldeq":
-      return gatewayPost("/tools/screen.ldeq", { parcel_id: body.parcel_id ?? body.p_parcel_id, radius_miles: body.radius_miles ?? 1.0 });
+      return gatewayPost("/api/screening/ldeq", { parcelId: String(body.parcel_id ?? body.p_parcel_id), radius_miles: body.radius_miles ?? 1.0 });
     case "api_screen_full":
-      return gatewayPost("/tools/screen.full", { parcel_id: body.parcel_id ?? body.p_parcel_id });
+      return gatewayPost("/api/screening/full", { parcelId: String(body.parcel_id ?? body.p_parcel_id) });
     default:
       return { error: `Unknown RPC function: ${fnName}` };
   }

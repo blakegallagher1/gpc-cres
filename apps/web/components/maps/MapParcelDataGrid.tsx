@@ -10,6 +10,7 @@ export interface MapParcelDataGridProps {
   selectedIds: Set<string>;
   onFocusParcel: (parcel: MapParcel) => void;
   onToggleParcel: (parcelId: string) => void;
+  embedded?: boolean;
 }
 
 type SortKey = "address" | "acreage" | "zoning" | "flood";
@@ -26,6 +27,7 @@ export function MapParcelDataGrid({
   selectedIds,
   onFocusParcel,
   onToggleParcel,
+  embedded = false,
 }: MapParcelDataGridProps) {
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("address");
@@ -52,7 +54,13 @@ export function MapParcelDataGrid({
   }, [desc, parcels, query, sortKey]);
 
   return (
-    <aside className="flex h-full w-[26rem] flex-col border-l border-map-border bg-map-surface-overlay/95">
+    <aside
+      className={
+        embedded
+          ? "flex h-full min-h-0 flex-col bg-transparent"
+          : "flex h-full w-[26rem] flex-col border-l border-map-border bg-map-surface-overlay/95"
+      }
+    >
       <div className="border-b border-map-border px-3 py-3">
         <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-map-text-muted">Parcel grid</p>
         <h3 className="mt-1 text-xs font-semibold text-map-text-primary">Live analyst table</h3>
