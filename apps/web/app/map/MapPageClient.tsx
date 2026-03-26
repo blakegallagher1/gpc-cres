@@ -428,7 +428,15 @@ export function MapPageClient() {
       mapDispatch({
         type: "SET_VIEWPORT",
         center: [initialCenterFromUrl[1], initialCenterFromUrl[0]],
-        zoom: initialZoomFromUrl ?? 11,
+        zoom: Math.max(initialZoomFromUrl ?? 11, PARCEL_MIN_INIT_ZOOM),
+      });
+    } else if (mapState.zoom != null && mapState.zoom < PARCEL_MIN_INIT_ZOOM) {
+      // Cached zoom from a previous session is too low for parcel tiles —
+      // bump it up so tiles load on first render
+      mapDispatch({
+        type: "SET_VIEWPORT",
+        center: mapState.center,
+        zoom: PARCEL_MIN_INIT_ZOOM,
       });
     }
 
@@ -446,6 +454,7 @@ export function MapPageClient() {
     initialZoomFromUrl,
     mapDispatch,
     mapState.center,
+    mapState.zoom,
     mapState.selectedParcelIds.length,
     searchParams,
   ]);

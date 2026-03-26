@@ -1899,6 +1899,17 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
     };
   }, [clearTemporaryLayers, handlePopupAction, updateSelection]);
 
+  // Sync zoom prop to existing map — covers the case where MapChatContext
+  // updates the zoom (e.g., clamping a too-low cached value) after the map
+  // was already created at the old zoom.
+  useEffect(() => {
+    if (!mapRef.current || !mapReady) return;
+    const currentZoom = mapRef.current.getZoom();
+    if (typeof zoom === "number" && Math.abs(currentZoom - zoom) > 0.5) {
+      mapRef.current.jumpTo({ zoom });
+    }
+  }, [zoom, mapReady]);
+
   useEffect(() => {
     if (!mapRef.current || !mapReady) return;
     const map = mapRef.current;
