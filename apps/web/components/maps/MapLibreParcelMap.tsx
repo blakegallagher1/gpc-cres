@@ -1750,6 +1750,35 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
         setMapReady(true);
         onMapReadyRef.current?.();
 
+        // Fix: MapLibre vector sources initialized below their minzoom can
+        // get stuck with no tiles loaded even after zooming past minzoom.
+        // Detect this and force-reload the source on the first zoom crossing.
+        const PARCEL_TILE_MINZOOM = 10;
+        let parcelSourceReloaded = false;
+        const handleZoomForTileFix = () => {
+          if (parcelSourceReloaded) return;
+          const z = map.getZoom();
+          if (z < PARCEL_TILE_MINZOOM) return;
+          const features = map.queryRenderedFeatures(undefined, { layers: ["parcel-tiles-fill"] });
+          if (features.length > 0) {
+            parcelSourceReloaded = true;
+            map.off("zoomend", handleZoomForTileFix);
+            return;
+          }
+          // No features at a zoom that should have them — force reload source
+          parcelSourceReloaded = true;
+          map.off("zoomend", handleZoomForTileFix);
+          try {
+            const src = map.getSource("parcel-tiles");
+            if (src && "setTiles" in src && typeof src.setTiles === "function") {
+              src.setTiles([getMartinParcelTileUrl("ebr_parcels") || getParcelTileUrl()]);
+            }
+          } catch { /* source reload failed, non-critical */ }
+        };
+        map.on("zoomend", handleZoomForTileFix);
+        // Also run once on load in case we're already at a valid zoom
+        handleZoomForTileFix();
+
         const hideBoundaryLayerVisibility = () => {
           try {
             map.setLayoutProperty(

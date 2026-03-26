@@ -377,7 +377,7 @@ export function MapPageClient() {
         : initialCenterFromUrl,
     [initialCenterFromUrl, mapState.center],
   );
-  const mapZoom = mapState.zoom ?? initialZoomFromUrl;
+  const mapZoom = mapState.zoom ?? initialZoomFromUrl ?? 11;
   const authDisabledHint =
     process.env.NODE_ENV !== "production"
       ? " Start the dev server with NEXT_PUBLIC_DISABLE_AUTH=true or sign in."
