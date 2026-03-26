@@ -9,6 +9,11 @@ import Fastify from "fastify";
 import OpenAI from "openai";
 import { z } from "zod";
 import { launchBrowserSession } from "./browser-session.js";
+import {
+  bootstrapFirstPartyLogin,
+  buildFirstPartyAuthProfile,
+  isFirstPartyUrl,
+} from "./first-party-auth.js";
 import { runCodeMode, runNativeComputerLoop } from "./responses-loop.js";
 import type { TaskEvent, TaskRequest, TaskResult, TaskState } from "./types.js";
 
@@ -50,6 +55,7 @@ const config = {
   defaultModel: process.env.DEFAULT_MODEL ?? "gpt-5.4-mini",
   maxTurns: Number(process.env.MAX_TURNS ?? 24),
   screenshotDir: process.env.SCREENSHOT_DIR ?? "/tmp/cua-screenshots",
+  firstPartyAuth: buildFirstPartyAuthProfile(process.env),
 };
 
 // ============================================================================
@@ -115,6 +121,37 @@ function formatEventData(event: TaskEvent): string {
   return `data: ${JSON.stringify(event)}\n\n`;
 }
 
+async function maybeBootstrapFirstPartySession(options: {
+  request: TaskRequest;
+  session: Awaited<ReturnType<typeof launchBrowserSession>>;
+  taskId: string;
+}): Promise<void> {
+  const { request, session, taskId } = options;
+  if (!isFirstPartyUrl(request.url, config.firstPartyAuth)) {
+    return;
+  }
+
+  publishEvent(taskId, {
+    type: "status",
+    turn: 0,
+    timestamp: new Date().toISOString(),
+    action: "Bootstrapping authenticated first-party session",
+  });
+
+  const authResult = await bootstrapFirstPartyLogin({
+    profile: config.firstPartyAuth,
+    session,
+    targetUrl: request.url,
+  });
+
+  publishEvent(taskId, {
+    type: "status",
+    turn: 0,
+    timestamp: new Date().toISOString(),
+    action: authResult.detail,
+  });
+}
+
 // ============================================================================
 // Task Execution
 // ============================================================================
@@ -126,6 +163,10 @@ async function executeTask(taskId: string, request: TaskRequest): Promise<void> 
   const task = tasks.get(taskId)!;
 
   try {
+    const controller = new AbortController();
+    task.abortController = controller;
+    task.signal = controller.signal;
+
     // Launch browser session
     publishEvent(taskId, {
       type: "status",
@@ -142,6 +183,8 @@ async function executeTask(taskId: string, request: TaskRequest): Promise<void> 
     });
 
     try {
+      await maybeBootstrapFirstPartySession({ request, session, taskId });
+
       // Initialize OpenAI client
       const client = new OpenAI({
         apiKey: config.openaiApiKey,
@@ -151,11 +194,6 @@ async function executeTask(taskId: string, request: TaskRequest): Promise<void> 
       const mode = request.mode ?? "auto";
       const hasCodeSnippet = Boolean(request.playbook?.codeSnippet);
       const shouldUseCode = mode === "code" || (mode === "auto" && hasCodeSnippet);
-
-      // Create abort controller for task cancellation
-      const controller = new AbortController();
-      task.abortController = controller;
-      task.signal = controller.signal;
 
       // Execute the appropriate mode
       let result: TaskResult;

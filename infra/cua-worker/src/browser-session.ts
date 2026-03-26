@@ -32,7 +32,10 @@ export async function launchBrowserSession(options: {
 }): Promise<BrowserSession> {
   const viewport = DEFAULT_VIEWPORT;
   const browser = await chromium.launch({
-    args: [`--window-size=${viewport.width},${viewport.height}`],
+    args: [
+      `--window-size=${viewport.width},${viewport.height}`,
+      "--disable-extensions",
+    ],
     headless: options.headless ?? true,
   });
 

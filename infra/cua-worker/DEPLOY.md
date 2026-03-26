@@ -4,6 +4,7 @@
 - Windows server with Docker Desktop
 - Cloudflare Tunnel running
 - OPENAI_API_KEY set
+- First-party production login secrets available at runtime if the worker must access authenticated `gallagherpropco.com` routes
 
 ## Build & Deploy
 
@@ -45,3 +46,16 @@ curl https://cua.gallagherpropco.com/health
 | DEFAULT_MODEL | No | gpt-5.4 | Default CUA model |
 | MAX_TURNS | No | 24 | Max turns per task |
 | SCREENSHOT_DIR | No | /tmp/cua-data/screenshots | Screenshot storage path |
+| GPC_PROD_SITE_ALLOWED_HOSTS | No | `gallagherpropco.com,www.gallagherpropco.com` | Exact first-party hosts allowed to receive the production-site auth bootstrap |
+| GPC_PROD_SITE_LOGIN_PATH | No | `/login` | Credential login route on the production app |
+| GPC_PROD_SITE_EMAIL | No | - | Runtime-only email used for first-party login bootstrap. Do not commit the value. |
+| GPC_PROD_SITE_PASSWORD | No | - | Runtime-only password used for first-party login bootstrap. Do not commit the value. |
+| GPC_PROD_SITE_BOOTSTRAP_TIMEOUT_MS | No | `30000` | Timeout for the first-party login bootstrap flow |
+
+## First-Party Auth Bootstrap
+
+When the task URL is on an allowlisted host from `GPC_PROD_SITE_ALLOWED_HOSTS`, the worker now signs into the production app before the first screenshot is sent to the model.
+
+- Credentials are read only from runtime environment variables.
+- The login form is filled by Playwright inside the worker so the model never needs the raw password in its prompt.
+- Keep the host list narrow. Do not add unrelated subdomains unless they truly need the same authenticated session.
