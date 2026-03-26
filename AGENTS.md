@@ -12,7 +12,7 @@ for parcel/tools behind Cloudflare Tunnel, and optional Python reference code un
 **Production URLs:**
 - Frontend: Vercel (`gallagherpropco.com`)
 - Data/tools API: FastAPI gateway behind Cloudflare (`api.gallagherpropco.com` → host :8000)
-- Database: PostgreSQL via Prisma; Vercel runtime often uses Cloudflare Hyperdrive to Postgres
+- Database: PostgreSQL via Prisma; Vercel routes queries through FastAPI gateway `/db` endpoint (`GATEWAY_DATABASE_URL`)
 
 **Auth:** NextAuth (app session). See `docs/SPEC.md` and `docs/claude/architecture.md` for the current contract.
 
@@ -62,22 +62,47 @@ for parcel/tools behind Cloudflare Tunnel, and optional Python reference code un
 
 ## Dependency Flow Rules (STRICT)
 
-Actual workspace packages live under `packages/`:
+**Layer model** (machine-readable source: `.agents/layer-rules.toml`):
 
-| Package | Role |
-|---------|------|
-| `@entitlement-os/shared` | Shared schemas, enums, utilities |
-| `@entitlement-os/db` | Prisma client, migrations — **must not** import `apps/web` or domain app layers |
-| `@entitlement-os/evidence`, `@entitlement-os/artifacts` | Domain libraries |
-| `@entitlement-os/openai` | Agents, tools, Responses API integration |
-| `@gpc/server` | Server-side services (`packages/server`) |
+```
+L0: packages/shared              — Foundation. ZERO internal package imports.
+L1: packages/db                  — Prisma client. Must NOT import L2+ or apps/.
+L2: packages/evidence            — Domain libraries.
+    packages/artifacts
+L3: packages/openai              — Agents, tools, Responses API.
+    packages/server              — Server-side services (@gpc/server).
+    packages/gateway-client      — CF Worker gateway proxy client.
+L4: apps/web                     — Next.js frontend (Vercel).
+L5: infra/cloudflare-agent       — CF Workers + Durable Objects.
+    infra/gateway-proxy          — CF Worker edge proxy.
+    infra/cua-worker             — Node.js + Playwright browser automation.
+    infra/local-api              — FastAPI gateway (Python, Docker).
+    infra/admin-dashboard        — CF Pages admin UI.
+--: apps/worker                  — PARKED, not built in CI. Skip.
+--: legacy/python/               — PARKED reference code. Skip.
+```
+
+**Workspace packages:**
+
+| Package | npm name | Layer |
+|---------|----------|-------|
+| `packages/shared` | `@entitlement-os/shared` | L0 |
+| `packages/db` | `@entitlement-os/db` | L1 |
+| `packages/evidence` | `@entitlement-os/evidence` | L2 |
+| `packages/artifacts` | `@entitlement-os/artifacts` | L2 |
+| `packages/openai` | `@entitlement-os/openai` | L3 |
+| `packages/server` | `@gpc/server` | L3 |
+| `packages/gateway-client` | `@gpc/gateway-client` | L3 |
 
 **Rules:**
 
-- Higher-level packages may import lower-level ones; never the reverse (no `packages/db` → `apps/web`).
-- `packages/db` must NEVER import from `apps/web` or from `@entitlement-os/openai` / `@entitlement-os/evidence` / `@entitlement-os/artifacts` / `@gpc/server`.
-- Circular dependencies between packages are a CI-blocking violation.
+- **Import direction:** L4 → L3 → L2 → L1 → L0. Never the reverse.
+- **`packages/shared` (L0):** ZERO internal package imports. Only external deps.
+- **`packages/db` (L1):** Must NEVER import from `apps/web`, `packages/openai`, `packages/evidence`, `packages/artifacts`, or `packages/server`.
+- **`infra/` (L5):** Separate runtimes. Do NOT import from `packages/` or `apps/`. Communicate via HTTP/WebSocket/TCP only.
+- **Circular dependencies** between packages are a CI-blocking violation.
 - Prefer adding shared types to `@entitlement-os/shared` rather than new leaf packages unless `ROADMAP.md` approves a split.
+- **Architecture audit skill:** `skills/architecture-audit/SKILL.md` — run on any PR touching imports or package boundaries.
 
 ## Code Conventions
 
@@ -221,7 +246,7 @@ ssh cres_admin@ssh.gallagherpropco.com
 - `LOCAL_API_KEY` — Gateway API bearer token
 - `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET` — Cloudflare Access service token (bypasses CF Access 403)
 
-**Vercel → Postgres:** Cloudflare Hyperdrive (config `ebd13ab7df60414d9ba8244299467e5e`) through CF Worker `/db` endpoint. Prisma adapter: `packages/db/src/gateway-adapter.ts`.
+**Vercel → Postgres:** `GATEWAY_DATABASE_URL=https://api.gallagherpropco.com` routes Prisma queries through the FastAPI gateway's `/db` endpoint. Adapter: `packages/db/src/gateway-adapter.ts`. Requires `LOCAL_API_KEY` + CF Access headers.
 
 **Comprehensive server operations guide:** `skills/server-ops/SKILL.md` — Full diagnostic checklist, failure modes, recovery procedures, Docker quirks, tunnel config, deployment commands, and environment variables. **Read this file first** when debugging any server issue.
 
