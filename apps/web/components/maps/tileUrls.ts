@@ -28,8 +28,9 @@ const OSM_TILE_URLS = [
   "https://c.tile.openstreetmap.org/{z}/{x}/{y}.png",
 ];
 
+// Use services.arcgisonline.com (supports CORS) instead of server.arcgisonline.com (no CORS)
 const ESRI_SATELLITE_URL =
-  "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+  "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
 
 const LOCAL_TILE_URL = "/api/map/tiles/{z}/{x}/{y}";
 

@@ -62,7 +62,7 @@ AGENT_SESSION_IDLE_TIMEOUT_MS, AGENT_SESSION_MAX_DURATION_MS
 
 ### Vercel Production (key vars)
 ```
-GATEWAY_DATABASE_URL=https://agents.gallagherpropco.com  (Hyperdrive HTTPS endpoint)
+GATEWAY_DATABASE_URL=https://api.gallagherpropco.com  (FastAPI gateway /db endpoint for Prisma)
 LOCAL_API_KEY  (gateway bearer token)
 LOCAL_API_URL=https://api.gallagherpropco.com
 CF_ACCESS_CLIENT_ID=<service token id>

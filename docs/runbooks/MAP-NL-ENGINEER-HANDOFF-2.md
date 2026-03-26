@@ -115,7 +115,7 @@ sshpass -e ssh -o ProxyCommand='cloudflared access ssh --hostname ssh.gallagherp
 
 ### Vercel env vars (current state)
 ```
-GATEWAY_DATABASE_URL = https://agents.gallagherpropco.com  (CF Worker path)
+GATEWAY_DATABASE_URL = https://api.gallagherpropco.com  (FastAPI gateway /db endpoint)
 DATABASE_URL = [Hyperdrive connection string]
 LOCAL_API_URL = https://api.gallagherpropco.com
 LOCAL_API_KEY = [gateway bearer token]
