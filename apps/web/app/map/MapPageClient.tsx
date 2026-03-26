@@ -15,6 +15,7 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { Loader2, Search } from "lucide-react";
+import { motion } from "framer-motion";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { MapOperatorConsole } from "@/components/maps/MapOperatorConsole";
 import type { ParcelMapRef } from "@/components/maps/ParcelMap";
@@ -260,6 +261,7 @@ export function MapPageClient() {
   const [mapRefVersion, setMapRefVersion] = useState(0);
   const initializedFromUrlRef = useRef(false);
   const [activePanel, setActivePanel] = useState<"chat" | "prospecting" | null>("chat");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Force dark mode on map page mount
   useLayoutEffect(() => {
@@ -370,6 +372,14 @@ export function MapPageClient() {
     () => new Set(mapState.selectedParcelIds),
     [mapState.selectedParcelIds],
   );
+
+  useEffect(() => {
+    if (selectedParcelIds.size > 0 && !sidebarOpen) {
+      setSidebarOpen(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedParcelIds.size]);
+
   const mapCenter = useMemo<[number, number]>(
     () =>
       mapState.center
@@ -1596,44 +1606,63 @@ export function MapPageClient() {
               }
             />
               </div>
-              <div className="hidden xl:flex xl:min-w-[25rem] xl:max-w-[27rem]">
-                <MapOperatorConsole
-                  parcels={activeParcels}
-                  selectedIds={selectedParcelIds}
-                  selectedParcels={selectedParcels}
-                  trackedParcels={trackedParcels}
-                  visibleCount={activeParcels.length}
-                  searchMatchCount={searchMatchCount}
-                  nearbyCount={polygon ? activeParcels.length : nearbyParcelCount}
-                  resultCount={resultCards.length}
-                  statusText={statusText}
-                  sourceLabel={sourceLabel}
-                  dataFreshnessLabel={dataFreshnessLabel}
-                  latencyLabel={latencyLabel}
-                  activePanel={activePanel}
-                  onActivePanelChange={setActivePanel}
-                  onFocusParcel={focusParcel}
-                  onToggleParcel={(parcelId) => {
-                    const next = new Set(selectedParcelIds);
-                    if (next.has(parcelId)) {
-                      next.delete(parcelId);
-                    } else {
-                      next.add(parcelId);
-                    }
-                    mapDispatch({
-                      type: "SELECT_PARCELS",
-                      parcelIds: Array.from(next),
-                    });
-                  }}
-                  onClearSelection={() => {
-                    mapDispatch({ type: "DESELECT_ALL" });
-                  }}
-                  onSaveSelection={saveTrackedSelection}
-                  onFocusTrackedParcel={focusTrackedParcel}
-                  onRemoveTrackedParcel={removeTrackedSelection}
-                  onUpdateTrackedParcelStatus={updateTrackedSelectionStatus}
-                />
-              </div>
+              {/* Sidebar toggle button */}
+              <button
+                type="button"
+                onClick={() => setSidebarOpen((prev) => !prev)}
+                className="absolute right-0 top-1/2 z-20 hidden -translate-y-1/2 xl:flex h-10 w-5 items-center justify-center rounded-l-md border border-r-0 border-map-border bg-map-surface-overlay/90 text-map-text-muted hover:text-map-text-primary backdrop-blur-md transition-all"
+                style={{ right: sidebarOpen ? "25rem" : "0" }}
+                aria-label={sidebarOpen ? "Close console" : "Open console"}
+              >
+                <span className="text-xs">{sidebarOpen ? "\u203A" : "\u2039"}</span>
+              </button>
+
+              {/* Collapsible sidebar */}
+              <motion.div
+                initial={false}
+                animate={{ width: sidebarOpen ? "25rem" : 0 }}
+                transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                className="hidden xl:block overflow-hidden flex-shrink-0"
+              >
+                <div className="h-full" style={{ width: "25rem" }}>
+                  <MapOperatorConsole
+                    parcels={activeParcels}
+                    selectedIds={selectedParcelIds}
+                    selectedParcels={selectedParcels}
+                    trackedParcels={trackedParcels}
+                    visibleCount={activeParcels.length}
+                    searchMatchCount={searchMatchCount}
+                    nearbyCount={polygon ? activeParcels.length : nearbyParcelCount}
+                    resultCount={resultCards.length}
+                    statusText={statusText}
+                    sourceLabel={sourceLabel}
+                    dataFreshnessLabel={dataFreshnessLabel}
+                    latencyLabel={latencyLabel}
+                    activePanel={activePanel}
+                    onActivePanelChange={setActivePanel}
+                    onFocusParcel={focusParcel}
+                    onToggleParcel={(parcelId) => {
+                      const next = new Set(selectedParcelIds);
+                      if (next.has(parcelId)) {
+                        next.delete(parcelId);
+                      } else {
+                        next.add(parcelId);
+                      }
+                      mapDispatch({
+                        type: "SELECT_PARCELS",
+                        parcelIds: Array.from(next),
+                      });
+                    }}
+                    onClearSelection={() => {
+                      mapDispatch({ type: "DESELECT_ALL" });
+                    }}
+                    onSaveSelection={saveTrackedSelection}
+                    onFocusTrackedParcel={focusTrackedParcel}
+                    onRemoveTrackedParcel={removeTrackedSelection}
+                    onUpdateTrackedParcelStatus={updateTrackedSelectionStatus}
+                  />
+                </div>
+              </motion.div>
             </div>
           </>
         )}
