@@ -37,6 +37,15 @@ export const browser_task = tool({
       return { success: false, error: "LOCAL_API_KEY not configured" };
     }
 
+    // CF Access service token headers (required when calling through Cloudflare tunnel)
+    const cfHeaders: Record<string, string> = {};
+    const cfClientId = process.env.CF_ACCESS_CLIENT_ID?.trim();
+    const cfClientSecret = process.env.CF_ACCESS_CLIENT_SECRET?.trim();
+    if (cfClientId && cfClientSecret) {
+      cfHeaders["CF-Access-Client-Id"] = cfClientId;
+      cfHeaders["CF-Access-Client-Secret"] = cfClientSecret;
+    }
+
     const cuaModel = model ?? (process.env.CUA_DEFAULT_MODEL as "gpt-5.4" | "gpt-5.4-mini") ?? "gpt-5.4";
 
     try {
@@ -48,6 +57,7 @@ export const browser_task = tool({
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${apiKey}`,
+          ...cfHeaders,
         },
         body: JSON.stringify({
           url,
@@ -68,7 +78,7 @@ export const browser_task = tool({
       const { taskId, statusUrl } = await response.json() as { taskId: string; statusUrl: string };
 
       // Poll for completion (the task runs async on the worker)
-      const result = await pollForResult(cuaUrl, taskId, apiKey);
+      const result = await pollForResult(cuaUrl, taskId, apiKey, cfHeaders);
 
       if (result.success) {
         return {
@@ -102,6 +112,7 @@ async function pollForResult(
   cuaUrl: string,
   taskId: string,
   apiKey: string,
+  cfHeaders: Record<string, string> = {},
   maxWaitMs = 120_000,
   intervalMs = 2_000,
 ): Promise<Record<string, unknown>> {
@@ -111,7 +122,7 @@ async function pollForResult(
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
 
     const res = await fetch(`${cuaUrl}/tasks/${taskId}`, {
-      headers: { Authorization: `Bearer ${apiKey}` },
+      headers: { Authorization: `Bearer ${apiKey}`, ...cfHeaders },
     });
 
     if (!res.ok) continue;
