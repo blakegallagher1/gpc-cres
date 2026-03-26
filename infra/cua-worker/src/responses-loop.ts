@@ -321,7 +321,7 @@ export async function runNativeComputerLoop(options: {
   const screenshotPaths: string[] = [];
   let finalMessage = "";
 
-  // Initial screenshot
+  // Capture initial screenshot
   const initialScreenshot = await capturePageImageDataUrl(session);
   const initialCapture = await session.captureScreenshot("initial-state");
   screenshotPaths.push(initialCapture.path);
@@ -333,6 +333,29 @@ export async function runNativeComputerLoop(options: {
     action: "Initial screenshot captured",
   });
 
+  // Build system instructions with optional playbook strategy
+  const systemInstructions = options.playbook?.strategy
+    ? `${instructions}\n\nStrategy from previous successful runs:\n${options.playbook.strategy}`
+    : instructions;
+
+  // First turn input: user message with text + screenshot
+  let nextInput: unknown = [
+    {
+      role: "user",
+      content: [
+        {
+          type: "input_text",
+          text: instructions,
+        },
+        {
+          type: "input_image",
+          image_url: initialScreenshot,
+          detail: "original",
+        },
+      ],
+    },
+  ];
+
   // Main loop
   while (turn < maxTurns) {
     if (signal.aborted) {
@@ -341,67 +364,23 @@ export async function runNativeComputerLoop(options: {
 
     turn += 1;
 
-    // Build the request
-    const systemPrompt = instructions;
-    const userContent: Array<{
-      type: "text" | "image";
-      text?: string;
-      image_url?: { url: string };
-    }> = [];
-
-    // Add playbook strategy if provided
-    if (options.playbook?.strategy) {
-      userContent.push({
-        type: "text",
-        text: `Strategy: ${options.playbook.strategy}`,
-      });
-    }
-
-    // Add current screenshot
-    userContent.push({
-      type: "image",
-      image_url: { url: initialScreenshot },
-    });
-
-    // Add task instructions
-    userContent.push({
-      type: "text",
-      text: instructions,
-    });
-
-    // Create the request
-    const requestBody: Record<string, unknown> = {
-      model,
-      instructions: [
-        {
-          type: "text",
-          text: systemPrompt,
-        },
-      ],
-      messages: [
-        {
-          role: "user",
-          content: userContent,
-        },
-      ],
-      tools: [
-        {
-          type: "computer",
-        },
-      ],
-      betas: ["computer-use-2025-10-16"],
-    };
-
-    if (previousResponseId) {
-      requestBody.previous_response_id = previousResponseId;
-    }
-
-    // Call Responses API
+    // Call Responses API (GA format: input, not messages)
     let response: ResponsesApiResponse;
     try {
-      response = (await client.responses.create(requestBody as Parameters<typeof client.responses.create>[0], {
-        signal,
-      })) as ResponsesApiResponse;
+      response = (await client.responses.create(
+        {
+          model,
+          instructions: systemInstructions,
+          input: nextInput as any,
+          tools: [{ type: "computer" } as any],
+          reasoning: { effort: "low" },
+          truncation: "auto",
+          ...(previousResponseId
+            ? { previous_response_id: previousResponseId }
+            : {}),
+        } as any,
+        { signal },
+      )) as ResponsesApiResponse;
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       onEvent({
@@ -425,13 +404,31 @@ export async function runNativeComputerLoop(options: {
     // Get computer calls from response
     const computerCalls = getComputerCallItems(response);
 
-    // Execute actions
+    // No tool calls = model is done, extract final message
+    if (computerCalls.length === 0) {
+      finalMessage = extractAssistantMessageText(response);
+      if (finalMessage) {
+        onEvent({
+          type: "status",
+          turn,
+          timestamp: new Date().toISOString(),
+          action: "Final message received from model",
+          data: { message: finalMessage },
+        });
+      }
+      break;
+    }
+
+    // Execute actions from each computer_call and send back computer_call_output
+    const toolOutputs: unknown[] = [];
+
     for (const computerCall of computerCalls) {
       const actions = computerCall.actions ?? [];
+
+      // Execute each action in order
       for (const action of actions) {
         try {
           await executeComputerAction(session, action, signal);
-
           onEvent({
             type: "action",
             turn,
@@ -450,37 +447,32 @@ export async function runNativeComputerLoop(options: {
         }
       }
 
-      // Capture screenshot after actions
-      const screenshot = await session.captureScreenshot(`turn-${turn}`);
-      screenshotPaths.push(screenshot.path);
+      // Capture screenshot AFTER executing all actions in this batch
+      const screenshotDataUrl = await capturePageImageDataUrl(session);
+      const screenshotArtifact = await session.captureScreenshot(`turn-${turn}`);
+      screenshotPaths.push(screenshotArtifact.path);
 
       onEvent({
         type: "screenshot",
         turn,
         timestamp: new Date().toISOString(),
-        screenshotUrl: screenshot.path,
+        screenshotUrl: screenshotArtifact.path,
         action: `Executed ${actions.length} action(s)`,
       });
-    }
 
-    // Check for final message
-    const assistantMessage = extractAssistantMessageText(response);
-    if (assistantMessage) {
-      finalMessage = assistantMessage;
-      onEvent({
-        type: "status",
-        turn,
-        timestamp: new Date().toISOString(),
-        action: "Final message received from model",
-        data: { message: finalMessage },
+      // Build computer_call_output with the new screenshot
+      toolOutputs.push({
+        type: "computer_call_output",
+        call_id: computerCall.call_id,
+        output: {
+          type: "computer_screenshot",
+          image_url: screenshotDataUrl,
+        },
       });
-      break;
     }
 
-    // No computer calls and no message = done
-    if (computerCalls.length === 0) {
-      break;
-    }
+    // Send tool outputs as input for next turn
+    nextInput = toolOutputs;
   }
 
   onEvent({
