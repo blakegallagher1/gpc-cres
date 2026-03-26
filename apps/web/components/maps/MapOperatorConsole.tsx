@@ -92,43 +92,11 @@ function formatTrackedMeta(entry: MapTrackedParcel): string[] {
   ].filter((value): value is string => value !== null);
 }
 
-function MetricCell({
-  label,
-  value,
-  icon,
-}: {
-  label: string;
-  value: string | number;
-  icon: React.ReactNode;
-}) {
+function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-map-border bg-map-surface/55 px-3 py-2.5">
-      <div className="flex items-center justify-between gap-3">
-        <p className="map-stat-label">{label}</p>
-        <span className="text-map-text-muted">{icon}</span>
-      </div>
-      <div className="mt-1.5 map-stat-value">{value}</div>
-    </div>
-  );
-}
-
-function SectionHeader({
-  eyebrow,
-  title,
-  body,
-}: {
-  eyebrow: string;
-  title: string;
-  body: string;
-}) {
-  return (
-    <div>
-      <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-map-text-muted">
-        {eyebrow}
-      </p>
-      <h3 className="mt-1 text-xs font-semibold text-map-text-primary">{title}</h3>
-      <p className="mt-1 text-[11px] leading-5 text-map-text-secondary">{body}</p>
-    </div>
+    <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-map-text-muted">
+      {children}
+    </p>
   );
 }
 
@@ -225,41 +193,20 @@ export function MapOperatorConsole({
         className,
       )}
     >
-      <div className="border-b border-map-border px-4 py-4">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-map-text-muted">
-              Map console
-            </p>
-            <h2 className="mt-1 text-sm font-semibold text-map-text-primary">
-              Run analysis, pin parcel boundaries, and manage follow-up work.
-            </h2>
-            <p className="mt-1 text-[11px] leading-5 text-map-text-secondary">
-              Tracked parcels stay highlighted on the map while their notes and task state stay attached.
-            </p>
+      <div className="border-b border-map-border px-4 py-3">
+        <div className="flex items-center justify-between">
+          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-map-text-muted">
+            Console
+          </p>
+          <div className="flex items-center gap-3 text-[10px] text-map-text-muted">
+            <span>{visibleCount} in view</span>
+            {selectedParcels.length > 0 ? (
+              <span className="text-map-accent">{selectedParcels.length} selected</span>
+            ) : null}
+            {trackedSummary.totalCount > 0 ? (
+              <span>{trackedSummary.totalCount} tracked</span>
+            ) : null}
           </div>
-          <Badge variant="outline" className="px-2.5 py-1 text-[9px]">
-            {trackedSummary.openCount} open tasks
-          </Badge>
-        </div>
-
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <MetricCell label="In View" value={visibleCount} icon={<Target className="h-3.5 w-3.5" />} />
-          <MetricCell label="Selected" value={selectedParcels.length} icon={<Crosshair className="h-3.5 w-3.5" />} />
-          <MetricCell label="Tracked" value={trackedSummary.totalCount} icon={<MapPinned className="h-3.5 w-3.5" />} />
-          <MetricCell label="Analyses" value={resultCount} icon={<Radar className="h-3.5 w-3.5" />} />
-        </div>
-
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] text-map-text-muted">
-          <Badge variant="outline" className="px-2 py-0.5 text-[9px]">
-            {sourceLabel}
-          </Badge>
-          <Badge variant="secondary" className="px-2 py-0.5 text-[9px]">
-            Freshness: {dataFreshnessLabel}
-          </Badge>
-          <Badge variant="secondary" className="px-2 py-0.5 text-[9px]">
-            Latency: {latencyLabel}
-          </Badge>
         </div>
       </div>
 
@@ -293,78 +240,44 @@ export function MapOperatorConsole({
               transition={TAB_TRANSITION}
               className="space-y-5 px-4 py-4"
             >
-              <section className="space-y-3">
-                <SectionHeader
-                  eyebrow="Workflow lane"
-                  title="Bring the right map tool forward."
-                  body="Switch between parcel analysis and polygon prospecting without leaving the active geography."
-                />
-                <div className="grid grid-cols-2 gap-2">
+              <section className="space-y-2">
+                <SectionLabel>Tools</SectionLabel>
+                <div className="flex gap-2">
                   <button
                     type="button"
                     onClick={() => onActivePanelChange("chat")}
                     className={cn(
-                      "rounded-xl border px-3 py-3 text-left transition-colors",
+                      "flex flex-1 items-center gap-2 rounded-lg border px-3 py-2 text-[11px] font-medium transition-colors",
                       activePanel === "chat"
-                        ? "border-map-accent bg-map-accent-surface text-map-text-primary"
+                        ? "border-map-accent bg-map-accent/10 text-map-text-primary"
                         : "border-map-border bg-map-surface/45 text-map-text-secondary hover:bg-map-surface",
                     )}
                   >
-                    <div className="flex items-center gap-2 text-[11px] font-medium">
-                      <Bot className="h-4 w-4" />
-                      Map copilot
-                    </div>
-                    <p className="mt-1 text-[10px] leading-4 text-map-text-muted">
-                      Ask for site pressure, zoning patterns, and follow-up analysis.
-                    </p>
+                    <Bot className="h-3.5 w-3.5" />
+                    Copilot
                   </button>
                   <button
                     type="button"
                     onClick={() => onActivePanelChange("prospecting")}
                     className={cn(
-                      "rounded-xl border px-3 py-3 text-left transition-colors",
+                      "flex flex-1 items-center gap-2 rounded-lg border px-3 py-2 text-[11px] font-medium transition-colors",
                       activePanel === "prospecting"
-                        ? "border-map-accent bg-map-accent-surface text-map-text-primary"
+                        ? "border-map-accent bg-map-accent/10 text-map-text-primary"
                         : "border-map-border bg-map-surface/45 text-map-text-secondary hover:bg-map-surface",
                     )}
                   >
-                    <div className="flex items-center gap-2 text-[11px] font-medium">
-                      <Radar className="h-4 w-4" />
-                      Prospecting
-                    </div>
-                    <p className="mt-1 text-[10px] leading-4 text-map-text-muted">
-                      Filter a drawn polygon and tighten the shortlist.
-                    </p>
+                    <Radar className="h-3.5 w-3.5" />
+                    Prospect
                   </button>
                 </div>
               </section>
 
               <Separator className="bg-map-border" />
 
-              <section className="space-y-3">
-                <SectionHeader
-                  eyebrow="Selection notebook"
-                  title="Capture what matters while the boundary stays lit."
-                  body="Save a task and note against the highlighted parcel set. Saving here pins those parcels in the notebook."
-                />
-                <div className="grid grid-cols-3 gap-2">
-                  <MetricCell
-                    label="Matches"
-                    value={searchMatchCount}
-                    icon={<Rows3 className="h-3.5 w-3.5" />}
-                  />
-                  <MetricCell
-                    label="Nearby"
-                    value={nearbyCount}
-                    icon={<Target className="h-3.5 w-3.5" />}
-                  />
-                  <MetricCell
-                    label="Blocked"
-                    value={trackedSummary.blockedCount}
-                    icon={<AlertTriangle className="h-3.5 w-3.5" />}
-                  />
-                </div>
-                <div className="rounded-xl border border-map-border bg-map-surface/45 px-3 py-3">
+              {selectedParcels.length > 0 ? (
+                <section className="space-y-2">
+                  <SectionLabel>Selection</SectionLabel>
+                  <div className="rounded-xl border border-map-border bg-map-surface/45 px-3 py-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="text-[11px] font-medium text-map-text-primary">
                       {selectedParcels.length > 0
@@ -442,28 +355,24 @@ export function MapOperatorConsole({
                       rows={4}
                       className="min-h-[112px] border-map-border bg-map-surface text-[11px] leading-5 text-map-text-primary placeholder:text-map-text-muted"
                     />
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-[10px] leading-4 text-map-text-muted">
-                        Saving pins the parcel boundary in the notebook until you remove it.
-                      </p>
-                      <Button
-                        type="button"
-                        onClick={() =>
-                          onSaveSelection({
-                            task: taskDraft,
-                            note: noteDraft,
-                            status: statusDraft,
-                          })
-                        }
-                        disabled={!canSaveSelection}
-                        className="h-8 bg-map-accent px-3 text-[10px] font-medium text-white hover:bg-map-accent/90 disabled:opacity-40"
-                      >
-                        {saveLabel}
-                      </Button>
-                    </div>
+                    <Button
+                      type="button"
+                      onClick={() =>
+                        onSaveSelection({
+                          task: taskDraft,
+                          note: noteDraft,
+                          status: statusDraft,
+                        })
+                      }
+                      disabled={!canSaveSelection}
+                      className="h-8 bg-map-accent px-3 text-[10px] font-medium text-white hover:bg-map-accent/90 disabled:opacity-40"
+                    >
+                      {saveLabel}
+                    </Button>
                   </div>
                 </div>
-              </section>
+                </section>
+              ) : null}
 
               <AnimatePresence initial={false}>
                 {selectedParcels.length === 1 ? (
@@ -473,13 +382,9 @@ export function MapOperatorConsole({
                     animate={{ opacity: 1, y: 0 }}
                     exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
                     transition={TAB_TRANSITION}
-                    className="space-y-3"
+                    className="space-y-2"
                   >
-                    <SectionHeader
-                      eyebrow="Selection brief"
-                      title="Run the parcel screen before you advance it."
-                      body="The screening stack gives you a quick constraint read before the parcel moves deeper into the queue."
-                    />
+                    <SectionLabel>Screening</SectionLabel>
                     <div className="rounded-xl border border-map-border bg-map-surface/45 px-3 py-3">
                       <ScreeningScorecard parcelId={selectedParcels[0]?.id ?? null} />
                     </div>
@@ -489,12 +394,8 @@ export function MapOperatorConsole({
 
               <Separator className="bg-map-border" />
 
-              <section className="space-y-3">
-                <SectionHeader
-                  eyebrow="Tracked parcels"
-                  title="Use the notebook as the active follow-up queue."
-                  body="Focus an entry to jump back to the map, revise the note, or mark the task complete."
-                />
+              <section className="space-y-2">
+                <SectionLabel>Tracked</SectionLabel>
                 {trackedParcels.length === 0 ? (
                   <div className="rounded-xl border border-dashed border-map-border bg-map-surface/30 px-3 py-3 text-[11px] leading-5 text-map-text-muted">
                     No tracked parcels yet. Save a note from the current selection to keep that parcel boundary highlighted.
@@ -610,11 +511,7 @@ export function MapOperatorConsole({
             className="flex h-full min-h-0 flex-col"
           >
             <div className="border-b border-map-border px-4 py-3">
-              <SectionHeader
-                eyebrow="Analyst table"
-                title="Work the parcel set directly."
-                body="Filter, sort, and multi-select parcels from the current live geography without leaving the console."
-              />
+              <SectionLabel>Parcels</SectionLabel>
             </div>
             <MapParcelDataGrid
               embedded

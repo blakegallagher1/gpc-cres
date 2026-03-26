@@ -1596,7 +1596,7 @@ export function MapPageClient() {
               }
             />
               </div>
-              <div className="hidden xl:flex xl:min-w-[29rem] xl:max-w-[31rem]">
+              <div className="hidden xl:flex xl:min-w-[25rem] xl:max-w-[27rem]">
                 <MapOperatorConsole
                   parcels={activeParcels}
                   selectedIds={selectedParcelIds}
