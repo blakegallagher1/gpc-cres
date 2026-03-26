@@ -1752,32 +1752,39 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
 
         // Fix: MapLibre vector sources initialized below their minzoom can
         // get stuck with no tiles loaded even after zooming past minzoom.
-        // Detect this and force-reload the source on the first zoom crossing.
+        // Detect this and force-reload the source. Runs on load, moveend,
+        // and a delayed check to catch all edge cases.
         const PARCEL_TILE_MINZOOM = 10;
         let parcelSourceReloaded = false;
-        const handleZoomForTileFix = () => {
+        const forceReloadParcelSource = () => {
+          try {
+            const src = map.getSource("parcel-tiles");
+            if (src && "setTiles" in src && typeof src.setTiles === "function") {
+              src.setTiles([getMartinParcelTileUrl("ebr_parcels") || getParcelTileUrl()]);
+            }
+          } catch { /* non-critical */ }
+        };
+        const checkAndReloadTiles = () => {
           if (parcelSourceReloaded) return;
           const z = map.getZoom();
           if (z < PARCEL_TILE_MINZOOM) return;
           const features = map.queryRenderedFeatures(undefined, { layers: ["parcel-tiles-fill"] });
           if (features.length > 0) {
             parcelSourceReloaded = true;
-            map.off("zoomend", handleZoomForTileFix);
+            map.off("moveend", checkAndReloadTiles);
             return;
           }
-          // No features at a zoom that should have them — force reload source
+          // No features at a zoom that should have them — force reload
           parcelSourceReloaded = true;
-          map.off("zoomend", handleZoomForTileFix);
-          try {
-            const src = map.getSource("parcel-tiles");
-            if (src && "setTiles" in src && typeof src.setTiles === "function") {
-              src.setTiles([getMartinParcelTileUrl("ebr_parcels") || getParcelTileUrl()]);
-            }
-          } catch { /* source reload failed, non-critical */ }
+          map.off("moveend", checkAndReloadTiles);
+          forceReloadParcelSource();
         };
-        map.on("zoomend", handleZoomForTileFix);
-        // Also run once on load in case we're already at a valid zoom
-        handleZoomForTileFix();
+        map.on("moveend", checkAndReloadTiles);
+        // Run on load in case already at valid zoom
+        checkAndReloadTiles();
+        // Delayed check: covers the case where map loads at the boundary
+        // and neither moveend nor zoomend fires
+        setTimeout(() => checkAndReloadTiles(), 2000);
 
         const hideBoundaryLayerVisibility = () => {
           try {

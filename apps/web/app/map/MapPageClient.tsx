@@ -377,7 +377,11 @@ export function MapPageClient() {
         : initialCenterFromUrl,
     [initialCenterFromUrl, mapState.center],
   );
-  const mapZoom = mapState.zoom ?? initialZoomFromUrl ?? 11;
+  // Clamp to at least 11 — parcel tiles have minzoom 10 and MapLibre's vector
+  // source gets stuck when initialized below it. Zoom 11 is the safe default.
+  const PARCEL_MIN_INIT_ZOOM = 11;
+  const rawZoom = mapState.zoom ?? initialZoomFromUrl ?? PARCEL_MIN_INIT_ZOOM;
+  const mapZoom = Math.max(rawZoom, PARCEL_MIN_INIT_ZOOM);
   const authDisabledHint =
     process.env.NODE_ENV !== "production"
       ? " Start the dev server with NEXT_PUBLIC_DISABLE_AUTH=true or sign in."
