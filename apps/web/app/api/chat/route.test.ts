@@ -166,6 +166,34 @@ describe("POST /api/chat", () => {
     expect(msg).toContain("Show me the selected parcel.");
   });
 
+  it("passes the selected CUA model through to the agent workflow", async () => {
+    resolveAuthMock.mockResolvedValue({
+      userId: "99999999-9999-4999-8999-999999999999",
+      orgId: "11111111-1111-4111-8111-111111111111",
+    });
+    runAgentWorkflowMock.mockResolvedValue({
+      conversationId: "conv-cua",
+    });
+
+    const req = new NextRequest("http://localhost/api/chat", {
+      method: "POST",
+      body: JSON.stringify({
+        message: "Use browser automation on the county site.",
+        cuaModel: "gpt-5.4-mini",
+      }),
+    });
+
+    const res = await POST(req);
+    await res.text();
+
+    expect(res.status).toBe(200);
+    expect(runAgentWorkflowMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        preferredCuaModel: "gpt-5.4-mini",
+      }),
+    );
+  });
+
   it("streams current chat SSE event names and payload shapes unchanged", async () => {
     resolveAuthMock.mockResolvedValue({
       userId: "99999999-9999-4999-8999-999999999999",
@@ -259,12 +287,13 @@ describe("POST /api/chat", () => {
     expect(() => writer.close()).not.toThrow();
   });
 
-  it("returns structured SSE fallback payloads when the app DB is unavailable in dev", async () => {
+  it("runs in degraded ephemeral mode when the app DB is unavailable in dev", async () => {
     shouldUseAppDatabaseDevFallbackMock.mockReturnValue(true);
     resolveAuthMock.mockResolvedValue({
       userId: "99999999-9999-4999-8999-999999999999",
       orgId: "11111111-1111-4111-8111-111111111111",
     });
+    runAgentWorkflowMock.mockResolvedValue({ conversationId: null });
 
     const req = new NextRequest("http://localhost/api/chat", {
       method: "POST",
@@ -274,11 +303,14 @@ describe("POST /api/chat", () => {
     const text = await res.text();
 
     expect(res.status).toBe(200);
-    expect(text).toContain('"type":"error"');
-    expect(text).toContain('"type":"done"');
-    expect(text).toContain('"code":"system_configuration_error"');
-    expect(text).toContain("System configuration error");
-    expect(runAgentWorkflowMock).not.toHaveBeenCalled();
+    expect(runAgentWorkflowMock).toHaveBeenCalledTimes(1);
+    expect(runAgentWorkflowMock.mock.calls[0][0]).toMatchObject({
+      persistConversation: false,
+      conversationId: null,
+      dealId: null,
+      ephemeralMode: true,
+    });
+    expect(text).toContain('"status":"degraded_mode"');
   });
 
   it("retries in ephemeral mode when DB connectivity fails", async () => {

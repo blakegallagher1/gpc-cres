@@ -233,12 +233,15 @@ function toClientErrorPayload(message: string, correlationId: string): Record<st
 export async function POST(req: NextRequest) {
   setupAgentTracing();
 
+  type CuaModelPreference = "gpt-5.4" | "gpt-5.4-mini";
+
   let body: {
     message?: string;
     conversationId?: string;
     dealId?: string;
     intent?: string;
     mapContext?: MapContextInput | null;
+    cuaModel?: CuaModelPreference;
   };
   try {
     body = (await req.json()) as {
@@ -247,6 +250,7 @@ export async function POST(req: NextRequest) {
       dealId?: string;
       intent?: string;
       mapContext?: MapContextInput | null;
+      cuaModel?: CuaModelPreference;
     };
   } catch {
     return Response.json({ error: "Invalid JSON" }, { status: 400 });
@@ -254,6 +258,10 @@ export async function POST(req: NextRequest) {
 
   const { conversationId: requestedConversationId, dealId, intent, mapContext } = body;
   const message = (body.message ?? "").trim();
+  const preferredCuaModel =
+    body.cuaModel === "gpt-5.4" || body.cuaModel === "gpt-5.4-mini"
+      ? body.cuaModel
+      : undefined;
   const correlationId =
     req.headers.get("x-request-id") ?? req.headers.get("idempotency-key") ?? randomUUID();
 
@@ -269,8 +277,9 @@ export async function POST(req: NextRequest) {
       tags: { route: "api.chat", method: "POST" },
     });
     console.error("[chat-route] resolveAuth error:", err);
+    const errDetail = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
     return Response.json(
-      { error: "Authentication service unavailable" },
+      { error: "Authentication service unavailable", detail: errDetail },
       { status: 500 },
     );
   }
@@ -278,28 +287,7 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (shouldUseAppDatabaseDevFallback()) {
-    const errorPayload = toClientErrorPayload(
-      "PrismaClientInitializationError: Environment variable not found: DATABASE_URL",
-      correlationId,
-    );
-    return new Response(
-      `${sseEvent(errorPayload)}${sseEvent({
-        type: "done",
-        runId: randomUUID(),
-        status: "failed",
-        conversationId: requestedConversationId ?? null,
-      })}`,
-      {
-        headers: {
-          "Content-Type": "text/event-stream",
-          "Cache-Control": "no-cache",
-          Connection: "keep-alive",
-        },
-      },
-    );
-  }
-
+  const appDatabaseUnavailableInDev = shouldUseAppDatabaseDevFallback();
   const effectiveConversationId = requestedConversationId ?? randomUUID();
   const encoder = new TextEncoder();
   let writer:
@@ -327,17 +315,27 @@ export async function POST(req: NextRequest) {
           ? `${JSON.stringify(structured)}\n\n${message}`
           : `${fallbackPrefix}${message}`;
 
+        if (appDatabaseUnavailableInDev) {
+          writer.enqueue({
+            type: "status",
+            status: "degraded_mode",
+            message: "Running without chat persistence because the app database is unavailable in local development.",
+          });
+        }
+
         const workflowArgs = {
           orgId: auth.orgId,
           userId: auth.userId,
-          conversationId: requestedConversationId ?? null,
+          conversationId: appDatabaseUnavailableInDev ? null : requestedConversationId ?? null,
           message: contextMessage,
-          dealId: dealId ?? null,
+          dealId: appDatabaseUnavailableInDev ? null : dealId ?? null,
           runType: "ENRICHMENT" as const,
           maxTurns: 15,
           correlationId,
-          persistConversation: true,
+          persistConversation: !appDatabaseUnavailableInDev,
           intent: intent ?? undefined,
+          preferredCuaModel,
+          ephemeralMode: appDatabaseUnavailableInDev,
           onEvent: (event: AgentStreamEvent) => {
             if (event.type === "done") {
               doneSent = true;
@@ -354,16 +352,18 @@ export async function POST(req: NextRequest) {
         try {
           workflow = await runAgentWorkflow(workflowArgs);
         } catch (workflowError) {
-          if (!isDatabaseConnectivityError(workflowError)) {
+          if (appDatabaseUnavailableInDev || !isDatabaseConnectivityError(workflowError)) {
             throw workflowError;
           }
+          const dbErrMsg = workflowError instanceof Error ? workflowError.message : String(workflowError);
           console.warn(
-            `[chat-route][${correlationId}] app DB unavailable; retrying in ephemeral mode`,
+            `[chat-route][${correlationId}] app DB unavailable; retrying in ephemeral mode. Error: ${dbErrMsg}`,
           );
           writer.enqueue({
             type: "status",
             status: "degraded_mode",
-            message: "Running without chat persistence while database connectivity recovers.",
+            message: `Running without chat persistence while database connectivity recovers.`,
+            debug: dbErrMsg,
           });
           workflow = await runAgentWorkflow({
             ...workflowArgs,
@@ -371,6 +371,7 @@ export async function POST(req: NextRequest) {
             conversationId: null,
             dealId: null,
             ephemeralMode: true,
+            preferredCuaModel,
           });
         }
 

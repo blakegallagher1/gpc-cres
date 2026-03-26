@@ -380,6 +380,20 @@ export function MapPageClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedParcelIds.size]);
 
+  useEffect(() => {
+    const handleKeyDown = (e: Event) => {
+      const event = e as unknown as KeyboardEvent;
+      // Don't trigger if user is typing in an input/textarea
+      const tag = (event.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (event.key === "[") {
+        setSidebarOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   const mapCenter = useMemo<[number, number]>(
     () =>
       mapState.center

@@ -1,7 +1,7 @@
 import { Env, UpstreamResult } from "./types";
 import { upstreamHeaders } from "./auth";
 
-const UPSTREAM_TIMEOUT_MS = 8000;
+const UPSTREAM_TIMEOUT_MS = 15000;
 
 export async function proxyToUpstream(
   env: Env,
@@ -20,6 +20,7 @@ export async function proxyToUpstream(
       headers: upstreamHeaders(env, requestId),
       body: body ? JSON.stringify(body) : undefined,
       signal: controller.signal,
+      redirect: "manual",
     });
 
     const raw = await res.text();
@@ -30,6 +31,9 @@ export async function proxyToUpstream(
       data = raw;
     }
 
+    if (!res.ok) {
+      console.error(`[upstream] ${method} ${url} → ${res.status} redirected=${res.redirected} type=${res.type} body=${raw.substring(0, 200)}`);
+    }
     return { ok: res.ok, status: res.status, data, raw };
   } catch (err) {
     const message = err instanceof Error ? err.message : "upstream error";

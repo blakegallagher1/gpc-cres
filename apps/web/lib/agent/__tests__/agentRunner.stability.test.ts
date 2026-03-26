@@ -92,7 +92,7 @@ vi.mock("@/lib/services/businessMemory.service", () => ({
 import { getTemporalClient } from "@/lib/workflowClient";
 import { prisma } from "@entitlement-os/db";
 import { executeAgentWorkflow } from "../executeAgent";
-import { runAgentWorkflow } from "../agentRunner";
+import { isDatabaseConnectivityError, runAgentWorkflow } from "../agentRunner";
 
 const BASE_REQUEST = {
   orgId: "org-stability",
@@ -376,5 +376,15 @@ describe("runAgentWorkflow local fallback resilience", () => {
     expect(workflow.agentInput[0].content).toContain(
       "[Historical business memory from prior user chats]",
     );
+  });
+
+  it("treats Prisma can't-reach-server failures as connectivity errors", () => {
+    expect(
+      isDatabaseConnectivityError(
+        new Error(
+          "Invalid `prisma.userPreference.findMany()` invocation:\n\nCan't reach database server at `localhost:54321`.",
+        ),
+      ),
+    ).toBe(true);
   });
 });

@@ -6,11 +6,9 @@ import {
   useState,
 } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { Map, ChevronRight, ChevronLeft } from "lucide-react";
 import { MessageList } from "@/components/chat/MessageList";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { parseSSEStream } from "@/lib/chat/stream";
@@ -180,27 +178,7 @@ export function MapChatPanel({
       : "Use the map context directly. Selected parcels and viewport state are included in the request.";
 
   return (
-    <>
-      <Button
-        type="button"
-        variant="outline"
-        onClick={() => setOpen((value) => !value)}
-        className="absolute right-3 top-4 z-30 h-auto justify-start gap-3 border-map-border bg-map-surface-overlay px-3 py-2 text-left text-sm font-medium text-map-text-primary shadow-xl backdrop-blur-md hover:bg-map-surface"
-        title={open ? "Close Map Copilot" : "Open Map Copilot"}
-      >
-        <div className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-map-border bg-map-surface/70">
-          <Map className="h-4 w-4" />
-        </div>
-        <div className="min-w-0">
-          <div className="text-sm font-semibold">Map Copilot</div>
-          <div className="text-[10px] uppercase tracking-[0.16em] text-map-text-muted">
-            {contextSummary}
-          </div>
-        </div>
-        {open ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-      </Button>
-
-      <AnimatePresence initial={false}>
+    <AnimatePresence initial={false}>
         {open && (
           <motion.div
             initial={reduceMotion ? false : { opacity: 0, x: PANEL_WIDTH * 0.18 }}
@@ -261,6 +239,5 @@ export function MapChatPanel({
           </motion.div>
         )}
       </AnimatePresence>
-    </>
   );
 }

@@ -2065,6 +2065,31 @@ def _coerce_arg(v):
     return v
 
 
+# asyncpg OIDs for numeric types that need string→float coercion
+# (Prisma serializes Decimal fields as JSON strings)
+_NUMERIC_PG_OIDS = {
+    20,    # int8/bigint
+    21,    # int2/smallint
+    23,    # int4/integer
+    700,   # float4/real
+    701,   # float8/double precision
+    1700,  # numeric/decimal
+}
+
+
+def _coerce_args_for_stmt(stmt, args):
+    """Coerce args using the prepared statement's expected parameter types."""
+    params = stmt.get_parameters()
+    coerced = list(args)
+    for i, (param_type, val) in enumerate(zip(params, coerced)):
+        if isinstance(val, str) and param_type.oid in _NUMERIC_PG_OIDS:
+            try:
+                coerced[i] = float(val)
+            except ValueError:
+                pass
+    return coerced
+
+
 def _serialize_value(v):
     if v is None:
         return None
@@ -2168,7 +2193,9 @@ async def db_query_proxy(
         column_names = [a.name for a in attrs]
         column_types = [_PG_OID_TO_PRISMA.get(a.type.oid, 7) for a in attrs]
 
-        records = await stmt.fetch(*args)
+        # Coerce string args to numeric types based on prepared statement parameter types
+        coerced = _coerce_args_for_stmt(stmt, args)
+        records = await stmt.fetch(*coerced)
         rows = [[_serialize_value(v) for v in record.values()] for record in records]
         return {
             "columnNames": column_names,

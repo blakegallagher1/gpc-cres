@@ -36,6 +36,7 @@ const RUN_LEASE_RETRY_MS = 700;
 const LOCAL_LEASE_PREFIX = "local-run-";
 const LOCAL_FALLBACK_RETRY_MODE = "local_fallback_after_temporal_start";
 const LOCAL_FALLBACK_MAX_ATTEMPTS = 1;
+type CuaModelPreference = "gpt-5.4" | "gpt-5.4-mini";
 
 export type AgentRunInput = {
   orgId: string;
@@ -54,6 +55,7 @@ export type AgentRunInput = {
   onEvent?: (event: AgentStreamEvent) => void;
   /** Force routing to a specific query intent (e.g. "market_trajectory"). */
   intent?: string;
+  preferredCuaModel?: CuaModelPreference;
   /** Skip app DB usage and run without persistence. */
   ephemeralMode?: boolean;
 };
@@ -384,6 +386,7 @@ function buildRequestFingerprint(payload: {
   runType?: string;
   maxTurns?: number;
   runInputCorrelationId?: string | null;
+  preferredCuaModel?: CuaModelPreference | null;
 }) {
   return hashJsonSha256({
     orgId: payload.orgId,
@@ -397,6 +400,7 @@ function buildRequestFingerprint(payload: {
     runType: payload.runType,
     maxTurns: payload.maxTurns,
     runInputCorrelationId: payload.runInputCorrelationId ?? null,
+    preferredCuaModel: payload.preferredCuaModel ?? null,
   });
 }
 
@@ -432,6 +436,11 @@ export function isDatabaseConnectivityError(error: unknown): boolean {
   return (
     lowered.includes("gateway db proxy error") ||
     lowered.includes("prismaclientinitializationerror") ||
+    lowered.includes("can't reach database server") ||
+    lowered.includes("cant reach database server") ||
+    lowered.includes("could not connect to server") ||
+    lowered.includes("connect etimedout") ||
+    lowered.includes("econnreset") ||
     lowered.includes("origin database does not support ssl") ||
     lowered.includes("connect econnrefused") ||
     lowered.includes("connection terminated unexpectedly") ||
@@ -614,6 +623,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
     injectSystemContext = true,
     onEvent,
     intent: intentOverride,
+    preferredCuaModel,
     ephemeralMode = false,
   } = params;
 
@@ -698,11 +708,13 @@ export async function runAgentWorkflow(params: AgentRunInput) {
         runType,
         maxTurns,
         runInputCorrelationId: requestedCorrelationId ?? null,
+        preferredCuaModel: preferredCuaModel ?? null,
       })}`,
       runType,
       maxTurns,
       intentHint: ephemeralIntentHint,
       queryIntentOverride: intentOverride as import("@entitlement-os/openai").QueryIntent | undefined,
+      preferredCuaModel,
       previousResponseId: null,
       onEvent: emitEvent,
       skipRunPersistence: true,
@@ -973,6 +985,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
       runType,
       maxTurns,
       runInputCorrelationId: requestedCorrelationId ?? null,
+      preferredCuaModel: preferredCuaModel ?? null,
     });
     const correlationId = normalizeCorrelationId(
       requestedCorrelationId ?? requestFingerprint,
@@ -1257,6 +1270,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
       sku: sku ?? undefined,
       intentHint,
       queryIntentOverride: intentOverride as import("@entitlement-os/openai").QueryIntent | undefined,
+      preferredCuaModel,
       previousResponseId,
       onEvent: emitEvent,
     });
@@ -1314,6 +1328,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
       runType,
       maxTurns,
       runInputCorrelationId: requestedCorrelationId ?? null,
+      preferredCuaModel: preferredCuaModel ?? null,
     })}`,
     runType,
     maxTurns,
@@ -1322,6 +1337,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
     sku: sku ?? undefined,
     intentHint,
     queryIntentOverride: intentOverride as import("@entitlement-os/openai").QueryIntent | undefined,
+    preferredCuaModel,
     previousResponseId,
     onEvent: emitEvent,
   });

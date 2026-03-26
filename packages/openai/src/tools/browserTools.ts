@@ -1,6 +1,27 @@
 import { tool } from "@openai/agents";
 import { z } from "zod";
 
+type CuaModelPreference = "gpt-5.4" | "gpt-5.4-mini";
+
+function sanitizeCuaModel(value: unknown): CuaModelPreference | null {
+  return value === "gpt-5.4" || value === "gpt-5.4-mini" ? value : null;
+}
+
+function getPreferredCuaModel(context: unknown): CuaModelPreference | null {
+  let raw = context as Record<string, unknown> | undefined;
+  if (
+    raw &&
+    typeof raw === "object" &&
+    "context" in raw &&
+    typeof raw.context === "object" &&
+    raw.context !== null
+  ) {
+    raw = raw.context as Record<string, unknown>;
+  }
+
+  return sanitizeCuaModel(raw?.preferredCuaModel);
+}
+
 /**
  * Browser Automation Tools — CUA Worker integration.
  *
@@ -29,9 +50,9 @@ export const browser_task = tool({
     model: z.enum(["gpt-5.4", "gpt-5.4-mini"]).nullable()
       .describe("Vision model for browser automation. null = use user's default preference from chat header."),
   }),
-  execute: async ({ url, instructions, model }) => {
-    const cuaUrl = process.env.CUA_WORKER_URL ?? "https://cua.gallagherpropco.com";
-    const apiKey = process.env.LOCAL_API_KEY;
+  execute: async ({ url, instructions, model }, context) => {
+    const cuaUrl = process.env.CUA_WORKER_URL?.trim() || "https://cua.gallagherpropco.com";
+    const apiKey = process.env.LOCAL_API_KEY?.trim();
 
     if (!apiKey) {
       return { success: false, error: "LOCAL_API_KEY not configured" };
@@ -46,7 +67,11 @@ export const browser_task = tool({
       cfHeaders["CF-Access-Client-Secret"] = cfClientSecret;
     }
 
-    const cuaModel = model ?? (process.env.CUA_DEFAULT_MODEL as "gpt-5.4" | "gpt-5.4-mini") ?? "gpt-5.4";
+    const cuaModel =
+      model ??
+      getPreferredCuaModel(context) ??
+      sanitizeCuaModel(process.env.CUA_DEFAULT_MODEL) ??
+      "gpt-5.4";
 
     try {
       const controller = new AbortController();
@@ -72,7 +97,16 @@ export const browser_task = tool({
 
       if (!response.ok) {
         const text = await response.text().catch(() => "");
-        return { success: false, error: `CUA worker returned ${response.status}: ${text}` };
+        return {
+          success: false,
+          error: `CUA worker task create failed (${response.status}): ${text}`,
+          modeUsed: cuaModel,
+          cost: { inputTokens: 0, outputTokens: 0 },
+          source: {
+            url,
+            fetchedAt: new Date().toISOString(),
+          },
+        };
       }
 
       const { taskId, statusUrl } = await response.json() as { taskId: string; statusUrl: string };
@@ -117,15 +151,32 @@ async function pollForResult(
   intervalMs = 2_000,
 ): Promise<Record<string, unknown>> {
   const deadline = Date.now() + maxWaitMs;
+  let pollAttempts = 0;
 
   while (Date.now() < deadline) {
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    pollAttempts += 1;
 
     const res = await fetch(`${cuaUrl}/tasks/${taskId}`, {
       headers: { Authorization: `Bearer ${apiKey}`, ...cfHeaders },
     });
 
-    if (!res.ok) continue;
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      return {
+        success: false,
+        error: `CUA task status poll failed for ${taskId} with ${res.status}: ${text}`,
+        source: {
+          url: taskId,
+          fetchedAt: new Date().toISOString(),
+        },
+        turns: 0,
+        cost: { inputTokens: 0, outputTokens: 0 },
+        modeUsed: "native",
+        screenshots: [],
+        attempts: pollAttempts,
+      };
+    }
 
     const task = await res.json() as { status: string; result?: Record<string, unknown> };
 

@@ -34,6 +34,11 @@ export default {
 
     const url = new URL(request.url);
 
+    // Log all non-health requests for debugging
+    if (url.pathname !== "/health") {
+      console.log(`[req] ${request.method} ${url.pathname} from ${request.headers.get("user-agent")?.substring(0, 50)}`);
+    }
+
     // Health check — no auth
     if (url.pathname === "/health") {
       return jsonResponse({ status: "ok", service: "gpc-gateway-proxy" });
@@ -89,6 +94,24 @@ export default {
         "SELECT * FROM health_checks ORDER BY checked_at DESC LIMIT ?"
       ).bind(limit).all();
       return jsonResponse(rows.results);
+    }
+
+    // Prisma DB proxy — passthrough to gateway /db endpoint (no caching, no route matching)
+    if ((url.pathname === "/db" || url.pathname === "/db/query") && request.method === "POST") {
+      const dbBody = await request.json().catch(() => ({}));
+      const dbResult = await proxyToUpstream(env, "POST", "/db", dbBody);
+      if (dbResult.ok) {
+        return new Response(JSON.stringify(dbResult.data), {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+            "Cache-Control": "no-store",
+            "X-GPC-Source": "gateway",
+          },
+        });
+      }
+      console.error(`[db-proxy] upstream error: status=${dbResult.status} data=${dbResult.raw?.substring(0, 200)}`);
+      return jsonResponse(dbResult.data, dbResult.status || 502);
     }
 
     const requestId = crypto.randomUUID();

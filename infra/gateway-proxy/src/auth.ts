@@ -4,7 +4,7 @@ export function validateBearer(request: Request, env: Env): boolean {
   const authHeader = request.headers.get("Authorization");
   if (!authHeader) return false;
   const token = authHeader.replace("Bearer ", "");
-  return token === env.GATEWAY_PROXY_TOKEN;
+  return token === env.GATEWAY_PROXY_TOKEN || token === env.LOCAL_API_KEY;
 }
 
 export function upstreamHeaders(env: Env, requestId?: string): Record<string, string> {

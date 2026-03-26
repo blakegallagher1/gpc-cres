@@ -730,6 +730,7 @@ export function ChatContainer() {
             conversationId: conversationIdRef.current,
             dealId: selectedDealId,
             mapContext: requestMapContext,
+            cuaModel,
           }),
         });
 
@@ -767,7 +768,7 @@ export function ChatContainer() {
         setCurrentAgent(null);
       }
     },
-    [applyEvent, authToken, mapDispatch, mapState, selectedDealId, wsSendMessage],
+    [applyEvent, authToken, cuaModel, mapDispatch, mapState, selectedDealId, wsSendMessage],
   );
 
   const handleStop = useCallback(() => {

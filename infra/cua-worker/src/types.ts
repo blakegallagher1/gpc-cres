@@ -65,6 +65,7 @@ export type TaskState = {
   result?: TaskResult;
   startedAt: string;
   completedAt?: string;
+  abortController?: AbortController;
   signal?: AbortSignal;
 };
 

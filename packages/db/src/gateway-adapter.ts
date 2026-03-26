@@ -43,7 +43,7 @@ function getCfAccessHeaders(): Record<string, string> {
 }
 
 const GATEWAY_TIMEOUT_MS = 15_000;
-const MAX_RETRIES = 2;
+const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 500;
 
 async function gatewayFetch(
@@ -79,8 +79,8 @@ async function gatewayFetch(
       if (!res.ok) {
         const text = await res.text();
         const err = new Error(`Gateway DB proxy error (${res.status}): ${text}`);
-        // Only retry on 502/503/504 (upstream issues)
-        if (res.status >= 502 && res.status <= 504 && attempt < MAX_RETRIES) {
+        // Retry on 404 (intermittent CF Access/tunnel routing), 502/503/504 (upstream issues)
+        if ((res.status === 404 || (res.status >= 502 && res.status <= 504)) && attempt < MAX_RETRIES) {
           lastError = err;
           continue;
         }

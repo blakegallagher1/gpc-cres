@@ -1,0 +1,4 @@
+interface:
+  display_name: "Server Operations"
+  short_description: "Backend infrastructure diagnostics and recovery guidance"
+  default_prompt: "Use -ops to run backend diagnostics, restarts, and deployment recovery checks."

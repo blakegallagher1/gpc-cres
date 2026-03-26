@@ -154,6 +154,7 @@ async function executeTask(taskId: string, request: TaskRequest): Promise<void> 
 
       // Create abort controller for task cancellation
       const controller = new AbortController();
+      task.abortController = controller;
       task.signal = controller.signal;
 
       // Execute the appropriate mode
@@ -449,8 +450,8 @@ async function createServer() {
       }
 
       // Signal abort to running task
-      if (task.signal) {
-        (task.signal as any).controller?.abort();
+      if (task.abortController) {
+        task.abortController.abort();
       }
 
       task.status = "cancelled";

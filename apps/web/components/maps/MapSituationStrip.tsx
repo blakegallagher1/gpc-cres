@@ -1,5 +1,6 @@
 "use client";
 
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 export interface MapSituationStripProps {
@@ -13,9 +14,12 @@ export interface MapSituationStripProps {
   latencyLabel: string;
 }
 
-function Pill({ children, accent }: { children: React.ReactNode; accent?: boolean }) {
+function Pill({ children, accent, index }: { children: React.ReactNode; accent?: boolean; index?: number }) {
   return (
-    <span
+    <motion.span
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2, delay: (index ?? 0) * 0.05 }}
       className={cn(
         "pointer-events-auto inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-medium tracking-wide backdrop-blur-md",
         accent
@@ -24,7 +28,7 @@ function Pill({ children, accent }: { children: React.ReactNode; accent?: boolea
       )}
     >
       {children}
-    </span>
+    </motion.span>
   );
 }
 
@@ -50,8 +54,8 @@ export function MapSituationStrip({
 
   return (
     <div className="pointer-events-none absolute left-3 top-3 z-10 flex flex-wrap items-center gap-1.5">
-      {pills.map((p) => (
-        <Pill key={p.key} accent={p.accent}>
+      {pills.map((p, i) => (
+        <Pill key={p.key} accent={p.accent} index={i}>
           {p.label}
         </Pill>
       ))}

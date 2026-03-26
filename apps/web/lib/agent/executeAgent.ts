@@ -67,6 +67,7 @@ import { unifiedRetrieval } from "./retrievalAdapter";
 
 const DATA_AGENT_RETRIEVAL_LIMIT = 6;
 const DB_UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+type CuaModelPreference = "gpt-5.4" | "gpt-5.4-mini";
 
 const PROPERTY_DATA_HINT_RE = /\b(?:comp|comps|sale|sales|sold|sold for|price|prices|noi|cap rate|cap-rate|lender|tour|correction|corrections|listing|offer|asking|bought|purchased|rent|rental|valuation|cap|value)\b/i;
 const PROPERTY_ADDRESS_RE = /\b\d{1,6}\s+[a-z0-9.'"\-]+(?:\s+[a-z0-9.'"\-]+){0,6}\s+(?:st|street|ave|avenue|blvd|boulevard|rd|road|dr|drive|ln|lane|ct|court|pl|place|pkwy|parkway|hwy|highway|trl|trail|way|terr|terrace|cir|circle|ct\.|st\.|ave\.|blvd\.|rd\.|dr\.|ln\.|pl\.|hwy\.)\b/i;
@@ -271,6 +272,7 @@ export type AgentExecutionParams = {
   queryIntentOverride?: QueryIntent;
   onEvent?: (event: AgentStreamEvent) => void;
   correlationId?: string;
+  preferredCuaModel?: CuaModelPreference;
   retryMode?: string;
   retryAttempts?: number;
   retryMaxAttempts?: number;
@@ -1198,6 +1200,7 @@ export async function executeAgentWorkflow(
     dealId: params.dealId ?? null,
     jurisdictionId: params.jurisdictionId ?? null,
     previousResponseId: params.previousResponseId ?? null,
+    preferredCuaModel: params.preferredCuaModel ?? null,
     input: params.input,
   });
   const firstUserInput = params.input.find((entry) => entry.role === "user")?.content;
@@ -1420,12 +1423,21 @@ export async function executeAgentWorkflow(
       memoryToolsPresent,
       missingMemoryTools,
     } = applyAgentToolPolicy(coordinator, queryIntent);
+    const hasBrowserTask = preFilterTools.includes("browser_task");
     logger.debug("Agent pre-filter tool inventory", {
       queryIntent,
       toolCount: preFilterTools.length,
       hasQueryPropertyDb: preFilterTools.includes("query_property_db"),
+      hasBrowserTask,
       tools: preFilterTools,
     });
+    if (!hasBrowserTask) {
+      logger.warn("browser_task is not present in pre-filtered tool list", {
+        runId: dbRun.id,
+        queryIntent,
+        toolCount: preFilterTools.length,
+      });
+    }
     logger.debug("Agent run starting", {
       runId: dbRun.id,
       queryIntent,
@@ -1501,6 +1513,7 @@ export async function executeAgentWorkflow(
         dealId: params.dealId ?? null,
         jurisdictionId: params.jurisdictionId ?? null,
         sku: params.sku ?? null,
+        preferredCuaModel: params.preferredCuaModel ?? null,
       },
     } as Parameters<typeof run>[2];
     logger.debug("Agent run tool registry", {
@@ -1669,6 +1682,20 @@ export async function executeAgentWorkflow(
 
             if (output !== null) {
               const trimmedOutput = maybeTrimToolOutput(output);
+              if (toolName === "browser_task" && isRecord(trimmedOutput.value)) {
+                logger.debug("Agent browser_task tool output shape", {
+                  runId: dbRun.id,
+                  attemptLabel: label,
+                  hasScreenshots: Array.isArray(trimmedOutput.value.screenshots),
+                  hasTurns: typeof trimmedOutput.value.turns === "number",
+                  hasSource: isRecord(trimmedOutput.value.source),
+                  sourceUrl: isRecord(trimmedOutput.value.source)
+                    ? trimmedOutput.value.source.url
+                    : undefined,
+                  success: trimmedOutput.value.success,
+                  statusCode: trimmedOutput.value.error ? "failed" : "completed",
+                });
+              }
               emitToolEnd(emit, {
                 name: toolName,
                 result: trimmedOutput.value,
