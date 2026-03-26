@@ -25,7 +25,7 @@ type EventSubscriber = (event: TaskEvent) => void;
 const TaskRequestSchema = z.object({
   url: z.string().min(1),
   instructions: z.string().min(1),
-  model: z.enum(["gpt-4o", "gpt-4o-mini"]),
+  model: z.enum(["gpt-5.4", "gpt-5.4-mini"]),
   mode: z.enum(["native", "code", "auto"]).optional(),
   playbook: z
     .object({
@@ -47,7 +47,7 @@ const config = {
   apiKey: process.env.API_KEY ?? "",
   openaiApiKey: process.env.OPENAI_API_KEY ?? "",
   browserMode: process.env.BROWSER_MODE ?? "headless",
-  defaultModel: process.env.DEFAULT_MODEL ?? "gpt-4o-mini",
+  defaultModel: process.env.DEFAULT_MODEL ?? "gpt-5.4-mini",
   maxTurns: Number(process.env.MAX_TURNS ?? 24),
   screenshotDir: process.env.SCREENSHOT_DIR ?? "/tmp/cua-screenshots",
 };

@@ -20,7 +20,7 @@ export type BrowserSession = {
 export type TaskRequest = {
   url: string;
   instructions: string;
-  model: "gpt-4o" | "gpt-4o-mini";
+  model: "gpt-5.4" | "gpt-5.4-mini";
   mode?: "native" | "code" | "auto";
   playbook?: {
     strategy?: string;
