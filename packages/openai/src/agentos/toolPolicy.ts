@@ -38,6 +38,7 @@ const BASE_ALLOWED_TOOLS = [
   "search_parcels",
   "get_parcel_details",
   "evidence_snapshot",
+  "browser_task",
 ] as const;
 
 const PROPERTY_DB_QUERY_TOOLS = [
