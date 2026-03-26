@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenAI CUA"
+  short_description: "Implement OpenAI CUA workflows in Entitlement OS"
+  default_prompt: "Use $openai-cua to implement or verify browser_task and CUA worker changes in this repo."
