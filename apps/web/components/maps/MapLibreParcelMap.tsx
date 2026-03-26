@@ -1410,9 +1410,9 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
                 visibility: showLayers && showParcelBoundaries ? "visible" : "none",
               },
               paint: {
-                "fill-color": "#3b82f6",
-                "fill-opacity": 0.15,
-                "fill-outline-color": "#1d4ed8",
+                "fill-color": "#facc15",
+                "fill-opacity": 0.06,
+                "fill-outline-color": "#facc15",
               },
             },
             {
@@ -1424,9 +1424,9 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
                 visibility: showLayers && showParcelBoundaries ? "visible" : "none",
               },
               paint: {
-                "line-color": "#1d4ed8",
-                "line-width": 0.75,
-                "line-opacity": 0.6,
+                "line-color": "#facc15",
+                "line-width": 1,
+                "line-opacity": 0.7,
               },
             },
             {
