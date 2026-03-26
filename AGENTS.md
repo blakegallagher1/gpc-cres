@@ -27,16 +27,22 @@ for parcel/tools behind Cloudflare Tunnel, and optional Python reference code un
 │  shared · db (Prisma) · evidence · artifacts · openai ·     │
 │  server (@gpc/server)                                        │
 ├─────────────────────────────────────────────────────────────┤
+│ infra/cloudflare-agent/ (Durable Object + WebSocket)        │
+│ Agent runtime at agents.gallagherpropco.com                  │
+├─────────────────────────────────────────────────────────────┤
+│ infra/cua-worker/ (CUA Browser Agent)                        │
+│ Node.js + Playwright, Responses API computer_call loop       │
+├─────────────────────────────────────────────────────────────┤
 │ apps/worker (@entitlement-os/worker)                         │
 │ Temporal worker — parked for v2; not built in default CI    │
 ├─────────────────────────────────────────────────────────────┤
 │ infra/local-api/main.py + admin_router.py                   │
-│ FastAPI gateway (parcel, tools, screening, tiles proxy)       │
+│ FastAPI gateway (parcel, tools, screening, tiles, CUA proxy) │
 ├─────────────────────────────────────────────────────────────┤
 │ legacy/python/                                               │
 │ Frozen reference (original Python agents) — do not delete   │
 ├─────────────────────────────────────────────────────────────┤
-│ External: OpenAI · county/GIS sources · Martin tiles · Qdrant│
+│ External: OpenAI · county/GIS · Martin tiles · Qdrant       │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -46,6 +52,8 @@ for parcel/tools behind Cloudflare Tunnel, and optional Python reference code un
 - **App & API routes**: Next.js (Vercel)
 - **Database**: PostgreSQL with Prisma ORM (migrations in `packages/db/prisma/migrations`)
 - **Gateway**: FastAPI + asyncpg (`infra/local-api/`), documented in `docs/claude/backend.md`
+- **Agent Runtime**: Cloudflare Workers + Durable Objects (WebSocket chat)
+- **Browser Automation**: Node.js + Playwright + Chromium (CUA Worker, Docker Compose)
 - **Package Manager**: pnpm 9.x (workspaces)
 - **Testing**: Vitest (unit + integration), Playwright (e2e)
 - **Linting**: ESLint 9.x with typescript-eslint
@@ -212,6 +220,32 @@ ssh cres_admin@ssh.gallagherpropco.com
 **Vercel → Postgres:** Cloudflare Hyperdrive (config `ebd13ab7df60414d9ba8244299467e5e`) through CF Worker `/db` endpoint. Prisma adapter: `packages/db/src/gateway-adapter.ts`.
 
 **Reference docs:** `docs/SERVER_MANAGEMENT.md`, `docs/CLOUDFLARE.md`, `docs/server-manifest.json`
+
+## CUA Browser Agent (Computer Use Automation)
+
+**Running the CUA Worker:**
+```bash
+# From C:\gpc-cres-backend\ on Windows server
+docker-compose up -d gpc-cua-worker
+
+# Verify health
+curl -H "Authorization: Bearer $LOCAL_API_KEY" https://cua.gallagherpropco.com/health
+```
+
+**Agent tool integration:**
+- Tool: `browser_task` in `packages/openai/src/tools/browserTools.ts`
+- Sends OpenAI Responses API `{ type: "computer" }` task to CUA Worker
+- Uses CF Access headers for tunnel authentication
+- Polls worker task status via GET `/tasks/:id`
+- Streams screenshots via GET `/tasks/:id/events` (SSE)
+
+**Key files:**
+- CUA Worker: `infra/cua-worker/src/{server.ts, responses-loop.ts, browser-session.ts}`
+- Agent tool: `packages/openai/src/tools/browserTools.ts`
+- UI: `apps/web/components/chat/{CuaModelToggle.tsx, BrowserSessionCard.tsx}`
+- Env var: `CUA_WORKER_URL` (Vercel production)
+
+**Models:** GPT-5.4 (full capabilities) and GPT-5.4-mini (faster, cost-optimized) selectable via `CuaModelToggle` component in chat header.
 
 ## What Agents Must NOT Do
 

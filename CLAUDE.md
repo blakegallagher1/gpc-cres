@@ -1,6 +1,14 @@
 # CLAUDE.md
 
-Last reviewed: 2026-03-10
+Last reviewed: 2026-03-25
+
+**🟢 CUA BROWSER AGENT DEPLOYED (2026-03-25):**
+- ✅ CUA Worker Container: Node.js + Playwright + Chromium on Windows server (`gpc-cua-worker`)
+- ✅ CUA tunnel route: `cua.gallagherpropco.com` → gateway:8000 (with Host header proxy to cua-worker:3001)
+- ✅ Browser task tool: `browser_task` in agent tools, uses OpenAI Responses API with computer_call type (GPT-5.4 native)
+- ✅ UI components: `CuaModelToggle` (gpt-5.4 / gpt-5.4-mini selector), `BrowserSessionCard` (live screenshot display)
+- ✅ Agent prompt: Browser Automation section + playbook learning workflow in EntitlementOS agent
+- **See `docs/plans/2026-03-25-cua-browser-agent-design.md` and `docs/plans/2026-03-25-cua-browser-agent-implementation.md` for details**
 
 **🟢 MARCH 2026 STABILIZATION COMPLETE (2026-03-10):**
 - ✅ Map perf: initial load fanout 4→1 query, geometry batch 5→8 with 50ms delay, cache headers on all map routes
@@ -68,6 +76,21 @@ All property data requests go through the CF Worker at `gateway.gallagherpropco.
 | GET /admin/sync/status | Bearer | Sync status |
 | POST /admin/deploys/report | Bearer | Record deploy event |
 | GET /admin/health/history | Bearer | Health check history |
+
+## CUA Browser Agent (Computer Use Automation)
+
+Native browser automation for agents via OpenAI Responses API `{ type: "computer" }` tool (GPT-5.4 native computer_call).
+
+- **CUA Worker Container** (`gpc-cua-worker`): Node.js + Playwright + Chromium, running on Windows server Docker Compose
+  - Source: `infra/cua-worker/` (TypeScript, Fastify server)
+  - Endpoints: GET /health, POST /tasks, GET /tasks/:id, GET /tasks/:id/events (SSE)
+  - Port 3001 on `gpc-cres-backend_internal` Docker network
+- **Tunnel route**: `cua.gallagherpropco.com` → gateway:8000 (middleware proxies Host header "cua." to cua-worker:3001)
+- **Browser task tool** (`packages/openai/src/tools/browserTools.ts`): Sends CF Access headers, polls CUA worker for task completion
+- **Agent integration**: Added to `BASE_ALLOWED_TOOLS` and `entitlementOsTools` array
+- **UI components**: `CuaModelToggle.tsx` (model selector), `BrowserSessionCard.tsx` (live screenshot)
+- **Agent prompt**: Browser Automation section in EntitlementOS agent with playbook learning (search KB → browse → save strategy)
+- **Env var (Vercel)**: `CUA_WORKER_URL=https://cua.gallagherpropco.com`
 
 ## Key Rules
 

@@ -19,6 +19,7 @@
 | TypeScript | strict mode | 5.7.3 |
 | Local API | FastAPI gateway (Docker Compose) + Martin + Qdrant | 0.115 / 0.30 |
 | Agent Runtime | Cloudflare Workers + Durable Objects (WebSocket chat) | — |
+| Browser Automation | Node.js + Playwright + Chromium (CUA Worker, Docker Compose) | 22 / 4.2 / 126 |
 | Tunnel | Cloudflare Tunnel + Hyperdrive (DB proxy for Vercel) | — |
 | Orchestration (parked) | Temporal | 1.24.2 |
 
@@ -71,15 +72,16 @@ entitlement-os/
 
 **Tool wiring:** Module-level agent exports are tool-free. Tools are attached via `withTools()` inside `createConfiguredCoordinator()` — never on the bare exports.
 
-**~28 unique tools** across 10 files in `packages/openai/src/tools/`, distributed into 14 agent-specific arrays:
+**~29 unique tools** across 10 files in `packages/openai/src/tools/`, distributed into 14 agent-specific arrays:
 - Deal CRUD, task management, parcel updates
 - Property DB: search 560K parcels, 7 screening endpoints (flood, soils, wetlands, EPA, traffic, LDEQ, full)
 - Zoning matrix lookup (EBR UDC), parish pack lookup
 - Evidence snapshot, hash comparison
 - Triage scoring, hard filter checks
 - Buyer management + outreach logging
+- Browser automation (`browser_task`) — tasks sent to CUA Worker for Playwright execution
 
-All 14 agents have tools wired. Market Trajectory uses Socrata (building permits) and Google Places (gentrification indicators).
+All 14 agents have tools wired. Market Trajectory uses Socrata (building permits) and Google Places (gentrification indicators). EntitlementOS agent can execute browser automation via `browser_task` tool with playbook learning workflow (search KB → browse → save strategy).
 
 ## Agent Communication Layer (Cloudflare Worker + Durable Object)
 
@@ -103,6 +105,40 @@ Deployed at `agents.gallagherpropco.com`. Provides persistent WebSocket transpor
 **Durable Object state:** Keyed by `conversationId`. Stores `lastResponseId` for OpenAI response chaining via `previous_response_id`. Uses Hibernation API (`acceptWebSocket`) — instance variables reset between messages, recovered from `this.state.storage`.
 
 **Detailed architecture:** See `docs/CLOUDFLARE_AGENTS.md`.
+
+## CUA Browser Agent (Computer Use Automation)
+
+Native browser automation for agents via OpenAI Responses API `{ type: "computer" }` tool. Powered by GPT-5.4 native computer_call capability.
+
+```
+[Vercel] → [CF Tunnel] → [gateway:8000] → [middleware proxy Host: "cua."] → [cua-worker:3001]
+                             ↓
+                    [Fastify HTTP server]
+                         ↓
+                  [Playwright Browser]
+                         ↓
+              [OpenAI Responses API computer_call loop]
+```
+
+**Key components:**
+- **CUA Worker Container** (`gpc-cua-worker`): Node.js 22 + Fastify + Playwright 4.2 + Chromium 126, running on Windows server Docker Compose
+- **Source**: `infra/cua-worker/` (TypeScript, build artifacts in `dist/`)
+- **Endpoints**: GET /health, POST /tasks (start task), GET /tasks/:id (poll), GET /tasks/:id/events (SSE)
+- **Port**: 3001 on `gpc-cres-backend_internal` Docker network (internal to Windows server)
+- **Tunnel route**: `cua.gallagherpropco.com` → gateway:8000 with `httpHostHeader: "cua.gallagherpropco.com"`
+- **Gateway middleware** (`infra/local-api/main.py`): Checks Host header for "cua." prefix, proxies to cua-worker:3001
+- **Browser task tool** (`packages/openai/src/tools/browserTools.ts`): Sends CF Access headers, polls CUA worker for completion
+- **Agent integration**: `browser_task` in `BASE_ALLOWED_TOOLS`, added to `entitlementOsTools` array
+- **UI components**: `CuaModelToggle.tsx` (GPT-5.4 / GPT-5.4-mini selector), `BrowserSessionCard.tsx` (screenshot streamer)
+- **Agent prompt**: Browser Automation section in EntitlementOS agent with playbook learning (search KB before browsing, save successful strategies)
+
+**Files:**
+- `infra/cua-worker/src/server.ts` — Fastify HTTP server + task management
+- `infra/cua-worker/src/responses-loop.ts` — OpenAI Responses API computer_call loop
+- `infra/cua-worker/src/browser-session.ts` — Playwright browser wrapper
+- `packages/openai/src/tools/browserTools.ts` — agent tool for browser tasks
+- `apps/web/components/chat/CuaModelToggle.tsx` — model selector
+- `apps/web/components/chat/BrowserSessionCard.tsx` — screenshot display
 
 ## Data Model (Prisma — 18 models)
 

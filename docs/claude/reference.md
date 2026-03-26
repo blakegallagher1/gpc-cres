@@ -72,6 +72,7 @@ DATABASE_URL  (local-dev/tooling only; should remain non-authoritative in Vercel
 OPENAI_API_KEY
 QDRANT_URL=https://qdrant.gallagherpropco.com
 QDRANT_API_KEY=<optional if gateway proxies>
+CUA_WORKER_URL=https://cua.gallagherpropco.com  (Computer Use Automation worker)
 ```
 
 **Note:** `LOCAL_API_URL` can point to either subdomain depending on usage context:
@@ -114,6 +115,43 @@ HYPERDRIVE = "<Cloudflare Hyperdrive binding for Postgres>"
 **Feature flag (Vercel env):**
 ```
 NEXT_PUBLIC_AGENT_WS_URL=wss://agents.gallagherpropco.com  # Set to enable WebSocket transport
+```
+
+### CUA Worker (Computer Use Automation)
+
+**Docker service (in Windows docker-compose.yml):**
+```
+gpc-cua-worker:
+  image: node:22
+  working_dir: /app
+  volumes:
+    - ./gpc-cua-worker:/app
+  ports:
+    - "3001:3000"
+  networks:
+    - gpc-cres-backend_internal
+  environment:
+    OPENAI_API_KEY=<value from .env>
+```
+
+**Build & deploy (from `infra/cua-worker/`):**
+```bash
+npm install
+npm run build
+# Copy dist/ to Windows server at C:\gpc-cres-backend\gpc-cua-worker\
+docker-compose -f C:\gpc-cres-backend\docker-compose.yml up -d gpc-cua-worker
+```
+
+**Env vars (`.env` at `C:\gpc-cres-backend\`):**
+```
+OPENAI_API_KEY=<your-openai-api-key>
+```
+
+**Tunnel ingress config (Cloudflare):**
+```yaml
+- hostname: cua.gallagherpropco.com
+  service: http://localhost:8000
+  httpHostHeader: cua.gallagherpropco.com  # Preserves Host header for gateway proxy
 ```
 
 ## Authoritative data vs semantic recall
