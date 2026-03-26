@@ -219,6 +219,8 @@ ssh cres_admin@ssh.gallagherpropco.com
 
 **Vercel → Postgres:** Cloudflare Hyperdrive (config `ebd13ab7df60414d9ba8244299467e5e`) through CF Worker `/db` endpoint. Prisma adapter: `packages/db/src/gateway-adapter.ts`.
 
+**Comprehensive server operations guide:** `skills/server-ops/SKILL.md` — Full diagnostic checklist, failure modes, recovery procedures, Docker quirks, tunnel config, deployment commands, and environment variables. **Read this file first** when debugging any server issue.
+
 **Reference docs:** `docs/SERVER_MANAGEMENT.md`, `docs/CLOUDFLARE.md`, `docs/server-manifest.json`
 
 ## CUA Browser Agent (Computer Use Automation)

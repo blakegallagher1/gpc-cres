@@ -126,6 +126,7 @@ For domain-specific tasks, route to skill docs in `skills/`:
 - `skills/property-report` — investment memo and artifact generation tasks.
 - `skills/data-extraction` — county/assessor fetch and parcel import workflows.
 - `skills/parcel-ops` — parcel lookup, geometry retrieval, and map diagnostics.
+- `skills/server-ops` — Windows PC server debugging, Docker, gateway, database, tiles, tunnel ops.
 
 Use routing rules from each skill:
 
