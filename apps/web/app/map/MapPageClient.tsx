@@ -1369,18 +1369,18 @@ export function MapPageClient() {
       <div className="map-page relative flex h-[calc(100svh-var(--app-header-height))] flex-col overflow-hidden">
         {!loading && (
           <>
-            <MapSituationStrip
-              selectedCount={selectedParcelIds.size}
-              trackedCount={trackedSummary.totalCount}
-              openTaskCount={trackedSummary.openCount}
-              analysisCount={resultCards.length}
-              overlayCount={mapHudState.activeOverlays.length}
-              drawMode={mapHudState.drawMode}
-              dataFreshnessLabel={dataFreshnessLabel}
-              latencyLabel={latencyLabel}
-            />
             <div className="relative flex min-h-0 flex-1">
               <div className="relative min-w-0 flex-1">
+                <MapSituationStrip
+                  selectedCount={selectedParcelIds.size}
+                  trackedCount={trackedSummary.totalCount}
+                  openTaskCount={trackedSummary.openCount}
+                  analysisCount={resultCards.length}
+                  overlayCount={mapHudState.activeOverlays.length}
+                  drawMode={mapHudState.drawMode}
+                  dataFreshnessLabel={dataFreshnessLabel}
+                  latencyLabel={latencyLabel}
+                />
                 {activePanel === "chat" && (
                   <MapChatPanel
                     parcelCount={activeParcels.length}
