@@ -1,32 +1,55 @@
-***
+---
 name: server-ops
-version: "1.0"
-description: |
-  Use when: Debugging, deploying, restarting, or modifying anything on the Windows PC server (BG) — Docker containers, gateway, database, tiles, tunnels, CUA worker.
-  Don't use when: The request is purely frontend (Vercel), agent prompt editing, or financial modeling with no server dependency.
-  Outputs: Diagnostic results, recovery steps, deployment confirmations, or server state reports.
-***
+description: Use when diagnosing, deploying, restarting, or recovering Gallagher backend infrastructure on the Windows 11 server (Docker, FastAPI gateway, database, tiles, tunnel, CUA worker, and auth routes). Use for production health checks, log triage, and command sequences that require tunnel or admin-API access.
+---
 
 # Server Operations Skill — Windows PC Infrastructure
 
 ## Architecture Overview
 
-A 12-core i7 Windows 11 PC runs **one Docker Compose stack** with all backend services. Every service is accessible ONLY through **Cloudflare Tunnel** — Windows Firewall blocks all LAN TCP ports.
+A 12-core i7 Windows 11 PC runs **one Docker Compose stack** with all backend services. **Dual-path networking:** Tailscale mesh (primary) + Cloudflare Tunnel (fallback/public).
 
 ```
-Internet → Cloudflare Tunnel (9f7fb0d6) → Docker Compose Stack
-                                            ├── gateway (FastAPI :8000)
-                                            ├── martin (Tile server :3000)
-                                            ├── entitlement-os-postgres (PostgreSQL :5432)
-                                            ├── qdrant (Vector DB :6333)
-                                            ├── cua-worker (Browser automation :3001)
-                                            ├── cloudflared (Tunnel agent)
-                                            └── codex-server (WebSocket :8765)
+DUAL-PATH ARCHITECTURE:
+
+Public Traffic (Cloudflare — CDN, DDoS, edge caching):
+  Internet → Cloudflare Tunnel (9f7fb0d6) → Docker Compose Stack
+
+Operator/Agent Traffic (Tailscale — direct WireGuard, 5ms):
+  Mac/Codex VM → WireGuard P2P → Windows PC (100.67.140.126)
+  Direct: SSH, Docker, Postgres, Admin API, all services
+
+Docker Compose Stack:
+  ├── gateway (FastAPI :8000)
+  ├── martin (Tile server :3000)
+  ├── entitlement-os-postgres (PostgreSQL :54323→5432)
+  ├── qdrant (Vector DB :6333)
+  ├── cua-worker (Browser automation :3001)
+  ├── cloudflared (Tunnel agent)
+  └── codex-server (WebSocket :8765)
 ```
+
+**Self-healing:** Windows watchdog (`GPC-Watchdog` Scheduled Task) runs every 60s. Auto-restarts sshd, Tailscale, Docker Desktop, and all containers. Logs: `C:\gpc-cres-backend\logs\watchdog.log`. Heartbeat: `C:\gpc-cres-backend\logs\heartbeat.txt`.
+
+**Preflight check:** Run `scripts/server-preflight.sh` before any server work session.
 
 ## Connection Methods (in order of preference)
 
-### 1. Admin API (PREFERRED — no SSH needed)
+### 0. Tailscale Direct (FASTEST — 5ms peer-to-peer WireGuard)
+
+All services are directly accessible via the Windows PC's Tailscale IP (`100.67.140.126`).
+
+| Service | Tailscale URL | Cloudflare Fallback |
+|---------|--------------|-------------------|
+| Admin API | `http://100.67.140.126:8000/admin` | `https://api.gallagherpropco.com/admin` |
+| Gateway API | `http://100.67.140.126:8000` | `https://api.gallagherpropco.com` |
+| SSH | `ssh bg` (alias for `cres_admin@100.67.140.126`) | `ssh bg-cf` |
+| PostgreSQL | `psql -h 100.67.140.126 -p 54323` | `cloudflared access tcp ...` |
+| Tiles | `http://100.67.140.126:3000` | `https://tiles.gallagherpropco.com` |
+| CUA Worker | `http://100.67.140.126:3001` | `https://cua.gallagherpropco.com` |
+| Qdrant | `http://100.67.140.126:6333` | `https://qdrant.gallagherpropco.com` |
+
+### 1. Admin API (PREFERRED when Tailscale is down)
 ```bash
 # Base URL
 ADMIN_URL="https://api.gallagherpropco.com/admin"

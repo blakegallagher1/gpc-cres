@@ -153,17 +153,21 @@ should use feature branches (`feat/`, `fix/`, `refactor/`).
 
 The production backend runs on a 12-core i7 Windows 11 machine via Docker Compose.
 
+**Dual-path networking:** Tailscale mesh (primary, 5ms WireGuard) + Cloudflare Tunnel (fallback/public HTTP).
+
 **Services:**
-| Service | Internal Port | Public URL |
-|---------|--------------|------------|
-| FastAPI gateway | :8000 | `https://api.gallagherpropco.com` |
-| Martin tile server | :3000 | `https://tiles.gallagherpropco.com` |
-| PostgreSQL | :5432 | `https://db.gallagherpropco.com` (via `cloudflared` tunnel) |
-| Qdrant vector DB | :6333 | `https://qdrant.gallagherpropco.com` |
+| Service | Tailscale (primary) | Cloudflare (fallback) |
+|---------|--------------------|-----------------------|
+| FastAPI gateway | `http://100.67.140.126:8000` | `https://api.gallagherpropco.com` |
+| Martin tile server | `http://100.67.140.126:3000` | `https://tiles.gallagherpropco.com` |
+| PostgreSQL | `100.67.140.126:54323` | `db.gallagherpropco.com` (cloudflared tunnel) |
+| Qdrant vector DB | `http://100.67.140.126:6333` | `https://qdrant.gallagherpropco.com` |
+| CUA Worker | `http://100.67.140.126:3001` | `https://cua.gallagherpropco.com` |
+| SSH | `ssh bg` (direct WireGuard) | `ssh bg-cf` (CF websocket, flaky) |
 
-All external access goes through Cloudflare Tunnel.
+**Self-healing:** Windows watchdog (`GPC-Watchdog`) auto-restarts crashed services every 60s. Preflight: `scripts/server-preflight.sh`.
 
-**Admin API (preferred over SSH):**
+**Admin API (preferred when Tailscale is down):**
 ```bash
 # Health check
 curl -H "Authorization: Bearer $ADMIN_API_KEY" https://api.gallagherpropco.com/admin/health
