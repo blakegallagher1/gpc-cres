@@ -92,7 +92,7 @@ L5: infra/cloudflare-agent       — CF Workers + Durable Objects.
 | `packages/artifacts` | `@entitlement-os/artifacts` | L2 |
 | `packages/openai` | `@entitlement-os/openai` | L3 |
 | `packages/server` | `@gpc/server` | L3 |
-| `packages/gateway-client` | `@gpc/gateway-client` | L3 |
+| `packages/gateway-client` | `@entitlement-os/gateway-client` | L3 |
 
 **Rules:**
 
