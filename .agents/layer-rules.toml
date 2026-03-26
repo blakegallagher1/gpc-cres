@@ -1,4 +1,6 @@
 # Layer rules for gallagher-cres (Entitlement OS)
+# Source of truth for architecture-audit skill
+# Updated 2026-03-26 to match actual codebase
 
 [project]
 name = "gallagher-cres"
@@ -6,17 +8,49 @@ type = "typescript-monorepo"
 package_manager = "pnpm"
 
 [layers]
-L0 = ["packages/types", "packages/config"]
+# L0: Foundation — zero internal imports allowed
+L0 = ["packages/shared"]
+
+# L1: Data — must NOT import L2+ or apps/
 L1 = ["packages/db"]
-L2 = ["packages/parcels", "packages/zoning", "packages/entitlements", "packages/evidence"]
-L3 = ["packages/api-client"]
+
+# L2: Domain libraries
+L2 = ["packages/evidence", "packages/artifacts"]
+
+# L3: Application services — may import L0-L2
+L3 = ["packages/openai", "packages/server", "packages/gateway-client"]
+
+# L4: Frontend — may import L0-L3
 L4 = ["apps/web"]
-L5 = ["scripts/", "workers/"]
+
+# L5: Infrastructure — separate runtimes, do NOT import packages/ or apps/
+L5 = ["infra/cloudflare-agent", "infra/gateway-proxy", "infra/cua-worker", "infra/local-api", "infra/admin-dashboard"]
+
+# PARKED: not built in CI, do not audit
+PARKED = ["apps/worker", "legacy/python"]
 
 [rules]
-leaf_packages = ["packages/types"]
+# packages/shared has ZERO internal package imports
+leaf_packages = ["packages/shared"]
+
+# packages/db must not import from apps/web, packages/openai, packages/evidence,
+# packages/artifacts, or packages/server
 db_boundary = ["packages/db"]
+
+# apps/web must never be imported by lower layers
 no_reverse_from = ["apps/web"]
 
+# infra/ directories are separate runtimes — communicate via HTTP only
+infra_boundary = ["infra/"]
+
 [special]
-immutable_paths = ["packages/db/migrations/"]
+immutable_paths = ["packages/db/prisma/migrations/"]
+
+[openai_schema_rules]
+# Zod schemas for OpenAI structured outputs have special constraints
+zod_nullable_not_optional = true
+zod_no_format_validators = true
+
+[server_only]
+# Modules touching secrets must use import "server-only"
+enforced_paths = ["apps/web/lib/server/", "apps/web/lib/auth/"]

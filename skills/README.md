@@ -72,9 +72,11 @@ This reduces repeated context load and lowers long-horizon token pressure.
 - `skills/entitlement-os/phases/phase-f-due-diligence.md`
 - `skills/entitlement-os/phases/phase-g-closing.md`
 - `skills/market-trajectory/SKILL.md`
+- `skills/architecture-audit/SKILL.md` (v2.0 — corrected layer model 2026-03-26)
 - `skills/property-report/SKILL.md`
 - `skills/data-extraction/SKILL.md`
 - `skills/parcel-ops/SKILL.md`
+- `skills/server-ops/SKILL.md`
 
 ## Reference
 
