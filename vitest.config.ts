@@ -39,6 +39,6 @@ export default defineConfig({
       // happy-dom environment — run separately via `pnpm vitest run --environment node tests/`
       "tests/reflection.test.ts",
     ],
-    setupFiles: ["./apps/web/test-utils/setup.ts"],
+    setupFiles: [path.resolve(__dirname, "apps/web/test-utils/setup.ts")],
   },
 });

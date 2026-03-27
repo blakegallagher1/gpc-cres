@@ -61,16 +61,16 @@ export async function GET(_req: Request, { params }: RouteParams) {
       }
     );
 
+    if (response.status === 204) {
+      return new NextResponse(null, {
+        status: 204,
+        headers: {
+          "Cache-Control": `public, max-age=${CACHE_MAX_AGE}, s-maxage=${CACHE_MAX_AGE}, stale-while-revalidate=${CACHE_STALE}`,
+        },
+      });
+    }
+
     if (!response.ok) {
-      if (response.status === 204) {
-        // No data for this tile
-        return new NextResponse(null, {
-          status: 204,
-          headers: {
-            "Cache-Control": `public, max-age=${CACHE_MAX_AGE}, s-maxage=${CACHE_MAX_AGE}, stale-while-revalidate=${CACHE_STALE}`,
-          },
-        });
-      }
       throw new Error(`Local API returned ${response.status}`);
     }
 

@@ -56,28 +56,6 @@ const UNSUPPORTED_CONSTRAINTS = new Set([
 ]);
 
 /**
- * Properties that should be preserved and never removed
- */
-const PRESERVED_PROPERTIES = new Set([
-  "type",
-  "enum",
-  "const",
-  "default",
-  "items",
-  "properties",
-  "required",
-  "additionalProperties",
-  "anyOf",
-  "oneOf",
-  "allOf",
-  "not",
-  "$defs",
-  "$ref",
-  "description",
-  "title",
-]);
-
-/**
  * Recursively ensure a JSON schema is strict and OpenAI-compatible
  * @param schema - The JSON schema to validate
  * @returns A new schema with strict constraints applied

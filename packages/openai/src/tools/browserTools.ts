@@ -109,7 +109,7 @@ export const browser_task = tool({
         };
       }
 
-      const { taskId, statusUrl } = await response.json() as { taskId: string; statusUrl: string };
+    const { taskId } = await response.json() as { taskId: string };
 
       // Poll for completion (the task runs async on the worker)
       const result = await pollForResult(cuaUrl, taskId, apiKey, cfHeaders);

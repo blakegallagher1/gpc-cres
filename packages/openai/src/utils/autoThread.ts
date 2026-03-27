@@ -17,6 +17,8 @@ export function autoThread<TArgs, TResult>(
     });
 }
 
-export function isSyncFunction(fn: Function): boolean {
+export function isSyncFunction<TArgs extends readonly unknown[]>(
+  fn: (...args: TArgs) => unknown,
+): boolean {
   return fn.constructor.name !== "AsyncFunction";
 }
