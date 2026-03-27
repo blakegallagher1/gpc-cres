@@ -684,12 +684,14 @@ export async function runAgentWorkflow(params: AgentRunInput) {
     runId: string,
     openaiResponseId: string | null,
     trust?: PersistableAssistantTrust | null,
+    phase?: string | null,
   ) =>
     toJsonValue({
       kind: "chat_assistant_message",
       runId,
       openaiResponseId,
       ...(trust ? { trust } : {}),
+      ...(phase ? { phase } : {}),
       ...(referencedMapFeatures.length > 0
         ? { mapFeatures: referencedMapFeatures }
         : {}),
@@ -1164,6 +1166,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
                 workflowResult.runId,
                 workflowResult.openaiResponseId,
                 mapTemporalTrustForEvents(workflowResult.trust),
+                undefined, // TODO: Extract phase from SDK response when @openai/agents exposes it
               ),
             },
           ]);
@@ -1177,6 +1180,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
                 workflowResult.runId,
                 workflowResult.openaiResponseId,
                 mapTemporalTrustForEvents(workflowResult.trust),
+                undefined, // TODO: Extract phase from SDK response when @openai/agents exposes it
               ),
             },
           });

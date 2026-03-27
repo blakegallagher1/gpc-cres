@@ -403,6 +403,8 @@ export async function runNativeComputerLoop(options: {
     if (response.usage) {
       totalInputTokens += response.usage.input_tokens ?? 0;
       totalOutputTokens += response.usage.output_tokens ?? 0;
+      const cachedTokens = (response.usage as any)?.prompt_tokens_details?.cached_tokens ?? 0;
+      totalCachedTokens += cachedTokens;
     }
 
     // Get computer calls from response
@@ -487,6 +489,7 @@ export async function runNativeComputerLoop(options: {
       turns: turn,
       totalInputTokens,
       totalOutputTokens,
+      totalCachedTokens,
     },
   });
 
@@ -499,6 +502,7 @@ export async function runNativeComputerLoop(options: {
     cost: {
       inputTokens: totalInputTokens,
       outputTokens: totalOutputTokens,
+      cachedTokens: totalCachedTokens,
     },
     source: {
       url: session.page.url(),
@@ -573,6 +577,7 @@ export async function runCodeMode(options: {
       cost: {
         inputTokens: 0,
         outputTokens: 0,
+        cachedTokens: 0,
       },
       source: {
         url: session.page.url(),
@@ -600,6 +605,7 @@ export async function runCodeMode(options: {
       cost: {
         inputTokens: 0,
         outputTokens: 0,
+        cachedTokens: 0,
       },
       source: {
         url: session.page.url(),

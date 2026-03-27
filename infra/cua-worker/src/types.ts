@@ -40,6 +40,7 @@ export type TaskResult = {
   cost: {
     inputTokens: number;
     outputTokens: number;
+    cachedTokens?: number;
   };
   source: {
     url: string;
@@ -117,6 +118,9 @@ export type ResponsesApiResponse = {
     output_tokens?: number;
     output_tokens_details?: {
       reasoning_tokens?: number;
+    };
+    prompt_tokens_details?: {
+      cached_tokens?: number;
     };
     total_tokens?: number;
   } | null;
