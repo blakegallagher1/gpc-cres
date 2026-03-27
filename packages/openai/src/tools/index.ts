@@ -32,6 +32,7 @@ import * as parcelSetTools from "./parcelSetTools.js";
 import * as spatialTools from "./spatialTools.js";
 import * as browserTools from "./browserTools.js";
 import { TOOL_REGISTRY } from "./toolRegistry.js";
+import { sortToolsByName } from "../utils/toolStability.js";
 
 export {
   getDealContext,
@@ -876,7 +877,7 @@ export const entitlementOsTools = (() => {
     toolMap.set((tool as any).function?.name || (tool as any).name || 'unknown', tool);
   });
 
-  return Array.from(toolMap.values());
+  return sortToolsByName(Array.from(toolMap.values()) as Parameters<typeof sortToolsByName>[0]);
 })();
 
 /**
