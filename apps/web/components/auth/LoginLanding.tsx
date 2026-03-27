@@ -1,17 +1,18 @@
 "use client";
 
-import { startTransition, useEffect, useRef, useState } from "react";
+import { startTransition, useEffect, useRef, useState, type FormEvent } from "react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { AnimatePresence, motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { toast } from "sonner";
+import { EntitlementOsPreviewPanel } from "@/components/marketing/EntitlementOsPreviewPanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-const heroEase: [number, number, number, number] = [0.22, 1, 0.36, 1];
+const HERO_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
 const loginErrorMessages: Record<string, string> = {
   unauthorized: "This account is not approved for access.",
@@ -40,56 +41,75 @@ const proofPoints = [
 const workflowSteps = [
   {
     step: "01",
+    signal: "Context",
     title: "Scan the parcel",
     body: "Open with parcel context, ownership shape, and immediate site risk so the first call starts on facts, not speculation.",
   },
   {
     step: "02",
+    signal: "Approvals",
     title: "Read the entitlement path",
     body: "Layer zoning posture, process friction, and precedent into one operating view before capital and counsel are committed.",
   },
   {
     step: "03",
+    signal: "Execution",
     title: "Coordinate the work",
     body: "Move from research into workflows, approvals, evidence packaging, and agent execution without switching surfaces.",
   },
   {
     step: "04",
+    signal: "Memory",
     title: "Preserve the learning",
     body: "Capture decisions, artifacts, and durable memory so each deal improves the next one instead of restarting from scratch.",
   },
 ] as const;
 
-const heroOperatingLanes = [
+const loginPreviewSignals = [
   {
-    step: "01",
-    title: "Parcel scan",
-    body: "Ownership, adjacency, drainage, and immediate site risk remain visible from the first pass.",
+    label: "Parcel intelligence",
+    detail: "Ownership, adjacency, drainage, and access remain visible from the first pass.",
+    state: "live",
   },
   {
-    step: "02",
-    title: "Entitlement read",
-    body: "Zoning posture, precedent, and process friction stay connected to the actual geography.",
+    label: "Entitlement read",
+    detail: "Zoning posture, precedent, and process friction stay connected to the geography.",
+    state: "stacked",
   },
   {
-    step: "03",
-    title: "Run coordination",
-    body: "Evidence, agent execution, and saved threads stay attached to the deal instead of splintering.",
+    label: "Workflow memory",
+    detail: "Evidence, threads, and run context stay attached when the deal leaves the first screen.",
+    state: "retained",
+  },
+] as const;
+
+const loginPreviewMemory = [
+  {
+    label: "Parcel scan",
+    detail: "Start with site facts, ownership shape, and immediate risk while the opportunity is still moving fast.",
+  },
+  {
+    label: "Deal room",
+    detail: "Move into workflows, approvals, evidence, and active coordination without losing context.",
+  },
+  {
+    label: "Learning",
+    detail: "Preserve the working thread so the next deal starts with remembered judgment, not fragments.",
   },
 ] as const;
 
 const accessNotes = [
+  "Approved operators go straight into active deals, memory, and execution.",
   "Google OAuth remains the default entry point for approved operators.",
-  "Credential sign-in stays available as a fallback without changing the working surface.",
-  "Saved threads, live parcels, and uploaded evidence persist into the next authenticated route.",
+  "Company credentials remain available when OAuth is not the working path.",
 ] as const;
 
-const heroReveal = {
+const HERO_REVEAL = {
   hidden: { opacity: 0, y: 24 },
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.72, ease: heroEase },
+    transition: { duration: 0.72, ease: HERO_EASE },
   },
 };
 
@@ -113,33 +133,33 @@ interface SignInActionsProps {
 }
 
 function SignInActions({ isBusy, onGoogleSignIn, onPasswordAccess }: SignInActionsProps) {
-  const prefersReducedMotion = useReducedMotion();
+  const prefersReducedMotion = useReducedMotion() ?? false;
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row">
       <motion.div whileHover={prefersReducedMotion ? undefined : { y: -2 }}>
         <Button
-          className="h-12 min-w-[13rem] bg-white px-5 text-sm font-semibold text-black hover:bg-white/90"
+          className="h-12 min-w-[14rem] bg-white px-5 text-sm font-semibold text-black hover:bg-white/90"
           disabled={isBusy}
           onClick={() => {
             void onGoogleSignIn();
           }}
           size="lg"
         >
-          Sign in with Google
+          Continue with Google
           <ArrowRight className="ml-2 h-4 w-4" />
         </Button>
       </motion.div>
 
       <motion.div whileHover={prefersReducedMotion ? undefined : { y: -2 }}>
         <Button
-          className="h-12 min-w-[11rem] border-white/20 bg-white/6 px-5 text-sm font-semibold text-white hover:bg-white/12 hover:text-white"
+          className="h-12 min-w-[13rem] border-white/20 bg-white/6 px-5 text-sm font-semibold text-white hover:bg-white/12 hover:text-white"
           disabled={isBusy}
           onClick={onPasswordAccess}
           size="lg"
           variant="outline"
         >
-          Use password
+          Use company credentials
         </Button>
       </motion.div>
     </div>
@@ -154,7 +174,7 @@ interface CredentialAccessProps {
   isVisible: boolean;
   onEmailChange: (value: string) => void;
   onPasswordChange: (value: string) => void;
-  onSubmit: (event: React.FormEvent<HTMLFormElement>) => Promise<void>;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onToggle: () => void;
 }
 
@@ -169,10 +189,10 @@ function CredentialAccess({
   onSubmit,
   onToggle,
 }: CredentialAccessProps) {
-  const prefersReducedMotion = useReducedMotion();
+  const prefersReducedMotion = useReducedMotion() ?? false;
 
   return (
-    <div className="border-t border-white/15 pt-6">
+    <div className="border-t border-white/12 pt-6">
       <button
         className="font-mono text-xs uppercase tracking-[0.26em] text-white/72 transition-colors hover:text-white"
         onClick={onToggle}
@@ -191,7 +211,7 @@ function CredentialAccess({
             onSubmit={(event) => {
               void onSubmit(event);
             }}
-            transition={{ duration: 0.35, ease: heroEase }}
+            transition={{ duration: 0.35, ease: HERO_EASE }}
           >
             <div className="grid gap-5 md:grid-cols-2">
               <div className="space-y-2">
@@ -233,7 +253,7 @@ function CredentialAccess({
                 size="lg"
                 type="submit"
               >
-                {isSubmitting ? "Signing in..." : "Sign in with password"}
+                {isSubmitting ? "Accessing..." : "Access Entitlement OS"}
               </Button>
               <p className="text-sm text-white/58">Approved operators only. Google OAuth remains the default path.</p>
             </div>
@@ -252,7 +272,7 @@ export function LoginLanding() {
   const searchParams = useSearchParams();
   const heroRef = useRef<HTMLElement | null>(null);
   const accessRef = useRef<HTMLElement | null>(null);
-  const prefersReducedMotion = useReducedMotion();
+  const prefersReducedMotion = useReducedMotion() ?? false;
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -287,7 +307,7 @@ export function LoginLanding() {
     });
   };
 
-  const handleCredentialSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleCredentialSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsCredentialSubmitting(true);
 
@@ -334,7 +354,7 @@ export function LoginLanding() {
         </motion.div>
 
         <motion.div
-          className="absolute inset-0 bg-[linear-gradient(112deg,rgba(0,0,0,0.88)_0%,rgba(0,0,0,0.76)_28%,rgba(0,0,0,0.30)_58%,rgba(0,0,0,0.80)_100%)]"
+          className="absolute inset-0 bg-[linear-gradient(112deg,rgba(0,0,0,0.88)_0%,rgba(0,0,0,0.76)_28%,rgba(0,0,0,0.30)_58%,rgba(0,0,0,0.82)_100%)]"
           style={{ opacity: heroOverlayOpacity }}
         />
         <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-black via-black/48 to-transparent" />
@@ -342,7 +362,7 @@ export function LoginLanding() {
         <div className="relative flex min-h-[100svh] items-end px-6 py-10 md:px-10 md:py-12 lg:px-16">
           <motion.div
             animate="visible"
-            className="grid w-full gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)] lg:items-end"
+            className="grid w-full gap-10 lg:grid-cols-[minmax(0,0.98fr)_minmax(18rem,0.9fr)] lg:items-end"
             initial="hidden"
             variants={{
               hidden: {},
@@ -355,7 +375,7 @@ export function LoginLanding() {
             }}
           >
             <div className="max-w-xl space-y-8">
-              <motion.div className="flex items-center gap-4" variants={heroReveal}>
+              <motion.div className="flex items-center gap-4" variants={HERO_REVEAL}>
                 <Image alt="" className="h-12 w-12 rounded-2xl" height={48} priority src="/icon.svg" width={48} />
                 <div>
                   <p className="font-mono text-[0.72rem] uppercase tracking-[0.28em] text-white/62">
@@ -365,7 +385,7 @@ export function LoginLanding() {
                 </div>
               </motion.div>
 
-              <motion.div className="space-y-4" variants={heroReveal}>
+              <motion.div className="space-y-4" variants={HERO_REVEAL}>
                 <h1 className="max-w-[8.5ch] text-5xl font-semibold tracking-[-0.05em] text-balance sm:text-6xl lg:text-7xl">
                   Entitlement OS
                 </h1>
@@ -377,7 +397,7 @@ export function LoginLanding() {
                 </p>
               </motion.div>
 
-              <motion.div variants={heroReveal}>
+              <motion.div variants={HERO_REVEAL}>
                 <SignInActions
                   isBusy={isBusy}
                   onGoogleSignIn={handleGoogleSignIn}
@@ -385,40 +405,25 @@ export function LoginLanding() {
                 />
               </motion.div>
 
-              <motion.p className="max-w-md text-sm leading-6 text-white/58" variants={heroReveal}>
-                Approved operators move directly into live parcels, evidence, workflows, and memory without leaving the working surface.
+              <motion.p className="max-w-md text-sm leading-6 text-white/58" variants={HERO_REVEAL}>
+                Approved operators go straight into active deals, memory, and execution without leaving the working surface.
               </motion.p>
             </div>
 
-            <motion.div
-              className="hidden space-y-5 lg:block"
-              variants={heroReveal}
-            >
-              <div className="border-t border-white/16 pt-4">
-                <p className="font-mono text-[0.72rem] uppercase tracking-[0.28em] text-white/56">
-                  Live operating layers
-                </p>
-              </div>
-              <div className="space-y-4">
-                {heroOperatingLanes.map((lane) => (
-                  <div className="border-t border-white/12 pt-4" key={lane.step}>
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="font-mono text-[0.68rem] uppercase tracking-[0.22em] text-white/48">
-                          {lane.step}
-                        </p>
-                        <h3 className="mt-2 text-lg font-semibold tracking-[-0.03em] text-white/94">
-                          {lane.title}
-                        </h3>
-                      </div>
-                      <span className="font-mono text-[0.68rem] uppercase tracking-[0.22em] text-white/40">
-                        Live
-                      </span>
-                    </div>
-                    <p className="mt-3 text-sm leading-6 text-white/62">{lane.body}</p>
-                  </div>
-                ))}
-              </div>
+            <motion.div variants={HERO_REVEAL}>
+              <EntitlementOsPreviewPanel
+                eyebrow="Live operating layers"
+                memory={loginPreviewMemory}
+                parcel={{
+                  label: "Live workspace",
+                  value: "Parcel scan, approvals, evidence, and execution in one pass",
+                  detail:
+                    "The operating surface opens with site facts, entitlement context, and durable memory already attached to the deal.",
+                }}
+                signals={loginPreviewSignals}
+                summary="See the physical story, the entitlement path, and the working thread before the room starts improvising."
+                title="Three live layers before the first call"
+              />
             </motion.div>
           </motion.div>
         </div>
@@ -430,7 +435,7 @@ export function LoginLanding() {
             <motion.div
               className="max-w-2xl"
               initial="hidden"
-              variants={heroReveal}
+              variants={HERO_REVEAL}
               viewport={{ once: true, amount: 0.4 }}
               whileInView="visible"
             >
@@ -447,7 +452,7 @@ export function LoginLanding() {
               <motion.figure
                 className="relative min-h-[24rem] overflow-hidden rounded-[2rem] border border-border/70 bg-muted/40"
                 initial="hidden"
-                variants={heroReveal}
+                variants={HERO_REVEAL}
                 viewport={{ once: true, amount: 0.35 }}
                 whileInView="visible"
               >
@@ -459,10 +464,19 @@ export function LoginLanding() {
                   src="/images/gpc-login-support.webp"
                 />
                 <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.06)_0%,rgba(15,23,42,0.16)_36%,rgba(15,23,42,0.78)_100%)]" />
+                <div className="absolute left-6 top-6 hidden w-56 rounded-[1.4rem] border border-white/18 bg-slate-950/72 p-4 text-white shadow-[0_24px_60px_rgba(15,23,42,0.24)] backdrop-blur-xl lg:block">
+                  <p className="font-mono text-[0.62rem] uppercase tracking-[0.22em] text-white/50">Visible at open</p>
+                  <div className="mt-4 space-y-3">
+                    {["Parcel", "Zoning", "Thread"].map((item) => (
+                      <div className="border-t border-white/10 pt-3 first:border-t-0 first:pt-0" key={item}>
+                        <p className="text-sm font-semibold tracking-[-0.02em] text-white/94">{item}</p>
+                        <p className="mt-1 text-xs leading-5 text-white/58">Live context stays attached before the first working note is written.</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
                 <div className="absolute inset-x-0 bottom-0 p-6 md:p-8">
-                  <p className="font-mono text-[0.68rem] uppercase tracking-[0.24em] text-white/64">
-                    Field context
-                  </p>
+                  <p className="font-mono text-[0.68rem] uppercase tracking-[0.24em] text-white/64">Field context</p>
                   <h3 className="mt-3 max-w-md text-2xl font-semibold tracking-[-0.04em] text-white sm:text-[2rem]">
                     Read the physical story before the memo starts writing itself.
                   </h3>
@@ -479,7 +493,7 @@ export function LoginLanding() {
                     initial="hidden"
                     key={point.title}
                     transition={{ delay: index * 0.08 }}
-                    variants={heroReveal}
+                    variants={HERO_REVEAL}
                     viewport={{ once: true, amount: 0.45 }}
                     whileInView="visible"
                   >
@@ -501,7 +515,7 @@ export function LoginLanding() {
             <motion.div
               className="max-w-lg lg:sticky lg:top-12"
               initial="hidden"
-              variants={heroReveal}
+              variants={HERO_REVEAL}
               viewport={{ once: true, amount: 0.4 }}
               whileInView="visible"
             >
@@ -517,18 +531,23 @@ export function LoginLanding() {
             <div className="space-y-8">
               {workflowSteps.map((step, index) => (
                 <motion.article
-                  className="grid gap-4 border-t border-border pt-5 md:grid-cols-[auto_1fr]"
+                  className="grid gap-4 border-t border-border pt-5 md:grid-cols-[auto_minmax(0,1fr)]"
                   initial="hidden"
                   key={step.step}
                   transition={{ delay: index * 0.06 }}
-                  variants={heroReveal}
+                  variants={HERO_REVEAL}
                   viewport={{ once: true, amount: 0.25 }}
                   whileInView="visible"
                 >
                   <p className="font-mono text-sm uppercase tracking-[0.26em] text-muted-foreground">{step.step}</p>
-                  <div>
-                    <h3 className="text-xl font-semibold tracking-[-0.03em]">{step.title}</h3>
-                    <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">{step.body}</p>
+                  <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
+                    <div>
+                      <h3 className="text-xl font-semibold tracking-[-0.03em]">{step.title}</h3>
+                      <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">{step.body}</p>
+                    </div>
+                    <span className="font-mono text-[0.68rem] uppercase tracking-[0.24em] text-muted-foreground">
+                      {step.signal}
+                    </span>
                   </div>
                 </motion.article>
               ))}
@@ -542,7 +561,7 @@ export function LoginLanding() {
           <div className="relative mx-auto grid max-w-6xl gap-12 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:items-start">
             <motion.div
               initial="hidden"
-              variants={heroReveal}
+              variants={HERO_REVEAL}
               viewport={{ once: true, amount: 0.4 }}
               whileInView="visible"
             >
@@ -551,7 +570,7 @@ export function LoginLanding() {
                 Enter the operating system.
               </h2>
               <p className="mt-4 max-w-lg text-base leading-7 text-white/68">
-                Approved teams can move straight into live parcels, workflows, evidence, and memory capture from the same surface.
+                Open live parcels, approvals, workflows, and evidence in one system without losing the operating thread.
               </p>
               <div className="mt-8 space-y-3 border-t border-white/12 pt-6">
                 {accessNotes.map((note) => (
@@ -563,33 +582,43 @@ export function LoginLanding() {
             </motion.div>
 
             <motion.div
-              className="space-y-6"
+              className="rounded-[2rem] border border-white/12 bg-white/[0.04] p-6 shadow-[0_28px_90px_rgba(2,6,23,0.36)] backdrop-blur-xl md:p-8"
               initial="hidden"
-              variants={heroReveal}
+              variants={HERO_REVEAL}
               viewport={{ once: true, amount: 0.35 }}
               whileInView="visible"
             >
-              <SignInActions
-                isBusy={isBusy}
-                onGoogleSignIn={handleGoogleSignIn}
-                onPasswordAccess={() => {
-                  startTransition(() => setShowPasswordForm(true));
-                }}
-              />
+              <div className="space-y-3 border-b border-white/10 pb-6">
+                <p className="font-mono text-[0.68rem] uppercase tracking-[0.24em] text-white/56">Operator access</p>
+                <h3 className="text-2xl font-semibold tracking-[-0.04em] text-white/96">Open the live workspace.</h3>
+                <p className="max-w-xl text-sm leading-6 text-white/62">
+                  Approved operators move directly into active parcels, evidence, workflows, and memory without leaving the working surface.
+                </p>
+              </div>
 
-              <CredentialAccess
-                email={email}
-                isBusy={isBusy}
-                isSubmitting={isCredentialSubmitting}
-                isVisible={showPasswordForm}
-                onEmailChange={setEmail}
-                onPasswordChange={setPassword}
-                onSubmit={handleCredentialSubmit}
-                onToggle={() => {
-                  startTransition(() => setShowPasswordForm((current) => !current));
-                }}
-                password={password}
-              />
+              <div className="space-y-6 pt-6">
+                <SignInActions
+                  isBusy={isBusy}
+                  onGoogleSignIn={handleGoogleSignIn}
+                  onPasswordAccess={() => {
+                    startTransition(() => setShowPasswordForm(true));
+                  }}
+                />
+
+                <CredentialAccess
+                  email={email}
+                  isBusy={isBusy}
+                  isSubmitting={isCredentialSubmitting}
+                  isVisible={showPasswordForm}
+                  onEmailChange={setEmail}
+                  onPasswordChange={setPassword}
+                  onSubmit={handleCredentialSubmit}
+                  onToggle={() => {
+                    startTransition(() => setShowPasswordForm((current) => !current));
+                  }}
+                  password={password}
+                />
+              </div>
             </motion.div>
           </div>
         </section>

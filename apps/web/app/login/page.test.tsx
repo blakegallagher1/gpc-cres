@@ -33,6 +33,7 @@ describe("LoginPage", () => {
     expect(screen.getByText("Three live layers before the first call.")).toBeInTheDocument();
     expect(screen.getByText("From parcel scan to active deal room.")).toBeInTheDocument();
     expect(screen.getByText("Enter the operating system.")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Continue with Google" }).length).toBeGreaterThan(0);
     expect(container.firstChild).toMatchSnapshot();
   });
 
@@ -41,7 +42,7 @@ describe("LoginPage", () => {
 
     render(<LoginPage />);
 
-    await user.click(screen.getAllByRole("button", { name: "Use password" })[0]);
+    await user.click(screen.getAllByRole("button", { name: "Use company credentials" })[0]);
 
     expect(await screen.findByLabelText("Email")).toBeInTheDocument();
     expect(screen.getByLabelText("Password")).toBeInTheDocument();

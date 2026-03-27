@@ -19,7 +19,7 @@ exports[`LoginPage > renders the branded landing layout for login 1`] = `
       />
     </div>
     <div
-      class="absolute inset-0 bg-[linear-gradient(112deg,rgba(0,0,0,0.88)_0%,rgba(0,0,0,0.76)_28%,rgba(0,0,0,0.30)_58%,rgba(0,0,0,0.80)_100%)]"
+      class="absolute inset-0 bg-[linear-gradient(112deg,rgba(0,0,0,0.88)_0%,rgba(0,0,0,0.76)_28%,rgba(0,0,0,0.30)_58%,rgba(0,0,0,0.82)_100%)]"
       style="opacity: 0.56;"
     />
     <div
@@ -29,7 +29,7 @@ exports[`LoginPage > renders the branded landing layout for login 1`] = `
       class="relative flex min-h-[100svh] items-end px-6 py-10 md:px-10 md:py-12 lg:px-16"
     >
       <div
-        class="grid w-full gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)] lg:items-end"
+        class="grid w-full gap-10 lg:grid-cols-[minmax(0,0.98fr)_minmax(18rem,0.9fr)] lg:items-end"
       >
         <div
           class="max-w-xl space-y-8"
@@ -86,9 +86,9 @@ exports[`LoginPage > renders the branded landing layout for login 1`] = `
             >
               <div>
                 <button
-                  class="inline-flex items-center justify-center whitespace-nowrap border border-transparent tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 hover:-translate-y-px rounded-xl h-12 min-w-[13rem] bg-white px-5 text-sm font-semibold text-black hover:bg-white/90"
+                  class="inline-flex items-center justify-center whitespace-nowrap border border-transparent tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 hover:-translate-y-px rounded-xl h-12 min-w-[14rem] bg-white px-5 text-sm font-semibold text-black hover:bg-white/90"
                 >
-                  Sign in with Google
+                  Continue with Google
                   <svg
                     aria-hidden="true"
                     class="lucide lucide-arrow-right ml-2 h-4 w-4"
@@ -113,9 +113,9 @@ exports[`LoginPage > renders the branded landing layout for login 1`] = `
               </div>
               <div>
                 <button
-                  class="inline-flex items-center justify-center whitespace-nowrap border tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 rounded-xl h-12 min-w-[11rem] border-white/20 bg-white/6 px-5 text-sm font-semibold text-white hover:bg-white/12 hover:text-white"
+                  class="inline-flex items-center justify-center whitespace-nowrap border tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 rounded-xl h-12 min-w-[13rem] border-white/20 bg-white/6 px-5 text-sm font-semibold text-white hover:bg-white/12 hover:text-white"
                 >
-                  Use password
+                  Use company credentials
                 </button>
               </div>
             </div>
@@ -124,114 +124,216 @@ exports[`LoginPage > renders the branded landing layout for login 1`] = `
             class="max-w-md text-sm leading-6 text-white/58"
             style="opacity: 0; transform: translateY(24px);"
           >
-            Approved operators move directly into live parcels, evidence, workflows, and memory without leaving the working surface.
+            Approved operators go straight into active deals, memory, and execution without leaving the working surface.
           </p>
         </div>
         <div
-          class="hidden space-y-5 lg:block"
           style="opacity: 0; transform: translateY(24px);"
         >
           <div
-            class="border-t border-white/16 pt-4"
-          >
-            <p
-              class="font-mono text-[0.72rem] uppercase tracking-[0.28em] text-white/56"
-            >
-              Live operating layers
-            </p>
-          </div>
-          <div
-            class="space-y-4"
+            class="overflow-hidden rounded-[2rem] border border-white/14 bg-slate-950/70 text-white shadow-[0_28px_90px_rgba(2,6,23,0.46)] backdrop-blur-xl"
           >
             <div
-              class="border-t border-white/12 pt-4"
+              class="border-b border-white/10 px-5 py-5 sm:px-6"
             >
               <div
                 class="flex items-start justify-between gap-4"
               >
-                <div>
+                <div
+                  class="space-y-3"
+                >
                   <p
-                    class="font-mono text-[0.68rem] uppercase tracking-[0.22em] text-white/48"
+                    class="font-mono text-[0.68rem] uppercase tracking-[0.28em] text-white/52"
                   >
-                    01
+                    Live operating layers
                   </p>
-                  <h3
-                    class="mt-2 text-lg font-semibold tracking-[-0.03em] text-white/94"
+                  <div
+                    class="space-y-2"
                   >
-                    Parcel scan
-                  </h3>
+                    <h2
+                      class="text-xl font-semibold tracking-[-0.04em] text-white/96 sm:text-2xl"
+                    >
+                      Three live layers before the first call
+                    </h2>
+                    <p
+                      class="max-w-sm text-sm leading-6 text-white/64"
+                    >
+                      See the physical story, the entitlement path, and the working thread before the room starts improvising.
+                    </p>
+                  </div>
                 </div>
                 <span
-                  class="font-mono text-[0.68rem] uppercase tracking-[0.22em] text-white/40"
+                  class="inline-flex items-center gap-2 rounded-full border border-amber-400/25 bg-amber-300/10 px-3 py-1 font-mono text-[0.64rem] uppercase tracking-[0.24em] text-amber-200/90"
                 >
+                  <span
+                    class="h-1.5 w-1.5 rounded-full bg-amber-300"
+                  />
                   Live
                 </span>
               </div>
-              <p
-                class="mt-3 text-sm leading-6 text-white/62"
-              >
-                Ownership, adjacency, drainage, and immediate site risk remain visible from the first pass.
-              </p>
             </div>
             <div
-              class="border-t border-white/12 pt-4"
+              class="space-y-5 px-5 py-5 sm:px-6"
             >
-              <div
-                class="flex items-start justify-between gap-4"
+              <section
+                class="space-y-3"
               >
-                <div>
-                  <p
-                    class="font-mono text-[0.68rem] uppercase tracking-[0.22em] text-white/48"
-                  >
-                    02
-                  </p>
-                  <h3
-                    class="mt-2 text-lg font-semibold tracking-[-0.03em] text-white/94"
-                  >
-                    Entitlement read
-                  </h3>
-                </div>
-                <span
-                  class="font-mono text-[0.68rem] uppercase tracking-[0.22em] text-white/40"
+                <div
+                  class="flex items-start justify-between gap-3"
                 >
-                  Live
-                </span>
-              </div>
-              <p
-                class="mt-3 text-sm leading-6 text-white/62"
-              >
-                Zoning posture, precedent, and process friction stay connected to the actual geography.
-              </p>
-            </div>
-            <div
-              class="border-t border-white/12 pt-4"
-            >
-              <div
-                class="flex items-start justify-between gap-4"
-              >
-                <div>
-                  <p
-                    class="font-mono text-[0.68rem] uppercase tracking-[0.22em] text-white/48"
-                  >
-                    03
-                  </p>
-                  <h3
-                    class="mt-2 text-lg font-semibold tracking-[-0.03em] text-white/94"
-                  >
-                    Run coordination
-                  </h3>
+                  <div>
+                    <p
+                      class="font-mono text-[0.66rem] uppercase tracking-[0.24em] text-white/46"
+                    >
+                      Live workspace
+                    </p>
+                    <h3
+                      class="mt-2 text-lg font-semibold tracking-[-0.04em] text-white/96 sm:text-[1.35rem]"
+                    >
+                      Parcel scan, approvals, evidence, and execution in one pass
+                    </h3>
+                  </div>
+                  <span
+                    class="mt-1 inline-flex h-2.5 w-2.5 rounded-full bg-amber-300 shadow-[0_0_24px_rgba(252,211,77,0.55)]"
+                  />
                 </div>
-                <span
-                  class="font-mono text-[0.68rem] uppercase tracking-[0.22em] text-white/40"
+                <p
+                  class="text-sm leading-6 text-white/62"
                 >
-                  Live
-                </span>
-              </div>
-              <p
-                class="mt-3 text-sm leading-6 text-white/62"
+                  The operating surface opens with site facts, entitlement context, and durable memory already attached to the deal.
+                </p>
+              </section>
+              <section
+                class="space-y-3 border-t border-white/10 pt-5"
               >
-                Evidence, agent execution, and saved threads stay attached to the deal instead of splintering.
-              </p>
+                <p
+                  class="font-mono text-[0.66rem] uppercase tracking-[0.24em] text-white/46"
+                >
+                  Visible layers
+                </p>
+                <div
+                  class="space-y-3"
+                >
+                  <div
+                    class="grid gap-2 border-t border-white/8 pt-3 first:border-t-0 first:pt-0 sm:grid-cols-[minmax(0,1fr)_auto]"
+                  >
+                    <div>
+                      <p
+                        class="text-sm font-semibold tracking-[-0.02em] text-white/94"
+                      >
+                        Parcel intelligence
+                      </p>
+                      <p
+                        class="mt-1 text-sm leading-6 text-white/58"
+                      >
+                        Ownership, adjacency, drainage, and access remain visible from the first pass.
+                      </p>
+                    </div>
+                    <span
+                      class="font-mono text-[0.64rem] uppercase tracking-[0.22em] text-amber-200/84 sm:pt-0.5"
+                    >
+                      live
+                    </span>
+                  </div>
+                  <div
+                    class="grid gap-2 border-t border-white/8 pt-3 first:border-t-0 first:pt-0 sm:grid-cols-[minmax(0,1fr)_auto]"
+                  >
+                    <div>
+                      <p
+                        class="text-sm font-semibold tracking-[-0.02em] text-white/94"
+                      >
+                        Entitlement read
+                      </p>
+                      <p
+                        class="mt-1 text-sm leading-6 text-white/58"
+                      >
+                        Zoning posture, precedent, and process friction stay connected to the geography.
+                      </p>
+                    </div>
+                    <span
+                      class="font-mono text-[0.64rem] uppercase tracking-[0.22em] text-amber-200/84 sm:pt-0.5"
+                    >
+                      stacked
+                    </span>
+                  </div>
+                  <div
+                    class="grid gap-2 border-t border-white/8 pt-3 first:border-t-0 first:pt-0 sm:grid-cols-[minmax(0,1fr)_auto]"
+                  >
+                    <div>
+                      <p
+                        class="text-sm font-semibold tracking-[-0.02em] text-white/94"
+                      >
+                        Workflow memory
+                      </p>
+                      <p
+                        class="mt-1 text-sm leading-6 text-white/58"
+                      >
+                        Evidence, threads, and run context stay attached when the deal leaves the first screen.
+                      </p>
+                    </div>
+                    <span
+                      class="font-mono text-[0.64rem] uppercase tracking-[0.22em] text-amber-200/84 sm:pt-0.5"
+                    >
+                      retained
+                    </span>
+                  </div>
+                </div>
+              </section>
+              <section
+                class="space-y-3 border-t border-white/10 pt-5"
+              >
+                <p
+                  class="font-mono text-[0.66rem] uppercase tracking-[0.24em] text-white/46"
+                >
+                  Run memory
+                </p>
+                <div
+                  class="space-y-3"
+                >
+                  <div
+                    class="grid gap-2 border-t border-white/8 pt-3 first:border-t-0 first:pt-0 sm:grid-cols-[8rem_minmax(0,1fr)]"
+                  >
+                    <p
+                      class="font-mono text-[0.64rem] uppercase tracking-[0.22em] text-white/46"
+                    >
+                      Parcel scan
+                    </p>
+                    <p
+                      class="text-sm leading-6 text-white/62"
+                    >
+                      Start with site facts, ownership shape, and immediate risk while the opportunity is still moving fast.
+                    </p>
+                  </div>
+                  <div
+                    class="grid gap-2 border-t border-white/8 pt-3 first:border-t-0 first:pt-0 sm:grid-cols-[8rem_minmax(0,1fr)]"
+                  >
+                    <p
+                      class="font-mono text-[0.64rem] uppercase tracking-[0.22em] text-white/46"
+                    >
+                      Deal room
+                    </p>
+                    <p
+                      class="text-sm leading-6 text-white/62"
+                    >
+                      Move into workflows, approvals, evidence, and active coordination without losing context.
+                    </p>
+                  </div>
+                  <div
+                    class="grid gap-2 border-t border-white/8 pt-3 first:border-t-0 first:pt-0 sm:grid-cols-[8rem_minmax(0,1fr)]"
+                  >
+                    <p
+                      class="font-mono text-[0.64rem] uppercase tracking-[0.22em] text-white/46"
+                    >
+                      Learning
+                    </p>
+                    <p
+                      class="text-sm leading-6 text-white/62"
+                    >
+                      Preserve the working thread so the next deal starts with remembered judgment, not fragments.
+                    </p>
+                  </div>
+                </div>
+              </section>
             </div>
           </div>
         </div>
@@ -281,6 +383,61 @@ exports[`LoginPage > renders the branded landing layout for login 1`] = `
             <div
               class="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.06)_0%,rgba(15,23,42,0.16)_36%,rgba(15,23,42,0.78)_100%)]"
             />
+            <div
+              class="absolute left-6 top-6 hidden w-56 rounded-[1.4rem] border border-white/18 bg-slate-950/72 p-4 text-white shadow-[0_24px_60px_rgba(15,23,42,0.24)] backdrop-blur-xl lg:block"
+            >
+              <p
+                class="font-mono text-[0.62rem] uppercase tracking-[0.22em] text-white/50"
+              >
+                Visible at open
+              </p>
+              <div
+                class="mt-4 space-y-3"
+              >
+                <div
+                  class="border-t border-white/10 pt-3 first:border-t-0 first:pt-0"
+                >
+                  <p
+                    class="text-sm font-semibold tracking-[-0.02em] text-white/94"
+                  >
+                    Parcel
+                  </p>
+                  <p
+                    class="mt-1 text-xs leading-5 text-white/58"
+                  >
+                    Live context stays attached before the first working note is written.
+                  </p>
+                </div>
+                <div
+                  class="border-t border-white/10 pt-3 first:border-t-0 first:pt-0"
+                >
+                  <p
+                    class="text-sm font-semibold tracking-[-0.02em] text-white/94"
+                  >
+                    Zoning
+                  </p>
+                  <p
+                    class="mt-1 text-xs leading-5 text-white/58"
+                  >
+                    Live context stays attached before the first working note is written.
+                  </p>
+                </div>
+                <div
+                  class="border-t border-white/10 pt-3 first:border-t-0 first:pt-0"
+                >
+                  <p
+                    class="text-sm font-semibold tracking-[-0.02em] text-white/94"
+                  >
+                    Thread
+                  </p>
+                  <p
+                    class="mt-1 text-xs leading-5 text-white/58"
+                  >
+                    Live context stays attached before the first working note is written.
+                  </p>
+                </div>
+              </div>
+            </div>
             <div
               class="absolute inset-x-0 bottom-0 p-6 md:p-8"
             >
@@ -401,7 +558,7 @@ exports[`LoginPage > renders the branded landing layout for login 1`] = `
           class="space-y-8"
         >
           <article
-            class="grid gap-4 border-t border-border pt-5 md:grid-cols-[auto_1fr]"
+            class="grid gap-4 border-t border-border pt-5 md:grid-cols-[auto_minmax(0,1fr)]"
             style="opacity: 0; transform: translateY(24px);"
           >
             <p
@@ -409,21 +566,30 @@ exports[`LoginPage > renders the branded landing layout for login 1`] = `
             >
               01
             </p>
-            <div>
-              <h3
-                class="text-xl font-semibold tracking-[-0.03em]"
+            <div
+              class="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-start"
+            >
+              <div>
+                <h3
+                  class="text-xl font-semibold tracking-[-0.03em]"
+                >
+                  Scan the parcel
+                </h3>
+                <p
+                  class="mt-3 max-w-xl text-sm leading-6 text-muted-foreground"
+                >
+                  Open with parcel context, ownership shape, and immediate site risk so the first call starts on facts, not speculation.
+                </p>
+              </div>
+              <span
+                class="font-mono text-[0.68rem] uppercase tracking-[0.24em] text-muted-foreground"
               >
-                Scan the parcel
-              </h3>
-              <p
-                class="mt-3 max-w-xl text-sm leading-6 text-muted-foreground"
-              >
-                Open with parcel context, ownership shape, and immediate site risk so the first call starts on facts, not speculation.
-              </p>
+                Context
+              </span>
             </div>
           </article>
           <article
-            class="grid gap-4 border-t border-border pt-5 md:grid-cols-[auto_1fr]"
+            class="grid gap-4 border-t border-border pt-5 md:grid-cols-[auto_minmax(0,1fr)]"
             style="opacity: 0; transform: translateY(24px);"
           >
             <p
@@ -431,21 +597,30 @@ exports[`LoginPage > renders the branded landing layout for login 1`] = `
             >
               02
             </p>
-            <div>
-              <h3
-                class="text-xl font-semibold tracking-[-0.03em]"
+            <div
+              class="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-start"
+            >
+              <div>
+                <h3
+                  class="text-xl font-semibold tracking-[-0.03em]"
+                >
+                  Read the entitlement path
+                </h3>
+                <p
+                  class="mt-3 max-w-xl text-sm leading-6 text-muted-foreground"
+                >
+                  Layer zoning posture, process friction, and precedent into one operating view before capital and counsel are committed.
+                </p>
+              </div>
+              <span
+                class="font-mono text-[0.68rem] uppercase tracking-[0.24em] text-muted-foreground"
               >
-                Read the entitlement path
-              </h3>
-              <p
-                class="mt-3 max-w-xl text-sm leading-6 text-muted-foreground"
-              >
-                Layer zoning posture, process friction, and precedent into one operating view before capital and counsel are committed.
-              </p>
+                Approvals
+              </span>
             </div>
           </article>
           <article
-            class="grid gap-4 border-t border-border pt-5 md:grid-cols-[auto_1fr]"
+            class="grid gap-4 border-t border-border pt-5 md:grid-cols-[auto_minmax(0,1fr)]"
             style="opacity: 0; transform: translateY(24px);"
           >
             <p
@@ -453,21 +628,30 @@ exports[`LoginPage > renders the branded landing layout for login 1`] = `
             >
               03
             </p>
-            <div>
-              <h3
-                class="text-xl font-semibold tracking-[-0.03em]"
+            <div
+              class="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-start"
+            >
+              <div>
+                <h3
+                  class="text-xl font-semibold tracking-[-0.03em]"
+                >
+                  Coordinate the work
+                </h3>
+                <p
+                  class="mt-3 max-w-xl text-sm leading-6 text-muted-foreground"
+                >
+                  Move from research into workflows, approvals, evidence packaging, and agent execution without switching surfaces.
+                </p>
+              </div>
+              <span
+                class="font-mono text-[0.68rem] uppercase tracking-[0.24em] text-muted-foreground"
               >
-                Coordinate the work
-              </h3>
-              <p
-                class="mt-3 max-w-xl text-sm leading-6 text-muted-foreground"
-              >
-                Move from research into workflows, approvals, evidence packaging, and agent execution without switching surfaces.
-              </p>
+                Execution
+              </span>
             </div>
           </article>
           <article
-            class="grid gap-4 border-t border-border pt-5 md:grid-cols-[auto_1fr]"
+            class="grid gap-4 border-t border-border pt-5 md:grid-cols-[auto_minmax(0,1fr)]"
             style="opacity: 0; transform: translateY(24px);"
           >
             <p
@@ -475,17 +659,26 @@ exports[`LoginPage > renders the branded landing layout for login 1`] = `
             >
               04
             </p>
-            <div>
-              <h3
-                class="text-xl font-semibold tracking-[-0.03em]"
+            <div
+              class="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-start"
+            >
+              <div>
+                <h3
+                  class="text-xl font-semibold tracking-[-0.03em]"
+                >
+                  Preserve the learning
+                </h3>
+                <p
+                  class="mt-3 max-w-xl text-sm leading-6 text-muted-foreground"
+                >
+                  Capture decisions, artifacts, and durable memory so each deal improves the next one instead of restarting from scratch.
+                </p>
+              </div>
+              <span
+                class="font-mono text-[0.68rem] uppercase tracking-[0.24em] text-muted-foreground"
               >
-                Preserve the learning
-              </h3>
-              <p
-                class="mt-3 max-w-xl text-sm leading-6 text-muted-foreground"
-              >
-                Capture decisions, artifacts, and durable memory so each deal improves the next one instead of restarting from scratch.
-              </p>
+                Memory
+              </span>
             </div>
           </article>
         </div>
@@ -516,11 +709,16 @@ exports[`LoginPage > renders the branded landing layout for login 1`] = `
           <p
             class="mt-4 max-w-lg text-base leading-7 text-white/68"
           >
-            Approved teams can move straight into live parcels, workflows, evidence, and memory capture from the same surface.
+            Open live parcels, approvals, workflows, and evidence in one system without losing the operating thread.
           </p>
           <div
             class="mt-8 space-y-3 border-t border-white/12 pt-6"
           >
+            <p
+              class="max-w-lg text-sm leading-6 text-white/56"
+            >
+              Approved operators go straight into active deals, memory, and execution.
+            </p>
             <p
               class="max-w-lg text-sm leading-6 text-white/56"
             >
@@ -529,66 +727,84 @@ exports[`LoginPage > renders the branded landing layout for login 1`] = `
             <p
               class="max-w-lg text-sm leading-6 text-white/56"
             >
-              Credential sign-in stays available as a fallback without changing the working surface.
-            </p>
-            <p
-              class="max-w-lg text-sm leading-6 text-white/56"
-            >
-              Saved threads, live parcels, and uploaded evidence persist into the next authenticated route.
+              Company credentials remain available when OAuth is not the working path.
             </p>
           </div>
         </div>
         <div
-          class="space-y-6"
+          class="rounded-[2rem] border border-white/12 bg-white/[0.04] p-6 shadow-[0_28px_90px_rgba(2,6,23,0.36)] backdrop-blur-xl md:p-8"
           style="opacity: 0; transform: translateY(24px);"
         >
           <div
-            class="flex flex-col gap-3 sm:flex-row"
+            class="space-y-3 border-b border-white/10 pb-6"
           >
-            <div>
-              <button
-                class="inline-flex items-center justify-center whitespace-nowrap border border-transparent tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 hover:-translate-y-px rounded-xl h-12 min-w-[13rem] bg-white px-5 text-sm font-semibold text-black hover:bg-white/90"
-              >
-                Sign in with Google
-                <svg
-                  aria-hidden="true"
-                  class="lucide lucide-arrow-right ml-2 h-4 w-4"
-                  fill="none"
-                  height="24"
-                  stroke="currentColor"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  viewBox="0 0 24 24"
-                  width="24"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M5 12h14"
-                  />
-                  <path
-                    d="m12 5 7 7-7 7"
-                  />
-                </svg>
-              </button>
-            </div>
-            <div>
-              <button
-                class="inline-flex items-center justify-center whitespace-nowrap border tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 rounded-xl h-12 min-w-[11rem] border-white/20 bg-white/6 px-5 text-sm font-semibold text-white hover:bg-white/12 hover:text-white"
-              >
-                Use password
-              </button>
-            </div>
+            <p
+              class="font-mono text-[0.68rem] uppercase tracking-[0.24em] text-white/56"
+            >
+              Operator access
+            </p>
+            <h3
+              class="text-2xl font-semibold tracking-[-0.04em] text-white/96"
+            >
+              Open the live workspace.
+            </h3>
+            <p
+              class="max-w-xl text-sm leading-6 text-white/62"
+            >
+              Approved operators move directly into active parcels, evidence, workflows, and memory without leaving the working surface.
+            </p>
           </div>
           <div
-            class="border-t border-white/15 pt-6"
+            class="space-y-6 pt-6"
           >
-            <button
-              class="font-mono text-xs uppercase tracking-[0.26em] text-white/72 transition-colors hover:text-white"
-              type="button"
+            <div
+              class="flex flex-col gap-3 sm:flex-row"
             >
-              Use credential sign-in
-            </button>
+              <div>
+                <button
+                  class="inline-flex items-center justify-center whitespace-nowrap border border-transparent tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 hover:-translate-y-px rounded-xl h-12 min-w-[14rem] bg-white px-5 text-sm font-semibold text-black hover:bg-white/90"
+                >
+                  Continue with Google
+                  <svg
+                    aria-hidden="true"
+                    class="lucide lucide-arrow-right ml-2 h-4 w-4"
+                    fill="none"
+                    height="24"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    viewBox="0 0 24 24"
+                    width="24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M5 12h14"
+                    />
+                    <path
+                      d="m12 5 7 7-7 7"
+                    />
+                  </svg>
+                </button>
+              </div>
+              <div>
+                <button
+                  class="inline-flex items-center justify-center whitespace-nowrap border tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 rounded-xl h-12 min-w-[13rem] border-white/20 bg-white/6 px-5 text-sm font-semibold text-white hover:bg-white/12 hover:text-white"
+                >
+                  Use company credentials
+                </button>
+              </div>
+            </div>
+            <div
+              class="border-t border-white/12 pt-6"
+            >
+              <button
+                class="font-mono text-xs uppercase tracking-[0.26em] text-white/72 transition-colors hover:text-white"
+                type="button"
+              >
+                Use credential sign-in
+              </button>
+            </div>
           </div>
         </div>
       </div>
