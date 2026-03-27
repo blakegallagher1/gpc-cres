@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import * as Sentry from "@sentry/nextjs";
@@ -14,6 +15,18 @@ export const runtime = "nodejs";
  * Auth: SENTINEL_WEBHOOK_SECRET or CRON_SECRET via Authorization header.
  */
 
+function timingSafeTokenMatch(a: string, b: string): boolean {
+  if (!a || !b) return false;
+  try {
+    const bufA = Buffer.from(a);
+    const bufB = Buffer.from(b);
+    if (bufA.length !== bufB.length) return false;
+    return crypto.timingSafeEqual(bufA, bufB);
+  } catch {
+    return false;
+  }
+}
+
 function verifySecret(request: Request): boolean {
   const secrets = [
     process.env.SENTINEL_WEBHOOK_SECRET,
@@ -25,7 +38,7 @@ function verifySecret(request: Request): boolean {
   const header = request.headers.get("authorization")?.replace("Bearer ", "").trim() ?? "";
   if (!header) return false;
 
-  return secrets.some((s) => s.trim() === header);
+  return secrets.some((s) => timingSafeTokenMatch(s.trim(), header));
 }
 
 const SENTINEL_ORG_ID = "00000000-0000-0000-0000-000000000001";

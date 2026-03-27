@@ -97,7 +97,7 @@ export async function proxy(request: NextRequest) {
     }
 
     // Dev bypass — never active in production
-    if (process.env.NEXT_PUBLIC_DISABLE_AUTH === "true") {
+    if (process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_DISABLE_AUTH === "true") {
       return nextResponseWithRequestId(request, requestId);
     }
 

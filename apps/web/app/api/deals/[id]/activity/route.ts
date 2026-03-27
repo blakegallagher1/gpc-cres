@@ -33,12 +33,29 @@ export async function GET(
 
     const items: ActivityItem[] = [];
 
-    // Runs
-    const runs = await prisma.run.findMany({
-      where: { dealId: id, orgId: auth.orgId },
-      orderBy: { startedAt: "desc" },
-      take: 20,
-    });
+    const [runs, tasks, uploads, conversation] = await Promise.all([
+      prisma.run.findMany({
+        where: { dealId: id, orgId: auth.orgId },
+        orderBy: { startedAt: "desc" },
+        take: 20,
+      }),
+      prisma.task.findMany({
+        where: { dealId: id },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      }),
+      prisma.upload.findMany({
+        where: { dealId: id, orgId: auth.orgId },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      }),
+      prisma.conversation.findFirst({
+        where: { dealId: id, orgId: auth.orgId },
+        orderBy: { updatedAt: "desc" },
+        select: { id: true },
+      }),
+    ]);
+
     for (const run of runs) {
       items.push({
         type: "run",
@@ -48,12 +65,6 @@ export async function GET(
       });
     }
 
-    // Tasks
-    const tasks = await prisma.task.findMany({
-      where: { dealId: id },
-      orderBy: { createdAt: "desc" },
-      take: 20,
-    });
     for (const task of tasks) {
       items.push({
         type: "task",
@@ -63,12 +74,6 @@ export async function GET(
       });
     }
 
-    // Uploads
-    const uploads = await prisma.upload.findMany({
-      where: { dealId: id, orgId: auth.orgId },
-      orderBy: { createdAt: "desc" },
-      take: 20,
-    });
     for (const upload of uploads) {
       items.push({
         type: "upload",
@@ -78,12 +83,6 @@ export async function GET(
       });
     }
 
-    // Chat messages (latest conversation for this deal)
-    const conversation = await prisma.conversation.findFirst({
-      where: { dealId: id, orgId: auth.orgId },
-      orderBy: { updatedAt: "desc" },
-      select: { id: true },
-    });
     if (conversation) {
       const messages = await prisma.message.findMany({
         where: { conversationId: conversation.id },
