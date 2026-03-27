@@ -38,8 +38,14 @@ export function parsePatch(patchText: string): ParsedPatch {
     }
     if (line.trim() === "*** End Patch") {
       if (currentHunk && currentHunk.filePath && currentHunk.type) {
+        // Trim trailing empty lines from content
+        while (contentLines.length > 0 && contentLines[contentLines.length - 1].trim() === "") {
+          contentLines.pop();
+        }
         hunks.push({ ...currentHunk, content: contentLines.join("\n") } as PatchHunk);
       }
+      currentHunk = null;
+      contentLines = [];
       inPatch = false;
       break;
     }
@@ -47,12 +53,20 @@ export function parsePatch(patchText: string): ParsedPatch {
 
     if (line.startsWith("*** Add File: ")) {
       if (currentHunk?.filePath) {
+        // Trim trailing empty lines from content
+        while (contentLines.length > 0 && contentLines[contentLines.length - 1].trim() === "") {
+          contentLines.pop();
+        }
         hunks.push({ ...currentHunk, content: contentLines.join("\n") } as PatchHunk);
       }
       currentHunk = { type: "add", filePath: line.slice("*** Add File: ".length).trim() };
       contentLines = [];
     } else if (line.startsWith("*** Delete File: ")) {
       if (currentHunk?.filePath) {
+        // Trim trailing empty lines from content
+        while (contentLines.length > 0 && contentLines[contentLines.length - 1].trim() === "") {
+          contentLines.pop();
+        }
         hunks.push({ ...currentHunk, content: contentLines.join("\n") } as PatchHunk);
       }
       hunks.push({ type: "delete", filePath: line.slice("*** Delete File: ".length).trim(), content: "" });
@@ -60,6 +74,10 @@ export function parsePatch(patchText: string): ParsedPatch {
       contentLines = [];
     } else if (line.startsWith("*** Update File: ")) {
       if (currentHunk?.filePath) {
+        // Trim trailing empty lines from content
+        while (contentLines.length > 0 && contentLines[contentLines.length - 1].trim() === "") {
+          contentLines.pop();
+        }
         hunks.push({ ...currentHunk, content: contentLines.join("\n") } as PatchHunk);
       }
       currentHunk = { type: "update", filePath: line.slice("*** Update File: ".length).trim() };
@@ -70,6 +88,10 @@ export function parsePatch(patchText: string): ParsedPatch {
   }
 
   if (currentHunk?.filePath && currentHunk.type) {
+    // Trim trailing empty lines from content
+    while (contentLines.length > 0 && contentLines[contentLines.length - 1].trim() === "") {
+      contentLines.pop();
+    }
     hunks.push({ ...currentHunk, content: contentLines.join("\n") } as PatchHunk);
   }
 
