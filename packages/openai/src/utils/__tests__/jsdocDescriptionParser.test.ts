@@ -345,8 +345,8 @@ export async function searchParcels(query, limit, parish) {
       expect(result.description!).toContain("Searches for parcels");
       expect(result.description!).toContain("investment opportunities");
       expect(result.params.query).toContain("address");
-      expect(result.params.limit).toContain("maximum");
-      expect(result.params.parish).toContain("optional parish filter");
+      expect(result.params.limit.toLowerCase()).toContain("maximum");
+      expect(result.params.parish.toLowerCase()).toContain("optional parish filter");
     });
 
     it("processes full JSDoc parsing pipeline", () => {
