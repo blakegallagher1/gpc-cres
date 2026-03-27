@@ -2378,14 +2378,53 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
   }, [baseLayer, showParcelBoundaries, showZoning, showFlood, showSoils, showWetlands, showEpa, showMobileHomePark, mapReady]);
 
   if (mapError) {
+    const isWebGLError = mapError.toLowerCase().includes("webgl") ||
+      mapError.toLowerCase().includes("gl_vendor") ||
+      mapError.toLowerCase().includes("gl_renderer");
+
     return (
       <div
-        className="flex h-full w-full items-center justify-center rounded-lg border border-map-border bg-red-500/10 text-sm text-red-400"
+        className="flex h-full w-full items-center justify-center rounded-lg border border-neutral-700 bg-neutral-900 text-sm text-neutral-300"
         style={{ height }}
       >
-        <div className="text-center">
-          <p className="font-semibold">MapLibre failed to initialize</p>
-          <p className="text-xs text-red-600">{mapError}</p>
+        <div className="max-w-md space-y-3 text-center px-6">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-neutral-800">
+            <svg className="h-6 w-6 text-neutral-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z" />
+            </svg>
+          </div>
+          {isWebGLError ? (
+            <>
+              <p className="font-semibold text-neutral-100">WebGL is not available</p>
+              <p className="text-neutral-400">
+                The map requires WebGL to render. This usually means hardware acceleration
+                is disabled in your browser.
+              </p>
+              <div className="rounded-md bg-neutral-800 p-3 text-left text-xs text-neutral-400">
+                <p className="font-medium text-neutral-300 mb-1">To fix this:</p>
+                <ol className="list-decimal list-inside space-y-1">
+                  <li>Open Chrome Settings → System</li>
+                  <li>Enable &ldquo;Use hardware acceleration when available&rdquo;</li>
+                  <li>Relaunch your browser</li>
+                </ol>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="font-semibold text-neutral-100">Map failed to load</p>
+              <p className="text-neutral-400">
+                Something went wrong initializing the map. Try refreshing the page.
+              </p>
+              <details className="text-left">
+                <summary className="cursor-pointer text-xs text-neutral-500 hover:text-neutral-400">
+                  Technical details
+                </summary>
+                <pre className="mt-2 max-h-24 overflow-auto rounded bg-neutral-800 p-2 text-xs text-neutral-500 whitespace-pre-wrap break-all">
+                  {mapError}
+                </pre>
+              </details>
+            </>
+          )}
         </div>
       </div>
     );
