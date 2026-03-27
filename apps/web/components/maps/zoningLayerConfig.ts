@@ -281,7 +281,13 @@ export function buildZoningTileLayer(
     },
     paint: {
       "fill-color": buildZoningTileColorExpression(contract.propertyName),
-      "fill-opacity": 0.3,
+      "fill-opacity": [
+        "interpolate", ["linear"], ["zoom"],
+        10, 0.55,
+        13, 0.45,
+        16, 0.35,
+      ],
+      "fill-outline-color": buildZoningTileColorExpression(contract.propertyName),
     },
   };
 }
