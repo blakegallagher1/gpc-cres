@@ -4,8 +4,8 @@ import { ZONING_DISTRICT_COLORS } from "./mapStyles";
 import {
   getMartinMetadataUrl,
   getMartinVectorTileUrl,
-  getZoningProxyTileUrl,
 } from "./tileUrls";
+import { getZoningTileUrl } from "./tileUrls";
 
 export const ZONING_TILE_SOURCE_KEY = "zoning-tiles";
 export const ZONING_TILE_LAYER_ID = "zoning-tiles-fill";
@@ -77,8 +77,8 @@ export function getPreferredZoningTileContract(): ZoningTileContract {
     sourceId: PROXY_ZONING_TILE_SOURCE_ID,
     sourceLayer: PROXY_ZONING_TILE_SOURCE_LAYER,
     propertyName,
-    metadataUrl: null,
-    tileUrl: getZoningProxyTileUrl(),
+    metadataUrl: "/api/map/zoning-tiles/metadata",
+    tileUrl: getZoningTileUrl(),
   };
 }
 
@@ -91,8 +91,8 @@ export function getLegacyZoningTileContract(): ZoningTileContract {
     sourceId: LEGACY_ZONING_TILE_SOURCE_ID,
     sourceLayer: LEGACY_ZONING_TILE_SOURCE_LAYER,
     propertyName: DEFAULT_ZONING_TILE_PROPERTY_NAME,
-    metadataUrl: getMartinMetadataUrl(LEGACY_ZONING_TILE_SOURCE_ID),
-    tileUrl: getMartinVectorTileUrl(LEGACY_ZONING_TILE_SOURCE_ID),
+    metadataUrl: "/api/map/zoning-tiles/metadata",
+    tileUrl: getZoningTileUrl(),
   };
 }
 

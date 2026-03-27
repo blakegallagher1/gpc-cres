@@ -116,6 +116,17 @@ export function getLocalFallbackTileUrl(): string {
 }
 
 /**
+ * Returns the same-origin zoning vector tile URL.
+ * Proxied through /api/map/zoning-tiles to avoid CORS issues with Martin.
+ */
+export function getZoningTileUrl(): string {
+  if (typeof window !== "undefined") {
+    return `${window.location.origin}/api/map/zoning-tiles/{z}/{x}/{y}`;
+  }
+  return "/api/map/zoning-tiles/{z}/{x}/{y}";
+}
+
+/**
  * Returns parcel vector tile URL (MVT from get_parcel_mvt).
  * Prefer getMartinParcelTileUrl() for new code.
  */

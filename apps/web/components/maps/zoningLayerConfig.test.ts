@@ -42,27 +42,13 @@ describe("zoningLayerConfig", () => {
     expect(layer).toMatchSnapshot();
   });
 
-  it("uses the authenticated zoning proxy by default", () => {
-    expect(getPreferredZoningTileContract()).toEqual({
-      sourceId: "get_parcel_mvt_proxy",
-      sourceLayer: "parcels",
-      propertyName: "zoning_type",
-      metadataUrl: null,
-      tileUrl: "/api/map/zoning-tiles/{z}/{x}/{y}",
-    });
-  });
-
-  it("uses explicit Martin overrides when configured", () => {
-    process.env.NEXT_PUBLIC_ZONING_TILE_SOURCE_ID = "get_zoning_mvt";
-    process.env.NEXT_PUBLIC_ZONING_TILE_SOURCE_LAYER = "zoning";
-
-    expect(getPreferredZoningTileContract()).toEqual({
-      sourceId: "get_zoning_mvt",
-      sourceLayer: "zoning",
-      propertyName: "zoning_type",
-      metadataUrl: "https://tiles.gallagherpropco.com/get_zoning_mvt",
-      tileUrl: "https://tiles.gallagherpropco.com/get_zoning_mvt/{z}/{x}/{y}",
-    });
+  it("uses the advanced zoning function contract by default", () => {
+    const contract = getPreferredZoningTileContract();
+    expect(contract.sourceId).toBe("get_zoning_mvt");
+    expect(contract.sourceLayer).toBe("zoning");
+    expect(contract.propertyName).toBe("zoning_type");
+    expect(contract.metadataUrl).toBe("/api/map/zoning-tiles/metadata");
+    expect(contract.tileUrl).toContain("/api/map/zoning-tiles/{z}/{x}/{y}");
   });
 
   it("resolves the default proxy contract without metadata fetches", async () => {

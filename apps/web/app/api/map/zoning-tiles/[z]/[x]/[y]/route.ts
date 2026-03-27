@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
-import * as Sentry from "@sentry/nextjs";
-
 import { getCloudflareAccessHeadersFromEnv } from "@/lib/server/propertyDbEnv";
-import { getPropertyDbScopeHeaders } from "@/lib/server/propertyDbRpc";
+import * as Sentry from "@sentry/nextjs";
 
 const CACHE_MAX_AGE = 86400;
 const CACHE_STALE = 604800;
@@ -11,12 +9,8 @@ const TILE_FETCH_TIMEOUT_MS = 10_000;
 type RouteParams = { params: Promise<{ z: string; x: string; y: string }> };
 
 /**
- * Authenticated zoning tile proxy.
- *
- * The browser cannot reliably discover zoning-capable Martin sources on the
- * public tiles hostname, but the app server can fetch the gateway's
- * authenticated zoning tile endpoint and expose those bytes as a same-origin
- * vector tile source.
+ * Zoning vector tile proxy — proxies to Martin get_zoning_mvt via Cloudflare Tunnel.
+ * Same-origin so MapLibre can fetch without CORS issues.
  */
 export async function GET(_req: Request, { params }: RouteParams) {
   const { z, x, y } = await params;
@@ -39,26 +33,22 @@ export async function GET(_req: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Local API not configured" }, { status: 503 });
   }
 
-  // Martin tile server is on a separate subdomain from the gateway.
-  // Derive: api.gallagherpropco.com → tiles.gallagherpropco.com
   const tileBaseUrl = process.env.TILE_SERVER_URL
     ?? localApiUrl.replace("api.", "tiles.");
-  // Zoning data lives in the same ebr_parcels source as parcel boundaries —
-  // the tile includes a "parcels" layer with zoning_type, existing_land_use, etc.
-  const tileLayer = process.env.ZONING_TILE_LAYER ?? "ebr_parcels";
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TILE_FETCH_TIMEOUT_MS);
-
   try {
-    const response = await fetch(`${tileBaseUrl}/${tileLayer}/${zi}/${xi}/${yi}`, {
-      headers: {
-        Authorization: `Bearer ${localApiKey}`,
-        ...getPropertyDbScopeHeaders("map.tiles.read"),
-        ...getCloudflareAccessHeadersFromEnv(),
-      },
-      signal: controller.signal,
-    });
+    const response = await fetch(
+      `${tileBaseUrl}/get_zoning_mvt/${zi}/${xi}/${yi}`,
+      {
+        headers: {
+          Authorization: `Bearer ${localApiKey}`,
+          ...getCloudflareAccessHeadersFromEnv(),
+        },
+        signal: controller.signal,
+      }
+    );
 
     if (response.status === 204) {
       return new NextResponse(null, {
@@ -70,7 +60,7 @@ export async function GET(_req: Request, { params }: RouteParams) {
     }
 
     if (!response.ok) {
-      throw new Error(`Local API returned ${response.status}`);
+      throw new Error(`Tile server returned ${response.status}`);
     }
 
     const data = await response.arrayBuffer();
@@ -88,9 +78,10 @@ export async function GET(_req: Request, { params }: RouteParams) {
     Sentry.captureException(err, {
       tags: { route: "api.map.zoning-tiles", method: "GET", timeout: String(isTimeout) },
     });
+    console.error("[zoning-tiles] Proxy error:", isTimeout ? `request timed out after ${TILE_FETCH_TIMEOUT_MS}ms` : err);
     return NextResponse.json(
-      { error: isTimeout ? "Tile server request timed out" : "Failed to fetch zoning tile from local API" },
-      { status: isTimeout ? 504 : 503 },
+      { error: isTimeout ? "Tile server request timed out" : "Failed to fetch zoning tile" },
+      { status: isTimeout ? 504 : 503 }
     );
   } finally {
     clearTimeout(timeout);
