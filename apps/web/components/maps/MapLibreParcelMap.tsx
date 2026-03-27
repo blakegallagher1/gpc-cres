@@ -608,11 +608,15 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
 
     void resolveAvailableZoningTileContract()
       .then((contract) => {
+        console.log("[ZONING-DEBUG] contract resolved:", contract ? `${contract.sourceId}/${contract.sourceLayer} → ${contract.tileUrl}` : "NULL");
         if (!cancelled) {
           setZoningTileContract(contract);
+        } else {
+          console.log("[ZONING-DEBUG] contract resolved but cancelled=true (component unmounted)");
         }
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error("[ZONING-DEBUG] contract resolution FAILED:", err);
         if (!cancelled) {
           setZoningTileContract(null);
         }
@@ -1858,13 +1862,17 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
     };
 
     try {
+      console.log("[ZONING-DEBUG] effect running:", { mapReady, showLayers, showZoning, contract: zoningTileContract?.sourceId ?? "NULL", appliedKey: appliedContractKey, nextKey: nextContractKey });
+
       if (!zoningTileContract) {
+        console.log("[ZONING-DEBUG] no contract — removing artifacts");
         removeZoningTileArtifacts();
         moveLayerBeforeSafe(map, "parcels-boundary-fill", "parcels-zoning-layer");
         return;
       }
 
       if (appliedContractKey !== nextContractKey) {
+        console.log("[ZONING-DEBUG] adding source+layer:", { sourceKey: ZONING_TILE_SOURCE_KEY, tileUrl: zoningTileContract.tileUrl, insertBefore: "parcels-zoning-layer", hasInsertTarget: !!map.getLayer("parcels-zoning-layer") });
         removeZoningTileArtifacts();
         map.addSource(ZONING_TILE_SOURCE_KEY, buildZoningTileSource(zoningTileContract));
         map.addLayer(
@@ -1872,6 +1880,7 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
           "parcels-zoning-layer",
         );
         appliedZoningTileContractKeyRef.current = nextContractKey;
+        console.log("[ZONING-DEBUG] source+layer added successfully. Layer exists:", !!map.getLayer(ZONING_TILE_LAYER_ID), "Source exists:", !!map.getSource(ZONING_TILE_SOURCE_KEY));
       }
 
       setLayerVisibilitySafe(map, ZONING_TILE_LAYER_ID, showLayers && showZoning);
@@ -1888,7 +1897,9 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
 
       // Ensure zoning-tiles-fill is above parcel outlines
       moveLayerBeforeSafe(map, "parcel-tiles-line", ZONING_TILE_LAYER_ID);
-    } catch {
+      console.log("[ZONING-DEBUG] layer ordering complete. All map layers:", map.getStyle().layers.map(l => l.id).join(", "));
+    } catch (err) {
+      console.error("[ZONING-DEBUG] CAUGHT ERROR in zoning effect:", err);
       removeZoningTileArtifacts();
     }
   }, [mapReady, showLayers, showZoning, zoningTileContract]);
