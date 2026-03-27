@@ -142,6 +142,7 @@ export const store_knowledge_entry = tool({
       .string()
       .describe("Name of the agent storing this knowledge."),
   }),
+  needsApproval: true,
   execute: async (params, context) => {
     try {
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? process.env.VERCEL_URL ?? "http://localhost:3000";

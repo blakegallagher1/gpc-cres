@@ -73,6 +73,7 @@ export const generate_artifact = tool({
       .optional().nullable()
       .describe("For COMP_ANALYSIS_PDF only: IDs of deals to compare against. Null for other types."),
   }),
+  needsApproval: true,
   execute: async ({ orgId, dealId, artifactType, comparisonDealIds }) => {
     try {
       const aType = artifactType as ArtifactType;
