@@ -1869,7 +1869,7 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
         map.addSource(ZONING_TILE_SOURCE_KEY, buildZoningTileSource(zoningTileContract));
         map.addLayer(
           buildZoningTileLayer(zoningTileContract, showLayers && showZoning),
-          ZONING_TILE_INSERT_BEFORE_LAYER_ID,
+          "parcels-zoning-layer",
         );
         appliedZoningTileContractKeyRef.current = nextContractKey;
       }
@@ -1886,8 +1886,8 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
         map.setPaintProperty("parcel-tiles-line", "line-color", zoningActive ? "#a3a3a3" : "#facc15");
       }
 
-      moveLayerBeforeSafe(map, "parcels-boundary-fill", ZONING_TILE_LAYER_ID);
-      moveLayerBeforeSafe(map, ZONING_TILE_LAYER_ID, ZONING_TILE_INSERT_BEFORE_LAYER_ID);
+      // Ensure zoning-tiles-fill is above parcel outlines
+      moveLayerBeforeSafe(map, "parcel-tiles-line", ZONING_TILE_LAYER_ID);
     } catch {
       removeZoningTileArtifacts();
     }
@@ -1916,9 +1916,8 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
     setLayerVisibilitySafe(map, "base-streets", !isDark && baseLayer !== "Satellite");
     setLayerVisibilitySafe(map, "base-satellite", baseLayer === "Satellite");
     setLayerVisibilitySafe(map, "parcel-points", showLayers);
-    moveLayerBeforeSafe(map, "parcels-boundary-fill", "parcels-zoning-layer");
-    moveLayerBeforeSafe(map, "parcels-boundary-fill", ZONING_TILE_LAYER_ID);
-    moveLayerBeforeSafe(map, ZONING_TILE_LAYER_ID, ZONING_TILE_INSERT_BEFORE_LAYER_ID);
+    // Ensure zoning-tiles-fill is above parcel outlines
+    moveLayerBeforeSafe(map, "parcel-tiles-line", ZONING_TILE_LAYER_ID);
   }, [
     boundarySource,
     zoningSource,
