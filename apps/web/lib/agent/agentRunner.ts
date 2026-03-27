@@ -1195,6 +1195,18 @@ export async function runAgentWorkflow(params: AgentRunInput) {
         conversationId: conversationId ?? undefined,
       });
 
+      dispatchRunCompleted({
+        runId: workflowResult.runId,
+        orgId,
+        userId,
+        status: workflowResult.status === "succeeded" ? "succeeded" : "failed",
+        conversationId,
+        dealId,
+        jurisdictionId,
+        runType,
+        inputPreview: message ? message.slice(0, 500) : null,
+      });
+
       return {
         result: {
           runId: workflowResult.runId,
@@ -1335,6 +1347,18 @@ export async function runAgentWorkflow(params: AgentRunInput) {
       }
     }
 
+    dispatchRunCompleted({
+      runId: result.runId,
+      orgId,
+      userId,
+      status: result.status === "succeeded" ? "succeeded" : "failed",
+      conversationId,
+      dealId,
+      jurisdictionId,
+      runType,
+      inputPreview: message ? message.slice(0, 500) : null,
+    });
+
     return {
       result,
       conversationId,
@@ -1401,6 +1425,18 @@ export async function runAgentWorkflow(params: AgentRunInput) {
       });
     }
   }
+
+  dispatchRunCompleted({
+    runId: result.runId,
+    orgId,
+    userId,
+    status: result.status === "succeeded" ? "succeeded" : "failed",
+    conversationId,
+    dealId,
+    jurisdictionId,
+    runType,
+    inputPreview: message ? message.slice(0, 500) : null,
+  });
 
   return {
     result,

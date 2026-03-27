@@ -2213,34 +2213,56 @@ async def db_query_proxy(
 
 # =============================================================================
 # CUA Worker Reverse Proxy (cua.gallagherpropco.com → cua-worker:3001)
+# Explicit route handlers — more reliable than host-header middleware.
+# Tunnel routes cua.gallagherpropco.com → gateway:8000 → these routes → cua-worker:3001
 # =============================================================================
 
 CUA_WORKER_URL = os.getenv("CUA_WORKER_URL", "http://cua-worker:3001")
 
-@app.middleware("http")
-async def cua_host_proxy(request: Request, call_next):
-    """Route cua.gallagherpropco.com traffic to CUA worker."""
-    host = request.headers.get("host", "")
-    if "cua." in host:
-        import httpx as _httpx
-        path = request.url.path
-        target = f"{CUA_WORKER_URL}{path}"
-        headers = {k: v for k, v in request.headers.items()
-                   if k.lower() not in ("host", "content-length", "transfer-encoding")}
-        body = await request.body()
-        try:
-            async with _httpx.AsyncClient(timeout=180.0) as client:
-                resp = await client.request(
-                    method=request.method, url=target, headers=headers,
-                    content=body if body else None,
-                    params=dict(request.query_params),
-                )
-            return Response(content=resp.content, status_code=resp.status_code,
-                            headers=dict(resp.headers), media_type=resp.headers.get("content-type"))
-        except Exception as exc:
-            return Response(content=f'{{"error":"{exc}"}}', status_code=502,
-                            media_type="application/json")
-    return await call_next(request)
+
+async def _cua_proxy(method: str, path: str, request: Request) -> Response:
+    """Proxy a request to the CUA worker."""
+    import httpx as _httpx
+    target = f"{CUA_WORKER_URL}{path}"
+    headers = {k: v for k, v in request.headers.items()
+               if k.lower() not in ("host", "content-length", "transfer-encoding")}
+    body = await request.body()
+    try:
+        async with _httpx.AsyncClient(timeout=180.0) as client:
+            resp = await client.request(
+                method=method, url=target, headers=headers,
+                content=body if body else None,
+                params=dict(request.query_params),
+            )
+        return Response(content=resp.content, status_code=resp.status_code,
+                        headers=dict(resp.headers), media_type=resp.headers.get("content-type"))
+    except Exception as exc:
+        return Response(content=f'{{"error":"{exc}"}}', status_code=502,
+                        media_type="application/json")
+
+
+@app.get("/cua/health")
+async def cua_health(request: Request):
+    """Proxy health check to CUA worker."""
+    return await _cua_proxy("GET", "/health", request)
+
+
+@app.post("/tasks")
+async def cua_tasks_create(request: Request):
+    """Proxy POST /tasks to CUA worker."""
+    return await _cua_proxy("POST", "/tasks", request)
+
+
+@app.get("/tasks/{task_id}")
+async def cua_tasks_get(task_id: str, request: Request):
+    """Proxy GET /tasks/{task_id} to CUA worker."""
+    return await _cua_proxy("GET", f"/tasks/{task_id}", request)
+
+
+@app.get("/tasks/{task_id}/events")
+async def cua_tasks_events(task_id: str, request: Request):
+    """Proxy GET /tasks/{task_id}/events (SSE) to CUA worker."""
+    return await _cua_proxy("GET", f"/tasks/{task_id}/events", request)
 
 
 # =============================================================================
