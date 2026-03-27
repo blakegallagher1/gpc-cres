@@ -61,6 +61,47 @@ type GatewayRow = {
   epa_1mi: number;
 };
 
+type ParcelLookupGatewayRecord = {
+  parcel_uid?: string | null;
+  parcel_id?: string | null;
+};
+
+async function resolveCanonicalScreeningParcelId(params: {
+  gatewayUrl: string;
+  gatewayKey: string;
+  parcelId: string;
+  signal: AbortSignal;
+}): Promise<string> {
+  const res = await fetch(`${params.gatewayUrl}/tools/parcel.lookup`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${params.gatewayKey}`,
+      ...getCloudflareAccessHeadersFromEnv(),
+    },
+    body: JSON.stringify({ parcel_id: params.parcelId }),
+    signal: params.signal,
+  });
+
+  if (!res.ok) {
+    return params.parcelId;
+  }
+
+  let json: { ok?: boolean; data?: ParcelLookupGatewayRecord | null };
+  try {
+    json = (await res.json()) as { ok?: boolean; data?: ParcelLookupGatewayRecord | null };
+  } catch {
+    return params.parcelId;
+  }
+
+  const canonicalParcelId =
+    json.ok === true
+      ? json.data?.parcel_uid?.trim() || json.data?.parcel_id?.trim() || ""
+      : "";
+
+  return canonicalParcelId.length > 0 ? canonicalParcelId : params.parcelId;
+}
+
 function mapRowToSummary(row: GatewayRow): ScreeningSummary {
   const inSfha = row.in_sfha === true;
   const hasHydric = row.has_hydric === true;
@@ -126,8 +167,14 @@ export async function GET(
     const timeout = setTimeout(() => controller.abort(), SCREENING_TIMEOUT_MS);
 
     try {
-      const sql = buildScreeningSQL(parcelId);
       const gatewayUrl = gatewayConfig.url.replace(/\/$/, "");
+      const screeningParcelId = await resolveCanonicalScreeningParcelId({
+        gatewayUrl,
+        gatewayKey: gatewayConfig.key,
+        parcelId,
+        signal: controller.signal,
+      });
+      const sql = buildScreeningSQL(screeningParcelId);
       const res = await fetch(`${gatewayUrl}/tools/parcels.sql`, {
         method: "POST",
         headers: {
