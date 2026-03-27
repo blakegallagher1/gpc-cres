@@ -1346,6 +1346,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
               result.runId,
               result.openaiResponseId,
               result.trust,
+              undefined, // TODO: Extract phase from SDK response when @openai/agents exposes it
             ),
           },
         });
@@ -1412,6 +1413,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
             result.runId,
             result.openaiResponseId,
             result.trust,
+            undefined, // TODO: Extract phase from SDK response when @openai/agents exposes it
           ),
         },
       ]);
@@ -1425,6 +1427,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
             result.runId,
             result.openaiResponseId,
             result.trust,
+            undefined, // TODO: Extract phase from SDK response when @openai/agents exposes it
           ),
         },
       });
