@@ -29,6 +29,37 @@ import { mapFeaturesFromActionPayload, mergeMapFeatures } from "@/lib/chat/mapFe
 import { parseToolResultMapFeatures } from "@/lib/chat/toolResultWrapper";
 import type { MapFeature } from "@/lib/chat/mapActionTypes";
 import { logger } from "./loggerAdapter";
+import { dispatchEvent } from "@/lib/automation/events";
+
+/**
+ * Fire-and-forget dispatch of agent.run.completed for learning promotion (DA-007).
+ * Only called for fresh runs — never for replayed/cached results.
+ */
+function dispatchRunCompleted(opts: {
+  runId: string;
+  orgId: string;
+  userId: string;
+  status: "succeeded" | "failed" | "canceled";
+  conversationId?: string | null;
+  dealId?: string | null;
+  jurisdictionId?: string | null;
+  runType?: string | null;
+  inputPreview?: string | null;
+}): void {
+  dispatchEvent({
+    type: "agent.run.completed",
+    runId: opts.runId,
+    orgId: opts.orgId,
+    userId: opts.userId,
+    conversationId: opts.conversationId ?? null,
+    dealId: opts.dealId ?? null,
+    jurisdictionId: opts.jurisdictionId ?? null,
+    runType: opts.runType ?? null,
+    status: opts.status,
+    inputPreview: opts.inputPreview ?? null,
+    queryIntent: null,
+  }).catch(() => {});
+}
 
 const LOCAL_LEASE_GRACE_MS = 15 * 60 * 1000;
 const LOCAL_LEASE_WAIT_MS = 60_000 * 10;
