@@ -286,6 +286,7 @@ export function buildZoningTileLayer(
         10, 0.55,
         13, 0.45,
         16, 0.35,
+        22, 0.25,
       ],
       "fill-outline-color": buildZoningTileColorExpression(contract.propertyName),
     },

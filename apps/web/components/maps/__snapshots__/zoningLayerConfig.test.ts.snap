@@ -572,6 +572,8 @@ exports[`zoningLayerConfig > snapshots the zoning tile layer contract 1`] = `
       0.45,
       16,
       0.35,
+      22,
+      0.25,
     ],
     "fill-outline-color": [
       "match",
