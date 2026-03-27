@@ -204,10 +204,13 @@ describe("CommandCenterWorkspace", () => {
   it("renders the upgraded workspace hierarchy and key operator sections", () => {
     render(<CommandCenterWorkspace />);
 
+    expect(screen.getByText("Morning operator brief")).toBeInTheDocument();
+    expect(screen.getByText("Command Center")).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "Command Center" }),
+      screen.getByRole("heading", {
+        name: "See what moved, what is blocked, and where to intervene.",
+      }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Operator workspace")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Operating brief" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Priority queue" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Opportunity radar" })).toBeInTheDocument();
@@ -215,8 +218,10 @@ describe("CommandCenterWorkspace", () => {
     expect(screen.getByRole("heading", { name: "Automation stream" })).toBeInTheDocument();
     expect(screen.getByText("Entitlement KPI widget")).toBeInTheDocument();
     expect(screen.getByText("2774 HIGHLAND RD")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Export" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Refresh" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Review active deals" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Review opportunity queue" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Export live brief" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Refresh live brief" })).toBeInTheDocument();
   });
 
   it("shows cached opportunity fallback when refresh fails", () => {

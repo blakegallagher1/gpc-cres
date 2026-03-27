@@ -119,7 +119,7 @@ export function DealSelector({ selectedDealId, onSelect }: DealSelectorProps) {
           >
             <Building2 className="mr-2 h-3.5 w-3.5" />
             <span className={selected ? "font-medium" : "text-muted-foreground"}>
-              {selected ? selected.name : "No deal scope"}
+              {selected ? selected.name : "General scope"}
             </span>
             <ChevronDown className="ml-2 h-3.5 w-3.5 text-muted-foreground" />
           </Button>
@@ -147,11 +147,11 @@ export function DealSelector({ selectedDealId, onSelect }: DealSelectorProps) {
             <CommandEmpty>No deals found</CommandEmpty>
             <CommandGroup heading="Scope">
               <CommandItem
-                value="No deal scope"
+                value="General scope"
                 onSelect={() => handleSelect(null)}
                 className={cn(!selectedDealId && "bg-accent text-accent-foreground")}
               >
-                <span className="text-muted-foreground">No deal scope</span>
+                <span className="text-muted-foreground">General scope</span>
               </CommandItem>
             </CommandGroup>
             <CommandGroup heading="Deals">

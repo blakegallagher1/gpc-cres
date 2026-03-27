@@ -14,6 +14,12 @@ interface MessageListEmptyState {
   title: string;
   description: string;
   suggestions: string[];
+  detailHeading?: string;
+  detailItems?: Array<{
+    label: string;
+    title: string;
+    detail: string;
+  }>;
 }
 
 interface MessageListProps {
@@ -35,6 +41,24 @@ const DEFAULT_EMPTY_STATE: MessageListEmptyState = {
     'Summarize zoning risk',
     'Build a diligence list',
     'Review capital structure options',
+  ],
+  detailHeading: 'Typical outputs',
+  detailItems: [
+    {
+      label: 'Screen',
+      title: 'Entitlement screen',
+      detail: 'Summarize zoning pressure, setbacks, constraints, and the immediate follow-up path.',
+    },
+    {
+      label: 'Memo',
+      title: 'Decision memo',
+      detail: 'Package the tradeoffs, risks, and recommended next move into a format you can circulate.',
+    },
+    {
+      label: 'Checklist',
+      title: 'Diligence checklist',
+      detail: 'Turn a broad site question into a sequenced list of tasks, documents, and approvals.',
+    },
   ],
 };
 
@@ -111,47 +135,66 @@ export function MessageList({
     return (
       <div className="chat-thread-surface flex h-full items-center justify-center overflow-y-auto px-4 sm:px-6">
         <motion.div
-          className="flex w-full max-w-xl flex-col gap-6 py-8"
+          className="flex w-full max-w-5xl flex-col gap-8 py-8"
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.25, ease: 'easeOut' }}
         >
-          <div className="flex flex-col gap-2 text-center">
-            <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
-              {emptyState.eyebrow}
-            </p>
-            <h3 className="text-lg font-semibold tracking-tight text-foreground">
-              {emptyState.title}
-            </h3>
-            <p className="mx-auto max-w-sm text-xs leading-5 text-muted-foreground">
-              {emptyState.description}
-            </p>
-          </div>
+          <div className="grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.7fr)]">
+            <div className="space-y-6">
+              <div className="space-y-3">
+                <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+                  {emptyState.eyebrow}
+                </p>
+                <h3 className="max-w-[16ch] text-3xl font-semibold tracking-[-0.05em] text-foreground sm:text-[2.4rem]">
+                  {emptyState.title}
+                </h3>
+                <p className="max-w-xl text-sm leading-6 text-muted-foreground sm:text-base">
+                  {emptyState.description}
+                </p>
+              </div>
 
-          <Card className="border-border/60 bg-background/55">
-            <CardContent className="flex flex-col gap-1 p-2">
-            {emptyState.suggestions.map((suggestion, index) => (
-              <motion.div
-                key={suggestion}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.2, delay: 0.08 + index * 0.05 }}
-              >
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => onSuggestionClick?.(suggestion)}
-                  className="group !flex h-auto w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left text-sm"
-                >
-                  <span className="text-sm text-foreground/80 group-hover:text-foreground">
-                    {suggestion}
-                  </span>
-                  <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40 transition-transform group-hover:translate-x-0.5 group-hover:text-foreground/60" />
-                </Button>
-              </motion.div>
-            ))}
-            </CardContent>
-          </Card>
+              <div className="border-y border-border/45">
+                {emptyState.suggestions.map((suggestion, index) => (
+                  <motion.div
+                    key={suggestion}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.2, delay: 0.08 + index * 0.05 }}
+                  >
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => onSuggestionClick?.(suggestion)}
+                      className="group !flex h-auto w-full items-center justify-between gap-4 rounded-none border-b border-border/40 px-0 py-4 text-left last:border-b-0 hover:bg-transparent"
+                    >
+                      <span className="text-left text-base text-foreground/86 group-hover:text-foreground">
+                        {suggestion}
+                      </span>
+                      <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5 group-hover:text-foreground/70" />
+                    </Button>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+
+            {emptyState.detailItems?.length ? (
+              <div className="border-t border-border/45 pt-5 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
+                <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-muted-foreground">
+                  {emptyState.detailHeading ?? 'Detail'}
+                </p>
+                <div className="mt-4 space-y-4">
+                  {emptyState.detailItems.map((item) => (
+                    <div key={`${item.label}-${item.title}`} className="space-y-1.5 border-b border-border/35 pb-4 last:border-b-0 last:pb-0">
+                      <p className="workspace-stat-label">{item.label}</p>
+                      <p className="text-sm font-medium text-foreground">{item.title}</p>
+                      <p className="text-xs leading-5 text-muted-foreground">{item.detail}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
         </motion.div>
       </div>
     );

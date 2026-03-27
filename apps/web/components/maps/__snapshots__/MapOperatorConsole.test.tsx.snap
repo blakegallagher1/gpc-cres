@@ -8,282 +8,107 @@ exports[`MapOperatorConsole > renders the operator console workspace 1`] = `
     class="border-b border-map-border px-4 py-4"
   >
     <div
-      class="flex items-start justify-between gap-4"
+      class="space-y-3"
     >
       <div
-        class="min-w-0"
+        class="space-y-1.5"
       >
         <p
-          class="font-mono text-[10px] uppercase tracking-[0.22em] text-map-text-muted"
+          class="font-mono text-[10px] uppercase tracking-[0.18em] text-map-text-muted"
         >
-          Map console
+          Operator console
         </p>
-        <h2
-          class="mt-1 text-sm font-semibold text-map-text-primary"
+        <h3
+          class="text-sm font-semibold text-map-text-primary"
         >
-          Run analysis, pin parcel boundaries, and manage follow-up work.
-        </h2>
+          Save the geography, assign the next move, and keep the parcel brief live.
+        </h3>
         <p
-          class="mt-1 text-[11px] leading-5 text-map-text-secondary"
+          class="text-[11px] leading-5 text-map-text-secondary"
         >
-          Tracked parcels stay highlighted on the map while their notes and task state stay attached.
+          Move from selection to watchlist, comparison, prospecting, or copilot without leaving the active map state.
         </p>
       </div>
       <div
-        class="inline-flex items-center rounded-full border font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground px-2.5 py-1 text-[9px]"
+        class="grid grid-cols-2 gap-2 border-y border-map-border/80 py-3 text-[10px] sm:grid-cols-4"
       >
-        1
-         open tasks
-      </div>
-    </div>
-    <div
-      class="mt-4 grid grid-cols-2 gap-2"
-    >
-      <div
-        class="rounded-xl border border-map-border bg-map-surface/55 px-3 py-2.5"
-      >
-        <div
-          class="flex items-center justify-between gap-3"
-        >
-          <p
+        <div>
+          <div
             class="map-stat-label"
           >
-            In View
-          </p>
-          <span
-            class="text-map-text-muted"
+            Visible
+          </div>
+          <div
+            class="map-stat-value"
           >
-            <svg
-              aria-hidden="true"
-              class="lucide lucide-target h-3.5 w-3.5"
-              fill="none"
-              height="24"
-              stroke="currentColor"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              viewBox="0 0 24 24"
-              width="24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <circle
-                cx="12"
-                cy="12"
-                r="10"
-              />
-              <circle
-                cx="12"
-                cy="12"
-                r="6"
-              />
-              <circle
-                cx="12"
-                cy="12"
-                r="2"
-              />
-            </svg>
-          </span>
+            42
+          </div>
         </div>
-        <div
-          class="mt-1.5 map-stat-value"
-        >
-          42
-        </div>
-      </div>
-      <div
-        class="rounded-xl border border-map-border bg-map-surface/55 px-3 py-2.5"
-      >
-        <div
-          class="flex items-center justify-between gap-3"
-        >
-          <p
+        <div>
+          <div
             class="map-stat-label"
           >
-            Selected
-          </p>
-          <span
-            class="text-map-text-muted"
+            Matches
+          </div>
+          <div
+            class="map-stat-value"
           >
-            <svg
-              aria-hidden="true"
-              class="lucide lucide-crosshair h-3.5 w-3.5"
-              fill="none"
-              height="24"
-              stroke="currentColor"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              viewBox="0 0 24 24"
-              width="24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <circle
-                cx="12"
-                cy="12"
-                r="10"
-              />
-              <line
-                x1="22"
-                x2="18"
-                y1="12"
-                y2="12"
-              />
-              <line
-                x1="6"
-                x2="2"
-                y1="12"
-                y2="12"
-              />
-              <line
-                x1="12"
-                x2="12"
-                y1="6"
-                y2="2"
-              />
-              <line
-                x1="12"
-                x2="12"
-                y1="22"
-                y2="18"
-              />
-            </svg>
-          </span>
+            3
+          </div>
         </div>
-        <div
-          class="mt-1.5 map-stat-value"
-        >
-          1
-        </div>
-      </div>
-      <div
-        class="rounded-xl border border-map-border bg-map-surface/55 px-3 py-2.5"
-      >
-        <div
-          class="flex items-center justify-between gap-3"
-        >
-          <p
+        <div>
+          <div
             class="map-stat-label"
           >
-            Tracked
-          </p>
-          <span
-            class="text-map-text-muted"
+            Watchlist
+          </div>
+          <div
+            class="map-stat-value"
           >
-            <svg
-              aria-hidden="true"
-              class="lucide lucide-map-pinned h-3.5 w-3.5"
-              fill="none"
-              height="24"
-              stroke="currentColor"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              viewBox="0 0 24 24"
-              width="24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M18 8c0 3.613-3.869 7.429-5.393 8.795a1 1 0 0 1-1.214 0C9.87 15.429 6 11.613 6 8a6 6 0 0 1 12 0"
-              />
-              <circle
-                cx="12"
-                cy="8"
-                r="2"
-              />
-              <path
-                d="M8.714 14h-3.71a1 1 0 0 0-.948.683l-2.004 6A1 1 0 0 0 3 22h18a1 1 0 0 0 .948-1.316l-2-6a1 1 0 0 0-.949-.684h-3.712"
-              />
-            </svg>
-          </span>
+            1
+          </div>
         </div>
-        <div
-          class="mt-1.5 map-stat-value"
-        >
-          1
-        </div>
-      </div>
-      <div
-        class="rounded-xl border border-map-border bg-map-surface/55 px-3 py-2.5"
-      >
-        <div
-          class="flex items-center justify-between gap-3"
-        >
-          <p
+        <div>
+          <div
             class="map-stat-label"
           >
             Analyses
-          </p>
-          <span
-            class="text-map-text-muted"
+          </div>
+          <div
+            class="map-stat-value"
           >
-            <svg
-              aria-hidden="true"
-              class="lucide lucide-radar h-3.5 w-3.5"
-              fill="none"
-              height="24"
-              stroke="currentColor"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              viewBox="0 0 24 24"
-              width="24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M19.07 4.93A10 10 0 0 0 6.99 3.34"
-              />
-              <path
-                d="M4 6h.01"
-              />
-              <path
-                d="M2.29 9.62A10 10 0 1 0 21.31 8.35"
-              />
-              <path
-                d="M16.24 7.76A6 6 0 1 0 8.23 16.67"
-              />
-              <path
-                d="M12 18h.01"
-              />
-              <path
-                d="M17.99 11.66A6 6 0 0 1 15.77 16.67"
-              />
-              <circle
-                cx="12"
-                cy="12"
-                r="2"
-              />
-              <path
-                d="m13.41 10.59 5.66-5.66"
-              />
-            </svg>
-          </span>
+            2
+          </div>
+        </div>
+      </div>
+      <div
+        class="flex flex-wrap items-center gap-2 text-[10px] text-map-text-muted"
+      >
+        <div
+          class="inline-flex items-center rounded-full border font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground px-2 py-0.5 text-[9px]"
+        >
+          Source: Property database
         </div>
         <div
-          class="mt-1.5 map-stat-value"
+          class="inline-flex items-center rounded-full border font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground px-2 py-0.5 text-[9px]"
         >
-          2
+          Live
         </div>
-      </div>
-    </div>
-    <div
-      class="mt-3 flex flex-wrap items-center gap-2 text-[10px] text-map-text-muted"
-    >
-      <div
-        class="inline-flex items-center rounded-full border font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground px-2 py-0.5 text-[9px]"
-      >
-        Source: Property database
-      </div>
-      <div
-        class="inline-flex items-center rounded-full border font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary/65 text-secondary-foreground hover:bg-secondary/90 px-2 py-0.5 text-[9px]"
-      >
-        Freshness: 
-        Live
-      </div>
-      <div
-        class="inline-flex items-center rounded-full border font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary/65 text-secondary-foreground hover:bg-secondary/90 px-2 py-0.5 text-[9px]"
-      >
-        Latency: 
-        188ms
+        <div
+          class="inline-flex items-center rounded-full border font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground px-2 py-0.5 text-[9px]"
+        >
+          188ms
+        </div>
+        <span>
+          11
+           nearby
+        </span>
+        <span
+          class="text-map-accent"
+        >
+          1
+           selected
+        </span>
       </div>
     </div>
   </div>
@@ -365,133 +190,108 @@ exports[`MapOperatorConsole > renders the operator console workspace 1`] = `
               transition="[object Object]"
             >
               <section
-                class="space-y-3"
+                class="space-y-2"
               >
-                <div>
-                  <p
-                    class="font-mono text-[10px] uppercase tracking-[0.22em] text-map-text-muted"
-                  >
-                    Workflow lane
-                  </p>
-                  <h3
-                    class="mt-1 text-xs font-semibold text-map-text-primary"
-                  >
-                    Bring the right map tool forward.
-                  </h3>
-                  <p
-                    class="mt-1 text-[11px] leading-5 text-map-text-secondary"
-                  >
-                    Switch between parcel analysis and polygon prospecting without leaving the active geography.
-                  </p>
-                </div>
+                <p
+                  class="font-mono text-[9px] uppercase tracking-[0.18em] text-map-text-muted"
+                >
+                  Tools
+                </p>
+                <p
+                  class="text-[10px] leading-4 text-map-text-muted"
+                >
+                  Launch the sidecar you need without dropping the active parcel set.
+                </p>
                 <div
-                  class="grid grid-cols-2 gap-2"
+                  class="flex gap-2"
                 >
                   <button
-                    class="rounded-xl border px-3 py-3 text-left transition-colors border-map-accent bg-map-accent-surface text-map-text-primary"
+                    class="flex flex-1 items-center gap-2 rounded-lg border px-3 py-2 text-[11px] font-medium transition-colors border-map-accent bg-map-accent/10 text-map-text-primary"
                     type="button"
                   >
-                    <div
-                      class="flex items-center gap-2 text-[11px] font-medium"
+                    <svg
+                      aria-hidden="true"
+                      class="lucide lucide-bot h-3.5 w-3.5"
+                      fill="none"
+                      height="24"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      viewBox="0 0 24 24"
+                      width="24"
+                      xmlns="http://www.w3.org/2000/svg"
                     >
-                      <svg
-                        aria-hidden="true"
-                        class="lucide lucide-bot h-4 w-4"
-                        fill="none"
-                        height="24"
-                        stroke="currentColor"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        viewBox="0 0 24 24"
-                        width="24"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path
-                          d="M12 8V4H8"
-                        />
-                        <rect
-                          height="12"
-                          rx="2"
-                          width="16"
-                          x="4"
-                          y="8"
-                        />
-                        <path
-                          d="M2 14h2"
-                        />
-                        <path
-                          d="M20 14h2"
-                        />
-                        <path
-                          d="M15 13v2"
-                        />
-                        <path
-                          d="M9 13v2"
-                        />
-                      </svg>
-                      Map copilot
-                    </div>
-                    <p
-                      class="mt-1 text-[10px] leading-4 text-map-text-muted"
-                    >
-                      Ask for site pressure, zoning patterns, and follow-up analysis.
-                    </p>
+                      <path
+                        d="M12 8V4H8"
+                      />
+                      <rect
+                        height="12"
+                        rx="2"
+                        width="16"
+                        x="4"
+                        y="8"
+                      />
+                      <path
+                        d="M2 14h2"
+                      />
+                      <path
+                        d="M20 14h2"
+                      />
+                      <path
+                        d="M15 13v2"
+                      />
+                      <path
+                        d="M9 13v2"
+                      />
+                    </svg>
+                    Map copilot
                   </button>
                   <button
-                    class="rounded-xl border px-3 py-3 text-left transition-colors border-map-border bg-map-surface/45 text-map-text-secondary hover:bg-map-surface"
+                    class="flex flex-1 items-center gap-2 rounded-lg border px-3 py-2 text-[11px] font-medium transition-colors border-map-border bg-map-surface/45 text-map-text-secondary hover:bg-map-surface"
                     type="button"
                   >
-                    <div
-                      class="flex items-center gap-2 text-[11px] font-medium"
+                    <svg
+                      aria-hidden="true"
+                      class="lucide lucide-radar h-3.5 w-3.5"
+                      fill="none"
+                      height="24"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      viewBox="0 0 24 24"
+                      width="24"
+                      xmlns="http://www.w3.org/2000/svg"
                     >
-                      <svg
-                        aria-hidden="true"
-                        class="lucide lucide-radar h-4 w-4"
-                        fill="none"
-                        height="24"
-                        stroke="currentColor"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        viewBox="0 0 24 24"
-                        width="24"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path
-                          d="M19.07 4.93A10 10 0 0 0 6.99 3.34"
-                        />
-                        <path
-                          d="M4 6h.01"
-                        />
-                        <path
-                          d="M2.29 9.62A10 10 0 1 0 21.31 8.35"
-                        />
-                        <path
-                          d="M16.24 7.76A6 6 0 1 0 8.23 16.67"
-                        />
-                        <path
-                          d="M12 18h.01"
-                        />
-                        <path
-                          d="M17.99 11.66A6 6 0 0 1 15.77 16.67"
-                        />
-                        <circle
-                          cx="12"
-                          cy="12"
-                          r="2"
-                        />
-                        <path
-                          d="m13.41 10.59 5.66-5.66"
-                        />
-                      </svg>
-                      Prospecting
-                    </div>
-                    <p
-                      class="mt-1 text-[10px] leading-4 text-map-text-muted"
-                    >
-                      Filter a drawn polygon and tighten the shortlist.
-                    </p>
+                      <path
+                        d="M19.07 4.93A10 10 0 0 0 6.99 3.34"
+                      />
+                      <path
+                        d="M4 6h.01"
+                      />
+                      <path
+                        d="M2.29 9.62A10 10 0 1 0 21.31 8.35"
+                      />
+                      <path
+                        d="M16.24 7.76A6 6 0 1 0 8.23 16.67"
+                      />
+                      <path
+                        d="M12 18h.01"
+                      />
+                      <path
+                        d="M17.99 11.66A6 6 0 0 1 15.77 16.67"
+                      />
+                      <circle
+                        cx="12"
+                        cy="12"
+                        r="2"
+                      />
+                      <path
+                        d="m13.41 10.59 5.66-5.66"
+                      />
+                    </svg>
+                    Prospecting scan
                   </button>
                 </div>
               </section>
@@ -501,174 +301,13 @@ exports[`MapOperatorConsole > renders the operator console workspace 1`] = `
                 role="none"
               />
               <section
-                class="space-y-3"
+                class="space-y-2"
               >
-                <div>
-                  <p
-                    class="font-mono text-[10px] uppercase tracking-[0.22em] text-map-text-muted"
-                  >
-                    Selection notebook
-                  </p>
-                  <h3
-                    class="mt-1 text-xs font-semibold text-map-text-primary"
-                  >
-                    Capture what matters while the boundary stays lit.
-                  </h3>
-                  <p
-                    class="mt-1 text-[11px] leading-5 text-map-text-secondary"
-                  >
-                    Save a task and note against the highlighted parcel set. Saving here pins those parcels in the notebook.
-                  </p>
-                </div>
-                <div
-                  class="grid grid-cols-3 gap-2"
+                <p
+                  class="font-mono text-[9px] uppercase tracking-[0.18em] text-map-text-muted"
                 >
-                  <div
-                    class="rounded-xl border border-map-border bg-map-surface/55 px-3 py-2.5"
-                  >
-                    <div
-                      class="flex items-center justify-between gap-3"
-                    >
-                      <p
-                        class="map-stat-label"
-                      >
-                        Matches
-                      </p>
-                      <span
-                        class="text-map-text-muted"
-                      >
-                        <svg
-                          aria-hidden="true"
-                          class="lucide lucide-rows3 lucide-rows-3 h-3.5 w-3.5"
-                          fill="none"
-                          height="24"
-                          stroke="currentColor"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          viewBox="0 0 24 24"
-                          width="24"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <rect
-                            height="18"
-                            rx="2"
-                            width="18"
-                            x="3"
-                            y="3"
-                          />
-                          <path
-                            d="M21 9H3"
-                          />
-                          <path
-                            d="M21 15H3"
-                          />
-                        </svg>
-                      </span>
-                    </div>
-                    <div
-                      class="mt-1.5 map-stat-value"
-                    >
-                      3
-                    </div>
-                  </div>
-                  <div
-                    class="rounded-xl border border-map-border bg-map-surface/55 px-3 py-2.5"
-                  >
-                    <div
-                      class="flex items-center justify-between gap-3"
-                    >
-                      <p
-                        class="map-stat-label"
-                      >
-                        Nearby
-                      </p>
-                      <span
-                        class="text-map-text-muted"
-                      >
-                        <svg
-                          aria-hidden="true"
-                          class="lucide lucide-target h-3.5 w-3.5"
-                          fill="none"
-                          height="24"
-                          stroke="currentColor"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          viewBox="0 0 24 24"
-                          width="24"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <circle
-                            cx="12"
-                            cy="12"
-                            r="10"
-                          />
-                          <circle
-                            cx="12"
-                            cy="12"
-                            r="6"
-                          />
-                          <circle
-                            cx="12"
-                            cy="12"
-                            r="2"
-                          />
-                        </svg>
-                      </span>
-                    </div>
-                    <div
-                      class="mt-1.5 map-stat-value"
-                    >
-                      11
-                    </div>
-                  </div>
-                  <div
-                    class="rounded-xl border border-map-border bg-map-surface/55 px-3 py-2.5"
-                  >
-                    <div
-                      class="flex items-center justify-between gap-3"
-                    >
-                      <p
-                        class="map-stat-label"
-                      >
-                        Blocked
-                      </p>
-                      <span
-                        class="text-map-text-muted"
-                      >
-                        <svg
-                          aria-hidden="true"
-                          class="lucide lucide-triangle-alert h-3.5 w-3.5"
-                          fill="none"
-                          height="24"
-                          stroke="currentColor"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          viewBox="0 0 24 24"
-                          width="24"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"
-                          />
-                          <path
-                            d="M12 9v4"
-                          />
-                          <path
-                            d="M12 17h.01"
-                          />
-                        </svg>
-                      </span>
-                    </div>
-                    <div
-                      class="mt-1.5 map-stat-value"
-                    >
-                      0
-                    </div>
-                  </div>
-                </div>
+                  Watchlist draft
+                </p>
                 <div
                   class="rounded-xl border border-map-border bg-map-surface/45 px-3 py-3"
                 >
@@ -754,47 +393,26 @@ exports[`MapOperatorConsole > renders the operator console workspace 1`] = `
                     >
                       Frontage looks strong. Confirm utility capacity.
                     </textarea>
-                    <div
-                      class="flex items-center justify-between gap-3"
+                    <button
+                      class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border border-transparent tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 hover:-translate-y-px py-2 h-8 bg-map-accent px-3 text-[10px] font-medium text-white hover:bg-map-accent/90 disabled:opacity-40"
+                      type="button"
                     >
-                      <p
-                        class="text-[10px] leading-4 text-map-text-muted"
-                      >
-                        Saving pins the parcel boundary in the notebook until you remove it.
-                      </p>
-                      <button
-                        class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border border-transparent tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 hover:-translate-y-px py-2 h-8 bg-map-accent px-3 text-[10px] font-medium text-white hover:bg-map-accent/90 disabled:opacity-40"
-                        type="button"
-                      >
-                        Update tracked parcel
-                      </button>
-                    </div>
+                      Update watchlist entry
+                    </button>
                   </div>
                 </div>
               </section>
               <section
                 animate="[object Object]"
-                class="space-y-3"
+                class="space-y-2"
                 exit="[object Object]"
                 transition="[object Object]"
               >
-                <div>
-                  <p
-                    class="font-mono text-[10px] uppercase tracking-[0.22em] text-map-text-muted"
-                  >
-                    Selection brief
-                  </p>
-                  <h3
-                    class="mt-1 text-xs font-semibold text-map-text-primary"
-                  >
-                    Run the parcel screen before you advance it.
-                  </h3>
-                  <p
-                    class="mt-1 text-[11px] leading-5 text-map-text-secondary"
-                  >
-                    The screening stack gives you a quick constraint read before the parcel moves deeper into the queue.
-                  </p>
-                </div>
+                <p
+                  class="font-mono text-[9px] uppercase tracking-[0.18em] text-map-text-muted"
+                >
+                  Screening
+                </p>
                 <div
                   class="rounded-xl border border-map-border bg-map-surface/45 px-3 py-3"
                 >
@@ -812,25 +430,13 @@ exports[`MapOperatorConsole > renders the operator console workspace 1`] = `
                 role="none"
               />
               <section
-                class="space-y-3"
+                class="space-y-2"
               >
-                <div>
-                  <p
-                    class="font-mono text-[10px] uppercase tracking-[0.22em] text-map-text-muted"
-                  >
-                    Tracked parcels
-                  </p>
-                  <h3
-                    class="mt-1 text-xs font-semibold text-map-text-primary"
-                  >
-                    Use the notebook as the active follow-up queue.
-                  </h3>
-                  <p
-                    class="mt-1 text-[11px] leading-5 text-map-text-secondary"
-                  >
-                    Focus an entry to jump back to the map, revise the note, or mark the task complete.
-                  </p>
-                </div>
+                <p
+                  class="font-mono text-[9px] uppercase tracking-[0.18em] text-map-text-muted"
+                >
+                  Watchlist
+                </p>
                 <div
                   class="space-y-2"
                 >
@@ -935,7 +541,7 @@ exports[`MapOperatorConsole > renders the operator console workspace 1`] = `
                             y2="18"
                           />
                         </svg>
-                        Focus / revise
+                        Open parcel brief
                       </button>
                       <button
                         class="inline-flex items-center justify-center whitespace-nowrap border font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 hover:-translate-y-px rounded-lg h-7 border-map-border bg-map-surface px-2.5 text-[10px] text-map-text-primary hover:bg-map-surface-elevated"
@@ -998,7 +604,7 @@ exports[`MapOperatorConsole > renders the operator console workspace 1`] = `
                             d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
                           />
                         </svg>
-                        Remove
+                        Remove from watchlist
                       </button>
                     </div>
                   </article>

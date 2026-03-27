@@ -202,8 +202,8 @@ export function ConversationSidebar({
 
   const recentLabel =
     onlyRecent || filter !== 'all' || search.trim().length > 0
-      ? 'Filtered'
-      : 'Recent';
+      ? 'Filtered runs'
+      : 'Recent runs';
   const sortingLabel = onlyRecent ? 'Top 5 by local recency' : 'Sorted by last update';
 
   const railContent = (
@@ -214,9 +214,9 @@ export function ConversationSidebar({
             <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-muted-foreground">
               Conversation Runs
             </p>
-            <h2 className="mt-1 text-sm font-semibold tracking-tight">Conversations</h2>
+            <h2 className="mt-1 text-sm font-semibold tracking-tight">Saved runs</h2>
             <p className="mt-1 text-xs text-muted-foreground">
-              Reopen a saved thread or start a fresh run.
+              Reopen a saved thread or start a new verified run.
             </p>
           </div>
           <div className="flex items-center gap-1">
@@ -231,8 +231,8 @@ export function ConversationSidebar({
                   onToggle();
                 }
               }}
-              aria-label="Start new chat"
-              title="Start new chat"
+              aria-label="Start new run"
+              title="Start new run"
             >
               <Plus className="h-4 w-4" />
             </Button>
@@ -243,7 +243,7 @@ export function ConversationSidebar({
                 size="icon"
                 className="h-8 w-8 rounded-xl"
                 onClick={onRefresh}
-                title="Refresh conversations"
+                title="Refresh saved runs"
               >
                 <RefreshCw className="h-4 w-4" />
               </Button>
@@ -275,7 +275,7 @@ export function ConversationSidebar({
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search conversations"
+            placeholder="Search saved runs"
             className="h-9 w-full rounded-2xl pl-9 pr-3 text-xs placeholder:text-muted-foreground/70"
             disabled={loading}
           />
@@ -291,7 +291,7 @@ export function ConversationSidebar({
                 </Badge>
               </TabsTrigger>
               <TabsTrigger value="deals" className="h-8 gap-2 rounded-full border-b-0 px-2.5 py-1 text-[11px]">
-                <span>Deals</span>
+                <span>Deal-linked</span>
                 <Badge variant="secondary" className="px-1.5 py-0 text-[9px]">
                   {filterCounts.deals}
                 </Badge>
@@ -321,7 +321,7 @@ export function ConversationSidebar({
             title={hasRecentRecents ? 'Keep local top 5 recents only' : 'No recents available'}
           >
             <CalendarClock className="h-3.5 w-3.5" />
-            {recentLabel}
+            {onlyRecent ? 'Recent 5' : 'Recent runs'}
           </Button>
         </div>
 

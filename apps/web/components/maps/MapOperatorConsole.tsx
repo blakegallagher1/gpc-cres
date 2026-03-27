@@ -3,15 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
-  AlertTriangle,
   Bot,
   CheckCircle2,
   Crosshair,
   ListTodo,
-  MapPinned,
   Radar,
-  Rows3,
-  Target,
   Trash2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -57,7 +53,7 @@ interface MapOperatorConsoleProps {
   dataFreshnessLabel: string;
   latencyLabel: string;
   activePanel: "chat" | "prospecting" | null;
-  onActivePanelChange: (panel: "chat" | "prospecting") => void;
+  onActivePanelChange: (panel: "chat" | "prospecting" | null) => void;
   onFocusParcel: (parcel: MapParcel) => void;
   onToggleParcel: (parcelId: string) => void;
   onClearSelection: () => void;
@@ -182,9 +178,9 @@ export function MapOperatorConsole({
   const saveLabel =
     selectedParcels.length <= 1
       ? selectedTrackedCount > 0
-        ? "Update tracked parcel"
-        : "Track highlighted parcel"
-      : `Track ${selectedParcels.length} highlighted parcels`;
+        ? "Update watchlist entry"
+        : "Save to watchlist"
+      : `Save ${selectedParcels.length} parcels to watchlist`;
 
   return (
     <section
@@ -193,18 +189,51 @@ export function MapOperatorConsole({
         className,
       )}
     >
-      <div className="border-b border-map-border px-4 py-3">
-        <div className="flex items-center justify-between">
-          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-map-text-muted">
-            Console
-          </p>
-          <div className="flex items-center gap-3 text-[10px] text-map-text-muted">
-            <span>{visibleCount} in view</span>
+      <div className="border-b border-map-border px-4 py-4">
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-map-text-muted">
+              Operator console
+            </p>
+            <h3 className="text-sm font-semibold text-map-text-primary">
+              Save the geography, assign the next move, and keep the parcel brief live.
+            </h3>
+            <p className="text-[11px] leading-5 text-map-text-secondary">
+              Move from selection to watchlist, comparison, prospecting, or copilot without
+              leaving the active map state.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-2 border-y border-map-border/80 py-3 text-[10px] sm:grid-cols-4">
+            <div>
+              <div className="map-stat-label">Visible</div>
+              <div className="map-stat-value">{visibleCount}</div>
+            </div>
+            <div>
+              <div className="map-stat-label">Matches</div>
+              <div className="map-stat-value">{searchMatchCount}</div>
+            </div>
+            <div>
+              <div className="map-stat-label">Watchlist</div>
+              <div className="map-stat-value">{trackedSummary.totalCount}</div>
+            </div>
+            <div>
+              <div className="map-stat-label">Analyses</div>
+              <div className="map-stat-value">{resultCount}</div>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 text-[10px] text-map-text-muted">
+            <Badge variant="outline" className="px-2 py-0.5 text-[9px]">
+              {sourceLabel}
+            </Badge>
+            <Badge variant="outline" className="px-2 py-0.5 text-[9px]">
+              {dataFreshnessLabel}
+            </Badge>
+            <Badge variant="outline" className="px-2 py-0.5 text-[9px]">
+              {latencyLabel}
+            </Badge>
+            <span>{nearbyCount} nearby</span>
             {selectedParcels.length > 0 ? (
               <span className="text-map-accent">{selectedParcels.length} selected</span>
-            ) : null}
-            {trackedSummary.totalCount > 0 ? (
-              <span>{trackedSummary.totalCount} tracked</span>
             ) : null}
           </div>
         </div>
@@ -242,10 +271,15 @@ export function MapOperatorConsole({
             >
               <section className="space-y-2">
                 <SectionLabel>Tools</SectionLabel>
+                <p className="text-[10px] leading-4 text-map-text-muted">
+                  Launch the sidecar you need without dropping the active parcel set.
+                </p>
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={() => onActivePanelChange("chat")}
+                    onClick={() =>
+                      onActivePanelChange(activePanel === "chat" ? null : "chat")
+                    }
                     className={cn(
                       "flex flex-1 items-center gap-2 rounded-lg border px-3 py-2 text-[11px] font-medium transition-colors",
                       activePanel === "chat"
@@ -254,11 +288,15 @@ export function MapOperatorConsole({
                     )}
                   >
                     <Bot className="h-3.5 w-3.5" />
-                    Copilot
+                    Map copilot
                   </button>
                   <button
                     type="button"
-                    onClick={() => onActivePanelChange("prospecting")}
+                    onClick={() =>
+                      onActivePanelChange(
+                        activePanel === "prospecting" ? null : "prospecting",
+                      )
+                    }
                     className={cn(
                       "flex flex-1 items-center gap-2 rounded-lg border px-3 py-2 text-[11px] font-medium transition-colors",
                       activePanel === "prospecting"
@@ -267,7 +305,7 @@ export function MapOperatorConsole({
                     )}
                   >
                     <Radar className="h-3.5 w-3.5" />
-                    Prospect
+                    Prospecting scan
                   </button>
                 </div>
               </section>
@@ -276,7 +314,7 @@ export function MapOperatorConsole({
 
               {selectedParcels.length > 0 ? (
                 <section className="space-y-2">
-                  <SectionLabel>Selection</SectionLabel>
+                  <SectionLabel>Watchlist draft</SectionLabel>
                   <div className="rounded-xl border border-map-border bg-map-surface/45 px-3 py-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="text-[11px] font-medium text-map-text-primary">
@@ -318,7 +356,7 @@ export function MapOperatorConsole({
                     </div>
                   ) : (
                     <div className="mt-3 rounded-xl border border-dashed border-map-border bg-map-surface/30 px-3 py-3 text-[11px] leading-5 text-map-text-muted">
-                      Select parcels from the map or parcel table, then attach a task or note here.
+                      Select parcels from the map or parcel table, then attach the next step before saving them to the watchlist.
                     </div>
                   )}
 
@@ -395,10 +433,10 @@ export function MapOperatorConsole({
               <Separator className="bg-map-border" />
 
               <section className="space-y-2">
-                <SectionLabel>Tracked</SectionLabel>
+                <SectionLabel>Watchlist</SectionLabel>
                 {trackedParcels.length === 0 ? (
                   <div className="rounded-xl border border-dashed border-map-border bg-map-surface/30 px-3 py-3 text-[11px] leading-5 text-map-text-muted">
-                    No tracked parcels yet. Save a note from the current selection to keep that parcel boundary highlighted.
+                    No watchlist entries yet. Save the current selection to keep the parcel highlighted and carry the next move forward.
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -463,7 +501,7 @@ export function MapOperatorConsole({
                               className="h-7 border-map-border bg-map-surface px-2.5 text-[10px] text-map-text-primary hover:bg-map-surface-elevated"
                             >
                               <Crosshair className="mr-1.5 h-3 w-3" />
-                              Focus / revise
+                              Open parcel brief
                             </Button>
                             <Button
                               type="button"
@@ -481,7 +519,7 @@ export function MapOperatorConsole({
                               ) : (
                                 <CheckCircle2 className="mr-1.5 h-3 w-3" />
                               )}
-                              {complete ? "Reopen" : "Mark complete"}
+                              {complete ? "Reopen task" : "Mark complete"}
                             </Button>
                             <Button
                               type="button"
@@ -490,7 +528,7 @@ export function MapOperatorConsole({
                               className="h-7 border-map-border bg-map-surface px-2.5 text-[10px] text-map-text-secondary hover:bg-map-surface-elevated hover:text-map-text-primary"
                             >
                               <Trash2 className="mr-1.5 h-3 w-3" />
-                              Remove
+                              Remove from watchlist
                             </Button>
                           </div>
                         </motion.article>

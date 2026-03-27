@@ -37,6 +37,13 @@ type WorkspaceMetric = {
   tone?: "default" | "critical" | "positive";
 };
 
+type WorkspaceFocus = {
+  label: string;
+  title: string;
+  detail: string;
+  tone?: "default" | "critical" | "positive";
+};
+
 /** Primary client workspace for the command-center route. */
 export function CommandCenterWorkspace() {
   const reduceMotion = useReducedMotion();
@@ -153,6 +160,48 @@ export function CommandCenterWorkspace() {
     ],
   );
 
+  const heroSignals = useMemo<WorkspaceFocus[]>(
+    () => [
+      {
+        label: "Operating brief",
+        title: briefing ? "Fresh daily read" : "Brief incoming",
+        detail:
+          briefing?.summary ??
+          "Waiting for the latest operating summary and activity digest.",
+      },
+      {
+        label: "Priority queue",
+        title:
+          (briefing?.sections.needsAttention.items.length ?? 0) > 0
+            ? `${briefing?.sections.needsAttention.items.length ?? 0} items need intervention`
+            : "No blocked items right now",
+        detail:
+          briefing?.sections.needsAttention.items[0]?.title ??
+          "Nothing is currently stalled or waiting on a decision.",
+        tone:
+          (briefing?.sections.needsAttention.items.length ?? 0) > 0 ? "critical" : "positive",
+      },
+      {
+        label: "Deadline load",
+        title:
+          urgencyCounts.black + urgencyCounts.red > 0
+            ? `${urgencyCounts.black + urgencyCounts.red} urgent deadlines`
+            : "Deadline pressure is stable",
+        detail:
+          deadlines[0] != null
+            ? `${deadlines[0].taskTitle} · ${deadlines[0].dealName}`
+            : "No immediate deadline pressure surfaced in the current queue.",
+        tone: urgencyCounts.black + urgencyCounts.red > 0 ? "critical" : "default",
+      },
+    ],
+    [
+      briefing,
+      deadlines,
+      urgencyCounts.black,
+      urgencyCounts.red,
+    ],
+  );
+
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     try {
@@ -263,43 +312,68 @@ export function CommandCenterWorkspace() {
         {...sectionMotion}
         className="workspace-hero"
       >
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div className="space-y-3">
+        <div className="workspace-hero-grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(22rem,0.85fr)] xl:items-end">
+          <div className="space-y-4">
             <Badge variant="outline" className="gap-2">
               <Radar className="h-3.5 w-3.5" />
-              Operator workspace
+              Morning operator brief
             </Badge>
             <div>
-              <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">
-                Command Center
+              <p className="workspace-eyebrow">Command Center</p>
+              <h1 className="mt-3 max-w-[15ch] text-4xl font-semibold tracking-[-0.06em] md:text-[3.4rem]">
+                See what moved, what is blocked, and where to intervene.
               </h1>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
-                Review the daily brief, scan urgency, and move directly into the items
-                that need a decision.
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
+                Review the live brief, queue pressure, and deadline risk in one surface, then move directly into the items that need a decision.
               </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/deals">Review active deals</Link>
+              </Button>
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/opportunities">Review opportunity queue</Link>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExport}
+                disabled={!briefing || isExporting}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                {isExporting ? "Exporting..." : "Export live brief"}
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing}>
+                <RefreshCw className={cn("mr-2 h-4 w-4", isRefreshing && "animate-spin")} />
+                Refresh live brief
+              </Button>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/deals">Open deals</Link>
-            </Button>
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/opportunities">Open opportunities</Link>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleExport}
-              disabled={!briefing || isExporting}
-            >
-              <Download className="mr-2 h-4 w-4" />
-              {isExporting ? "Exporting..." : "Export"}
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing}>
-              <RefreshCw className={cn("mr-2 h-4 w-4", isRefreshing && "animate-spin")} />
-              Refresh
-            </Button>
+          <div className="grid gap-4 border-t border-border/40 pt-4 xl:border-l xl:border-t-0 xl:pl-6 xl:pt-0">
+            {heroSignals.map((item) => (
+              <div
+                key={item.label}
+                className="border-b border-border/35 pb-4 last:border-b-0 last:pb-0"
+              >
+                <p className="workspace-section-kicker">{item.label}</p>
+                <p
+                  className={cn(
+                    "mt-2 text-base font-medium tracking-[-0.03em]",
+                    item.tone === "critical"
+                      ? "text-destructive"
+                      : item.tone === "positive"
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : "text-foreground",
+                  )}
+                >
+                  {item.title}
+                </p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  {item.detail}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
       </motion.div>
@@ -413,10 +487,10 @@ export function CommandCenterWorkspace() {
               <div>
                 <p className="workspace-section-kicker">Command center</p>
                 <h2 className="mt-2 text-sm font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                  Next move
+                  Operator handoff
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Use the brief to decide where to hand off next.
+                  Move from the brief into runs, agents, or automation without losing context.
                 </p>
               </div>
             </div>
@@ -425,14 +499,14 @@ export function CommandCenterWorkspace() {
                 href="/runs"
                 className="workspace-list-row items-center justify-between transition-colors hover:bg-muted/18"
               >
-                <span>Inspect recent runs</span>
+                <span>Review recent runs</span>
                 <RefreshCw className="h-4 w-4 text-muted-foreground" />
               </Link>
               <Link
                 href="/agents"
                 className="workspace-list-row items-center justify-between transition-colors hover:bg-muted/18"
               >
-                <span>Open agent roster</span>
+                <span>Open specialist roster</span>
                 <ArrowRight className="h-4 w-4 text-muted-foreground" />
               </Link>
               <Link

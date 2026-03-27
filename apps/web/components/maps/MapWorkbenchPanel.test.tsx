@@ -76,7 +76,7 @@ describe("MapWorkbenchPanel", () => {
       />,
     );
 
-    expect(screen.getByText("Map workbench")).toBeInTheDocument();
+    expect(screen.getByText("Live geography intelligence")).toBeInTheDocument();
     expect(screen.getByText("Search content")).toBeInTheDocument();
     expect(screen.getByText("Display")).toBeInTheDocument();
     expect(screen.getByText("Comparable sales")).toBeInTheDocument();
@@ -153,6 +153,6 @@ describe("MapWorkbenchPanel", () => {
 
     await user.click(screen.getByTitle("Open workbench (L)"));
     expect(onToggleOpen).toHaveBeenCalledTimes(1);
-    expect(screen.queryByText("Map workbench")).not.toBeInTheDocument();
+    expect(screen.queryByText("Live geography intelligence")).not.toBeInTheDocument();
   });
 });

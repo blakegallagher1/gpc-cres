@@ -373,13 +373,13 @@ export function ChatContainer() {
   const messageSectionTitle = useMemo(
     () =>
       hasRecentConversations
-        ? `${recentConversationIds.length} recent chats`
-        : 'No recents yet',
+        ? `${recentConversationIds.length} saved runs`
+        : 'No saved runs yet',
     [hasRecentConversations, recentConversationIds.length],
   );
   const activeAgentLabel = currentAgent ?? agentSummary?.lastAgentName ?? 'Coordinator';
   const threadStatusLabel = conversationId ? 'Saved thread' : 'Draft thread';
-  const attachmentStatusLabel = selectedDealId ? 'Deal linked' : 'Select a deal';
+  const attachmentStatusLabel = selectedDealId ? 'Deal scope attached' : 'General scope';
   const transportLabel = WS_ENABLED ? 'Live socket' : 'HTTP stream';
   const scopeLabel = selectedDealId ? 'Deal-linked' : 'No deal scope';
 
@@ -825,8 +825,9 @@ export function ChatContainer() {
       isStreaming={isStreaming}
       onStop={stableChatInputOptions.onStop}
       canAttachFiles={true}
-      helperText="Scope + deliverable + constraints. Enter sends. Shift+Enter adds a line."
-      submitLabel="Run"
+      placeholder="Ask for the screen, memo, checklist, comparison, or next move..."
+      helperText="Lead with scope, outcome, and constraints. Enter sends. Shift+Enter adds a line."
+      submitLabel="Launch run"
     />
   );
 
@@ -848,8 +849,6 @@ export function ChatContainer() {
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:flex-row">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          {showLaunchComposer ? chatInput : null}
-
           <ChatWorkspaceHero
             activeAgentLabel={activeAgentLabel}
             conversationCount={conversations.length}
@@ -860,6 +859,7 @@ export function ChatContainer() {
                 onSelect={setSelectedDealId}
               />
             )}
+            launchState={showLaunchComposer}
             scopeLabel={scopeLabel}
             threadStatusLabel={threadStatusLabel}
             transportLabel={transportLabel}
@@ -871,6 +871,8 @@ export function ChatContainer() {
 
           {currentAgent && <AgentIndicator agentName={currentAgent} />}
 
+          {showLaunchComposer ? chatInput : null}
+
           <div className="min-h-0 flex-1 overflow-hidden">
             <MessageList
               messages={visibleMessages}
@@ -879,15 +881,33 @@ export function ChatContainer() {
               onSuggestionClick={stableMessageListOptions.onSuggestionClick}
               onToolApprovalEvents={handleToolApprovalEvents}
               emptyState={{
-                eyebrow: 'New run',
-                title: 'Start from a concrete ask.',
+                eyebrow: 'Verified run workspace',
+                title: 'Ask once. Get the plan, evidence, and action path.',
                 description:
-                  'Lead with the parcel, deal, market, or file, then name the screen, memo, checklist, comparison, or action plan.',
+                  'Start from the parcel, deal, market, or file, then name the screen, memo, checklist, comparison, or next-step plan you need back.',
                 suggestions: [
                   'Screen this site for entitlement risk',
                   'Summarize zoning and setbacks',
-                  'Build a due diligence checklist',
+                  'Build the due diligence checklist',
                   'Compare debt and equity paths',
+                ],
+                detailHeading: 'What a strong run returns',
+                detailItems: [
+                  {
+                    label: 'Plan',
+                    title: 'A concrete next-step path',
+                    detail: 'The run should end in a memo, checklist, comparison, or action plan you can use immediately.',
+                  },
+                  {
+                    label: 'Proof',
+                    title: 'Tool activity and cited evidence',
+                    detail: 'Verification data, evidence gaps, and proof checks stay attached in the inspector while the run unfolds.',
+                  },
+                  {
+                    label: 'Handoffs',
+                    title: 'Coordinator plus specialists',
+                    detail: 'Research, finance, diligence, and entitlement specialists can step in without losing thread context.',
+                  },
                 ],
               }}
             />
@@ -899,7 +919,7 @@ export function ChatContainer() {
         <ChatWorkspaceInspector
           activeAgentLabel={activeAgentLabel}
           agentSummary={agentSummary}
-          attachmentStatusLabel="Enabled"
+          attachmentStatusLabel={attachmentStatusLabel}
           conversationCount={conversations.length}
           recentConversationLabel={messageSectionTitle}
           threadStatusLabel={conversationId ? 'Saved thread' : 'Draft until first response'}
@@ -909,7 +929,7 @@ export function ChatContainer() {
         <ChatWorkspaceInspector
           activeAgentLabel={activeAgentLabel}
           agentSummary={agentSummary}
-          attachmentStatusLabel="Enabled"
+          attachmentStatusLabel={attachmentStatusLabel}
           conversationCount={conversations.length}
           recentConversationLabel={messageSectionTitle}
           threadStatusLabel={conversationId ? 'Saved thread' : 'Draft until first response'}

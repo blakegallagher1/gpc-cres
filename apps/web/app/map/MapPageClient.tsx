@@ -15,7 +15,7 @@ import dynamic from "next/dynamic";
 import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { Loader2, Search } from "lucide-react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { MapOperatorConsole } from "@/components/maps/MapOperatorConsole";
 import type { ParcelMapRef } from "@/components/maps/ParcelMap";
@@ -1403,18 +1403,24 @@ export function MapPageClient() {
                   dataFreshnessLabel={dataFreshnessLabel}
                   latencyLabel={latencyLabel}
                 />
-                {activePanel === "chat" && (
-                  <MapChatPanel
-                    parcelCount={activeParcels.length}
-                    selectedCount={selectedParcelIds.size}
-                    viewportLabel={statusText}
-                  />
-                )}
-                {activePanel === "prospecting" && (
-                  <MapProspectingPanel
-                    polygon={polygon}
-                  />
-                )}
+                <AnimatePresence initial={false}>
+                  {activePanel === "chat" ? (
+                    <MapChatPanel
+                      key="map-chat-panel"
+                      parcelCount={activeParcels.length}
+                      selectedCount={selectedParcelIds.size}
+                      viewportLabel={statusText}
+                      onClose={() => setActivePanel(null)}
+                    />
+                  ) : null}
+                  {activePanel === "prospecting" ? (
+                    <MapProspectingPanel
+                      key="map-prospecting-panel"
+                      polygon={polygon}
+                      onClose={() => setActivePanel(null)}
+                    />
+                  ) : null}
+                </AnimatePresence>
                 <ParcelMap
               ref={attachMapRef}
               parcels={activeParcels}
@@ -1453,24 +1459,42 @@ export function MapPageClient() {
               highlightParcelIds={trackedParcelIds}
               searchSlot={
                 <div className="flex flex-col gap-4">
-                  <div className="flex flex-col gap-1.5">
+                  <div className="flex flex-col gap-2">
                     <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-map-text-muted">
-                      Map workspace
+                      Live geography intelligence
                     </p>
-                    <h2 className="text-sm font-semibold text-map-text-primary">
-                      Search and refine the working parcel set.
+                    <h2 className="max-w-[15ch] text-xl font-semibold tracking-[-0.04em] text-map-text-primary">
+                      Draw the boundary. Surface the opportunity.
                     </h2>
                     <p className="text-[11px] leading-5 text-map-text-secondary">
-                      Use parcel lookup for deterministic map navigation, then run AI analysis on the current geography without leaving the console.
+                      Build the working parcel set, read the live geography, and hand the map context straight into copilot, prospecting, or comparison.
                     </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 border-y border-map-border/80 py-3 text-[10px] sm:grid-cols-4">
+                    <div>
+                      <div className="map-stat-label">Working set</div>
+                      <div className="map-stat-value">{activeParcels.length}</div>
+                    </div>
+                    <div>
+                      <div className="map-stat-label">Matches</div>
+                      <div className="map-stat-value">{searchMatchCount}</div>
+                    </div>
+                    <div>
+                      <div className="map-stat-label">Tracked</div>
+                      <div className="map-stat-value">{trackedSummary.totalCount}</div>
+                    </div>
+                    <div>
+                      <div className="map-stat-label">Source</div>
+                      <div className="map-stat-value">{sourceLabel}</div>
+                    </div>
                   </div>
                   <section className="space-y-2 rounded-xl border border-map-border/80 bg-map-surface-overlay/60 p-3">
                     <div className="space-y-1">
                       <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-map-text-muted">
-                        Parcel / address search
+                        Parcel lookup
                       </p>
                       <p className="text-[11px] leading-5 text-map-text-secondary">
-                        Search by address, parcel id, or owner to move the map and highlight a specific parcel.
+                        Search by address, parcel id, or owner to move the map with a deterministic parcel target.
                       </p>
                     </div>
                     <form
@@ -1566,7 +1590,7 @@ export function MapPageClient() {
                           ) : (
                             <>
                               <Search className="mr-1.5 h-3 w-3" />
-                              Find parcel
+                              Locate parcel
                             </>
                           )}
                         </Button>
@@ -1577,7 +1601,7 @@ export function MapPageClient() {
                             className="map-btn h-7 text-xs"
                             onClick={clearPolygon}
                           >
-                            Clear draw
+                            Clear boundary
                           </Button>
                         ) : null}
                       </div>
@@ -1587,10 +1611,10 @@ export function MapPageClient() {
                   <section className="space-y-2 rounded-xl border border-map-border/80 bg-map-surface-overlay/60 p-3">
                     <div className="space-y-1">
                       <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-map-text-muted">
-                        AI analysis
+                        Analyze this geography
                       </p>
                       <p className="text-[11px] leading-5 text-map-text-secondary">
-                        Ask for comparisons, flood patterns, zoning questions, or other spatial analysis across the current working set.
+                        Ask for comparisons, zoning pressure, flood exposure, permit momentum, or the next best parcel move across the active geography.
                       </p>
                     </div>
                     <form onSubmit={handleAnalysisSubmit} className="flex flex-col gap-1.5">
@@ -1598,7 +1622,7 @@ export function MapPageClient() {
                         aria-label="Map AI analysis"
                         value={analysisText}
                         onChange={(event) => setAnalysisText(event.target.value)}
-                        placeholder="Ask for flood risk, nearby comps, zoning patterns, or parcel comparisons"
+                        placeholder="Ask for zoning pressure, flood exposure, comps, or next steps"
                         className="h-8 border-map-border bg-map-surface text-xs text-map-text-primary placeholder:text-map-text-muted"
                       />
                       {analysisText.trim() &&
@@ -1620,7 +1644,7 @@ export function MapPageClient() {
                             Analyzing
                           </span>
                         ) : (
-                          "Run analysis"
+                          "Analyze this geography"
                         )}
                       </Button>
                     </form>
@@ -1646,17 +1670,22 @@ export function MapPageClient() {
                         ? ` \u2022 ${nearbyParcelCount} nearby within ${SURROUNDING_PARCELS_RADIUS_MILES} mi`
                         : ""}
                     </p>
-                    <div className="flex flex-wrap items-center gap-2 text-[10px] text-map-text-muted">
-                      <Badge variant="outline" className="px-2 py-0.5 text-[9px]">
-                        {sourceLabel}
-                      </Badge>
-                      {selectedParcelIds.size > 0 ? (
-                        <Badge variant="secondary" className="px-2 py-0.5 text-[9px]">
-                          {selectedParcelIds.size} selected for follow-up
+                      <div className="flex flex-wrap items-center gap-2 text-[10px] text-map-text-muted">
+                        <Badge variant="outline" className="px-2 py-0.5 text-[9px]">
+                          {sourceLabel}
                         </Badge>
-                      ) : null}
+                        {selectedParcelIds.size > 0 ? (
+                          <Badge variant="secondary" className="px-2 py-0.5 text-[9px]">
+                          {selectedParcelIds.size} selected for follow-up
+                          </Badge>
+                        ) : null}
+                        {trackedSummary.openCount > 0 ? (
+                          <Badge variant="outline" className="px-2 py-0.5 text-[9px]">
+                            {trackedSummary.openCount} open tasks
+                          </Badge>
+                        ) : null}
+                      </div>
                     </div>
-                  </div>
                   {selectedParcelIds.size === 1 && (
                     <div className="border-t border-map-border pt-3">
                       <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-map-text-muted">

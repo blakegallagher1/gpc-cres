@@ -14,7 +14,7 @@ const CONVERSATIONS: ConversationSummary[] = [
 ];
 
 describe("ConversationSidebar", () => {
-  it("closes the mobile drawer when starting a new chat from the header", () => {
+  it("closes the mobile drawer when starting a new run from the header", () => {
     const onConversationSelect = vi.fn();
     const onToggle = vi.fn();
 
@@ -30,7 +30,7 @@ describe("ConversationSidebar", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Start new chat" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start new run" }));
 
     expect(onConversationSelect).toHaveBeenCalledWith(null);
     expect(onToggle).toHaveBeenCalledTimes(1);
