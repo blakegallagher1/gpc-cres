@@ -30,11 +30,11 @@ describe("zoningLayerConfig", () => {
   it("snapshots the zoning tile layer contract", () => {
     const layer = buildZoningTileLayer(
       {
-        sourceId: "get_zoning_mvt",
-        sourceLayer: "zoning",
+        sourceId: "get_parcel_mvt_proxy",
+        sourceLayer: "parcels",
         propertyName: "zoning_type",
-        metadataUrl: "https://tiles.gallagherpropco.com/get_zoning_mvt",
-        tileUrl: "https://tiles.gallagherpropco.com/get_zoning_mvt/{z}/{x}/{y}",
+        metadataUrl: null,
+        tileUrl: "/api/map/zoning-tiles/{z}/{x}/{y}",
       },
       true,
     );
@@ -42,7 +42,20 @@ describe("zoningLayerConfig", () => {
     expect(layer).toMatchSnapshot();
   });
 
-  it("uses the advanced zoning function contract by default", () => {
+  it("uses the authenticated zoning proxy by default", () => {
+    expect(getPreferredZoningTileContract()).toEqual({
+      sourceId: "get_parcel_mvt_proxy",
+      sourceLayer: "parcels",
+      propertyName: "zoning_type",
+      metadataUrl: null,
+      tileUrl: "/api/map/zoning-tiles/{z}/{x}/{y}",
+    });
+  });
+
+  it("uses explicit Martin overrides when configured", () => {
+    process.env.NEXT_PUBLIC_ZONING_TILE_SOURCE_ID = "get_zoning_mvt";
+    process.env.NEXT_PUBLIC_ZONING_TILE_SOURCE_LAYER = "zoning";
+
     expect(getPreferredZoningTileContract()).toEqual({
       sourceId: "get_zoning_mvt",
       sourceLayer: "zoning",
@@ -52,7 +65,19 @@ describe("zoningLayerConfig", () => {
     });
   });
 
-  it("falls back to the legacy parcel source when the advanced source is unavailable", async () => {
+  it("resolves the default proxy contract without metadata fetches", async () => {
+    const fetchMock = vi.fn<typeof fetch>();
+
+    await expect(resolveAvailableZoningTileContract(fetchMock)).resolves.toEqual(
+      getPreferredZoningTileContract(),
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the legacy parcel source when the direct Martin source is unavailable", async () => {
+    process.env.NEXT_PUBLIC_ZONING_TILE_SOURCE_ID = "get_zoning_mvt";
+    process.env.NEXT_PUBLIC_ZONING_TILE_SOURCE_LAYER = "zoning";
+
     const fetchMock = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(new Response(null, { status: 404 }))
@@ -71,6 +96,9 @@ describe("zoningLayerConfig", () => {
   });
 
   it("returns null when neither source exposes zoning metadata", async () => {
+    process.env.NEXT_PUBLIC_ZONING_TILE_SOURCE_ID = "get_zoning_mvt";
+    process.env.NEXT_PUBLIC_ZONING_TILE_SOURCE_LAYER = "zoning";
+
     const fetchMock = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(new Response(null, { status: 404 }))
@@ -87,6 +115,9 @@ describe("zoningLayerConfig", () => {
   });
 
   it("treats function tilejson without vector_layers as available", async () => {
+    process.env.NEXT_PUBLIC_ZONING_TILE_SOURCE_ID = "get_zoning_mvt";
+    process.env.NEXT_PUBLIC_ZONING_TILE_SOURCE_LAYER = "zoning";
+
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
       new Response(
         JSON.stringify({

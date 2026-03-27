@@ -465,6 +465,53 @@ async def patch_deals(
 # Tiles Proxy (Martin)
 # =============================================================================
 
+MIN_TILE_ZOOM = 0
+MAX_TILE_ZOOM = 22
+PARCEL_TILE_SOURCE = "parcels"
+ZONING_TILE_SOURCE = "get_parcel_mvt"
+
+
+def _validate_tile_coordinates(z: int, x: int, y: int) -> None:
+    """Validate XYZ tile coordinates against the supported zoom range."""
+    if z < MIN_TILE_ZOOM or z > MAX_TILE_ZOOM:
+        raise HTTPException(status_code=400, detail="Invalid zoom level")
+    if x < 0 or x >= (1 << z):
+        raise HTTPException(status_code=400, detail="Invalid tile X coordinate")
+    if y < 0 or y >= (1 << z):
+        raise HTTPException(status_code=400, detail="Invalid tile Y coordinate")
+
+
+async def _proxy_martin_tile(source_id: str, z: int, x: int, y: int) -> Response:
+    """Fetch a vector tile from Martin and return it with stable cache headers."""
+    martin_tile_url = f"{MARTIN_URL}/{source_id}/{z}/{x}/{y}.pbf"
+
+    async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+        try:
+            resp = await client.get(martin_tile_url)
+        except httpx.RequestError as exc:
+            raise HTTPException(
+                status_code=503,
+                detail=f"Martin tile server unreachable: {str(exc)}"
+            ) from exc
+
+    if resp.status_code == 204:
+        return Response(status_code=204)
+
+    if resp.status_code != 200:
+        raise HTTPException(
+            status_code=resp.status_code,
+            detail=f"Martin returned {resp.status_code}"
+        )
+
+    return Response(
+        content=resp.content,
+        media_type="application/vnd.mapbox-vector-tile",
+        headers={
+            "Cache-Control": "public, max-age=86400, s-maxage=86400, immutable",
+            "Content-Length": str(len(resp.content)),
+        },
+    )
+
 
 @app.get("/tiles/{z}/{x}/{y}.pbf")
 async def get_tile(
@@ -477,44 +524,23 @@ async def get_tile(
     Proxy vector tiles from Martin server.
     Requires authentication.
     """
-    # Validate tile coordinates
-    if z < 0 or z > 22:
-        raise HTTPException(status_code=400, detail="Invalid zoom level")
-    if x < 0 or x >= (1 << z):
-        raise HTTPException(status_code=400, detail="Invalid tile X coordinate")
-    if y < 0 or y >= (1 << z):
-        raise HTTPException(status_code=400, detail="Invalid tile Y coordinate")
+    _validate_tile_coordinates(z, x, y)
+    return await _proxy_martin_tile(PARCEL_TILE_SOURCE, z, x, y)
 
-    # Proxy to Martin and follow redirects (Cloudflare/ingress may issue 301/302).
-    martin_tile_url = f"{MARTIN_URL}/parcels/{z}/{x}/{y}.pbf"
 
-    async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
-        try:
-            resp = await client.get(martin_tile_url)
-
-            if resp.status_code == 204:
-                # No data for this tile
-                return Response(status_code=204)
-
-            if resp.status_code != 200:
-                raise HTTPException(
-                    status_code=resp.status_code,
-                    detail=f"Martin returned {resp.status_code}"
-                )
-
-            return Response(
-                content=resp.content,
-                media_type="application/vnd.mapbox-vector-tile",
-                headers={
-                    "Cache-Control": "public, max-age=86400, s-maxage=86400, immutable",
-                    "Content-Length": str(len(resp.content)),
-                },
-            )
-        except httpx.RequestError as e:
-            raise HTTPException(
-                status_code=503,
-                detail=f"Martin tile server unreachable: {str(e)}"
-            )
+@app.get("/tiles/zoning/{z}/{x}/{y}.pbf")
+async def get_zoning_tile(
+    z: int,
+    x: int,
+    y: int,
+    api_key: str = Depends(verify_api_key)
+):
+    """
+    Proxy zoning-capable vector tiles from Martin server.
+    Requires authentication.
+    """
+    _validate_tile_coordinates(z, x, y)
+    return await _proxy_martin_tile(ZONING_TILE_SOURCE, z, x, y)
 
 
 # =============================================================================

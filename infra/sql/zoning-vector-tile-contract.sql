@@ -10,6 +10,57 @@ ALTER TABLE IF EXISTS ebr_parcels
   ADD COLUMN IF NOT EXISTS existing_land_use text,
   ADD COLUMN IF NOT EXISTS future_land_use text;
 
+CREATE OR REPLACE FUNCTION get_parcel_mvt(z int, x int, y int)
+RETURNS bytea
+LANGUAGE plpgsql
+STABLE
+PARALLEL SAFE
+AS $$
+DECLARE
+  tile_extent geometry;
+  tile_bbox_4326 geometry;
+  result bytea;
+BEGIN
+  IF z < 10 THEN
+    RETURN NULL;
+  END IF;
+
+  tile_extent := ST_TileEnvelope(z, x, y);
+  tile_bbox_4326 := ST_Transform(tile_extent::geometry, 4326);
+
+  SELECT ST_AsMVT(tile, 'parcels', 4096, 'geom')::bytea INTO result
+  FROM (
+    SELECT
+      intelligence.id,
+      intelligence.parcel_id,
+      intelligence.address,
+      intelligence.area_sqft,
+      intelligence.owner,
+      intelligence.assessed_value,
+      parcels.zoning_type,
+      parcels.existing_land_use,
+      parcels.future_land_use,
+      ST_AsMVTGeom(
+        ST_Transform(ST_CurveToLine(intelligence.geom), 3857),
+        tile_extent::geometry,
+        4096,
+        256,
+        true
+      ) AS geom
+    FROM mv_parcel_intelligence intelligence
+    LEFT JOIN ebr_parcels parcels
+      ON parcels.id = intelligence.id
+    WHERE intelligence.geom IS NOT NULL
+      AND ST_Intersects(intelligence.geom, tile_bbox_4326)
+  ) tile;
+
+  RETURN result;
+END;
+$$;
+
+COMMENT ON FUNCTION get_parcel_mvt(int, int, int) IS
+  'Returns parcel vector tiles with zoning_type and land-use attributes for authenticated map overlays.';
+
 CREATE OR REPLACE FUNCTION get_zoning_mvt(z int, x int, y int)
 RETURNS bytea
 LANGUAGE plpgsql

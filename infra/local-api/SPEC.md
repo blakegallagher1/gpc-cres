@@ -70,6 +70,7 @@ Optional:
 
 ### Authenticated - Tiles and Parcels
 - `GET /tiles/{z}/{x}/{y}.pbf`
+- `GET /tiles/zoning/{z}/{x}/{y}.pbf`
 - `POST /tools/parcel.lookup`
 - `POST /tools/parcel.bbox`
 - `POST /tools/parcel.point`

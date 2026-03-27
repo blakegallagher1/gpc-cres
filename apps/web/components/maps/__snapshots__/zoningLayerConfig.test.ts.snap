@@ -561,7 +561,7 @@ exports[`zoningLayerConfig > snapshots the zoning tile layer contract 1`] = `
     "fill-opacity": 0.3,
   },
   "source": "zoning-tiles",
-  "source-layer": "zoning",
+  "source-layer": "parcels",
   "type": "fill",
 }
 `;

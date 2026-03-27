@@ -82,6 +82,7 @@ infra/local-api/
 
 ### Authenticated (Bearer Token):
 - `GET /tiles/{z}/{x}/{y}.pbf` - Vector tiles (proxied to Martin)
+- `GET /tiles/zoning/{z}/{x}/{y}.pbf` - Zoning-capable vector tiles (proxied to Martin `get_parcel_mvt`)
 - `GET /api/parcels/search?q=...&parish=...&limit=25` - Search parcels
 - `GET /api/parcels/{id}` - Get parcel details
 - `GET /api/parcels/{id}/geometry?detail_level=low` - Get GeoJSON geometry

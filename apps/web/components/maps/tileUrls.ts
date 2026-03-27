@@ -125,3 +125,10 @@ export function getParcelTileUrl(): string {
   }
   return "/api/map/tiles/{z}/{x}/{y}";
 }
+
+/**
+ * Returns same-origin zoning vector tile URL proxied through the app.
+ */
+export function getZoningProxyTileUrl(): string {
+  return "/api/map/zoning-tiles/{z}/{x}/{y}";
+}

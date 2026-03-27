@@ -118,21 +118,27 @@ BEGIN
   SELECT ST_AsMVT(tile, 'parcels', 4096, 'geom')::bytea INTO result
   FROM (
     SELECT
-      parcel_id,
-      address,
-      area_sqft,
-      owner,
-      assessed_value,
+      intelligence.id,
+      intelligence.parcel_id,
+      intelligence.address,
+      intelligence.area_sqft,
+      intelligence.owner,
+      intelligence.assessed_value,
+      parcels.zoning_type,
+      parcels.existing_land_use,
+      parcels.future_land_use,
       ST_AsMVTGeom(
-        ST_Transform(ST_CurveToLine(geom), 3857),
+        ST_Transform(ST_CurveToLine(intelligence.geom), 3857),
         tile_extent::geometry,
         4096,
         256,
         true
       ) AS geom
-    FROM mv_parcel_intelligence
-    WHERE geom IS NOT NULL
-      AND ST_Intersects(geom, tile_bbox_4326)
+    FROM mv_parcel_intelligence intelligence
+    LEFT JOIN ebr_parcels parcels
+      ON parcels.id = intelligence.id
+    WHERE intelligence.geom IS NOT NULL
+      AND ST_Intersects(intelligence.geom, tile_bbox_4326)
   ) tile;
 
   RETURN result;

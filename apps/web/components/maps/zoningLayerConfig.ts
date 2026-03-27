@@ -1,15 +1,21 @@
 import type { FillLayerSpecification, VectorSourceSpecification } from "maplibre-gl";
 
 import { ZONING_DISTRICT_COLORS } from "./mapStyles";
-import { getMartinMetadataUrl, getMartinVectorTileUrl } from "./tileUrls";
+import {
+  getMartinMetadataUrl,
+  getMartinVectorTileUrl,
+  getZoningProxyTileUrl,
+} from "./tileUrls";
 
 export const ZONING_TILE_SOURCE_KEY = "zoning-tiles";
 export const ZONING_TILE_LAYER_ID = "zoning-tiles-fill";
 export const ZONING_TILE_INSERT_BEFORE_LAYER_ID = "parcels-flood-layer";
 
-const DEFAULT_ZONING_TILE_SOURCE_ID = "get_zoning_mvt";
-const DEFAULT_ZONING_TILE_SOURCE_LAYER = "zoning";
+const DIRECT_ZONING_TILE_SOURCE_ID = "get_zoning_mvt";
+const DIRECT_ZONING_TILE_SOURCE_LAYER = "zoning";
 const DEFAULT_ZONING_TILE_PROPERTY_NAME = "zoning_type";
+const PROXY_ZONING_TILE_SOURCE_ID = "get_parcel_mvt_proxy";
+const PROXY_ZONING_TILE_SOURCE_LAYER = "parcels";
 
 const LEGACY_ZONING_TILE_SOURCE_ID = "ebr_parcels";
 const LEGACY_ZONING_TILE_SOURCE_LAYER = "ebr_parcels";
@@ -32,7 +38,7 @@ export interface ZoningTileContract {
   sourceId: string;
   sourceLayer: string;
   propertyName: string;
-  metadataUrl: string;
+  metadataUrl: string | null;
   tileUrl: string;
 }
 
@@ -48,22 +54,31 @@ function readEnvOverride(name: string): string | null {
  * Builds the preferred zoning tile contract from client env overrides.
  */
 export function getPreferredZoningTileContract(): ZoningTileContract {
-  const sourceId =
-    readEnvOverride("NEXT_PUBLIC_ZONING_TILE_SOURCE_ID") ??
-    DEFAULT_ZONING_TILE_SOURCE_ID;
-  const sourceLayer =
-    readEnvOverride("NEXT_PUBLIC_ZONING_TILE_SOURCE_LAYER") ??
-    DEFAULT_ZONING_TILE_SOURCE_LAYER;
+  const sourceId = readEnvOverride("NEXT_PUBLIC_ZONING_TILE_SOURCE_ID");
+  const sourceLayer = readEnvOverride("NEXT_PUBLIC_ZONING_TILE_SOURCE_LAYER");
   const propertyName =
     readEnvOverride("NEXT_PUBLIC_ZONING_TILE_PROPERTY_NAME") ??
     DEFAULT_ZONING_TILE_PROPERTY_NAME;
 
+  if (sourceId || sourceLayer) {
+    const resolvedSourceId = sourceId ?? DIRECT_ZONING_TILE_SOURCE_ID;
+    const resolvedSourceLayer = sourceLayer ?? DIRECT_ZONING_TILE_SOURCE_LAYER;
+
+    return {
+      sourceId: resolvedSourceId,
+      sourceLayer: resolvedSourceLayer,
+      propertyName,
+      metadataUrl: getMartinMetadataUrl(resolvedSourceId),
+      tileUrl: getMartinVectorTileUrl(resolvedSourceId),
+    };
+  }
+
   return {
-    sourceId,
-    sourceLayer,
+    sourceId: PROXY_ZONING_TILE_SOURCE_ID,
+    sourceLayer: PROXY_ZONING_TILE_SOURCE_LAYER,
     propertyName,
-    metadataUrl: getMartinMetadataUrl(sourceId),
-    tileUrl: getMartinVectorTileUrl(sourceId),
+    metadataUrl: null,
+    tileUrl: getZoningProxyTileUrl(),
   };
 }
 
@@ -111,6 +126,10 @@ export async function probeZoningTileContract(
   contract: ZoningTileContract,
   fetchImpl: typeof fetch = fetch,
 ): Promise<boolean> {
+  if (!contract.metadataUrl) {
+    return true;
+  }
+
   const response = await fetchImpl(contract.metadataUrl);
   if (!response.ok) {
     return false;
@@ -128,8 +147,8 @@ export async function probeZoningTileContract(
 
 /**
  * Resolves the first browser-safe zoning tile contract. It prefers the
- * dedicated zoning tile function and falls back to legacy parcel metadata only
- * when that source actually exposes `zoning_type`.
+ * authenticated app-level zoning proxy and falls back to browser-direct Martin
+ * metadata only when explicit overrides are configured.
  */
 export async function resolveAvailableZoningTileContract(
   fetchImpl: typeof fetch = fetch,
