@@ -1,6 +1,6 @@
 import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useParcelGeometry } from "./useParcelGeometry";
+import { summarizeGeometryLoad, useParcelGeometry } from "./useParcelGeometry";
 
 const fetchMock = vi.fn();
 
@@ -58,8 +58,65 @@ describe("useParcelGeometry", () => {
       expect(result.current.health.lastRequestId).toBe("req-geometry-missing");
       expect(result.current.health.failedCount).toBeGreaterThan(0);
       expect(result.current.loading).toBe(false);
+      expect(result.current.summary.status).toBe("unavailable");
+      expect(result.current.summary.unavailableCount).toBe(1);
     });
 
     unmount();
+  });
+
+  it("reports a partial summary when some parcel geometries resolve and others do not", () => {
+    const summary = summarizeGeometryLoad({
+      visibleCandidates: [
+        { id: "parcel-1", lookupKey: "parcel-1" },
+        { id: "parcel-2", lookupKey: "parcel-2" },
+      ],
+      geometries: new Map([
+        [
+          "parcel-1",
+          {
+            geometry: { type: "Polygon", coordinates: [] },
+            bbox: [-91.2, 30.4, -91.1, 30.5],
+            area_sqft: 43560,
+          },
+        ],
+      ]),
+      geometryCacheKeys: new Set(["parcel-1"]),
+      unavailableLookupKeys: new Set(["parcel-2"]),
+      failedLookupKeys: new Set(),
+      loading: false,
+    });
+
+    expect(summary).toEqual({
+      status: "partial",
+      requestedCount: 2,
+      loadedCount: 1,
+      unavailableCount: 1,
+      pendingCount: 0,
+    });
+  });
+
+  it("reports a ready summary once visible parcel shapes are loaded", () => {
+    const summary = summarizeGeometryLoad({
+      visibleCandidates: [{ id: "parcel-1", lookupKey: "parcel-1" }],
+      geometries: new Map([
+        [
+          "parcel-1",
+          {
+            geometry: { type: "Polygon", coordinates: [] },
+            bbox: [-91.2, 30.4, -91.1, 30.5],
+            area_sqft: 43560,
+          },
+        ],
+      ]),
+      geometryCacheKeys: new Set(["parcel-1"]),
+      unavailableLookupKeys: new Set(),
+      failedLookupKeys: new Set(),
+      loading: false,
+    });
+
+    expect(summary.status).toBe("ready");
+    expect(summary.loadedCount).toBe(1);
+    expect(summary.unavailableCount).toBe(0);
   });
 });

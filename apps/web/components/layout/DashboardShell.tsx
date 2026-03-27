@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, type CSSProperties } from "react";
+import { Suspense, useEffect, type CSSProperties } from "react";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
 import { useUIStore } from "@/stores/uiStore";
@@ -72,7 +72,9 @@ export function DashboardShell({ children, noPadding }: DashboardShellProps) {
           </PageTransition>
         </main>
         <CommandPalette />
-        <CopilotPanel />
+        <Suspense fallback={null}>
+          <CopilotPanel />
+        </Suspense>
       </div>
     </AuthGuard>
   );

@@ -194,7 +194,13 @@ describe("computeNextSelection", () => {
 describe("getGeometryStatusLabel", () => {
   it("prefers a dedicated geometry-unavailable label for missing parcel rows", () => {
     expect(
-      getGeometryStatusLabel(false, {
+      getGeometryStatusLabel({
+        status: "unavailable",
+        requestedCount: 1,
+        loadedCount: 0,
+        unavailableCount: 1,
+        pendingCount: 0,
+      }, {
         failedCount: 1,
         geometryUnavailable: true,
         propertyDbUnconfigured: false,
@@ -204,7 +210,13 @@ describe("getGeometryStatusLabel", () => {
 
   it("keeps provider-unconfigured messaging higher priority than missing geometry", () => {
     expect(
-      getGeometryStatusLabel(false, {
+      getGeometryStatusLabel({
+        status: "unavailable",
+        requestedCount: 2,
+        loadedCount: 0,
+        unavailableCount: 2,
+        pendingCount: 0,
+      }, {
         failedCount: 2,
         geometryUnavailable: true,
         propertyDbUnconfigured: true,
@@ -212,14 +224,36 @@ describe("getGeometryStatusLabel", () => {
     ).toBe("Shapes unavailable");
   });
 
-  it("falls back to a generic partial-failure label for other shape issues", () => {
+  it("reports loaded and unavailable counts for partial parcel geometry coverage", () => {
     expect(
-      getGeometryStatusLabel(false, {
+      getGeometryStatusLabel({
+        status: "partial",
+        requestedCount: 3,
+        loadedCount: 2,
+        unavailableCount: 1,
+        pendingCount: 0,
+      }, {
         failedCount: 1,
         geometryUnavailable: false,
         propertyDbUnconfigured: false,
       }),
-    ).toBe("Some shapes unavailable");
+    ).toBe("2 loaded · 1 unavailable");
+  });
+
+  it("shows a loaded-count badge once parcel shapes are ready", () => {
+    expect(
+      getGeometryStatusLabel({
+        status: "ready",
+        requestedCount: 2,
+        loadedCount: 2,
+        unavailableCount: 0,
+        pendingCount: 0,
+      }, {
+        failedCount: 0,
+        geometryUnavailable: false,
+        propertyDbUnconfigured: false,
+      }),
+    ).toBe("2 shapes loaded");
   });
 });
 

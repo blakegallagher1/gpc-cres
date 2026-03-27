@@ -12,7 +12,11 @@ import {
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
-import { useParcelGeometry, type ViewportBounds } from "./useParcelGeometry";
+import {
+  useParcelGeometry,
+  type GeometryLoadSummary,
+  type ViewportBounds,
+} from "./useParcelGeometry";
 import {
   buildParcelPopupViewModel,
   buildTileParcelPopupViewModel,
@@ -204,11 +208,21 @@ type GeometryStatusHealth = {
 };
 
 export function getGeometryStatusLabel(
-  loading: boolean,
+  summary: GeometryLoadSummary,
   health: GeometryStatusHealth,
 ): string | null {
-  if (loading) return "Loading shapes…";
+  if (summary.status === "idle") return null;
+  if (summary.status === "loading") return "Loading shapes…";
+  if (summary.status === "ready") {
+    return `${summary.loadedCount} shapes loaded`;
+  }
   if (health.propertyDbUnconfigured) return "Shapes unavailable";
+  if (summary.status === "unavailable") {
+    return health.geometryUnavailable ? "Geometry unavailable" : "Shapes unavailable";
+  }
+  if (summary.status === "partial") {
+    return `${summary.loadedCount} loaded · ${summary.unavailableCount} unavailable`;
+  }
   if (health.geometryUnavailable) return "Geometry unavailable";
   if (health.failedCount > 0) return "Some shapes unavailable";
   return null;
@@ -928,12 +942,12 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
     return { lat: avgLat, lng: avgLng };
   }, [parcels]);
 
-  const { geometries, loading: geometryLoading, health: geometryHealth } = useParcelGeometry(
+  const { geometries, health: geometryHealth, summary: geometrySummary } = useParcelGeometry(
     parcels,
     80,
     viewportBounds,
   );
-  const geometryStatusLabel = getGeometryStatusLabel(geometryLoading, geometryHealth);
+  const geometryStatusLabel = getGeometryStatusLabel(geometrySummary, geometryHealth);
 
   useEffect(() => {
     parcelByIdRef.current = parcelById;

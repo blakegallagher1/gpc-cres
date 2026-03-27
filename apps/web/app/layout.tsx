@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { DM_Mono, Instrument_Sans } from "next/font/google";
 import "./globals.css";
@@ -42,9 +43,11 @@ export default function RootLayout({
             disableTransitionOnChange
           >
             <MapChatProvider>
-              <ObservabilityProvider>
-                <ObservabilityBoundary>{children}</ObservabilityBoundary>
-              </ObservabilityProvider>
+              <Suspense fallback={null}>
+                <ObservabilityProvider>
+                  <ObservabilityBoundary>{children}</ObservabilityBoundary>
+                </ObservabilityProvider>
+              </Suspense>
             </MapChatProvider>
             <Toaster position="bottom-right" />
           </ThemeProvider>

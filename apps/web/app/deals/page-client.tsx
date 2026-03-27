@@ -422,7 +422,12 @@ function DealsPageContent({
   if (triageMode) {
     return (
       <DashboardShell>
-        <div className="workspace-page">
+        <div
+          className="workspace-page"
+          data-route-id="deals-triage"
+          data-route-path={pathname}
+          aria-label="Deals triage workspace"
+        >
           <WorkspaceHeader
             eyebrow="Decision desk"
             title="Triage Queue"
@@ -575,7 +580,12 @@ function DealsPageContent({
 
   return (
     <DashboardShell>
-      <div className="workspace-page">
+      <div
+        className="workspace-page"
+        data-route-id="deals"
+        data-route-path={pathname}
+        aria-label="Deals workspace"
+      >
         <WorkspaceHeader
           eyebrow="Pipeline desk"
           title="Deals"

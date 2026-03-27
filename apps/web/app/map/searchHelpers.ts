@@ -11,6 +11,16 @@ const STREET_SUFFIX_CANONICAL: Array<[RegExp, string]> = [
   [/\bln\b/g, "lane"],
 ];
 const COORDINATE_MATCH_TOLERANCE = 0.0001;
+const PARCEL_ID_PATTERN = /^\d{3}-\d{3,}$/;
+const ADDRESS_NUMBER_PATTERN = /^\d+\s+[\w#]/;
+const STREET_SUFFIX_PATTERN =
+  /\b(street|st|road|rd|drive|dr|lane|ln|avenue|ave|boulevard|blvd|court|ct|highway|hwy|way|parkway|pkwy)\b/;
+const ANALYSIS_PREFIX_PATTERNS = [
+  /^(how many|count|total|average|show me|find|identify|list|compare|what|which|where|tell me|who owns)/,
+  /^within\s+\d+/,
+];
+const ANALYSIS_TERM_PATTERN =
+  /\b(within|near|between|around|minute|mile|radius|flood|wetland|epa|zoned|greater than|less than|at least|more than|acres|acreage|industrial|commercial|residential|owner|assessed|compare)\b/;
 
 /**
  * Suggestion payload surfaced by the parcel-search combobox.
@@ -25,6 +35,38 @@ export interface ParcelSearchSuggestion {
 
 function hasFiniteCoordinate(value: number | null): value is number {
   return typeof value === "number" && Number.isFinite(value);
+}
+
+/**
+ * Returns true when the query looks like a direct parcel lookup rather than
+ * an analytical prompt.
+ */
+export function isLikelyParcelLookupQuery(query: string): boolean {
+  const normalized = canonicalizeParcelSearchText(query);
+  if (!normalized) return false;
+
+  if (PARCEL_ID_PATTERN.test(normalized)) {
+    return true;
+  }
+
+  if (ADDRESS_NUMBER_PATTERN.test(normalized)) {
+    return true;
+  }
+
+  return STREET_SUFFIX_PATTERN.test(normalized) && !ANALYSIS_TERM_PATTERN.test(normalized);
+}
+
+/**
+ * Returns true when the query reads like an analytical map prompt.
+ */
+export function isLikelyMapAnalysisQuery(query: string): boolean {
+  const normalized = canonicalizeParcelSearchText(query);
+  if (!normalized) return false;
+  if (isLikelyParcelLookupQuery(normalized)) return false;
+  return (
+    ANALYSIS_PREFIX_PATTERNS.some((pattern) => pattern.test(normalized)) ||
+    ANALYSIS_TERM_PATTERN.test(normalized)
+  );
 }
 
 /**

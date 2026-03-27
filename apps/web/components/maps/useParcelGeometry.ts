@@ -1,8 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 export interface ParcelGeometryEntry {
   geometry: { type: string; coordinates: unknown };
@@ -31,7 +27,9 @@ type ParcelGeometryErrorResponse = {
   };
 };
 
-type GeometryFetchHealth = {
+export type GeometryLoadState = "idle" | "loading" | "ready" | "partial" | "unavailable";
+
+export type GeometryFetchHealth = {
   failedCount: number;
   geometryUnavailable: boolean;
   unauthorized: boolean;
@@ -43,10 +41,63 @@ type GeometryFetchHealth = {
   lastRequestId: string | null;
 };
 
+export interface GeometryLoadSummary {
+  status: GeometryLoadState;
+  requestedCount: number;
+  loadedCount: number;
+  unavailableCount: number;
+  pendingCount: number;
+}
+
+type ParcelGeometryCandidate = {
+  id: string;
+  lookupKey: string;
+  lat?: number;
+  lng?: number;
+};
+
 type PolygonGeometry = {
   type: "Polygon" | "MultiPolygon";
   coordinates: unknown;
 };
+
+type GeometryBatchResult =
+  | {
+      kind: "success";
+      parcelId: string;
+      lookupKey: string;
+      entry: ParcelGeometryEntry;
+    }
+  | {
+      kind: "unavailable";
+      parcelId: string;
+      lookupKey: string;
+      requestId: string | null;
+      errorCode: string | null;
+      errorMessage: string | null;
+    }
+  | {
+      kind: "failed";
+      parcelId: string;
+      lookupKey: string;
+      requestId: string | null;
+      errorCode: string | null;
+      errorMessage: string | null;
+      unauthorized: boolean;
+      rateLimited: boolean;
+      propertyDbUnconfigured: boolean;
+      upstreamError: boolean;
+    }
+  | {
+      kind: "aborted";
+      parcelId: string;
+      lookupKey: string;
+    };
+
+const VIEWPORT_PADDING_DEGREES = 0.01;
+const MAX_RETRY_ATTEMPTS = 2;
+const GEOMETRY_BATCH_SIZE = 8;
+const INTER_BATCH_DELAY_MS = 50;
 
 function extractPolygonGeometry(input: unknown): PolygonGeometry | null {
   if (!input || typeof input !== "object" || Array.isArray(input)) return null;
@@ -58,7 +109,10 @@ function extractPolygonGeometry(input: unknown): PolygonGeometry | null {
     geometries?: unknown;
   };
 
-  if ((record.type === "Polygon" || record.type === "MultiPolygon") && Array.isArray(record.coordinates)) {
+  if (
+    (record.type === "Polygon" || record.type === "MultiPolygon") &&
+    Array.isArray(record.coordinates)
+  ) {
     return {
       type: record.type,
       coordinates: record.coordinates,
@@ -88,20 +142,141 @@ function extractPolygonGeometry(input: unknown): PolygonGeometry | null {
   return null;
 }
 
-// ---------------------------------------------------------------------------
-// Hook: fetch GeoJSON geometries for enriched parcels
-// ---------------------------------------------------------------------------
+function getParcelLookupKey(parcel: {
+  id: string;
+  propertyDbId?: string | null;
+  geometryLookupKey?: string | null;
+}): string | null {
+  const lookupKey = parcel.geometryLookupKey?.trim() || parcel.propertyDbId?.trim() || parcel.id;
+  const normalized = lookupKey.replace(/^ext-/, "").trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function isWithinViewport(
+  parcel: { lat?: number; lng?: number },
+  viewportBounds?: ViewportBounds | null,
+): boolean {
+  if (!viewportBounds) return true;
+  if (parcel.lat == null || parcel.lng == null) return true;
+
+  const west = viewportBounds.west - VIEWPORT_PADDING_DEGREES;
+  const east = viewportBounds.east + VIEWPORT_PADDING_DEGREES;
+  const south = viewportBounds.south - VIEWPORT_PADDING_DEGREES;
+  const north = viewportBounds.north + VIEWPORT_PADDING_DEGREES;
+
+  return parcel.lng >= west && parcel.lng <= east && parcel.lat >= south && parcel.lat <= north;
+}
+
+function collectVisibleCandidates(
+  parcels: Array<{
+    id: string;
+    lat?: number;
+    lng?: number;
+    propertyDbId?: string | null;
+    geometryLookupKey?: string | null;
+  }>,
+  viewportBounds?: ViewportBounds | null,
+): ParcelGeometryCandidate[] {
+  return parcels.reduce<ParcelGeometryCandidate[]>((acc, parcel) => {
+    const lookupKey = getParcelLookupKey(parcel);
+    if (!lookupKey || !isWithinViewport(parcel, viewportBounds)) {
+      return acc;
+    }
+
+    acc.push({
+      id: parcel.id,
+      lookupKey,
+      lat: parcel.lat,
+      lng: parcel.lng,
+    });
+    return acc;
+  }, []);
+}
+
+export function summarizeGeometryLoad(params: {
+  visibleCandidates: readonly ParcelGeometryCandidate[];
+  geometries: ReadonlyMap<string, ParcelGeometryEntry>;
+  geometryCacheKeys: ReadonlySet<string>;
+  unavailableLookupKeys: ReadonlySet<string>;
+  failedLookupKeys: ReadonlySet<string>;
+  loading: boolean;
+}): GeometryLoadSummary {
+  const requestedCount = params.visibleCandidates.length;
+  if (requestedCount === 0) {
+    return {
+      status: "idle",
+      requestedCount: 0,
+      loadedCount: 0,
+      unavailableCount: 0,
+      pendingCount: 0,
+    };
+  }
+
+  let loadedCount = 0;
+  let unavailableCount = 0;
+
+  for (const candidate of params.visibleCandidates) {
+    if (
+      params.geometries.has(candidate.id) ||
+      params.geometryCacheKeys.has(candidate.lookupKey)
+    ) {
+      loadedCount += 1;
+      continue;
+    }
+
+    if (
+      params.unavailableLookupKeys.has(candidate.lookupKey) ||
+      params.failedLookupKeys.has(candidate.lookupKey)
+    ) {
+      unavailableCount += 1;
+    }
+  }
+
+  const pendingCount = Math.max(requestedCount - loadedCount - unavailableCount, 0);
+
+  if (params.loading || pendingCount > 0) {
+    return {
+      status: "loading",
+      requestedCount,
+      loadedCount,
+      unavailableCount,
+      pendingCount,
+    };
+  }
+
+  if (loadedCount === 0 && unavailableCount > 0) {
+    return {
+      status: "unavailable",
+      requestedCount,
+      loadedCount,
+      unavailableCount,
+      pendingCount,
+    };
+  }
+
+  if (unavailableCount > 0) {
+    return {
+      status: "partial",
+      requestedCount,
+      loadedCount,
+      unavailableCount,
+      pendingCount,
+    };
+  }
+
+  return {
+    status: "ready",
+    requestedCount,
+    loadedCount,
+    unavailableCount,
+    pendingCount,
+  };
+}
 
 /**
  * Fetches parcel polygon geometries via GET /api/parcels/{parcelId}/geometry.
- * Only fetches for parcels that have a `propertyDbId` or `geometryLookupKey`.
- * Batches requests in groups of 5 with 200ms inter-batch delay to respect rate limits.
- *
- * When `viewportBounds` is provided, only parcels whose lat/lng fall within
- * the bounds (plus a small padding buffer) are fetched. This prevents wasting
- * bandwidth on off-screen parcels.
- *
- * Uses an AbortController to cancel stale fetches when bounds change.
+ * Requests are limited to the active viewport and cached by stable lookup key
+ * so viewport refreshes do not restart failed geometry lookups indefinitely.
  */
 export function useParcelGeometry(
   parcels: Array<{
@@ -112,15 +287,14 @@ export function useParcelGeometry(
     geometryLookupKey?: string | null;
   }>,
   maxFetch: number = 50,
-  viewportBounds?: ViewportBounds | null
+  viewportBounds?: ViewportBounds | null,
 ): {
   geometries: Map<string, ParcelGeometryEntry>;
   loading: boolean;
   health: GeometryFetchHealth;
+  summary: GeometryLoadSummary;
 } {
-  const [geometries, setGeometries] = useState<Map<string, ParcelGeometryEntry>>(
-    new Map()
-  );
+  const [geometries, setGeometries] = useState<Map<string, ParcelGeometryEntry>>(new Map());
   const [loading, setLoading] = useState(false);
   const [health, setHealth] = useState<GeometryFetchHealth>({
     failedCount: 0,
@@ -134,251 +308,327 @@ export function useParcelGeometry(
     lastRequestId: null,
   });
   const [fetchCycle, setFetchCycle] = useState(0);
+
   const abortNetworkRequests = process.env.NODE_ENV === "production";
-  const fetchedRef = useRef(new Set<string>());
-  const inFlightRef = useRef(new Set<string>());
+  const geometryCacheRef = useRef(new Map<string, ParcelGeometryEntry>());
+  const inFlightLookupKeysRef = useRef(new Set<string>());
+  const unavailableLookupKeysRef = useRef(new Set<string>());
+  const failedLookupKeysRef = useRef(new Set<string>());
   const attemptsRef = useRef(new Map<string, number>());
   const abortRef = useRef<AbortController | null>(null);
   const isFetchingRef = useRef(false);
   const pendingFetchRef = useRef(false);
 
+  const visibleCandidates = useMemo(
+    () => collectVisibleCandidates(parcels, viewportBounds),
+    [parcels, viewportBounds],
+  );
+
+  useEffect(() => {
+    if (visibleCandidates.length === 0) return;
+
+    setGeometries((prev) => {
+      let changed = false;
+      const next = new Map(prev);
+
+      for (const candidate of visibleCandidates) {
+        const cachedGeometry = geometryCacheRef.current.get(candidate.lookupKey);
+        if (!cachedGeometry || next.has(candidate.id)) continue;
+        next.set(candidate.id, cachedGeometry);
+        changed = true;
+      }
+
+      return changed ? next : prev;
+    });
+  }, [visibleCandidates]);
+
   const collectCandidates = useCallback(() => {
-    let candidates = parcels.filter(
-      (p) =>
-        (p.propertyDbId || p.geometryLookupKey) &&
-        !fetchedRef.current.has(p.id) &&
-        !inFlightRef.current.has(p.id) &&
-        (attemptsRef.current.get(p.id) ?? 0) < 3
-    );
-
-    if (viewportBounds && candidates.length > 0) {
-      const PAD_DEG = 0.01; // ~1.1 km padding
-      const west = viewportBounds.west - PAD_DEG;
-      const east = viewportBounds.east + PAD_DEG;
-      const south = viewportBounds.south - PAD_DEG;
-      const north = viewportBounds.north + PAD_DEG;
-
-      candidates = candidates.filter((p) => {
-        if (p.lat == null || p.lng == null) return true; // fetch if no coords
-        return p.lng >= west && p.lng <= east && p.lat >= south && p.lat <= north;
-      });
-    }
-
-    return candidates;
-  }, [parcels, viewportBounds]);
+    return visibleCandidates.filter((candidate) => {
+      if (geometries.has(candidate.id)) return false;
+      if (geometryCacheRef.current.has(candidate.lookupKey)) return false;
+      if (unavailableLookupKeysRef.current.has(candidate.lookupKey)) return false;
+      if (failedLookupKeysRef.current.has(candidate.lookupKey)) return false;
+      if (inFlightLookupKeysRef.current.has(candidate.lookupKey)) return false;
+      return (attemptsRef.current.get(candidate.lookupKey) ?? 0) < MAX_RETRY_ATTEMPTS;
+    });
+  }, [geometries, visibleCandidates]);
 
   const fetchGeometries = useCallback(async () => {
     if (isFetchingRef.current) {
       pendingFetchRef.current = true;
       return;
     }
-    isFetchingRef.current = true;
 
+    const toFetch = collectCandidates().slice(0, maxFetch);
+    if (toFetch.length === 0) {
+      setLoading(false);
+      return;
+    }
+
+    isFetchingRef.current = true;
+    setLoading(true);
     const controller = new AbortController();
     abortRef.current = controller;
 
     try {
-      const candidates = collectCandidates();
+      for (const candidate of toFetch) {
+        inFlightLookupKeysRef.current.add(candidate.lookupKey);
+      }
 
-      const toFetch = candidates.slice(0, maxFetch);
-
-      if (toFetch.length === 0) return;
-
-      setLoading(true);
-
-      // Mark as in-flight to prevent duplicate fetches while requests are pending.
-      for (const p of toFetch) inFlightRef.current.add(p.id);
-
-      const BATCH_SIZE = 8;
-
-      for (let i = 0; i < toFetch.length; i += BATCH_SIZE) {
-        // Check if aborted between batches
+      for (let index = 0; index < toFetch.length; index += GEOMETRY_BATCH_SIZE) {
         if (controller.signal.aborted) {
-          // Un-mark parcels so they can be re-fetched next cycle
-          for (const p of toFetch.slice(i)) inFlightRef.current.delete(p.id);
           break;
         }
 
-        const batch = toFetch.slice(i, i + BATCH_SIZE);
-
+        const batch = toFetch.slice(index, index + GEOMETRY_BATCH_SIZE);
         const results = await Promise.allSettled(
-          batch.map(async (parcel) => {
-          const lookupKey =
-            parcel.geometryLookupKey?.trim() ||
-            parcel.propertyDbId?.trim() ||
-            parcel.id;
-          const cleanedLookupKey = lookupKey.replace(/^ext-/, "");
+          batch.map(async (candidate): Promise<GeometryBatchResult> => {
+            const response = await fetch(
+              `/api/parcels/${encodeURIComponent(candidate.lookupKey)}/geometry?detail_level=low`,
+              {
+                method: "GET",
+                ...(abortNetworkRequests ? { signal: controller.signal } : {}),
+              },
+            );
 
-          const res = await fetch(
-            `/api/parcels/${encodeURIComponent(cleanedLookupKey)}/geometry?detail_level=low`,
-            {
-              method: "GET",
-              ...(abortNetworkRequests ? { signal: controller.signal } : {}),
-            },
-          );
-          let json: ParcelGeometryErrorResponse;
-          try {
-            json = (await res.json()) as ParcelGeometryErrorResponse;
-          } catch {
-            if (process.env.NODE_ENV !== "production") {
-              console.warn("[useParcelGeometry] Non-JSON response from parcel geometry endpoint", {
-                parcelId: parcel.id,
-                lookupKey: cleanedLookupKey,
-                status: res.status,
-              });
-            }
-            return null;
-          }
-
-          if (!res.ok || !json.ok) {
-            const errorCode = json.error?.code ?? null;
-            const errorMessage = json.error?.message ?? null;
-            const geometryUnavailable =
-              res.status === 404 ||
-              errorCode === "NOT_FOUND" ||
-              errorCode === "GEOMETRY_UNAVAILABLE";
-            if (errorCode === "CLIENT_ABORTED") {
-              return null;
-            }
-            setHealth((prev) => ({
-              failedCount: prev.failedCount + 1,
-              geometryUnavailable: prev.geometryUnavailable || geometryUnavailable,
-              unauthorized: prev.unauthorized || res.status === 401 || errorCode === "UNAUTHORIZED",
-              rateLimited: prev.rateLimited || res.status === 429 || errorCode === "RATE_LIMITED",
-              propertyDbUnconfigured:
-                prev.propertyDbUnconfigured ||
-                errorCode === "PROPERTY_DB_UNCONFIGURED" ||
-                errorCode === "GATEWAY_UNCONFIGURED",
-              upstreamError:
-                prev.upstreamError ||
-                (!geometryUnavailable &&
-                  (errorCode === "UPSTREAM_ERROR" ||
-                    errorCode === "PROPERTY_DB_UNCONFIGURED" ||
-                    errorCode === "GATEWAY_UNCONFIGURED")),
-              lastErrorCode: errorCode,
-              lastErrorMessage: errorMessage,
-              lastRequestId: json.request_id ?? null,
-            }));
-            if (process.env.NODE_ENV !== "production") {
-              console.warn("[useParcelGeometry] Parcel geometry request failed", {
-                parcelId: parcel.id,
-                lookupKey: cleanedLookupKey,
-                status: res.status,
-                requestId: json.request_id,
-                errorCode: json.error?.code,
-                errorMessage: json.error?.message,
-                debug: json.debug,
-              });
-            }
-            return null;
-          }
-          if (!(json as { data?: { geom_simplified?: unknown } }).data?.geom_simplified) {
-            setHealth((prev) => ({
-              ...prev,
-              failedCount: prev.failedCount + 1,
-              lastErrorCode: "MISSING_GEOMETRY",
-              lastErrorMessage: "geom_simplified missing",
-              lastRequestId: json.request_id ?? null,
-            }));
-            if (process.env.NODE_ENV !== "production") {
-              console.warn("[useParcelGeometry] Parcel geometry missing geom_simplified", {
-                parcelId: parcel.id,
-                lookupKey: cleanedLookupKey,
-                requestId: json.request_id,
-              });
-            }
-            return null;
-          }
-
-          const geometryData = (json as {
-            data: {
-              geom_simplified: unknown;
-              bbox: unknown;
-              area_sqft: unknown;
-            };
-          }).data;
-          let parsedGeometry: unknown = geometryData.geom_simplified;
-          if (typeof parsedGeometry === "string") {
+            let json: ParcelGeometryErrorResponse;
             try {
-              parsedGeometry = JSON.parse(parsedGeometry);
+              json = (await response.json()) as ParcelGeometryErrorResponse;
             } catch {
-              // Some responses return malformed JSON with escaped payloads;
-              // treat those as unavailable rather than fail the full request batch.
-              return null;
+              return {
+                kind: "failed",
+                parcelId: candidate.id,
+                lookupKey: candidate.lookupKey,
+                requestId: null,
+                errorCode: "INVALID_GEOMETRY_RESPONSE",
+                errorMessage: "Geometry endpoint returned a non-JSON response.",
+                unauthorized: false,
+                rateLimited: false,
+                propertyDbUnconfigured: false,
+                upstreamError: true,
+              };
             }
-          }
 
-          const normalizedGeometry = extractPolygonGeometry(parsedGeometry);
-          if (!normalizedGeometry) return null;
+            if (!response.ok || !json.ok) {
+              const errorCode = json.error?.code ?? null;
+              const errorMessage = json.error?.message ?? null;
+              const geometryUnavailable =
+                response.status === 404 ||
+                errorCode === "NOT_FOUND" ||
+                errorCode === "GEOMETRY_UNAVAILABLE";
 
-          return {
-            parcelId: parcel.id,
-            entry: {
-              geometry: normalizedGeometry,
-              bbox: geometryData.bbox as [number, number, number, number],
-              area_sqft: geometryData.area_sqft as number,
-            },
-          };
-          })
+              if (errorCode === "CLIENT_ABORTED") {
+                return {
+                  kind: "aborted",
+                  parcelId: candidate.id,
+                  lookupKey: candidate.lookupKey,
+                };
+              }
+
+              if (geometryUnavailable) {
+                return {
+                  kind: "unavailable",
+                  parcelId: candidate.id,
+                  lookupKey: candidate.lookupKey,
+                  requestId: json.request_id ?? null,
+                  errorCode,
+                  errorMessage,
+                };
+              }
+
+              return {
+                kind: "failed",
+                parcelId: candidate.id,
+                lookupKey: candidate.lookupKey,
+                requestId: json.request_id ?? null,
+                errorCode,
+                errorMessage,
+                unauthorized: response.status === 401 || errorCode === "UNAUTHORIZED",
+                rateLimited: response.status === 429 || errorCode === "RATE_LIMITED",
+                propertyDbUnconfigured:
+                  errorCode === "PROPERTY_DB_UNCONFIGURED" ||
+                  errorCode === "GATEWAY_UNCONFIGURED",
+                upstreamError:
+                  errorCode === "UPSTREAM_ERROR" ||
+                  errorCode === "PROPERTY_DB_UNCONFIGURED" ||
+                  errorCode === "GATEWAY_UNCONFIGURED" ||
+                  response.status >= 500,
+              };
+            }
+
+            const geometryData = (json as {
+              data?: {
+                geom_simplified?: unknown;
+                bbox?: unknown;
+                area_sqft?: unknown;
+              };
+            }).data;
+
+            if (!geometryData?.geom_simplified) {
+              return {
+                kind: "failed",
+                parcelId: candidate.id,
+                lookupKey: candidate.lookupKey,
+                requestId: json.request_id ?? null,
+                errorCode: "MISSING_GEOMETRY",
+                errorMessage: "geom_simplified missing",
+                unauthorized: false,
+                rateLimited: false,
+                propertyDbUnconfigured: false,
+                upstreamError: false,
+              };
+            }
+
+            let parsedGeometry: unknown = geometryData.geom_simplified;
+            if (typeof parsedGeometry === "string") {
+              try {
+                parsedGeometry = JSON.parse(parsedGeometry);
+              } catch {
+                return {
+                  kind: "failed",
+                  parcelId: candidate.id,
+                  lookupKey: candidate.lookupKey,
+                  requestId: json.request_id ?? null,
+                  errorCode: "INVALID_GEOMETRY_PAYLOAD",
+                  errorMessage: "geom_simplified could not be parsed",
+                  unauthorized: false,
+                  rateLimited: false,
+                  propertyDbUnconfigured: false,
+                  upstreamError: false,
+                };
+              }
+            }
+
+            const normalizedGeometry = extractPolygonGeometry(parsedGeometry);
+            if (!normalizedGeometry) {
+              return {
+                kind: "failed",
+                parcelId: candidate.id,
+                lookupKey: candidate.lookupKey,
+                requestId: json.request_id ?? null,
+                errorCode: "UNSUPPORTED_GEOMETRY",
+                errorMessage: "Geometry payload did not contain polygon coordinates.",
+                unauthorized: false,
+                rateLimited: false,
+                propertyDbUnconfigured: false,
+                upstreamError: false,
+              };
+            }
+
+            return {
+              kind: "success",
+              parcelId: candidate.id,
+              lookupKey: candidate.lookupKey,
+              entry: {
+                geometry: normalizedGeometry,
+                bbox: geometryData.bbox as [number, number, number, number],
+                area_sqft: Number(geometryData.area_sqft ?? 0),
+              },
+            };
+          }),
         );
 
-        // Merge successful results into state
-        const newEntries = new Map<string, ParcelGeometryEntry>();
-        const successfulParcelIds = new Set<string>();
-        const attemptedParcelIds = new Set<string>(batch.map((parcel) => parcel.id));
+        const successfulEntries = new Map<string, ParcelGeometryEntry>();
+
         for (const result of results) {
-          if (result.status === "fulfilled" && result.value) {
-            newEntries.set(result.value.parcelId, result.value.entry);
-            successfulParcelIds.add(result.value.parcelId);
+          if (result.status === "rejected") {
+            continue;
           }
+
+          const batchResult = result.value;
+          inFlightLookupKeysRef.current.delete(batchResult.lookupKey);
+
+          if (batchResult.kind === "aborted") {
+            continue;
+          }
+
+          const nextAttempts = (attemptsRef.current.get(batchResult.lookupKey) ?? 0) + 1;
+          attemptsRef.current.set(batchResult.lookupKey, nextAttempts);
+
+          if (batchResult.kind === "success") {
+            geometryCacheRef.current.set(batchResult.lookupKey, batchResult.entry);
+            successfulEntries.set(batchResult.parcelId, batchResult.entry);
+            attemptsRef.current.delete(batchResult.lookupKey);
+            failedLookupKeysRef.current.delete(batchResult.lookupKey);
+            unavailableLookupKeysRef.current.delete(batchResult.lookupKey);
+            continue;
+          }
+
+          if (batchResult.kind === "unavailable") {
+            unavailableLookupKeysRef.current.add(batchResult.lookupKey);
+            failedLookupKeysRef.current.delete(batchResult.lookupKey);
+            attemptsRef.current.delete(batchResult.lookupKey);
+            setHealth((prev) => ({
+              failedCount: prev.failedCount + 1,
+              geometryUnavailable: true,
+              unauthorized: prev.unauthorized,
+              rateLimited: prev.rateLimited,
+              propertyDbUnconfigured: prev.propertyDbUnconfigured,
+              upstreamError: prev.upstreamError,
+              lastErrorCode: batchResult.errorCode,
+              lastErrorMessage: batchResult.errorMessage,
+              lastRequestId: batchResult.requestId,
+            }));
+            continue;
+          }
+
+          if (nextAttempts >= MAX_RETRY_ATTEMPTS) {
+            failedLookupKeysRef.current.add(batchResult.lookupKey);
+          }
+
+          setHealth((prev) => ({
+            failedCount: prev.failedCount + 1,
+            geometryUnavailable: prev.geometryUnavailable,
+            unauthorized: prev.unauthorized || batchResult.unauthorized,
+            rateLimited: prev.rateLimited || batchResult.rateLimited,
+            propertyDbUnconfigured:
+              prev.propertyDbUnconfigured || batchResult.propertyDbUnconfigured,
+            upstreamError: prev.upstreamError || batchResult.upstreamError,
+            lastErrorCode: batchResult.errorCode,
+            lastErrorMessage: batchResult.errorMessage,
+            lastRequestId: batchResult.requestId,
+          }));
         }
-        if (newEntries.size > 0) {
+
+        if (successfulEntries.size > 0) {
           setGeometries((prev) => {
             const next = new Map(prev);
-            for (const [k, v] of newEntries) next.set(k, v);
+            for (const [parcelId, entry] of successfulEntries) {
+              next.set(parcelId, entry);
+            }
             return next;
           });
         }
 
-        // Only mark as fetched after successful responses.
-        for (const parcelId of attemptedParcelIds) {
-          inFlightRef.current.delete(parcelId);
-          attemptsRef.current.set(parcelId, (attemptsRef.current.get(parcelId) ?? 0) + 1);
+        if (index + GEOMETRY_BATCH_SIZE < toFetch.length) {
+          await new Promise((resolve) => setTimeout(resolve, INTER_BATCH_DELAY_MS));
         }
-        for (const parcelId of successfulParcelIds) {
-          fetchedRef.current.add(parcelId);
-          attemptsRef.current.delete(parcelId);
-        }
-
-        // Small delay between batches to stay within rate limits
-        if (i + BATCH_SIZE < toFetch.length) {
-          await new Promise((r) => setTimeout(r, 50));
-        }
-      }
-
-      if (!controller.signal.aborted) {
-        setLoading(false);
-        if (collectCandidates().length > 0) {
-          setFetchCycle((cycle) => cycle + 1);
-        }
-      } else {
-        for (const p of toFetch) inFlightRef.current.delete(p.id);
       }
     } finally {
+      for (const candidate of toFetch) {
+        inFlightLookupKeysRef.current.delete(candidate.lookupKey);
+      }
+
       if (abortRef.current === controller) {
         abortRef.current = null;
       }
+
       isFetchingRef.current = false;
+      const hasMoreCandidates = collectCandidates().length > 0;
+      setLoading(false);
+
       if (pendingFetchRef.current) {
         pendingFetchRef.current = false;
+        setFetchCycle((cycle) => cycle + 1);
+      } else if (hasMoreCandidates) {
         setFetchCycle((cycle) => cycle + 1);
       }
     }
   }, [abortNetworkRequests, collectCandidates, maxFetch]);
 
   useEffect(() => {
-    fetchGeometries();
-  }, [fetchGeometries, fetchCycle]);
+    void fetchGeometries();
+  }, [fetchCycle, fetchGeometries]);
 
   useEffect(
     () => () => {
@@ -386,8 +636,26 @@ export function useParcelGeometry(
         abortRef.current?.abort();
       }
     },
-    [abortNetworkRequests]
+    [abortNetworkRequests],
   );
 
-  return { geometries, loading, health };
+  const summary = useMemo(
+    () =>
+      summarizeGeometryLoad({
+        visibleCandidates,
+        geometries,
+        geometryCacheKeys: new Set(geometryCacheRef.current.keys()),
+        unavailableLookupKeys: unavailableLookupKeysRef.current,
+        failedLookupKeys: failedLookupKeysRef.current,
+        loading,
+      }),
+    [geometries, health, loading, visibleCandidates],
+  );
+
+  return {
+    geometries,
+    loading,
+    health,
+    summary,
+  };
 }

@@ -12,7 +12,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import dynamic from "next/dynamic";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { Loader2, Search } from "lucide-react";
 import { motion } from "framer-motion";
@@ -55,6 +55,8 @@ import { mapFeaturesFromGeoJson } from "@/lib/chat/mapFeatureUtils";
 import { useUIStore } from "@/stores/uiStore";
 import {
   buildSuggestionLookupText,
+  isLikelyMapAnalysisQuery,
+  isLikelyParcelLookupQuery,
   parcelMatchesSearch,
   resolveSuggestionParcel,
   type ParcelSearchSuggestion,
@@ -249,6 +251,7 @@ function trackedParcelToMapParcel(entry: MapTrackedParcel): MapParcel {
  */
 export function MapPageClient() {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useClientSearchParams();
   const { setTheme } = useTheme();
   const isMobile = useIsMobile();
@@ -305,6 +308,7 @@ export function MapPageClient() {
   const [searchParcels, setSearchParcels] = useState<MapParcel[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState("");
+  const [analysisText, setAnalysisText] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [searchSubmitId, setSearchSubmitId] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -334,6 +338,7 @@ export function MapPageClient() {
   const [isPolygonLoading, setIsPolygonLoading] = useState(false);
   const lastAutoFocusedSearchRef = useRef("");
   const lastViewportRefreshKeyRef = useRef<string | null>(null);
+  const addressInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -377,7 +382,6 @@ export function MapPageClient() {
     if (selectedParcelIds.size > 0 && !sidebarOpen) {
       setSidebarOpen(true);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedParcelIds.size]);
 
   useEffect(() => {
@@ -482,25 +486,6 @@ export function MapPageClient() {
     mapState.selectedParcelIds.length,
     searchParams,
   ]);
-
-  // Detect if a query is natural language (vs address/parcel ID lookup)
-  const isNaturalLanguageQuery = useCallback((query: string): boolean => {
-    const q = query.toLowerCase().trim();
-    // NL indicators: question words, action words, aggregate words
-    const nlPatterns = [
-      /^(how many|count|total|average|show me|find|identify|list|compare|what|which|where|tell me|who owns)/,
-      /\b(within|near|zoned|greater than|less than|at least|more than|acres|acreage|industrial|commercial|residential)\b/,
-      /\b(between|around|drive|minute|mile|radius|flood|wetland|epa|owner|assessed)\b/,
-      /\bparcel(s)?\b.*\b(that|which|where|with)\b/,
-    ];
-    // Address patterns: starts with number, looks like "123 Main St"
-    const addressPattern = /^\d+\s+\w/;
-    // Parcel ID pattern: digits-digits-digits
-    const parcelIdPattern = /^\d{3}-\d{3,}/;
-    if (parcelIdPattern.test(q)) return false;
-    if (addressPattern.test(q) && !nlPatterns.some((p) => p.test(q))) return false;
-    return nlPatterns.some((p) => p.test(q));
-  }, []);
 
   // Track the last NL query's conversation ID for "Continue in chat"
   const lastNlConversationIdRef = useRef<string | null>(null);
@@ -659,14 +644,6 @@ export function MapPageClient() {
     const nextSearch = searchText.trim();
     if (!nextSearch) return;
 
-    // Route NL queries to the agent
-    if (isNaturalLanguageQuery(nextSearch)) {
-      setSuggestions([]);
-      setActiveSuggestionIndex(-1);
-      void handleNlQuery(nextSearch);
-      return;
-    }
-
     setSearchLookupOverride(null);
     setSelectedSuggestion(null);
     setDebouncedSearch(nextSearch);
@@ -674,6 +651,28 @@ export function MapPageClient() {
     setSuggestions([]);
     setActiveSuggestionIndex(-1);
   };
+
+  const handleAnalysisSubmit = useCallback((event?: FormEvent<HTMLFormElement>) => {
+    event?.preventDefault();
+    const nextPrompt = analysisText.trim();
+    if (!nextPrompt) return;
+
+    if (isLikelyParcelLookupQuery(nextPrompt) && !isLikelyMapAnalysisQuery(nextPrompt)) {
+      setSearchText(nextPrompt);
+      setAnalysisText("");
+      setSearchLookupOverride(null);
+      setSelectedSuggestion(null);
+      setDebouncedSearch(nextPrompt);
+      setSearchSubmitId((value) => value + 1);
+      setSuggestions([]);
+      setActiveSuggestionIndex(-1);
+      addressInputRef.current?.focus();
+      return;
+    }
+
+    setAnalysisText("");
+    void handleNlQuery(nextPrompt);
+  }, [analysisText, handleNlQuery]);
 
   const selectSuggestion = useCallback((suggestion: ParcelSearchSuggestion) => {
     const nextSearch = suggestion.address.trim();
@@ -750,21 +749,16 @@ export function MapPageClient() {
       return;
     }
 
-    // Don't debounce-search NL queries — they route to the agent on submit
-    if (isNaturalLanguageQuery(nextSearch)) {
-      return;
-    }
-
     const timeout = setTimeout(() => {
       setDebouncedSearch(searchLookupOverride?.trim() || nextSearch);
     }, 250);
 
     return () => clearTimeout(timeout);
-  }, [isNaturalLanguageQuery, searchLookupOverride, searchText]);
+  }, [searchLookupOverride, searchText]);
 
   useEffect(() => {
     const query = searchText.trim();
-    if (query.length < 2 || isNaturalLanguageQuery(query)) {
+    if (query.length < 2) {
       setSuggestions([]);
       setActiveSuggestionIndex(-1);
       setIsSuggestLoading(false);
@@ -917,9 +911,7 @@ export function MapPageClient() {
     isSearchActive && searchParcels !== null && searchParcels.length === 0;
   const searchMatchCount = searchParcels?.length ?? 0;
   const showSuggestionSurface =
-    searchText.trim().length >= 2 &&
-    !isNaturalLanguageQuery(searchText) &&
-    (isSuggestLoading || suggestions.length > 0);
+    searchText.trim().length >= 2 && (isSuggestLoading || suggestions.length > 0);
 
   const nearbyParcelCount = useMemo(() => {
     if (!isSearchActive || !searchParcels || searchParcels.length === 0) return 0;
@@ -1390,7 +1382,13 @@ export function MapPageClient() {
 
   return (
     <DashboardShell noPadding>
-      <div className="map-page relative flex h-[calc(100svh-var(--app-header-height))] flex-col overflow-hidden">
+      <div
+        className="map-page relative flex h-[calc(100svh-var(--app-header-height))] flex-col overflow-hidden"
+        data-route-id="map"
+        data-route-path={pathname}
+        aria-label="Map workspace"
+      >
+        <h1 className="sr-only">Map workspace</h1>
         {!loading && (
           <>
             <div className="relative flex min-h-0 flex-1">
@@ -1457,122 +1455,176 @@ export function MapPageClient() {
                 <div className="flex flex-col gap-4">
                   <div className="flex flex-col gap-1.5">
                     <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-map-text-muted">
-                      Active geography
+                      Map workspace
                     </p>
                     <h2 className="text-sm font-semibold text-map-text-primary">
                       Search and refine the working parcel set.
                     </h2>
                     <p className="text-[11px] leading-5 text-map-text-secondary">
-                      Search by address, parcel id, or owner, then tighten the site set with a polygon when the view gets noisy.
+                      Use parcel lookup for deterministic map navigation, then run AI analysis on the current geography without leaving the console.
                     </p>
                   </div>
-                  <form
-                    onSubmit={handleSearchSubmit}
-                    className="flex flex-col gap-1.5"
-                  >
-                    <Popover open={showSuggestionSurface}>
-                      <PopoverTrigger asChild>
-                        <div>
-                          <Input
-                            value={searchText}
-                            onChange={(event) => {
-                              setSearchText(event.target.value);
-                              setSearchLookupOverride(null);
-                              setSelectedSuggestion(null);
-                              setActiveSuggestionIndex(-1);
-                            }}
-                            onKeyDown={handleSearchKeyDown}
-                            onBlur={() => {
-                              setTimeout(() => {
-                                setSuggestions([]);
+                  <section className="space-y-2 rounded-xl border border-map-border/80 bg-map-surface-overlay/60 p-3">
+                    <div className="space-y-1">
+                      <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-map-text-muted">
+                        Parcel / address search
+                      </p>
+                      <p className="text-[11px] leading-5 text-map-text-secondary">
+                        Search by address, parcel id, or owner to move the map and highlight a specific parcel.
+                      </p>
+                    </div>
+                    <form
+                      onSubmit={handleSearchSubmit}
+                      className="flex flex-col gap-1.5"
+                    >
+                      <Popover open={showSuggestionSurface}>
+                        <PopoverTrigger asChild>
+                          <div>
+                            <Input
+                              ref={addressInputRef}
+                              aria-label="Parcel or address search"
+                              value={searchText}
+                              onChange={(event) => {
+                                setSearchText(event.target.value);
+                                setSearchLookupOverride(null);
+                                setSelectedSuggestion(null);
                                 setActiveSuggestionIndex(-1);
-                              }, 120);
-                            }}
-                            placeholder="Ask a question or search by address..."
-                            className="h-8 bg-map-surface text-xs border-map-border text-map-text-primary placeholder:text-map-text-muted"
-                          />
-                        </div>
-                      </PopoverTrigger>
-                      <PopoverContent
-                        align="start"
-                        className="w-[var(--radix-popover-trigger-width)] border-map-border bg-map-surface p-0"
-                        onOpenAutoFocus={(event) => event.preventDefault()}
-                      >
-                        <Command className="bg-map-surface text-map-text-primary">
-                          <CommandList className="max-h-44">
-                            {isSuggestLoading ? (
-                              <div className="px-3 py-2 text-[10px] text-map-text-muted">
-                                Matching addresses...
-                              </div>
-                            ) : (
-                              <>
-                                <CommandEmpty className="py-3 text-[10px] text-map-text-muted">
-                                  No address suggestions
-                                </CommandEmpty>
-                                <CommandGroup heading="Suggested matches">
-                                  {suggestions.map((suggestion, index) => (
-                                    <CommandItem
-                                      key={`${suggestion.id}-${index}`}
-                                      value={suggestion.address}
-                                      onMouseDown={(event) => event.preventDefault()}
-                                      onSelect={() => selectSuggestion(suggestion)}
-                                      className={
-                                        index === activeSuggestionIndex
-                                          ? "bg-map-accent/25 text-map-text-primary"
-                                          : "text-map-text-secondary"
-                                      }
-                                    >
-                                      <div className="flex min-w-0 flex-col gap-0.5 py-0.5">
-                                        <span className="truncate text-[10px] font-medium">
-                                          {suggestion.address}
-                                        </span>
-                                        {suggestion.propertyDbId ? (
-                                          <span className="text-[9px] text-map-text-muted">
-                                            Property DB match
+                              }}
+                              onKeyDown={handleSearchKeyDown}
+                              onBlur={() => {
+                                setTimeout(() => {
+                                  setSuggestions([]);
+                                  setActiveSuggestionIndex(-1);
+                                }, 120);
+                              }}
+                              placeholder="Search by address, parcel id, or owner"
+                              className="h-8 border-map-border bg-map-surface text-xs text-map-text-primary placeholder:text-map-text-muted"
+                            />
+                          </div>
+                        </PopoverTrigger>
+                        <PopoverContent
+                          align="start"
+                          className="w-[var(--radix-popover-trigger-width)] border-map-border bg-map-surface p-0"
+                          onOpenAutoFocus={(event) => event.preventDefault()}
+                        >
+                          <Command className="bg-map-surface text-map-text-primary">
+                            <CommandList className="max-h-44">
+                              {isSuggestLoading ? (
+                                <div className="px-3 py-2 text-[10px] text-map-text-muted">
+                                  Matching addresses...
+                                </div>
+                              ) : (
+                                <>
+                                  <CommandEmpty className="py-3 text-[10px] text-map-text-muted">
+                                    No address suggestions
+                                  </CommandEmpty>
+                                  <CommandGroup heading="Suggested matches">
+                                    {suggestions.map((suggestion, index) => (
+                                      <CommandItem
+                                        key={`${suggestion.id}-${index}`}
+                                        value={suggestion.address}
+                                        onMouseDown={(event) => event.preventDefault()}
+                                        onSelect={() => selectSuggestion(suggestion)}
+                                        className={
+                                          index === activeSuggestionIndex
+                                            ? "bg-map-accent/25 text-map-text-primary"
+                                            : "text-map-text-secondary"
+                                        }
+                                      >
+                                        <div className="flex min-w-0 flex-col gap-0.5 py-0.5">
+                                          <span className="truncate text-[10px] font-medium">
+                                            {suggestion.address}
                                           </span>
-                                        ) : null}
-                                      </div>
-                                    </CommandItem>
-                                  ))}
-                                </CommandGroup>
-                              </>
-                            )}
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
-                    <div className="flex items-center gap-2">
+                                          {suggestion.propertyDbId ? (
+                                            <span className="text-[9px] text-map-text-muted">
+                                              Property DB match
+                                            </span>
+                                          ) : null}
+                                        </div>
+                                      </CommandItem>
+                                    ))}
+                                  </CommandGroup>
+                                </>
+                              )}
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="submit"
+                          size="sm"
+                          disabled={!searchText.trim()}
+                          onClick={submitSearch}
+                          className="map-btn h-7 flex-1 text-xs"
+                        >
+                          {isSearchLoading ? (
+                            <span className="inline-flex items-center gap-2">
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                              Searching
+                            </span>
+                          ) : (
+                            <>
+                              <Search className="mr-1.5 h-3 w-3" />
+                              Find parcel
+                            </>
+                          )}
+                        </Button>
+                        {polygon ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="map-btn h-7 text-xs"
+                            onClick={clearPolygon}
+                          >
+                            Clear draw
+                          </Button>
+                        ) : null}
+                      </div>
+                    </form>
+                  </section>
+
+                  <section className="space-y-2 rounded-xl border border-map-border/80 bg-map-surface-overlay/60 p-3">
+                    <div className="space-y-1">
+                      <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-map-text-muted">
+                        AI analysis
+                      </p>
+                      <p className="text-[11px] leading-5 text-map-text-secondary">
+                        Ask for comparisons, flood patterns, zoning questions, or other spatial analysis across the current working set.
+                      </p>
+                    </div>
+                    <form onSubmit={handleAnalysisSubmit} className="flex flex-col gap-1.5">
+                      <Input
+                        aria-label="Map AI analysis"
+                        value={analysisText}
+                        onChange={(event) => setAnalysisText(event.target.value)}
+                        placeholder="Ask for flood risk, nearby comps, zoning patterns, or parcel comparisons"
+                        className="h-8 border-map-border bg-map-surface text-xs text-map-text-primary placeholder:text-map-text-muted"
+                      />
+                      {analysisText.trim() &&
+                      isLikelyParcelLookupQuery(analysisText) &&
+                      !isLikelyMapAnalysisQuery(analysisText) ? (
+                        <p className="text-[10px] text-map-text-muted">
+                          Direct addresses and parcel ids will be routed through parcel search instead of AI analysis.
+                        </p>
+                      ) : null}
                       <Button
                         type="submit"
                         size="sm"
-                        disabled={!searchText.trim()}
-                        onClick={submitSearch}
-                        className="map-btn h-7 flex-1 text-xs"
+                        disabled={!analysisText.trim()}
+                        className="map-btn h-7 text-xs"
                       >
-                        {isSearchLoading || nlQueryLoading ? (
+                        {nlQueryLoading ? (
                           <span className="inline-flex items-center gap-2">
                             <Loader2 className="h-3 w-3 animate-spin" />
-                            {nlQueryLoading ? "Analyzing" : "Searching"}
+                            Analyzing
                           </span>
                         ) : (
-                          <>
-                            <Search className="mr-1.5 h-3 w-3" />
-                            Search
-                          </>
+                          "Run analysis"
                         )}
                       </Button>
-                      {polygon && (
-                        <Button
-                          type="button"
-                          size="sm"
-                          className="map-btn h-7 text-xs"
-                          onClick={clearPolygon}
-                        >
-                          Clear draw
-                        </Button>
-                      )}
-                    </div>
-                  </form>
+                    </form>
+                  </section>
                   <div className="grid grid-cols-3 gap-2 border-t border-map-border pt-3">
                     <div>
                       <div className="map-stat-label">Visible</div>
