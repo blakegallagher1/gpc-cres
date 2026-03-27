@@ -1875,6 +1875,17 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
       }
 
       setLayerVisibilitySafe(map, ZONING_TILE_LAYER_ID, showLayers && showZoning);
+
+      // Dim parcel boundaries when zoning overlay is active for visual clarity
+      const zoningActive = showLayers && showZoning && !!zoningTileContract;
+      if (map.getLayer("parcel-tiles-fill")) {
+        map.setPaintProperty("parcel-tiles-fill", "fill-opacity", zoningActive ? 0.02 : 0.06);
+      }
+      if (map.getLayer("parcel-tiles-line")) {
+        map.setPaintProperty("parcel-tiles-line", "line-opacity", zoningActive ? 0.3 : 0.7);
+        map.setPaintProperty("parcel-tiles-line", "line-color", zoningActive ? "#a3a3a3" : "#facc15");
+      }
+
       moveLayerBeforeSafe(map, "parcels-boundary-fill", ZONING_TILE_LAYER_ID);
       moveLayerBeforeSafe(map, ZONING_TILE_LAYER_ID, ZONING_TILE_INSERT_BEFORE_LAYER_ID);
     } catch {
