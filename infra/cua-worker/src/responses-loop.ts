@@ -318,6 +318,7 @@ export async function runNativeComputerLoop(options: {
   let previousResponseId: string | undefined;
   let totalInputTokens = 0;
   let totalOutputTokens = 0;
+  let totalCachedTokens = 0;
   const screenshotPaths: string[] = [];
   let finalMessage = "";
 
@@ -377,6 +378,7 @@ export async function runNativeComputerLoop(options: {
           truncation: "auto",
           context_management: [{ compact_threshold: 200_000 }],
           prompt_cache_key: "entitlement-os-cua-v1",
+          prompt_cache_retention: "24h",
           ...(previousResponseId
             ? { previous_response_id: previousResponseId }
             : {}),
