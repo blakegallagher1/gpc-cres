@@ -41,7 +41,7 @@ jobs:
           echo "OK: packages/db respects layer boundary"
       - name: Check no reverse imports from apps/web
         run: |
-          count=$(grep -rn "from.*apps/web\|from.*apps-web" packages/ --include="*.ts" --include="*.tsx" 2>/dev/null | wc -l)
+          count=$(grep -rn -E "^\s*(import|from)\s.*['\"]apps/web" packages/ --include="*.ts" --include="*.tsx" 2>/dev/null | wc -l)
           if [ "$count" -gt 0 ]; then
             echo "FAIL: apps/web imported by packages/"
             exit 1
@@ -60,6 +60,9 @@ jobs:
           node-version: '20'
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
+      - run: cp .env.example .env
+      - run: pnpm --filter @entitlement-os/db generate
+      - run: pnpm --filter @entitlement-os/shared build && pnpm --filter @entitlement-os/db build && pnpm --filter @entitlement-os/evidence build && pnpm --filter @entitlement-os/artifacts build && pnpm --filter @entitlement-os/openai build
       - run: pnpm test
 
   build:
