@@ -1,5 +1,23 @@
 import type { ChatStreamEvent } from "./types";
 
+function parseEventBlock(rawBlock: string): ChatStreamEvent | null {
+  const lines = rawBlock.split(/\r?\n/);
+  const dataLines = lines
+    .filter((line) => line.startsWith("data:"))
+    .map((line) => line.slice(5).trimStart())
+    .filter((line) => line.length > 0);
+
+  if (dataLines.length === 0) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(dataLines.join("\n")) as ChatStreamEvent;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Parse SSE stream from chat API.
  * Yields ChatStreamEvent objects.
@@ -12,24 +30,36 @@ export async function* parseSSEStream(
 
   const decoder = new TextDecoder();
   let buffer = "";
+  let done = false;
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
+  while (!done) {
+    const chunk = await reader.read();
+    done = chunk.done;
+    const value = chunk.value;
+    if (!value) {
+      continue;
+    }
 
     buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() || "";
+    const normalized = buffer.replace(/\r\n/g, "\n");
+    const eventBlocks = normalized.split("\n\n");
+    buffer = eventBlocks.pop() ?? "";
 
-    for (const line of lines) {
-      if (line.startsWith("data: ")) {
-        try {
-          const event = JSON.parse(line.slice(6)) as ChatStreamEvent;
-          yield event;
-        } catch {
-          // Skip malformed events
-        }
+    for (const block of eventBlocks) {
+      const event = parseEventBlock(block);
+      if (event) {
+        yield event;
       }
     }
+  }
+
+  const finalChunk = decoder.decode();
+  if (finalChunk) {
+    buffer += finalChunk;
+  }
+
+  const finalEvent = parseEventBlock(buffer.trim());
+  if (finalEvent) {
+    yield finalEvent;
   }
 }
