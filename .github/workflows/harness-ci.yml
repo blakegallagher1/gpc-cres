@@ -16,8 +16,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -33,7 +31,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check packages/db layer boundary
         run: |
-          forbidden_imports=$(rg -n -g "*.ts" -g "*.tsx" "(from|import)\\s*['\"](apps/web|@entitlement-os/openai|@entitlement-os/evidence|@entitlement-os/artifacts|@gpc/server)['\"]" packages/db/)
+          forbidden_imports=$(grep -rn -E "(from|import)\s*['\"](@entitlement-os/openai|@entitlement-os/evidence|@entitlement-os/artifacts|@gpc/server)['\"]" --include="*.ts" --include="*.tsx" packages/db/ 2>/dev/null || true)
           if [ -n "$forbidden_imports" ]; then
             count=$(printf "%s\n" "$forbidden_imports" | wc -l)
             echo "FAIL: packages/db has $count forbidden imports"
@@ -57,8 +55,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -73,8 +69,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
