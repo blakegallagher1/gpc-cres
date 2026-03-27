@@ -16,8 +16,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -33,7 +31,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check packages/db layer boundary
         run: |
-          forbidden_imports=$(rg -n -g "*.ts" -g "*.tsx" "(from|import)\\s*['\"](apps/web|@entitlement-os/openai|@entitlement-os/evidence|@entitlement-os/artifacts|@gpc/server)['\"]" packages/db/)
+          forbidden_imports=$(grep -rn -E "(from|import)\s*['\"](@entitlement-os/openai|@entitlement-os/evidence|@entitlement-os/artifacts|@gpc/server)['\"]" --include="*.ts" --include="*.tsx" packages/db/ 2>/dev/null || true)
           if [ -n "$forbidden_imports" ]; then
             count=$(printf "%s\n" "$forbidden_imports" | wc -l)
             echo "FAIL: packages/db has $count forbidden imports"
@@ -43,7 +41,7 @@ jobs:
           echo "OK: packages/db respects layer boundary"
       - name: Check no reverse imports from apps/web
         run: |
-          count=$(grep -rn "from.*apps/web\|from.*apps-web" packages/ --include="*.ts" --include="*.tsx" 2>/dev/null | wc -l)
+          count=$(grep -rn -E "^\s*(import|from)\s.*['\"]apps/web" packages/ --include="*.ts" --include="*.tsx" 2>/dev/null | wc -l)
           if [ "$count" -gt 0 ]; then
             echo "FAIL: apps/web imported by packages/"
             exit 1
@@ -57,13 +55,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
+      - run: cp .env.example .env
+      - run: pnpm --filter @entitlement-os/db generate
+      - run: pnpm --filter @entitlement-os/shared build && pnpm --filter @entitlement-os/db build && pnpm --filter @entitlement-os/evidence build && pnpm --filter @entitlement-os/artifacts build && pnpm --filter @entitlement-os/openai build
       - run: pnpm test
 
   build:
@@ -73,8 +72,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
       - uses: actions/setup-node@v4
         with:
           node-version: '20'

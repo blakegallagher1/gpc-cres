@@ -17,113 +17,185 @@ exports[`ChatContainer > does not fetch a nonexistent conversation for a fresh c
       class="flex min-h-0 min-w-0 flex-1 flex-col"
     >
       <div
-        data-testid="chat-input"
-      />
-      <div
-        class="shrink-0 border-b border-border/40 px-4 py-2.5 sm:px-5"
+        class="shrink-0 border-b border-border/40 px-4 py-3 sm:px-5"
       >
         <div
-          class="flex items-center gap-3"
+          class="flex flex-col gap-4"
         >
           <div
-            class="hidden min-w-0 flex-1 items-center gap-4 text-[11px] text-muted-foreground md:flex"
-          >
-            <span>
-              <span
-                class="workspace-stat-label mr-1.5"
-              >
-                Scope
-              </span>
-              <span
-                class="text-foreground/90"
-              >
-                No deal scope
-              </span>
-            </span>
-            <span
-              class="text-border/60"
-            >
-              |
-            </span>
-            <span>
-              <span
-                class="workspace-stat-label mr-1.5"
-              >
-                Thread
-              </span>
-              <span
-                class="text-foreground/90"
-              >
-                Draft thread
-              </span>
-              <span
-                class="ml-1 text-muted-foreground/50"
-              >
-                · 
-                HTTP stream
-              </span>
-            </span>
-            <span
-              class="text-border/60"
-            >
-              |
-            </span>
-            <span>
-              <span
-                class="workspace-stat-label mr-1.5"
-              >
-                Agent
-              </span>
-              <span
-                class="text-foreground/90"
-              >
-                Coordinator
-              </span>
-            </span>
-            <span
-              class="text-border/60"
-            >
-              |
-            </span>
-            <span>
-              <span
-                class="workspace-stat-label mr-1.5"
-              >
-                Runs
-              </span>
-              <span
-                class="text-foreground/90"
-              >
-                0
-              </span>
-            </span>
-          </div>
-          <div
-            class="min-w-0 flex-1 text-xs text-muted-foreground md:hidden"
-          >
-            <span
-              class="text-foreground/90"
-            >
-              Coordinator
-            </span>
-            <span
-              class="mx-1.5 text-border/60"
-            >
-              ·
-            </span>
-            <span>
-              Draft thread
-            </span>
-          </div>
-          <div
-            class="flex shrink-0 items-center gap-2"
+            class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"
           >
             <div
-              data-testid="deal-selector"
-            />
+              class="min-w-0 flex-1"
+            >
+              <p
+                class="workspace-eyebrow"
+              >
+                Verified Run Workspace
+              </p>
+              <h2
+                class="mt-3 max-w-[16ch] text-2xl font-semibold tracking-[-0.05em] text-foreground sm:text-[2rem]"
+              >
+                Turn a site question into a verified next move.
+              </h2>
+              <p
+                class="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground"
+              >
+                Start from the parcel, deal, market, or file, then let the coordinator route the work across specialists, tools, and proof checks.
+              </p>
+            </div>
+            <div
+              class="flex shrink-0 flex-wrap items-center gap-2"
+            >
+              <div
+                data-testid="deal-selector"
+              />
+              <button
+                class="inline-flex items-center justify-center whitespace-nowrap border font-medium transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 hover:text-accent-foreground h-7 gap-1.5 rounded-full px-2.5 font-mono text-[10px] tracking-wide border-indigo-500/40 bg-indigo-500/10 text-indigo-700 hover:bg-indigo-500/20 dark:text-indigo-300"
+                data-state="closed"
+                type="button"
+              >
+                <svg
+                  aria-hidden="true"
+                  class="lucide lucide-monitor h-3 w-3"
+                  fill="none"
+                  height="24"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  viewBox="0 0 24 24"
+                  width="24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <rect
+                    height="14"
+                    rx="2"
+                    width="20"
+                    x="2"
+                    y="3"
+                  />
+                  <line
+                    x1="8"
+                    x2="16"
+                    y1="21"
+                    y2="21"
+                  />
+                  <line
+                    x1="12"
+                    x2="12"
+                    y1="17"
+                    y2="21"
+                  />
+                </svg>
+                <span>
+                  5.4
+                </span>
+              </button>
+              <button
+                class="inline-flex items-center justify-center whitespace-nowrap border font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background/42 hover:bg-accent/40 hover:text-accent-foreground h-8 rounded-full px-3 text-xs"
+              >
+                <svg
+                  aria-hidden="true"
+                  class="lucide lucide-panel-left-open mr-1.5 h-3.5 w-3.5"
+                  fill="none"
+                  height="24"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  viewBox="0 0 24 24"
+                  width="24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <rect
+                    height="18"
+                    rx="2"
+                    width="18"
+                    x="3"
+                    y="3"
+                  />
+                  <path
+                    d="M9 3v18"
+                  />
+                  <path
+                    d="m14 9 3 3-3 3"
+                  />
+                </svg>
+                Open run history
+              </button>
+            </div>
+          </div>
+          <div
+            class="grid gap-3 border-t border-border/30 pt-3 sm:grid-cols-2 xl:grid-cols-4"
+          >
+            <div
+              class="min-w-0"
+            >
+              <p
+                class="workspace-stat-label"
+              >
+                Scope
+              </p>
+              <p
+                class="mt-1 text-sm font-medium text-foreground"
+              >
+                No deal scope
+              </p>
+            </div>
+            <div
+              class="min-w-0"
+            >
+              <p
+                class="workspace-stat-label"
+              >
+                Thread
+              </p>
+              <p
+                class="mt-1 text-sm font-medium text-foreground"
+              >
+                Draft thread
+              </p>
+              <p
+                class="text-xs text-muted-foreground"
+              >
+                HTTP stream
+              </p>
+            </div>
+            <div
+              class="min-w-0"
+            >
+              <p
+                class="workspace-stat-label"
+              >
+                Lead Agent
+              </p>
+              <p
+                class="mt-1 text-sm font-medium text-foreground"
+              >
+                Coordinator
+              </p>
+            </div>
+            <div
+              class="min-w-0"
+            >
+              <p
+                class="workspace-stat-label"
+              >
+                Saved Runs
+              </p>
+              <p
+                class="mt-1 text-sm font-medium text-foreground"
+              >
+                0
+              </p>
+            </div>
           </div>
         </div>
       </div>
+      <div
+        data-testid="chat-input"
+      />
       <div
         class="min-h-0 flex-1 overflow-hidden"
       >
@@ -147,7 +219,7 @@ exports[`ChatContainer > does not fetch a nonexistent conversation for a fresh c
         <h3
           class="mt-0.5 text-xs font-semibold tracking-tight text-foreground"
         >
-          Verification and specialist coverage
+          Verification, proof, and specialist coverage
         </h3>
       </div>
       <div
@@ -198,7 +270,7 @@ exports[`ChatContainer > does not fetch a nonexistent conversation for a fresh c
               <span
                 class="text-xs text-foreground"
               >
-                Enabled
+                General scope
               </span>
             </div>
             <div
@@ -212,7 +284,7 @@ exports[`ChatContainer > does not fetch a nonexistent conversation for a fresh c
               <span
                 class="text-xs text-foreground"
               >
-                No recents yet
+                No saved runs yet
               </span>
             </div>
           </div>
@@ -230,13 +302,13 @@ exports[`ChatContainer > does not fetch a nonexistent conversation for a fresh c
               tabindex="0"
             >
               <button
-                aria-controls="radix-_r_0_-content-guide"
+                aria-controls="radix-_r_1_-content-guide"
                 aria-selected="true"
                 class="inline-flex min-h-9 items-center justify-center whitespace-nowrap border-b-2 border-transparent px-3 py-1.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:border-foreground/80 data-[state=active]:text-foreground"
                 data-orientation="horizontal"
                 data-radix-collection-item=""
                 data-state="active"
-                id="radix-_r_0_-trigger-guide"
+                id="radix-_r_1_-trigger-guide"
                 role="tab"
                 tabindex="-1"
                 type="button"
@@ -244,13 +316,13 @@ exports[`ChatContainer > does not fetch a nonexistent conversation for a fresh c
                 Guide
               </button>
               <button
-                aria-controls="radix-_r_0_-content-verification"
+                aria-controls="radix-_r_1_-content-verification"
                 aria-selected="false"
                 class="inline-flex min-h-9 items-center justify-center whitespace-nowrap border-b-2 border-transparent px-3 py-1.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:border-foreground/80 data-[state=active]:text-foreground"
                 data-orientation="horizontal"
                 data-radix-collection-item=""
                 data-state="inactive"
-                id="radix-_r_0_-trigger-verification"
+                id="radix-_r_1_-trigger-verification"
                 role="tab"
                 tabindex="-1"
                 type="button"
@@ -258,13 +330,13 @@ exports[`ChatContainer > does not fetch a nonexistent conversation for a fresh c
                 Verification
               </button>
               <button
-                aria-controls="radix-_r_0_-content-coverage"
+                aria-controls="radix-_r_1_-content-coverage"
                 aria-selected="false"
                 class="inline-flex min-h-9 items-center justify-center whitespace-nowrap border-b-2 border-transparent px-3 py-1.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:border-foreground/80 data-[state=active]:text-foreground"
                 data-orientation="horizontal"
                 data-radix-collection-item=""
                 data-state="inactive"
-                id="radix-_r_0_-trigger-coverage"
+                id="radix-_r_1_-trigger-coverage"
                 role="tab"
                 tabindex="-1"
                 type="button"
@@ -273,11 +345,11 @@ exports[`ChatContainer > does not fetch a nonexistent conversation for a fresh c
               </button>
             </div>
             <div
-              aria-labelledby="radix-_r_0_-trigger-guide"
+              aria-labelledby="radix-_r_1_-trigger-guide"
               class="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 mt-0 space-y-3"
               data-orientation="horizontal"
               data-state="active"
-              id="radix-_r_0_-content-guide"
+              id="radix-_r_1_-content-guide"
               role="tabpanel"
               tabindex="0"
             >
@@ -301,7 +373,7 @@ exports[`ChatContainer > does not fetch a nonexistent conversation for a fresh c
                     <p
                       class="text-xs text-muted-foreground"
                     >
-                      Lead with a parcel, address, deal, market, or uploaded file so the agent can anchor the run.
+                      Lead with the parcel, deal, market, or file so the run starts from a real operating context.
                     </p>
                   </div>
                 </div>
@@ -322,7 +394,7 @@ exports[`ChatContainer > does not fetch a nonexistent conversation for a fresh c
                     <p
                       class="text-xs text-muted-foreground"
                     >
-                      Request a screen, memo, checklist, comparison, or action plan instead of a vague answer.
+                      Name the output you need: screen, memo, checklist, comparison, or next-step plan.
                     </p>
                   </div>
                 </div>
@@ -343,7 +415,7 @@ exports[`ChatContainer > does not fetch a nonexistent conversation for a fresh c
                     <p
                       class="text-xs text-muted-foreground"
                     >
-                      Inspect tool activity, handoffs, evidence gaps, and cited sources before making a decision.
+                      Use the verification rail to inspect tool activity, handoffs, and evidence gaps before acting.
                     </p>
                   </div>
                 </div>
@@ -358,7 +430,7 @@ exports[`ChatContainer > does not fetch a nonexistent conversation for a fresh c
                     Stateful thread
                   </span>
                    
-                  Saved runs reopen from the left rail so the operating context stays intact across turns.
+                  Saved runs reopen from the left rail so the prompt, proof, and follow-up path stay intact across turns.
                 </p>
                 <p>
                   <span
@@ -367,7 +439,7 @@ exports[`ChatContainer > does not fetch a nonexistent conversation for a fresh c
                     Specialist handoffs
                   </span>
                    
-                  The coordinator can delegate work to research, finance, risk, entitlements, diligence, and other specialists.
+                  The coordinator can hand work across research, finance, risk, entitlement, diligence, and other specialists.
                 </p>
                 <p>
                   <span
@@ -376,27 +448,27 @@ exports[`ChatContainer > does not fetch a nonexistent conversation for a fresh c
                     Tool-backed execution
                   </span>
                    
-                  Live tool calls, approvals, artifacts, and map references surface in the thread while the run is active.
+                  Live tool calls, approvals, artifacts, and map references stay visible inside the thread while the run is active.
                 </p>
               </div>
             </div>
             <div
-              aria-labelledby="radix-_r_0_-trigger-verification"
+              aria-labelledby="radix-_r_1_-trigger-verification"
               class="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 mt-0"
               data-orientation="horizontal"
               data-state="inactive"
               hidden=""
-              id="radix-_r_0_-content-verification"
+              id="radix-_r_1_-content-verification"
               role="tabpanel"
               tabindex="0"
             />
             <div
-              aria-labelledby="radix-_r_0_-trigger-coverage"
+              aria-labelledby="radix-_r_1_-trigger-coverage"
               class="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 mt-0 space-y-3"
               data-orientation="horizontal"
               data-state="inactive"
               hidden=""
-              id="radix-_r_0_-content-coverage"
+              id="radix-_r_1_-content-coverage"
               role="tabpanel"
               tabindex="0"
             />

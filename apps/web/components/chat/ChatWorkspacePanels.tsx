@@ -30,6 +30,7 @@ interface ChatWorkspaceHeroProps {
   conversationCount: number;
   cuaModel?: CuaModel;
   dealSelector: ReactNode;
+  launchState: boolean;
   scopeLabel: string;
   threadStatusLabel: string;
   transportLabel: string;
@@ -252,6 +253,7 @@ export function ChatWorkspaceHero({
   conversationCount,
   cuaModel,
   dealSelector,
+  launchState,
   scopeLabel,
   threadStatusLabel,
   transportLabel,
@@ -271,70 +273,121 @@ export function ChatWorkspaceHero({
 
   return (
     <motion.div
-      className="shrink-0 border-b border-border/40 px-4 py-2.5 sm:px-5"
+      className="shrink-0 border-b border-border/40 px-4 py-3 sm:px-5"
       {...motionProps}
     >
-      <div className="flex items-center gap-3">
-        {/* Status metadata — inline */}
-        <div className="hidden min-w-0 flex-1 items-center gap-4 text-[11px] text-muted-foreground md:flex">
-          <span>
-            <span className="workspace-stat-label mr-1.5">Scope</span>
-            <span className="text-foreground/90">{scopeLabel}</span>
-          </span>
-          <span className="text-border/60">|</span>
-          <span>
-            <span className="workspace-stat-label mr-1.5">Thread</span>
-            <span className="text-foreground/90">{threadStatusLabel}</span>
-            <span className="ml-1 text-muted-foreground/50">· {transportLabel}</span>
-          </span>
-          <span className="text-border/60">|</span>
-          <span>
-            <span className="workspace-stat-label mr-1.5">Agent</span>
-            <span className="text-foreground/90">{activeAgentLabel}</span>
-          </span>
-          <span className="text-border/60">|</span>
-          <span>
-            <span className="workspace-stat-label mr-1.5">Runs</span>
-            <span className="text-foreground/90">{conversationCount}</span>
-          </span>
+      <div className="flex flex-col gap-4">
+        {launchState ? (
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="min-w-0 flex-1">
+              <p className="workspace-eyebrow">Verified Run Workspace</p>
+              <h2 className="mt-3 max-w-[16ch] text-2xl font-semibold tracking-[-0.05em] text-foreground sm:text-[2rem]">
+                Turn a site question into a verified next move.
+              </h2>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
+                Start from the parcel, deal, market, or file, then let the coordinator route the work across specialists, tools, and proof checks.
+              </p>
+            </div>
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
+              {dealSelector}
+              {cuaModel && onCuaModelChange ? (
+                <CuaModelToggle model={cuaModel} onModelChange={onCuaModelChange} />
+              ) : null}
+              {!isMobile ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 rounded-full px-3 text-xs"
+                  onClick={onOpenHistory}
+                >
+                  <PanelLeftOpen className="mr-1.5 h-3.5 w-3.5" />
+                  Open run history
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <div className="hidden min-w-0 flex-1 items-center gap-4 text-[11px] text-muted-foreground md:flex">
+              <span>
+                <span className="workspace-stat-label mr-1.5">Scope</span>
+                <span className="text-foreground/90">{scopeLabel}</span>
+              </span>
+              <span className="text-border/60">|</span>
+              <span>
+                <span className="workspace-stat-label mr-1.5">Thread</span>
+                <span className="text-foreground/90">{threadStatusLabel}</span>
+                <span className="ml-1 text-muted-foreground/50">· {transportLabel}</span>
+              </span>
+              <span className="text-border/60">|</span>
+              <span>
+                <span className="workspace-stat-label mr-1.5">Agent</span>
+                <span className="text-foreground/90">{activeAgentLabel}</span>
+              </span>
+              <span className="text-border/60">|</span>
+              <span>
+                <span className="workspace-stat-label mr-1.5">Runs</span>
+                <span className="text-foreground/90">{conversationCount}</span>
+              </span>
+            </div>
+
+            <div className="min-w-0 flex-1 text-xs text-muted-foreground md:hidden">
+              <span className="text-foreground/90">{activeAgentLabel}</span>
+              <span className="mx-1.5 text-border/60">·</span>
+              <span>{threadStatusLabel}</span>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-2">
+              {dealSelector}
+              {cuaModel && onCuaModelChange ? (
+                <CuaModelToggle model={cuaModel} onModelChange={onCuaModelChange} />
+              ) : null}
+            </div>
+          </div>
+        )}
+
+        <div className="grid gap-3 border-t border-border/30 pt-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="min-w-0">
+            <p className="workspace-stat-label">Scope</p>
+            <p className="mt-1 text-sm font-medium text-foreground">{scopeLabel}</p>
+          </div>
+          <div className="min-w-0">
+            <p className="workspace-stat-label">Thread</p>
+            <p className="mt-1 text-sm font-medium text-foreground">{threadStatusLabel}</p>
+            <p className="text-xs text-muted-foreground">{transportLabel}</p>
+          </div>
+          <div className="min-w-0">
+            <p className="workspace-stat-label">Lead Agent</p>
+            <p className="mt-1 text-sm font-medium text-foreground">{activeAgentLabel}</p>
+          </div>
+          <div className="min-w-0">
+            <p className="workspace-stat-label">Saved Runs</p>
+            <p className="mt-1 text-sm font-medium text-foreground">{conversationCount}</p>
+          </div>
         </div>
 
-        {/* Mobile: show condensed info */}
-        <div className="min-w-0 flex-1 text-xs text-muted-foreground md:hidden">
-          <span className="text-foreground/90">{activeAgentLabel}</span>
-          <span className="mx-1.5 text-border/60">·</span>
-          <span>{threadStatusLabel}</span>
-        </div>
-
-        {/* Actions */}
-        <div className="flex shrink-0 items-center gap-2">
-          {dealSelector}
-          {cuaModel && onCuaModelChange ? (
-            <CuaModelToggle model={cuaModel} onModelChange={onCuaModelChange} />
-          ) : null}
-          {isMobile ? (
-            <>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-xs text-muted-foreground"
-                onClick={onOpenHistory}
-              >
-                <PanelLeftOpen className="mr-1.5 h-3.5 w-3.5" />
-                History
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-xs text-muted-foreground"
-                onClick={onOpenInspector}
-              >
-                <PanelRightOpen className="mr-1.5 h-3.5 w-3.5" />
-                Inspector
-              </Button>
-            </>
-          ) : null}
-        </div>
+        {isMobile ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs text-muted-foreground"
+              onClick={onOpenHistory}
+            >
+              <PanelLeftOpen className="mr-1.5 h-3.5 w-3.5" />
+              History
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs text-muted-foreground"
+              onClick={onOpenInspector}
+            >
+              <PanelRightOpen className="mr-1.5 h-3.5 w-3.5" />
+              Verification
+            </Button>
+          </div>
+        ) : null}
       </div>
     </motion.div>
   );
@@ -366,7 +419,7 @@ export function ChatWorkspaceInspector({
               Live Execution
             </DialogTitle>
             <DialogDescription className="text-[11px]">
-              Verification and specialist coverage.
+              Proof, specialist coverage, and active gaps.
             </DialogDescription>
           </DialogHeader>
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
@@ -390,7 +443,7 @@ export function ChatWorkspaceInspector({
       <div className="border-b border-border/40 px-4 py-3">
         <p className="workspace-eyebrow text-[10px]">Live Execution</p>
         <h3 className="mt-0.5 text-xs font-semibold tracking-tight text-foreground">
-          Verification and specialist coverage
+          Verification, proof, and specialist coverage
         </h3>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">

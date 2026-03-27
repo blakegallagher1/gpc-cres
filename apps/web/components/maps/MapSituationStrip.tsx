@@ -36,6 +36,7 @@ export function MapSituationStrip({
   selectedCount,
   trackedCount,
   openTaskCount,
+  analysisCount,
   overlayCount,
   drawMode,
   dataFreshnessLabel,
@@ -46,6 +47,7 @@ export function MapSituationStrip({
   if (selectedCount > 0) pills.push({ key: "sel", label: `${selectedCount} selected`, accent: true });
   if (trackedCount > 0) pills.push({ key: "trk", label: `${trackedCount} tracked` });
   if (openTaskCount > 0) pills.push({ key: "tsk", label: `${openTaskCount} tasks` });
+  if (analysisCount > 0) pills.push({ key: "ana", label: `${analysisCount} analyses` });
   if (overlayCount > 0) pills.push({ key: "ovl", label: `${overlayCount} overlays` });
   if (drawMode !== "idle") pills.push({ key: "drw", label: "Drawing", accent: true });
 

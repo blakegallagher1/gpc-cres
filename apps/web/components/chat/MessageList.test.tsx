@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { MessageList } from './MessageList';
 import type { ChatMessage } from '@/lib/chat/types';
@@ -99,7 +99,7 @@ describe('MessageList autoscroll behavior', () => {
     expect(scrollIntoViewMock).not.toHaveBeenCalled();
   });
 
-  it('shows jump button when away from bottom and scrolls on click', () => {
+  it('shows jump button when away from bottom and scrolls on click', async () => {
     const { rerender } = render(<MessageList messages={baseMessages} isStreaming={false} />);
 
     setViewportMetrics({ scrollTop: 200 });
@@ -127,6 +127,8 @@ describe('MessageList autoscroll behavior', () => {
     fireEvent.click(jumpButton);
 
     expect(scrollIntoViewMock).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole('button', { name: 'Jump to latest' })).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'Jump to latest' })).not.toBeInTheDocument();
+    });
   });
 });

@@ -256,7 +256,7 @@ describe("ChatContainer", () => {
       });
 
       expect(screen.getByRole("button", { name: "History" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Inspector" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Verification" })).toBeInTheDocument();
       expect(screen.getByTestId("conversation-sidebar")).toHaveAttribute("data-mobile", "true");
       expect(screen.getByTestId("conversation-sidebar")).toHaveAttribute("data-open", "false");
 

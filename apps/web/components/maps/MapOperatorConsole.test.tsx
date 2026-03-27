@@ -101,8 +101,8 @@ describe("MapOperatorConsole", () => {
   it("renders the operator console workspace", () => {
     const { container } = renderConsole();
 
-    expect(screen.getByText("Map console")).toBeInTheDocument();
-    expect(screen.getByText("Update tracked parcel")).toBeInTheDocument();
+    expect(screen.getByText("Operator console")).toBeInTheDocument();
+    expect(screen.getByText("Update watchlist entry")).toBeInTheDocument();
     expect(screen.getByText("Call broker")).toBeInTheDocument();
     expect(screen.getByTestId("screening-scorecard")).toHaveTextContent("parcel-1");
     expect(container.firstChild).toMatchSnapshot();
@@ -135,7 +135,7 @@ describe("MapOperatorConsole", () => {
       ),
       "Flood map suggests an AE edge condition.",
     );
-    await user.click(screen.getByRole("button", { name: "Track highlighted parcel" }));
+    await user.click(screen.getByRole("button", { name: "Save to watchlist" }));
 
     expect(onSaveSelection).toHaveBeenCalledWith({
       task: "Review flood exposure",
@@ -144,7 +144,7 @@ describe("MapOperatorConsole", () => {
     });
 
     await user.click(screen.getByRole("button", { name: "Mark complete" }));
-    await user.click(screen.getByRole("button", { name: "Remove" }));
+    await user.click(screen.getByRole("button", { name: "Remove from watchlist" }));
 
     expect(onUpdateTrackedParcelStatus).toHaveBeenCalledWith("parcel-1", "complete");
     expect(onRemoveTrackedParcel).toHaveBeenCalledWith("parcel-1");

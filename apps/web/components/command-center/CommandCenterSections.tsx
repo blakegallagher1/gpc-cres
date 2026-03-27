@@ -135,7 +135,7 @@ export function OperatingBriefSection({
   return (
     <Surface
       title="Operating brief"
-      description="Current summary and the last 24 hours of activity."
+      description="What changed since yesterday and what needs a decision now."
       action={
         briefing ? (
           <Badge variant="secondary">
@@ -220,7 +220,7 @@ export function PriorityQueueSection({
   return (
     <Surface
       title="Priority queue"
-      description="Items that need a decision, intervention, or follow-up now."
+      description="Items that need a decision, intervention, or follow-up next."
       action={items.length > 0 ? <Badge variant="destructive">{items.length}</Badge> : undefined}
     >
       {isLoading ? (
@@ -280,11 +280,11 @@ export function OpportunityRadarSection({
   return (
     <Surface
       title="Opportunity radar"
-      description="Top parcel matches ready for a triage pass."
+      description="Fresh parcel matches with a clear angle and next action."
       action={
         <Button variant="outline" size="sm" asChild>
           <Link href="/opportunities">
-            Open inbox
+            Review queue
             <ExternalLink className="ml-2 h-3.5 w-3.5" />
           </Link>
         </Button>
@@ -394,7 +394,7 @@ export function PipelineFlowSection({
   return (
     <Surface
       title="Pipeline flow"
-      description="Stage distribution and 14-day activity across active deals."
+      description="Stage distribution and recent movement across active deals."
       action={briefing ? <Badge variant="secondary">{totalActive} active</Badge> : undefined}
     >
       {isLoading && !briefing ? (
@@ -531,7 +531,7 @@ export function DeadlineLoadSection({
   return (
     <Surface
       title="Deadline load"
-      description="Urgency mix and the next due work items."
+      description="Urgent deadlines and the next work likely to slip."
       action={
         <div className="flex items-center gap-2">
           {urgencyCounts.black > 0 ? (
@@ -616,7 +616,7 @@ export function DeadlineLoadSection({
 
           <Button variant="outline" size="sm" asChild>
             <Link href="/deals">
-              View all deadlines
+              Review deadline queue
               <ArrowRight className="ml-2 h-3.5 w-3.5" />
             </Link>
           </Button>
@@ -648,7 +648,7 @@ export function AutomationStreamSection({
   return (
     <Surface
       title="Automation stream"
-      description="Recent background work and the job state attached to it."
+      description="Recent background work and the live job state attached to it."
       action={<Badge variant="secondary">24h</Badge>}
     >
       {isLoading ? (

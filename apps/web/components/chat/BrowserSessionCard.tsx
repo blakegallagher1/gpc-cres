@@ -129,6 +129,7 @@ export function BrowserSessionCard({
       <CardContent className="flex flex-col gap-3 p-4">
         {lastScreenshot ? (
           <div className="rounded-lg border border-border/60 bg-muted/35 overflow-hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={lastScreenshot}
               alt={`Browser session screenshot for ${domain}`}
