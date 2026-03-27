@@ -13,6 +13,11 @@ vi.mock("recharts", () => ({
 
 describe("OverviewTab", () => {
   it("shows cached-data fallback notice while continuing to render overview data", () => {
+    // Use a fixed relative date: 2 days ago from now
+    const twoDaysAgo = new Date();
+    twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+    const createdAt = twoDaysAgo.toISOString();
+
     const { container } = render(
       <OverviewTab
         data={{
@@ -21,7 +26,7 @@ describe("OverviewTab", () => {
           entityCount: 5,
           runs24h: 3,
           recentActivity: [
-            { type: "memory", summary: "Fact promoted", createdAt: "2026-03-23T00:00:00.000Z" },
+            { type: "memory", summary: "Fact promoted", createdAt },
           ],
           knowledgeByType: [{ contentType: "memory_note", count: 4 }],
         }}

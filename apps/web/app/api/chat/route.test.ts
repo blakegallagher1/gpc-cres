@@ -119,7 +119,10 @@ describe("POST /api/chat", () => {
     const body = await res.json();
 
     expect(res.status).toBe(500);
-    expect(body).toEqual({ error: "Authentication service unavailable" });
+    expect(body).toEqual({
+      error: "Authentication service unavailable",
+      detail: "Error: auth down",
+    });
     expect(runAgentWorkflowMock).not.toHaveBeenCalled();
   });
 
