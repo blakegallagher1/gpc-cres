@@ -17,9 +17,17 @@ CREATE TABLE IF NOT EXISTS ebr_parcels (
   area_sqft numeric,
   owner text,
   assessed_value numeric,
+  zoning_type text,
+  existing_land_use text,
+  future_land_use text,
   geom geometry(Geometry, 4326),
   created_at timestamptz DEFAULT now()
 );
+
+ALTER TABLE IF EXISTS ebr_parcels
+  ADD COLUMN IF NOT EXISTS zoning_type text,
+  ADD COLUMN IF NOT EXISTS existing_land_use text,
+  ADD COLUMN IF NOT EXISTS future_land_use text;
 
 -- STEP 3: Create spatial indexes for high-performance queries
 CREATE INDEX IF NOT EXISTS idx_ebr_parcels_geom
@@ -110,6 +118,52 @@ $$;
 
 COMMENT ON FUNCTION get_parcel_mvt(int, int, int) IS
   'Returns Mapbox Vector Tile (.pbf) of parcel boundaries for map rendering';
+
+CREATE OR REPLACE FUNCTION get_zoning_mvt(z int, x int, y int)
+RETURNS bytea
+LANGUAGE plpgsql
+STABLE
+PARALLEL SAFE
+AS $$
+DECLARE
+  tile_extent geometry;
+  tile_bbox_4326 geometry;
+  result bytea;
+BEGIN
+  IF z < 10 THEN
+    RETURN NULL;
+  END IF;
+
+  tile_extent := ST_TileEnvelope(z, x, y);
+  tile_bbox_4326 := ST_Transform(tile_extent::geometry, 4326);
+
+  SELECT ST_AsMVT(tile, 'zoning', 4096, 'geom')::bytea INTO result
+  FROM (
+    SELECT
+      id,
+      parcel_id,
+      zoning_type,
+      existing_land_use,
+      future_land_use,
+      ST_AsMVTGeom(
+        ST_Transform(ST_CurveToLine(geom), 3857),
+        tile_extent::geometry,
+        4096,
+        256,
+        true
+      ) AS geom
+    FROM ebr_parcels
+    WHERE geom IS NOT NULL
+      AND zoning_type IS NOT NULL
+      AND ST_Intersects(geom, tile_bbox_4326)
+  ) tile;
+
+  RETURN result;
+END;
+$$;
+
+COMMENT ON FUNCTION get_zoning_mvt(int, int, int) IS
+  'Returns Mapbox Vector Tile (.pbf) of parcel zoning polygons for map rendering';
 
 -- STEP 7: Property schema for RPC functions (api_search_parcels, etc.)
 CREATE SCHEMA IF NOT EXISTS property;

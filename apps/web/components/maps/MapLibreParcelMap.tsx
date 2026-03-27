@@ -31,6 +31,15 @@ import {
   getMartinParcelTileUrl,
 } from "./tileUrls";
 import {
+  buildZoningTileLayer,
+  buildZoningTileSource,
+  resolveAvailableZoningTileContract,
+  ZONING_TILE_INSERT_BEFORE_LAYER_ID,
+  ZONING_TILE_LAYER_ID,
+  ZONING_TILE_SOURCE_KEY,
+  type ZoningTileContract,
+} from "./zoningLayerConfig";
+import {
   STATUS_COLORS,
   DEFAULT_STATUS_COLOR,
   getZoningColor,
@@ -409,6 +418,32 @@ export function setGeoJsonSourceDataSafe(
   }
 }
 
+function setLayerVisibilitySafe(
+  map: Pick<maplibregl.Map, "getLayer" | "setLayoutProperty"> | null | undefined,
+  layerId: string,
+  visible: boolean,
+): void {
+  if (!map?.getLayer(layerId)) return;
+  try {
+    map.setLayoutProperty(layerId, "visibility", visible ? "visible" : "none");
+  } catch {
+    // Style transitions can race layer updates; visibility will reconcile on the next effect.
+  }
+}
+
+function moveLayerBeforeSafe(
+  map: Pick<maplibregl.Map, "getLayer" | "moveLayer"> | null | undefined,
+  layerId: string,
+  beforeLayerId: string,
+): void {
+  if (!map?.getLayer(layerId) || !map.getLayer(beforeLayerId)) return;
+  try {
+    map.moveLayer(layerId, beforeLayerId);
+  } catch {
+    // Layer ordering is best-effort during source/layer churn.
+  }
+}
+
 export function computeNextSelection(
   currentSelection: ReadonlySet<string>,
   parcelId: string,
@@ -504,9 +539,11 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
   const popupRef = useRef<maplibregl.Popup | null>(null);
   const temporaryLayerIdsRef = useRef<Map<string, string[]>>(new Map());
   const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const appliedZoningTileContractKeyRef = useRef<string | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const fittedBoundsRef = useRef("");
   const [mapError, setMapError] = useState<string | null>(null);
+  const [zoningTileContract, setZoningTileContract] = useState<ZoningTileContract | null>(null);
 
   const [baseLayer, setBaseLayer] = useState<string>(() => getSavedBaseLayer());
   const [showParcelBoundaries, setShowParcelBoundaries] = useState<boolean>(() => getSavedOverlaysFallback().parcelBoundaries);
@@ -565,6 +602,26 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
   useEffect(() => {
     onMapReadyRef.current = onMapReady;
   }, [onMapReady]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void resolveAvailableZoningTileContract()
+      .then((contract) => {
+        if (!cancelled) {
+          setZoningTileContract(contract);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setZoningTileContract(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const hasPolygon = Boolean(polygon && polygon[0] && polygon[0].length >= 4);
   const drawState = getDrawControlState(drawing, hasPolygon, drawPointCount);
@@ -1444,117 +1501,6 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
               },
             },
             {
-              id: "zoning-tiles-fill",
-              type: "fill",
-              source: "parcel-tiles",
-              "source-layer": "ebr_parcels",
-              filter: ["has", "zoning_type"],
-              layout: {
-                visibility: showLayers && showZoning ? "visible" : "none",
-              },
-              paint: {
-                "fill-color": [
-                  // First try exact match on single-code parcels (covers ~80%)
-                  "match", ["get", "zoning_type"],
-                  // Residential — greens / teals
-                  "A1",     "#16a34a",
-                  "A2",     "#22c55e",
-                  "A2.1",   "#2dd4bf",
-                  "A2.5",   "#34d399",
-                  "A2.6",   "#4ade80",
-                  "A2.7",   "#6ee7b7",
-                  "A2.9",   "#a7f3d0",
-                  "A3.1",   "#0d9488",
-                  "A3.2",   "#14b8a6",
-                  "A3.3",   "#5eead4",
-                  "A4",     "#0e7490",
-                  "A5",     "#06b6d4",
-                  "R",      "#15803d",
-                  "RS",     "#65a30d",
-                  "RE",     "#84cc16",
-                  "RE/A1",  "#a3e635",
-                  "RU",     "#4d7c0f",
-                  // Commercial — blues / indigos
-                  "C1",     "#2563eb",
-                  "C2",     "#1d4ed8",
-                  "C5",     "#3b82f6",
-                  "C-AB-1", "#6366f1",
-                  "C-AB-2", "#818cf8",
-                  "CN",     "#60a5fa",
-                  "CG",     "#1e40af",
-                  "CW",     "#7dd3fc",
-                  "CW1",    "#38bdf8",
-                  "CW2",    "#0ea5e9",
-                  "CW3",    "#0284c7",
-                  "B",      "#4f46e5",
-                  "B1",     "#7c3aed",
-                  "BP",     "#a78bfa",
-                  // Industrial — purples / magentas
-                  "M1",     "#9333ea",
-                  "M2",     "#7e22ce",
-                  "I",      "#c026d3",
-                  // Planned / Mixed — oranges / ambers
-                  "PUD",    "#ea580c",
-                  "SPUD",   "#f97316",
-                  "ISPUD",  "#fb923c",
-                  "TND",    "#d97706",
-                  "UC",     "#f59e0b",
-                  "NC",     "#fbbf24",
-                  "NC-AB",  "#fcd34d",
-                  // Government / Open space
-                  "GA",     "#92400e",
-                  "GOL",    "#a16207",
-                  "GOH",    "#b45309",
-                  "GU",     "#78716c",
-                  // Highway commercial — reds
-                  "HC1",    "#dc2626",
-                  "HC2",    "#ef4444",
-                  "HDD",    "#b91c1c",
-                  // Lake commercial — steel blues
-                  "LC1",    "#0369a1",
-                  "LC2",    "#0891b2",
-                  "LC3",    "#0e7490",
-                  "NO",     "#d4d4d8",
-                  // Fallback for compound codes — use first-char case expression
-                  [
-                    "case",
-                    ["any", ["==", ["slice", ["get", "zoning_type"], 0, 2], "M1"], ["==", ["slice", ["get", "zoning_type"], 0, 2], "M2"]],
-                    "#9333ea",
-                    ["==", ["slice", ["get", "zoning_type"], 0, 1], "I"],
-                    "#c026d3",
-                    ["any", ["==", ["slice", ["get", "zoning_type"], 0, 2], "C1"], ["==", ["slice", ["get", "zoning_type"], 0, 2], "C2"], ["==", ["slice", ["get", "zoning_type"], 0, 2], "C5"], ["==", ["slice", ["get", "zoning_type"], 0, 2], "CG"], ["==", ["slice", ["get", "zoning_type"], 0, 2], "CN"], ["==", ["slice", ["get", "zoning_type"], 0, 2], "CW"]],
-                    "#2563eb",
-                    ["any", ["==", ["slice", ["get", "zoning_type"], 0, 1], "C"]],
-                    "#6366f1",
-                    ["any", ["==", ["slice", ["get", "zoning_type"], 0, 2], "B1"], ["==", ["slice", ["get", "zoning_type"], 0, 2], "BP"], ["==", ["slice", ["get", "zoning_type"], 0, 1], "B"]],
-                    "#4f46e5",
-                    ["any", ["==", ["slice", ["get", "zoning_type"], 0, 3], "PUD"], ["==", ["slice", ["get", "zoning_type"], 0, 4], "SPUD"], ["==", ["slice", ["get", "zoning_type"], 0, 5], "ISPUD"]],
-                    "#ea580c",
-                    ["any", ["==", ["slice", ["get", "zoning_type"], 0, 3], "TND"], ["==", ["slice", ["get", "zoning_type"], 0, 2], "UC"], ["==", ["slice", ["get", "zoning_type"], 0, 2], "NC"]],
-                    "#d97706",
-                    ["any", ["==", ["slice", ["get", "zoning_type"], 0, 3], "HC1"], ["==", ["slice", ["get", "zoning_type"], 0, 3], "HC2"]],
-                    "#dc2626",
-                    ["any", ["==", ["slice", ["get", "zoning_type"], 0, 2], "GA"], ["==", ["slice", ["get", "zoning_type"], 0, 2], "GO"], ["==", ["slice", ["get", "zoning_type"], 0, 2], "GU"]],
-                    "#92400e",
-                    ["any", ["==", ["slice", ["get", "zoning_type"], 0, 2], "LC"]],
-                    "#0369a1",
-                    ["==", ["slice", ["get", "zoning_type"], 0, 2], "RS"],
-                    "#65a30d",
-                    ["==", ["slice", ["get", "zoning_type"], 0, 2], "RE"],
-                    "#84cc16",
-                    ["==", ["slice", ["get", "zoning_type"], 0, 2], "RU"],
-                    "#4d7c0f",
-                    ["==", ["slice", ["get", "zoning_type"], 0, 1], "R"],
-                    "#15803d",
-                    ["==", ["slice", ["get", "zoning_type"], 0, 1], "A"],
-                    "#22c55e",
-                    "#9ca3af",
-                  ],
-                ],
-                "fill-opacity": 0.3,
-              },
-            },
-            {
               id: "parcels-zoning-layer",
               type: "fill",
               source: "parcel-zoning-source",
@@ -1801,50 +1747,19 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
         setTimeout(() => checkAndReloadTiles(), 2000);
 
         const hideBoundaryLayerVisibility = () => {
-          try {
-            map.setLayoutProperty(
-              "parcel-tiles-fill",
-              "visibility",
-              showLayers && showParcelBoundaries ? "visible" : "none"
-            );
-            map.setLayoutProperty(
-              "parcel-tiles-line",
-              "visibility",
-              showLayers && showParcelBoundaries ? "visible" : "none"
-            );
-            map.setLayoutProperty(
-              "parcels-boundary-fill",
-              "visibility",
-              showLayers && showParcelBoundaries ? "visible" : "none"
-            );
-            map.setLayoutProperty(
-              "parcels-boundary-line",
-              "visibility",
-              showLayers && showParcelBoundaries ? "visible" : "none"
-            );
-            map.setLayoutProperty(
-              "parcels-zoning-layer",
-              "visibility",
-              showLayers && showZoning ? "visible" : "none"
-            );
-            map.setLayoutProperty(
-              "zoning-tiles-fill",
-              "visibility",
-              showLayers && showZoning ? "visible" : "none"
-            );
-            map.setLayoutProperty(
-              "parcels-flood-layer",
-              "visibility",
-              showLayers && showFlood ? "visible" : "none"
-            );
-            map.setLayoutProperty(
-              "fema-flood-tiles-fill",
-              "visibility",
-              showLayers && showFlood ? "visible" : "none"
-            );
-            map.setLayoutProperty("base-streets", "visibility", baseLayer === "Satellite" ? "none" : "visible");
-            map.setLayoutProperty("base-satellite", "visibility", baseLayer === "Satellite" ? "visible" : "none");
-          } catch {}
+          setLayerVisibilitySafe(map, "parcel-tiles-fill", showLayers && showParcelBoundaries);
+          setLayerVisibilitySafe(map, "parcel-tiles-line", showLayers && showParcelBoundaries);
+          setLayerVisibilitySafe(map, "parcels-boundary-fill", showLayers && showParcelBoundaries);
+          setLayerVisibilitySafe(map, "parcels-boundary-line", showLayers && showParcelBoundaries);
+          setLayerVisibilitySafe(map, "parcels-zoning-layer", showLayers && showZoning && !zoningTileContract);
+          setLayerVisibilitySafe(map, ZONING_TILE_LAYER_ID, showLayers && showZoning);
+          setLayerVisibilitySafe(map, "parcels-flood-layer", showLayers && showFlood);
+          setLayerVisibilitySafe(map, "fema-flood-tiles-fill", showLayers && showFlood);
+          setLayerVisibilitySafe(map, "base-streets", baseLayer !== "Satellite");
+          setLayerVisibilitySafe(map, "base-satellite", baseLayer === "Satellite");
+          moveLayerBeforeSafe(map, "parcels-boundary-fill", "parcels-zoning-layer");
+          moveLayerBeforeSafe(map, "parcels-boundary-fill", ZONING_TILE_LAYER_ID);
+          moveLayerBeforeSafe(map, ZONING_TILE_LAYER_ID, ZONING_TILE_INSERT_BEFORE_LAYER_ID);
         };
 
         hideBoundaryLayerVisibility();
@@ -1927,28 +1842,72 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
   useEffect(() => {
     if (!mapRef.current || !mapReady) return;
     const map = mapRef.current;
+    const appliedContractKey = appliedZoningTileContractKeyRef.current;
+    const nextContractKey = zoningTileContract
+      ? `${zoningTileContract.sourceId}:${zoningTileContract.sourceLayer}:${zoningTileContract.propertyName}`
+      : null;
+
+    const removeZoningTileArtifacts = () => {
+      if (map.getLayer(ZONING_TILE_LAYER_ID)) {
+        map.removeLayer(ZONING_TILE_LAYER_ID);
+      }
+      if (map.getSource(ZONING_TILE_SOURCE_KEY)) {
+        map.removeSource(ZONING_TILE_SOURCE_KEY);
+      }
+      appliedZoningTileContractKeyRef.current = null;
+    };
+
+    try {
+      if (!zoningTileContract) {
+        removeZoningTileArtifacts();
+        moveLayerBeforeSafe(map, "parcels-boundary-fill", "parcels-zoning-layer");
+        return;
+      }
+
+      if (appliedContractKey !== nextContractKey) {
+        removeZoningTileArtifacts();
+        map.addSource(ZONING_TILE_SOURCE_KEY, buildZoningTileSource(zoningTileContract));
+        map.addLayer(
+          buildZoningTileLayer(zoningTileContract, showLayers && showZoning),
+          ZONING_TILE_INSERT_BEFORE_LAYER_ID,
+        );
+        appliedZoningTileContractKeyRef.current = nextContractKey;
+      }
+
+      setLayerVisibilitySafe(map, ZONING_TILE_LAYER_ID, showLayers && showZoning);
+      moveLayerBeforeSafe(map, "parcels-boundary-fill", ZONING_TILE_LAYER_ID);
+      moveLayerBeforeSafe(map, ZONING_TILE_LAYER_ID, ZONING_TILE_INSERT_BEFORE_LAYER_ID);
+    } catch {
+      removeZoningTileArtifacts();
+    }
+  }, [mapReady, showLayers, showZoning, zoningTileContract]);
+
+  useEffect(() => {
+    if (!mapRef.current || !mapReady) return;
+    const map = mapRef.current;
     setGeoJsonSourceDataSafe(map, "parcel-boundary-source", boundarySource);
     setGeoJsonSourceDataSafe(map, "parcel-zoning-source", zoningSource);
     setGeoJsonSourceDataSafe(map, "parcel-flood-source", floodSource);
     setGeoJsonSourceDataSafe(map, "parcel-point-source", pointSource);
 
-    try {
-      map.setLayoutProperty("parcel-tiles-fill", "visibility", showLayers && showParcelBoundaries ? "visible" : "none");
-      map.setLayoutProperty("parcel-tiles-line", "visibility", showLayers && showParcelBoundaries ? "visible" : "none");
-      map.setLayoutProperty("parcels-boundary-fill", "visibility", showLayers && showParcelBoundaries ? "visible" : "none");
-      map.setLayoutProperty("parcels-boundary-line", "visibility", showLayers && showParcelBoundaries ? "visible" : "none");
-      map.setLayoutProperty("parcels-zoning-layer", "visibility", showLayers && showZoning ? "visible" : "none");
-      map.setLayoutProperty("zoning-tiles-fill", "visibility", showLayers && showZoning ? "visible" : "none");
-      map.setLayoutProperty("parcels-flood-layer", "visibility", showLayers && showFlood ? "visible" : "none");
-      map.setLayoutProperty("fema-flood-tiles-fill", "visibility", showLayers && showFlood ? "visible" : "none");
-      map.setLayoutProperty("soils-tiles-fill", "visibility", showLayers && showSoils ? "visible" : "none");
-      map.setLayoutProperty("wetlands-tiles-fill", "visibility", showLayers && showWetlands ? "visible" : "none");
-      map.setLayoutProperty("epa-tiles-circle", "visibility", showLayers && showEpa ? "visible" : "none");
-      map.setLayoutProperty("base-dark", "visibility", isDark && baseLayer !== "Satellite" ? "visible" : "none");
-      map.setLayoutProperty("base-streets", "visibility", !isDark && baseLayer !== "Satellite" ? "visible" : "none");
-      map.setLayoutProperty("base-satellite", "visibility", baseLayer === "Satellite" ? "visible" : "none");
-      map.setLayoutProperty("parcel-points", "visibility", showLayers ? "visible" : "none");
-    } catch {}
+    setLayerVisibilitySafe(map, "parcel-tiles-fill", showLayers && showParcelBoundaries);
+    setLayerVisibilitySafe(map, "parcel-tiles-line", showLayers && showParcelBoundaries);
+    setLayerVisibilitySafe(map, "parcels-boundary-fill", showLayers && showParcelBoundaries);
+    setLayerVisibilitySafe(map, "parcels-boundary-line", showLayers && showParcelBoundaries);
+    setLayerVisibilitySafe(map, "parcels-zoning-layer", showLayers && showZoning && !zoningTileContract);
+    setLayerVisibilitySafe(map, ZONING_TILE_LAYER_ID, showLayers && showZoning);
+    setLayerVisibilitySafe(map, "parcels-flood-layer", showLayers && showFlood);
+    setLayerVisibilitySafe(map, "fema-flood-tiles-fill", showLayers && showFlood);
+    setLayerVisibilitySafe(map, "soils-tiles-fill", showLayers && showSoils);
+    setLayerVisibilitySafe(map, "wetlands-tiles-fill", showLayers && showWetlands);
+    setLayerVisibilitySafe(map, "epa-tiles-circle", showLayers && showEpa);
+    setLayerVisibilitySafe(map, "base-dark", isDark && baseLayer !== "Satellite");
+    setLayerVisibilitySafe(map, "base-streets", !isDark && baseLayer !== "Satellite");
+    setLayerVisibilitySafe(map, "base-satellite", baseLayer === "Satellite");
+    setLayerVisibilitySafe(map, "parcel-points", showLayers);
+    moveLayerBeforeSafe(map, "parcels-boundary-fill", "parcels-zoning-layer");
+    moveLayerBeforeSafe(map, "parcels-boundary-fill", ZONING_TILE_LAYER_ID);
+    moveLayerBeforeSafe(map, ZONING_TILE_LAYER_ID, ZONING_TILE_INSERT_BEFORE_LAYER_ID);
   }, [
     boundarySource,
     zoningSource,
@@ -1965,6 +1924,7 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
     baseLayer,
     isDark,
     effectiveSelectedIds,
+    zoningTileContract,
   ]);
 
   useEffect(() => {

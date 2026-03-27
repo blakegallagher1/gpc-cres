@@ -161,6 +161,12 @@ LOCAL_API_KEY=YOUR_GATEWAY_API_KEY
 
 # Optional override when tiles are served from a separate host
 # TILE_SERVER_URL=https://tiles.gallagherpropco.com
+
+# Optional zoning tile overrides. The web app probes get_zoning_mvt first and
+# falls back to legacy parcel metadata only when that source exposes zoning_type.
+# NEXT_PUBLIC_ZONING_TILE_SOURCE_ID=get_zoning_mvt
+# NEXT_PUBLIC_ZONING_TILE_SOURCE_LAYER=zoning
+# NEXT_PUBLIC_ZONING_TILE_PROPERTY_NAME=zoning_type
 EOF
 ```
 
@@ -420,11 +426,12 @@ If you want to use Martin instead of Next.js API routes:
 # Install Martin
 cargo install martin
 
-# Configure Martin to serve tiles from get_parcel_mvt function
+# Configure Martin to serve tiles from get_parcel_mvt / get_zoning_mvt
 martin postgresql://postgres:YOUR_DB_PASSWORD@localhost:54323/entitlement_os --keep-alive 75
 
-# Martin will auto-discover get_parcel_mvt and serve at:
+# Martin will auto-discover both functions and serve them at:
 # http://localhost:3000/parcels/{z}/{x}/{y}.pbf
+# http://localhost:3000/get_zoning_mvt/{z}/{x}/{y}
 
 # Update apps/web/components/maps/tileUrls.ts:
 # return "http://localhost:3000/parcels/{z}/{x}/{y}.pbf"

@@ -37,6 +37,7 @@ const LOCAL_TILE_URL = "/api/map/tiles/{z}/{x}/{y}";
 // ---------------------------------------------------------------------------
 // Martin MVT — tiles.gallagherpropco.com
 // ---------------------------------------------------------------------------
+// Martin metadata endpoints share the same base URL.
 
 /** Base URL for the Martin tile server (no trailing slash). */
 const MARTIN_BASE_URL =
@@ -44,7 +45,21 @@ const MARTIN_BASE_URL =
   "https://tiles.gallagherpropco.com";
 
 /**
- * Returns the Martin MVT tile URL for a specific table/function source.
+ * Returns the Martin metadata URL for a specific table/view/function source.
+ */
+export function getMartinMetadataUrl(sourceId: string): string {
+  return `${MARTIN_BASE_URL}/${sourceId}`;
+}
+
+/**
+ * Returns the Martin MVT tile URL for an arbitrary source.
+ */
+export function getMartinVectorTileUrl(sourceId: string): string {
+  return `${MARTIN_BASE_URL}/${sourceId}/{z}/{x}/{y}`;
+}
+
+/**
+ * Returns the Martin MVT tile URL for a specific parcel-capable source.
  *
  * Martin URL format:
  *   https://tiles.gallagherpropco.com/{source_id}/{z}/{x}/{y}
@@ -52,7 +67,7 @@ const MARTIN_BASE_URL =
  * @param sourceId  The Martin source/function name (e.g. "ebr_parcels")
  */
 export function getMartinParcelTileUrl(sourceId = "ebr_parcels"): string {
-  return `${MARTIN_BASE_URL}/${sourceId}/{z}/{x}/{y}`;
+  return getMartinVectorTileUrl(sourceId);
 }
 
 /**
@@ -66,7 +81,7 @@ export function getMartinParcelTileUrlWithParams(
   sourceId = "ebr_parcels",
   params?: Record<string, string>
 ): string {
-  const base = `${MARTIN_BASE_URL}/${sourceId}/{z}/{x}/{y}`;
+  const base = getMartinVectorTileUrl(sourceId);
   if (!params || Object.keys(params).length === 0) return base;
   const qs = new URLSearchParams(params).toString();
   return `${base}?${qs}`;
