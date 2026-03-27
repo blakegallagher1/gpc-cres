@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import * as Sentry from "@sentry/nextjs";
 import useSWR from "swr";
 import {
   ArrowLeft,
@@ -13,7 +14,6 @@ import {
   Calculator,
   PencilLine,
   Trash2,
-  AlertTriangle,
   RefreshCw,
 } from "lucide-react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { DealOverviewWorkspace } from "@/components/deals/DealOverviewWorkspace";
 import { StatusBadge } from "@/components/deals/StatusBadge";
 import { SkuBadge } from "@/components/deals/SkuBadge";
 import { TriageIndicator } from "@/components/deals/TriageIndicator";
@@ -37,21 +38,22 @@ import {
 } from "@/components/deals/DocumentExtractionReview";
 import { EnvironmentalAssessmentsPanel } from "@/components/deals/EnvironmentalAssessmentsPanel";
 import { DealFinancingPanel } from "@/components/deals/DealFinancingPanel";
-import { RiskRegisterPanel } from "@/components/deals/RiskRegisterPanel";
-import { ScreeningScorecard } from "@/components/maps/ScreeningScorecard";
-import { TriageResultPanel } from "@/components/deals/TriageResultPanel";
 import { RunTriageButton } from "@/components/deals/RunTriageButton";
-import { ActivityTimeline } from "@/components/deals/ActivityTimeline";
-import { WorkflowTimeline } from "@/components/deals/WorkflowTimeline";
-import { GeneralizedScorecard } from "@/components/deals/GeneralizedScorecard";
 import { TaskCreateForm } from "@/components/deals/TaskCreateForm";
-import { DealStakeholdersPanel } from "@/components/deals/DealStakeholdersPanel";
 import type { TaskItem } from "@/components/deals/TaskCard";
-import { DeadlineBar } from "@/components/deals/DeadlineBar";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { toast } from "sonner";
 
 const fetcher = (url: string) => fetch(url).then((response) => response.json());
+
+function captureDealClientError(error: unknown, context: string) {
+  Sentry.captureException(error instanceof Error ? error : new Error(context), {
+    tags: {
+      surface: "deal-detail",
+      context,
+    },
+  });
+}
 
 const DealParcelMap = dynamic(
   () => import("@/components/maps/DealParcelMap"),
@@ -278,21 +280,6 @@ export function DealDetailPageClient() {
     return formatCurrency(numberValue);
   };
 
-  const formatNumericValue = (value: string | number | null | undefined) => {
-    if (value === null || value === undefined) return "—";
-    const numberValue = typeof value === "number" ? value : Number(value);
-    if (Number.isNaN(numberValue)) return "—";
-    return numberValue.toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 4,
-    });
-  };
-
-  const formatSetbacks = (setbacks: Record<string, unknown>) => {
-    if (!setbacks || Object.keys(setbacks).length === 0) return "—";
-    return JSON.stringify(setbacks, null, 2);
-  };
-
   const loadDeal = useCallback(async () => {
     setLoadError(false);
     try {
@@ -304,7 +291,7 @@ export function DealDetailPageClient() {
         setTriageResult(data.deal.triageOutput);
       }
     } catch (error) {
-      console.error("Failed to load deal:", error);
+      captureDealClientError(error, "load-deal");
       setLoadError(true);
       toast.error("Failed to load deal");
     } finally {
@@ -327,7 +314,9 @@ export function DealDetailPageClient() {
       .then((data) => {
         if (data.triage) setTriageResult(data.triage);
       })
-      .catch(() => {});
+      .catch((error) => {
+        captureDealClientError(error, "load-latest-triage");
+      });
   }, [id]);
 
   const handleTaskStatusChange = async (taskId: string, newStatus: string) => {
@@ -348,7 +337,7 @@ export function DealDetailPageClient() {
         };
       });
     } catch (error) {
-      console.error("Failed to update task:", error);
+      captureDealClientError(error, "update-task-status");
       toast.error("Failed to update task");
     }
   };
@@ -376,7 +365,7 @@ export function DealDetailPageClient() {
       });
       toast.success("Task updated");
     } catch (error) {
-      console.error("Failed to update task:", error);
+      captureDealClientError(error, "update-task");
       toast.error("Failed to update task");
     }
   };
@@ -405,7 +394,7 @@ export function DealDetailPageClient() {
       setParcelApn("");
       toast.success("Parcel added");
     } catch (error) {
-      console.error("Failed to add parcel:", error);
+      captureDealClientError(error, "add-parcel");
       toast.error("Failed to add parcel");
     } finally {
       setAddingParcel(false);
@@ -420,7 +409,7 @@ export function DealDetailPageClient() {
       toast.success("Deal deleted");
       router.push("/deals");
     } catch (error) {
-      console.error("Failed to delete deal:", error);
+      captureDealClientError(error, "delete-deal");
       toast.error("Failed to delete deal");
     }
   };
@@ -460,6 +449,7 @@ export function DealDetailPageClient() {
       setBuyerType("BUYER");
       await mutateBuyers();
     } catch (error) {
+      captureDealClientError(error, "create-buyer");
       toast.error(error instanceof Error ? error.message : "Failed to add buyer");
     } finally {
       setIsCreatingBuyer(false);
@@ -503,651 +493,274 @@ export function DealDetailPageClient() {
     );
   }
 
+  const openDeadlineCount = deal.tasks.filter(
+    (task) => task.dueAt && task.status !== "DONE" && task.status !== "CANCELED",
+  ).length;
+  const urgentDeadlineCount = deal.tasks.filter((task) => {
+    if (!task.dueAt || task.status === "DONE" || task.status === "CANCELED") {
+      return false;
+    }
+
+    const hoursUntilDue = (new Date(task.dueAt).getTime() - Date.now()) / 3_600_000;
+    return hoursUntilDue <= 72;
+  }).length;
+  const packState = !deal.packContext
+    ? "Unknown"
+    : !deal.packContext.hasPack
+      ? "Missing"
+      : deal.packContext.isStale
+        ? "Stale"
+        : "Current";
+  const packDetail = !deal.packContext
+    ? "Parish pack state is unavailable."
+    : !deal.packContext.hasPack
+      ? "No parish pack linked yet."
+      : deal.packContext.isStale
+        ? `${deal.packContext.stalenessDays ?? "?"} day stale`
+        : "Pack is current.";
+  const closingMetric = terms?.closingDate ?? deal.targetCloseDate;
+  const fileSummary = [
+    deal.jurisdiction ? `${deal.jurisdiction.name}, ${deal.jurisdiction.state}` : "Jurisdiction unassigned",
+    `${deal.parcels.length} parcel${deal.parcels.length === 1 ? "" : "s"}`,
+    `${deal.tasks.length} task${deal.tasks.length === 1 ? "" : "s"}`,
+    `${deal.artifacts.length} artifact${deal.artifacts.length === 1 ? "" : "s"}`,
+  ].join("  ·  ");
+
   return (
     <DashboardShell>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex items-start gap-3">
-            <Button variant="ghost" size="icon" asChild className="mt-1">
-              <Link href="/deals">
-                <ArrowLeft className="h-4 w-4" />
-              </Link>
-            </Button>
-            <div>
-              <h1 className="text-2xl font-bold">{deal.name}</h1>
-              <div className="mt-1 flex flex-wrap items-center gap-2">
-                <SkuBadge sku={deal.sku} />
-                <StatusBadge status={deal.status} />
-                <TriageIndicator tier={deal.triageTier} showLabel />
-                {deal.packContext ? (
-                  <Badge
-                    variant={deal.packContext.isStale ? "destructive" : "secondary"}
-                    className="gap-1"
-                  >
-                    <RefreshCw className="h-3 w-3" />
-                    {deal.packContext.hasPack
-                      ? (deal.packContext.isStale ? "Parish pack stale" : "Parish pack current")
-                      : "No parish pack"}
-                  </Badge>
-                ) : null}
-                {deal.jurisdiction && (
-                  <span className="text-sm text-muted-foreground">
-                    {deal.jurisdiction.name}
-                  </span>
-                )}
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="workspace-page">
+        <section className="border-b border-border/60 pb-4">
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(22rem,0.8fr)] xl:items-end">
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                <Button variant="ghost" size="sm" asChild className="-ml-3 h-8 px-3 text-[11px]">
+                  <Link href="/deals" className="gap-1 font-mono uppercase tracking-[0.18em]">
+                    <ArrowLeft className="h-3.5 w-3.5" />
+                    Deals
+                  </Link>
+                </Button>
+                <span className="font-mono uppercase tracking-[0.18em]">Underwriting file</span>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <SkuBadge sku={deal.sku} />
+                  <StatusBadge status={deal.status} />
+                  <TriageIndicator tier={deal.triageTier} showLabel />
+                  {deal.packContext ? (
+                    <Badge
+                      variant={
+                        !deal.packContext.hasPack || deal.packContext.isStale
+                          ? "destructive"
+                          : "secondary"
+                      }
+                      className="gap-1"
+                    >
+                      <RefreshCw className="h-3 w-3" />
+                      {!deal.packContext.hasPack
+                        ? "No parish pack"
+                        : deal.packContext.isStale
+                          ? "Parish pack stale"
+                          : "Parish pack current"}
+                    </Badge>
+                  ) : null}
+                </div>
+
+                <div>
+                  <h1 className="max-w-[14ch] text-4xl font-semibold tracking-[-0.06em] text-foreground md:text-[3.35rem]">
+                    {deal.name}
+                  </h1>
+                  <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground md:text-base">
+                    {fileSummary}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <RunTriageButton
+                  dealId={deal.id}
+                  hasParcels={deal.parcels.length > 0}
+                  onComplete={({ triage, sources }) => {
+                    setTriageResult(triage);
+                    setTriageSources(sources);
+                  }}
+                />
+                <Button variant="outline" size="sm" className="gap-1.5" asChild>
+                  <Link href={`/deals/${deal.id}/financial-model`}>
+                    <Calculator className="h-4 w-4" />
+                    Pro Forma
+                  </Link>
+                </Button>
+                <Button variant="outline" size="sm" className="gap-1.5" asChild>
+                  <Link href={`/?dealId=${deal.id}`}>
+                    <MessageSquare className="h-4 w-4" />
+                    Chat
+                  </Link>
+                </Button>
+                <Button variant="outline" size="sm" className="gap-1.5" asChild>
+                  <Link href={`/deals/${deal.id}/edit`}>
+                    <PencilLine className="h-4 w-4" />
+                    Edit
+                  </Link>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 text-destructive hover:text-destructive"
+                  onClick={handleDeleteDeal}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete
+                </Button>
+              </div>
+            </div>
+
+            <div className="grid gap-3 border-t border-border/50 pt-4 md:grid-cols-2 xl:border-l xl:border-t-0 xl:pl-6 xl:pt-0">
+              <div className="border-b border-border/45 pb-3 md:border-b-0 md:border-r md:pr-4">
+                <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                  Offer
+                </p>
+                <p className="mt-2 font-mono text-3xl font-semibold tracking-[-0.04em] tabular-nums text-foreground">
+                  {formatCurrencyValue(terms?.offerPrice)}
+                </p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {terms?.earnestMoney
+                    ? `Earnest money ${formatCurrencyValue(terms.earnestMoney)}`
+                    : "Earnest money not entered"}
+                </p>
+              </div>
+
+              <div className="border-b border-border/45 pb-3 md:border-b-0">
+                <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                  Close
+                </p>
+                <p className="mt-2 font-mono text-3xl font-semibold tracking-[-0.04em] tabular-nums text-foreground">
+                  {closingMetric ? formatDate(closingMetric) : "—"}
+                </p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {terms?.dueDiligenceDays
+                    ? `${terms.dueDiligenceDays} due diligence days`
+                    : "Closing schedule not fully set"}
+                </p>
+              </div>
+
+              <div className="md:border-r md:pr-4">
+                <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                  Deadlines
+                </p>
+                <p
+                  className={`mt-2 font-mono text-3xl font-semibold tracking-[-0.04em] tabular-nums ${
+                    urgentDeadlineCount > 0
+                      ? "text-destructive"
+                      : openDeadlineCount > 0
+                        ? "text-foreground"
+                        : "text-emerald-600 dark:text-emerald-400"
+                  }`}
+                >
+                  {openDeadlineCount}
+                </p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {urgentDeadlineCount > 0
+                    ? `${urgentDeadlineCount} due in the next 72 hours`
+                    : openDeadlineCount > 0
+                      ? "Open dated tasks are in range"
+                      : "No dated tasks are blocking the file"}
+                </p>
+              </div>
+
+              <div>
+                <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                  Pack
+                </p>
+                <p
+                  className={`mt-2 text-3xl font-semibold tracking-[-0.04em] ${
+                    packState === "Current"
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : packState === "Unknown"
+                        ? "text-foreground"
+                        : "text-destructive"
+                  }`}
+                >
+                  {packState}
+                </p>
+                <p className="mt-2 text-sm text-muted-foreground">{packDetail}</p>
               </div>
             </div>
           </div>
-          <div className="flex gap-2">
-            <RunTriageButton
-              dealId={deal.id}
-              hasParcels={deal.parcels.length > 0}
-              onComplete={({ triage, sources }) => {
-                setTriageResult(triage);
-                setTriageSources(sources);
-              }}
-            />
-            <Button variant="outline" size="sm" className="gap-1.5" asChild>
-              <Link href={`/deals/${deal.id}/financial-model`}>
-                <Calculator className="h-4 w-4" />
-                Pro Forma
-              </Link>
-            </Button>
-            <Button variant="outline" size="sm" className="gap-1.5" asChild>
-              <Link href={`/?dealId=${deal.id}`}>
-                <MessageSquare className="h-4 w-4" />
-                Chat
-              </Link>
-            </Button>
-            <Button variant="outline" size="sm" className="gap-1.5" asChild>
-              <Link href={`/deals/${deal.id}/edit`}>
-                <PencilLine className="h-4 w-4" />
-                Edit
-              </Link>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 text-destructive hover:text-destructive"
-              onClick={handleDeleteDeal}
-            >
-              <Trash2 className="h-4 w-4" />
-              Delete
-            </Button>
-          </div>
-        </div>
 
-        {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <TabsList>
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="documents">
+          <TabsList className="mt-6 w-full justify-start overflow-x-auto rounded-none border-b border-border/60 pb-0">
+            <TabsTrigger value="overview" className="text-xs tracking-[0.08em]">
+              Overview
+            </TabsTrigger>
+            <TabsTrigger value="documents" className="text-xs tracking-[0.08em]">
               Documents ({deal.uploads?.length ?? 0})
               <ExtractionPendingBadge dealId={deal.id} />
             </TabsTrigger>
-            <TabsTrigger value="parcels">
+            <TabsTrigger value="parcels" className="text-xs tracking-[0.08em]">
               Parcels ({deal.parcels.length})
             </TabsTrigger>
-            <TabsTrigger value="tasks">
+            <TabsTrigger value="tasks" className="text-xs tracking-[0.08em]">
               Tasks ({deal.tasks.length})
             </TabsTrigger>
-            <TabsTrigger value="artifacts">
+            <TabsTrigger value="artifacts" className="text-xs tracking-[0.08em]">
               Artifacts ({deal.artifacts.length})
             </TabsTrigger>
-            <TabsTrigger value="buyers">Buyers</TabsTrigger>
-            <TabsTrigger value="room">Room</TabsTrigger>
+            <TabsTrigger value="buyers" className="text-xs tracking-[0.08em]">Buyers</TabsTrigger>
+            <TabsTrigger value="room" className="text-xs tracking-[0.08em]">Room</TabsTrigger>
           </TabsList>
+        </section>
 
-          {/* Overview Tab */}
-          <TabsContent value="overview">
-            <div className="grid gap-4 lg:grid-cols-3">
-              <div className="space-y-4 lg:col-span-2">
-                {/* Summary Cards */}
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base">Deal Summary</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div>
-                          <p className="text-xs text-muted-foreground">Status</p>
-                          <StatusBadge status={deal.status} />
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Product</p>
-                          <SkuBadge sku={deal.sku} />
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Jurisdiction</p>
-                          <p className="font-medium">
-                            {deal.jurisdiction?.name ?? "--"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Parcels</p>
-                          <p className="font-medium">{deal.parcels.length}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Asset Class</p>
-                          <p className="font-medium">{deal.assetClass ?? "--"}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Strategy</p>
-                          <p className="font-medium">{deal.strategy ?? "--"}</p>
-                        </div>
-                        <div className="col-span-2">
-                          <p className="text-xs text-muted-foreground">Workflow Template</p>
-                          <p className="font-medium">
-                            {deal.workflowTemplate?.name ?? deal.workflowTemplateKey ?? "--"}
-                          </p>
-                        </div>
-                        <div className="col-span-2">
-                          <p className="text-xs text-muted-foreground">Extraction Review</p>
-                          <div className="mt-1">
-                            <ExtractionStatusSummary dealId={deal.id} compact />
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Key Dates</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3 text-sm">
-                    <div>
-                      <p className="text-xs text-muted-foreground">Created</p>
-                      <p className="font-medium">{formatDate(deal.createdAt)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Last Updated</p>
-                      <p className="font-medium">{formatDate(deal.updatedAt)}</p>
-                    </div>
-                    {deal.targetCloseDate && (
-                      <div>
-                        <p className="text-xs text-muted-foreground">Target Close</p>
-                        <p className="font-medium">{formatDate(deal.targetCloseDate)}</p>
-                      </div>
-                    )}
-                    <div>
-                      <p className="text-xs text-muted-foreground">Pack Health</p>
-                      <div className="mt-1 space-y-1">
-                        <p className="font-medium">
-                          {deal.packContext?.hasPack
-                            ? deal.packContext.isStale
-                              ? `Stale (${deal.packContext.stalenessDays ?? "?"} day(s))`
-                              : "Current"
-                            : "No pack found"}
-                        </p>
-                        {deal.packContext?.missingEvidence?.length ? (
-                          <ul className="list-disc pl-4 text-xs text-muted-foreground">
-                            {deal.packContext.missingEvidence.map((item) => (
-                              <li key={item}>
-                                <span className="inline-flex items-center gap-1">
-                                  <AlertTriangle className="h-3 w-3" />
-                                  {item}
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
-                        ) : null}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Acquisition Terms</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3 text-sm">
-                    {terms ? (
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <p className="text-xs text-muted-foreground">Offer Price</p>
-                          <p className="font-medium">{formatCurrencyValue(terms.offerPrice)}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Earnest Money</p>
-                          <p className="font-medium">
-                            {formatCurrencyValue(terms.earnestMoney)}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Closing Date</p>
-                          <p className="font-medium">
-                            {terms.closingDate ? formatDate(terms.closingDate) : "—"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Title Review Due</p>
-                          <p className="font-medium">
-                            {terms.titleReviewDue ? formatDate(terms.titleReviewDue) : "—"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Survey Due</p>
-                          <p className="font-medium">
-                            {terms.surveyDue ? formatDate(terms.surveyDue) : "—"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Environmental Due</p>
-                          <p className="font-medium">
-                            {terms.environmentalDue ? formatDate(terms.environmentalDue) : "—"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">DD Days</p>
-                          <p className="font-medium">
-                            {terms.dueDiligenceDays === null ? "—" : terms.dueDiligenceDays}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Financing Days</p>
-                          <p className="font-medium">
-                            {terms.financingContingencyDays === null
-                              ? "—"
-                              : terms.financingContingencyDays}
-                          </p>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">
-                        No acquisition terms available for this deal.
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Timeline Milestones</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3 text-sm">
-                    {terms || entitlementPath ? (
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <p className="text-xs text-muted-foreground">Offer Closing</p>
-                          <p className="font-medium">
-                            {terms?.closingDate ? formatDate(terms.closingDate) : "—"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Pre-Application</p>
-                          <p className="font-medium">
-                            {entitlementPath?.preAppMeetingDate
-                              ? formatDate(entitlementPath.preAppMeetingDate)
-                              : "—"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Public Notice</p>
-                          <p className="font-medium">
-                            {entitlementPath?.publicNoticeDate
-                              ? formatDate(entitlementPath.publicNoticeDate)
-                              : "—"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Hearing</p>
-                          <p className="font-medium">
-                            {entitlementPath?.hearingScheduledDate
-                              ? formatDate(entitlementPath.hearingScheduledDate)
-                              : "—"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Title Review Due</p>
-                          <p className="font-medium">
-                            {terms?.titleReviewDue ? formatDate(terms.titleReviewDue) : "—"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Survey Due</p>
-                          <p className="font-medium">
-                            {terms?.surveyDue ? formatDate(terms.surveyDue) : "—"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Environmental Due</p>
-                          <p className="font-medium">
-                            {terms?.environmentalDue ? formatDate(terms.environmentalDue) : "—"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Decision Date</p>
-                          <p className="font-medium">
-                            {entitlementPath?.decisionDate
-                              ? formatDate(entitlementPath.decisionDate)
-                              : "—"}
-                          </p>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">
-                        No timeline milestone data available yet.
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Workflow Timeline</CardTitle>
-                    <CardDescription>
-                      Current stage and completed stage history for this workflow template.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <WorkflowTimeline
-                      currentStageKey={deal.currentStageKey ?? null}
-                      workflowTemplate={deal.workflowTemplate ?? null}
-                      stageHistory={deal.stageHistory ?? []}
-                    />
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Entitlement</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3 text-sm">
-                    {entitlementPath ? (
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <p className="text-xs text-muted-foreground">Recommended Strategy</p>
-                          <p className="font-medium">
-                            {entitlementPath.recommendedStrategy ?? "—"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Application Type</p>
-                          <p className="font-medium">
-                            {entitlementPath.applicationType ?? "—"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Hearing Date</p>
-                          <p className="font-medium">
-                            {entitlementPath.hearingScheduledDate
-                              ? formatDate(entitlementPath.hearingScheduledDate)
-                              : "—"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Hearing Body</p>
-                          <p className="font-medium">
-                            {entitlementPath.hearingBody ?? "—"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Decision Date</p>
-                          <p className="font-medium">
-                            {entitlementPath.decisionDate
-                              ? formatDate(entitlementPath.decisionDate)
-                              : "—"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Decision Type</p>
-                          <p className="font-medium">
-                            {entitlementPath.decisionType ?? "—"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Appeal Deadline</p>
-                          <p className="font-medium">
-                            {entitlementPath.appealDeadline
-                              ? formatDate(entitlementPath.appealDeadline)
-                              : "—"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Appeal Filed</p>
-                          <p className="font-medium">
-                            {entitlementPath.appealFiled === null
-                              ? "—"
-                              : entitlementPath.appealFiled
-                                ? "Yes"
-                                : "No"}
-                          </p>
-                        </div>
-                        {entitlementPath.conditions.length > 0 ? (
-                          <div className="col-span-2">
-                            <p className="text-xs text-muted-foreground">Conditions</p>
-                            <ul className="mt-1 list-disc pl-4">
-                              {entitlementPath.conditions.map((condition) => (
-                                <li key={condition} className="text-xs">
-                                  {condition}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        ) : null}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">
-                        No entitlement path available for this deal.
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Property Title</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3 text-sm">
-                    {propertyTitle ? (
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <p className="text-xs text-muted-foreground">Title Insurance</p>
-                          <p className="font-medium">
-                            {propertyTitle.titleInsuranceReceived === null
-                              ? "—"
-                              : propertyTitle.titleInsuranceReceived
-                                ? "Received"
-                                : "Pending"}
-                          </p>
-                        </div>
-                        <div className="col-span-2">
-                          <p className="text-xs text-muted-foreground">Exceptions</p>
-                          <ul className="mt-1 list-disc pl-4">
-                            {propertyTitle.exceptions.length > 0 ? (
-                              propertyTitle.exceptions.map((item) => (
-                                <li key={item} className="text-xs">
-                                  {item}
-                                </li>
-                              ))
-                            ) : (
-                              <li className="text-xs text-muted-foreground">None</li>
-                            )}
-                          </ul>
-                        </div>
-                        <div className="col-span-2">
-                          <p className="text-xs text-muted-foreground">Liens</p>
-                          <ul className="mt-1 list-disc pl-4">
-                            {propertyTitle.liens.length > 0 ? (
-                              propertyTitle.liens.map((item) => (
-                                <li key={item} className="text-xs">
-                                  {item}
-                                </li>
-                              ))
-                            ) : (
-                              <li className="text-xs text-muted-foreground">None</li>
-                            )}
-                          </ul>
-                        </div>
-                        <div className="col-span-2">
-                          <p className="text-xs text-muted-foreground">Easements</p>
-                          <ul className="mt-1 list-disc pl-4">
-                            {propertyTitle.easements.length > 0 ? (
-                              propertyTitle.easements.map((item) => (
-                                <li key={item} className="text-xs">
-                                  {item}
-                                </li>
-                              ))
-                            ) : (
-                              <li className="text-xs text-muted-foreground">None</li>
-                            )}
-                          </ul>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">
-                        No property title information available for this deal.
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Property Survey</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3 text-sm">
-                    {propertySurvey ? (
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <p className="text-xs text-muted-foreground">Survey Completed</p>
-                          <p className="font-medium">
-                            {propertySurvey.surveyCompletedDate
-                              ? formatDate(propertySurvey.surveyCompletedDate)
-                              : "—"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Acreage Confirmed</p>
-                          <p className="font-medium">
-                            {formatNumericValue(propertySurvey.acreageConfirmed)} ac
-                          </p>
-                        </div>
-                        <div className="col-span-2">
-                          <p className="text-xs text-muted-foreground">Encroachments</p>
-                          <ul className="mt-1 list-disc pl-4">
-                            {propertySurvey.encroachments.length > 0 ? (
-                              propertySurvey.encroachments.map((item) => (
-                                <li key={item} className="text-xs">
-                                  {item}
-                                </li>
-                              ))
-                            ) : (
-                              <li className="text-xs text-muted-foreground">None</li>
-                            )}
-                          </ul>
-                        </div>
-                        <div className="col-span-2">
-                          <p className="text-xs text-muted-foreground">Setbacks</p>
-                          <p className="font-mono text-xs whitespace-pre-wrap">
-                            {formatSetbacks(propertySurvey.setbacks)}
-                          </p>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">
-                        No property survey information available for this deal.
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-                </div>
-
-                {/* Deadline Bar */}
-                <DeadlineBar tasks={deal.tasks} />
-
-                {/* Triage Results */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">
-                      {hasGeneralizedScorecards ? "Opportunity Scorecard" : "Triage Assessment"}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {hasGeneralizedScorecards ? (
-                      <GeneralizedScorecard scores={deal.generalizedScorecards} />
-                    ) : triageResult && (triageResult as Record<string, unknown>).decision ? (
-                      <TriageResultPanel
-                        triage={triageResult as Parameters<typeof TriageResultPanel>[0]["triage"]}
-                        sources={triageSources}
-                        dealId={id}
-                        onRunAction={async (action) => {
-                          const dueDate = new Date();
-                          dueDate.setDate(dueDate.getDate() + action.due_in_days);
-                          const res = await fetch(`/api/deals/${id}/tasks`, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                              title: action.title,
-                              description: action.description,
-                              pipelineStep: action.pipeline_step,
-                              dueAt: dueDate.toISOString().slice(0, 10),
-                            }),
-                          });
-                          if (!res.ok) throw new Error("Failed to create task");
-                          const data = await res.json();
-                          setDeal((prev) =>
-                            prev ? { ...prev, tasks: [...prev.tasks, data.task] } : prev
-                          );
-                          return data.task.id;
-                        }}
-                        onTaskCompleted={(taskId, agentOutput) => {
-                          setDeal((prev) => {
-                            if (!prev) return prev;
-                            return {
-                              ...prev,
-                              tasks: prev.tasks.map((t) =>
-                                t.id === taskId
-                                  ? { ...t, status: "DONE", description: (t.description ?? "") + "\n\n---\nAgent Findings:\n" + agentOutput }
-                                  : t
-                              ),
-                            };
-                          });
-                        }}
-                      />
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        No triage run yet. Click "Run Triage" to analyze this deal.
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Notes */}
-                {displayNotes ? (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base">Notes</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="whitespace-pre-wrap text-sm">{displayNotes}</p>
-                    </CardContent>
-                  </Card>
-                ) : null}
-              </div>
-
-              {/* Right column */}
-              <div className="space-y-4">
-                {deal.parcels?.length > 0 && deal.parcels[0]?.propertyDbId && (
-                  <ScreeningScorecard parcelId={deal.parcels[0].propertyDbId} />
-                )}
-                <DealStakeholdersPanel dealId={deal.id} />
-                <RiskRegisterPanel dealId={deal.id} />
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Activity</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ActivityTimeline dealId={deal.id} />
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-          </TabsContent>
+        <TabsContent value="overview" className="mt-0">
+          <DealOverviewWorkspace
+            deal={deal}
+            terms={terms}
+            entitlementPath={entitlementPath}
+            propertyTitle={propertyTitle}
+            propertySurvey={propertySurvey}
+            triageResult={triageResult}
+            triageSources={triageSources}
+            hasGeneralizedScorecards={hasGeneralizedScorecards}
+            displayNotes={displayNotes}
+            onRunAction={async (action) => {
+              const dueDate = new Date();
+              dueDate.setDate(dueDate.getDate() + action.due_in_days);
+              const res = await fetch(`/api/deals/${id}/tasks`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  title: action.title,
+                  description: action.description,
+                  pipelineStep: action.pipeline_step,
+                  dueAt: dueDate.toISOString().slice(0, 10),
+                }),
+              });
+              if (!res.ok) throw new Error("Failed to create task");
+              const data = await res.json();
+              setDeal((prev) =>
+                prev ? { ...prev, tasks: [...prev.tasks, data.task] } : prev
+              );
+              return data.task.id;
+            }}
+            onTaskCompleted={(taskId, agentOutput) => {
+              setDeal((prev) => {
+                if (!prev) return prev;
+                return {
+                  ...prev,
+                  tasks: prev.tasks.map((task) =>
+                    task.id === taskId
+                      ? {
+                          ...task,
+                          status: "DONE",
+                          description:
+                            (task.description ?? "") + "\n\n---\nAgent Findings:\n" + agentOutput,
+                        }
+                      : task,
+                  ),
+                };
+              });
+            }}
+          />
+        </TabsContent>
 
           {/* Documents Tab */}
           <TabsContent value="documents">
@@ -1438,7 +1051,6 @@ export function DealDetailPageClient() {
           </TabsContent>
 
         </Tabs>
-      </div>
     </DashboardShell>
   );
 }

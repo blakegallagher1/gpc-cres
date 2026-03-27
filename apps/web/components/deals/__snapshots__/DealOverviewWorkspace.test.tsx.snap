@@ -1,0 +1,1297 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`DealOverviewWorkspace > renders the redesigned underwriting composition with dense tables and a live rail 1`] = `
+<div
+  class="grid gap-5 xl:grid-cols-[minmax(0,1.28fr)_minmax(320px,0.72fr)]"
+>
+  <div
+    class="space-y-5"
+  >
+    <section
+      class="rounded-2xl border border-border/60 bg-background"
+    >
+      <div
+        class="flex flex-wrap items-end justify-between gap-3 border-b border-border/50 px-4 py-4 md:px-5"
+      >
+        <div
+          class="space-y-2"
+        >
+          <p
+            class="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground"
+          >
+            Core data
+          </p>
+          <div>
+            <h2
+              class="text-sm font-semibold tracking-[-0.02em] text-foreground"
+            >
+              Underwriting ledger
+            </h2>
+            <p
+              class="mt-1 text-sm leading-6 text-muted-foreground"
+            >
+              Identity, acquisition terms, process dates, and entitlement posture in one scanning surface.
+            </p>
+          </div>
+        </div>
+      </div>
+      <div
+        class="px-4 py-4 md:px-5"
+      >
+        <div
+          class="grid gap-5 lg:grid-cols-2"
+        >
+          <div
+            class="space-y-5"
+          >
+            <div
+              class="space-y-3"
+            >
+              <p
+                class="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground"
+              >
+                File identity
+              </p>
+              <table
+                class="w-full border-collapse text-sm"
+              >
+                <tbody>
+                  <tr
+                    class="border-b border-border/45 align-top last:border-b-0"
+                  >
+                    <th
+                      class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                    >
+                      Status
+                    </th>
+                    <td
+                      class="py-3 text-sm leading-6 text-foreground"
+                    >
+                      <div
+                        class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-gray-100 text-gray-700 border-gray-200"
+                      >
+                        UNDER_REVIEW
+                      </div>
+                    </td>
+                  </tr>
+                  <tr
+                    class="border-b border-border/45 align-top last:border-b-0"
+                  >
+                    <th
+                      class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                    >
+                      Product
+                    </th>
+                    <td
+                      class="py-3 text-sm leading-6 text-foreground"
+                    >
+                      <div
+                        class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-purple-100 text-purple-700 border-purple-200"
+                      >
+                        Truck Parking
+                      </div>
+                    </td>
+                  </tr>
+                  <tr
+                    class="border-b border-border/45 align-top last:border-b-0"
+                  >
+                    <th
+                      class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                    >
+                      Triage
+                    </th>
+                    <td
+                      class="py-3 text-sm leading-6 text-foreground"
+                    >
+                      <span
+                        class="inline-flex items-center gap-1.5"
+                      >
+                        <span
+                          class="h-2.5 w-2.5 rounded-full bg-gray-400"
+                        />
+                        <span
+                          class="text-xs text-muted-foreground"
+                        >
+                          Unknown
+                        </span>
+                      </span>
+                    </td>
+                  </tr>
+                  <tr
+                    class="border-b border-border/45 align-top last:border-b-0"
+                  >
+                    <th
+                      class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                    >
+                      Jurisdiction
+                    </th>
+                    <td
+                      class="py-3 text-sm leading-6 text-foreground"
+                    >
+                      East Baton Rouge, LA
+                    </td>
+                  </tr>
+                  <tr
+                    class="border-b border-border/45 align-top last:border-b-0"
+                  >
+                    <th
+                      class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                    >
+                      Current stage
+                    </th>
+                    <td
+                      class="py-3 text-sm leading-6 text-foreground"
+                    >
+                      UNDERWRITING
+                    </td>
+                  </tr>
+                  <tr
+                    class="border-b border-border/45 align-top last:border-b-0"
+                  >
+                    <th
+                      class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                    >
+                      Asset class
+                    </th>
+                    <td
+                      class="py-3 text-sm leading-6 text-foreground"
+                    >
+                      Industrial Outdoor Storage
+                    </td>
+                  </tr>
+                  <tr
+                    class="border-b border-border/45 align-top last:border-b-0"
+                  >
+                    <th
+                      class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                    >
+                      Strategy
+                    </th>
+                    <td
+                      class="py-3 text-sm leading-6 text-foreground"
+                    >
+                      Acquire and entitle
+                    </td>
+                  </tr>
+                  <tr
+                    class="border-b border-border/45 align-top last:border-b-0"
+                  >
+                    <th
+                      class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                    >
+                      Workflow
+                    </th>
+                    <td
+                      class="py-3 text-sm leading-6 text-foreground"
+                    >
+                      Standard Entitlement
+                    </td>
+                  </tr>
+                  <tr
+                    class="border-b border-border/45 align-top last:border-b-0"
+                  >
+                    <th
+                      class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                    >
+                      Extraction
+                    </th>
+                    <td
+                      class="py-3 text-sm leading-6 text-foreground"
+                    >
+                      <div>
+                        Extraction summary
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div
+              class="space-y-3"
+            >
+              <p
+                class="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground"
+              >
+                Acquisition
+              </p>
+              <table
+                class="w-full border-collapse text-sm"
+              >
+                <tbody>
+                  <tr
+                    class="border-b border-border/45 align-top last:border-b-0"
+                  >
+                    <th
+                      class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                    >
+                      Offer price
+                    </th>
+                    <td
+                      class="py-3 text-sm leading-6 text-foreground"
+                    >
+                      <span
+                        class="font-mono tabular-nums"
+                      >
+                        $8,250,000.00
+                      </span>
+                    </td>
+                  </tr>
+                  <tr
+                    class="border-b border-border/45 align-top last:border-b-0"
+                  >
+                    <th
+                      class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                    >
+                      Earnest money
+                    </th>
+                    <td
+                      class="py-3 text-sm leading-6 text-foreground"
+                    >
+                      <span
+                        class="font-mono tabular-nums"
+                      >
+                        $250,000.00
+                      </span>
+                    </td>
+                  </tr>
+                  <tr
+                    class="border-b border-border/45 align-top last:border-b-0"
+                  >
+                    <th
+                      class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                    >
+                      Closing date
+                    </th>
+                    <td
+                      class="py-3 text-sm leading-6 text-foreground"
+                    >
+                      <span
+                        class="font-mono tabular-nums"
+                      >
+                        Apr 29, 07:00 PM
+                      </span>
+                    </td>
+                  </tr>
+                  <tr
+                    class="border-b border-border/45 align-top last:border-b-0"
+                  >
+                    <th
+                      class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                    >
+                      Due diligence
+                    </th>
+                    <td
+                      class="py-3 text-sm leading-6 text-foreground"
+                    >
+                      45 days
+                    </td>
+                  </tr>
+                  <tr
+                    class="border-b border-border/45 align-top last:border-b-0"
+                  >
+                    <th
+                      class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                    >
+                      Financing
+                    </th>
+                    <td
+                      class="py-3 text-sm leading-6 text-foreground"
+                    >
+                      30 days
+                    </td>
+                  </tr>
+                  <tr
+                    class="border-b border-border/45 align-top last:border-b-0"
+                  >
+                    <th
+                      class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                    >
+                      Title company
+                    </th>
+                    <td
+                      class="py-3 text-sm leading-6 text-foreground"
+                    >
+                      Clear Title
+                    </td>
+                  </tr>
+                  <tr
+                    class="border-b border-border/45 align-top last:border-b-0"
+                  >
+                    <th
+                      class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                    >
+                      Title review due
+                    </th>
+                    <td
+                      class="py-3 text-sm leading-6 text-foreground"
+                    >
+                      <span
+                        class="font-mono tabular-nums"
+                      >
+                        Apr 4, 07:00 PM
+                      </span>
+                    </td>
+                  </tr>
+                  <tr
+                    class="border-b border-border/45 align-top last:border-b-0"
+                  >
+                    <th
+                      class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                    >
+                      Survey due
+                    </th>
+                    <td
+                      class="py-3 text-sm leading-6 text-foreground"
+                    >
+                      <span
+                        class="font-mono tabular-nums"
+                      >
+                        Apr 7, 07:00 PM
+                      </span>
+                    </td>
+                  </tr>
+                  <tr
+                    class="border-b border-border/45 align-top last:border-b-0"
+                  >
+                    <th
+                      class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                    >
+                      Environmental due
+                    </th>
+                    <td
+                      class="py-3 text-sm leading-6 text-foreground"
+                    >
+                      <span
+                        class="font-mono tabular-nums"
+                      >
+                        Apr 11, 07:00 PM
+                      </span>
+                    </td>
+                  </tr>
+                  <tr
+                    class="border-b border-border/45 align-top last:border-b-0"
+                  >
+                    <th
+                      class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                    >
+                      LOI signed
+                    </th>
+                    <td
+                      class="py-3 text-sm leading-6 text-foreground"
+                    >
+                      <span
+                        class="font-mono tabular-nums"
+                      >
+                        Mar 9, 07:00 PM
+                      </span>
+                    </td>
+                  </tr>
+                  <tr
+                    class="border-b border-border/45 align-top last:border-b-0"
+                  >
+                    <th
+                      class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                    >
+                      PSA signed
+                    </th>
+                    <td
+                      class="py-3 text-sm leading-6 text-foreground"
+                    >
+                      <span
+                        class="font-mono tabular-nums"
+                      >
+                        Mar 17, 07:00 PM
+                      </span>
+                    </td>
+                  </tr>
+                  <tr
+                    class="border-b border-border/45 align-top last:border-b-0"
+                  >
+                    <th
+                      class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                    >
+                      Seller contact
+                    </th>
+                    <td
+                      class="py-3 text-sm leading-6 text-foreground"
+                    >
+                      seller@example.com
+                    </td>
+                  </tr>
+                  <tr
+                    class="border-b border-border/45 align-top last:border-b-0"
+                  >
+                    <th
+                      class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                    >
+                      Broker contact
+                    </th>
+                    <td
+                      class="py-3 text-sm leading-6 text-foreground"
+                    >
+                      broker@example.com
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div
+            class="space-y-5"
+          >
+            <div
+              class="space-y-3"
+            >
+              <p
+                class="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground"
+              >
+                Timeline
+              </p>
+              <table
+                class="w-full border-collapse text-sm"
+              >
+                <tbody>
+                  <tr
+                    class="border-b border-border/45 align-top last:border-b-0"
+                  >
+                    <th
+                      class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                    >
+                      Created
+                    </th>
+                    <td
+                      class="py-3 text-sm leading-6 text-foreground"
+                    >
+                      <span
+                        class="font-mono tabular-nums"
+                      >
+                        Feb 28, 06:00 PM
+                      </span>
+                    </td>
+                  </tr>
+                  <tr
+                    class="border-b border-border/45 align-top last:border-b-0"
+                  >
+                    <th
+                      class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                    >
+                      Last updated
+                    </th>
+                    <td
+                      class="py-3 text-sm leading-6 text-foreground"
+                    >
+                      <span
+                        class="font-mono tabular-nums"
+                      >
+                        Mar 26, 07:00 PM
+                      </span>
+                    </td>
+                  </tr>
+                  <tr
+                    class="border-b border-border/45 align-top last:border-b-0"
+                  >
+                    <th
+                      class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                    >
+                      Target close
+                    </th>
+                    <td
+                      class="py-3 text-sm leading-6 text-foreground"
+                    >
+                      <span
+                        class="font-mono tabular-nums"
+                      >
+                        Apr 29, 07:00 PM
+                      </span>
+                    </td>
+                  </tr>
+                  <tr
+                    class="border-b border-border/45 align-top last:border-b-0"
+                  >
+                    <th
+                      class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                    >
+                      Pre-app meeting
+                    </th>
+                    <td
+                      class="py-3 text-sm leading-6 text-foreground"
+                    >
+                      <span
+                        class="font-mono tabular-nums"
+                      >
+                        Mar 20, 07:00 PM
+                      </span>
+                    </td>
+                  </tr>
+                  <tr
+                    class="border-b border-border/45 align-top last:border-b-0"
+                  >
+                    <th
+                      class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                    >
+                      Application submitted
+                    </th>
+                    <td
+                      class="py-3 text-sm leading-6 text-foreground"
+                    >
+                      <span
+                        class="font-mono tabular-nums"
+                      >
+                        Mar 24, 07:00 PM
+                      </span>
+                    </td>
+                  </tr>
+                  <tr
+                    class="border-b border-border/45 align-top last:border-b-0"
+                  >
+                    <th
+                      class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                    >
+                      Public notice
+                    </th>
+                    <td
+                      class="py-3 text-sm leading-6 text-foreground"
+                    >
+                      <span
+                        class="font-mono tabular-nums"
+                      >
+                        Apr 1, 07:00 PM
+                      </span>
+                    </td>
+                  </tr>
+                  <tr
+                    class="border-b border-border/45 align-top last:border-b-0"
+                  >
+                    <th
+                      class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                    >
+                      Hearing
+                    </th>
+                    <td
+                      class="py-3 text-sm leading-6 text-foreground"
+                    >
+                      <span
+                        class="font-mono tabular-nums"
+                      >
+                        Apr 19, 07:00 PM
+                      </span>
+                    </td>
+                  </tr>
+                  <tr
+                    class="border-b border-border/45 align-top last:border-b-0"
+                  >
+                    <th
+                      class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                    >
+                      Decision
+                    </th>
+                    <td
+                      class="py-3 text-sm leading-6 text-foreground"
+                    >
+                      <span
+                        class="font-mono tabular-nums"
+                      >
+                        Apr 26, 07:00 PM
+                      </span>
+                    </td>
+                  </tr>
+                  <tr
+                    class="border-b border-border/45 align-top last:border-b-0"
+                  >
+                    <th
+                      class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                    >
+                      Appeal deadline
+                    </th>
+                    <td
+                      class="py-3 text-sm leading-6 text-foreground"
+                    >
+                      <span
+                        class="font-mono tabular-nums"
+                      >
+                        May 6, 07:00 PM
+                      </span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div
+              class="space-y-3"
+            >
+              <p
+                class="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground"
+              >
+                Entitlement
+              </p>
+              <table
+                class="w-full border-collapse text-sm"
+              >
+                <tbody>
+                  <tr
+                    class="border-b border-border/45 align-top last:border-b-0"
+                  >
+                    <th
+                      class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                    >
+                      Strategy
+                    </th>
+                    <td
+                      class="py-3 text-sm leading-6 text-foreground"
+                    >
+                      Variance plus site plan approval
+                    </td>
+                  </tr>
+                  <tr
+                    class="border-b border-border/45 align-top last:border-b-0"
+                  >
+                    <th
+                      class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                    >
+                      Application type
+                    </th>
+                    <td
+                      class="py-3 text-sm leading-6 text-foreground"
+                    >
+                      Conditional Use Permit
+                    </td>
+                  </tr>
+                  <tr
+                    class="border-b border-border/45 align-top last:border-b-0"
+                  >
+                    <th
+                      class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                    >
+                      Application number
+                    </th>
+                    <td
+                      class="py-3 text-sm leading-6 text-foreground"
+                    >
+                      CUP-2026-041
+                    </td>
+                  </tr>
+                  <tr
+                    class="border-b border-border/45 align-top last:border-b-0"
+                  >
+                    <th
+                      class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                    >
+                      Hearing body
+                    </th>
+                    <td
+                      class="py-3 text-sm leading-6 text-foreground"
+                    >
+                      Planning Commission
+                    </td>
+                  </tr>
+                  <tr
+                    class="border-b border-border/45 align-top last:border-b-0"
+                  >
+                    <th
+                      class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                    >
+                      Decision type
+                    </th>
+                    <td
+                      class="py-3 text-sm leading-6 text-foreground"
+                    >
+                      Approval with conditions
+                    </td>
+                  </tr>
+                  <tr
+                    class="border-b border-border/45 align-top last:border-b-0"
+                  >
+                    <th
+                      class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                    >
+                      Condition status
+                    </th>
+                    <td
+                      class="py-3 text-sm leading-6 text-foreground"
+                    >
+                      In progress
+                    </td>
+                  </tr>
+                  <tr
+                    class="border-b border-border/45 align-top last:border-b-0"
+                  >
+                    <th
+                      class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                    >
+                      Notice period
+                    </th>
+                    <td
+                      class="py-3 text-sm leading-6 text-foreground"
+                    >
+                      15 days
+                    </td>
+                  </tr>
+                  <tr
+                    class="border-b border-border/45 align-top last:border-b-0"
+                  >
+                    <th
+                      class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                    >
+                      Appeal filed
+                    </th>
+                    <td
+                      class="py-3 text-sm leading-6 text-foreground"
+                    >
+                      No
+                    </td>
+                  </tr>
+                  <tr
+                    class="border-b border-border/45 align-top last:border-b-0"
+                  >
+                    <th
+                      class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                    >
+                      Conditions
+                    </th>
+                    <td
+                      class="py-3 text-sm leading-6 text-foreground"
+                    >
+                      <ul
+                        class="space-y-2 text-sm leading-6 text-foreground"
+                      >
+                        <li
+                          class="border-b border-border/45 pb-2 last:border-b-0 last:pb-0"
+                        >
+                          Landscape buffer at frontage
+                        </li>
+                        <li
+                          class="border-b border-border/45 pb-2 last:border-b-0 last:pb-0"
+                        >
+                          Truck route signage
+                        </li>
+                      </ul>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section
+      class="rounded-2xl border border-border/60 bg-background"
+    >
+      <div
+        class="flex flex-wrap items-end justify-between gap-3 border-b border-border/50 px-4 py-4 md:px-5"
+      >
+        <div
+          class="space-y-2"
+        >
+          <p
+            class="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground"
+          >
+            Supporting analysis
+          </p>
+          <div>
+            <h2
+              class="text-sm font-semibold tracking-[-0.02em] text-foreground"
+            >
+              Property diligence
+            </h2>
+            <p
+              class="mt-1 text-sm leading-6 text-muted-foreground"
+            >
+              Pack freshness, title constraints, and survey detail that can slow or reframe the file.
+            </p>
+          </div>
+        </div>
+        <a
+          class="inline-flex items-center justify-center whitespace-nowrap border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background/42 hover:bg-accent/40 hover:text-accent-foreground h-9 rounded-lg px-3"
+          href="/deals/deal-1?tab=documents"
+        >
+          Open documents
+        </a>
+      </div>
+      <div
+        class="px-4 py-4 md:px-5"
+      >
+        <div
+          class="grid gap-5 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]"
+        >
+          <div
+            class="space-y-3"
+          >
+            <p
+              class="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground"
+            >
+              Diligence signal
+            </p>
+            <table
+              class="w-full border-collapse text-sm"
+            >
+              <tbody>
+                <tr
+                  class="border-b border-border/45 align-top last:border-b-0"
+                >
+                  <th
+                    class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                  >
+                    Pack health
+                  </th>
+                  <td
+                    class="py-3 text-sm leading-6 text-destructive"
+                  >
+                    <div
+                      class="flex flex-wrap items-center gap-2"
+                    >
+                      <div
+                        class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80"
+                      >
+                        Stale
+                      </div>
+                      <span
+                        class="text-sm text-muted-foreground"
+                      >
+                        11 day stale
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+                <tr
+                  class="border-b border-border/45 align-top last:border-b-0"
+                >
+                  <th
+                    class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                  >
+                    Missing evidence
+                  </th>
+                  <td
+                    class="py-3 text-sm leading-6 text-foreground"
+                  >
+                    <ul
+                      class="space-y-2 text-sm leading-6 text-foreground"
+                    >
+                      <li
+                        class="border-b border-border/45 pb-2 last:border-b-0 last:pb-0"
+                      >
+                        Stormwater memo
+                      </li>
+                      <li
+                        class="border-b border-border/45 pb-2 last:border-b-0 last:pb-0"
+                      >
+                        Phase I environmental report
+                      </li>
+                    </ul>
+                  </td>
+                </tr>
+                <tr
+                  class="border-b border-border/45 align-top last:border-b-0"
+                >
+                  <th
+                    class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                  >
+                    Title insurance
+                  </th>
+                  <td
+                    class="py-3 text-sm leading-6 text-foreground"
+                  >
+                    Received
+                  </td>
+                </tr>
+                <tr
+                  class="border-b border-border/45 align-top last:border-b-0"
+                >
+                  <th
+                    class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                  >
+                    Survey completed
+                  </th>
+                  <td
+                    class="py-3 text-sm leading-6 text-foreground"
+                  >
+                    <span
+                      class="font-mono tabular-nums"
+                    >
+                      Mar 21, 07:00 PM
+                    </span>
+                  </td>
+                </tr>
+                <tr
+                  class="border-b border-border/45 align-top last:border-b-0"
+                >
+                  <th
+                    class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                  >
+                    Acreage
+                  </th>
+                  <td
+                    class="py-3 text-sm leading-6 text-foreground"
+                  >
+                    <span
+                      class="font-mono tabular-nums"
+                    >
+                      12.45 ac
+                    </span>
+                  </td>
+                </tr>
+                <tr
+                  class="border-b border-border/45 align-top last:border-b-0"
+                >
+                  <th
+                    class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+                  >
+                    Setbacks
+                  </th>
+                  <td
+                    class="py-3 text-sm leading-6 text-foreground"
+                  >
+                    <span
+                      class="font-mono text-[12px] leading-6 text-muted-foreground"
+                    >
+                      front: 25 ft · side: 10 ft
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div
+            class="grid gap-5 md:grid-cols-2"
+          >
+            <div
+              class="space-y-3"
+            >
+              <p
+                class="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground"
+              >
+                Title exceptions
+              </p>
+              <p
+                class="text-sm text-muted-foreground"
+              >
+                No title exceptions logged.
+              </p>
+            </div>
+            <div
+              class="space-y-3"
+            >
+              <p
+                class="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground"
+              >
+                Liens
+              </p>
+              <ul
+                class="space-y-2 text-sm leading-6 text-foreground"
+              >
+                <li
+                  class="border-b border-border/45 pb-2 last:border-b-0 last:pb-0"
+                >
+                  Legacy drainage servitude
+                </li>
+              </ul>
+            </div>
+            <div
+              class="space-y-3"
+            >
+              <p
+                class="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground"
+              >
+                Easements
+              </p>
+              <ul
+                class="space-y-2 text-sm leading-6 text-foreground"
+              >
+                <li
+                  class="border-b border-border/45 pb-2 last:border-b-0 last:pb-0"
+                >
+                  Utility easement along rear boundary
+                </li>
+              </ul>
+            </div>
+            <div
+              class="space-y-3"
+            >
+              <p
+                class="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground"
+              >
+                Encroachments
+              </p>
+              <ul
+                class="space-y-2 text-sm leading-6 text-foreground"
+              >
+                <li
+                  class="border-b border-border/45 pb-2 last:border-b-0 last:pb-0"
+                >
+                  Neighbor fence overlaps by 1.2 feet
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section
+      class="rounded-2xl border border-border/60 bg-background"
+    >
+      <div
+        class="flex flex-wrap items-end justify-between gap-3 border-b border-border/50 px-4 py-4 md:px-5"
+      >
+        <div
+          class="space-y-2"
+        >
+          <p
+            class="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground"
+          >
+            Decisioning
+          </p>
+          <div>
+            <h2
+              class="text-sm font-semibold tracking-[-0.02em] text-foreground"
+            >
+              Triage assessment
+            </h2>
+            <p
+              class="mt-1 text-sm leading-6 text-muted-foreground"
+            >
+              The current underwriting recommendation and the next taskable actions for the file.
+            </p>
+          </div>
+        </div>
+        <a
+          class="inline-flex items-center justify-center whitespace-nowrap border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background/42 hover:bg-accent/40 hover:text-accent-foreground h-9 rounded-lg px-3"
+          href="/deals/deal-1/financial-model"
+        >
+          Open pro forma
+        </a>
+      </div>
+      <div
+        class="px-4 py-4 md:px-5"
+      >
+        <div>
+          Triage result panel
+        </div>
+      </div>
+    </section>
+    <section
+      class="rounded-2xl border border-border/60 bg-background"
+    >
+      <div
+        class="flex flex-wrap items-end justify-between gap-3 border-b border-border/50 px-4 py-4 md:px-5"
+      >
+        <div
+          class="space-y-2"
+        >
+          <p
+            class="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground"
+          >
+            Execution
+          </p>
+          <div>
+            <h2
+              class="text-sm font-semibold tracking-[-0.02em] text-foreground"
+            >
+              Workflow track
+            </h2>
+            <p
+              class="mt-1 text-sm leading-6 text-muted-foreground"
+            >
+              Stage history and current handoff status across the entitlement workflow.
+            </p>
+          </div>
+        </div>
+        <a
+          class="inline-flex items-center justify-center whitespace-nowrap border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background/42 hover:bg-accent/40 hover:text-accent-foreground h-9 rounded-lg px-3"
+          href="/deals/deal-1?tab=tasks"
+        >
+          Open tasks
+        </a>
+      </div>
+      <div
+        class="px-4 py-4 md:px-5"
+      >
+        <div>
+          Workflow timeline
+        </div>
+      </div>
+    </section>
+    <section
+      class="rounded-2xl border border-border/60 bg-background"
+    >
+      <div
+        class="flex flex-wrap items-end justify-between gap-3 border-b border-border/50 px-4 py-4 md:px-5"
+      >
+        <div
+          class="space-y-2"
+        >
+          <p
+            class="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground"
+          >
+            Operator notes
+          </p>
+          <div>
+            <h2
+              class="text-sm font-semibold tracking-[-0.02em] text-foreground"
+            >
+              Notes
+            </h2>
+            <p
+              class="mt-1 text-sm leading-6 text-muted-foreground"
+            >
+              Freeform context that should stay attached to the underwriting file.
+            </p>
+          </div>
+        </div>
+      </div>
+      <div
+        class="px-4 py-4 md:px-5"
+      >
+        <p
+          class="whitespace-pre-wrap text-sm leading-7 text-foreground"
+        >
+          Operator flagged access assumptions for review.
+        </p>
+      </div>
+    </section>
+  </div>
+  <aside
+    class="space-y-5"
+  >
+    <section
+      class="rounded-2xl border border-border/60 bg-background"
+    >
+      <div
+        class="flex flex-wrap items-end justify-between gap-3 border-b border-border/50 px-4 py-4 md:px-5"
+      >
+        <div
+          class="space-y-2"
+        >
+          <p
+            class="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground"
+          >
+            Watchlist
+          </p>
+          <div>
+            <h2
+              class="text-sm font-semibold tracking-[-0.02em] text-foreground"
+            >
+              Live watchlist
+            </h2>
+            <p
+              class="mt-1 text-sm leading-6 text-muted-foreground"
+            >
+              What can block momentum in the next 72 hours.
+            </p>
+          </div>
+        </div>
+        <div
+          class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80"
+        >
+          1
+           open
+        </div>
+      </div>
+      <div
+        class="px-4 py-4 md:px-5"
+      >
+        <div
+          class="space-y-4"
+        >
+          <div
+            class="flex flex-wrap items-center gap-2"
+          >
+            <div
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-gray-100 text-gray-700 border-gray-200"
+            >
+              UNDER_REVIEW
+            </div>
+            <div
+              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-purple-100 text-purple-700 border-purple-200"
+            >
+              Truck Parking
+            </div>
+            <span
+              class="inline-flex items-center gap-1.5"
+            >
+              <span
+                class="h-2.5 w-2.5 rounded-full bg-gray-400"
+              />
+              <span
+                class="text-xs text-muted-foreground"
+              >
+                Unknown
+              </span>
+            </span>
+          </div>
+          <div
+            class="rounded-xl border border-border/50 px-3 py-3"
+          >
+            <div
+              class="flex flex-wrap items-center gap-2"
+            >
+              <span
+                class="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground"
+              >
+                Pack status
+              </span>
+              <div
+                class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80"
+              >
+                Stale
+              </div>
+            </div>
+            <p
+              class="mt-2 text-sm leading-6 text-muted-foreground"
+            >
+              Refresh required. Pack is 11 day(s) stale.
+            </p>
+          </div>
+          <div>
+            Deadline bar
+          </div>
+          <div>
+            Site screening
+          </div>
+        </div>
+      </div>
+    </section>
+    <div>
+      Stakeholders panel
+    </div>
+    <div>
+      Risk register panel
+    </div>
+    <section
+      class="rounded-2xl border border-border/60 bg-background"
+    >
+      <div
+        class="flex flex-wrap items-end justify-between gap-3 border-b border-border/50 px-4 py-4 md:px-5"
+      >
+        <div
+          class="space-y-2"
+        >
+          <p
+            class="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground"
+          >
+            Activity
+          </p>
+          <div>
+            <h2
+              class="text-sm font-semibold tracking-[-0.02em] text-foreground"
+            >
+              Recent activity
+            </h2>
+            <p
+              class="mt-1 text-sm leading-6 text-muted-foreground"
+            >
+              The latest timeline events on the file.
+            </p>
+          </div>
+        </div>
+      </div>
+      <div
+        class="px-4 py-4 md:px-5"
+      >
+        <div>
+          Activity timeline
+        </div>
+      </div>
+    </section>
+  </aside>
+</div>
+`;
