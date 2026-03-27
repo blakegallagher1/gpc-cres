@@ -143,14 +143,18 @@ Cloudflare Hyperdrive provides connection pooling and caching between Vercel ser
 | Access policy | Service Auth via `hyperdrive-db` service token |
 
 **How it works:**
-1. Vercel sends Prisma SQL via HTTPS POST to `agents.gallagherpropco.com/db`
-   (control-plane/tooling path only; not used as fallback for authoritative parcel/property/deals runtime flows)
-2. CF Worker uses Hyperdrive binding to get a pooled Postgres connection
-3. Hyperdrive connects through the tunnel to `db.gallagherpropco.com` (TCP)
-4. The tunnel routes to `entitlement-os-postgres:5432` on the Docker network
-5. Results return through the same chain
+1. Vercel sends Prisma SQL via HTTPS POST to the configured DB gateway URL.
+2. When `GATEWAY_PROXY_URL` is set, Prisma prefers `https://gateway.gallagherpropco.com/db`
+   so the CF Worker owns the upstream Cloudflare Access hop.
+3. Otherwise Prisma falls back to `GATEWAY_DATABASE_URL` (currently the FastAPI
+   gateway `/db` endpoint at `https://api.gallagherpropco.com/db`).
+4. The upstream gateway connects to the app Postgres instance through the tunnel at
+   `db.gallagherpropco.com` (TCP) or directly on the Docker network.
+5. Results return through the same chain.
 
-**Prisma integration:** `packages/db/src/gateway-adapter.ts` implements `SqlDriverAdapterFactory` — activates when `GATEWAY_DATABASE_URL` + `LOCAL_API_KEY` are both set on Vercel.
+**Prisma integration:** `packages/db/src/gateway-adapter.ts` implements `SqlDriverAdapterFactory`, and `packages/db/src/client.ts` selects the bearer-authenticated gateway target in this order:
+- `GATEWAY_PROXY_URL` + (`GATEWAY_PROXY_TOKEN` or `LOCAL_API_KEY`)
+- `GATEWAY_DATABASE_URL` + `LOCAL_API_KEY`
 
 **SSL:** Self-signed cert enabled on Postgres (required by Hyperdrive). 10-year expiry, auto-generated in container.
 

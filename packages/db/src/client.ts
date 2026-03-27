@@ -32,13 +32,25 @@ function withPoolParams(url: string): string {
   return parsed.toString();
 }
 
-function createPrismaClient(url: string | null): PrismaClient {
-  // Gateway adapter mode: route queries over HTTPS to Cloudflare Worker + Hyperdrive
-  const gatewayUrl = process.env.GATEWAY_DATABASE_URL?.trim();
-  const gatewayKey = process.env.LOCAL_API_KEY?.trim();
+function getGatewayConfig(): { url: string | null; key: string | null } {
+  const proxyUrl = normalizeDbUrl(process.env.GATEWAY_PROXY_URL);
+  if (proxyUrl) {
+    const proxyKey = process.env.GATEWAY_PROXY_TOKEN?.trim() || process.env.LOCAL_API_KEY?.trim() || null;
+    return { url: proxyUrl, key: proxyKey };
+  }
 
-  if (gatewayUrl && gatewayKey) {
-    const adapter = createGatewayAdapterFactory(gatewayUrl, gatewayKey);
+  const directGatewayUrl = normalizeDbUrl(process.env.GATEWAY_DATABASE_URL);
+  const directGatewayKey = process.env.LOCAL_API_KEY?.trim() || null;
+  return { url: directGatewayUrl, key: directGatewayKey };
+}
+
+function createPrismaClient(url: string | null): PrismaClient {
+  // Prefer the public gateway proxy when configured so Vercel does not depend on
+  // direct Cloudflare Access credentials for the FastAPI /db endpoint.
+  const gateway = getGatewayConfig();
+
+  if (gateway.url && gateway.key) {
+    const adapter = createGatewayAdapterFactory(gateway.url, gateway.key);
     return new PrismaClient({
       adapter,
       log:

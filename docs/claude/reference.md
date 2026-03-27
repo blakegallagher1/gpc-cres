@@ -62,7 +62,9 @@ AGENT_SESSION_IDLE_TIMEOUT_MS, AGENT_SESSION_MAX_DURATION_MS
 
 ### Vercel Production (key vars)
 ```
-GATEWAY_DATABASE_URL=https://api.gallagherpropco.com  (FastAPI gateway /db endpoint for Prisma)
+GATEWAY_PROXY_URL=https://gateway.gallagherpropco.com  (preferred Prisma /db target)
+GATEWAY_PROXY_TOKEN  (optional for Prisma; LOCAL_API_KEY also works against the proxy)
+GATEWAY_DATABASE_URL=https://api.gallagherpropco.com  (fallback FastAPI /db endpoint for Prisma)
 LOCAL_API_KEY  (gateway bearer token)
 LOCAL_API_URL=https://api.gallagherpropco.com
 CF_ACCESS_CLIENT_ID=<service token id>
@@ -157,7 +159,8 @@ OPENAI_API_KEY=<your-openai-api-key>
 ## Authoritative data vs semantic recall
 
 - Parcel, deal, and parcel-intelligence data must be fetched in production only through the FastAPI gateway path: `LOCAL_API_URL` + `LOCAL_API_KEY` + Cloudflare Access headers, so queries stay on the local DB server path.
-- `GATEWAY_DATABASE_URL` is for Prisma-enabled control-plane paths that still need PostgreSQL connectivity; it must not be the active path for transactional/parcels/deals reads or writes in runtime request handling.
+- `GATEWAY_PROXY_URL` is the preferred Prisma target when available because it keeps direct Cloudflare Access dependencies out of Vercel.
+- `GATEWAY_DATABASE_URL` remains the fallback Prisma target for control-plane paths that still need PostgreSQL connectivity; it must not be the active path for transactional/parcels/deals reads or writes in runtime request handling.
 - `DATABASE_URL` (and `DIRECT_DATABASE_URL`) are local-dev/tooling values only and must not be considered production authoritative.
 - Qdrant stays semantic-only. Some semantic helpers are exposed through gateway-authenticated tools (`docs.search`, `memory.write`), while other runtime paths still use direct `QDRANT_URL` access for semantic recall. In all cases, Qdrant augments authoritative Postgres records instead of replacing them.
 - After any infra change, run the smoke trio to prove this split remains intact: `pnpm smoke:endpoints` (gateway-backed reads + semantic recall), `pnpm smoke:gateway:edge-access` (Cloudflare Access behavior), and `bash scripts/verify-production-features.sh` (full production harness).
