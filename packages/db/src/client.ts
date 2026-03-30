@@ -34,9 +34,17 @@ function withPoolParams(url: string): string {
 
 function getGatewayConfig(): { url: string | null; key: string | null } {
   const proxyUrl = normalizeDbUrl(process.env.GATEWAY_PROXY_URL);
+  const proxyKey = process.env.GATEWAY_PROXY_TOKEN?.trim() || process.env.LOCAL_API_KEY?.trim() || null;
   if (proxyUrl) {
-    const proxyKey = process.env.GATEWAY_PROXY_TOKEN?.trim() || process.env.LOCAL_API_KEY?.trim() || null;
     return { url: proxyUrl, key: proxyKey };
+  }
+
+  const isHostedRuntime =
+    process.env.NODE_ENV === "production" ||
+    process.env.VERCEL === "1" ||
+    Boolean(process.env.VERCEL_ENV?.trim());
+  if (isHostedRuntime && proxyKey) {
+    return { url: "https://gateway.gallagherpropco.com", key: proxyKey };
   }
 
   const directGatewayUrl = normalizeDbUrl(process.env.GATEWAY_DATABASE_URL);
@@ -45,10 +53,6 @@ function getGatewayConfig(): { url: string | null; key: string | null } {
     return { url: directGatewayUrl, key: directGatewayKey };
   }
 
-  const isHostedRuntime =
-    process.env.NODE_ENV === "production" ||
-    process.env.VERCEL === "1" ||
-    Boolean(process.env.VERCEL_ENV?.trim());
   const localApiUrl = isHostedRuntime ? normalizeDbUrl(process.env.LOCAL_API_URL) : null;
   return { url: localApiUrl, key: directGatewayKey };
 }
