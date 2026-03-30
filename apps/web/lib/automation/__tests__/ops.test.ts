@@ -211,6 +211,7 @@ describe("ops", () => {
 
     it('should return "degraded" when non-critical vars missing', () => {
       delete process.env.AUTH_SECRET;
+      delete process.env.NEXTAUTH_SECRET;
       process.env.LOCAL_API_URL = "http://localhost:8000";
       process.env.LOCAL_API_KEY = "test-api-key";
       process.env.OPENAI_API_KEY = "sk-test";

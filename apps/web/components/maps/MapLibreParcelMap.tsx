@@ -1499,7 +1499,7 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
             },
             "parcel-tiles": {
               type: "vector",
-              tiles: [getMartinParcelTileUrl("ebr_parcels") || getParcelTileUrl()],
+              tiles: [getParcelTileUrl()],
               minzoom: 10,
               maxzoom: 22,
             },
@@ -1852,6 +1852,17 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
         if (disposed) return;
 
         map.resize();
+
+        // Standard map controls
+        map.addControl(
+          new maplibregl.NavigationControl({ visualizePitch: true, showCompass: true }),
+          "top-right",
+        );
+        map.addControl(
+          new maplibregl.ScaleControl({ maxWidth: 100, unit: "imperial" }),
+          "bottom-left",
+        );
+
         setMapReady(true);
         onMapReadyRef.current?.();
 
@@ -1865,7 +1876,7 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
           try {
             const src = map.getSource("parcel-tiles");
             if (src && "setTiles" in src && typeof src.setTiles === "function") {
-              src.setTiles([getMartinParcelTileUrl("ebr_parcels") || getParcelTileUrl()]);
+              src.setTiles([getParcelTileUrl()]);
             }
           } catch { /* non-critical */ }
         };
@@ -1983,6 +1994,19 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
       mapRef.current.jumpTo({ zoom });
     }
   }, [zoom, mapReady]);
+
+  // Keep MapLibre canvas sized to its container when layout shifts (sidebar
+  // toggle, operator console show/hide, window resize, etc.).
+  useEffect(() => {
+    const map = mapRef.current;
+    const container = mapContainerRef.current;
+    if (!map || !container || !mapReady) return;
+    const ro = new ResizeObserver(() => {
+      map.resize();
+    });
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, [mapReady]);
 
   useEffect(() => {
     if (!mapRef.current || !mapReady) return;
