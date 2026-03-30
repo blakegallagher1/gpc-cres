@@ -82,7 +82,7 @@ export function Header() {
       <div className="flex h-full w-full items-center justify-between gap-3">
         <motion.div
           key={route.href}
-          initial={reduceMotion ? false : { opacity: 0, y: 10 }}
+          initial={false}
           animate={{ opacity: 1, y: 0 }}
           transition={HEADER_TRANSITION}
           className="min-w-0 flex-1"
@@ -104,9 +104,9 @@ export function Header() {
               </div>
               <div className="mt-1 flex min-w-0 items-center gap-2">
                 {isMobile && <RouteIcon className="h-4 w-4 shrink-0 text-foreground/80" />}
-                <h1 className="truncate text-base font-semibold tracking-[-0.03em] md:text-xl">
+                <h2 className="truncate text-base font-semibold tracking-[-0.03em] md:text-xl">
                   {route.title}
-                </h1>
+                </h2>
               </div>
               {!isMobile && (
                 <div className="mt-1 flex min-w-0 items-center gap-2 text-sm text-muted-foreground">

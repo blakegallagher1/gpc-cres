@@ -134,7 +134,9 @@ let originalPushState: typeof window.history.pushState | null = null;
 let originalReplaceState: typeof window.history.replaceState | null = null;
 
 function emitSearchParamsChange() {
-  window.dispatchEvent(new Event(SEARCH_PARAMS_EVENT));
+  queueMicrotask(() => {
+    window.dispatchEvent(new Event(SEARCH_PARAMS_EVENT));
+  });
 }
 
 function restoreHistoryMethods() {
@@ -262,7 +264,7 @@ export function MapPageClient() {
   const [isMapReady, setIsMapReady] = useState(false);
   const [mapRefVersion, setMapRefVersion] = useState(0);
   const initializedFromUrlRef = useRef(false);
-  const [activePanel, setActivePanel] = useState<"chat" | "prospecting" | null>("chat");
+  const [activePanel, setActivePanel] = useState<"chat" | "prospecting" | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Force dark mode on map page mount

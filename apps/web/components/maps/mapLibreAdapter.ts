@@ -58,7 +58,12 @@ export function bindMapInteractionHandlers(params: {
       return;
     }
     const tileParcelId = feature.properties.id as string | undefined;
-    if (tileParcelId && params.getParcelById(tileParcelId)) {
+
+    // If parcel exists in the active set, let the GeoJSON layer handler manage
+    // selection; only fall through to tile popup for parcels not already loaded.
+    const knownParcel = tileParcelId ? params.getParcelById(tileParcelId) : undefined;
+    if (knownParcel) {
+      params.openParcelPopup(knownParcel, [event.lngLat.lng, event.lngLat.lat]);
       return;
     }
 
