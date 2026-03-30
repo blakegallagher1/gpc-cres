@@ -38,11 +38,19 @@ export async function GET(_req: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Local API not configured" }, { status: 503 });
   }
 
+  // Martin tile server is on a separate subdomain from the gateway.
+  // Derive: api.gallagherpropco.com → tiles.gallagherpropco.com
+  const tileBaseUrl = process.env.TILE_SERVER_URL
+    ?? localApiUrl.replace("api.", "tiles.");
+  // Zoning data lives in the same ebr_parcels source as parcel boundaries —
+  // the tile includes a "parcels" layer with zoning_type, existing_land_use, etc.
+  const tileLayer = process.env.ZONING_TILE_LAYER ?? "ebr_parcels";
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TILE_FETCH_TIMEOUT_MS);
 
   try {
-    const response = await fetch(`${localApiUrl}/tiles/zoning/${zi}/${xi}/${yi}.pbf`, {
+    const response = await fetch(`${tileBaseUrl}/${tileLayer}/${zi}/${xi}/${yi}`, {
       headers: {
         Authorization: `Bearer ${localApiKey}`,
         ...getCloudflareAccessHeadersFromEnv(),
