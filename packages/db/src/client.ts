@@ -11,6 +11,25 @@ function normalizeDbUrl(value: string | undefined): string | null {
   return value.trim();
 }
 
+function getFirstConfiguredGatewayKey(): string | null {
+  const directKey = process.env.LOCAL_API_KEY?.trim();
+  if (directKey) {
+    return directKey;
+  }
+
+  const legacyGatewayKey = process.env.GATEWAY_API_KEY?.trim();
+  if (legacyGatewayKey) {
+    return legacyGatewayKey;
+  }
+
+  const multiGatewayKeys = process.env.API_KEYS
+    ?.split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  return multiGatewayKeys?.[0] ?? null;
+}
+
 function withPoolParams(url: string): string {
   let parsed: URL;
   try {
@@ -55,7 +74,7 @@ function dedupeGatewayTargets(targets: GatewayTarget[]): GatewayTarget[] {
 
 function getGatewayTargets(): GatewayTarget[] {
   const proxyUrl = normalizeDbUrl(process.env.GATEWAY_PROXY_URL);
-  const directGatewayKey = process.env.LOCAL_API_KEY?.trim() || null;
+  const directGatewayKey = getFirstConfiguredGatewayKey();
   const proxyKey = process.env.GATEWAY_PROXY_TOKEN?.trim() || directGatewayKey;
   const targets: GatewayTarget[] = [];
 
