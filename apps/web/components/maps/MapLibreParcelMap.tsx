@@ -48,10 +48,6 @@ import {
   getFloodColor,
   DARK_BASE_TILES,
   DARK_STATUS_COLORS,
-  buildDarkStyle,
-  DARK_PARCEL_FILL_OPACITY,
-  DARK_PARCEL_LINE_OPACITY,
-  DARK_PARCEL_LINE_COLOR_SELECTED,
 } from "./mapStyles";
 import { MapWorkbenchPanel } from "./MapWorkbenchPanel";
 import { useStableOptions } from "@/lib/hooks/useStableOptions";
@@ -65,12 +61,22 @@ import type {
   HeatmapPresetKey,
   MapHudState,
   MapParcel,
+  MapReferenceOverlayState,
   MapTrajectoryData,
   MapTrajectoryVelocityDatum,
+  MapWorkbenchPreset,
   SaleComp,
 } from "./types";
 
 const MAP_DRAW_ACCENT_COLOR = "#6c8cff";
+const DEFAULT_REFERENCE_OVERLAY_STATE: MapReferenceOverlayState = {
+  parcelBoundaries: true,
+  zoning: false,
+  flood: false,
+  soils: false,
+  wetlands: false,
+  epa: false,
+};
 
 type ParcelFeatureProperties = {
   id: string;
@@ -213,6 +219,69 @@ function getSavedOverlaysFallback(): {
     wetlands: saved["Wetlands"] === true,
     epa: saved["EPA Facilities"] === true,
   };
+}
+
+export function getReferenceOverlayStateForPreset(
+  preset: MapWorkbenchPreset,
+): MapReferenceOverlayState {
+  switch (preset) {
+    case "parcel-focus":
+    case "reset":
+      return { ...DEFAULT_REFERENCE_OVERLAY_STATE };
+    case "zoning-scan":
+      return {
+        ...DEFAULT_REFERENCE_OVERLAY_STATE,
+        zoning: true,
+      };
+    case "flood-risk":
+      return {
+        ...DEFAULT_REFERENCE_OVERLAY_STATE,
+        flood: true,
+        wetlands: true,
+      };
+    case "environmental":
+      return {
+        ...DEFAULT_REFERENCE_OVERLAY_STATE,
+        soils: true,
+        wetlands: true,
+        epa: true,
+      };
+    case "full-stack":
+      return {
+        parcelBoundaries: true,
+        zoning: true,
+        flood: true,
+        soils: true,
+        wetlands: true,
+        epa: true,
+      };
+  }
+}
+
+export function resolveReferenceOverlayPreset(
+  state: MapReferenceOverlayState,
+): Exclude<MapWorkbenchPreset, "reset"> | null {
+  const presets: Array<Exclude<MapWorkbenchPreset, "reset">> = [
+    "parcel-focus",
+    "zoning-scan",
+    "flood-risk",
+    "environmental",
+    "full-stack",
+  ];
+
+  const matched = presets.find((preset) => {
+    const presetState = getReferenceOverlayStateForPreset(preset);
+    return (
+      presetState.parcelBoundaries === state.parcelBoundaries &&
+      presetState.zoning === state.zoning &&
+      presetState.flood === state.flood &&
+      presetState.soils === state.soils &&
+      presetState.wetlands === state.wetlands &&
+      presetState.epa === state.epa
+    );
+  });
+
+  return matched ?? null;
 }
 
 type GeometryStatusHealth = {
@@ -509,15 +578,6 @@ export function getDrawControlState(
   };
 }
 
-function getVelocityColor(score: number): string {
-  if (score >= 90) return "#800026";
-  if (score >= 70) return "#BD0026";
-  if (score >= 50) return "#E31A1C";
-  if (score >= 30) return "#FC4E2A";
-  if (score >= 15) return "#FD8D3C";
-  return "#FFEDA0";
-}
-
 export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcelMapProps>(function MapLibreParcelMap({
   parcels,
   center = [-91.1871, 30.4515],
@@ -530,7 +590,7 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
   onPolygonDrawn,
   onPolygonCleared,
   trajectoryData = null,
-  trajectoryVelocityData = null,
+  trajectoryVelocityData: _trajectoryVelocityData = null,
   highlightParcelIds,
   selectedParcelIds: selectedParcelIdsProp,
   onSelectionChange,
@@ -617,10 +677,9 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
       .then((contract) => {
         if (!cancelled) {
           setZoningTileContract(contract);
-        } else {
         }
       })
-      .catch((err) => {
+      .catch(() => {
         if (!cancelled) {
           setZoningTileContract(null);
         }
@@ -633,6 +692,21 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
 
   const hasPolygon = Boolean(polygon && polygon[0] && polygon[0].length >= 4);
   const drawState = getDrawControlState(drawing, hasPolygon, drawPointCount);
+  const referenceOverlayState = useMemo<MapReferenceOverlayState>(
+    () => ({
+      parcelBoundaries: showParcelBoundaries,
+      zoning: showZoning,
+      flood: showFlood,
+      soils: showSoils,
+      wetlands: showWetlands,
+      epa: showEpa,
+    }),
+    [showEpa, showFlood, showParcelBoundaries, showSoils, showWetlands, showZoning],
+  );
+  const activeWorkbenchPreset = useMemo(
+    () => resolveReferenceOverlayPreset(referenceOverlayState),
+    [referenceOverlayState],
+  );
 
   useEffect(() => {
     const activeOverlays = [
@@ -717,6 +791,25 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
     }
     onPolygonDrawn?.([ring]);
   }, [clearDrawing, onPolygonDrawn]);
+
+  const applyWorkbenchPreset = useCallback((preset: MapWorkbenchPreset) => {
+    const nextState = getReferenceOverlayStateForPreset(preset);
+    setShowParcelBoundaries(nextState.parcelBoundaries);
+    setShowZoning(nextState.zoning);
+    setShowFlood(nextState.flood);
+    setShowSoils(nextState.soils);
+    setShowWetlands(nextState.wetlands);
+    setShowEpa(nextState.epa);
+
+    if (preset === "reset") {
+      setBaseLayer("Streets");
+      setShowComps(false);
+      setShowHeatmap(false);
+      setActiveHeatmapPreset("sale_activity");
+      setShowIsochrone(false);
+      setMeasureMode("off");
+    }
+  }, []);
 
   const ensureDrawSourceAndLayers = useCallback((map: maplibregl.Map): boolean => {
     if (!map.isStyleLoaded()) return false;
@@ -1740,8 +1833,10 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
 
       // Globe projection + sky (types lag behind MapLibre runtime support)
       try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (map as any).setProjection("globe");
+        const mapWithProjection = map as maplibregl.Map & {
+          setProjection?: (projection: string) => void;
+        };
+        mapWithProjection.setProjection?.("globe");
       } catch { /* globe not supported in this build */ }
 
       map.setSky({
@@ -1939,7 +2034,7 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
 
       // Ensure zoning-tiles-fill is above parcel outlines
       moveLayerBeforeSafe(map, "parcel-tiles-line", ZONING_TILE_LAYER_ID);
-    } catch (err) {
+    } catch {
       removeZoningTileArtifacts();
     }
   }, [mapReady, showLayers, showZoning, zoningTileContract]);
@@ -2009,7 +2104,9 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
           "EPA Facilities": showEpa,
         })
       );
-    } catch {}
+    } catch {
+      // Ignore localStorage write failures for display preferences.
+    }
   }, [baseLayer, showParcelBoundaries, showZoning, showFlood, showSoils, showWetlands, showEpa, mapReady]);
 
   if (mapError) {
@@ -2035,6 +2132,8 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
           searchSlot={searchSlot}
           baseLayer={baseLayer}
           onBaseLayerChange={setBaseLayer}
+          activePreset={activeWorkbenchPreset}
+          onApplyPreset={applyWorkbenchPreset}
           geometryStatusLabel={geometryStatusLabel}
           showParcelBoundaries={showParcelBoundaries}
           setShowParcelBoundaries={setShowParcelBoundaries}
@@ -2649,6 +2748,7 @@ function MapLibreCompSaleLayer({
           }
         }
       } catch {
+        // Comp fetch failures should not block the rest of the map surface.
       } finally {
         setLoading(false);
       }
@@ -2980,7 +3080,9 @@ function MapLibreHeatmapLayer({
       for (const [key, value] of Object.entries(preset.paint ?? {})) {
         mapInstance.setPaintProperty(layerId, key, value);
       }
-    } catch {}
+    } catch {
+      // Ignore paint update failures during transient style reloads.
+    }
   }, [preset, visible, layerId]);
 
   if (!visible) return null;

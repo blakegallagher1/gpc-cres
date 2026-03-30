@@ -38,6 +38,29 @@ export interface MapTrajectoryVelocityDatum {
 export type HeatmapPresetKey = "sale_activity" | "price_density" | "development_activity";
 
 /**
+ * Named reference-layer bundles for the left map workbench.
+ */
+export type MapWorkbenchPreset =
+  | "parcel-focus"
+  | "zoning-scan"
+  | "flood-risk"
+  | "environmental"
+  | "full-stack"
+  | "reset";
+
+/**
+ * Boolean visibility state for the reference overlays controlled in the workbench.
+ */
+export interface MapReferenceOverlayState {
+  parcelBoundaries: boolean;
+  zoning: boolean;
+  flood: boolean;
+  soils: boolean;
+  wetlands: boolean;
+  epa: boolean;
+}
+
+/**
  * Comparable sale point used to build heatmap sources.
  */
 export interface SaleComp {

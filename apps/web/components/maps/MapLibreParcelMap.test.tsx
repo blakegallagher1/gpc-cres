@@ -4,6 +4,8 @@ import {
   getDrawControlState,
   getGeometryStatusLabel,
   getGeoJsonSourceSafe,
+  getReferenceOverlayStateForPreset,
+  resolveReferenceOverlayPreset,
   setGeoJsonSourceDataSafe,
 } from "./MapLibreParcelMap";
 import {
@@ -254,6 +256,45 @@ describe("getGeometryStatusLabel", () => {
         propertyDbUnconfigured: false,
       }),
     ).toBe("2 shapes loaded");
+  });
+});
+
+describe("reference layer presets", () => {
+  it("builds the flood-risk preset with wetland context enabled", () => {
+    expect(getReferenceOverlayStateForPreset("flood-risk")).toEqual({
+      parcelBoundaries: true,
+      zoning: false,
+      flood: true,
+      soils: false,
+      wetlands: true,
+      epa: false,
+    });
+  });
+
+  it("resolves the active preset when the full stack is enabled", () => {
+    expect(
+      resolveReferenceOverlayPreset({
+        parcelBoundaries: true,
+        zoning: true,
+        flood: true,
+        soils: true,
+        wetlands: true,
+        epa: true,
+      }),
+    ).toBe("full-stack");
+  });
+
+  it("returns null for custom overlay mixes that do not match a preset", () => {
+    expect(
+      resolveReferenceOverlayPreset({
+        parcelBoundaries: true,
+        zoning: true,
+        flood: true,
+        soils: false,
+        wetlands: false,
+        epa: false,
+      }),
+    ).toBeNull();
   });
 });
 
