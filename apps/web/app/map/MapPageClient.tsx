@@ -290,11 +290,11 @@ export function MapPageClient() {
     };
   }, [setTheme]);
 
+  // Auto-collapse sidebar on /map (all viewports — map needs maximum canvas)
   useEffect(() => {
-    if (!isMobile) return;
     setSidebarCollapsed(true);
     setCopilotOpen(false);
-  }, [isMobile, setCopilotOpen, setSidebarCollapsed]);
+  }, [setCopilotOpen, setSidebarCollapsed]);
 
   useEffect(() => {
     const mode = searchParams.get("mode");

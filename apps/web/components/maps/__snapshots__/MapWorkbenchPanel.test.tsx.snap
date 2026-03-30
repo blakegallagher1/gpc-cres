@@ -326,7 +326,7 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
               </div>
             </div>
             <div
-              class="items-center justify-center border-border/70 backdrop-blur-sm mt-3 grid w-full grid-cols-2 gap-2 rounded-xl border-0 bg-transparent p-0"
+              class="items-center justify-center border-border/70 backdrop-blur-sm mt-3 grid w-full grid-cols-3 gap-2 rounded-xl border-0 bg-transparent p-0"
               dir="ltr"
               role="group"
               style="outline-color: none; outline-style: none; outline-width: initial;"
@@ -357,6 +357,19 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
                 type="button"
               >
                 Satellite
+              </button>
+              <button
+                aria-checked="false"
+                aria-label="Dark"
+                class="inline-flex items-center justify-center whitespace-nowrap border font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent/55 hover:text-accent-foreground h-9 px-3 rounded-xl border-map-border bg-map-surface/55 text-[11px] text-map-text-secondary data-[state=on]:border-map-accent data-[state=on]:bg-map-accent data-[state=on]:text-white"
+                data-radix-collection-item=""
+                data-state="off"
+                role="radio"
+                tabindex="-1"
+                title="Dark"
+                type="button"
+              >
+                Dark
               </button>
             </div>
             <div

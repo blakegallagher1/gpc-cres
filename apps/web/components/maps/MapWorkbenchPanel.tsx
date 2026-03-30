@@ -464,9 +464,9 @@ export function MapWorkbenchPanel({
                   type="single"
                   value={baseLayer}
                   onValueChange={(value: string) => value && onBaseLayerChange(value)}
-                  className="mt-3 grid w-full grid-cols-2 gap-2 rounded-xl border-0 bg-transparent p-0"
+                  className="mt-3 grid w-full grid-cols-3 gap-2 rounded-xl border-0 bg-transparent p-0"
                 >
-                  {["Streets", "Satellite"].map((option) => (
+                  {["Streets", "Satellite", "Dark"].map((option) => (
                     <ToggleGroupItem
                       key={option}
                       value={option}

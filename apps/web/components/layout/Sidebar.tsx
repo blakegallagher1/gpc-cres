@@ -206,7 +206,7 @@ export function Sidebar() {
                 {isExpanded && (
                   <button
                     onClick={() => toggleGroupCollapse(group.label)}
-                    className="mb-2 flex w-full items-center justify-between gap-2 px-3 text-left hover:opacity-80 transition-opacity"
+                    className="mb-2 flex w-full min-h-[44px] items-center justify-between gap-2 px-3 text-left hover:opacity-80 transition-opacity"
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       {isCollapsed ? (

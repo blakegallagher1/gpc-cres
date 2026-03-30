@@ -50,6 +50,7 @@ import {
   DARK_STATUS_COLORS,
 } from "./mapStyles";
 import { MapWorkbenchPanel } from "./MapWorkbenchPanel";
+import { MapLegend } from "./MapLegend";
 import { useStableOptions } from "@/lib/hooks/useStableOptions";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { ParcelComparisonSheet } from "./ParcelComparisonSheet";
@@ -1561,14 +1562,14 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
               id: "base-dark",
               type: "raster",
               source: "dark-carto",
-              layout: { visibility: "visible" },
+              layout: { visibility: baseLayer === "Dark" ? "visible" : "none" },
             },
             {
               id: "base-streets",
               type: "raster",
               source: "streets",
               layout: {
-                visibility: baseLayer === "Satellite" ? "none" : "visible",
+                visibility: baseLayer === "Streets" ? "visible" : "none",
               },
             },
             {
@@ -2084,8 +2085,8 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
     setLayerVisibilitySafe(map, "soils-tiles-fill", showLayers && showSoils);
     setLayerVisibilitySafe(map, "wetlands-tiles-fill", showLayers && showWetlands);
     setLayerVisibilitySafe(map, "epa-tiles-circle", showLayers && showEpa);
-    setLayerVisibilitySafe(map, "base-dark", isDark && baseLayer !== "Satellite");
-    setLayerVisibilitySafe(map, "base-streets", !isDark && baseLayer !== "Satellite");
+    setLayerVisibilitySafe(map, "base-dark", baseLayer === "Dark");
+    setLayerVisibilitySafe(map, "base-streets", baseLayer === "Streets");
     setLayerVisibilitySafe(map, "base-satellite", baseLayer === "Satellite");
     setLayerVisibilitySafe(map, "parcel-points", showLayers);
     // Ensure zoning-tiles-fill is above parcel outlines
@@ -2202,6 +2203,18 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
           latencyLabel={latencyLabel}
         />
       ) : null}
+
+      {/* Layer legend */}
+      {showLayers && (
+        <MapLegend
+          showParcelBoundaries={showParcelBoundaries}
+          showZoning={showZoning}
+          showFlood={showFlood}
+          showSoils={showSoils}
+          showWetlands={showWetlands}
+          showEpa={showEpa}
+        />
+      )}
 
       {/* Status bar with coordinates and zoom */}
       {showLayers && (
