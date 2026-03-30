@@ -29,15 +29,14 @@ export default defineConfig({
     exclude: [
       "node_modules/**",
       "**/node_modules/**",
+      ".claude/**",
+      "**/.claude/**",
       ".next/**",
       "**/.next/**",
       "**/dist/**",
       "**/production-verification*",
       // e2e tests run via Playwright, not Vitest
       "apps/web/e2e/**",
-      // Legacy root-level tests use createRequire() CJS mocking incompatible with
-      // happy-dom environment — run separately via `pnpm vitest run --environment node tests/`
-      "tests/reflection.test.ts",
     ],
     setupFiles: [path.resolve(__dirname, "apps/web/test-utils/setup.ts")],
   },
