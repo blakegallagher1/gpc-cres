@@ -1,5 +1,5 @@
 import { PrismaClient } from "@prisma/client";
-import { createGatewayAdapterFactory } from "./gateway-adapter";
+import { createGatewayAdapterFactory, type GatewayTarget } from "./gateway-adapter";
 
 declare const globalThis: typeof global & {
   __ENTITLEMENT_OS_PRISMA__?: PrismaClient;
@@ -32,38 +32,60 @@ function withPoolParams(url: string): string {
   return parsed.toString();
 }
 
-function getGatewayConfig(): { url: string | null; key: string | null } {
+function pushGatewayTarget(
+  targets: GatewayTarget[],
+  baseUrl: string | null,
+  apiKey: string | null,
+  name: GatewayTarget["name"],
+): void {
+  if (!baseUrl || !apiKey) return;
+  targets.push({ baseUrl, apiKey, name });
+}
+
+function dedupeGatewayTargets(targets: GatewayTarget[]): GatewayTarget[] {
+  const seen = new Set<string>();
+
+  return targets.filter((target) => {
+    const key = `${target.baseUrl}|${target.apiKey}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function getGatewayTargets(): GatewayTarget[] {
   const proxyUrl = normalizeDbUrl(process.env.GATEWAY_PROXY_URL);
-  const proxyKey = process.env.GATEWAY_PROXY_TOKEN?.trim() || process.env.LOCAL_API_KEY?.trim() || null;
-  if (proxyUrl) {
-    return { url: proxyUrl, key: proxyKey };
-  }
+  const directGatewayKey = process.env.LOCAL_API_KEY?.trim() || null;
+  const proxyKey = process.env.GATEWAY_PROXY_TOKEN?.trim() || directGatewayKey;
+  const targets: GatewayTarget[] = [];
 
   const isHostedRuntime =
     process.env.NODE_ENV === "production" ||
     process.env.VERCEL === "1" ||
     Boolean(process.env.VERCEL_ENV?.trim());
-  if (isHostedRuntime && proxyKey) {
-    return { url: "https://gateway.gallagherpropco.com", key: proxyKey };
+
+  pushGatewayTarget(targets, proxyUrl, proxyKey, "gateway-proxy");
+
+  if (!proxyUrl && isHostedRuntime) {
+    pushGatewayTarget(targets, "https://gateway.gallagherpropco.com", proxyKey, "gateway-proxy");
   }
 
   const directGatewayUrl = normalizeDbUrl(process.env.GATEWAY_DATABASE_URL);
-  const directGatewayKey = process.env.LOCAL_API_KEY?.trim() || null;
-  if (directGatewayUrl) {
-    return { url: directGatewayUrl, key: directGatewayKey };
-  }
+  pushGatewayTarget(targets, directGatewayUrl, directGatewayKey, "gateway-direct");
 
   const localApiUrl = isHostedRuntime ? normalizeDbUrl(process.env.LOCAL_API_URL) : null;
-  return { url: localApiUrl, key: directGatewayKey };
+  pushGatewayTarget(targets, localApiUrl, directGatewayKey, "local-api");
+
+  return dedupeGatewayTargets(targets);
 }
 
 function createPrismaClient(url: string | null): PrismaClient {
-  // Prefer the public gateway proxy when configured so Vercel does not depend on
-  // direct Cloudflare Access credentials for the FastAPI /db endpoint.
-  const gateway = getGatewayConfig();
+  // Prefer hosted HTTP gateways on Vercel, but keep an ordered fallback chain
+  // so auth and other Prisma-backed flows can survive one broken /db path.
+  const gatewayTargets = getGatewayTargets();
 
-  if (gateway.url && gateway.key) {
-    const adapter = createGatewayAdapterFactory(gateway.url, gateway.key);
+  if (gatewayTargets.length > 0) {
+    const adapter = createGatewayAdapterFactory(gatewayTargets);
     return new PrismaClient({
       adapter,
       log:

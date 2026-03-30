@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { GatewayTarget } from "../src/gateway-adapter.js";
 
 declare const globalThis: typeof global & {
   __ENTITLEMENT_OS_PRISMA__?: unknown;
@@ -40,6 +41,10 @@ vi.mock("../src/gateway-adapter.js", () => ({
 describe("packages/db client gateway config", () => {
   const originalNodeEnv = process.env.NODE_ENV;
 
+  function expectGatewayTargets(callNumber: number, targets: GatewayTarget[]) {
+    expect(mockCreateGatewayAdapterFactory).toHaveBeenNthCalledWith(callNumber, targets);
+  }
+
   beforeEach(() => {
     constructorArgs.length = 0;
     mockPrismaClient.mockClear();
@@ -70,36 +75,32 @@ describe("packages/db client gateway config", () => {
 
     await import("../src/client.js");
 
-    expect(mockCreateGatewayAdapterFactory).toHaveBeenNthCalledWith(
-      1,
-      "https://gateway.gallagherpropco.com",
-      "proxy-token",
-    );
-    expect(mockCreateGatewayAdapterFactory).toHaveBeenNthCalledWith(
-      2,
-      "https://gateway.gallagherpropco.com",
-      "proxy-token",
-    );
+    expectGatewayTargets(1, [
+      { baseUrl: "https://gateway.gallagherpropco.com", apiKey: "proxy-token", name: "gateway-proxy" },
+      { baseUrl: "https://api.gallagherpropco.com", apiKey: "local-api-key", name: "gateway-direct" },
+    ]);
+    expectGatewayTargets(2, [
+      { baseUrl: "https://gateway.gallagherpropco.com", apiKey: "proxy-token", name: "gateway-proxy" },
+      { baseUrl: "https://api.gallagherpropco.com", apiKey: "local-api-key", name: "gateway-direct" },
+    ]);
     expect(constructorArgs).toHaveLength(2);
   });
 
-  it("defaults hosted runtimes to the gateway proxy when LOCAL_API_KEY is available", async () => {
+  it("adds a hosted direct-gateway fallback behind the default proxy target", async () => {
     process.env.NODE_ENV = "production";
     process.env.GATEWAY_DATABASE_URL = "https://api.gallagherpropco.com";
     process.env.LOCAL_API_KEY = "local-api-key";
 
     await import("../src/client.js");
 
-    expect(mockCreateGatewayAdapterFactory).toHaveBeenNthCalledWith(
-      1,
-      "https://gateway.gallagherpropco.com",
-      "local-api-key",
-    );
-    expect(mockCreateGatewayAdapterFactory).toHaveBeenNthCalledWith(
-      2,
-      "https://gateway.gallagherpropco.com",
-      "local-api-key",
-    );
+    expectGatewayTargets(1, [
+      { baseUrl: "https://gateway.gallagherpropco.com", apiKey: "local-api-key", name: "gateway-proxy" },
+      { baseUrl: "https://api.gallagherpropco.com", apiKey: "local-api-key", name: "gateway-direct" },
+    ]);
+    expectGatewayTargets(2, [
+      { baseUrl: "https://gateway.gallagherpropco.com", apiKey: "local-api-key", name: "gateway-proxy" },
+      { baseUrl: "https://api.gallagherpropco.com", apiKey: "local-api-key", name: "gateway-direct" },
+    ]);
     expect(constructorArgs).toHaveLength(2);
   });
 
@@ -109,20 +110,34 @@ describe("packages/db client gateway config", () => {
 
     await import("../src/client.js");
 
-    expect(mockCreateGatewayAdapterFactory).toHaveBeenNthCalledWith(
-      1,
-      "https://api.gallagherpropco.com",
-      "local-api-key",
-    );
-    expect(mockCreateGatewayAdapterFactory).toHaveBeenNthCalledWith(
-      2,
-      "https://api.gallagherpropco.com",
-      "local-api-key",
-    );
+    expectGatewayTargets(1, [
+      { baseUrl: "https://api.gallagherpropco.com", apiKey: "local-api-key", name: "gateway-direct" },
+    ]);
+    expectGatewayTargets(2, [
+      { baseUrl: "https://api.gallagherpropco.com", apiKey: "local-api-key", name: "gateway-direct" },
+    ]);
     expect(constructorArgs).toHaveLength(2);
   });
 
-  it("uses LOCAL_API_URL as the hosted gateway fallback when GATEWAY_DATABASE_URL is absent", async () => {
+  it("adds LOCAL_API_URL as the final hosted gateway fallback when a key is available", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.LOCAL_API_URL = "https://api.gallagherpropco.com";
+    process.env.LOCAL_API_KEY = "local-api-key";
+
+    await import("../src/client.js");
+
+    expectGatewayTargets(1, [
+      { baseUrl: "https://gateway.gallagherpropco.com", apiKey: "local-api-key", name: "gateway-proxy" },
+      { baseUrl: "https://api.gallagherpropco.com", apiKey: "local-api-key", name: "local-api" },
+    ]);
+    expectGatewayTargets(2, [
+      { baseUrl: "https://gateway.gallagherpropco.com", apiKey: "local-api-key", name: "gateway-proxy" },
+      { baseUrl: "https://api.gallagherpropco.com", apiKey: "local-api-key", name: "local-api" },
+    ]);
+    expect(constructorArgs).toHaveLength(2);
+  });
+
+  it("does not create a gateway adapter when hosted LOCAL_API_URL is set without a key", async () => {
     process.env.NODE_ENV = "production";
     process.env.LOCAL_API_URL = "https://api.gallagherpropco.com";
 
