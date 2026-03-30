@@ -143,7 +143,7 @@ export function MapContainerV2({
         {...viewState}
         onMove={onMove}
         mapStyle={mapStyle}
-        projection={"globe" as string}
+        projection="globe"
         attributionControl={false}
         style={{ width: "100%", height: "100%" }}
       >
