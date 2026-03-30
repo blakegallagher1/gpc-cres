@@ -30,6 +30,22 @@ interface GatewayResponse {
   ok?: boolean;
 }
 
+/**
+ * Ordered gateway target used for Prisma HTTPS failover in hosted runtimes.
+ */
+export interface GatewayTarget {
+  baseUrl: string;
+  apiKey: string;
+  name?: string;
+}
+
+interface GatewayFetchResult {
+  response: GatewayResponse;
+  target: GatewayTarget;
+}
+
+class GatewayHttpError extends Error {}
+
 function getCfAccessHeaders(): Record<string, string> {
   const clientId = process.env.CF_ACCESS_CLIENT_ID?.trim();
   const clientSecret = process.env.CF_ACCESS_CLIENT_SECRET?.trim();
@@ -46,9 +62,12 @@ const GATEWAY_TIMEOUT_MS = 15_000;
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 500;
 
-async function gatewayFetch(
-  baseUrl: string,
-  apiKey: string,
+function describeTarget(target: GatewayTarget): string {
+  return target.name ? `${target.name} (${target.baseUrl})` : target.baseUrl;
+}
+
+async function gatewayFetchFromTarget(
+  target: GatewayTarget,
   body: Record<string, unknown>,
 ): Promise<GatewayResponse> {
   let lastError: Error | null = null;
@@ -62,11 +81,11 @@ async function gatewayFetch(
     const timeout = setTimeout(() => controller.abort(), GATEWAY_TIMEOUT_MS);
 
     try {
-      const res = await fetch(`${baseUrl}/db?_t=${Date.now()}`, {
+      const res = await fetch(`${target.baseUrl}/db?_t=${Date.now()}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
+          Authorization: `Bearer ${target.apiKey}`,
           "Cache-Control": "no-cache",
           ...getCfAccessHeaders(),
         },
@@ -78,22 +97,29 @@ async function gatewayFetch(
 
       if (!res.ok) {
         const text = await res.text();
-        const err = new Error(`Gateway DB proxy error (${res.status}): ${text}`);
+        const err = new Error(
+          `${describeTarget(target)} gateway DB proxy error (${res.status}): ${text}`,
+        );
         // Retry on 404 (intermittent CF Access/tunnel routing), 502/503/504 (upstream issues)
         if ((res.status === 404 || (res.status >= 502 && res.status <= 504)) && attempt < MAX_RETRIES) {
           lastError = err;
           continue;
         }
-        throw err;
+        throw new GatewayHttpError(err.message);
       }
 
       return res.json() as Promise<GatewayResponse>;
     } catch (err) {
       clearTimeout(timeout);
+      if (err instanceof GatewayHttpError) {
+        throw err;
+      }
       lastError = err instanceof Error ? err : new Error(String(err));
       // Retry on network/timeout errors
       if (lastError.name === "AbortError") {
-        lastError = new Error(`Gateway DB proxy timeout after ${GATEWAY_TIMEOUT_MS}ms`);
+        lastError = new Error(
+          `${describeTarget(target)} gateway DB proxy timeout after ${GATEWAY_TIMEOUT_MS}ms`,
+        );
       }
       if (attempt < MAX_RETRIES) continue;
       throw lastError;
@@ -103,47 +129,69 @@ async function gatewayFetch(
   throw lastError ?? new Error("Gateway DB proxy: unexpected retry exhaustion");
 }
 
-function createQueryable(baseUrl: string, apiKey: string, txId?: string) {
+async function gatewayFetch(
+  targets: GatewayTarget[],
+  body: Record<string, unknown>,
+): Promise<GatewayFetchResult> {
+  if (targets.length === 0) {
+    throw new Error("Gateway DB proxy called without any configured targets");
+  }
+
+  const errors: string[] = [];
+
+  for (const target of targets) {
+    try {
+      const response = await gatewayFetchFromTarget(target, body);
+      return { response, target };
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  throw new Error(`Gateway DB proxy failed across ${targets.length} target(s): ${errors.join(" | ")}`);
+}
+
+function createQueryable(targets: GatewayTarget[], txId?: string) {
   return {
     provider: "postgres" as const,
     adapterName: ADAPTER_NAME,
 
     async queryRaw(params: SqlQuery): Promise<SqlResultSet> {
-      const resp = await gatewayFetch(baseUrl, apiKey, {
+      const { response } = await gatewayFetch(targets, {
         sql: params.sql,
         args: params.args,
         ...(txId ? { txId } : {}),
       });
 
-      if (resp.error) {
-        throw new Error(resp.detail ?? resp.error);
+      if (response.error) {
+        throw new Error(response.detail ?? response.error);
       }
 
       return {
-        columnNames: resp.columnNames ?? [],
-        columnTypes: (resp.columnTypes ?? []) as ColumnType[],
-        rows: resp.rows ?? [],
+        columnNames: response.columnNames ?? [],
+        columnTypes: (response.columnTypes ?? []) as ColumnType[],
+        rows: response.rows ?? [],
       };
     },
 
     async executeRaw(params: SqlQuery): Promise<number> {
-      const resp = await gatewayFetch(baseUrl, apiKey, {
+      const { response } = await gatewayFetch(targets, {
         sql: params.sql,
         args: params.args,
         ...(txId ? { txId } : {}),
       });
 
-      if (resp.error) {
-        throw new Error(resp.detail ?? resp.error);
+      if (response.error) {
+        throw new Error(response.detail ?? response.error);
       }
 
-      return resp.rowCount ?? 0;
+      return response.rowCount ?? 0;
     },
   };
 }
 
-function createAdapter(baseUrl: string, apiKey: string): SqlDriverAdapter {
-  const queryable = createQueryable(baseUrl, apiKey);
+function createAdapter(targets: GatewayTarget[]): SqlDriverAdapter {
+  const queryable = createQueryable(targets);
 
   return {
     ...queryable,
@@ -156,23 +204,25 @@ function createAdapter(baseUrl: string, apiKey: string): SqlDriverAdapter {
     },
 
     async startTransaction(_isolationLevel?: IsolationLevel): Promise<Transaction> {
-      // Begin a transaction on the remote side
-      const resp = await gatewayFetch(baseUrl, apiKey, { action: "begin" });
-      const txId = resp.txId;
+      // Begin a transaction on one gateway target and pin the rest of the
+      // transaction lifecycle to that target because txIds are target-local.
+      const { response, target } = await gatewayFetch(targets, { action: "begin" });
+      const txId = response.txId;
       if (!txId) throw new Error("Failed to start remote transaction");
 
-      const txQueryable = createQueryable(baseUrl, apiKey, txId);
+      const txTargets = [target];
+      const txQueryable = createQueryable(txTargets, txId);
 
       return {
         ...txQueryable,
         options: { usePhantomQuery: false },
 
         async commit(): Promise<void> {
-          await gatewayFetch(baseUrl, apiKey, { action: "commit", txId });
+          await gatewayFetch(txTargets, { action: "commit", txId });
         },
 
         async rollback(): Promise<void> {
-          await gatewayFetch(baseUrl, apiKey, { action: "rollback", txId });
+          await gatewayFetch(txTargets, { action: "rollback", txId });
         },
       };
     },
@@ -184,7 +234,7 @@ function createAdapter(baseUrl: string, apiKey: string): SqlDriverAdapter {
         .map((s) => s.trim())
         .filter(Boolean);
       for (const sql of statements) {
-        await gatewayFetch(baseUrl, apiKey, { sql, args: [] });
+        await gatewayFetch(targets, { sql, args: [] });
       }
     },
 
@@ -198,12 +248,19 @@ function createAdapter(baseUrl: string, apiKey: string): SqlDriverAdapter {
  * Create a Prisma driver adapter factory that routes queries over HTTPS
  * to a Cloudflare Worker with Hyperdrive.
  */
-export function createGatewayAdapterFactory(baseUrl: string, apiKey: string): SqlDriverAdapterFactory {
+export function createGatewayAdapterFactory(
+  targetsOrBaseUrl: GatewayTarget[] | string,
+  apiKey?: string,
+): SqlDriverAdapterFactory {
+  const targets = Array.isArray(targetsOrBaseUrl)
+    ? targetsOrBaseUrl
+    : [{ baseUrl: targetsOrBaseUrl, apiKey: apiKey ?? "", name: "gateway" }];
+
   return {
     provider: "postgres" as const,
     adapterName: ADAPTER_NAME,
     async connect(): Promise<SqlDriverAdapter> {
-      return createAdapter(baseUrl, apiKey);
+      return createAdapter(targets);
     },
   };
 }

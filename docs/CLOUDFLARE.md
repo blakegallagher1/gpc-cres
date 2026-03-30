@@ -152,9 +152,13 @@ Cloudflare Hyperdrive provides connection pooling and caching between Vercel ser
    `db.gallagherpropco.com` (TCP) or directly on the Docker network.
 5. Results return through the same chain.
 
-**Prisma integration:** `packages/db/src/gateway-adapter.ts` implements `SqlDriverAdapterFactory`, and `packages/db/src/client.ts` selects the bearer-authenticated gateway target in this order:
-- `GATEWAY_PROXY_URL` + (`GATEWAY_PROXY_TOKEN` or `LOCAL_API_KEY`)
+**Prisma integration:** `packages/db/src/gateway-adapter.ts` implements `SqlDriverAdapterFactory`, and `packages/db/src/client.ts` now builds an ordered target chain for hosted Prisma traffic:
+- explicit `GATEWAY_PROXY_URL` + (`GATEWAY_PROXY_TOKEN` or `LOCAL_API_KEY`)
+- hosted default `https://gateway.gallagherpropco.com` + (`GATEWAY_PROXY_TOKEN` or `LOCAL_API_KEY`)
 - `GATEWAY_DATABASE_URL` + `LOCAL_API_KEY`
+- hosted `LOCAL_API_URL` + `LOCAL_API_KEY`
+
+When multiple targets are configured, the adapter fails over between them on transport, auth, and upstream HTTP errors while pinning successful transactions to the target that opened them.
 
 **SSL:** Self-signed cert enabled on Postgres (required by Hyperdrive). 10-year expiry, auto-generated in container.
 
