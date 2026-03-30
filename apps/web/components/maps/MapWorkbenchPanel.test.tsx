@@ -23,21 +23,25 @@ describe("MapWorkbenchPanel", () => {
     const user = userEvent.setup();
     const onToggleOpen = vi.fn();
     const onBaseLayerChange = vi.fn();
+    const onApplyPreset = vi.fn();
     const onToggleDrawing = vi.fn();
+    const setShowFlood = vi.fn();
 
-    render(
+    const { container } = render(
       <MapWorkbenchPanel
         open
         searchSlot={<div>Search content</div>}
         baseLayer="Streets"
         onBaseLayerChange={onBaseLayerChange}
+        activePreset="zoning-scan"
+        onApplyPreset={onApplyPreset}
         geometryStatusLabel="Loading shapes..."
         showParcelBoundaries
         setShowParcelBoundaries={vi.fn()}
         showZoning={false}
         setShowZoning={vi.fn()}
         showFlood={false}
-        setShowFlood={vi.fn()}
+        setShowFlood={setShowFlood}
         showSoils={false}
         setShowSoils={vi.fn()}
         showWetlands={false}
@@ -77,10 +81,12 @@ describe("MapWorkbenchPanel", () => {
     );
 
     expect(screen.getByText("Live geography intelligence")).toBeInTheDocument();
+    expect(screen.getByText("Layer desk")).toBeInTheDocument();
     expect(screen.getByText("Search content")).toBeInTheDocument();
     expect(screen.getByText("Display")).toBeInTheDocument();
     expect(screen.getByText("Comparable sales")).toBeInTheDocument();
     expect(screen.getByText("Saved geofences")).toBeInTheDocument();
+    expect(screen.getByText("Zoning scan")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Collapse map workbench" }),
     ).toHaveAttribute("aria-expanded", "true");
@@ -91,9 +97,15 @@ describe("MapWorkbenchPanel", () => {
       screen.getByRole("button", { name: "Toggle map fullscreen" }),
     ).toBeVisible();
 
+    expect(container.firstChild).toMatchSnapshot();
+
+    await user.click(screen.getByRole("button", { name: /Flood risk/i }));
+    await user.click(screen.getByRole("button", { name: /Flood zones/i }));
     await user.click(screen.getByRole("radio", { name: "Satellite" }));
     await user.click(screen.getByRole("button", { name: "Start draw" }));
 
+    expect(onApplyPreset).toHaveBeenCalledWith("flood-risk");
+    expect(setShowFlood).toHaveBeenCalledWith(true);
     expect(onBaseLayerChange).toHaveBeenCalledWith("Satellite");
     expect(onToggleDrawing).toHaveBeenCalledTimes(1);
   });
@@ -107,6 +119,8 @@ describe("MapWorkbenchPanel", () => {
         open={false}
         baseLayer="Streets"
         onBaseLayerChange={vi.fn()}
+        activePreset={null}
+        onApplyPreset={vi.fn()}
         geometryStatusLabel={null}
         showParcelBoundaries
         setShowParcelBoundaries={vi.fn()}

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
+import { getAuthSecret } from "@/lib/auth/authSecret";
 import {
   attachRequestId,
   cloneHeadersWithRequestId,
@@ -103,15 +104,21 @@ export async function proxy(request: NextRequest) {
 
     // Allow public paths unconditionally
     const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
+    if (isPublic && !pathname.startsWith("/login")) {
+      return nextResponseWithRequestId(request, requestId);
+    }
 
+    const authSecret = getAuthSecret();
     const secureCookie =
       request.url.startsWith("https://") ||
       process.env.NODE_ENV === "production";
-    const token = await getToken({
-      req: request,
-      secret: process.env.AUTH_SECRET,
-      secureCookie,
-    });
+    const token = authSecret
+      ? await getToken({
+          req: request,
+          secret: authSecret,
+          secureCookie,
+        })
+      : null;
 
     if (isPublic) {
       // Logged-in users on /login → redirect home

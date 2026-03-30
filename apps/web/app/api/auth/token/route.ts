@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getToken, encode } from "next-auth/jwt";
+import { getAuthSecret } from "@/lib/auth/authSecret";
 
 /**
  * GET /api/auth/token
@@ -9,7 +10,7 @@ import { getToken, encode } from "next-auth/jwt";
  * a Bearer token it can verify.
  */
 export async function GET(request: NextRequest) {
-  const secret = process.env.AUTH_SECRET;
+  const secret = getAuthSecret();
   if (!secret) {
     return NextResponse.json(
       { error: "Auth not configured" },

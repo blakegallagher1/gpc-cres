@@ -5,7 +5,6 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   Camera,
   ChevronLeft,
-  ChevronRight,
   Layers,
   Maximize2,
   Pencil,
@@ -17,13 +16,12 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { SavedGeofences } from "./SavedGeofences";
 import { HEATMAP_PRESETS } from "./heatmapPresets";
-import type { HeatmapPresetKey } from "./types";
+import type { HeatmapPresetKey, MapWorkbenchPreset } from "./types";
 import { cn } from "@/lib/utils";
 
 const PANEL_TRANSITION = { duration: 0.26, ease: [0.22, 1, 0.36, 1] as const };
@@ -34,6 +32,8 @@ interface MapWorkbenchPanelProps {
   searchSlot?: ReactNode;
   baseLayer: string;
   onBaseLayerChange: (value: string) => void;
+  activePreset: MapWorkbenchPreset | null;
+  onApplyPreset: (preset: MapWorkbenchPreset) => void;
   geometryStatusLabel: string | null;
   showParcelBoundaries: boolean;
   setShowParcelBoundaries: (value: boolean) => void;
@@ -81,33 +81,89 @@ interface MapWorkbenchPanelProps {
   latencyLabel?: string;
 }
 
-interface OverlayToggleRowProps {
-  checked: boolean;
-  label: string;
-  description?: string;
-  onChange: (checked: boolean) => void;
+interface LayerActionButtonProps {
+  active: boolean;
+  title: string;
+  description: string;
+  onClick: () => void;
+  compact?: boolean;
 }
 
-function OverlayToggleRow({
-  checked,
+function LayerActionButton({
+  active,
+  title,
+  description,
+  onClick,
+  compact = false,
+}: LayerActionButtonProps) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={cn(
+        "group flex w-full flex-col rounded-xl border text-left transition-colors",
+        compact ? "min-h-[3.5rem] px-3 py-2.5" : "min-h-[4.4rem] px-3 py-3",
+        active
+          ? "border-map-accent bg-map-accent/12 text-map-text-primary"
+          : "border-map-border/70 bg-map-surface/45 text-map-text-secondary hover:border-map-accent-muted hover:bg-map-surface",
+      )}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[11px] font-medium">{title}</span>
+        <span
+          className={cn(
+            "rounded-full border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.14em]",
+            active
+              ? "border-map-accent bg-map-accent text-white"
+              : "border-map-border text-map-text-muted group-hover:text-map-text-secondary",
+          )}
+        >
+          {active ? "On" : "Off"}
+        </span>
+      </div>
+      <span className="mt-1 text-[10px] leading-4 text-map-text-muted">
+        {description}
+      </span>
+    </button>
+  );
+}
+
+interface LayerPresetButtonProps {
+  preset: MapWorkbenchPreset;
+  activePreset: MapWorkbenchPreset | null;
+  label: string;
+  description?: string;
+  onClick: (preset: MapWorkbenchPreset) => void;
+}
+
+function LayerPresetButton({
+  preset,
+  activePreset,
   label,
   description,
-  onChange,
-}: OverlayToggleRowProps) {
+  onClick,
+}: LayerPresetButtonProps) {
+  const active = activePreset === preset;
+
   return (
-    <label className="flex cursor-pointer items-start justify-between gap-3 rounded-xl border border-map-border/60 bg-map-surface/55 px-3 py-2.5 transition-colors hover:border-map-accent-muted hover:bg-map-surface">
-      <div className="min-w-0">
-        <div className="text-[11px] font-medium text-map-text-primary">{label}</div>
-        {description ? (
-          <div className="mt-1 text-[10px] leading-4 text-map-text-muted">{description}</div>
-        ) : null}
-      </div>
-      <Checkbox
-        checked={checked}
-        onCheckedChange={(value) => onChange(value === true)}
-        className="mt-0.5 border-map-accent"
-      />
-    </label>
+    <button
+      type="button"
+      onClick={() => onClick(preset)}
+      className={cn(
+        "flex min-h-[4.5rem] flex-col rounded-xl border px-3 py-3 text-left transition-colors",
+        active
+          ? "border-map-accent bg-map-accent/12 text-map-text-primary"
+          : "border-map-border/70 bg-map-surface/45 text-map-text-secondary hover:border-map-accent-muted hover:bg-map-surface",
+      )}
+    >
+      <span className="text-[11px] font-medium">{label}</span>
+      {description ? (
+        <span className="mt-1 text-[10px] leading-4 text-map-text-muted">
+          {description}
+        </span>
+      ) : null}
+    </button>
   );
 }
 
@@ -141,6 +197,8 @@ export function MapWorkbenchPanel({
   searchSlot,
   baseLayer,
   onBaseLayerChange,
+  activePreset,
+  onApplyPreset,
   geometryStatusLabel,
   showParcelBoundaries,
   setShowParcelBoundaries,
@@ -191,7 +249,23 @@ export function MapWorkbenchPanel({
     showSoils,
     showWetlands,
     showEpa,
+    showComps,
+    showHeatmap,
+    showIsochrone,
   ].filter(Boolean).length;
+  const activeReferenceLayers = [
+    showParcelBoundaries ? "Parcels" : null,
+    showZoning ? "Zoning" : null,
+    showFlood ? "Flood" : null,
+    showSoils ? "Soils" : null,
+    showWetlands ? "Wetlands" : null,
+    showEpa ? "EPA" : null,
+  ].filter((value): value is string => value !== null);
+  const activeAnalysisLayers = [
+    showComps ? "Comps" : null,
+    showHeatmap ? "Heatmap" : null,
+    showIsochrone ? "Drive time" : null,
+  ].filter((value): value is string => value !== null);
 
   return (
     <div className="pointer-events-none absolute left-3 top-3 bottom-12 z-20 flex items-start gap-3">
@@ -285,6 +359,86 @@ export function MapWorkbenchPanel({
             </div>
 
             <ScrollArea className="min-h-0 flex-1">
+              <section className="border-b border-map-border px-4 py-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-map-text-muted">
+                      Layer desk
+                    </p>
+                    <h3 className="mt-1 text-xs font-semibold text-map-text-primary">
+                      Swap the reference stack in one click.
+                    </h3>
+                  </div>
+                  <Badge variant="secondary" className="px-2 py-0.5 text-[9px]">
+                    {overlayCount} live
+                  </Badge>
+                </div>
+
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <LayerPresetButton
+                    preset="parcel-focus"
+                    activePreset={activePreset}
+                    label="Parcel focus"
+                    description="Keep parcel geometry on and clear the extra references."
+                    onClick={onApplyPreset}
+                  />
+                  <LayerPresetButton
+                    preset="zoning-scan"
+                    activePreset={activePreset}
+                    label="Zoning scan"
+                    description="Show the parcel stack with zoning pressure turned on."
+                    onClick={onApplyPreset}
+                  />
+                  <LayerPresetButton
+                    preset="flood-risk"
+                    activePreset={activePreset}
+                    label="Flood risk"
+                    description="Turn on flood exposure and wetland context together."
+                    onClick={onApplyPreset}
+                  />
+                  <LayerPresetButton
+                    preset="environmental"
+                    activePreset={activePreset}
+                    label="Environmental"
+                    description="Bring up soils, wetlands, and EPA flags in one move."
+                    onClick={onApplyPreset}
+                  />
+                  <LayerPresetButton
+                    preset="full-stack"
+                    activePreset={activePreset}
+                    label="Full stack"
+                    description="Show every reference layer for a full-screen pass."
+                    onClick={onApplyPreset}
+                  />
+                  <LayerPresetButton
+                    preset="reset"
+                    activePreset={activePreset}
+                    label="Reset display"
+                    description="Return to the default streets view and clear analysis extras."
+                    onClick={onApplyPreset}
+                  />
+                </div>
+
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {activeReferenceLayers.length > 0 ? (
+                    activeReferenceLayers.map((label) => (
+                      <Badge key={label} variant="outline" className="px-2 py-0.5 text-[9px]">
+                        {label}
+                      </Badge>
+                    ))
+                  ) : (
+                    <Badge variant="outline" className="px-2 py-0.5 text-[9px]">
+                      No reference layers active
+                    </Badge>
+                  )}
+                  {activeAnalysisLayers.map((label) => (
+                    <Badge key={label} variant="secondary" className="px-2 py-0.5 text-[9px]">
+                      {label}
+                    </Badge>
+                  ))}
+                </div>
+              </section>
+
               {searchSlot ? (
                 <section className="border-b border-map-border px-4 py-4">{searchSlot}</section>
               ) : null}
@@ -326,43 +480,94 @@ export function MapWorkbenchPanel({
                   ))}
                 </ToggleGroup>
 
-                <div className="mt-3 flex flex-col gap-2">
-                  <OverlayToggleRow
-                    checked={showParcelBoundaries}
-                    label="Parcels"
-                    description="Boundary fills, outlines, and point fallback markers."
-                    onChange={setShowParcelBoundaries}
-                  />
-                  <OverlayToggleRow
-                    checked={showZoning}
-                    label="Zoning"
-                    description="Parcel zoning fills for quick code-pressure scans."
-                    onChange={setShowZoning}
-                  />
-                  <OverlayToggleRow
-                    checked={showFlood}
-                    label="Flood zones"
-                    description="FEMA flood overlays and flood exposure context."
-                    onChange={setShowFlood}
-                  />
-                  <OverlayToggleRow
-                    checked={showSoils}
-                    label="Soils"
-                    description="Soil suitability layers for site screening."
-                    onChange={setShowSoils}
-                  />
-                  <OverlayToggleRow
-                    checked={showWetlands}
-                    label="Wetlands"
-                    description="Wetland constraint view for entitlement risk."
-                    onChange={setShowWetlands}
-                  />
-                  <OverlayToggleRow
-                    checked={showEpa}
-                    label="EPA facilities"
-                    description="Nearby EPA-regulated sites and environmental flags."
-                    onChange={setShowEpa}
-                  />
+                <div className="mt-4 space-y-3">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.16em] text-map-text-muted">
+                      Core references
+                    </p>
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      <LayerActionButton
+                        active={showParcelBoundaries}
+                        title="Parcels"
+                        description="Boundary fills, outlines, and point fallback markers."
+                        onClick={() => setShowParcelBoundaries(!showParcelBoundaries)}
+                        compact
+                      />
+                      <LayerActionButton
+                        active={showZoning}
+                        title="Zoning"
+                        description="Parcel zoning fills for quick code-pressure scans."
+                        onClick={() => setShowZoning(!showZoning)}
+                        compact
+                      />
+                      <LayerActionButton
+                        active={showFlood}
+                        title="Flood zones"
+                        description="FEMA flood overlays and flood exposure context."
+                        onClick={() => setShowFlood(!showFlood)}
+                        compact
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.16em] text-map-text-muted">
+                      Environmental
+                    </p>
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      <LayerActionButton
+                        active={showSoils}
+                        title="Soils"
+                        description="Soil suitability layers for site screening."
+                        onClick={() => setShowSoils(!showSoils)}
+                        compact
+                      />
+                      <LayerActionButton
+                        active={showWetlands}
+                        title="Wetlands"
+                        description="Wetland constraint view for entitlement risk."
+                        onClick={() => setShowWetlands(!showWetlands)}
+                        compact
+                      />
+                      <LayerActionButton
+                        active={showEpa}
+                        title="EPA facilities"
+                        description="Nearby EPA-regulated sites and environmental flags."
+                        onClick={() => setShowEpa(!showEpa)}
+                        compact
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onApplyPreset("full-stack")}
+                      className="h-7 border-map-border bg-map-surface/45 px-2.5 text-[10px] text-map-text-primary hover:bg-map-surface"
+                    >
+                      Show all refs
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onApplyPreset("parcel-focus")}
+                      className="h-7 border-map-border bg-map-surface/45 px-2.5 text-[10px] text-map-text-primary hover:bg-map-surface"
+                    >
+                      Parcel only
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onApplyPreset("reset")}
+                      className="h-7 border-map-border bg-map-surface/45 px-2.5 text-[10px] text-map-text-primary hover:bg-map-surface"
+                    >
+                      Reset
+                    </Button>
+                  </div>
                 </div>
               </section>
 
