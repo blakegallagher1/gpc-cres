@@ -300,9 +300,10 @@ export function MapPageClient() {
     const mode = searchParams.get("mode");
     if (mode === "prospecting") {
       setActivePanel("prospecting");
-    } else {
+    } else if (mode === "chat") {
       setActivePanel("chat");
     }
+    // No explicit mode param → leave panel as-is (null on initial load)
   }, [searchParams]);
 
   const [parcels, setParcels] = useState<MapParcel[]>([]);

@@ -1831,25 +1831,27 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
 
       mapRef.current = map;
 
-      // Globe projection + sky (types lag behind MapLibre runtime support)
-      try {
-        const mapWithProjection = map as maplibregl.Map & {
-          setProjection?: (projection: string) => void;
-        };
-        mapWithProjection.setProjection?.("globe");
-      } catch { /* globe not supported in this build */ }
-
-      map.setSky({
-        "sky-color": "#1a1a2e",
-        "sky-horizon-blend": 0.5,
-        "horizon-color": "#16213e",
-        "horizon-fog-blend": 0.5,
-        "fog-color": "#0f3460",
-        "fog-ground-blend": 0.1,
-      });
-
       map.on("load", () => {
         if (disposed) return;
+
+        // Globe projection + sky (must run after style is loaded)
+        try {
+          const mapWithProjection = map as maplibregl.Map & {
+            setProjection?: (projection: string) => void;
+          };
+          mapWithProjection.setProjection?.("globe");
+        } catch { /* globe not supported in this build */ }
+
+        try {
+          map.setSky({
+            "sky-color": "#1a1a2e",
+            "sky-horizon-blend": 0.5,
+            "horizon-color": "#16213e",
+            "horizon-fog-blend": 0.5,
+            "fog-color": "#0f3460",
+            "fog-ground-blend": 0.1,
+          });
+        } catch { /* sky not supported */ }
 
         map.resize();
 
