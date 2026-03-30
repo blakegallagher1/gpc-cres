@@ -55,6 +55,8 @@ describe("packages/db client gateway config", () => {
     delete process.env.GATEWAY_PROXY_TOKEN;
     delete process.env.GATEWAY_DATABASE_URL;
     delete process.env.LOCAL_API_KEY;
+    delete process.env.GATEWAY_API_KEY;
+    delete process.env.API_KEYS;
     delete process.env.LOCAL_API_URL;
     delete process.env.DATABASE_URL;
     delete process.env.READ_REPLICA_DATABASE_URL;
@@ -100,6 +102,39 @@ describe("packages/db client gateway config", () => {
     expectGatewayTargets(2, [
       { baseUrl: "https://gateway.gallagherpropco.com", apiKey: "local-api-key", name: "gateway-proxy" },
       { baseUrl: "https://api.gallagherpropco.com", apiKey: "local-api-key", name: "gateway-direct" },
+    ]);
+    expect(constructorArgs).toHaveLength(2);
+  });
+
+  it("accepts legacy gateway bearer env names in hosted runtimes", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.GATEWAY_DATABASE_URL = "https://api.gallagherpropco.com";
+    process.env.GATEWAY_API_KEY = "legacy-gateway-key";
+
+    await import("../src/client.js");
+
+    expectGatewayTargets(1, [
+      { baseUrl: "https://gateway.gallagherpropco.com", apiKey: "legacy-gateway-key", name: "gateway-proxy" },
+      { baseUrl: "https://api.gallagherpropco.com", apiKey: "legacy-gateway-key", name: "gateway-direct" },
+    ]);
+    expectGatewayTargets(2, [
+      { baseUrl: "https://gateway.gallagherpropco.com", apiKey: "legacy-gateway-key", name: "gateway-proxy" },
+      { baseUrl: "https://api.gallagherpropco.com", apiKey: "legacy-gateway-key", name: "gateway-direct" },
+    ]);
+    expect(constructorArgs).toHaveLength(2);
+  });
+
+  it("uses the first API_KEYS entry as a last-resort gateway bearer", async () => {
+    process.env.GATEWAY_DATABASE_URL = "https://api.gallagherpropco.com";
+    process.env.API_KEYS = "primary-key,secondary-key";
+
+    await import("../src/client.js");
+
+    expectGatewayTargets(1, [
+      { baseUrl: "https://api.gallagherpropco.com", apiKey: "primary-key", name: "gateway-direct" },
+    ]);
+    expectGatewayTargets(2, [
+      { baseUrl: "https://api.gallagherpropco.com", apiKey: "primary-key", name: "gateway-direct" },
     ]);
     expect(constructorArgs).toHaveLength(2);
   });
