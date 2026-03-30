@@ -270,6 +270,39 @@ curl -s -X GET "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/cfd
 **Cause:** Prisma on Vercel uses `GATEWAY_DATABASE_URL` + `LOCAL_API_KEY` to route queries through the FastAPI gateway's `/db` endpoint. If either env var is missing, Prisma falls back to direct TCP which Vercel can't reach.
 **Fix:** Ensure both `GATEWAY_DATABASE_URL=https://api.gallagherpropco.com` and `LOCAL_API_KEY` are set in Vercel environment variables (Production + Preview).
 
+### 9. Google OAuth Returns auth_unavailable
+**Symptom:** User clicks "Continue with Google" → Google account selection succeeds → redirected back to `/login?error=auth_unavailable`. The `/api/auth/callback/google` endpoint takes 7-14 seconds before redirecting.
+
+**Root cause (most likely):** The NextAuth callback does DB provisioning (user lookup/create, org membership) via Prisma, which routes through the gateway `/db` endpoint. A 7+ second callback = Prisma gateway retries exhausted = the /db endpoint is unreachable from Vercel.
+
+**Diagnosis (Tailscale-first):**
+```bash
+# 1. Is gateway alive?
+curl -sf http://100.67.140.126:8000/health
+
+# 2. Does /db work with the deployed bearer token?
+curl -s -X POST -H "Authorization: Bearer $LOCAL_API_KEY" \
+  -H "Content-Type: application/json" \
+  --data '{"sql":"SELECT 1 as ok","args":[]}' \
+  https://gateway.gallagherpropco.com/db
+
+# 3. Check gateway logs for /db errors
+ssh bg 'docker logs gateway --tail 50 2>&1 | grep -i "/db\|error\|auth"'
+
+# 4. Direct DB check
+psql -h 100.67.140.126 -p 54323 -U postgres -d entitlement_os \
+  -c "SELECT id, email FROM users LIMIT 3"
+
+# 5. Run the automated auth smoke test
+scripts/verify-auth.sh
+```
+
+**Fix paths:**
+- If /db returns 401 → bearer token mismatch. Check Vercel env vars: `LOCAL_API_KEY` should match the first entry in the gateway's `API_KEYS`.
+- If /db times out → gateway can't reach Postgres. `ssh bg 'docker ps'` to check container health.
+- If direct psql works but /db doesn't → gateway's DB pool is exhausted or misconfigured. Restart gateway: `ssh bg 'docker restart gateway'`
+- If all infra checks pass → it's a code bug in the signIn callback. Check `apps/web/app/api/auth/[...nextauth]/route.ts`.
+
 ## Deploying Code to the Server
 
 ### Gateway (FastAPI)

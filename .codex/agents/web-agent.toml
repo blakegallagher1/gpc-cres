@@ -19,4 +19,14 @@ RULES:
 - Root .gitignore has `lib/` pattern — force-add `apps/web/lib/` files to git
 - Use two-header auth for chatgpt-apps: apikey = anon key, Authorization: Bearer = ext JWT
 - Tests use Jest (NOT vitest) with `jest.mock()`/`jest.requireMock()` for Prisma mocking
+
+AUTH DEBUGGING (when /login?error=auth_unavailable appears):
+The error comes from the NextAuth signIn callback in app/api/auth/[...nextauth]/route.ts.
+It means the post-Google callback failed — usually DB unreachable, not a code bug.
+BEFORE changing auth code, follow AGENTS.md "Debugging Auth / DB Connectivity" (steps 1-6).
+Quick version:
+1. Run `scripts/verify-auth.sh` to test the chain without a browser
+2. Check gateway /db + logs via Tailscale SSH (`ssh bg 'docker logs gateway --tail 30'`)
+3. Verify Vercel has LOCAL_API_KEY (or GATEWAY_API_KEY/API_KEYS) + GATEWAY_DATABASE_URL
+4. A 7+ second callback timeout = gateway retries exhausted = infra problem, not code bug
 """

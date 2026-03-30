@@ -278,6 +278,114 @@ curl -H "Authorization: Bearer $LOCAL_API_KEY" https://cua.gallagherpropco.com/h
 
 **Models:** GPT-5.4 (full capabilities) and GPT-5.4-mini (faster, cost-optimized) selectable via `CuaModelToggle` component in chat header.
 
+## Debugging Auth / DB Connectivity (MANDATORY TRIAGE ORDER)
+
+When Google login fails with `auth_unavailable` or any DB-related error on production,
+**diagnose infrastructure BEFORE changing code**. The most common cause is an unreachable
+gateway, not a code bug.
+
+### Step 1: Check if gateway is alive (10 seconds)
+```bash
+# Tailscale (fastest — 5ms)
+curl -sf --max-time 3 http://100.67.140.126:8000/health && echo "gateway UP via Tailscale"
+
+# Cloudflare fallback
+curl -sf --max-time 5 https://api.gallagherpropco.com/health && echo "gateway UP via CF"
+```
+
+### Step 2: Check if /db endpoint works with deployed bearer token (10 seconds)
+```bash
+# Test the exact path Prisma uses on Vercel
+curl -s -X POST -H "Authorization: Bearer $LOCAL_API_KEY" \
+  -H "Content-Type: application/json" \
+  --data '{"sql":"SELECT 1 as ok","args":[]}' \
+  https://gateway.gallagherpropco.com/db
+
+# Also test the direct gateway path
+curl -s -X POST -H "Authorization: Bearer $LOCAL_API_KEY" \
+  -H "Content-Type: application/json" \
+  --data '{"sql":"SELECT 1 as ok","args":[]}' \
+  https://api.gallagherpropco.com/db
+```
+If both return 401 → bearer token mismatch. If timeout → gateway can't reach Postgres.
+
+### Step 3: Check gateway logs via Tailscale SSH (30 seconds)
+```bash
+ssh bg 'docker logs gateway --tail 30 2>&1 | grep -i "error\|/db\|auth"'
+```
+Look for: connection refused, timeout, 401/403, SQL errors.
+
+### Step 4: Check Postgres directly over Tailscale (10 seconds)
+```bash
+psql -h 100.67.140.126 -p 54323 -U postgres -d entitlement_os \
+  -c "SELECT id, email FROM users LIMIT 3"
+```
+If this works but /db doesn't → the problem is between gateway and Postgres.
+
+### Step 5: Check Vercel env vars
+```bash
+# List production env var NAMES (not values)
+vercel env ls production 2>/dev/null || echo "vercel CLI not available"
+```
+Or check via Vercel dashboard. Required for auth: `GATEWAY_DATABASE_URL` or `GATEWAY_PROXY_URL`, plus a bearer token (`LOCAL_API_KEY`, `GATEWAY_PROXY_TOKEN`, `GATEWAY_API_KEY`, or `API_KEYS`).
+
+### Step 6: ONLY NOW consider code changes
+If steps 1-5 all pass and auth still fails, then it's a code bug. Start with:
+- `apps/web/app/api/auth/[...nextauth]/route.ts` → the OAuth callback
+- `packages/db/src/client.ts` → gateway target selection
+- `packages/db/src/gateway-adapter.ts` → HTTP adapter + failover
+
+### Bearer Token Env Var Naming (canonical lookup order)
+The gateway accepts the same token under multiple env names. `packages/db/src/client.ts`
+checks them in this order:
+1. `LOCAL_API_KEY` (preferred)
+2. `GATEWAY_API_KEY` (legacy)
+3. First entry from `API_KEYS` (comma-separated, legacy)
+4. `GATEWAY_PROXY_TOKEN` (proxy-specific, overrides the above for proxy targets only)
+
+On the gateway container itself, the token is in `API_KEYS` (comma-separated).
+On Vercel, it should be in `LOCAL_API_KEY`. Both refer to the same secret value.
+
+### Run the automated auth smoke test
+```bash
+scripts/verify-auth.sh
+```
+This replays the OAuth CSRF+signin+callback chain without a browser and reports
+exactly where the failure occurs.
+
+## Branch Hygiene & Deploy Verification
+
+### Always branch from origin/main
+```bash
+# CORRECT — clean branch from current main
+git fetch origin main && git checkout -b fix/my-fix origin/main
+
+# WRONG — branching from a feature branch causes merge conflicts
+git checkout -b fix/my-fix   # inherits whatever branch you're on
+```
+**Why:** Codex lost ~15 minutes resolving merge conflicts caused by branching off a
+feature branch that had already been squash-merged into main.
+
+### Use auto-merge, don't poll deployment status
+```bash
+# Open PR and enable auto-merge
+gh pr create --title "fix: description" --body "..."
+gh pr merge --squash --auto --delete-branch=false
+
+# Move on to other work. Check result later:
+gh pr view <number> --json state,mergedAt,mergeCommit
+```
+**Why:** Codex spent ~15 minutes in a sleep-poll loop waiting for Vercel to finish
+building. Auto-merge lets GitHub handle the wait.
+
+### Post-deploy health check (after merge is confirmed)
+```bash
+# Quick check that the new build is serving
+curl -sf https://gallagherpropco.com/api/health | head -c 200
+# Then run the auth smoke if that was the fix:
+scripts/verify-auth.sh
+```
+
 ## What Agents Must NOT Do
 
 - Do NOT modify Prisma migration files that have been applied to production

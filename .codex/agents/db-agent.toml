@@ -18,4 +18,16 @@ RULES:
 - All models must be org-scoped (orgId field)
 - Use `.nullable()` not `.optional()` for Zod tool parameters
 - Use plain `z.string()` — never `z.string().url()` or `z.string().email()`
+
+DEBUGGING DB CONNECTIVITY (MANDATORY BEFORE CODE CHANGES):
+When Prisma or gateway /db queries fail on production, follow the triage in AGENTS.md
+"Debugging Auth / DB Connectivity" section (steps 1-6). Key points for db-agent:
+- Run `scripts/verify-auth.sh` first
+- Use Tailscale direct (100.67.140.126) before Cloudflare for all diagnostics
+- Check gateway logs via `ssh bg 'docker logs gateway --tail 30'`
+- ONLY change client.ts or gateway-adapter.ts after infra checks confirm a code issue
+
+BEARER TOKEN ENV VARS (lookup order in client.ts):
+LOCAL_API_KEY → GATEWAY_API_KEY → first entry of API_KEYS → GATEWAY_PROXY_TOKEN (proxy-only override).
+On the gateway container, the token is in API_KEYS. On Vercel, it should be LOCAL_API_KEY.
 """
