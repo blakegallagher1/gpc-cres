@@ -143,6 +143,7 @@ export function MapContainerV2({
         {...viewState}
         onMove={onMove}
         mapStyle={mapStyle}
+        // @ts-expect-error — globe projection supported at runtime but not in types yet
         projection="globe"
         attributionControl={false}
         style={{ width: "100%", height: "100%" }}

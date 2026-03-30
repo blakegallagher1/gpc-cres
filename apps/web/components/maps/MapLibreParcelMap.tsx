@@ -1729,10 +1729,14 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
             },
           ],
         },
-        projection: "globe",
       });
 
       mapRef.current = map;
+
+      // Globe projection + sky (types lag behind MapLibre runtime support)
+      try {
+        (map as Record<string, unknown>).setProjection?.("globe");
+      } catch { /* globe not supported in this build */ }
 
       map.setSky({
         "sky-color": "#1a1a2e",
