@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { prisma } from "@entitlement-os/db";
 import { getPropertyDbConfigOrNull } from "@/lib/server/propertyDbEnv";
+import { getAuthSecret } from "@/lib/auth/authSecret";
 
 type DbStatus = {
   ok: boolean;
@@ -45,9 +46,14 @@ async function isAuthorized(request: NextRequest) {
     return true;
   }
 
+  const secret = getAuthSecret();
+  if (!secret) {
+    return false;
+  }
+
   const token = await getToken({
     req: request,
-    secret: process.env.AUTH_SECRET,
+    secret,
   });
   if (!token?.userId) {
     return false;

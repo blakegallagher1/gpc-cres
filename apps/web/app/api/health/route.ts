@@ -6,8 +6,9 @@ import {
   getCloudflareAccessHeadersFromEnv,
   getPropertyDbConfigOrNull,
 } from "@/lib/server/propertyDbEnv";
+import { getAuthSecret } from "@/lib/auth/authSecret";
 
-const CORE_ENV_VARS = ["OPENAI_API_KEY", "AUTH_SECRET"] as const;
+const CORE_ENV_VARS = ["OPENAI_API_KEY"] as const;
 
 function getDbMode(
   gatewayConfigured: boolean,
@@ -58,9 +59,14 @@ async function isAuthorized(request: NextRequest) {
     return true;
   }
 
+  const secret = getAuthSecret();
+  if (!secret) {
+    return false;
+  }
+
   const token = await getToken({
     req: request,
-    secret: process.env.AUTH_SECRET,
+    secret,
   });
   if (!token?.userId) {
     return false;
@@ -88,6 +94,9 @@ export async function GET(request: NextRequest) {
     process.env.HEALTHCHECK_TOKEN?.trim() || process.env.VERCEL_ACCESS_TOKEN?.trim()
   );
   const missing: string[] = CORE_ENV_VARS.filter((key) => !process.env[key]);
+  if (!getAuthSecret()) {
+    missing.push("AUTH_SECRET");
+  }
   if (!process.env.LOCAL_API_URL?.trim()) {
     missing.push("LOCAL_API_URL");
   }

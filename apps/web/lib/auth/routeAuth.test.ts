@@ -40,6 +40,7 @@ describe("resolveRouteAuth", () => {
 
     process.env.AUTH_SECRET = "test-secret-32chars-minimum-len";
     process.env.NODE_ENV = originalNodeEnv ?? "test";
+    delete process.env.NEXTAUTH_SECRET;
     delete process.env.NEXT_PUBLIC_DISABLE_AUTH;
     delete process.env.NEXT_PUBLIC_E2E;
     delete process.env.AGENT_TOOL_INTERNAL_TOKEN;
@@ -80,6 +81,28 @@ describe("resolveRouteAuth", () => {
     expect(result).toEqual({
       status: "authorized",
       auth: { userId: "user-123", orgId: "org-123" },
+    });
+  });
+
+  it("accepts NEXTAUTH_SECRET as the route auth token secret fallback", async () => {
+    delete process.env.AUTH_SECRET;
+    process.env.NEXTAUTH_SECRET = "legacy-nextauth-secret";
+    ({ resolveRouteAuth } = await import("./routeAuth"));
+    getTokenMock.mockResolvedValue({ userId: "user-legacy", orgId: "org-legacy" });
+
+    const result = await resolveRouteAuth({
+      kind: "app",
+      request: new Request("http://localhost/api/test"),
+    });
+
+    expect(result).toEqual({
+      status: "authorized",
+      auth: { userId: "user-legacy", orgId: "org-legacy" },
+    });
+    expect(getTokenMock).toHaveBeenCalledWith({
+      req: expect.anything(),
+      secret: "legacy-nextauth-secret",
+      secureCookie: false,
     });
   });
 

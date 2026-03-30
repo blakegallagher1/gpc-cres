@@ -24,6 +24,7 @@ describe("GET /api/health", () => {
 
     delete process.env.HEALTHCHECK_TOKEN;
     delete process.env.VERCEL_ACCESS_TOKEN;
+    process.env.NEXTAUTH_SECRET = "legacy-nextauth-secret";
 
     try {
       const { GET } = await import("@/app/api/health/route");

@@ -220,6 +220,19 @@ describe("ops", () => {
       expect(result.missingVars).toContain("AUTH_SECRET");
     });
 
+    it("accepts NEXTAUTH_SECRET as the auth secret fallback", () => {
+      delete process.env.AUTH_SECRET;
+      process.env.NEXTAUTH_SECRET = "legacy-nextauth-secret";
+      process.env.LOCAL_API_URL = "http://localhost:8000";
+      process.env.LOCAL_API_KEY = "test-api-key";
+      process.env.OPENAI_API_KEY = "sk-test";
+
+      const result = evaluateHealth();
+
+      expect(result.status).toBe("ok");
+      expect(result.missingVars).not.toContain("AUTH_SECRET");
+    });
+
     it("should include ISO timestamp", () => {
       process.env.AUTH_SECRET = "test-secret";
       process.env.LOCAL_API_URL = "http://localhost:8000";

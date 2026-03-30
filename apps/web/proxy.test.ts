@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { getTokenMock } = vi.hoisted(() => ({
   getTokenMock: vi.fn(),
@@ -12,8 +12,18 @@ vi.mock("next-auth/jwt", () => ({
 import { proxy } from "./proxy";
 
 describe("proxy", () => {
+  const originalEnv = process.env;
+
   beforeEach(() => {
     getTokenMock.mockReset();
+    process.env = {
+      ...originalEnv,
+      AUTH_SECRET: "test-auth-secret",
+    };
+  });
+
+  afterAll(() => {
+    process.env = originalEnv;
   });
 
   it("allows the public homepage without consulting auth", async () => {
@@ -47,6 +57,33 @@ describe("proxy", () => {
 
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe("http://localhost/chat");
+  });
+
+  it("accepts NEXTAUTH_SECRET as the login token secret fallback", async () => {
+    delete process.env.AUTH_SECRET;
+    process.env.NEXTAUTH_SECRET = "legacy-nextauth-secret";
+    getTokenMock.mockResolvedValue({ sub: "user-1" });
+
+    const response = await proxy(new NextRequest("http://localhost/login"));
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe("http://localhost/chat");
+    expect(getTokenMock).toHaveBeenCalledWith({
+      req: expect.anything(),
+      secret: "legacy-nextauth-secret",
+      secureCookie: false,
+    });
+  });
+
+  it("allows the login page through when no auth secret is configured", async () => {
+    delete process.env.AUTH_SECRET;
+    delete process.env.NEXTAUTH_SECRET;
+
+    const response = await proxy(new NextRequest("http://localhost/login"));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
+    expect(getTokenMock).not.toHaveBeenCalled();
   });
 
   it("redirects protected routes to login when no session token is present", async () => {

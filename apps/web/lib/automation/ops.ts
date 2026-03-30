@@ -3,6 +3,8 @@
  * Migration safety checks, health evaluation, deployment verification.
  */
 
+import { getAuthSecret } from "@/lib/auth/authSecret";
+
 /**
  * Destructive SQL patterns that should never be auto-run in migrations.
  * Each pattern includes a description for error messages.
@@ -92,7 +94,7 @@ export function evaluateHealth(): HealthCheckResult {
   if (!process.env.OPENAI_API_KEY?.trim()) {
     missingVars.push("OPENAI_API_KEY");
   }
-  if (!process.env.AUTH_SECRET?.trim()) {
+  if (!getAuthSecret()) {
     missingVars.push("AUTH_SECRET");
   }
   if (!process.env.LOCAL_API_URL?.trim()) {

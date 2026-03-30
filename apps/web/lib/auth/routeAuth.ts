@@ -2,6 +2,7 @@ import "server-only";
 import { getToken } from "next-auth/jwt";
 import type { NextRequest } from "next/server";
 import { prisma } from "@entitlement-os/db";
+import { getAuthSecret } from "@/lib/auth/authSecret";
 
 /**
  * Server-derived route auth identity.
@@ -144,7 +145,7 @@ async function resolveAppRouteAuthState(request?: Request): Promise<RouteAuthSta
     return buildAuthorizedState(coordinatorAuth);
   }
 
-  const secret = process.env.AUTH_SECRET;
+  const secret = getAuthSecret();
   if (!secret) {
     return { status: "unauthenticated" };
   }
