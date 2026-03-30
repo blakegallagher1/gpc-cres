@@ -38,11 +38,14 @@ vi.mock("../src/gateway-adapter.js", () => ({
 }));
 
 describe("packages/db client gateway config", () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+
   beforeEach(() => {
     constructorArgs.length = 0;
     mockPrismaClient.mockClear();
     mockCreateGatewayAdapterFactory.mockClear();
     vi.resetModules();
+    process.env.NODE_ENV = originalNodeEnv;
     delete process.env.GATEWAY_PROXY_URL;
     delete process.env.GATEWAY_PROXY_TOKEN;
     delete process.env.GATEWAY_DATABASE_URL;
@@ -80,7 +83,27 @@ describe("packages/db client gateway config", () => {
     expect(constructorArgs).toHaveLength(2);
   });
 
-  it("falls back to GATEWAY_DATABASE_URL with LOCAL_API_KEY when proxy env is absent", async () => {
+  it("defaults hosted runtimes to the gateway proxy when LOCAL_API_KEY is available", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.GATEWAY_DATABASE_URL = "https://api.gallagherpropco.com";
+    process.env.LOCAL_API_KEY = "local-api-key";
+
+    await import("../src/client.js");
+
+    expect(mockCreateGatewayAdapterFactory).toHaveBeenNthCalledWith(
+      1,
+      "https://gateway.gallagherpropco.com",
+      "local-api-key",
+    );
+    expect(mockCreateGatewayAdapterFactory).toHaveBeenNthCalledWith(
+      2,
+      "https://gateway.gallagherpropco.com",
+      "local-api-key",
+    );
+    expect(constructorArgs).toHaveLength(2);
+  });
+
+  it("falls back to GATEWAY_DATABASE_URL with LOCAL_API_KEY outside hosted runtimes", async () => {
     process.env.GATEWAY_DATABASE_URL = "https://api.gallagherpropco.com";
     process.env.LOCAL_API_KEY = "local-api-key";
 
@@ -102,21 +125,14 @@ describe("packages/db client gateway config", () => {
   it("uses LOCAL_API_URL as the hosted gateway fallback when GATEWAY_DATABASE_URL is absent", async () => {
     process.env.NODE_ENV = "production";
     process.env.LOCAL_API_URL = "https://api.gallagherpropco.com";
-    process.env.LOCAL_API_KEY = "local-api-key";
 
     await import("../src/client.js");
 
-    expect(mockCreateGatewayAdapterFactory).toHaveBeenNthCalledWith(
-      1,
-      "https://api.gallagherpropco.com",
-      "local-api-key",
-    );
-    expect(mockCreateGatewayAdapterFactory).toHaveBeenNthCalledWith(
-      2,
-      "https://api.gallagherpropco.com",
-      "local-api-key",
-    );
-    expect(constructorArgs).toHaveLength(2);
+    expect(mockCreateGatewayAdapterFactory).not.toHaveBeenCalled();
+    expect(constructorArgs[0]).toEqual({
+      datasources: undefined,
+      log: ["error", "warn"],
+    });
   });
 
   it("does not force LOCAL_API_URL in non-hosted runtimes", async () => {
