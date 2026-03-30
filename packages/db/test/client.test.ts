@@ -47,11 +47,14 @@ describe("packages/db client gateway config", () => {
     delete process.env.GATEWAY_PROXY_TOKEN;
     delete process.env.GATEWAY_DATABASE_URL;
     delete process.env.LOCAL_API_KEY;
+    delete process.env.LOCAL_API_URL;
     delete process.env.DATABASE_URL;
     delete process.env.READ_REPLICA_DATABASE_URL;
     delete process.env.ENABLE_READ_REPLICA;
     delete process.env.PRISMA_CONNECTION_LIMIT;
     delete process.env.PRISMA_POOL_TIMEOUT_SECONDS;
+    delete process.env.VERCEL;
+    delete process.env.VERCEL_ENV;
     delete globalThis.__ENTITLEMENT_OS_PRISMA__;
     delete globalThis.__ENTITLEMENT_OS_PRISMA_READ__;
   });
@@ -94,5 +97,45 @@ describe("packages/db client gateway config", () => {
       "local-api-key",
     );
     expect(constructorArgs).toHaveLength(2);
+  });
+
+  it("uses LOCAL_API_URL as the hosted gateway fallback when GATEWAY_DATABASE_URL is absent", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.LOCAL_API_URL = "https://api.gallagherpropco.com";
+    process.env.LOCAL_API_KEY = "local-api-key";
+
+    await import("../src/client.js");
+
+    expect(mockCreateGatewayAdapterFactory).toHaveBeenNthCalledWith(
+      1,
+      "https://api.gallagherpropco.com",
+      "local-api-key",
+    );
+    expect(mockCreateGatewayAdapterFactory).toHaveBeenNthCalledWith(
+      2,
+      "https://api.gallagherpropco.com",
+      "local-api-key",
+    );
+    expect(constructorArgs).toHaveLength(2);
+  });
+
+  it("does not force LOCAL_API_URL in non-hosted runtimes", async () => {
+    process.env.NODE_ENV = "development";
+    process.env.LOCAL_API_URL = "https://api.gallagherpropco.com";
+    process.env.LOCAL_API_KEY = "local-api-key";
+    process.env.DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/entitlement_os";
+
+    await import("../src/client.js");
+
+    expect(mockCreateGatewayAdapterFactory).not.toHaveBeenCalled();
+    expect(constructorArgs).toHaveLength(2);
+    expect(constructorArgs[0]).toEqual({
+      datasources: {
+        db: {
+          url: "postgresql://postgres:postgres@localhost:5432/entitlement_os",
+        },
+      },
+      log: ["error", "warn"],
+    });
   });
 });

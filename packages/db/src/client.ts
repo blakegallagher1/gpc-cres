@@ -41,7 +41,16 @@ function getGatewayConfig(): { url: string | null; key: string | null } {
 
   const directGatewayUrl = normalizeDbUrl(process.env.GATEWAY_DATABASE_URL);
   const directGatewayKey = process.env.LOCAL_API_KEY?.trim() || null;
-  return { url: directGatewayUrl, key: directGatewayKey };
+  if (directGatewayUrl) {
+    return { url: directGatewayUrl, key: directGatewayKey };
+  }
+
+  const isHostedRuntime =
+    process.env.NODE_ENV === "production" ||
+    process.env.VERCEL === "1" ||
+    Boolean(process.env.VERCEL_ENV?.trim());
+  const localApiUrl = isHostedRuntime ? normalizeDbUrl(process.env.LOCAL_API_URL) : null;
+  return { url: localApiUrl, key: directGatewayKey };
 }
 
 function createPrismaClient(url: string | null): PrismaClient {
