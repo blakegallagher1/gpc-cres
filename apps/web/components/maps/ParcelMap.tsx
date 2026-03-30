@@ -39,6 +39,8 @@ interface ParcelMapProps {
   onMapReady?: () => void;
   onHudStateChange?: (state: MapHudState) => void;
   searchSlot?: React.ReactNode;
+  dataFreshnessLabel?: string;
+  latencyLabel?: string;
 }
 
 export type ParcelMapRef = MapLibreParcelMapRef;
@@ -67,6 +69,8 @@ export const ParcelMap = forwardRef<MapLibreParcelMapRef, ParcelMapProps>(functi
   onMapReady,
   onHudStateChange,
   searchSlot,
+  dataFreshnessLabel,
+  latencyLabel,
 }, ref) {
   const mlCenter: [number, number] = useMemo(() => [center[1], center[0]], [center]);
 
@@ -92,6 +96,8 @@ export const ParcelMap = forwardRef<MapLibreParcelMapRef, ParcelMapProps>(functi
       onMapReady={onMapReady}
       onHudStateChange={onHudStateChange}
       searchSlot={searchSlot}
+      dataFreshnessLabel={dataFreshnessLabel}
+      latencyLabel={latencyLabel}
     />
   );
 });

@@ -19,7 +19,6 @@ import { AnimatePresence, motion } from "framer-motion";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { MapOperatorConsole } from "@/components/maps/MapOperatorConsole";
 import type { ParcelMapRef } from "@/components/maps/ParcelMap";
-import { MapSituationStrip } from "@/components/maps/MapSituationStrip";
 import { ScreeningScorecard } from "@/components/maps/ScreeningScorecard";
 import {
   readMapTrackedParcels,
@@ -314,7 +313,7 @@ export function MapPageClient() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [lastDataRefreshAt, setLastDataRefreshAt] = useState<number | null>(null);
   const [lastRequestLatencyMs, setLastRequestLatencyMs] = useState<number | null>(null);
-  const [mapHudState, setMapHudState] = useState<MapHudState>({
+  const [, setMapHudState] = useState<MapHudState>({
     activeOverlays: [],
     drawMode: "idle",
   });
@@ -1393,16 +1392,6 @@ export function MapPageClient() {
           <>
             <div className="relative flex min-h-0 flex-1">
               <div className="relative min-w-0 flex-1">
-                <MapSituationStrip
-                  selectedCount={selectedParcelIds.size}
-                  trackedCount={trackedSummary.totalCount}
-                  openTaskCount={trackedSummary.openCount}
-                  analysisCount={resultCards.length}
-                  overlayCount={mapHudState.activeOverlays.length}
-                  drawMode={mapHudState.drawMode}
-                  dataFreshnessLabel={dataFreshnessLabel}
-                  latencyLabel={latencyLabel}
-                />
                 <AnimatePresence initial={false}>
                   {activePanel === "chat" ? (
                     <MapChatPanel
@@ -1455,6 +1444,8 @@ export function MapPageClient() {
                 setIsMapReady(true);
               }}
               onHudStateChange={setMapHudState}
+              dataFreshnessLabel={dataFreshnessLabel}
+              latencyLabel={latencyLabel}
               selectedParcelIds={selectedParcelIds}
               highlightParcelIds={trackedParcelIds}
               searchSlot={

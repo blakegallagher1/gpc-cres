@@ -6,6 +6,7 @@ import {
   Camera,
   ChevronLeft,
   ChevronRight,
+  Layers,
   Maximize2,
   Pencil,
   Route,
@@ -75,6 +76,9 @@ interface MapWorkbenchPanelProps {
   polygon: number[][][] | null;
   onPolygonDrawn?: (coordinates: number[][][]) => void;
   onOpenCompare: () => void;
+  /** Optional status labels shown in the bottom bar */
+  dataFreshnessLabel?: string;
+  latencyLabel?: string;
 }
 
 interface OverlayToggleRowProps {
@@ -175,8 +179,19 @@ export function MapWorkbenchPanel({
   polygon,
   onPolygonDrawn,
   onOpenCompare,
+  dataFreshnessLabel,
+  latencyLabel,
 }: MapWorkbenchPanelProps) {
   const reduceMotion = useReducedMotion();
+
+  const overlayCount = [
+    showParcelBoundaries,
+    showZoning,
+    showFlood,
+    showSoils,
+    showWetlands,
+    showEpa,
+  ].filter(Boolean).length;
 
   return (
     <div className="pointer-events-none absolute left-3 top-3 bottom-12 z-20 flex items-start gap-3">
@@ -186,12 +201,26 @@ export function MapWorkbenchPanel({
           variant="outline"
           size="icon"
           onClick={onToggleOpen}
-          className="h-11 w-11 border-map-border bg-map-surface-overlay text-map-text-primary shadow-lg hover:bg-map-surface"
+          className={cn(
+            "relative h-11 w-11 border-map-border bg-map-surface-overlay shadow-lg transition-all",
+            open
+              ? "text-map-text-primary hover:bg-map-surface"
+              : "text-map-accent hover:bg-map-surface hover:text-map-accent",
+          )}
           title={open ? "Collapse workbench (L)" : "Open workbench (L)"}
           aria-label={open ? "Collapse map workbench" : "Open map workbench"}
           aria-expanded={open}
         >
-          {open ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          {open ? (
+            <ChevronLeft className="h-4 w-4" />
+          ) : (
+            <Layers className="h-4 w-4" />
+          )}
+          {!open && overlayCount > 0 && (
+            <span className="absolute -right-1.5 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-map-accent px-1 text-[9px] font-bold leading-none text-white shadow-md">
+              {overlayCount}
+            </span>
+          )}
         </Button>
         <Button
           type="button"
@@ -544,19 +573,26 @@ export function MapWorkbenchPanel({
             </ScrollArea>
 
             <Separator className="bg-map-border" />
-            <div className="flex items-center gap-3 px-4 py-2 text-[10px] text-map-text-muted">
-              <span>
-                <kbd className="rounded border border-map-border px-1">L</kbd> Panel
-              </span>
-              <span>
-                <kbd className="rounded border border-map-border px-1">D</kbd> Draw
-              </span>
-              <span>
-                <kbd className="rounded border border-map-border px-1">F</kbd> Full
-              </span>
-              <span>
-                <kbd className="rounded border border-map-border px-1">S</kbd> Snap
-              </span>
+            <div className="flex items-center justify-between px-4 py-2 text-[10px] text-map-text-muted">
+              <div className="flex items-center gap-3">
+                <span>
+                  <kbd className="rounded border border-map-border px-1">L</kbd> Panel
+                </span>
+                <span>
+                  <kbd className="rounded border border-map-border px-1">D</kbd> Draw
+                </span>
+                <span>
+                  <kbd className="rounded border border-map-border px-1">F</kbd> Full
+                </span>
+                <span>
+                  <kbd className="rounded border border-map-border px-1">S</kbd> Snap
+                </span>
+              </div>
+              {dataFreshnessLabel || latencyLabel ? (
+                <span className="tabular-nums">
+                  {[dataFreshnessLabel, latencyLabel].filter(Boolean).join(" · ")}
+                </span>
+              ) : null}
             </div>
           </motion.aside>
         ) : null}

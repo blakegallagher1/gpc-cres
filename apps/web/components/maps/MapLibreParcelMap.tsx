@@ -141,6 +141,9 @@ interface MapLibreParcelMapProps {
   onHudStateChange?: (state: MapHudState) => void;
   /** Optional search UI rendered at the top of the layer panel. */
   searchSlot?: React.ReactNode;
+  /** Optional status labels shown in the workbench footer. */
+  dataFreshnessLabel?: string;
+  latencyLabel?: string;
 }
 
 export interface MapLibreParcelMapRef {
@@ -535,6 +538,8 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
   onMapReady,
   onHudStateChange,
   searchSlot,
+  dataFreshnessLabel,
+  latencyLabel,
 }, ref) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -2068,6 +2073,8 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
           polygon={polygon}
           onPolygonDrawn={onPolygonDrawn}
           onOpenCompare={() => setCompareOpen(true)}
+          dataFreshnessLabel={dataFreshnessLabel}
+          latencyLabel={latencyLabel}
         />
       ) : null}
 
