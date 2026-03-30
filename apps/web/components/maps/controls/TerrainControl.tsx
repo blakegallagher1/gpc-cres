@@ -26,16 +26,17 @@ export function TerrainControl({
 
   useEffect(() => {
     if (!map) return;
+    const rawMap = map.getMap();
 
     if (enabled) {
-      map.setTerrain({ source: TERRAIN_SOURCE_ID, exaggeration });
+      rawMap.setTerrain({ source: TERRAIN_SOURCE_ID, exaggeration });
     } else {
-      map.setTerrain(null);
+      rawMap.setTerrain(null);
     }
 
     return () => {
       try {
-        map.setTerrain(null);
+        rawMap.setTerrain(null);
       } catch {}
     };
   }, [map, enabled, exaggeration]);

@@ -1735,7 +1735,8 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
 
       // Globe projection + sky (types lag behind MapLibre runtime support)
       try {
-        (map as Record<string, unknown>).setProjection?.("globe");
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (map as any).setProjection("globe");
       } catch { /* globe not supported in this build */ }
 
       map.setSky({
