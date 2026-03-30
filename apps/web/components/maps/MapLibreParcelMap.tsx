@@ -1729,9 +1729,19 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
             },
           ],
         },
+        projection: "globe",
       });
 
       mapRef.current = map;
+
+      map.setSky({
+        "sky-color": "#1a1a2e",
+        "sky-horizon-blend": 0.5,
+        "horizon-color": "#16213e",
+        "horizon-fog-blend": 0.5,
+        "fog-color": "#0f3460",
+        "fog-ground-blend": 0.1,
+      });
 
       map.on("load", () => {
         if (disposed) return;
