@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "run_id": { "type": "string" },
+    "objective": { "type": "string" },
+    "status": { "type": "string", "enum": ["running", "completed", "failed", "blocked"] },
+    "current_agent": { "type": "string" },
+    "turn": { "type": "integer" },
+    "max_turns": { "type": "integer" },
+    "completed_gates": { "type": "array", "items": { "type": "string" } },
+    "pending_gates": { "type": "array", "items": { "type": "string" } },
+    "artifacts": { "type": "array", "items": { "type": "string" } },
+    "errors": { "type": "array", "items": { "type": "string" } },
+    "cost_usd": { "type": "number" },
+    "cost_ceiling_usd": { "type": "number" },
+    "elapsed_seconds": { "type": "number" },
+    "updated_at": { "type": "string", "format": "date-time" }
+  },
+  "required": ["run_id", "status", "turn", "max_turns", "updated_at"]
+}

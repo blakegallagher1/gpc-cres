@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "gate_name": { "type": "string" },
+    "passed": { "type": "boolean" },
+    "required_artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string" },
+          "exists": { "type": "boolean" },
+          "min_bytes": { "type": "integer" }
+        },
+        "required": ["path", "exists"],
+        "additionalProperties": false
+      }
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "passed": { "type": "boolean" },
+          "message": { "type": "string" }
+        },
+        "required": ["name", "passed"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["gate_name", "passed", "required_artifacts", "checks"],
+  "additionalProperties": false
+}
