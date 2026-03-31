@@ -61,6 +61,7 @@ export interface MapReferenceOverlayState {
   soils: boolean;
   wetlands: boolean;
   epa: boolean;
+  mobileHomePark: boolean;
 }
 
 /**

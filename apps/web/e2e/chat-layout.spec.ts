@@ -35,7 +35,7 @@ type MockChatShellOptions = {
 function getVisibleComposer(page: Page): Locator {
   return page
     .locator(
-      'textarea[placeholder="Ask for the screen, memo, checklist, comparison, or next move..."]:visible',
+      'textarea[placeholder="Ask Harvey anything. Type @ to add sources."]:visible',
     )
     .first();
 }
@@ -141,8 +141,13 @@ test.describe("Chat layout", () => {
   test("keeps the run surface usable on first desktop load", async ({ page }) => {
     await openChat(page);
 
-    await expect(page.getByRole("heading", { name: "Chat", level: 1 })).toBeVisible();
-    await expect(page.getByRole("main")).toContainText("Run composer");
+    await expect(page.getByText("Ask Harvey anything.")).toBeVisible({
+      timeout: CHAT_READY_TIMEOUT_MS,
+    });
+    await expect(page.getByRole("button", { name: "Draft memo" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Review table" })).toBeVisible();
+    await expect(page.getByText("Client matter")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Vault +" })).toBeVisible();
 
     const viewport = page.viewportSize();
 

@@ -9,6 +9,7 @@ export interface MapLegendProps {
   showSoils: boolean;
   showWetlands: boolean;
   showEpa: boolean;
+  showMobileHomePark: boolean;
 }
 
 /**
@@ -22,6 +23,7 @@ export function MapLegend({
   showSoils,
   showWetlands,
   showEpa,
+  showMobileHomePark,
 }: MapLegendProps): React.ReactNode {
   const items: Array<{ label: string; color: string }> = [
     showParcelBoundaries && {
@@ -47,6 +49,10 @@ export function MapLegend({
     showEpa && {
       label: "EPA facilities",
       color: "#dc2626", // red (contamination)
+    },
+    showMobileHomePark && {
+      label: "Mobile home parks",
+      color: "#8b5cf6", // purple (MHP marker)
     },
   ].filter(Boolean) as Array<{ label: string; color: string }>;
 

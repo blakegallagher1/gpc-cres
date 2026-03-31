@@ -2,7 +2,21 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { Bot, PanelLeftOpen, PanelRightOpen, ShieldCheck } from 'lucide-react';
+import {
+  Bot,
+  ChevronDown,
+  FileText,
+  FolderOpen,
+  Globe,
+  Mic,
+  PanelLeftOpen,
+  PanelRightOpen,
+  Plus,
+  ShieldCheck,
+  SlidersHorizontal,
+  Sparkles,
+  Table2,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -106,6 +120,37 @@ const CHAT_QUICK_ACTION_PROMPTS: Record<string, string> = {
   'diligence-checklist': 'Build the due diligence checklist for this opportunity with owners, evidence requests, and decision gates.',
   'capital-compare': 'Compare the debt and equity paths for this opportunity and outline the best next move with supporting rationale.',
 };
+
+const CHAT_SOURCE_CHIPS = [
+  {
+    id: 'vault',
+    label: 'Vault',
+    icon: FolderOpen,
+    prompt:
+      'Pull the relevant files from the current workspace and use them as source material before you answer.',
+  },
+  {
+    id: 'web',
+    label: 'Web research',
+    icon: Globe,
+    prompt:
+      'Search the web for current context, cite the strongest sources, and fold that into the run.',
+  },
+  {
+    id: 'evidence',
+    label: 'Evidence pack',
+    icon: ShieldCheck,
+    prompt:
+      'Build the answer with verification first, call out proof gaps, and keep the evidence pack attached.',
+  },
+  {
+    id: 'prompt',
+    label: 'Prompt library',
+    icon: Sparkles,
+    prompt:
+      'Show me the strongest prompt pattern for this task, then run it with the current scope.',
+  },
+];
 
 /* ------------------------------------------------------------------ */
 /*  Internal helpers                                                   */
@@ -319,6 +364,7 @@ export function ChatWorkspaceHero({
         animate: { opacity: 1 },
         transition: HERO_TRANSITION,
       };
+  const compactQuickActions = CHAT_QUICK_ACTIONS.slice(0, 2);
 
   return (
     <motion.div
@@ -326,83 +372,243 @@ export function ChatWorkspaceHero({
       {...motionProps}
     >
       <div className="flex flex-col gap-4">
-        <PageHeader
-          title="Chat"
-          description={
-            launchState
-              ? 'Verified execution workspace for screening sites, comparing paths, and producing a credible next move.'
-              : 'Active run workspace with scope, thread state, and specialist routing held in one place.'
-          }
-          routes={[
-            { label: 'Desk', value: '/chat' },
-            { label: 'Scope', value: scopeLabel },
-            { label: 'Thread', value: threadStatusLabel },
-            { label: 'Transport', value: transportLabel },
-          ]}
-          actions={(
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              {dealSelector}
-              {cuaModel && onCuaModelChange ? (
-                <CuaModelToggle model={cuaModel} onModelChange={onCuaModelChange} />
-              ) : null}
-              <Button
-                variant="outline"
-                size="sm"
-                className="hidden h-10 rounded-2xl border-border/70 bg-background/80 px-4 text-xs font-medium md:inline-flex"
-                onClick={onOpenHistory}
-              >
-                <PanelLeftOpen className="mr-1.5 h-3.5 w-3.5" />
-                Open history
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="hidden h-10 rounded-2xl border-border/70 bg-background/80 px-4 text-xs font-medium md:inline-flex lg:hidden"
-                onClick={onOpenInspector}
-              >
-                <PanelRightOpen className="mr-1.5 h-3.5 w-3.5" />
-                Verification
-              </Button>
-            </div>
-          )}
-        />
+        <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-2">
+            <InlineStatusBadge label={`Agent · ${activeAgentLabel}`} />
+            <InlineStatusBadge label={`Scope · ${scopeLabel}`} />
+            <InlineStatusBadge label={`Transport · ${transportLabel}`} />
+          </div>
+          <div className="hidden items-center gap-2 md:flex">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 rounded-full px-3 text-[11px] text-muted-foreground"
+              onClick={onOpenHistory}
+            >
+              <PanelLeftOpen className="mr-1.5 h-3.5 w-3.5" />
+              Open history
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 rounded-full px-3 text-[11px] text-muted-foreground lg:hidden"
+              onClick={onOpenInspector}
+            >
+              <PanelRightOpen className="mr-1.5 h-3.5 w-3.5" />
+              Verification
+            </Button>
+          </div>
+        </div>
 
-        <RunMetaPanel
-          title={launchState ? 'Run setup' : 'Run context'}
-          description={
-            launchState
-              ? 'Set the operating scope once, then launch a run that keeps verification and proof with the result.'
-              : 'The active thread, delivery path, and agent coverage remain visible without burying the working surface.'
-          }
-          items={[
-            {
-              label: 'Scope',
-              value: scopeLabel,
-              hint: 'Parcel, deal, market, or file context flows into the run.',
-            },
-            {
-              label: 'Thread',
-              value: threadStatusLabel,
-              hint: transportLabel,
-            },
-            {
-              label: 'Lead Agent',
-              value: activeAgentLabel,
-              hint: 'Coordinator routes to specialists without losing thread state.',
-            },
-            {
-              label: 'Saved Runs',
-              value: String(conversationCount),
-              hint: 'Recent verified threads stay available in the history rail.',
-            },
-          ]}
-          footer={(
-            <div className="flex flex-wrap items-center gap-2">
-              <InlineStatusBadge icon={<ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" />} label="Verification stays in the inspector" />
-              <InlineStatusBadge label={launchState ? 'Prompt once, route specialists automatically' : 'History, proof, and run state remain attached'} />
+        {launchState ? (
+          <div className="flex flex-col items-center gap-6 px-1 pb-2 pt-6 sm:px-4 sm:pt-10">
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              {compactQuickActions.map((action) => {
+                const Icon = action.id === 'risk-screen' ? FileText : Table2;
+                return (
+                  <Button
+                    key={action.id}
+                    type="button"
+                    variant="outline"
+                    className="h-11 rounded-2xl border-border/70 bg-background px-5 text-sm font-medium text-foreground shadow-[0_12px_24px_-18px_rgba(15,23,42,0.28)]"
+                    onClick={() => {
+                      const prompt = CHAT_QUICK_ACTION_PROMPTS[action.id];
+                      if (prompt) {
+                        onQuickActionSelect?.(prompt);
+                      }
+                    }}
+                  >
+                    <Icon className="mr-2 h-4 w-4 text-muted-foreground" />
+                    {action.id === 'risk-screen' ? 'Draft memo' : 'Review table'}
+                  </Button>
+                );
+              })}
             </div>
-          )}
-        />
+
+            <div className="w-full max-w-4xl rounded-[32px] border border-border/70 bg-background/95 p-3 shadow-[0_28px_80px_-48px_rgba(15,23,42,0.38)]">
+              <div className="flex items-center justify-between gap-3 px-2 py-1 text-sm text-muted-foreground">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="font-medium text-foreground/80">Client matter</span>
+                  <ChevronDown className="h-4 w-4 shrink-0" />
+                  <div className="min-w-0 flex-1">{dealSelector}</div>
+                </div>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-sm text-muted-foreground transition hover:bg-muted/60 hover:text-foreground"
+                >
+                  Prompts
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="mt-2 rounded-[26px] border border-border/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.92),rgba(249,249,248,0.78))] px-6 py-7">
+                <div className="space-y-3">
+                  <div className="text-[31px] font-semibold tracking-[-0.03em] text-foreground">
+                    Ask Harvey anything.
+                  </div>
+                  <p className="max-w-2xl text-base leading-7 text-muted-foreground">
+                    Lead with the matter, outcome, or document you need. Type <span className="font-medium text-foreground">@</span> to add sources and keep verification attached to the run.
+                  </p>
+                </div>
+
+                <div className="mt-10 flex flex-wrap items-center justify-between gap-4 text-sm text-muted-foreground">
+                  <div className="flex flex-wrap items-center gap-5">
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-2 font-medium transition hover:text-foreground"
+                    >
+                      <FolderOpen className="h-4 w-4" />
+                      Files
+                    </button>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-2 font-medium transition hover:text-foreground"
+                    >
+                      <ShieldCheck className="h-4 w-4" />
+                      Sources
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      className="rounded-full p-2 transition hover:bg-muted/60 hover:text-foreground"
+                      aria-label="Prompt library"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-full p-2 transition hover:bg-muted/60 hover:text-foreground"
+                      aria-label="Composer settings"
+                    >
+                      <SlidersHorizontal className="h-4 w-4" />
+                    </button>
+                    <div className="h-4 w-px bg-border/80" />
+                    <button
+                      type="button"
+                      className="rounded-full p-2 transition hover:bg-muted/60 hover:text-foreground"
+                      aria-label="Voice input"
+                    >
+                      <Mic className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex w-full max-w-4xl flex-wrap items-center justify-center gap-3">
+              {CHAT_SOURCE_CHIPS.map((chip) => {
+                const Icon = chip.icon;
+                return (
+                  <Button
+                    key={chip.id}
+                    type="button"
+                    variant="outline"
+                    className="h-11 rounded-2xl border-border/70 bg-background px-4 text-sm font-medium text-foreground shadow-[0_10px_22px_-20px_rgba(15,23,42,0.35)]"
+                    onClick={() => onQuickActionSelect?.(chip.prompt)}
+                  >
+                    <Icon className="mr-2 h-4 w-4 text-muted-foreground" />
+                    {chip.label}
+                    <Plus className="ml-2 h-3.5 w-3.5 text-muted-foreground" />
+                  </Button>
+                );
+              })}
+            </div>
+
+            <div className="grid w-full max-w-3xl gap-3 text-sm sm:grid-cols-[1fr_auto]">
+              <div>
+                <p className="font-medium text-foreground">Recent</p>
+                <p className="mt-2 text-muted-foreground">
+                  {conversationCount > 0
+                    ? `${conversationCount} saved thread${conversationCount === 1 ? '' : 's'} remain in History so you can reopen verified work without losing the run context.`
+                    : 'No saved threads yet. The first response creates a recoverable run with proof attached.'}
+                </p>
+              </div>
+              <div className="flex items-start justify-start gap-2 sm:justify-end">
+                <InlineStatusBadge label={threadStatusLabel} />
+                <InlineStatusBadge
+                  icon={<ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" />}
+                  label="Verification attached"
+                />
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
+            <PageHeader
+              title="Chat"
+              description="Active matter thread with proof, source controls, and run state held around the conversation."
+              routes={[
+                { label: 'Desk', value: '/chat' },
+                { label: 'Scope', value: scopeLabel },
+                { label: 'Thread', value: threadStatusLabel },
+              ]}
+              actions={(
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <div className="hidden min-w-[12rem] md:block">{dealSelector}</div>
+                  {cuaModel && onCuaModelChange ? (
+                    <CuaModelToggle model={cuaModel} onModelChange={onCuaModelChange} />
+                  ) : null}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="hidden h-10 rounded-2xl border-border/70 bg-background/80 px-4 text-xs font-medium md:inline-flex"
+                    onClick={onOpenHistory}
+                  >
+                    <PanelLeftOpen className="mr-1.5 h-3.5 w-3.5" />
+                    Open history
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="hidden h-10 rounded-2xl border-border/70 bg-background/80 px-4 text-xs font-medium md:inline-flex lg:hidden"
+                    onClick={onOpenInspector}
+                  >
+                    <PanelRightOpen className="mr-1.5 h-3.5 w-3.5" />
+                    Verification
+                  </Button>
+                </div>
+              )}
+            />
+
+            <RunMetaPanel
+              title="Run context"
+              description="The thread state stays quiet until you need it, while verification and recovery remain one tap away."
+              items={[
+                {
+                  label: 'Scope',
+                  value: scopeLabel,
+                  hint: 'Matter, parcel, or file context is attached to the thread.',
+                },
+                {
+                  label: 'Thread',
+                  value: threadStatusLabel,
+                  hint: transportLabel,
+                },
+                {
+                  label: 'Lead Agent',
+                  value: activeAgentLabel,
+                  hint: 'Coordinator routes to specialists without losing context.',
+                },
+                {
+                  label: 'Saved Runs',
+                  value: String(conversationCount),
+                  hint: 'History keeps recent verified threads available.',
+                },
+              ]}
+              footer={(
+                <div className="flex flex-wrap items-center gap-2">
+                  <InlineStatusBadge
+                    icon={<ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" />}
+                    label="Verification stays in the inspector"
+                  />
+                  <InlineStatusBadge label="History, proof, and run state remain attached" />
+                </div>
+              )}
+            />
+          </>
+        )}
 
         <div className="flex flex-wrap items-center gap-2 md:hidden">
           <Button
@@ -425,19 +631,21 @@ export function ChatWorkspaceHero({
           </Button>
         </div>
 
-        {launchState ? (
-          <QuickActionsGrid
-            title="Quick starts"
-            description="Launch one of the common run patterns without drafting the prompt from scratch."
-            actions={CHAT_QUICK_ACTIONS}
-            onAction={(actionId) => {
-              const prompt = CHAT_QUICK_ACTION_PROMPTS[actionId];
-              if (prompt) {
-                onQuickActionSelect?.(prompt);
-              }
-            }}
-          />
-        ) : null}
+        {!launchState ? null : (
+          <div className="hidden">
+            <QuickActionsGrid
+              title="Quick starts"
+              description="Launch one of the common run patterns without drafting the prompt from scratch."
+              actions={CHAT_QUICK_ACTIONS}
+              onAction={(actionId) => {
+                const prompt = CHAT_QUICK_ACTION_PROMPTS[actionId];
+                if (prompt) {
+                  onQuickActionSelect?.(prompt);
+                }
+              }}
+            />
+          </div>
+        )}
       </div>
     </motion.div>
   );

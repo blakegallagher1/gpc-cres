@@ -59,6 +59,8 @@ interface MapWorkbenchPanelProps {
   setShowWetlands: (value: boolean) => void;
   showEpa: boolean;
   setShowEpa: (value: boolean) => void;
+  showMobileHomePark: boolean;
+  setShowMobileHomePark: (value: boolean) => void;
   showTools: boolean;
   showComps: boolean;
   setShowComps: (value: boolean | ((value: boolean) => boolean)) => void;
@@ -311,6 +313,8 @@ export function MapWorkbenchPanel({
   setShowWetlands,
   showEpa,
   setShowEpa,
+  showMobileHomePark,
+  setShowMobileHomePark,
   showTools,
   showComps,
   setShowComps,
@@ -347,6 +351,7 @@ export function MapWorkbenchPanel({
     showSoils,
     showWetlands,
     showEpa,
+    showMobileHomePark,
     showComps,
     showHeatmap,
     showIsochrone,
@@ -699,6 +704,12 @@ export function MapWorkbenchPanel({
                     title="EPA facilities"
                     description="Nearby environmental flags and regulated sites."
                     onClick={() => setShowEpa(!showEpa)}
+                  />
+                  <LayerActionButton
+                    active={showMobileHomePark}
+                    title="Mobile home parks"
+                    description="Mobile home park locations and communities."
+                    onClick={() => setShowMobileHomePark(!showMobileHomePark)}
                   />
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">

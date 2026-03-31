@@ -79,6 +79,7 @@ const DEFAULT_REFERENCE_OVERLAY_STATE: MapReferenceOverlayState = {
   parcelBoundaries: true,
   zoning: false,
   flood: false,
+  mobileHomePark: false,
   soils: false,
   wetlands: false,
   epa: false,
@@ -217,6 +218,7 @@ function getSavedOverlaysFallback(): {
   soils: boolean;
   wetlands: boolean;
   epa: boolean;
+  mobileHomePark: boolean;
 } {
   const saved = getSavedOverlays();
   return {
@@ -226,6 +228,7 @@ function getSavedOverlaysFallback(): {
     soils: saved["Soils"] === true,
     wetlands: saved["Wetlands"] === true,
     epa: saved["EPA Facilities"] === true,
+    mobileHomePark: saved["Mobile Home Parks"] === true,
   };
 }
 
@@ -262,6 +265,7 @@ export function getReferenceOverlayStateForPreset(
         soils: true,
         wetlands: true,
         epa: true,
+        mobileHomePark: true,
       };
   }
 }
@@ -285,7 +289,8 @@ export function resolveReferenceOverlayPreset(
       presetState.flood === state.flood &&
       presetState.soils === state.soils &&
       presetState.wetlands === state.wetlands &&
-      presetState.epa === state.epa
+      presetState.epa === state.epa &&
+      presetState.mobileHomePark === state.mobileHomePark
     );
   });
 
@@ -638,6 +643,7 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
   const [showSoils, setShowSoils] = useState<boolean>(() => getSavedOverlaysFallback().soils);
   const [showWetlands, setShowWetlands] = useState<boolean>(() => getSavedOverlaysFallback().wetlands);
   const [showEpa, setShowEpa] = useState<boolean>(() => getSavedOverlaysFallback().epa);
+  const [showMobileHomePark, setShowMobileHomePark] = useState<boolean>(() => getSavedOverlaysFallback().mobileHomePark);
   const [showComps, setShowComps] = useState(false);
   const [showHeatmap, setShowHeatmap] = useState(false);
   const [activeHeatmapPreset, setActiveHeatmapPreset] = useState<HeatmapPresetKey>("sale_activity");
@@ -735,8 +741,9 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
       soils: showSoils,
       wetlands: showWetlands,
       epa: showEpa,
+      mobileHomePark: showMobileHomePark,
     }),
-    [showEpa, showFlood, showParcelBoundaries, showSoils, showWetlands, showZoning],
+    [showEpa, showFlood, showParcelBoundaries, showSoils, showWetlands, showZoning, showMobileHomePark],
   );
   const activeWorkbenchPreset = useMemo(
     () => resolveReferenceOverlayPreset(referenceOverlayState),
@@ -1637,6 +1644,12 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
               minzoom: 5,
               maxzoom: 22,
             },
+            "mobile-home-parks-tiles": {
+              type: "vector",
+              tiles: [getMartinParcelTileUrl("mobile_home_parks")],
+              minzoom: 5,
+              maxzoom: 22,
+            },
             "zoning-tiles": {
               type: "vector",
               tiles: [getZoningProxyTileUrl()],
@@ -1830,6 +1843,22 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
                 ],
                 "circle-stroke-width": 1.5,
                 "circle-stroke-color": "rgba(0, 0, 0, 0.5)",
+                "circle-opacity": 0.8,
+              },
+            },
+            {
+              id: "mobile-home-parks-circle",
+              type: "circle",
+              source: "mobile-home-parks-tiles",
+              "source-layer": "mobile_home_parks",
+              layout: {
+                visibility: showLayers && showMobileHomePark ? "visible" : "none",
+              },
+              paint: {
+                "circle-radius": 6,
+                "circle-color": "#8b5cf6",
+                "circle-stroke-width": 2,
+                "circle-stroke-color": "#ffffff",
                 "circle-opacity": 0.8,
               },
             },
@@ -2241,6 +2270,7 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
     setLayerVisibilitySafe(map, "soils-tiles-fill", showLayers && showSoils);
     setLayerVisibilitySafe(map, "wetlands-tiles-fill", showLayers && showWetlands);
     setLayerVisibilitySafe(map, "epa-tiles-circle", showLayers && showEpa);
+    setLayerVisibilitySafe(map, "mobile-home-parks-circle", showLayers && showMobileHomePark);
     setLayerVisibilitySafe(map, "base-dark", baseLayer === "Dark");
     setLayerVisibilitySafe(map, "base-streets", baseLayer === "Streets");
     setLayerVisibilitySafe(map, "base-satellite", baseLayer === "Satellite");
@@ -2349,6 +2379,8 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
           setShowWetlands={setShowWetlands}
           showEpa={showEpa}
           setShowEpa={setShowEpa}
+          showMobileHomePark={showMobileHomePark}
+          setShowMobileHomePark={setShowMobileHomePark}
           showTools={showTools}
           showComps={showComps}
           setShowComps={setShowComps}
@@ -2388,6 +2420,7 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
           showSoils={showSoils}
           showWetlands={showWetlands}
           showEpa={showEpa}
+          showMobileHomePark={showMobileHomePark}
         />
       )}
 

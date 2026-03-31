@@ -828,14 +828,14 @@ export function ChatContainer() {
       isStreaming={isStreaming}
       onStop={stableChatInputOptions.onStop}
       canAttachFiles={true}
-      placeholder="Ask for the screen, memo, checklist, comparison, or next move..."
-      helperText="Lead with scope, outcome, and constraints. Enter sends. Shift+Enter adds a line."
-      submitLabel="Launch run"
+      placeholder="Ask Harvey anything. Type @ to add sources."
+      helperText="Lead with the matter, outcome, or constraint. Enter sends. Shift+Enter adds a line."
+      submitLabel="Start run"
     />
   );
 
   return (
-    <div className="relative flex h-[calc(100svh-var(--app-header-height))] min-h-[calc(100svh-var(--app-header-height))] overflow-hidden bg-muted/[0.14]">
+    <div className="relative flex h-[calc(100svh-var(--app-header-height))] min-h-[calc(100svh-var(--app-header-height))] overflow-hidden bg-[linear-gradient(180deg,#fcfbf8_0%,#f6f4ef_100%)]">
       <ConversationSidebar
         conversations={conversations}
         activeConversationId={conversationId}
@@ -852,7 +852,7 @@ export function ChatContainer() {
 
       <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
         <div className="grid h-full min-h-0 min-w-0 gap-4 px-3 py-3 md:px-4 md:py-4 lg:grid-cols-[minmax(0,1fr)_23.5rem] lg:gap-5 lg:px-5">
-          <section className="min-h-0 min-w-0 overflow-hidden rounded-[32px] border border-border/60 bg-background/72 shadow-[0_28px_80px_-48px_rgba(15,23,42,0.55)] backdrop-blur-2xl">
+          <section className="min-h-0 min-w-0 overflow-hidden rounded-[36px] border border-[#e7e1d7] bg-background/88 shadow-[0_36px_100px_-56px_rgba(15,23,42,0.38)] backdrop-blur-xl">
             <div className="flex h-full min-h-0 min-w-0 flex-col">
               {showLaunchComposer ? (
                 <>
@@ -925,31 +925,31 @@ export function ChatContainer() {
                       onToolApprovalEvents={handleToolApprovalEvents}
                       emptyState={{
                         eyebrow: 'Verified run workspace',
-                        title: 'Ask once. Get the plan, evidence, and action path.',
+                        title: 'Ask the matter. Keep the proof attached.',
                         description:
-                          'Start from the parcel, deal, market, or file, then name the screen, memo, checklist, comparison, or next-step plan you need back.',
+                          'Start from the client matter, source stack, or operating question, then name the memo, checklist, comparison, or next move you need back.',
                         suggestions: [
-                          'Screen this site for entitlement risk',
-                          'Summarize zoning and setbacks',
-                          'Build the due diligence checklist',
-                          'Compare debt and equity paths',
+                          'Draft a zoning memo for this site',
+                          'Review the evidence and missing source gaps',
+                          'Build the diligence checklist for the matter',
+                          'Compare the two entitlement paths',
                         ],
-                        detailHeading: 'What a strong run returns',
+                        detailHeading: 'What the workspace returns',
                         detailItems: [
                           {
-                            label: 'Plan',
-                            title: 'A concrete next-step path',
-                            detail: 'The run should end in a memo, checklist, comparison, or action plan you can use immediately.',
+                            label: 'Draft',
+                            title: 'A usable document or table',
+                            detail: 'The response should land as a memo, checklist, table, or action path that can move directly into review.',
                           },
                           {
                             label: 'Proof',
-                            title: 'Tool activity and cited evidence',
-                            detail: 'Verification data, evidence gaps, and proof checks stay attached in the inspector while the run unfolds.',
+                            title: 'Attached sources and verification',
+                            detail: 'Evidence citations, proof checks, and missing support stay visible in the inspector while the run unfolds.',
                           },
                           {
-                            label: 'Handoffs',
-                            title: 'Coordinator plus specialists',
-                            detail: 'Research, finance, diligence, and entitlement specialists can step in without losing thread context.',
+                            label: 'Handoff',
+                            title: 'Specialists without context loss',
+                            detail: 'Research, diligence, and entitlement specialists can step in without breaking the thread or its evidence trail.',
                           },
                         ],
                       }}

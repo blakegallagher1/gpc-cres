@@ -881,6 +881,7 @@ async def tools_parcels_search(
 _ALLOWED_TABLES = {
     "ebr_parcels", "fema_flood", "soils", "wetlands",
     "epa_facilities", "traffic_counts", "ldeq_permits", "zcta",
+    "mobile_home_parks",
 }
 
 _DISALLOWED_SQL_PATTERN = re.compile(
