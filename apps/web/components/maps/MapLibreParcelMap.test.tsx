@@ -303,6 +303,7 @@ describe("reference layer presets", () => {
       soils: false,
       wetlands: true,
       epa: false,
+      mobileHomePark: false,
     });
   });
 
@@ -315,6 +316,7 @@ describe("reference layer presets", () => {
         soils: true,
         wetlands: true,
         epa: true,
+        mobileHomePark: true,
       }),
     ).toBe("full-stack");
   });
@@ -328,6 +330,7 @@ describe("reference layer presets", () => {
         soils: false,
         wetlands: false,
         epa: false,
+        mobileHomePark: false,
       }),
     ).toBeNull();
   });

@@ -201,18 +201,38 @@ export function useMapTrackedParcelWorkspace({
         ]),
       );
       const workspaceParcels = workspaceParcelIds
-        .map((parcelId) => activeParcelsById.get(parcelId) ?? null)
-        .filter((parcel): parcel is MapParcel => parcel != null)
-        .map((parcel) => ({
-          parcelId: parcel.parcelId,
-          address: parcel.address,
-          owner: parcel.owner ?? null,
-          acreage: parcel.acreage ?? null,
-          lat: parcel.lat,
-          lng: parcel.lng,
-          currentZoning: parcel.currentZoning ?? null,
-          floodZone: parcel.floodZone ?? null,
-        }));
+        .map((parcelId) => {
+          const activeParcel = activeParcelsById.get(parcelId);
+          if (activeParcel) {
+            return {
+              parcelId: activeParcel.parcelId,
+              address: activeParcel.address,
+              owner: activeParcel.owner ?? null,
+              acreage: activeParcel.acreage ?? null,
+              lat: activeParcel.lat,
+              lng: activeParcel.lng,
+              currentZoning: activeParcel.currentZoning ?? null,
+              floodZone: activeParcel.floodZone ?? null,
+            };
+          }
+
+          const trackedParcel = normalizedTrackedParcels.find((parcel) => parcel.parcelId === parcelId);
+          if (!trackedParcel) {
+            return null;
+          }
+
+          return {
+            parcelId: trackedParcel.parcelId,
+            address: trackedParcel.label,
+            owner: null,
+            acreage: null,
+            lat: null,
+            lng: null,
+            currentZoning: null,
+            floodZone: null,
+          };
+        })
+        .filter((parcel): parcel is NonNullable<typeof parcel> => parcel != null);
 
       try {
         setTrackedParcels(normalizedTrackedParcels);
