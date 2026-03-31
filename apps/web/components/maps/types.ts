@@ -14,6 +14,7 @@ export interface MapParcel {
   propertyDbId?: string | null;
   geometryLookupKey?: string | null;
   acreage?: number | null;
+  owner?: string | null;
 }
 
 /**

@@ -523,6 +523,14 @@ function mapExternalParcelToApiShape(
     address,
     lat,
     lng,
+    owner:
+      row.owner != null
+        ? String(row.owner)
+        : row.owner_name != null
+          ? String(row.owner_name)
+          : row.taxpayer_name != null
+            ? String(row.taxpayer_name)
+            : null,
     acreage:
       row.acreage != null && Number.isFinite(Number(row.acreage))
         ? Number(row.acreage)

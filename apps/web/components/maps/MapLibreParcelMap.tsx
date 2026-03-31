@@ -18,7 +18,6 @@ import {
   type ViewportBounds,
 } from "./useParcelGeometry";
 import {
-  buildParcelPopupViewModel,
   buildTileParcelPopupViewModel,
   presentMapPopup,
   type MapPopupAction,
@@ -51,6 +50,9 @@ import {
 } from "./mapStyles";
 import { MapWorkbenchPanel } from "./MapWorkbenchPanel";
 import { MapLegend } from "./MapLegend";
+import { MapGeocoder } from "./MapGeocoder";
+import { ParcelDetailCard } from "./ParcelDetailCard";
+import { ParcelHoverTooltip } from "./ParcelHoverTooltip";
 import { useStableOptions } from "@/lib/hooks/useStableOptions";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { ParcelComparisonSheet } from "./ParcelComparisonSheet";
@@ -68,6 +70,8 @@ import type {
   MapWorkbenchPreset,
   SaleComp,
 } from "./types";
+import type { GeocodedPlace } from "@/utils/geocoder";
+import type { ParcelHoverTarget } from "./mapLibreAdapter";
 
 const MAP_DRAW_ACCENT_COLOR = "#6c8cff";
 const DEFAULT_REFERENCE_OVERLAY_STATE: MapReferenceOverlayState = {
@@ -612,6 +616,11 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
   const fittedBoundsRef = useRef("");
   const [mapError, setMapError] = useState<string | null>(null);
   const [zoningTileContract, setZoningTileContract] = useState<ZoningTileContract | null>(null);
+  const [containerSize, setContainerSize] = useState<{ width: number; height: number } | null>(null);
+  const [detailCardParcel, setDetailCardParcel] = useState<MapParcel | null>(null);
+  const [detailCardPoint, setDetailCardPoint] = useState<[number, number] | null>(null);
+  const [hoveredParcel, setHoveredParcel] = useState<ParcelHoverTarget | null>(null);
+  const [hoverPoint, setHoverPoint] = useState<[number, number] | null>(null);
 
   const [baseLayer, setBaseLayer] = useState<string>(() => getSavedBaseLayer());
   const [showParcelBoundaries, setShowParcelBoundaries] = useState<boolean>(() => getSavedOverlaysFallback().parcelBoundaries);
@@ -1112,6 +1121,42 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
     parcelByIdRef.current = parcelById;
   }, [parcelById]);
 
+  const closeParcelDetailCard = useCallback(() => {
+    setDetailCardParcel(null);
+    setDetailCardPoint(null);
+  }, []);
+
+  useEffect(() => {
+    if (detailCardParcel && !parcelById.has(detailCardParcel.id)) {
+      closeParcelDetailCard();
+    }
+  }, [closeParcelDetailCard, detailCardParcel, parcelById]);
+
+  const handlePlaceSelect = useCallback((place: GeocodedPlace) => {
+    const map = mapRef.current;
+    if (!map) {
+      return;
+    }
+
+    popupRef.current?.remove();
+    popupRef.current = null;
+    setHoveredParcel(null);
+    setHoverPoint(null);
+
+    if (place.parcelId) {
+      const parcel = parcelByIdRef.current.get(place.parcelId);
+      if (parcel) {
+        const canvas = map.getCanvas();
+        setDetailCardParcel(parcel);
+        setDetailCardPoint([canvas.clientWidth / 2, canvas.clientHeight / 2]);
+      } else {
+        closeParcelDetailCard();
+      }
+    } else {
+      closeParcelDetailCard();
+    }
+  }, [closeParcelDetailCard]);
+
   const handlePopupAction = useCallback((action: MapPopupAction) => {
     if (action.type === "create_deal") {
       const href = action.triage
@@ -1192,13 +1237,16 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
       if (key === "ESCAPE") {
         popupRef.current?.remove();
         popupRef.current = null;
+        closeParcelDetailCard();
+        setHoveredParcel(null);
+        setHoverPoint(null);
         setLayerPanelOpen(false);
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [downloadMapScreenshot, toggleMapFullscreen]);
+  }, [closeParcelDetailCard, downloadMapScreenshot, toggleMapFullscreen]);
 
   useEffect(() => {
     const handleActivateDraw = () => {
@@ -1930,28 +1978,35 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
           onParcelClick: stableMapCallbacks.onParcelClick,
           updateSelection,
           getParcelById: (parcelId) => parcelByIdRef.current.get(parcelId),
-          openParcelPopup: (parcel, lngLat) => {
-            if (!mapRef.current) {
-              return;
-            }
-            presentMapPopup({
-              map: mapRef.current,
-              popupRef,
-              lngLat,
-              viewModel: buildParcelPopupViewModel(parcel),
-              onAction: handlePopupAction,
-            });
+          openParcelPopup: (parcel, _lngLat, point) => {
+            popupRef.current?.remove();
+            popupRef.current = null;
+            setHoveredParcel(null);
+            setHoverPoint(null);
+            setDetailCardParcel(parcel);
+            setDetailCardPoint(point ?? null);
           },
           openTilePopup: (properties, lngLat) => {
             if (!mapRef.current) {
               return;
             }
+            setHoveredParcel(null);
+            setHoverPoint(null);
+            closeParcelDetailCard();
             presentMapPopup({
               map: mapRef.current,
               popupRef,
               lngLat,
               viewModel: buildTileParcelPopupViewModel(properties),
             });
+          },
+          onParcelHover: (parcel, _lngLat, point) => {
+            setHoveredParcel(parcel);
+            setHoverPoint(point);
+          },
+          onParcelHoverEnd: () => {
+            setHoveredParcel(null);
+            setHoverPoint(null);
           },
           setCursor: (lng, lat) => {
             setCursorLng(lng);
@@ -2004,8 +2059,16 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
     const map = mapRef.current;
     const container = mapContainerRef.current;
     if (!map || !container || !mapReady) return;
+    const updateContainerSize = () => {
+      setContainerSize({
+        width: container.clientWidth,
+        height: container.clientHeight,
+      });
+    };
+    updateContainerSize();
     const ro = new ResizeObserver(() => {
       map.resize();
+      updateContainerSize();
     });
     ro.observe(container);
     return () => ro.disconnect();
@@ -2153,6 +2216,23 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
   return (
     <div className="relative h-full w-full rounded-lg border">
       <div ref={mapContainerRef} style={{ height, width: "100%", backgroundColor: "#1e2230" }} />
+      <MapGeocoder
+        mapRef={mapRef}
+        parcels={parcels}
+        onPlaceSelect={handlePlaceSelect}
+      />
+      <ParcelHoverTooltip
+        parcel={hoveredParcel}
+        point={hoverPoint}
+        containerSize={containerSize}
+      />
+      <ParcelDetailCard
+        parcel={detailCardParcel}
+        point={detailCardPoint}
+        containerSize={containerSize}
+        onClose={closeParcelDetailCard}
+        onAction={handlePopupAction}
+      />
       {showLayers ? (
         <MapWorkbenchPanel
           open={layerPanelOpen}

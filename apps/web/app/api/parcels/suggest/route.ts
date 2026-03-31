@@ -106,6 +106,7 @@ type SuggestionRow = {
   lat: number | null;
   lng: number | null;
   propertyDbId: string | null;
+  owner?: string | null;
   source?: "org" | "property_db";
 };
 
@@ -128,6 +129,14 @@ function mapGatewayRowToSuggestion(row: GatewayRow): SuggestionRow | null {
     lat,
     lng,
     propertyDbId: propertyDbId || null,
+    owner:
+      row.owner != null
+        ? String(row.owner)
+        : row.owner_name != null
+          ? String(row.owner_name)
+          : row.taxpayer_name != null
+            ? String(row.taxpayer_name)
+            : null,
     source: "property_db",
   };
 }
@@ -255,13 +264,13 @@ export async function GET(request: NextRequest) {
             })),
           ],
         },
-        select: {
-          id: true,
-          address: true,
-          lat: true,
-          lng: true,
-          propertyDbId: true,
-        },
+    select: {
+      id: true,
+      address: true,
+      lat: true,
+      lng: true,
+      propertyDbId: true,
+    },
         take: Math.min(limit * 2, 40),
       })
     : [];

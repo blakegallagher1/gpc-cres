@@ -1,0 +1,78 @@
+# =============================================================================
+# .codexignore — Reduce Codex CLI context noise for gallagher-cres
+# =============================================================================
+# Files matching these patterns are excluded from Codex file listing/reading.
+# Syntax is identical to .gitignore.
+
+# ── Build artifacts & generated files ────────────────────────────────────────
+*.tsbuildinfo
+.next/
+.next-*/
+out/
+.turbo/
+.vercel/
+.swc/
+coverage/
+playwright-report/
+test-results/
+dist/
+build/
+
+# ── Dependencies ─────────────────────────────────────────────────────────────
+node_modules/
+.pnpm-store/
+
+# ── Parked / frozen code (never modified) ────────────────────────────────────
+legacy/python/
+apps/worker/
+
+# ── Claude Code artifacts (irrelevant to Codex) ─────────────────────────────
+.claude/
+
+# ── Documentation that wastes context ────────────────────────────────────────
+# Codex should NOT auto-read these — they're for human reference or Claude Code.
+# If a plan doc is needed, the user will reference it explicitly in the prompt.
+docs/claude/
+docs/runbooks/
+docs/plans/
+docs/archive/
+
+# ── Large data / logs ────────────────────────────────────────────────────────
+*.log
+*.sqlite3
+*.db
+logs/
+tmp/
+temp/
+parcel_data_updated/
+
+# ── Lock files (huge, never useful to read) ──────────────────────────────────
+pnpm-lock.yaml
+
+# ── Environment files ────────────────────────────────────────────────────────
+.env
+.env.*
+.env.local
+.env.*.local
+
+# ── Git worktrees ────────────────────────────────────────────────────────────
+.worktrees/
+
+# ── Codex runtime state (not config) ────────────────────────────────────────
+.codex/sandbox/
+.codex/state/
+.codex/cache/
+.codex/memories/
+
+# ── Playwright artifacts ─────────────────────────────────────────────────────
+output/
+.playwright-cli/
+apps/web/.playwright/
+
+# ── Wrangler state ───────────────────────────────────────────────────────────
+.wrangler/
+infra/gateway-proxy/.wrangler/
+
+# ── OS junk ──────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db

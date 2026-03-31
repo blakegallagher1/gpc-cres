@@ -76,6 +76,9 @@ export function buildParcelPopupViewModel(parcel: MapParcel): MapPopupViewModel 
       (chip): chip is string => Boolean(chip && chip.trim().length > 0),
     ),
     rows: [
+      parcel.owner
+        ? { label: "Owner", value: parcel.owner }
+        : null,
       parcel.acreage != null
         ? { label: "Acreage", value: `${Number(parcel.acreage).toFixed(2)} acres` }
         : null,

@@ -117,6 +117,7 @@ describe("GET /api/parcels", () => {
         address: "123 Main St",
         lat: 30.45,
         lng: -91.18,
+        owner: "Owner LLC",
         acreage: 1.2,
         floodZone: "X",
         currentZoning: "C2",
@@ -133,6 +134,7 @@ describe("GET /api/parcels", () => {
     expect(body.source).toBe("org");
     expect(res.headers.get("x-request-id")).toBeTruthy();
     expect(body.parcels).toHaveLength(1);
+    expect(body.parcels[0].owner).toBe("Owner LLC");
     expect(findManyMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -168,16 +170,17 @@ describe("GET /api/parcels", () => {
     const mockClient = {
       searchParcels: vi.fn().mockResolvedValue({
         data: [
-          {
-            id: "external-1",
-            site_address: "456 River Rd",
-            latitude: 30.41,
-            longitude: -91.09,
-            acreage: 3.4,
-            flood_zone: "AE",
-            zone_code: "I1",
-            parcel_uid: "parcel-uid-1",
-          },
+      {
+        id: "external-1",
+        site_address: "456 River Rd",
+        latitude: 30.41,
+        longitude: -91.09,
+        owner: "River Holdings",
+        acreage: 3.4,
+        flood_zone: "AE",
+        zone_code: "I1",
+        parcel_uid: "parcel-uid-1",
+      },
         ],
         source: "gateway",
         staleness_seconds: null,
@@ -193,6 +196,7 @@ describe("GET /api/parcels", () => {
     expect(body.source).toBe("property-db");
     expect(body.parcels.length).toBeGreaterThan(0);
     expect(body.parcels[0].propertyDbId).toBe("external-1");
+    expect(body.parcels[0].owner).toBe("River Holdings");
   });
 
   it("stops gateway search fallbacks after the first non-empty search hit", async () => {
@@ -205,14 +209,15 @@ describe("GET /api/parcels", () => {
     const mockClient = {
       searchParcels: vi.fn().mockResolvedValue({
         data: [
-          {
-            id: "external-search-1",
-            site_address: "4416 Heath Dr",
-            lat: 30.60188,
-            lng: -91.15151,
-            acreage: 0.23,
-            parcel_uid: "search-uid-1",
-          },
+        {
+          id: "external-search-1",
+          site_address: "4416 Heath Dr",
+          lat: 30.60188,
+          lng: -91.15151,
+          owner: "Heath Trust",
+          acreage: 0.23,
+          parcel_uid: "search-uid-1",
+        },
         ],
         source: "gateway",
         staleness_seconds: null,
@@ -241,14 +246,15 @@ describe("GET /api/parcels", () => {
     const mockClient = {
       searchParcels: vi.fn().mockResolvedValue({
         data: [
-          {
-            id: "external-json-1",
-            site_address: "2774 Highland Rd",
-            lat: 30.4228,
-            lng: -91.179,
-            acreage: 0.11,
-            parcel_uid: "json-uid-1",
-          },
+        {
+          id: "external-json-1",
+          site_address: "2774 Highland Rd",
+          lat: 30.4228,
+          lng: -91.179,
+          owner: "Highland Holdings",
+          acreage: 0.11,
+          parcel_uid: "json-uid-1",
+        },
         ],
         source: "gateway",
         staleness_seconds: null,

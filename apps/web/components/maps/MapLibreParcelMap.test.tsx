@@ -25,6 +25,7 @@ describe("map popup view models", () => {
   it("builds the parcel popup view model with typed actions", () => {
     const viewModel = buildParcelPopupViewModel({
       ...baseParcel,
+      owner: "Owner LLC",
       dealName: "Deal One",
       dealStatus: "TRIAGE_DONE",
       acreage: 1.25,
@@ -41,6 +42,7 @@ describe("map popup view models", () => {
       ],
       riskChips: ["C2", "X"],
       rows: [
+        { label: "Owner", value: "Owner LLC" },
         { label: "Acreage", value: "1.25 acres" },
         { label: "Status", value: "TRIAGE DONE" },
         { label: "Zoning", value: "C2" },

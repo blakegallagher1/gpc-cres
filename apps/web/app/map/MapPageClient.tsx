@@ -113,6 +113,7 @@ interface ApiParcel {
   currentZoning?: string | null;
   propertyDbId?: string | null;
   geometryLookupKey?: string | null;
+  owner?: string | null;
   deal?: { id: string; name: string; sku: string; status: string } | null;
 }
 
@@ -793,6 +794,7 @@ export function MapPageClient() {
                 lat: parcel.lat,
                 lng: parcel.lng,
                 propertyDbId: parcel.propertyDbId ?? null,
+                owner: parcel.owner ?? null,
               }))
           : [];
         const effective = next.length > 0 ? next : localFallback;
@@ -839,6 +841,7 @@ export function MapPageClient() {
           p.address ??
           null,
         acreage: p.acreage != null ? Number(p.acreage) : null,
+        owner: p.owner ?? null,
       });
 
       return acc;

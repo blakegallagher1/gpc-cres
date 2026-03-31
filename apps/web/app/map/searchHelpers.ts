@@ -31,6 +31,7 @@ export interface ParcelSearchSuggestion {
   lat: number | null;
   lng: number | null;
   propertyDbId: string | null;
+  owner?: string | null;
 }
 
 function hasFiniteCoordinate(value: number | null): value is number {
@@ -93,6 +94,7 @@ export function parcelMatchesSearch(parcel: MapParcel, query: string): boolean {
 
   return [
     parcel.address,
+    parcel.owner,
     parcel.currentZoning,
     parcel.floodZone,
     parcel.propertyDbId,
