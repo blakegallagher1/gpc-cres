@@ -61,6 +61,12 @@ interface MapWorkbenchPanelProps {
   setShowEpa: (value: boolean) => void;
   showMobileHomePark: boolean;
   setShowMobileHomePark: (value: boolean) => void;
+  showRecentSales: boolean;
+  setShowRecentSales: (value: boolean) => void;
+  showNewPermits: boolean;
+  setShowNewPermits: (value: boolean) => void;
+  showZoningChanges: boolean;
+  setShowZoningChanges: (value: boolean) => void;
   showTools: boolean;
   showComps: boolean;
   setShowComps: (value: boolean | ((value: boolean) => boolean)) => void;
@@ -315,6 +321,12 @@ export function MapWorkbenchPanel({
   setShowEpa,
   showMobileHomePark,
   setShowMobileHomePark,
+  showRecentSales,
+  setShowRecentSales,
+  showNewPermits,
+  setShowNewPermits,
+  showZoningChanges,
+  setShowZoningChanges,
   showTools,
   showComps,
   setShowComps,
@@ -352,6 +364,9 @@ export function MapWorkbenchPanel({
     showWetlands,
     showEpa,
     showMobileHomePark,
+    showRecentSales,
+    showNewPermits,
+    showZoningChanges,
     showComps,
     showHeatmap,
     showIsochrone,
@@ -711,6 +726,31 @@ export function MapWorkbenchPanel({
                     description="Mobile home park locations and communities."
                     onClick={() => setShowMobileHomePark(!showMobileHomePark)}
                   />
+                </div>
+                <div className="mt-4">
+                  <p className="text-[10px] uppercase tracking-[0.16em] text-map-text-muted">
+                    What Changed (12 mo)
+                  </p>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <LayerActionButton
+                      active={showRecentSales}
+                      title="Recent Sales"
+                      description="Parcels that sold in the last 12 months."
+                      onClick={() => setShowRecentSales(!showRecentSales)}
+                    />
+                    <LayerActionButton
+                      active={showNewPermits}
+                      title="New Permits"
+                      description="New building permits issued in the last 12 months."
+                      onClick={() => setShowNewPermits(!showNewPermits)}
+                    />
+                    <LayerActionButton
+                      active={showZoningChanges}
+                      title="Zoning Changes"
+                      description="Parcels with zoning classification changes in the last 12 months."
+                      onClick={() => setShowZoningChanges(!showZoningChanges)}
+                    />
+                  </div>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <Button

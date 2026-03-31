@@ -3,19 +3,33 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import {
+  BarChart3,
   Bot,
+  Briefcase,
+  Calculator,
+  Calendar,
   ChevronDown,
   FileText,
+  FlaskConical,
   FolderOpen,
   Globe,
+  Layers,
+  ListChecks,
   Mic,
   PanelLeftOpen,
   PanelRightOpen,
   Plus,
+  Receipt,
+  Route,
+  Search,
   ShieldCheck,
+  ShieldCheckIcon,
   SlidersHorizontal,
   Sparkles,
   Table2,
+  Target,
+  TrendingUp,
+  BookOpen,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -53,6 +67,7 @@ interface ChatWorkspaceHeroProps {
   conversationCount: number;
   cuaModel?: CuaModel;
   dealSelector: ReactNode;
+  dealStatus?: string | null;
   launchState: boolean;
   scopeLabel: string;
   threadStatusLabel: string;
@@ -151,6 +166,168 @@ const CHAT_SOURCE_CHIPS = [
       'Show me the strongest prompt pattern for this task, then run it with the current scope.',
   },
 ];
+
+/* ------------------------------------------------------------------ */
+/*  Deal Stage Prompts                                                 */
+/* ------------------------------------------------------------------ */
+
+type DealStagePrompt = {
+  label: string;
+  prompt: string;
+  icon: string;
+};
+
+function getDealStagePrompts(status: string | null | undefined): DealStagePrompt[] {
+  const s = (status ?? '').toUpperCase();
+
+  if (s.includes('TRIAGE') || s.includes('INTAKE'))
+    return [
+      { label: 'Run full screening', prompt: 'Run a full environmental and zoning screening for this deal\'s parcels. Include flood, soils, wetlands, EPA, and traffic analysis.', icon: 'shield' },
+      { label: 'Score this deal', prompt: 'Run parcel triage scoring and hard filter checks. Give me a go/no-go recommendation with the key risk factors.', icon: 'target' },
+      { label: 'Pull jurisdiction pack', prompt: 'Get the jurisdiction pack for this deal\'s location. I need setbacks, permitted uses, and conditional use requirements.', icon: 'book' },
+      { label: 'Find comparable sales', prompt: 'Search for comparable sales near this deal\'s parcels. Focus on similar zoning and acreage within the last 24 months.', icon: 'search' },
+    ];
+
+  if (s.includes('PRE_LOI') || s.includes('NEGOTIATION'))
+    return [
+      { label: 'Model capital stack', prompt: 'Model the capital stack for this deal. Include senior debt, mezzanine, and equity layers with current market rates.', icon: 'layers' },
+      { label: 'Run proforma', prompt: 'Calculate a development proforma for this deal. Include land cost, hard costs, soft costs, and projected NOI.', icon: 'calculator' },
+      { label: 'Draft LOI terms', prompt: 'Generate an LOI artifact with standard terms for this deal. Include price, due diligence period, and closing timeline.', icon: 'file-text' },
+      { label: 'Assess entitlement path', prompt: 'Predict the entitlement path for this deal. What approvals are needed and what\'s the likely timeline?', icon: 'route' },
+    ];
+
+  if (s.includes('UNDER_CONTRACT') || s.includes('DUE_DILIGENCE'))
+    return [
+      { label: 'Generate DD checklist', prompt: 'Generate a comprehensive due diligence checklist for this deal. Prioritize items by closing timeline risk.', icon: 'list-checks' },
+      { label: 'Run underwriting', prompt: 'Run full underwriting analysis for this deal. Include debt sizing, returns analysis, and stress test scenarios.', icon: 'bar-chart' },
+      { label: 'Review title commitment', prompt: 'Analyze the title commitment for this deal. Flag any exceptions, easements, or encumbrances that affect development.', icon: 'shield-check' },
+      { label: 'Estimate Phase II scope', prompt: 'Estimate the Phase II environmental scope for this deal based on screening results and site history.', icon: 'flask' },
+    ];
+
+  if (s.includes('ENTITLED') || s.includes('CLOSING'))
+    return [
+      { label: 'Model exit scenarios', prompt: 'Model exit scenarios for this deal \u2014 hold, sell at stabilization, and 1031 exchange. Compare IRRs.', icon: 'trending-up' },
+      { label: 'Prepare disposition brief', prompt: 'Generate a disposition analysis brief for this deal. Include market positioning and buyer targeting strategy.', icon: 'briefcase' },
+      { label: 'Calculate depreciation', prompt: 'Calculate the depreciation schedule and cost segregation estimate for this deal\'s improvements.', icon: 'receipt' },
+      { label: 'Check 1031 deadlines', prompt: 'Calculate 1031 exchange deadlines for this deal. Show identification and closing windows.', icon: 'calendar' },
+    ];
+
+  return [];
+}
+
+const DEAL_STAGE_ICON_MAP: Record<string, typeof FileText> = {
+  shield: ShieldCheck,
+  target: Target,
+  book: BookOpen,
+  search: Search,
+  layers: Layers,
+  calculator: Calculator,
+  'file-text': FileText,
+  route: Route,
+  'list-checks': ListChecks,
+  'bar-chart': BarChart3,
+  'shield-check': ShieldCheckIcon,
+  flask: FlaskConical,
+  'trending-up': TrendingUp,
+  briefcase: Briefcase,
+  receipt: Receipt,
+  calendar: Calendar,
+};
+
+function getDealStageName(status: string | null | undefined): string {
+  const s = (status ?? '').toUpperCase();
+  if (s.includes('TRIAGE') || s.includes('INTAKE')) return 'Triage';
+  if (s.includes('PRE_LOI') || s.includes('NEGOTIATION')) return 'Pre-LOI';
+  if (s.includes('UNDER_CONTRACT') || s.includes('DUE_DILIGENCE')) return 'Due Diligence';
+  if (s.includes('ENTITLED') || s.includes('CLOSING')) return 'Closing';
+  return '';
+}
+
+/* ------------------------------------------------------------------ */
+/*  Portfolio Stats                                                    */
+/* ------------------------------------------------------------------ */
+
+type PortfolioStats = {
+  activeDeals: number;
+  trackedParcels: number;
+  topStage: string;
+  openTasks: number;
+};
+
+const EMPTY_PORTFOLIO_STATS: PortfolioStats = {
+  activeDeals: 0,
+  trackedParcels: 0,
+  topStage: '\u2014',
+  openTasks: 0,
+};
+
+function usePortfolioStats(): { stats: PortfolioStats; loading: boolean } {
+  const [stats, setStats] = useState<PortfolioStats>(EMPTY_PORTFOLIO_STATS);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      try {
+        const res = await fetch('/api/deals?limit=200');
+        if (!res.ok) throw new Error('fetch failed');
+        const payload = (await res.json()) as {
+          deals?: {
+            id: string;
+            status?: string;
+            parcels?: unknown[];
+          }[];
+        };
+
+        if (cancelled) return;
+
+        const deals = payload.deals ?? [];
+        const activeDeals = deals.filter(
+          (d) => d.status && !['KILLED', 'EXITED'].includes(d.status.toUpperCase()),
+        ).length;
+
+        const trackedParcels = deals.reduce(
+          (sum, d) => sum + (Array.isArray(d.parcels) ? d.parcels.length : 0),
+          0,
+        );
+
+        // Find most common stage
+        const stageCounts: Record<string, number> = {};
+        for (const d of deals) {
+          const st = d.status ?? 'UNKNOWN';
+          stageCounts[st] = (stageCounts[st] ?? 0) + 1;
+        }
+        const topStage = Object.entries(stageCounts)
+          .sort((a, b) => b[1] - a[1])[0]?.[0]
+          ?.replace(/_/g, ' ') ?? '\u2014';
+
+        setStats({
+          activeDeals,
+          trackedParcels: trackedParcels || activeDeals, // fallback to deal count if parcels not in response
+          topStage: topStage.charAt(0).toUpperCase() + topStage.slice(1).toLowerCase(),
+          openTasks: 0, // tasks not available from deals endpoint
+        });
+      } catch {
+        if (!cancelled) {
+          setStats({
+            activeDeals: 0,
+            trackedParcels: 0,
+            topStage: '\u2014',
+            openTasks: 0,
+          });
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    void load();
+    return () => { cancelled = true; };
+  }, []);
+
+  return { stats, loading };
+}
 
 /* ------------------------------------------------------------------ */
 /*  Internal helpers                                                   */
@@ -346,6 +523,7 @@ export function ChatWorkspaceHero({
   conversationCount,
   cuaModel,
   dealSelector,
+  dealStatus,
   launchState,
   scopeLabel,
   threadStatusLabel,
@@ -363,6 +541,15 @@ export function ChatWorkspaceHero({
       };
   const compactQuickActions = CHAT_QUICK_ACTIONS.slice(0, 2);
 
+  // Feature 9: Deal stage prompts
+  const dealStagePrompts = getDealStagePrompts(dealStatus);
+  const dealStageName = getDealStageName(dealStatus);
+  const hasDealPrompts = dealStagePrompts.length > 0;
+
+  // Feature 14: Portfolio stats (only fetch when in launch state with no deal)
+  const { stats: portfolioStats, loading: portfolioLoading } = usePortfolioStats();
+  const showPortfolioPulse = launchState && !hasDealPrompts;
+
   return (
     <motion.div
       className="shrink-0 border-b border-border px-4 py-4 sm:px-5"
@@ -370,28 +557,76 @@ export function ChatWorkspaceHero({
     >
       {launchState ? (
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 py-6 sm:py-10">
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            {compactQuickActions.map((action) => {
-              const Icon = action.id === 'risk-screen' ? FileText : Table2;
-              return (
-                <Button
-                  key={action.id}
-                  type="button"
-                  variant="outline"
-                  className="h-10 rounded-lg px-4 text-sm font-medium"
-                  onClick={() => {
-                    const prompt = CHAT_QUICK_ACTION_PROMPTS[action.id];
-                    if (prompt) {
-                      onQuickActionSelect?.(prompt);
-                    }
-                  }}
-                >
-                  <Icon className="mr-2 h-4 w-4 text-muted-foreground" />
-                  {action.id === 'risk-screen' ? 'Draft memo' : 'Review table'}
-                </Button>
-              );
-            })}
-          </div>
+          {/* Portfolio Pulse - shown when no deal selected */}
+          {showPortfolioPulse ? (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="rounded-lg border border-border/40 bg-muted/30 p-3">
+                <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Active Deals</p>
+                <p className="text-lg font-semibold">{portfolioLoading ? '\u2014' : portfolioStats.activeDeals}</p>
+              </div>
+              <div className="rounded-lg border border-border/40 bg-muted/30 p-3">
+                <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Tracked Parcels</p>
+                <p className="text-lg font-semibold">{portfolioLoading ? '\u2014' : portfolioStats.trackedParcels}</p>
+              </div>
+              <div className="rounded-lg border border-border/40 bg-muted/30 p-3">
+                <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Pipeline Stage</p>
+                <p className="text-lg font-semibold">{portfolioLoading ? '\u2014' : portfolioStats.topStage}</p>
+              </div>
+              <div className="rounded-lg border border-border/40 bg-muted/30 p-3">
+                <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Open Tasks</p>
+                <p className="text-lg font-semibold">{portfolioLoading ? '\u2014' : portfolioStats.openTasks || '\u2014'}</p>
+              </div>
+            </div>
+          ) : null}
+
+          {/* Deal stage prompts OR default quick actions */}
+          {hasDealPrompts ? (
+            <div className="space-y-2">
+              <p className="text-center text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                Suggested for {dealStageName}
+              </p>
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                {dealStagePrompts.map((sp) => {
+                  const Icon = DEAL_STAGE_ICON_MAP[sp.icon] ?? FileText;
+                  return (
+                    <Button
+                      key={sp.label}
+                      type="button"
+                      variant="outline"
+                      className="h-10 rounded-lg px-4 text-sm font-medium"
+                      onClick={() => onQuickActionSelect?.(sp.prompt)}
+                    >
+                      <Icon className="mr-2 h-4 w-4 text-muted-foreground" />
+                      {sp.label}
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              {compactQuickActions.map((action) => {
+                const Icon = action.id === 'risk-screen' ? FileText : Table2;
+                return (
+                  <Button
+                    key={action.id}
+                    type="button"
+                    variant="outline"
+                    className="h-10 rounded-lg px-4 text-sm font-medium"
+                    onClick={() => {
+                      const prompt = CHAT_QUICK_ACTION_PROMPTS[action.id];
+                      if (prompt) {
+                        onQuickActionSelect?.(prompt);
+                      }
+                    }}
+                  >
+                    <Icon className="mr-2 h-4 w-4 text-muted-foreground" />
+                    {action.id === 'risk-screen' ? 'Draft memo' : 'Review table'}
+                  </Button>
+                );
+              })}
+            </div>
+          )}
 
           <div className="rounded-lg border border-border bg-background p-5 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3 text-sm">

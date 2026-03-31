@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import {
   Building2,
   Compass,
@@ -33,6 +34,23 @@ type MapInvestorPanelsProps = {
   marketOverlays: MapMarketOverlaySnapshot;
 };
 
+function assemblageFeasibility(ownerCount: number): "High" | "Medium" | "Low" {
+  if (ownerCount <= 1) return "High";
+  if (ownerCount <= 3) return "Medium";
+  return "Low";
+}
+
+function feasibilityBadgeClass(feasibility: "High" | "Medium" | "Low"): string {
+  switch (feasibility) {
+    case "High":
+      return "border-emerald-500/40 text-emerald-300";
+    case "Medium":
+      return "border-amber-500/40 text-amber-300";
+    case "Low":
+      return "border-red-500/40 text-red-300";
+  }
+}
+
 export function MapInvestorPanels({
   workspace,
   assemblage,
@@ -40,6 +58,22 @@ export function MapInvestorPanels({
   comps,
   marketOverlays,
 }: MapInvestorPanelsProps) {
+  const assemblageBrief = useMemo(() => {
+    const candidate = assemblage.bestCandidate;
+    if (!candidate || candidate.parcelCount < 2) return null;
+
+    const totalAcres = candidate.combinedAcreage;
+    const ownerCount = candidate.ownerCount;
+    const feasibility = assemblageFeasibility(ownerCount);
+
+    return {
+      count: candidate.parcelCount,
+      totalAcres: totalAcres != null ? totalAcres.toFixed(2) : "—",
+      ownerCount,
+      feasibility,
+    };
+  }, [assemblage.bestCandidate]);
+
   return (
     <div className="space-y-5">
       <SectionLabel>Workspace</SectionLabel>
@@ -89,6 +123,22 @@ export function MapInvestorPanels({
       </SectionFrame>
 
       <SectionLabel>Assemblage</SectionLabel>
+      {assemblageBrief && (
+        <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="font-mono text-[10px] uppercase tracking-wider text-emerald-300">Assemblage Brief</span>
+            <Badge variant="outline" className={cn("text-[9px]", feasibilityBadgeClass(assemblageBrief.feasibility))}>
+              {assemblageBrief.feasibility} Feasibility
+            </Badge>
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-[10px]">
+            <div><span className="text-map-text-muted">Parcels</span><br/><span className="text-map-text-primary font-semibold">{assemblageBrief.count}</span></div>
+            <div><span className="text-map-text-muted">Combined</span><br/><span className="text-map-text-primary font-semibold">{assemblageBrief.totalAcres} ac</span></div>
+            <div><span className="text-map-text-muted">Owners</span><br/><span className="text-map-text-primary font-semibold">{assemblageBrief.ownerCount}</span></div>
+          </div>
+          <p className="text-[9px] text-emerald-400/70">Combined footprint: {assemblageBrief.totalAcres} acres</p>
+        </div>
+      )}
       <SectionFrame
         icon={<GitMerge className="h-4 w-4" />}
         title="Assemblage analysis"

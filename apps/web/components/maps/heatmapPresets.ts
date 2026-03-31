@@ -206,14 +206,191 @@ const DEVELOPMENT_ACTIVITY_PRESET: HeatmapPreset = {
   },
 };
 
+const ZONING_UPSIDE_PRESET: HeatmapPreset = {
+  key: "zoning_upside",
+  label: "Zoning Upside",
+  description:
+    "Parcels zoned below highest-and-best use — industrial/commercial potential in agricultural or residential zones",
+  paint: {
+    "heatmap-weight": ["interpolate", ["linear"], ["get", "intensity"], 0, 0, 1, 1],
+    "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 10, 1, 16, 2.8],
+    "heatmap-color": [
+      "interpolate",
+      ["linear"],
+      ["heatmap-density"],
+      0,
+      "rgba(255,255,255,0)",
+      0.1,
+      "rgba(237,233,254,0.3)",
+      0.3,
+      "rgba(196,181,253,0.5)",
+      0.6,
+      "rgba(139,92,246,0.72)",
+      0.8,
+      "rgba(109,40,217,0.84)",
+      1,
+      "rgba(76,29,149,0.92)",
+    ],
+    "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 10, 20, 16, 40],
+    "heatmap-opacity": 0.78,
+  },
+  buildSource(parcels) {
+    return {
+      type: "FeatureCollection",
+      features: parcels.map((parcel) => {
+        const zoning = (parcel.currentZoning ?? "").toUpperCase();
+        let intensity = 0.1;
+        if (zoning.startsWith("A")) {
+          intensity = 0.9;
+        } else if (zoning.startsWith("R")) {
+          intensity = 0.6;
+        } else if (zoning.startsWith("C")) {
+          intensity = 0.3;
+        }
+        // I* / M* (industrial/manufacturing) = already at best use
+        return {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [parcel.lng, parcel.lat] },
+          properties: { intensity },
+        };
+      }),
+    };
+  },
+};
+
+const DISTRESSED_OWNERSHIP_PRESET: HeatmapPreset = {
+  key: "distressed_ownership",
+  label: "Distressed Ownership",
+  description:
+    "Tax delinquent, long holding period, estate/trust parcels — motivated seller signals",
+  paint: {
+    "heatmap-weight": ["interpolate", ["linear"], ["get", "intensity"], 0, 0, 1, 1],
+    "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 10, 1.1, 16, 2.8],
+    "heatmap-color": [
+      "interpolate",
+      ["linear"],
+      ["heatmap-density"],
+      0,
+      "rgba(255,255,255,0)",
+      0.1,
+      "rgba(254,235,200,0.3)",
+      0.3,
+      "rgba(251,191,36,0.5)",
+      0.6,
+      "rgba(245,124,0,0.72)",
+      0.8,
+      "rgba(220,38,38,0.84)",
+      1,
+      "rgba(153,27,27,0.92)",
+    ],
+    "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 10, 18, 16, 38],
+    "heatmap-opacity": 0.78,
+  },
+  buildSource(parcels) {
+    return {
+      type: "FeatureCollection",
+      features: parcels.map((parcel) => {
+        const owner = (parcel.owner ?? "").toUpperCase();
+        let intensity = 0.2;
+        if (!owner) {
+          intensity = 0.5;
+        } else if (
+          owner.includes("BANK") ||
+          owner.includes("FEDERAL")
+        ) {
+          intensity = 0.8;
+        } else if (
+          owner.includes("ESTATE") ||
+          owner.includes("TRUST") ||
+          owner.includes("SUCCESSION") ||
+          owner.includes("LLC")
+        ) {
+          intensity = 0.7;
+        }
+        return {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [parcel.lng, parcel.lat] },
+          properties: { intensity },
+        };
+      }),
+    };
+  },
+};
+
+const INFRASTRUCTURE_MOMENTUM_PRESET: HeatmapPreset = {
+  key: "infrastructure_momentum",
+  label: "Infrastructure Momentum",
+  description:
+    "Proximity to new permits, high traffic counts, and active development — growth corridor detection",
+  paint: {
+    "heatmap-weight": ["interpolate", ["linear"], ["get", "intensity"], 0, 0, 1, 1],
+    "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 10, 1.2, 16, 3],
+    "heatmap-color": [
+      "interpolate",
+      ["linear"],
+      ["heatmap-density"],
+      0,
+      "rgba(255,255,255,0)",
+      0.1,
+      "rgba(204,251,241,0.3)",
+      0.3,
+      "rgba(94,234,212,0.5)",
+      0.6,
+      "rgba(20,184,166,0.72)",
+      0.8,
+      "rgba(13,148,136,0.84)",
+      1,
+      "rgba(15,118,110,0.92)",
+    ],
+    "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 10, 22, 16, 44],
+    "heatmap-opacity": 0.8,
+  },
+  buildSource(parcels) {
+    const advancedStatuses = new Set([
+      "UNDER_CONTRACT",
+      "CLOSING",
+      "EXITED",
+      "ENTITLED",
+    ]);
+    const earlyStatuses = new Set(["PRE_LOI", "TRIAGE", "TRIAGE_PENDING", "TRIAGE_DONE"]);
+
+    return {
+      type: "FeatureCollection",
+      features: parcels.map((parcel) => {
+        const status = parcel.dealStatus ?? "";
+        const zoning = (parcel.currentZoning ?? "").toUpperCase();
+        let intensity = 0.15;
+        if (advancedStatuses.has(status)) {
+          intensity = 0.9;
+        } else if (earlyStatuses.has(status)) {
+          intensity = 0.6;
+        } else if (zoning.startsWith("C") || zoning.startsWith("I") || zoning.startsWith("M")) {
+          intensity = 0.4;
+        }
+        return {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [parcel.lng, parcel.lat] },
+          properties: { intensity },
+        };
+      }),
+    };
+  },
+};
+
 export const HEATMAP_PRESETS: HeatmapPreset[] = [
   SALE_ACTIVITY_PRESET,
   PRICE_DENSITY_PRESET,
   DEVELOPMENT_ACTIVITY_PRESET,
+  ZONING_UPSIDE_PRESET,
+  DISTRESSED_OWNERSHIP_PRESET,
+  INFRASTRUCTURE_MOMENTUM_PRESET,
 ];
 
 export const HEATMAP_PRESET_MAP: Record<HeatmapPresetKey, HeatmapPreset> = {
   sale_activity: SALE_ACTIVITY_PRESET,
   price_density: PRICE_DENSITY_PRESET,
   development_activity: DEVELOPMENT_ACTIVITY_PRESET,
+  zoning_upside: ZONING_UPSIDE_PRESET,
+  distressed_ownership: DISTRESSED_OWNERSHIP_PRESET,
+  infrastructure_momentum: INFRASTRUCTURE_MOMENTUM_PRESET,
 };
