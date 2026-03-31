@@ -29,12 +29,8 @@ apps/worker/
 # ── Claude Code artifacts (irrelevant to Codex) ─────────────────────────────
 .claude/
 
-# ── Documentation that wastes context ────────────────────────────────────────
-# Codex should NOT auto-read these — they're for human reference or Claude Code.
-# If a plan doc is needed, the user will reference it explicitly in the prompt.
-docs/claude/
-docs/runbooks/
-docs/plans/
+# ── Documentation (only exclude truly dead docs) ─────────────────────────────
+# Do NOT exclude docs/plans/ or docs/claude/ — users reference these in prompts.
 docs/archive/
 
 # ── Large data / logs ────────────────────────────────────────────────────────

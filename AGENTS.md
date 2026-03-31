@@ -6,14 +6,16 @@
 
 1. **Read the plan or prompt.** Understand what files you need to create/modify.
 2. **Read at most 3-5 source files** directly relevant to your task. Do NOT pre-read files "for context."
-3. **Start writing code within your first 5 tool calls.** If you've read 5 files and haven't written anything, you are stalling — pick the simplest file and start.
-4. **Implement one file at a time.** Write it, save it, move to the next. Do not draft multiple files in your head.
-5. **Never re-read a file you already read** in this session. Take notes on what you need, then proceed.
-6. **Never read files not mentioned in the task** unless you hit an import error or type you need to resolve.
-7. **If a plan has multiple features, implement them sequentially.** Finish feature 1, test it, then start feature 2.
-8. **Run verification after each file:** `pnpm typecheck` catches 90% of issues. Run it after every 1-2 file changes.
-9. **When context feels large, write what you have.** Partial working code > perfect plan that exhausts context.
-10. **Ship when tests pass.** Use `~/.codex/bin/gship "feat(scope): message"` — do not ask for permission.
+3. **If modifying API routes or DB queries, read `packages/db/prisma/schema.prisma`** to confirm field names exist. Don't assume — check.
+4. **Start writing code within your first 5 tool calls.** If you've read 5 files and haven't written anything, you are stalling — pick the simplest file and start.
+5. **Implement one file at a time.** Write it, save it, move to the next. Do not draft multiple files in your head.
+6. **Run `pnpm typecheck` after EVERY file you write or modify.** Do not skip this. Do not batch multiple files before typechecking. Catching errors early saves 10x the time of catching them at build.
+7. **Never re-read a file you already read** in this session. Take notes on what you need, then proceed.
+8. **Never read files not mentioned in the task** unless you hit an import error or type you need to resolve.
+9. **If a plan has multiple features, implement them sequentially.** Finish feature 1, test it, then start feature 2.
+10. **Get the whole change right in one edit per file.** If you're editing the same file 3+ times, you're not thinking through the change before writing it. Read the file once, plan ALL your edits, apply them in one pass.
+11. **When context feels large, write what you have.** Partial working code > perfect plan that exhausts context.
+12. **Ship when tests pass.** Stage specific files with `git add <files>`, then `~/.codex/bin/gcommit "feat(scope): message"` and `~/.codex/bin/gpush`. Do NOT use `git add -A`.
 
 ### Anti-patterns That Waste Context
 - Reading the same file twice → take notes the first time
@@ -21,6 +23,10 @@
 - Reading `docs/` files not referenced in the task → won't help you write code
 - Running `git status` or `git diff` repeatedly → once at the start is enough
 - Planning all files before writing any → implement incrementally instead
+- Editing the same file 5+ times → think through ALL changes before your first edit
+- Skipping typecheck between files → errors compound; fix them immediately
+- Assuming a Prisma field exists without reading schema.prisma → causes build failures
+- Using `git add -A` → stages unrelated files, creates mixed commits
 
 ## Project Overview
 
@@ -70,16 +76,19 @@ pnpm build                  # Full build (run before shipping)
 When verification passes, commit and push — do not ask for permission.
 
 ```bash
-# Stage + commit + push in one step:
-~/.codex/bin/gship "feat(scope): description"
+# ALWAYS stage specific files first — never use git add -A
+git add apps/web/components/maps/MyNewFile.tsx apps/web/components/maps/existingFile.ts
 
-# Or separately:
-git add <files>
+# Then commit (only commits staged files):
 ~/.codex/bin/gcommit "feat(scope): description"
 ~/.codex/bin/gpush
+
+# Or combined (still requires pre-staging):
+~/.codex/bin/gship "feat(scope): description"
 ```
 
 Use `gcommit`/`gpush`/`gship` wrappers — raw `git commit`/`git push` is blocked by Codex CLI safety layer.
+**Do NOT use `git add -A` or `git add .`** — these stage unrelated dirty files and create mixed-concern commits.
 
 **Playwright cleanup** — after any Playwright run:
 ```bash
