@@ -65,8 +65,9 @@ log_info "=== Codex Dispatch: ${#TASK_FILES[@]} task(s) ==="
 log_info "Results: $RESULTS_DIR"
 log_info ""
 
-declare -A COMPLETED
-declare -A FAILED_TASKS
+# Use file-based tracking (bash 3.x compatible — macOS ships bash 3)
+COMPLETED_FILE="$RESULTS_DIR/.completed"
+touch "$COMPLETED_FILE"
 FAILED=0
 
 extract_yaml_value() {
@@ -114,7 +115,7 @@ run_task() {
   local deps_blocked=false
   while IFS= read -r dep; do
     [[ -z "$dep" ]] && continue
-    if [[ -z "${COMPLETED[$dep]:-}" ]]; then
+    if ! grep -qx "$dep" "$COMPLETED_FILE" 2>/dev/null; then
       log_warn "  BLOCKED: depends on task '$dep' (not completed)"
       echo '{"status":"blocked","reason":"dependency not met: '"$dep"'"}' > "$resultfile"
       return 1
@@ -191,10 +192,9 @@ for taskfile in "${TASK_FILES[@]}"; do
   task_id=$(extract_yaml_value "$taskfile" "id")
 
   if run_task "$taskfile"; then
-    COMPLETED["$task_id"]=1
+    echo "$task_id" >> "$COMPLETED_FILE"
   else
     FAILED=$((FAILED + 1))
-    FAILED_TASKS["$task_id"]=1
     log_warn "Task $task_id failed. Continuing with remaining tasks."
   fi
   log_info ""

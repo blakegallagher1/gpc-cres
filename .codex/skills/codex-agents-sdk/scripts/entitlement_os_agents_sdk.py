@@ -136,7 +136,7 @@ async def run_orchestrator(objective: str, slug: str | None, cost_ceiling: float
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise RuntimeError("OPENAI_API_KEY is required.")
-    set_default_openai_api(api_key)
+    set_default_openai_api("responses")  # type: ignore[arg-type]
 
     run_id = str(uuid.uuid4())[:8]
     base = Path(os.environ.get(
@@ -150,11 +150,11 @@ async def run_orchestrator(objective: str, slug: str | None, cost_ceiling: float
     tracker = ProgressTracker(run_id, objective, output_dir, max_turns, cost_ceiling)
     print(f"Run {run_id} | Output: {output_dir} | Max turns: {max_turns} | Cost ceiling: ${cost_ceiling}")
 
-    codex_bootstrap = {"command": "npx", "args": ["-y", "codex", "mcp-server"]}
+    codex_params: dict[str, Any] = {"command": "npx", "args": ["-y", "codex", "mcp-server"]}
 
     async with MCPServerStdio(
         name="Codex CLI",
-        params=codex_bootstrap,
+        params=codex_params,  # type: ignore[arg-type]
         client_session_timeout_seconds=360000,
     ) as codex_mcp_server:
 
