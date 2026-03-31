@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": ["approve", "request_changes", "comment"]
+    },
+    "summary": { "type": "string" },
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "severity": { "type": "string", "enum": ["critical", "warning", "nit"] },
+          "file": { "type": "string" },
+          "line": { "type": "integer" },
+          "message": { "type": "string" }
+        },
+        "required": ["severity", "file", "message"],
+        "additionalProperties": false
+      }
+    },
+    "security_concerns": { "type": "boolean" },
+    "org_scoping_verified": { "type": "boolean" },
+    "test_coverage_adequate": { "type": "boolean" }
+  },
+  "required": ["verdict", "summary", "issues", "security_concerns", "org_scoping_verified", "test_coverage_adequate"],
+  "additionalProperties": false
+}
