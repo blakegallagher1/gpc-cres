@@ -1,0 +1,93 @@
+name: Codex PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    if: "!github.event.pull_request.draft"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get diff
+        id: diff
+        run: |
+          DIFF=$(git diff origin/main...HEAD --stat)
+          echo "diff_stat<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$DIFF" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Run Codex review
+        uses: openai/codex-action@v1
+        id: review
+        with:
+          prompt: |
+            Review this pull request for the Entitlement OS project (commercial real estate platform).
+
+            Changed files:
+            ${{ steps.diff.outputs.diff_stat }}
+
+            Review checklist:
+            1. Security: All API routes use resolveAuth() + orgId scoping?
+            2. No client-side secrets (NEXT_PUBLIC_ prefix on server-only vars)?
+            3. Zod schemas use .nullable() not .optional() for OpenAI tool params?
+            4. No .url() or .email() Zod validators (OpenAI rejects format constraints)?
+            5. Event dispatch uses .catch(() => {}) — never blocks response?
+            6. No weakening of existing type checks or test assertions?
+            7. Test coverage for new code paths?
+
+            Be concise. Only flag real issues, not style preferences.
+          sandbox: read-only
+          output-file: /tmp/codex-review.json
+          codex-args: '["--output-schema", "scripts/codex-auto/schemas/pr-review-output.json"]'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+      - name: Post review comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let review;
+            try {
+              review = JSON.parse(fs.readFileSync('/tmp/codex-review.json', 'utf8'));
+            } catch {
+              review = { verdict: 'comment', summary: 'Codex review did not produce structured output.', issues: [], security_concerns: false, org_scoping_verified: false, test_coverage_adequate: false };
+            }
+
+            const issueLines = review.issues.map(i => {
+              const loc = i.line ? `${i.file}:${i.line}` : i.file;
+              const icon = i.severity === 'critical' ? 'X' : i.severity === 'warning' ? '!' : '-';
+              return `- [${icon}] **${i.severity}** \`${loc}\`: ${i.message}`;
+            }).join('\n');
+
+            const body = [
+              '## Codex Review',
+              '',
+              `**Verdict:** ${review.verdict}`,
+              `**Security concerns:** ${review.security_concerns ? 'YES' : 'None'}`,
+              `**Org-scoping verified:** ${review.org_scoping_verified ? 'Yes' : 'Not verified'}`,
+              `**Test coverage:** ${review.test_coverage_adequate ? 'Adequate' : 'Gaps found'}`,
+              '',
+              review.summary,
+              '',
+              review.issues.length > 0 ? '### Issues\n' + issueLines : 'No issues found.',
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
