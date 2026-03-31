@@ -277,6 +277,7 @@ export function ChatContainer() {
   const isMobile = useIsMobile();
   const [cuaModel, setCuaModel] = useCuaModel();
   const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
+  const [selectedDealStatus, setSelectedDealStatus] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [transportSessionId, setTransportSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -301,6 +302,29 @@ export function ChatContainer() {
   useEffect(() => {
     presenterRef.current = presenterState;
   }, [presenterState]);
+
+  // Fetch deal status when a deal is selected
+  useEffect(() => {
+    if (!selectedDealId) {
+      setSelectedDealStatus(null);
+      return;
+    }
+    let cancelled = false;
+    async function fetchDealStatus() {
+      try {
+        const res = await fetch(`/api/deals/${encodeURIComponent(selectedDealId)}`);
+        if (!res.ok) return;
+        const body = (await res.json()) as { deal?: { status?: string } };
+        if (!cancelled && body.deal?.status) {
+          setSelectedDealStatus(body.deal.status);
+        }
+      } catch {
+        // Non-critical — deal prompts will fall back to defaults
+      }
+    }
+    void fetchDealStatus();
+    return () => { cancelled = true; };
+  }, [selectedDealId]);
 
   // Fetch NextAuth JWT for chat transport auth.
   // In REST mode this is sent as Bearer token to avoid cookie-only auth failures.
@@ -830,6 +854,7 @@ export function ChatContainer() {
                           onSelect={setSelectedDealId}
                         />
                       )}
+                      dealStatus={selectedDealStatus}
                       launchState
                       scopeLabel={scopeLabel}
                       threadStatusLabel={threadStatusLabel}
@@ -862,6 +887,7 @@ export function ChatContainer() {
                         onSelect={setSelectedDealId}
                       />
                     )}
+                    dealStatus={selectedDealStatus}
                     launchState={false}
                     scopeLabel={scopeLabel}
                     threadStatusLabel={threadStatusLabel}

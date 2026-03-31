@@ -11,6 +11,9 @@ interface OverlayState {
   showEpa: boolean;
   showHeatmap: boolean;
   showTerrain: boolean;
+  showRecentSales: boolean;
+  showNewPermits: boolean;
+  showZoningChanges: boolean;
 }
 
 const STORAGE_KEY = "map-overlay-prefs-v2";
@@ -34,6 +37,9 @@ const DEFAULTS: OverlayState = {
   showEpa: false,
   showHeatmap: false,
   showTerrain: false,
+  showRecentSales: false,
+  showNewPermits: false,
+  showZoningChanges: false,
 };
 
 export function useOverlayState() {

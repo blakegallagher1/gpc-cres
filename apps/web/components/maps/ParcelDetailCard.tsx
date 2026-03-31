@@ -20,6 +20,37 @@ interface ParcelDetailCardProps {
   onAction: (action: MapPopupAction) => void;
 }
 
+function computeAcquisitionSignal(parcel: { acreage?: number | null; floodZone?: string | null; currentZoning?: string | null }): { score: number; color: string; label: string } {
+  let score = 50;
+  if (parcel.acreage != null) {
+    if (parcel.acreage >= 2 && parcel.acreage <= 20) score += 15;
+    else if (parcel.acreage > 20) score += 5;
+    else score -= 10;
+  }
+  const z = (parcel.currentZoning ?? "").toUpperCase();
+  if (/^[IM]/.test(z)) score += 20;
+  else if (/^C/.test(z)) score += 10;
+  else if (/^A/.test(z)) score += 5;
+  const f = (parcel.floodZone ?? "").toUpperCase();
+  if (f.startsWith("A") || f.startsWith("V")) score -= 25;
+  else if (f === "X" || f === "NONE" || !f) score += 5;
+  score = Math.max(0, Math.min(100, score));
+  const color = score >= 70 ? "#22c55e" : score >= 40 ? "#eab308" : "#ef4444";
+  const label = score >= 70 ? "Strong" : score >= 40 ? "Review" : "Caution";
+  return { score, color, label };
+}
+
+function getHighestBestUse(zoning: string | null | undefined): string {
+  const z = (zoning ?? "").toUpperCase().trim();
+  if (/^[IM]/.test(z)) return "Industrial";
+  if (/^C/.test(z)) return "Commercial";
+  if (/^R/.test(z)) return "Residential";
+  if (/^A/.test(z)) return "Agricultural";
+  if (z === "PUD") return "Planned Dev";
+  if (!z) return "Unknown";
+  return z;
+}
+
 function formatAcres(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) {
     return "Unknown";
@@ -147,6 +178,35 @@ export function ParcelDetailCard({
               <DetailField label="Coords" value={coordinates} />
               <DetailField label="Lookup" value={parcel.propertyDbId ?? parcel.id} />
             </div>
+
+            {(() => {
+              const signal = computeAcquisitionSignal(parcel);
+              const hbu = getHighestBestUse(parcel.currentZoning);
+              return (
+                <div className="rounded-xl border border-map-border bg-map-surface/60 p-2.5">
+                  <div className="mb-2 text-[9px] uppercase tracking-[0.18em] text-map-text-muted">Quick Economics</div>
+                  <div className="flex flex-wrap items-center gap-2 text-[10px]">
+                    <span
+                      className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 font-medium text-white"
+                      style={{ backgroundColor: signal.color }}
+                    >
+                      <span className="inline-block h-1.5 w-1.5 rounded-full bg-white/40" />
+                      {signal.label} ({signal.score})
+                    </span>
+                    <span className="text-map-text-secondary">HBU: {hbu}</span>
+                  </div>
+                  <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-map-text-muted">
+                    {parcel.owner ? <span>Owner: <span className="text-map-text-primary">{parcel.owner}</span></span> : null}
+                    {parcel.dealId ? (
+                      <span className="inline-flex items-center gap-1 text-map-accent">
+                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-map-accent" />
+                        Has Deal
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })()}
 
             <div className="flex flex-wrap gap-2">
               <a

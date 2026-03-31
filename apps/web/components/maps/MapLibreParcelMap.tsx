@@ -644,6 +644,9 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
   const [showWetlands, setShowWetlands] = useState<boolean>(() => getSavedOverlaysFallback().wetlands);
   const [showEpa, setShowEpa] = useState<boolean>(() => getSavedOverlaysFallback().epa);
   const [showMobileHomePark, setShowMobileHomePark] = useState<boolean>(() => getSavedOverlaysFallback().mobileHomePark);
+  const [showRecentSales, setShowRecentSales] = useState(false);
+  const [showNewPermits, setShowNewPermits] = useState(false);
+  const [showZoningChanges, setShowZoningChanges] = useState(false);
   const [showComps, setShowComps] = useState(false);
   const [showHeatmap, setShowHeatmap] = useState(false);
   const [activeHeatmapPreset, setActiveHeatmapPreset] = useState<HeatmapPresetKey>("sale_activity");
@@ -2381,6 +2384,12 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
           setShowEpa={setShowEpa}
           showMobileHomePark={showMobileHomePark}
           setShowMobileHomePark={setShowMobileHomePark}
+          showRecentSales={showRecentSales}
+          setShowRecentSales={setShowRecentSales}
+          showNewPermits={showNewPermits}
+          setShowNewPermits={setShowNewPermits}
+          showZoningChanges={showZoningChanges}
+          setShowZoningChanges={setShowZoningChanges}
           showTools={showTools}
           showComps={showComps}
           setShowComps={setShowComps}

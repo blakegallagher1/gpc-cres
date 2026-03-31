@@ -2,15 +2,18 @@
 
 import type { ComponentType } from 'react';
 import type { ReactNode } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   AlertTriangle,
+  ChevronDown,
   ClipboardCopy,
   ClipboardList,
   ExternalLink,
   FileText,
   GitBranch,
   RefreshCcw,
+  Shield,
   Wrench,
   Rocket,
   Link as LinkIcon,
@@ -55,6 +58,152 @@ interface MessageBubbleProps {
   message: ChatMessage;
   conversationId?: string | null;
   onToolApprovalEvents?: (events: ChatStreamEvent[]) => void;
+  onVerifyTrust?: (messageId: string) => void;
+}
+
+function formatTrustDuration(ms?: number): string {
+  if (ms == null) return 'n/a';
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
+function getTrustBarColor(confidence: number): string {
+  if (confidence >= 80) return 'bg-emerald-500';
+  if (confidence >= 50) return 'bg-amber-500';
+  return 'bg-red-500';
+}
+
+function getTrustBarTrack(confidence: number): string {
+  if (confidence >= 80) return 'bg-emerald-500/15';
+  if (confidence >= 50) return 'bg-amber-500/15';
+  return 'bg-red-500/15';
+}
+
+function TrustIndicator({
+  trust,
+  messageId,
+  onVerify,
+}: {
+  trust: NonNullable<ChatMessage['trust']>;
+  messageId: string;
+  onVerify?: (messageId: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const rawConfidence = trust.confidence;
+  if (rawConfidence == null) return null;
+
+  const pct = Math.round(rawConfidence * 100);
+  const toolCount = trust.toolsInvoked?.length ?? 0;
+  const citationCount = trust.evidenceCitations?.length ?? 0;
+  const missingCount = trust.missingEvidence?.length ?? 0;
+
+  return (
+    <div className="mt-2 rounded-lg border border-border/50 bg-muted/20 px-3 py-2">
+      {/* Compact bar — clickable */}
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="flex w-full items-center gap-2 text-left"
+      >
+        <Shield className="h-3 w-3 shrink-0 text-muted-foreground" />
+        {/* Confidence bar */}
+        <div className={cn('h-1.5 w-20 shrink-0 rounded-full', getTrustBarTrack(pct))}>
+          <div
+            className={cn('h-full rounded-full transition-all', getTrustBarColor(pct))}
+            style={{ width: `${Math.min(pct, 100)}%` }}
+          />
+        </div>
+        <span className="flex-1 font-mono text-[10px] text-muted-foreground">
+          {pct}% confidence · {toolCount} tool{toolCount !== 1 ? 's' : ''} · {citationCount} citation{citationCount !== 1 ? 's' : ''}
+        </span>
+        {missingCount > 0 && (
+          <span className="font-mono text-[10px] text-amber-600 dark:text-amber-400">
+            {missingCount} evidence gap{missingCount !== 1 ? 's' : ''}
+          </span>
+        )}
+        <ChevronDown
+          className={cn(
+            'h-3 w-3 shrink-0 text-muted-foreground transition-transform',
+            expanded && 'rotate-180',
+          )}
+        />
+      </button>
+
+      {/* Expanded details */}
+      {expanded && (
+        <div className="mt-2 space-y-2 border-t border-border/40 pt-2">
+          {/* Evidence citations */}
+          {trust.evidenceCitations && trust.evidenceCitations.length > 0 && (
+            <div>
+              <p className="font-mono text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                Evidence Citations
+              </p>
+              <ul className="mt-1 space-y-0.5">
+                {trust.evidenceCitations.map((cite, i) => (
+                  <li key={i} className="font-mono text-[10px] text-foreground/70">
+                    {typeof cite.label === 'string' ? cite.label : JSON.stringify(cite)}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Missing evidence */}
+          {trust.missingEvidence && trust.missingEvidence.length > 0 && (
+            <div>
+              <p className="font-mono text-[10px] font-medium uppercase tracking-wide text-amber-600 dark:text-amber-400">
+                Missing Evidence
+              </p>
+              <ul className="mt-1 space-y-0.5">
+                {trust.missingEvidence.map((item, i) => (
+                  <li key={i} className="font-mono text-[10px] text-amber-700 dark:text-amber-300">
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Tools invoked */}
+          {trust.toolsInvoked && trust.toolsInvoked.length > 0 && (
+            <div>
+              <p className="font-mono text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                Tools Invoked
+              </p>
+              <div className="mt-1 flex flex-wrap gap-1">
+                {trust.toolsInvoked.map((tool, i) => (
+                  <span
+                    key={i}
+                    className="rounded-md bg-muted/50 px-1.5 py-0.5 font-mono text-[10px] text-foreground/70"
+                  >
+                    {tool}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Duration */}
+          <p className="font-mono text-[10px] text-muted-foreground">
+            Duration: {formatTrustDuration(trust.durationMs)}
+          </p>
+
+          {/* Verify button */}
+          {onVerify && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-6 rounded-full px-3 text-[10px]"
+              onClick={() => onVerify(messageId)}
+            >
+              Verify
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function ToolResultCard({ name, result }: { name: string; result: unknown }) {
@@ -493,6 +642,7 @@ export function MessageBubble({
   message,
   conversationId,
   onToolApprovalEvents,
+  onVerifyTrust,
 }: MessageBubbleProps) {
   const mapDispatch = useMapChatDispatch();
   const effectiveEventKind = getEffectiveEventKind(message);
@@ -578,6 +728,13 @@ export function MessageBubble({
                       onParcelClick={(parcelId) => {
                         mapDispatch({ type: 'SELECT_PARCELS', parcelIds: [parcelId] });
                       }}
+                    />
+                  ) : null}
+                  {message.trust && message.trust.confidence != null && !hasEvent ? (
+                    <TrustIndicator
+                      trust={message.trust}
+                      messageId={message.id}
+                      onVerify={onVerifyTrust}
                     />
                   ) : null}
                   {!hasEvent ? (

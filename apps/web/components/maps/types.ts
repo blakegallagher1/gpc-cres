@@ -38,7 +38,7 @@ export interface MapTrajectoryVelocityDatum {
 /**
  * Supported heatmap presets for the parcel map.
  */
-export type HeatmapPresetKey = "sale_activity" | "price_density" | "development_activity";
+export type HeatmapPresetKey = "sale_activity" | "price_density" | "development_activity" | "zoning_upside" | "distressed_ownership" | "infrastructure_momentum";
 
 /**
  * Named reference-layer bundles for the left map workbench.

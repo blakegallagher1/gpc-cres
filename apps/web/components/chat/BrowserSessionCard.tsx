@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Globe, Download, BookOpen, ChevronDown, AlertCircle } from 'lucide-react';
+import { Globe, Download, BookOpen, ChevronDown, AlertCircle, Check, Play, Save, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +14,15 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 
+export interface PlaybookData {
+  name: string;
+  tags: string[];
+  url: string;
+  taskDescription: string;
+  turnCount: number;
+  savedAt: string;
+}
+
 export interface BrowserSessionCardProps {
   url: string;
   success: boolean;
@@ -25,7 +34,10 @@ export interface BrowserSessionCardProps {
   error?: string;
   finalMessage?: string;
   source?: { url: string; fetchedAt: string };
+  taskDescription?: string;
   onSaveToKnowledgeBase?: () => void;
+  onSavePlaybook?: (playbook: PlaybookData) => void;
+  onReusePlaybook?: (taskDescription: string) => void;
 }
 
 function extractDomain(url: string): string {
@@ -90,10 +102,17 @@ export function BrowserSessionCard({
   error,
   finalMessage,
   source,
+  taskDescription,
   onSaveToKnowledgeBase,
+  onSavePlaybook,
+  onReusePlaybook,
 }: BrowserSessionCardProps) {
   const [actionsOpen, setActionsOpen] = useState(false);
   const [dataOpen, setDataOpen] = useState(false);
+  const [playbookFormOpen, setPlaybookFormOpen] = useState(false);
+  const [playbookSaved, setPlaybookSaved] = useState(false);
+  const [playbookName, setPlaybookName] = useState('');
+  const [playbookTags, setPlaybookTags] = useState('');
   const domain = extractDomain(url);
   const duration = estimateDuration(turns);
   const costStr = formatCost(cost);
@@ -244,6 +263,108 @@ export function BrowserSessionCard({
             </Button>
           ) : null}
         </div>
+
+        {/* Playbook section */}
+        {success && onSavePlaybook && !playbookSaved && !playbookFormOpen && (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-7 gap-1.5 rounded-full px-3 text-xs"
+            onClick={() => {
+              setPlaybookName(`${domain} data extraction`);
+              setPlaybookFormOpen(true);
+            }}
+          >
+            <Save className="h-3 w-3" />
+            Save as Playbook
+          </Button>
+        )}
+
+        {playbookFormOpen && !playbookSaved && (
+          <div className="rounded-lg border border-border/60 bg-muted/30 p-3 space-y-2">
+            <label className="block">
+              <span className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
+                Playbook Name
+              </span>
+              <input
+                type="text"
+                value={playbookName}
+                onChange={(e) => setPlaybookName(e.target.value)}
+                className="mt-1 block w-full rounded-md border border-border/60 bg-background px-2 py-1.5 font-mono text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                placeholder="e.g. ebrp.org data extraction"
+              />
+            </label>
+            <label className="block">
+              <span className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
+                Tags (comma-separated)
+              </span>
+              <input
+                type="text"
+                value={playbookTags}
+                onChange={(e) => setPlaybookTags(e.target.value)}
+                className="mt-1 block w-full rounded-md border border-border/60 bg-background px-2 py-1.5 font-mono text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                placeholder="county records, tax data, EBR"
+              />
+            </label>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="default"
+                className="h-7 gap-1.5 px-3 text-xs"
+                onClick={() => {
+                  const tags = playbookTags
+                    .split(',')
+                    .map((t) => t.trim())
+                    .filter(Boolean);
+                  onSavePlaybook({
+                    name: playbookName,
+                    tags,
+                    url,
+                    taskDescription: taskDescription ?? '',
+                    turnCount: turns,
+                    savedAt: new Date().toISOString(),
+                  });
+                  setPlaybookSaved(true);
+                  setPlaybookFormOpen(false);
+                }}
+              >
+                <Save className="h-3 w-3" />
+                Save
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-7 gap-1.5 px-3 text-xs"
+                onClick={() => setPlaybookFormOpen(false)}
+              >
+                <X className="h-3 w-3" />
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {playbookSaved && (
+          <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-mono">
+            <Check className="h-3 w-3" />
+            Playbook Saved
+          </div>
+        )}
+
+        {/* Reuse Playbook */}
+        {taskDescription && onReusePlaybook && (
+          <button
+            type="button"
+            className="flex items-center gap-1 text-[10px] font-mono text-muted-foreground hover:text-foreground transition-colors"
+            onClick={() => onReusePlaybook(taskDescription)}
+          >
+            <Play className="h-2.5 w-2.5" />
+            Reuse Playbook
+          </button>
+        )}
 
         {/* Source Info */}
         {source?.fetchedAt ? (

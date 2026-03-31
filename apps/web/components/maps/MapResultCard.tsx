@@ -2,10 +2,11 @@
 
 import { useCallback, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { X, ChevronDown, ChevronUp, MapPin, Layers, BarChart3, FileSearch } from "lucide-react";
+import { X, ChevronDown, ChevronUp, MapPin, Layers, BarChart3, FileSearch, Pin, PinOff } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 import {
   Table,
   TableBody,
@@ -44,6 +45,8 @@ export interface MapResultCardData {
   }>;
   /** Card type for icon selection */
   type?: "count" | "detail" | "list" | "comparison";
+  /** ISO timestamp when pinned, if pinned */
+  pinnedAt?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -52,11 +55,13 @@ export interface MapResultCardData {
 
 interface MapResultCardProps {
   card: MapResultCardData;
+  isPinned?: boolean;
   onDismiss: (id: string) => void;
+  onPin?: (card: MapResultCardData) => void;
   onContinueInChat?: (card: MapResultCardData) => void;
 }
 
-export function MapResultCard({ card, onDismiss, onContinueInChat }: MapResultCardProps) {
+export function MapResultCard({ card, isPinned, onDismiss, onPin, onContinueInChat }: MapResultCardProps) {
   const reduceMotion = useReducedMotion();
   const [expanded, setExpanded] = useState(true);
   const tableColumns = card.columns ?? [];
@@ -70,13 +75,22 @@ export function MapResultCard({ card, onDismiss, onContinueInChat }: MapResultCa
     onContinueInChat?.(card);
   }, [card, onContinueInChat]);
 
+  const handlePin = useCallback(() => {
+    onPin?.(card);
+  }, [card, onPin]);
+
   return (
     <motion.div
       initial={reduceMotion ? false : { opacity: 0, y: -20, scale: 0.97 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -20, scale: 0.97 }}
       transition={CARD_TRANSITION}
-      className="pointer-events-auto w-[440px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-map-accent/30 bg-map-surface-overlay shadow-2xl ring-1 ring-map-accent/20 backdrop-blur-md"
+      className={cn(
+        "pointer-events-auto w-[440px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border bg-map-surface-overlay shadow-2xl ring-1 backdrop-blur-md",
+        isPinned
+          ? "border-l-2 border-l-amber-500/60 border-t-map-accent/30 border-r-map-accent/30 border-b-map-accent/30 ring-amber-500/15"
+          : "border-map-accent/30 ring-map-accent/20",
+      )}
     >
       {/* Header */}
       <div className="flex items-start gap-3 border-b border-map-border px-4 py-3">
@@ -84,9 +98,21 @@ export function MapResultCard({ card, onDismiss, onContinueInChat }: MapResultCa
           <Icon className="h-4 w-4 text-map-accent" />
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="truncate text-sm font-semibold text-map-text-primary">{card.title}</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="truncate text-sm font-semibold text-map-text-primary">{card.title}</h3>
+            {isPinned && (
+              <Badge variant="outline" className="shrink-0 px-1.5 py-0 text-[8px] border-amber-500/40 text-amber-300">
+                Pinned
+              </Badge>
+            )}
+          </div>
           {card.subtitle && (
             <p className="mt-0.5 text-[11px] text-map-text-muted">{card.subtitle}</p>
+          )}
+          {isPinned && card.pinnedAt && (
+            <p className="mt-0.5 text-[9px] text-map-text-muted">
+              Pinned {new Date(card.pinnedAt).toLocaleDateString()} {new Date(card.pinnedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            </p>
           )}
         </div>
         <div className="flex items-center gap-1">
@@ -97,13 +123,28 @@ export function MapResultCard({ card, onDismiss, onContinueInChat }: MapResultCa
           >
             {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
           </button>
-          <button
-            type="button"
-            onClick={() => onDismiss(card.id)}
-            className="rounded-lg p-1.5 text-map-text-muted transition-colors hover:bg-map-surface hover:text-map-text-primary"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
+          {onPin && (
+            <button
+              type="button"
+              onClick={handlePin}
+              className={cn(
+                "rounded-lg p-1.5 transition-colors hover:bg-map-surface hover:text-map-text-primary",
+                isPinned ? "text-amber-400" : "text-map-text-muted",
+              )}
+              title={isPinned ? "Unpin insight" : "Pin insight"}
+            >
+              {isPinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
+            </button>
+          )}
+          {!isPinned && (
+            <button
+              type="button"
+              onClick={() => onDismiss(card.id)}
+              className="rounded-lg p-1.5 text-map-text-muted transition-colors hover:bg-map-surface hover:text-map-text-primary"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -182,7 +223,7 @@ export function MapResultCard({ card, onDismiss, onContinueInChat }: MapResultCa
             )}
 
             <div className="flex flex-wrap items-center gap-2 px-4 py-3">
-              {card.actions?.map((action) => (
+              {!isPinned && card.actions?.map((action) => (
                 <Button
                   key={action.label}
                   type="button"
@@ -198,6 +239,18 @@ export function MapResultCard({ card, onDismiss, onContinueInChat }: MapResultCa
                   {action.label}
                 </Button>
               ))}
+              {isPinned && onPin && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={handlePin}
+                  className="border-amber-500/30 bg-map-surface/50 text-[11px] text-amber-300 hover:bg-map-surface hover:text-amber-200"
+                >
+                  <PinOff className="mr-1.5 h-3 w-3" />
+                  Unpin
+                </Button>
+              )}
               {onContinueInChat && (
                 <Button
                   type="button"
@@ -223,19 +276,50 @@ export function MapResultCard({ card, onDismiss, onContinueInChat }: MapResultCa
 
 interface MapResultCardStackProps {
   cards: MapResultCardData[];
+  pinnedCardIds?: Set<string>;
   onDismiss: (id: string) => void;
+  onPin?: (card: MapResultCardData) => void;
   onContinueInChat?: (card: MapResultCardData) => void;
 }
 
-export function MapResultCardStack({ cards, onDismiss, onContinueInChat }: MapResultCardStackProps) {
+export function MapResultCardStack({ cards, pinnedCardIds, onDismiss, onPin, onContinueInChat }: MapResultCardStackProps) {
+  const pinned = pinnedCardIds?.size
+    ? cards.filter((c) => pinnedCardIds.has(c.id))
+    : [];
+  const unpinned = pinnedCardIds?.size
+    ? cards.filter((c) => !pinnedCardIds.has(c.id))
+    : cards;
+
   return (
     <div className="pointer-events-none absolute left-1/2 top-4 z-40 flex -translate-x-1/2 flex-col gap-3">
+      {pinned.length > 0 && (
+        <div className="pointer-events-none flex flex-col gap-3">
+          <div className="pointer-events-auto flex items-center justify-center">
+            <Badge variant="outline" className="px-2 py-0.5 text-[9px] border-amber-500/30 text-amber-300 bg-map-surface-overlay/80 backdrop-blur-sm">
+              Pinned Insights
+            </Badge>
+          </div>
+          <AnimatePresence>
+            {pinned.map((card) => (
+              <MapResultCard
+                key={card.id}
+                card={card}
+                isPinned
+                onDismiss={onDismiss}
+                onPin={onPin}
+                onContinueInChat={onContinueInChat}
+              />
+            ))}
+          </AnimatePresence>
+        </div>
+      )}
       <AnimatePresence>
-        {cards.map((card) => (
+        {unpinned.map((card) => (
           <MapResultCard
             key={card.id}
             card={card}
             onDismiss={onDismiss}
+            onPin={onPin}
             onContinueInChat={onContinueInChat}
           />
         ))}

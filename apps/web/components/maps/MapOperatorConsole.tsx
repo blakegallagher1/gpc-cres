@@ -77,6 +77,7 @@ interface MapOperatorConsoleProps {
     parcelId: string,
     status: MapTrackedParcelStatus,
   ) => void;
+  onHighlightOwnerParcels?: (ownerName: string) => void;
   className?: string;
 }
 
@@ -140,6 +141,7 @@ export function MapOperatorConsole({
   onFocusTrackedParcel,
   onRemoveTrackedParcel,
   onUpdateTrackedParcelStatus,
+  onHighlightOwnerParcels,
   className,
 }: MapOperatorConsoleProps) {
   const reduceMotion = useReducedMotion();
@@ -181,6 +183,25 @@ export function MapOperatorConsole({
     setNoteDraft("");
     setStatusDraft("to_analyze");
   }, [selectionKey, selectedParcels, trackedById]);
+
+  const ownershipIntel = useMemo(() => {
+    if (selectedParcels.length !== 1) return null;
+    const selected = selectedParcels[0];
+    const ownerName = selected.owner;
+    if (!ownerName) return null;
+
+    const holdings = parcels.filter((p) => p.owner === ownerName);
+    const totalAcres = holdings.reduce(
+      (sum, p) => sum + (p.acreage ?? 0),
+      0,
+    );
+
+    return {
+      ownerName,
+      holdingCount: holdings.length,
+      totalAcres: totalAcres.toFixed(2),
+    };
+  }, [selectedParcels, parcels]);
 
   const selectedTrackedCount = selectedParcels.reduce(
     (count, parcel) => count + (trackedById.has(parcel.id) ? 1 : 0),
@@ -443,6 +464,44 @@ export function MapOperatorConsole({
                     <SectionLabel>Screening</SectionLabel>
                     <div className="rounded-xl border border-map-border bg-map-surface/45 px-3 py-3">
                       <ScreeningScorecard parcelId={selectedParcels[0]?.id ?? null} />
+                    </div>
+                  </motion.section>
+                ) : null}
+              </AnimatePresence>
+
+              <AnimatePresence initial={false}>
+                {ownershipIntel ? (
+                  <motion.section
+                    key="ownership-intel"
+                    initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
+                    transition={TAB_TRANSITION}
+                    className="space-y-2"
+                  >
+                    <SectionLabel>Ownership Intel</SectionLabel>
+                    <div className="rounded-lg border border-map-border bg-map-surface/50 p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-map-text-primary">{ownershipIntel.ownerName}</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-[10px]">
+                        <div>
+                          <span className="text-map-text-muted">Holdings</span>
+                          <p className="text-map-text-primary font-semibold">{ownershipIntel.holdingCount} parcels</p>
+                        </div>
+                        <div>
+                          <span className="text-map-text-muted">Total Acreage</span>
+                          <p className="text-map-text-primary font-semibold">{ownershipIntel.totalAcres} ac</p>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 w-full text-[10px] border-map-border text-map-text-secondary hover:text-map-text-primary"
+                        onClick={() => onHighlightOwnerParcels?.(ownershipIntel.ownerName)}
+                      >
+                        Show all parcels by this owner
+                      </Button>
                     </div>
                   </motion.section>
                 ) : null}
