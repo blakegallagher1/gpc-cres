@@ -1,3 +1,6 @@
+// Pin timezone so date-formatted snapshots are deterministic across CI and local
+process.env.TZ = "UTC";
+
 import type { ReactNode } from "react";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
