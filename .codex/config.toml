@@ -141,6 +141,26 @@ enabled = true
 path = ".codex/skills/type-hardening"
 enabled = true
 
+[[skills.config]]
+path = ".codex/skills/ci-fix"
+enabled = true
+
+[[skills.config]]
+path = ".codex/skills/pr-review"
+enabled = true
+
+[[skills.config]]
+path = ".codex/skills/dispatch"
+enabled = true
+
+[[skills.config]]
+path = ".codex/skills/orchestrate"
+enabled = true
+
+[[skills.config]]
+path = ".codex/skills/frontend-design"
+enabled = true
+
 # ---------------------------------------------------------------------------
 # Plugins
 # ---------------------------------------------------------------------------
