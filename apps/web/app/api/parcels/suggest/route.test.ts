@@ -109,6 +109,10 @@ describe("GET /api/parcels/suggest", () => {
     expect(res.status).toBe(200);
     expect(body.suggestions).toHaveLength(2);
     expect(body.suggestions[0].address).toContain("7618 Copperfield");
+    expect(body.suggestions[0].hasGeometry).toBe(true);
+    expect(body.suggestions.map((suggestion: { parcelId: string }) => suggestion.parcelId)).toEqual(
+      expect.arrayContaining(["UID1", "UID2"]),
+    );
     expect(findManyMock).toHaveBeenCalledTimes(1);
     expect(findManyMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -144,6 +148,7 @@ describe("GET /api/parcels/suggest", () => {
     expect(res.status).toBe(200);
     expect(body.suggestions).toHaveLength(1);
     expect(body.suggestions[0].address).toBe("7618 Copperfield Court, Baton Rouge, LA");
+    expect(body.suggestions[0].parcelId).toBe("UID9");
   });
 
   it("falls back to contains matching when prefix query misses", async () => {
@@ -172,6 +177,7 @@ describe("GET /api/parcels/suggest", () => {
     expect(body.suggestions).toHaveLength(1);
     expect(body.suggestions[0].address).toContain("Copperfield");
     expect(body.suggestions[0].lat).toBe(30.4);
+    expect(body.suggestions[0].parcelId).toBe("UID3");
     expect(findManyMock).toHaveBeenCalledTimes(2);
   });
 
@@ -221,10 +227,47 @@ describe("GET /api/parcels/suggest", () => {
     expect(body.suggestions[0].source).toBe("property_db");
     expect(body.suggestions[0].lat).toBe(30.6);
     expect(body.suggestions[0].lng).toBe(-91.15);
-    expect(body.suggestions[0].propertyDbId).toBe("016-1234-0");
+    expect(body.suggestions[0].parcelId).toBe("1612340");
+    expect(body.suggestions[0].propertyDbId).toBe("1612340");
     // Gateway candidates now fire in parallel — at least 1 call, up to 2
     expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(1);
     expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(2);
+  });
+
+  it("suppresses out-of-region geometry when the query does not explicitly request it", async () => {
+    ({ GET } = await import("./route"));
+    resolveAuthMock.mockResolvedValue({
+      userId: "u-1",
+      orgId: "org-123",
+    });
+    findManyMock.mockResolvedValue([]);
+    getPropertyDbConfigOrNullMock.mockReturnValue({
+      url: "https://api.test.com",
+      key: "test-key",
+    });
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        count: 1,
+        data: [
+          {
+            id: "park-county-1",
+            parcel_uid: "PC-1",
+            situs_address: "123 Elk Run Rd, Park County, Colorado",
+            lat: 39.12,
+            lng: -105.58,
+          },
+        ],
+      }),
+    });
+
+    const req = new NextRequest("http://localhost/api/parcels/suggest?q=elk");
+    const res = await GET(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.suggestions).toEqual([]);
   });
 
   it("returns empty when both org and gateway have no results", async () => {

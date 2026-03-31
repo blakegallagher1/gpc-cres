@@ -1,4 +1,5 @@
 import type { MapParcel } from "@/components/maps/types";
+import { normalizeParcelId } from "@/lib/maps/parcelIdentity";
 
 const STREET_SUFFIX_CANONICAL: Array<[RegExp, string]> = [
   [/\bct\b/g, "court"],
@@ -27,10 +28,12 @@ const ANALYSIS_TERM_PATTERN =
  */
 export interface ParcelSearchSuggestion {
   id: string;
+  parcelId?: string | null;
   address: string;
   lat: number | null;
   lng: number | null;
   propertyDbId: string | null;
+  hasGeometry?: boolean;
   owner?: string | null;
 }
 
@@ -97,6 +100,7 @@ export function parcelMatchesSearch(parcel: MapParcel, query: string): boolean {
     parcel.owner,
     parcel.currentZoning,
     parcel.floodZone,
+    parcel.parcelId,
     parcel.propertyDbId,
   ].some((value) => {
     if (!value) return false;
@@ -108,8 +112,8 @@ export function parcelMatchesSearch(parcel: MapParcel, query: string): boolean {
  * Returns the strongest parcel lookup key for a selected suggestion.
  */
 export function buildSuggestionLookupText(suggestion: ParcelSearchSuggestion): string {
-  const propertyDbId = suggestion.propertyDbId?.trim();
-  if (propertyDbId) return propertyDbId;
+  const parcelId = normalizeParcelId(suggestion.parcelId ?? suggestion.propertyDbId);
+  if (parcelId) return parcelId;
   return suggestion.address.trim();
 }
 
@@ -120,17 +124,19 @@ export function resolveSuggestionParcel(
   suggestion: ParcelSearchSuggestion,
   parcels: readonly MapParcel[],
 ): MapParcel | null {
-  const propertyDbId = suggestion.propertyDbId?.trim() ?? "";
-  if (propertyDbId) {
-    const propertyDbMatch = parcels.find(
-      (parcel) => parcel.propertyDbId?.trim() === propertyDbId,
+  const parcelId = normalizeParcelId(suggestion.parcelId ?? suggestion.propertyDbId);
+  if (parcelId) {
+    const parcelIdMatch = parcels.find(
+      (parcel) => normalizeParcelId(parcel.parcelId ?? parcel.propertyDbId ?? parcel.id) === parcelId,
     );
-    if (propertyDbMatch) return propertyDbMatch;
+    if (parcelIdMatch) return parcelIdMatch;
   }
 
-  const suggestionId = suggestion.id.trim();
+  const suggestionId = normalizeParcelId(suggestion.id);
   if (suggestionId) {
-    const idMatch = parcels.find((parcel) => parcel.id === suggestionId);
+    const idMatch = parcels.find(
+      (parcel) => normalizeParcelId(parcel.id) === suggestionId,
+    );
     if (idMatch) return idMatch;
   }
 

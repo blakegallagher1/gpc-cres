@@ -3,6 +3,7 @@
  */
 export interface MapParcel {
   id: string;
+  parcelId: string;
   address: string;
   lat: number;
   lng: number;
@@ -13,6 +14,7 @@ export interface MapParcel {
   currentZoning?: string | null;
   propertyDbId?: string | null;
   geometryLookupKey?: string | null;
+  hasGeometry?: boolean;
   acreage?: number | null;
   owner?: string | null;
 }

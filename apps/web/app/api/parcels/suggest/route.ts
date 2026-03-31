@@ -9,6 +9,13 @@ import {
   getCloudflareAccessHeadersFromEnv,
   getPropertyDbConfigOrNull,
 } from "@/lib/server/propertyDbEnv";
+import { logger } from "@/lib/logger";
+import {
+  isBatonRougeScopedText,
+  isEastBatonRougeCoordinate,
+  isExplicitOutOfRegionQuery,
+  normalizeParcelId,
+} from "@/lib/maps/parcelIdentity";
 
 const DEFAULT_LIMIT = 8;
 const MAX_LIMIT = 20;
@@ -102,10 +109,12 @@ type GatewayRow = Record<string, unknown>;
 
 type SuggestionRow = {
   id: string;
+  parcelId: string | null;
   address: string;
   lat: number | null;
   lng: number | null;
   propertyDbId: string | null;
+  hasGeometry: boolean;
   owner?: string | null;
   source?: "org" | "property_db";
 };
@@ -116,19 +125,22 @@ function mapGatewayRowToSuggestion(row: GatewayRow): SuggestionRow | null {
   ).trim();
   if (!address) return null;
 
-  const propertyDbId = String(
+  const rawParcelId = String(
     row.parcel_uid ?? row.parcel_id ?? row.apn ?? row.id ?? "",
   ).trim();
+  const parcelId = normalizeParcelId(rawParcelId);
 
   const lat = toNumberOrNull(row.lat ?? row.latitude);
   const lng = toNumberOrNull(row.lng ?? row.longitude);
 
   return {
-    id: propertyDbId ? `pdb-${propertyDbId}` : `pdb-${address}`,
+    id: parcelId ?? `pdb-${address}`,
+    parcelId,
     address,
     lat,
     lng,
-    propertyDbId: propertyDbId || null,
+    propertyDbId: parcelId,
+    hasGeometry: isEastBatonRougeCoordinate(lat, lng),
     owner:
       row.owner != null
         ? String(row.owner)
@@ -219,6 +231,7 @@ export async function GET(request: NextRequest) {
 
   const query = request.nextUrl.searchParams.get("q")?.trim() ?? "";
   const limit = parseLimit(request.nextUrl.searchParams.get("limit"));
+  const startedAt = Date.now();
   if (limit == null) {
     return withRequestId(NextResponse.json({ error: "Invalid limit" }, { status: 400 }));
   }
@@ -228,6 +241,7 @@ export async function GET(request: NextRequest) {
   }
 
   const normalizedQuery = canonicalizeAddressLikeText(query);
+  const allowOutOfRegion = isExplicitOutOfRegionQuery(query);
   const queryVariants = Array.from(
     new Set([query, normalizedQuery].map((value) => value.trim()).filter(Boolean)),
   );
@@ -279,14 +293,21 @@ export async function GET(request: NextRequest) {
     new Map([...prefixRows, ...containsRows].map((row) => [row.id, row])).values(),
   )
     .filter((row) => typeof row.address === "string" && row.address.trim().length > 0)
-    .map((row) => ({
-      id: row.id,
-      address: row.address,
-      lat: toNumberOrNull(row.lat),
-      lng: toNumberOrNull(row.lng),
-      propertyDbId: row.propertyDbId,
-      source: "org" as const,
-    }));
+    .map((row) => {
+      const parcelId = normalizeParcelId(row.propertyDbId ?? row.id);
+      const lat = toNumberOrNull(row.lat);
+      const lng = toNumberOrNull(row.lng);
+      return {
+        id: parcelId ?? row.id,
+        parcelId,
+        address: row.address,
+        lat,
+        lng,
+        propertyDbId: parcelId,
+        hasGeometry: isEastBatonRougeCoordinate(lat, lng),
+        source: "org" as const,
+      };
+    });
 
   // Gateway fallback: when org-local results are empty, search the property DB
   let gatewayRows: SuggestionRow[] = [];
@@ -295,8 +316,22 @@ export async function GET(request: NextRequest) {
   }
 
   const allRows = [...orgRows, ...gatewayRows];
+  const filteredRows = allRows.filter((row) => {
+    if (!row.parcelId || !row.hasGeometry) {
+      return false;
+    }
+    if (allowOutOfRegion) {
+      return true;
+    }
+    if (isEastBatonRougeCoordinate(row.lat, row.lng)) {
+      return true;
+    }
+    return isBatonRougeScopedText(row.address) || isBatonRougeScopedText(row.owner);
+  });
 
-  const suggestions = allRows
+  const suppressedCount = allRows.length - filteredRows.length;
+
+  const suggestions = filteredRows
     .map((row) => ({
       ...row,
       score: scoreSuggestion(row.address, query),
@@ -304,6 +339,16 @@ export async function GET(request: NextRequest) {
     .sort((a, b) => a.score - b.score || a.address.localeCompare(b.address))
     .slice(0, limit)
     .map(({ score: _score, ...rest }) => rest);
+
+  logger.info("map.parcels.suggest.completed", {
+    requestId: context.requestId,
+    query,
+    limit,
+    allowOutOfRegion,
+    acceptedCount: suggestions.length,
+    suppressedCount,
+    latencyMs: Math.max(1, Date.now() - startedAt),
+  });
 
   const response = NextResponse.json({ suggestions });
   response.headers.set("Cache-Control", "private, max-age=15, stale-while-revalidate=60");

@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import type { ParcelItem } from "@/components/deals/ParcelTable";
+import { normalizeParcelId } from "@/lib/maps/parcelIdentity";
 import type { MapParcel } from "./types";
 
 const ParcelMap = dynamic(() => import("./ParcelMap").then((m) => m.ParcelMap), {
@@ -22,19 +23,28 @@ interface DealParcelMapProps {
 export function DealParcelMap({ parcels, dealName, dealStatus }: DealParcelMapProps) {
   const mappable: MapParcel[] = parcels
     .filter((p) => p.lat != null && p.lng != null)
-    .map((p) => ({
-      id: p.id,
-      address: p.address,
-      lat: Number(p.lat),
-      lng: Number(p.lng),
-      dealName,
-      dealStatus,
-      floodZone: p.floodZone ?? null,
-      currentZoning: p.currentZoning ?? null,
-      propertyDbId: p.propertyDbId ?? null,
-      geometryLookupKey: p.propertyDbId ?? p.address ?? null,
-      acreage: p.acreage != null ? Number(p.acreage) : null,
-    }));
+    .flatMap((p) => {
+      const parcelId = normalizeParcelId(p.propertyDbId ?? p.id);
+      if (!parcelId) {
+        return [];
+      }
+
+      return [{
+        id: parcelId,
+        parcelId,
+        address: p.address,
+        lat: Number(p.lat),
+        lng: Number(p.lng),
+        dealName,
+        dealStatus,
+        floodZone: p.floodZone ?? null,
+        currentZoning: p.currentZoning ?? null,
+        propertyDbId: parcelId,
+        geometryLookupKey: parcelId,
+        hasGeometry: true,
+        acreage: p.acreage != null ? Number(p.acreage) : null,
+      }];
+    });
 
   if (mappable.length === 0) {
     return (

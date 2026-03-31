@@ -134,6 +134,8 @@ describe("GET /api/parcels", () => {
     expect(body.source).toBe("org");
     expect(res.headers.get("x-request-id")).toBeTruthy();
     expect(body.parcels).toHaveLength(1);
+    expect(body.parcels[0].id).toBe("UID1");
+    expect(body.parcels[0].parcelId).toBe("UID1");
     expect(body.parcels[0].owner).toBe("Owner LLC");
     expect(findManyMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).not.toHaveBeenCalled();
@@ -195,7 +197,8 @@ describe("GET /api/parcels", () => {
     expect(res.status).toBe(200);
     expect(body.source).toBe("property-db");
     expect(body.parcels.length).toBeGreaterThan(0);
-    expect(body.parcels[0].propertyDbId).toBe("external-1");
+    expect(body.parcels[0].propertyDbId).toBe("PARCELUID1");
+    expect(body.parcels[0].parcelId).toBe("PARCELUID1");
     expect(body.parcels[0].owner).toBe("River Holdings");
   });
 
@@ -268,7 +271,8 @@ describe("GET /api/parcels", () => {
 
     expect(res.status).toBe(200);
     expect(body.source).toBe("property-db");
-    expect(body.parcels[0].propertyDbId).toBe("external-json-1");
+    expect(body.parcels[0].propertyDbId).toBe("JSONUID1");
+    expect(body.parcels[0].parcelId).toBe("JSONUID1");
   });
 
   it("returns degraded org fallback when gateway config is unavailable for gateway-backed parcel queries", async () => {
@@ -450,6 +454,39 @@ describe("GET /api/parcels", () => {
     expect(body.degraded).toBe(true);
     expect(Array.isArray(body.parcels)).toBe(true);
     expect(body.parcels.length).toBeGreaterThan(0);
+    expect(body.parcels[0].parcelId).toBe("ORGFALLBACKUID1");
+  });
+
+  it("suppresses out-of-region gateway parcels from Baton Rouge map searches", async () => {
+    ({ GET } = await import("./route"));
+    resolveAuthMock.mockResolvedValue({
+      userId: "99999999-9999-4999-8999-999999999999",
+      orgId: "11111111-1111-4111-8111-111111111111",
+    });
+    findManyMock.mockResolvedValue([]);
+    const mockClient = {
+      searchParcels: vi.fn().mockResolvedValue({
+        data: [
+          {
+            id: "park-county-1",
+            site_address: "123 Elk Run Rd, Park County, Colorado",
+            latitude: 39.12,
+            longitude: -105.58,
+            parcel_uid: "pc-1",
+          },
+        ],
+        source: "gateway",
+        staleness_seconds: null,
+      }),
+    };
+    getGatewayClientMock.mockReturnValue(mockClient);
+
+    const req = new NextRequest("http://localhost/api/parcels?search=elk");
+    const res = await GET(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.parcels).toEqual([]);
   });
 
   it("caps gateway fallback fanout for search requests", async () => {

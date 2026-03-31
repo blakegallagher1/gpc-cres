@@ -63,6 +63,7 @@ const legacyTelemetryKindSchema = z.enum([
   "browser_error",
   "unhandled_rejection",
   "fetch_failure",
+  "map_metric",
 ]);
 
 const legacyTelemetryEventSchema = z.object({

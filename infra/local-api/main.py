@@ -1789,13 +1789,48 @@ async def get_stats(
     """Get database statistics (parcel counts, geometry coverage, etc.)."""
     row = await conn.fetchrow(
         """
+        WITH parcel_stats AS (
+            SELECT
+                COUNT(*) AS total_parcels,
+                COUNT(*) FILTER (WHERE geom IS NOT NULL) AS parcels_with_geom,
+                ROUND(
+                    100.0 * COUNT(*) FILTER (WHERE geom IS NOT NULL) / NULLIF(COUNT(*), 0),
+                    2
+                ) AS geom_coverage_pct,
+                COUNT(*) FILTER (WHERE geom IS NOT NULL AND NOT ST_IsValid(geom)) AS invalid_geom_count,
+                COUNT(*) FILTER (WHERE geom IS NOT NULL AND ST_SRID(geom) <> 4326) AS invalid_srid_count,
+                COUNT(*) FILTER (
+                    WHERE geom IS NOT NULL
+                      AND (
+                        ST_Y(ST_Centroid(geom)) NOT BETWEEN 30.20 AND 30.75
+                        OR ST_X(ST_Centroid(geom)) NOT BETWEEN -91.45 AND -90.90
+                      )
+                ) AS centroid_out_of_bounds_count,
+                COUNT(*) FILTER (WHERE centroid IS NULL) AS missing_centroid_count,
+                COUNT(DISTINCT COALESCE(owner, 'Unknown')) AS unique_owners,
+                SUM(area_sqft) / 43560.0 AS total_acres
+            FROM ebr_parcels
+        ),
+        normalized_ids AS (
+            SELECT
+                REGEXP_REPLACE(UPPER(COALESCE(parcel_id, '')), '[^A-Z0-9]+', '', 'g') AS normalized_parcel_id
+            FROM ebr_parcels
+        ),
+        duplicate_ids AS (
+            SELECT COUNT(*) AS duplicate_normalized_parcel_id_count
+            FROM (
+                SELECT normalized_parcel_id
+                FROM normalized_ids
+                WHERE normalized_parcel_id <> ''
+                GROUP BY normalized_parcel_id
+                HAVING COUNT(*) > 1
+            ) duplicates
+        )
         SELECT
-            COUNT(*) AS total_parcels,
-            COUNT(geom) AS parcels_with_geom,
-            ROUND(100.0 * COUNT(geom) / COUNT(*), 2) AS geom_coverage_pct,
-            COUNT(DISTINCT COALESCE(owner, 'Unknown')) AS unique_owners,
-            SUM(area_sqft) / 43560.0 AS total_acres
-        FROM ebr_parcels
+            parcel_stats.*,
+            duplicate_ids.duplicate_normalized_parcel_id_count
+        FROM parcel_stats
+        CROSS JOIN duplicate_ids
         """
     )
 

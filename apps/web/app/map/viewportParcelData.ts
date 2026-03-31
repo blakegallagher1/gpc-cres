@@ -1,11 +1,13 @@
 import type { MapParcel } from "@/components/maps/types";
 import type { ViewportBounds } from "@/components/maps/useParcelGeometry";
+import { normalizeParcelId } from "@/lib/maps/parcelIdentity";
 
 /**
  * Prospecting parcel row returned by `/api/map/prospect`.
  */
 export interface ProspectApiParcel {
   id: string;
+  parcelId?: string | null;
   address: string;
   lat: number;
   lng: number;
@@ -58,21 +60,22 @@ export function mapProspectParcels(data: ProspectApiResponse): MapParcel[] {
       return acc;
     }
 
-    const propertyDbId = (parcel.propertyDbId ?? "").trim() || null;
-    const id =
-      (parcel.id ?? "").trim() ||
-      propertyDbId ||
-      `${lat.toFixed(6)}:${lng.toFixed(6)}:${(parcel.address ?? "").trim() || "parcel"}`;
+    const parcelId = normalizeParcelId(parcel.parcelId ?? parcel.propertyDbId ?? parcel.id);
+    if (!parcelId) {
+      return acc;
+    }
 
     acc.push({
-      id,
+      id: parcelId,
+      parcelId,
       address: (parcel.address ?? "Unknown").trim(),
       lat,
       lng,
       floodZone: (parcel.floodZone ?? "").trim() || null,
       currentZoning: (parcel.zoning ?? "").trim() || null,
-      propertyDbId,
-      geometryLookupKey: propertyDbId ?? id,
+      propertyDbId: parcelId,
+      geometryLookupKey: parcelId,
+      hasGeometry: true,
       acreage: parcel.acreage != null ? Number(parcel.acreage) : null,
     });
 

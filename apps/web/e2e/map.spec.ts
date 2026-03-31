@@ -2,24 +2,26 @@ import { expect, test } from "@playwright/test";
 import { ensureCopilotClosed } from "./_helpers/ui";
 
 const BASE_PARCEL = {
-  id: "parcel-1",
-  address: "123 Main St",
+  id: "1612340",
+  parcelId: "1612340",
+  address: "4400 HEATH DR, Baton Rouge, LA",
   lat: 30.45,
   lng: -91.18,
   acreage: 1.5,
   floodZone: "X",
   zoning: "C2",
-  propertyDbId: "parcel-1",
+  propertyDbId: "1612340",
 };
 const SEARCH_PARCEL = {
-  id: "parcel-3154",
-  address: "3154 College Drive",
-  lat: 30.4125,
-  lng: -91.1412,
+  id: "739049",
+  parcelId: "739049",
+  address: "2774 HIGHLAND RD, Baton Rouge, LA",
+  lat: 30.4228,
+  lng: -91.179,
   acreage: 0.9,
   floodZone: "AE",
   zoning: "C1",
-  propertyDbId: "parcel-3154",
+  propertyDbId: "739049",
 };
 
 const PROSPECT_RESPONSE = {
@@ -61,6 +63,7 @@ async function mockMapData(page: import("@playwright/test").Page) {
           parcels: [
             {
               id: SEARCH_PARCEL.id,
+              parcelId: SEARCH_PARCEL.parcelId,
               address: SEARCH_PARCEL.address,
               lat: SEARCH_PARCEL.lat,
               lng: SEARCH_PARCEL.lng,
@@ -68,7 +71,8 @@ async function mockMapData(page: import("@playwright/test").Page) {
               floodZone: SEARCH_PARCEL.floodZone,
               currentZoning: SEARCH_PARCEL.zoning,
               propertyDbId: SEARCH_PARCEL.propertyDbId,
-              geometryLookupKey: SEARCH_PARCEL.propertyDbId,
+              geometryLookupKey: SEARCH_PARCEL.parcelId,
+              hasGeometry: true,
               deal: null,
             },
           ],
@@ -84,15 +88,17 @@ async function mockMapData(page: import("@playwright/test").Page) {
       body: JSON.stringify({
         parcels: [
           {
-            id: "parcel-1",
-            address: "123 Main St",
+            id: BASE_PARCEL.id,
+            parcelId: BASE_PARCEL.parcelId,
+            address: BASE_PARCEL.address,
             lat: 30.45,
             lng: -91.18,
             acreage: 1.5,
             floodZone: "X",
             currentZoning: "C2",
-            propertyDbId: "parcel-1",
-            geometryLookupKey: "parcel-1",
+            propertyDbId: BASE_PARCEL.propertyDbId,
+            geometryLookupKey: BASE_PARCEL.parcelId,
+            hasGeometry: true,
             deal: null,
           },
         ],
@@ -109,10 +115,12 @@ async function mockMapData(page: import("@playwright/test").Page) {
         suggestions: [
           {
             id: SEARCH_PARCEL.id,
+            parcelId: SEARCH_PARCEL.parcelId,
             address: SEARCH_PARCEL.address,
             lat: SEARCH_PARCEL.lat,
             lng: SEARCH_PARCEL.lng,
             propertyDbId: SEARCH_PARCEL.propertyDbId,
+            hasGeometry: true,
           },
         ],
       }),
@@ -127,7 +135,7 @@ async function mockMapData(page: import("@playwright/test").Page) {
     });
   });
 
-  await page.route("**/api/parcels/parcel-1/geometry?detail_level=low", async (route) => {
+  await page.route(`**/api/parcels/${BASE_PARCEL.id}/geometry?detail_level=low`, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -135,7 +143,7 @@ async function mockMapData(page: import("@playwright/test").Page) {
     });
   });
 
-  await page.route("**/api/parcels/parcel-3154/geometry?detail_level=low", async (route) => {
+  await page.route(`**/api/parcels/${SEARCH_PARCEL.id}/geometry?detail_level=low`, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -180,13 +188,13 @@ test.describe("Map route", () => {
       (box?.x ?? 0) + (box?.width ?? 0) / 2,
       (box?.y ?? 0) + (box?.height ?? 0) / 2,
     );
-    const parcelCard = page.getByRole("dialog", { name: /123 Main St details/i });
+    const parcelCard = page.getByRole("dialog", { name: /4400 HEATH DR, Baton Rouge, LA details/i });
     await expect(parcelCard).toBeVisible();
     await parcelCard.getByRole("tab", { name: "Deals" }).click();
     await expect(parcelCard.getByRole("button", { name: "Create Deal" })).toBeVisible();
 
     await Promise.all([
-      page.waitForURL(/\/deals\/new\?parcelId=parcel-1/),
+      page.waitForURL(new RegExp(`/deals/new\\?parcelId=${BASE_PARCEL.id}`)),
       parcelCard.getByRole("button", { name: "Create Deal" }).click(),
     ]);
   });
@@ -248,8 +256,8 @@ test.describe("Map route", () => {
     await expect(mapCopilotButton).toBeVisible({ timeout: MAP_READY_TIMEOUT_MS });
     await expect(page.getByRole("button", { name: "Prospecting scan" })).toBeVisible();
 
-    await geocoderInput.fill("3154 College Drive");
-    await expect(geocoderInput).toHaveValue("3154 College Drive");
+    await geocoderInput.fill("2774 Highland Rd");
+    await expect(geocoderInput).toHaveValue("2774 Highland Rd");
 
     await mapCopilotButton.click();
     const analysisInput = page.getByPlaceholder(
@@ -260,6 +268,37 @@ test.describe("Map route", () => {
     await expect(analysisInput).toHaveValue(
       "Summarize flood exposure around the selected parcel",
     );
-    await expect(geocoderInput).toHaveValue("3154 College Drive");
+    await expect(geocoderInput).toHaveValue("2774 Highland Rd");
+  });
+
+  test("promotes a Baton Rouge parcel lookup into the working set and allows clearing it", async ({ page }) => {
+    await mockMapData(page);
+
+    await page.goto("/map?lat=30.45&lng=-91.18&z=17", { waitUntil: "domcontentloaded" });
+    await ensureCopilotClosed(page);
+
+    const openWorkbench = page.getByRole("button", { name: "Open map workbench" });
+    await expect(openWorkbench).toBeVisible({ timeout: MAP_READY_TIMEOUT_MS });
+    await openWorkbench.click();
+
+    const parcelLookup = page.getByLabel("Parcel or address search");
+    await expect(parcelLookup).toBeVisible({ timeout: MAP_READY_TIMEOUT_MS });
+    await parcelLookup.fill("2774 Highland Rd");
+
+    await page.getByRole("option", { name: /2774 HIGHLAND RD, Baton Rouge, LA/i }).click();
+
+    await expect(page).toHaveURL(new RegExp(`parcel=${SEARCH_PARCEL.id}`));
+    await expect(page.getByText("1 selected for follow-up")).toBeVisible();
+
+    const openConsoleButton = page.getByRole("button", { name: "Open console" });
+    if (await openConsoleButton.isVisible().catch(() => false)) {
+      await openConsoleButton.click();
+    }
+
+    const clearSelection = page.getByRole("button", { name: "Clear selection" });
+    await expect(clearSelection).toBeVisible({ timeout: MAP_READY_TIMEOUT_MS });
+    await clearSelection.click();
+
+    await expect(page.getByText("1 selected for follow-up")).toHaveCount(0);
   });
 });

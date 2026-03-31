@@ -7,7 +7,8 @@ export type ClientTelemetryKind =
   | "page_error"
   | "browser_error"
   | "unhandled_rejection"
-  | "fetch_failure";
+  | "fetch_failure"
+  | "map_metric";
 
 export type ClientTelemetryContext = {
   route: string;
@@ -247,6 +248,32 @@ export function capturePageError(error: Error, componentStack?: string | null): 
     componentStack: componentStack ?? null,
     metadata: {
       stack: serialized.stack ?? null,
+      userId: context.userId ?? null,
+      userEmail: context.userEmail ?? null,
+    },
+  });
+}
+
+export function recordClientMetricEvent(input: {
+  message: string;
+  durationMs?: number | null;
+  metadata?: Record<string, unknown>;
+  level?: "info" | "warning" | "error";
+}): void {
+  const context = getCurrentContext();
+
+  void emitTelemetryEvent({
+    kind: "map_metric",
+    occurredAt: safeNowIso(),
+    route: context.route,
+    viewId: context.viewId,
+    sessionId: getClientSessionId(),
+    level: input.level ?? "info",
+    pageTitle: typeof document !== "undefined" ? document.title : null,
+    message: input.message,
+    durationMs: input.durationMs ?? null,
+    metadata: {
+      ...(input.metadata ?? {}),
       userId: context.userId ?? null,
       userEmail: context.userEmail ?? null,
     },

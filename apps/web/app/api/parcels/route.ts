@@ -15,21 +15,12 @@ import { isPrismaConnectivityError } from "@/lib/server/devParcelFallback";
 import { requestPropertyDbGateway } from "@/lib/server/propertyDbRpc";
 import { getGatewayClient } from "@/lib/server/gatewayClient";
 import * as Sentry from "@sentry/nextjs";
+import {
+  isBatonRougeScopedText,
+  isEastBatonRougeCoordinate,
+  normalizeParcelId,
+} from "@/lib/maps/parcelIdentity";
 
-const PROPERTY_DB_PARISHES = [
-  "East Baton Rouge",
-  "Ascension",
-  "Livingston",
-  "West Baton Rouge",
-  "Iberville",
-] as const;
-const PROPERTY_DB_SEARCH_TERMS = [
-  "Baton Rouge",
-  "Ascension",
-  "Livingston",
-  "West Baton Rouge",
-  "Iberville",
-] as const;
 const MAX_SEARCH_FALLBACK_QUERIES = 8;
 const MAX_BASELINE_FALLBACK_QUERIES = 1;
 const MAX_SEARCH_VARIANT_QUERIES = 2;
@@ -500,26 +491,36 @@ function mapExternalParcelToApiShape(
     toFiniteNumberOrNull(row.centroid_lat) ??
     toFiniteNumberOrNull(row.lat_centroid) ??
     toFiniteNumberOrNull(row.lat0) ??
-    fallbackCoords?.[0];
+    fallbackCoords?.[0] ??
+    null;
   const lng = toFiniteNumberOrNull(row.longitude ?? row.lng) ??
     toFiniteNumberOrNull(row.geom_x) ??
     toFiniteNumberOrNull(row.x) ??
     toFiniteNumberOrNull(row.centroid_lng) ??
     toFiniteNumberOrNull(row.lng_centroid) ??
     toFiniteNumberOrNull(row.lng0) ??
-    fallbackCoords?.[1];
+    fallbackCoords?.[1] ??
+    null;
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
     return null;
   }
+  if (!isEastBatonRougeCoordinate(lat, lng)) {
+    return null;
+  }
 
-  const propertyDbId = String(
-    row.id ?? row.parcel_uid ?? row.parcel_id ?? row.apn ?? "",
+  const rawParcelId = String(
+    row.parcel_uid ?? row.parcel_id ?? row.apn ?? row.id ?? "",
   );
+  const parcelId = normalizeParcelId(rawParcelId);
+  if (!parcelId) {
+    return null;
+  }
   const address = String(row.site_address ?? row.situs_address ?? row.address ?? "Unknown");
   const normalizedAddress = canonicalizeAddressLikeText(address);
 
   return {
-    id: `ext-${propertyDbId || `${lat}-${lng}`}`,
+    id: parcelId,
+    parcelId,
     address,
     lat,
     lng,
@@ -537,8 +538,9 @@ function mapExternalParcelToApiShape(
         : null,
     floodZone: row.flood_zone ? String(row.flood_zone) : null,
     currentZoning: row.zoning ? String(row.zoning) : row.zoning_type ? String(row.zoning_type) : row.zone_code ? String(row.zone_code) : null,
-    propertyDbId,
-    geometryLookupKey: propertyDbId || address,
+    propertyDbId: parcelId,
+    geometryLookupKey: parcelId,
+    hasGeometry: true,
     searchText: normalizedAddress,
     deal: null,
   };
@@ -555,6 +557,7 @@ function matchesSearchQuery(
     parcel.searchText,
     parcel.currentZoning,
     parcel.floodZone,
+    parcel.parcelId,
     parcel.propertyDbId,
   ]
     .filter((value): value is string => typeof value === "string")
@@ -578,8 +581,13 @@ function matchesSearchQuery(
 }
 
 function parcelDedupKey(parcel: Record<string, unknown>): string {
+  const parcelId = typeof parcel.parcelId === "string"
+    ? normalizeParcelId(parcel.parcelId)
+    : null;
+  if (parcelId) return `parcelId:${parcelId}`;
+
   const propertyDbId = typeof parcel.propertyDbId === "string"
-    ? parcel.propertyDbId.trim()
+    ? normalizeParcelId(parcel.propertyDbId)
     : "";
   if (propertyDbId) return `propertyDbId:${propertyDbId}`;
 
@@ -628,12 +636,41 @@ async function searchPropertyDbParcels(
 }
 
 function hasLatLng(parcel: Record<string, unknown>): boolean {
-  return (
-    typeof parcel.lat === "number" &&
-    Number.isFinite(parcel.lat) &&
-    typeof parcel.lng === "number" &&
-    Number.isFinite(parcel.lng)
+  const lat = typeof parcel.lat === "number" && Number.isFinite(parcel.lat)
+    ? parcel.lat
+    : null;
+  const lng = typeof parcel.lng === "number" && Number.isFinite(parcel.lng)
+    ? parcel.lng
+    : null;
+  return isEastBatonRougeCoordinate(lat, lng);
+}
+
+function normalizeOrgParcel(parcel: Record<string, unknown>): Record<string, unknown> | null {
+  const lat = typeof parcel.lat === "number" && Number.isFinite(parcel.lat) ? parcel.lat : null;
+  const lng = typeof parcel.lng === "number" && Number.isFinite(parcel.lng) ? parcel.lng : null;
+  if (!isEastBatonRougeCoordinate(lat, lng)) {
+    return null;
+  }
+
+  const parcelId = normalizeParcelId(
+    typeof parcel.propertyDbId === "string" && parcel.propertyDbId.trim().length > 0
+      ? parcel.propertyDbId
+      : typeof parcel.id === "string"
+        ? parcel.id
+        : null,
   );
+  if (!parcelId) {
+    return null;
+  }
+
+  return {
+    ...parcel,
+    id: parcelId,
+    parcelId,
+    propertyDbId: parcelId,
+    geometryLookupKey: parcelId,
+    hasGeometry: true,
+  };
 }
 
 async function fetchOrgFallbackParcels(
@@ -652,7 +689,9 @@ async function fetchOrgFallbackParcels(
   });
 
   const asRecords = parcels as Record<string, unknown>[];
-  const withCoords = asRecords.filter(hasLatLng);
+  const withCoords = asRecords
+    .map(normalizeOrgParcel)
+    .filter((parcel): parcel is Record<string, unknown> => parcel !== null);
   if (!searchText) {
     return withCoords.slice(0, 500);
   }
@@ -703,23 +742,26 @@ export async function GET(request: NextRequest) {
           orderBy: { createdAt: "desc" },
           take: 500,
         });
+        const normalizedParcels = (parcels as Record<string, unknown>[])
+          .map(normalizeOrgParcel)
+          .filter((parcel): parcel is Record<string, unknown> => parcel !== null);
         logParcelsDevPayload("org", {
           hasCoords,
           searchText,
-          parcelCount: parcels.length,
+          parcelCount: normalizedParcels.length,
         });
         await logRequestOutcome(context, {
           status: 200,
           orgId: auth.orgId,
           userId: auth.userId,
           upstream: "org",
-          resultCount: parcels.length,
+          resultCount: normalizedParcels.length,
           details: {
             ...baseDetails,
             source: "org",
           },
         });
-        return withRequestId(NextResponse.json({ parcels, source: "org" }));
+        return withRequestId(NextResponse.json({ parcels: normalizedParcels, source: "org" }));
       } catch (error) {
         Sentry.captureException(error, {
           tags: { route: "api.parcels", method: "GET" },
@@ -875,6 +917,14 @@ export async function GET(request: NextRequest) {
       : mappedExternal;
 
     const deduped = mergeParcelResults(filteredExternal, orgSearchMatches).slice(0, 500);
+    const batonRougeDeduped = deduped.filter((parcel) => {
+      const lat = typeof parcel.lat === "number" ? parcel.lat : null;
+      const lng = typeof parcel.lng === "number" ? parcel.lng : null;
+      if (isEastBatonRougeCoordinate(lat, lng)) {
+        return true;
+      }
+      return isBatonRougeScopedText(typeof parcel.address === "string" ? parcel.address : null);
+    });
 
     logParcelsDevPayload("property-db", {
       hasCoords,
@@ -882,8 +932,8 @@ export async function GET(request: NextRequest) {
       externalRowCount: externalRows.length,
       mappedCount: mappedExternal.length,
       filteredCount: filteredExternal.length,
-      dedupedCount: deduped.length,
-      withPropertyDbIdCount: deduped.filter((parcel) =>
+      dedupedCount: batonRougeDeduped.length,
+      withPropertyDbIdCount: batonRougeDeduped.filter((parcel) =>
         typeof parcel === "object" &&
         parcel !== null &&
         "propertyDbId" in parcel &&
@@ -897,7 +947,7 @@ export async function GET(request: NextRequest) {
       orgId: auth.orgId,
       userId: auth.userId,
       upstream: "property-db",
-      resultCount: deduped.length,
+      resultCount: batonRougeDeduped.length,
       details: {
         ...baseDetails,
         source: "property-db",
@@ -906,10 +956,19 @@ export async function GET(request: NextRequest) {
         mappedCount: mappedExternal.length,
         filteredCount: filteredExternal.length,
         orgSearchMatchCount: orgSearchMatches.length,
-        dedupedCount: deduped.length,
+        dedupedCount: batonRougeDeduped.length,
       },
     });
-    const response = NextResponse.json({ parcels: deduped, source: "property-db" });
+    logger.info("map.parcels.search.completed", {
+      requestId: context.requestId,
+      searchText,
+      hasCoords,
+      resultCount: batonRougeDeduped.length,
+      externalRowCount: externalRows.length,
+      filteredCount: filteredExternal.length,
+      suppressedCount: deduped.length - batonRougeDeduped.length,
+    });
+    const response = NextResponse.json({ parcels: batonRougeDeduped, source: "property-db" });
     // Short-lived cache: 30s fresh, serve stale up to 2min while revalidating
     response.headers.set("Cache-Control", "private, max-age=30, stale-while-revalidate=120");
     return withRequestId(response);

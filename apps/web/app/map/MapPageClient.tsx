@@ -43,6 +43,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { recordClientMetricEvent } from "@/components/observability/client-telemetry";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import {
   buildMapContextInput,
@@ -51,6 +52,7 @@ import {
 } from "@/lib/chat/MapChatContext";
 import type { MapFeature } from "@/lib/chat/mapActionTypes";
 import { mapFeaturesFromGeoJson } from "@/lib/chat/mapFeatureUtils";
+import { normalizeParcelId } from "@/lib/maps/parcelIdentity";
 import { useUIStore } from "@/stores/uiStore";
 import {
   buildSuggestionLookupText,
@@ -99,6 +101,7 @@ const ParcelMap = dynamic(
 
 interface ApiParcel {
   id: string;
+  parcelId?: string | null;
   address: string;
   lat: string | number | null;
   lng: string | number | null;
@@ -113,9 +116,17 @@ interface ApiParcel {
   currentZoning?: string | null;
   propertyDbId?: string | null;
   geometryLookupKey?: string | null;
+  hasGeometry?: boolean;
   owner?: string | null;
   deal?: { id: string; name: string; sku: string; status: string } | null;
 }
+
+type PendingSelectionMetric = {
+  parcelId: string;
+  source: "search" | "map";
+  startedAt: number;
+  initialSelectedCount: number;
+};
 
 interface ParcelsApiResponse {
   parcels: ApiParcel[];
@@ -237,6 +248,7 @@ function toFiniteNumber(...values: Array<unknown>): number | null {
 function trackedParcelToMapParcel(entry: MapTrackedParcel): MapParcel {
   return {
     id: entry.parcelId,
+    parcelId: entry.parcelId,
     address: entry.address,
     lat: entry.lat,
     lng: entry.lng,
@@ -245,6 +257,7 @@ function trackedParcelToMapParcel(entry: MapTrackedParcel): MapParcel {
     floodZone: entry.floodZone ?? null,
     propertyDbId: null,
     geometryLookupKey: entry.parcelId,
+    hasGeometry: true,
   };
 }
 
@@ -413,6 +426,8 @@ export function MapPageClient() {
     () => new Set(mapState.selectedParcelIds),
     [mapState.selectedParcelIds],
   );
+  const pendingSelectionMetricRef = useRef<PendingSelectionMetric | null>(null);
+  const previousSelectedParcelIdsRef = useRef<string[]>(mapState.selectedParcelIds);
 
   useEffect(() => {
     if (selectedParcelIds.size > 0 && !sidebarOpen) {
@@ -736,6 +751,9 @@ export function MapPageClient() {
     const nextSearch = suggestion.address.trim();
     if (!nextSearch) return;
     const nextLookupText = buildSuggestionLookupText(suggestion);
+    const canonicalSuggestionParcelId =
+      normalizeParcelId(suggestion.parcelId ?? suggestion.propertyDbId ?? suggestion.id ?? nextLookupText) ??
+      nextLookupText;
     const resolvedParcel =
       resolveSuggestionParcel(suggestion, searchParcels ?? []) ??
       resolveSuggestionParcel(suggestion, parcels);
@@ -747,6 +765,12 @@ export function MapPageClient() {
     setSuggestions([]);
     setActiveSuggestionIndex(-1);
     setSelectedSuggestion(resolvedParcel ? null : suggestion);
+    pendingSelectionMetricRef.current = {
+      parcelId: canonicalSuggestionParcelId,
+      source: "search",
+      startedAt: typeof performance !== "undefined" ? performance.now() : Date.now(),
+      initialSelectedCount: selectedParcelIds.size,
+    };
     if (resolvedParcel) {
       focusParcel(resolvedParcel);
       return;
@@ -764,6 +788,7 @@ export function MapPageClient() {
     focusParcel,
     parcels,
     searchParcels,
+    selectedParcelIds.size,
   ]);
 
   const handleSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -845,10 +870,12 @@ export function MapPageClient() {
               .slice(0, 8)
               .map((parcel) => ({
                 id: parcel.id,
+                parcelId: parcel.parcelId,
                 address: parcel.address,
                 lat: parcel.lat,
                 lng: parcel.lng,
                 propertyDbId: parcel.propertyDbId ?? null,
+                hasGeometry: parcel.hasGeometry ?? true,
                 owner: parcel.owner ?? null,
               }))
           : [];
@@ -878,9 +905,12 @@ export function MapPageClient() {
       const lat = toFiniteNumber(p.lat, p.latitude, p.geom_y, p.y);
       const lng = toFiniteNumber(p.lng, p.longitude, p.geom_x, p.x);
       if (lat == null || lng == null) return acc;
+      const parcelId = normalizeParcelId(p.parcelId ?? p.propertyDbId ?? p.id);
+      if (!parcelId || p.hasGeometry === false) return acc;
 
       acc.push({
-        id: p.id,
+        id: parcelId,
+        parcelId,
         address: p.address,
         lat,
         lng,
@@ -889,12 +919,9 @@ export function MapPageClient() {
         dealStatus: p.deal?.status,
         floodZone: p.floodZone ?? null,
         currentZoning: p.currentZoning ?? null,
-        propertyDbId: p.propertyDbId ?? null,
-        geometryLookupKey:
-          p.geometryLookupKey ??
-          p.propertyDbId ??
-          p.address ??
-          null,
+        propertyDbId: parcelId,
+        geometryLookupKey: parcelId,
+        hasGeometry: true,
         acreage: p.acreage != null ? Number(p.acreage) : null,
         owner: p.owner ?? null,
       });
@@ -970,6 +997,8 @@ export function MapPageClient() {
   const hasNoSearchResults =
     isSearchActive && searchParcels !== null && searchParcels.length === 0;
   const searchMatchCount = searchParcels?.length ?? 0;
+  const workingSetCount = selectedParcelIds.size;
+  const hasActionableGeography = Boolean(polygon) || workingSetCount > 0;
   const showSuggestionSurface =
     searchText.trim().length >= 2 && (isSuggestLoading || suggestions.length > 0);
 
@@ -1075,9 +1104,15 @@ export function MapPageClient() {
       resolveSuggestionParcel(selectedSuggestion, parcels);
     if (!resolvedParcel) return;
 
+    pendingSelectionMetricRef.current = {
+      parcelId: resolvedParcel.id,
+      source: "search",
+      startedAt: typeof performance !== "undefined" ? performance.now() : Date.now(),
+      initialSelectedCount: selectedParcelIds.size,
+    };
     focusParcel(resolvedParcel);
     setSelectedSuggestion(null);
-  }, [activeParcels, focusParcel, parcels, searchParcels, selectedSuggestion]);
+  }, [activeParcels, focusParcel, parcels, searchParcels, selectedParcelIds.size, selectedSuggestion]);
 
   useEffect(() => {
     if (polygon) {
@@ -1278,6 +1313,12 @@ export function MapPageClient() {
     if (!focusKey || lastAutoFocusedSearchRef.current === focusKey) return;
 
     lastAutoFocusedSearchRef.current = focusKey;
+    pendingSelectionMetricRef.current = {
+      parcelId: searchParcels[0].id,
+      source: "search",
+      startedAt: typeof performance !== "undefined" ? performance.now() : Date.now(),
+      initialSelectedCount: selectedParcelIds.size,
+    };
     focusParcel(searchParcels[0]);
   }, [
     debouncedSearch,
@@ -1285,6 +1326,7 @@ export function MapPageClient() {
     isSearchActive,
     searchParcels,
     searchSubmitId,
+    selectedParcelIds.size,
     selectedSuggestion,
   ]);
 
@@ -1297,6 +1339,43 @@ export function MapPageClient() {
     }
     void loadPolygonParcels(polygon);
   }, [polygon, debouncedSearch, searchSubmitId, loadPolygonParcels]);
+
+  useEffect(() => {
+    const previousSelected = previousSelectedParcelIdsRef.current;
+    const nextSelected = mapState.selectedParcelIds;
+    const addedParcelIds = nextSelected.filter((parcelId) => !previousSelected.includes(parcelId));
+    const pendingMetric = pendingSelectionMetricRef.current;
+
+    if (
+      pendingMetric &&
+      selectedParcelIds.has(pendingMetric.parcelId) &&
+      nextSelected.length > pendingMetric.initialSelectedCount
+    ) {
+      const completedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
+      recordClientMetricEvent({
+        message: "map.parcel.selection.succeeded",
+        durationMs: Math.max(0, Math.round(completedAt - pendingMetric.startedAt)),
+        metadata: {
+          parcelId: pendingMetric.parcelId,
+          source: pendingMetric.source,
+          workingSetCount: nextSelected.length,
+          addedParcelIds,
+        },
+      });
+      pendingSelectionMetricRef.current = null;
+    } else if (addedParcelIds.length > 0) {
+      recordClientMetricEvent({
+        message: "map.parcel.selection.changed",
+        metadata: {
+          source: "map",
+          addedParcelIds,
+          workingSetCount: nextSelected.length,
+        },
+      });
+    }
+
+    previousSelectedParcelIdsRef.current = nextSelected;
+  }, [mapState.selectedParcelIds, selectedParcelIds]);
 
   const clearPolygon = () => {
     setPolygon(null);
@@ -1317,10 +1396,10 @@ export function MapPageClient() {
 
     if (loadError) return loadError;
     if (hasNoSearchResults) {
-      return "No parcels found for that search. Try a broader address, parcel number, or owner name.";
+      return "No Baton Rouge parcels with verified geometry matched that lookup. Try a broader local address, parcel id, or owner name.";
     }
     if (parcels.length === 0) {
-      return "No parcels with coordinates are available yet. Enrich parcel coordinates to enable map search and boundaries.";
+      return "No East Baton Rouge parcel geometry is available yet. Load verified parish geometry to enable lookup, highlighting, and working sets.";
     }
     if (source === "org-fallback") {
       return `${visibleParcels.length} of ${parcels.length} parcels (property database fallback)`;
@@ -1611,9 +1690,9 @@ export function MapPageClient() {
                                           <span className="truncate text-[10px] font-medium">
                                             {suggestion.address}
                                           </span>
-                                          {suggestion.propertyDbId ? (
+                                          {suggestion.parcelId || suggestion.propertyDbId ? (
                                             <span className="text-[9px] text-map-text-muted">
-                                              Property DB match
+                                              Parcel {suggestion.parcelId ?? suggestion.propertyDbId}
                                             </span>
                                           ) : null}
                                         </div>
@@ -1683,11 +1762,15 @@ export function MapPageClient() {
                         <p className="text-[10px] text-map-text-muted">
                           Direct addresses and parcel ids will be routed through parcel search instead of AI analysis.
                         </p>
+                      ) : !hasActionableGeography ? (
+                        <p className="text-[10px] text-map-text-muted">
+                          Select a parcel or draw a boundary to activate geography analysis.
+                        </p>
                       ) : null}
                       <Button
                         type="submit"
                         size="sm"
-                        disabled={!analysisText.trim()}
+                        disabled={!analysisText.trim() || !hasActionableGeography}
                         className="map-btn h-7 text-xs"
                       >
                         {nlQueryLoading ? (
@@ -1703,8 +1786,8 @@ export function MapPageClient() {
                   </section>
                   <div className="grid grid-cols-3 gap-2 border-t border-map-border pt-3">
                     <div>
-                      <div className="map-stat-label">Visible</div>
-                      <div className="map-stat-value">{activeParcels.length}</div>
+                      <div className="map-stat-label">Working set</div>
+                      <div className="map-stat-value">{workingSetCount}</div>
                     </div>
                     <div>
                       <div className="map-stat-label">Matches</div>
@@ -1726,9 +1809,9 @@ export function MapPageClient() {
                         <Badge variant="outline" className="px-2 py-0.5 text-[9px]">
                           {sourceLabel}
                         </Badge>
-                        {selectedParcelIds.size > 0 ? (
+                        {workingSetCount > 0 ? (
                           <Badge variant="secondary" className="px-2 py-0.5 text-[9px]">
-                          {selectedParcelIds.size} selected for follow-up
+                          {workingSetCount} selected for follow-up
                           </Badge>
                         ) : null}
                         {trackedSummary.openCount > 0 ? (
@@ -1738,7 +1821,7 @@ export function MapPageClient() {
                         ) : null}
                       </div>
                     </div>
-                  {selectedParcelIds.size === 1 && (
+                  {workingSetCount === 1 && (
                     <div className="border-t border-map-border pt-3">
                       <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-map-text-muted">
                         Selection brief

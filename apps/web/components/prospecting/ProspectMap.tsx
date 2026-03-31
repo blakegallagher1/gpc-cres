@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { ParcelMap } from "@/components/maps/ParcelMap";
 import type { MapParcel } from "@/components/maps/types";
+import { normalizeParcelId } from "@/lib/maps/parcelIdentity";
 import type { ProspectParcel } from "./ProspectResults";
 
 // ---------------------------------------------------------------------------
@@ -30,17 +31,26 @@ export function ProspectMap({
 }: ProspectMapProps) {
   const mappable: MapParcel[] = useMemo(
     () =>
-      parcels.map((p) => ({
-        id: p.id,
-        address: p.address,
-        lat: p.lat,
-        lng: p.lng,
-        floodZone: p.floodZone || null,
-        currentZoning: p.zoning || null,
-        propertyDbId: p.propertyDbId ?? p.parcelUid ?? null,
-        geometryLookupKey: p.propertyDbId ?? p.parcelUid ?? p.id ?? null,
-        acreage: p.acreage,
-      })),
+      parcels.flatMap((p) => {
+        const parcelId = normalizeParcelId(p.propertyDbId ?? p.parcelUid ?? p.id);
+        if (!parcelId) {
+          return [];
+        }
+
+        return [{
+          id: parcelId,
+          parcelId,
+          address: p.address,
+          lat: p.lat,
+          lng: p.lng,
+          floodZone: p.floodZone || null,
+          currentZoning: p.zoning || null,
+          propertyDbId: parcelId,
+          geometryLookupKey: parcelId,
+          hasGeometry: true,
+          acreage: p.acreage,
+        }];
+      }),
     [parcels]
   );
 
