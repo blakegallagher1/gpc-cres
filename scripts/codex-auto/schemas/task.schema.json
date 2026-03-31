@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique task identifier (e.g., task-001, task-feature-x)"
+    },
+    "title": {
+      "type": "string",
+      "description": "Short imperative title (max 80 chars)"
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed description of work, context, and requirements"
+    },
+    "profile": {
+      "type": "string",
+      "enum": ["feature", "bugfix", "review"],
+      "default": "feature",
+      "description": "Task profile: feature (new capability), bugfix (defect fix), or review (code review)"
+    },
+    "scope": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Directories/files this task should touch (e.g., apps/web/app/api/, packages/openai/src/)"
+    },
+    "depends_on": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Task IDs that must complete first (e.g., [task-001, task-002])"
+    },
+    "acceptance_criteria": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of acceptance criteria that must be met"
+    },
+    "verification_command": {
+      "type": "string",
+      "description": "Shell command to verify task completion (exit 0 = pass, e.g., 'pnpm test')"
+    },
+    "max_minutes": {
+      "type": "integer",
+      "default": 15,
+      "minimum": 1,
+      "description": "Maximum time allowed for task execution in minutes"
+    }
+  },
+  "required": [
+    "id",
+    "title",
+    "description",
+    "acceptance_criteria"
+  ],
+  "additionalProperties": false
+}

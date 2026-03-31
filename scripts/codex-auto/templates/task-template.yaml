@@ -1,0 +1,42 @@
+# Task file for Codex dispatch
+# Claude Code fills this out, dispatch.sh executes it
+#
+# Schema validation: See scripts/codex-auto/schemas/task.schema.json
+# Usage: dispatch.sh <path-to-this-file>
+
+id: "task-001"
+title: "Short imperative description of the task"
+
+description: |
+  Detailed description of what needs to be done.
+  Include context about which files to modify and why.
+  Reference existing patterns and architectural decisions.
+  Be specific about the problem being solved.
+
+profile: "feature"
+# Options: "feature" (new capability), "bugfix" (defect fix), "review" (code review)
+
+scope:
+  - "apps/web/app/api/"
+  - "packages/openai/src/tools/"
+  # List of directories/files this task should touch
+
+depends_on: []
+# Task IDs that must complete first, e.g.:
+# depends_on:
+#   - "task-001"
+#   - "task-002"
+
+acceptance_criteria:
+  - "New endpoint returns 200 with correct schema"
+  - "Auth + orgId scoping enforced on all routes"
+  - "Tests pass: pnpm test"
+  - "Types pass: pnpm typecheck"
+  - "No lint errors: pnpm lint"
+
+verification_command: "pnpm lint && pnpm typecheck && pnpm test"
+# Shell command to verify task completion (exit 0 = pass)
+# Leave empty or omit if no verification command
+
+max_minutes: 15
+# Maximum time allowed for task execution in minutes (default: 15)
