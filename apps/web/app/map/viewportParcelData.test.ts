@@ -43,6 +43,7 @@ describe("viewportParcelData", () => {
     ).toEqual([
       {
         id: "parcel-1",
+        parcelId: "parcel-1",
         address: "123 Main St",
         lat: 30.45,
         lng: -91.18,

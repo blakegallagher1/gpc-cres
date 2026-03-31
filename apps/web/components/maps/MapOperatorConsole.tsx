@@ -25,6 +25,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { MapInvestorPanels } from "./MapInvestorPanels";
 import { MapParcelDataGrid } from "./MapParcelDataGrid";
 import { ScreeningScorecard } from "./ScreeningScorecard";
 import {
@@ -36,6 +37,13 @@ import {
   type MapTrackedParcelStatus,
 } from "./mapOperatorNotebook";
 import type { MapParcel } from "./types";
+import type {
+  MapAssemblageSnapshot,
+  MapCompsSnapshot,
+  MapMarketOverlaySnapshot,
+  MapOwnershipSnapshot,
+  MapWorkspaceSnapshot,
+} from "./useMapInvestorWorkbench";
 
 const TAB_TRANSITION = { duration: 0.22, ease: [0.22, 1, 0.36, 1] as const };
 
@@ -52,6 +60,11 @@ interface MapOperatorConsoleProps {
   sourceLabel: string;
   dataFreshnessLabel: string;
   latencyLabel: string;
+  workspace: MapWorkspaceSnapshot;
+  assemblage: MapAssemblageSnapshot;
+  ownership: MapOwnershipSnapshot;
+  comps: MapCompsSnapshot;
+  marketOverlays: MapMarketOverlaySnapshot;
   activePanel: "chat" | "prospecting" | null;
   onActivePanelChange: (panel: "chat" | "prospecting" | null) => void;
   onFocusParcel: (parcel: MapParcel) => void;
@@ -113,6 +126,11 @@ export function MapOperatorConsole({
   sourceLabel,
   dataFreshnessLabel,
   latencyLabel,
+  workspace,
+  assemblage,
+  ownership,
+  comps,
+  marketOverlays,
   activePanel,
   onActivePanelChange,
   onFocusParcel,
@@ -178,9 +196,9 @@ export function MapOperatorConsole({
   const saveLabel =
     selectedParcels.length <= 1
       ? selectedTrackedCount > 0
-        ? "Update watchlist entry"
-        : "Save to watchlist"
-      : `Save ${selectedParcels.length} parcels to watchlist`;
+        ? "Update workspace parcel"
+        : "Save to workspace"
+      : `Save ${selectedParcels.length} parcels to workspace`;
 
   return (
     <section
@@ -199,7 +217,7 @@ export function MapOperatorConsole({
               Save the geography, assign the next move, and keep the parcel brief live.
             </h3>
             <p className="text-[11px] leading-5 text-map-text-secondary">
-              Move from selection to watchlist, comparison, prospecting, or copilot without
+              Move from selection to a shared workspace, comparison, prospecting, or copilot without
               leaving the active map state.
             </p>
           </div>
@@ -213,7 +231,7 @@ export function MapOperatorConsole({
               <div className="map-stat-value">{searchMatchCount}</div>
             </div>
             <div>
-              <div className="map-stat-label">Watchlist</div>
+              <div className="map-stat-label">Workspace</div>
               <div className="map-stat-value">{trackedSummary.totalCount}</div>
             </div>
             <div>
@@ -314,7 +332,7 @@ export function MapOperatorConsole({
 
               {selectedParcels.length > 0 ? (
                 <section className="space-y-2">
-                  <SectionLabel>Watchlist draft</SectionLabel>
+                  <SectionLabel>Workspace draft</SectionLabel>
                   <div className="rounded-xl border border-map-border bg-map-surface/45 px-3 py-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="text-[11px] font-medium text-map-text-primary">
@@ -356,7 +374,7 @@ export function MapOperatorConsole({
                     </div>
                   ) : (
                     <div className="mt-3 rounded-xl border border-dashed border-map-border bg-map-surface/30 px-3 py-3 text-[11px] leading-5 text-map-text-muted">
-                      Select parcels from the map or parcel table, then attach the next step before saving them to the watchlist.
+                      Select parcels from the map or parcel table, then attach the next step before saving them to the shared workspace record.
                     </div>
                   )}
 
@@ -432,11 +450,21 @@ export function MapOperatorConsole({
 
               <Separator className="bg-map-border" />
 
+              <MapInvestorPanels
+                workspace={workspace}
+                assemblage={assemblage}
+                ownership={ownership}
+                comps={comps}
+                marketOverlays={marketOverlays}
+              />
+
+              <Separator className="bg-map-border" />
+
               <section className="space-y-2">
-                <SectionLabel>Watchlist</SectionLabel>
+                <SectionLabel>Workspace parcels</SectionLabel>
                 {trackedParcels.length === 0 ? (
                   <div className="rounded-xl border border-dashed border-map-border bg-map-surface/30 px-3 py-3 text-[11px] leading-5 text-map-text-muted">
-                    No watchlist entries yet. Save the current selection to keep the parcel highlighted and carry the next move forward.
+                    No workspace parcels yet. Save the current selection to persist the parcel brief and next move into the shared record.
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -528,7 +556,7 @@ export function MapOperatorConsole({
                               className="h-7 border-map-border bg-map-surface px-2.5 text-[10px] text-map-text-secondary hover:bg-map-surface-elevated hover:text-map-text-primary"
                             >
                               <Trash2 className="mr-1.5 h-3 w-3" />
-                              Remove from watchlist
+                              Remove from workspace
                             </Button>
                           </div>
                         </motion.article>

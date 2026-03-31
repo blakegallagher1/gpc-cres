@@ -60,22 +60,24 @@ export function mapProspectParcels(data: ProspectApiResponse): MapParcel[] {
       return acc;
     }
 
-    const parcelId = normalizeParcelId(parcel.parcelId ?? parcel.propertyDbId ?? parcel.id);
-    if (!parcelId) {
+    const mapParcelId = parcel.id?.trim();
+    const geometryLookupKey =
+      parcel.propertyDbId?.trim() ??
+      normalizeParcelId(parcel.parcelId ?? parcel.id);
+    if (!mapParcelId || !geometryLookupKey) {
       return acc;
     }
 
     acc.push({
-      id: parcelId,
-      parcelId,
+      id: mapParcelId,
+      parcelId: mapParcelId,
       address: (parcel.address ?? "Unknown").trim(),
       lat,
       lng,
       floodZone: (parcel.floodZone ?? "").trim() || null,
       currentZoning: (parcel.zoning ?? "").trim() || null,
-      propertyDbId: parcelId,
-      geometryLookupKey: parcelId,
-      hasGeometry: true,
+      propertyDbId: parcel.propertyDbId?.trim() ?? null,
+      geometryLookupKey,
       acreage: parcel.acreage != null ? Number(parcel.acreage) : null,
     });
 

@@ -21,17 +21,12 @@ import { MapOperatorConsole } from "@/components/maps/MapOperatorConsole";
 import type { ParcelMapRef } from "@/components/maps/ParcelMap";
 import { ScreeningScorecard } from "@/components/maps/ScreeningScorecard";
 import {
-  readMapTrackedParcels,
-  removeTrackedParcel,
   summarizeTrackedParcels,
-  syncTrackedParcelsWithVisible,
-  updateTrackedParcel,
-  upsertTrackedParcels,
-  writeMapTrackedParcels,
   type MapTrackedParcel,
-  type MapTrackedParcelStatus,
 } from "@/components/maps/mapOperatorNotebook";
 import type { MapHudState, MapParcel } from "@/components/maps/types";
+import { useMapInvestorWorkbench } from "@/components/maps/useMapInvestorWorkbench";
+import { useMapTrackedParcelWorkspace } from "@/components/maps/useMapTrackedParcelWorkspace";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -363,7 +358,7 @@ export function MapPageClient() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [lastDataRefreshAt, setLastDataRefreshAt] = useState<number | null>(null);
   const [lastRequestLatencyMs, setLastRequestLatencyMs] = useState<number | null>(null);
-  const [, setMapHudState] = useState<MapHudState>({
+  const [mapHudState, setMapHudState] = useState<MapHudState>({
     activeOverlays: [],
     drawMode: "idle",
   });
@@ -379,8 +374,6 @@ export function MapPageClient() {
   const [resultCards, setResultCards] = useState<
     Array<import("@/components/maps/MapResultCard").MapResultCardData>
   >([]);
-  const [trackedParcels, setTrackedParcels] = useState<MapTrackedParcel[]>([]);
-  const [trackedParcelsHydrated, setTrackedParcelsHydrated] = useState(false);
   const [polygon, setPolygon] = useState<number[][][] | null>(null);
   const [polygonParcels, setPolygonParcels] = useState<MapParcel[] | null>(null);
   const [polygonError, setPolygonError] = useState<string | null>(null);
@@ -388,23 +381,6 @@ export function MapPageClient() {
   const lastAutoFocusedSearchRef = useRef("");
   const lastViewportRefreshKeyRef = useRef<string | null>(null);
   const addressInputRef = useRef<HTMLInputElement | null>(null);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    setTrackedParcels(readMapTrackedParcels(window.localStorage));
-    setTrackedParcelsHydrated(true);
-  }, []);
-
-  useEffect(() => {
-    if (!trackedParcelsHydrated || typeof window === "undefined") {
-      return;
-    }
-
-    writeMapTrackedParcels(window.localStorage, trackedParcels);
-  }, [trackedParcels, trackedParcelsHydrated]);
 
   const initialCenterFromUrl = useMemo<[number, number]>(() => {
     const latStr = searchParams.get("lat");
@@ -1015,6 +991,50 @@ export function MapPageClient() {
     if (polygon) return polygonParcels ?? [];
     return visibleParcels;
   }, [polygon, polygonParcels, visibleParcels]);
+  const activeParcelsByKey = useMemo(() => {
+    const index = new Map<string, MapParcel>();
+
+    for (const parcel of activeParcels) {
+      for (const key of [parcel.id, parcel.parcelId]) {
+        const normalizedKey = key.trim();
+        if (!normalizedKey) continue;
+        index.set(normalizedKey, parcel);
+      }
+    }
+
+    return index;
+  }, [activeParcels]);
+  const workspaceAiOutputs = useMemo(
+    () =>
+      resultCards.map((card) => ({
+        id: card.id,
+        title: card.title,
+        createdAt: new Date().toISOString(),
+        summary:
+          card.narrative?.trim() ||
+          card.subtitle ||
+          `${card.stats?.length ?? 0} stats · ${card.rows?.length ?? 0} rows`,
+        payload: {
+          subtitle: card.subtitle ?? null,
+          type: card.type ?? null,
+          statCount: card.stats?.length ?? 0,
+          rowCount: card.rows?.length ?? 0,
+        },
+      })),
+    [resultCards],
+  );
+  const {
+    trackedParcels,
+    saveTrackedSelection,
+    removeTrackedSelection,
+    updateTrackedSelectionStatus,
+  } = useMapTrackedParcelWorkspace({
+    activeParcels,
+    selectedParcelIds: mapState.selectedParcelIds,
+    polygon,
+    aiOutputs: workspaceAiOutputs,
+    activeOverlayKeys: mapHudState.activeOverlays,
+  });
   const trackedParcelsById = useMemo(
     () => new Map(trackedParcels.map((entry) => [entry.parcelId, entry])),
     [trackedParcels],
@@ -1031,7 +1051,7 @@ export function MapPageClient() {
     () =>
       mapState.selectedParcelIds
         .map((parcelId) => {
-          const activeParcel = activeParcels.find((parcel) => parcel.id === parcelId);
+          const activeParcel = activeParcelsByKey.get(parcelId);
           if (activeParcel) {
             return activeParcel;
           }
@@ -1040,16 +1060,20 @@ export function MapPageClient() {
           return trackedParcel ? trackedParcelToMapParcel(trackedParcel) : null;
         })
         .filter((parcel): parcel is MapParcel => Boolean(parcel)),
-    [activeParcels, mapState.selectedParcelIds, trackedParcelsById],
+    [activeParcelsByKey, mapState.selectedParcelIds, trackedParcelsById],
   );
-
-  useEffect(() => {
-    setTrackedParcels((current) => syncTrackedParcelsWithVisible(current, activeParcels));
-  }, [activeParcels]);
+  const mapWorkbench = useMapInvestorWorkbench({
+    activeParcels,
+    selectedParcels,
+    trackedParcels,
+    hudState: mapHudState,
+    polygon,
+    resultCount: resultCards.length,
+  });
 
   const focusTrackedParcel = useCallback(
     (entry: MapTrackedParcel) => {
-      const parcel = activeParcels.find((candidate) => candidate.id === entry.parcelId);
+      const parcel = activeParcelsByKey.get(entry.parcelId);
       if (parcel) {
         focusParcel(parcel);
         return;
@@ -1062,29 +1086,7 @@ export function MapPageClient() {
       mapRef.current?.highlightParcels([entry.parcelId], "outline", undefined, 0);
       focusCoordinates(entry.lat, entry.lng);
     },
-    [activeParcels, focusCoordinates, focusParcel, mapDispatch],
-  );
-
-  const saveTrackedSelection = useCallback(
-    (draft: {
-      note: string;
-      task: string;
-      status: MapTrackedParcelStatus;
-    }) => {
-      setTrackedParcels((current) => upsertTrackedParcels(current, selectedParcels, draft));
-    },
-    [selectedParcels],
-  );
-
-  const removeTrackedSelection = useCallback((parcelId: string) => {
-    setTrackedParcels((current) => removeTrackedParcel(current, parcelId));
-  }, []);
-
-  const updateTrackedSelectionStatus = useCallback(
-    (parcelId: string, status: MapTrackedParcelStatus) => {
-      setTrackedParcels((current) => updateTrackedParcel(current, parcelId, { status }));
-    },
-    [],
+    [activeParcelsByKey, focusCoordinates, focusParcel, mapDispatch],
   );
 
   useEffect(() => {
@@ -1874,6 +1876,11 @@ export function MapPageClient() {
                         sourceLabel={sourceLabel}
                         dataFreshnessLabel={dataFreshnessLabel}
                         latencyLabel={latencyLabel}
+                        workspace={mapWorkbench.workspace}
+                        assemblage={mapWorkbench.assemblage}
+                        ownership={mapWorkbench.ownership}
+                        comps={mapWorkbench.comps}
+                        marketOverlays={mapWorkbench.marketOverlays}
                         activePanel={activePanel}
                         onActivePanelChange={setActivePanel}
                         onFocusParcel={focusParcel}

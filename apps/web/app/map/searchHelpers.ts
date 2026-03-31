@@ -112,7 +112,10 @@ export function parcelMatchesSearch(parcel: MapParcel, query: string): boolean {
  * Returns the strongest parcel lookup key for a selected suggestion.
  */
 export function buildSuggestionLookupText(suggestion: ParcelSearchSuggestion): string {
-  const parcelId = normalizeParcelId(suggestion.parcelId ?? suggestion.propertyDbId);
+  const propertyDbId = suggestion.propertyDbId?.trim();
+  if (propertyDbId) return propertyDbId;
+
+  const parcelId = normalizeParcelId(suggestion.parcelId);
   if (parcelId) return parcelId;
   return suggestion.address.trim();
 }
@@ -124,7 +127,15 @@ export function resolveSuggestionParcel(
   suggestion: ParcelSearchSuggestion,
   parcels: readonly MapParcel[],
 ): MapParcel | null {
-  const parcelId = normalizeParcelId(suggestion.parcelId ?? suggestion.propertyDbId);
+  const propertyDbId = suggestion.propertyDbId?.trim().toLowerCase();
+  if (propertyDbId) {
+    const propertyMatch = parcels.find(
+      (parcel) => parcel.propertyDbId?.trim().toLowerCase() === propertyDbId,
+    );
+    if (propertyMatch) return propertyMatch;
+  }
+
+  const parcelId = normalizeParcelId(suggestion.parcelId);
   if (parcelId) {
     const parcelIdMatch = parcels.find(
       (parcel) => normalizeParcelId(parcel.parcelId ?? parcel.propertyDbId ?? parcel.id) === parcelId,
