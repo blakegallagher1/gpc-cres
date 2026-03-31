@@ -36,6 +36,12 @@ yarn-debug.log*
 yarn-error.log*
 
 ############################
+# Codex Pipeline
+############################
+scripts/codex-auto/logs/
+output/codex-agents-workflow/
+
+############################
 # Testing (JS)
 ############################
 coverage/

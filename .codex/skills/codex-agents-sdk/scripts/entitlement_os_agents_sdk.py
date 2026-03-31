@@ -252,6 +252,23 @@ async def run_orchestrator(objective: str, slug: str | None, cost_ceiling: float
             try:
                 tracker.update(status="running", turn=0)
                 result = await Runner.run(project_manager, full_objective, max_turns=max_turns)
+
+                # Extract token usage and estimate cost
+                if result and hasattr(result, "raw_responses"):
+                    total_input = 0
+                    total_output = 0
+                    for resp in result.raw_responses:
+                        usage = getattr(resp, "usage", None)
+                        if usage:
+                            total_input += getattr(usage, "input_tokens", 0)
+                            total_output += getattr(usage, "output_tokens", 0)
+                    # GPT-5.4 approximate pricing: $3/M input, $15/M output
+                    estimated_cost = (total_input * 3.0 + total_output * 15.0) / 1_000_000
+                    tracker.update(cost_usd=estimated_cost)
+                    if estimated_cost > cost_ceiling:
+                        print(f"WARNING: Cost ${estimated_cost:.2f} exceeded ceiling ${cost_ceiling:.2f}")
+                        tracker.add_error(f"Cost ceiling exceeded: ${estimated_cost:.2f} > ${cost_ceiling:.2f}")
+
                 tracker.update(status="completed", turn=max_turns)
                 break
             except Exception as e:

@@ -23,6 +23,24 @@ jobs:
           ref: ${{ github.event.workflow_run.head_branch }}
           fetch-depth: 0
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.node-version'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Create .env from .env.example
+        run: cp .env.example .env
+
+      - name: Generate Prisma client
+        run: pnpm --filter @entitlement-os/db generate
+
       - name: Download CI logs
         uses: actions/github-script@v7
         id: ci-logs
@@ -37,11 +55,26 @@ jobs:
             const summaries = failedJobs.map(j => `${j.name}: ${j.conclusion}`).join('\n');
             core.setOutput('failed_jobs', summaries);
 
+      - name: Install Codex CLI
+        run: npm install -g @openai/codex@latest
+
       - name: Run Codex autofix
-        uses: openai/codex-action@v1
         id: codex-fix
-        with:
-          prompt: |
+        run: |
+          codex exec \
+            --full-auto \
+            "$PROMPT" \
+            > /tmp/codex-fix-output.log 2>&1 || true
+
+          # Check if codex produced structured output
+          if [ -f /tmp/codex-fix-result.json ]; then
+            echo "Codex produced structured output"
+          else
+            echo '{"fixed":false,"summary":"Codex did not produce structured output","files_changed":[],"error_category":"unknown","confidence":"low","requires_human_review":true}' > /tmp/codex-fix-result.json
+          fi
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PROMPT: |
             The CI pipeline failed on this branch. Failed jobs:
             ${{ steps.ci-logs.outputs.failed_jobs }}
 
@@ -50,27 +83,39 @@ jobs:
             Do NOT change test expectations unless the test itself is wrong.
             Do NOT weaken type checks or lint rules.
             Scope: only fix what's broken, don't refactor.
-          sandbox: workspace-write
-          output-file: /tmp/codex-fix-result.json
-          codex-args: '["--output-schema", "scripts/codex-auto/schemas/ci-fix-output.json"]'
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+            After fixing, write your results to /tmp/codex-fix-result.json matching this schema:
+            {"fixed": boolean, "summary": string, "files_changed": string[], "error_category": string, "confidence": "high"|"medium"|"low", "requires_human_review": boolean}
 
       - name: Parse fix result
         id: parse
         run: |
-          if [ -f /tmp/codex-fix-result.json ]; then
-            FIXED=$(jq -r '.fixed' /tmp/codex-fix-result.json)
-            SUMMARY=$(jq -r '.summary' /tmp/codex-fix-result.json)
-            CONFIDENCE=$(jq -r '.confidence' /tmp/codex-fix-result.json)
-            echo "fixed=$FIXED" >> "$GITHUB_OUTPUT"
-            echo "summary=$SUMMARY" >> "$GITHUB_OUTPUT"
-            echo "confidence=$CONFIDENCE" >> "$GITHUB_OUTPUT"
-          else
+          RESULT_FILE="/tmp/codex-fix-result.json"
+
+          if [ ! -f "$RESULT_FILE" ]; then
             echo "fixed=false" >> "$GITHUB_OUTPUT"
-            echo "summary=Codex did not produce output" >> "$GITHUB_OUTPUT"
+            echo "summary=Codex did not produce output file" >> "$GITHUB_OUTPUT"
             echo "confidence=low" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+
+          # Validate JSON before parsing
+          if ! jq empty "$RESULT_FILE" 2>/dev/null; then
+            echo "fixed=false" >> "$GITHUB_OUTPUT"
+            echo "summary=Codex output is invalid JSON" >> "$GITHUB_OUTPUT"
+            echo "confidence=low" >> "$GITHUB_OUTPUT"
+            echo "::warning::Codex produced invalid JSON output"
+            cat "$RESULT_FILE" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          FIXED=$(jq -r '.fixed // false' "$RESULT_FILE")
+          SUMMARY=$(jq -r '.summary // "No summary"' "$RESULT_FILE")
+          CONFIDENCE=$(jq -r '.confidence // "low"' "$RESULT_FILE")
+
+          echo "fixed=$FIXED" >> "$GITHUB_OUTPUT"
+          echo "summary=$SUMMARY" >> "$GITHUB_OUTPUT"
+          echo "confidence=$CONFIDENCE" >> "$GITHUB_OUTPUT"
 
       - name: Create fix PR
         if: steps.parse.outputs.fixed == 'true'

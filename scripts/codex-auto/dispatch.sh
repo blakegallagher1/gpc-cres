@@ -73,15 +73,30 @@ FAILED=0
 extract_yaml_value() {
   local file="$1"
   local key="$2"
-  # Extract simple scalar values (non-nested)
-  grep "^${key}:" "$file" 2>/dev/null | head -1 | sed "s/^${key}: *//" | sed 's/^["'"'"']*//;s/["'"'"']*$//'
+  python3 -c "
+import yaml, sys
+with open('$file') as f:
+    data = yaml.safe_load(f)
+val = data.get('$key', '')
+if isinstance(val, str):
+    print(val)
+elif val is not None:
+    print(str(val))
+" 2>/dev/null
 }
 
 extract_yaml_array() {
   local file="$1"
   local key="$2"
-  # Extract array items: key: [item1, item2] or key:\n  - item1\n  - item2
-  awk "/^${key}:/ {found=1; next} found {if (/^[^ ]/) {found=0; exit} if (/^  *-/) print}" "$file" | sed 's/^[[:space:]]*-[[:space:]]*//' | sed 's/^["'"'"']*//;s/["'"'"']*$//'
+  python3 -c "
+import yaml, sys
+with open('$file') as f:
+    data = yaml.safe_load(f)
+arr = data.get('$key', [])
+if isinstance(arr, list):
+    for item in arr:
+        print(str(item))
+" 2>/dev/null
 }
 
 run_task() {

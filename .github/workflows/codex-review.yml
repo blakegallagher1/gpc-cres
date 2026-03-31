@@ -20,6 +20,24 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.node-version'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Create .env from .env.example
+        run: cp .env.example .env
+
+      - name: Generate Prisma client
+        run: pnpm --filter @entitlement-os/db generate
+
       - name: Get diff
         id: diff
         run: |
@@ -28,11 +46,24 @@ jobs:
           echo "$DIFF" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
 
+      - name: Install Codex CLI
+        run: npm install -g @openai/codex@latest
+
       - name: Run Codex review
-        uses: openai/codex-action@v1
-        id: review
-        with:
-          prompt: |
+        id: codex-review
+        run: |
+          codex exec \
+            --full-auto \
+            "$PROMPT" \
+            > /tmp/codex-review-output.log 2>&1 || true
+
+          # Ensure structured output exists
+          if [ ! -f /tmp/codex-review.json ]; then
+            echo '{"verdict":"comment","summary":"Codex review did not produce structured output.","issues":[],"security_concerns":false,"org_scoping_verified":false,"test_coverage_adequate":false}' > /tmp/codex-review.json
+          fi
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PROMPT: |
             Review this pull request for the Entitlement OS project (commercial real estate platform).
 
             Changed files:
@@ -48,11 +79,9 @@ jobs:
             7. Test coverage for new code paths?
 
             Be concise. Only flag real issues, not style preferences.
-          sandbox: read-only
-          output-file: /tmp/codex-review.json
-          codex-args: '["--output-schema", "scripts/codex-auto/schemas/pr-review-output.json"]'
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+            Write your results to /tmp/codex-review.json matching this schema:
+            {"verdict": "approve"|"request_changes"|"comment", "summary": string, "issues": [{"severity": "critical"|"warning"|"info", "file": string, "line": number|null, "message": string, "suggestion": string|null}], "security_concerns": boolean, "org_scoping_verified": boolean, "test_coverage_adequate": boolean}
 
       - name: Post review comment
         uses: actions/github-script@v7
@@ -61,12 +90,13 @@ jobs:
             const fs = require('fs');
             let review;
             try {
-              review = JSON.parse(fs.readFileSync('/tmp/codex-review.json', 'utf8'));
+              const raw = fs.readFileSync('/tmp/codex-review.json', 'utf8');
+              review = JSON.parse(raw);
             } catch {
               review = { verdict: 'comment', summary: 'Codex review did not produce structured output.', issues: [], security_concerns: false, org_scoping_verified: false, test_coverage_adequate: false };
             }
 
-            const issueLines = review.issues.map(i => {
+            const issueLines = (review.issues || []).map(i => {
               const loc = i.line ? `${i.file}:${i.line}` : i.file;
               const icon = i.severity === 'critical' ? 'X' : i.severity === 'warning' ? '!' : '-';
               return `- [${icon}] **${i.severity}** \`${loc}\`: ${i.message}`;
@@ -82,7 +112,7 @@ jobs:
               '',
               review.summary,
               '',
-              review.issues.length > 0 ? '### Issues\n' + issueLines : 'No issues found.',
+              (review.issues || []).length > 0 ? '### Issues\n' + issueLines : 'No issues found.',
             ].join('\n');
 
             await github.rest.issues.createComment({
