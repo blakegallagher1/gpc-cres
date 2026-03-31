@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { buildParcelHoverTarget } from "./mapLibreAdapter";
+import { describe, expect, it, vi } from "vitest";
+import { bindMapInteractionHandlers, buildParcelHoverTarget } from "./mapLibreAdapter";
 import type { MapParcel } from "./types";
 
 describe("buildParcelHoverTarget", () => {
@@ -55,5 +55,53 @@ describe("buildParcelHoverTarget", () => {
       dealName: null,
       dealStatus: null,
     });
+  });
+});
+
+describe("bindMapInteractionHandlers", () => {
+  it("zooms in when a parcel cluster is clicked", () => {
+    const handlers = new Map<string, (event: unknown) => void>();
+    const flyTo = vi.fn();
+    const map = {
+      getZoom: () => 11,
+      flyTo,
+      getCanvas: () => ({ style: { cursor: "" } }),
+      on: (eventName: string, layerOrHandler: string | ((event: unknown) => void), handler?: (event: unknown) => void) => {
+        if (eventName === "click" && typeof layerOrHandler === "string" && handler) {
+          handlers.set(layerOrHandler, handler);
+        }
+      },
+      off: vi.fn(),
+    } as unknown as Parameters<typeof bindMapInteractionHandlers>[0]["map"];
+
+    const cleanup = bindMapInteractionHandlers({
+      map,
+      fitBounds: vi.fn(),
+      updateSelection: vi.fn(),
+      getParcelById: vi.fn(),
+      openParcelPopup: vi.fn(),
+      openTilePopup: vi.fn(),
+      setCursor: vi.fn(),
+      setZoom: vi.fn(),
+      setViewportBounds: vi.fn(),
+      boundsTimerRef: { current: null },
+    });
+
+    handlers.get("parcel-clusters")?.({
+      features: [
+        {
+          properties: { point_count: 12 },
+          geometry: { type: "Point", coordinates: [-91.18, 30.45] },
+        },
+      ],
+      lngLat: { lng: -91.18, lat: 30.45 },
+    });
+
+    expect(flyTo).toHaveBeenCalledWith({
+      center: [-91.18, 30.45],
+      zoom: 13,
+    });
+
+    cleanup();
   });
 });

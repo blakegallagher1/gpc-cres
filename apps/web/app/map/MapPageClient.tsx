@@ -248,6 +248,39 @@ function trackedParcelToMapParcel(entry: MapTrackedParcel): MapParcel {
   };
 }
 
+export type MapPageShortcutAction =
+  | "toggle-sidebar"
+  | "zoom-in"
+  | "zoom-out"
+  | "deselect-all"
+  | null;
+
+export function getMapPageShortcutAction(params: {
+  key: string;
+  tagName?: string | null;
+  isContentEditable?: boolean | null;
+}): MapPageShortcutAction {
+  const tag = params.tagName?.toUpperCase() ?? "";
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || params.isContentEditable) {
+    return null;
+  }
+
+  switch (params.key) {
+    case "[":
+      return "toggle-sidebar";
+    case "+":
+    case "=":
+      return "zoom-in";
+    case "-":
+    case "_":
+      return "zoom-out";
+    case "Escape":
+      return "deselect-all";
+    default:
+      return null;
+  }
+}
+
 /**
  * Client controller for the interactive `/map` route.
  */
@@ -390,16 +423,38 @@ export function MapPageClient() {
   useEffect(() => {
     const handleKeyDown = (e: Event) => {
       const event = e as unknown as KeyboardEvent;
-      // Don't trigger if user is typing in an input/textarea
-      const tag = (event.target as HTMLElement)?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-      if (event.key === "[") {
-        setSidebarOpen((prev) => !prev);
+      const target = event.target as HTMLElement | null;
+      const action = getMapPageShortcutAction({
+        key: event.key,
+        tagName: target?.tagName ?? null,
+        isContentEditable: target?.isContentEditable ?? null,
+      });
+
+      if (!action) {
+        return;
       }
+
+      event.preventDefault();
+      if (action === "toggle-sidebar") {
+        setSidebarOpen((prev) => !prev);
+        return;
+      }
+
+      if (action === "zoom-in") {
+        (mapRef.current as (ParcelMapRef & { zoomIn?: () => void; zoomOut?: () => void }) | null)?.zoomIn?.();
+        return;
+      }
+
+      if (action === "zoom-out") {
+        (mapRef.current as (ParcelMapRef & { zoomIn?: () => void; zoomOut?: () => void }) | null)?.zoomOut?.();
+        return;
+      }
+
+      mapDispatch({ type: "DESELECT_ALL" });
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [mapDispatch]);
 
   const mapCenter = useMemo<[number, number]>(
     () =>

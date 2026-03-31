@@ -4,8 +4,13 @@ import {
   getDrawControlState,
   getGeometryStatusLabel,
   getGeoJsonSourceSafe,
+  getParcelClusterRadius,
   getReferenceOverlayStateForPreset,
+  formatArea,
+  formatDistance,
+  haversineDistanceMeters,
   resolveReferenceOverlayPreset,
+  polygonAreaSquareMeters,
   setGeoJsonSourceDataSafe,
 } from "./MapLibreParcelMap";
 import {
@@ -258,6 +263,34 @@ describe("getGeometryStatusLabel", () => {
         propertyDbUnconfigured: false,
       }),
     ).toBe("2 shapes loaded");
+  });
+});
+
+describe("measurement helpers", () => {
+  it("formats distances and areas with operator-friendly units", () => {
+    expect(formatDistance(500)).toBe("1,640 ft");
+    expect(formatDistance(2000)).toBe("1.24 mi");
+    expect(formatArea(1_000)).toBe("10,764 sq ft");
+    expect(formatArea(10_000)).toBe("2.47 acres");
+  });
+
+  it("computes measurement distances and polygon area", () => {
+    expect(haversineDistanceMeters({ lng: 0, lat: 0 }, { lng: 0, lat: 0 })).toBe(0);
+
+    const square = [
+      { lng: -91.18, lat: 30.45 },
+      { lng: -91.179, lat: 30.45 },
+      { lng: -91.179, lat: 30.451 },
+      { lng: -91.18, lat: 30.451 },
+    ];
+
+    expect(polygonAreaSquareMeters(square as never)).toBeGreaterThan(0);
+  });
+
+  it("uses three cluster radius buckets", () => {
+    expect(getParcelClusterRadius(2)).toBe(25);
+    expect(getParcelClusterRadius(11)).toBe(35);
+    expect(getParcelClusterRadius(100)).toBe(45);
   });
 });
 

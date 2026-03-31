@@ -159,6 +159,8 @@ interface MapLibreParcelMapProps {
 
 export interface MapLibreParcelMapRef {
   flyTo: (opts: { center: [number, number]; zoom?: number }) => void;
+  zoomIn: () => void;
+  zoomOut: () => void;
   highlightParcels: (
     parcelIds: string[],
     style?: "pulse" | "outline" | "fill",
@@ -334,14 +336,14 @@ function statusColorForParcel(parcel: MapParcel): string {
   return (colors as Record<string, string>)[lookupStatus] || DEFAULT_STATUS_COLOR;
 }
 
-function formatDistance(meters: number): string {
+export function formatDistance(meters: number): string {
   const feet = meters * 3.28084;
   if (feet < 5280) return `${Math.round(feet).toLocaleString()} ft`;
   const miles = feet / 5280;
   return `${miles.toFixed(2)} mi`;
 }
 
-function formatArea(sqMeters: number): string {
+export function formatArea(sqMeters: number): string {
   const sqFeet = sqMeters * 10.7639;
   if (sqFeet < 43560) return `${Math.round(sqFeet).toLocaleString()} sq ft`;
   const acres = sqFeet / 43560;
@@ -397,7 +399,7 @@ function monthsAgo(dateStr: string): number {
   return (now.getFullYear() - date.getFullYear()) * 12 + (now.getMonth() - date.getMonth());
 }
 
-function haversineDistanceMeters(a: { lng: number; lat: number }, b: { lng: number; lat: number }) {
+export function haversineDistanceMeters(a: { lng: number; lat: number }, b: { lng: number; lat: number }) {
   const R = 6371000;
   const dLat = ((b.lat - a.lat) * Math.PI) / 180;
   const dLng = ((b.lng - a.lng) * Math.PI) / 180;
@@ -411,7 +413,7 @@ function haversineDistanceMeters(a: { lng: number; lat: number }, b: { lng: numb
   return R * c;
 }
 
-function polygonAreaSquareMeters(points: maplibregl.LngLat[]): number {
+export function polygonAreaSquareMeters(points: maplibregl.LngLat[]): number {
   if (points.length < 3) return 0;
 
   const radians = points.map((p) => ({
@@ -427,6 +429,12 @@ function polygonAreaSquareMeters(points: maplibregl.LngLat[]): number {
 
   const avgLat = radians.reduce((sum, p) => sum + p.y, 0) / radians.length;
   return Math.abs(area) * 6371000 * 6371000 * Math.cos(avgLat) / 2;
+}
+
+export function getParcelClusterRadius(pointCount: number): number {
+  if (pointCount <= 10) return 25;
+  if (pointCount <= 50) return 35;
+  return 45;
 }
 
 function isPointInPolygon(point: [number, number], polygon: [number, number][]): boolean {
@@ -634,6 +642,7 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
   const [activeHeatmapPreset, setActiveHeatmapPreset] = useState<HeatmapPresetKey>("sale_activity");
   const [showIsochrone, setShowIsochrone] = useState(false);
   const [measureMode, setMeasureMode] = useState<"off" | "distance" | "area">("off");
+  const [lastDrawnMeasureLabel, setLastDrawnMeasureLabel] = useState<string | null>(null);
   const [layerPanelOpen, setLayerPanelOpen] = useState(true);
   const [internalSelectedParcelIds, setInternalSelectedParcelIds] = useState<Set<string>>(new Set());
   const [imperativeHighlightIds, setImperativeHighlightIds] = useState<Set<string>>(new Set());
@@ -668,6 +677,16 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
   const drawSourceId = "draw-polygon-source";
   const drawLineLayerId = "draw-polygon-line";
   const drawPointLayerId = "draw-polygon-points";
+  const lastDrawnMeasureTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (lastDrawnMeasureTimerRef.current) {
+        clearTimeout(lastDrawnMeasureTimerRef.current);
+        lastDrawnMeasureTimerRef.current = null;
+      }
+    };
+  }, []);
 
   // Stable ref for onViewStateChange to avoid stale closure in map event handlers
   const onViewStateChangeRef = useRef(onViewStateChange);
@@ -794,11 +813,20 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
 
     const ring = pts.map((point) => [point.lng, point.lat] as [number, number]);
     ring.push(ring[0]);
+    const areaLabel = formatArea(polygonAreaSquareMeters(pts));
     clearDrawing();
     setDrawing(false);
     if (mapRef.current?.getCanvas().style.cursor) {
       mapRef.current.getCanvas().style.cursor = "";
     }
+    if (lastDrawnMeasureTimerRef.current) {
+      clearTimeout(lastDrawnMeasureTimerRef.current);
+    }
+    setLastDrawnMeasureLabel(areaLabel);
+    lastDrawnMeasureTimerRef.current = setTimeout(() => {
+      setLastDrawnMeasureLabel(null);
+      lastDrawnMeasureTimerRef.current = null;
+    }, 5000);
     onPolygonDrawn?.([ring]);
   }, [clearDrawing, onPolygonDrawn]);
 
@@ -1072,6 +1100,12 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
           zoom: nextZoom,
           duration: 1500,
         });
+      },
+      zoomIn: () => {
+        mapRef.current?.zoomIn({ duration: 250 });
+      },
+      zoomOut: () => {
+        mapRef.current?.zoomOut({ duration: 250 });
       },
       highlightParcels,
       addTemporaryLayer,
@@ -1530,6 +1564,7 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
         container: mapContainerRef.current,
         center: mapCenter,
         zoom,
+        keyboard: true,
         style: {
           version: 8,
           sources: {
@@ -1597,6 +1632,9 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
             "parcel-point-source": {
               type: "geojson",
               data: pointSource,
+              cluster: true,
+              clusterMaxZoom: 13,
+              clusterRadius: 50,
             },
             "dark-carto": {
               type: "raster",
@@ -1859,9 +1897,50 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
               },
             },
             {
+              id: "parcel-clusters",
+              type: "circle",
+              source: "parcel-point-source",
+              filter: ["has", "point_count"],
+              layout: {
+                visibility: showLayers ? "visible" : "none",
+              },
+              paint: {
+                "circle-radius": [
+                  "step",
+                  ["get", "point_count"],
+                  getParcelClusterRadius(10),
+                  11,
+                  getParcelClusterRadius(11),
+                  51,
+                  getParcelClusterRadius(51),
+                ],
+                "circle-color": "#1d4ed8",
+                "circle-stroke-width": 2,
+                "circle-stroke-color": "#dbeafe",
+                "circle-opacity": 0.9,
+              },
+            },
+            {
+              id: "parcel-cluster-count",
+              type: "symbol",
+              source: "parcel-point-source",
+              filter: ["has", "point_count"],
+              layout: {
+                visibility: showLayers ? "visible" : "none",
+                "text-field": "{point_count_abbreviated}",
+                "text-font": ["Open Sans Semibold", "Arial Unicode MS Bold"],
+                "text-size": 12,
+              },
+              paint: {
+                "text-color": "#ffffff",
+              },
+            },
+            {
               id: "parcel-points",
               type: "circle",
               source: "parcel-point-source",
+              filter: ["!", ["has", "point_count"]],
+              minzoom: 11,
               layout: {
                 visibility: showLayers ? "visible" : "none",
               },
@@ -2151,6 +2230,8 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
     setLayerVisibilitySafe(map, "base-dark", baseLayer === "Dark");
     setLayerVisibilitySafe(map, "base-streets", baseLayer === "Streets");
     setLayerVisibilitySafe(map, "base-satellite", baseLayer === "Satellite");
+    setLayerVisibilitySafe(map, "parcel-clusters", showLayers);
+    setLayerVisibilitySafe(map, "parcel-cluster-count", showLayers);
     setLayerVisibilitySafe(map, "parcel-points", showLayers);
     // Ensure zoning-tiles-fill is above parcel outlines
     moveLayerBeforeSafe(map, "parcel-tiles-line", ZONING_TILE_LAYER_ID);
@@ -2307,6 +2388,9 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
             ) : (
               "—"
             )}
+          </div>
+          <div className="flex-1 text-center text-map-text-muted">
+            {lastDrawnMeasureLabel ? `Area: ${lastDrawnMeasureLabel}` : null}
           </div>
           <div className="text-map-text-muted">
             Zoom: {currentZoom.toFixed(2)}
