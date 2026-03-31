@@ -1,0 +1,62 @@
+name: Codex Task
+description: Create a task for Codex to implement autonomously
+title: "[codex] "
+labels: ["codex", "automation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This issue will be picked up by Cloud Codex when mentioned with @codex.
+        Provide a clear objective, scope, and acceptance criteria.
+
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective
+      description: What should Codex build or fix?
+      placeholder: "Implement a new API endpoint for..."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Primary scope
+      options:
+        - "apps/web/ (frontend + API routes)"
+        - "packages/openai/ (agents + tools)"
+        - "packages/db/ (schema + migrations)"
+        - "infra/ (gateway, docker, cloudflare)"
+        - "scripts/ (automation, CI)"
+        - "Multiple packages"
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: How do we know this is done?
+      placeholder: |
+        - [ ] New endpoint returns 200
+        - [ ] Auth + orgId scoping enforced
+        - [ ] pnpm lint && pnpm typecheck && pnpm test pass
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Reference files, patterns, or prior work
+      placeholder: "Follow the pattern in apps/web/app/api/deals/route.ts"
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - "P0 — Fix now"
+        - "P1 — This sprint"
+        - "P2 — Backlog"
+      default: 1

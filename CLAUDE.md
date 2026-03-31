@@ -103,6 +103,27 @@ Native browser automation for agents via OpenAI Responses API `{ type: "computer
 - **Agent prompt**: Browser Automation section in EntitlementOS agent with playbook learning (search KB → browse → save strategy)
 - **Env var (Vercel)**: `CUA_WORKER_URL=https://cua.gallagherpropco.com`
 
+## Autonomous Development Pipeline
+
+4-layer autonomous coding pipeline connecting Claude Code (planning/review) with Codex CLI (implementation).
+
+**Pipeline runner:** `scripts/codex-auto/pipeline.sh`
+
+| Layer | What | Entry Point |
+|-------|------|-------------|
+| L1: Dual-Brain | Claude plans, Codex implements | `pipeline.sh dispatch <tasks/>` |
+| L2: Agents SDK | Multi-agent orchestration with gates | `pipeline.sh orchestrate "objective"` |
+| L3: CI/CD | Auto-fix failures, auto-review PRs | `pipeline.sh fix` / GitHub Actions |
+| L4: Cloud | Parallel background via @codex | chatgpt.com/codex + issue templates |
+
+**GitHub Actions:**
+- `codex-autofix.yml` — Triggers on CI failure, opens fix PR
+- `codex-review.yml` — Structured PR review on every PR
+
+**Task dispatch:** Create YAML task files (schema: `scripts/codex-auto/schemas/task.schema.json`), run `pipeline.sh dispatch <dir>`.
+
+**Multi-agent:** `pipeline.sh orchestrate "objective" [slug]` — PM coordinates DB/Web/OpenAI/QA agents with gated handoffs. Progress: `output/codex-agents-workflow/<slug>/progress.json`.
+
 ## Key Rules
 
 ### Do This
