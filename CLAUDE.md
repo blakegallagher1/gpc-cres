@@ -17,6 +17,17 @@ Last reviewed: 2026-03-25
 - ✅ Alert pipeline: self-hosted webhook at `/api/admin/sentinel-alerts` persists alerts to DB, Sentry integration
 - **See `docs/runbooks/STABILITY_RELEASE_RUNBOOK_2026-03-10.md` and `docs/runbooks/STABILITY_SENTINEL_RUNBOOK.md` for operations**
 
+## Infrastructure Access — READ FIRST
+
+- **SSH to Windows server**: Always use Tailscale. Host alias: `bg`
+  - `ssh bg "command here"`
+  - NEVER use `cloudflared access tcp`, `ssh.gallagherpropco.com`, or CF Access service tokens for SSH
+  - NEVER use SSL when connecting to PostgreSQL on the Windows server
+- **Database (direct)**: PostgreSQL on Windows server via Tailscale IP or `bg` host
+  - `ssh bg "docker exec -i gpc-cres-backend-postgres-1 psql -U postgres -d entitlement_os -c 'SELECT ...'"`
+- **Cloudflare** is for DNS/CDN/Workers/Hyperdrive only — NOT for tunneling to the server
+- **Docker Desktop recovery**: If containers are unresponsive, SSH via Tailscale and use the schtasks GUI-session restart trick — see `docs/memory/docker-desktop-recovery-2026-03-31.md`
+
 ## Project Overview
 
 **Entitlement OS** — Internal operating system for Gallagher Property Company, a commercial real estate investment and development firm focused on light industrial, outdoor storage, and truck parking in Louisiana. The platform combines a 14-agent AI coordinator with a deal pipeline UI, property database integration, and document generation to manufacture certainty in entitlement processes.
@@ -28,7 +39,7 @@ Last reviewed: 2026-03-25
 
 **Remote DB access:** See "Database Topology" section below. The CF DB tunnel (`db.gallagherpropco.com`) connects to the **app DB only** — it does NOT have property/screening tables. To query property data, use the gateway's `/tools/parcels.sql` endpoint.
 
-**Remote SSH:** `ssh cres_admin@ssh.gallagherpropco.com` (requires `~/.ssh/config` ProxyCommand). If you get `websocket: bad handshake`, sshd is stopped on the Windows PC — see `docs/SERVER_MANAGEMENT.md` troubleshooting.
+**Remote SSH:** `ssh bg` via Tailscale (see Infrastructure Access above). The old CF Access path (`ssh.gallagherpropco.com`) is DEPRECATED and unreliable — do not use it.
 
 **Admin API:** `https://api.gallagherpropco.com/admin` with `Authorization: Bearer $ADMIN_API_KEY` (in `~/.zshrc`). **NOTE:** Admin routes exist in repo code (`infra/local-api/admin_router.py`) but are NOT deployed on the production gateway yet. Deploy requires SSH.
 
@@ -47,7 +58,7 @@ The Windows PC runs **two separate Docker networks** with **two Postgres contain
 - To query property data: use `/tools/parcels.sql` endpoint (SELECT only, table allowlist: `ebr_parcels, epa_facilities, fema_flood, ldeq_permits, soils, traffic_counts, wetlands`)
 - To run DDL on property DB: requires SSH → `docker exec` into the property DB container. No other path exists.
 - The deployed gateway code differs from the repo — deployed has `/tools/screen.*` routes, repo has `/api/screening/*`. Screen endpoints on prod return 500 (broken).
-- Windows Firewall blocks ALL LAN ports (22, 5432, 54323, 8000, 8765, 445). Only Cloudflare Tunnel services are accessible remotely.
+- Windows Firewall blocks ALL LAN ports (22, 5432, 54323, 8000, 8765, 445). Remote access is via Tailscale (`ssh bg`) or Cloudflare Tunnel services (for Vercel/Workers only, not for agent SSH).
 
 ## Gateway Proxy (gateway.gallagherpropco.com)
 
@@ -115,6 +126,29 @@ Native browser automation for agents via OpenAI Responses API `{ type: "computer
 - Don't call `dispatchEvent()` without `.catch(() => {})` — unhandled promise rejections crash the route
 - Don't prefix server-only secrets with `NEXT_PUBLIC_` — they must stay server-side only
 - Don't use `any` type — use `Record<string, unknown>` for dynamic objects
+- Don't use `cloudflared access tcp` for anything — use Tailscale (`ssh bg`) instead
+- Don't try to SSH via `ssh.gallagherpropco.com` (CF Access path, deprecated and often broken)
+- Don't attempt direct connections to `api.gallagherpropco.com` with CF Access headers for DB queries — use Tailscale
+- Don't use SSL when connecting to PostgreSQL on the Windows server
+
+## Production Troubleshooting
+
+### Auth returns `auth_unavailable` or `auth_db_unreachable`
+1. The DB is unreachable from Vercel → the gateway `/db` endpoint is down
+2. SSH via Tailscale: `ssh bg`
+3. Check Docker Desktop: `docker ps` — if it errors or shows no containers, Docker Desktop crashed
+4. Recovery: use the schtasks GUI-session restart trick documented in `docs/memory/docker-desktop-recovery-2026-03-31.md`
+5. Verify: `curl http://localhost:8000/health` and `curl http://localhost:8000/db` from the server
+
+### Full auth chain
+Google OAuth → Vercel signIn callback → Prisma → CF Hyperdrive → gateway proxy `/db` endpoint → PostgreSQL on Windows
+
+### Known Single Points of Failure
+- Docker Desktop on the Windows PC going down breaks ALL production auth (Vercel → gateway → DB chain). The `/health` endpoint can return OK while `/db` is dead.
+- Future consideration: move gateway to a dedicated Linux host (Railway, Fly.io, or a VM) to eliminate this SPOF.
+
+### Always start debugging with
+`ssh bg` — never waste time on Cloudflare tunnels or direct DB connections.
 
 ## Skill Routing Awareness
 

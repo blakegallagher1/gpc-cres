@@ -2,6 +2,8 @@
 
 Single source of truth for the Cloudflare configuration. **Ingress rules are managed in the Cloudflare dashboard, not in local config files.**
 
+> **NOTE (2026-03-31):** Cloudflare is used for DNS, CDN, Workers, and Hyperdrive only. For SSH and direct DB access to the Windows server, use **Tailscale (`ssh bg`)** — not `cloudflared access tcp` or `ssh.gallagherpropco.com`. See CLAUDE.md "Infrastructure Access" section. The SSH/DB tunnel references below are preserved for context but are DEPRECATED for operator use.
+
 ---
 
 ## Tunnel
@@ -184,11 +186,12 @@ The `db.gallagherpropco.com` route exposes PostgreSQL through the tunnel, protec
 **Connect:**
 
 ```bash
-# Terminal 1 — start the proxy (leave running)
-cloudflared access tcp --hostname db.gallagherpropco.com --url localhost:54399
+# DEPRECATED — use Tailscale instead:
+# ssh bg "docker exec -i entitlement-os-postgres psql -U postgres -d entitlement_os -c 'SELECT ...'"
 
-# Terminal 2 — connect via psql
-psql postgresql://postgres:postgres@localhost:54399/entitlement_os
+# Legacy CF Access path (unreliable, do not use):
+# cloudflared access tcp --hostname db.gallagherpropco.com --url localhost:54399
+# psql postgresql://postgres:postgres@localhost:54399/entitlement_os
 ```
 
 First connection may open a browser for Access authentication (24h session).
@@ -206,12 +209,11 @@ psql postgresql://postgres:postgres@localhost:54399/entitlement_os -f ~/entitlem
 psql postgresql://postgres:postgres@localhost:54399/entitlement_os -c "SELECT count(*) FROM deals;"
 ```
 
-**Shell alias (optional):**
+**Shell alias (DEPRECATED — use `ssh bg` instead):**
 
 ```bash
-echo 'alias dbproxy="cloudflared access tcp --hostname db.gallagherpropco.com --url localhost:54399"' >> ~/.zshrc
-source ~/.zshrc
-# Then just: dbproxy
+# DEPRECATED — use Tailscale: ssh bg "docker exec -i entitlement-os-postgres psql ..."
+# echo 'alias dbproxy="cloudflared access tcp --hostname db.gallagherpropco.com --url localhost:54399"' >> ~/.zshrc
 ```
 
 ---

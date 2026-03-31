@@ -44,7 +44,7 @@ All services are directly accessible via the Windows PC's Tailscale IP (`100.67.
 | Admin API | `http://100.67.140.126:8000/admin` | `https://api.gallagherpropco.com/admin` |
 | Gateway API | `http://100.67.140.126:8000` | `https://api.gallagherpropco.com` |
 | SSH | `ssh bg` (alias for `cres_admin@100.67.140.126`) | `ssh bg-cf` |
-| PostgreSQL | `psql -h 100.67.140.126 -p 54323` | `cloudflared access tcp ...` |
+| PostgreSQL | `psql -h 100.67.140.126 -p 54323` | DEPRECATED — do not use `cloudflared access tcp` |
 | Tiles | `http://100.67.140.126:3000` | `https://tiles.gallagherpropco.com` |
 | CUA Worker | `http://100.67.140.126:3001` | `https://cua.gallagherpropco.com` |
 | Qdrant | `http://100.67.140.126:6333` | `https://qdrant.gallagherpropco.com` |
@@ -97,12 +97,9 @@ curl -s -X POST -H "$GW_AUTH" -H "Content-Type: application/json" \
 curl -s -H "$GW_AUTH" "$GW_URL/api/screening/flood?parcel_id=XXXXX" | jq
 ```
 
-### 3. SSH (last resort — flaky over tunnel)
+### 3. SSH via Tailscale (PREFERRED)
 ```bash
-ssh cres_admin@ssh.gallagherpropco.com
-
-# CRITICAL: Add 8-45 second delays between commands
-# "websocket: bad handshake" = sshd stopped on Windows → need physical access or Codex recovery
+ssh bg
 
 # Docker commands once connected
 docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
@@ -111,13 +108,11 @@ docker restart gateway
 docker exec -it entitlement-os-postgres psql -U postgres -d entitlement_os
 ```
 
-### 4. CF Database Tunnel (Prisma/App DB only)
+### DEPRECATED: CF SSH and DB Tunnel
 ```bash
-# Start tunnel (connects to App DB — NO property tables here)
-cloudflared access tcp --hostname db.gallagherpropco.com --url localhost:54399
-
-# Then connect
-psql "postgresql://postgres:PASSWORD@localhost:54399/entitlement_os"
+# DEPRECATED — use `ssh bg` via Tailscale instead
+# ssh bg  # DEPRECATED: was ssh cres_admin@ssh.gallagherpropco.com  # Unreliable, websocket drops, 8hr session limits
+# cloudflared access tcp --hostname db.gallagherpropco.com --url localhost:54399  # Use docker exec via Tailscale SSH instead
 ```
 
 ## Database Topology
@@ -166,8 +161,8 @@ psql "postgresql://postgres:PASSWORD@localhost:54399/entitlement_os"
 | `api.gallagherpropco.com` | `http://gateway:8000` | Bearer token | FastAPI gateway |
 | `tiles.gallagherpropco.com` | `http://martin:3000` | None | MVT tiles, CORS enabled |
 | `cua.gallagherpropco.com` | `http://gateway:8000` | Bearer + CF Access | Gateway proxies to cua-worker:3001 via Host header detection |
-| `db.gallagherpropco.com` | `tcp://entitlement-os-postgres:5432` | CF Access service token | App DB only |
-| `ssh.gallagherpropco.com` | `ssh://host.docker.internal:22` | CF Access email auth | Flaky |
+| `db.gallagherpropco.com` | `tcp://entitlement-os-postgres:5432` | CF Access service token | DEPRECATED — use `ssh bg` + docker exec |
+| `ssh.gallagherpropco.com` | `ssh://host.docker.internal:22` | CF Access email auth | DEPRECATED — use `ssh bg` via Tailscale |
 | `qdrant.gallagherpropco.com` | `http://qdrant:6333` | CF Access | Vector DB |
 
 **CUA routing detail:** The `cua.` hostname routes to `gateway:8000` with `httpHostHeader: "cua.gallagherpropco.com"`. The gateway middleware detects `"cua."` in the Host header and reverse-proxies to `cua-worker:3001`.
@@ -311,7 +306,7 @@ scripts/verify-auth.sh
 curl -s -X POST -H "$AUTH" "$ADMIN_URL/deploy/gateway" -d '{"action": "pull-and-restart"}'
 
 # Option 2: SSH
-ssh cres_admin@ssh.gallagherpropco.com
+ssh bg  # DEPRECATED: was ssh cres_admin@ssh.gallagherpropco.com
 cd /c/gpc-cres-backend
 git pull --ff-only
 docker restart gateway
@@ -322,7 +317,7 @@ docker restart gateway
 # Build locally, SCP to server, restart
 # Source is at infra/cua-worker/ in the repo
 # Deployed to /c/temp/cua-worker/ on Windows PC via bind mount
-ssh cres_admin@ssh.gallagherpropco.com
+ssh bg  # DEPRECATED: was ssh cres_admin@ssh.gallagherpropco.com
 cd /c/temp/cua-worker
 # Update files...
 docker stop gpc-cua-worker && docker start gpc-cua-worker
@@ -330,7 +325,7 @@ docker stop gpc-cua-worker && docker start gpc-cua-worker
 
 ### Docker Compose (full stack)
 ```bash
-ssh cres_admin@ssh.gallagherpropco.com
+ssh bg  # DEPRECATED: was ssh cres_admin@ssh.gallagherpropco.com
 cd /c/gpc-cres-backend
 docker compose pull
 docker compose up -d --force-recreate

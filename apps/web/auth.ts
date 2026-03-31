@@ -161,6 +161,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 email,
                 reason: "missing_default_org",
               });
+              // TODO: Split error codes — this should be `auth_no_org` (org not found),
+              // distinct from DB-unreachable. Update LoginLanding.tsx loginErrorMessages
+              // and proxy.ts line 148 to handle both `auth_no_org` and `auth_db_unreachable`.
               return "/login?error=auth_unavailable";
             }
             await prisma.user.create({
@@ -189,6 +192,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             email,
             ...serializeErrorForLogs(error),
           });
+          // TODO: This should be `auth_db_unreachable` (DB unreachable after retry),
+          // distinct from the `auth_no_org` case above. Update LoginLanding.tsx
+          // loginErrorMessages and proxy.ts line 148 to handle both codes.
           return "/login?error=auth_unavailable";
         }
       }

@@ -20,6 +20,9 @@ model_reasoning_summary = "concise"
 
 web_search = "live"
 
+# Fast service tier — low-latency path when available.
+service_tier            = "fast"
+
 suppress_unstable_features_warning = true
 
 # ---------------------------------------------------------------------------
@@ -69,10 +72,15 @@ request_rule         = true
 apply_patch_freeform = true
 unified_exec         = true
 shell_snapshot       = true
+prevent_idle_sleep   = true    # Keep macOS awake during long agent jobs
 
 # ---------------------------------------------------------------------------
 # TUI
 # ---------------------------------------------------------------------------
+# Desktop notification on agent-turn-complete (requires terminal-notifier or osascript)
+# Projects can override with their own script path.
+notify = ["python3", ".codex/scripts/notify.py"]
+
 [tui]
 notifications      = true
 notification_method = "auto"
@@ -85,6 +93,7 @@ status_line        = ["context-remaining", "git-branch"]
 # ---------------------------------------------------------------------------
 [history]
 persistence = "save-all"
+max_bytes   = 104857600       # 100 MiB cap — prevents unbounded growth
 
 [memories]
 max_raw_memories_for_global = 50

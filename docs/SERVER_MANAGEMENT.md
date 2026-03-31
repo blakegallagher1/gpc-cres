@@ -1,8 +1,8 @@
 # Windows PC Server Management
 
-Manage the Windows PC backend (BG) from your MacBook anywhere via Cloudflare Tunnel.
+Manage the Windows PC backend (BG) from your MacBook.
 
-**Cost:** $0. Cloudflare Free plan is sufficient.
+> **DEPRECATED (2026-03-31):** The Cloudflare Tunnel SSH path (`ssh.gallagherpropco.com`) documented below is deprecated and unreliable. **Use Tailscale instead: `ssh bg "command"`**. See CLAUDE.md "Infrastructure Access" section. The Cloudflare references below are preserved for historical context only.
 
 ---
 
@@ -49,6 +49,7 @@ brew install cloudflared
 Add to `~/.ssh/config`:
 
 ```
+# DEPRECATED — use `ssh bg` via Tailscale instead
 Host ssh.gallagherpropco.com
   ProxyCommand cloudflared access ssh --hostname %h
   User cres_admin
@@ -57,6 +58,7 @@ Host ssh.gallagherpropco.com
 **3. Connect**
 
 ```bash
+# DEPRECATED — use `ssh bg` via Tailscale instead
 ssh ssh.gallagherpropco.com
 ```
 
@@ -121,7 +123,8 @@ From repo root:
 | `pnpm smoke:gateway:edge-access` | Validate Cloudflare Access deny/pass behavior for gateway + app routes |
 | `pnpm smoke:endpoints` | Run app/gateway production endpoint smoke checks |
 | `pnpm parcel:smoke:prod` | Run map-parcel production smoke checks with geometry verification |
-| `ssh ssh.gallagherpropco.com` | Open SSH session to the Windows host through Cloudflare Access |
+| `ssh bg` | Open SSH session to the Windows host via Tailscale (preferred) |
+| `ssh ssh.gallagherpropco.com` | DEPRECATED — Open SSH session via Cloudflare Access (unreliable) |
 
 ---
 
@@ -177,12 +180,15 @@ Network 172.19.x (Repo stack — infra/docker/docker-compose.yml)
 The only way to run DDL (CREATE, ALTER, DROP) on the property DB is via SSH:
 
 ```bash
-# 1. Verify SSH works
-ssh cres_admin@ssh.gallagherpropco.com "echo ok"
+# 1. Verify SSH works (use Tailscale)
+ssh bg "echo ok"
 
-# 2. Execute SQL
-cat infra/sql/my-migration.sql | ssh cres_admin@ssh.gallagherpropco.com \
+# 2. Execute SQL (use Tailscale)
+cat infra/sql/my-migration.sql | ssh bg \
   'docker exec -i entitlement-os-postgres psql -U postgres -d entitlement_os'
+
+# DEPRECATED — the old CF Access path:
+# ssh cres_admin@ssh.gallagherpropco.com "echo ok"
 ```
 
 If SSH is down (sshd stopped), you MUST start it from the Windows PC:
@@ -227,7 +233,7 @@ Start-Service sshd
 - The deployed gateway has `/tools/screen.*` endpoints (broken — return 500)
 - The repo has `/api/screening/*` endpoints (correct but not deployed)
 - Admin router (`/admin/*`) exists in repo but is NOT deployed
-- Deploy requires SSH: `ssh cres_admin@ssh.gallagherpropco.com` then rebuild the gateway container
+- Deploy requires SSH: `ssh bg` (Tailscale) then rebuild the gateway container. DEPRECATED: do not use `ssh cres_admin@ssh.gallagherpropco.com`
 
 ### Docker credential helper fails over SSH
 When deploying via SSH, Docker Desktop's credential helper can fail (`A specified logon session does not exist`). Workaround:

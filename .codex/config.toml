@@ -14,8 +14,22 @@ sandbox_mode            = "danger-full-access"
 # HIGH not XHIGH — xhigh causes analysis paralysis on implementation tasks.
 # Use the "review" profile for deep analysis when needed.
 model_reasoning_effort  = "high"
+model_reasoning_summary = "concise"
+
+# LOW verbosity — enforces terse output at the API level, saving tokens for code.
+# AGENTS.md already instructs brevity; this makes it structural.
+model_verbosity         = "low"
+
+# MEDIUM for plan mode — faster iteration on approach; implementation stays HIGH.
+plan_mode_reasoning_effort = "medium"
+
+# Fast service tier — routes to low-latency path when available on gpt-5.4.
+service_tier            = "fast"
 
 web_search = "live"
+
+# 10 min poll timeout — default 5 min is too short for builds and Playwright runs.
+background_terminal_max_timeout = 600000
 
 # ---------------------------------------------------------------------------
 # Shell Environment Policy
@@ -42,8 +56,9 @@ include_only = [
 # Feature Flags
 # ---------------------------------------------------------------------------
 [features]
-multi_agent = true
-memories    = true
+multi_agent         = true
+memories            = true
+prevent_idle_sleep  = true    # Keep macOS awake during 15-min agent jobs
 
 # ---------------------------------------------------------------------------
 # Multi-agent — trimmed to essentials
@@ -62,13 +77,16 @@ description = "Find security, correctness, org-scoping, and test gaps in code."
 config_file = "agents/reviewer.toml"
 
 # ---------------------------------------------------------------------------
-# TUI & History
+# TUI, History & Notifications
 # ---------------------------------------------------------------------------
+notify = ["python3", ".codex/scripts/notify.py"]
+
 [tui]
 notifications = true
 
 [history]
 persistence = "save-all"
+max_bytes   = 104857600       # 100 MiB cap — oldest-first eviction prevents unbounded growth
 
 # ---------------------------------------------------------------------------
 # Profiles

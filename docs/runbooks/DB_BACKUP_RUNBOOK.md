@@ -16,7 +16,7 @@ Backups are `pg_dump | gzip` run inside the container via `docker exec`, then `d
 SSH to the server and run:
 
 ```powershell
-ssh ssh.gallagherpropco.com
+ssh bg  # DEPRECATED: was ssh ssh.gallagherpropco.com — use Tailscale
 cd C:\gpc-cres-backend
 git pull --ff-only
 

@@ -45,28 +45,34 @@ This workflow is a practical adaptation of the `building_consistent_workflows_co
 ## Run configuration
 
 ```bash
-cd /Users/gallagherpropertycompany/Documents/gallagher-cres
-python -m pip install -U openai-agents openai python-dotenv
-export OPENAI_API_KEY=...
-export ENTITLEMENT_OS_AGENT_WORKFLOW_OUTPUT_DIR="${PWD}/output/codex-agents-workflow"
+# Basic run:
 python .codex/skills/codex-agents-sdk/scripts/entitlement_os_agents_sdk.py \
   --objective "Implement a new automation loop for X and add tests."
-```
 
-If you run multiple workflows, set a unique slug:
-
-```bash
+# With all options:
 python .codex/skills/codex-agents-sdk/scripts/entitlement_os_agents_sdk.py \
   --objective "..." \
-  --slug "automation-loop-<short-name>"
+  --slug "automation-loop-name" \
+  --cost-ceiling 10.0 \
+  --max-turns 50
+
+# Or use the wrapper:
+./scripts/codex-auto/codex-agents-sdk.sh "objective" "slug"
 ```
 
-Or use the repo wrapper:
+## Monitoring a run
+
+While the orchestrator runs, watch progress:
 
 ```bash
-./scripts/codex-auto/codex-agents-sdk.sh \
-  "Implement a new automation loop for X and add tests." \
-  "automation-loop-<short-name>"
+# Live progress:
+watch -n 5 cat output/codex-agents-workflow/<slug>/progress.json
+
+# Gate status:
+cat output/codex-agents-workflow/<slug>/gate_*.json | jq '.gate_name, .passed'
+
+# Final summary:
+cat output/codex-agents-workflow/<slug>/summary.json | jq .
 ```
 
 ## Core pattern (important)

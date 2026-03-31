@@ -25,15 +25,16 @@ Tailscale is the primary connection path. The Windows PC Tailscale IP is `100.67
 | CUA Worker | `http://100.67.140.126:3001` |
 | Qdrant | `http://100.67.140.126:6333` |
 
-Use direct Tailscale SSH, not `ssh.gallagherpropco.com`. Direct WireGuard is the reliable path.
+Use direct Tailscale SSH (`ssh bg`), NEVER `ssh.gallagherpropco.com`. Direct WireGuard is the only reliable path.
 
-## Fallback Path: Cloudflare
+## Cloudflare — NOT for SSH/DB Access (DEPRECATED 2026-03-31)
 
-Cloudflare is fallback only. Use `api.gallagherpropco.com` or `ssh.gallagherpropco.com` only when Tailscale is unreachable.
+Cloudflare is for DNS/CDN/Workers/Hyperdrive only. Do NOT use `ssh.gallagherpropco.com` or `cloudflared access tcp` — these are DEPRECATED and unreliable:
 
-- Cloudflare SSH has known websocket drops.
-- Cloudflare SSH sessions can die around the 8-hour mark.
-- If Tailscale works, do not route through Cloudflare.
+- Cloudflare SSH has known websocket drops and 8-hour session limits.
+- `cloudflared access tcp` for DB requires CF Access service tokens that expire.
+- The old CF paths caused a production auth outage on 2026-03-31.
+- Always use Tailscale (`ssh bg`) instead.
 
 ## Preflight
 
