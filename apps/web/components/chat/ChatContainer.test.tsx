@@ -1,5 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const CHAT_CONTAINER_TEST_TIMEOUT_MS = 15_000;
@@ -217,7 +216,7 @@ describe("ChatContainer", () => {
     async () => {
       const { ChatContainer } = await import("@/components/chat/ChatContainer");
 
-      const { container } = render(<ChatContainer />);
+      render(<ChatContainer />);
 
       await waitFor(() => {
         expect(fetchMock).toHaveBeenCalledWith("/api/auth/token");
@@ -237,13 +236,19 @@ describe("ChatContainer", () => {
           enabled: false,
         }),
       );
-      expect(container.firstChild).toMatchSnapshot();
+      expect(screen.getByText("Ask Harvey anything.")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Draft memo" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Review table" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "History", exact: true })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Verification", exact: true }),
+      ).not.toBeInTheDocument();
     },
     CHAT_CONTAINER_TEST_TIMEOUT_MS,
   );
 
   it(
-    "shows mobile workspace controls without opening the history rail by default",
+    "keeps the mobile layout focused on the console surface",
     async () => {
       useIsMobileMock.mockReturnValue(true);
       const { ChatContainer } = await import("@/components/chat/ChatContainer");
@@ -255,18 +260,14 @@ describe("ChatContainer", () => {
         expect(fetchMock).toHaveBeenCalledWith("/api/chat/conversations");
       });
 
-      expect(screen.getAllByRole("button", { name: "History", exact: true }).length).toBeGreaterThan(
-        0,
-      );
+      expect(screen.getByText("Ask Harvey anything.")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Draft memo" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Review table" })).toBeInTheDocument();
+      expect(screen.queryByTestId("conversation-sidebar")).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "History", exact: true })).not.toBeInTheDocument();
       expect(
-        screen.getAllByRole("button", { name: "Verification", exact: true }).length,
-      ).toBeGreaterThan(0);
-      expect(screen.getByTestId("conversation-sidebar")).toHaveAttribute("data-mobile", "true");
-      expect(screen.getByTestId("conversation-sidebar")).toHaveAttribute("data-open", "false");
-
-      fireEvent.click(screen.getAllByRole("button", { name: "History", exact: true })[0]);
-
-      expect(screen.getByTestId("conversation-sidebar")).toHaveAttribute("data-open", "true");
+        screen.queryByRole("button", { name: "Verification", exact: true }),
+      ).not.toBeInTheDocument();
     },
     CHAT_CONTAINER_TEST_TIMEOUT_MS,
   );
@@ -289,16 +290,13 @@ describe("ChatContainer", () => {
         );
       });
 
-      const user = userEvent.setup();
-      const verificationTab = screen.getByRole("tab", { name: "Verification" });
-      await user.click(verificationTab);
-
-      await waitFor(() => {
-        expect(verificationTab).toHaveAttribute("aria-selected", "true");
-      });
-
-      expect(await screen.findByText("82%")).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Show details" })).toBeInTheDocument();
+      expect(await screen.findByText(/Saved thread/)).toBeInTheDocument();
+      expect(screen.getByText(/finance/)).toBeInTheDocument();
+      expect(screen.getByTestId("message-list")).toHaveAttribute(
+        "data-conversation-id",
+        RESTORED_SUMMARY_CONVERSATION_ID,
+      );
+      expect(screen.queryByRole("heading", { name: "Execution inspector" })).not.toBeInTheDocument();
     },
     CHAT_CONTAINER_TEST_TIMEOUT_MS,
   );

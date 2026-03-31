@@ -10,12 +10,10 @@ import {
 import { AgentTrustEnvelope } from '@/types';
 import { MessageList } from './MessageList';
 import { ChatInput } from './ChatInput';
-import { ConversationSidebar } from './ConversationSidebar';
 import { AgentIndicator } from './AgentIndicator';
 import { DealSelector } from './DealSelector';
 import {
   ChatWorkspaceHero,
-  ChatWorkspaceInspector,
 } from './ChatWorkspacePanels';
 import { useCuaModel } from './CuaModelToggle';
 import { parseSSEStream } from '@/lib/chat/stream';
@@ -276,8 +274,6 @@ function toChatMessageFromApi(msg: RawConversationMessage): ChatMessage {
 export function ChatContainer() {
   const mapState = useMapChatState();
   const mapDispatch = useMapChatDispatch();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [inspectorOpen, setInspectorOpen] = useState(false);
   const isMobile = useIsMobile();
   const [cuaModel, setCuaModel] = useCuaModel();
   const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
@@ -355,16 +351,6 @@ export function ChatContainer() {
     }
   }, []);
 
-  useEffect(() => {
-    setSidebarOpen(!isMobile);
-  }, [isMobile]);
-
-  useEffect(() => {
-    if (!isMobile) {
-      setInspectorOpen(false);
-    }
-  }, [isMobile]);
-
   const hasRecentConversations = useMemo(
     () => recentConversationIds.length > 0,
     [recentConversationIds],
@@ -379,7 +365,6 @@ export function ChatContainer() {
   );
   const activeAgentLabel = currentAgent ?? agentSummary?.lastAgentName ?? 'Coordinator';
   const threadStatusLabel = conversationId ? 'Saved thread' : 'Draft thread';
-  const attachmentStatusLabel = selectedDealId ? 'Deal scope attached' : 'General scope';
   const transportLabel = WS_ENABLED ? 'Live socket' : 'HTTP stream';
   const scopeLabel = selectedDealId ? 'Deal-linked' : 'No deal scope';
 
@@ -804,11 +789,6 @@ export function ChatContainer() {
   }, [loadConversation]);
 
   const visibleMessages = messages;
-  const stableSidebarOptions = useStableOptions({
-    onConversationSelect: loadConversation,
-    onToggle: () => setSidebarOpen((value) => !value),
-    onRefresh: reloadConversations,
-  });
   const stableChatInputOptions = useStableOptions({
     onSend: handleSend,
     onStop: handleStop,
@@ -817,8 +797,6 @@ export function ChatContainer() {
     onSuggestionClick: handleSend,
   });
   const showLaunchComposer = visibleMessages.length === 0;
-  const showConversationRailTrigger =
-    !isMobile || visibleMessages.length > 0 || conversationId !== null;
   const handleQuickActionSelect = useCallback((prompt: string) => {
     void handleSend(prompt);
   }, [handleSend]);
@@ -835,24 +813,9 @@ export function ChatContainer() {
   );
 
   return (
-    <div className="relative flex h-[calc(100svh-var(--app-header-height))] min-h-[calc(100svh-var(--app-header-height))] overflow-hidden bg-[linear-gradient(180deg,#fcfbf8_0%,#f6f4ef_100%)]">
-      <ConversationSidebar
-        conversations={conversations}
-        activeConversationId={conversationId}
-        onConversationSelect={stableSidebarOptions.onConversationSelect}
-        open={sidebarOpen}
-        onToggle={stableSidebarOptions.onToggle}
-        onRefresh={stableSidebarOptions.onRefresh}
-        loading={isLoadingConversations}
-        hasRecentRecents={hasRecentConversations}
-        recentConversationIds={recentConversationIds}
-        mobile={isMobile}
-        showCollapsedTrigger={showConversationRailTrigger}
-      />
-
-      <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
-        <div className="grid h-full min-h-0 min-w-0 gap-4 px-3 py-3 md:px-4 md:py-4 lg:grid-cols-[minmax(0,1fr)_23.5rem] lg:gap-5 lg:px-5">
-          <section className="min-h-0 min-w-0 overflow-hidden rounded-[36px] border border-[#e7e1d7] bg-background/88 shadow-[0_36px_100px_-56px_rgba(15,23,42,0.38)] backdrop-blur-xl">
+    <div className="flex h-[calc(100svh-var(--app-header-height))] min-h-[calc(100svh-var(--app-header-height))] overflow-hidden bg-background">
+      <div className="mx-auto flex h-full w-full max-w-[1040px] flex-col px-3 py-4 md:px-6 md:py-6">
+        <section className="min-h-0 min-w-0 flex-1 overflow-hidden rounded-lg border border-border bg-background shadow-sm">
             <div className="flex h-full min-h-0 min-w-0 flex-col">
               {showLaunchComposer ? (
                 <>
@@ -872,8 +835,8 @@ export function ChatContainer() {
                       threadStatusLabel={threadStatusLabel}
                       transportLabel={transportLabel}
                       isMobile={isMobile}
-                      onOpenHistory={() => setSidebarOpen(true)}
-                      onOpenInspector={() => setInspectorOpen(true)}
+                      onOpenHistory={() => undefined}
+                      onOpenInspector={() => undefined}
                       onCuaModelChange={setCuaModel}
                       onQuickActionSelect={handleQuickActionSelect}
                     />
@@ -904,8 +867,8 @@ export function ChatContainer() {
                     threadStatusLabel={threadStatusLabel}
                     transportLabel={transportLabel}
                     isMobile={isMobile}
-                    onOpenHistory={() => setSidebarOpen(true)}
-                    onOpenInspector={() => setInspectorOpen(true)}
+                    onOpenHistory={() => undefined}
+                    onOpenInspector={() => undefined}
                     onCuaModelChange={setCuaModel}
                     onQuickActionSelect={handleQuickActionSelect}
                   />
@@ -961,32 +924,6 @@ export function ChatContainer() {
               )}
             </div>
           </section>
-
-          <div className="min-h-0">
-            <ChatWorkspaceInspector
-              activeAgentLabel={activeAgentLabel}
-              agentSummary={agentSummary}
-              attachmentStatusLabel={attachmentStatusLabel}
-              conversationCount={conversations.length}
-              recentConversationLabel={messageSectionTitle}
-              threadStatusLabel={conversationId ? 'Saved thread' : 'Draft until first response'}
-              useAgentSummaryPanel={AUI_MESSAGE_ENHANCEMENTS}
-            />
-          </div>
-        </div>
-
-        <ChatWorkspaceInspector
-          activeAgentLabel={activeAgentLabel}
-          agentSummary={agentSummary}
-          attachmentStatusLabel={attachmentStatusLabel}
-          conversationCount={conversations.length}
-          recentConversationLabel={messageSectionTitle}
-          threadStatusLabel={conversationId ? 'Saved thread' : 'Draft until first response'}
-          useAgentSummaryPanel={AUI_MESSAGE_ENHANCEMENTS}
-          mobile
-          open={inspectorOpen}
-          onOpenChange={setInspectorOpen}
-        />
       </div>
     </div>
   );

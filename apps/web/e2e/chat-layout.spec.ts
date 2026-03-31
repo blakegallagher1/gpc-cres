@@ -147,7 +147,9 @@ test.describe("Chat layout", () => {
     await expect(page.getByRole("button", { name: "Draft memo" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Review table" })).toBeVisible();
     await expect(page.getByText("Client matter")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Vault +" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Files", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Sources", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Prompt library", exact: true })).toBeVisible();
 
     const viewport = page.viewportSize();
 
@@ -158,33 +160,19 @@ test.describe("Chat layout", () => {
     );
   });
 
-  test("uses mobile controls instead of competing panes on first load", async ({ page }) => {
+  test("keeps mobile focused on the same console without extra rails", async ({ page }) => {
     await page.setViewportSize(MOBILE_VIEWPORT);
     await openChat(page);
 
-    const historyButton = page.getByRole("button", { name: "History", exact: true });
-    const inspectorButton = page.getByRole("button", { name: "Verification", exact: true });
-
-    await expect(historyButton).toBeVisible({ timeout: CHAT_READY_TIMEOUT_MS });
-    await expect(inspectorButton).toBeVisible({ timeout: CHAT_READY_TIMEOUT_MS });
+    await expect(page.getByText("Ask Harvey anything.")).toBeVisible({
+      timeout: CHAT_READY_TIMEOUT_MS,
+    });
+    await expect(page.getByRole("button", { name: "Draft memo" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Review table" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "History", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Verification", exact: true })).toHaveCount(0);
 
     await expectComposerReachable(page, MOBILE_COMPOSER_BOTTOM_MAX_PX);
-
-    await historyButton.click();
-    await expect(page.getByRole("heading", { name: "Recent operator threads" })).toBeVisible();
-    const closeHistoryButton = page
-      .getByRole("button", { name: "Close history", exact: true })
-      .last();
-    await expect(closeHistoryButton).toBeVisible();
-    await closeHistoryButton.click();
-    await inspectorButton.click();
-
-    const inspectorDrawer = page.getByRole("dialog");
-    await expect(inspectorDrawer.getByText("Run inspector")).toBeVisible();
-    await inspectorDrawer.getByRole("tab", { name: "Verification" }).click();
-    await expect(
-      inspectorDrawer.getByText("Verification fills in after the first response."),
-    ).toBeVisible({ timeout: CHAT_READY_TIMEOUT_MS });
   });
 
   test("surfaces restored verification context when reopening a saved run", async ({ page }) => {
@@ -231,13 +219,16 @@ test.describe("Chat layout", () => {
       },
     });
 
-    await expect(page.getByRole("heading", { name: "Execution inspector" })).toBeVisible({
+    await expect(page.getByText("Underwriting screen complete.")).toBeVisible({
       timeout: CHAT_READY_TIMEOUT_MS,
     });
-    await expect(page.getByText("82%")).toBeVisible({ timeout: CHAT_READY_TIMEOUT_MS });
-    await expect(page.getByRole("button", { name: "Show details" })).toBeVisible({
+    await expect(page.getByText(/Saved thread/)).toBeVisible({
       timeout: CHAT_READY_TIMEOUT_MS,
     });
+    await expect(page.getByText("finance", { exact: true })).toBeVisible({
+      timeout: CHAT_READY_TIMEOUT_MS,
+    });
+    await expect(page.getByRole("heading", { name: "Execution inspector" })).toHaveCount(0);
   });
 
   test("keeps approval controls visible on mobile when reopening a saved run", async ({ page }) => {
@@ -282,9 +273,6 @@ test.describe("Chat layout", () => {
     });
 
     await expect(page.getByText("Approval required for update_deal_status")).toBeVisible({
-      timeout: CHAT_READY_TIMEOUT_MS,
-    });
-    await expect(page.getByRole("button", { name: "History", exact: true })).toBeVisible({
       timeout: CHAT_READY_TIMEOUT_MS,
     });
     await expect(page.getByRole("button", { name: "Approve" })).toBeVisible({
