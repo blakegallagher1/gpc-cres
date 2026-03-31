@@ -1,463 +1,538 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
-import { useRef, useState } from "react";
 import { EntitlementOsPreviewPanel } from "@/components/marketing/EntitlementOsPreviewPanel";
-import { MhcOwnerSubmissionSection } from "@/components/marketing/MhcOwnerSubmissionSection";
+import {
+  Body,
+  ButtonGroup,
+  Container,
+  Divider,
+  Eyebrow,
+  Headline,
+  PageShell,
+  Section,
+  SectionIntro,
+  SiteFooter,
+  StepItem,
+  Subhead,
+  SurfaceCard,
+} from "@/components/marketing/HomepagePrimitives";
 import { Button } from "@/components/ui/button";
 
-const HERO_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
-const HOME_HERO_POSTER = "/images/gpc-home-hero-poster.webp";
-const HOME_HERO_VIDEO = "/video/gpc-home-hero-video.mp4";
-const HERO_REVEAL = {
-  hidden: { opacity: 0, y: 24 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.72, ease: HERO_EASE },
-  },
-};
+const REVEAL_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
+const PUBLIC_SITE_DISCLAIMER = process.env.NEXT_PUBLIC_PUBLIC_SITE_DISCLAIMER;
+const PUBLIC_SITE_CONTACT_EMAIL = process.env.NEXT_PUBLIC_PUBLIC_SITE_CONTACT_EMAIL;
 
-const companyModel = [
+const heroProof = [
+  "Basis before story",
+  "Approvals before spend",
+  "Operations before optics",
+] as const;
+
+const focusLanes = [
   {
+    title: "Manufactured housing communities",
+    summary: "Target communities where demand durability, local friction, and basis discipline create room for real operational work.",
+    bullets: [
+      "Basis discipline ahead of brochure-quality narratives",
+      "Site control anchored in access, utilities, and resident practicality",
+      "Execution speed shaped by local knowledge and approval sequence",
+      "Operational depth that carries beyond acquisition",
+    ],
+  },
+  {
+    title: "Infill industrial under 50,000 SF",
+    summary: "Pursue small-format industrial and flex where usability, replacement cost awareness, and local scarcity drive resilient performance.",
+    bullets: [
+      "Functional layouts with clear access and durable tenant utility",
+      "Local scarcity over speculative rent stories",
+      "Replacement cost awareness embedded in every acquisition screen",
+      "Straightforward stewardship that respects the real work on site",
+    ],
+  },
+] as const;
+
+const doctrine = [
+  {
+    index: "01",
+    title: "Basis before story",
+    body: "Start with what the dirt, access, utilities, and local market will actually support. Narrative follows the basis, not the reverse.",
+  },
+  {
+    index: "02",
+    title: "Approvals before spend",
+    body: "Map the political and technical path before consultants, drawings, and optimism start consuming capital.",
+  },
+  {
+    index: "03",
+    title: "Operations before optics",
+    body: "Underwrite the handoff into day-two stewardship so the operating truth remains stronger than presentation polish.",
+  },
+] as const;
+
+const strategySteps = [
+  {
+    index: "1",
     title: "Buy",
-    label: "Basis before story",
-    items: [
-      "Read frontage, drainage, access, and adjacency before the first call gets comfortable.",
-      "Only chase upside the parcel can physically and politically carry.",
-      "If the basis needs optimism to work, leave it.",
-    ],
+    body: "Acquire where basis is defensible, access is real, and replacement cost discipline still matters more than momentum.",
+    bullets: ["Parcel context stays attached to the underwriting file.", "Scarcity and functionality outrank vanity comps."],
   },
   {
+    index: "2",
     title: "Build",
-    label: "Approvals before spend",
-    items: [
-      "Sequence zoning, utilities, process friction, and precedent before spend compounds.",
-      "Tie scope to the real site and the real jurisdiction, not to slideware.",
-      "Keep one execution thread from first pass through delivery.",
-    ],
+    body: "Sequence entitlement, utilities, and execution dependencies before scope expands. Capital follows clarity.",
+    bullets: ["Approvals are treated as a working system, not a presentation appendix.", "Site control and sequencing stay visible to partners and operators."],
   },
   {
+    index: "3",
     title: "Manage",
-    label: "Operations before optics",
-    items: [
-      "Run for durable collections, resident experience, and defensible capex.",
-      "Let operating truth beat reporting theater every time.",
-      "Preserve the learning so the next acquisition starts armed.",
-    ],
+    body: "Operate for collections, tenant or resident usefulness, and durable learning. Memory compounds alongside the asset.",
+    bullets: ["Execution history survives handoff into hold.", "Operating decisions stay tied to the original basis."],
   },
 ] as const;
 
-const heroProofLanes = [
+const workflowColumns = [
   {
-    label: "Basis before story",
-    detail: "Read dirt, access, and utilities before the narrative gets expensive.",
+    title: "Origination",
+    body: "Parcel context, market friction, and access constraints are visible before an opportunity becomes a narrative.",
+    points: ["Mapping and parcel context", "Site constraints and adjacency", "Basis screen with local reality in view"],
   },
   {
-    label: "Path before spend",
-    detail: "Sequence zoning and utilities before capital and consultants stack up.",
+    title: "Execution",
+    body: "Diligence, approvals, and evidence stay inside one working environment so every next step is tied to the actual site.",
+    points: ["Diligence workflow", "Approvals and evidence chain", "Decision record attached to the live deal"],
   },
   {
-    label: "Operations before optics",
-    detail: "Keep evidence, decisions, and operating memory attached after close.",
+    title: "Hold",
+    body: "The operating record remains usable after close, preserving why the asset was bought and how it should be run.",
+    points: ["Operating memory", "Stewardship notes and recurring workflows", "Partner-ready context without rebuilding the file"],
   },
 ] as const;
 
-const homePreviewSignals = [
+const previewSignals = [
   {
-    label: "Parcel truth",
-    detail: "Boundary, frontage, utilities, and adjacency stay pinned to the live opportunity.",
-    state: "attached",
+    label: "Parcel context",
+    detail: "Boundary, access, utilities, and local friction remain readable beside the live opportunity.",
+    state: "mapped",
   },
   {
-    label: "Approval sequence",
-    detail: "Zoning posture, precedent, and utility friction remain visible before outside spend begins.",
-    state: "sequenced",
+    label: "Workflow control",
+    detail: "Diligence, approval sequencing, and operator tasks move through one working environment.",
+    state: "active",
   },
   {
     label: "Evidence chain",
-    detail: "Artifacts, diligence notes, and decisions stay inside the same working pass.",
-    state: "current",
-  },
-  {
-    label: "Run history",
-    detail: "Operator memory survives handoff so the next pass starts from the real site, not recollection.",
+    detail: "Artifacts, decisions, and site history stay connected as the deal advances.",
     state: "retained",
   },
 ] as const;
 
-const homePreviewMemory = [
+const previewMemory = [
   {
-    label: "Parcel scan",
-    detail: "Frontage only fits the buy box if drainage and access clear in the same read.",
-  },
-  {
-    label: "Jurisdiction",
-    detail: "The approval path stays next to the parcel instead of becoming a detached memo exercise.",
+    label: "Origination",
+    detail: "Site facts survive past the first underwriting pass instead of being rewritten in downstream decks and memos.",
   },
   {
     label: "Execution",
-    detail: "Evidence, runs, and operator notes persist once the deal leaves the first analyst.",
+    detail: "Approvals and diligence notes remain attached to the deal while scope and cost decisions evolve.",
+  },
+  {
+    label: "Hold",
+    detail: "Operating memory compounds into the next decision cycle rather than disappearing after close.",
   },
 ] as const;
 
-const underwritingStillNotes = [
-  "Field conditions stay beside the underwriting thread.",
-  "Approvals and utilities are sequenced before outside spend compounds.",
-  "Evidence survives handoff into execution and operations.",
-] as const;
-
-const systemChain = [
-  {
-    label: "Parcel read",
-    detail: "Boundary, access, utilities, adjacency, and site friction stay in frame while the deal moves.",
-    support: "Keep the dirt story attached to the price, not in a separate memo.",
-  },
-  {
-    label: "Approval sequence",
-    detail: "Zoning posture, process order, and precedent stay beside the live opportunity.",
-    support: "Show what has to clear, in what order, before spend compounds.",
-  },
-  {
-    label: "Evidence chain",
-    detail: "Artifacts, decisions, workflows, and run history stay attached when execution leaves the first analyst.",
-    support: "Preserve the working record instead of rebuilding diligence at every handoff.",
-  },
-] as const;
-
-type CompanyModelRowProps = {
-  entry: (typeof companyModel)[number];
-  prefersReducedMotion: boolean;
-};
-
-function CompanyModelRow({ entry, prefersReducedMotion }: CompanyModelRowProps) {
+function BackgroundGrid() {
   return (
-    <motion.article
-      className="grid gap-6 border-t border-white/12 py-8 md:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)] md:items-start md:gap-10"
-      variants={HERO_REVEAL}
-      whileHover={prefersReducedMotion ? undefined : { x: 4 }}
-    >
-      <div className="space-y-2">
-        <p className="font-mono text-[0.68rem] uppercase tracking-[0.28em] text-white/44">{entry.label}</p>
-        <h2 className="text-[clamp(2.4rem,8vw,5.8rem)] font-semibold tracking-[-0.08em] text-white">{entry.title}</h2>
-      </div>
+    <>
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(120,140,165,0.18),transparent_38%)]" />
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(148,163,184,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.08)_1px,transparent_1px)] bg-[size:72px_72px] [mask-image:linear-gradient(to_bottom,rgba(0,0,0,0.78),transparent)]" />
+      <div className="absolute inset-y-0 right-0 w-[44rem] bg-[radial-gradient(circle_at_center,rgba(148,163,184,0.12),transparent_62%)]" />
+    </>
+  );
+}
 
-      <div className="space-y-3">
-        {entry.items.map((item) => (
-          <p className="border-t border-white/8 pt-3 text-sm leading-6 text-white/72 sm:text-base" key={item}>
-            {item}
-          </p>
-        ))}
-      </div>
-    </motion.article>
+function FieldContour() {
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-x-0 top-10 hidden h-[28rem] opacity-50 lg:block"
+    >
+      <svg className="h-full w-full" fill="none" viewBox="0 0 1200 520">
+        <path d="M48 410C156 351 218 358 326 312C449 260 457 160 598 149C724 139 792 220 915 210C1029 201 1095 113 1160 80" stroke="rgba(226,232,240,0.18)" strokeWidth="1.2" />
+        <path d="M58 446C173 388 235 392 337 352C449 308 494 217 627 209C748 202 814 286 927 279C1033 272 1091 189 1152 158" stroke="rgba(226,232,240,0.16)" strokeWidth="1.2" />
+        <path d="M68 482C189 427 263 430 362 393C471 353 537 276 662 269C781 262 847 345 948 342C1042 339 1090 262 1146 234" stroke="rgba(226,232,240,0.14)" strokeWidth="1.2" />
+        <circle cx="880" cy="210" fill="rgba(248,250,252,0.75)" r="3" />
+        <circle cx="945" cy="279" fill="rgba(248,250,252,0.58)" r="3" />
+        <circle cx="663" cy="269" fill="rgba(248,250,252,0.5)" r="3" />
+      </svg>
+    </div>
+  );
+}
+
+function FooterLink({ href, label }: { href: string; label: string }) {
+  return (
+    <Link className="text-sm text-white/60 transition hover:text-white" href={href}>
+      {label}
+    </Link>
   );
 }
 
 /**
  * Public homepage for Gallagher Property Company.
- * Presents the company as a parcel-first buy, build, and manage operator while preserving access to the internal operating system.
+ * Designed to present the company as an institutional operator with a real operating platform behind the work.
  */
 export function CompanyHomePage() {
-  const heroRef = useRef<HTMLElement | null>(null);
   const prefersReducedMotion = useReducedMotion() ?? false;
-  const [heroVideoReady, setHeroVideoReady] = useState(false);
-  const { scrollYProgress } = useScroll({
-    target: heroRef,
-    offset: ["start start", "end start"],
-  });
-
-  const heroImageScale = useTransform(scrollYProgress, [0, 1], [1, prefersReducedMotion ? 1 : 1.04]);
-  const heroImageY = useTransform(scrollYProgress, [0, 1], [0, prefersReducedMotion ? 0 : 56]);
-  const heroOverlayOpacity = useTransform(scrollYProgress, [0, 1], [0.46, prefersReducedMotion ? 0.46 : 0.68]);
+  const year = new Date().getFullYear();
+  const reveal = {
+    hidden: { opacity: 0, y: prefersReducedMotion ? 0 : 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.7, ease: REVEAL_EASE },
+    },
+  };
 
   return (
-    <div className="bg-black text-white" id="top">
-      <main>
-        <section className="relative isolate min-h-[100svh] overflow-hidden bg-black" ref={heroRef}>
-          <motion.div className="absolute inset-0" style={{ scale: heroImageScale, y: heroImageY }}>
-            <Image
-              alt="Blue-hour aerial view of a Louisiana housing community beside wetlands and industrial lights"
-              className="object-cover object-[68%_48%]"
-              fill
-              priority
-              sizes="100vw"
-              src={HOME_HERO_POSTER}
-            />
-            {prefersReducedMotion ? null : (
-              <video
-                aria-hidden="true"
-                autoPlay
-                className={`absolute inset-0 h-full w-full object-cover object-[68%_48%] transition-opacity duration-700 ${
-                  heroVideoReady ? "opacity-100" : "opacity-0"
-                }`}
-                loop
-                muted
-                onCanPlay={() => setHeroVideoReady(true)}
-                onLoadedData={() => setHeroVideoReady(true)}
-                playsInline
-                poster={HOME_HERO_POSTER}
-              >
-                <source src={HOME_HERO_VIDEO} type="video/mp4" />
-              </video>
-            )}
-          </motion.div>
+    <PageShell id="top">
+      <div className="relative overflow-hidden">
+        <BackgroundGrid />
+        <FieldContour />
 
-          <motion.div
-            className="absolute inset-0 bg-[linear-gradient(96deg,rgba(2,6,23,0.96)_0%,rgba(2,6,23,0.78)_28%,rgba(2,6,23,0.26)_56%,rgba(2,6,23,0.82)_100%)]"
-            style={{ opacity: heroOverlayOpacity }}
-          />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_78%_26%,rgba(255,255,255,0.12),transparent_26%)]" />
-          <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-black via-black/56 to-transparent" />
+        <header className="sticky top-0 z-30 border-b border-white/10 bg-[#07111f]/82 backdrop-blur-xl">
+          <Container className="flex h-16 items-center justify-between gap-6">
+            <Link className="min-w-0" href="#top">
+              <span className="block truncate font-mono text-[0.7rem] uppercase tracking-[0.28em] text-white/56">
+                Gallagher Property Company
+              </span>
+              <span className="block truncate text-sm text-white/72">Functional real estate, run with systems.</span>
+            </Link>
 
-          <div className="relative flex min-h-[100svh] flex-col px-6 py-4 md:px-10 md:py-5 lg:px-16">
-            <motion.header
-              animate="visible"
-              className="flex items-center justify-between gap-4 border-b border-white/14 pb-3"
-              initial="hidden"
-              variants={{
-                hidden: {},
-                visible: { transition: { staggerChildren: 0.08, delayChildren: 0.06 } },
-              }}
-            >
-              <motion.div className="space-y-1" variants={HERO_REVEAL}>
-                <p className="font-mono text-[0.72rem] uppercase tracking-[0.3em] text-white/56">
-                  Gallagher Property Company
-                </p>
-                <p className="text-sm text-white/74">Baton Rouge, Louisiana</p>
-              </motion.div>
+            <nav aria-label="Primary" className="hidden items-center gap-6 md:flex">
+              <FooterLink href="#strategy" label="Strategy" />
+              <FooterLink href="#doctrine" label="Doctrine" />
+              <FooterLink href="#platform" label="Platform" />
+              <FooterLink href="#contact" label="Contact" />
+            </nav>
 
-              <motion.div variants={HERO_REVEAL}>
-                <Button
-                  asChild
-                  className="h-10 border-white/18 bg-white/6 px-4 text-white hover:bg-white/12 hover:text-white"
-                  variant="outline"
-                >
-                  <Link href="/login">
-                    Operator access
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Link>
-                </Button>
-              </motion.div>
-            </motion.header>
+            <Button asChild className="h-10 bg-white px-4 text-sm font-semibold text-[#07111f] hover:bg-white/90">
+              <Link href="/login">
+                Enter the live workspace
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          </Container>
+        </header>
 
-            <motion.div
-              animate="visible"
-              className="grid flex-1 gap-6 py-5 lg:grid-cols-[minmax(0,1.06fr)_minmax(18rem,0.94fr)] lg:items-end lg:gap-8"
-              initial="hidden"
-              variants={{
-                hidden: {},
-                visible: { transition: { staggerChildren: 0.08, delayChildren: 0.12 } },
-              }}
-            >
-              <div className="max-w-3xl space-y-5">
-                <motion.div className="space-y-3" variants={HERO_REVEAL}>
-                  <p className="font-mono text-[0.72rem] uppercase tracking-[0.3em] text-white/56">
-                    Manufactured housing with land discipline.
-                  </p>
-                  <h1 className="max-w-[11ch] text-[clamp(3.4rem,7.2vw,6.8rem)] font-semibold tracking-[-0.09em] text-white">
-                    Gallagher
-                    <span className="block">Property Company</span>
-                  </h1>
-                  <p className="max-w-[13ch] text-[clamp(1.4rem,2.5vw,2.3rem)] font-medium leading-[0.98] tracking-[-0.06em] text-white/95">
-                    See the site before the story gets expensive.
-                  </p>
-                  <p className="max-w-md text-sm leading-6 text-white/72 sm:text-base">
-                    We buy, entitle, build, and operate with parcel truth, approval sequence, and operating memory visible from the first pass.
-                  </p>
-                </motion.div>
+        <main>
+          <Section className="overflow-hidden pb-12 pt-14 md:pb-16 md:pt-20">
+            <Container className="grid gap-10 lg:grid-cols-[minmax(0,1.12fr)_minmax(20rem,0.88fr)] lg:items-end">
+              <motion.div animate="visible" initial="hidden" variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.08 } } }}>
+                <div className="max-w-3xl space-y-6">
+                  <motion.div variants={reveal}>
+                    <Eyebrow>Manufactured housing communities + flex industrial</Eyebrow>
+                  </motion.div>
+                  <motion.div className="space-y-5" variants={reveal}>
+                    <Headline>Institutional discipline for functional real estate.</Headline>
+                    <Subhead>
+                      Gallagher Property Company acquires, builds, and manages manufactured housing communities and small-format industrial assets through one operating discipline: basis before story, approvals before spend, operations before optics.
+                    </Subhead>
+                    <Body className="max-w-xl">
+                      The public face is restrained by design. The underlying business is not. Every opportunity is screened, sequenced, and stewarded inside a live working environment built for real estate execution rather than marketing theater.
+                    </Body>
+                  </motion.div>
 
-                <motion.div className="flex flex-wrap items-center gap-3" variants={HERO_REVEAL}>
-                  <Button asChild className="h-12 bg-white px-5 text-sm font-semibold text-black hover:bg-white/90" size="lg">
-                    <Link href="/login">
-                      Enter the live workspace
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Link>
-                  </Button>
-                  <Button
-                    asChild
-                    className="h-12 border-white/20 bg-white/6 px-5 text-sm font-semibold text-white hover:bg-white/12 hover:text-white"
-                    size="lg"
-                    variant="outline"
+                  <motion.div variants={reveal}>
+                    <ButtonGroup>
+                      <Button asChild className="h-12 bg-white px-5 text-sm font-semibold text-[#07111f] hover:bg-white/90" size="lg">
+                        <Link href="/login">
+                          Enter the live workspace
+                          <ArrowRight className="ml-2 h-4 w-4" />
+                        </Link>
+                      </Button>
+                      <Button
+                        asChild
+                        className="h-12 border-white/18 bg-white/[0.04] px-5 text-sm font-semibold text-white hover:bg-white/[0.08] hover:text-white"
+                        size="lg"
+                        variant="outline"
+                      >
+                        <Link href="#strategy">Review strategy</Link>
+                      </Button>
+                    </ButtonGroup>
+                  </motion.div>
+
+                  <motion.div
+                    className="grid gap-4 border-t border-white/10 pt-6 sm:grid-cols-3"
+                    variants={reveal}
                   >
-                    <Link href="#owner-submission">Send a community for review</Link>
-                  </Button>
-                </motion.div>
+                    {heroProof.map((item) => (
+                      <div className="space-y-2" key={item}>
+                        <p className="font-mono text-[0.66rem] uppercase tracking-[0.24em] text-white/44">Operating posture</p>
+                        <p className="text-sm font-semibold tracking-[-0.03em] text-white/92">{item}</p>
+                      </div>
+                    ))}
+                  </motion.div>
+                </div>
+              </motion.div>
 
-                <motion.p className="max-w-sm text-sm leading-6 text-white/58" variants={HERO_REVEAL}>
-                  Open live parcels, approvals, workflows, and evidence in one system.
-                </motion.p>
-
-                <motion.div
-                  className="grid gap-4 border-t border-white/14 pt-4 sm:grid-cols-3"
-                  variants={HERO_REVEAL}
-                >
-                  {heroProofLanes.map((lane) => (
-                    <div className="space-y-2" key={lane.label}>
-                      <h2 className="text-sm font-semibold tracking-[-0.02em] text-white/94">{lane.label}</h2>
-                      <p className="text-sm leading-6 text-white/60">{lane.detail}</p>
+              <motion.div
+                animate="visible"
+                className="relative"
+                initial="hidden"
+                variants={{ hidden: {}, visible: { transition: { delayChildren: 0.12, staggerChildren: 0.08 } } }}
+              >
+                <motion.div className="absolute -inset-12 hidden rounded-full bg-[radial-gradient(circle,rgba(148,163,184,0.14),transparent_64%)] blur-3xl lg:block" variants={reveal} />
+                <motion.div className="relative" variants={reveal}>
+                  <SurfaceCard className="space-y-6 rounded-[2rem] border-white/12 bg-[#0b1627]/88 p-5 md:p-7">
+                    <div className="space-y-3">
+                      <Eyebrow>Operating system</Eyebrow>
+                      <h2 className="text-[1.7rem] font-semibold tracking-[-0.06em] text-white">
+                        One platform behind origination, execution, and hold.
+                      </h2>
+                      <Body className="max-w-none">
+                        The homepage stays quiet. The platform does the talking: parcel context, approvals, diligence, and operator memory remain in frame from first screen to active asset.
+                      </Body>
                     </div>
-                  ))}
+
+                    <Divider />
+
+                    <div className="grid gap-3">
+                      {workflowColumns.map((column, index) => (
+                        <div
+                          className="grid gap-3 rounded-[1.25rem] border border-white/8 bg-white/[0.03] p-4 md:grid-cols-[auto_minmax(0,1fr)]"
+                          key={column.title}
+                        >
+                          <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/12 bg-white/[0.04] font-mono text-sm text-white/76">
+                            {index + 1}
+                          </span>
+                          <div className="space-y-2">
+                            <div>
+                              <p className="text-base font-semibold tracking-[-0.03em] text-white">{column.title}</p>
+                              <p className="mt-1 text-sm leading-6 text-white/60">{column.body}</p>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {column.points.map((point) => (
+                                <span
+                                  className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-white/66"
+                                  key={point}
+                                >
+                                  {point}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </SurfaceCard>
                 </motion.div>
+              </motion.div>
+            </Container>
+          </Section>
+
+          <Section id="strategy" className="pt-8">
+            <Container className="space-y-10">
+              <SectionIntro
+                body="Two lanes, one operating standard. Each strategy is selected for local scarcity, functional utility, and the ability to create value through disciplined execution rather than cosmetic storytelling."
+                eyebrow="Focus snapshot"
+                title="Communities and flex industrial, under one discipline."
+              />
+
+              <div className="grid gap-6 xl:grid-cols-2">
+                {focusLanes.map((lane) => (
+                  <SurfaceCard className="flex h-full flex-col gap-6 bg-white/[0.04]" key={lane.title}>
+                    <div className="space-y-3">
+                      <p className="font-mono text-[0.66rem] uppercase tracking-[0.24em] text-white/44">Focus lane</p>
+                      <h3 className="text-[1.9rem] font-semibold tracking-[-0.06em] text-white">{lane.title}</h3>
+                      <Body className="max-w-none">{lane.summary}</Body>
+                    </div>
+
+                    <Divider />
+
+                    <ul className="grid gap-3">
+                      {lane.bullets.map((bullet) => (
+                        <li className="grid grid-cols-[0.55rem_minmax(0,1fr)] gap-3" key={bullet}>
+                          <span className="mt-[0.52rem] h-2.5 w-2.5 rounded-full bg-white/72" />
+                          <span className="text-sm leading-6 text-white/72">{bullet}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </SurfaceCard>
+                ))}
+              </div>
+            </Container>
+          </Section>
+
+          <Section id="doctrine">
+            <Container className="space-y-10">
+              <SectionIntro
+                body="These principles are the filter, not the tagline. They shape how opportunities are screened, how capital is deployed, and how the operating record is preserved."
+                eyebrow="Operating doctrine"
+                title="A simple framework that governs the entire cycle."
+              />
+
+              <div className="grid gap-5 lg:grid-cols-3">
+                {doctrine.map((item) => (
+                  <SurfaceCard className="space-y-5 bg-[#0b1627]/86" key={item.title}>
+                    <div className="flex items-start justify-between gap-4">
+                      <span className="font-mono text-sm text-white/46">{item.index}</span>
+                      <span className="h-10 w-10 rounded-full border border-white/10 bg-[radial-gradient(circle,rgba(255,255,255,0.18),transparent_65%)]" />
+                    </div>
+                    <div className="space-y-3">
+                      <h3 className="text-[1.45rem] font-semibold tracking-[-0.05em] text-white">{item.title}</h3>
+                      <Body className="max-w-none">{item.body}</Body>
+                    </div>
+                  </SurfaceCard>
+                ))}
+              </div>
+            </Container>
+          </Section>
+
+          <Section>
+            <Container className="space-y-10">
+              <SectionIntro
+                body="The cycle is deliberate: buy with a defensible basis, build with approval discipline, and manage with the operating truth intact."
+                eyebrow="Investment strategy"
+                title="Buy, build, and manage without losing the thread."
+              />
+
+              <div className="grid gap-8 lg:grid-cols-3 lg:gap-10">
+                {strategySteps.map((step) => (
+                  <StepItem body={step.body} index={step.index} key={step.title} title={step.title}>
+                    <ul className="grid gap-2">
+                      {step.bullets.map((bullet) => (
+                        <li className="text-sm leading-6 text-white/66" key={bullet}>
+                          {bullet}
+                        </li>
+                      ))}
+                    </ul>
+                  </StepItem>
+                ))}
+              </div>
+            </Container>
+          </Section>
+
+          <Section id="platform">
+            <Container className="grid gap-8 xl:grid-cols-[minmax(0,0.95fr)_minmax(22rem,1.05fr)] xl:items-start">
+              <div className="space-y-10">
+                <SectionIntro
+                  body="The differentiator is not a slogan. It is a working environment that keeps parcel context, diligence, approvals, evidence, and operating memory connected across the lifecycle."
+                  eyebrow="Operating platform"
+                  title="A real working environment for real estate execution."
+                />
+
+                <div className="grid gap-5">
+                  {workflowColumns.map((column) => (
+                    <SurfaceCard className="space-y-4 bg-white/[0.04]" key={column.title}>
+                      <div className="flex items-center justify-between gap-4">
+                        <h3 className="text-xl font-semibold tracking-[-0.04em] text-white">{column.title}</h3>
+                        <span className="font-mono text-[0.66rem] uppercase tracking-[0.24em] text-white/44">Workflow</span>
+                      </div>
+                      <Body className="max-w-none">{column.body}</Body>
+                      <div className="flex flex-wrap gap-2">
+                        {column.points.map((point) => (
+                          <span
+                            className="rounded-full border border-white/10 px-3 py-1 text-xs text-white/64"
+                            key={point}
+                          >
+                            {point}
+                          </span>
+                        ))}
+                      </div>
+                    </SurfaceCard>
+                  ))}
+                </div>
               </div>
 
-              <motion.div variants={HERO_REVEAL}>
-                <EntitlementOsPreviewPanel
-                  eyebrow="Entitlement OS"
-                  memory={homePreviewMemory}
-                  parcel={{
-                    label: "Active parcel",
-                    value: "Louisiana frontage with wetlands edge and utility friction visible",
-                    detail:
-                      "Land, approvals, evidence, and operating memory stay readable at the same time so the first pass does not break the second one.",
-                  }}
-                  signals={homePreviewSignals}
-                  summary="One operating chain for parcel truth, approvals, evidence, and execution memory."
-                  title="Underwrite what is real"
-                />
-              </motion.div>
-            </motion.div>
-          </div>
-        </section>
+              <EntitlementOsPreviewPanel
+                className="bg-[#091321]/88"
+                eyebrow="Platform view"
+                memory={previewMemory}
+                parcel={{
+                  label: "Live opportunity",
+                  value: "Functional real estate with basis, approvals, and operating memory in one frame",
+                  detail:
+                    "The system keeps context attached from first parcel pass through execution and hold, so the operating record remains useful instead of becoming a stack of disconnected deliverables.",
+                }}
+                signals={previewSignals}
+                summary="An understated interface that keeps the real work visible."
+                title="Origination, execution, and hold inside one operating chain"
+              />
+            </Container>
+          </Section>
 
-        <section className="border-t border-white/10 bg-black px-6 py-20 md:px-10 lg:px-16">
-          <div className="mx-auto max-w-6xl">
-            <div className="grid gap-10 lg:grid-cols-[minmax(0,0.84fr)_minmax(0,1.16fr)] lg:items-end">
-              <motion.div
-                className="max-w-2xl"
-                initial="hidden"
-                variants={HERO_REVEAL}
-                viewport={{ once: true, amount: 0.35 }}
-                whileInView="visible"
-              >
-                <p className="font-mono text-[0.72rem] uppercase tracking-[0.28em] text-white/56">Operating rules</p>
-                <h2 className="mt-3 max-w-[14ch] text-3xl font-semibold tracking-[-0.04em] text-balance sm:text-4xl">
-                  Nothing gets underwritten on faith.
-                </h2>
-                <p className="mt-4 max-w-xl text-base leading-7 text-white/64">
-                  Basis before story. Path before spend. Operations before optics.
-                </p>
-              </motion.div>
+          <Section className="pb-14">
+            <Container>
+              <SurfaceCard className="overflow-hidden rounded-[2rem] border-white/12 bg-[linear-gradient(135deg,rgba(9,19,33,0.96),rgba(15,23,42,0.88))]">
+                <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+                  <div className="space-y-4">
+                    <Eyebrow>Partner access</Eyebrow>
+                    <h2 className="max-w-2xl text-[clamp(2rem,4.2vw,3.3rem)] font-semibold tracking-[-0.07em] text-white">
+                      Enter the live workspace when you want to see how the system actually runs.
+                    </h2>
+                    <Body className="max-w-xl">
+                      The public homepage is the first impression. The operating environment is where diligence, approvals, evidence, and execution remain visible.
+                    </Body>
+                  </div>
 
-              <motion.figure
-                className="relative min-h-[24rem] overflow-hidden rounded-[2rem] border border-white/10 bg-zinc-950/80"
-                initial="hidden"
-                variants={HERO_REVEAL}
-                viewport={{ once: true, amount: 0.25 }}
-                whileInView="visible"
-              >
-                <Image
-                  alt="Blue-hour aerial view of roads, water, and community pads across the Louisiana industrial edge"
-                  className="object-cover object-center"
-                  fill
-                  sizes="(min-width: 1024px) 56vw, 100vw"
-                  src="/images/gpc-home-hero.png"
-                />
-                <div className="absolute inset-0 bg-[linear-gradient(118deg,rgba(2,6,23,0.18)_0%,rgba(2,6,23,0.42)_36%,rgba(2,6,23,0.88)_100%)]" />
-                <div className="absolute inset-x-0 bottom-0 space-y-5 p-6 md:p-8">
-                  <div className="space-y-3">
-                    <p className="font-mono text-[0.68rem] uppercase tracking-[0.24em] text-white/62">Field truth</p>
-                    <h3 className="max-w-[12ch] text-2xl font-semibold tracking-[-0.05em] text-white sm:text-[2rem]">
-                      Basis, approvals, and operating truth stay in one frame.
-                    </h3>
-                  </div>
-                  <div className="grid gap-3 border-t border-white/12 pt-5 md:grid-cols-3">
-                    {underwritingStillNotes.map((note) => (
-                      <p className="text-sm leading-6 text-white/68" key={note}>
-                        {note}
-                      </p>
-                    ))}
-                  </div>
+                  <ButtonGroup className="lg:justify-end">
+                    <Button asChild className="h-12 bg-white px-5 text-sm font-semibold text-[#07111f] hover:bg-white/90" size="lg">
+                      <Link href="/login">
+                        Enter the live workspace
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Link>
+                    </Button>
+                    <Button
+                      asChild
+                      className="h-12 border-white/18 bg-white/[0.04] px-5 text-sm font-semibold text-white hover:bg-white/[0.08] hover:text-white"
+                      size="lg"
+                      variant="outline"
+                    >
+                      <Link href="#strategy">Review strategy</Link>
+                    </Button>
+                  </ButtonGroup>
                 </div>
-              </motion.figure>
+              </SurfaceCard>
+            </Container>
+          </Section>
+        </main>
+
+        <SiteFooter id="contact">
+          <Container className="grid gap-8 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+            <div className="space-y-3">
+              <p className="font-mono text-[0.7rem] uppercase tracking-[0.28em] text-white/46">
+                Gallagher Property Company
+              </p>
+              <p className="max-w-xl text-sm leading-6 text-white/58">
+                Manufactured housing communities and small-format industrial/flex, executed with basis discipline and operating depth.
+              </p>
+              <div className="flex flex-wrap items-center gap-4 text-sm text-white/52">
+                <span>{year}</span>
+                {PUBLIC_SITE_CONTACT_EMAIL ? (
+                  <Link className="transition hover:text-white" href={`mailto:${PUBLIC_SITE_CONTACT_EMAIL}`}>
+                    {PUBLIC_SITE_CONTACT_EMAIL}
+                  </Link>
+                ) : (
+                  <Link className="transition hover:text-white" href="/login">
+                    Request access
+                  </Link>
+                )}
+              </div>
+              {PUBLIC_SITE_DISCLAIMER ? <p className="text-xs leading-5 text-white/38">{PUBLIC_SITE_DISCLAIMER}</p> : null}
             </div>
 
-            <motion.div
-              className="mt-12"
-              initial="hidden"
-              variants={{
-                hidden: {},
-                visible: { transition: { staggerChildren: 0.08, delayChildren: 0.06 } },
-              }}
-              viewport={{ once: true, amount: 0.2 }}
-              whileInView="visible"
-            >
-              {companyModel.map((entry) => (
-                <CompanyModelRow entry={entry} key={entry.title} prefersReducedMotion={prefersReducedMotion} />
-              ))}
-            </motion.div>
-          </div>
-        </section>
-
-        <section className="border-t border-white/10 bg-zinc-950 px-6 py-20 md:px-10 lg:px-16">
-          <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-[minmax(0,0.84fr)_minmax(0,1.16fr)] lg:items-start">
-            <motion.div
-              className="max-w-lg lg:sticky lg:top-12"
-              initial="hidden"
-              variants={HERO_REVEAL}
-              viewport={{ once: true, amount: 0.35 }}
-              whileInView="visible"
-            >
-              <p className="font-mono text-[0.72rem] uppercase tracking-[0.28em] text-white/56">Chain of custody</p>
-              <h2 className="mt-3 max-w-[12ch] text-3xl font-semibold tracking-[-0.04em] text-balance sm:text-4xl">
-                The desk never loses the parcel.
-              </h2>
-              <p className="mt-4 max-w-xl text-base leading-7 text-white/68">
-                Entitlement OS keeps site context, approvals, evidence, workflows, and run history in one working chain. No blind handoffs. No rebuilt diligence.
-              </p>
-              <div className="mt-8 flex flex-wrap gap-3">
-                <Button asChild className="h-11 bg-white px-5 text-sm font-semibold text-black hover:bg-white/90">
-                  <Link href="/login">
-                    Access Entitlement OS
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Link>
-                </Button>
-                <Button
-                  asChild
-                  className="h-11 border-white/20 bg-white/6 px-5 text-sm font-semibold text-white hover:bg-white/12 hover:text-white"
-                  variant="outline"
-                >
-                  <Link href="#owner-submission">Share property details</Link>
-                </Button>
-              </div>
-            </motion.div>
-
-            <motion.div
-              className="border-t border-white/10"
-              initial="hidden"
-              variants={{
-                hidden: {},
-                visible: { transition: { staggerChildren: 0.08, delayChildren: 0.04 } },
-              }}
-              viewport={{ once: true, amount: 0.15 }}
-              whileInView="visible"
-            >
-              {systemChain.map((item, index) => (
-                <motion.article
-                  className="grid gap-4 border-t border-white/10 py-6 first:border-t-0 first:pt-0 md:grid-cols-[auto_minmax(0,1fr)]"
-                  key={item.label}
-                  variants={HERO_REVEAL}
-                >
-                  <p className="font-mono text-[0.72rem] uppercase tracking-[0.28em] text-white/40">
-                    {String(index + 1).padStart(2, "0")}
-                  </p>
-                  <div className="grid gap-4 md:grid-cols-[minmax(0,0.95fr)_minmax(14rem,0.8fr)] md:items-start">
-                    <div>
-                      <h3 className="text-lg font-semibold tracking-[-0.03em] text-white/95">{item.label}</h3>
-                      <p className="mt-2 max-w-2xl text-sm leading-6 text-white/62">{item.detail}</p>
-                    </div>
-                    <p className="text-sm leading-6 text-white/46">{item.support}</p>
-                  </div>
-                </motion.article>
-              ))}
-            </motion.div>
-          </div>
-        </section>
-
-        <MhcOwnerSubmissionSection />
-      </main>
-    </div>
+            <nav aria-label="Footer" className="flex flex-wrap items-center gap-5">
+              <FooterLink href="/login" label="Login" />
+              <FooterLink href="#strategy" label="Strategy" />
+              <FooterLink href="#platform" label="Platform" />
+              <FooterLink href="#top" label="Top" />
+            </nav>
+          </Container>
+        </SiteFooter>
+      </div>
+    </PageShell>
   );
 }

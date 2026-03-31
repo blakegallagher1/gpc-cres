@@ -1,485 +1,1428 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
 exports[`HomePage > renders the public Gallagher Property Company homepage 1`] = `
-<main
-  class="relative overflow-hidden bg-transparent text-foreground"
+<div
+  class="min-h-screen bg-[#07111f] text-white"
+  id="top"
 >
   <div
-    class="absolute inset-x-0 top-0 -z-10 h-[44rem] bg-[radial-gradient(circle_at_top_left,oklch(var(--shell-glow)/0.14),transparent_28%),linear-gradient(180deg,transparent,oklch(var(--color-background)/0.1))]"
-  />
-  <div
-    class="absolute inset-x-0 top-16 -z-10 mx-auto hidden h-[28rem] w-[84%] max-w-5xl bg-white/12 blur-3xl md:block dark:bg-white/5"
-  />
-  <section
-    class="mx-auto flex min-h-[100svh] w-full max-w-7xl flex-col px-5 pb-14 pt-6 sm:px-6 lg:px-8"
+    class="relative overflow-hidden"
   >
-    <header
-      class="mb-12 flex items-center justify-between border-b border-border/55 pb-5"
-    >
-      <div>
-        <p
-          class="font-mono text-[0.68rem] uppercase tracking-[0.34em] text-muted-foreground"
-        >
-          Gallagher Property Company
-        </p>
-        <p
-          class="mt-2 text-sm text-muted-foreground"
-        >
-          Real estate investment and development
-        </p>
-      </div>
-      <nav
-        class="hidden items-center gap-7 text-sm text-muted-foreground md:flex"
-      >
-        <a
-          class="transition-colors hover:text-foreground"
-          href="#focus"
-        >
-          Focus
-        </a>
-        <a
-          class="transition-colors hover:text-foreground"
-          href="#strategy"
-        >
-          Strategy
-        </a>
-        <a
-          class="transition-colors hover:text-foreground"
-          href="#platform"
-        >
-          Platform
-        </a>
-      </nav>
-    </header>
     <div
-      class="grid gap-12 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start lg:gap-16"
+      class="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(120,140,165,0.18),transparent_38%)]"
+    />
+    <div
+      class="absolute inset-0 bg-[linear-gradient(rgba(148,163,184,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.08)_1px,transparent_1px)] bg-[size:72px_72px] [mask-image:linear-gradient(to_bottom,rgba(0,0,0,0.78),transparent)]"
+    />
+    <div
+      class="absolute inset-y-0 right-0 w-[44rem] bg-[radial-gradient(circle_at_center,rgba(148,163,184,0.12),transparent_62%)]"
+    />
+    <div
+      aria-hidden="true"
+      class="pointer-events-none absolute inset-x-0 top-10 hidden h-[28rem] opacity-50 lg:block"
+    >
+      <svg
+        class="h-full w-full"
+        fill="none"
+        viewBox="0 0 1200 520"
+      >
+        <path
+          d="M48 410C156 351 218 358 326 312C449 260 457 160 598 149C724 139 792 220 915 210C1029 201 1095 113 1160 80"
+          stroke="rgba(226,232,240,0.18)"
+          stroke-width="1.2"
+        />
+        <path
+          d="M58 446C173 388 235 392 337 352C449 308 494 217 627 209C748 202 814 286 927 279C1033 272 1091 189 1152 158"
+          stroke="rgba(226,232,240,0.16)"
+          stroke-width="1.2"
+        />
+        <path
+          d="M68 482C189 427 263 430 362 393C471 353 537 276 662 269C781 262 847 345 948 342C1042 339 1090 262 1146 234"
+          stroke="rgba(226,232,240,0.14)"
+          stroke-width="1.2"
+        />
+        <circle
+          cx="880"
+          cy="210"
+          fill="rgba(248,250,252,0.75)"
+          r="3"
+        />
+        <circle
+          cx="945"
+          cy="279"
+          fill="rgba(248,250,252,0.58)"
+          r="3"
+        />
+        <circle
+          cx="663"
+          cy="269"
+          fill="rgba(248,250,252,0.5)"
+          r="3"
+        />
+      </svg>
+    </div>
+    <header
+      class="sticky top-0 z-30 border-b border-white/10 bg-[#07111f]/82 backdrop-blur-xl"
     >
       <div
-        class="max-w-5xl"
+        class="mx-auto w-full max-w-[1280px] px-6 md:px-10 lg:px-16 flex h-16 items-center justify-between gap-6"
       >
-        <p
-          class="font-mono text-[0.72rem] uppercase tracking-[0.32em] text-muted-foreground"
-        >
-          Manufactured Housing + Flex Industrial
-        </p>
-        <h2
-          class="mt-6 text-2xl font-semibold tracking-[-0.05em] sm:text-3xl"
-        >
-          Gallagher Property Company
-        </h2>
-        <h1
-          class="mt-8 max-w-[10.5ch] text-[clamp(4rem,8.6vw,7.75rem)] leading-[0.9] font-semibold tracking-[-0.075em]"
+        <a
+          class="min-w-0"
+          href="#top"
         >
           <span
-            class="block"
+            class="block truncate font-mono text-[0.7rem] uppercase tracking-[0.28em] text-white/56"
           >
-            We acquire and develop
+            Gallagher Property Company
           </span>
           <span
-            class="mt-2 block"
+            class="block truncate text-sm text-white/72"
           >
-            manufactured housing communities
+            Functional real estate, run with systems.
           </span>
-          <span
-            class="mt-2 block"
-          >
-            and infill industrial assets
-          </span>
-          <span
-            class="mt-2 block text-foreground/78"
-          >
-            under 50,000 SF, focused on flex-warehouse.
-          </span>
-        </h1>
-        <div
-          class="mt-10 max-w-3xl border-t border-border/55 pt-6"
-        >
-          <p
-            class="text-sm font-medium tracking-[-0.02em] text-foreground/88 sm:text-base"
-          >
-            We acquire and develop manufactured housing communities and infill industrial assets under 50,000 SF, focused on flex-warehouse.
-          </p>
-          <p
-            class="mt-4 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg"
-          >
-            Gallagher Property Company is built around functional real estate: housing communities with durable demand and small-format industrial properties where usability, access, and local scarcity drive value.
-          </p>
-          <p
-            class="mt-4 font-mono text-[0.72rem] uppercase tracking-[0.28em] text-muted-foreground"
-          >
-            See the site before the story gets expensive.
-          </p>
-        </div>
-        <div
-          class="mt-8 flex flex-col gap-3 sm:flex-row"
+        </a>
+        <nav
+          aria-label="Primary"
+          class="hidden items-center gap-6 md:flex"
         >
           <a
-            class="inline-flex min-h-12 items-center justify-center rounded-full bg-foreground px-6 text-sm font-medium text-background transition-transform duration-200 hover:-translate-y-0.5"
-            href="/login"
-          >
-            Enter the platform
-          </a>
-          <a
-            class="inline-flex min-h-12 items-center justify-center rounded-full border border-border bg-background/70 px-6 text-sm font-medium text-foreground backdrop-blur transition-colors hover:bg-background"
+            class="text-sm text-white/60 transition hover:text-white"
             href="#strategy"
           >
-            Review strategy
+            Strategy
           </a>
-        </div>
+          <a
+            class="text-sm text-white/60 transition hover:text-white"
+            href="#doctrine"
+          >
+            Doctrine
+          </a>
+          <a
+            class="text-sm text-white/60 transition hover:text-white"
+            href="#platform"
+          >
+            Platform
+          </a>
+          <a
+            class="text-sm text-white/60 transition hover:text-white"
+            href="#contact"
+          >
+            Contact
+          </a>
+        </nav>
+        <a
+          class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border border-transparent tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 hover:-translate-y-px py-2 h-10 bg-white px-4 text-sm font-semibold text-[#07111f] hover:bg-white/90"
+          href="/login"
+        >
+          Enter the live workspace
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-arrow-right ml-2 h-4 w-4"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M5 12h14"
+            />
+            <path
+              d="m12 5 7 7-7 7"
+            />
+          </svg>
+        </a>
       </div>
-      <aside
-        class="border-t border-border/55 pt-6 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0"
+    </header>
+    <main>
+      <section
+        class="relative py-16 md:py-24 overflow-hidden pb-12 pt-14 md:pb-16 md:pt-20"
       >
         <div
-          class="flex items-center justify-between gap-4"
+          class="mx-auto w-full max-w-[1280px] px-6 md:px-10 lg:px-16 grid gap-10 lg:grid-cols-[minmax(0,1.12fr)_minmax(20rem,0.88fr)] lg:items-end"
         >
-          <p
-            class="font-mono text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground"
+          <div>
+            <div
+              class="max-w-3xl space-y-6"
+            >
+              <div
+                style="opacity: 0; transform: translateY(20px);"
+              >
+                <p
+                  class="font-mono text-[0.68rem] uppercase tracking-[0.28em] text-white/54"
+                >
+                  Manufactured housing communities + flex industrial
+                </p>
+              </div>
+              <div
+                class="space-y-5"
+                style="opacity: 0; transform: translateY(20px);"
+              >
+                <h1
+                  class="text-[clamp(3.4rem,7vw,6.4rem)] font-semibold tracking-[-0.08em] text-white"
+                >
+                  Institutional discipline for functional real estate.
+                </h1>
+                <p
+                  class="max-w-2xl text-[clamp(1.15rem,2vw,1.55rem)] leading-[1.2] tracking-[-0.04em] text-white/86"
+                >
+                  Gallagher Property Company acquires, builds, and manages manufactured housing communities and small-format industrial assets through one operating discipline: basis before story, approvals before spend, operations before optics.
+                </p>
+                <p
+                  class="text-sm leading-6 text-white/62 sm:text-[0.97rem] max-w-xl"
+                >
+                  The public face is restrained by design. The underlying business is not. Every opportunity is screened, sequenced, and stewarded inside a live working environment built for real estate execution rather than marketing theater.
+                </p>
+              </div>
+              <div
+                style="opacity: 0; transform: translateY(20px);"
+              >
+                <div
+                  class="flex flex-wrap items-center gap-3"
+                >
+                  <a
+                    class="inline-flex items-center justify-center whitespace-nowrap border border-transparent tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 hover:-translate-y-px rounded-xl h-12 bg-white px-5 text-sm font-semibold text-[#07111f] hover:bg-white/90"
+                    href="/login"
+                  >
+                    Enter the live workspace
+                    <svg
+                      aria-hidden="true"
+                      class="lucide lucide-arrow-right ml-2 h-4 w-4"
+                      fill="none"
+                      height="24"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      viewBox="0 0 24 24"
+                      width="24"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M5 12h14"
+                      />
+                      <path
+                        d="m12 5 7 7-7 7"
+                      />
+                    </svg>
+                  </a>
+                  <a
+                    class="inline-flex items-center justify-center whitespace-nowrap border tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 rounded-xl h-12 border-white/18 bg-white/[0.04] px-5 text-sm font-semibold text-white hover:bg-white/[0.08] hover:text-white"
+                    href="#strategy"
+                  >
+                    Review strategy
+                  </a>
+                </div>
+              </div>
+              <div
+                class="grid gap-4 border-t border-white/10 pt-6 sm:grid-cols-3"
+                style="opacity: 0; transform: translateY(20px);"
+              >
+                <div
+                  class="space-y-2"
+                >
+                  <p
+                    class="font-mono text-[0.66rem] uppercase tracking-[0.24em] text-white/44"
+                  >
+                    Operating posture
+                  </p>
+                  <p
+                    class="text-sm font-semibold tracking-[-0.03em] text-white/92"
+                  >
+                    Basis before story
+                  </p>
+                </div>
+                <div
+                  class="space-y-2"
+                >
+                  <p
+                    class="font-mono text-[0.66rem] uppercase tracking-[0.24em] text-white/44"
+                  >
+                    Operating posture
+                  </p>
+                  <p
+                    class="text-sm font-semibold tracking-[-0.03em] text-white/92"
+                  >
+                    Approvals before spend
+                  </p>
+                </div>
+                <div
+                  class="space-y-2"
+                >
+                  <p
+                    class="font-mono text-[0.66rem] uppercase tracking-[0.24em] text-white/44"
+                  >
+                    Operating posture
+                  </p>
+                  <p
+                    class="text-sm font-semibold tracking-[-0.03em] text-white/92"
+                  >
+                    Operations before optics
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div
+            class="relative"
           >
-            Focus Snapshot
-          </p>
-          <span
-            class="text-[0.72rem] font-medium uppercase tracking-[0.22em] text-muted-foreground"
-          >
-            2026
-          </span>
+            <div
+              class="absolute -inset-12 hidden rounded-full bg-[radial-gradient(circle,rgba(148,163,184,0.14),transparent_64%)] blur-3xl lg:block"
+              style="opacity: 0; transform: translateY(20px);"
+            />
+            <div
+              class="relative"
+              style="opacity: 0; transform: translateY(20px);"
+            >
+              <div
+                class="border shadow-[0_24px_80px_rgba(1,10,25,0.24)] backdrop-blur-sm space-y-6 rounded-[2rem] border-white/12 bg-[#0b1627]/88 p-5 md:p-7"
+              >
+                <div
+                  class="space-y-3"
+                >
+                  <p
+                    class="font-mono text-[0.68rem] uppercase tracking-[0.28em] text-white/54"
+                  >
+                    Operating system
+                  </p>
+                  <h2
+                    class="text-[1.7rem] font-semibold tracking-[-0.06em] text-white"
+                  >
+                    One platform behind origination, execution, and hold.
+                  </h2>
+                  <p
+                    class="text-sm leading-6 text-white/62 sm:text-[0.97rem] max-w-none"
+                  >
+                    The homepage stays quiet. The platform does the talking: parcel context, approvals, diligence, and operator memory remain in frame from first screen to active asset.
+                  </p>
+                </div>
+                <div
+                  class="h-px w-full bg-white/10"
+                />
+                <div
+                  class="grid gap-3"
+                >
+                  <div
+                    class="grid gap-3 rounded-[1.25rem] border border-white/8 bg-white/[0.03] p-4 md:grid-cols-[auto_minmax(0,1fr)]"
+                  >
+                    <span
+                      class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/12 bg-white/[0.04] font-mono text-sm text-white/76"
+                    >
+                      1
+                    </span>
+                    <div
+                      class="space-y-2"
+                    >
+                      <div>
+                        <p
+                          class="text-base font-semibold tracking-[-0.03em] text-white"
+                        >
+                          Origination
+                        </p>
+                        <p
+                          class="mt-1 text-sm leading-6 text-white/60"
+                        >
+                          Parcel context, market friction, and access constraints are visible before an opportunity becomes a narrative.
+                        </p>
+                      </div>
+                      <div
+                        class="flex flex-wrap gap-2"
+                      >
+                        <span
+                          class="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-white/66"
+                        >
+                          Mapping and parcel context
+                        </span>
+                        <span
+                          class="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-white/66"
+                        >
+                          Site constraints and adjacency
+                        </span>
+                        <span
+                          class="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-white/66"
+                        >
+                          Basis screen with local reality in view
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    class="grid gap-3 rounded-[1.25rem] border border-white/8 bg-white/[0.03] p-4 md:grid-cols-[auto_minmax(0,1fr)]"
+                  >
+                    <span
+                      class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/12 bg-white/[0.04] font-mono text-sm text-white/76"
+                    >
+                      2
+                    </span>
+                    <div
+                      class="space-y-2"
+                    >
+                      <div>
+                        <p
+                          class="text-base font-semibold tracking-[-0.03em] text-white"
+                        >
+                          Execution
+                        </p>
+                        <p
+                          class="mt-1 text-sm leading-6 text-white/60"
+                        >
+                          Diligence, approvals, and evidence stay inside one working environment so every next step is tied to the actual site.
+                        </p>
+                      </div>
+                      <div
+                        class="flex flex-wrap gap-2"
+                      >
+                        <span
+                          class="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-white/66"
+                        >
+                          Diligence workflow
+                        </span>
+                        <span
+                          class="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-white/66"
+                        >
+                          Approvals and evidence chain
+                        </span>
+                        <span
+                          class="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-white/66"
+                        >
+                          Decision record attached to the live deal
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    class="grid gap-3 rounded-[1.25rem] border border-white/8 bg-white/[0.03] p-4 md:grid-cols-[auto_minmax(0,1fr)]"
+                  >
+                    <span
+                      class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/12 bg-white/[0.04] font-mono text-sm text-white/76"
+                    >
+                      3
+                    </span>
+                    <div
+                      class="space-y-2"
+                    >
+                      <div>
+                        <p
+                          class="text-base font-semibold tracking-[-0.03em] text-white"
+                        >
+                          Hold
+                        </p>
+                        <p
+                          class="mt-1 text-sm leading-6 text-white/60"
+                        >
+                          The operating record remains usable after close, preserving why the asset was bought and how it should be run.
+                        </p>
+                      </div>
+                      <div
+                        class="flex flex-wrap gap-2"
+                      >
+                        <span
+                          class="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-white/66"
+                        >
+                          Operating memory
+                        </span>
+                        <span
+                          class="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-white/66"
+                        >
+                          Stewardship notes and recurring workflows
+                        </span>
+                        <span
+                          class="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-white/66"
+                        >
+                          Partner-ready context without rebuilding the file
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-        <p
-          class="mt-5 text-2xl font-semibold tracking-[-0.04em]"
-        >
-          Two lanes. One operating discipline.
-        </p>
+      </section>
+      <section
+        class="relative py-16 md:py-24 pt-8"
+        id="strategy"
+      >
         <div
-          class="mt-8 space-y-6"
+          class="mx-auto w-full max-w-[1280px] px-6 md:px-10 lg:px-16 space-y-10"
         >
           <div
-            class="pb-6"
+            class="max-w-2xl space-y-4"
           >
             <p
-              class="text-sm font-semibold tracking-[-0.02em]"
+              class="font-mono text-[0.68rem] uppercase tracking-[0.28em] text-white/54"
             >
-              Manufactured Housing Communities
+              Focus snapshot
             </p>
-            <p
-              class="mt-2 text-sm leading-6 text-muted-foreground"
+            <h2
+              class="text-[clamp(2rem,4vw,3.3rem)] font-semibold tracking-[-0.07em] text-white"
             >
-              Acquire and develop communities where basis discipline, site control, and execution speed create durable housing supply.
+              Communities and flex industrial, under one discipline.
+            </h2>
+            <p
+              class="max-w-2xl text-sm leading-6 text-white/62 sm:text-[0.97rem]"
+            >
+              Two lanes, one operating standard. Each strategy is selected for local scarcity, functional utility, and the ability to create value through disciplined execution rather than cosmetic storytelling.
             </p>
           </div>
           <div
-            class="border-t border-border/50 pt-6"
+            class="grid gap-6 xl:grid-cols-2"
           >
-            <p
-              class="text-sm font-semibold tracking-[-0.02em]"
+            <div
+              class="rounded-[1.75rem] border border-white/10 p-6 shadow-[0_24px_80px_rgba(1,10,25,0.24)] backdrop-blur-sm md:p-8 flex h-full flex-col gap-6 bg-white/[0.04]"
             >
-              Infill Industrial Under 50,000 SF
-            </p>
-            <p
-              class="mt-2 text-sm leading-6 text-muted-foreground"
+              <div
+                class="space-y-3"
+              >
+                <p
+                  class="font-mono text-[0.66rem] uppercase tracking-[0.24em] text-white/44"
+                >
+                  Focus lane
+                </p>
+                <h3
+                  class="text-[1.9rem] font-semibold tracking-[-0.06em] text-white"
+                >
+                  Manufactured housing communities
+                </h3>
+                <p
+                  class="text-sm leading-6 text-white/62 sm:text-[0.97rem] max-w-none"
+                >
+                  Target communities where demand durability, local friction, and basis discipline create room for real operational work.
+                </p>
+              </div>
+              <div
+                class="h-px w-full bg-white/10"
+              />
+              <ul
+                class="grid gap-3"
+              >
+                <li
+                  class="grid grid-cols-[0.55rem_minmax(0,1fr)] gap-3"
+                >
+                  <span
+                    class="mt-[0.52rem] h-2.5 w-2.5 rounded-full bg-white/72"
+                  />
+                  <span
+                    class="text-sm leading-6 text-white/72"
+                  >
+                    Basis discipline ahead of brochure-quality narratives
+                  </span>
+                </li>
+                <li
+                  class="grid grid-cols-[0.55rem_minmax(0,1fr)] gap-3"
+                >
+                  <span
+                    class="mt-[0.52rem] h-2.5 w-2.5 rounded-full bg-white/72"
+                  />
+                  <span
+                    class="text-sm leading-6 text-white/72"
+                  >
+                    Site control anchored in access, utilities, and resident practicality
+                  </span>
+                </li>
+                <li
+                  class="grid grid-cols-[0.55rem_minmax(0,1fr)] gap-3"
+                >
+                  <span
+                    class="mt-[0.52rem] h-2.5 w-2.5 rounded-full bg-white/72"
+                  />
+                  <span
+                    class="text-sm leading-6 text-white/72"
+                  >
+                    Execution speed shaped by local knowledge and approval sequence
+                  </span>
+                </li>
+                <li
+                  class="grid grid-cols-[0.55rem_minmax(0,1fr)] gap-3"
+                >
+                  <span
+                    class="mt-[0.52rem] h-2.5 w-2.5 rounded-full bg-white/72"
+                  />
+                  <span
+                    class="text-sm leading-6 text-white/72"
+                  >
+                    Operational depth that carries beyond acquisition
+                  </span>
+                </li>
+              </ul>
+            </div>
+            <div
+              class="rounded-[1.75rem] border border-white/10 p-6 shadow-[0_24px_80px_rgba(1,10,25,0.24)] backdrop-blur-sm md:p-8 flex h-full flex-col gap-6 bg-white/[0.04]"
             >
-              Target small-bay industrial and flex-warehouse assets in infill locations where local access and functionality matter more than scale.
-            </p>
+              <div
+                class="space-y-3"
+              >
+                <p
+                  class="font-mono text-[0.66rem] uppercase tracking-[0.24em] text-white/44"
+                >
+                  Focus lane
+                </p>
+                <h3
+                  class="text-[1.9rem] font-semibold tracking-[-0.06em] text-white"
+                >
+                  Infill industrial under 50,000 SF
+                </h3>
+                <p
+                  class="text-sm leading-6 text-white/62 sm:text-[0.97rem] max-w-none"
+                >
+                  Pursue small-format industrial and flex where usability, replacement cost awareness, and local scarcity drive resilient performance.
+                </p>
+              </div>
+              <div
+                class="h-px w-full bg-white/10"
+              />
+              <ul
+                class="grid gap-3"
+              >
+                <li
+                  class="grid grid-cols-[0.55rem_minmax(0,1fr)] gap-3"
+                >
+                  <span
+                    class="mt-[0.52rem] h-2.5 w-2.5 rounded-full bg-white/72"
+                  />
+                  <span
+                    class="text-sm leading-6 text-white/72"
+                  >
+                    Functional layouts with clear access and durable tenant utility
+                  </span>
+                </li>
+                <li
+                  class="grid grid-cols-[0.55rem_minmax(0,1fr)] gap-3"
+                >
+                  <span
+                    class="mt-[0.52rem] h-2.5 w-2.5 rounded-full bg-white/72"
+                  />
+                  <span
+                    class="text-sm leading-6 text-white/72"
+                  >
+                    Local scarcity over speculative rent stories
+                  </span>
+                </li>
+                <li
+                  class="grid grid-cols-[0.55rem_minmax(0,1fr)] gap-3"
+                >
+                  <span
+                    class="mt-[0.52rem] h-2.5 w-2.5 rounded-full bg-white/72"
+                  />
+                  <span
+                    class="text-sm leading-6 text-white/72"
+                  >
+                    Replacement cost awareness embedded in every acquisition screen
+                  </span>
+                </li>
+                <li
+                  class="grid grid-cols-[0.55rem_minmax(0,1fr)] gap-3"
+                >
+                  <span
+                    class="mt-[0.52rem] h-2.5 w-2.5 rounded-full bg-white/72"
+                  />
+                  <span
+                    class="text-sm leading-6 text-white/72"
+                  >
+                    Straightforward stewardship that respects the real work on site
+                  </span>
+                </li>
+              </ul>
+            </div>
           </div>
         </div>
-        <dl
-          class="mt-8 space-y-5 border-t border-border/50 pt-6 text-sm"
+      </section>
+      <section
+        class="relative py-16 md:py-24"
+        id="doctrine"
+      >
+        <div
+          class="mx-auto w-full max-w-[1280px] px-6 md:px-10 lg:px-16 space-y-10"
         >
-          <div>
-            <dt
-              class="font-mono text-[0.66rem] uppercase tracking-[0.22em] text-muted-foreground"
+          <div
+            class="max-w-2xl space-y-4"
+          >
+            <p
+              class="font-mono text-[0.68rem] uppercase tracking-[0.28em] text-white/54"
             >
-              Asset profile
-            </dt>
-            <dd
-              class="mt-2 font-medium"
+              Operating doctrine
+            </p>
+            <h2
+              class="text-[clamp(2rem,4vw,3.3rem)] font-semibold tracking-[-0.07em] text-white"
             >
-              Operationally useful, supply-aware
-            </dd>
+              A simple framework that governs the entire cycle.
+            </h2>
+            <p
+              class="max-w-2xl text-sm leading-6 text-white/62 sm:text-[0.97rem]"
+            >
+              These principles are the filter, not the tagline. They shape how opportunities are screened, how capital is deployed, and how the operating record is preserved.
+            </p>
           </div>
-          <div>
-            <dt
-              class="font-mono text-[0.66rem] uppercase tracking-[0.22em] text-muted-foreground"
+          <div
+            class="grid gap-5 lg:grid-cols-3"
+          >
+            <div
+              class="rounded-[1.75rem] border border-white/10 p-6 shadow-[0_24px_80px_rgba(1,10,25,0.24)] backdrop-blur-sm md:p-8 space-y-5 bg-[#0b1627]/86"
             >
-              Industrial lane
-            </dt>
-            <dd
-              class="mt-2 font-medium"
+              <div
+                class="flex items-start justify-between gap-4"
+              >
+                <span
+                  class="font-mono text-sm text-white/46"
+                >
+                  01
+                </span>
+                <span
+                  class="h-10 w-10 rounded-full border border-white/10 bg-[radial-gradient(circle,rgba(255,255,255,0.18),transparent_65%)]"
+                />
+              </div>
+              <div
+                class="space-y-3"
+              >
+                <h3
+                  class="text-[1.45rem] font-semibold tracking-[-0.05em] text-white"
+                >
+                  Basis before story
+                </h3>
+                <p
+                  class="text-sm leading-6 text-white/62 sm:text-[0.97rem] max-w-none"
+                >
+                  Start with what the dirt, access, utilities, and local market will actually support. Narrative follows the basis, not the reverse.
+                </p>
+              </div>
+            </div>
+            <div
+              class="rounded-[1.75rem] border border-white/10 p-6 shadow-[0_24px_80px_rgba(1,10,25,0.24)] backdrop-blur-sm md:p-8 space-y-5 bg-[#0b1627]/86"
             >
-              Under 50,000 SF, flex-warehouse
-            </dd>
+              <div
+                class="flex items-start justify-between gap-4"
+              >
+                <span
+                  class="font-mono text-sm text-white/46"
+                >
+                  02
+                </span>
+                <span
+                  class="h-10 w-10 rounded-full border border-white/10 bg-[radial-gradient(circle,rgba(255,255,255,0.18),transparent_65%)]"
+                />
+              </div>
+              <div
+                class="space-y-3"
+              >
+                <h3
+                  class="text-[1.45rem] font-semibold tracking-[-0.05em] text-white"
+                >
+                  Approvals before spend
+                </h3>
+                <p
+                  class="text-sm leading-6 text-white/62 sm:text-[0.97rem] max-w-none"
+                >
+                  Map the political and technical path before consultants, drawings, and optimism start consuming capital.
+                </p>
+              </div>
+            </div>
+            <div
+              class="rounded-[1.75rem] border border-white/10 p-6 shadow-[0_24px_80px_rgba(1,10,25,0.24)] backdrop-blur-sm md:p-8 space-y-5 bg-[#0b1627]/86"
+            >
+              <div
+                class="flex items-start justify-between gap-4"
+              >
+                <span
+                  class="font-mono text-sm text-white/46"
+                >
+                  03
+                </span>
+                <span
+                  class="h-10 w-10 rounded-full border border-white/10 bg-[radial-gradient(circle,rgba(255,255,255,0.18),transparent_65%)]"
+                />
+              </div>
+              <div
+                class="space-y-3"
+              >
+                <h3
+                  class="text-[1.45rem] font-semibold tracking-[-0.05em] text-white"
+                >
+                  Operations before optics
+                </h3>
+                <p
+                  class="text-sm leading-6 text-white/62 sm:text-[0.97rem] max-w-none"
+                >
+                  Underwrite the handoff into day-two stewardship so the operating truth remains stronger than presentation polish.
+                </p>
+              </div>
+            </div>
           </div>
-        </dl>
-      </aside>
-    </div>
-    <div
-      class="mt-14 border-t border-border/55 pt-8"
-      id="focus"
+        </div>
+      </section>
+      <section
+        class="relative py-16 md:py-24"
+      >
+        <div
+          class="mx-auto w-full max-w-[1280px] px-6 md:px-10 lg:px-16 space-y-10"
+        >
+          <div
+            class="max-w-2xl space-y-4"
+          >
+            <p
+              class="font-mono text-[0.68rem] uppercase tracking-[0.28em] text-white/54"
+            >
+              Investment strategy
+            </p>
+            <h2
+              class="text-[clamp(2rem,4vw,3.3rem)] font-semibold tracking-[-0.07em] text-white"
+            >
+              Buy, build, and manage without losing the thread.
+            </h2>
+            <p
+              class="max-w-2xl text-sm leading-6 text-white/62 sm:text-[0.97rem]"
+            >
+              The cycle is deliberate: buy with a defensible basis, build with approval discipline, and manage with the operating truth intact.
+            </p>
+          </div>
+          <div
+            class="grid gap-8 lg:grid-cols-3 lg:gap-10"
+          >
+            <div
+              class="grid gap-4"
+            >
+              <div
+                class="flex items-center gap-4"
+              >
+                <span
+                  class="flex h-10 w-10 items-center justify-center rounded-full border border-white/12 bg-white/[0.04] font-mono text-sm text-white/78"
+                >
+                  1
+                </span>
+                <div
+                  class="h-px flex-1 bg-white/10"
+                />
+              </div>
+              <div
+                class="space-y-3"
+              >
+                <h3
+                  class="text-xl font-semibold tracking-[-0.04em] text-white"
+                >
+                  Buy
+                </h3>
+                <p
+                  class="text-sm leading-6 text-white/62 sm:text-[0.97rem] max-w-none"
+                >
+                  Acquire where basis is defensible, access is real, and replacement cost discipline still matters more than momentum.
+                </p>
+                <ul
+                  class="grid gap-2"
+                >
+                  <li
+                    class="text-sm leading-6 text-white/66"
+                  >
+                    Parcel context stays attached to the underwriting file.
+                  </li>
+                  <li
+                    class="text-sm leading-6 text-white/66"
+                  >
+                    Scarcity and functionality outrank vanity comps.
+                  </li>
+                </ul>
+              </div>
+            </div>
+            <div
+              class="grid gap-4"
+            >
+              <div
+                class="flex items-center gap-4"
+              >
+                <span
+                  class="flex h-10 w-10 items-center justify-center rounded-full border border-white/12 bg-white/[0.04] font-mono text-sm text-white/78"
+                >
+                  2
+                </span>
+                <div
+                  class="h-px flex-1 bg-white/10"
+                />
+              </div>
+              <div
+                class="space-y-3"
+              >
+                <h3
+                  class="text-xl font-semibold tracking-[-0.04em] text-white"
+                >
+                  Build
+                </h3>
+                <p
+                  class="text-sm leading-6 text-white/62 sm:text-[0.97rem] max-w-none"
+                >
+                  Sequence entitlement, utilities, and execution dependencies before scope expands. Capital follows clarity.
+                </p>
+                <ul
+                  class="grid gap-2"
+                >
+                  <li
+                    class="text-sm leading-6 text-white/66"
+                  >
+                    Approvals are treated as a working system, not a presentation appendix.
+                  </li>
+                  <li
+                    class="text-sm leading-6 text-white/66"
+                  >
+                    Site control and sequencing stay visible to partners and operators.
+                  </li>
+                </ul>
+              </div>
+            </div>
+            <div
+              class="grid gap-4"
+            >
+              <div
+                class="flex items-center gap-4"
+              >
+                <span
+                  class="flex h-10 w-10 items-center justify-center rounded-full border border-white/12 bg-white/[0.04] font-mono text-sm text-white/78"
+                >
+                  3
+                </span>
+                <div
+                  class="h-px flex-1 bg-white/10"
+                />
+              </div>
+              <div
+                class="space-y-3"
+              >
+                <h3
+                  class="text-xl font-semibold tracking-[-0.04em] text-white"
+                >
+                  Manage
+                </h3>
+                <p
+                  class="text-sm leading-6 text-white/62 sm:text-[0.97rem] max-w-none"
+                >
+                  Operate for collections, tenant or resident usefulness, and durable learning. Memory compounds alongside the asset.
+                </p>
+                <ul
+                  class="grid gap-2"
+                >
+                  <li
+                    class="text-sm leading-6 text-white/66"
+                  >
+                    Execution history survives handoff into hold.
+                  </li>
+                  <li
+                    class="text-sm leading-6 text-white/66"
+                  >
+                    Operating decisions stay tied to the original basis.
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section
+        class="relative py-16 md:py-24"
+        id="platform"
+      >
+        <div
+          class="mx-auto w-full max-w-[1280px] px-6 md:px-10 lg:px-16 grid gap-8 xl:grid-cols-[minmax(0,0.95fr)_minmax(22rem,1.05fr)] xl:items-start"
+        >
+          <div
+            class="space-y-10"
+          >
+            <div
+              class="max-w-2xl space-y-4"
+            >
+              <p
+                class="font-mono text-[0.68rem] uppercase tracking-[0.28em] text-white/54"
+              >
+                Operating platform
+              </p>
+              <h2
+                class="text-[clamp(2rem,4vw,3.3rem)] font-semibold tracking-[-0.07em] text-white"
+              >
+                A real working environment for real estate execution.
+              </h2>
+              <p
+                class="max-w-2xl text-sm leading-6 text-white/62 sm:text-[0.97rem]"
+              >
+                The differentiator is not a slogan. It is a working environment that keeps parcel context, diligence, approvals, evidence, and operating memory connected across the lifecycle.
+              </p>
+            </div>
+            <div
+              class="grid gap-5"
+            >
+              <div
+                class="rounded-[1.75rem] border border-white/10 p-6 shadow-[0_24px_80px_rgba(1,10,25,0.24)] backdrop-blur-sm md:p-8 space-y-4 bg-white/[0.04]"
+              >
+                <div
+                  class="flex items-center justify-between gap-4"
+                >
+                  <h3
+                    class="text-xl font-semibold tracking-[-0.04em] text-white"
+                  >
+                    Origination
+                  </h3>
+                  <span
+                    class="font-mono text-[0.66rem] uppercase tracking-[0.24em] text-white/44"
+                  >
+                    Workflow
+                  </span>
+                </div>
+                <p
+                  class="text-sm leading-6 text-white/62 sm:text-[0.97rem] max-w-none"
+                >
+                  Parcel context, market friction, and access constraints are visible before an opportunity becomes a narrative.
+                </p>
+                <div
+                  class="flex flex-wrap gap-2"
+                >
+                  <span
+                    class="rounded-full border border-white/10 px-3 py-1 text-xs text-white/64"
+                  >
+                    Mapping and parcel context
+                  </span>
+                  <span
+                    class="rounded-full border border-white/10 px-3 py-1 text-xs text-white/64"
+                  >
+                    Site constraints and adjacency
+                  </span>
+                  <span
+                    class="rounded-full border border-white/10 px-3 py-1 text-xs text-white/64"
+                  >
+                    Basis screen with local reality in view
+                  </span>
+                </div>
+              </div>
+              <div
+                class="rounded-[1.75rem] border border-white/10 p-6 shadow-[0_24px_80px_rgba(1,10,25,0.24)] backdrop-blur-sm md:p-8 space-y-4 bg-white/[0.04]"
+              >
+                <div
+                  class="flex items-center justify-between gap-4"
+                >
+                  <h3
+                    class="text-xl font-semibold tracking-[-0.04em] text-white"
+                  >
+                    Execution
+                  </h3>
+                  <span
+                    class="font-mono text-[0.66rem] uppercase tracking-[0.24em] text-white/44"
+                  >
+                    Workflow
+                  </span>
+                </div>
+                <p
+                  class="text-sm leading-6 text-white/62 sm:text-[0.97rem] max-w-none"
+                >
+                  Diligence, approvals, and evidence stay inside one working environment so every next step is tied to the actual site.
+                </p>
+                <div
+                  class="flex flex-wrap gap-2"
+                >
+                  <span
+                    class="rounded-full border border-white/10 px-3 py-1 text-xs text-white/64"
+                  >
+                    Diligence workflow
+                  </span>
+                  <span
+                    class="rounded-full border border-white/10 px-3 py-1 text-xs text-white/64"
+                  >
+                    Approvals and evidence chain
+                  </span>
+                  <span
+                    class="rounded-full border border-white/10 px-3 py-1 text-xs text-white/64"
+                  >
+                    Decision record attached to the live deal
+                  </span>
+                </div>
+              </div>
+              <div
+                class="rounded-[1.75rem] border border-white/10 p-6 shadow-[0_24px_80px_rgba(1,10,25,0.24)] backdrop-blur-sm md:p-8 space-y-4 bg-white/[0.04]"
+              >
+                <div
+                  class="flex items-center justify-between gap-4"
+                >
+                  <h3
+                    class="text-xl font-semibold tracking-[-0.04em] text-white"
+                  >
+                    Hold
+                  </h3>
+                  <span
+                    class="font-mono text-[0.66rem] uppercase tracking-[0.24em] text-white/44"
+                  >
+                    Workflow
+                  </span>
+                </div>
+                <p
+                  class="text-sm leading-6 text-white/62 sm:text-[0.97rem] max-w-none"
+                >
+                  The operating record remains usable after close, preserving why the asset was bought and how it should be run.
+                </p>
+                <div
+                  class="flex flex-wrap gap-2"
+                >
+                  <span
+                    class="rounded-full border border-white/10 px-3 py-1 text-xs text-white/64"
+                  >
+                    Operating memory
+                  </span>
+                  <span
+                    class="rounded-full border border-white/10 px-3 py-1 text-xs text-white/64"
+                  >
+                    Stewardship notes and recurring workflows
+                  </span>
+                  <span
+                    class="rounded-full border border-white/10 px-3 py-1 text-xs text-white/64"
+                  >
+                    Partner-ready context without rebuilding the file
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div
+            class="overflow-hidden rounded-[2rem] border border-white/14 text-white shadow-[0_28px_90px_rgba(2,6,23,0.46)] backdrop-blur-xl bg-[#091321]/88"
+          >
+            <div
+              class="border-b border-white/10 px-5 py-5 sm:px-6"
+            >
+              <div
+                class="flex items-start justify-between gap-4"
+              >
+                <div
+                  class="space-y-3"
+                >
+                  <p
+                    class="font-mono text-[0.68rem] uppercase tracking-[0.28em] text-white/52"
+                  >
+                    Platform view
+                  </p>
+                  <div
+                    class="space-y-2"
+                  >
+                    <h2
+                      class="text-xl font-semibold tracking-[-0.04em] text-white/96 sm:text-2xl"
+                    >
+                      Origination, execution, and hold inside one operating chain
+                    </h2>
+                    <p
+                      class="max-w-sm text-sm leading-6 text-white/64"
+                    >
+                      An understated interface that keeps the real work visible.
+                    </p>
+                  </div>
+                </div>
+                <span
+                  class="inline-flex items-center gap-2 rounded-full border border-amber-400/25 bg-amber-300/10 px-3 py-1 font-mono text-[0.64rem] uppercase tracking-[0.24em] text-amber-200/90"
+                >
+                  <span
+                    class="h-1.5 w-1.5 rounded-full bg-amber-300"
+                  />
+                  Live
+                </span>
+              </div>
+            </div>
+            <div
+              class="space-y-5 px-5 py-5 sm:px-6"
+            >
+              <section
+                class="space-y-3"
+              >
+                <div
+                  class="flex items-start justify-between gap-3"
+                >
+                  <div>
+                    <p
+                      class="font-mono text-[0.66rem] uppercase tracking-[0.24em] text-white/46"
+                    >
+                      Live opportunity
+                    </p>
+                    <h3
+                      class="mt-2 text-lg font-semibold tracking-[-0.04em] text-white/96 sm:text-[1.35rem]"
+                    >
+                      Functional real estate with basis, approvals, and operating memory in one frame
+                    </h3>
+                  </div>
+                  <span
+                    class="mt-1 inline-flex h-2.5 w-2.5 rounded-full bg-amber-300 shadow-[0_0_24px_rgba(252,211,77,0.55)]"
+                  />
+                </div>
+                <p
+                  class="text-sm leading-6 text-white/62"
+                >
+                  The system keeps context attached from first parcel pass through execution and hold, so the operating record remains useful instead of becoming a stack of disconnected deliverables.
+                </p>
+              </section>
+              <section
+                class="space-y-3 border-t border-white/10 pt-5"
+              >
+                <p
+                  class="font-mono text-[0.66rem] uppercase tracking-[0.24em] text-white/46"
+                >
+                  Visible layers
+                </p>
+                <div
+                  class="space-y-3"
+                >
+                  <div
+                    class="grid gap-2 border-t border-white/8 pt-3 first:border-t-0 first:pt-0 sm:grid-cols-[minmax(0,1fr)_auto]"
+                  >
+                    <div>
+                      <p
+                        class="text-sm font-semibold tracking-[-0.02em] text-white/94"
+                      >
+                        Parcel context
+                      </p>
+                      <p
+                        class="mt-1 text-sm leading-6 text-white/58"
+                      >
+                        Boundary, access, utilities, and local friction remain readable beside the live opportunity.
+                      </p>
+                    </div>
+                    <span
+                      class="font-mono text-[0.64rem] uppercase tracking-[0.22em] text-amber-200/84 sm:pt-0.5"
+                    >
+                      mapped
+                    </span>
+                  </div>
+                  <div
+                    class="grid gap-2 border-t border-white/8 pt-3 first:border-t-0 first:pt-0 sm:grid-cols-[minmax(0,1fr)_auto]"
+                  >
+                    <div>
+                      <p
+                        class="text-sm font-semibold tracking-[-0.02em] text-white/94"
+                      >
+                        Workflow control
+                      </p>
+                      <p
+                        class="mt-1 text-sm leading-6 text-white/58"
+                      >
+                        Diligence, approval sequencing, and operator tasks move through one working environment.
+                      </p>
+                    </div>
+                    <span
+                      class="font-mono text-[0.64rem] uppercase tracking-[0.22em] text-amber-200/84 sm:pt-0.5"
+                    >
+                      active
+                    </span>
+                  </div>
+                  <div
+                    class="grid gap-2 border-t border-white/8 pt-3 first:border-t-0 first:pt-0 sm:grid-cols-[minmax(0,1fr)_auto]"
+                  >
+                    <div>
+                      <p
+                        class="text-sm font-semibold tracking-[-0.02em] text-white/94"
+                      >
+                        Evidence chain
+                      </p>
+                      <p
+                        class="mt-1 text-sm leading-6 text-white/58"
+                      >
+                        Artifacts, decisions, and site history stay connected as the deal advances.
+                      </p>
+                    </div>
+                    <span
+                      class="font-mono text-[0.64rem] uppercase tracking-[0.22em] text-amber-200/84 sm:pt-0.5"
+                    >
+                      retained
+                    </span>
+                  </div>
+                </div>
+              </section>
+              <section
+                class="space-y-3 border-t border-white/10 pt-5"
+              >
+                <p
+                  class="font-mono text-[0.66rem] uppercase tracking-[0.24em] text-white/46"
+                >
+                  Run memory
+                </p>
+                <div
+                  class="space-y-3"
+                >
+                  <div
+                    class="grid gap-2 border-t border-white/8 pt-3 first:border-t-0 first:pt-0 sm:grid-cols-[8rem_minmax(0,1fr)]"
+                  >
+                    <p
+                      class="font-mono text-[0.64rem] uppercase tracking-[0.22em] text-white/46"
+                    >
+                      Origination
+                    </p>
+                    <p
+                      class="text-sm leading-6 text-white/62"
+                    >
+                      Site facts survive past the first underwriting pass instead of being rewritten in downstream decks and memos.
+                    </p>
+                  </div>
+                  <div
+                    class="grid gap-2 border-t border-white/8 pt-3 first:border-t-0 first:pt-0 sm:grid-cols-[8rem_minmax(0,1fr)]"
+                  >
+                    <p
+                      class="font-mono text-[0.64rem] uppercase tracking-[0.22em] text-white/46"
+                    >
+                      Execution
+                    </p>
+                    <p
+                      class="text-sm leading-6 text-white/62"
+                    >
+                      Approvals and diligence notes remain attached to the deal while scope and cost decisions evolve.
+                    </p>
+                  </div>
+                  <div
+                    class="grid gap-2 border-t border-white/8 pt-3 first:border-t-0 first:pt-0 sm:grid-cols-[8rem_minmax(0,1fr)]"
+                  >
+                    <p
+                      class="font-mono text-[0.64rem] uppercase tracking-[0.22em] text-white/46"
+                    >
+                      Hold
+                    </p>
+                    <p
+                      class="text-sm leading-6 text-white/62"
+                    >
+                      Operating memory compounds into the next decision cycle rather than disappearing after close.
+                    </p>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section
+        class="relative py-16 md:py-24 pb-14"
+      >
+        <div
+          class="mx-auto w-full max-w-[1280px] px-6 md:px-10 lg:px-16"
+        >
+          <div
+            class="border bg-white/[0.03] p-6 shadow-[0_24px_80px_rgba(1,10,25,0.24)] backdrop-blur-sm md:p-8 overflow-hidden rounded-[2rem] border-white/12 bg-[linear-gradient(135deg,rgba(9,19,33,0.96),rgba(15,23,42,0.88))]"
+          >
+            <div
+              class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end"
+            >
+              <div
+                class="space-y-4"
+              >
+                <p
+                  class="font-mono text-[0.68rem] uppercase tracking-[0.28em] text-white/54"
+                >
+                  Partner access
+                </p>
+                <h2
+                  class="max-w-2xl text-[clamp(2rem,4.2vw,3.3rem)] font-semibold tracking-[-0.07em] text-white"
+                >
+                  Enter the live workspace when you want to see how the system actually runs.
+                </h2>
+                <p
+                  class="text-sm leading-6 text-white/62 sm:text-[0.97rem] max-w-xl"
+                >
+                  The public homepage is the first impression. The operating environment is where diligence, approvals, evidence, and execution remain visible.
+                </p>
+              </div>
+              <div
+                class="flex flex-wrap items-center gap-3 lg:justify-end"
+              >
+                <a
+                  class="inline-flex items-center justify-center whitespace-nowrap border border-transparent tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 hover:-translate-y-px rounded-xl h-12 bg-white px-5 text-sm font-semibold text-[#07111f] hover:bg-white/90"
+                  href="/login"
+                >
+                  Enter the live workspace
+                  <svg
+                    aria-hidden="true"
+                    class="lucide lucide-arrow-right ml-2 h-4 w-4"
+                    fill="none"
+                    height="24"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    viewBox="0 0 24 24"
+                    width="24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M5 12h14"
+                    />
+                    <path
+                      d="m12 5 7 7-7 7"
+                    />
+                  </svg>
+                </a>
+                <a
+                  class="inline-flex items-center justify-center whitespace-nowrap border tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 rounded-xl h-12 border-white/18 bg-white/[0.04] px-5 text-sm font-semibold text-white hover:bg-white/[0.08] hover:text-white"
+                  href="#strategy"
+                >
+                  Review strategy
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+    <footer
+      class="border-t border-white/10 py-8"
+      id="contact"
     >
       <div
-        class="grid gap-8 md:grid-cols-3 md:gap-6"
+        class="mx-auto w-full max-w-[1280px] px-6 md:px-10 lg:px-16 grid gap-8 md:grid-cols-[minmax(0,1fr)_auto] md:items-end"
       >
         <div
-          class="text-sm leading-6 text-muted-foreground md:pr-6"
+          class="space-y-3"
         >
           <p
-            class="text-sm font-semibold tracking-[-0.02em] text-foreground"
+            class="font-mono text-[0.7rem] uppercase tracking-[0.28em] text-white/46"
           >
-            Basis before story
+            Gallagher Property Company
           </p>
           <p
-            class="mt-2"
+            class="max-w-xl text-sm leading-6 text-white/58"
           >
-            Source assets where fragmented ownership, overlooked utility, and disciplined cost basis create the edge.
+            Manufactured housing communities and small-format industrial/flex, executed with basis discipline and operating depth.
           </p>
-        </div>
-        <div
-          class="border-t border-border/50 pt-6 text-sm leading-6 text-muted-foreground md:border-l md:border-t-0 md:pl-6 md:pt-0"
-        >
-          <p
-            class="text-sm font-semibold tracking-[-0.02em] text-foreground"
-          >
-            Approvals before spend
-          </p>
-          <p
-            class="mt-2"
-          >
-            Sequence development and diligence around what can actually be entitled, serviced, and executed.
-          </p>
-        </div>
-        <div
-          class="border-t border-border/50 pt-6 text-sm leading-6 text-muted-foreground md:border-l md:border-t-0 md:pl-6 md:pt-0"
-        >
-          <p
-            class="text-sm font-semibold tracking-[-0.02em] text-foreground"
-          >
-            Operations before optics
-          </p>
-          <p
-            class="mt-2"
-          >
-            Prioritize durable layouts, tenant usability, and repeatable demand over surface-level presentation.
-          </p>
-        </div>
-      </div>
-    </div>
-  </section>
-  <section
-    class="border-y border-border/50 bg-background/42 py-16 backdrop-blur-sm"
-    id="strategy"
-  >
-    <div
-      class="mx-auto grid w-full max-w-7xl gap-10 px-5 sm:px-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:px-8"
-    >
-      <div>
-        <p
-          class="font-mono text-[0.72rem] uppercase tracking-[0.32em] text-muted-foreground"
-        >
-          Investment Strategy
-        </p>
-        <h2
-          class="mt-4 max-w-xl text-3xl font-semibold tracking-[-0.04em] sm:text-4xl"
-        >
-          Basis-driven acquisitions paired with practical development judgment.
-        </h2>
-        <p
-          class="mt-5 max-w-xl text-base leading-7 text-muted-foreground"
-        >
-          The strategy is not broad real estate exposure. It is focused exposure to property types where local knowledge, site-level practicality, and disciplined execution can materially improve the outcome.
-        </p>
-      </div>
-      <div
-        class="grid gap-4"
-      >
-        <div
-          class="grid gap-4 rounded-[1.6rem] border border-border/60 bg-background/74 p-6 md:grid-cols-[80px_minmax(0,1fr)]"
-        >
           <div
-            class="flex h-14 w-14 items-center justify-center rounded-full border border-border/70 bg-background text-lg font-semibold tracking-[-0.04em]"
+            class="flex flex-wrap items-center gap-4 text-sm text-white/52"
           >
-            0
-            1
-          </div>
-          <div>
-            <h3
-              class="text-lg font-semibold tracking-[-0.03em]"
+            <span>
+              2026
+            </span>
+            <a
+              class="transition hover:text-white"
+              href="/login"
             >
-              Buy
-            </h3>
-            <p
-              class="mt-2 max-w-xl text-sm leading-6 text-muted-foreground"
-            >
-              Pursue off-market, transitional, and basis-driven opportunities with a strict view on replacement cost and downside protection.
-            </p>
+              Request access
+            </a>
           </div>
         </div>
-        <div
-          class="grid gap-4 rounded-[1.6rem] border border-border/60 bg-background/74 p-6 md:grid-cols-[80px_minmax(0,1fr)]"
+        <nav
+          aria-label="Footer"
+          class="flex flex-wrap items-center gap-5"
         >
-          <div
-            class="flex h-14 w-14 items-center justify-center rounded-full border border-border/70 bg-background text-lg font-semibold tracking-[-0.04em]"
+          <a
+            class="text-sm text-white/60 transition hover:text-white"
+            href="/login"
           >
-            0
-            2
-          </div>
-          <div>
-            <h3
-              class="text-lg font-semibold tracking-[-0.03em]"
-            >
-              Build
-            </h3>
-            <p
-              class="mt-2 max-w-xl text-sm leading-6 text-muted-foreground"
-            >
-              Move projects from site control into a workable plan with entitlement sequencing, infrastructure judgment, and operating constraints in view.
-            </p>
-          </div>
-        </div>
-        <div
-          class="grid gap-4 rounded-[1.6rem] border border-border/60 bg-background/74 p-6 md:grid-cols-[80px_minmax(0,1fr)]"
-        >
-          <div
-            class="flex h-14 w-14 items-center justify-center rounded-full border border-border/70 bg-background text-lg font-semibold tracking-[-0.04em]"
+            Login
+          </a>
+          <a
+            class="text-sm text-white/60 transition hover:text-white"
+            href="#strategy"
           >
-            0
-            3
-          </div>
-          <div>
-            <h3
-              class="text-lg font-semibold tracking-[-0.03em]"
-            >
-              Manage
-            </h3>
-            <p
-              class="mt-2 max-w-xl text-sm leading-6 text-muted-foreground"
-            >
-              Hold assets that benefit from practical stewardship, tenant usability, and long-duration demand rather than speculative positioning.
-            </p>
-          </div>
-        </div>
+            Strategy
+          </a>
+          <a
+            class="text-sm text-white/60 transition hover:text-white"
+            href="#platform"
+          >
+            Platform
+          </a>
+          <a
+            class="text-sm text-white/60 transition hover:text-white"
+            href="#top"
+          >
+            Top
+          </a>
+        </nav>
       </div>
-    </div>
-  </section>
-  <section
-    class="mx-auto w-full max-w-7xl px-5 py-16 sm:px-6 lg:px-8"
-    id="platform"
-  >
-    <div
-      class="grid gap-8 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)]"
-    >
-      <div>
-        <p
-          class="font-mono text-[0.72rem] uppercase tracking-[0.32em] text-muted-foreground"
-        >
-          Operating Platform
-        </p>
-        <h2
-          class="mt-4 text-3xl font-semibold tracking-[-0.04em] sm:text-4xl"
-        >
-          Internal workflow, market visibility, and deal execution in one working environment.
-        </h2>
-        <p
-          class="mt-5 max-w-xl text-base leading-7 text-muted-foreground"
-        >
-          The website should reflect the actual business: acquisition, development, and operating work anchored to real assets. The live platform extends that operating discipline into mapping, diligence, workflows, approvals, and evidence.
-        </p>
-      </div>
-      <div
-        class="overflow-hidden rounded-[2rem] border border-border/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.82),rgba(255,255,255,0.58))] dark:bg-[linear-gradient(180deg,rgba(25,25,31,0.88),rgba(19,19,24,0.78))]"
-      >
-        <div
-          class="border-b border-border/60 px-5 py-4"
-        >
-          <p
-            class="font-mono text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground"
-          >
-            Investment Workflow
-          </p>
-        </div>
-        <div
-          class="grid gap-px bg-border/60 md:grid-cols-3"
-        >
-          <div
-            class="bg-background/88 p-5"
-          >
-            <p
-              class="font-mono text-[0.66rem] uppercase tracking-[0.22em] text-muted-foreground"
-            >
-              Origination
-            </p>
-            <p
-              class="mt-3 text-lg font-semibold tracking-[-0.03em]"
-            >
-              Community and industrial opportunity intake
-            </p>
-            <p
-              class="mt-2 text-sm leading-6 text-muted-foreground"
-            >
-              Markets, parcels, ownership, and operating context gathered in one place before capital is committed.
-            </p>
-          </div>
-          <div
-            class="bg-background/82 p-5"
-          >
-            <p
-              class="font-mono text-[0.66rem] uppercase tracking-[0.22em] text-muted-foreground"
-            >
-              Execution
-            </p>
-            <p
-              class="mt-3 text-lg font-semibold tracking-[-0.03em]"
-            >
-              Entitlements, diligence, and development sequencing
-            </p>
-            <p
-              class="mt-2 text-sm leading-6 text-muted-foreground"
-            >
-              Approvals, constraints, and evidence organized into an executable chain rather than scattered notes.
-            </p>
-          </div>
-          <div
-            class="bg-background/88 p-5"
-          >
-            <p
-              class="font-mono text-[0.66rem] uppercase tracking-[0.22em] text-muted-foreground"
-            >
-              Hold
-            </p>
-            <p
-              class="mt-3 text-lg font-semibold tracking-[-0.03em]"
-            >
-              Durable operating memory for owned assets
-            </p>
-            <p
-              class="mt-2 text-sm leading-6 text-muted-foreground"
-            >
-              The platform preserves what was learned so operating judgment compounds instead of resetting on each deal.
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div
-      class="mt-12 flex flex-col items-start justify-between gap-5 rounded-[2rem] border border-border/60 bg-background/68 px-6 py-6 backdrop-blur md:flex-row md:items-center"
-    >
-      <div>
-        <p
-          class="text-xl font-semibold tracking-[-0.03em]"
-        >
-          Looking at a manufactured housing or small-format industrial opportunity?
-        </p>
-        <p
-          class="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground"
-        >
-          The public site sets the strategy clearly. The internal platform is where opportunities are reviewed, mapped, diligenced, and moved into execution.
-        </p>
-      </div>
-      <a
-        class="inline-flex min-h-12 shrink-0 items-center justify-center rounded-full border border-foreground bg-foreground px-6 text-sm font-medium text-background transition-transform duration-200 hover:-translate-y-0.5"
-        href="/login"
-      >
-        Enter the live workspace
-      </a>
-    </div>
-  </section>
-</main>
+    </footer>
+  </div>
+</div>
 `;
