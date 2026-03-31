@@ -5,6 +5,7 @@ import {
   MapLibreParcelMap,
   type MapLibreParcelMapRef,
 } from "./MapLibreParcelMap";
+import { MapPageV2 } from "./MapPageV2";
 import type {
   MapHudState,
   MapParcel,
@@ -45,6 +46,10 @@ interface ParcelMapProps {
 
 export type ParcelMapRef = MapLibreParcelMapRef;
 
+function isMapV2Enabled(): boolean {
+  return process.env.NEXT_PUBLIC_MAP_V2_ENABLED === "true";
+}
+
 // ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
@@ -73,6 +78,35 @@ export const ParcelMap = forwardRef<MapLibreParcelMapRef, ParcelMapProps>(functi
   latencyLabel,
 }, ref) {
   const mlCenter: [number, number] = useMemo(() => [center[1], center[0]], [center]);
+
+  if (isMapV2Enabled()) {
+    return (
+      <MapPageV2
+        ref={ref}
+        parcels={parcels}
+        center={center}
+        zoom={zoom}
+        height={height}
+        onParcelClick={onParcelClick}
+        showLayers={showLayers}
+        showTools={showTools}
+        polygon={polygon}
+        onPolygonDrawn={onPolygonDrawn}
+        onPolygonCleared={onPolygonCleared}
+        trajectoryData={trajectoryData}
+        trajectoryVelocityData={trajectoryVelocityData}
+        highlightParcelIds={highlightParcelIds}
+        selectedParcelIds={selectedParcelIds}
+        onSelectionChange={onSelectionChange}
+        onViewStateChange={onViewStateChange}
+        onMapReady={onMapReady}
+        onHudStateChange={onHudStateChange}
+        searchSlot={searchSlot}
+        dataFreshnessLabel={dataFreshnessLabel}
+        latencyLabel={latencyLabel}
+      />
+    );
+  }
 
   return (
     <MapLibreParcelMap

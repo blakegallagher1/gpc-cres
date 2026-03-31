@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Map,
   NavigationControl,
   ScaleControl,
   AttributionControl,
+  useMap,
 } from "@vis.gl/react-maplibre";
 import { MVTLayer } from "@deck.gl/geo-layers";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -20,8 +21,12 @@ import { FloodZoneLayer } from "./layers/FloodZoneLayer";
 import { SoilsLayer } from "./layers/SoilsLayer";
 import { WetlandsLayer } from "./layers/WetlandsLayer";
 import { EpaFacilitiesLayer } from "./layers/EpaFacilitiesLayer";
+import { ParcelPointLayer } from "./layers/ParcelPointLayer";
 import { DeckOverlayProvider } from "./layers/DeckOverlayProvider";
 import { TerrainControl } from "./controls/TerrainControl";
+import { useMapPopups } from "./hooks/useMapPopups";
+import { useMapSelection } from "./hooks/useMapSelection";
+import type { MapParcel } from "./types";
 import {
   getStreetTileUrls,
   getSatelliteTileUrl,
@@ -37,17 +42,68 @@ const DARK_BASE_TILES = [
   "https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
 ];
 
+type ZoningFeature = {
+  properties?: {
+    zoning_type?: string | null;
+  };
+};
+
 interface MapContainerV2Props {
   height?: string;
   className?: string;
+  parcels?: MapParcel[];
+  selectedParcelIds?: Set<string>;
+  onParcelClick?: (parcelId: string) => void;
+  onSelectionChange?: (ids: Set<string>) => void;
+  onMapReady?: (map: maplibregl.Map) => void;
+}
+
+function MapReadyBridge({ onMapReady }: { onMapReady?: (map: maplibregl.Map) => void }) {
+  const { current: map } = useMap();
+
+  useEffect(() => {
+    if (!map || !onMapReady) return;
+    onMapReady(map.getMap());
+  }, [map, onMapReady]);
+
+  return null;
+}
+
+function MapInteractionBridge({
+  onParcelClick,
+  onClusterClick,
+}: {
+  onParcelClick?: (parcelId: string) => void;
+  onClusterClick?: (center: [number, number], zoom: number) => void;
+}) {
+  const { current: map } = useMap();
+
+  useMapPopups({
+    onParcelClick,
+    onClusterClick: (center, zoom) => {
+      onClusterClick?.(center, zoom);
+      map?.flyTo({ center, zoom, essential: true });
+    },
+  });
+
+  return null;
 }
 
 export function MapContainerV2({
   height = "100%",
   className,
+  parcels = [],
+  selectedParcelIds = new Set(),
+  onParcelClick,
+  onSelectionChange,
+  onMapReady,
 }: MapContainerV2Props) {
   const { viewState, onMove } = useMapViewState();
   const overlays = useOverlayState();
+  const { selectedIds, updateSelection } = useMapSelection({
+    selectedParcelIds,
+    onSelectionChange,
+  });
   const [baseLayer, setBaseLayer] = useState<"Streets" | "Satellite" | "Dark">(
     "Satellite"
   );
@@ -63,8 +119,8 @@ export function MapContainerV2({
           data: getZoningProxyTileUrl(),
           minZoom: 10,
           maxZoom: 22,
-          getFillColor: (f: any) =>
-            getZoningFillColor(f.properties?.zoning_type),
+          getFillColor: (feature: ZoningFeature) =>
+            getZoningFillColor(feature.properties?.zoning_type),
           getLineColor: [80, 80, 80, 60],
           getLineWidth: 1,
           lineWidthMinPixels: 0.5,
@@ -79,6 +135,8 @@ export function MapContainerV2({
 
     return layers;
   }, [overlays.showZoning]);
+
+  const hasParcels = parcels.length > 0;
 
   // Map style with base layers only
   const mapStyle = useMemo(
@@ -147,6 +205,14 @@ export function MapContainerV2({
         attributionControl={false}
         style={{ width: "100%", height: "100%" }}
       >
+        <MapReadyBridge onMapReady={onMapReady} />
+        <MapInteractionBridge
+          onParcelClick={(parcelId) => {
+            updateSelection(parcelId, false);
+            onParcelClick?.(parcelId);
+          }}
+          onClusterClick={undefined}
+        />
         {/* Tile overlay layers */}
         <ParcelBoundaryLayer
           visible={overlays.showParcelBoundaries}
@@ -157,6 +223,11 @@ export function MapContainerV2({
         <SoilsLayer visible={overlays.showSoils} />
         <WetlandsLayer visible={overlays.showWetlands} />
         <EpaFacilitiesLayer visible={overlays.showEpa} />
+        <ParcelPointLayer
+          parcels={parcels}
+          visible={hasParcels}
+          selectedIds={selectedIds}
+        />
 
         {/* deck.gl GPU overlays */}
         <DeckOverlayProvider layers={deckLayers} />
