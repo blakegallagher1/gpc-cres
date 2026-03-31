@@ -55,6 +55,7 @@ import { ParcelDetailCard } from "./ParcelDetailCard";
 import { ParcelHoverTooltip } from "./ParcelHoverTooltip";
 import { useStableOptions } from "@/lib/hooks/useStableOptions";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { cn } from "@/lib/utils";
 import { ParcelComparisonSheet } from "./ParcelComparisonSheet";
 import { MapTour } from "./MapTour";
 import {
@@ -643,7 +644,7 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
   const [showIsochrone, setShowIsochrone] = useState(false);
   const [measureMode, setMeasureMode] = useState<"off" | "distance" | "area">("off");
   const [lastDrawnMeasureLabel, setLastDrawnMeasureLabel] = useState<string | null>(null);
-  const [layerPanelOpen, setLayerPanelOpen] = useState(true);
+  const [layerPanelOpen, setLayerPanelOpen] = useState(false);
   const [internalSelectedParcelIds, setInternalSelectedParcelIds] = useState<Set<string>>(new Set());
   const [imperativeHighlightIds, setImperativeHighlightIds] = useState<Set<string>>(new Set());
   const [compareOpen, setCompareOpen] = useState(false);
@@ -678,6 +679,11 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
   const drawLineLayerId = "draw-polygon-line";
   const drawPointLayerId = "draw-polygon-points";
   const lastDrawnMeasureTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showLiveStatus = process.env.NODE_ENV !== "production";
+  const formattedCursor =
+    cursorLng !== null && cursorLat !== null
+      ? `${cursorLng.toFixed(5)}, ${cursorLat.toFixed(5)}`
+      : "Move over the map";
 
   useEffect(() => {
     return () => {
@@ -773,6 +779,12 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
   }, [isMobile]);
 
   useEffect(() => {
+    if (selectedParcelIds.size > 0 || hasPolygon || showComps || showHeatmap || showIsochrone) {
+      setLayerPanelOpen(true);
+    }
+  }, [hasPolygon, selectedParcelIds.size, showComps, showHeatmap, showIsochrone]);
+
+  useEffect(() => {
     selectedParcelIdsRef.current = selectedParcelIds;
   }, [selectedParcelIds]);
 
@@ -832,6 +844,7 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
 
   const applyWorkbenchPreset = useCallback((preset: MapWorkbenchPreset) => {
     const nextState = getReferenceOverlayStateForPreset(preset);
+    setLayerPanelOpen(true);
     setShowParcelBoundaries(nextState.parcelBoundaries);
     setShowZoning(nextState.zoning);
     setShowFlood(nextState.flood);
@@ -1172,6 +1185,7 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
       return;
     }
 
+    setLayerPanelOpen(true);
     popupRef.current?.remove();
     popupRef.current = null;
     setHoveredParcel(null);
@@ -2378,25 +2392,29 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
       )}
 
       {/* Status bar with coordinates and zoom */}
-      {showLayers && (
-        <div className="map-status-bar absolute bottom-0 left-0 z-10 w-full flex items-center justify-between px-3 py-1.5 text-[11px]">
-          <div className="text-map-text-muted">
-            {cursorLng !== null && cursorLat !== null ? (
-              <>
-                {cursorLng.toFixed(4)}, {cursorLat.toFixed(4)}
-              </>
-            ) : (
-              "—"
-            )}
+      {showLayers ? (
+        <div className="map-status-bar absolute inset-x-3 bottom-3 z-10 flex items-center justify-between gap-3 rounded-2xl border border-map-border/80 bg-map-surface-overlay/92 px-3 py-2 text-[11px] shadow-[0_18px_50px_-32px_rgba(15,23,42,0.55)] backdrop-blur-md">
+          <div className="flex min-w-0 items-center gap-2 text-map-text-muted">
+            {showLiveStatus ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-map-border/70 bg-map-surface/55 px-2 py-1 text-[10px] text-map-text-secondary">
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "h-2 w-2 rounded-full",
+                    mapReady ? "bg-emerald-400 shadow-[0_0_0_4px_rgba(52,211,153,0.16)]" : "bg-amber-400",
+                  )}
+                />
+                {mapReady ? "Live" : "Syncing"}
+              </span>
+            ) : null}
+            <span className="truncate">{formattedCursor}</span>
           </div>
-          <div className="flex-1 text-center text-map-text-muted">
-            {lastDrawnMeasureLabel ? `Area: ${lastDrawnMeasureLabel}` : null}
+          <div className="flex flex-1 items-center justify-center text-map-text-muted">
+            {lastDrawnMeasureLabel ? `Area ${lastDrawnMeasureLabel}` : "Parcels live on the active view"}
           </div>
-          <div className="text-map-text-muted">
-            Zoom: {currentZoom.toFixed(2)}
-          </div>
+          <div className="shrink-0 text-map-text-muted">Zoom {currentZoom.toFixed(2)}</div>
         </div>
-      )}
+      ) : null}
       {polygon && (
         <MapLibrePolygonOverlay map={mapRef.current} polygon={polygon} mapReady={mapReady} />
       )}

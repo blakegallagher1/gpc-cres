@@ -95,7 +95,7 @@ export function Sidebar() {
 
       <aside
         className={cn(
-          "fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-border/55 bg-background/72 backdrop-blur-2xl transition-[width,transform] duration-300",
+          "fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-border/55 bg-background/82 backdrop-blur-2xl transition-[width,transform] duration-300",
           "w-[var(--app-sidebar-expanded)]",
           isMobile
             ? cn(
@@ -109,7 +109,7 @@ export function Sidebar() {
         >
         <div className="flex h-[var(--app-header-height)] items-center border-b border-border/60 px-4">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border/55 bg-background/44">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-border/55 bg-background/70 shadow-[0_16px_36px_-28px_rgba(15,23,42,0.42)]">
               <Building2 className="h-5 w-5 text-foreground/85" />
             </div>
             {isExpanded && (
@@ -126,22 +126,24 @@ export function Sidebar() {
         </div>
 
         {isExpanded && (
-          <div className="border-b border-border/60 px-4 py-3">
+          <div className="border-b border-border/60 px-4 py-4">
             <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
               System Index
             </p>
-            <div className="mt-2 flex items-start justify-between gap-3">
-              <div>
-                <span className="text-sm font-medium">{todayLabel}</span>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {activeGroup.label} desk active
-                </p>
-              </div>
-              <div className="text-right">
-                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-                  {WORKSPACE_ROUTE_COUNT} routes
-                </span>
-                <p className="mt-2 text-xs text-muted-foreground">{activeRoute.label} selected</p>
+            <div className="mt-3 rounded-[24px] border border-border/60 bg-muted/[0.34] p-4 shadow-[0_18px_45px_-40px_rgba(15,23,42,0.45)]">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <span className="text-sm font-medium">{todayLabel}</span>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {activeGroup.label} desk active
+                  </p>
+                </div>
+                <div className="text-right">
+                  <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+                    {WORKSPACE_ROUTE_COUNT} routes
+                  </span>
+                  <p className="mt-2 text-xs text-muted-foreground">{activeRoute.label} selected</p>
+                </div>
               </div>
             </div>
           </div>
@@ -162,10 +164,10 @@ export function Sidebar() {
                     }}
                     aria-current={isActive ? "page" : undefined}
                     className={cn(
-                      "group relative flex min-h-12 items-start gap-3 overflow-hidden rounded-2xl px-3 py-3 text-left text-sm transition-[color,background-color] duration-200",
+                      "group relative flex min-h-12 items-start gap-3 overflow-hidden rounded-[22px] px-3 py-3 text-left text-sm transition-[color,background-color,transform] duration-200",
                       isActive
                         ? "text-foreground"
-                        : "text-muted-foreground hover:text-foreground"
+                        : "text-muted-foreground hover:text-foreground hover:translate-x-[1px]"
                     )}
                     title={!isExpanded ? PINNED_NAV_ITEM.label : undefined}
                   >
@@ -239,9 +241,10 @@ export function Sidebar() {
                           aria-current={isActive ? "page" : undefined}
                           className={cn(
                             "group relative flex min-h-12 items-start gap-3 overflow-hidden rounded-2xl px-3 py-3 text-left text-sm transition-[color,background-color] duration-200",
+                            "group relative flex min-h-12 items-start gap-3 overflow-hidden rounded-[22px] px-3 py-3 text-left text-sm transition-[color,background-color,transform] duration-200",
                             isActive
                               ? "text-foreground"
-                              : "text-muted-foreground hover:text-foreground"
+                              : "text-muted-foreground hover:text-foreground hover:translate-x-[1px]"
                           )}
                           title={!isExpanded ? item.label : undefined}
                         >
@@ -331,7 +334,7 @@ export function Sidebar() {
         )}
 
         <div className="border-t border-border/60 p-3">
-          <div className="app-shell-panel flex items-center gap-3 rounded-2xl px-3 py-3">
+          <div className="app-shell-panel flex items-center gap-3 rounded-[22px] px-3 py-3 shadow-[0_18px_45px_-42px_rgba(15,23,42,0.45)]">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border/70 bg-background/80 font-mono text-xs font-semibold uppercase tracking-[0.22em] text-foreground/80">
               G
             </div>

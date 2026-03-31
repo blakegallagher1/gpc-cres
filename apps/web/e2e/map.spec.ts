@@ -167,9 +167,9 @@ test.describe("Map route", () => {
     await page.goto("/map?lat=30.45&lng=-91.18&z=17", { waitUntil: "domcontentloaded" });
     await ensureCopilotClosed(page);
 
-    await expect(
-      page.getByRole("heading", { name: "Search and refine the working parcel set." }),
-    ).toBeVisible({ timeout: MAP_READY_TIMEOUT_MS });
+    await expect(page.getByRole("button", { name: "Open map workbench" })).toBeVisible({
+      timeout: MAP_READY_TIMEOUT_MS,
+    });
 
     const canvas = page.locator(".maplibregl-canvas");
     await expect(canvas).toBeVisible({ timeout: MAP_READY_TIMEOUT_MS });
@@ -180,11 +180,14 @@ test.describe("Map route", () => {
       (box?.x ?? 0) + (box?.width ?? 0) / 2,
       (box?.y ?? 0) + (box?.height ?? 0) / 2,
     );
-    await expect(page.getByRole("button", { name: "+ Deal" })).toBeVisible();
+    const parcelCard = page.getByRole("dialog", { name: /123 Main St details/i });
+    await expect(parcelCard).toBeVisible();
+    await parcelCard.getByRole("tab", { name: "Deals" }).click();
+    await expect(parcelCard.getByRole("button", { name: "Create Deal" })).toBeVisible();
 
     await Promise.all([
       page.waitForURL(/\/deals\/new\?parcelId=parcel-1/),
-      page.getByRole("button", { name: "+ Deal" }).click(),
+      parcelCard.getByRole("button", { name: "Create Deal" }).click(),
     ]);
   });
 
@@ -201,9 +204,9 @@ test.describe("Map route", () => {
     await page.goto("/map?lat=30.45&lng=-91.18&z=17", { waitUntil: "domcontentloaded" });
     await ensureCopilotClosed(page);
 
-    await expect(
-      page.getByRole("heading", { name: "Search and refine the working parcel set." }),
-    ).toBeVisible({ timeout: MAP_READY_TIMEOUT_MS });
+    await expect(page.getByRole("button", { name: "Open map workbench" })).toBeVisible({
+      timeout: MAP_READY_TIMEOUT_MS,
+    });
 
     const canvas = page.locator(".maplibregl-canvas");
     await expect(canvas).toBeVisible({ timeout: MAP_READY_TIMEOUT_MS });
@@ -225,7 +228,7 @@ test.describe("Map route", () => {
     expect(prospectBodies.at(-1)).toContain("\"searchText\":\"*\"");
   });
 
-  test("keeps address search separate from AI analysis and highlights the searched parcel", async ({
+  test("keeps parcel lookup separate from map copilot analysis", async ({
     page,
   }) => {
     await mockMapData(page);
@@ -234,22 +237,29 @@ test.describe("Map route", () => {
     await ensureCopilotClosed(page);
 
     await expect(page.locator('[data-route-id="map"]')).toHaveAttribute("data-route-path", "/map");
-    await expect(page.getByText("Parcel / address search", { exact: true })).toBeVisible();
-    await expect(page.getByText("AI analysis", { exact: true })).toBeVisible();
-    await expect(page.getByText("1 shapes loaded")).toBeVisible({ timeout: MAP_READY_TIMEOUT_MS });
+    const geocoderInput = page.getByPlaceholder("Search address, parcel, or owner");
+    await expect(geocoderInput).toBeVisible({ timeout: MAP_READY_TIMEOUT_MS });
+    const mapCopilotButton = page.getByRole("button", { name: "Map copilot" });
+    if (!(await mapCopilotButton.isVisible().catch(() => false))) {
+      const openConsoleButton = page.getByRole("button", { name: "Open console" });
+      await expect(openConsoleButton).toBeVisible({ timeout: MAP_READY_TIMEOUT_MS });
+      await openConsoleButton.click();
+    }
+    await expect(mapCopilotButton).toBeVisible({ timeout: MAP_READY_TIMEOUT_MS });
+    await expect(page.getByRole("button", { name: "Prospecting scan" })).toBeVisible();
 
-    const lookupInput = page.getByLabel("Parcel or address search");
-    await lookupInput.fill("3154 College Drive");
-    await expect(page.getByText("Suggested matches")).toBeVisible();
-    await page.getByText("3154 College Drive").last().click();
+    await geocoderInput.fill("3154 College Drive");
+    await expect(geocoderInput).toHaveValue("3154 College Drive");
 
-    await expect(page).toHaveURL(/parcel=parcel-3154/);
-    await expect(page.getByText("1 selected for follow-up")).toBeVisible();
-
-    const analysisInput = page.getByLabel("Map AI analysis");
-    await analysisInput.fill("3154 College Drive");
-    await page.getByRole("button", { name: "Run analysis" }).click();
-    await expect(analysisInput).toHaveValue("");
-    await expect(page).toHaveURL(/parcel=parcel-3154/);
+    await mapCopilotButton.click();
+    const analysisInput = page.getByPlaceholder(
+      "Ask for screening, comparison, or a next move...",
+    );
+    await expect(analysisInput).toBeVisible({ timeout: MAP_READY_TIMEOUT_MS });
+    await analysisInput.fill("Summarize flood exposure around the selected parcel");
+    await expect(analysisInput).toHaveValue(
+      "Summarize flood exposure around the selected parcel",
+    );
+    await expect(geocoderInput).toHaveValue("3154 College Drive");
   });
 });

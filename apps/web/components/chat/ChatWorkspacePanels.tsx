@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { PanelLeftOpen, PanelRightOpen } from 'lucide-react';
+import { Bot, PanelLeftOpen, PanelRightOpen, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { AgentStatePanel } from '@/components/agent-state/AgentStatePanel';
 import { useAgents } from '@/lib/hooks/useAgents';
 import { AgentTrustEnvelope } from '@/types';
@@ -20,6 +20,15 @@ import {
   CHAT_WORKSPACE_STEPS,
 } from './chatWorkspaceContent';
 import { CuaModelToggle, type CuaModel } from './CuaModelToggle';
+import {
+  ComposerSectionTitle,
+  InlineStatusBadge,
+  InspectorTabs,
+  PageHeader,
+  QuickActionsGrid,
+  RunMetaPanel,
+  type QuickActionItem,
+} from './ChatWorkspacePrimitives';
 
 /* ------------------------------------------------------------------ */
 /*  Props                                                              */
@@ -38,6 +47,7 @@ interface ChatWorkspaceHeroProps {
   onOpenHistory: () => void;
   onOpenInspector: () => void;
   onCuaModelChange?: (model: CuaModel) => void;
+  onQuickActionSelect?: (prompt: string) => void;
 }
 
 interface ChatWorkspaceInspectorProps {
@@ -60,6 +70,41 @@ interface ChatWorkspaceInspectorProps {
 const HERO_TRANSITION = {
   duration: 0.25,
   ease: [0.22, 1, 0.36, 1] as const,
+};
+
+const CHAT_QUICK_ACTIONS: QuickActionItem[] = [
+  {
+    id: 'risk-screen',
+    label: 'Run entitlement screen',
+    detail: 'Pull the first-pass risk picture, gating issues, and a recommended workplan.',
+    icon: 'verify',
+    tone: 'highlight',
+  },
+  {
+    id: 'zoning-brief',
+    label: 'Summarize zoning + setbacks',
+    detail: 'Turn the parcel facts into a concise operator brief with missing evidence called out.',
+    icon: 'plan',
+  },
+  {
+    id: 'diligence-checklist',
+    label: 'Build diligence checklist',
+    detail: 'Generate the next-step checklist, owners, and proof gaps for the team to execute.',
+    icon: 'attach',
+  },
+  {
+    id: 'capital-compare',
+    label: 'Compare capital paths',
+    detail: 'Frame debt, equity, and timing tradeoffs before the run turns into an investment memo.',
+    icon: 'compare',
+  },
+];
+
+const CHAT_QUICK_ACTION_PROMPTS: Record<string, string> = {
+  'risk-screen': 'Screen this site for entitlement risk and give me the key gating issues, proof gaps, and next-step workplan.',
+  'zoning-brief': 'Summarize the zoning, setbacks, and primary entitlement constraints for this site and call out the evidence still missing.',
+  'diligence-checklist': 'Build the due diligence checklist for this opportunity with owners, evidence requests, and decision gates.',
+  'capital-compare': 'Compare the debt and equity paths for this opportunity and outline the best next move with supporting rationale.',
 };
 
 /* ------------------------------------------------------------------ */
@@ -142,49 +187,52 @@ function InspectorBody({
   }, [activeTab, lastRecommendedTab, recommendedTab]);
 
   return (
-    <div className="space-y-4">
-      {/* Compact status strip */}
-      <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[11px]">
+    <div className="space-y-5">
+      <div className="rounded-[24px] border border-border/60 bg-background/90 p-4 shadow-[0_18px_45px_-36px_rgba(15,23,42,0.45)]">
+        <ComposerSectionTitle
+          title="Execution inspector"
+          detail="Verification, proof status, and specialist coverage stay attached to the run."
+          trailing={<InlineStatusBadge icon={<Bot className="h-3.5 w-3.5 text-muted-foreground" />} label={`${conversationCount} saved runs`} />}
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 text-[11px]">
         <div className="flex items-baseline justify-between">
           <span className="workspace-stat-label">Thread</span>
-          <span className="text-xs text-foreground">{threadStatusLabel}</span>
+          <span className="text-xs font-medium text-foreground">{threadStatusLabel}</span>
         </div>
         <div className="flex items-baseline justify-between">
           <span className="workspace-stat-label">Agent</span>
-          <span className="text-xs text-foreground">{activeAgentLabel}</span>
+          <span className="text-xs font-medium text-foreground">{activeAgentLabel}</span>
         </div>
         <div className="flex items-baseline justify-between">
           <span className="workspace-stat-label">Attach</span>
-          <span className="text-xs text-foreground">{attachmentStatusLabel}</span>
+          <span className="text-xs font-medium text-foreground">{attachmentStatusLabel}</span>
         </div>
         <div className="flex items-baseline justify-between">
           <span className="workspace-stat-label">History</span>
-          <span className="text-xs text-foreground">{recentConversationLabel}</span>
+          <span className="text-xs font-medium text-foreground">{recentConversationLabel}</span>
         </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-3">
-        <TabsList className="w-full justify-start">
-          <TabsTrigger value="guide">Guide</TabsTrigger>
-          <TabsTrigger value="verification">Verification</TabsTrigger>
-          <TabsTrigger value="coverage">Coverage</TabsTrigger>
-        </TabsList>
+        <InspectorTabs value={activeTab} onValueChange={setActiveTab} />
 
-        <TabsContent value="guide" className="mt-0 space-y-3">
-          <div className="space-y-2 text-sm leading-6">
+        <TabsContent value="guide" className="mt-0 rounded-[24px] border border-border/60 bg-background/90 p-4 shadow-[0_18px_45px_-36px_rgba(15,23,42,0.45)]">
+          <div className="space-y-2.5 text-sm leading-6">
             {CHAT_WORKSPACE_STEPS.map((step, index) => (
               <div key={step.title} className="flex items-start gap-2.5">
-                <span className="mt-0.5 flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-full border border-border/60 text-[9px] font-semibold text-muted-foreground">
+                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-border/60 bg-muted/[0.45] text-[9px] font-semibold text-muted-foreground">
                   {index + 1}
                 </span>
                 <div>
                   <p className="text-xs font-medium text-foreground">{step.title}</p>
-                  <p className="text-xs text-muted-foreground">{step.detail}</p>
+                  <p className="text-xs leading-5 text-muted-foreground">{step.detail}</p>
                 </div>
               </div>
             ))}
           </div>
-          <div className="space-y-1 border-t border-border/40 pt-3 text-[11px] leading-5 text-muted-foreground">
+          <div className="mt-4 space-y-1 border-t border-border/50 pt-4 text-[11px] leading-5 text-muted-foreground">
             {CHAT_WORKSPACE_CAPABILITIES.slice(0, 3).map((capability) => (
               <p key={capability.label}>
                 <span className="text-foreground/80">{capability.label}</span>{' '}
@@ -194,7 +242,7 @@ function InspectorBody({
           </div>
         </TabsContent>
 
-        <TabsContent value="verification" className="mt-0">
+        <TabsContent value="verification" className="mt-0 rounded-[24px] border border-border/60 bg-background/90 p-4 shadow-[0_18px_45px_-36px_rgba(15,23,42,0.45)]">
           <InspectorVerificationPanel
             activeAgentLabel={activeAgentLabel}
             agentSummary={agentSummary}
@@ -202,7 +250,7 @@ function InspectorBody({
           />
         </TabsContent>
 
-        <TabsContent value="coverage" className="mt-0 space-y-3">
+        <TabsContent value="coverage" className="mt-0 space-y-4 rounded-[24px] border border-border/60 bg-background/90 p-4 shadow-[0_18px_45px_-36px_rgba(15,23,42,0.45)]">
           <div className="flex items-baseline justify-between text-[11px]">
             <span className="workspace-stat-label">Specialists</span>
             <span className="text-muted-foreground">{agents.length} loaded</span>
@@ -229,7 +277,7 @@ function InspectorBody({
               +{overflowAgentCount} more via coordinator handoff.
             </p>
           ) : null}
-          <div className="space-y-1.5 border-t border-border/40 pt-3 text-[11px] leading-5 text-muted-foreground">
+          <div className="space-y-1.5 border-t border-border/50 pt-4 text-[11px] leading-5 text-muted-foreground">
             {CHAT_WORKSPACE_CAPABILITIES.slice(2).map((capability) => (
               <p key={capability.label}>
                 <span className="text-foreground/80">{capability.label}:</span>{' '}
@@ -261,6 +309,7 @@ export function ChatWorkspaceHero({
   onOpenHistory,
   onOpenInspector,
   onCuaModelChange,
+  onQuickActionSelect,
 }: ChatWorkspaceHeroProps) {
   const reduceMotion = useReducedMotion();
   const motionProps = reduceMotion || process.env.NODE_ENV === 'test'
@@ -273,120 +322,121 @@ export function ChatWorkspaceHero({
 
   return (
     <motion.div
-      className="shrink-0 border-b border-border/40 px-4 py-3 sm:px-5"
+      className="shrink-0 px-4 py-4 sm:px-5"
       {...motionProps}
     >
       <div className="flex flex-col gap-4">
-        {launchState ? (
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div className="min-w-0 flex-1">
-              <p className="workspace-eyebrow">Verified Run Workspace</p>
-              <h2 className="mt-3 max-w-[16ch] text-2xl font-semibold tracking-[-0.05em] text-foreground sm:text-[2rem]">
-                Turn a site question into a verified next move.
-              </h2>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
-                Start from the parcel, deal, market, or file, then let the coordinator route the work across specialists, tools, and proof checks.
-              </p>
-            </div>
-            <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <PageHeader
+          title="Chat"
+          description={
+            launchState
+              ? 'Verified execution workspace for screening sites, comparing paths, and producing a credible next move.'
+              : 'Active run workspace with scope, thread state, and specialist routing held in one place.'
+          }
+          routes={[
+            { label: 'Desk', value: '/chat' },
+            { label: 'Scope', value: scopeLabel },
+            { label: 'Thread', value: threadStatusLabel },
+            { label: 'Transport', value: transportLabel },
+          ]}
+          actions={(
+            <div className="flex flex-wrap items-center justify-end gap-2">
               {dealSelector}
               {cuaModel && onCuaModelChange ? (
                 <CuaModelToggle model={cuaModel} onModelChange={onCuaModelChange} />
               ) : null}
-              {!isMobile ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 rounded-full px-3 text-xs"
-                  onClick={onOpenHistory}
-                >
-                  <PanelLeftOpen className="mr-1.5 h-3.5 w-3.5" />
-                  Open run history
-                </Button>
-              ) : null}
+              <Button
+                variant="outline"
+                size="sm"
+                className="hidden h-10 rounded-2xl border-border/70 bg-background/80 px-4 text-xs font-medium md:inline-flex"
+                onClick={onOpenHistory}
+              >
+                <PanelLeftOpen className="mr-1.5 h-3.5 w-3.5" />
+                Open history
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="hidden h-10 rounded-2xl border-border/70 bg-background/80 px-4 text-xs font-medium md:inline-flex lg:hidden"
+                onClick={onOpenInspector}
+              >
+                <PanelRightOpen className="mr-1.5 h-3.5 w-3.5" />
+                Verification
+              </Button>
             </div>
-          </div>
-        ) : (
-          <div className="flex items-center gap-3">
-            <div className="hidden min-w-0 flex-1 items-center gap-4 text-[11px] text-muted-foreground md:flex">
-              <span>
-                <span className="workspace-stat-label mr-1.5">Scope</span>
-                <span className="text-foreground/90">{scopeLabel}</span>
-              </span>
-              <span className="text-border/60">|</span>
-              <span>
-                <span className="workspace-stat-label mr-1.5">Thread</span>
-                <span className="text-foreground/90">{threadStatusLabel}</span>
-                <span className="ml-1 text-muted-foreground/50">· {transportLabel}</span>
-              </span>
-              <span className="text-border/60">|</span>
-              <span>
-                <span className="workspace-stat-label mr-1.5">Agent</span>
-                <span className="text-foreground/90">{activeAgentLabel}</span>
-              </span>
-              <span className="text-border/60">|</span>
-              <span>
-                <span className="workspace-stat-label mr-1.5">Runs</span>
-                <span className="text-foreground/90">{conversationCount}</span>
-              </span>
-            </div>
+          )}
+        />
 
-            <div className="min-w-0 flex-1 text-xs text-muted-foreground md:hidden">
-              <span className="text-foreground/90">{activeAgentLabel}</span>
-              <span className="mx-1.5 text-border/60">·</span>
-              <span>{threadStatusLabel}</span>
+        <RunMetaPanel
+          title={launchState ? 'Run setup' : 'Run context'}
+          description={
+            launchState
+              ? 'Set the operating scope once, then launch a run that keeps verification and proof with the result.'
+              : 'The active thread, delivery path, and agent coverage remain visible without burying the working surface.'
+          }
+          items={[
+            {
+              label: 'Scope',
+              value: scopeLabel,
+              hint: 'Parcel, deal, market, or file context flows into the run.',
+            },
+            {
+              label: 'Thread',
+              value: threadStatusLabel,
+              hint: transportLabel,
+            },
+            {
+              label: 'Lead Agent',
+              value: activeAgentLabel,
+              hint: 'Coordinator routes to specialists without losing thread state.',
+            },
+            {
+              label: 'Saved Runs',
+              value: String(conversationCount),
+              hint: 'Recent verified threads stay available in the history rail.',
+            },
+          ]}
+          footer={(
+            <div className="flex flex-wrap items-center gap-2">
+              <InlineStatusBadge icon={<ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" />} label="Verification stays in the inspector" />
+              <InlineStatusBadge label={launchState ? 'Prompt once, route specialists automatically' : 'History, proof, and run state remain attached'} />
             </div>
+          )}
+        />
 
-            <div className="flex shrink-0 items-center gap-2">
-              {dealSelector}
-              {cuaModel && onCuaModelChange ? (
-                <CuaModelToggle model={cuaModel} onModelChange={onCuaModelChange} />
-              ) : null}
-            </div>
-          </div>
-        )}
-
-        <div className="grid gap-3 border-t border-border/30 pt-3 sm:grid-cols-2 xl:grid-cols-4">
-          <div className="min-w-0">
-            <p className="workspace-stat-label">Scope</p>
-            <p className="mt-1 text-sm font-medium text-foreground">{scopeLabel}</p>
-          </div>
-          <div className="min-w-0">
-            <p className="workspace-stat-label">Thread</p>
-            <p className="mt-1 text-sm font-medium text-foreground">{threadStatusLabel}</p>
-            <p className="text-xs text-muted-foreground">{transportLabel}</p>
-          </div>
-          <div className="min-w-0">
-            <p className="workspace-stat-label">Lead Agent</p>
-            <p className="mt-1 text-sm font-medium text-foreground">{activeAgentLabel}</p>
-          </div>
-          <div className="min-w-0">
-            <p className="workspace-stat-label">Saved Runs</p>
-            <p className="mt-1 text-sm font-medium text-foreground">{conversationCount}</p>
-          </div>
+        <div className="flex flex-wrap items-center gap-2 md:hidden">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-xs text-muted-foreground"
+            onClick={onOpenHistory}
+          >
+            <PanelLeftOpen className="mr-1.5 h-3.5 w-3.5" />
+            History
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-xs text-muted-foreground"
+            onClick={onOpenInspector}
+          >
+            <PanelRightOpen className="mr-1.5 h-3.5 w-3.5" />
+            Verification
+          </Button>
         </div>
 
-        {isMobile ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2 text-xs text-muted-foreground"
-              onClick={onOpenHistory}
-            >
-              <PanelLeftOpen className="mr-1.5 h-3.5 w-3.5" />
-              History
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2 text-xs text-muted-foreground"
-              onClick={onOpenInspector}
-            >
-              <PanelRightOpen className="mr-1.5 h-3.5 w-3.5" />
-              Verification
-            </Button>
-          </div>
+        {launchState ? (
+          <QuickActionsGrid
+            title="Quick starts"
+            description="Launch one of the common run patterns without drafting the prompt from scratch."
+            actions={CHAT_QUICK_ACTIONS}
+            onAction={(actionId) => {
+              const prompt = CHAT_QUICK_ACTION_PROMPTS[actionId];
+              if (prompt) {
+                onQuickActionSelect?.(prompt);
+              }
+            }}
+          />
         ) : null}
       </div>
     </motion.div>
@@ -413,13 +463,13 @@ export function ChatWorkspaceInspector({
   if (mobile) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="left-auto right-0 top-0 h-[100svh] max-h-[100svh] w-full max-w-[22rem] translate-x-0 translate-y-0 gap-0 rounded-none border-l border-border/40 bg-background p-0 sm:max-w-[22rem]">
+        <DialogContent className="left-auto right-0 top-0 h-[100svh] max-h-[100svh] w-full max-w-[24rem] translate-x-0 translate-y-0 gap-0 rounded-none border-l border-border/40 bg-background p-0 sm:max-w-[24rem]">
           <DialogHeader className="border-b border-border/40 px-4 py-3 text-left">
-            <DialogTitle className="text-xs font-semibold tracking-tight text-foreground">
-              Live Execution
+            <DialogTitle className="text-sm font-semibold tracking-tight text-foreground">
+              Run inspector
             </DialogTitle>
-            <DialogDescription className="text-[11px]">
-              Proof, specialist coverage, and active gaps.
+            <DialogDescription className="text-xs leading-5">
+              Proof state, specialist coverage, and active gaps.
             </DialogDescription>
           </DialogHeader>
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
@@ -439,14 +489,8 @@ export function ChatWorkspaceInspector({
   }
 
   return (
-    <aside className="hidden w-[19rem] border-l border-border/40 bg-background lg:flex lg:flex-col">
-      <div className="border-b border-border/40 px-4 py-3">
-        <p className="workspace-eyebrow text-[10px]">Live Execution</p>
-        <h3 className="mt-0.5 text-xs font-semibold tracking-tight text-foreground">
-          Verification, proof, and specialist coverage
-        </h3>
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+    <aside className="hidden w-[23.5rem] border-l border-border/40 bg-muted/[0.18] px-4 py-4 lg:flex lg:flex-col">
+      <div className="min-h-0 flex-1 overflow-y-auto">
         <InspectorBody
           activeAgentLabel={activeAgentLabel}
           agentSummary={agentSummary}

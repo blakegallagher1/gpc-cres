@@ -75,9 +75,7 @@ describe("ChatWorkspaceInspector", () => {
       />,
     );
 
-    expect(
-      screen.getByText("Verification, proof, and specialist coverage"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Execution inspector")).toBeInTheDocument();
     expect(screen.getByText("Set the scope")).toBeInTheDocument();
     expect(screen.getByText("Stateful thread")).toBeInTheDocument();
     expect(

@@ -80,13 +80,13 @@ describe("MapWorkbenchPanel", () => {
       />,
     );
 
-    expect(screen.getByText("Live geography intelligence")).toBeInTheDocument();
-    expect(screen.getByText("Layer desk")).toBeInTheDocument();
+    expect(screen.getByText("Geography workbench")).toBeInTheDocument();
+    expect(screen.getByText("Find the parcel or place first.")).toBeInTheDocument();
     expect(screen.getByText("Search content")).toBeInTheDocument();
-    expect(screen.getByText("Display")).toBeInTheDocument();
-    expect(screen.getByText("Comparable sales")).toBeInTheDocument();
-    expect(screen.getByText("Saved geofences")).toBeInTheDocument();
-    expect(screen.getByText("Zoning scan")).toBeInTheDocument();
+    expect(screen.getByText("Choose the cleanest base for the task.")).toBeInTheDocument();
+    expect(screen.getByText("Activate only the supporting layers you need.")).toBeInTheDocument();
+    expect(screen.getByText("Enable only the analytical overlays that support the current screen.")).toBeInTheDocument();
+    expect(screen.getByText("Reuse named polygons for repeat scans.")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Collapse map workbench" }),
     ).toHaveAttribute("aria-expanded", "true");
@@ -99,12 +99,15 @@ describe("MapWorkbenchPanel", () => {
 
     expect(container.firstChild).toMatchSnapshot();
 
-    await user.click(screen.getByRole("button", { name: /Flood risk/i }));
+    await user.click(screen.getByText("References"));
+    await user.click(screen.getByText("Analysis"));
+    await user.click(screen.getByText("Measure / Draw"));
+    await user.click(screen.getByRole("button", { name: /Zoning scan/i }));
     await user.click(screen.getByRole("button", { name: /Flood zones/i }));
     await user.click(screen.getByRole("radio", { name: "Satellite" }));
-    await user.click(screen.getByRole("button", { name: "Start draw" }));
+    await user.click(screen.getByRole("button", { name: "Draw boundary" }));
 
-    expect(onApplyPreset).toHaveBeenCalledWith("flood-risk");
+    expect(onApplyPreset).toHaveBeenCalledWith("zoning-scan");
     expect(setShowFlood).toHaveBeenCalledWith(true);
     expect(onBaseLayerChange).toHaveBeenCalledWith("Satellite");
     expect(onToggleDrawing).toHaveBeenCalledTimes(1);

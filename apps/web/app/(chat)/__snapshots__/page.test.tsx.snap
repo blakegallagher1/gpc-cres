@@ -5,10 +5,10 @@ exports[`HomePage > renders the public Gallagher Property Company homepage 1`] =
   class="relative overflow-hidden bg-transparent text-foreground"
 >
   <div
-    class="absolute inset-x-0 top-0 -z-10 h-[44rem] bg-[radial-gradient(circle_at_top_left,oklch(var(--shell-glow)/0.18),transparent_32%),linear-gradient(180deg,transparent,oklch(var(--color-background)/0.12))]"
+    class="absolute inset-x-0 top-0 -z-10 h-[44rem] bg-[radial-gradient(circle_at_top_left,oklch(var(--shell-glow)/0.14),transparent_28%),linear-gradient(180deg,transparent,oklch(var(--color-background)/0.1))]"
   />
   <div
-    class="absolute inset-x-0 top-24 -z-10 mx-auto hidden h-[32rem] w-[92%] max-w-6xl rounded-[3rem] border border-border/40 bg-white/35 blur-3xl md:block dark:bg-white/6"
+    class="absolute inset-x-0 top-16 -z-10 mx-auto hidden h-[28rem] w-[84%] max-w-5xl bg-white/12 blur-3xl md:block dark:bg-white/5"
   />
   <section
     class="mx-auto flex min-h-[100svh] w-full max-w-7xl flex-col px-5 pb-14 pt-6 sm:px-6 lg:px-8"
@@ -52,36 +52,64 @@ exports[`HomePage > renders the public Gallagher Property Company homepage 1`] =
       </nav>
     </header>
     <div
-      class="grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)] lg:items-end"
+      class="grid gap-12 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start lg:gap-16"
     >
       <div
-        class="max-w-4xl"
+        class="max-w-5xl"
       >
         <p
-          class="font-mono text-[0.72rem] uppercase tracking-[0.34em] text-muted-foreground"
+          class="font-mono text-[0.72rem] uppercase tracking-[0.32em] text-muted-foreground"
         >
           Manufactured Housing + Flex Industrial
         </p>
         <h2
-          class="mt-5 text-lg font-semibold tracking-[-0.03em] sm:text-xl"
+          class="mt-6 text-2xl font-semibold tracking-[-0.05em] sm:text-3xl"
         >
           Gallagher Property Company
         </h2>
         <h1
-          class="mt-5 max-w-4xl text-5xl leading-[0.95] font-semibold tracking-[-0.04em] text-balance sm:text-6xl lg:text-7xl"
+          class="mt-8 max-w-[10.5ch] text-[clamp(4rem,8.6vw,7.75rem)] leading-[0.9] font-semibold tracking-[-0.075em]"
         >
-          We acquire and develop manufactured housing communities and infill industrial assets under 50,000 SF, focused on flex-warehouse.
+          <span
+            class="block"
+          >
+            We acquire and develop
+          </span>
+          <span
+            class="mt-2 block"
+          >
+            manufactured housing communities
+          </span>
+          <span
+            class="mt-2 block"
+          >
+            and infill industrial assets
+          </span>
+          <span
+            class="mt-2 block text-foreground/78"
+          >
+            under 50,000 SF, focused on flex-warehouse.
+          </span>
         </h1>
-        <p
-          class="mt-6 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg"
+        <div
+          class="mt-10 max-w-3xl border-t border-border/55 pt-6"
         >
-          Gallagher Property Company is built around functional real estate: housing communities with durable demand and small-format industrial properties where usability, access, and local scarcity drive value.
-        </p>
-        <p
-          class="mt-4 font-mono text-[0.72rem] uppercase tracking-[0.28em] text-muted-foreground"
-        >
-          See the site before the story gets expensive.
-        </p>
+          <p
+            class="text-sm font-medium tracking-[-0.02em] text-foreground/88 sm:text-base"
+          >
+            We acquire and develop manufactured housing communities and infill industrial assets under 50,000 SF, focused on flex-warehouse.
+          </p>
+          <p
+            class="mt-4 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg"
+          >
+            Gallagher Property Company is built around functional real estate: housing communities with durable demand and small-format industrial properties where usability, access, and local scarcity drive value.
+          </p>
+          <p
+            class="mt-4 font-mono text-[0.72rem] uppercase tracking-[0.28em] text-muted-foreground"
+          >
+            See the site before the story gets expensive.
+          </p>
+        </div>
         <div
           class="mt-8 flex flex-col gap-3 sm:flex-row"
         >
@@ -100,37 +128,32 @@ exports[`HomePage > renders the public Gallagher Property Company homepage 1`] =
         </div>
       </div>
       <aside
-        class="relative overflow-hidden rounded-[2rem] border border-border/60 bg-background/78 p-6 shadow-[0_24px_60px_-36px_rgba(15,23,42,0.4)] backdrop-blur"
+        class="border-t border-border/55 pt-6 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0"
       >
         <div
-          class="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-foreground/30 to-transparent"
-        />
-        <div
-          class="flex items-start justify-between gap-4"
+          class="flex items-center justify-between gap-4"
         >
-          <div>
-            <p
-              class="font-mono text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground"
-            >
-              Focus Snapshot
-            </p>
-            <p
-              class="mt-3 text-3xl font-semibold tracking-[-0.04em]"
-            >
-              Two lanes. One operating discipline.
-            </p>
-          </div>
+          <p
+            class="font-mono text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground"
+          >
+            Focus Snapshot
+          </p>
           <span
-            class="rounded-full border border-border px-3 py-1 text-[0.68rem] font-medium uppercase tracking-[0.22em] text-muted-foreground"
+            class="text-[0.72rem] font-medium uppercase tracking-[0.22em] text-muted-foreground"
           >
             2026
           </span>
         </div>
+        <p
+          class="mt-5 text-2xl font-semibold tracking-[-0.04em]"
+        >
+          Two lanes. One operating discipline.
+        </p>
         <div
-          class="mt-8 space-y-5"
+          class="mt-8 space-y-6"
         >
           <div
-            class="rounded-[1.35rem] border border-border/65 bg-background/78 p-5"
+            class="pb-6"
           >
             <p
               class="text-sm font-semibold tracking-[-0.02em]"
@@ -144,7 +167,7 @@ exports[`HomePage > renders the public Gallagher Property Company homepage 1`] =
             </p>
           </div>
           <div
-            class="rounded-[1.35rem] border border-border/65 bg-background/78 p-5"
+            class="border-t border-border/50 pt-6"
           >
             <p
               class="text-sm font-semibold tracking-[-0.02em]"
@@ -158,81 +181,85 @@ exports[`HomePage > renders the public Gallagher Property Company homepage 1`] =
             </p>
           </div>
         </div>
-        <div
-          class="mt-8 grid grid-cols-2 gap-4 border-t border-border/65 pt-5 text-sm"
+        <dl
+          class="mt-8 space-y-5 border-t border-border/50 pt-6 text-sm"
         >
           <div>
-            <p
+            <dt
               class="font-mono text-[0.66rem] uppercase tracking-[0.22em] text-muted-foreground"
             >
               Asset profile
-            </p>
-            <p
+            </dt>
+            <dd
               class="mt-2 font-medium"
             >
               Operationally useful, supply-aware
-            </p>
+            </dd>
           </div>
           <div>
-            <p
+            <dt
               class="font-mono text-[0.66rem] uppercase tracking-[0.22em] text-muted-foreground"
             >
               Industrial lane
-            </p>
-            <p
+            </dt>
+            <dd
               class="mt-2 font-medium"
             >
               Under 50,000 SF, flex-warehouse
-            </p>
+            </dd>
           </div>
-        </div>
+        </dl>
       </aside>
     </div>
     <div
-      class="mt-12 grid gap-4 border-t border-border/55 pt-8 md:grid-cols-3"
+      class="mt-14 border-t border-border/55 pt-8"
       id="focus"
     >
       <div
-        class="rounded-[1.4rem] border border-border/55 bg-background/62 px-5 py-5 text-sm leading-6 text-muted-foreground backdrop-blur"
+        class="grid gap-8 md:grid-cols-3 md:gap-6"
       >
-        <p
-          class="text-sm font-semibold tracking-[-0.02em] text-foreground"
+        <div
+          class="text-sm leading-6 text-muted-foreground md:pr-6"
         >
-          Basis before story
-        </p>
-        <p
-          class="mt-2"
+          <p
+            class="text-sm font-semibold tracking-[-0.02em] text-foreground"
+          >
+            Basis before story
+          </p>
+          <p
+            class="mt-2"
+          >
+            Source assets where fragmented ownership, overlooked utility, and disciplined cost basis create the edge.
+          </p>
+        </div>
+        <div
+          class="border-t border-border/50 pt-6 text-sm leading-6 text-muted-foreground md:border-l md:border-t-0 md:pl-6 md:pt-0"
         >
-          Source assets where fragmented ownership, overlooked utility, and disciplined cost basis create the edge.
-        </p>
-      </div>
-      <div
-        class="rounded-[1.4rem] border border-border/55 bg-background/62 px-5 py-5 text-sm leading-6 text-muted-foreground backdrop-blur"
-      >
-        <p
-          class="text-sm font-semibold tracking-[-0.02em] text-foreground"
+          <p
+            class="text-sm font-semibold tracking-[-0.02em] text-foreground"
+          >
+            Approvals before spend
+          </p>
+          <p
+            class="mt-2"
+          >
+            Sequence development and diligence around what can actually be entitled, serviced, and executed.
+          </p>
+        </div>
+        <div
+          class="border-t border-border/50 pt-6 text-sm leading-6 text-muted-foreground md:border-l md:border-t-0 md:pl-6 md:pt-0"
         >
-          Approvals before spend
-        </p>
-        <p
-          class="mt-2"
-        >
-          Sequence development and diligence around what can actually be entitled, serviced, and executed.
-        </p>
-      </div>
-      <div
-        class="rounded-[1.4rem] border border-border/55 bg-background/62 px-5 py-5 text-sm leading-6 text-muted-foreground backdrop-blur"
-      >
-        <p
-          class="text-sm font-semibold tracking-[-0.02em] text-foreground"
-        >
-          Operations before optics
-        </p>
-        <p
-          class="mt-2"
-        >
-          Prioritize durable layouts, tenant usability, and repeatable demand over surface-level presentation.
-        </p>
+          <p
+            class="text-sm font-semibold tracking-[-0.02em] text-foreground"
+          >
+            Operations before optics
+          </p>
+          <p
+            class="mt-2"
+          >
+            Prioritize durable layouts, tenant usability, and repeatable demand over surface-level presentation.
+          </p>
+        </div>
       </div>
     </div>
   </section>

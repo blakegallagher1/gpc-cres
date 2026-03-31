@@ -56,8 +56,8 @@ export const metadata: Metadata = {
 export default function HomePage() {
   return (
     <main className="relative overflow-hidden bg-transparent text-foreground">
-      <div className="absolute inset-x-0 top-0 -z-10 h-[44rem] bg-[radial-gradient(circle_at_top_left,oklch(var(--shell-glow)/0.18),transparent_32%),linear-gradient(180deg,transparent,oklch(var(--color-background)/0.12))]" />
-      <div className="absolute inset-x-0 top-24 -z-10 mx-auto hidden h-[32rem] w-[92%] max-w-6xl rounded-[3rem] border border-border/40 bg-white/35 blur-3xl md:block dark:bg-white/6" />
+      <div className="absolute inset-x-0 top-0 -z-10 h-[44rem] bg-[radial-gradient(circle_at_top_left,oklch(var(--shell-glow)/0.14),transparent_28%),linear-gradient(180deg,transparent,oklch(var(--color-background)/0.1))]" />
+      <div className="absolute inset-x-0 top-16 -z-10 mx-auto hidden h-[28rem] w-[84%] max-w-5xl bg-white/12 blur-3xl md:block dark:bg-white/5" />
 
       <section className="mx-auto flex min-h-[100svh] w-full max-w-7xl flex-col px-5 pb-14 pt-6 sm:px-6 lg:px-8">
         <header className="mb-12 flex items-center justify-between border-b border-border/55 pb-5">
@@ -83,26 +83,37 @@ export default function HomePage() {
           </nav>
         </header>
 
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)] lg:items-end">
-          <div className="max-w-4xl">
-            <p className="font-mono text-[0.72rem] uppercase tracking-[0.34em] text-muted-foreground">
+        <div className="grid gap-12 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start lg:gap-16">
+          <div className="max-w-5xl">
+            <p className="font-mono text-[0.72rem] uppercase tracking-[0.32em] text-muted-foreground">
               Manufactured Housing + Flex Industrial
             </p>
-            <h2 className="mt-5 text-lg font-semibold tracking-[-0.03em] sm:text-xl">
+            <h2 className="mt-6 text-2xl font-semibold tracking-[-0.05em] sm:text-3xl">
               Gallagher Property Company
             </h2>
-            <h1 className="mt-5 max-w-4xl text-5xl leading-[0.95] font-semibold tracking-[-0.04em] text-balance sm:text-6xl lg:text-7xl">
-              We acquire and develop manufactured housing communities and infill
-              industrial assets under 50,000 SF, focused on flex-warehouse.
+            <h1 className="mt-8 max-w-[10.5ch] text-[clamp(4rem,8.6vw,7.75rem)] leading-[0.9] font-semibold tracking-[-0.075em]">
+              <span className="block">We acquire and develop</span>
+              <span className="mt-2 block">manufactured housing communities</span>
+              <span className="mt-2 block">and infill industrial assets</span>
+              <span className="mt-2 block text-foreground/78">
+                under 50,000 SF, focused on flex-warehouse.
+              </span>
             </h1>
-            <p className="mt-6 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
+
+            <div className="mt-10 max-w-3xl border-t border-border/55 pt-6">
+              <p className="text-sm font-medium tracking-[-0.02em] text-foreground/88 sm:text-base">
+                We acquire and develop manufactured housing communities and infill
+                industrial assets under 50,000 SF, focused on flex-warehouse.
+              </p>
+              <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
               Gallagher Property Company is built around functional real estate:
               housing communities with durable demand and small-format industrial
               properties where usability, access, and local scarcity drive value.
-            </p>
-            <p className="mt-4 font-mono text-[0.72rem] uppercase tracking-[0.28em] text-muted-foreground">
-              See the site before the story gets expensive.
-            </p>
+              </p>
+              <p className="mt-4 font-mono text-[0.72rem] uppercase tracking-[0.28em] text-muted-foreground">
+                See the site before the story gets expensive.
+              </p>
+            </div>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link
@@ -120,27 +131,25 @@ export default function HomePage() {
             </div>
           </div>
 
-          <aside className="relative overflow-hidden rounded-[2rem] border border-border/60 bg-background/78 p-6 shadow-[0_24px_60px_-36px_rgba(15,23,42,0.4)] backdrop-blur">
-            <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-foreground/30 to-transparent" />
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="font-mono text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground">
-                  Focus Snapshot
-                </p>
-                <p className="mt-3 text-3xl font-semibold tracking-[-0.04em]">
-                  Two lanes. One operating discipline.
-                </p>
-              </div>
-              <span className="rounded-full border border-border px-3 py-1 text-[0.68rem] font-medium uppercase tracking-[0.22em] text-muted-foreground">
+          <aside className="border-t border-border/55 pt-6 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0">
+            <div className="flex items-center justify-between gap-4">
+              <p className="font-mono text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground">
+                Focus Snapshot
+              </p>
+              <span className="text-[0.72rem] font-medium uppercase tracking-[0.22em] text-muted-foreground">
                 2026
               </span>
             </div>
 
-            <div className="mt-8 space-y-5">
-              {investmentFocus.map((item) => (
+            <p className="mt-5 text-2xl font-semibold tracking-[-0.04em]">
+              Two lanes. One operating discipline.
+            </p>
+
+            <div className="mt-8 space-y-6">
+              {investmentFocus.map((item, index) => (
                 <div
                   key={item.label}
-                  className="rounded-[1.35rem] border border-border/65 bg-background/78 p-5"
+                  className={index === 0 ? "pb-6" : "border-t border-border/50 pt-6"}
                 >
                   <p className="text-sm font-semibold tracking-[-0.02em]">
                     {item.label}
@@ -152,38 +161,44 @@ export default function HomePage() {
               ))}
             </div>
 
-            <div className="mt-8 grid grid-cols-2 gap-4 border-t border-border/65 pt-5 text-sm">
+            <dl className="mt-8 space-y-5 border-t border-border/50 pt-6 text-sm">
               <div>
-                <p className="font-mono text-[0.66rem] uppercase tracking-[0.22em] text-muted-foreground">
+                <dt className="font-mono text-[0.66rem] uppercase tracking-[0.22em] text-muted-foreground">
                   Asset profile
-                </p>
-                <p className="mt-2 font-medium">Operationally useful, supply-aware</p>
+                </dt>
+                <dd className="mt-2 font-medium">Operationally useful, supply-aware</dd>
               </div>
               <div>
-                <p className="font-mono text-[0.66rem] uppercase tracking-[0.22em] text-muted-foreground">
+                <dt className="font-mono text-[0.66rem] uppercase tracking-[0.22em] text-muted-foreground">
                   Industrial lane
-                </p>
-                <p className="mt-2 font-medium">Under 50,000 SF, flex-warehouse</p>
+                </dt>
+                <dd className="mt-2 font-medium">Under 50,000 SF, flex-warehouse</dd>
               </div>
-            </div>
+            </dl>
           </aside>
         </div>
 
         <div
           id="focus"
-          className="mt-12 grid gap-4 border-t border-border/55 pt-8 md:grid-cols-3"
+          className="mt-14 border-t border-border/55 pt-8"
         >
-          {operatingPrinciples.map((principle) => (
-            <div
-              key={principle.title}
-              className="rounded-[1.4rem] border border-border/55 bg-background/62 px-5 py-5 text-sm leading-6 text-muted-foreground backdrop-blur"
-            >
-              <p className="text-sm font-semibold tracking-[-0.02em] text-foreground">
-                {principle.title}
-              </p>
-              <p className="mt-2">{principle.detail}</p>
-            </div>
-          ))}
+          <div className="grid gap-8 md:grid-cols-3 md:gap-6">
+            {operatingPrinciples.map((principle, index) => (
+              <div
+                key={principle.title}
+                className={
+                  index === 0
+                    ? "text-sm leading-6 text-muted-foreground md:pr-6"
+                    : "border-t border-border/50 pt-6 text-sm leading-6 text-muted-foreground md:border-l md:border-t-0 md:pl-6 md:pt-0"
+                }
+              >
+                <p className="text-sm font-semibold tracking-[-0.02em] text-foreground">
+                  {principle.title}
+                </p>
+                <p className="mt-2">{principle.detail}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 

@@ -255,12 +255,16 @@ describe("ChatContainer", () => {
         expect(fetchMock).toHaveBeenCalledWith("/api/chat/conversations");
       });
 
-      expect(screen.getByRole("button", { name: "History" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Verification" })).toBeInTheDocument();
+      expect(screen.getAllByRole("button", { name: "History", exact: true }).length).toBeGreaterThan(
+        0,
+      );
+      expect(
+        screen.getAllByRole("button", { name: "Verification", exact: true }).length,
+      ).toBeGreaterThan(0);
       expect(screen.getByTestId("conversation-sidebar")).toHaveAttribute("data-mobile", "true");
       expect(screen.getByTestId("conversation-sidebar")).toHaveAttribute("data-open", "false");
 
-      fireEvent.click(screen.getByRole("button", { name: "History" }));
+      fireEvent.click(screen.getAllByRole("button", { name: "History", exact: true })[0]);
 
       expect(screen.getByTestId("conversation-sidebar")).toHaveAttribute("data-open", "true");
     },

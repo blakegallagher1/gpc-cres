@@ -22,6 +22,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { formatOperatorDate } from '@/lib/formatters/operatorFormatters';
 import { cn } from '@/lib/utils';
 import type { ConversationSummary } from '@/lib/chat/types';
+import { SavedRunListHeader } from './ChatWorkspacePrimitives';
 
 interface ConversationSidebarProps {
   conversations: ConversationSummary[];
@@ -111,10 +112,12 @@ function getConversationFilterCounts(
 function ConversationListItem({
   conv,
   active,
+  recent,
   onSelect,
 }: {
   conv: ConversationSummary;
   active: boolean;
+  recent: boolean;
   onSelect: () => void;
 }) {
   return (
@@ -124,44 +127,60 @@ function ConversationListItem({
       onClick={onSelect}
       aria-current={active ? 'page' : undefined}
       className={cn(
-        '!h-auto !w-full !justify-start !items-start group gap-3 border border-transparent px-3 py-3 text-left transition-colors',
+        '!h-auto !w-full !justify-start !items-start group gap-3 rounded-[22px] border px-3.5 py-3.5 text-left transition-all duration-200',
         active
-          ? 'border-border/70 bg-foreground/[0.05]'
-          : 'hover:border-border/60 hover:bg-background/70',
+          ? 'border-foreground/14 bg-foreground/[0.05] shadow-[0_18px_45px_-40px_rgba(15,23,42,0.5)]'
+          : 'border-transparent bg-transparent hover:border-border/60 hover:bg-background/78',
       )}
     >
-      <span className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/60 bg-background/80 text-muted-foreground">
+      <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-border/60 bg-background/80 text-muted-foreground">
         <MessageSquare className="h-3.5 w-3.5" />
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-3">
-          <p className="truncate text-sm font-medium text-foreground">
-            {conv.title && conv.title.trim().length > 0 ? conv.title : 'Untitled conversation'}
-          </p>
-          <span className="shrink-0 text-[10px] text-muted-foreground">
-            {formatShortDate(conv.updatedAt)}
-          </span>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium text-foreground">
+              {conv.title && conv.title.trim().length > 0 ? conv.title : 'Untitled conversation'}
+            </p>
+            <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
+              {conv.dealId ? 'Deal-linked scope' : 'General operator scope'}
+            </p>
+          </div>
+          <div className="shrink-0 text-right">
+            <span className="block text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+              {formatShortDate(conv.updatedAt)}
+            </span>
+            <span className="mt-1 block text-[10px] text-muted-foreground">
+              {conv.messageCount} msgs
+            </span>
+          </div>
         </div>
-        <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
-          <span>{conv.messageCount} msgs</span>
-          <span className="text-border">/</span>
-          <span>{conv.dealId ? 'Deal-linked' : 'General scope'}</span>
-          {active ? (
-            <>
-              <span className="text-border">/</span>
-              <span className="font-medium text-foreground">Active</span>
-            </>
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
+          {recent ? (
+            <Badge variant="outline" className="rounded-full border-border/60 bg-background/80 px-2 py-0.5 text-[9px] uppercase tracking-[0.16em]">
+              Recent
+            </Badge>
           ) : null}
+          {active ? (
+            <Badge variant="secondary" className="rounded-full px-2 py-0.5 text-[9px] uppercase tracking-[0.16em]">
+              Active
+            </Badge>
+          ) : null}
+          {conv.dealId ? (
+            <Badge variant="secondary" className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] uppercase tracking-[0.16em]">
+              <Building2 className="h-2.5 w-2.5" />
+              Deal
+            </Badge>
+          ) : (
+            <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/80 px-2 py-0.5">
+              General
+            </span>
+          )}
         </div>
       </div>
-      {conv.dealId ? (
-        <Badge variant="secondary" className="inline-flex items-center gap-1 px-2 py-0.5 text-[9px] uppercase tracking-[0.16em]">
-          <Building2 className="h-2.5 w-2.5" />
-          Deal
-        </Badge>
-      ) : (
+      {!conv.dealId && !recent ? (
         <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-border/80 transition-colors group-hover:bg-foreground/25" />
-      )}
+      ) : null}
     </Button>
   );
 }
@@ -209,55 +228,54 @@ export function ConversationSidebar({
   const railContent = (
     <>
       <div className="border-b border-border/60 px-4 py-4">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-muted-foreground">
-              Conversation Runs
-            </p>
-            <h2 className="mt-1 text-sm font-semibold tracking-tight">Saved runs</h2>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Reopen a saved thread or start a new verified run.
-            </p>
-          </div>
-          <div className="flex items-center gap-1">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 rounded-xl"
-              onClick={() => {
-                onConversationSelect(null);
-                if (mobile) {
-                  onToggle();
-                }
-              }}
-              aria-label="Start new run"
-              title="Start new run"
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-            {onRefresh ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 rounded-xl"
-                onClick={onRefresh}
-                title="Refresh saved runs"
-              >
-                <RefreshCw className="h-4 w-4" />
-              </Button>
-            ) : null}
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={onToggle}
-              className="h-8 w-8 rounded-xl text-muted-foreground hover:bg-accent hover:text-foreground"
-              aria-label={mobile ? 'Close history' : 'Close conversation rail'}
-            >
-              <PanelLeftClose className="h-4 w-4" />
-            </Button>
+        <div className="flex flex-col gap-4">
+          <SavedRunListHeader
+            runCount={conversations.length}
+            action={(
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-xl"
+                  onClick={() => {
+                    onConversationSelect(null);
+                    if (mobile) {
+                      onToggle();
+                    }
+                  }}
+                  aria-label="Start new run"
+                  title="Start new run"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+                {onRefresh ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-xl"
+                    onClick={onRefresh}
+                    title="Refresh saved runs"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
+                ) : null}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={onToggle}
+                  className="h-8 w-8 rounded-xl text-muted-foreground hover:bg-accent hover:text-foreground"
+                  aria-label={mobile ? 'Close history' : 'Close conversation rail'}
+                >
+                  <PanelLeftClose className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+          />
+          <div className="rounded-[22px] border border-border/60 bg-muted/[0.35] px-4 py-3 text-xs text-muted-foreground">
+            Reopen a verified thread, search across recent work, or start a new run without leaving the desk.
           </div>
         </div>
 
@@ -365,6 +383,7 @@ export function ConversationSidebar({
                   key={conversation.id}
                   conv={conversation}
                   active={conversation.id === activeConversationId}
+                  recent={recentConversationIds.includes(conversation.id)}
                   onSelect={() => {
                     onConversationSelect(conversation.id);
                     if (mobile) {

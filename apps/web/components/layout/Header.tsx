@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { useUIStore } from "@/stores/uiStore";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { signOut } from "next-auth/react";
 import { toast } from "sonner";
 import { NotificationFeed } from "@/components/notifications/NotificationFeed";
@@ -125,8 +126,8 @@ export function Header() {
           <div className="hidden flex-[0_1_34rem] xl:block">
             <div
               className={cn(
-                "relative flex h-11 items-center rounded-xl border border-border/55 bg-background/40 px-3 transition-all",
-                searchFocused && "border-foreground/18 bg-background/64"
+                "relative flex h-11 items-center rounded-[20px] border border-border/60 bg-background/70 px-3 shadow-[0_18px_45px_-38px_rgba(15,23,42,0.42)] transition-all",
+                searchFocused && "border-foreground/18 bg-background/92"
               )}
               role="button"
               tabIndex={0}
@@ -178,69 +179,81 @@ export function Header() {
           </div>
         )}
 
-        <div className="flex items-center gap-1 md:gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={openCommandPalette}
-            className="text-muted-foreground lg:hidden"
-            aria-label="Open command search"
-          >
-            <Search className="h-5 w-5" />
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            className="text-muted-foreground"
-            aria-label="Toggle theme"
-          >
-            {!mounted ? (
-              <span className="h-5 w-5" />
-            ) : theme === "dark" ? (
-              <Sun className="h-5 w-5" />
-            ) : (
-              <Moon className="h-5 w-5" />
-            )}
-          </Button>
-
-          {!isMapPage && (
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 rounded-[20px] border border-border/60 bg-background/78 p-1 shadow-[0_18px_45px_-38px_rgba(15,23,42,0.42)]">
             <Button
               variant="ghost"
               size="icon"
-              onClick={toggleCopilot}
-              className="text-muted-foreground"
-              aria-label="Toggle Copilot"
+              onClick={openCommandPalette}
+              className="rounded-2xl text-muted-foreground lg:hidden"
+              aria-label="Open command search"
             >
-              <Sparkles className="h-5 w-5" />
+              <Search className="h-5 w-5" />
             </Button>
-          )}
 
-          <NotificationFeed />
-
-          <Button
-            className="gap-2 rounded-xl"
-            size={isMobile ? "icon" : "default"}
-            onClick={() => {
-              const newId = crypto.randomUUID();
-              router.push(`/chat?conversationId=${newId}`);
-            }}
-          >
-            <Plus className="h-4 w-4" />
-            {!isMobile && <span>New Run</span>}
-          </Button>
-
-          {!isMobile && (
             <Button
               variant="ghost"
-              onClick={handleSignOut}
-              disabled={isSigningOut}
-              className="text-muted-foreground"
+              size="icon"
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              className="rounded-2xl text-muted-foreground"
+              aria-label="Toggle theme"
             >
-              {isSigningOut ? "Signing out..." : "Sign Out"}
+              {!mounted ? (
+                <span className="h-5 w-5" />
+              ) : theme === "dark" ? (
+                <Sun className="h-5 w-5" />
+              ) : (
+                <Moon className="h-5 w-5" />
+              )}
             </Button>
-          )}
+
+            {!isMapPage && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleCopilot}
+                className="rounded-2xl text-muted-foreground"
+                aria-label="Toggle Copilot"
+              >
+                <Sparkles className="h-5 w-5" />
+              </Button>
+            )}
+
+            <div className="flex items-center rounded-2xl">
+              <NotificationFeed />
+            </div>
+
+            {!isMobile && (
+              <Button
+                variant="ghost"
+                onClick={handleSignOut}
+                disabled={isSigningOut}
+                className="rounded-2xl px-3 text-muted-foreground"
+              >
+                {isSigningOut ? "Signing out..." : "Sign Out"}
+              </Button>
+            )}
+          </div>
+
+          <TooltipProvider delayDuration={120}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  className="gap-2 rounded-[18px] shadow-[0_16px_40px_-28px_rgba(15,23,42,0.5)]"
+                  size={isMobile ? "icon" : "default"}
+                  aria-label="Start a new run"
+                  onClick={() => {
+                    const newId = crypto.randomUUID();
+                    router.push(`/chat?conversationId=${newId}`);
+                  }}
+                >
+                  <Plus className="h-4 w-4" />
+                  <span className={cn(isMobile ? "sr-only" : "inline")}>New Run</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Start a new run</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </div>
     </header>

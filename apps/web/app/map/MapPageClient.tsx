@@ -1753,63 +1753,71 @@ export function MapPageClient() {
               }
             />
               </div>
-              {/* Sidebar toggle button */}
-              <button
-                type="button"
-                onClick={() => setSidebarOpen((prev) => !prev)}
-                className="absolute right-0 top-1/2 z-20 hidden -translate-y-1/2 xl:flex h-10 w-5 items-center justify-center rounded-l-md border border-r-0 border-map-border bg-map-surface-overlay/90 text-map-text-muted hover:text-map-text-primary backdrop-blur-md transition-all"
-                style={{ right: sidebarOpen ? "25rem" : "0" }}
-                aria-label={sidebarOpen ? "Close console" : "Open console"}
-              >
-                <span className="text-xs">{sidebarOpen ? "\u203A" : "\u2039"}</span>
-              </button>
-
-              {/* Collapsible sidebar */}
-              <motion.div
-                initial={false}
-                animate={{ width: sidebarOpen ? "25rem" : 0 }}
-                transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-                className="hidden xl:block overflow-hidden flex-shrink-0"
-              >
-                <div className="h-full" style={{ width: "25rem" }}>
-                  <MapOperatorConsole
-                    parcels={activeParcels}
-                    selectedIds={selectedParcelIds}
-                    selectedParcels={selectedParcels}
-                    trackedParcels={trackedParcels}
-                    visibleCount={activeParcels.length}
-                    searchMatchCount={searchMatchCount}
-                    nearbyCount={polygon ? activeParcels.length : nearbyParcelCount}
-                    resultCount={resultCards.length}
-                    statusText={statusText}
-                    sourceLabel={sourceLabel}
-                    dataFreshnessLabel={dataFreshnessLabel}
-                    latencyLabel={latencyLabel}
-                    activePanel={activePanel}
-                    onActivePanelChange={setActivePanel}
-                    onFocusParcel={focusParcel}
-                    onToggleParcel={(parcelId) => {
-                      const next = new Set(selectedParcelIds);
-                      if (next.has(parcelId)) {
-                        next.delete(parcelId);
-                      } else {
-                        next.add(parcelId);
-                      }
-                      mapDispatch({
-                        type: "SELECT_PARCELS",
-                        parcelIds: Array.from(next),
-                      });
-                    }}
-                    onClearSelection={() => {
-                      mapDispatch({ type: "DESELECT_ALL" });
-                    }}
-                    onSaveSelection={saveTrackedSelection}
-                    onFocusTrackedParcel={focusTrackedParcel}
-                    onRemoveTrackedParcel={removeTrackedSelection}
-                    onUpdateTrackedParcelStatus={updateTrackedSelectionStatus}
-                  />
-                </div>
-              </motion.div>
+              <div className="pointer-events-none absolute inset-y-3 right-3 z-20 hidden lg:block">
+                <motion.button
+                  type="button"
+                  onClick={() => setSidebarOpen((prev) => !prev)}
+                  initial={false}
+                  animate={{ x: sidebarOpen ? -412 : 0 }}
+                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                  className="pointer-events-auto absolute right-0 top-1/2 flex h-14 w-7 -translate-y-1/2 items-center justify-center rounded-l-2xl border border-r-0 border-map-border bg-map-surface-overlay/95 text-map-text-muted shadow-[0_18px_50px_-28px_rgba(15,23,42,0.55)] backdrop-blur-md transition-colors hover:text-map-text-primary"
+                  aria-label={sidebarOpen ? "Close console" : "Open console"}
+                  aria-expanded={sidebarOpen}
+                  aria-controls="map-operator-console"
+                  title={sidebarOpen ? "Close operator console" : "Open operator console"}
+                >
+                  <span className="text-sm leading-none">{sidebarOpen ? "\u203A" : "\u2039"}</span>
+                </motion.button>
+                <AnimatePresence initial={false}>
+                  {sidebarOpen ? (
+                    <motion.aside
+                      id="map-operator-console"
+                      initial={{ opacity: 0, x: 28 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 28 }}
+                      transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+                      className="pointer-events-auto absolute inset-y-0 right-0 w-[25rem] overflow-hidden rounded-[1.6rem] border border-map-border bg-map-surface-overlay/96 shadow-[0_28px_80px_-36px_rgba(15,23,42,0.65)] backdrop-blur-xl"
+                    >
+                      <MapOperatorConsole
+                        parcels={activeParcels}
+                        selectedIds={selectedParcelIds}
+                        selectedParcels={selectedParcels}
+                        trackedParcels={trackedParcels}
+                        visibleCount={activeParcels.length}
+                        searchMatchCount={searchMatchCount}
+                        nearbyCount={polygon ? activeParcels.length : nearbyParcelCount}
+                        resultCount={resultCards.length}
+                        statusText={statusText}
+                        sourceLabel={sourceLabel}
+                        dataFreshnessLabel={dataFreshnessLabel}
+                        latencyLabel={latencyLabel}
+                        activePanel={activePanel}
+                        onActivePanelChange={setActivePanel}
+                        onFocusParcel={focusParcel}
+                        onToggleParcel={(parcelId) => {
+                          const next = new Set(selectedParcelIds);
+                          if (next.has(parcelId)) {
+                            next.delete(parcelId);
+                          } else {
+                            next.add(parcelId);
+                          }
+                          mapDispatch({
+                            type: "SELECT_PARCELS",
+                            parcelIds: Array.from(next),
+                          });
+                        }}
+                        onClearSelection={() => {
+                          mapDispatch({ type: "DESELECT_ALL" });
+                        }}
+                        onSaveSelection={saveTrackedSelection}
+                        onFocusTrackedParcel={focusTrackedParcel}
+                        onRemoveTrackedParcel={removeTrackedSelection}
+                        onUpdateTrackedParcelStatus={updateTrackedSelectionStatus}
+                      />
+                    </motion.aside>
+                  ) : null}
+                </AnimatePresence>
+              </div>
             </div>
           </>
         )}

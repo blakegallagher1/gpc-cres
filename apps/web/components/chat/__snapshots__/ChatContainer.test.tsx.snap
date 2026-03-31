@@ -2,7 +2,7 @@
 
 exports[`ChatContainer > does not fetch a nonexistent conversation for a fresh chat session 1`] = `
 <div
-  class="relative flex h-[calc(100svh-var(--app-header-height))] min-h-[calc(100svh-var(--app-header-height))] overflow-hidden"
+  class="relative flex h-[calc(100svh-var(--app-header-height))] min-h-[calc(100svh-var(--app-header-height))] overflow-hidden bg-muted/[0.14]"
 >
   <div
     data-active-conversation-id=""
@@ -11,471 +11,1145 @@ exports[`ChatContainer > does not fetch a nonexistent conversation for a fresh c
     data-testid="conversation-sidebar"
   />
   <div
-    class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:flex-row"
+    class="min-h-0 min-w-0 flex-1 overflow-hidden"
   >
     <div
-      class="flex min-h-0 min-w-0 flex-1 flex-col"
+      class="grid h-full min-h-0 min-w-0 gap-4 px-3 py-3 md:px-4 md:py-4 lg:grid-cols-[minmax(0,1fr)_23.5rem] lg:gap-5 lg:px-5"
     >
-      <div
-        class="shrink-0 border-b border-border/40 px-4 py-3 sm:px-5"
+      <section
+        class="min-h-0 min-w-0 overflow-hidden rounded-[32px] border border-border/60 bg-background/72 shadow-[0_28px_80px_-48px_rgba(15,23,42,0.55)] backdrop-blur-2xl"
       >
         <div
-          class="flex flex-col gap-4"
+          class="flex h-full min-h-0 min-w-0 flex-col"
         >
           <div
-            class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"
+            class="min-h-0 flex-1 overflow-y-auto"
           >
             <div
-              class="min-w-0 flex-1"
-            >
-              <p
-                class="workspace-eyebrow"
-              >
-                Verified Run Workspace
-              </p>
-              <h2
-                class="mt-3 max-w-[16ch] text-2xl font-semibold tracking-[-0.05em] text-foreground sm:text-[2rem]"
-              >
-                Turn a site question into a verified next move.
-              </h2>
-              <p
-                class="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground"
-              >
-                Start from the parcel, deal, market, or file, then let the coordinator route the work across specialists, tools, and proof checks.
-              </p>
-            </div>
-            <div
-              class="flex shrink-0 flex-wrap items-center gap-2"
+              class="shrink-0 px-4 py-4 sm:px-5"
             >
               <div
-                data-testid="deal-selector"
-              />
-              <button
-                class="inline-flex items-center justify-center whitespace-nowrap border font-medium transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 hover:text-accent-foreground h-7 gap-1.5 rounded-full px-2.5 font-mono text-[10px] tracking-wide border-indigo-500/40 bg-indigo-500/10 text-indigo-700 hover:bg-indigo-500/20 dark:text-indigo-300"
-                data-state="closed"
-                type="button"
+                class="flex flex-col gap-4"
               >
-                <svg
-                  aria-hidden="true"
-                  class="lucide lucide-monitor h-3 w-3"
-                  fill="none"
-                  height="24"
-                  stroke="currentColor"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  viewBox="0 0 24 24"
-                  width="24"
-                  xmlns="http://www.w3.org/2000/svg"
+                <header
+                  class="relative overflow-hidden rounded-[28px] border border-border/60 bg-background/95 p-6 shadow-[0_18px_65px_-40px_rgba(15,23,42,0.45)] backdrop-blur-xl sm:p-7"
                 >
-                  <rect
-                    height="14"
-                    rx="2"
-                    width="20"
-                    x="2"
-                    y="3"
+                  <div
+                    class="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-foreground/20 to-transparent"
                   />
-                  <line
-                    x1="8"
-                    x2="16"
-                    y1="21"
-                    y2="21"
+                  <div
+                    class="pointer-events-none absolute inset-y-0 right-0 w-40 bg-gradient-to-l from-primary/10 via-transparent to-transparent dark:from-primary/15"
                   />
-                  <line
-                    x1="12"
-                    x2="12"
-                    y1="17"
-                    y2="21"
-                  />
-                </svg>
-                <span>
-                  5.4
-                </span>
-              </button>
-              <button
-                class="inline-flex items-center justify-center whitespace-nowrap border font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background/42 hover:bg-accent/40 hover:text-accent-foreground h-8 rounded-full px-3 text-xs"
-              >
-                <svg
-                  aria-hidden="true"
-                  class="lucide lucide-panel-left-open mr-1.5 h-3.5 w-3.5"
-                  fill="none"
-                  height="24"
-                  stroke="currentColor"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  viewBox="0 0 24 24"
-                  width="24"
-                  xmlns="http://www.w3.org/2000/svg"
+                  <div
+                    class="relative flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between"
+                  >
+                    <div
+                      class="max-w-3xl space-y-4"
+                    >
+                      <div
+                        class="flex flex-wrap items-center gap-2.5"
+                      >
+                        <span
+                          class="inline-flex items-center rounded-full border border-border/70 bg-muted/60 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground"
+                        >
+                          Verified Run Workspace
+                        </span>
+                        <div
+                          class="inline-flex items-center border font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-full border-border/70 bg-background/80 px-3 py-1 text-[11px] font-medium text-foreground/88"
+                        >
+                          <span
+                            class="mr-2 text-muted-foreground"
+                          >
+                            Desk
+                          </span>
+                          <span>
+                            /chat
+                          </span>
+                        </div>
+                        <div
+                          class="inline-flex items-center border font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-full border-border/70 bg-background/80 px-3 py-1 text-[11px] font-medium text-foreground/88"
+                        >
+                          <span
+                            class="mr-2 text-muted-foreground"
+                          >
+                            Scope
+                          </span>
+                          <span>
+                            No deal scope
+                          </span>
+                        </div>
+                        <div
+                          class="inline-flex items-center border font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-full border-border/70 bg-background/80 px-3 py-1 text-[11px] font-medium text-foreground/88"
+                        >
+                          <span
+                            class="mr-2 text-muted-foreground"
+                          >
+                            Thread
+                          </span>
+                          <span>
+                            Draft thread
+                          </span>
+                        </div>
+                        <div
+                          class="inline-flex items-center border font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-full border-border/70 bg-background/80 px-3 py-1 text-[11px] font-medium text-foreground/88"
+                        >
+                          <span
+                            class="mr-2 text-muted-foreground"
+                          >
+                            Transport
+                          </span>
+                          <span>
+                            HTTP stream
+                          </span>
+                        </div>
+                      </div>
+                      <div
+                        class="space-y-2"
+                      >
+                        <h1
+                          class="text-3xl font-semibold tracking-[-0.04em] text-foreground sm:text-[2.5rem]"
+                        >
+                          Chat
+                        </h1>
+                        <p
+                          class="max-w-2xl text-sm leading-6 text-muted-foreground sm:text-[15px]"
+                        >
+                          Verified execution workspace for screening sites, comparing paths, and producing a credible next move.
+                        </p>
+                      </div>
+                    </div>
+                    <div
+                      class="flex shrink-0 items-start"
+                    >
+                      <div
+                        class="flex flex-wrap items-center justify-end gap-2"
+                      >
+                        <div
+                          data-testid="deal-selector"
+                        />
+                        <button
+                          class="inline-flex items-center justify-center whitespace-nowrap border font-medium transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 hover:text-accent-foreground h-7 gap-1.5 rounded-full px-2.5 font-mono text-[10px] tracking-wide border-indigo-500/40 bg-indigo-500/10 text-indigo-700 hover:bg-indigo-500/20 dark:text-indigo-300"
+                          data-state="closed"
+                          type="button"
+                        >
+                          <svg
+                            aria-hidden="true"
+                            class="lucide lucide-monitor h-3 w-3"
+                            fill="none"
+                            height="24"
+                            stroke="currentColor"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            viewBox="0 0 24 24"
+                            width="24"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <rect
+                              height="14"
+                              rx="2"
+                              width="20"
+                              x="2"
+                              y="3"
+                            />
+                            <line
+                              x1="8"
+                              x2="16"
+                              y1="21"
+                              y2="21"
+                            />
+                            <line
+                              x1="12"
+                              x2="12"
+                              y1="17"
+                              y2="21"
+                            />
+                          </svg>
+                          <span>
+                            5.4
+                          </span>
+                        </button>
+                        <button
+                          class="items-center justify-center whitespace-nowrap border tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 hover:bg-accent/40 hover:text-accent-foreground hidden h-10 rounded-2xl border-border/70 bg-background/80 px-4 text-xs font-medium md:inline-flex"
+                        >
+                          <svg
+                            aria-hidden="true"
+                            class="lucide lucide-panel-left-open mr-1.5 h-3.5 w-3.5"
+                            fill="none"
+                            height="24"
+                            stroke="currentColor"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            viewBox="0 0 24 24"
+                            width="24"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <rect
+                              height="18"
+                              rx="2"
+                              width="18"
+                              x="3"
+                              y="3"
+                            />
+                            <path
+                              d="M9 3v18"
+                            />
+                            <path
+                              d="m14 9 3 3-3 3"
+                            />
+                          </svg>
+                          Open history
+                        </button>
+                        <button
+                          class="items-center justify-center whitespace-nowrap border tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 hover:bg-accent/40 hover:text-accent-foreground hidden h-10 rounded-2xl border-border/70 bg-background/80 px-4 text-xs font-medium md:inline-flex lg:hidden"
+                        >
+                          <svg
+                            aria-hidden="true"
+                            class="lucide lucide-panel-right-open mr-1.5 h-3.5 w-3.5"
+                            fill="none"
+                            height="24"
+                            stroke="currentColor"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            viewBox="0 0 24 24"
+                            width="24"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <rect
+                              height="18"
+                              rx="2"
+                              width="18"
+                              x="3"
+                              y="3"
+                            />
+                            <path
+                              d="M15 3v18"
+                            />
+                            <path
+                              d="m10 15-3-3 3-3"
+                            />
+                          </svg>
+                          Verification
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </header>
+                <section
+                  class="rounded-[26px] border border-border/60 bg-background/95 p-5 shadow-[0_16px_50px_-38px_rgba(15,23,42,0.48)] backdrop-blur-xl sm:p-6"
                 >
-                  <rect
-                    height="18"
-                    rx="2"
-                    width="18"
-                    x="3"
-                    y="3"
-                  />
-                  <path
-                    d="M9 3v18"
-                  />
-                  <path
-                    d="m14 9 3 3-3 3"
-                  />
-                </svg>
-                Open run history
-              </button>
+                  <div
+                    class="flex flex-col gap-5"
+                  >
+                    <div
+                      class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between"
+                    >
+                      <div
+                        class="space-y-2"
+                      >
+                        <h2
+                          class="text-base font-semibold tracking-[-0.03em] text-foreground"
+                        >
+                          Run setup
+                        </h2>
+                        <p
+                          class="max-w-2xl text-sm leading-6 text-muted-foreground"
+                        >
+                          Set the operating scope once, then launch a run that keeps verification and proof with the result.
+                        </p>
+                      </div>
+                    </div>
+                    <dl
+                      class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
+                    >
+                      <div
+                        class="rounded-2xl border border-border/60 bg-muted/[0.45] px-4 py-3.5"
+                      >
+                        <dt
+                          class="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground"
+                        >
+                          Scope
+                        </dt>
+                        <dd
+                          class="mt-2 text-sm font-medium text-foreground"
+                        >
+                          No deal scope
+                        </dd>
+                        <p
+                          class="mt-1 text-xs leading-5 text-muted-foreground"
+                        >
+                          Parcel, deal, market, or file context flows into the run.
+                        </p>
+                      </div>
+                      <div
+                        class="rounded-2xl border border-border/60 bg-muted/[0.45] px-4 py-3.5"
+                      >
+                        <dt
+                          class="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground"
+                        >
+                          Thread
+                        </dt>
+                        <dd
+                          class="mt-2 text-sm font-medium text-foreground"
+                        >
+                          Draft thread
+                        </dd>
+                        <p
+                          class="mt-1 text-xs leading-5 text-muted-foreground"
+                        >
+                          HTTP stream
+                        </p>
+                      </div>
+                      <div
+                        class="rounded-2xl border border-border/60 bg-muted/[0.45] px-4 py-3.5"
+                      >
+                        <dt
+                          class="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground"
+                        >
+                          Lead Agent
+                        </dt>
+                        <dd
+                          class="mt-2 text-sm font-medium text-foreground"
+                        >
+                          Coordinator
+                        </dd>
+                        <p
+                          class="mt-1 text-xs leading-5 text-muted-foreground"
+                        >
+                          Coordinator routes to specialists without losing thread state.
+                        </p>
+                      </div>
+                      <div
+                        class="rounded-2xl border border-border/60 bg-muted/[0.45] px-4 py-3.5"
+                      >
+                        <dt
+                          class="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground"
+                        >
+                          Saved Runs
+                        </dt>
+                        <dd
+                          class="mt-2 text-sm font-medium text-foreground"
+                        >
+                          0
+                        </dd>
+                        <p
+                          class="mt-1 text-xs leading-5 text-muted-foreground"
+                        >
+                          Recent verified threads stay available in the history rail.
+                        </p>
+                      </div>
+                    </dl>
+                    <div
+                      class="border-t border-border/60 pt-4"
+                    >
+                      <div
+                        class="flex flex-wrap items-center gap-2"
+                      >
+                        <span
+                          class="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/80 px-3 py-1.5 text-[11px] font-medium text-foreground/88"
+                        >
+                          <svg
+                            aria-hidden="true"
+                            class="lucide lucide-shield-check h-3.5 w-3.5 text-muted-foreground"
+                            fill="none"
+                            height="24"
+                            stroke="currentColor"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            viewBox="0 0 24 24"
+                            width="24"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"
+                            />
+                            <path
+                              d="m9 12 2 2 4-4"
+                            />
+                          </svg>
+                          <span>
+                            Verification stays in the inspector
+                          </span>
+                        </span>
+                        <span
+                          class="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/80 px-3 py-1.5 text-[11px] font-medium text-foreground/88"
+                        >
+                          <svg
+                            aria-hidden="true"
+                            class="lucide lucide-bot h-3.5 w-3.5 text-muted-foreground"
+                            fill="none"
+                            height="24"
+                            stroke="currentColor"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            viewBox="0 0 24 24"
+                            width="24"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M12 8V4H8"
+                            />
+                            <rect
+                              height="12"
+                              rx="2"
+                              width="16"
+                              x="4"
+                              y="8"
+                            />
+                            <path
+                              d="M2 14h2"
+                            />
+                            <path
+                              d="M20 14h2"
+                            />
+                            <path
+                              d="M15 13v2"
+                            />
+                            <path
+                              d="M9 13v2"
+                            />
+                          </svg>
+                          <span>
+                            Prompt once, route specialists automatically
+                          </span>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+                <div
+                  class="flex flex-wrap items-center gap-2 md:hidden"
+                >
+                  <button
+                    class="inline-flex items-center justify-center whitespace-nowrap border font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-transparent bg-transparent hover:bg-accent/60 hover:text-accent-foreground rounded-lg h-7 px-2 text-xs text-muted-foreground"
+                  >
+                    <svg
+                      aria-hidden="true"
+                      class="lucide lucide-panel-left-open mr-1.5 h-3.5 w-3.5"
+                      fill="none"
+                      height="24"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      viewBox="0 0 24 24"
+                      width="24"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <rect
+                        height="18"
+                        rx="2"
+                        width="18"
+                        x="3"
+                        y="3"
+                      />
+                      <path
+                        d="M9 3v18"
+                      />
+                      <path
+                        d="m14 9 3 3-3 3"
+                      />
+                    </svg>
+                    History
+                  </button>
+                  <button
+                    class="inline-flex items-center justify-center whitespace-nowrap border font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-transparent bg-transparent hover:bg-accent/60 hover:text-accent-foreground rounded-lg h-7 px-2 text-xs text-muted-foreground"
+                  >
+                    <svg
+                      aria-hidden="true"
+                      class="lucide lucide-panel-right-open mr-1.5 h-3.5 w-3.5"
+                      fill="none"
+                      height="24"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      viewBox="0 0 24 24"
+                      width="24"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <rect
+                        height="18"
+                        rx="2"
+                        width="18"
+                        x="3"
+                        y="3"
+                      />
+                      <path
+                        d="M15 3v18"
+                      />
+                      <path
+                        d="m10 15-3-3 3-3"
+                      />
+                    </svg>
+                    Verification
+                  </button>
+                </div>
+                <section
+                  class="rounded-[26px] border border-border/60 bg-background/95 p-5 shadow-[0_16px_50px_-38px_rgba(15,23,42,0.48)] backdrop-blur-xl sm:p-6"
+                >
+                  <div
+                    class="space-y-4"
+                  >
+                    <div
+                      class="space-y-2"
+                    >
+                      <h2
+                        class="text-base font-semibold tracking-[-0.03em] text-foreground"
+                      >
+                        Quick starts
+                      </h2>
+                      <p
+                        class="text-sm leading-6 text-muted-foreground"
+                      >
+                        Launch one of the common run patterns without drafting the prompt from scratch.
+                      </p>
+                    </div>
+                    <div
+                      class="grid gap-3 sm:grid-cols-2"
+                    >
+                      <button
+                        class="inline-flex items-center whitespace-nowrap text-sm font-medium tracking-[-0.01em] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 hover:text-accent-foreground group h-auto justify-start rounded-2xl border px-4 py-4 text-left transition-all duration-200 border-primary/30 bg-primary/[0.08] hover:border-primary/45 hover:bg-primary/[0.12]"
+                        type="button"
+                      >
+                        <div
+                          class="flex w-full items-start gap-3"
+                        >
+                          <span
+                            class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border transition-colors border-primary/30 bg-background/90 text-primary"
+                          >
+                            <svg
+                              aria-hidden="true"
+                              class="lucide lucide-shield-check h-4.5 w-4.5"
+                              fill="none"
+                              height="24"
+                              stroke="currentColor"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              viewBox="0 0 24 24"
+                              width="24"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"
+                              />
+                              <path
+                                d="m9 12 2 2 4-4"
+                              />
+                            </svg>
+                          </span>
+                          <span
+                            class="min-w-0 flex-1"
+                          >
+                            <span
+                              class="flex items-center justify-between gap-3"
+                            >
+                              <span
+                                class="text-sm font-medium text-foreground"
+                              >
+                                Run entitlement screen
+                              </span>
+                              <svg
+                                aria-hidden="true"
+                                class="lucide lucide-arrow-right h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-foreground"
+                                fill="none"
+                                height="24"
+                                stroke="currentColor"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                viewBox="0 0 24 24"
+                                width="24"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  d="M5 12h14"
+                                />
+                                <path
+                                  d="m12 5 7 7-7 7"
+                                />
+                              </svg>
+                            </span>
+                            <span
+                              class="mt-1 block text-xs leading-5 text-muted-foreground"
+                            >
+                              Pull the first-pass risk picture, gating issues, and a recommended workplan.
+                            </span>
+                          </span>
+                        </div>
+                      </button>
+                      <button
+                        class="inline-flex items-center whitespace-nowrap text-sm font-medium tracking-[-0.01em] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 hover:text-accent-foreground group h-auto justify-start rounded-2xl border px-4 py-4 text-left transition-all duration-200 border-border/60 bg-muted/[0.38] hover:border-border hover:bg-muted/[0.6]"
+                        type="button"
+                      >
+                        <div
+                          class="flex w-full items-start gap-3"
+                        >
+                          <span
+                            class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border text-muted-foreground transition-colors border-border/70 bg-background/75 group-hover:text-foreground"
+                          >
+                            <svg
+                              aria-hidden="true"
+                              class="lucide lucide-route h-4.5 w-4.5"
+                              fill="none"
+                              height="24"
+                              stroke="currentColor"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              viewBox="0 0 24 24"
+                              width="24"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <circle
+                                cx="6"
+                                cy="19"
+                                r="3"
+                              />
+                              <path
+                                d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"
+                              />
+                              <circle
+                                cx="18"
+                                cy="5"
+                                r="3"
+                              />
+                            </svg>
+                          </span>
+                          <span
+                            class="min-w-0 flex-1"
+                          >
+                            <span
+                              class="flex items-center justify-between gap-3"
+                            >
+                              <span
+                                class="text-sm font-medium text-foreground"
+                              >
+                                Summarize zoning + setbacks
+                              </span>
+                              <svg
+                                aria-hidden="true"
+                                class="lucide lucide-arrow-right h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-foreground"
+                                fill="none"
+                                height="24"
+                                stroke="currentColor"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                viewBox="0 0 24 24"
+                                width="24"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  d="M5 12h14"
+                                />
+                                <path
+                                  d="m12 5 7 7-7 7"
+                                />
+                              </svg>
+                            </span>
+                            <span
+                              class="mt-1 block text-xs leading-5 text-muted-foreground"
+                            >
+                              Turn the parcel facts into a concise operator brief with missing evidence called out.
+                            </span>
+                          </span>
+                        </div>
+                      </button>
+                      <button
+                        class="inline-flex items-center whitespace-nowrap text-sm font-medium tracking-[-0.01em] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 hover:text-accent-foreground group h-auto justify-start rounded-2xl border px-4 py-4 text-left transition-all duration-200 border-border/60 bg-muted/[0.38] hover:border-border hover:bg-muted/[0.6]"
+                        type="button"
+                      >
+                        <div
+                          class="flex w-full items-start gap-3"
+                        >
+                          <span
+                            class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border text-muted-foreground transition-colors border-border/70 bg-background/75 group-hover:text-foreground"
+                          >
+                            <svg
+                              aria-hidden="true"
+                              class="lucide lucide-paperclip h-4.5 w-4.5"
+                              fill="none"
+                              height="24"
+                              stroke="currentColor"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              viewBox="0 0 24 24"
+                              width="24"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551"
+                              />
+                            </svg>
+                          </span>
+                          <span
+                            class="min-w-0 flex-1"
+                          >
+                            <span
+                              class="flex items-center justify-between gap-3"
+                            >
+                              <span
+                                class="text-sm font-medium text-foreground"
+                              >
+                                Build diligence checklist
+                              </span>
+                              <svg
+                                aria-hidden="true"
+                                class="lucide lucide-arrow-right h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-foreground"
+                                fill="none"
+                                height="24"
+                                stroke="currentColor"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                viewBox="0 0 24 24"
+                                width="24"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  d="M5 12h14"
+                                />
+                                <path
+                                  d="m12 5 7 7-7 7"
+                                />
+                              </svg>
+                            </span>
+                            <span
+                              class="mt-1 block text-xs leading-5 text-muted-foreground"
+                            >
+                              Generate the next-step checklist, owners, and proof gaps for the team to execute.
+                            </span>
+                          </span>
+                        </div>
+                      </button>
+                      <button
+                        class="inline-flex items-center whitespace-nowrap text-sm font-medium tracking-[-0.01em] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 hover:text-accent-foreground group h-auto justify-start rounded-2xl border px-4 py-4 text-left transition-all duration-200 border-border/60 bg-muted/[0.38] hover:border-border hover:bg-muted/[0.6]"
+                        type="button"
+                      >
+                        <div
+                          class="flex w-full items-start gap-3"
+                        >
+                          <span
+                            class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border text-muted-foreground transition-colors border-border/70 bg-background/75 group-hover:text-foreground"
+                          >
+                            <svg
+                              aria-hidden="true"
+                              class="lucide lucide-layers h-4.5 w-4.5"
+                              fill="none"
+                              height="24"
+                              stroke="currentColor"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              viewBox="0 0 24 24"
+                              width="24"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"
+                              />
+                              <path
+                                d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"
+                              />
+                              <path
+                                d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"
+                              />
+                            </svg>
+                          </span>
+                          <span
+                            class="min-w-0 flex-1"
+                          >
+                            <span
+                              class="flex items-center justify-between gap-3"
+                            >
+                              <span
+                                class="text-sm font-medium text-foreground"
+                              >
+                                Compare capital paths
+                              </span>
+                              <svg
+                                aria-hidden="true"
+                                class="lucide lucide-arrow-right h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-foreground"
+                                fill="none"
+                                height="24"
+                                stroke="currentColor"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                viewBox="0 0 24 24"
+                                width="24"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  d="M5 12h14"
+                                />
+                                <path
+                                  d="m12 5 7 7-7 7"
+                                />
+                              </svg>
+                            </span>
+                            <span
+                              class="mt-1 block text-xs leading-5 text-muted-foreground"
+                            >
+                              Frame debt, equity, and timing tradeoffs before the run turns into an investment memo.
+                            </span>
+                          </span>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                </section>
+              </div>
             </div>
           </div>
           <div
-            class="grid gap-3 border-t border-border/30 pt-3 sm:grid-cols-2 xl:grid-cols-4"
+            data-testid="chat-input"
+          />
+        </div>
+      </section>
+      <div
+        class="min-h-0"
+      >
+        <aside
+          class="hidden w-[23.5rem] border-l border-border/40 bg-muted/[0.18] px-4 py-4 lg:flex lg:flex-col"
+        >
+          <div
+            class="min-h-0 flex-1 overflow-y-auto"
           >
             <div
-              class="min-w-0"
+              class="space-y-5"
             >
-              <p
-                class="workspace-stat-label"
+              <div
+                class="rounded-[24px] border border-border/60 bg-background/90 p-4 shadow-[0_18px_45px_-36px_rgba(15,23,42,0.45)]"
               >
-                Scope
-              </p>
-              <p
-                class="mt-1 text-sm font-medium text-foreground"
+                <div
+                  class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"
+                >
+                  <div
+                    class="space-y-1"
+                  >
+                    <h2
+                      class="text-lg font-semibold tracking-[-0.035em] text-foreground"
+                    >
+                      Execution inspector
+                    </h2>
+                    <p
+                      class="text-sm leading-6 text-muted-foreground"
+                    >
+                      Verification, proof status, and specialist coverage stay attached to the run.
+                    </p>
+                  </div>
+                  <div
+                    class="flex shrink-0 items-center gap-2"
+                  >
+                    <span
+                      class="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/80 px-3 py-1.5 text-[11px] font-medium text-foreground/88"
+                    >
+                      <svg
+                        aria-hidden="true"
+                        class="lucide lucide-bot h-3.5 w-3.5 text-muted-foreground"
+                        fill="none"
+                        height="24"
+                        stroke="currentColor"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        viewBox="0 0 24 24"
+                        width="24"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="M12 8V4H8"
+                        />
+                        <rect
+                          height="12"
+                          rx="2"
+                          width="16"
+                          x="4"
+                          y="8"
+                        />
+                        <path
+                          d="M2 14h2"
+                        />
+                        <path
+                          d="M20 14h2"
+                        />
+                        <path
+                          d="M15 13v2"
+                        />
+                        <path
+                          d="M9 13v2"
+                        />
+                      </svg>
+                      <span>
+                        0 saved runs
+                      </span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div
+                class="grid grid-cols-2 gap-3 text-[11px]"
               >
-                No deal scope
-              </p>
-            </div>
-            <div
-              class="min-w-0"
-            >
-              <p
-                class="workspace-stat-label"
+                <div
+                  class="flex items-baseline justify-between"
+                >
+                  <span
+                    class="workspace-stat-label"
+                  >
+                    Thread
+                  </span>
+                  <span
+                    class="text-xs font-medium text-foreground"
+                  >
+                    Draft until first response
+                  </span>
+                </div>
+                <div
+                  class="flex items-baseline justify-between"
+                >
+                  <span
+                    class="workspace-stat-label"
+                  >
+                    Agent
+                  </span>
+                  <span
+                    class="text-xs font-medium text-foreground"
+                  >
+                    Coordinator
+                  </span>
+                </div>
+                <div
+                  class="flex items-baseline justify-between"
+                >
+                  <span
+                    class="workspace-stat-label"
+                  >
+                    Attach
+                  </span>
+                  <span
+                    class="text-xs font-medium text-foreground"
+                  >
+                    General scope
+                  </span>
+                </div>
+                <div
+                  class="flex items-baseline justify-between"
+                >
+                  <span
+                    class="workspace-stat-label"
+                  >
+                    History
+                  </span>
+                  <span
+                    class="text-xs font-medium text-foreground"
+                  >
+                    No saved runs yet
+                  </span>
+                </div>
+              </div>
+              <div
+                class="space-y-3"
+                data-orientation="horizontal"
+                dir="ltr"
               >
-                Thread
-              </p>
-              <p
-                class="mt-1 text-sm font-medium text-foreground"
-              >
-                Draft thread
-              </p>
-              <p
-                class="text-xs text-muted-foreground"
-              >
-                HTTP stream
-              </p>
-            </div>
-            <div
-              class="min-w-0"
-            >
-              <p
-                class="workspace-stat-label"
-              >
-                Lead Agent
-              </p>
-              <p
-                class="mt-1 text-sm font-medium text-foreground"
-              >
-                Coordinator
-              </p>
-            </div>
-            <div
-              class="min-w-0"
-            >
-              <p
-                class="workspace-stat-label"
-              >
-                Saved Runs
-              </p>
-              <p
-                class="mt-1 text-sm font-medium text-foreground"
-              >
-                0
-              </p>
+                <div
+                  data-orientation="horizontal"
+                  dir="ltr"
+                >
+                  <div
+                    aria-orientation="horizontal"
+                    class="min-h-10 items-center justify-center gap-1 text-muted-foreground grid h-auto w-full grid-cols-3 rounded-2xl border border-border/60 bg-muted/[0.5] p-1"
+                    data-orientation="horizontal"
+                    role="tablist"
+                    style="outline-color: none; outline-style: none; outline-width: initial;"
+                    tabindex="0"
+                  >
+                    <button
+                      aria-controls="radix-_r_2_-content-guide"
+                      aria-selected="true"
+                      class="inline-flex min-h-9 items-center justify-center whitespace-nowrap border-b-2 border-transparent transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:border-foreground/80 rounded-xl px-3 py-2.5 text-xs font-medium text-muted-foreground data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+                      data-orientation="horizontal"
+                      data-radix-collection-item=""
+                      data-state="active"
+                      id="radix-_r_2_-trigger-guide"
+                      role="tab"
+                      tabindex="-1"
+                      type="button"
+                    >
+                      Guide
+                    </button>
+                    <button
+                      aria-controls="radix-_r_2_-content-verification"
+                      aria-selected="false"
+                      class="inline-flex min-h-9 items-center justify-center whitespace-nowrap border-b-2 border-transparent transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:border-foreground/80 rounded-xl px-3 py-2.5 text-xs font-medium text-muted-foreground data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+                      data-orientation="horizontal"
+                      data-radix-collection-item=""
+                      data-state="inactive"
+                      id="radix-_r_2_-trigger-verification"
+                      role="tab"
+                      tabindex="-1"
+                      type="button"
+                    >
+                      Verification
+                    </button>
+                    <button
+                      aria-controls="radix-_r_2_-content-coverage"
+                      aria-selected="false"
+                      class="inline-flex min-h-9 items-center justify-center whitespace-nowrap border-b-2 border-transparent transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:border-foreground/80 rounded-xl px-3 py-2.5 text-xs font-medium text-muted-foreground data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+                      data-orientation="horizontal"
+                      data-radix-collection-item=""
+                      data-state="inactive"
+                      id="radix-_r_2_-trigger-coverage"
+                      role="tab"
+                      tabindex="-1"
+                      type="button"
+                    >
+                      Coverage
+                    </button>
+                  </div>
+                </div>
+                <div
+                  aria-labelledby="radix-_r_1_-trigger-guide"
+                  class="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 mt-0 rounded-[24px] border border-border/60 bg-background/90 p-4 shadow-[0_18px_45px_-36px_rgba(15,23,42,0.45)]"
+                  data-orientation="horizontal"
+                  data-state="active"
+                  id="radix-_r_1_-content-guide"
+                  role="tabpanel"
+                  tabindex="0"
+                >
+                  <div
+                    class="space-y-2.5 text-sm leading-6"
+                  >
+                    <div
+                      class="flex items-start gap-2.5"
+                    >
+                      <span
+                        class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-border/60 bg-muted/[0.45] text-[9px] font-semibold text-muted-foreground"
+                      >
+                        1
+                      </span>
+                      <div>
+                        <p
+                          class="text-xs font-medium text-foreground"
+                        >
+                          Set the scope
+                        </p>
+                        <p
+                          class="text-xs leading-5 text-muted-foreground"
+                        >
+                          Lead with the parcel, deal, market, or file so the run starts from a real operating context.
+                        </p>
+                      </div>
+                    </div>
+                    <div
+                      class="flex items-start gap-2.5"
+                    >
+                      <span
+                        class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-border/60 bg-muted/[0.45] text-[9px] font-semibold text-muted-foreground"
+                      >
+                        2
+                      </span>
+                      <div>
+                        <p
+                          class="text-xs font-medium text-foreground"
+                        >
+                          Ask for the deliverable
+                        </p>
+                        <p
+                          class="text-xs leading-5 text-muted-foreground"
+                        >
+                          Name the output you need: screen, memo, checklist, comparison, or next-step plan.
+                        </p>
+                      </div>
+                    </div>
+                    <div
+                      class="flex items-start gap-2.5"
+                    >
+                      <span
+                        class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-border/60 bg-muted/[0.45] text-[9px] font-semibold text-muted-foreground"
+                      >
+                        3
+                      </span>
+                      <div>
+                        <p
+                          class="text-xs font-medium text-foreground"
+                        >
+                          Verify before acting
+                        </p>
+                        <p
+                          class="text-xs leading-5 text-muted-foreground"
+                        >
+                          Use the verification rail to inspect tool activity, handoffs, and evidence gaps before acting.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    class="mt-4 space-y-1 border-t border-border/50 pt-4 text-[11px] leading-5 text-muted-foreground"
+                  >
+                    <p>
+                      <span
+                        class="text-foreground/80"
+                      >
+                        Stateful thread
+                      </span>
+                       
+                      Saved runs reopen from the left rail so the prompt, proof, and follow-up path stay intact across turns.
+                    </p>
+                    <p>
+                      <span
+                        class="text-foreground/80"
+                      >
+                        Specialist handoffs
+                      </span>
+                       
+                      The coordinator can hand work across research, finance, risk, entitlement, diligence, and other specialists.
+                    </p>
+                    <p>
+                      <span
+                        class="text-foreground/80"
+                      >
+                        Tool-backed execution
+                      </span>
+                       
+                      Live tool calls, approvals, artifacts, and map references stay visible inside the thread while the run is active.
+                    </p>
+                  </div>
+                </div>
+                <div
+                  aria-labelledby="radix-_r_1_-trigger-verification"
+                  class="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 mt-0 rounded-[24px] border border-border/60 bg-background/90 p-4 shadow-[0_18px_45px_-36px_rgba(15,23,42,0.45)]"
+                  data-orientation="horizontal"
+                  data-state="inactive"
+                  hidden=""
+                  id="radix-_r_1_-content-verification"
+                  role="tabpanel"
+                  tabindex="0"
+                />
+                <div
+                  aria-labelledby="radix-_r_1_-trigger-coverage"
+                  class="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 mt-0 space-y-4 rounded-[24px] border border-border/60 bg-background/90 p-4 shadow-[0_18px_45px_-36px_rgba(15,23,42,0.45)]"
+                  data-orientation="horizontal"
+                  data-state="inactive"
+                  hidden=""
+                  id="radix-_r_1_-content-coverage"
+                  role="tabpanel"
+                  tabindex="0"
+                />
+              </div>
             </div>
           </div>
-        </div>
-      </div>
-      <div
-        data-testid="chat-input"
-      />
-      <div
-        class="min-h-0 flex-1 overflow-hidden"
-      >
-        <div
-          data-conversation-id=""
-          data-testid="message-list"
-        />
+        </aside>
       </div>
     </div>
-    <aside
-      class="hidden w-[19rem] border-l border-border/40 bg-background lg:flex lg:flex-col"
-    >
-      <div
-        class="border-b border-border/40 px-4 py-3"
-      >
-        <p
-          class="workspace-eyebrow text-[10px]"
-        >
-          Live Execution
-        </p>
-        <h3
-          class="mt-0.5 text-xs font-semibold tracking-tight text-foreground"
-        >
-          Verification, proof, and specialist coverage
-        </h3>
-      </div>
-      <div
-        class="min-h-0 flex-1 overflow-y-auto px-4 py-4"
-      >
-        <div
-          class="space-y-4"
-        >
-          <div
-            class="grid grid-cols-2 gap-x-4 gap-y-2 text-[11px]"
-          >
-            <div
-              class="flex items-baseline justify-between"
-            >
-              <span
-                class="workspace-stat-label"
-              >
-                Thread
-              </span>
-              <span
-                class="text-xs text-foreground"
-              >
-                Draft until first response
-              </span>
-            </div>
-            <div
-              class="flex items-baseline justify-between"
-            >
-              <span
-                class="workspace-stat-label"
-              >
-                Agent
-              </span>
-              <span
-                class="text-xs text-foreground"
-              >
-                Coordinator
-              </span>
-            </div>
-            <div
-              class="flex items-baseline justify-between"
-            >
-              <span
-                class="workspace-stat-label"
-              >
-                Attach
-              </span>
-              <span
-                class="text-xs text-foreground"
-              >
-                General scope
-              </span>
-            </div>
-            <div
-              class="flex items-baseline justify-between"
-            >
-              <span
-                class="workspace-stat-label"
-              >
-                History
-              </span>
-              <span
-                class="text-xs text-foreground"
-              >
-                No saved runs yet
-              </span>
-            </div>
-          </div>
-          <div
-            class="space-y-3"
-            data-orientation="horizontal"
-            dir="ltr"
-          >
-            <div
-              aria-orientation="horizontal"
-              class="inline-flex min-h-10 items-center gap-1 rounded-xl border-b border-border/70 bg-transparent p-0 text-muted-foreground w-full justify-start"
-              data-orientation="horizontal"
-              role="tablist"
-              style="outline-color: none; outline-style: none; outline-width: initial;"
-              tabindex="0"
-            >
-              <button
-                aria-controls="radix-_r_1_-content-guide"
-                aria-selected="true"
-                class="inline-flex min-h-9 items-center justify-center whitespace-nowrap border-b-2 border-transparent px-3 py-1.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:border-foreground/80 data-[state=active]:text-foreground"
-                data-orientation="horizontal"
-                data-radix-collection-item=""
-                data-state="active"
-                id="radix-_r_1_-trigger-guide"
-                role="tab"
-                tabindex="-1"
-                type="button"
-              >
-                Guide
-              </button>
-              <button
-                aria-controls="radix-_r_1_-content-verification"
-                aria-selected="false"
-                class="inline-flex min-h-9 items-center justify-center whitespace-nowrap border-b-2 border-transparent px-3 py-1.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:border-foreground/80 data-[state=active]:text-foreground"
-                data-orientation="horizontal"
-                data-radix-collection-item=""
-                data-state="inactive"
-                id="radix-_r_1_-trigger-verification"
-                role="tab"
-                tabindex="-1"
-                type="button"
-              >
-                Verification
-              </button>
-              <button
-                aria-controls="radix-_r_1_-content-coverage"
-                aria-selected="false"
-                class="inline-flex min-h-9 items-center justify-center whitespace-nowrap border-b-2 border-transparent px-3 py-1.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:border-foreground/80 data-[state=active]:text-foreground"
-                data-orientation="horizontal"
-                data-radix-collection-item=""
-                data-state="inactive"
-                id="radix-_r_1_-trigger-coverage"
-                role="tab"
-                tabindex="-1"
-                type="button"
-              >
-                Coverage
-              </button>
-            </div>
-            <div
-              aria-labelledby="radix-_r_1_-trigger-guide"
-              class="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 mt-0 space-y-3"
-              data-orientation="horizontal"
-              data-state="active"
-              id="radix-_r_1_-content-guide"
-              role="tabpanel"
-              tabindex="0"
-            >
-              <div
-                class="space-y-2 text-sm leading-6"
-              >
-                <div
-                  class="flex items-start gap-2.5"
-                >
-                  <span
-                    class="mt-0.5 flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-full border border-border/60 text-[9px] font-semibold text-muted-foreground"
-                  >
-                    1
-                  </span>
-                  <div>
-                    <p
-                      class="text-xs font-medium text-foreground"
-                    >
-                      Set the scope
-                    </p>
-                    <p
-                      class="text-xs text-muted-foreground"
-                    >
-                      Lead with the parcel, deal, market, or file so the run starts from a real operating context.
-                    </p>
-                  </div>
-                </div>
-                <div
-                  class="flex items-start gap-2.5"
-                >
-                  <span
-                    class="mt-0.5 flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-full border border-border/60 text-[9px] font-semibold text-muted-foreground"
-                  >
-                    2
-                  </span>
-                  <div>
-                    <p
-                      class="text-xs font-medium text-foreground"
-                    >
-                      Ask for the deliverable
-                    </p>
-                    <p
-                      class="text-xs text-muted-foreground"
-                    >
-                      Name the output you need: screen, memo, checklist, comparison, or next-step plan.
-                    </p>
-                  </div>
-                </div>
-                <div
-                  class="flex items-start gap-2.5"
-                >
-                  <span
-                    class="mt-0.5 flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-full border border-border/60 text-[9px] font-semibold text-muted-foreground"
-                  >
-                    3
-                  </span>
-                  <div>
-                    <p
-                      class="text-xs font-medium text-foreground"
-                    >
-                      Verify before acting
-                    </p>
-                    <p
-                      class="text-xs text-muted-foreground"
-                    >
-                      Use the verification rail to inspect tool activity, handoffs, and evidence gaps before acting.
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div
-                class="space-y-1 border-t border-border/40 pt-3 text-[11px] leading-5 text-muted-foreground"
-              >
-                <p>
-                  <span
-                    class="text-foreground/80"
-                  >
-                    Stateful thread
-                  </span>
-                   
-                  Saved runs reopen from the left rail so the prompt, proof, and follow-up path stay intact across turns.
-                </p>
-                <p>
-                  <span
-                    class="text-foreground/80"
-                  >
-                    Specialist handoffs
-                  </span>
-                   
-                  The coordinator can hand work across research, finance, risk, entitlement, diligence, and other specialists.
-                </p>
-                <p>
-                  <span
-                    class="text-foreground/80"
-                  >
-                    Tool-backed execution
-                  </span>
-                   
-                  Live tool calls, approvals, artifacts, and map references stay visible inside the thread while the run is active.
-                </p>
-              </div>
-            </div>
-            <div
-              aria-labelledby="radix-_r_1_-trigger-verification"
-              class="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 mt-0"
-              data-orientation="horizontal"
-              data-state="inactive"
-              hidden=""
-              id="radix-_r_1_-content-verification"
-              role="tabpanel"
-              tabindex="0"
-            />
-            <div
-              aria-labelledby="radix-_r_1_-trigger-coverage"
-              class="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 mt-0 space-y-3"
-              data-orientation="horizontal"
-              data-state="inactive"
-              hidden=""
-              id="radix-_r_1_-content-coverage"
-              role="tabpanel"
-              tabindex="0"
-            />
-          </div>
-        </div>
-      </div>
-    </aside>
   </div>
 </div>
 `;

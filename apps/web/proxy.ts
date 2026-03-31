@@ -97,8 +97,12 @@ export async function proxy(request: NextRequest) {
       return nextResponseWithRequestId(request, requestId);
     }
 
-    // Dev bypass — never active in production
-    if (process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_DISABLE_AUTH === "true") {
+    // Dev / E2E bypass — allow NEXT_PUBLIC_DISABLE_AUTH in non-production OR
+    // when the E2E flag is set (Playwright runs a production build).
+    if (
+      (process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_E2E === "true") &&
+      process.env.NEXT_PUBLIC_DISABLE_AUTH === "true"
+    ) {
       return nextResponseWithRequestId(request, requestId);
     }
 

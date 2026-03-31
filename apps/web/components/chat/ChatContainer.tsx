@@ -819,6 +819,9 @@ export function ChatContainer() {
   const showLaunchComposer = visibleMessages.length === 0;
   const showConversationRailTrigger =
     !isMobile || visibleMessages.length > 0 || conversationId !== null;
+  const handleQuickActionSelect = useCallback((prompt: string) => {
+    void handleSend(prompt);
+  }, [handleSend]);
   const chatInput = (
     <ChatInput
       onSend={stableChatInputOptions.onSend}
@@ -832,7 +835,7 @@ export function ChatContainer() {
   );
 
   return (
-    <div className="relative flex h-[calc(100svh-var(--app-header-height))] min-h-[calc(100svh-var(--app-header-height))] overflow-hidden">
+    <div className="relative flex h-[calc(100svh-var(--app-header-height))] min-h-[calc(100svh-var(--app-header-height))] overflow-hidden bg-muted/[0.14]">
       <ConversationSidebar
         conversations={conversations}
         activeConversationId={conversationId}
@@ -847,84 +850,130 @@ export function ChatContainer() {
         showCollapsedTrigger={showConversationRailTrigger}
       />
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:flex-row">
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <ChatWorkspaceHero
-            activeAgentLabel={activeAgentLabel}
-            conversationCount={conversations.length}
-            cuaModel={cuaModel}
-            dealSelector={(
-              <DealSelector
-                selectedDealId={selectedDealId}
-                onSelect={setSelectedDealId}
-              />
-            )}
-            launchState={showLaunchComposer}
-            scopeLabel={scopeLabel}
-            threadStatusLabel={threadStatusLabel}
-            transportLabel={transportLabel}
-            isMobile={isMobile}
-            onOpenHistory={() => setSidebarOpen(true)}
-            onOpenInspector={() => setInspectorOpen(true)}
-            onCuaModelChange={setCuaModel}
-          />
+      <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
+        <div className="grid h-full min-h-0 min-w-0 gap-4 px-3 py-3 md:px-4 md:py-4 lg:grid-cols-[minmax(0,1fr)_23.5rem] lg:gap-5 lg:px-5">
+          <section className="min-h-0 min-w-0 overflow-hidden rounded-[32px] border border-border/60 bg-background/72 shadow-[0_28px_80px_-48px_rgba(15,23,42,0.55)] backdrop-blur-2xl">
+            <div className="flex h-full min-h-0 min-w-0 flex-col">
+              {showLaunchComposer ? (
+                <>
+                  <div className="min-h-0 flex-1 overflow-y-auto">
+                    <ChatWorkspaceHero
+                      activeAgentLabel={activeAgentLabel}
+                      conversationCount={conversations.length}
+                      cuaModel={cuaModel}
+                      dealSelector={(
+                        <DealSelector
+                          selectedDealId={selectedDealId}
+                          onSelect={setSelectedDealId}
+                        />
+                      )}
+                      launchState
+                      scopeLabel={scopeLabel}
+                      threadStatusLabel={threadStatusLabel}
+                      transportLabel={transportLabel}
+                      isMobile={isMobile}
+                      onOpenHistory={() => setSidebarOpen(true)}
+                      onOpenInspector={() => setInspectorOpen(true)}
+                      onCuaModelChange={setCuaModel}
+                      onQuickActionSelect={handleQuickActionSelect}
+                    />
 
-          {currentAgent && <AgentIndicator agentName={currentAgent} />}
+                    {currentAgent ? (
+                      <div className="px-4 pb-2 sm:px-5">
+                        <AgentIndicator agentName={currentAgent} />
+                      </div>
+                    ) : null}
+                  </div>
 
-          {showLaunchComposer ? chatInput : null}
+                  {chatInput}
+                </>
+              ) : (
+                <>
+                  <ChatWorkspaceHero
+                    activeAgentLabel={activeAgentLabel}
+                    conversationCount={conversations.length}
+                    cuaModel={cuaModel}
+                    dealSelector={(
+                      <DealSelector
+                        selectedDealId={selectedDealId}
+                        onSelect={setSelectedDealId}
+                      />
+                    )}
+                    launchState={false}
+                    scopeLabel={scopeLabel}
+                    threadStatusLabel={threadStatusLabel}
+                    transportLabel={transportLabel}
+                    isMobile={isMobile}
+                    onOpenHistory={() => setSidebarOpen(true)}
+                    onOpenInspector={() => setInspectorOpen(true)}
+                    onCuaModelChange={setCuaModel}
+                    onQuickActionSelect={handleQuickActionSelect}
+                  />
 
-          <div className="min-h-0 flex-1 overflow-hidden">
-            <MessageList
-              messages={visibleMessages}
-              isStreaming={isStreaming}
-              conversationId={conversationId}
-              onSuggestionClick={stableMessageListOptions.onSuggestionClick}
-              onToolApprovalEvents={handleToolApprovalEvents}
-              emptyState={{
-                eyebrow: 'Verified run workspace',
-                title: 'Ask once. Get the plan, evidence, and action path.',
-                description:
-                  'Start from the parcel, deal, market, or file, then name the screen, memo, checklist, comparison, or next-step plan you need back.',
-                suggestions: [
-                  'Screen this site for entitlement risk',
-                  'Summarize zoning and setbacks',
-                  'Build the due diligence checklist',
-                  'Compare debt and equity paths',
-                ],
-                detailHeading: 'What a strong run returns',
-                detailItems: [
-                  {
-                    label: 'Plan',
-                    title: 'A concrete next-step path',
-                    detail: 'The run should end in a memo, checklist, comparison, or action plan you can use immediately.',
-                  },
-                  {
-                    label: 'Proof',
-                    title: 'Tool activity and cited evidence',
-                    detail: 'Verification data, evidence gaps, and proof checks stay attached in the inspector while the run unfolds.',
-                  },
-                  {
-                    label: 'Handoffs',
-                    title: 'Coordinator plus specialists',
-                    detail: 'Research, finance, diligence, and entitlement specialists can step in without losing thread context.',
-                  },
-                ],
-              }}
+                  {currentAgent ? (
+                    <div className="px-4 pb-2 sm:px-5">
+                      <AgentIndicator agentName={currentAgent} />
+                    </div>
+                  ) : null}
+
+                  <div className="min-h-0 flex-1 overflow-hidden">
+                    <MessageList
+                      messages={visibleMessages}
+                      isStreaming={isStreaming}
+                      conversationId={conversationId}
+                      onSuggestionClick={stableMessageListOptions.onSuggestionClick}
+                      onToolApprovalEvents={handleToolApprovalEvents}
+                      emptyState={{
+                        eyebrow: 'Verified run workspace',
+                        title: 'Ask once. Get the plan, evidence, and action path.',
+                        description:
+                          'Start from the parcel, deal, market, or file, then name the screen, memo, checklist, comparison, or next-step plan you need back.',
+                        suggestions: [
+                          'Screen this site for entitlement risk',
+                          'Summarize zoning and setbacks',
+                          'Build the due diligence checklist',
+                          'Compare debt and equity paths',
+                        ],
+                        detailHeading: 'What a strong run returns',
+                        detailItems: [
+                          {
+                            label: 'Plan',
+                            title: 'A concrete next-step path',
+                            detail: 'The run should end in a memo, checklist, comparison, or action plan you can use immediately.',
+                          },
+                          {
+                            label: 'Proof',
+                            title: 'Tool activity and cited evidence',
+                            detail: 'Verification data, evidence gaps, and proof checks stay attached in the inspector while the run unfolds.',
+                          },
+                          {
+                            label: 'Handoffs',
+                            title: 'Coordinator plus specialists',
+                            detail: 'Research, finance, diligence, and entitlement specialists can step in without losing thread context.',
+                          },
+                        ],
+                      }}
+                    />
+                  </div>
+
+                  {chatInput}
+                </>
+              )}
+            </div>
+          </section>
+
+          <div className="min-h-0">
+            <ChatWorkspaceInspector
+              activeAgentLabel={activeAgentLabel}
+              agentSummary={agentSummary}
+              attachmentStatusLabel={attachmentStatusLabel}
+              conversationCount={conversations.length}
+              recentConversationLabel={messageSectionTitle}
+              threadStatusLabel={conversationId ? 'Saved thread' : 'Draft until first response'}
+              useAgentSummaryPanel={AUI_MESSAGE_ENHANCEMENTS}
             />
           </div>
-
-          {showLaunchComposer ? null : chatInput}
         </div>
-
-        <ChatWorkspaceInspector
-          activeAgentLabel={activeAgentLabel}
-          agentSummary={agentSummary}
-          attachmentStatusLabel={attachmentStatusLabel}
-          conversationCount={conversations.length}
-          recentConversationLabel={messageSectionTitle}
-          threadStatusLabel={conversationId ? 'Saved thread' : 'Draft until first response'}
-          useAgentSummaryPanel={AUI_MESSAGE_ENHANCEMENTS}
-        />
 
         <ChatWorkspaceInspector
           activeAgentLabel={activeAgentLabel}

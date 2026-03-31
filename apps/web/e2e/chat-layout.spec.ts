@@ -33,11 +33,11 @@ type MockChatShellOptions = {
 };
 
 function getVisibleComposer(page: Page): Locator {
-  return page.locator('textarea[placeholder="Ask something complex..."]:visible').first();
-}
-
-function getVisibleInspector(page: Page): Locator {
-  return page.locator("aside").filter({ hasText: "Verification and specialist coverage" }).first();
+  return page
+    .locator(
+      'textarea[placeholder="Ask for the screen, memo, checklist, comparison, or next move..."]:visible',
+    )
+    .first();
 }
 
 async function mockChatShell(page: Page, options: MockChatShellOptions = {}) {
@@ -141,8 +141,8 @@ test.describe("Chat layout", () => {
   test("keeps the run surface usable on first desktop load", async ({ page }) => {
     await openChat(page);
 
-    await expect(page.getByRole("banner")).toContainText("Acquisition desk");
-    await expect(page.getByRole("main")).toContainText("Start from a concrete ask");
+    await expect(page.getByRole("heading", { name: "Chat", level: 1 })).toBeVisible();
+    await expect(page.getByRole("main")).toContainText("Run composer");
 
     const viewport = page.viewportSize();
 
@@ -158,7 +158,7 @@ test.describe("Chat layout", () => {
     await openChat(page);
 
     const historyButton = page.getByRole("button", { name: "History", exact: true });
-    const inspectorButton = page.getByRole("button", { name: "Inspector", exact: true });
+    const inspectorButton = page.getByRole("button", { name: "Verification", exact: true });
 
     await expect(historyButton).toBeVisible({ timeout: CHAT_READY_TIMEOUT_MS });
     await expect(inspectorButton).toBeVisible({ timeout: CHAT_READY_TIMEOUT_MS });
@@ -166,13 +166,16 @@ test.describe("Chat layout", () => {
     await expectComposerReachable(page, MOBILE_COMPOSER_BOTTOM_MAX_PX);
 
     await historyButton.click();
-    await expect(page.getByRole("heading", { name: "Conversations" })).toBeVisible();
-    await expect(page.getByLabel("Close history").first()).toBeVisible();
-    await page.getByLabel("Close history").first().click();
+    await expect(page.getByRole("heading", { name: "Recent operator threads" })).toBeVisible();
+    const closeHistoryButton = page
+      .getByRole("button", { name: "Close history", exact: true })
+      .last();
+    await expect(closeHistoryButton).toBeVisible();
+    await closeHistoryButton.click();
     await inspectorButton.click();
 
     const inspectorDrawer = page.getByRole("dialog");
-    await expect(inspectorDrawer.getByText("Live Execution")).toBeVisible();
+    await expect(inspectorDrawer.getByText("Run inspector")).toBeVisible();
     await inspectorDrawer.getByRole("tab", { name: "Verification" }).click();
     await expect(
       inspectorDrawer.getByText("Verification fills in after the first response."),
@@ -223,9 +226,11 @@ test.describe("Chat layout", () => {
       },
     });
 
-    const inspector = getVisibleInspector(page);
-    await expect(inspector.getByText("82%")).toBeVisible({ timeout: CHAT_READY_TIMEOUT_MS });
-    await expect(inspector.getByRole("button", { name: "Show details" })).toBeVisible({
+    await expect(page.getByRole("heading", { name: "Execution inspector" })).toBeVisible({
+      timeout: CHAT_READY_TIMEOUT_MS,
+    });
+    await expect(page.getByText("82%")).toBeVisible({ timeout: CHAT_READY_TIMEOUT_MS });
+    await expect(page.getByRole("button", { name: "Show details" })).toBeVisible({
       timeout: CHAT_READY_TIMEOUT_MS,
     });
   });
@@ -274,7 +279,7 @@ test.describe("Chat layout", () => {
     await expect(page.getByText("Approval required for update_deal_status")).toBeVisible({
       timeout: CHAT_READY_TIMEOUT_MS,
     });
-    await expect(page.getByRole("button", { name: "Open history" })).toBeVisible({
+    await expect(page.getByRole("button", { name: "History", exact: true })).toBeVisible({
       timeout: CHAT_READY_TIMEOUT_MS,
     });
     await expect(page.getByRole("button", { name: "Approve" })).toBeVisible({
