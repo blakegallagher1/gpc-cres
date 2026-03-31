@@ -1,5 +1,5 @@
 import { DashboardShell } from "@/components/layout/DashboardShell";
-import { OpportunityFeed } from "@/components/opportunities/OpportunityFeed";
+import { OpportunitiesWorkspace } from "@/components/opportunities/OpportunitiesWorkspace";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -23,21 +23,7 @@ export default async function OpportunitiesPage({
 
   return (
     <DashboardShell>
-      <div className="space-y-4">
-        <div>
-          <h1 className="text-2xl font-bold">Opportunity Inbox</h1>
-          <p className="text-sm text-muted-foreground">
-            Review parcel matches from saved searches and convert the best ones into deals.
-            {savedSearchId ? " Showing a single saved search filter." : ""}
-          </p>
-        </div>
-
-        <OpportunityFeed
-          limit={50}
-          savedSearchId={savedSearchId}
-          showViewAllLink={false}
-        />
-      </div>
+      <OpportunitiesWorkspace initialSavedSearchId={savedSearchId} />
     </DashboardShell>
   );
 }

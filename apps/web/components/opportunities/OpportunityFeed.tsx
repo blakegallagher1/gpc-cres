@@ -8,6 +8,7 @@ import {
   Check,
   Eye,
   Loader2,
+  Map,
   MapPin,
   Plus,
   Sparkles,
@@ -59,6 +60,7 @@ interface OpportunityFeedProps {
   limit?: number;
   savedSearchId?: string | null;
   showViewAllLink?: boolean;
+  showSearchBuilder?: boolean;
 }
 
 function scoreColor(score: number): string {
@@ -80,6 +82,7 @@ export function OpportunityFeed({
   limit = 8,
   savedSearchId = null,
   showViewAllLink = true,
+  showSearchBuilder = true,
 }: OpportunityFeedProps) {
   const router = useRouter();
   const inboxHref = savedSearchId
@@ -140,6 +143,21 @@ export function OpportunityFeed({
     if (opp.parcelId) params.set("propertyDbId", opp.parcelId);
 
     router.push(`/deals/new?${params.toString()}`);
+  };
+
+  const handleOpenOnMap = (event: React.MouseEvent, opp: OpportunityItem) => {
+    event.stopPropagation();
+
+    const params = new URLSearchParams({ mode: "prospecting" });
+    if (opp.parcelId) {
+      params.set("parcel", opp.parcelId);
+    } else if (opp.parcelData.lat != null && opp.parcelData.lng != null) {
+      params.set("lat", String(opp.parcelData.lat));
+      params.set("lng", String(opp.parcelData.lng));
+      params.set("z", "16");
+    }
+
+    router.push(`/map?${params.toString()}`);
   };
 
   const toggleSelection = (id: string, checked: boolean) => {
@@ -261,7 +279,7 @@ export function OpportunityFeed({
           </Button>
         </div>
 
-        <SavedSearchBuilder onCreated={() => mutate()} />
+        {showSearchBuilder ? <SavedSearchBuilder onCreated={() => mutate()} /> : null}
       </div>
 
       {selectedIds.size > 0 ? (
@@ -358,15 +376,26 @@ export function OpportunityFeed({
                       ) : null}
                     </div>
 
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-8 gap-1 text-xs"
-                      onClick={(event) => handleCreateDeal(event, opp)}
-                    >
-                      <Plus className="h-3 w-3" />
-                      Create Deal
-                    </Button>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 gap-1 text-xs"
+                        onClick={(event) => handleOpenOnMap(event, opp)}
+                      >
+                        <Map className="h-3 w-3" />
+                        Open on map
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 gap-1 text-xs"
+                        onClick={(event) => handleCreateDeal(event, opp)}
+                      >
+                        <Plus className="h-3 w-3" />
+                        Create Deal
+                      </Button>
+                    </div>
                   </div>
 
                   <div className="mt-4 grid gap-4 border-t border-border/40 pt-4 text-xs sm:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
@@ -430,15 +459,17 @@ export function OpportunityFeed({
               ? "Run the saved search from prospecting to generate fresh parcel matches."
               : "Create a saved search to start surfacing matches from 560K parcels."}
           </p>
-          <SavedSearchBuilder
-            onCreated={() => mutate()}
-            trigger={
-              <Button variant="outline" size="sm" className="mt-1 gap-1.5">
-                <Plus className="h-3.5 w-3.5" />
-                Create Saved Search
-              </Button>
-            }
-          />
+          {showSearchBuilder ? (
+            <SavedSearchBuilder
+              onCreated={() => mutate()}
+              trigger={
+                <Button variant="outline" size="sm" className="mt-1 gap-1.5">
+                  <Plus className="h-3.5 w-3.5" />
+                  Create Saved Search
+                </Button>
+              }
+            />
+          ) : null}
         </div>
       )}
     </section>
