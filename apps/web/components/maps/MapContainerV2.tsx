@@ -51,6 +51,8 @@ type ZoningFeature = {
 interface MapContainerV2Props {
   height?: string;
   className?: string;
+  initialCenter?: [number, number];
+  initialZoom?: number;
   parcels?: MapParcel[];
   selectedParcelIds?: Set<string>;
   onParcelClick?: (parcelId: string) => void;
@@ -92,13 +94,15 @@ function MapInteractionBridge({
 export function MapContainerV2({
   height = "100%",
   className,
+  initialCenter,
+  initialZoom,
   parcels = [],
   selectedParcelIds = new Set(),
   onParcelClick,
   onSelectionChange,
   onMapReady,
 }: MapContainerV2Props) {
-  const { viewState, onMove } = useMapViewState();
+  const { viewState, onMove } = useMapViewState(initialCenter, initialZoom);
   const overlays = useOverlayState();
   const { selectedIds, updateSelection } = useMapSelection({
     selectedParcelIds,

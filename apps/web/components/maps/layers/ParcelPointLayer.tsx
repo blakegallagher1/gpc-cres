@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { Layer, Source } from "@vis.gl/react-maplibre";
 import type { MapParcel } from "../types";
 
@@ -36,7 +37,10 @@ export function ParcelPointLayer({
   visible,
   selectedIds,
 }: ParcelPointLayerProps) {
-  const data = buildPointGeoJson(parcels, selectedIds);
+  const data = useMemo(
+    () => buildPointGeoJson(parcels, selectedIds),
+    [parcels, selectedIds],
+  );
 
   return (
     <Source

@@ -10,6 +10,7 @@ export function useMapSelection(params: {
   onSelectionChange?: (ids: Set<string>) => void;
 }) {
   const controlled = params.selectedParcelIds !== undefined;
+  const onSelectionChange = params.onSelectionChange;
   const [internalSelectedIds, setInternalSelectedIds] = useState<Set<string>>(
     () => new Set(),
   );
@@ -33,26 +34,26 @@ export function useMapSelection(params: {
 
       selectedIdsRef.current = next;
       if (controlled) {
-        params.onSelectionChange?.(next);
+        onSelectionChange?.(next);
         return;
       }
 
       setInternalSelectedIds(next);
-      params.onSelectionChange?.(next);
+      onSelectionChange?.(next);
     },
-    [controlled, params],
+    [controlled, onSelectionChange],
   );
 
   const clearSelection = useCallback(() => {
     const next = new Set<string>();
     selectedIdsRef.current = next;
     if (controlled) {
-      params.onSelectionChange?.(next);
+      onSelectionChange?.(next);
       return;
     }
     setInternalSelectedIds(next);
-    params.onSelectionChange?.(next);
-  }, [controlled, params]);
+    onSelectionChange?.(next);
+  }, [controlled, onSelectionChange]);
 
   return useMemo(
     () => ({

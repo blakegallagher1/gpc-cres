@@ -14,8 +14,8 @@ const DEFAULT_VIEW: ViewState = {
   zoom: 11,
 };
 
-function getInitialViewState(): ViewState {
-  if (typeof window === "undefined") return DEFAULT_VIEW;
+function getInitialViewState(fallback: ViewState): ViewState {
+  if (typeof window === "undefined") return fallback;
 
   const params = new URLSearchParams(window.location.search);
   const lat = parseFloat(params.get("lat") ?? "");
@@ -23,14 +23,19 @@ function getInitialViewState(): ViewState {
   const z = parseFloat(params.get("z") ?? "");
 
   return {
-    latitude: Number.isFinite(lat) ? lat : DEFAULT_VIEW.latitude,
-    longitude: Number.isFinite(lng) ? lng : DEFAULT_VIEW.longitude,
-    zoom: Number.isFinite(z) ? z : DEFAULT_VIEW.zoom,
+    latitude: Number.isFinite(lat) ? lat : fallback.latitude,
+    longitude: Number.isFinite(lng) ? lng : fallback.longitude,
+    zoom: Number.isFinite(z) ? z : fallback.zoom,
   };
 }
 
-export function useMapViewState() {
-  const [viewState, setViewState] = useState<ViewState>(getInitialViewState);
+export function useMapViewState(initialCenter?: [number, number], initialZoom?: number) {
+  const fallback: ViewState = {
+    longitude: initialCenter?.[1] ?? DEFAULT_VIEW.longitude,
+    latitude: initialCenter?.[0] ?? DEFAULT_VIEW.latitude,
+    zoom: initialZoom ?? DEFAULT_VIEW.zoom,
+  };
+  const [viewState, setViewState] = useState<ViewState>(() => getInitialViewState(fallback));
 
   const onMove = useCallback((evt: { viewState: ViewState }) => {
     setViewState(evt.viewState);

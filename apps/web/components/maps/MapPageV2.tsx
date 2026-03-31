@@ -72,6 +72,8 @@ const MapPageV2Bridge = forwardRef<MapLibreParcelMapRef, MapPageV2Props>(
   function MapPageV2Bridge(
     {
       parcels,
+      center,
+      zoom,
       height = "100%",
       className,
       selectedParcelIds = new Set(),
@@ -211,6 +213,8 @@ const MapPageV2Bridge = forwardRef<MapLibreParcelMapRef, MapPageV2Props>(
     [clearTemporaryLayers],
   );
 
+  // V2 highlight: style/color params are accepted for API compat but not yet
+  // applied — parcels are highlighted via the selection color in ParcelPointLayer.
   const highlightParcels = useCallback(
     (
       parcelIds: string[],
@@ -271,6 +275,8 @@ const MapPageV2Bridge = forwardRef<MapLibreParcelMapRef, MapPageV2Props>(
     return (
       <MapContainerV2
         parcels={parcels}
+        initialCenter={center}
+        initialZoom={zoom}
         height={height}
         className={className}
         selectedParcelIds={effectiveSelectedIds}

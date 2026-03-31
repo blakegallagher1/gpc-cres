@@ -11,6 +11,8 @@ export function useMapPopups(params: {
   onClusterClick?: ((center: [number, number], zoom: number) => void) | undefined;
 }) {
   const { current: map } = useMap();
+  const onParcelClick = params.onParcelClick;
+  const onClusterClick = params.onClusterClick;
 
   useEffect(() => {
     if (!map) return;
@@ -19,7 +21,7 @@ export function useMapPopups(params: {
     const handleParcelClick = (event: maplibregl.MapLayerMouseEvent) => {
       const parcelId = event.features?.[0]?.properties?.id as string | undefined;
       if (!parcelId) return;
-      params.onParcelClick?.(parcelId);
+      onParcelClick?.(parcelId);
     };
 
     const handleClusterClick = (event: maplibregl.MapLayerMouseEvent) => {
@@ -29,7 +31,7 @@ export function useMapPopups(params: {
         feature.geometry?.type === "Point"
           ? (feature.geometry.coordinates as [number, number])
           : [event.lngLat.lng, event.lngLat.lat];
-      params.onClusterClick?.(center, Math.min(rawMap.getZoom() + 2, 22));
+      onClusterClick?.(center, Math.min(rawMap.getZoom() + 2, 22));
     };
 
     rawMap.on("click", "parcel-points", handleParcelClick);
@@ -38,5 +40,5 @@ export function useMapPopups(params: {
       rawMap.off("click", "parcel-points", handleParcelClick);
       rawMap.off("click", "parcel-clusters", handleClusterClick);
     };
-  }, [map, params]);
+  }, [map, onParcelClick, onClusterClick]);
 }
