@@ -9,7 +9,7 @@ import {
 } from 'react';
 import { AgentTrustEnvelope } from '@/types';
 import { MessageList } from './MessageList';
-import { ChatInput } from './ChatInput';
+import { ChatInput, type ChatSendOptions } from './ChatInput';
 import { AgentIndicator } from './AgentIndicator';
 import { DealSelector } from './DealSelector';
 import {
@@ -608,9 +608,10 @@ export function ChatContainer() {
   });
 
   const handleSend = useCallback(
-    async (content: string, files?: File[]) => {
+    async (content: string, files?: File[], options?: ChatSendOptions) => {
       const text = content.trim();
       if (!text && (!files || files.length === 0)) return;
+      const researchLane = options?.researchLane ?? 'auto';
 
       // Upload files to deal if selected, or extract content client-side
       let fileContext = '';
@@ -721,7 +722,12 @@ export function ChatContainer() {
 
       // WebSocket transport — send and return (events arrive via onEvent callback)
       if (WS_ENABLED) {
-        wsSendMessage(messageForAgent, selectedDealId ?? undefined, requestMapContext ?? null);
+        wsSendMessage(
+          messageForAgent,
+          selectedDealId ?? undefined,
+          requestMapContext ?? null,
+          researchLane,
+        );
         return;
       }
 
@@ -745,6 +751,7 @@ export function ChatContainer() {
             dealId: selectedDealId,
             mapContext: requestMapContext,
             cuaModel,
+            researchLane,
           }),
         });
 

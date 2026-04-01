@@ -19,7 +19,9 @@ describe("ChatInput", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
 
-    expect(onSend).toHaveBeenCalledWith("Store this memory now", undefined);
+    expect(onSend).toHaveBeenCalledWith("Store this memory now", undefined, {
+      researchLane: "auto",
+    });
   });
 
   it("submits the typed value through the normal controlled path", () => {
@@ -38,7 +40,9 @@ describe("ChatInput", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
 
-    expect(onSend).toHaveBeenCalledWith("Screen this property", undefined);
+    expect(onSend).toHaveBeenCalledWith("Screen this property", undefined, {
+      researchLane: "auto",
+    });
   });
 
   it("appends externally injected prompts into the composer", () => {
@@ -65,5 +69,29 @@ describe("ChatInput", () => {
     );
 
     expect(screen.getByDisplayValue(/Search the web for current context/)).toBeInTheDocument();
+  });
+
+  it("lets the operator override the lane before sending", () => {
+    const onSend = vi.fn();
+
+    render(
+      <ChatInput
+        onSend={onSend}
+        isStreaming={false}
+        onStop={() => {}}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Web research/i }));
+    fireEvent.change(screen.getByPlaceholderText("Ask something complex..."), {
+      target: { value: "Find the latest zoning update and cite sources" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    expect(onSend).toHaveBeenCalledWith(
+      "Find the latest zoning update and cite sources",
+      undefined,
+      { researchLane: "public_web" },
+    );
   });
 });

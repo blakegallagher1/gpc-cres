@@ -8,6 +8,7 @@ import type {
   Env,
   ConversationState,
   ClientMessage,
+  ResearchLaneSelection,
   WorkerEvent,
   OpenAIEvent,
   ToolSchema,
@@ -22,8 +23,40 @@ const MODEL = "gpt-4.1";
 const RECONNECT_BEFORE_EXPIRY_MS = 5 * 60 * 1000; // reconnect at 55min
 const MAX_RECONNECT_ATTEMPTS = 2;
 const MAP_FEATURES_KEY = "__mapFeatures";
+const INTERACTIVE_BROWSER_PATTERNS = [
+  /\blog\s*in\b/i,
+  /\bsign\s*in\b/i,
+  /\bclick\b/i,
+  /\bnavigate\b/i,
+  /\bopen\b.*\bsite\b/i,
+  /\bfill\s+out\b/i,
+  /\bsubmit\b/i,
+  /\bportal\b/i,
+  /\bform\b/i,
+  /\bsearch\s+on\b/i,
+  /\blacdb\b/i,
+  /\bassessor\b/i,
+  /\bfema\b/i,
+] as const;
+const PUBLIC_WEB_PATTERNS = [
+  /\bcurrent\b/i,
+  /\brecent\b/i,
+  /\blatest\b/i,
+  /\bnews\b/i,
+  /\bheadline\b/i,
+  /\bpublic\s+web\b/i,
+  /\bweb\s+research\b/i,
+  /\bresearch\b/i,
+  /\bfind\b.*\bsource/i,
+  /\bcite\b/i,
+  /\bregulatory\b/i,
+  /\bzoning\s+update\b/i,
+  /\bmarket\b/i,
+  /\btrend\b/i,
+] as const;
 
 type MapContext = NonNullable<ClientMessage["mapContext"]>;
+type ResearchLane = Exclude<ResearchLaneSelection, "auto">;
 type GeoJsonGeometry = {
   type: string;
   coordinates?: unknown;
@@ -40,6 +73,54 @@ type MapFeature = {
   center?: { lat: number; lng: number };
   geometry?: GeoJsonGeometry;
 };
+
+function inferResearchLane(input: string): ResearchLane {
+  if (INTERACTIVE_BROWSER_PATTERNS.some((pattern) => pattern.test(input))) {
+    return "interactive_browser";
+  }
+
+  if (PUBLIC_WEB_PATTERNS.some((pattern) => pattern.test(input))) {
+    return "public_web";
+  }
+
+  return "local_first";
+}
+
+function getResearchLaneLabel(lane: ResearchLane): string {
+  switch (lane) {
+    case "local_first":
+      return "Database + knowledge";
+    case "public_web":
+      return "Perplexity web research";
+    case "interactive_browser":
+      return "Interactive browser";
+  }
+}
+
+function buildResearchRoutingMessage(
+  input: string,
+  selection: ResearchLaneSelection = "auto",
+): string {
+  const preferredLane = selection === "auto" ? inferResearchLane(input) : selection;
+  const preferredLaneInstruction =
+    preferredLane === "interactive_browser"
+      ? "This request appears interactive. Use browser_task only if the task truly requires live navigation or form interaction."
+      : preferredLane === "public_web"
+        ? "This request appears to need public web research. Use Perplexity for public sources after checking local evidence first."
+        : "This request appears answerable from local evidence. Start with the property database, knowledge base, and stored evidence before using any web tools.";
+
+  return [
+    "RESEARCH ROUTING CONTRACT",
+    "You have exactly three lanes for gathering an answer:",
+    "1. Local evidence first: search the property database, deal data, parcel data, and knowledge base when they can answer the request.",
+    "2. Public web research: use Perplexity tools for public web content, current events, market research, government updates, and source-cited web findings.",
+    "3. Interactive browser work: use browser_task only when the task requires login, clicking, filling forms, JavaScript-heavy portals, or other live interaction.",
+    "Do not use browser_task for normal public-web research.",
+    "Always prefer the lowest-cost lane that can answer the question with reliable evidence.",
+    `Selected lane: ${selection === "auto" ? `Auto -> ${getResearchLaneLabel(preferredLane)}` : getResearchLaneLabel(preferredLane)}.`,
+    preferredLaneInstruction,
+  ].join("\n");
+}
 
 function extractTextFromToolResult(result: unknown): string {
   if (typeof result === "string") {
@@ -155,6 +236,7 @@ export class AgentChatDO implements DurableObject {
   // Context for current turn
   private currentDealId: string | undefined;
   private currentMapContext: MapContext | null = null;
+  private currentResearchLane: ResearchLaneSelection = "auto";
 
   constructor(state: DurableObjectState, env: Env) {
     this.state = state;
@@ -310,6 +392,7 @@ export class AgentChatDO implements DurableObject {
     console.log("[DO] Received message:", parsed.text.slice(0, 100));
     this.currentDealId = parsed.dealId;
     this.currentMapContext = parsed.mapContext ?? null;
+    this.currentResearchLane = parsed.researchLane ?? "auto";
 
     await this.handleUserMessage(parsed.text);
   }
@@ -397,7 +480,7 @@ export class AgentChatDO implements DurableObject {
       console.log("[DO] OpenAI WebSocket connected successfully");
     }
 
-    const promptText = `${buildMapContextPrefix(this.currentMapContext)}${text}`;
+    const promptText = `${buildResearchRoutingMessage(text, this.currentResearchLane)}\n\n${buildMapContextPrefix(this.currentMapContext)}${text}`;
 
     // Build the response.create request (flat structure per OpenAI WebSocket mode docs)
     const input: unknown[] = [
