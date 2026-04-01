@@ -309,10 +309,11 @@ export function ChatContainer() {
       setSelectedDealStatus(null);
       return;
     }
+    const dealId = selectedDealId;
     let cancelled = false;
     async function fetchDealStatus() {
       try {
-        const res = await fetch(`/api/deals/${encodeURIComponent(selectedDealId)}`);
+        const res = await fetch(`/api/deals/${encodeURIComponent(dealId)}`);
         if (!res.ok) return;
         const body = (await res.json()) as { deal?: { status?: string } };
         if (!cancelled && body.deal?.status) {

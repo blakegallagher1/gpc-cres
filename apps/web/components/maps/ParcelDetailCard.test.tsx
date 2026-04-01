@@ -31,7 +31,7 @@ describe("ParcelDetailCard", () => {
       />,
     );
 
-    expect(screen.getByText("Owner LLC")).toBeInTheDocument();
+    expect(screen.getAllByText("Owner LLC")).toHaveLength(2);
     expect(screen.getByText("1.25 acres")).toBeInTheDocument();
 
     await user.click(screen.getByRole("tab", { name: "Comps" }));

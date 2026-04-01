@@ -223,7 +223,7 @@ export function useMapTrackedParcelWorkspace({
 
           return {
             parcelId: trackedParcel.parcelId,
-            address: trackedParcel.label,
+            address: trackedParcel.address,
             owner: null,
             acreage: null,
             lat: null,

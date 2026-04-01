@@ -980,6 +980,45 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
                     >
                       Development Activity
                     </button>
+                    <button
+                      aria-checked="false"
+                      aria-label="Zoning Upside"
+                      class="inline-flex items-center whitespace-nowrap border font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent/55 hover:text-accent-foreground h-8 justify-start rounded-xl border-map-border bg-map-surface/55 px-3 text-[10px] text-map-text-secondary data-[state=on]:border-map-accent data-[state=on]:bg-map-accent data-[state=on]:text-white"
+                      data-radix-collection-item=""
+                      data-state="off"
+                      role="radio"
+                      tabindex="-1"
+                      title="Zoning Upside"
+                      type="button"
+                    >
+                      Zoning Upside
+                    </button>
+                    <button
+                      aria-checked="false"
+                      aria-label="Distressed Ownership"
+                      class="inline-flex items-center whitespace-nowrap border font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent/55 hover:text-accent-foreground h-8 justify-start rounded-xl border-map-border bg-map-surface/55 px-3 text-[10px] text-map-text-secondary data-[state=on]:border-map-accent data-[state=on]:bg-map-accent data-[state=on]:text-white"
+                      data-radix-collection-item=""
+                      data-state="off"
+                      role="radio"
+                      tabindex="-1"
+                      title="Distressed Ownership"
+                      type="button"
+                    >
+                      Distressed Ownership
+                    </button>
+                    <button
+                      aria-checked="false"
+                      aria-label="Infrastructure Momentum"
+                      class="inline-flex items-center whitespace-nowrap border font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent/55 hover:text-accent-foreground h-8 justify-start rounded-xl border-map-border bg-map-surface/55 px-3 text-[10px] text-map-text-secondary data-[state=on]:border-map-accent data-[state=on]:bg-map-accent data-[state=on]:text-white"
+                      data-radix-collection-item=""
+                      data-state="off"
+                      role="radio"
+                      tabindex="-1"
+                      title="Infrastructure Momentum"
+                      type="button"
+                    >
+                      Infrastructure Momentum
+                    </button>
                   </div>
                 </div>
                 <button
