@@ -40,4 +40,30 @@ describe("ChatInput", () => {
 
     expect(onSend).toHaveBeenCalledWith("Screen this property", undefined);
   });
+
+  it("appends externally injected prompts into the composer", () => {
+    const onSend = vi.fn();
+
+    const { rerender } = render(
+      <ChatInput
+        onSend={onSend}
+        isStreaming={false}
+        onStop={() => {}}
+      />,
+    );
+
+    rerender(
+      <ChatInput
+        onSend={onSend}
+        isStreaming={false}
+        onStop={() => {}}
+        injectedPrompt={{
+          id: "perplexity-web-research",
+          text: "Search the web for current context, cite the strongest sources, and fold that into the run.",
+        }}
+      />,
+    );
+
+    expect(screen.getByDisplayValue(/Search the web for current context/)).toBeInTheDocument();
+  });
 });

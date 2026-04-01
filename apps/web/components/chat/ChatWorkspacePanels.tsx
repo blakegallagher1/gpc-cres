@@ -77,6 +77,7 @@ interface ChatWorkspaceHeroProps {
   onOpenInspector: () => void;
   onCuaModelChange?: (model: CuaModel) => void;
   onQuickActionSelect?: (prompt: string) => void;
+  onSourceChipSelect?: (prompt: string) => void;
 }
 
 interface ChatWorkspaceInspectorProps {
@@ -448,6 +449,7 @@ export function ChatWorkspaceHero({
   transportLabel,
   onCuaModelChange,
   onQuickActionSelect,
+  onSourceChipSelect,
 }: ChatWorkspaceHeroProps) {
   const reduceMotion = useReducedMotion();
   const motionProps = reduceMotion || process.env.NODE_ENV === 'test'
@@ -539,6 +541,24 @@ export function ChatWorkspaceHero({
                 ? `Suggested for ${dealStageName}`
                 : `${conversationCount} saved runs`}
             </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {CHAT_SOURCE_CHIPS.map((chip) => {
+              const Icon = chip.icon;
+              return (
+                <Button
+                  key={chip.id}
+                  type="button"
+                  variant="ghost"
+                  className="h-8 rounded-full border border-border/55 bg-background/80 px-3 text-[11px] text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                  onClick={() => onSourceChipSelect?.(chip.prompt)}
+                >
+                  <Icon className="mr-1.5 h-3.5 w-3.5" />
+                  {chip.label}
+                </Button>
+              );
+            })}
           </div>
         </div>
       ) : (

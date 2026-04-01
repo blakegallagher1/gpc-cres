@@ -39,6 +39,10 @@ const BASE_ALLOWED_TOOLS = [
   "get_parcel_details",
   "evidence_snapshot",
   "browser_task",
+  "perplexity_quick_lookup",
+  "perplexity_web_research",
+  "perplexity_structured_extract",
+  "perplexity_deep_research",
 ] as const;
 
 const PROPERTY_DB_QUERY_TOOLS = [
