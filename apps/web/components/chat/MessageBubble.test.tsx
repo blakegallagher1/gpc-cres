@@ -109,4 +109,20 @@ describe("MessageBubble", () => {
     expect(screen.getByText("Run complete with no structured payload.")).toBeInTheDocument();
     expect(screen.queryByText("Structured assistant report")).not.toBeInTheDocument();
   });
+
+  it("renders user text inside high-contrast primary bubble", () => {
+    const message: ChatMessage = {
+      id: "user-plain",
+      role: "user",
+      createdAt: "2026-03-23T08:00:00.000Z",
+      content: "Please draft the zoning memo and include assumptions.",
+    };
+
+    render(<MessageBubble message={message} />);
+
+    const text = screen.getByText("Please draft the zoning memo and include assumptions.");
+    expect(text).toBeInTheDocument();
+    expect(text).toHaveClass("text-primary-foreground");
+    expect(screen.queryByText("Structured assistant report")).not.toBeInTheDocument();
+  });
 });

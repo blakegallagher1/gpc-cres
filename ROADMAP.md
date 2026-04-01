@@ -35,6 +35,25 @@ Only items meeting all checks are added below as `Planned`.
 
 ## Active Roadmap (Prioritized)
 
+### CHAT-007 — User Message Contrast Regression Fix (P0)
+
+- **Priority:** P0
+- **Status:** Done (2026-03-31)
+- **Scope:** Restore readable user-message text in `/chat` by removing style-token conflicts in the user bubble renderer.
+- **Problem:** User messages became unreadable after chat UI simplification because the bubble used `text-primary-foreground` while nested renderer output forced `text-foreground`, producing low contrast against both dark and light primary bubble backgrounds.
+- **Expected Outcome (measurable):**
+  - User-authored message text remains legible in both light and dark themes.
+  - User bubble styling no longer depends on assistant structured renderer typography tokens.
+- **Evidence of need:** Operator screenshot reports on 2026-03-31 showed user message content effectively invisible while assistant/system content remained visible.
+- **Alignment:** Keeps current message model and action controls unchanged; only adjusts presentation logic for the `role === "user"` path.
+- **Risk/rollback:** Low; isolated to `MessageBubble` rendering path with focused component regression coverage.
+- **Acceptance Criteria / Tests:**
+  - User bubble renders plain preserved text with `text-primary-foreground`.
+  - Focused tests pass: `pnpm -C apps/web test -- components/chat/MessageBubble.test.tsx components/chat/MessageList.test.tsx components/chat/ChatContainer.test.tsx`
+- **Evidence (2026-03-31):**
+  - Updated `apps/web/components/chat/MessageBubble.tsx` to render user text directly (whitespace-preserving paragraph) instead of `StructuredMessageRenderer`.
+  - Added regression assertion in `apps/web/components/chat/MessageBubble.test.tsx` validating `text-primary-foreground` on user content.
+
 ### CHAT-006 — Chat Console UX Simplification (P1)
 
 - **Priority:** P1

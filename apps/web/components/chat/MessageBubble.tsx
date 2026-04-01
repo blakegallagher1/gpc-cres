@@ -704,7 +704,9 @@ export function MessageBubble({
           <>
             {isUser ? (
               <div className="rounded-2xl bg-primary px-4 py-3 text-sm leading-relaxed text-primary-foreground shadow-[0_18px_48px_-32px_rgba(15,23,42,0.45)]">
-                <StructuredMessageRenderer content={message.content} />
+                <p className="whitespace-pre-wrap break-words text-primary-foreground">
+                  {message.content}
+                </p>
                 {!hasEvent ? (
                   <MessageActions
                     conversationId={conversationId}
