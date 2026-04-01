@@ -139,11 +139,10 @@ async function capturePageImageDataUrl(session: BrowserSession): Promise<string>
   return `data:image/png;base64,${payload.toString("base64")}`;
 }
 
-/**
- * Persistent execution context for exec_js tool calls.
- * Created once per task, shared across all exec_js invocations.
- * Exposes: page (Playwright), output(), screenshot(), vars.
- */
+// =============================================================================
+// exec_js Code-Execution Harness (Option 3)
+// =============================================================================
+
 type ExecContext = {
   page: import("playwright").Page;
   _collectedOutput: string[];
@@ -170,36 +169,21 @@ function createExecContext(session: BrowserSession): ExecContext {
   return ctx;
 }
 
-/**
- * Execute a JavaScript code string in the exec_js sandbox.
- * The code has access to: page, output(), screenshot(), vars.
- * Returns: { text: string, screenshotDataUrl: string | null }
- */
 async function executeExecJs(
   ctx: ExecContext,
   code: string,
   signal: AbortSignal,
 ): Promise<{ text: string; screenshotDataUrl: string | null }> {
-  // Reset per-call state
   ctx._collectedOutput = [];
   ctx._capturedScreenshot = null;
 
-  // Build async function with bound helpers
   const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
-  const fn = new AsyncFunction(
-    "page",
-    "output",
-    "screenshot",
-    "vars",
-    code,
-  );
+  const fn = new AsyncFunction("page", "output", "screenshot", "vars", code);
 
-  // Execute with timeout
-  const timeout = TOOL_EXECUTION_TIMEOUT_MS;
   const result = await Promise.race([
     fn(ctx.page, ctx.output.bind(ctx), ctx.screenshot.bind(ctx), ctx.vars),
     new Promise((_, reject) =>
-      setTimeout(() => reject(new Error(`exec_js timed out after ${timeout}ms`)), timeout),
+      setTimeout(() => reject(new Error(`exec_js timed out after ${TOOL_EXECUTION_TIMEOUT_MS}ms`)), TOOL_EXECUTION_TIMEOUT_MS),
     ),
     new Promise((_, reject) => {
       if (signal.aborted) reject(new Error("Run aborted."));
@@ -207,11 +191,8 @@ async function executeExecJs(
     }),
   ]);
 
-  // If the function returned a value and nothing was output(), include it
   if (ctx._collectedOutput.length === 0 && result !== undefined) {
-    ctx._collectedOutput.push(
-      typeof result === "string" ? result : JSON.stringify(result),
-    );
+    ctx._collectedOutput.push(typeof result === "string" ? result : JSON.stringify(result));
   }
 
   return {
@@ -219,6 +200,34 @@ async function executeExecJs(
     screenshotDataUrl: ctx._capturedScreenshot,
   };
 }
+
+const EXEC_JS_TOOL = {
+  type: "function" as const,
+  name: "exec_js",
+  description:
+    "Execute JavaScript in the browser with full Playwright page API access. " +
+    "The `page` object (Playwright Page) is pre-bound. " +
+    "Call `output(text)` to return text results to you. " +
+    "Call `screenshot()` to capture and return the current page screenshot. " +
+    "Use for DOM queries, data extraction, form filling, or any task " +
+    "where code is faster than visual interaction. " +
+    "Variables persist in `vars` across calls within this task.",
+  parameters: {
+    type: "object" as const,
+    properties: {
+      code: {
+        type: "string" as const,
+        description:
+          "JavaScript code to execute. Has access to: " +
+          "`page` (Playwright Page), `output(text)` (return text), " +
+          "`screenshot()` (capture page), `vars` (persistent storage).",
+      },
+    },
+    required: ["code"],
+    additionalProperties: false,
+  },
+  strict: true,
+};
 
 /**
  * Delay with abort signal support
@@ -409,9 +418,6 @@ function getComputerCallItems(response: ResponsesApiResponse): ComputerCallItem[
   );
 }
 
-/**
- * Get function call items from response
- */
 function getFunctionCallItems(response: ResponsesApiResponse): FunctionCallItem[] {
   return (response.output ?? []).filter(
     (item): item is FunctionCallItem => item.type === "function_call",
@@ -430,40 +436,6 @@ function ensureResponseSucceeded(response: ResponsesApiResponse): void {
     throw new Error("Responses API request failed.");
   }
 }
-
-/**
- * exec_js function tool definition for Responses API.
- * Sent alongside { type: "computer" } to enable hybrid mode.
- */
-const EXEC_JS_TOOL = {
-  type: "function" as const,
-  name: "exec_js",
-  description:
-    "Execute JavaScript in the browser with full Playwright page API access. " +
-    "The `page` object (Playwright Page) is pre-bound. " +
-    "Call `output(text)` to return text results to you. " +
-    "Call `screenshot()` to capture and return the current page screenshot. " +
-    "Use for DOM queries, data extraction, form filling, or any task " +
-    "where code is faster than visual interaction. " +
-    "Variables persist in `vars` across calls within this task.",
-  parameters: {
-    type: "object" as const,
-    properties: {
-      code: {
-        type: "string" as const,
-        description:
-          "JavaScript code to execute. Has access to: " +
-          "`page` (Playwright Page), " +
-          "`output(text)` (return text to model), " +
-          "`screenshot()` (capture and return page screenshot), " +
-          "`vars` (persistent object for storing data across calls).",
-      },
-    },
-    required: ["code"],
-    additionalProperties: false,
-  },
-  strict: true,
-};
 
 /**
  * Run the native computer_call loop using Responses API
