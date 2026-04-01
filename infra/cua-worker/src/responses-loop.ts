@@ -534,7 +534,7 @@ export async function runNativeComputerLoop(options: {
           instructions: systemInstructions,
           input: nextInput as any,
           tools: [{ type: "computer" } as any, EXEC_JS_TOOL as any],
-          reasoning: { effort: "medium" },
+          reasoning: { effort: "low" },
           context_management: [{ type: "compaction", compact_threshold: 200_000 }],
           prompt_cache_key: "entitlement-os-cua-v1",
           prompt_cache_retention: "24h",
