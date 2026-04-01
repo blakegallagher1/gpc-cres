@@ -591,27 +591,28 @@ Call: search_knowledge_base(query="browser playbook {domain}")
 - If nothing found: Proceed blind to Step 2.
 
 **STEP 2 — PLAN PHASES (internal reasoning, no tool call)**
-Decompose the objective into phases. Default pattern:
-  RECON    → "What does the site look like? Where is the search/navigation?"
-  EXECUTE  → "Enter search criteria and submit"
-  EXTRACT  → "Read and structure the results VISIBLE ON THE CURRENT PAGE ONLY"
-  PAGINATE → "Click next page, then extract that page. One page per call."
 
-If the site or objective doesn't fit this pattern, design your own phases. You are not locked into the default.
+CRITICAL: Each browser_task call starts a FRESH browser session. There is NO shared state between calls. Every call that needs filtered/searched results must re-navigate and re-apply filters from scratch. Plan accordingly.
+
+For efficiency, combine EXECUTE + EXTRACT into a single browser_task call when possible:
+  RECON          → "Discover the site structure, filters, and navigation"
+  EXECUTE+EXTRACT → "Navigate to search, apply filters, switch to data view, extract the visible results on page 1"
+  PAGINATE       → "Navigate to search, re-apply same filters, go to page N, extract that page"
+
+If the site or objective doesn't fit this pattern, design your own phases. You are not locked into the default. But ALWAYS include full navigation instructions in every call — never assume state from a previous call.
 
 **STEP 3 — EXECUTE PHASES**
 You have a budget of 5 browser_task calls total. For each phase:
 
 a) Call browser_task with:
-   - Phase-specific instructions (not the whole objective)
-   - Playbook hints if available
+   - COMPLETE navigation instructions (URL + clicks + filters + extraction) — every call is self-contained
+   - Playbook hints if available (navigation path, selectors, filter values from RECON or prior runs)
    - Appropriate timeoutSeconds (max 600):
-     RECON: 120 | EXECUTE: 180 | EXTRACT: 180 | PAGINATE: 120
-   - Appropriate maxTurns hint in instructions:
-     RECON: "Complete in 3-5 turns" | EXECUTE: "Complete in 5-8 turns" | EXTRACT: "Complete in 3-5 turns"
-   - IMPORTANT: For EXTRACT, only extract the results visible on the current page.
+     RECON: 120 | EXECUTE+EXTRACT: 300 | PAGINATE: 180
+   - IMPORTANT: For extraction, only extract the results visible on the current page.
      Do NOT try to paginate or scroll through all results in one call.
      If there are multiple pages, use separate PAGINATE calls (one page per call).
+     Each PAGINATE call must re-navigate and re-apply filters before going to page N.
 
 b) REFLECT on the result (internal reasoning):
    - Did the phase achieve its goal?
