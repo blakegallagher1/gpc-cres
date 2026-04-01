@@ -58,21 +58,21 @@ export function CuaModelToggle({ model, onModelChange, className }: CuaModelTogg
             className={cn(
               'h-7 gap-1.5 rounded-full px-2.5 font-mono text-[10px] tracking-wide',
               isMini
-                ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300'
-                : 'border-indigo-500/40 bg-indigo-500/10 text-indigo-700 hover:bg-indigo-500/20 dark:text-indigo-300',
+                ? 'border-border/70 bg-background text-foreground hover:bg-muted'
+                : 'border-border/70 bg-background text-foreground hover:bg-muted',
               className,
             )}
           >
             <Monitor className="h-3 w-3" />
-            <span>{isMini ? '5.4-mini' : '5.4'}</span>
+            <span>{isMini ? 'GPT-5.4 mini' : 'GPT-5.4'}</span>
           </Button>
         </TooltipTrigger>
         <TooltipContent>
           <p className="text-xs">
-            CUA Browser Model: <strong>{model}</strong>
+            Browser run model: <strong>{model}</strong>
           </p>
           <p className="text-[10px] text-muted-foreground">
-            {isMini ? '~$0.05/task · Budget mode' : '~$0.30/task · 95% accuracy'}
+            {isMini ? 'Use for lighter browser tasks.' : 'Use for the highest-fidelity browser runs.'}
           </p>
           <p className="text-[10px] text-muted-foreground">Click to toggle</p>
         </TooltipContent>

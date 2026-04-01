@@ -141,15 +141,15 @@ test.describe("Chat layout", () => {
   test("keeps the run surface usable on first desktop load", async ({ page }) => {
     await openChat(page);
 
-    await expect(page.getByText("Ask Harvey anything.")).toBeVisible({
+    await expect(page.getByText("Frame the matter. Define the output.")).toBeVisible({
       timeout: CHAT_READY_TIMEOUT_MS,
     });
     await expect(page.getByRole("button", { name: "Draft memo" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Review table" })).toBeVisible();
-    await expect(page.getByText("Client matter")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Files", exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Sources", exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Prompt library", exact: true })).toBeVisible();
+    await expect(page.getByText("Matter scope")).toBeVisible();
+    await expect(page.getByText("Stateful run context")).toBeVisible();
+    await expect(page.getByText("Tool-enabled execution")).toBeVisible();
+    await expect(page.getByText("Evidence and source attachments")).toBeVisible();
 
     const viewport = page.viewportSize();
 
@@ -164,7 +164,7 @@ test.describe("Chat layout", () => {
     await page.setViewportSize(MOBILE_VIEWPORT);
     await openChat(page);
 
-    await expect(page.getByText("Ask Harvey anything.")).toBeVisible({
+    await expect(page.getByText("Frame the matter. Define the output.")).toBeVisible({
       timeout: CHAT_READY_TIMEOUT_MS,
     });
     await expect(page.getByRole("button", { name: "Draft memo" })).toBeVisible();

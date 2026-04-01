@@ -628,10 +628,10 @@ export function ChatWorkspaceHero({
             </div>
           )}
 
-          <div className="rounded-lg border border-border bg-background p-5 sm:p-6">
+          <div className="rounded-lg border border-border/70 bg-background p-5 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
               <div className="flex min-w-0 items-center gap-3">
-                <span className="font-medium text-foreground">Client matter</span>
+                <span className="font-medium text-foreground">Matter scope</span>
                 <div className="min-w-0 flex-1">{dealSelector}</div>
               </div>
               {cuaModel && onCuaModelChange ? (
@@ -639,38 +639,54 @@ export function ChatWorkspaceHero({
               ) : null}
             </div>
 
-            <div className="mt-8 space-y-3">
-              <h1 className="text-4xl font-semibold tracking-tight text-foreground">
-                Ask Harvey anything.
-              </h1>
-              <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-                Lead with the matter, outcome, or document you need. Type{' '}
-                <span className="font-medium text-foreground">@</span> to attach sources and move straight into the answer.
-              </p>
+            <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_17rem] lg:items-start">
+              <div className="space-y-3">
+                <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-muted-foreground">
+                  Operator Run Desk
+                </p>
+                <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-[2rem]">
+                  Frame the matter. Define the output.
+                </h1>
+                <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
+                  Start with the matter, target deliverable, and governing constraints. Type{' '}
+                  <span className="font-medium text-foreground">@</span> to attach evidence before the run starts.
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
+                <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                  Workspace Mode
+                </p>
+                <div className="mt-3 space-y-2 text-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground">Context</span>
+                    <span className="font-medium text-foreground">Stateful</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground">Tools</span>
+                    <span className="font-medium text-foreground">Agentic</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground">Inputs</span>
+                    <span className="font-medium text-foreground">@ Evidence</span>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div className="mt-8 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 font-medium transition hover:text-foreground"
-              >
-                <FolderOpen className="h-4 w-4" />
-                Files
-              </button>
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 font-medium transition hover:text-foreground"
-              >
-                <ShieldCheck className="h-4 w-4" />
-                Sources
-              </button>
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 font-medium transition hover:text-foreground"
-              >
-                <Sparkles className="h-4 w-4" />
-                Prompt library
-              </button>
+            <div className="mt-6 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <span className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background px-3 py-1.5">
+                <Globe className="h-3.5 w-3.5" />
+                Stateful run context
+              </span>
+              <span className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background px-3 py-1.5">
+                <ShieldCheckIcon className="h-3.5 w-3.5" />
+                Tool-enabled execution
+              </span>
+              <span className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background px-3 py-1.5">
+                <BookOpen className="h-3.5 w-3.5" />
+                Evidence and source attachments
+              </span>
             </div>
           </div>
         </div>

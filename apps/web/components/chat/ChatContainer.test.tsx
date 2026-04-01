@@ -236,7 +236,7 @@ describe("ChatContainer", () => {
           enabled: false,
         }),
       );
-      expect(screen.getByText("Ask Harvey anything.")).toBeInTheDocument();
+      expect(screen.getByText("Frame the matter. Define the output.")).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Draft memo" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Review table" })).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "History", exact: true })).not.toBeInTheDocument();
@@ -260,7 +260,7 @@ describe("ChatContainer", () => {
         expect(fetchMock).toHaveBeenCalledWith("/api/chat/conversations");
       });
 
-      expect(screen.getByText("Ask Harvey anything.")).toBeInTheDocument();
+      expect(screen.getByText("Frame the matter. Define the output.")).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Draft memo" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Review table" })).toBeInTheDocument();
       expect(screen.queryByTestId("conversation-sidebar")).not.toBeInTheDocument();

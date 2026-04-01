@@ -831,8 +831,8 @@ export function ChatContainer() {
       isStreaming={isStreaming}
       onStop={stableChatInputOptions.onStop}
       canAttachFiles={true}
-      placeholder="Ask Harvey anything. Type @ to add sources."
-      helperText="Lead with the matter, outcome, or constraint. Enter sends. Shift+Enter adds a line."
+      placeholder="Describe the matter, required output, and constraints. Type @ to attach evidence."
+      helperText="Lead with the matter, target deliverable, and governing constraints. Enter sends. Shift+Enter adds a line."
       submitLabel="Start run"
     />
   );
