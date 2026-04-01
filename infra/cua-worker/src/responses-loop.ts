@@ -692,9 +692,9 @@ export async function runNativeComputerLoop(options: {
         // Build output: text-only or text+image array
         const output = result.screenshotDataUrl
           ? [
-              { type: "text", text: result.text },
+              { type: "input_text", text: result.text },
               {
-                type: "image_url",
+                type: "input_image",
                 image_url: result.screenshotDataUrl,
                 detail: "original",
               },
