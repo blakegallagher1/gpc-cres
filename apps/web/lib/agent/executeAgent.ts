@@ -63,6 +63,7 @@ import {
   emitToolStart,
 } from "./agentStreamEmitter";
 import { buildFinalTrust, buildPendingApprovalTrust } from "./agentTrust";
+import { buildResearchRoutingMessage } from "./researchRouting";
 import { unifiedRetrieval } from "./retrievalAdapter";
 
 const DATA_AGENT_RETRIEVAL_LIMIT = 6;
@@ -1451,6 +1452,7 @@ export async function executeAgentWorkflow(
       ReturnType<typeof createConfiguredCoordinator>
     > = [
       userMessage(buildRuntimeClockContextMessage()),
+      userMessage(buildResearchRoutingMessage(firstUserInput ?? "")),
       ...buildAgentInputItems(params.input),
     ];
     if (params.resumedRunState) {
