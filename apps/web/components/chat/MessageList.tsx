@@ -203,7 +203,7 @@ export function MessageList({
   return (
     <div className="relative h-full">
       <ScrollArea ref={scrollAreaRef} className="chat-thread-surface h-full">
-        <div className="mx-auto flex w-full max-w-[54rem] flex-col gap-3 px-4 py-6 sm:px-6">
+        <div className="mx-auto flex w-full max-w-[68rem] flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8">
           <AnimatePresence initial={false}>
             {messages.map((msg) => (
               <motion.div

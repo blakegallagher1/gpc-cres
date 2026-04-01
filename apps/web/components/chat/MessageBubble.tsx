@@ -679,7 +679,7 @@ export function MessageBubble({
       <div
         className={cn(
           'flex flex-col gap-1',
-          isSystemEvent ? 'max-w-[92%]' : 'max-w-[84%]',
+          isSystemEvent ? 'max-w-[92%]' : isUser ? 'max-w-[78%] sm:max-w-[72%]' : 'w-full max-w-[92%]',
           isUser && 'items-end',
         )}
       >
@@ -714,38 +714,44 @@ export function MessageBubble({
                 ) : null}
               </div>
             ) : (
-              <Card
+              <div
                 className={cn(
-                  'border border-border/60 border-l-[3px] bg-background/80 text-foreground',
+                  'overflow-hidden rounded-[1.35rem] border border-border/55 bg-background/88 text-foreground shadow-[0_24px_60px_-46px_rgba(15,23,42,0.72)]',
                   agentBorder,
                 )}
               >
-                <CardContent className="px-4 py-3 text-sm leading-relaxed">
+                <div className="px-5 py-4 text-sm leading-7">
                   <StructuredMessageRenderer content={message.content} />
-                  {Array.isArray(message.mapFeatures) && message.mapFeatures.length > 0 ? (
-                    <MiniMapMessage
-                      features={message.mapFeatures}
-                      onParcelClick={(parcel) => {
-                        mapDispatch({ type: 'SELECT_PARCELS', parcelIds: [parcel.parcelId] });
-                      }}
-                    />
+                  {(Array.isArray(message.mapFeatures) && message.mapFeatures.length > 0) ||
+                  (message.trust && message.trust.confidence != null && !hasEvent) ||
+                  !hasEvent ? (
+                    <div className="mt-4 flex flex-col gap-3 border-t border-border/45 pt-3">
+                      {Array.isArray(message.mapFeatures) && message.mapFeatures.length > 0 ? (
+                        <MiniMapMessage
+                          features={message.mapFeatures}
+                          onParcelClick={(parcel) => {
+                            mapDispatch({ type: 'SELECT_PARCELS', parcelIds: [parcel.parcelId] });
+                          }}
+                        />
+                      ) : null}
+                      {message.trust && message.trust.confidence != null && !hasEvent ? (
+                        <TrustIndicator
+                          trust={message.trust}
+                          messageId={message.id}
+                          onVerify={onVerifyTrust}
+                        />
+                      ) : null}
+                      {!hasEvent ? (
+                        <MessageActions
+                          conversationId={conversationId}
+                          messageId={message.id}
+                          message={message}
+                        />
+                      ) : null}
+                    </div>
                   ) : null}
-                  {message.trust && message.trust.confidence != null && !hasEvent ? (
-                    <TrustIndicator
-                      trust={message.trust}
-                      messageId={message.id}
-                      onVerify={onVerifyTrust}
-                    />
-                  ) : null}
-                  {!hasEvent ? (
-                    <MessageActions
-                      conversationId={conversationId}
-                      messageId={message.id}
-                      message={message}
-                    />
-                  ) : null}
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             )}
 
             {Array.isArray(message.toolCalls) && message.toolCalls.length > 0 ? (

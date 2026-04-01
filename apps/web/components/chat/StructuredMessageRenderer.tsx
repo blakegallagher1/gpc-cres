@@ -385,11 +385,9 @@ export function StructuredMessageRenderer({ content }: StructuredMessageRenderer
 
   if (!parsed || !safePayload) {
     return (
-      <ScrollArea className="max-h-72 rounded-xl border border-border/60 bg-muted/20">
-        <pre className="whitespace-pre-wrap break-words p-3 font-mono text-sm leading-relaxed">
-          {content}
-        </pre>
-      </ScrollArea>
+      <div className="flex min-w-0 flex-col gap-3">
+        {renderMarkdownText(content)}
+      </div>
     );
   }
 
