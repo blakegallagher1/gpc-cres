@@ -14,7 +14,9 @@ describe("ChatInput", () => {
       />,
     );
 
-    const textarea = screen.getByPlaceholderText("Ask something complex...") as HTMLTextAreaElement;
+    const textarea = screen.getByPlaceholderText(
+      /Ask anything about your properties, deals, evidence, or next move/i,
+    ) as HTMLTextAreaElement;
     textarea.value = "Store this memory now";
 
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
@@ -35,7 +37,7 @@ describe("ChatInput", () => {
       />,
     );
 
-    fireEvent.change(screen.getByPlaceholderText("Ask something complex..."), {
+    fireEvent.change(screen.getByPlaceholderText(/Ask anything about your properties, deals, evidence, or next move/i), {
       target: { value: "Screen this property" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
@@ -82,8 +84,9 @@ describe("ChatInput", () => {
       />,
     );
 
+    fireEvent.click(screen.getByRole("button", { name: /Advanced controls/i }));
     fireEvent.click(screen.getByRole("button", { name: /Web research/i }));
-    fireEvent.change(screen.getByPlaceholderText("Ask something complex..."), {
+    fireEvent.change(screen.getByPlaceholderText(/Ask anything about your properties, deals, evidence, or next move/i), {
       target: { value: "Find the latest zoning update and cite sources" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
@@ -93,5 +96,21 @@ describe("ChatInput", () => {
       undefined,
       { researchLane: "public_web" },
     );
+  });
+
+  it("keeps advanced routing controls hidden until requested", () => {
+    render(
+      <ChatInput
+        onSend={() => {}}
+        isStreaming={false}
+        onStop={() => {}}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: /Web research/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Advanced controls/i }));
+
+    expect(screen.getByRole("button", { name: /Web research/i })).toBeInTheDocument();
   });
 });

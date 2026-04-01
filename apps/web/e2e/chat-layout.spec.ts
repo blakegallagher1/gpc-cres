@@ -35,7 +35,7 @@ type MockChatShellOptions = {
 function getVisibleComposer(page: Page): Locator {
   return page
     .locator(
-      'textarea[placeholder="Describe the matter, required output, and constraints. Type @ to attach evidence."]:visible',
+      'textarea[placeholder="Ask anything about your properties, deals, evidence, or next move..."]:visible',
     )
     .first();
 }
@@ -141,15 +141,13 @@ test.describe("Chat layout", () => {
   test("keeps the run surface usable on first desktop load", async ({ page }) => {
     await openChat(page);
 
-    await expect(page.getByText("Start with the matter and required output. Keep it short, then iterate in-thread.")).toBeVisible({
+    await expect(page.getByText("Start with a question.")).toBeVisible({
       timeout: CHAT_READY_TIMEOUT_MS,
     });
-    await expect(page.getByRole("button", { name: "Run screening" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Review evidence" })).toBeVisible();
-    await expect(page.getByText("Run brief")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Insert Deliverable prompt scaffold" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Insert Evidence prompt scaffold" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Insert Strategy prompt scaffold" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Open advanced workspace" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Advanced controls/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Run screening" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Insert Deliverable prompt scaffold" })).toHaveCount(0);
 
     const viewport = page.viewportSize();
 
@@ -164,12 +162,13 @@ test.describe("Chat layout", () => {
     await page.setViewportSize(MOBILE_VIEWPORT);
     await openChat(page);
 
-    await expect(page.getByText("Start with the matter and required output. Keep it short, then iterate in-thread.")).toBeVisible({
+    await expect(page.getByText("Start with a question.")).toBeVisible({
       timeout: CHAT_READY_TIMEOUT_MS,
     });
-    await expect(page.getByRole("button", { name: "Run screening" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Review evidence" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Insert Deliverable prompt scaffold" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Open advanced workspace" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Advanced controls/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Run screening" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Insert Deliverable prompt scaffold" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "History", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Verification", exact: true })).toHaveCount(0);
 

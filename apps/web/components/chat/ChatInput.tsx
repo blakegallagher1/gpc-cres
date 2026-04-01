@@ -13,6 +13,8 @@ import {
   ArrowUp,
   Command,
   Database,
+  ChevronDown,
+  ChevronUp,
   FileText,
   Globe,
   MousePointerClick,
@@ -135,8 +137,8 @@ export function ChatInput({
   canAttachFiles = false,
   injectedPrompt,
   orientationHint,
-  placeholder = "Ask something complex...",
-  helperText = "AI agents may make mistakes. Always verify critical data.",
+  placeholder = "Ask anything about your properties, deals, evidence, or next move...",
+  helperText = "Start in plain English. Add files or open advanced controls only when you need to.",
   submitLabel = "Send",
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -145,6 +147,7 @@ export function ChatInput({
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [isFocused, setIsFocused] = useState(false);
   const [researchLane, setResearchLane] = useState<ResearchLaneSelection>('auto');
+  const [showAdvancedControls, setShowAdvancedControls] = useState(false);
   const isComposing = useRef(false);
   const lastInjectedPromptIdRef = useRef<string | null>(null);
 
@@ -273,9 +276,11 @@ export function ChatInput({
     ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
     : trimmedDraft.length > 120
       ? 'border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300'
-      : hasQueuedContent
-        ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300'
-        : 'border-border/70 bg-background/80 text-muted-foreground';
+    : hasQueuedContent
+      ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+      : 'border-border/70 bg-background/80 text-muted-foreground';
+  const shouldShowAdvancedControls =
+    showAdvancedControls || researchLane !== 'auto';
 
   return (
     <form
@@ -368,10 +373,10 @@ export function ChatInput({
             <div className="flex items-center justify-between gap-3 px-2 pb-2">
               <div className="min-w-0">
                 <p className="text-sm font-medium tracking-[-0.02em] text-foreground">
-                  Run brief
+                  Message
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  State the matter, deliverable, evidence, and constraints once.
+                  Ask in plain English. Open advanced controls only when you need to steer the run.
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -394,91 +399,122 @@ export function ChatInput({
               </div>
             </div>
 
-            <div className="mb-3 flex flex-wrap gap-2 px-2">
-              {COMPOSER_PRESETS.map((preset) => {
-                const Icon = preset.icon;
-                return (
-                  <button
-                    key={preset.id}
-                    type="button"
-                    onClick={() => applyPreset(preset.template)}
-                    className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/80 px-3 py-1.5 text-left text-[11px] text-muted-foreground transition-colors hover:border-foreground/20 hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                    aria-label={`Insert ${preset.label} prompt scaffold`}
-                  >
-                    <Icon className="h-3.5 w-3.5" />
-                    <span className="font-medium text-foreground">{preset.label}</span>
-                    <span className="hidden text-muted-foreground/90 md:inline">{preset.hint}</span>
-                  </button>
-                );
-              })}
+            <div className="mb-3 flex flex-wrap items-center gap-2 px-2">
+              <button
+                type="button"
+                onClick={() => setShowAdvancedControls((current) => !current)}
+                className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/80 px-3 py-1.5 text-left text-[11px] text-muted-foreground transition-colors hover:border-foreground/20 hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                aria-expanded={shouldShowAdvancedControls}
+                aria-controls="chat-advanced-controls"
+              >
+                {shouldShowAdvancedControls ? (
+                  <ChevronUp className="h-3.5 w-3.5" />
+                ) : (
+                  <ChevronDown className="h-3.5 w-3.5" />
+                )}
+                <span className="font-medium text-foreground">Advanced controls</span>
+                <span className="hidden text-muted-foreground/90 md:inline">
+                  Routing, scaffolds, and structure helpers.
+                </span>
+              </button>
+              <Badge
+                variant="outline"
+                className="rounded-full border-border/70 bg-background/80 px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-foreground/80"
+              >
+                {laneStatusLabel}
+              </Badge>
             </div>
 
-            <div className="mb-3 rounded-2xl border border-border/60 bg-muted/[0.22] px-3 py-3">
-              <div className="flex flex-col gap-2 px-1 pb-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                    Research lane
-                  </p>
-                  <p className="text-sm font-medium tracking-[-0.02em] text-foreground">
-                    Choose where the run looks first before it answers.
-                  </p>
+            {shouldShowAdvancedControls ? (
+              <div
+                id="chat-advanced-controls"
+                className="mb-3 rounded-2xl border border-border/60 bg-muted/[0.22] px-3 py-3"
+              >
+                <div className="mb-3 flex flex-wrap gap-2 px-1">
+                  {COMPOSER_PRESETS.map((preset) => {
+                    const Icon = preset.icon;
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => applyPreset(preset.template)}
+                        className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/80 px-3 py-1.5 text-left text-[11px] text-muted-foreground transition-colors hover:border-foreground/20 hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                        aria-label={`Insert ${preset.label} prompt scaffold`}
+                      >
+                        <Icon className="h-3.5 w-3.5" />
+                        <span className="font-medium text-foreground">{preset.label}</span>
+                        <span className="hidden text-muted-foreground/90 md:inline">{preset.hint}</span>
+                      </button>
+                    );
+                  })}
                 </div>
-                <Badge
-                  variant="outline"
-                  className="w-fit rounded-full border-border/70 bg-background/90 px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-foreground/80"
-                >
-                  {laneStatusLabel}
-                </Badge>
-              </div>
 
-              <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
-                {RESEARCH_LANE_OPTIONS.map((option) => {
-                  const Icon = option.icon;
-                  const isSelected = researchLane === option.id;
-                  const isEffective = effectiveLane === option.id;
-                  return (
-                    <button
-                      key={option.id}
-                      type="button"
-                      onClick={() => setResearchLane(option.id)}
-                      className={cn(
-                        'rounded-2xl border px-3 py-3 text-left transition-[border-color,background-color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
-                        'hover:translate-y-[-1px] hover:border-foreground/20 hover:bg-background/90',
-                        isSelected
-                          ? 'border-foreground/20 bg-background shadow-sm'
-                          : 'border-border/60 bg-background/70',
-                      )}
-                      aria-pressed={isSelected}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <span className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-border/60 bg-muted/[0.35] text-foreground">
-                          <Icon className="h-4 w-4" />
-                        </span>
-                        {isEffective ? (
-                          <Badge
-                            variant="outline"
-                            className="rounded-full border-border/70 bg-background/95 px-2 py-0.5 text-[9px] uppercase tracking-[0.18em] text-foreground/80"
-                          >
-                            Active
-                          </Badge>
-                        ) : null}
-                      </div>
-                      <p className="mt-3 text-sm font-medium tracking-[-0.02em] text-foreground">
-                        {option.label}
-                      </p>
-                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                        {option.hint}
-                      </p>
-                    </button>
-                  );
-                })}
-              </div>
+                <div className="flex flex-col gap-2 px-1 pb-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                      Research lane
+                    </p>
+                    <p className="text-sm font-medium tracking-[-0.02em] text-foreground">
+                      Choose where the run looks first before it answers.
+                    </p>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className="w-fit rounded-full border-border/70 bg-background/90 px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-foreground/80"
+                  >
+                    {laneStatusLabel}
+                  </Badge>
+                </div>
 
-              <p className="px-1 pt-3 text-[11px] leading-5 text-muted-foreground">
-                Auto follows the prompt. Override it when you know the run should stay local, use
-                Perplexity for public sources, or switch to CUA for interactive work.
-              </p>
-            </div>
+                <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+                  {RESEARCH_LANE_OPTIONS.map((option) => {
+                    const Icon = option.icon;
+                    const isSelected = researchLane === option.id;
+                    const isEffective = effectiveLane === option.id;
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => setResearchLane(option.id)}
+                        className={cn(
+                          'rounded-2xl border px-3 py-3 text-left transition-[border-color,background-color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                          'hover:translate-y-[-1px] hover:border-foreground/20 hover:bg-background/90',
+                          isSelected
+                            ? 'border-foreground/20 bg-background shadow-sm'
+                            : 'border-border/60 bg-background/70',
+                        )}
+                        aria-pressed={isSelected}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <span className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-border/60 bg-muted/[0.35] text-foreground">
+                            <Icon className="h-4 w-4" />
+                          </span>
+                          {isEffective ? (
+                            <Badge
+                              variant="outline"
+                              className="rounded-full border-border/70 bg-background/95 px-2 py-0.5 text-[9px] uppercase tracking-[0.18em] text-foreground/80"
+                            >
+                              Active
+                            </Badge>
+                          ) : null}
+                        </div>
+                        <p className="mt-3 text-sm font-medium tracking-[-0.02em] text-foreground">
+                          {option.label}
+                        </p>
+                        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                          {option.hint}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <p className="px-1 pt-3 text-[11px] leading-5 text-muted-foreground">
+                  Auto follows the prompt. Override it when you know the run should stay local, use
+                  Perplexity for public sources, or switch to CUA for interactive work.
+                </p>
+              </div>
+            ) : null}
 
             <div
               className={cn(

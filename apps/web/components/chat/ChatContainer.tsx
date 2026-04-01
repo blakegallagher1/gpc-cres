@@ -8,6 +8,7 @@ import {
   useState,
 } from 'react';
 import { AgentTrustEnvelope } from '@/types';
+import { Button } from '@/components/ui/button';
 import { MessageList } from './MessageList';
 import { ChatInput, type ChatSendOptions } from './ChatInput';
 import { AgentIndicator } from './AgentIndicator';
@@ -37,6 +38,7 @@ import {
 import { mapFeaturesFromActionPayload } from '@/lib/chat/mapFeatureUtils';
 import { parseToolResultMapFeatures } from '@/lib/chat/toolResultWrapper';
 import { useAgentWebSocket } from '@/lib/chat/useAgentWebSocket';
+import { cn } from '@/lib/utils';
 
 type RawConversationMessage = {
   id?: unknown;
@@ -66,6 +68,10 @@ const AUI_MESSAGE_ENHANCEMENTS = process.env.NEXT_PUBLIC_AUI_MESSAGE_ENHANCEMENT
 // query_property_db. The REST /api/chat path uses the fixed Vercel coordinator.
 // Re-enable when CF Worker tool-schemas.json is regenerated and deployed.
 const WS_ENABLED = false; // was: Boolean(process.env.NEXT_PUBLIC_AGENT_WS_URL)
+const SIMPLE_STARTER_PROMPTS = [
+  'Screen this property for entitlement risk and tell me what matters first.',
+  'Summarize the zoning constraints for this site in plain English.',
+] as const;
 
 function isString(value: unknown): value is string {
   return typeof value === 'string';
@@ -294,6 +300,7 @@ export function ChatContainer() {
   const [agentSummary, setAgentSummary] = useState<AgentTrustEnvelope | null>(null);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [isLoadingConversations, setIsLoadingConversations] = useState(false);
+  const [showWorkspaceChrome, setShowWorkspaceChrome] = useState(false);
   const [injectedPrompt, setInjectedPrompt] = useState<{
     id: string;
     text: string;
@@ -841,6 +848,8 @@ export function ChatContainer() {
     onSuggestionClick: handleSend,
   });
   const showLaunchComposer = visibleMessages.length === 0;
+  const showExpandedWorkspace =
+    showWorkspaceChrome || isStreaming || visibleMessages.length > 0;
   const handleQuickActionSelect = useCallback((prompt: string) => {
     void handleSend(prompt);
   }, [handleSend]);
@@ -857,9 +866,9 @@ export function ChatContainer() {
       onStop={stableChatInputOptions.onStop}
       canAttachFiles={true}
       injectedPrompt={injectedPrompt}
-      placeholder="Describe the matter, required output, and constraints. Type @ to attach evidence."
-      helperText="Lead with the matter, target deliverable, and governing constraints. Enter sends. Shift+Enter adds a line."
-      submitLabel="Start run"
+      placeholder="Ask anything about your properties, deals, evidence, or next move..."
+      helperText="Start in plain English. Add files or open advanced controls only when you need to."
+      submitLabel="Send"
     />
   );
 
@@ -871,28 +880,76 @@ export function ChatContainer() {
               {showLaunchComposer ? (
                 <>
                   <div className="min-h-0 flex-1 overflow-y-auto">
-                    <ChatWorkspaceHero
-                      activeAgentLabel={activeAgentLabel}
-                      conversationCount={conversations.length}
-                      cuaModel={cuaModel}
-                      dealSelector={(
-                        <DealSelector
-                          selectedDealId={selectedDealId}
-                          onSelect={setSelectedDealId}
-                        />
-                      )}
-                      dealStatus={selectedDealStatus}
-                      launchState
-                      scopeLabel={scopeLabel}
-                      threadStatusLabel={threadStatusLabel}
-                      transportLabel={transportLabel}
-                      isMobile={isMobile}
-                      onOpenHistory={() => undefined}
-                      onOpenInspector={() => undefined}
-                      onCuaModelChange={setCuaModel}
-                      onQuickActionSelect={handleQuickActionSelect}
-                      onSourceChipSelect={handleSourceChipSelect}
-                    />
+                    {showWorkspaceChrome ? (
+                      <ChatWorkspaceHero
+                        activeAgentLabel={activeAgentLabel}
+                        conversationCount={conversations.length}
+                        cuaModel={cuaModel}
+                        dealSelector={(
+                          <DealSelector
+                            selectedDealId={selectedDealId}
+                            onSelect={setSelectedDealId}
+                          />
+                        )}
+                        dealStatus={selectedDealStatus}
+                        launchState
+                        scopeLabel={scopeLabel}
+                        threadStatusLabel={threadStatusLabel}
+                        transportLabel={transportLabel}
+                        isMobile={isMobile}
+                        onOpenHistory={() => undefined}
+                        onOpenInspector={() => undefined}
+                        onCuaModelChange={setCuaModel}
+                        onQuickActionSelect={handleQuickActionSelect}
+                        onSourceChipSelect={handleSourceChipSelect}
+                      />
+                    ) : (
+                      <div className="mx-auto flex h-full w-full max-w-4xl flex-col items-center justify-start px-6 py-8 text-center sm:py-10">
+                        <div className="max-w-2xl">
+                          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">
+                            Personal operating system
+                          </p>
+                          <h1 className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-foreground sm:text-4xl">
+                            Start with a question.
+                          </h1>
+                          <p className="mt-3 text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
+                            Ask naturally. The system can search your internal data, do public web
+                            research, or switch to interactive browsing when needed. The heavier
+                            workspace is still here when you want it.
+                          </p>
+                        </div>
+
+                        <div className="mt-5 grid w-full max-w-2xl gap-3 sm:grid-cols-2">
+                          {SIMPLE_STARTER_PROMPTS.map((prompt) => (
+                            <button
+                              key={prompt}
+                              type="button"
+                              onClick={() => void handleSend(prompt)}
+                              className="rounded-3xl border border-border/70 bg-background px-4 py-3 text-left text-sm leading-6 text-foreground shadow-sm transition-[border-color,transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                            >
+                              {prompt}
+                            </button>
+                          ))}
+                        </div>
+
+                        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="rounded-full"
+                            onClick={() => setShowWorkspaceChrome(true)}
+                          >
+                            Open advanced workspace
+                          </Button>
+                          <div className="min-w-[220px]">
+                            <DealSelector
+                              selectedDealId={selectedDealId}
+                              onSelect={setSelectedDealId}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     {currentAgent ? (
                       <div className="px-4 pb-2 sm:px-5">
@@ -905,28 +962,60 @@ export function ChatContainer() {
                 </>
               ) : (
                 <>
-                  <ChatWorkspaceHero
-                    activeAgentLabel={activeAgentLabel}
-                    conversationCount={conversations.length}
-                    cuaModel={cuaModel}
-                    dealSelector={(
-                      <DealSelector
-                        selectedDealId={selectedDealId}
-                        onSelect={setSelectedDealId}
-                      />
-                    )}
-                    dealStatus={selectedDealStatus}
-                    launchState={false}
-                    scopeLabel={scopeLabel}
-                    threadStatusLabel={threadStatusLabel}
-                    transportLabel={transportLabel}
-                    isMobile={isMobile}
-                    onOpenHistory={() => undefined}
-                    onOpenInspector={() => undefined}
-                    onCuaModelChange={setCuaModel}
-                    onQuickActionSelect={handleQuickActionSelect}
-                    onSourceChipSelect={handleSourceChipSelect}
-                  />
+                  {showExpandedWorkspace ? (
+                    <ChatWorkspaceHero
+                      activeAgentLabel={activeAgentLabel}
+                      conversationCount={conversations.length}
+                      cuaModel={cuaModel}
+                      dealSelector={(
+                        <DealSelector
+                          selectedDealId={selectedDealId}
+                          onSelect={setSelectedDealId}
+                        />
+                      )}
+                      dealStatus={selectedDealStatus}
+                      launchState={false}
+                      scopeLabel={scopeLabel}
+                      threadStatusLabel={threadStatusLabel}
+                      transportLabel={transportLabel}
+                      isMobile={isMobile}
+                      onOpenHistory={() => undefined}
+                      onOpenInspector={() => undefined}
+                      onCuaModelChange={setCuaModel}
+                      onQuickActionSelect={handleQuickActionSelect}
+                      onSourceChipSelect={handleSourceChipSelect}
+                    />
+                  ) : (
+                    <div className="border-b border-border/70 bg-background/95 px-4 py-3 sm:px-5">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                            Chat workspace
+                          </p>
+                          <p className="mt-1 truncate text-sm text-foreground">
+                            {scopeLabel}. Keep talking naturally and open the full workspace only
+                            when you need more control.
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className={cn("min-w-[220px]", isMobile && "w-full")}>
+                            <DealSelector
+                              selectedDealId={selectedDealId}
+                              onSelect={setSelectedDealId}
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="rounded-full"
+                            onClick={() => setShowWorkspaceChrome(true)}
+                          >
+                            Open workspace
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {currentAgent ? (
                     <div className="px-4 pb-2 sm:px-5">
