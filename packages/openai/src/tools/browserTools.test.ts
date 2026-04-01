@@ -108,4 +108,59 @@ describe("browser_task preferred model routing", () => {
     });
     expect(String(result._hint)).toContain("switch to Perplexity web research");
   });
+
+  it("falls back to the gateway proxy when the dedicated cua host returns 404", async () => {
+    process.env.CUA_WORKER_URL = "https://cua.gallagherpropco.com";
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        text: async () => '{"detail":"Not Found"}',
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ taskId: "task-123" }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          status: "completed",
+          result: {
+            success: true,
+            data: { finalMessage: "Example Domain" },
+            source: { url: "https://example.com" },
+            screenshots: [],
+            turns: 1,
+            cost: { inputTokens: 1, outputTokens: 1 },
+            modeUsed: "native",
+            finalMessage: "Example Domain",
+          },
+        }),
+      } as Response);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { browser_task } = await import("./browserTools.js");
+    const result = await browser_task.execute(
+      {
+        url: "https://example.com",
+        instructions: "Read the heading.",
+        model: null,
+      },
+      {
+        context: {
+          preferredCuaModel: "gpt-5.4-mini",
+        },
+      },
+    );
+
+    expect(result).toMatchObject({
+      success: true,
+      finalMessage: "Example Domain",
+    });
+    expect(String(fetchMock.mock.calls[0]?.[0])).toBe("https://cua.gallagherpropco.com/tasks");
+    expect(String(fetchMock.mock.calls[1]?.[0])).toBe("https://gateway.gallagherpropco.com/tasks");
+    expect(String(fetchMock.mock.calls[2]?.[0])).toBe("https://gateway.gallagherpropco.com/tasks/task-123");
+  });
 });

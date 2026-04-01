@@ -19,6 +19,23 @@ function jsonResponse(body: unknown, status = 200, source = "gateway"): Response
   });
 }
 
+function passthroughResponse(result: { status: number; data: unknown }): Response {
+  return new Response(
+    typeof result.data === "string" ? result.data : JSON.stringify(result.data),
+    {
+      status: result.status || 502,
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store",
+        "X-GPC-Source": "gateway",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "Authorization, Content-Type",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      },
+    },
+  );
+}
+
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     // CORS preflight
@@ -112,6 +129,22 @@ export default {
       }
       console.error(`[db-proxy] upstream error: status=${dbResult.status} data=${dbResult.raw?.substring(0, 200)}`);
       return jsonResponse(dbResult.data, dbResult.status || 502);
+    }
+
+    if (
+      (url.pathname === "/tasks" && request.method === "POST") ||
+      (/^\/tasks\/[^/]+$/.test(url.pathname) && request.method === "GET")
+    ) {
+      const taskBody = request.method === "POST"
+        ? await request.json().catch(() => ({}))
+        : undefined;
+      const taskResult = await proxyToUpstream(
+        env,
+        request.method,
+        url.pathname,
+        taskBody,
+      );
+      return passthroughResponse(taskResult);
     }
 
     const requestId = crypto.randomUUID();

@@ -3,6 +3,9 @@ import { z } from "zod";
 
 type CuaModelPreference = "gpt-5.4" | "gpt-5.4-mini";
 
+const DEFAULT_CUA_WORKER_URL = "https://cua.gallagherpropco.com";
+const CUA_GATEWAY_FALLBACK_URL = "https://gateway.gallagherpropco.com";
+
 function buildBrowserTaskFailureResult(options: {
   url: string;
   cuaModel: CuaModelPreference;
@@ -56,6 +59,13 @@ function getPreferredCuaModel(context: unknown): CuaModelPreference | null {
   return sanitizeCuaModel(raw?.preferredCuaModel);
 }
 
+function getCuaCandidateUrls(primaryUrl: string): string[] {
+  if (primaryUrl !== DEFAULT_CUA_WORKER_URL) {
+    return [primaryUrl];
+  }
+  return [DEFAULT_CUA_WORKER_URL, CUA_GATEWAY_FALLBACK_URL];
+}
+
 /**
  * Browser Automation Tools — CUA Worker integration.
  *
@@ -85,7 +95,7 @@ export const browser_task = tool({
       .describe("Vision model for browser automation. null = use user's default preference from chat header."),
   }),
   execute: async ({ url, instructions, model }, context) => {
-    const cuaUrl = process.env.CUA_WORKER_URL?.trim() || "https://cua.gallagherpropco.com";
+    const configuredCuaUrl = process.env.CUA_WORKER_URL?.trim() || DEFAULT_CUA_WORKER_URL;
     const apiKey = process.env.LOCAL_API_KEY?.trim();
 
     if (!apiKey) {
@@ -108,41 +118,66 @@ export const browser_task = tool({
       "gpt-5.4";
 
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 120_000); // 2 min timeout
+      let activeCuaUrl = configuredCuaUrl;
+      let taskId: string | null = null;
+      let createFailure: { status?: number; detail: string } | null = null;
 
-      const response = await fetch(`${cuaUrl}/tasks`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-          ...cfHeaders,
-        },
-        body: JSON.stringify({
-          url,
-          instructions,
-          model: cuaModel,
-          mode: "auto",
-        }),
-        signal: controller.signal,
-      });
+      for (const candidateUrl of getCuaCandidateUrls(configuredCuaUrl)) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 120_000);
 
-      clearTimeout(timeout);
+        const response = await fetch(`${candidateUrl}/tasks`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+            ...cfHeaders,
+          },
+          body: JSON.stringify({
+            url,
+            instructions,
+            model: cuaModel,
+            mode: "auto",
+          }),
+          signal: controller.signal,
+        });
 
-      if (!response.ok) {
-        const text = await response.text().catch(() => "");
+        clearTimeout(timeout);
+
+        if (!response.ok) {
+          const text = await response.text().catch(() => "");
+          createFailure = { status: response.status, detail: text };
+          if (
+            response.status === 404 &&
+            candidateUrl === DEFAULT_CUA_WORKER_URL
+          ) {
+            continue;
+          }
+          return buildBrowserTaskFailureResult({
+            url,
+            cuaModel,
+            status: response.status,
+            detail: text,
+          });
+        }
+
+        const body = await response.json() as { taskId: string };
+        taskId = body.taskId;
+        activeCuaUrl = candidateUrl;
+        break;
+      }
+
+      if (!taskId) {
         return buildBrowserTaskFailureResult({
           url,
           cuaModel,
-          status: response.status,
-          detail: text,
+          status: createFailure?.status,
+          detail: createFailure?.detail ?? "CUA worker task create returned no task id",
         });
       }
 
-    const { taskId } = await response.json() as { taskId: string };
-
       // Poll for completion (the task runs async on the worker)
-      const result = await pollForResult(cuaUrl, taskId, apiKey, cfHeaders);
+      const result = await pollForResult(activeCuaUrl, taskId, apiKey, cfHeaders);
 
       if (result.success) {
         return {
