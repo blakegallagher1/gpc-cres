@@ -10,6 +10,7 @@ import {
   recordNavigationEvent,
   type ClientTelemetryContext,
 } from "./client-telemetry";
+import { DevClientErrorPanel } from "./dev-client-error-panel";
 
 type SessionUser = {
   id?: string | null;
@@ -127,6 +128,7 @@ export function ObservabilityProvider({ children }: { children: React.ReactNode 
       <Suspense fallback={null}>
         <ObservabilityLifecycle />
       </Suspense>
+      <DevClientErrorPanel />
     </>
   );
 }

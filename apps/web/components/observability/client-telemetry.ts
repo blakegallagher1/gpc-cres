@@ -1,6 +1,7 @@
 "use client";
 
 import * as Sentry from "@sentry/nextjs";
+import { mirrorClientTelemetryToLocalLog } from "./client-error-log";
 
 export type ClientTelemetryKind =
   | "navigation"
@@ -186,6 +187,8 @@ async function emitTelemetryEvent(event: ClientTelemetryEvent): Promise<void> {
   if (typeof window === "undefined") {
     return;
   }
+
+  mirrorClientTelemetryToLocalLog(event);
 
   if (!originalFetch) {
     originalFetch = window.fetch.bind(window);
