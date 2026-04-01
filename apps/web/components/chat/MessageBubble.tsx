@@ -13,7 +13,9 @@ import {
   FileText,
   GitBranch,
   RefreshCcw,
+  Sparkles,
   Shield,
+  ShieldCheck,
   Wrench,
   Rocket,
   Link as LinkIcon,
@@ -77,6 +79,14 @@ function getTrustBarTrack(confidence: number): string {
   if (confidence >= 80) return 'bg-emerald-500/15';
   if (confidence >= 50) return 'bg-amber-500/15';
   return 'bg-red-500/15';
+}
+
+function formatTrustConfidenceLabel(confidence?: number): string | null {
+  if (confidence == null) {
+    return null;
+  }
+
+  return `${Math.round(confidence * 100)}% confidence`;
 }
 
 function TrustIndicator({
@@ -411,7 +421,7 @@ function SystemEventFrame({
   children: ReactNode;
 }) {
   return (
-    <Card className={className}>
+    <Card className={cn('shadow-[0_18px_50px_-42px_rgba(15,23,42,0.48)] backdrop-blur-sm', className)}>
       <CardContent className="px-3 py-2.5">{children}</CardContent>
     </Card>
   );
@@ -651,6 +661,11 @@ export function MessageBubble({
   const hasEvent = effectiveEventKind !== undefined;
   const systemContent = renderSystemContent(message, conversationId, onToolApprovalEvents);
   const showAssistantAvatar = !isUser && !isSystemEvent;
+  const trustConfidenceLabel = formatTrustConfidenceLabel(message.trust?.confidence);
+  const toolCount = message.toolCalls?.length ?? 0;
+  const evidenceGapCount = message.trust?.missingEvidence?.length ?? 0;
+  const hasToplineMeta =
+    !isUser && !isSystemEvent && (Boolean(message.agentName) || Boolean(trustConfidenceLabel) || toolCount > 0);
 
   const agentBorder = !isUser && message.agentName
     ? getAgentBorderColor(message.agentName)
@@ -669,9 +684,24 @@ export function MessageBubble({
     >
       {/* Assistant avatar */}
       {showAssistantAvatar ? (
-        <div className="app-shell-panel mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full">
-          <span className="font-mono text-[10px] font-medium text-foreground">G</span>
-        </div>
+        <motion.div
+          className="app-shell-panel relative mt-1 flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full"
+          animate={
+            toolCount > 0
+              ? {
+                  boxShadow: [
+                    '0 0 0 0 rgba(56,189,248,0.12)',
+                    '0 0 0 6px rgba(56,189,248,0)',
+                    '0 0 0 0 rgba(56,189,248,0.12)',
+                  ],
+                }
+              : undefined
+          }
+          transition={toolCount > 0 ? { duration: 2.2, repeat: Number.POSITIVE_INFINITY, ease: 'easeInOut' } : undefined}
+        >
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.18),_transparent_58%)]" />
+          <span className="relative font-mono text-[10px] font-medium text-foreground">G</span>
+        </motion.div>
       ) : isUser ? (
         <ClipboardList className="mt-2 h-7 w-7 shrink-0 text-muted-foreground" />
       ) : null}
@@ -703,7 +733,8 @@ export function MessageBubble({
         ) : (
           <>
             {isUser ? (
-              <div className="rounded-2xl bg-primary px-4 py-3 text-sm leading-relaxed text-primary-foreground shadow-[0_18px_48px_-32px_rgba(15,23,42,0.45)]">
+              <div className="relative overflow-hidden rounded-2xl bg-primary px-4 py-3 text-sm leading-relaxed text-primary-foreground shadow-[0_18px_48px_-32px_rgba(15,23,42,0.45)]">
+                <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.16),transparent_42%)]" />
                 <p className="whitespace-pre-wrap break-words text-primary-foreground">
                   {message.content}
                 </p>
@@ -718,11 +749,40 @@ export function MessageBubble({
             ) : (
               <div
                 className={cn(
-                  'overflow-hidden rounded-[1.35rem] border border-border/55 bg-background/88 text-foreground shadow-[0_24px_60px_-46px_rgba(15,23,42,0.72)]',
+                  'relative overflow-hidden rounded-[1.35rem] border border-border/55 bg-background/88 text-foreground shadow-[0_24px_60px_-46px_rgba(15,23,42,0.72)]',
                   agentBorder,
                 )}
               >
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.12),_transparent_62%)]" />
                 <div className="px-5 py-4 text-sm leading-7">
+                  {hasToplineMeta ? (
+                    <div className="mb-3 flex flex-wrap items-center gap-2 border-b border-border/45 pb-3">
+                      {message.agentName ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/90 px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                          <Sparkles className="h-3 w-3 text-sky-500" />
+                          {formatAgentLabel(message.agentName)}
+                        </span>
+                      ) : null}
+                      {trustConfidenceLabel ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-300">
+                          <ShieldCheck className="h-3 w-3" />
+                          {trustConfidenceLabel}
+                        </span>
+                      ) : null}
+                      {toolCount > 0 ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-500/20 bg-sky-500/10 px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-sky-700 dark:text-sky-300">
+                          <Wrench className="h-3 w-3" />
+                          {toolCount} tool{toolCount === 1 ? '' : 's'}
+                        </span>
+                      ) : null}
+                      {evidenceGapCount > 0 ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/25 bg-amber-500/10 px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-amber-700 dark:text-amber-300">
+                          <AlertTriangle className="h-3 w-3" />
+                          {evidenceGapCount} gap{evidenceGapCount === 1 ? '' : 's'}
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : null}
                   <StructuredMessageRenderer content={message.content} />
                   {(Array.isArray(message.mapFeatures) && message.mapFeatures.length > 0) ||
                   (message.trust && message.trust.confidence != null && !hasEvent) ||
