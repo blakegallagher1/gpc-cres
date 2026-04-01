@@ -286,6 +286,10 @@ export function ChatContainer() {
   const [agentSummary, setAgentSummary] = useState<AgentTrustEnvelope | null>(null);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [isLoadingConversations, setIsLoadingConversations] = useState(false);
+  const [injectedPrompt, setInjectedPrompt] = useState<{
+    id: string;
+    text: string;
+  } | null>(null);
 
   const [authToken, setAuthToken] = useState<string | null>(null);
 
@@ -825,12 +829,19 @@ export function ChatContainer() {
   const handleQuickActionSelect = useCallback((prompt: string) => {
     void handleSend(prompt);
   }, [handleSend]);
+  const handleSourceChipSelect = useCallback((prompt: string) => {
+    setInjectedPrompt({
+      id: crypto.randomUUID(),
+      text: prompt,
+    });
+  }, []);
   const chatInput = (
     <ChatInput
       onSend={stableChatInputOptions.onSend}
       isStreaming={isStreaming}
       onStop={stableChatInputOptions.onStop}
       canAttachFiles={true}
+      injectedPrompt={injectedPrompt}
       placeholder="Describe the matter, required output, and constraints. Type @ to attach evidence."
       helperText="Lead with the matter, target deliverable, and governing constraints. Enter sends. Shift+Enter adds a line."
       submitLabel="Start run"
@@ -865,6 +876,7 @@ export function ChatContainer() {
                       onOpenInspector={() => undefined}
                       onCuaModelChange={setCuaModel}
                       onQuickActionSelect={handleQuickActionSelect}
+                      onSourceChipSelect={handleSourceChipSelect}
                     />
 
                     {currentAgent ? (
@@ -898,6 +910,7 @@ export function ChatContainer() {
                     onOpenInspector={() => undefined}
                     onCuaModelChange={setCuaModel}
                     onQuickActionSelect={handleQuickActionSelect}
+                    onSourceChipSelect={handleSourceChipSelect}
                   />
 
                   {currentAgent ? (
