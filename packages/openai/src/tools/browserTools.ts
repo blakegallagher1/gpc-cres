@@ -94,7 +94,7 @@ export const browser_task = tool({
     model: z.enum(["gpt-5.4", "gpt-5.4-mini"]).nullable()
       .describe("Vision model for browser automation. null = use user's default preference from chat header."),
     timeoutSeconds: z.number().nullable()
-      .describe("Max seconds to wait for task completion. Default 300. Set lower (120) for quick recon phases, higher (600) for complex multi-page tasks."),
+      .describe("Max seconds to wait for task completion. Default 300, max 600. Set lower (120) for quick recon phases, higher for complex tasks. Capped at 600."),
   }),
   execute: async ({ url, instructions, model, timeoutSeconds }, context) => {
     const configuredCuaUrl = process.env.CUA_WORKER_URL?.trim() || DEFAULT_CUA_WORKER_URL;
@@ -179,7 +179,7 @@ export const browser_task = tool({
       }
 
       // Poll for completion (the task runs async on the worker)
-      const pollTimeout = (timeoutSeconds ?? 300) * 1000;
+      const pollTimeout = Math.min(timeoutSeconds ?? 300, 600) * 1000;
       const result = await pollForResult(activeCuaUrl, taskId, apiKey, cfHeaders, pollTimeout);
 
       if (result.success) {

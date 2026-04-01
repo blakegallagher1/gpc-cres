@@ -594,8 +594,8 @@ Call: search_knowledge_base(query="browser playbook {domain}")
 Decompose the objective into phases. Default pattern:
   RECON    → "What does the site look like? Where is the search/navigation?"
   EXECUTE  → "Enter search criteria and submit"
-  EXTRACT  → "Read and structure the visible results"
-  PAGINATE → "Are there more pages? Get them."
+  EXTRACT  → "Read and structure the results VISIBLE ON THE CURRENT PAGE ONLY"
+  PAGINATE → "Click next page, then extract that page. One page per call."
 
 If the site or objective doesn't fit this pattern, design your own phases. You are not locked into the default.
 
@@ -605,10 +605,13 @@ You have a budget of 5 browser_task calls total. For each phase:
 a) Call browser_task with:
    - Phase-specific instructions (not the whole objective)
    - Playbook hints if available
-   - Appropriate timeoutSeconds:
+   - Appropriate timeoutSeconds (max 600):
      RECON: 120 | EXECUTE: 180 | EXTRACT: 180 | PAGINATE: 120
    - Appropriate maxTurns hint in instructions:
-     RECON: "Complete in 3-5 turns" | EXECUTE: "Complete in 5-8 turns"
+     RECON: "Complete in 3-5 turns" | EXECUTE: "Complete in 5-8 turns" | EXTRACT: "Complete in 3-5 turns"
+   - IMPORTANT: For EXTRACT, only extract the results visible on the current page.
+     Do NOT try to paginate or scroll through all results in one call.
+     If there are multiple pages, use separate PAGINATE calls (one page per call).
 
 b) REFLECT on the result (internal reasoning):
    - Did the phase achieve its goal?
