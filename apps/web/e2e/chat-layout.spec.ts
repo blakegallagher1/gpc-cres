@@ -141,15 +141,15 @@ test.describe("Chat layout", () => {
   test("keeps the run surface usable on first desktop load", async ({ page }) => {
     await openChat(page);
 
-    await expect(page.getByText("Frame the matter. Define the output.")).toBeVisible({
+    await expect(page.getByText("Start with the matter and required output. Keep it short, then iterate in-thread.")).toBeVisible({
       timeout: CHAT_READY_TIMEOUT_MS,
     });
-    await expect(page.getByRole("button", { name: "Draft memo" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Review table" })).toBeVisible();
-    await expect(page.getByText("Matter scope")).toBeVisible();
-    await expect(page.getByText("Stateful run context")).toBeVisible();
-    await expect(page.getByText("Tool-enabled execution")).toBeVisible();
-    await expect(page.getByText("Evidence and source attachments")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Run screening" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Review evidence" })).toBeVisible();
+    await expect(page.getByText("Run brief")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Insert Deliverable prompt scaffold" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Insert Evidence prompt scaffold" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Insert Strategy prompt scaffold" })).toBeVisible();
 
     const viewport = page.viewportSize();
 
@@ -164,11 +164,12 @@ test.describe("Chat layout", () => {
     await page.setViewportSize(MOBILE_VIEWPORT);
     await openChat(page);
 
-    await expect(page.getByText("Frame the matter. Define the output.")).toBeVisible({
+    await expect(page.getByText("Start with the matter and required output. Keep it short, then iterate in-thread.")).toBeVisible({
       timeout: CHAT_READY_TIMEOUT_MS,
     });
-    await expect(page.getByRole("button", { name: "Draft memo" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Review table" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Run screening" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Review evidence" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Insert Deliverable prompt scaffold" })).toBeVisible();
     await expect(page.getByRole("button", { name: "History", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Verification", exact: true })).toHaveCount(0);
 

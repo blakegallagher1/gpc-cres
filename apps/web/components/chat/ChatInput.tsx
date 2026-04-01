@@ -8,7 +8,16 @@ import {
   type ChangeEvent,
   type FormEvent,
 } from 'react';
-import { ArrowUp, Command, Paperclip, Square, X } from 'lucide-react';
+import {
+  ArrowUp,
+  Command,
+  FileText,
+  Paperclip,
+  ShieldCheck,
+  Sparkles,
+  Square,
+  X,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -18,6 +27,41 @@ import { cn } from '@/lib/utils';
 const MAX_FILES = 5;
 const ACCEPTED_FILE_TYPES =
   '.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.png,.jpg,.jpeg,.tiff,.tif';
+
+type ComposerPreset = {
+  id: string;
+  label: string;
+  hint: string;
+  icon: typeof Sparkles;
+  template: string;
+};
+
+const COMPOSER_PRESETS: ComposerPreset[] = [
+  {
+    id: 'deliverable',
+    label: 'Deliverable',
+    hint: 'Frame the output, audience, and tone.',
+    icon: FileText,
+    template:
+      'Deliverable:\nAudience:\nTone:\nSuccess bar:\n',
+  },
+  {
+    id: 'evidence',
+    label: 'Evidence',
+    hint: 'State proof sources and what still needs verification.',
+    icon: ShieldCheck,
+    template:
+      'Evidence to use:\nEvidence still missing:\nVerification standard:\n',
+  },
+  {
+    id: 'strategy',
+    label: 'Strategy',
+    hint: 'Ask for options, tradeoffs, and the recommended path.',
+    icon: Sparkles,
+    template:
+      'Decision to make:\nOptions to compare:\nRecommendation criteria:\n',
+  },
+];
 
 interface ChatInputProps {
   onSend: (content: string, files?: File[]) => void;
@@ -47,6 +91,7 @@ export function ChatInput({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [draft, setDraft] = useState('');
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [isFocused, setIsFocused] = useState(false);
   const isComposing = useRef(false);
 
   const resize = useCallback(() => {
@@ -95,6 +140,20 @@ export function ChatInput({
     el.focus();
   }, [onSend, isStreaming, draft, pendingFiles]);
 
+  const applyPreset = useCallback(
+    (template: string) => {
+      setDraft((current) => {
+        const nextDraft = current.trim().length > 0 ? `${current.trimEnd()}\n\n${template}` : template;
+        requestAnimationFrame(() => {
+          textareaRef.current?.focus();
+          resize();
+        });
+        return nextDraft;
+      });
+    },
+    [resize]
+  );
+
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
       if (
@@ -119,6 +178,23 @@ export function ChatInput({
   );
   const hasQueuedContent =
     ((textareaRef.current?.value ?? draft).trim().length > 0) || pendingFiles.length > 0;
+  const trimmedDraft = (textareaRef.current?.value ?? draft).trim();
+  const wordCount = trimmedDraft.length > 0 ? trimmedDraft.split(/\s+/).length : 0;
+  const characterCount = trimmedDraft.length;
+  const readinessLabel = isStreaming
+    ? 'Run is in progress'
+    : trimmedDraft.length > 120
+      ? 'Ready to launch'
+      : hasQueuedContent
+        ? 'Brief forming'
+        : 'Waiting for the brief';
+  const readinessTone = isStreaming
+    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+    : trimmedDraft.length > 120
+      ? 'border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300'
+      : hasQueuedContent
+        ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+        : 'border-border/70 bg-background/80 text-muted-foreground';
 
   return (
     <form
@@ -165,7 +241,14 @@ export function ChatInput({
         </div>
       )}
 
-      <div className="mx-auto max-w-5xl rounded-[28px] border border-border/60 bg-background/95 p-3 shadow-[0_24px_70px_-42px_rgba(15,23,42,0.45)] backdrop-blur-xl transition-[border-color,box-shadow] focus-within:border-foreground/20 focus-within:shadow-[0_28px_80px_-46px_rgba(15,23,42,0.52)]">
+      <div
+        className={cn(
+          'mx-auto max-w-5xl overflow-hidden rounded-[28px] border border-border/60 bg-background/95 p-3 shadow-[0_24px_70px_-42px_rgba(15,23,42,0.45)] backdrop-blur-xl transition-[border-color,box-shadow,transform] duration-200',
+          'focus-within:border-foreground/20 focus-within:shadow-[0_28px_80px_-46px_rgba(15,23,42,0.52)]',
+          isFocused && 'translate-y-[-1px]',
+        )}
+      >
+        <div className="pointer-events-none absolute inset-x-10 top-0 h-24 rounded-full bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.14),_transparent_62%)] opacity-80" />
         <div className="flex items-start gap-3">
           {canAttachFiles && (
             <>
@@ -210,15 +293,52 @@ export function ChatInput({
                   State the matter, deliverable, evidence, and constraints once.
                 </p>
               </div>
-              <Badge
-                variant="outline"
-                className="hidden rounded-full border-border/70 bg-background/80 px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground sm:inline-flex"
-              >
-                {isStreaming ? 'Streaming' : 'Ready'}
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    'hidden rounded-full px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] sm:inline-flex',
+                    readinessTone,
+                  )}
+                  aria-live="polite"
+                >
+                  {readinessLabel}
+                </Badge>
+                <Badge
+                  variant="outline"
+                  className="hidden rounded-full border-border/70 bg-background/80 px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground lg:inline-flex"
+                >
+                  {characterCount} chars
+                </Badge>
+              </div>
             </div>
 
-            <div className="rounded-2xl border border-border/60 bg-background/72 px-3 py-2 transition-colors focus-within:border-foreground/20 focus-within:bg-background">
+            <div className="mb-3 flex flex-wrap gap-2 px-2">
+              {COMPOSER_PRESETS.map((preset) => {
+                const Icon = preset.icon;
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => applyPreset(preset.template)}
+                    className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/80 px-3 py-1.5 text-left text-[11px] text-muted-foreground transition-colors hover:border-foreground/20 hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                    aria-label={`Insert ${preset.label} prompt scaffold`}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    <span className="font-medium text-foreground">{preset.label}</span>
+                    <span className="hidden text-muted-foreground/90 md:inline">{preset.hint}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div
+              className={cn(
+                'rounded-2xl border border-border/60 bg-background/72 px-3 py-2 transition-colors',
+                'focus-within:border-foreground/20 focus-within:bg-background',
+                isFocused && 'border-foreground/20 bg-background',
+              )}
+            >
               <Textarea
                 ref={textareaRef}
                 value={draft}
@@ -231,6 +351,12 @@ export function ChatInput({
                 )}
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
+                onFocus={() => {
+                  setIsFocused(true);
+                }}
+                onBlur={() => {
+                  setIsFocused(false);
+                }}
                 onCompositionStart={() => {
                   isComposing.current = true;
                 }}
@@ -254,6 +380,18 @@ export function ChatInput({
                       {pendingFiles.length}/{MAX_FILES} attachments
                     </span>
                   ) : null}
+                  <span className="inline-flex items-center rounded-full border border-border/60 bg-background/80 px-2.5 py-1">
+                    {wordCount} words
+                  </span>
+                  <span
+                    className={cn(
+                      'inline-flex items-center rounded-full border px-2.5 py-1 transition-colors',
+                      readinessTone,
+                    )}
+                    aria-live="polite"
+                  >
+                    {readinessLabel}
+                  </span>
                 </div>
 
                 {isStreaming ? (
@@ -270,7 +408,7 @@ export function ChatInput({
                   <Button
                     size="sm"
                     className={cn(
-                      'h-10 shrink-0 rounded-2xl px-4 shadow-sm',
+                      'h-10 shrink-0 rounded-2xl px-4 shadow-sm transition-transform hover:translate-y-[-1px]',
                       !hasQueuedContent && 'cursor-not-allowed opacity-60 hover:translate-y-0 hover:bg-primary',
                     )}
                     type="submit"

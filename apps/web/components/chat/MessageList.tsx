@@ -62,6 +62,10 @@ const DEFAULT_EMPTY_STATE: MessageListEmptyState = {
   ],
 };
 
+function formatMessageCount(count: number): string {
+  return `${count} message${count === 1 ? '' : 's'}`;
+}
+
 /**
  * Scrollable message transcript with empty and live-streaming states.
  */
@@ -140,12 +144,22 @@ export function MessageList({
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.25, ease: 'easeOut' }}
         >
-          <div className="grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.7fr)]">
+          <div className="rounded-[2rem] border border-border/55 bg-background/80 p-6 shadow-[0_32px_90px_-54px_rgba(15,23,42,0.45)] backdrop-blur-xl sm:p-8">
+            <div className="mb-6 flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-sky-500/25 bg-sky-500/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.24em] text-sky-700 dark:text-sky-300">
+                {emptyState.eyebrow}
+              </span>
+              <span className="rounded-full border border-border/70 bg-background/80 px-3 py-1 text-[11px] text-muted-foreground">
+                Operator-grade run desk
+              </span>
+              <span className="rounded-full border border-border/70 bg-background/80 px-3 py-1 text-[11px] text-muted-foreground">
+                Verification-first answers
+              </span>
+            </div>
+
+            <div className="grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(18rem,0.75fr)]">
             <div className="space-y-6">
               <div className="space-y-3">
-                <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
-                  {emptyState.eyebrow}
-                </p>
                 <h3 className="max-w-[16ch] text-3xl font-semibold tracking-[-0.05em] text-foreground sm:text-[2.4rem]">
                   {emptyState.title}
                 </h3>
@@ -154,7 +168,7 @@ export function MessageList({
                 </p>
               </div>
 
-              <div className="border-y border-border/45">
+              <div className="grid gap-3 sm:grid-cols-2">
                 {emptyState.suggestions.map((suggestion, index) => (
                   <motion.div
                     key={suggestion}
@@ -166,12 +180,17 @@ export function MessageList({
                       type="button"
                       variant="ghost"
                       onClick={() => onSuggestionClick?.(suggestion)}
-                      className="group !flex h-auto w-full items-center justify-between gap-4 rounded-none border-b border-border/40 px-0 py-4 text-left last:border-b-0 hover:bg-transparent"
+                      className="group !flex h-auto w-full items-start justify-between gap-4 rounded-[1.35rem] border border-border/55 bg-background/75 px-4 py-4 text-left shadow-[0_18px_50px_-40px_rgba(15,23,42,0.42)] transition-[transform,border-color,background-color] hover:translate-y-[-1px] hover:border-foreground/18 hover:bg-accent/40"
                     >
-                      <span className="text-left text-base text-foreground/86 group-hover:text-foreground">
-                        {suggestion}
-                      </span>
-                      <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5 group-hover:text-foreground/70" />
+                      <div className="space-y-1">
+                        <span className="text-left text-base text-foreground/86 group-hover:text-foreground">
+                          {suggestion}
+                        </span>
+                        <p className="text-xs leading-5 text-muted-foreground">
+                          Launch this as the run brief and let the workspace fill in the evidence lane.
+                        </p>
+                      </div>
+                      <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5 group-hover:text-foreground/70" />
                     </Button>
                   </motion.div>
                 ))}
@@ -183,9 +202,12 @@ export function MessageList({
                 <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-muted-foreground">
                   {emptyState.detailHeading ?? 'Detail'}
                 </p>
-                <div className="mt-4 space-y-4">
+                <div className="mt-4 space-y-3">
                   {emptyState.detailItems.map((item) => (
-                    <div key={`${item.label}-${item.title}`} className="space-y-1.5 border-b border-border/35 pb-4 last:border-b-0 last:pb-0">
+                    <div
+                      key={`${item.label}-${item.title}`}
+                      className="space-y-1.5 rounded-[1.35rem] border border-border/45 bg-background/70 p-4 shadow-[0_18px_45px_-40px_rgba(15,23,42,0.34)]"
+                    >
                       <p className="workspace-stat-label">{item.label}</p>
                       <p className="text-sm font-medium text-foreground">{item.title}</p>
                       <p className="text-xs leading-5 text-muted-foreground">{item.detail}</p>
@@ -195,6 +217,7 @@ export function MessageList({
               </div>
             ) : null}
           </div>
+          </div>
         </motion.div>
       </div>
     );
@@ -202,8 +225,28 @@ export function MessageList({
 
   return (
     <div className="relative h-full">
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-16 bg-gradient-to-b from-background via-background/92 to-transparent" />
       <ScrollArea ref={scrollAreaRef} className="chat-thread-surface h-full">
         <div className="mx-auto flex w-full max-w-[68rem] flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8">
+          <div className="sticky top-0 z-10 -mx-2 mb-2 px-2">
+            <div className="flex items-center justify-between gap-3 rounded-full border border-border/55 bg-background/88 px-4 py-2 shadow-[0_18px_50px_-42px_rgba(15,23,42,0.45)] backdrop-blur-xl">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-sky-500" />
+                <p className="truncate text-sm font-medium tracking-[-0.02em] text-foreground">
+                  {conversationId ? 'Active run transcript' : 'Live operator transcript'}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                <span className="rounded-full border border-border/60 bg-background/82 px-2.5 py-1">
+                  {formatMessageCount(messages.length)}
+                </span>
+                <span className="rounded-full border border-border/60 bg-background/82 px-2.5 py-1">
+                  {isStreaming ? 'Streaming' : 'Stable'}
+                </span>
+              </div>
+            </div>
+          </div>
+
           <AnimatePresence initial={false}>
             {messages.map((msg) => (
               <motion.div
@@ -253,22 +296,24 @@ export function MessageList({
       <AnimatePresence>
       {showJumpToLatest && (
         <motion.div
-          className="pointer-events-none absolute bottom-4 right-4 z-10"
+          className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex justify-end px-4 pb-4 sm:px-6"
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 8 }}
         >
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-background via-background/92 to-transparent" />
           <Button
             type="button"
             size="sm"
-            className="pointer-events-auto rounded-full shadow-lg"
+            className="pointer-events-auto rounded-full border border-border/60 bg-background/92 px-4 shadow-[0_18px_45px_-30px_rgba(15,23,42,0.45)] backdrop-blur-xl"
             onClick={() => {
               scrollToBottom('smooth');
               isNearBottomRef.current = true;
               setShowJumpToLatest(false);
             }}
+            aria-live="polite"
           >
-            Jump to latest
+            {isStreaming ? 'Follow live output' : 'Jump to latest'}
           </Button>
         </motion.div>
       )}
