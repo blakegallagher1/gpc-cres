@@ -35,6 +35,7 @@ export function Header() {
   const [commandKeyLabel, setCommandKeyLabel] = useState("Ctrl");
   const router = useRouter();
   const pathname = usePathname();
+  const isChatPage = pathname === "/chat" || pathname?.startsWith("/chat/");
   const isMapPage = pathname?.startsWith("/map");
   const { route, group } = getWorkspaceRouteContext(pathname);
   const RouteIcon = route.icon;
@@ -80,7 +81,7 @@ export function Header() {
             )
       )}
     >
-      <div className="flex h-full w-full items-center justify-between gap-3">
+      <div className={cn("flex h-full w-full items-center justify-between", isChatPage ? "gap-2" : "gap-3")}>
         <motion.div
           key={route.href}
           initial={false}
@@ -88,28 +89,34 @@ export function Header() {
           transition={HEADER_TRANSITION}
           className="min-w-0 flex-1"
         >
-          <div className="flex items-center gap-3">
-            <div className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/50 bg-background/36 md:flex">
+          <div className={cn("flex items-center", isChatPage ? "gap-2" : "gap-3")}>
+            <div className={cn(
+              "hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/50 bg-background/36 md:flex",
+              isChatPage && "h-8 w-8 rounded-lg",
+            )}>
               <RouteIcon className="h-5 w-5 text-foreground/85" />
             </div>
             <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-3">
+              <div className={cn("flex flex-wrap items-center", isChatPage ? "gap-2" : "gap-3")}>
                 <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground/80">
                   Gallagher Property Company
                 </p>
-                {!isMobile && (
+                {!isMobile && !isChatPage && (
                   <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground/75">
                     {group.label}
                   </span>
                 )}
               </div>
-              <div className="mt-1 flex min-w-0 items-center gap-2">
+              <div className={cn("flex min-w-0 items-center gap-2", isChatPage ? "mt-0.5" : "mt-1")}>
                 {isMobile && <RouteIcon className="h-4 w-4 shrink-0 text-foreground/80" />}
-                <h2 className="truncate text-base font-semibold tracking-[-0.03em] md:text-xl">
+                <h2 className={cn(
+                  "truncate font-semibold tracking-[-0.03em]",
+                  isChatPage ? "text-base md:text-lg" : "text-base md:text-xl",
+                )}>
                   {route.title}
                 </h2>
               </div>
-              {!isMobile && (
+              {!isMobile && !isChatPage && (
                 <div className="mt-1 flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
                   <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground/80">
                     {group.items.length} routes
@@ -122,7 +129,7 @@ export function Header() {
           </div>
         </motion.div>
 
-        {!isMobile && (
+        {!isMobile && !isChatPage && (
           <div className="hidden flex-[0_1_34rem] xl:block">
             <div
               className={cn(
@@ -179,8 +186,11 @@ export function Header() {
           </div>
         )}
 
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 rounded-[20px] border border-border/60 bg-background/78 p-1 shadow-[0_18px_45px_-38px_rgba(15,23,42,0.42)]">
+        <div className={cn("flex items-center", isChatPage ? "gap-1.5" : "gap-2")}>
+          <div className={cn(
+            "flex items-center gap-1 rounded-[20px] border border-border/60 bg-background/78 p-1 shadow-[0_18px_45px_-38px_rgba(15,23,42,0.42)]",
+            isChatPage && "rounded-2xl bg-background/84",
+          )}>
             <Button
               variant="ghost"
               size="icon"
@@ -207,7 +217,7 @@ export function Header() {
               )}
             </Button>
 
-            {!isMapPage && (
+            {!isMapPage && !isChatPage && (
               <Button
                 variant="ghost"
                 size="icon"
@@ -219,11 +229,13 @@ export function Header() {
               </Button>
             )}
 
-            <div className="flex items-center rounded-2xl">
-              <NotificationFeed />
-            </div>
+            {!isChatPage ? (
+              <div className="flex items-center rounded-2xl">
+                <NotificationFeed />
+              </div>
+            ) : null}
 
-            {!isMobile && (
+            {!isMobile && !isChatPage && (
               <Button
                 variant="ghost"
                 onClick={handleSignOut}

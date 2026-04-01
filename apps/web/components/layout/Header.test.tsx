@@ -9,6 +9,9 @@ const { openCommandPaletteMock, toggleCopilotMock, pushMock, setThemeMock } =
     pushMock: vi.fn(),
     setThemeMock: vi.fn(),
   }));
+const { pathnameMock } = vi.hoisted(() => ({
+  pathnameMock: { value: "/map" as string },
+}));
 
 vi.mock("framer-motion", () => ({
   motion: {
@@ -25,7 +28,7 @@ vi.mock("next-themes", () => ({
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: pushMock }),
-  usePathname: () => "/map",
+  usePathname: () => pathnameMock.value,
 }));
 
 vi.mock("next-auth/react", () => ({
@@ -52,6 +55,7 @@ import { Header } from "@/components/layout/Header";
 
 describe("Header", () => {
   afterEach(() => {
+    pathnameMock.value = "/map";
     vi.clearAllMocks();
   });
 
@@ -72,5 +76,19 @@ describe("Header", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Open desktop command search" }));
     expect(openCommandPaletteMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("collapses top chrome density on /chat", () => {
+    pathnameMock.value = "/chat";
+    render(<Header />);
+
+    expect(screen.getByText("Chat")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Spatial intelligence, prospecting, and parcel analysis"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Open desktop command search" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start a new run" })).toBeInTheDocument();
   });
 });

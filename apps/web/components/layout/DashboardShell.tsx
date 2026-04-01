@@ -10,6 +10,7 @@ import { AuthGuard } from "@/components/auth/AuthGuard";
 import { CopilotPanel } from "@/components/copilot/CopilotPanel";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { PageTransition } from "@/components/transitions/PageTransition";
+import { usePathname } from "next/navigation";
 
 interface DashboardShellProps {
   children: React.ReactNode;
@@ -28,6 +29,12 @@ const APP_SHELL_STYLE = {
 export function DashboardShell({ children, noPadding }: DashboardShellProps) {
   const { sidebarCollapsed, setSidebarCollapsed, setCopilotOpen } = useUIStore();
   const isMobile = useIsMobile();
+  const pathname = usePathname();
+  const isChatRoute = pathname === "/chat" || pathname?.startsWith("/chat/");
+  const shellStyle: CSSProperties = {
+    ...APP_SHELL_STYLE,
+    ...(isChatRoute ? { "--app-header-height": "4.25rem" } : null),
+  };
 
   // On mobile: collapse sidebar and close copilot by default
   useEffect(() => {
@@ -39,7 +46,7 @@ export function DashboardShell({ children, noPadding }: DashboardShellProps) {
 
   return (
     <AuthGuard>
-      <div className="app-shell min-h-screen" style={APP_SHELL_STYLE}>
+      <div className="app-shell min-h-screen" style={shellStyle}>
         <a
           href="#main-content"
           className="sr-only absolute left-4 top-4 z-[70] rounded-md bg-background px-3 py-2 text-sm font-medium text-foreground shadow-lg focus:not-sr-only focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"

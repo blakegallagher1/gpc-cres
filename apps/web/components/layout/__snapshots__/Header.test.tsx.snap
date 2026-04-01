@@ -60,10 +60,10 @@ exports[`Header > renders route-aware operating-system chrome 1`] = `
             </span>
           </div>
           <div
-            class="mt-1 flex min-w-0 items-center gap-2"
+            class="flex min-w-0 items-center gap-2 mt-1"
           >
             <h2
-              class="truncate text-base font-semibold tracking-[-0.03em] md:text-xl"
+              class="truncate font-semibold tracking-[-0.03em] text-base md:text-xl"
             >
               Map
             </h2>

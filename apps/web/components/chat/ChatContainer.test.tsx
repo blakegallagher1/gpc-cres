@@ -236,9 +236,11 @@ describe("ChatContainer", () => {
           enabled: false,
         }),
       );
-      expect(screen.getByText("Frame the matter. Define the output.")).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Draft memo" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Review table" })).toBeInTheDocument();
+      expect(
+        screen.getByText("Start with the matter and required output. Keep it short, then iterate in-thread."),
+      ).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Run screening" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Review evidence" })).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "History", exact: true })).not.toBeInTheDocument();
       expect(
         screen.queryByRole("button", { name: "Verification", exact: true }),
@@ -260,9 +262,11 @@ describe("ChatContainer", () => {
         expect(fetchMock).toHaveBeenCalledWith("/api/chat/conversations");
       });
 
-      expect(screen.getByText("Frame the matter. Define the output.")).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Draft memo" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Review table" })).toBeInTheDocument();
+      expect(
+        screen.getByText("Start with the matter and required output. Keep it short, then iterate in-thread."),
+      ).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Run screening" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Review evidence" })).toBeInTheDocument();
       expect(screen.queryByTestId("conversation-sidebar")).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "History", exact: true })).not.toBeInTheDocument();
       expect(

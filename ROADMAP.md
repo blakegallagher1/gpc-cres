@@ -35,6 +35,30 @@ Only items meeting all checks are added below as `Planned`.
 
 ## Active Roadmap (Prioritized)
 
+### CHAT-006 — Chat Console UX Simplification (P1)
+
+- **Priority:** P1
+- **Status:** Done (2026-03-31)
+- **Scope:** Simplify `/chat` launch-state UI to prioritize transcript + composer by reducing dashboard chrome and collapsing setup panels into compact context controls.
+- **Problem:** Operator feedback and UI review indicate the chat launch surface feels clunky and confusing because KPI cards, hero copy, and workspace mode panels compete with the core chat action.
+- **Expected Outcome (measurable):**
+  - First-screen `/chat` presents a compact context bar and lightweight prompt chips instead of dashboard-style cards.
+  - Visual hierarchy clearly prioritizes composing/sending the first message.
+  - Redundant launch-state labels/panels are removed from the primary flow.
+- **Evidence of need:** Screenshot review on 2026-03-31 identified competing focal points (KPI strip, hero, workspace mode card, and composer) and weak chat-console affordance.
+- **Alignment:** Preserves current auth, agent transport, and conversation persistence contracts while improving UI clarity in the existing chat component architecture.
+- **Risk/rollback:** Low; changes are isolated to launch-state presentation in `apps/web/components/chat/ChatWorkspacePanels.tsx` and can be reverted without API or data impact.
+- **Acceptance Criteria / Tests:**
+  - Launch-state hero no longer renders KPI stat cards or the large workspace mode panel.
+  - Compact scope/model/status row and inline quick actions remain functional.
+  - Header/search/action chrome is reduced on `/chat` while remaining unchanged on non-chat routes.
+  - `pnpm typecheck`
+  - `pnpm -C apps/web test -- components/layout/Header.test.tsx components/chat/ChatWorkspacePanels.test.tsx components/chat/ChatContainer.test.tsx`
+- **Evidence (2026-03-31):**
+  - Simplified launch-state composition in `apps/web/components/chat/ChatWorkspacePanels.tsx` by removing KPI cards, large hero copy, and workspace mode panel in favor of compact context + prompt chips.
+  - Added route-aware shell minimization for `/chat` in `apps/web/components/layout/Header.tsx` and `apps/web/components/layout/DashboardShell.tsx` (collapsed route metadata, hid desktop command search, reduced action density, and reduced header height).
+  - Updated and passed focused regression coverage in `apps/web/components/layout/Header.test.tsx` and `apps/web/components/chat/ChatContainer.test.tsx`.
+
 ### WEB-SELLER-INTAKE-001 — Public Seller Intake Hardening + Telemetry (P1)
 
 - **Priority:** P1
