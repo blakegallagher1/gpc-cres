@@ -8,6 +8,7 @@ import type {
   BrowserSession,
   ComputerAction,
   ComputerCallItem,
+  FunctionCallItem,
   MessageItem,
   ResponseOutputItem,
   ResponsesApiResponse,
@@ -136,6 +137,87 @@ function normalizePlaywrightKey(key: string): string {
 async function capturePageImageDataUrl(session: BrowserSession): Promise<string> {
   const payload = await session.page.screenshot({ type: "png" });
   return `data:image/png;base64,${payload.toString("base64")}`;
+}
+
+/**
+ * Persistent execution context for exec_js tool calls.
+ * Created once per task, shared across all exec_js invocations.
+ * Exposes: page (Playwright), output(), screenshot(), vars.
+ */
+type ExecContext = {
+  page: import("playwright").Page;
+  _collectedOutput: string[];
+  _capturedScreenshot: string | null;
+  output: (text: string) => void;
+  screenshot: () => Promise<string>;
+  vars: Record<string, unknown>;
+};
+
+function createExecContext(session: BrowserSession): ExecContext {
+  const ctx: ExecContext = {
+    page: session.page,
+    _collectedOutput: [],
+    _capturedScreenshot: null,
+    output(text: string) {
+      ctx._collectedOutput.push(String(text));
+    },
+    async screenshot() {
+      ctx._capturedScreenshot = await capturePageImageDataUrl(session);
+      return "[screenshot captured]";
+    },
+    vars: {},
+  };
+  return ctx;
+}
+
+/**
+ * Execute a JavaScript code string in the exec_js sandbox.
+ * The code has access to: page, output(), screenshot(), vars.
+ * Returns: { text: string, screenshotDataUrl: string | null }
+ */
+async function executeExecJs(
+  ctx: ExecContext,
+  code: string,
+  signal: AbortSignal,
+): Promise<{ text: string; screenshotDataUrl: string | null }> {
+  // Reset per-call state
+  ctx._collectedOutput = [];
+  ctx._capturedScreenshot = null;
+
+  // Build async function with bound helpers
+  const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+  const fn = new AsyncFunction(
+    "page",
+    "output",
+    "screenshot",
+    "vars",
+    code,
+  );
+
+  // Execute with timeout
+  const timeout = TOOL_EXECUTION_TIMEOUT_MS;
+  const result = await Promise.race([
+    fn(ctx.page, ctx.output.bind(ctx), ctx.screenshot.bind(ctx), ctx.vars),
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(`exec_js timed out after ${timeout}ms`)), timeout),
+    ),
+    new Promise((_, reject) => {
+      if (signal.aborted) reject(new Error("Run aborted."));
+      signal.addEventListener("abort", () => reject(new Error("Run aborted.")), { once: true });
+    }),
+  ]);
+
+  // If the function returned a value and nothing was output(), include it
+  if (ctx._collectedOutput.length === 0 && result !== undefined) {
+    ctx._collectedOutput.push(
+      typeof result === "string" ? result : JSON.stringify(result),
+    );
+  }
+
+  return {
+    text: ctx._collectedOutput.join("\n") || "(no output)",
+    screenshotDataUrl: ctx._capturedScreenshot,
+  };
 }
 
 /**
@@ -328,6 +410,15 @@ function getComputerCallItems(response: ResponsesApiResponse): ComputerCallItem[
 }
 
 /**
+ * Get function call items from response
+ */
+function getFunctionCallItems(response: ResponsesApiResponse): FunctionCallItem[] {
+  return (response.output ?? []).filter(
+    (item): item is FunctionCallItem => item.type === "function_call",
+  );
+}
+
+/**
  * Ensure response succeeded
  */
 function ensureResponseSucceeded(response: ResponsesApiResponse): void {
@@ -339,6 +430,40 @@ function ensureResponseSucceeded(response: ResponsesApiResponse): void {
     throw new Error("Responses API request failed.");
   }
 }
+
+/**
+ * exec_js function tool definition for Responses API.
+ * Sent alongside { type: "computer" } to enable hybrid mode.
+ */
+const EXEC_JS_TOOL = {
+  type: "function" as const,
+  name: "exec_js",
+  description:
+    "Execute JavaScript in the browser with full Playwright page API access. " +
+    "The `page` object (Playwright Page) is pre-bound. " +
+    "Call `output(text)` to return text results to you. " +
+    "Call `screenshot()` to capture and return the current page screenshot. " +
+    "Use for DOM queries, data extraction, form filling, or any task " +
+    "where code is faster than visual interaction. " +
+    "Variables persist in `vars` across calls within this task.",
+  parameters: {
+    type: "object" as const,
+    properties: {
+      code: {
+        type: "string" as const,
+        description:
+          "JavaScript code to execute. Has access to: " +
+          "`page` (Playwright Page), " +
+          "`output(text)` (return text to model), " +
+          "`screenshot()` (capture and return page screenshot), " +
+          "`vars` (persistent object for storing data across calls).",
+      },
+    },
+    required: ["code"],
+    additionalProperties: false,
+  },
+  strict: true,
+};
 
 /**
  * Run the native computer_call loop using Responses API
@@ -381,6 +506,9 @@ export async function runNativeComputerLoop(options: {
   let totalCachedTokens = 0;
   const screenshotPaths: string[] = [];
   let finalMessage = "";
+
+  // Persistent execution context for exec_js calls
+  const execContext = createExecContext(session);
 
   // Capture initial screenshot
   const initialScreenshot = await capturePageImageDataUrl(session);
@@ -433,7 +561,7 @@ export async function runNativeComputerLoop(options: {
           model,
           instructions: systemInstructions,
           input: nextInput as any,
-          tools: [{ type: "computer" } as any],
+          tools: [{ type: "computer" } as any, EXEC_JS_TOOL as any],
           reasoning: { effort: "medium" },
           context_management: [{ compact_threshold: 200_000 }],
           prompt_cache_key: "entitlement-os-cua-v1",
@@ -466,11 +594,12 @@ export async function runNativeComputerLoop(options: {
       totalCachedTokens += cachedTokens;
     }
 
-    // Get computer calls from response
+    // Get tool calls from response (both computer_call and function_call)
     const computerCalls = getComputerCallItems(response);
+    const functionCalls = getFunctionCallItems(response);
 
     // No tool calls = model is done, extract final message
-    if (computerCalls.length === 0) {
+    if (computerCalls.length === 0 && functionCalls.length === 0) {
       finalMessage = extractAssistantMessageText(response);
       if (finalMessage) {
         onEvent({
@@ -484,9 +613,9 @@ export async function runNativeComputerLoop(options: {
       break;
     }
 
-    // Execute actions from each computer_call and send back computer_call_output
     const toolOutputs: unknown[] = [];
 
+    // Handle computer_call items (visual interaction)
     for (const computerCall of computerCalls) {
       const pendingSafetyMessage = formatPendingSafetyChecks(computerCall);
       if (pendingSafetyMessage) {
@@ -504,7 +633,6 @@ export async function runNativeComputerLoop(options: {
 
       const actions = computerCall.actions ?? [];
 
-      // Execute each action in order
       for (const action of actions) {
         try {
           await executeComputerAction(session, action, signal);
@@ -526,7 +654,6 @@ export async function runNativeComputerLoop(options: {
         }
       }
 
-      // Capture screenshot AFTER executing all actions in this batch
       const screenshotDataUrl = await capturePageImageDataUrl(session);
       const screenshotArtifact = await session.captureScreenshot(`turn-${turn}`);
       screenshotPaths.push(screenshotArtifact.path);
@@ -539,7 +666,6 @@ export async function runNativeComputerLoop(options: {
         action: `Executed ${actions.length} action(s)`,
       });
 
-      // Build computer_call_output with the new screenshot
       toolOutputs.push({
         type: "computer_call_output",
         call_id: computerCall.call_id,
@@ -550,7 +676,91 @@ export async function runNativeComputerLoop(options: {
       });
     }
 
-    // Send tool outputs as input for next turn
+    // Handle function_call items (exec_js code execution)
+    for (const fnCall of functionCalls) {
+      if (fnCall.name !== "exec_js") {
+        // Unknown function — return error
+        toolOutputs.push({
+          type: "function_call_output",
+          call_id: fnCall.call_id,
+          output: `Error: unknown function "${fnCall.name}"`,
+        });
+        continue;
+      }
+
+      let code: string;
+      try {
+        const args = JSON.parse(fnCall.arguments ?? "{}");
+        code = args.code ?? "";
+      } catch {
+        toolOutputs.push({
+          type: "function_call_output",
+          call_id: fnCall.call_id,
+          output: "Error: invalid JSON in function arguments",
+        });
+        continue;
+      }
+
+      onEvent({
+        type: "action",
+        turn,
+        timestamp: new Date().toISOString(),
+        action: "exec_js",
+      });
+
+      try {
+        const result = await executeExecJs(execContext, code, signal);
+
+        // Save screenshot artifact if one was captured
+        if (result.screenshotDataUrl) {
+          const artifact = await session.captureScreenshot(`exec-${turn}`);
+          screenshotPaths.push(artifact.path);
+        }
+
+        // Build output: text-only or text+image array
+        const output = result.screenshotDataUrl
+          ? [
+              { type: "text", text: result.text },
+              {
+                type: "image_url",
+                image_url: result.screenshotDataUrl,
+                detail: "original",
+              },
+            ]
+          : result.text;
+
+        toolOutputs.push({
+          type: "function_call_output",
+          call_id: fnCall.call_id,
+          output,
+        });
+
+        onEvent({
+          type: "status",
+          turn,
+          timestamp: new Date().toISOString(),
+          action: "exec_js completed",
+          data: { outputLength: result.text.length, hasScreenshot: !!result.screenshotDataUrl },
+        });
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        toolOutputs.push({
+          type: "function_call_output",
+          call_id: fnCall.call_id,
+          output: `Error: ${errorMsg}`,
+        });
+
+        onEvent({
+          type: "error",
+          turn,
+          timestamp: new Date().toISOString(),
+          data: { error: errorMsg, action: "exec_js" },
+        });
+        // Don't throw — let the model see the error and recover
+      }
+    }
+
+    // Send all tool outputs as input for next turn
     nextInput = toolOutputs;
   }
 
