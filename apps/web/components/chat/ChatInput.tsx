@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  useEffect,
   useRef,
   useState,
   useCallback,
@@ -68,6 +69,10 @@ interface ChatInputProps {
   isStreaming: boolean;
   onStop: () => void;
   canAttachFiles?: boolean;
+  injectedPrompt?: {
+    id: string;
+    text: string;
+  } | null;
   orientationHint?: string;
   placeholder?: string;
   helperText?: string;
@@ -82,6 +87,7 @@ export function ChatInput({
   isStreaming,
   onStop,
   canAttachFiles = false,
+  injectedPrompt,
   orientationHint,
   placeholder = "Ask something complex...",
   helperText = "AI agents may make mistakes. Always verify critical data.",
@@ -93,6 +99,7 @@ export function ChatInput({
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [isFocused, setIsFocused] = useState(false);
   const isComposing = useRef(false);
+  const lastInjectedPromptIdRef = useRef<string | null>(null);
 
   const resize = useCallback(() => {
     const el = textareaRef.current;
@@ -153,6 +160,25 @@ export function ChatInput({
     },
     [resize]
   );
+
+  useEffect(() => {
+    if (!injectedPrompt || injectedPrompt.id === lastInjectedPromptIdRef.current) {
+      return;
+    }
+
+    lastInjectedPromptIdRef.current = injectedPrompt.id;
+    setDraft((current) => {
+      const nextDraft =
+        current.trim().length > 0
+          ? `${current.trimEnd()}\n\n${injectedPrompt.text}`
+          : injectedPrompt.text;
+      requestAnimationFrame(() => {
+        textareaRef.current?.focus();
+        resize();
+      });
+      return nextDraft;
+    });
+  }, [injectedPrompt, resize]);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {

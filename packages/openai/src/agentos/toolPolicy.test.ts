@@ -84,4 +84,27 @@ describe("toolPolicy", () => {
       "search_similar_episodes",
     ]);
   });
+
+  it("keeps Perplexity research tools visible in general web chat runs", () => {
+    const tools = [
+      { type: "function", name: "perplexity_quick_lookup" },
+      { type: "function", name: "perplexity_web_research" },
+      { type: "function", name: "perplexity_structured_extract" },
+      { type: "function", name: "perplexity_deep_research" },
+      { type: "function", name: "browser_task" },
+    ];
+
+    const filtered = filterToolsForIntent("general", tools, {
+      allowFallback: false,
+      allowNamelessTools: false,
+    }) as Array<{ name?: string }>;
+
+    expect(filtered.map((tool) => tool.name)).toEqual([
+      "perplexity_quick_lookup",
+      "perplexity_web_research",
+      "perplexity_structured_extract",
+      "perplexity_deep_research",
+      "browser_task",
+    ]);
+  });
 });
