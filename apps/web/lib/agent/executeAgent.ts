@@ -63,7 +63,10 @@ import {
   emitToolStart,
 } from "./agentStreamEmitter";
 import { buildFinalTrust, buildPendingApprovalTrust } from "./agentTrust";
-import { buildResearchRoutingMessage } from "./researchRouting";
+import {
+  buildResearchRoutingMessage,
+  type ResearchLaneSelection,
+} from "./researchRouting";
 import { unifiedRetrieval } from "./retrievalAdapter";
 
 const DATA_AGENT_RETRIEVAL_LIMIT = 6;
@@ -271,6 +274,7 @@ export type AgentExecutionParams = {
   intentHint?: string;
   /** When set, use this instead of inferring from intentHint. */
   queryIntentOverride?: QueryIntent;
+  researchLaneOverride?: ResearchLaneSelection;
   onEvent?: (event: AgentStreamEvent) => void;
   correlationId?: string;
   preferredCuaModel?: CuaModelPreference;
@@ -1452,7 +1456,12 @@ export async function executeAgentWorkflow(
       ReturnType<typeof createConfiguredCoordinator>
     > = [
       userMessage(buildRuntimeClockContextMessage()),
-      userMessage(buildResearchRoutingMessage(firstUserInput ?? "")),
+      userMessage(
+        buildResearchRoutingMessage(
+          firstUserInput ?? "",
+          params.researchLaneOverride ?? "auto",
+        ),
+      ),
       ...buildAgentInputItems(params.input),
     ];
     if (params.resumedRunState) {

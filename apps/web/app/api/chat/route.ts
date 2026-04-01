@@ -10,6 +10,7 @@ import { randomUUID } from "node:crypto";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { isDatabaseConnectivityError, runAgentWorkflow } from "@/lib/agent/agentRunner";
 import type { AgentStreamEvent } from "@/lib/agent/executeAgent";
+import type { ResearchLaneSelection } from "@/lib/agent/researchRouting";
 import { extractAndMergeConversationPreferences } from "@/lib/services/preferenceExtraction.service";
 import { shouldUseAppDatabaseDevFallback } from "@/lib/server/appDbEnv";
 import { sanitizeChatErrorMessage } from "./_lib/errorHandling";
@@ -235,6 +236,12 @@ export async function POST(req: NextRequest) {
   setupAgentTracing();
 
   type CuaModelPreference = "gpt-5.4" | "gpt-5.4-mini";
+  const requestedResearchLaneSelections = new Set<ResearchLaneSelection>([
+    "auto",
+    "local_first",
+    "public_web",
+    "interactive_browser",
+  ]);
 
   let body: {
     message?: string;
@@ -243,6 +250,7 @@ export async function POST(req: NextRequest) {
     intent?: string;
     mapContext?: MapContextInput | null;
     cuaModel?: CuaModelPreference;
+    researchLane?: ResearchLaneSelection;
   };
   try {
     body = (await req.json()) as {
@@ -252,6 +260,7 @@ export async function POST(req: NextRequest) {
       intent?: string;
       mapContext?: MapContextInput | null;
       cuaModel?: CuaModelPreference;
+      researchLane?: ResearchLaneSelection;
     };
   } catch {
     return Response.json({ error: "Invalid JSON" }, { status: 400 });
@@ -263,6 +272,10 @@ export async function POST(req: NextRequest) {
     body.cuaModel === "gpt-5.4" || body.cuaModel === "gpt-5.4-mini"
       ? body.cuaModel
       : undefined;
+  const researchLane =
+    body.researchLane && requestedResearchLaneSelections.has(body.researchLane)
+      ? body.researchLane
+      : "auto";
   const correlationId =
     req.headers.get("x-request-id") ?? req.headers.get("idempotency-key") ?? randomUUID();
 
@@ -336,6 +349,7 @@ export async function POST(req: NextRequest) {
           persistConversation: !appDatabaseUnavailableInDev,
           intent: intent ?? undefined,
           preferredCuaModel,
+          researchLane,
           ephemeralMode: appDatabaseUnavailableInDev,
           onEvent: (event: AgentStreamEvent) => {
             if (event.type === "done") {
@@ -373,6 +387,7 @@ export async function POST(req: NextRequest) {
             dealId: null,
             ephemeralMode: true,
             preferredCuaModel,
+            researchLane,
           });
         }
 

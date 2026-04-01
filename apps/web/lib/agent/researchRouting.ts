@@ -1,4 +1,5 @@
-type ResearchLane = "local_first" | "public_web" | "interactive_browser";
+export type ResearchLane = "local_first" | "public_web" | "interactive_browser";
+export type ResearchLaneSelection = ResearchLane | "auto";
 
 const INTERACTIVE_BROWSER_PATTERNS = [
   /\blog\s*in\b/i,
@@ -45,8 +46,29 @@ export function inferResearchLane(input: string): ResearchLane {
   return "local_first";
 }
 
-export function buildResearchRoutingMessage(input: string): string {
-  const preferredLane = inferResearchLane(input);
+export function resolveResearchLane(
+  input: string,
+  selection: ResearchLaneSelection = "auto",
+): ResearchLane {
+  return selection === "auto" ? inferResearchLane(input) : selection;
+}
+
+export function getResearchLaneLabel(lane: ResearchLane): string {
+  switch (lane) {
+    case "local_first":
+      return "Database + knowledge";
+    case "public_web":
+      return "Perplexity web research";
+    case "interactive_browser":
+      return "Interactive browser";
+  }
+}
+
+export function buildResearchRoutingMessage(
+  input: string,
+  selection: ResearchLaneSelection = "auto",
+): string {
+  const preferredLane = resolveResearchLane(input, selection);
 
   const preferredLaneInstruction =
     preferredLane === "interactive_browser"
@@ -63,6 +85,7 @@ export function buildResearchRoutingMessage(input: string): string {
     "3. Interactive browser work: use browser_task only when the task requires login, clicking, filling forms, JavaScript-heavy portals, or other live interaction.",
     "Do not use browser_task for normal public-web research.",
     "Always prefer the lowest-cost lane that can answer the question with reliable evidence.",
+    `Selected lane: ${selection === "auto" ? `Auto -> ${getResearchLaneLabel(preferredLane)}` : getResearchLaneLabel(preferredLane)}.`,
     preferredLaneInstruction,
   ].join("\n");
 }

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildResearchRoutingMessage,
   inferResearchLane,
+  resolveResearchLane,
 } from "./researchRouting";
 
 describe("researchRouting", () => {
@@ -22,6 +23,15 @@ describe("researchRouting", () => {
     expect(
       inferResearchLane("Log in to the assessor portal, click parcel search, and extract the owner."),
     ).toBe("interactive_browser");
+  });
+
+  it("honors explicit lane overrides", () => {
+    expect(
+      resolveResearchLane(
+        "What do we already know about 123 Main St and its zoning?",
+        "public_web",
+      ),
+    ).toBe("public_web");
   });
 
   it("builds a routing contract with a lane-specific recommendation", () => {

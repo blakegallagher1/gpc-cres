@@ -4,6 +4,12 @@
 
 import type { MapContextInput } from "@entitlement-os/shared";
 
+export type ResearchLaneSelection =
+  | "auto"
+  | "local_first"
+  | "public_web"
+  | "interactive_browser";
+
 type GeoJsonFeatureCollection = {
   type: "FeatureCollection";
   features: unknown[];
@@ -42,6 +48,7 @@ export interface ClientMessage {
   text: string;
   dealId?: string;
   mapContext?: MapContextInput | null;
+  researchLane?: ResearchLaneSelection;
 }
 
 /** Events sent from Worker → Browser (matches ChatStreamEvent in streamEventTypes.ts) */

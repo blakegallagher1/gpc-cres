@@ -30,6 +30,7 @@ import { parseToolResultMapFeatures } from "@/lib/chat/toolResultWrapper";
 import type { MapFeature } from "@/lib/chat/mapActionTypes";
 import { logger } from "./loggerAdapter";
 import { dispatchEvent } from "@/lib/automation/events";
+import type { ResearchLaneSelection } from "./researchRouting";
 
 /**
  * Fire-and-forget dispatch of agent.run.completed for learning promotion (DA-007).
@@ -87,6 +88,7 @@ export type AgentRunInput = {
   /** Force routing to a specific query intent (e.g. "market_trajectory"). */
   intent?: string;
   preferredCuaModel?: CuaModelPreference;
+  researchLane?: ResearchLaneSelection;
   /** Skip app DB usage and run without persistence. */
   ephemeralMode?: boolean;
 };
@@ -418,6 +420,7 @@ function buildRequestFingerprint(payload: {
   maxTurns?: number;
   runInputCorrelationId?: string | null;
   preferredCuaModel?: CuaModelPreference | null;
+  researchLane?: ResearchLaneSelection;
 }) {
   return hashJsonSha256({
     orgId: payload.orgId,
@@ -432,6 +435,7 @@ function buildRequestFingerprint(payload: {
     maxTurns: payload.maxTurns,
     runInputCorrelationId: payload.runInputCorrelationId ?? null,
     preferredCuaModel: payload.preferredCuaModel ?? null,
+    researchLane: payload.researchLane ?? "auto",
   });
 }
 
@@ -655,6 +659,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
     onEvent,
     intent: intentOverride,
     preferredCuaModel,
+    researchLane,
     ephemeralMode = false,
   } = params;
 
@@ -742,12 +747,14 @@ export async function runAgentWorkflow(params: AgentRunInput) {
         maxTurns,
         runInputCorrelationId: requestedCorrelationId ?? null,
         preferredCuaModel: preferredCuaModel ?? null,
+        researchLane: researchLane ?? "auto",
       })}`,
       runType,
       maxTurns,
       intentHint: ephemeralIntentHint,
       queryIntentOverride: intentOverride as import("@entitlement-os/openai").QueryIntent | undefined,
       preferredCuaModel,
+      researchLaneOverride: researchLane,
       previousResponseId: null,
       onEvent: emitEvent,
       skipRunPersistence: true,
@@ -1019,6 +1026,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
       maxTurns,
       runInputCorrelationId: requestedCorrelationId ?? null,
       preferredCuaModel: preferredCuaModel ?? null,
+      researchLane: researchLane ?? "auto",
     });
     const correlationId = normalizeCorrelationId(
       requestedCorrelationId ?? requestFingerprint,
@@ -1318,6 +1326,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
       intentHint,
       queryIntentOverride: intentOverride as import("@entitlement-os/openai").QueryIntent | undefined,
       preferredCuaModel,
+      researchLaneOverride: researchLane,
       previousResponseId,
       onEvent: emitEvent,
     });
@@ -1390,6 +1399,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
       maxTurns,
       runInputCorrelationId: requestedCorrelationId ?? null,
       preferredCuaModel: preferredCuaModel ?? null,
+      researchLane: researchLane ?? "auto",
     })}`,
     runType,
     maxTurns,
@@ -1399,6 +1409,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
     intentHint,
     queryIntentOverride: intentOverride as import("@entitlement-os/openai").QueryIntent | undefined,
     preferredCuaModel,
+    researchLaneOverride: researchLane,
     previousResponseId,
     onEvent: emitEvent,
   });

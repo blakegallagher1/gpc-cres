@@ -2,6 +2,7 @@
 
 import type { MapContextInput } from '@entitlement-os/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { ResearchLaneSelection } from '@/lib/agent/researchRouting';
 import type { ChatStreamEvent } from '@/lib/chat/streamEventTypes';
 
 const AGENT_WS_URL =
@@ -35,6 +36,7 @@ interface UseAgentWebSocketReturn {
     text: string,
     dealId?: string,
     mapContext?: MapContextInput | null,
+    researchLane?: ResearchLaneSelection,
   ) => void;
   /** Connection status */
   status: ConnectionStatus;
@@ -243,6 +245,7 @@ export function useAgentWebSocket({
       text: string,
       dealId?: string,
       mapContext?: MapContextInput | null,
+      researchLane?: ResearchLaneSelection,
     ) => {
       const ws = wsRef.current;
       if (!ws || ws.readyState !== WebSocket.OPEN) {
@@ -259,6 +262,7 @@ export function useAgentWebSocket({
           text,
           ...(dealId ? { dealId } : {}),
           ...(mapContext ? { mapContext } : {}),
+          ...(researchLane ? { researchLane } : {}),
         }),
       );
     },

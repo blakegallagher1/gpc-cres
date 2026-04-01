@@ -12,7 +12,10 @@ import {
 import {
   ArrowUp,
   Command,
+  Database,
   FileText,
+  Globe,
+  MousePointerClick,
   Paperclip,
   ShieldCheck,
   Sparkles,
@@ -23,6 +26,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { formatOperatorFileSize } from '@/lib/formatters/operatorFormatters';
+import {
+  getResearchLaneLabel,
+  inferResearchLane,
+  type ResearchLaneSelection,
+} from '@/lib/agent/researchRouting';
 import { cn } from '@/lib/utils';
 
 const MAX_FILES = 5;
@@ -65,7 +73,7 @@ const COMPOSER_PRESETS: ComposerPreset[] = [
 ];
 
 interface ChatInputProps {
-  onSend: (content: string, files?: File[]) => void;
+  onSend: (content: string, files?: File[], options?: ChatSendOptions) => void;
   isStreaming: boolean;
   onStop: () => void;
   canAttachFiles?: boolean;
@@ -78,6 +86,44 @@ interface ChatInputProps {
   helperText?: string;
   submitLabel?: string;
 }
+
+export type ChatSendOptions = {
+  researchLane?: ResearchLaneSelection;
+};
+
+type ResearchLaneOption = {
+  id: ResearchLaneSelection;
+  label: string;
+  hint: string;
+  icon: typeof Database;
+};
+
+const RESEARCH_LANE_OPTIONS: ResearchLaneOption[] = [
+  {
+    id: 'auto',
+    label: 'Auto',
+    hint: 'Infer the best lane from the prompt.',
+    icon: Sparkles,
+  },
+  {
+    id: 'local_first',
+    label: 'Database + knowledge',
+    hint: 'Start with internal data and stored evidence.',
+    icon: Database,
+  },
+  {
+    id: 'public_web',
+    label: 'Web research',
+    hint: 'Use Perplexity for public sources and current context.',
+    icon: Globe,
+  },
+  {
+    id: 'interactive_browser',
+    label: 'Interactive browser',
+    hint: 'Use CUA only when clicks, logins, or forms are required.',
+    icon: MousePointerClick,
+  },
+];
 
 /**
  * Shared chat composer used across the primary chat and map copilot surfaces.
@@ -98,6 +144,7 @@ export function ChatInput({
   const [draft, setDraft] = useState('');
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [isFocused, setIsFocused] = useState(false);
+  const [researchLane, setResearchLane] = useState<ResearchLaneSelection>('auto');
   const isComposing = useRef(false);
   const lastInjectedPromptIdRef = useRef<string | null>(null);
 
@@ -139,13 +186,15 @@ export function ChatInput({
     const value = (el.value || draft).trim();
     if (!value && pendingFiles.length === 0) return;
 
-    onSend(value || '', pendingFiles.length > 0 ? pendingFiles : undefined);
+    onSend(value || '', pendingFiles.length > 0 ? pendingFiles : undefined, {
+      researchLane,
+    });
     setDraft('');
     setPendingFiles([]);
 
     el.style.height = 'auto';
     el.focus();
-  }, [onSend, isStreaming, draft, pendingFiles]);
+  }, [onSend, isStreaming, draft, pendingFiles, researchLane]);
 
   const applyPreset = useCallback(
     (template: string) => {
@@ -205,6 +254,12 @@ export function ChatInput({
   const hasQueuedContent =
     ((textareaRef.current?.value ?? draft).trim().length > 0) || pendingFiles.length > 0;
   const trimmedDraft = (textareaRef.current?.value ?? draft).trim();
+  const inferredLane = inferResearchLane(trimmedDraft);
+  const effectiveLane = researchLane === 'auto' ? inferredLane : researchLane;
+  const laneStatusLabel =
+    researchLane === 'auto'
+      ? `Auto -> ${getResearchLaneLabel(inferredLane)}`
+      : `Locked -> ${getResearchLaneLabel(researchLane)}`;
   const wordCount = trimmedDraft.length > 0 ? trimmedDraft.split(/\s+/).length : 0;
   const characterCount = trimmedDraft.length;
   const readinessLabel = isStreaming
@@ -356,6 +411,73 @@ export function ChatInput({
                   </button>
                 );
               })}
+            </div>
+
+            <div className="mb-3 rounded-2xl border border-border/60 bg-muted/[0.22] px-3 py-3">
+              <div className="flex flex-col gap-2 px-1 pb-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                    Research lane
+                  </p>
+                  <p className="text-sm font-medium tracking-[-0.02em] text-foreground">
+                    Choose where the run looks first before it answers.
+                  </p>
+                </div>
+                <Badge
+                  variant="outline"
+                  className="w-fit rounded-full border-border/70 bg-background/90 px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-foreground/80"
+                >
+                  {laneStatusLabel}
+                </Badge>
+              </div>
+
+              <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+                {RESEARCH_LANE_OPTIONS.map((option) => {
+                  const Icon = option.icon;
+                  const isSelected = researchLane === option.id;
+                  const isEffective = effectiveLane === option.id;
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => setResearchLane(option.id)}
+                      className={cn(
+                        'rounded-2xl border px-3 py-3 text-left transition-[border-color,background-color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                        'hover:translate-y-[-1px] hover:border-foreground/20 hover:bg-background/90',
+                        isSelected
+                          ? 'border-foreground/20 bg-background shadow-sm'
+                          : 'border-border/60 bg-background/70',
+                      )}
+                      aria-pressed={isSelected}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-border/60 bg-muted/[0.35] text-foreground">
+                          <Icon className="h-4 w-4" />
+                        </span>
+                        {isEffective ? (
+                          <Badge
+                            variant="outline"
+                            className="rounded-full border-border/70 bg-background/95 px-2 py-0.5 text-[9px] uppercase tracking-[0.18em] text-foreground/80"
+                          >
+                            Active
+                          </Badge>
+                        ) : null}
+                      </div>
+                      <p className="mt-3 text-sm font-medium tracking-[-0.02em] text-foreground">
+                        {option.label}
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                        {option.hint}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <p className="px-1 pt-3 text-[11px] leading-5 text-muted-foreground">
+                Auto follows the prompt. Override it when you know the run should stay local, use
+                Perplexity for public sources, or switch to CUA for interactive work.
+              </p>
             </div>
 
             <div
