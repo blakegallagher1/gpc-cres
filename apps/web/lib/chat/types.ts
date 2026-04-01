@@ -1,5 +1,6 @@
 import type { ChatStreamEvent } from "./streamEventTypes";
 import type { MapFeature } from "./mapActionTypes";
+import type { ResearchLaneSelection } from "@/lib/agent/researchRouting";
 
 export type { ChatStreamEvent } from "./streamEventTypes";
 export type ChatStreamEventKind = ChatStreamEvent["type"];
@@ -28,6 +29,7 @@ export type ChatToolCall = {
 export type ChatTrustSnapshot = {
   lastAgentName?: string;
   confidence?: number;
+  researchLane?: ResearchLaneSelection;
   toolsInvoked?: string[];
   packVersionsUsed?: string[];
   missingEvidence?: string[];

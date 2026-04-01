@@ -3,12 +3,14 @@
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { getResearchLaneLabel, type ResearchLaneSelection } from '@/lib/agent/researchRouting';
 import { EvidenceCitation } from '@/types';
 
 export interface AgentStatePanelProps {
   lastAgentName?: string;
   plan?: string[];
   confidence?: number;
+  researchLane?: ResearchLaneSelection;
   missingEvidence?: string[];
   verificationSteps?: string[];
   evidenceCitations?: EvidenceCitation[];
@@ -29,6 +31,7 @@ export function AgentStatePanel({
   lastAgentName = 'Coordinator',
   plan,
   confidence,
+  researchLane,
   missingEvidence,
   verificationSteps,
   evidenceCitations,
@@ -47,6 +50,11 @@ export function AgentStatePanel({
   const [expanded, setExpanded] = useState(false);
   const normalizedConfidence = Math.max(0, Math.min(1, confidence ?? 0));
   const confidencePercent = Math.round(normalizedConfidence * 100);
+  const researchLaneLabel = researchLane
+    ? researchLane === "auto"
+      ? "Auto"
+      : getResearchLaneLabel(researchLane)
+    : null;
 
   const citationGroups = new Map<
     string,
@@ -70,6 +78,13 @@ export function AgentStatePanel({
             Agent state
           </p>
           <h3 className="text-base font-semibold">{lastAgentName}</h3>
+          {researchLaneLabel ? (
+            <div className="mt-2">
+              <Badge variant="outline" className="rounded-full">
+                Lane: {researchLaneLabel}
+              </Badge>
+            </div>
+          ) : null}
           <button
             type="button"
             onClick={() => setExpanded((value) => !value)}
@@ -114,6 +129,15 @@ export function AgentStatePanel({
       <Separator />
 
       <div className="grid gap-4 md:grid-cols-2">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Active lane
+          </p>
+          <p className="mt-2 text-xs text-foreground">
+            {researchLaneLabel ?? 'No lane recorded for this run.'}
+          </p>
+        </div>
+
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Missing evidence

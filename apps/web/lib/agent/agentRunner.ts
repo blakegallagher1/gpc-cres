@@ -490,6 +490,7 @@ function mapTemporalTrustForEvents(trust: AgentRunWorkflowOutput["trust"]) {
     evidenceCitations: trust.evidenceCitations,
     evidenceHash: trust.evidenceHash ?? null,
     confidence: trust.confidence,
+    researchLane: trust.researchLane,
     missingEvidence: trust.missingEvidence,
     verificationSteps: trust.verificationSteps,
     lastAgentName: trust.lastAgentName,

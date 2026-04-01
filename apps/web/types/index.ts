@@ -49,6 +49,7 @@ export interface AgentTrustEnvelope {
   evidenceCitations: EvidenceCitation[];
   evidenceHash?: string | null;
   confidence: number;
+  researchLane?: "auto" | "local_first" | "public_web" | "interactive_browser";
   missingEvidence: string[];
   verificationSteps: string[];
   toolFailures?: string[];

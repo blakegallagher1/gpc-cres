@@ -180,6 +180,13 @@ function parseTrustSnapshot(
     lastAgentName:
       typeof trust.lastAgentName === 'string' ? trust.lastAgentName : fallbackAgentName,
     confidence: parseNumber(trust.confidence),
+    researchLane:
+      trust.researchLane === 'auto' ||
+      trust.researchLane === 'local_first' ||
+      trust.researchLane === 'public_web' ||
+      trust.researchLane === 'interactive_browser'
+        ? trust.researchLane
+        : undefined,
     toolsInvoked: parseStringArray(trust.toolsInvoked),
     packVersionsUsed: parseStringArray(trust.packVersionsUsed),
     missingEvidence: parseStringArray(trust.missingEvidence),
@@ -221,6 +228,7 @@ function toAgentTrustEnvelope(
     packVersionsUsed: trust.packVersionsUsed ?? [],
     evidenceCitations: trust.evidenceCitations ?? [],
     confidence: trust.confidence ?? 0,
+    researchLane: trust.researchLane,
     missingEvidence: trust.missingEvidence ?? [],
     verificationSteps: trust.verificationSteps ?? [],
     toolFailures: trust.toolFailures ?? [],

@@ -49,6 +49,7 @@ export type ChatStreamEvent =
       trust: {
         lastAgentName?: string;
         confidence?: number;
+        researchLane?: "auto" | "local_first" | "public_web" | "interactive_browser";
         toolsInvoked?: string[];
         evidenceCitations?: Array<Record<string, unknown>>;
         missingEvidence?: string[];

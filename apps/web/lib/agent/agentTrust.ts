@@ -1,6 +1,7 @@
 import type { AgentEvidenceRetryPolicy } from "@entitlement-os/shared";
 import type { EvidenceCitation } from "@entitlement-os/shared/evidence";
 import type { AgentTrustEnvelope } from "@/types";
+import type { ResearchLaneSelection } from "./researchRouting";
 
 /**
  * Builds the verification checklist shown to clients when evidence is missing.
@@ -65,6 +66,7 @@ export function buildFinalTrust(params: {
   evidenceCitations: EvidenceCitation[];
   evidenceHash: string | null;
   confidence: number;
+  researchLane?: ResearchLaneSelection;
   missingEvidence: string[];
   lastAgentName?: string;
   errorSummary: string | null;
@@ -84,6 +86,7 @@ export function buildFinalTrust(params: {
     evidenceCitations: params.evidenceCitations,
     evidenceHash: params.evidenceHash,
     confidence: Math.max(0, Math.min(1, params.confidence)),
+    researchLane: params.researchLane,
     missingEvidence: params.missingEvidence,
     verificationSteps: buildVerificationSteps(params.missingEvidence),
     lastAgentName: params.lastAgentName,

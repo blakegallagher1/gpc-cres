@@ -1114,6 +1114,13 @@ function parseTrustFromRunOutput(output: unknown): AgentTrustEnvelope {
       typeof output.confidence === "number" && Number.isFinite(output.confidence)
         ? Math.max(0, Math.min(1, output.confidence))
         : 0,
+    researchLane:
+      output.researchLane === "auto" ||
+      output.researchLane === "local_first" ||
+      output.researchLane === "public_web" ||
+      output.researchLane === "interactive_browser"
+        ? output.researchLane
+        : undefined,
     missingEvidence: toArrayOfString(output.missingEvidence),
     verificationSteps: toArrayOfString(output.verificationSteps),
     lastAgentName:
@@ -2266,6 +2273,7 @@ export async function executeAgentWorkflow(
       evidenceCitations: normalizedEvidenceCitations,
       evidenceHash,
       confidence,
+      researchLane: params.researchLaneOverride ?? "auto",
       missingEvidence,
       lastAgentName,
       errorSummary: errorMessage ?? null,

@@ -275,6 +275,7 @@ function InspectorVerificationPanel({
         lastAgentName={agentSummary.lastAgentName ?? activeAgentLabel}
         plan={agentSummary.verificationSteps}
         confidence={agentSummary.confidence}
+        researchLane={agentSummary.researchLane}
         missingEvidence={agentSummary.missingEvidence ?? []}
         verificationSteps={agentSummary.verificationSteps ?? []}
         evidenceCitations={agentSummary.evidenceCitations ?? []}

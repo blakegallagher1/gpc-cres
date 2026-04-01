@@ -6,6 +6,7 @@ import { ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { getResearchLaneLabel } from '@/lib/agent/researchRouting';
 import { MessageBubble, type ChatMessage } from './MessageBubble';
 import type { ChatStreamEvent } from '@/lib/chat/types';
 
@@ -82,6 +83,14 @@ export function MessageList({
   const previousMessageCountRef = useRef(messages.length);
   const isNearBottomRef = useRef(true);
   const [showJumpToLatest, setShowJumpToLatest] = useState(false);
+  const activeResearchLane = [...messages]
+    .reverse()
+    .find((message) => message.trust?.researchLane)?.trust?.researchLane;
+  const activeResearchLaneLabel = activeResearchLane
+    ? activeResearchLane === "auto"
+      ? "Auto"
+      : getResearchLaneLabel(activeResearchLane)
+    : null;
 
   const getViewportElement = () =>
     scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]') as HTMLDivElement | null;
@@ -237,6 +246,11 @@ export function MessageList({
                 </p>
               </div>
               <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                {activeResearchLaneLabel ? (
+                  <span className="rounded-full border border-violet-500/20 bg-violet-500/10 px-2.5 py-1 text-violet-700 dark:text-violet-300">
+                    {activeResearchLaneLabel}
+                  </span>
+                ) : null}
                 <span className="rounded-full border border-border/60 bg-background/82 px-2.5 py-1">
                   {formatMessageCount(messages.length)}
                 </span>

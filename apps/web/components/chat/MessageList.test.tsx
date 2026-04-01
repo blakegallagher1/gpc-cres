@@ -49,6 +49,28 @@ function setViewportMetrics({
 }
 
 describe('MessageList autoscroll behavior', () => {
+  it('surfaces the active research lane in the transcript rail', () => {
+    render(
+      <MessageList
+        messages={[
+          {
+            id: 'msg-1',
+            role: 'assistant',
+            content: 'Agent summary',
+            createdAt: '2026-03-25T10:00:00.000Z',
+            trust: {
+              confidence: 0.82,
+              researchLane: 'public_web',
+            },
+          },
+        ]}
+        isStreaming={false}
+      />,
+    );
+
+    expect(screen.getByText('Perplexity web research')).toBeInTheDocument();
+  });
+
   it('autoscrolls when user is at the bottom and new messages arrive', () => {
     const { rerender } = render(<MessageList messages={baseMessages} isStreaming={false} />);
 

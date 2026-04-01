@@ -40,6 +40,7 @@ import { AgentStatusChip } from './AgentStatusChip';
 import { ToolStatusChip } from './ToolStatusChip';
 import { ToolApprovalPrompt } from './ToolApprovalPrompt';
 import type { ChatMessage, ChatStreamEvent } from '@/lib/chat/types';
+import { getResearchLaneLabel } from '@/lib/agent/researchRouting';
 import { MiniMapMessage } from './MiniMapMessage';
 import { useMapChatDispatch } from '@/lib/chat/MapChatContext';
 import { StructuredMessageRenderer } from './StructuredMessageRenderer';
@@ -87,6 +88,16 @@ function formatTrustConfidenceLabel(confidence?: number): string | null {
   }
 
   return `${Math.round(confidence * 100)}% confidence`;
+}
+
+function formatResearchLaneLabel(
+  lane?: NonNullable<ChatMessage['trust']>['researchLane'],
+): string | null {
+  if (!lane) {
+    return null;
+  }
+
+  return lane === "auto" ? "Auto" : getResearchLaneLabel(lane);
 }
 
 function TrustIndicator({
@@ -590,6 +601,7 @@ function renderSystemContent(
     const confidence = message.trust?.confidence;
     const completion = typeof confidence === 'number' ? `${Math.round(confidence * 100)}%` : 'N/A';
     const agent = message.trust?.lastAgentName ?? message.agentName ?? 'Coordinator';
+    const researchLaneLabel = formatResearchLaneLabel(message.trust?.researchLane);
 
     return (
       <SystemEventFrame className={wrapperClass}>
@@ -607,6 +619,9 @@ function renderSystemContent(
           </p>
           <p className="text-muted-foreground">
             Tools: <strong className="text-foreground">{message.trust?.toolsInvoked?.length ?? 0}</strong>
+          </p>
+          <p className="text-muted-foreground">
+            Lane: <strong className="text-foreground">{researchLaneLabel ?? 'n/a'}</strong>
           </p>
           <p className="text-muted-foreground">
             Duration: <strong className="text-foreground">{message.trust?.durationMs ?? 'n/a'} ms</strong>
@@ -662,6 +677,7 @@ export function MessageBubble({
   const systemContent = renderSystemContent(message, conversationId, onToolApprovalEvents);
   const showAssistantAvatar = !isUser && !isSystemEvent;
   const trustConfidenceLabel = formatTrustConfidenceLabel(message.trust?.confidence);
+  const researchLaneLabel = formatResearchLaneLabel(message.trust?.researchLane);
   const toolCount = message.toolCalls?.length ?? 0;
   const evidenceGapCount = message.trust?.missingEvidence?.length ?? 0;
   const hasToplineMeta =
@@ -773,6 +789,12 @@ export function MessageBubble({
                         <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-500/20 bg-sky-500/10 px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-sky-700 dark:text-sky-300">
                           <Wrench className="h-3 w-3" />
                           {toolCount} tool{toolCount === 1 ? '' : 's'}
+                        </span>
+                      ) : null}
+                      {researchLaneLabel ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/20 bg-violet-500/10 px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-violet-700 dark:text-violet-300">
+                          <LinkIcon className="h-3 w-3" />
+                          {researchLaneLabel}
                         </span>
                       ) : null}
                       {evidenceGapCount > 0 ? (

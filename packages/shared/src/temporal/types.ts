@@ -264,6 +264,7 @@ export type AgentTrustSnapshot = {
   evidenceRetryPolicy?: AgentEvidenceRetryPolicy;
   fallbackLineage?: string[];
   fallbackReason?: string;
+  researchLane?: "auto" | "local_first" | "public_web" | "interactive_browser";
 };
 
 export type AgentRunWorkflowOutput = {

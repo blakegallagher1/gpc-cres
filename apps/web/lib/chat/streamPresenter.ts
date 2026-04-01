@@ -120,6 +120,7 @@ function createTrustSnapshot(event: ChatStreamEvent): ChatTrustSnapshot | undefi
   return {
     lastAgentName: event.trust.lastAgentName,
     confidence: event.trust.confidence,
+    researchLane: event.trust.researchLane,
     toolsInvoked: event.trust.toolsInvoked,
     packVersionsUsed: event.trust.packVersionsUsed,
     missingEvidence: event.trust.missingEvidence,
