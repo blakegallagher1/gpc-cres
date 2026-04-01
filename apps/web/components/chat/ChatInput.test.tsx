@@ -113,4 +113,19 @@ describe("ChatInput", () => {
 
     expect(screen.getByRole("button", { name: /Web research/i })).toBeInTheDocument();
   });
+
+  it("collapses the composer chrome while a run is streaming", () => {
+    render(
+      <ChatInput
+        onSend={() => {}}
+        isStreaming
+        onStop={() => {}}
+      />,
+    );
+
+    expect(screen.getByText("Run in progress")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Advanced controls/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Stop run/i })).toBeInTheDocument();
+    expect(screen.queryByText(/Start in plain English/i)).not.toBeInTheDocument();
+  });
 });

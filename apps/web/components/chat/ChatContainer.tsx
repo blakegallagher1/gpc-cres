@@ -1023,7 +1023,7 @@ export function ChatContainer() {
                     </div>
                   ) : null}
 
-                  <div className="min-h-0 flex-1 overflow-hidden">
+                  <div className="min-h-[18rem] flex-1 overflow-hidden md:min-h-[24rem]">
                     <MessageList
                       messages={visibleMessages}
                       isStreaming={isStreaming}

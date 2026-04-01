@@ -276,11 +276,13 @@ export function ChatInput({
     ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
     : trimmedDraft.length > 120
       ? 'border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300'
-    : hasQueuedContent
-      ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300'
-      : 'border-border/70 bg-background/80 text-muted-foreground';
+      : hasQueuedContent
+        ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+        : 'border-border/70 bg-background/80 text-muted-foreground';
   const shouldShowAdvancedControls =
     showAdvancedControls || researchLane !== 'auto';
+  const showCompactStreamingComposer =
+    isStreaming && pendingFiles.length === 0 && !shouldShowAdvancedControls;
 
   return (
     <form
@@ -331,6 +333,7 @@ export function ChatInput({
         className={cn(
           'mx-auto max-w-5xl overflow-hidden rounded-[28px] border border-border/60 bg-background/95 p-3 shadow-[0_24px_70px_-42px_rgba(15,23,42,0.45)] backdrop-blur-xl transition-[border-color,box-shadow,transform] duration-200',
           'focus-within:border-foreground/20 focus-within:shadow-[0_28px_80px_-46px_rgba(15,23,42,0.52)]',
+          showCompactStreamingComposer && 'p-2.5',
           isFocused && 'translate-y-[-1px]',
         )}
       >
@@ -370,14 +373,21 @@ export function ChatInput({
           )}
 
           <div className="min-w-0 flex-1">
-            <div className="flex items-center justify-between gap-3 px-2 pb-2">
+            <div
+              className={cn(
+                'flex items-center justify-between gap-3 px-2',
+                showCompactStreamingComposer ? 'pb-1' : 'pb-2',
+              )}
+            >
               <div className="min-w-0">
                 <p className="text-sm font-medium tracking-[-0.02em] text-foreground">
-                  Message
+                  {showCompactStreamingComposer ? 'Run in progress' : 'Message'}
                 </p>
-                <p className="text-xs text-muted-foreground">
-                  Ask in plain English. Open advanced controls only when you need to steer the run.
-                </p>
+                {showCompactStreamingComposer ? null : (
+                  <p className="text-xs text-muted-foreground">
+                    Ask in plain English. Open advanced controls only when you need to steer the run.
+                  </p>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <Badge
@@ -399,31 +409,33 @@ export function ChatInput({
               </div>
             </div>
 
-            <div className="mb-3 flex flex-wrap items-center gap-2 px-2">
-              <button
-                type="button"
-                onClick={() => setShowAdvancedControls((current) => !current)}
-                className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/80 px-3 py-1.5 text-left text-[11px] text-muted-foreground transition-colors hover:border-foreground/20 hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                aria-expanded={shouldShowAdvancedControls}
-                aria-controls="chat-advanced-controls"
-              >
-                {shouldShowAdvancedControls ? (
-                  <ChevronUp className="h-3.5 w-3.5" />
-                ) : (
-                  <ChevronDown className="h-3.5 w-3.5" />
-                )}
-                <span className="font-medium text-foreground">Advanced controls</span>
-                <span className="hidden text-muted-foreground/90 md:inline">
-                  Routing, scaffolds, and structure helpers.
-                </span>
-              </button>
-              <Badge
-                variant="outline"
-                className="rounded-full border-border/70 bg-background/80 px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-foreground/80"
-              >
-                {laneStatusLabel}
-              </Badge>
-            </div>
+            {showCompactStreamingComposer ? null : (
+              <div className="mb-3 flex flex-wrap items-center gap-2 px-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAdvancedControls((current) => !current)}
+                  className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/80 px-3 py-1.5 text-left text-[11px] text-muted-foreground transition-colors hover:border-foreground/20 hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                  aria-expanded={shouldShowAdvancedControls}
+                  aria-controls="chat-advanced-controls"
+                >
+                  {shouldShowAdvancedControls ? (
+                    <ChevronUp className="h-3.5 w-3.5" />
+                  ) : (
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  )}
+                  <span className="font-medium text-foreground">Advanced controls</span>
+                  <span className="hidden text-muted-foreground/90 md:inline">
+                    Routing, scaffolds, and structure helpers.
+                  </span>
+                </button>
+                <Badge
+                  variant="outline"
+                  className="rounded-full border-border/70 bg-background/80 px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-foreground/80"
+                >
+                  {laneStatusLabel}
+                </Badge>
+              </div>
+            )}
 
             {shouldShowAdvancedControls ? (
               <div
@@ -520,6 +532,7 @@ export function ChatInput({
               className={cn(
                 'rounded-2xl border border-border/60 bg-background/72 px-3 py-2 transition-colors',
                 'focus-within:border-foreground/20 focus-within:bg-background',
+                showCompactStreamingComposer && 'px-3 py-1.5',
                 isFocused && 'border-foreground/20 bg-background',
               )}
             >
@@ -532,6 +545,7 @@ export function ChatInput({
                   'min-h-[72px] resize-none border-0 bg-transparent px-2 py-2 text-[15px] leading-6 shadow-none',
                   'text-foreground placeholder:text-muted-foreground/75 focus-visible:ring-0',
                   'disabled:cursor-not-allowed disabled:opacity-50',
+                  showCompactStreamingComposer && 'min-h-[48px] py-1.5',
                 )}
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
@@ -550,35 +564,22 @@ export function ChatInput({
                 disabled={isStreaming}
               />
 
-              <div className="flex flex-col gap-3 border-t border-border/50 px-2 pt-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-                  <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/80 px-2.5 py-1">
-                    <Command className="h-3.5 w-3.5" />
-                    Enter sends
-                  </span>
-                  <span className="inline-flex items-center rounded-full border border-border/60 bg-background/80 px-2.5 py-1">
-                    Shift+Enter adds a line
-                  </span>
-                  {canAttachFiles ? (
+              {showCompactStreamingComposer ? (
+                <div className="flex flex-col gap-2 border-t border-border/50 px-2 pt-2.5 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
                     <span className="inline-flex items-center rounded-full border border-border/60 bg-background/80 px-2.5 py-1">
-                      {pendingFiles.length}/{MAX_FILES} attachments
+                      Transcript stays live above
                     </span>
-                  ) : null}
-                  <span className="inline-flex items-center rounded-full border border-border/60 bg-background/80 px-2.5 py-1">
-                    {wordCount} words
-                  </span>
-                  <span
-                    className={cn(
-                      'inline-flex items-center rounded-full border px-2.5 py-1 transition-colors',
-                      readinessTone,
-                    )}
-                    aria-live="polite"
-                  >
-                    {readinessLabel}
-                  </span>
-                </div>
-
-                {isStreaming ? (
+                    <span
+                      className={cn(
+                        'inline-flex items-center rounded-full border px-2.5 py-1 transition-colors',
+                        readinessTone,
+                      )}
+                      aria-live="polite"
+                    >
+                      {readinessLabel}
+                    </span>
+                  </div>
                   <Button
                     size="sm"
                     variant="destructive"
@@ -588,28 +589,71 @@ export function ChatInput({
                     <Square className="h-4 w-4" />
                     <span className="ml-2">Stop run</span>
                   </Button>
-                ) : (
-                  <Button
-                    size="sm"
-                    className={cn(
-                      'h-10 shrink-0 rounded-2xl px-4 shadow-sm transition-transform hover:translate-y-[-1px]',
-                      !hasQueuedContent && 'cursor-not-allowed opacity-60 hover:translate-y-0 hover:bg-primary',
-                    )}
-                    type="submit"
-                    aria-disabled={!hasQueuedContent}
-                  >
-                    <ArrowUp className="mr-1.5 h-4 w-4" />
-                    {submitLabel}
-                  </Button>
-                )}
-              </div>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3 border-t border-border/50 px-2 pt-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/80 px-2.5 py-1">
+                      <Command className="h-3.5 w-3.5" />
+                      Enter sends
+                    </span>
+                    <span className="inline-flex items-center rounded-full border border-border/60 bg-background/80 px-2.5 py-1">
+                      Shift+Enter adds a line
+                    </span>
+                    {canAttachFiles ? (
+                      <span className="inline-flex items-center rounded-full border border-border/60 bg-background/80 px-2.5 py-1">
+                        {pendingFiles.length}/{MAX_FILES} attachments
+                      </span>
+                    ) : null}
+                    <span className="inline-flex items-center rounded-full border border-border/60 bg-background/80 px-2.5 py-1">
+                      {wordCount} words
+                    </span>
+                    <span
+                      className={cn(
+                        'inline-flex items-center rounded-full border px-2.5 py-1 transition-colors',
+                        readinessTone,
+                      )}
+                      aria-live="polite"
+                    >
+                      {readinessLabel}
+                    </span>
+                  </div>
+
+                  {isStreaming ? (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="h-10 shrink-0 rounded-2xl px-4"
+                      onClick={onStop}
+                    >
+                      <Square className="h-4 w-4" />
+                      <span className="ml-2">Stop run</span>
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      className={cn(
+                        'h-10 shrink-0 rounded-2xl px-4 shadow-sm transition-transform hover:translate-y-[-1px]',
+                        !hasQueuedContent && 'cursor-not-allowed opacity-60 hover:translate-y-0 hover:bg-primary',
+                      )}
+                      type="submit"
+                      aria-disabled={!hasQueuedContent}
+                    >
+                      <ArrowUp className="mr-1.5 h-4 w-4" />
+                      {submitLabel}
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        <p className="mx-auto mt-3 max-w-5xl px-2 text-center text-[11px] leading-5 text-muted-foreground">
-          {helperText}
-        </p>
+        {showCompactStreamingComposer ? null : (
+          <p className="mx-auto mt-3 max-w-5xl px-2 text-center text-[11px] leading-5 text-muted-foreground">
+            {helperText}
+          </p>
+        )}
       </div>
     </form>
   );
