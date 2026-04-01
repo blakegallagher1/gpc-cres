@@ -18,6 +18,55 @@ import type {
 const DEFAULT_INTER_ACTION_DELAY_MS = 120;
 const TOOL_EXECUTION_TIMEOUT_MS = 20_000;
 
+function getActionModifierKeys(action: ComputerAction): string[] {
+  return Array.isArray(action.keys)
+    ? action.keys
+        .map((key) => normalizePlaywrightKey(String(key)))
+        .filter(Boolean)
+    : [];
+}
+
+async function runWithHeldKeys(
+  session: BrowserSession,
+  keys: string[],
+  callback: () => Promise<void>,
+): Promise<void> {
+  if (keys.length === 0) {
+    await callback();
+    return;
+  }
+
+  for (const key of keys) {
+    await session.page.keyboard.down(key);
+  }
+
+  try {
+    await callback();
+  } finally {
+    for (const key of [...keys].reverse()) {
+      await session.page.keyboard.up(key);
+    }
+  }
+}
+
+function formatPendingSafetyChecks(computerCall: ComputerCallItem): string | null {
+  const checks = computerCall.pending_safety_checks ?? [];
+  if (checks.length === 0) return null;
+
+  const summary = checks
+    .map((check) => {
+      const code = check.code?.trim();
+      const message = check.message?.trim();
+      return [code, message].filter(Boolean).join(": ");
+    })
+    .filter(Boolean)
+    .join(" | ");
+
+  return summary.length > 0
+    ? `Computer use paused for human confirmation: ${summary}`
+    : "Computer use paused for human confirmation.";
+}
+
 /**
  * Normalize key names for Playwright keyboard input
  */
@@ -135,15 +184,20 @@ async function executeComputerAction(
         : "left";
   const x = Number(action.x ?? 0);
   const y = Number(action.y ?? 0);
+  const modifierKeys = getActionModifierKeys(action);
 
   switch (action.type) {
     case "click": {
-      await page.mouse.click(x, y, { button });
+      await runWithHeldKeys(session, modifierKeys, async () => {
+        await page.mouse.click(x, y, { button });
+      });
       break;
     }
 
     case "double_click": {
-      await page.mouse.dblclick(x, y, { button });
+      await runWithHeldKeys(session, modifierKeys, async () => {
+        await page.mouse.dblclick(x, y, { button });
+      });
       break;
     }
 
@@ -175,30 +229,36 @@ async function executeComputerAction(
         throw new Error("drag action did not include a valid start point.");
       }
 
-      await page.mouse.move(startPoint.x, startPoint.y);
-      await page.mouse.down();
+      await runWithHeldKeys(session, modifierKeys, async () => {
+        await page.mouse.move(startPoint.x, startPoint.y);
+        await page.mouse.down();
 
-      for (const point of path.slice(1)) {
-        await page.mouse.move(point.x, point.y);
-      }
+        for (const point of path.slice(1)) {
+          await page.mouse.move(point.x, point.y);
+        }
 
-      await page.mouse.up();
+        await page.mouse.up();
+      });
       break;
     }
 
     case "move": {
-      await page.mouse.move(x, y);
+      await runWithHeldKeys(session, modifierKeys, async () => {
+        await page.mouse.move(x, y);
+      });
       break;
     }
 
     case "scroll": {
-      if (Number.isFinite(x) && Number.isFinite(y)) {
-        await page.mouse.move(x, y);
-      }
-      await page.mouse.wheel(
-        Number(action.delta_x ?? action.deltaX ?? 0),
-        Number(action.delta_y ?? action.deltaY ?? action.scroll_y ?? 0),
-      );
+      await runWithHeldKeys(session, modifierKeys, async () => {
+        if (Number.isFinite(x) && Number.isFinite(y)) {
+          await page.mouse.move(x, y);
+        }
+        await page.mouse.wheel(
+          Number(action.delta_x ?? action.deltaX ?? 0),
+          Number(action.delta_y ?? action.deltaY ?? action.scroll_y ?? 0),
+        );
+      });
       break;
     }
 
@@ -429,6 +489,20 @@ export async function runNativeComputerLoop(options: {
     const toolOutputs: unknown[] = [];
 
     for (const computerCall of computerCalls) {
+      const pendingSafetyMessage = formatPendingSafetyChecks(computerCall);
+      if (pendingSafetyMessage) {
+        onEvent({
+          type: "error",
+          turn,
+          timestamp: new Date().toISOString(),
+          data: {
+            error: pendingSafetyMessage,
+            pendingSafetyChecks: computerCall.pending_safety_checks,
+          },
+        });
+        throw new Error(pendingSafetyMessage);
+      }
+
       const actions = computerCall.actions ?? [];
 
       // Execute each action in order
