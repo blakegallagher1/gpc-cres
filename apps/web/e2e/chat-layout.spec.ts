@@ -35,7 +35,7 @@ type MockChatShellOptions = {
 function getVisibleComposer(page: Page): Locator {
   return page
     .locator(
-      'textarea[placeholder="Ask Harvey anything. Type @ to add sources."]:visible',
+      'textarea[placeholder="Describe the matter, required output, and constraints. Type @ to attach evidence."]:visible',
     )
     .first();
 }
