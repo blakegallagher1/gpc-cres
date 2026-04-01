@@ -219,6 +219,15 @@ The same protocol applies to every future agent session to avoid ad-hoc implemen
 - Do NOT read test files unless fixing a test
 - Read `docs/claude/` files only when directly relevant to current task
 
+## Shipping gate
+Never say a branch is ready to push to main unless you have verified:
+- all changed tools are exported and reachable from every relevant runtime path
+- worker/export schemas are in sync with app/tool registries
+- prompt routing changes are active in deployed/runtime code paths, not just local prompts
+- malformed structured output cannot be treated as success downstream
+- tests/typecheck/lint relevant to the change pass
+- no secret values were fabricated or written into .env.local
+
 ## Detailed Documentation
 
 For architecture, conventions, workflows, and reference details, see:

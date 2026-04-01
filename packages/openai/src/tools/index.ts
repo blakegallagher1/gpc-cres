@@ -31,6 +31,7 @@ import * as capitalMarketsTools from "./capital-markets/index.js";
 import * as parcelSetTools from "./parcelSetTools.js";
 import * as spatialTools from "./spatialTools.js";
 import * as browserTools from "./browserTools.js";
+import * as perplexityTools from "./perplexityTools.js";
 import { TOOL_REGISTRY } from "./toolRegistry.js";
 import { sortToolsByName } from "../utils/toolStability.js";
 
@@ -227,6 +228,12 @@ export {
 } from "./pluginTools.js";
 
 export { browser_task } from "./browserTools.js";
+export {
+  perplexity_web_research,
+  perplexity_structured_extract,
+  perplexity_deep_research,
+  perplexity_quick_lookup,
+} from "./perplexityTools.js";
 
 const {
   hostedFileSearchTool,
@@ -362,6 +369,12 @@ const {
 } = parcelSetTools;
 const { computeDriveTimeArea } = spatialTools;
 const { browser_task } = browserTools;
+const {
+  perplexity_web_research,
+  perplexity_structured_extract,
+  perplexity_deep_research,
+  perplexity_quick_lookup,
+} = perplexityTools;
 const { allPluginTools: registeredPluginTools } = TOOL_REGISTRY;
 
 // --- Agent-specific tool collections ---
@@ -714,6 +727,8 @@ export const marketTrajectoryTools = [
   query_market_data,
   search_comparable_sales,
   analyze_market_workflow,
+  perplexity_web_research,
+  perplexity_structured_extract,
 ];
 
 /** Tools available to the Tax Strategist agent. (#11 Dead Agent Revival) */
@@ -857,6 +872,11 @@ export const entitlementOsTools = (() => {
     calculate_1031_deadlines,
     // Browser/CUA-specific
     browser_task,
+    // Perplexity web research
+    perplexity_quick_lookup,
+    perplexity_web_research,
+    perplexity_structured_extract,
+    perplexity_deep_research,
     // Acquisition/Asset/Capital Markets tools
     acquisition_dcf_analysis,
     acquisition_cap_rate_evaluation,
@@ -910,6 +930,8 @@ export const ALL_AGENT_TOOLS = Object.freeze(
   [
     ...Object.values(ALL_AGENT_TOOL_GROUPS).flat(),
     ...registeredPluginTools,
+    perplexity_quick_lookup,
+    perplexity_deep_research,
     acquisition_dcf_analysis,
     acquisition_cap_rate_evaluation,
     acquisition_rent_roll_analysis,

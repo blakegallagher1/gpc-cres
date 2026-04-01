@@ -35,6 +35,32 @@ Only items meeting all checks are added below as `Planned`.
 
 ## Active Roadmap (Prioritized)
 
+### AI-RESEARCH-001 — Perplexity Agent API Tooling Integration (P1)
+
+- **Priority:** P1
+- **Status:** Done (2026-03-31)
+- **Scope:** Add Perplexity-powered web research tools to the OpenAI tool registry and route market/regulatory workflows to Perplexity before CUA where appropriate.
+- **Problem:** Web research workflows currently rely too heavily on `browser_task`, which is slower and more brittle for public non-interactive sources than API-native web research.
+- **Expected Outcome (measurable):**
+  - Unified EntitlementOS toolset exposes Perplexity quick lookup, web research, structured extraction, and deep research.
+  - Market Trajectory and EntitlementOS instructions include explicit routing guidance for Perplexity vs CUA.
+  - Environment template and package dependencies are updated for `PERPLEXITY_API_KEY`.
+- **Evidence of need:** New integration plan created at `docs/plans/2026-03-31-perplexity-agent-api-integration.md` with concrete file map and workflow routing requirements.
+- **Alignment:** Preserves existing architecture (CUA retained for interactive/login flows), keeps local property DB as authoritative source of record, and introduces Perplexity only for external web research.
+- **Risk/rollback:** Low-to-medium; changes are additive and can be rolled back by removing tool wiring and prompt guidance if quality/cost regresses.
+- **Acceptance Criteria / Tests:**
+  - Add `packages/openai/src/tools/perplexityTools.ts` with four Perplexity tools.
+  - Wire new tools in `packages/openai/src/tools/index.ts` including `marketTrajectoryTools` and `entitlementOsTools`.
+  - Update agent instructions in `packages/openai/src/agents/entitlement-os.ts` and `market-trajectory-agent/marketTrajectory.ts`.
+  - Add dependency in `packages/openai/package.json` and env placeholder in `.env.example`.
+  - Run `pnpm -C packages/openai typecheck` and workspace `pnpm typecheck`.
+- **Evidence (2026-03-31):**
+  - Added Perplexity tool module with `perplexity_quick_lookup`, `perplexity_web_research`, `perplexity_structured_extract`, and `perplexity_deep_research`.
+  - Wired tool exports and runtime collections in `packages/openai/src/tools/index.ts`.
+  - Added Perplexity routing/workflow guidance to unified EntitlementOS and Market Trajectory instructions.
+  - Added `@perplexity-ai/perplexity_ai` dependency and `.env.example` variable for `PERPLEXITY_API_KEY`.
+  - Verified `pnpm -C packages/openai typecheck` during implementation.
+
 ### CHAT-007 — User Message Contrast Regression Fix (P0)
 
 - **Priority:** P0

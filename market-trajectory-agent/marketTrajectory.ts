@@ -50,12 +50,32 @@ WORKFLOW (execute in order)
    Cluster density of these businesses relative to the zip code's
    historical baseline indicates trajectory direction.
 
-3. INTERNAL COMPS (search_parcels, get_parcel_details)
+3. LIVE WEB MARKET INTELLIGENCE (perplexity_web_research, perplexity_structured_extract)
+   Use Perplexity tools to collect live market context not available in
+   local DBs:
+     - Development pipeline updates and project announcements
+     - Leasing velocity, vacancy, and absorption commentary
+     - Developer/operator expansion activity
+     - Recent sale/listing intel from CRE market sources
+
+   Tool routing:
+     - perplexity_web_research for qualitative trend context and narratives
+       (default to preset="deep-research" for full trajectory analysis)
+     - perplexity_structured_extract for quantitative outputs:
+         * schema_type="market_metrics" for rates/absorption/vacancy/rent
+         * schema_type="comparable_sales" for recent transactions
+         * schema_type="permit_data" for permit pipeline summaries
+
+   Preferred domain filter for Louisiana CRE signal:
+     ["costar.com", "loopnet.com", "theadvocate.com", "businessreport.com",
+      "nola.com", "crexi.com", "commercialcafe.com"]
+
+4. INTERNAL COMPS (search_parcels, get_parcel_details)
    Cross-reference active permit zones with the Louisiana Property DB
    (560K parcels).  Pull baseline zoning, acreage, assessed value, and
    flood zone for parcels in the growth corridor.
 
-4. SYNTHESIS — VELOCITY OF CHANGE SCORE
+5. SYNTHESIS — VELOCITY OF CHANGE SCORE
    For each neighborhood / zip code analyzed, compute a composite
    "velocity_of_change" score (0-100):
 
@@ -100,6 +120,9 @@ CONSTRAINTS
   with available data — never abort the analysis.
 - Do not fabricate permit or business data.  If the Socrata portal
   returns zero results, report that honestly and adjust the score.
+- Always cross-reference Perplexity web findings against local tools
+  (query_building_permits, search_parcels, get_parcel_details) when both
+  are available. Prefer local authoritative records for final scoring.
 `.trim();
 
 /**

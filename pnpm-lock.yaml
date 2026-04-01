@@ -505,6 +505,9 @@ importers:
       '@openai/agents':
         specifier: ^0.7.2
         version: 0.7.2(ws@8.20.0)(zod@4.3.6)
+      '@perplexity-ai/perplexity_ai':
+        specifier: ^0.26.5
+        version: 0.26.5
       '@qdrant/js-client-rest':
         specifier: ^1.17.0
         version: 1.17.0(typescript@5.9.3)
@@ -2287,6 +2290,9 @@ packages:
 
   '@panva/hkdf@1.2.1':
     resolution: {integrity: sha512-6oclG6Y3PiDFcoyk8srjLfVKyMfVCKJ27JwNPViuXziFpmdz+MZnZN/aKY0JGXgYuO/VghU0jcOAZgWXZ1Dmrw==}
+
+  '@perplexity-ai/perplexity_ai@0.26.5':
+    resolution: {integrity: sha512-2+7ETlFhAqlBNCC7uOBGJ34vbKri4+YOUc/QdX2lsKqonzazpFV+aP3jX4wwOO+0EUQV6bQlpIdsfUfbJ7cIbA==}
 
   '@playwright/test@1.58.2':
     resolution: {integrity: sha512-akea+6bHYBBfA9uQqSYmlJXn61cTa+jbO87xVLCWbTqbWadRVmhxlXATaOjOgcBaWU4ePo0wB41KMFv3o35IXA==}
@@ -9318,6 +9324,8 @@ snapshots:
       '@opentelemetry/core': 2.6.1(@opentelemetry/api@1.9.0)
 
   '@panva/hkdf@1.2.1': {}
+
+  '@perplexity-ai/perplexity_ai@0.26.5': {}
 
   '@playwright/test@1.58.2':
     dependencies:
