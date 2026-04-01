@@ -3,6 +3,40 @@ import { z } from "zod";
 
 type CuaModelPreference = "gpt-5.4" | "gpt-5.4-mini";
 
+function buildBrowserTaskFailureResult(options: {
+  url: string;
+  cuaModel: CuaModelPreference;
+  status?: number;
+  detail: string;
+}): Record<string, unknown> {
+  const { url, cuaModel, status, detail } = options;
+  const statusPrefix = typeof status === "number" ? ` (${status})` : "";
+  const unavailable =
+    status === 404 ||
+    status === 502 ||
+    status === 503 ||
+    status === 504 ||
+    /not found|unavailable|fetch failed|connection refused/i.test(detail);
+
+  const recoveryHint = unavailable
+    ? "Browser automation is currently unavailable. If the task does not require login, clicking, or form interaction, switch to Perplexity web research or local evidence instead of retrying browser_task."
+    : "Browser task failed. Show the user the last screenshot and ask what to try differently.";
+
+  return {
+    success: false,
+    error: `CUA worker task create failed${statusPrefix}: ${detail}`,
+    modeUsed: cuaModel,
+    cost: { inputTokens: 0, outputTokens: 0 },
+    source: {
+      url,
+      fetchedAt: new Date().toISOString(),
+    },
+    serviceUnavailable: unavailable,
+    suggestedLane: unavailable ? "public_web" : "interactive_browser",
+    _hint: recoveryHint,
+  };
+}
+
 function sanitizeCuaModel(value: unknown): CuaModelPreference | null {
   return value === "gpt-5.4" || value === "gpt-5.4-mini" ? value : null;
 }
@@ -97,16 +131,12 @@ export const browser_task = tool({
 
       if (!response.ok) {
         const text = await response.text().catch(() => "");
-        return {
-          success: false,
-          error: `CUA worker task create failed (${response.status}): ${text}`,
-          modeUsed: cuaModel,
-          cost: { inputTokens: 0, outputTokens: 0 },
-          source: {
-            url,
-            fetchedAt: new Date().toISOString(),
-          },
-        };
+        return buildBrowserTaskFailureResult({
+          url,
+          cuaModel,
+          status: response.status,
+          detail: text,
+        });
       }
 
     const { taskId } = await response.json() as { taskId: string };
@@ -137,7 +167,11 @@ export const browser_task = tool({
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      return { success: false, error: `CUA worker request failed: ${message}` };
+      return buildBrowserTaskFailureResult({
+        url,
+        cuaModel,
+        detail: `CUA worker request failed: ${message}`,
+      });
     }
   },
 });

@@ -18,6 +18,15 @@ const INTERACTIVE_BROWSER_PATTERNS = [
 ] as const;
 
 const PUBLIC_WEB_PATTERNS = [
+  /\bfor\s+lease\b/i,
+  /\bfor\s+sale\b/i,
+  /\blisted\b/i,
+  /\blistings?\b/i,
+  /\bavailable\b/i,
+  /\bavailability\b/i,
+  /\bloopnet\b/i,
+  /\bcrexi\b/i,
+  /\bcommercial\s+real\s+estate\b/i,
   /\bcurrent\b/i,
   /\brecent\b/i,
   /\blatest\b/i,

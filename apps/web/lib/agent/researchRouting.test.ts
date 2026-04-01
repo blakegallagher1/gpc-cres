@@ -19,6 +19,14 @@ describe("researchRouting", () => {
     ).toBe("public_web");
   });
 
+  it("routes public commercial listing searches to Perplexity", () => {
+    expect(
+      inferResearchLane(
+        "Search and gather all commercial real estate listed for lease in Baton Rouge, LA specifically in zip code 70808.",
+      ),
+    ).toBe("public_web");
+  });
+
   it("routes interactive navigation tasks to browser automation", () => {
     expect(
       inferResearchLane("Log in to the assessor portal, click parcel search, and extract the owner."),

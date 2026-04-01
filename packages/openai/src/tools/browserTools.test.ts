@@ -77,5 +77,35 @@ describe("browser_task preferred model routing", () => {
     };
     expect(requestBody.model).toBe("gpt-5.4");
   });
-});
 
+  it("marks 404 task-create failures as service unavailability and suggests public web recovery", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      text: async () => '{"detail":"Not Found"}',
+    } as Response);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { browser_task } = await import("./browserTools.js");
+    const result = await browser_task.execute(
+      {
+        url: "https://www.loopnet.com/search/commercial-real-estate/baton-rouge-la-70808/for-lease/",
+        instructions: "Gather lease listings.",
+        model: null,
+      },
+      {
+        context: {
+          preferredCuaModel: "gpt-5.4-mini",
+        },
+      },
+    );
+
+    expect(result).toMatchObject({
+      success: false,
+      modeUsed: "gpt-5.4-mini",
+      serviceUnavailable: true,
+      suggestedLane: "public_web",
+    });
+    expect(String(result._hint)).toContain("switch to Perplexity web research");
+  });
+});
