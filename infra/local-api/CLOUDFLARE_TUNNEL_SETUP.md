@@ -1,8 +1,15 @@
 # Cloudflare Tunnel Setup Guide
 
+> **WARNING (2026-04-01): DO NOT run cloudflared for `gpc-hp-tunnel` on your Mac or any dev machine.**
+> The production tunnel (`gpc-hp-tunnel`) runs exclusively on the Windows server via Docker Compose.
+> Running a second cloudflared connector with the same tunnel token causes Cloudflare to load-balance
+> between both, routing ~50% of production traffic to your dev machine's stale gateway — causing
+> intermittent 404s in production. This guide is kept as a reference for creating NEW tunnels only.
+> For the production tunnel, see `docs/CLOUDFLARE.md`.
+
 ## Overview
 
-This guide walks through setting up a Cloudflare Tunnel to securely expose your local FastAPI server to Vercel without opening firewall ports or exposing your home IP address.
+This guide walks through setting up a **new** Cloudflare Tunnel (not `gpc-hp-tunnel`) to securely expose a local server.
 
 **Architecture:**
 ```

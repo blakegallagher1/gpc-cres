@@ -120,7 +120,13 @@ If all tests pass, move to Step 4.
 
 Follow the complete guide in `CLOUDFLARE_TUNNEL_SETUP.md`.
 
-**Quick version:**
+> **WARNING (2026-04-01): DO NOT run cloudflared for `gpc-hp-tunnel` on your Mac.**
+> The production tunnel runs exclusively on the Windows server. Running a second connector
+> with the same token causes Cloudflare to load-balance traffic between both machines,
+> routing ~50% of requests to your Mac's stale gateway — causing intermittent 404s.
+> Only create NEW tunnels (with their own IDs/tokens) for local dev purposes.
+
+**Quick version (for NEW tunnels only, not gpc-hp-tunnel):**
 
 ```bash
 # Install cloudflared
@@ -129,36 +135,38 @@ brew install cloudflare/cloudflare/cloudflared
 # Authenticate
 cloudflared tunnel login
 
-# Create tunnel
-cloudflared tunnel create gpc-local-api
+# Create a NEW tunnel (do NOT reuse gpc-hp-tunnel token)
+cloudflared tunnel create my-dev-tunnel
 
-# Configure DNS
-cloudflared tunnel route dns gpc-local-api api.gallagherpropco.com
+# Configure DNS for your dev tunnel
+cloudflared tunnel route dns my-dev-tunnel dev-api.gallagherpropco.com
 
 # Create config file
 cat > ~/.cloudflared/config.yml <<EOF
-tunnel: YOUR_TUNNEL_ID
-credentials-file: /Users/YOUR_USERNAME/.cloudflared/YOUR_TUNNEL_ID.json
+tunnel: YOUR_NEW_TUNNEL_ID
+credentials-file: /Users/YOUR_USERNAME/.cloudflared/YOUR_NEW_TUNNEL_ID.json
 ingress:
-  - hostname: api.gallagherpropco.com
+  - hostname: dev-api.gallagherpropco.com
     service: http://localhost:8000
   - service: http_status:404
 EOF
 
 # Test tunnel
-cloudflared tunnel run gpc-local-api
+cloudflared tunnel run my-dev-tunnel
 ```
 
 **Test public endpoint:**
 ```bash
-curl https://api.gallagherpropco.com/health
+curl https://dev-api.gallagherpropco.com/health
 ```
 
 ---
 
-## Step 5: Run as a Service
+## Step 5: Run as a Service (Local Dev Tunnel Only)
 
-### macOS (Recommended):
+> Do NOT set up a launchd service for `gpc-hp-tunnel` on your Mac.
+
+### macOS (for dev tunnels only):
 
 ```bash
 # Create launchd plist (see CLOUDFLARE_TUNNEL_SETUP.md)
@@ -174,7 +182,7 @@ cat > ~/Library/LaunchAgents/com.cloudflare.tunnel.plist <<EOF
         <string>/opt/homebrew/bin/cloudflared</string>
         <string>tunnel</string>
         <string>run</string>
-        <string>gpc-local-api</string>
+        <string>my-dev-tunnel</string>
     </array>
     <key>RunAtLoad</key>
     <true/>

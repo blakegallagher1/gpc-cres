@@ -111,7 +111,7 @@ Deployed at `agents.gallagherpropco.com`. Provides persistent WebSocket transpor
 Native browser automation for agents via OpenAI Responses API `{ type: "computer" }` tool. Powered by GPT-5.4 native computer_call capability.
 
 ```
-[Vercel] → [CF Tunnel] → [gateway:8000] → [middleware proxy Host: "cua."] → [cua-worker:3001]
+[Vercel] → [CF Tunnel] → [gateway:8000] → [explicit /tasks routes] → [cua-worker:3001]
                              ↓
                     [Fastify HTTP server]
                          ↓
@@ -126,7 +126,7 @@ Native browser automation for agents via OpenAI Responses API `{ type: "computer
 - **Endpoints**: GET /health, POST /tasks (start task), GET /tasks/:id (poll), GET /tasks/:id/events (SSE)
 - **Port**: 3001 on `gpc-cres-backend_internal` Docker network (internal to Windows server)
 - **Tunnel route**: `cua.gallagherpropco.com` → gateway:8000 with `httpHostHeader: "cua.gallagherpropco.com"`
-- **Gateway middleware** (`infra/local-api/main.py`): Checks Host header for "cua." prefix, proxies to cua-worker:3001
+- **Gateway route handlers** (`infra/local-api/main.py`): Explicit `POST /tasks`, `GET /tasks/{id}`, `GET /tasks/{id}/events`, `GET /cua/health` routes proxy to `CUA_WORKER_URL` (default `http://cua-worker:3001`)
 - **Browser task tool** (`packages/openai/src/tools/browserTools.ts`): Sends CF Access headers, polls CUA worker for completion
 - **Agent integration**: `browser_task` in `BASE_ALLOWED_TOOLS`, added to `entitlementOsTools` array
 - **UI components**: `CuaModelToggle.tsx` (GPT-5.4 / GPT-5.4-mini selector), `BrowserSessionCard.tsx` (screenshot streamer)

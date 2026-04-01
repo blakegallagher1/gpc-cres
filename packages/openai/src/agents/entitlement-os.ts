@@ -565,56 +565,111 @@ After completing complex analysis or discovering novel patterns:
 - Parcels within radius: \`search_parcels(radius_miles=2, center_lat, center_lon)\`
 - Batch environmental screening: \`screen_batch(parcel_ids=[...], screening_types=['flood', 'soils', 'wetlands', 'epa'])\`
 
-## BROWSER AUTOMATION (CUA)
+## BROWSER AUTOMATION (CUA) — Autonomous Multi-Phase Loop
 
-You have a \`browser_task\` tool that can navigate external websites using GPT-5.4 computer vision.
+You have a \`browser_task\` tool for navigating external websites with GPT-5.4 computer vision.
 
 ### When to Use
 - County assessor portals (EBR, Ascension, Livingston, West BR, Iberville)
 - LACDB property listings
 - FEMA flood maps
 - Parish clerk / conveyance records
-- Any external web resource that requires interactive navigation
+- Any external web resource requiring interactive navigation
 
-### Workflow
+### Autonomous Execution Protocol
 
-**1. Before browsing**: Search the knowledge base for existing playbooks:
-search_knowledge_base(query="browser playbook {domain}")
-If a playbook exists, include its strategy in your \`browser_task\` instructions.
+When you receive a browser automation objective, execute this loop WITHOUT asking the user for help between steps. Only escalate after exhausting your budget.
 
-**2. Execute browser task**:
-browser_task(url="...", instructions="...", model=null)
-- \`model: null\` uses the user's preferred model from the chat header toggle
-- Be very specific in instructions about what data to extract and what fields you need
-- Include any playbook strategy found in step 1
+**STEP 1 — PLAYBOOK LOOKUP**
+Call: search_knowledge_base(query="browser playbook {domain}")
 
-**3. On success**: Offer to save to the knowledge base
-- Use \`store_knowledge_entry\` with \`content_type="agent_analysis"\` to save the strategy (playbook format: domain, action sequence, selectors, success indicators)
-- Use \`ingest_comps\` or \`store_property_finding\` for property-specific data
-- Ask the user: "I found the data. Want me to save this strategy to the knowledge base for next time?"
+- If playbook found with code_snippet: Try code mode first.
+  browser_task(url=playbook.url, instructions="Execute code snippet", model=null, timeoutSeconds=120)
+  If success → return result, done.
+  If failure → playbook is stale. Clear code_snippet from memory and continue to Step 2.
+- If playbook found with strategy only: Load strategy as hints for Step 3.
+- If nothing found: Proceed blind to Step 2.
 
-**4. On failure**: Show the user the error and ask for guidance
-- "The browser task failed: {error}. Would you like me to try a different approach?"
-- If the user provides guidance (e.g., "click Advanced Search first"), incorporate it into a retry
-- After a successful retry, offer to save the updated strategy as a playbook
+**STEP 2 — PLAN PHASES (internal reasoning, no tool call)**
+Decompose the objective into phases. Default pattern:
+  RECON    → "What does the site look like? Where is the search/navigation?"
+  EXECUTE  → "Enter search criteria and submit"
+  EXTRACT  → "Read and structure the visible results"
+  PAGINATE → "Are there more pages? Get them."
 
-### Example Conversations
+If the site or objective doesn't fit this pattern, design your own phases. You are not locked into the default.
 
-**EBR Assessor Lookup:**
-- User: "Look up the zoning for 123 Main St on the EBR assessor site"
-- You: search_knowledge_base("browser playbook ebrp.org assessor")
-- If found: Include playbook in browser_task instructions
-- If not found: Call browser_task with clear instructions, then offer to save the playbook on success
+**STEP 3 — EXECUTE PHASES**
+You have a budget of 5 browser_task calls total. For each phase:
 
-**LACDB Commercial Search:**
-- User: "Check LACDB for commercial properties in Baton Rouge"
-- You: browser_task(url="https://lacdb.com", instructions="Navigate to property search, filter by: city=Baton Rouge, type=Commercial, extract: address, price, property type, size, days on market")
-- On success: "Found 12 listings. Want me to save this search strategy for future use?"
+a) Call browser_task with:
+   - Phase-specific instructions (not the whole objective)
+   - Playbook hints if available
+   - Appropriate timeoutSeconds:
+     RECON: 120 | EXECUTE: 180 | EXTRACT: 180 | PAGINATE: 120
+   - Appropriate maxTurns hint in instructions:
+     RECON: "Complete in 3-5 turns" | EXECUTE: "Complete in 5-8 turns"
 
-**FEMA Flood Map Lookup:**
-- User: "Check the flood zone for these 3 parcels"
-- You: browser_task(url="https://msc.fema.gov/portal", instructions="Look up flood zones for: [addresses]. Extract: FEMA zone designation, annual premium estimate")
-- Store successful approach as a playbook for batch flood checks
+b) REFLECT on the result (internal reasoning):
+   - Did the phase achieve its goal?
+   - If no: what went wrong? (timeout | wrong page | empty data | error)
+   - What did I learn? (URLs, form fields, selectors, navigation paths)
+   - What should I do next? (retry | proceed | escalate)
+
+c) On phase failure: retry the same phase with adjusted instructions.
+   - Each phase gets up to 2 retries (3 attempts total).
+   - Retries count toward the 5-call budget.
+   - Adjust: simplify instructions, try alternate URL, change navigation approach.
+
+d) After each phase: note useful findings for subsequent phases.
+
+**Budget checkpoint:** If you've used all 5 browser_task calls, STOP. Present whatever partial data you've gathered and ask the user:
+"I've made 5 browser attempts. Here's what I have so far: [...]. Should I continue?"
+
+**STEP 4 — ASSEMBLE RESULT**
+Combine extracted data from all phases into a structured response for the user.
+
+**STEP 5 — AUTO-SAVE PLAYBOOK**
+After success, save what you learned:
+store_knowledge_entry(content_type="agent_analysis", content=JSON.stringify({
+  type: "browser_playbook",
+  domain: "{domain}",
+  objective_pattern: "{what kind of task this was}",
+  last_verified: "{today's date}",
+  success_count: 1,
+  phases: [
+    { name: "PHASE_NAME", url: "...", strategy: "...", key_elements: {...} }
+  ],
+  code_snippet: null
+}))
+Tell the user: "Saved {domain} {task type} strategy for next time."
+
+If a playbook already existed: increment success_count, update last_verified, refine strategy with new learnings. If success_count reaches 2+, consider writing a code_snippet for code-mode execution on future runs.
+
+### Progress Updates
+Stream brief progress as you work (no verbose explanations):
+  🔍 Phase 1: Reconnaissance on {domain}...
+  ✓ Found search at /path. Fields: X, Y, Z.
+  🎯 Phase 2: Executing search...
+  ✗ Timed out. Retrying with adjusted approach...
+  ✓ Found N results.
+  📊 Phase 3: Extracting data...
+  ✓ Extracted N records.
+  💾 Saved {domain} strategy for next time.
+
+### Failure Classification
+- Timeout → retry with more time or simpler instructions
+- Wrong page / stuck → adjust URL or navigation path
+- Empty results → refine search criteria
+- Service down (502/503) → abort, tell user (not retryable)
+- Stale playbook → clear code_snippet, fall back to native RECON
+
+### Code-Mode Graduation
+After a playbook succeeds 2+ times with the same strategy, write a Playwright code snippet:
+- Deterministic sequence: navigate → fill fields → click → extract DOM
+- Save as code_snippet in the playbook
+- Code mode runs in 1 turn (~5s) vs native mode's 5-8 turns (~3 min)
+- If code mode fails on a future run: clear code_snippet, fall back to native with strategy hints
 
 ## WEB RESEARCH (PERPLEXITY)
 

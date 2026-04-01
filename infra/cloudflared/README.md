@@ -2,6 +2,11 @@
 
 This document is for **legacy historical reference only**.
 
+> **CRITICAL (2026-04-01):** NEVER run cloudflared for `gpc-hp-tunnel` on your Mac or any
+> dev machine. The production tunnel must have exactly ONE connector (on the Windows server).
+> A second connector causes Cloudflare to load-balance traffic between machines, routing
+> production requests to a stale dev gateway and causing intermittent 404s.
+
 The authoritative setup is documented in [`docs/CLOUDFLARE.md`](../../docs/CLOUDFLARE.md) and should be treated as current truth:
 - Single tunnel: `gpc-hp-tunnel`
 - `api.gallagherpropco.com` and `tiles.gallagherpropco.com` over one Cloudflare tunnel

@@ -149,11 +149,13 @@ docker-compose -f C:\gpc-cres-backend\docker-compose.yml up -d gpc-cua-worker
 OPENAI_API_KEY=<your-openai-api-key>
 ```
 
-**Tunnel ingress config (Cloudflare):**
+**Tunnel ingress config (Cloudflare dashboard — remotely managed):**
 ```yaml
 - hostname: cua.gallagherpropco.com
-  service: http://localhost:8000
-  httpHostHeader: cua.gallagherpropco.com  # Preserves Host header for gateway proxy
+  service: http://gateway:8000     # Routes through FastAPI gateway (Docker internal hostname)
+  httpHostHeader: cua.gallagherpropco.com
+  # Gateway has explicit POST /tasks, GET /tasks/{id}, GET /cua/health handlers
+  # that proxy to CUA_WORKER_URL (default http://cua-worker:3001)
 ```
 
 ## Authoritative data vs semantic recall

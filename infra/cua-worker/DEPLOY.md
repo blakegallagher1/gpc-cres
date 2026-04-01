@@ -19,22 +19,27 @@ docker compose up -d
 Add the `cua-worker` service from `docker-compose.yml` to the server's main compose file at `C:\gpc-cres-backend\docker-compose.yml`.
 
 ### Cloudflare Tunnel Route
-Add to the cloudflared config:
-```yaml
-- hostname: cua.gallagherpropco.com
-  service: http://gpc-cua-worker:3001
-```
-
-Or if using Cloudflare dashboard (remotely managed tunnel), add:
+The tunnel is remotely managed in the Cloudflare dashboard. The public hostname is already configured:
 - Subdomain: `cua`
 - Domain: `gallagherpropco.com`
-- Service: `http://localhost:3001`
+- Service: `http://gateway:8000` (routes through the FastAPI gateway, NOT directly to cua-worker)
+- Origin config: `httpHostHeader: cua.gallagherpropco.com`
+
+The gateway has explicit route handlers (`POST /tasks`, `GET /tasks/{id}`, etc.) that proxy to `CUA_WORKER_URL` (default `http://cua-worker:3001`).
 
 ### Verify
 ```bash
-curl https://cua.gallagherpropco.com/health
+# CUA worker health (proxied through gateway):
+curl https://cua.gallagherpropco.com/cua/health
 # Expected: {"status":"ok","browser":"ready"}
+
+# Gateway health:
+curl https://cua.gallagherpropco.com/health
+# Expected: {"status":"ok","timestamp":"...","database":"connected"}
 ```
+
+### Troubleshooting: Duplicate Tunnel Connectors
+If `POST /tasks` returns 404 but direct Tailscale access works, check for duplicate `cloudflared-tunnel` connectors. The Mac dev environment may have a stale `cloudflared-tunnel` Docker container connecting to the same tunnel token, causing Cloudflare to load-balance requests to an old gateway without CUA routes. Fix: `docker stop cloudflared-tunnel && docker rm cloudflared-tunnel` on the Mac.
 
 ## Environment Variables
 | Variable | Required | Default | Description |

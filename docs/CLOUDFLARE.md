@@ -25,6 +25,7 @@ All routes go through the single tunnel. Configure in: Tunnels → gpc-hp-tunnel
 | Subdomain | Domain | Service Type | URL | Purpose |
 |-----------|--------|--------------|-----|---------|
 | `api` | gallagherpropco.com | HTTP | localhost:8000 | FastAPI gateway (deals, parcels, screening, storage) |
+| `cua` | gallagherpropco.com | HTTP | gateway:8000 | CUA browser agent (proxied via gateway to cua-worker:3001). `httpHostHeader: cua.gallagherpropco.com` |
 | `tiles` | gallagherpropco.com | HTTP | localhost:3000 | Martin MVT tiles |
 | `ssh` | gallagherpropco.com | SSH | host.docker.internal:22 | Remote SSH to Windows PC |
 | `db` | gallagherpropco.com | TCP | entitlement-db:5432 | PostgreSQL (Cloudflare Access protected) |
@@ -34,6 +35,7 @@ All routes go through the single tunnel. Configure in: Tunnels → gpc-hp-tunnel
 
 **Public URLs:**
 - `https://api.gallagherpropco.com` — gateway (Bearer auth)
+- `https://cua.gallagherpropco.com` — CUA browser agent (POST /tasks, GET /tasks/:id)
 - `https://tiles.gallagherpropco.com` — map tiles
 - `https://agents.gallagherpropco.com` — WebSocket agent chat (Cloudflare Worker, not tunnel)
 - `ssh.gallagherpropco.com` — SSH (via `cloudflared access ssh`)
@@ -50,6 +52,7 @@ If tunnel uses CNAME routing, subdomains may auto-resolve. Otherwise add CNAME r
 | Name | Type | Target | Proxy |
 |------|------|--------|-------|
 | api | CNAME | 9f7fb0d6-ecb1-4b98-b523-9a60013187b7.cfargotunnel.com | Proxied |
+| cua | CNAME | 9f7fb0d6-ecb1-4b98-b523-9a60013187b7.cfargotunnel.com | Proxied |
 | tiles | CNAME | 9f7fb0d6-ecb1-4b98-b523-9a60013187b7.cfargotunnel.com | Proxied |
 | ssh | CNAME | 9f7fb0d6-ecb1-4b98-b523-9a60013187b7.cfargotunnel.com | Proxied |
 | db | CNAME | 9f7fb0d6-ecb1-4b98-b523-9a60013187b7.cfargotunnel.com | Proxied |
@@ -214,6 +217,38 @@ psql postgresql://postgres:postgres@localhost:54399/entitlement_os -c "SELECT co
 ```bash
 # DEPRECATED — use Tailscale: ssh bg "docker exec -i entitlement-os-postgres psql ..."
 # echo 'alias dbproxy="cloudflared access tcp --hostname db.gallagherpropco.com --url localhost:54399"' >> ~/.zshrc
+```
+
+---
+
+## Troubleshooting
+
+### Tunnel routes return 404 but direct Tailscale access works
+
+**Symptom:** `POST https://cua.gallagherpropco.com/tasks` returns `{"detail":"Not Found"}` (404), but `POST http://100.67.140.126:8000/tasks` via Tailscale returns 202.
+
+**Root cause:** Duplicate `cloudflared-tunnel` connectors. The Mac dev environment may have a stale Docker container connecting to `gpc-hp-tunnel` with the same tunnel token. Cloudflare load-balances between connectors, so ~50% of requests hit the Mac's old gateway (missing routes).
+
+**Diagnosis:**
+1. Check tunnel connectors in Cloudflare dashboard: Zero Trust → Networks → Connectors → gpc-hp-tunnel → Overview. If you see >1 connector, identify which is the Windows server (linux_amd64) and which is stale.
+2. On Mac: `docker ps | grep cloudflared` — if a `cloudflared-tunnel` container is running for `gpc-hp-tunnel`, it's the duplicate.
+
+**Fix:**
+```bash
+# On Mac — stop the stale connector:
+docker stop cloudflared-tunnel && docker rm cloudflared-tunnel
+```
+
+After removal, all requests route to the Windows server's connector exclusively.
+
+### Gateway code deployed but routes still 404
+
+After SCP'ing updated `main.py` to the server, the running uvicorn process may still serve old code.
+
+**Fix:**
+```bash
+ssh bg "docker exec fastapi-gateway rm -rf /app/__pycache__/"
+ssh bg "docker restart fastapi-gateway"
 ```
 
 ---

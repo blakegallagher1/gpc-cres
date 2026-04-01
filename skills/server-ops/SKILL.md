@@ -160,12 +160,14 @@ docker exec -it entitlement-os-postgres psql -U postgres -d entitlement_os
 |----------|-----------------|------|-------|
 | `api.gallagherpropco.com` | `http://gateway:8000` | Bearer token | FastAPI gateway |
 | `tiles.gallagherpropco.com` | `http://martin:3000` | None | MVT tiles, CORS enabled |
-| `cua.gallagherpropco.com` | `http://gateway:8000` | Bearer + CF Access | Gateway proxies to cua-worker:3001 via Host header detection |
+| `cua.gallagherpropco.com` | `http://gateway:8000` | Bearer + CF Access | Gateway has explicit `/tasks`, `/cua/health` route handlers that proxy to cua-worker:3001 |
 | `db.gallagherpropco.com` | `tcp://entitlement-os-postgres:5432` | CF Access service token | DEPRECATED — use `ssh bg` + docker exec |
 | `ssh.gallagherpropco.com` | `ssh://host.docker.internal:22` | CF Access email auth | DEPRECATED — use `ssh bg` via Tailscale |
 | `qdrant.gallagherpropco.com` | `http://qdrant:6333` | CF Access | Vector DB |
 
-**CUA routing detail:** The `cua.` hostname routes to `gateway:8000` with `httpHostHeader: "cua.gallagherpropco.com"`. The gateway middleware detects `"cua."` in the Host header and reverse-proxies to `cua-worker:3001`.
+**CUA routing detail:** The `cua.` hostname routes to `gateway:8000` with `httpHostHeader: "cua.gallagherpropco.com"`. The gateway has explicit route handlers (`POST /tasks`, `GET /tasks/{id}`, `GET /tasks/{id}/events`, `GET /cua/health`) that reverse-proxy to `CUA_WORKER_URL` (default `http://cua-worker:3001`).
+
+**WARNING — Duplicate tunnel connectors:** Only the Windows server should run a `cloudflared-tunnel` container for `gpc-hp-tunnel`. If a Mac dev environment also has a `cloudflared-tunnel` container using the same tunnel token, Cloudflare will load-balance between both connectors. The Mac's stale gateway will lack production routes, causing intermittent 404s. Diagnosis: check connector count in CF dashboard (Zero Trust → Networks → Connectors → gpc-hp-tunnel). Fix: `docker stop cloudflared-tunnel && docker rm cloudflared-tunnel` on the Mac.
 
 ### Modifying Tunnel Config via API
 ```bash

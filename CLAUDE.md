@@ -4,7 +4,7 @@ Last reviewed: 2026-03-25
 
 **🟢 CUA BROWSER AGENT DEPLOYED (2026-03-25):**
 - ✅ CUA Worker Container: Node.js + Playwright + Chromium on Windows server (`gpc-cua-worker`)
-- ✅ CUA tunnel route: `cua.gallagherpropco.com` → gateway:8000 (with Host header proxy to cua-worker:3001)
+- ✅ CUA tunnel route: `cua.gallagherpropco.com` → gateway:8000 (explicit `/tasks`, `/cua/health` route handlers proxy to cua-worker:3001)
 - ✅ Browser task tool: `browser_task` in agent tools, uses OpenAI Responses API with computer_call type (GPT-5.4 native)
 - ✅ UI components: `CuaModelToggle` (gpt-5.4 / gpt-5.4-mini selector), `BrowserSessionCard` (live screenshot display)
 - ✅ Agent prompt: Browser Automation section + playbook learning workflow in EntitlementOS agent
@@ -96,7 +96,7 @@ Native browser automation for agents via OpenAI Responses API `{ type: "computer
   - Source: `infra/cua-worker/` (TypeScript, Fastify server)
   - Endpoints: GET /health, POST /tasks, GET /tasks/:id, GET /tasks/:id/events (SSE)
   - Port 3001 on `gpc-cres-backend_internal` Docker network
-- **Tunnel route**: `cua.gallagherpropco.com` → gateway:8000 (middleware proxies Host header "cua." to cua-worker:3001)
+- **Tunnel route**: `cua.gallagherpropco.com` → gateway:8000 (explicit `POST /tasks`, `GET /tasks/{id}`, `GET /cua/health` route handlers proxy to cua-worker:3001)
 - **Browser task tool** (`packages/openai/src/tools/browserTools.ts`): Sends CF Access headers, polls CUA worker for task completion
 - **Agent integration**: Added to `BASE_ALLOWED_TOOLS` and `entitlementOsTools` array
 - **UI components**: `CuaModelToggle.tsx` (model selector), `BrowserSessionCard.tsx` (live screenshot)
@@ -167,6 +167,9 @@ Google OAuth → Vercel signIn callback → Prisma → CF Hyperdrive → gateway
 ### Known Single Points of Failure
 - Docker Desktop on the Windows PC going down breaks ALL production auth (Vercel → gateway → DB chain). The `/health` endpoint can return OK while `/db` is dead.
 - Future consideration: move gateway to a dedicated Linux host (Railway, Fly.io, or a VM) to eliminate this SPOF.
+
+### Tunnel routes return intermittent 404s
+Check for duplicate `cloudflared-tunnel` connectors. If the Mac has a stale `cloudflared-tunnel` Docker container using the same `gpc-hp-tunnel` token, Cloudflare load-balances between both connectors — the Mac's old gateway lacks production routes, causing ~50% of requests to 404. Fix: `docker stop cloudflared-tunnel && docker rm cloudflared-tunnel` on Mac. Verify in CF dashboard: Zero Trust → Networks → Connectors → gpc-hp-tunnel should show exactly 1 connector. **Never run cloudflared for `gpc-hp-tunnel` on any machine other than the Windows server.**
 
 ### Always start debugging with
 `ssh bg` — never waste time on Cloudflare tunnels or direct DB connections.
