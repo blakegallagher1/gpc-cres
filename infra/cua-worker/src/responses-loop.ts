@@ -27,6 +27,74 @@ type LoopProgressState = {
   stalledTurns: number;
 };
 
+function isJsonLikeString(value: string): boolean {
+  const trimmed = value.trim();
+  return (
+    (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
+    (trimmed.startsWith("[") && trimmed.endsWith("]"))
+  );
+}
+
+function parseJsonLikeString(value: string): unknown {
+  if (!isJsonLikeString(value)) {
+    return value;
+  }
+  try {
+    return JSON.parse(value) as unknown;
+  } catch {
+    return value;
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function extractTerminalDataLaneResult(execSummaries: string[]): {
+  finalMessage: string;
+  data: Record<string, unknown>;
+  sourceUrl: string | null;
+} | null {
+  for (let index = execSummaries.length - 1; index >= 0; index -= 1) {
+    const summary = execSummaries[index];
+    const parsed = parseJsonLikeString(summary);
+    if (!isRecord(parsed)) {
+      continue;
+    }
+
+    const sourceUrl =
+      typeof parsed.confirmed_api === "string"
+        ? parsed.confirmed_api
+        : isRecord(parsed.verified_source) &&
+            typeof parsed.verified_source.api_url === "string"
+          ? parsed.verified_source.api_url
+          : null;
+
+    const totalRecords =
+      typeof parsed.total_records === "number"
+        ? parsed.total_records
+        : typeof parsed.totalRows === "number"
+          ? parsed.totalRows
+          : null;
+
+    const lines = ["Verified direct data lane discovered."];
+    if (sourceUrl) {
+      lines.push(`Source: ${sourceUrl}`);
+    }
+    if (typeof totalRecords === "number") {
+      lines.push(`Total records: ${totalRecords}`);
+    }
+
+    return {
+      finalMessage: lines.join(" "),
+      data: parsed,
+      sourceUrl,
+    };
+  }
+
+  return null;
+}
+
 function detectDirectDataLane(execSummaries: string[]): boolean {
   if (execSummaries.length === 0) return false;
   const joined = execSummaries.join("\n");
@@ -867,6 +935,11 @@ export async function runNativeComputerLoop(options: {
       directDataLaneDetected,
     });
 
+    const terminalDataLaneResult =
+      directDataLaneDetected && computerCalls.length === 0 && turnHadSuccessfulExec
+        ? extractTerminalDataLaneResult(execSummaries)
+        : null;
+
     if (functionCalls.length > 0 && computerCalls.length === 0) {
       const postExecScreenshot = await session.captureScreenshot(`turn-${turn}-post-exec`);
       screenshotPaths.push(postExecScreenshot.path);
@@ -877,6 +950,49 @@ export async function runNativeComputerLoop(options: {
         screenshotUrl: postExecScreenshot.path,
         action: "Captured post-exec browser state",
       });
+    }
+
+    if (terminalDataLaneResult) {
+      finalMessage = terminalDataLaneResult.finalMessage;
+      onEvent({
+        type: "status",
+        turn,
+        timestamp: new Date().toISOString(),
+        action: "Verified data lane satisfied the task; stopping browser loop",
+        data: {
+          sourceUrl: terminalDataLaneResult.sourceUrl ?? undefined,
+        },
+      });
+
+      onEvent({
+        type: "complete",
+        turn,
+        timestamp: new Date().toISOString(),
+        data: {
+          turns: turn,
+          totalInputTokens,
+          totalOutputTokens,
+          totalCachedTokens,
+        },
+      });
+
+      return {
+        success: true,
+        data: terminalDataLaneResult.data,
+        screenshots: screenshotPaths,
+        turns: turn,
+        modeUsed: "native",
+        cost: {
+          inputTokens: totalInputTokens,
+          outputTokens: totalOutputTokens,
+          cachedTokens: totalCachedTokens,
+        },
+        source: {
+          url: terminalDataLaneResult.sourceUrl ?? session.page.url(),
+          fetchedAt: new Date().toISOString(),
+        },
+        finalMessage,
+      };
     }
 
     // Send all tool outputs as input for next turn

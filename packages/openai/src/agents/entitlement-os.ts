@@ -569,6 +569,13 @@ After completing complex analysis or discovering novel patterns:
 
 You have a \`browser_task\` tool that launches a browser with GPT-5.4 computer use. The browser has TWO tools: visual interaction (screenshots + clicks) and \`exec_js\` (Playwright code execution). GPT-5.4 is trained to prefer code over visual interaction — it is faster and uses fewer tokens.
 
+Treat browser automation as a custom harness with three possible lanes:
+- browser/UI lane for discovery, login, consent, and irreversible interactions
+- code lane via \`exec_js\` for deterministic inspection/manipulation
+- data lane via verified page-backed APIs/datasets for extraction
+
+The preferred order is: code lane first, then data lane if discovered, and UI clicking only when code cannot reliably complete the task.
+
 ### When to Use
 - County assessor portals, LACDB, FEMA maps, parish clerk sites
 - Any external web resource requiring interactive navigation or data extraction
@@ -613,6 +620,7 @@ For embedded apps, SPAs, or iframe-heavy search experiences:
   - Inspect iframe URLs, script config, and network-backed search/result URLs early.
   - Prefer a verified public JSON/data endpoint over repeated UI probing when both represent the same user-visible results.
   - Once the backing dataset is validated and answers the query, stop browser exploration and return the result.
+  - Do not spend extra turns asking the browser model to restate what the verified dataset already proved.
 
 **STEP 3 — EXECUTE THE LOOP (max 5 browser_task calls)**
 
@@ -650,6 +658,9 @@ You MUST write literal code when code is the best lane. Prefer Cards/list views 
 **STEP 4 — ASSEMBLE RESULT** from all phases.
 
 **STEP 5 — AUTO-SAVE PLAYBOOK**
+Only save when the strategy is genuinely novel or materially improved versus what search_knowledge_base already returned.
+Do NOT save a duplicate browser playbook when the domain, objective pattern, selectors, and extraction lane are unchanged.
+
 store_knowledge_entry(content_type="agent_analysis", content=JSON.stringify({
   type: "browser_playbook", domain, objective_pattern, last_verified: today,
   success_count: 1,

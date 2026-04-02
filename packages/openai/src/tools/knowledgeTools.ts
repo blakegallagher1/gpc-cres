@@ -2,6 +2,10 @@ import { tool } from "@openai/agents";
 import { z } from "zod";
 import { buildMemoryToolHeaders } from "./memoryTools";
 
+function isBrowserPlaybookContent(value: string): boolean {
+  return /"type"\s*:\s*"browser_playbook"/.test(value);
+}
+
 /**
  * search_knowledge_base — searches the firm's historical knowledge base using
  * vector similarity to find relevant past deals, analyses, and learnings.
@@ -149,6 +153,36 @@ export const store_knowledge_entry = tool({
       const url = baseUrl.startsWith("http") ? baseUrl : `https://${baseUrl}`;
       const sourceId = `${params.source_agent}:${params.title.slice(0, 60).replace(/\s+/g, "-").toLowerCase()}`;
       const contentText = `${params.title}\n\n${params.content}`;
+
+      if (
+        params.content_type === "agent_analysis" &&
+        isBrowserPlaybookContent(params.content)
+      ) {
+        const qs = new URLSearchParams({
+          view: "search",
+          q: params.title,
+          limit: "5",
+          types: "agent_analysis",
+        });
+        const existingResp = await fetch(`${url}/api/knowledge?${qs.toString()}`, {
+          method: "GET",
+          headers: buildMemoryToolHeaders(context),
+        });
+        if (existingResp.ok) {
+          const existing = await existingResp.json() as { results?: Array<{ sourceId?: unknown; contentText?: unknown }> };
+          const duplicate = (existing.results ?? []).some((entry) => {
+            const existingSourceId =
+              typeof entry.sourceId === "string" ? entry.sourceId : null;
+            const existingContentText =
+              typeof entry.contentText === "string" ? entry.contentText : null;
+            return existingSourceId === sourceId && existingContentText === contentText;
+          });
+          if (duplicate) {
+            return `Skipped duplicate knowledge entry "${params.title}".`;
+          }
+        }
+      }
+
       const resp = await fetch(`${url}/api/knowledge`, {
         method: "POST",
         headers: buildMemoryToolHeaders(context),

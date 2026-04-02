@@ -10,6 +10,48 @@ const MAX_BROWSER_TASK_INLINE_MESSAGE_LENGTH = 2_000;
 
 type JsonRecord = Record<string, unknown>;
 
+function isJsonLikeString(value: string): boolean {
+  const trimmed = value.trim();
+  return (
+    (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
+    (trimmed.startsWith("[") && trimmed.endsWith("]"))
+  );
+}
+
+function parseJsonLikeString(value: string): unknown {
+  if (!isJsonLikeString(value)) {
+    return value;
+  }
+
+  try {
+    return JSON.parse(value) as unknown;
+  } catch {
+    return value;
+  }
+}
+
+function normalizeBrowserTaskValue(value: unknown): unknown {
+  if (typeof value === "string") {
+    const parsed = parseJsonLikeString(value);
+    if (parsed !== value) {
+      return normalizeBrowserTaskValue(parsed);
+    }
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(normalizeBrowserTaskValue);
+  }
+
+  if (!isRecord(value)) {
+    return value;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).map(([key, entry]) => [key, normalizeBrowserTaskValue(entry)]),
+  );
+}
+
 function buildBrowserTaskFailureResult(options: {
   url: string;
   cuaModel: CuaModelPreference;
@@ -85,6 +127,12 @@ function summarizeLargeArray(value: unknown[]): JsonRecord {
 }
 
 function summarizeBrowserTaskValue(value: unknown): unknown {
+  const normalized = normalizeBrowserTaskValue(value);
+
+  if (normalized !== value) {
+    return summarizeBrowserTaskValue(normalized);
+  }
+
   if (Array.isArray(value)) {
     if (value.length <= MAX_BROWSER_TASK_SAMPLE_ROWS) {
       return value.map(summarizeBrowserTaskValue);
@@ -109,25 +157,37 @@ function summarizeBrowserTaskValue(value: unknown): unknown {
 }
 
 function buildCondensedFinalMessage(result: JsonRecord): string | null {
-  const rawMessage = typeof result.finalMessage === "string" ? result.finalMessage.trim() : "";
+  const rawMessageValue =
+    typeof result.finalMessage === "string"
+      ? parseJsonLikeString(result.finalMessage)
+      : result.finalMessage;
+  const rawMessage = typeof rawMessageValue === "string" ? rawMessageValue.trim() : "";
+  const rawMessageRecord = isRecord(rawMessageValue) ? rawMessageValue : null;
   const data = isRecord(result.data) ? result.data : null;
+  const mergedData = data ?? rawMessageRecord;
   const totalRows =
-    data && typeof data.totalRows === "number"
-      ? data.totalRows
-      : data && typeof data.total_accessible_east_baton_rouge_for_sale_or_salelease_listings === "number"
-        ? data.total_accessible_east_baton_rouge_for_sale_or_salelease_listings
+    mergedData && typeof mergedData.totalRows === "number"
+      ? mergedData.totalRows
+      : mergedData && typeof mergedData.total_records === "number"
+        ? mergedData.total_records
+        : mergedData && typeof mergedData.total_accessible_east_baton_rouge_for_sale_or_salelease_listings === "number"
+          ? mergedData.total_accessible_east_baton_rouge_for_sale_or_salelease_listings
         : undefined;
   const sourceUrl =
-    data && typeof data.confirmed_api === "string"
-      ? data.confirmed_api
+    mergedData && typeof mergedData.confirmed_api === "string"
+      ? mergedData.confirmed_api
+      : mergedData && isRecord(mergedData.verified_source) && typeof mergedData.verified_source.api_url === "string"
+        ? mergedData.verified_source.api_url
       : isRecord(result.source) && typeof result.source.url === "string"
         ? result.source.url
         : undefined;
 
   const hasLargeStructuredPayload =
-    data &&
-    ((typeof data.totalRows === "number" && data.totalRows > MAX_BROWSER_TASK_SAMPLE_ROWS) ||
-      (Array.isArray(data.sampleRows) && typeof data.omittedRows === "number" && data.omittedRows > 0));
+    mergedData &&
+    ((typeof mergedData.totalRows === "number" && mergedData.totalRows > MAX_BROWSER_TASK_SAMPLE_ROWS) ||
+      (typeof mergedData.total_records === "number" && mergedData.total_records > MAX_BROWSER_TASK_SAMPLE_ROWS) ||
+      (Array.isArray(mergedData.sampleRows) && typeof mergedData.omittedRows === "number" && mergedData.omittedRows > 0) ||
+      (Array.isArray(mergedData.records) && mergedData.records.length > MAX_BROWSER_TASK_SAMPLE_ROWS));
 
   const shouldCondense =
     rawMessage.length > MAX_BROWSER_TASK_INLINE_MESSAGE_LENGTH ||
@@ -156,10 +216,20 @@ function buildCondensedFinalMessage(result: JsonRecord): string | null {
 }
 
 function sanitizeSuccessfulBrowserTaskResult(result: JsonRecord): JsonRecord {
+  const normalized = normalizeBrowserTaskValue(result);
+  const normalizedResult = isRecord(normalized) ? normalized : result;
   const sanitized: JsonRecord = {
-    ...result,
-    data: summarizeBrowserTaskValue(result.data),
+    ...normalizedResult,
+    data: summarizeBrowserTaskValue(normalizedResult.data),
   };
+
+  if (!sanitized.data && isRecord(normalizedResult.finalMessage)) {
+    sanitized.data = summarizeBrowserTaskValue(normalizedResult.finalMessage);
+  }
+
+  if (typeof normalizedResult.finalMessage === "string") {
+    sanitized.finalMessage = normalizedResult.finalMessage;
+  }
 
   const condensedFinalMessage = buildCondensedFinalMessage(sanitized);
   if (condensedFinalMessage) {
@@ -294,7 +364,12 @@ export const browser_task = tool({
       const result = await pollForResult(activeCuaUrl, taskId, apiKey, cfHeaders, pollTimeout);
 
       if (result.success) {
-        const sanitized = sanitizeSuccessfulBrowserTaskResult(result as JsonRecord);
+        let sanitized: JsonRecord;
+        try {
+          sanitized = sanitizeSuccessfulBrowserTaskResult(result as JsonRecord);
+        } catch {
+          sanitized = result as JsonRecord;
+        }
         return {
           success: true,
           data: sanitized.data,

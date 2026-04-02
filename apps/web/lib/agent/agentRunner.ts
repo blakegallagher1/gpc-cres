@@ -149,6 +149,12 @@ type PersistableAssistantTrust =
   | AgentTrustEnvelope
   | PersistedAgentSummary["trust"];
 
+function extractPhaseFromFinalReport(finalReport: Record<string, unknown> | null): string | null {
+  if (!finalReport) return null;
+  const phase = finalReport.phase;
+  return typeof phase === "string" && phase.trim().length > 0 ? phase.trim() : null;
+}
+
 function toStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.filter((item) => typeof item === "string");
@@ -1175,7 +1181,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
                 workflowResult.runId,
                 workflowResult.openaiResponseId,
                 mapTemporalTrustForEvents(workflowResult.trust),
-                undefined, // TODO: Extract phase from SDK response when @openai/agents exposes it
+                extractPhaseFromFinalReport(workflowResult.finalReport),
               ),
             },
           ]);
@@ -1189,7 +1195,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
                 workflowResult.runId,
                 workflowResult.openaiResponseId,
                 mapTemporalTrustForEvents(workflowResult.trust),
-                undefined, // TODO: Extract phase from SDK response when @openai/agents exposes it
+                extractPhaseFromFinalReport(workflowResult.finalReport),
               ),
             },
           });
@@ -1342,7 +1348,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
               result.runId,
               result.openaiResponseId,
               result.trust,
-              undefined, // TODO: Extract phase from SDK response when @openai/agents exposes it
+              extractPhaseFromFinalReport(result.finalReport),
             ),
           },
         ]);
@@ -1356,7 +1362,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
               result.runId,
               result.openaiResponseId,
               result.trust,
-              undefined, // TODO: Extract phase from SDK response when @openai/agents exposes it
+              extractPhaseFromFinalReport(result.finalReport),
             ),
           },
         });
@@ -1425,7 +1431,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
             result.runId,
             result.openaiResponseId,
             result.trust,
-            undefined, // TODO: Extract phase from SDK response when @openai/agents exposes it
+            extractPhaseFromFinalReport(result.finalReport),
           ),
         },
       ]);
@@ -1439,7 +1445,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
             result.runId,
             result.openaiResponseId,
             result.trust,
-            undefined, // TODO: Extract phase from SDK response when @openai/agents exposes it
+            extractPhaseFromFinalReport(result.finalReport),
           ),
         },
       });

@@ -458,6 +458,64 @@ function parseConfidenceFromOutput(value: unknown): number | null {
   return null;
 }
 
+function isJsonLikeString(value: string): boolean {
+  const trimmed = value.trim();
+  return (
+    (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
+    (trimmed.startsWith("[") && trimmed.endsWith("]"))
+  );
+}
+
+function normalizeJsonLikeValue(value: unknown): unknown {
+  if (typeof value === "string") {
+    if (!isJsonLikeString(value)) {
+      return value;
+    }
+    return safeParseJson(value) ?? value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(normalizeJsonLikeValue);
+  }
+
+  if (!isRecord(value)) {
+    return value;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).map(([key, entry]) => [key, normalizeJsonLikeValue(entry)]),
+  );
+}
+
+function normalizeBrowserTaskOutput(value: unknown): unknown {
+  const normalized = normalizeJsonLikeValue(value);
+  if (!isRecord(normalized)) {
+    return normalized;
+  }
+
+  const data =
+    isRecord(normalized.data)
+      ? normalized.data
+      : isRecord(normalized.finalMessage)
+        ? normalized.finalMessage
+        : null;
+
+  if (!data) {
+    return normalized;
+  }
+
+  return {
+    ...normalized,
+    data,
+    finalMessage:
+      typeof normalized.finalMessage === "string"
+        ? normalized.finalMessage
+        : typeof normalized.data === "string"
+          ? normalized.data
+          : normalized.finalMessage,
+  };
+}
+
 function toolErrorIsNonCritical(message: string): boolean {
   return message.startsWith("final_report:");
 }
@@ -844,10 +902,10 @@ function collectToolOutputSignals(
   state: ToolEventState,
   args?: Record<string, unknown>,
 ) {
-  let parsed: unknown = output;
-  if (typeof output === "string") {
-    parsed = safeParseJson(output) ?? output;
-  }
+  let parsed: unknown =
+    toolName === "browser_task"
+      ? normalizeBrowserTaskOutput(output)
+      : normalizeJsonLikeValue(output);
   if (!isRecord(parsed)) return;
 
   const asRecord = parsed as Record<string, unknown>;
@@ -1793,7 +1851,11 @@ export async function executeAgentWorkflow(
             }
 
             if (output !== null) {
-              const trimmedOutput = maybeTrimToolOutput(output);
+              const normalizedOutput =
+                toolName === "browser_task"
+                  ? normalizeBrowserTaskOutput(output)
+                  : output;
+              const trimmedOutput = maybeTrimToolOutput(normalizedOutput);
               if (toolName === "browser_task" && isRecord(trimmedOutput.value)) {
                 logger.debug("Agent browser_task tool output shape", {
                   runId: dbRun.id,
@@ -1814,10 +1876,10 @@ export async function executeAgentWorkflow(
                 status: "completed",
                 toolCallId,
               });
-              collectToolOutputSignals(toolName, output, state, args);
+              collectToolOutputSignals(toolName, normalizedOutput, state, args);
               emitMapActionsFromToolResult(emit, {
                 toolName,
-                result: output,
+                result: normalizedOutput,
                 toolCallId,
               });
               await persistCheckpoint({
