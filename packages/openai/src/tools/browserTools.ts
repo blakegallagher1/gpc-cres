@@ -6,7 +6,6 @@ type CuaModelPreference = "gpt-5.4" | "gpt-5.4-mini";
 const DEFAULT_CUA_WORKER_URL = "https://cua.gallagherpropco.com";
 const CUA_GATEWAY_FALLBACK_URL = "https://gateway.gallagherpropco.com";
 const MAX_BROWSER_TASK_SAMPLE_ROWS = 5;
-const MAX_BROWSER_TASK_INLINE_MESSAGE_LENGTH = 2_000;
 
 type JsonRecord = Record<string, unknown>;
 
@@ -156,95 +155,166 @@ function summarizeBrowserTaskValue(value: unknown): unknown {
   return summarized;
 }
 
-function buildCondensedFinalMessage(result: JsonRecord): string | null {
+function readNumberField(record: JsonRecord | null, keys: string[]): number | undefined {
+  if (!record) return undefined;
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
+  }
+  return undefined;
+}
+
+function readStringField(record: JsonRecord | null, keys: string[]): string | undefined {
+  if (!record) return undefined;
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value;
+    }
+  }
+  return undefined;
+}
+
+function pickBrowserTaskRows(data: JsonRecord | null): unknown[] {
+  if (!data) return [];
+  const candidates = [
+    data.sampleRows,
+    data.sample_rows,
+    data.records,
+    data.listings,
+    data.rows,
+    data.data,
+  ];
+
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) {
+      return candidate;
+    }
+  }
+
+  return [];
+}
+
+function hasStructuredBrowserPayload(data: JsonRecord | null): boolean {
+  if (!data) return false;
+  return [
+    "confirmed_api",
+    "api_url",
+    "verified_source",
+    "verified_page_url",
+    "embedded_app_url",
+    "total_count",
+    "total_records",
+    "totalRows",
+    "records",
+    "listings",
+    "sampleRows",
+    "sample_rows",
+    "api_verified",
+  ].some((key) => key in data);
+}
+
+function buildBrowserTaskDataContract(result: JsonRecord): JsonRecord | null {
   const rawMessageValue =
     typeof result.finalMessage === "string"
       ? parseJsonLikeString(result.finalMessage)
       : result.finalMessage;
-  const rawMessage = typeof rawMessageValue === "string" ? rawMessageValue.trim() : "";
   const rawMessageRecord = isRecord(rawMessageValue) ? rawMessageValue : null;
   const data = isRecord(result.data) ? result.data : null;
   const mergedData = data ?? rawMessageRecord;
-  const totalRows =
-    mergedData && typeof mergedData.totalRows === "number"
-      ? mergedData.totalRows
-      : mergedData && typeof mergedData.total_records === "number"
-        ? mergedData.total_records
-        : mergedData && typeof mergedData.total_accessible_east_baton_rouge_for_sale_or_salelease_listings === "number"
-          ? mergedData.total_accessible_east_baton_rouge_for_sale_or_salelease_listings
-        : undefined;
-  const sourceUrl =
-    mergedData && typeof mergedData.confirmed_api === "string"
-      ? mergedData.confirmed_api
-      : mergedData && isRecord(mergedData.verified_source) && typeof mergedData.verified_source.api_url === "string"
-        ? mergedData.verified_source.api_url
-      : isRecord(result.source) && typeof result.source.url === "string"
-        ? result.source.url
-        : undefined;
-
-  const hasLargeStructuredPayload =
-    mergedData &&
-    ((typeof mergedData.totalRows === "number" && mergedData.totalRows > MAX_BROWSER_TASK_SAMPLE_ROWS) ||
-      (typeof mergedData.total_records === "number" && mergedData.total_records > MAX_BROWSER_TASK_SAMPLE_ROWS) ||
-      (Array.isArray(mergedData.sampleRows) && typeof mergedData.omittedRows === "number" && mergedData.omittedRows > 0) ||
-      (Array.isArray(mergedData.records) && mergedData.records.length > MAX_BROWSER_TASK_SAMPLE_ROWS));
-
-  const shouldCondense =
-    rawMessage.length > MAX_BROWSER_TASK_INLINE_MESSAGE_LENGTH ||
-    Boolean(hasLargeStructuredPayload);
-
-  if (!shouldCondense) {
-    return rawMessage || null;
-  }
-
-  if (!rawMessage && !sourceUrl && typeof totalRows !== "number") {
+  if (!hasStructuredBrowserPayload(mergedData)) {
     return null;
   }
+  const source = isRecord(result.source) ? result.source : null;
+  const totalCount = readNumberField(mergedData, [
+    "totalCount",
+    "total_count",
+    "totalRows",
+    "total_records",
+    "sample_count",
+    "total_accessible_east_baton_rouge_for_sale_or_salelease_listings",
+  ]);
+  const rows = pickBrowserTaskRows(mergedData);
+  const sampleRows = rows.slice(0, MAX_BROWSER_TASK_SAMPLE_ROWS).map(summarizeBrowserTaskValue);
+  const omittedRows = Math.max(
+    (typeof totalCount === "number" ? totalCount : rows.length) - sampleRows.length,
+    0,
+  );
+  const apiUrl =
+    readStringField(mergedData, ["confirmed_api", "api_url"]) ??
+    (isRecord(mergedData?.verified_source)
+      ? readStringField(mergedData.verified_source as JsonRecord, ["api_url"])
+      : undefined) ??
+    readStringField(source, ["url"]);
+  const pageUrl =
+    readStringField(mergedData, ["verified_page_url", "page_url"]) ??
+    readStringField(source, ["url"]);
+  const embeddedAppUrl = readStringField(mergedData, [
+    "embedded_app_url",
+    "app_url",
+  ]);
+  const blocker = readStringField(mergedData, ["blocker"]);
+  const status = readStringField(mergedData, ["status"]) ?? "ok";
+  const apiVerified =
+    mergedData?.api_verified === true ||
+    Boolean(apiUrl && readStringField(mergedData, ["verified_page_url", "embedded_app_url"]));
 
-  const lines = ["Browser task completed."];
-  if (typeof totalRows === "number") {
-    lines.push(`Matched ${totalRows} records.`);
+  const summaryParts = ["Browser task completed."];
+  if (typeof totalCount === "number") {
+    summaryParts.push(`Matched ${totalCount} records.`);
   }
-  if (sourceUrl) {
-    lines.push(`Verified source: ${sourceUrl}`);
+  if (apiUrl) {
+    summaryParts.push(`Verified source: ${apiUrl}`);
+  } else if (pageUrl) {
+    summaryParts.push(`Verified page: ${pageUrl}`);
   }
-  const trimmedRawMessage = rawMessage.slice(0, MAX_BROWSER_TASK_INLINE_MESSAGE_LENGTH).trim();
-  if (trimmedRawMessage.length > 0 && trimmedRawMessage.length <= 600) {
-    lines.push(trimmedRawMessage);
+  if (sampleRows.length > 0) {
+    summaryParts.push(`Returned ${sampleRows.length} sample rows.`);
   }
-  return lines.join(" ");
+  if (blocker) {
+    summaryParts.push(`Blocker: ${blocker}`);
+  }
+
+  return {
+    status,
+    summary: summaryParts.join(" "),
+    totalCount,
+    sampleRows,
+    omittedRows,
+    apiVerified,
+    blocker: blocker ?? null,
+    source: {
+      pageUrl,
+      embeddedAppUrl,
+      apiUrl,
+      fetchedAt: readStringField(source, ["fetchedAt"]),
+    },
+  };
 }
 
 function sanitizeSuccessfulBrowserTaskResult(result: JsonRecord): JsonRecord {
   const normalized = normalizeBrowserTaskValue(result);
   const normalizedResult = isRecord(normalized) ? normalized : result;
-  const sanitized: JsonRecord = {
+  const compactData = buildBrowserTaskDataContract(normalizedResult);
+
+  if (!compactData) {
+    return {
+      ...normalizedResult,
+      data: summarizeBrowserTaskValue(normalizedResult.data),
+      finalMessage:
+        typeof normalizedResult.finalMessage === "string"
+          ? normalizedResult.finalMessage
+          : normalizedResult.finalMessage,
+    };
+  }
+
+  return {
     ...normalizedResult,
-    data: summarizeBrowserTaskValue(normalizedResult.data),
+    data: compactData,
+    finalMessage: compactData.summary,
   };
-
-  if (!sanitized.data && isRecord(normalizedResult.finalMessage)) {
-    sanitized.data = summarizeBrowserTaskValue(normalizedResult.finalMessage);
-  }
-
-  if (typeof normalizedResult.finalMessage === "string") {
-    sanitized.finalMessage = normalizedResult.finalMessage;
-  }
-
-  const condensedFinalMessage = buildCondensedFinalMessage(sanitized);
-  if (condensedFinalMessage) {
-    sanitized.finalMessage = condensedFinalMessage;
-  }
-
-  if (isRecord(sanitized.data)) {
-    const data = sanitized.data as JsonRecord;
-    const sampleRows = Array.isArray(data.sampleRows) ? data.sampleRows : undefined;
-    if (sampleRows && typeof sanitized.finalMessage === "string") {
-      sanitized.finalMessage += ` Sample rows returned: ${sampleRows.length}.`;
-    }
-  }
-
-  return sanitized;
 }
 
 /**

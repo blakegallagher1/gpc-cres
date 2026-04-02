@@ -50,6 +50,52 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+function readStringField(
+  record: Record<string, unknown> | null,
+  keys: string[],
+): string | null {
+  if (!record) return null;
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value;
+    }
+  }
+  return null;
+}
+
+function readNumberField(
+  record: Record<string, unknown> | null,
+  keys: string[],
+): number | null {
+  if (!record) return null;
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
+  }
+  return null;
+}
+
+function pickTerminalDataRows(record: Record<string, unknown> | null): unknown[] {
+  if (!record) return [];
+  const candidates = [
+    record.sampleRows,
+    record.sample_rows,
+    record.records,
+    record.listings,
+    record.rows,
+    record.data,
+  ];
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) {
+      return candidate;
+    }
+  }
+  return [];
+}
+
 function extractTerminalDataLaneResult(execSummaries: string[]): {
   finalMessage: string;
   data: Record<string, unknown>;
@@ -62,32 +108,66 @@ function extractTerminalDataLaneResult(execSummaries: string[]): {
       continue;
     }
 
+    const verifiedSource = isRecord(parsed.verified_source)
+      ? (parsed.verified_source as Record<string, unknown>)
+      : null;
     const sourceUrl =
-      typeof parsed.confirmed_api === "string"
-        ? parsed.confirmed_api
-        : isRecord(parsed.verified_source) &&
-            typeof parsed.verified_source.api_url === "string"
-          ? parsed.verified_source.api_url
-          : null;
-
+      readStringField(parsed, ["confirmed_api", "api_url"]) ??
+      readStringField(verifiedSource, ["api_url"]) ??
+      null;
+    const pageUrl =
+      readStringField(parsed, ["verified_page_url", "page_url"]) ??
+      readStringField(verifiedSource, ["page_url"]) ??
+      null;
+    const embeddedAppUrl =
+      readStringField(parsed, ["embedded_app_url", "app_url"]) ??
+      readStringField(verifiedSource, ["app_url"]) ??
+      null;
     const totalRecords =
-      typeof parsed.total_records === "number"
-        ? parsed.total_records
-        : typeof parsed.totalRows === "number"
-          ? parsed.totalRows
-          : null;
+      readNumberField(parsed, ["total_count", "total_records", "totalRows"]) ??
+      null;
+    const rows = pickTerminalDataRows(parsed);
+    const sampleRows = rows.slice(0, 5);
+    const omittedRows = Math.max(
+      (typeof totalRecords === "number" ? totalRecords : rows.length) - sampleRows.length,
+      0,
+    );
+    const blocker = readStringField(parsed, ["blocker"]);
 
-    const lines = ["Verified direct data lane discovered."];
-    if (sourceUrl) {
-      lines.push(`Source: ${sourceUrl}`);
-    }
+    const lines = ["Browser task completed."];
     if (typeof totalRecords === "number") {
-      lines.push(`Total records: ${totalRecords}`);
+      lines.push(`Matched ${totalRecords} records.`);
     }
+    if (sourceUrl) {
+      lines.push(`Verified source: ${sourceUrl}`);
+    } else if (pageUrl) {
+      lines.push(`Verified page: ${pageUrl}`);
+    }
+    if (sampleRows.length > 0) {
+      lines.push(`Returned ${sampleRows.length} sample rows.`);
+    }
+    if (blocker) {
+      lines.push(`Blocker: ${blocker}`);
+    }
+
+    const compactData: Record<string, unknown> = {
+      status: readStringField(parsed, ["status"]) ?? "ok",
+      summary: lines.join(" "),
+      totalCount: totalRecords,
+      sampleRows,
+      omittedRows,
+      apiVerified: true,
+      blocker: blocker ?? null,
+      source: {
+        pageUrl,
+        embeddedAppUrl,
+        apiUrl: sourceUrl,
+      },
+    };
 
     return {
       finalMessage: lines.join(" "),
-      data: parsed,
+      data: compactData,
       sourceUrl,
     };
   }
@@ -936,7 +1016,7 @@ export async function runNativeComputerLoop(options: {
     });
 
     const terminalDataLaneResult =
-      directDataLaneDetected && computerCalls.length === 0 && turnHadSuccessfulExec
+      directDataLaneDetected && turnHadSuccessfulExec
         ? extractTerminalDataLaneResult(execSummaries)
         : null;
 

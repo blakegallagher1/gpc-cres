@@ -1055,6 +1055,13 @@ function finalizeMissingEvidence(state: ToolEventState): string[] {
   return [...state.missingEvidence];
 }
 
+function hasVerifiedBrowserTaskSuccess(state: ToolEventState): boolean {
+  return (
+    state.browserTaskSuccessCount > 0 &&
+    state.browserTaskVerifiedDataLaneCount > 0
+  );
+}
+
 function buildRuntimeClockContextMessage(now = new Date()): string {
   const utcIso = now.toISOString();
   const batonRougeDate = new Intl.DateTimeFormat("en-CA", {
@@ -1997,6 +2004,7 @@ export async function executeAgentWorkflow(
       let enforcementAttempted = false;
       while (
         requireStoreMemory &&
+        !hasVerifiedBrowserTaskSuccess(state) &&
         !state.toolsInvoked.has("store_memory") &&
         enforcementAttempt < MEMORY_ENFORCEMENT_MAX_RETRIES
       ) {
@@ -2041,6 +2049,7 @@ export async function executeAgentWorkflow(
       let lookupEnforcementAttempted = false;
       while (
         requireAddressMemoryLookup &&
+        !hasVerifiedBrowserTaskSuccess(state) &&
         !hasAddressMemoryLookup(state) &&
         lookupEnforcementAttempt < MEMORY_ENFORCEMENT_MAX_RETRIES
       ) {
@@ -2353,6 +2362,7 @@ export async function executeAgentWorkflow(
     }
 
     const skipProofEnforcement =
+      hasVerifiedBrowserTaskSuccess(state) ||
       (memoryIngestionOnly && state.toolsInvoked.has("store_memory")) ||
       (knowledgeIngestionOnly && state.toolsInvoked.has("store_knowledge_entry"));
     const proofGroups = getProofGroupsForIntent(queryIntent);
