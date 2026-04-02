@@ -5,6 +5,10 @@ type CuaModelPreference = "gpt-5.4" | "gpt-5.4-mini";
 
 const DEFAULT_CUA_WORKER_URL = "https://cua.gallagherpropco.com";
 const CUA_GATEWAY_FALLBACK_URL = "https://gateway.gallagherpropco.com";
+const MAX_BROWSER_TASK_SAMPLE_ROWS = 5;
+const MAX_BROWSER_TASK_INLINE_MESSAGE_LENGTH = 2_000;
+
+type JsonRecord = Record<string, unknown>;
 
 function buildBrowserTaskFailureResult(options: {
   url: string;
@@ -64,6 +68,113 @@ function getCuaCandidateUrls(primaryUrl: string): string[] {
     return [primaryUrl];
   }
   return [DEFAULT_CUA_WORKER_URL, CUA_GATEWAY_FALLBACK_URL];
+}
+
+function isRecord(value: unknown): value is JsonRecord {
+  return typeof value === "object" && value !== null;
+}
+
+function summarizeLargeArray(value: unknown[]): JsonRecord {
+  const sample = value.slice(0, MAX_BROWSER_TASK_SAMPLE_ROWS).map(summarizeBrowserTaskValue);
+  return {
+    totalRows: value.length,
+    sampleRows: sample,
+    omittedRows: Math.max(value.length - sample.length, 0),
+    truncated: value.length > sample.length,
+  };
+}
+
+function summarizeBrowserTaskValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    if (value.length <= MAX_BROWSER_TASK_SAMPLE_ROWS) {
+      return value.map(summarizeBrowserTaskValue);
+    }
+    return summarizeLargeArray(value);
+  }
+
+  if (!isRecord(value)) {
+    return value;
+  }
+
+  const summarized: JsonRecord = {};
+  for (const [key, entry] of Object.entries(value)) {
+    if (Array.isArray(entry) && key === "data" && entry.length > MAX_BROWSER_TASK_SAMPLE_ROWS) {
+      summarized[key] = summarizeLargeArray(entry);
+      continue;
+    }
+
+    summarized[key] = summarizeBrowserTaskValue(entry);
+  }
+  return summarized;
+}
+
+function buildCondensedFinalMessage(result: JsonRecord): string | null {
+  const rawMessage = typeof result.finalMessage === "string" ? result.finalMessage.trim() : "";
+  const data = isRecord(result.data) ? result.data : null;
+  const totalRows =
+    data && typeof data.totalRows === "number"
+      ? data.totalRows
+      : data && typeof data.total_accessible_east_baton_rouge_for_sale_or_salelease_listings === "number"
+        ? data.total_accessible_east_baton_rouge_for_sale_or_salelease_listings
+        : undefined;
+  const sourceUrl =
+    data && typeof data.confirmed_api === "string"
+      ? data.confirmed_api
+      : isRecord(result.source) && typeof result.source.url === "string"
+        ? result.source.url
+        : undefined;
+
+  const hasLargeStructuredPayload =
+    data &&
+    ((typeof data.totalRows === "number" && data.totalRows > MAX_BROWSER_TASK_SAMPLE_ROWS) ||
+      (Array.isArray(data.sampleRows) && typeof data.omittedRows === "number" && data.omittedRows > 0));
+
+  const shouldCondense =
+    rawMessage.length > MAX_BROWSER_TASK_INLINE_MESSAGE_LENGTH ||
+    Boolean(hasLargeStructuredPayload);
+
+  if (!shouldCondense) {
+    return rawMessage || null;
+  }
+
+  if (!rawMessage && !sourceUrl && typeof totalRows !== "number") {
+    return null;
+  }
+
+  const lines = ["Browser task completed."];
+  if (typeof totalRows === "number") {
+    lines.push(`Matched ${totalRows} records.`);
+  }
+  if (sourceUrl) {
+    lines.push(`Verified source: ${sourceUrl}`);
+  }
+  const trimmedRawMessage = rawMessage.slice(0, MAX_BROWSER_TASK_INLINE_MESSAGE_LENGTH).trim();
+  if (trimmedRawMessage.length > 0 && trimmedRawMessage.length <= 600) {
+    lines.push(trimmedRawMessage);
+  }
+  return lines.join(" ");
+}
+
+function sanitizeSuccessfulBrowserTaskResult(result: JsonRecord): JsonRecord {
+  const sanitized: JsonRecord = {
+    ...result,
+    data: summarizeBrowserTaskValue(result.data),
+  };
+
+  const condensedFinalMessage = buildCondensedFinalMessage(sanitized);
+  if (condensedFinalMessage) {
+    sanitized.finalMessage = condensedFinalMessage;
+  }
+
+  if (isRecord(sanitized.data)) {
+    const data = sanitized.data as JsonRecord;
+    const sampleRows = Array.isArray(data.sampleRows) ? data.sampleRows : undefined;
+    if (sampleRows && typeof sanitized.finalMessage === "string") {
+      sanitized.finalMessage += ` Sample rows returned: ${sampleRows.length}.`;
+    }
+  }
+
+  return sanitized;
 }
 
 /**
@@ -183,15 +294,16 @@ export const browser_task = tool({
       const result = await pollForResult(activeCuaUrl, taskId, apiKey, cfHeaders, pollTimeout);
 
       if (result.success) {
+        const sanitized = sanitizeSuccessfulBrowserTaskResult(result as JsonRecord);
         return {
           success: true,
-          data: result.data,
-          source: result.source,
-          screenshots: result.screenshots,
-          turns: result.turns,
-          cost: result.cost,
-          modeUsed: result.modeUsed,
-          finalMessage: result.finalMessage,
+          data: sanitized.data,
+          source: sanitized.source,
+          screenshots: sanitized.screenshots,
+          turns: sanitized.turns,
+          cost: sanitized.cost,
+          modeUsed: sanitized.modeUsed,
+          finalMessage: sanitized.finalMessage,
           _hint: "Data extracted successfully. Ask the user if they want to save this to the knowledge base using store_knowledge_entry.",
         };
       } else {

@@ -486,6 +486,30 @@ function outputSignalsVerifiedDataLane(value: unknown): boolean {
   );
 }
 
+function normalizeMissingEvidenceForBrowserRun(
+  state: ToolEventState,
+  missingEvidence: string[],
+): string[] {
+  if (state.browserTaskVerifiedDataLaneCount === 0) {
+    return missingEvidence;
+  }
+
+  const criticalToolErrors = state.toolErrorMessages.filter(
+    (message) => !toolErrorIsNonCritical(message),
+  );
+
+  if (criticalToolErrors.length > 0) {
+    return missingEvidence;
+  }
+
+  return missingEvidence.filter(
+    (item) =>
+      item !== "Final agent report did not parse as JSON." &&
+      item !== "Final agent report failed schema validation." &&
+      item !== "Tool outputs did not include evidence snapshots/citations.",
+  );
+}
+
 function deriveFallbackConfidence(options: {
   status: AgentExecutionResult["status"];
   confidenceCandidate: number | null;
@@ -2300,7 +2324,10 @@ export async function executeAgentWorkflow(
       errorMessage ??= proofMessage;
       state.toolErrorMessages.push(`proof_enforcement: ${proofMessage}`);
     }
-    const missingEvidence = finalizeMissingEvidence(state);
+    const missingEvidence = normalizeMissingEvidenceForBrowserRun(
+      state,
+      finalizeMissingEvidence(state),
+    );
     const evidenceRetryPolicy = buildMissingEvidenceRetryPolicy(
       params,
       missingEvidence.length,
