@@ -1,6 +1,9 @@
 # Agent role: explorer
 # Purpose: Fast read-only codebase exploration
 
+name = "explorer"
+description = "Fast read-only codebase exploration — answers architecture questions, traces dependencies, finds patterns."
+
 model = "gpt-5.4"
 model_reasoning_effort = "high"
 sandbox_mode = "read-only"

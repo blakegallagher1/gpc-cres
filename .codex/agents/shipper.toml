@@ -1,3 +1,6 @@
+name = "shipper"
+description = "Commits, pushes, opens PRs, and verifies deployment for gallagher-cres."
+
 model = "gpt-5.4"
 model_reasoning_effort = "xhigh"
 sandbox_mode = "danger-full-access"

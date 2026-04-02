@@ -1,6 +1,9 @@
 # Agent role: reviewer
 # Purpose: Security, correctness, org-scoping, and test gap analysis
 
+name = "reviewer"
+description = "Security and correctness reviewer — checks org-scoping, auth, race conditions, and test gaps."
+
 model = "gpt-5.4"
 model_reasoning_effort = "xhigh"
 sandbox_mode = "read-only"

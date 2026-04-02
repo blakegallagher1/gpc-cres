@@ -1,6 +1,9 @@
 # Agent role: web-agent
 # Scope: apps/web/
 
+name = "web_agent"
+description = "Frontend and API route specialist for the Next.js App Router in apps/web/."
+
 model = "gpt-5.4"
 model_reasoning_effort = "high"
 sandbox_mode = "workspace-write"

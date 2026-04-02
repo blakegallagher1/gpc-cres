@@ -1,6 +1,9 @@
 # Agent role: db-agent
 # Scope: packages/db/, packages/shared/ (schema types only)
 
+name = "db_agent"
+description = "Database specialist for Prisma schema, migrations, and shared Zod types."
+
 model = "gpt-5.4"
 model_reasoning_effort = "high"
 sandbox_mode = "workspace-write"

@@ -1,6 +1,9 @@
 # Agent role: agent-agent
 # Scope: packages/openai/, packages/evidence/, packages/artifacts/
 
+name = "agent_agent"
+description = "AI agent specialist for packages/openai, packages/evidence, packages/artifacts — handles agent wiring, tool schemas, and AI output validation."
+
 model = "gpt-5.4"
 model_reasoning_effort = "high"
 sandbox_mode = "workspace-write"

@@ -50,6 +50,7 @@ test-results/
 .next-playwright-*/
 apps/web/.playwright/
 apps/web/tsconfig.playwright.*.json
+*.tsbuildinfo
 
 ############################
 # Python (legacy/)
