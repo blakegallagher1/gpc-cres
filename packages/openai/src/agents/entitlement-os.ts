@@ -610,23 +610,30 @@ For RECON:
    4. If the page requires clicking to reveal filters, use page.click() then re-inspect.
    Complete in 3-5 turns."
 
-For EXECUTE+EXTRACT:
-  "Use exec_js for everything:
-   1. await page.goto('{search_url_from_recon}');
-   2. await page.fill('{selector}', '{value}');  // for each filter
-   3. await page.click('{submit_selector}');
-   4. await page.waitForLoadState('networkidle');
-   5. Switch to data/table view if needed: await page.click('{data_tab_selector}');
-   6. Extract all visible rows: const rows = await page.$$eval('{row_selector}', ...);
-   7. Call output(JSON.stringify({count: rows.length, rows}));
-   If selectors from recon don't work, fall back to visual interaction to discover the correct ones.
-   Complete in 5-8 turns. timeoutSeconds: 300."
+For EXECUTE+EXTRACT — YOU MUST WRITE LITERAL CODE in the instructions:
+  "IMPORTANT: Use ONLY exec_js. Do NOT use the computer tool at all.
+   Run this code:
+   await page.goto('{direct_url_with_query_params}');
+   await page.waitForTimeout(5000);
+   const items = await page.$$eval('{listing_selector}', els =>
+     els.map(el => ({ text: el.textContent?.trim()?.substring(0, 300), href: el.href || '' }))
+   );
+   output(JSON.stringify({ count: items.length, items: items.slice(0, 100) }));
+   If 0 results, call screenshot() to debug, then try alternate selectors.
+   NEVER use waitForLoadState('networkidle') — SPAs hang. Use waitForTimeout().
+   NEVER fall back to visual interaction. timeoutSeconds: 300."
+
+  KEY: If RECON found a URL with query params (?types=sale&counties=X), goto it directly — skip form filling.
+  Prefer Cards view over Data view (simpler DOM). Write the LITERAL code, not descriptions.
 
 For PAGINATE:
-  "Repeat EXECUTE+EXTRACT but after step 5 also:
-   6. await page.click('{next_page_selector}');
-   7. await page.waitForLoadState('networkidle');
-   Then extract. One page per call."
+  "Use ONLY exec_js. Run this code:
+   await page.goto('{filtered_url}');
+   await page.waitForTimeout(5000);
+   for (let i = 0; i < N; i++) { await page.click('{load_more}'); await page.waitForTimeout(2000); }
+   const items = await page.$$eval('{selector}', els => els.map(...));
+   output(JSON.stringify({ count: items.length, items }));
+   timeoutSeconds: 300."
 
 b) REFLECT after each phase: Did it work? What selectors/URLs did I learn? Retry or proceed?
 c) On failure: retry with adjusted instructions (2 retries per phase, counted in 5-call budget).
