@@ -591,54 +591,54 @@ search_knowledge_base(query="browser playbook {domain}")
 If found with strategy/selectors → include in instructions for Step 3.
 If not found → proceed blind.
 
-**STEP 2 — PLAN (internal reasoning)**
-CRITICAL: Each browser_task call starts a FRESH browser. No shared state between calls.
+**STEP 2 — PLAN THE DYNAMIC LOOP (internal reasoning)**
+CRITICAL: Each browser_task call starts a FRESH browser, but the worker returns runtime feedback between turns. Use that feedback to re-plan instead of blindly repeating the same strategy.
 
-Default two-phase pattern:
-  Phase A: RECON — Navigate to site, use exec_js to inspect the DOM and discover selectors, forms, URLs. Output a map of the site structure.
-  Phase B: EXECUTE+EXTRACT — Navigate directly to the search URL found in recon, use exec_js for all form filling and data extraction.
+Your internal browser plan must track:
+  1. objective — exact success condition
+  2. current hypothesis — where the needed data/action likely lives
+  3. evidence learned so far — URLs, selectors, form fields, blockers, result counts
+  4. next best action — the single highest-value step
+  5. recovery path — what to try if the next step fails
 
-**STEP 3 — EXECUTE PHASES (max 5 browser_task calls)**
+Do NOT force every task into a fixed two-phase flow. Choose dynamically among:
+  - RECON — inspect the DOM, forms, navigation, query params, APIs, tabs
+  - ACT — navigate/fill/click/filter with code
+  - VERIFY — confirm the page changed as expected and the target state was reached
+  - EXTRACT — collect structured data
+  - PAGINATE — continue harvesting if useful
+  - RECOVER — switch selectors/URLs/strategy when stalled
 
-Your instructions to browser_task MUST tell the model to prefer exec_js. Template:
+**STEP 3 — EXECUTE THE LOOP (max 5 browser_task calls)**
 
-For RECON:
-  "Navigate to {url}. Use exec_js immediately:
-   1. await page.goto('{url}');
-   2. Use page.$$eval() to find all form fields, buttons, and links.
-   3. Call output() with JSON: {forms, selectors, navigation_links, search_url}.
-   4. If the page requires clicking to reveal filters, use page.click() then re-inspect.
-   Complete in 3-5 turns."
+Your browser_task instructions MUST require code-first behavior and explicit self-reflection.
 
-For EXECUTE+EXTRACT — YOU MUST WRITE LITERAL CODE in the instructions:
-  "IMPORTANT: Use ONLY exec_js. Do NOT use the computer tool at all.
-   Run this code:
-   await page.goto('{direct_url_with_query_params}');
-   await page.waitForTimeout(5000);
-   const items = await page.$$eval('{listing_selector}', els =>
-     els.map(el => ({ text: el.textContent?.trim()?.substring(0, 300), href: el.href || '' }))
-   );
-   output(JSON.stringify({ count: items.length, items: items.slice(0, 100) }));
-   If 0 results, call screenshot() to debug, then try alternate selectors.
-   NEVER use waitForLoadState('networkidle') — SPAs hang. Use waitForTimeout().
-   NEVER fall back to visual interaction. timeoutSeconds: 300."
+Base template:
+  "Primary objective: {goal}
+   Success condition: {what counts as done}
+   Current plan: {recon|act|verify|extract|paginate|recover}
+   IMPORTANT: Prefer exec_js first. Use the computer tool only if code cannot reliably discover or manipulate the page.
+   After each meaningful action, assess whether progress was made. If not, change strategy instead of repeating the same selector or click pattern.
+   NEVER use waitForLoadState('networkidle') on SPAs. Prefer waitForTimeout() plus DOM checks.
+   If blocked by login, CAPTCHA, consent, or a browser safety barrier, stop and output the blocker precisely."
 
-  KEY: If RECON found a URL with query params (?types=sale&counties=X), goto it directly — skip form filling.
-  Prefer Cards view over Data view (simpler DOM). Write the LITERAL code, not descriptions.
+For recon:
+  "Use exec_js immediately to inspect forms, links, query params, tabs, buttons, table/card selectors, and any obvious search/result containers.
+   Output JSON with: { url, forms, selectors, navigation_links, likely_search_paths, result_container_candidates, blocker }."
 
-For PAGINATE:
-  "Use ONLY exec_js. Run this code:
-   await page.goto('{filtered_url}');
-   await page.waitForTimeout(5000);
-   for (let i = 0; i < N; i++) { await page.click('{load_more}'); await page.waitForTimeout(2000); }
-   const items = await page.$$eval('{selector}', els => els.map(...));
-   output(JSON.stringify({ count: items.length, items }));
-   timeoutSeconds: 300."
+For act/extract:
+  "Write LITERAL exec_js code. Prefer page.goto(), page.fill(), page.click(), page.$$eval(), and small conditional loops.
+   If you discover a direct filtered URL or query-param path, navigate there directly instead of replaying UI steps.
+   Output JSON with: { status, learned, data, next_best_action, blocker }."
 
-b) REFLECT after each phase: Did it work? What selectors/URLs did I learn? Retry or proceed?
-c) On failure: retry with adjusted instructions (2 retries per phase, counted in 5-call budget).
+For recovery:
+  "First explain in one short line why the prior attempt likely failed.
+   Then use exec_js to try a materially different strategy: alternate selectors, alternate URL path, different tab/view, or a smaller probe script.
+   Do not repeat the exact same failing action sequence."
 
-**Budget checkpoint:** At 5 calls, present partial results and ask user to continue.
+You MUST write literal code when code is the best lane. Prefer Cards/list views over dense data grids when the DOM is simpler.
+
+**Budget checkpoint:** At 5 calls, present partial results, learned selectors/URLs, and the recommended continuation.
 
 **STEP 4 — ASSEMBLE RESULT** from all phases.
 

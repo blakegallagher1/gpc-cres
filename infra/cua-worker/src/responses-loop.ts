@@ -18,6 +18,77 @@ import type {
 
 const DEFAULT_INTER_ACTION_DELAY_MS = 120;
 const TOOL_EXECUTION_TIMEOUT_MS = 20_000;
+const MAX_PROGRESS_MEMO_CHARS = 1_200;
+
+type LoopProgressState = {
+  lastUrl: string | null;
+  consecutiveSameUrlTurns: number;
+  consecutiveExecErrors: number;
+  stalledTurns: number;
+};
+
+function truncateProgressText(text: string, maxChars = MAX_PROGRESS_MEMO_CHARS): string {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  if (normalized.length <= maxChars) {
+    return normalized;
+  }
+  return `${normalized.slice(0, maxChars - 1)}…`;
+}
+
+function buildLoopProgressMemo(options: {
+  turn: number;
+  currentUrl: string;
+  computerActionCount: number;
+  execSummaries: string[];
+  execErrors: string[];
+  progressState: LoopProgressState;
+}): string {
+  const {
+    turn,
+    currentUrl,
+    computerActionCount,
+    execSummaries,
+    execErrors,
+    progressState,
+  } = options;
+
+  const memoLines = [
+    `Runtime progress after turn ${turn}:`,
+    `- Current URL: ${currentUrl || "(blank)"}`,
+    `- Computer actions executed: ${computerActionCount}`,
+  ];
+
+  if (execSummaries.length > 0) {
+    memoLines.push(`- Latest exec_js signals: ${truncateProgressText(execSummaries.join(" | "))}`);
+  }
+
+  if (execErrors.length > 0) {
+    memoLines.push(`- Latest exec_js errors: ${truncateProgressText(execErrors.join(" | "))}`);
+  }
+
+  if (progressState.consecutiveSameUrlTurns >= 2) {
+    memoLines.push(
+      `- Stall signal: page URL has not changed for ${progressState.consecutiveSameUrlTurns} turns.`,
+    );
+  }
+
+  if (progressState.consecutiveExecErrors >= 2) {
+    memoLines.push(
+      `- Stall signal: exec_js has failed in ${progressState.consecutiveExecErrors} consecutive turns.`,
+    );
+  }
+
+  if (progressState.stalledTurns > 0) {
+    memoLines.push("- Required reflection: explicitly assess whether the last turn made progress.");
+    memoLines.push("- If progress was weak, change strategy instead of repeating the same selectors/actions.");
+    memoLines.push("- Prefer DOM inspection, URL inspection, and short code probes before more UI clicking.");
+  } else {
+    memoLines.push("- Required reflection: confirm what you learned and choose the single best next step.");
+  }
+
+  memoLines.push("- Stop and explain the blocker if the task is gated by login, CAPTCHA, consent, or a browser safety barrier.");
+  return memoLines.join("\n");
+}
 
 function getActionModifierKeys(action: ComputerAction): string[] {
   return Array.isArray(action.keys)
@@ -478,6 +549,12 @@ export async function runNativeComputerLoop(options: {
   let totalCachedTokens = 0;
   const screenshotPaths: string[] = [];
   let finalMessage = "";
+  const progressState: LoopProgressState = {
+    lastUrl: session.page.url(),
+    consecutiveSameUrlTurns: 0,
+    consecutiveExecErrors: 0,
+    stalledTurns: 0,
+  };
 
   // Persistent execution context for exec_js calls
   const execContext = createExecContext(session);
@@ -524,6 +601,10 @@ export async function runNativeComputerLoop(options: {
     }
 
     turn += 1;
+    const reasoningEffort =
+      progressState.stalledTurns > 0 || progressState.consecutiveExecErrors > 0
+        ? "medium"
+        : "low";
 
     // Call Responses API (GA format: input, not messages)
     let response: ResponsesApiResponse;
@@ -534,7 +615,7 @@ export async function runNativeComputerLoop(options: {
           instructions: systemInstructions,
           input: nextInput as any,
           tools: [{ type: "computer" } as any, EXEC_JS_TOOL as any],
-          reasoning: { effort: "low" },
+          reasoning: { effort: reasoningEffort },
           context_management: [{ type: "compaction", compact_threshold: 200_000 }],
           prompt_cache_key: "entitlement-os-cua-v1",
           prompt_cache_retention: "24h",
@@ -586,6 +667,10 @@ export async function runNativeComputerLoop(options: {
     }
 
     const toolOutputs: unknown[] = [];
+    const execSummaries: string[] = [];
+    const execErrors: string[] = [];
+    let computerActionCount = 0;
+    let turnHadSuccessfulExec = false;
 
     // Handle computer_call items (visual interaction)
     for (const computerCall of computerCalls) {
@@ -608,6 +693,7 @@ export async function runNativeComputerLoop(options: {
       for (const action of actions) {
         try {
           await executeComputerAction(session, action, signal);
+          computerActionCount += 1;
           onEvent({
             type: "action",
             turn,
@@ -682,6 +768,8 @@ export async function runNativeComputerLoop(options: {
 
       try {
         const result = await executeExecJs(execContext, code, signal);
+        turnHadSuccessfulExec = true;
+        execSummaries.push(result.text);
 
         // Save screenshot artifact if one was captured
         if (result.screenshotDataUrl) {
@@ -716,6 +804,7 @@ export async function runNativeComputerLoop(options: {
         });
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
+        execErrors.push(errorMsg);
         toolOutputs.push({
           type: "function_call_output",
           call_id: fnCall.call_id,
@@ -732,8 +821,44 @@ export async function runNativeComputerLoop(options: {
       }
     }
 
+    const currentUrl = session.page.url();
+    progressState.consecutiveSameUrlTurns =
+      currentUrl === progressState.lastUrl
+        ? progressState.consecutiveSameUrlTurns + 1
+        : 0;
+    progressState.lastUrl = currentUrl;
+    progressState.consecutiveExecErrors = execErrors.length > 0
+      ? progressState.consecutiveExecErrors + 1
+      : 0;
+    progressState.stalledTurns =
+      progressState.consecutiveSameUrlTurns >= 2 &&
+      !turnHadSuccessfulExec &&
+      (computerActionCount > 0 || execErrors.length > 0)
+        ? progressState.stalledTurns + 1
+        : 0;
+
+    const progressMemo = buildLoopProgressMemo({
+      turn,
+      currentUrl,
+      computerActionCount,
+      execSummaries,
+      execErrors,
+      progressState,
+    });
+
     // Send all tool outputs as input for next turn
-    nextInput = toolOutputs;
+    nextInput = [
+      ...toolOutputs,
+      {
+        role: "user",
+        content: [
+          {
+            type: "input_text",
+            text: progressMemo,
+          },
+        ],
+      },
+    ];
   }
 
   onEvent({
