@@ -16,6 +16,7 @@ import { getZoningFillColor } from "./config/zoningColors";
 import { useMapViewState } from "./hooks/useMapViewState";
 import { useOverlayState } from "./hooks/useOverlayState";
 import { ParcelBoundaryLayer } from "./layers/ParcelBoundaryLayer";
+import { ParcelExtrusionLayer } from "./layers/ParcelExtrusionLayer";
 import { ZoningTileLayer } from "./layers/ZoningTileLayer";
 import { FloodZoneLayer } from "./layers/FloodZoneLayer";
 import { SoilsLayer } from "./layers/SoilsLayer";
@@ -227,6 +228,7 @@ export function MapContainerV2({
         <SoilsLayer visible={overlays.showSoils} />
         <WetlandsLayer visible={overlays.showWetlands} />
         <EpaFacilitiesLayer visible={overlays.showEpa} />
+        <ParcelExtrusionLayer visible={overlays.show3DExtrusions} />
         <ParcelPointLayer
           parcels={parcels}
           visible={hasParcels}

@@ -14,6 +14,7 @@ interface OverlayState {
   showRecentSales: boolean;
   showNewPermits: boolean;
   showZoningChanges: boolean;
+  show3DExtrusions: boolean;
 }
 
 const STORAGE_KEY = "map-overlay-prefs-v2";
@@ -40,6 +41,7 @@ const DEFAULTS: OverlayState = {
   showRecentSales: false,
   showNewPermits: false,
   showZoningChanges: false,
+  show3DExtrusions: false,
 };
 
 export function useOverlayState() {

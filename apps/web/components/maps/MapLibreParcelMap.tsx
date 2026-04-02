@@ -57,6 +57,7 @@ import { useStableOptions } from "@/lib/hooks/useStableOptions";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { cn } from "@/lib/utils";
 import { ParcelComparisonSheet } from "./ParcelComparisonSheet";
+import { SplitMapCompare } from "./SplitMapCompare";
 import { MapTour } from "./MapTour";
 import {
   HEATMAP_PRESET_MAP,
@@ -651,12 +652,14 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
   const [showHeatmap, setShowHeatmap] = useState(false);
   const [activeHeatmapPreset, setActiveHeatmapPreset] = useState<HeatmapPresetKey>("sale_activity");
   const [showIsochrone, setShowIsochrone] = useState(false);
+  const [show3DExtrusions, setShow3DExtrusions] = useState(false);
   const [measureMode, setMeasureMode] = useState<"off" | "distance" | "area">("off");
   const [lastDrawnMeasureLabel, setLastDrawnMeasureLabel] = useState<string | null>(null);
   const [layerPanelOpen, setLayerPanelOpen] = useState(false);
   const [internalSelectedParcelIds, setInternalSelectedParcelIds] = useState<Set<string>>(new Set());
   const [imperativeHighlightIds, setImperativeHighlightIds] = useState<Set<string>>(new Set());
   const [compareOpen, setCompareOpen] = useState(false);
+  const [splitMapOpen, setSplitMapOpen] = useState(false);
   const selectedParcelIds = selectedParcelIdsProp ?? internalSelectedParcelIds;
   const selectedParcelIdsRef = useRef<Set<string>>(selectedParcelIds);
   const onSelectionChangeRef = useRef(onSelectionChange);
@@ -2390,6 +2393,8 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
           setShowNewPermits={setShowNewPermits}
           showZoningChanges={showZoningChanges}
           setShowZoningChanges={setShowZoningChanges}
+          show3DExtrusions={show3DExtrusions}
+          setShow3DExtrusions={setShow3DExtrusions}
           showTools={showTools}
           showComps={showComps}
           setShowComps={setShowComps}
@@ -2415,6 +2420,7 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
           polygon={polygon}
           onPolygonDrawn={onPolygonDrawn}
           onOpenCompare={() => setCompareOpen(true)}
+          onOpenSplitMap={() => setSplitMapOpen(true)}
           dataFreshnessLabel={dataFreshnessLabel}
           latencyLabel={latencyLabel}
         />
@@ -2492,12 +2498,30 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
             parcels={parcels}
             visible={showIsochrone}
           />
+          <MapLibre3DExtrusionLayer
+            map={mapRef.current}
+            visible={show3DExtrusions}
+          />
         </>
       )}
       <ParcelComparisonSheet
         open={compareOpen}
         parcels={selectedParcelsForCompare}
         onClose={() => setCompareOpen(false)}
+      />
+      <SplitMapCompare
+        open={splitMapOpen}
+        onClose={() => setSplitMapOpen(false)}
+        center={
+          mapRef.current
+            ? [mapRef.current.getCenter().lng, mapRef.current.getCenter().lat]
+            : undefined
+        }
+        zoom={mapRef.current?.getZoom()}
+        leftLabel="Satellite"
+        rightLabel="Zoning Overlay"
+        leftLayers={["parcels"]}
+        rightLayers={["parcels", "zoning"]}
       />
       {showTools && mapReady && <MapTour />}
     </div>
@@ -3688,4 +3712,114 @@ function MapLibreIsochroneControl({
       )}
     </div>
   );
+}
+
+// ---------------------------------------------------------------------------
+// 3D Parcel Extrusion Layer
+// ---------------------------------------------------------------------------
+
+function MapLibre3DExtrusionLayer({
+  map,
+  visible,
+}: {
+  map: maplibregl.Map | null;
+  visible: boolean;
+}) {
+  const mapRef = useRef(map);
+  const sourceId = "parcel-extrusion-source";
+  const layerId = "parcel-extrusion-3d";
+
+  useEffect(() => {
+    mapRef.current = map;
+  }, [map]);
+
+  useEffect(() => {
+    const m = mapRef.current;
+    if (!m) return;
+
+    if (!visible) {
+      if (m.getLayer(layerId)) {
+        m.setLayoutProperty(layerId, "visibility", "none");
+      }
+      // Reset pitch when 3D is turned off
+      if (m.getPitch() > 0) {
+        m.easeTo({ pitch: 0, duration: 600 });
+      }
+      return;
+    }
+
+    const setup = () => {
+      // Add the parcel tiles as a vector source if not already present
+      if (!m.getSource(sourceId)) {
+        m.addSource(sourceId, {
+          type: "vector",
+          tiles: [getMartinParcelTileUrl("ebr_parcels")],
+          minzoom: 12,
+          maxzoom: 22,
+        });
+      }
+
+      if (!m.getLayer(layerId)) {
+        m.addLayer({
+          id: layerId,
+          type: "fill-extrusion",
+          source: sourceId,
+          "source-layer": "ebr_parcels",
+          minzoom: 12,
+          paint: {
+            "fill-extrusion-height": [
+              "interpolate",
+              ["linear"],
+              ["coalesce", ["get", "lot_area_sqft"], 5000],
+              0, 5,
+              5000, 20,
+              20000, 60,
+              50000, 120,
+              200000, 200,
+              500000, 300,
+            ],
+            "fill-extrusion-base": 0,
+            "fill-extrusion-color": [
+              "match",
+              ["coalesce", ["get", "zoning_type"], ""],
+              "M1", "#f97316",
+              "M2", "#ea580c",
+              "M3", "#c2410c",
+              "C1", "#8b5cf6",
+              "C2", "#7c3aed",
+              "C3", "#6d28d9",
+              "C4", "#5b21b6",
+              "C5", "#4c1d95",
+              "A1", "#22c55e",
+              "A2", "#16a34a",
+              "A3", "#15803d",
+              "A4", "#166534",
+              "A5", "#14532d",
+              "#facc15",
+            ],
+            "fill-extrusion-opacity": 0.75,
+          },
+        });
+      }
+
+      m.setLayoutProperty(layerId, "visibility", "visible");
+
+      // Auto-pitch for 3D view
+      if (m.getPitch() < 45) {
+        m.easeTo({ pitch: 55, duration: 800 });
+      }
+    };
+
+    if (m.isStyleLoaded()) {
+      setup();
+    } else {
+      m.once("style.load", setup);
+    }
+
+    return () => {
+      m.off("style.load", setup);
+    };
+  }, [visible]);
+
+  return null;
 }

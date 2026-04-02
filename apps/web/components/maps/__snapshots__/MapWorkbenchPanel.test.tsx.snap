@@ -1025,6 +1025,12 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
                   class="inline-flex items-center justify-center whitespace-nowrap border font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 hover:text-accent-foreground rounded-lg px-3 mt-3 h-8 w-full border-map-border bg-map-surface/45 text-[10px] text-map-text-primary hover:bg-map-surface"
                   type="button"
                 >
+                  Split Map View (before / after)
+                </button>
+                <button
+                  class="inline-flex items-center justify-center whitespace-nowrap border font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 hover:text-accent-foreground rounded-lg px-3 mt-2 h-8 w-full border-map-border bg-map-surface/45 text-[10px] text-map-text-primary hover:bg-map-surface"
+                  type="button"
+                >
                   Open compare sheet
                 </button>
               </div>
