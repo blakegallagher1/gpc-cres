@@ -8,8 +8,10 @@ import * as Sentry from "@sentry/nextjs";
 // GET /api/chat/conversations — list conversations for the current user's org
 export async function GET(request: NextRequest) {
   const authorization = await authorizeApiRoute(request, request.nextUrl.pathname);
-  if (!authorization.ok) {
-    return authorization.response;
+  if (!authorization.ok || !authorization.auth) {
+    return authorization.ok
+      ? NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      : authorization.response;
   }
   const auth = authorization.auth;
 

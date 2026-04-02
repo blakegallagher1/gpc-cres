@@ -727,12 +727,15 @@ export async function GET(request: NextRequest) {
 
   try {
     const authorization = await authorizeApiRoute(request, request.nextUrl.pathname);
-    if (!authorization.ok) {
+    if (!authorization.ok || !authorization.auth) {
+      const unauthorizedResponse = authorization.ok
+        ? NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+        : authorization.response;
       await logRequestOutcome(context, {
-        status: authorization.response.status,
+        status: unauthorizedResponse.status,
         details: baseDetails,
       });
-      return withRequestId(authorization.response);
+      return withRequestId(unauthorizedResponse);
     }
     auth = authorization.auth;
 

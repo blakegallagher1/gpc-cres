@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prismaRead } from "@entitlement-os/db";
 import { authorizeApiRoute } from "@/lib/auth/authorizeApiRoute";
+import { getPropertyDbScopeHeaders } from "@/lib/server/propertyDbRpc";
 import {
   attachRequestIdHeader,
   createRequestObservabilityContext,
@@ -168,6 +169,7 @@ async function searchGateway(
       method: "GET",
       headers: {
         Authorization: `Bearer ${config.key}`,
+        ...getPropertyDbScopeHeaders("parcels.read"),
         ...getCloudflareAccessHeadersFromEnv(),
       },
       signal: controller.signal,
@@ -222,8 +224,12 @@ export async function GET(request: NextRequest) {
     attachRequestIdHeader(response, context.requestId);
 
   const authorization = await authorizeApiRoute(request, request.nextUrl.pathname);
-  if (!authorization.ok) {
-    return withRequestId(authorization.response);
+  if (!authorization.ok || !authorization.auth) {
+    return withRequestId(
+      authorization.ok
+        ? NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+        : authorization.response,
+    );
   }
   const auth = authorization.auth;
   if (!auth.orgId) {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 import * as Sentry from "@sentry/nextjs";
-import { resolveAuth } from "@/lib/auth/resolveAuth";
+import { authorizeApiRoute } from "@/lib/auth/authorizeApiRoute";
 import {
   MapWorkspaceService,
   parseMapWorkspaceContext,
@@ -11,10 +11,13 @@ const mapWorkspaceService = new MapWorkspaceService();
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = await resolveAuth(request);
-    if (!auth) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authorization = await authorizeApiRoute(request, request.nextUrl.pathname);
+    if (!authorization.ok || !authorization.auth) {
+      return authorization.ok
+        ? NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+        : authorization.response;
     }
+    const auth = authorization.auth;
 
     const context = parseMapWorkspaceContext(request.nextUrl.searchParams);
     const workspace = await mapWorkspaceService.getActiveWorkspace(auth.orgId, context);

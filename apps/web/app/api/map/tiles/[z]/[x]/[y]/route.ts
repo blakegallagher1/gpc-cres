@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCloudflareAccessHeadersFromEnv } from "@/lib/server/propertyDbEnv";
+import { getPropertyDbScopeHeaders } from "@/lib/server/propertyDbRpc";
 import * as Sentry from "@sentry/nextjs";
 
 const CACHE_MAX_AGE = 86400; // 24h — tiles are immutable for given xyz
@@ -55,6 +56,7 @@ export async function GET(_req: Request, { params }: RouteParams) {
       {
         headers: {
           Authorization: `Bearer ${localApiKey}`,
+          ...getPropertyDbScopeHeaders("map.tiles.read"),
           ...getCloudflareAccessHeadersFromEnv(),
         },
         signal: controller.signal,

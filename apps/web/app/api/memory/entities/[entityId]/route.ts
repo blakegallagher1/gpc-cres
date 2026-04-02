@@ -15,8 +15,10 @@ export async function GET(
 ) {
   try {
     const authorization = await authorizeApiRoute(request, request.nextUrl.pathname);
-    if (!authorization.ok) {
-      return authorization.response;
+    if (!authorization.ok || !authorization.auth) {
+      return authorization.ok
+        ? NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+        : authorization.response;
     }
     const { orgId } = authorization.auth;
     const { entityId } = await params;

@@ -11,7 +11,7 @@ import {
   type ApiKeyScope,
   type EndpointScopeRule,
 } from "./apiKeyRegistry";
-import { resolveAuth, resolveRouteAuth, type AuthResult } from "./routeAuth";
+import { resolveAuth, type AuthResult } from "./resolveAuth";
 
 type AuthorizedBy =
   | "public"
@@ -290,25 +290,6 @@ async function trySessionAuthorization(
   request: NextRequest,
   rule: EndpointScopeRule,
 ): Promise<RouteAuthorizationSuccess | null> {
-  if (rule.authMode === "admin") {
-    const state = await resolveRouteAuth({
-      kind: "admin",
-      localBypassEnabled: process.env.NEXT_PUBLIC_DISABLE_AUTH === "true",
-    });
-
-    if (state.status !== "authorized") {
-      return null;
-    }
-
-    return {
-      ok: true,
-      auth: state.auth,
-      authorizedBy: "admin_session",
-      rule,
-      key: null,
-    };
-  }
-
   const auth = await resolveAuth(request);
   if (!auth) {
     return null;
@@ -318,6 +299,55 @@ async function trySessionAuthorization(
     ok: true,
     auth,
     authorizedBy: "session",
+    rule,
+    key: null,
+  };
+}
+
+async function tryAdminSessionAuthorization(
+  rule: EndpointScopeRule,
+): Promise<RouteAuthorizationResult> {
+  if (process.env.NEXT_PUBLIC_DISABLE_AUTH === "true") {
+    return {
+      ok: true,
+      auth: {
+        orgId: "local-dev-org",
+        userId: "local-dev-user",
+      },
+      authorizedBy: "admin_session",
+      rule,
+      key: null,
+    };
+  }
+
+  const [{ auth }, { isEmailAllowed }] = await Promise.all([
+    import("@/auth"),
+    import("@/lib/auth/allowedEmails"),
+  ]);
+  const session = await auth();
+
+  if (!session?.user) {
+    return unauthorized("Unauthorized");
+  }
+
+  if (!isEmailAllowed(session.user.email)) {
+    return {
+      ok: false,
+      response: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+    };
+  }
+
+  const userId = session.user.id;
+  const orgId = (session.user as { orgId?: string | null }).orgId;
+
+  if (!userId || !orgId) {
+    return unauthorized("Unauthorized");
+  }
+
+  return {
+    ok: true,
+    auth: { userId, orgId },
+    authorizedBy: "admin_session",
     rule,
     key: null,
   };
@@ -355,8 +385,7 @@ export async function authorizeApiRoute(
       return serviceResult;
     }
 
-    const sessionResult = await trySessionAuthorization(request, rule);
-    return sessionResult ?? unauthorized("Unauthorized");
+    return tryAdminSessionAuthorization(rule);
   }
 
   if (rule.authMode === "session") {

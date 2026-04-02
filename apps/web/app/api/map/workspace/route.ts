@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 import * as Sentry from "@sentry/nextjs";
-import { resolveAuth } from "@/lib/auth/resolveAuth";
+import { authorizeApiRoute } from "@/lib/auth/authorizeApiRoute";
 import {
   MapWorkspaceContextSchema,
   MapWorkspaceService,
@@ -12,10 +12,13 @@ const mapWorkspaceService = new MapWorkspaceService();
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = await resolveAuth(request);
-    if (!auth) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authorization = await authorizeApiRoute(request, request.nextUrl.pathname);
+    if (!authorization.ok || !authorization.auth) {
+      return authorization.ok
+        ? NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+        : authorization.response;
     }
+    const auth = authorization.auth;
 
     const workspace = await mapWorkspaceService.getActiveWorkspace(
       auth.orgId,
@@ -43,10 +46,13 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const auth = await resolveAuth(request);
-    if (!auth) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authorization = await authorizeApiRoute(request, request.nextUrl.pathname);
+    if (!authorization.ok || !authorization.auth) {
+      return authorization.ok
+        ? NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+        : authorization.response;
     }
+    const auth = authorization.auth;
 
     const payload = MapWorkspaceUpsertSchema.parse(await request.json());
     const workspace = await mapWorkspaceService.saveWorkspace(

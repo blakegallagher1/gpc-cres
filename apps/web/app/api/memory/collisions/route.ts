@@ -12,8 +12,10 @@ import * as Sentry from "@sentry/nextjs";
 export async function GET(request: NextRequest) {
   try {
     const authorization = await authorizeApiRoute(request, request.nextUrl.pathname);
-    if (!authorization.ok) {
-      return authorization.response;
+    if (!authorization.ok || !authorization.auth) {
+      return authorization.ok
+        ? NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+        : authorization.response;
     }
     const { orgId } = authorization.auth;
 
@@ -55,8 +57,10 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const authorization = await authorizeApiRoute(request, request.nextUrl.pathname);
-    if (!authorization.ok) {
-      return authorization.response;
+    if (!authorization.ok || !authorization.auth) {
+      return authorization.ok
+        ? NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+        : authorization.response;
     }
     const { userId } = authorization.auth;
 

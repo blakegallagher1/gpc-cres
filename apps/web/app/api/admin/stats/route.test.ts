@@ -1,8 +1,11 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { resolveAuthMock } = vi.hoisted(() => ({
-  resolveAuthMock: vi.fn(),
+const { authMock } = vi.hoisted(() => ({
+  authMock: vi.fn(),
+}));
+const { isEmailAllowedMock } = vi.hoisted(() => ({
+  isEmailAllowedMock: vi.fn(),
 }));
 
 const {
@@ -37,8 +40,12 @@ const {
   conversationCountMock: vi.fn(),
 }));
 
-vi.mock("@/lib/auth/resolveAuth", () => ({
-  resolveAuth: resolveAuthMock,
+vi.mock("@/auth", () => ({
+  auth: authMock,
+}));
+
+vi.mock("@/lib/auth/allowedEmails", () => ({
+  isEmailAllowed: isEmailAllowedMock,
 }));
 
 vi.mock("@entitlement-os/db", () => ({
@@ -65,8 +72,12 @@ vi.mock("@entitlement-os/db", () => ({
 import { GET } from "./route";
 
 const AUTH = {
-  userId: "11111111-1111-4111-8111-111111111111",
-  orgId: "22222222-2222-4222-8222-222222222222",
+  user: {
+    id: "11111111-1111-4111-8111-111111111111",
+    email: "blake@gallagherpropco.com",
+    orgId: "22222222-2222-4222-8222-222222222222",
+  },
+  expires: new Date(Date.now() + 86_400_000).toISOString(),
 };
 
 function setupOverviewMocks() {
@@ -93,11 +104,12 @@ function setupOverviewMocks() {
 describe("GET /api/admin/stats", () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    resolveAuthMock.mockResolvedValue(AUTH);
+    authMock.mockResolvedValue(AUTH);
+    isEmailAllowedMock.mockReturnValue(true);
   });
 
   it("returns 401 when unauthenticated", async () => {
-    resolveAuthMock.mockResolvedValueOnce(null);
+    authMock.mockResolvedValueOnce(null);
 
     const response = await GET(new NextRequest("http://localhost/api/admin/stats"));
 

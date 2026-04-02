@@ -21,8 +21,10 @@ function extractAddressFromInputText(inputText: string): string | null {
 export async function POST(req: NextRequest) {
   try {
     const authorization = await authorizeApiRoute(req, req.nextUrl.pathname);
-    if (!authorization.ok) {
-      return authorization.response;
+    if (!authorization.ok || !authorization.auth) {
+      return authorization.ok
+        ? NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+        : authorization.response;
     }
     const auth = authorization.auth;
 

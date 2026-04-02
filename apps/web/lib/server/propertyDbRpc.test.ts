@@ -77,6 +77,7 @@ describe("propertyDbRpc", () => {
         Authorization: "Bearer gateway-key",
         "CF-Access-Client-Id": "cf-id",
         "CF-Access-Client-Secret": "cf-secret",
+        "x-gpc-internal-scope": "parcels.read",
       },
     });
   });
@@ -95,6 +96,7 @@ describe("propertyDbRpc", () => {
       body: JSON.stringify({ sql: "SELECT 1", limit: 1 }),
       requestId: "req-1",
       includeApiKey: true,
+      internalScope: "map.read",
     });
 
     expect(res.status).toBe(200);
@@ -112,6 +114,7 @@ describe("propertyDbRpc", () => {
           "CF-Access-Client-Secret": "cf-secret",
           "Content-Type": "application/json",
           "x-request-id": "req-1",
+          "x-gpc-internal-scope": "map.read",
         },
       }),
     );

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
 
 import { getCloudflareAccessHeadersFromEnv } from "@/lib/server/propertyDbEnv";
+import { getPropertyDbScopeHeaders } from "@/lib/server/propertyDbRpc";
 
 const CACHE_MAX_AGE = 86400;
 const CACHE_STALE = 604800;
@@ -53,6 +54,7 @@ export async function GET(_req: Request, { params }: RouteParams) {
     const response = await fetch(`${tileBaseUrl}/${tileLayer}/${zi}/${xi}/${yi}`, {
       headers: {
         Authorization: `Bearer ${localApiKey}`,
+        ...getPropertyDbScopeHeaders("map.tiles.read"),
         ...getCloudflareAccessHeadersFromEnv(),
       },
       signal: controller.signal,

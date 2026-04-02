@@ -11,10 +11,11 @@ describe("buildGatewayHeaders", () => {
     vi.stubEnv("CF_ACCESS_CLIENT_ID", "client-id");
     vi.stubEnv("CF_ACCESS_CLIENT_SECRET", "client-secret");
 
-    expect(buildGatewayHeaders("gateway-key")).toEqual({
+    expect(buildGatewayHeaders("gateway-key", "map.read")).toEqual({
       Authorization: "Bearer gateway-key",
       apikey: "gateway-key",
       "Content-Type": "application/json",
+      "x-gpc-internal-scope": "map.read",
       "CF-Access-Client-Id": "client-id",
       "CF-Access-Client-Secret": "client-secret",
     });
@@ -24,10 +25,11 @@ describe("buildGatewayHeaders", () => {
     vi.stubEnv("CF_ACCESS_CLIENT_ID", "");
     vi.stubEnv("CF_ACCESS_CLIENT_SECRET", "");
 
-    expect(buildGatewayHeaders("gateway-key")).toEqual({
+    expect(buildGatewayHeaders("gateway-key", "map.read")).toEqual({
       Authorization: "Bearer gateway-key",
       apikey: "gateway-key",
       "Content-Type": "application/json",
+      "x-gpc-internal-scope": "map.read",
     });
   });
 });

@@ -30,7 +30,7 @@ class GatewayAdapterForChatRoute {
       return [];
     }
     const gatewayUrl = this.gatewayUrl;
-    const gatewayHeaders = buildGatewayHeaders(this.gatewayKey);
+    const gatewayHeaders = buildGatewayHeaders(this.gatewayKey, "map.read");
     const [west, south, east, north] = query.bounds;
     const res = await fetch(`${gatewayUrl}/tools/parcel.bbox`, {
       method: "POST",
@@ -53,7 +53,7 @@ class GatewayAdapterForChatRoute {
       return [];
     }
     const gatewayUrl = this.gatewayUrl;
-    const gatewayHeaders = buildGatewayHeaders(this.gatewayKey);
+    const gatewayHeaders = buildGatewayHeaders(this.gatewayKey, "map.read");
     const promises = parcelIds.map((id) =>
       fetch(`${gatewayUrl}/tools/parcel.lookup`, {
         method: "POST",

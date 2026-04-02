@@ -335,6 +335,16 @@ export const API_ENDPOINT_SCOPE_MATRIX = [
     notes: "Primary orchestrated AI entry point. Keep gateway and tool credentials server-held.",
   },
   {
+    routePattern: "/api/chat/**",
+    authMode: "session_or_ephemeral",
+    scopes: ["agent.chat.execute", "agent.run.read"],
+    browserCallable: true,
+    exposeExternally: true,
+    frontendCredentialSource: "session_cookie",
+    notes:
+      "Chat subroutes for conversation history, tool approvals, and resume flows. Keep them on the same auth contract as the primary chat route.",
+  },
+  {
     routePattern: "/api/agent",
     authMode: "session_or_ephemeral",
     scopes: ["agent.chat.execute"],
@@ -345,12 +355,13 @@ export const API_ENDPOINT_SCOPE_MATRIX = [
   },
   {
     routePattern: "/api/agent/tools/execute",
-    authMode: "internal_only",
+    authMode: "service_or_session",
     scopes: ["agent.tools.execute"],
-    browserCallable: false,
+    browserCallable: true,
     exposeExternally: false,
-    frontendCredentialSource: "never_browser",
-    notes: "Internal tool dispatch surface for trusted workers only.",
+    frontendCredentialSource: "session_cookie",
+    notes:
+      "Internal tool dispatch surface for trusted workers and same-origin operator flows. Never expose directly to third-party browsers.",
   },
   {
     routePattern: "/api/deals/**",

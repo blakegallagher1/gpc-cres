@@ -4,6 +4,7 @@ import {
   authorizeApiRoute,
   type RouteAuthorizationSuccess,
 } from "@/lib/auth/authorizeApiRoute";
+import { getPropertyDbScopeHeaders } from "@/lib/server/propertyDbRpc";
 import {
   attachRequestIdHeader,
   createRequestObservabilityContext,
@@ -89,6 +90,7 @@ async function propertyRpc(
         method: "GET",
         headers: {
           Authorization: `Bearer ${key}`,
+          ...getPropertyDbScopeHeaders("map.read"),
           ...(requestId ? { "x-request-id": requestId } : {}),
           ...getCloudflareAccessHeadersFromEnv(),
         },
@@ -154,6 +156,7 @@ async function propertyRpc(
         headers: {
           Authorization: `Bearer ${key}`,
           "Content-Type": "application/json",
+          ...getPropertyDbScopeHeaders("map.read"),
           ...(requestId ? { "x-request-id": requestId } : {}),
           ...getCloudflareAccessHeadersFromEnv(),
         },
@@ -264,12 +267,15 @@ export async function GET(req: NextRequest) {
     attachRequestIdHeader(response, context.requestId);
 
   const authorization = await authorizeApiRoute(req, req.nextUrl.pathname);
-  if (!authorization.ok) {
+  if (!authorization.ok || !authorization.auth) {
+    const unauthorizedResponse = authorization.ok
+      ? NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      : authorization.response;
     await logRequestOutcome(context, {
-      status: authorization.response.status,
+      status: unauthorizedResponse.status,
       details: baseDetails,
     });
-    return withRequestId(authorization.response);
+    return withRequestId(unauthorizedResponse);
   }
   auth = authorization.auth;
   if (!auth.orgId) {

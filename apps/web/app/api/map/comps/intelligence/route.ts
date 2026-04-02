@@ -12,8 +12,10 @@ const mapWorkspaceService = new MapWorkspaceService();
 export async function GET(request: NextRequest) {
   try {
     const authorization = await authorizeApiRoute(request, request.nextUrl.pathname);
-    if (!authorization.ok) {
-      return authorization.response;
+    if (!authorization.ok || !authorization.auth) {
+      return authorization.ok
+        ? NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+        : authorization.response;
     }
     const auth = authorization.auth;
 

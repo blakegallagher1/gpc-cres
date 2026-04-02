@@ -7,6 +7,12 @@ import {
 
 type PropertyDbRpcFnName = "api_search_parcels" | "api_get_parcel" | "api_screen_full";
 type PropertyDbRecord = Record<string, unknown>;
+export type PropertyDbGatewayScope =
+  | "parcels.read"
+  | "map.read"
+  | "map.tiles.read"
+  | "places.read";
+export const PROPERTY_DB_INTERNAL_SCOPE_HEADER = "x-gpc-internal-scope";
 
 interface GatewayEnvelope<T> {
   ok?: boolean;
@@ -27,8 +33,15 @@ interface PropertyDbGatewayRequestOptions {
   cache?: RequestCache;
   requestId?: string;
   includeApiKey?: boolean;
+  internalScope?: PropertyDbGatewayScope;
   timeoutMs?: number;
   maxRetries?: number;
+}
+
+export function getPropertyDbScopeHeaders(
+  scope: PropertyDbGatewayScope,
+): Record<string, string> {
+  return { [PROPERTY_DB_INTERNAL_SCOPE_HEADER]: scope };
 }
 
 function getGatewayTimeoutMs(override?: number): number {
@@ -328,6 +341,7 @@ export async function requestPropertyDbGateway(
     cache = "no-store",
     requestId,
     includeApiKey = false,
+    internalScope,
     timeoutMs,
     maxRetries,
   } = options;
@@ -342,6 +356,7 @@ export async function requestPropertyDbGateway(
         Authorization: `Bearer ${key}`,
         ...(includeApiKey ? { apikey: key } : {}),
         ...(requestId ? { "x-request-id": requestId } : {}),
+        ...(internalScope ? getPropertyDbScopeHeaders(internalScope) : {}),
         ...getCloudflareAccessHeadersFromEnv(),
         ...headers,
       },
@@ -376,6 +391,7 @@ export async function propertyDbRpc(
       path: `/api/parcels/search?${params.toString()}`,
       method: "GET",
       cache: "no-store",
+      internalScope: "parcels.read",
     });
     const payload = await parseEnvelope<unknown[]>(res, fnName);
     if (Array.isArray(payload.data)) return payload.data;
@@ -390,6 +406,7 @@ export async function propertyDbRpc(
       path: `/api/parcels/${encodeURIComponent(parcelId)}`,
       method: "GET",
       cache: "no-store",
+      internalScope: "parcels.read",
     });
     const payload = await parseEnvelope<PropertyDbRecord>(res, fnName);
     return payload.data ?? null;
@@ -406,6 +423,7 @@ export async function propertyDbRpc(
       },
       body: JSON.stringify({ parcelId }),
       cache: "no-store",
+      internalScope: "parcels.read",
     });
     const payload = await parseEnvelope<unknown>(res, fnName);
     return normalizeScreeningPayload(payload.data);

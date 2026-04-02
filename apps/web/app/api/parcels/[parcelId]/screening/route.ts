@@ -1,7 +1,8 @@
 import "server-only";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
 import { authorizeApiRoute } from "@/lib/auth/authorizeApiRoute";
+import { getPropertyDbScopeHeaders } from "@/lib/server/propertyDbRpc";
 import { checkRateLimit } from "@/lib/server/rateLimiter";
 import {
   getCloudflareAccessHeadersFromEnv,
@@ -77,6 +78,7 @@ async function resolveCanonicalScreeningParcelId(params: {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${params.gatewayKey}`,
+      ...getPropertyDbScopeHeaders("parcels.read"),
       ...getCloudflareAccessHeadersFromEnv(),
     },
     body: JSON.stringify({ parcel_id: params.parcelId }),
@@ -124,7 +126,7 @@ function mapRowToSummary(row: GatewayRow): ScreeningSummary {
 }
 
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ parcelId: string }> },
 ) {
   const requestId = crypto.randomUUID();
@@ -134,7 +136,20 @@ export async function GET(
       request,
       "/api/parcels/[parcelId]/screening",
     );
-    if (!authorization.ok) {
+    if (!authorization.ok || !authorization.auth) {
+      if (authorization.ok || authorization.response.status === 401) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: {
+              code: "UNAUTHORIZED",
+              message: "Unauthorized",
+            },
+            requestId,
+          },
+          { status: 401 },
+        );
+      }
       return authorization.response;
     }
     const auth = authorization.auth;
@@ -181,6 +196,7 @@ export async function GET(
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${gatewayConfig.key}`,
+          ...getPropertyDbScopeHeaders("parcels.read"),
           ...getCloudflareAccessHeadersFromEnv(),
         },
         body: JSON.stringify({ sql }),

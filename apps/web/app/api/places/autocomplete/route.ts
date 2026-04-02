@@ -3,6 +3,7 @@ import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { getGatewayConfig } from "@/lib/gateway-proxy";
 import { validateAddress } from "@/lib/server/googleMapsValidation";
 import { getCloudflareAccessHeadersFromEnv } from "@/lib/server/propertyDbEnv";
+import { getPropertyDbScopeHeaders } from "@/lib/server/propertyDbRpc";
 import * as Sentry from "@sentry/nextjs";
 
 // ---------------------------------------------------------------------------
@@ -127,6 +128,7 @@ async function parcelDbAutocomplete(
         Authorization: `Bearer ${config.key}`,
         apikey: config.key,
         "Content-Type": "application/json",
+        ...getPropertyDbScopeHeaders("places.read"),
         ...getCloudflareAccessHeadersFromEnv(),
       },
       body: JSON.stringify({

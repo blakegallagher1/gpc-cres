@@ -32,8 +32,10 @@ export async function POST(req: NextRequest) {
   }
 
   const authorization = await authorizeApiRoute(req, req.nextUrl.pathname);
-  if (!authorization.ok) {
-    return authorization.response;
+  if (!authorization.ok || !authorization.auth) {
+    return authorization.ok
+      ? Response.json({ error: "Unauthorized" }, { status: 401 })
+      : authorization.response;
   }
   const auth = authorization.auth;
 

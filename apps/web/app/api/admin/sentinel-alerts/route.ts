@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import * as Sentry from "@sentry/nextjs";
 import { authorizeApiRoute } from "@/lib/auth/authorizeApiRoute";

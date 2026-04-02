@@ -36,6 +36,7 @@ API_KEYS = set(
 ALLOWED_ORIGINS = [
     o.strip() for o in (os.getenv("ALLOWED_ORIGINS") or "").split(",") if o.strip()
 ]
+INTERNAL_SCOPE_HEADER = "x-gpc-internal-scope"
 
 if not API_KEYS:
     print("⚠️  WARNING: No API_KEYS set! API is INSECURE!")
@@ -145,7 +146,13 @@ if ALLOWED_ORIGINS:
         allow_origins=ALLOWED_ORIGINS,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PATCH", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type", "X-Org-Id", "X-User-Id"],
+        allow_headers=[
+            "Authorization",
+            "Content-Type",
+            "X-Org-Id",
+            "X-User-Id",
+            "X-GPC-Internal-Scope",
+        ],
     )
 
 
@@ -164,6 +171,44 @@ app.include_router(admin_router, prefix="/admin")
 # =============================================================================
 # Authentication
 # =============================================================================
+
+PATH_SCOPE_RULES: list[tuple[re.Pattern[str], set[str]]] = [
+    (re.compile(r"^/tiles(?:/zoning)?/"), {"map.tiles.read"}),
+    (re.compile(r"^/api/parcels(?:/|$)"), {"parcels.read", "map.read"}),
+    (re.compile(r"^/api/screening/"), {"parcels.read"}),
+    (re.compile(r"^/tools/parcel\.(?:lookup|bbox|point)$"), {"parcels.read", "map.read"}),
+    (re.compile(r"^/tools/parcels\.search$"), {"parcels.read", "places.read"}),
+    (
+        re.compile(r"^/tools/parcels\.sql$"),
+        {"parcels.read", "map.read", "market.read", "intelligence.read"},
+    ),
+]
+
+
+def get_required_scopes(path: str) -> Optional[set[str]]:
+    for pattern, scopes in PATH_SCOPE_RULES:
+        if pattern.match(path):
+            return scopes
+    return None
+
+
+def verify_internal_scope(request: Request) -> None:
+    required_scopes = get_required_scopes(request.url.path)
+    if not required_scopes:
+        return
+
+    provided_scope = (request.headers.get(INTERNAL_SCOPE_HEADER) or "").strip()
+    if not provided_scope:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Missing {INTERNAL_SCOPE_HEADER} header",
+        )
+
+    if provided_scope not in required_scopes:
+        raise HTTPException(
+            status_code=403,
+            detail="Gateway scope not allowed for this endpoint",
+        )
 
 
 def verify_api_key(request: Request) -> str:
@@ -193,6 +238,7 @@ def verify_api_key(request: Request) -> str:
             detail="Invalid API key",
         )
 
+    verify_internal_scope(request)
     return api_key
 
 
@@ -2279,18 +2325,25 @@ async def db_query_proxy(
 # Tunnel routes cua.gallagherpropco.com → gateway:8000 → these routes → cua-worker:3001
 # =============================================================================
 
-CUA_WORKER_URL = os.getenv("CUA_WORKER_URL", "http://cua-worker:3001")
+CUA_WORKER_URL = os.getenv("CUA_WORKER_URL", "http://172.18.0.10:3001")
 
 
 async def _cua_proxy(method: str, path: str, request: Request) -> Response:
     """Proxy a request to the CUA worker."""
     import httpx as _httpx
     target = f"{CUA_WORKER_URL}{path}"
+    # Copy headers but exclude hop-by-hop headers
     headers = {k: v for k, v in request.headers.items()
                if k.lower() not in ("host", "content-length", "transfer-encoding")}
     body = await request.body()
+    print(f"DEBUG _cua_proxy: method={method}, path={path}, has_body={bool(body)}, headers_before={headers}")
     try:
         async with _httpx.AsyncClient(timeout=180.0) as client:
+            # Always pass the body, but explicitly set Content-Type if present
+            # httpx will not infer application/json without a Content-Type header
+            if body and "content-type" not in {k.lower() for k in headers}:
+                headers["content-type"] = "application/json"
+            print(f"DEBUG _cua_proxy: headers_after={headers}")
             resp = await client.request(
                 method=method, url=target, headers=headers,
                 content=body if body else None,

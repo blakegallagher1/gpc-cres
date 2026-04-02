@@ -6,16 +6,19 @@ import {
   MapWorkspaceService,
   MapWorkspaceServiceError,
 } from "@gpc/server/services/map-workspace.service";
-import { resolveAuth } from "@/lib/auth/resolveAuth";
+import { authorizeApiRoute } from "@/lib/auth/authorizeApiRoute";
 
 const mapWorkspaceService = new MapWorkspaceService();
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = await resolveAuth(request);
-    if (!auth) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authorization = await authorizeApiRoute(request, request.nextUrl.pathname);
+    if (!authorization.ok || !authorization.auth) {
+      return authorization.ok
+        ? NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+        : authorization.response;
     }
+    const auth = authorization.auth;
 
     const result = await mapWorkspaceService.listWorkspaces(auth.orgId);
     return NextResponse.json(result);
@@ -37,10 +40,13 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = await resolveAuth(request);
-    if (!auth) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authorization = await authorizeApiRoute(request, request.nextUrl.pathname);
+    if (!authorization.ok || !authorization.auth) {
+      return authorization.ok
+        ? NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+        : authorization.response;
     }
+    const auth = authorization.auth;
 
     const payload = CreateMapWorkspaceRequestSchema.parse(await request.json());
     const workspace = await mapWorkspaceService.createWorkspace({

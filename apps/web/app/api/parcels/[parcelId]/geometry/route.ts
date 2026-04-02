@@ -1,8 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
 import { logger } from "@/lib/logger";
 import { checkRateLimit } from "@/lib/server/rateLimiter";
 import { authorizeApiRoute } from "@/lib/auth/authorizeApiRoute";
+import { getPropertyDbScopeHeaders } from "@/lib/server/propertyDbRpc";
 import {
   getCloudflareAccessHeadersFromEnv,
   logPropertyDbRuntimeHealth,
@@ -192,7 +193,7 @@ function geometryUnavailableResponse(requestId: string) {
 }
 
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ parcelId: string }> },
 ) {
   const requestId = crypto.randomUUID();
@@ -201,7 +202,20 @@ export async function GET(
       request,
       "/api/parcels/[parcelId]/geometry",
     );
-    if (!authorization.ok) {
+    if (!authorization.ok || !authorization.auth) {
+      if (authorization.ok || authorization.response.status === 401) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: {
+              code: "UNAUTHORIZED",
+              message: "Unauthorized",
+            },
+            requestId,
+          },
+          { status: 401 },
+        );
+      }
       return authorization.response;
     }
     const auth = authorization.auth;
@@ -246,6 +260,7 @@ export async function GET(
       res = await fetch(url, {
         headers: {
           Authorization: `Bearer ${gatewayKey}`,
+          ...getPropertyDbScopeHeaders("parcels.read"),
           ...getCloudflareAccessHeadersFromEnv(),
         },
         signal: controller.signal,

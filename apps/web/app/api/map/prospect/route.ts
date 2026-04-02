@@ -165,6 +165,7 @@ async function gatewayPost(
       body: JSON.stringify(body),
       requestId,
       includeApiKey: true,
+      internalScope: "map.read",
       cache: "no-store",
     });
   } catch (error) {
@@ -345,12 +346,15 @@ export async function POST(req: NextRequest) {
     attachRequestIdHeader(response, context.requestId);
 
   const authorization = await authorizeApiRoute(req, req.nextUrl.pathname);
-  if (!authorization.ok) {
+  if (!authorization.ok || !authorization.auth) {
+    const unauthorizedResponse = authorization.ok
+      ? NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      : authorization.response;
     await logRequestOutcome(context, {
-      status: authorization.response.status,
+      status: unauthorizedResponse.status,
       details: { action: "prospect-search" },
     });
-    return withRequestId(authorization.response);
+    return withRequestId(unauthorizedResponse);
   }
   const auth = authorization.auth;
 
@@ -543,12 +547,15 @@ export async function PUT(req: NextRequest) {
     attachRequestIdHeader(response, context.requestId);
 
   const authorization = await authorizeApiRoute(req, req.nextUrl.pathname);
-  if (!authorization.ok) {
+  if (!authorization.ok || !authorization.auth) {
+    const unauthorizedResponse = authorization.ok
+      ? NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      : authorization.response;
     await logRequestOutcome(context, {
-      status: authorization.response.status,
+      status: unauthorizedResponse.status,
       details: { action: "prospect-bulk" },
     });
-    return withRequestId(authorization.response);
+    return withRequestId(unauthorizedResponse);
   }
   const auth = authorization.auth;
 

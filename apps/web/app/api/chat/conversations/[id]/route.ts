@@ -48,8 +48,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const authorization = await authorizeApiRoute(req, req.nextUrl.pathname);
-  if (!authorization.ok) {
-    return authorization.response;
+  if (!authorization.ok || !authorization.auth) {
+    return authorization.ok
+      ? NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      : authorization.response;
   }
   const auth = authorization.auth;
 
@@ -202,8 +204,10 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const authorization = await authorizeApiRoute(req, req.nextUrl.pathname);
-  if (!authorization.ok) {
-    return authorization.response;
+  if (!authorization.ok || !authorization.auth) {
+    return authorization.ok
+      ? NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      : authorization.response;
   }
   const auth = authorization.auth;
 
