@@ -609,6 +609,11 @@ Do NOT force every task into a fixed two-phase flow. Choose dynamically among:
   - PAGINATE — continue harvesting if useful
   - RECOVER — switch selectors/URLs/strategy when stalled
 
+For embedded apps, SPAs, or iframe-heavy search experiences:
+  - Inspect iframe URLs, script config, and network-backed search/result URLs early.
+  - Prefer a verified public JSON/data endpoint over repeated UI probing when both represent the same user-visible results.
+  - Once the backing dataset is validated and answers the query, stop browser exploration and return the result.
+
 **STEP 3 — EXECUTE THE LOOP (max 5 browser_task calls)**
 
 Your browser_task instructions MUST require code-first behavior and explicit self-reflection.
@@ -618,17 +623,19 @@ Base template:
    Success condition: {what counts as done}
    Current plan: {recon|act|verify|extract|paginate|recover}
    IMPORTANT: Prefer exec_js first. Use the computer tool only if code cannot reliably discover or manipulate the page.
+   If you verify a direct backing API or public dataset that powers the page and it returns the requested records, treat that as objective satisfaction and stop iterating.
    After each meaningful action, assess whether progress was made. If not, change strategy instead of repeating the same selector or click pattern.
    NEVER use waitForLoadState('networkidle') on SPAs. Prefer waitForTimeout() plus DOM checks.
    If blocked by login, CAPTCHA, consent, or a browser safety barrier, stop and output the blocker precisely."
 
 For recon:
-  "Use exec_js immediately to inspect forms, links, query params, tabs, buttons, table/card selectors, and any obvious search/result containers.
+  "Use exec_js immediately to inspect forms, links, query params, tabs, buttons, table/card selectors, iframes, script URLs, and any obvious search/result containers.
    Output JSON with: { url, forms, selectors, navigation_links, likely_search_paths, result_container_candidates, blocker }."
 
 For act/extract:
   "Write LITERAL exec_js code. Prefer page.goto(), page.fill(), page.click(), page.$$eval(), and small conditional loops.
    If you discover a direct filtered URL or query-param path, navigate there directly instead of replaying UI steps.
+   If you discover a verified public search/listing endpoint, query it and return the structured result rather than continuing DOM exploration.
    Output JSON with: { status, learned, data, next_best_action, blocker }."
 
 For recovery:

@@ -27,6 +27,14 @@ type LoopProgressState = {
   stalledTurns: number;
 };
 
+function detectDirectDataLane(execSummaries: string[]): boolean {
+  if (execSummaries.length === 0) return false;
+  const joined = execSummaries.join("\n");
+  return /public_api|backing_search_results|api\/[a-z0-9/_-]+|dataset|embedded_app_url|listing(s)? endpoint|verified data lane/i.test(
+    joined,
+  );
+}
+
 function truncateProgressText(text: string, maxChars = MAX_PROGRESS_MEMO_CHARS): string {
   const normalized = text.replace(/\s+/g, " ").trim();
   if (normalized.length <= maxChars) {
@@ -42,6 +50,7 @@ function buildLoopProgressMemo(options: {
   execSummaries: string[];
   execErrors: string[];
   progressState: LoopProgressState;
+  directDataLaneDetected: boolean;
 }): string {
   const {
     turn,
@@ -50,6 +59,7 @@ function buildLoopProgressMemo(options: {
     execSummaries,
     execErrors,
     progressState,
+    directDataLaneDetected,
   } = options;
 
   const memoLines = [
@@ -64,6 +74,15 @@ function buildLoopProgressMemo(options: {
 
   if (execErrors.length > 0) {
     memoLines.push(`- Latest exec_js errors: ${truncateProgressText(execErrors.join(" | "))}`);
+  }
+
+  if (directDataLaneDetected) {
+    memoLines.push(
+      "- High-value signal: a likely direct data lane or backing endpoint was discovered.",
+    );
+    memoLines.push(
+      "- If that source already answers the user query, stop browser exploration now and return the structured result.",
+    );
   }
 
   if (progressState.consecutiveSameUrlTurns >= 2) {
@@ -822,6 +841,7 @@ export async function runNativeComputerLoop(options: {
     }
 
     const currentUrl = session.page.url();
+    const directDataLaneDetected = detectDirectDataLane(execSummaries);
     progressState.consecutiveSameUrlTurns =
       currentUrl === progressState.lastUrl
         ? progressState.consecutiveSameUrlTurns + 1
@@ -844,7 +864,20 @@ export async function runNativeComputerLoop(options: {
       execSummaries,
       execErrors,
       progressState,
+      directDataLaneDetected,
     });
+
+    if (functionCalls.length > 0 && computerCalls.length === 0) {
+      const postExecScreenshot = await session.captureScreenshot(`turn-${turn}-post-exec`);
+      screenshotPaths.push(postExecScreenshot.path);
+      onEvent({
+        type: "screenshot",
+        turn,
+        timestamp: new Date().toISOString(),
+        screenshotUrl: postExecScreenshot.path,
+        action: "Captured post-exec browser state",
+      });
+    }
 
     // Send all tool outputs as input for next turn
     nextInput = [

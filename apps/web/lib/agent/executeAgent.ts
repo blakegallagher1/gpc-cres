@@ -322,6 +322,8 @@ type ToolEventState = {
   didEmitTextDelta: boolean;
   memoryConflictSummaries: string[];
   parcelAddressMismatchSummaries: string[];
+  browserTaskSuccessCount: number;
+  browserTaskVerifiedDataLaneCount: number;
 };
 
 type AgentRunAttemptState = {
@@ -454,6 +456,65 @@ function parseConfidenceFromOutput(value: unknown): number | null {
   const rate = normalizeConfidence((value as Record<string, unknown>).scorecardConfidence);
   if (rate !== null) return rate;
   return null;
+}
+
+function toolErrorIsNonCritical(message: string): boolean {
+  return message.startsWith("final_report:");
+}
+
+function outputSignalsVerifiedDataLane(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  const strings: string[] = [];
+  const queue: unknown[] = [value];
+  while (queue.length > 0) {
+    const current = queue.pop();
+    if (typeof current === "string") {
+      strings.push(current);
+      continue;
+    }
+    if (Array.isArray(current)) {
+      queue.push(...current);
+      continue;
+    }
+    if (isRecord(current)) {
+      queue.push(...Object.values(current));
+    }
+  }
+
+  return /public_api|backing_search_results|api\/[a-z0-9/_-]+|public dataset|verified data lane|embedded_app_url/i.test(
+    strings.join("\n"),
+  );
+}
+
+function deriveFallbackConfidence(options: {
+  status: AgentExecutionResult["status"];
+  confidenceCandidate: number | null;
+  state: ToolEventState;
+  missingEvidenceCount: number;
+}): number {
+  const { status, confidenceCandidate, state, missingEvidenceCount } = options;
+  if (status === "failed") return 0.25;
+  if (confidenceCandidate !== null) return confidenceCandidate;
+
+  const criticalToolErrors = state.toolErrorMessages.filter(
+    (message) => !toolErrorIsNonCritical(message),
+  );
+
+  if (state.browserTaskSuccessCount > 0) {
+    if (
+      state.browserTaskVerifiedDataLaneCount > 0 &&
+      criticalToolErrors.length === 0 &&
+      missingEvidenceCount === 0
+    ) {
+      return 0.9;
+    }
+    if (criticalToolErrors.length === 0) {
+      return missingEvidenceCount === 0 ? 0.82 : 0.74;
+    }
+    return 0.6;
+  }
+
+  return criticalToolErrors.length > 0 ? 0.45 : 0.72;
 }
 
 function buildMissingEvidenceRetryPolicy(
@@ -826,6 +887,13 @@ function collectToolOutputSignals(
       )
     ) {
       state.missingEvidence.add(`${toolName}: ${asRecord.error}`);
+    }
+  }
+
+  if (toolName === "browser_task" && asRecord.success === true) {
+    state.browserTaskSuccessCount += 1;
+    if (outputSignalsVerifiedDataLane(asRecord)) {
+      state.browserTaskVerifiedDataLaneCount += 1;
     }
   }
 
@@ -1288,6 +1356,8 @@ export async function executeAgentWorkflow(
     didEmitTextDelta: false,
     memoryConflictSummaries: [],
     parcelAddressMismatchSummaries: [],
+    browserTaskSuccessCount: 0,
+    browserTaskVerifiedDataLaneCount: 0,
   };
   const trajectoryRecorder = createTrajectoryRecorder();
 
@@ -2251,9 +2321,12 @@ export async function executeAgentWorkflow(
               safeParseJson(finalText) ??
               (finalText.length > 0 ? finalText : null),
           );
-    const confidence = status === "failed"
-      ? 0.25
-      : confidenceCandidate ?? (state.toolErrorMessages.length > 0 ? 0.45 : 0.72);
+    const confidence = deriveFallbackConfidence({
+      status,
+      confidenceCandidate,
+      state,
+      missingEvidenceCount: missingEvidence.length,
+    });
 
     const sortedToolsInvoked = [...state.toolsInvoked].sort();
     const memoryToolsUsed = sortedToolsInvoked.filter(
