@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { resolveRouteAuth } from "@/lib/auth/routeAuth";
+import { authorizeApiRoute } from "@/lib/auth/authorizeApiRoute";
 import {
   attachRequestIdHeader,
   createRequestObservabilityContext,
@@ -70,15 +70,19 @@ export async function GET(request: NextRequest) {
   const context = createRequestObservabilityContext(request, "/api/admin/observability");
   const withRequestId = (response: NextResponse) => attachRequestIdHeader(response, context.requestId);
   const authBypassed = isAuthBypassedForLocalDev();
-  const authState = await resolveRouteAuth({
-    kind: "admin",
-    localBypassEnabled: authBypassed,
-  });
-  if (authState.status === "unauthenticated") {
-    return withRequestId(NextResponse.json({ error: "Unauthorized" }, { status: 401 }));
-  }
-  if (authState.status === "forbidden") {
-    return withRequestId(NextResponse.json({ error: "Forbidden" }, { status: 403 }));
+  let viewer: { orgId: string; userId: string } | undefined;
+  if (authBypassed) {
+    viewer = { orgId: "local-dev-org", userId: "local-dev-user" };
+  } else {
+    const authorization = await authorizeApiRoute(request, request.nextUrl.pathname);
+    if (!authorization.ok || !authorization.auth) {
+      return withRequestId(
+        authorization.ok
+          ? NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+          : authorization.response,
+      );
+    }
+    viewer = authorization.auth;
   }
 
   const { searchParams } = request.nextUrl;
@@ -112,7 +116,7 @@ export async function GET(request: NextRequest) {
     event: searchParams.get("event"),
     route: searchParams.get("route"),
     requestId: searchParams.get("requestId"),
-    orgId: authBypassed ? undefined : authState.auth.orgId,
+    orgId: authBypassed ? undefined : viewer.orgId,
     userId: searchParams.get("userId"),
     status: searchParams.get("status"),
     source: searchParams.get("source"),
@@ -122,7 +126,7 @@ export async function GET(request: NextRequest) {
   return withRequestId(NextResponse.json({
     ok: true,
     generatedAt: result.generatedAt,
-    viewer: authState.auth,
+    viewer,
     filters: result.filters,
     stats: result.stats,
     events: result.events,

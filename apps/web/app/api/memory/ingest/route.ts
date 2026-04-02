@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@entitlement-os/db';
 import { MemoryIngestionService } from '@/lib/services/memoryIngestion.service';
 import { MemoryIngestionRequestSchema } from '@entitlement-os/shared';
-import { resolveAuth } from '@/lib/auth/resolveAuth';
+import { authorizeApiRoute } from '@/lib/auth/authorizeApiRoute';
 import { extractParishFromAddress } from '@/lib/services/compToMarket';
 import { addMarketDataPoint } from '@/lib/services/marketMonitor.service';
 import * as Sentry from "@sentry/nextjs";
@@ -17,7 +17,16 @@ import * as Sentry from "@sentry/nextjs";
 export async function POST(request: NextRequest) {
   try {
     // Auth check
-    const authResult = await resolveAuth(request);
+    const authorization = await authorizeApiRoute(request, request.nextUrl.pathname);
+    if (!authorization.ok || !authorization.auth) {
+      return authorization.ok
+        ? NextResponse.json(
+            { error: 'Unauthorized' },
+            { status: 401 }
+          )
+        : authorization.response;
+    }
+    const authResult = authorization.auth;
     if (!authResult) {
       return NextResponse.json(
         { error: 'Unauthorized' },

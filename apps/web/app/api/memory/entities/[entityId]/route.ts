@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@entitlement-os/db';
-import { resolveAuth } from '@/lib/auth/resolveAuth';
+import { authorizeApiRoute } from '@/lib/auth/authorizeApiRoute';
 import * as Sentry from "@sentry/nextjs";
 
 /**
@@ -14,12 +14,11 @@ export async function GET(
   { params }: { params: Promise<{ entityId: string }> }
 ) {
   try {
-    const authResult = await resolveAuth(request);
-    if (!authResult) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const authorization = await authorizeApiRoute(request, request.nextUrl.pathname);
+    if (!authorization.ok) {
+      return authorization.response;
     }
-
-    const { userId, orgId } = authResult;
+    const { orgId } = authorization.auth;
     const { entityId } = await params;
 
     // Fetch entity with org check

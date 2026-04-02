@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { resolveAuth } from "@/lib/auth/resolveAuth";
+import { authorizeApiRoute } from "@/lib/auth/authorizeApiRoute";
 import { resolveEntityId } from "@/lib/services/entityResolution";
 import { memoryWriteGate } from "@/lib/services/memoryWriteGate";
 import { ingestKnowledge } from "@/lib/services/knowledgeBase.service";
@@ -20,10 +20,11 @@ function extractAddressFromInputText(inputText: string): string | null {
 // POST /api/memory/write — Submit free-text memory through the write gate
 export async function POST(req: NextRequest) {
   try {
-    const auth = await resolveAuth(req);
-    if (!auth) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authorization = await authorizeApiRoute(req, req.nextUrl.pathname);
+    if (!authorization.ok) {
+      return authorization.response;
     }
+    const auth = authorization.auth;
 
     const body = await req.json();
     const { input_text, address, parcel_id, entity_id, entity_type } = body;

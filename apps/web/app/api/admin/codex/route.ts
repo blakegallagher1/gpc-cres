@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
 import { logger } from "@/lib/logger";
-import { resolveRouteAuth } from "@/lib/auth/routeAuth";
+import { authorizeApiRoute } from "@/lib/auth/authorizeApiRoute";
 import {
   CLIENT_INFO,
   parseCodexMessage,
@@ -493,15 +493,13 @@ function waitForRelayConnection(connectionId: string): Promise<RelayConnection |
 }
 
 export async function GET(request: NextRequest) {
-  const auth = await resolveRouteAuth({
-    kind: "admin",
-    localBypassEnabled: isAuthBypassedForLocalDev(),
-  });
-  if (auth.status === "unauthenticated") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  if (auth.status === "forbidden") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!isAuthBypassedForLocalDev()) {
+    const authorization = await authorizeApiRoute(request, request.nextUrl.pathname);
+    if (!authorization.ok || !authorization.auth) {
+      return authorization.ok
+        ? NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+        : authorization.response;
+    }
   }
 
   const connectionId = request.nextUrl.searchParams.get("connectionId")?.trim();
@@ -578,15 +576,13 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await resolveRouteAuth({
-    kind: "admin",
-    localBypassEnabled: isAuthBypassedForLocalDev(),
-  });
-  if (auth.status === "unauthenticated") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  if (auth.status === "forbidden") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!isAuthBypassedForLocalDev()) {
+    const authorization = await authorizeApiRoute(request, request.nextUrl.pathname);
+    if (!authorization.ok || !authorization.auth) {
+      return authorization.ok
+        ? NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+        : authorization.response;
+    }
   }
 
   let body: RelayPayload | null;

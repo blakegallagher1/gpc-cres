@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import * as Sentry from "@sentry/nextjs";
+import { authorizeApiRoute } from "@/lib/auth/authorizeApiRoute";
 
 export const runtime = "nodejs";
 
@@ -27,25 +28,15 @@ function timingSafeTokenMatch(a: string, b: string): boolean {
   }
 }
 
-function verifySecret(request: Request): boolean {
-  const secrets = [
-    process.env.SENTINEL_WEBHOOK_SECRET,
-    process.env.CRON_SECRET,
-  ].filter((s): s is string => typeof s === "string" && s.trim().length > 0);
-
-  if (secrets.length === 0) return false;
-
-  const header = request.headers.get("authorization")?.replace("Bearer ", "").trim() ?? "";
-  if (!header) return false;
-
-  return secrets.some((s) => timingSafeTokenMatch(s.trim(), header));
-}
-
 const SENTINEL_ORG_ID = "00000000-0000-0000-0000-000000000001";
 
 export async function POST(request: Request) {
-  if (!verifySecret(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const authorization = await authorizeApiRoute(
+    request as NextRequest,
+    "/api/admin/sentinel-alerts",
+  );
+  if (!authorization.ok) {
+    return authorization.response;
   }
 
   try {
@@ -83,8 +74,12 @@ export async function POST(request: Request) {
 }
 
 export async function GET(request: Request) {
-  if (!verifySecret(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const authorization = await authorizeApiRoute(
+    request as NextRequest,
+    "/api/admin/sentinel-alerts",
+  );
+  if (!authorization.ok) {
+    return authorization.response;
   }
 
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000);

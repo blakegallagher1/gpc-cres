@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { resolveAuth } from "@/lib/auth/resolveAuth";
+import { authorizeApiRoute } from "@/lib/auth/authorizeApiRoute";
 import {
   resumeSerializedAgentRun,
   type AgentStreamEvent,
@@ -23,10 +23,11 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "runId is required." }, { status: 400 });
   }
 
-  const auth = await resolveAuth(req);
-  if (!auth) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  const authorization = await authorizeApiRoute(req, req.nextUrl.pathname);
+  if (!authorization.ok) {
+    return authorization.response;
   }
+  const auth = authorization.auth;
 
   if (shouldUseAppDatabaseDevFallback()) {
     const sanitized = sanitizeChatErrorMessage(

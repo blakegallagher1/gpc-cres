@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z, ZodError } from "zod";
-import { resolveAuth } from "@/lib/auth/resolveAuth";
+import {
+  authorizeApiRoute,
+  type RouteAuthorizationSuccess,
+} from "@/lib/auth/authorizeApiRoute";
 import {
   attachRequestIdHeader,
   createRequestObservabilityContext,
@@ -255,16 +258,20 @@ export async function GET(req: NextRequest) {
 
   await logRequestStart(context, baseDetails);
 
-  let auth: Awaited<ReturnType<typeof resolveAuth>> | null = null;
+  let auth: RouteAuthorizationSuccess["auth"] | null = null;
 
   const withRequestId = (response: NextResponse) =>
     attachRequestIdHeader(response, context.requestId);
 
-  auth = await resolveAuth(req);
-  if (!auth) {
-    await logRequestOutcome(context, { status: 401, details: baseDetails });
-    return withRequestId(NextResponse.json({ error: "Unauthorized" }, { status: 401 }));
+  const authorization = await authorizeApiRoute(req, req.nextUrl.pathname);
+  if (!authorization.ok) {
+    await logRequestOutcome(context, {
+      status: authorization.response.status,
+      details: baseDetails,
+    });
+    return withRequestId(authorization.response);
   }
+  auth = authorization.auth;
   if (!auth.orgId) {
     await logRequestOutcome(context, {
       status: 403,

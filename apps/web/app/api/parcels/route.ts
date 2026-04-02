@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prismaRead } from "@entitlement-os/db";
-import { resolveAuth } from "@/lib/auth/resolveAuth";
+import {
+  authorizeApiRoute,
+  type RouteAuthorizationSuccess,
+} from "@/lib/auth/authorizeApiRoute";
 import {
   attachRequestIdHeader,
   createRequestObservabilityContext,
@@ -719,15 +722,19 @@ export async function GET(request: NextRequest) {
 
   await logRequestStart(context, baseDetails);
 
-  let auth: Awaited<ReturnType<typeof resolveAuth>> | null = null;
+  let auth: RouteAuthorizationSuccess["auth"] | null = null;
   let fallbackQueryCount = 0;
 
   try {
-    auth = await resolveAuth(request);
-    if (!auth) {
-      await logRequestOutcome(context, { status: 401, details: baseDetails });
-      return withRequestId(NextResponse.json({ error: "Unauthorized" }, { status: 401 }));
+    const authorization = await authorizeApiRoute(request, request.nextUrl.pathname);
+    if (!authorization.ok) {
+      await logRequestOutcome(context, {
+        status: authorization.response.status,
+        details: baseDetails,
+      });
+      return withRequestId(authorization.response);
     }
+    auth = authorization.auth;
 
     if (!requiresGateway) {
       const where: Record<string, unknown> = { orgId: auth.orgId };

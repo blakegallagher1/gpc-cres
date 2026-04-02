@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@entitlement-os/db';
-import { resolveAuth } from '@/lib/auth/resolveAuth';
+import { authorizeApiRoute } from '@/lib/auth/authorizeApiRoute';
 import * as Sentry from "@sentry/nextjs";
 
 /**
@@ -16,12 +16,11 @@ import * as Sentry from "@sentry/nextjs";
  */
 export async function GET(request: NextRequest) {
   try {
-    const authResult = await resolveAuth(request);
-    if (!authResult) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const authorization = await authorizeApiRoute(request, request.nextUrl.pathname);
+    if (!authorization.ok) {
+      return authorization.response;
     }
-
-    const { userId, orgId } = authResult;
+    const { orgId } = authorization.auth;
 
     // Fetch stats in parallel
     const [entitiesCount, verifiedCount, draftsCount, collisionsCount, innovationCount, recentEvents] = await Promise.all([

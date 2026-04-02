@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { resolveAuth } from "@/lib/auth/resolveAuth";
+import { authorizeApiRoute } from "@/lib/auth/authorizeApiRoute";
 import { prisma } from "@entitlement-os/db";
 import {
   attachRequestIdHeader,
@@ -344,11 +344,15 @@ export async function POST(req: NextRequest) {
   const withRequestId = (response: NextResponse) =>
     attachRequestIdHeader(response, context.requestId);
 
-  const auth = await resolveAuth(req);
-  if (!auth) {
-    await logRequestOutcome(context, { status: 401, details: { action: "prospect-search" } });
-    return withRequestId(NextResponse.json({ error: "Unauthorized" }, { status: 401 }));
+  const authorization = await authorizeApiRoute(req, req.nextUrl.pathname);
+  if (!authorization.ok) {
+    await logRequestOutcome(context, {
+      status: authorization.response.status,
+      details: { action: "prospect-search" },
+    });
+    return withRequestId(authorization.response);
   }
+  const auth = authorization.auth;
 
   let body: {
     polygon?: { coordinates?: number[][][] };
@@ -538,11 +542,15 @@ export async function PUT(req: NextRequest) {
   const withRequestId = (response: NextResponse) =>
     attachRequestIdHeader(response, context.requestId);
 
-  const auth = await resolveAuth(req);
-  if (!auth) {
-    await logRequestOutcome(context, { status: 401, details: { action: "prospect-bulk" } });
-    return withRequestId(NextResponse.json({ error: "Unauthorized" }, { status: 401 }));
+  const authorization = await authorizeApiRoute(req, req.nextUrl.pathname);
+  if (!authorization.ok) {
+    await logRequestOutcome(context, {
+      status: authorization.response.status,
+      details: { action: "prospect-bulk" },
+    });
+    return withRequestId(authorization.response);
   }
+  const auth = authorization.auth;
 
   let action: string | undefined;
   let parcelCount = 0;

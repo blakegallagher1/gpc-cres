@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { resolveAuth } from "@/lib/auth/resolveAuth";
+import { authorizeApiRoute } from "@/lib/auth/authorizeApiRoute";
 import { getPendingCollisions, resolveCollision } from "@/lib/services/entityCollisionDetector";
 import * as Sentry from "@sentry/nextjs";
 
 // GET /api/memory/entity-collisions — Get pending collision alerts
 export async function GET(req: NextRequest) {
   try {
-    const auth = await resolveAuth(req);
-    if (!auth) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authorization = await authorizeApiRoute(req, req.nextUrl.pathname);
+    if (!authorization.ok) {
+      return authorization.response;
     }
+    const auth = authorization.auth;
 
     const alerts = await getPendingCollisions(auth.orgId);
     return NextResponse.json({ alerts });
@@ -28,10 +29,11 @@ export async function GET(req: NextRequest) {
 // POST /api/memory/entity-collisions — Resolve a collision alert
 export async function POST(req: NextRequest) {
   try {
-    const auth = await resolveAuth(req);
-    if (!auth) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authorization = await authorizeApiRoute(req, req.nextUrl.pathname);
+    if (!authorization.ok) {
+      return authorization.response;
     }
+    const auth = authorization.auth;
 
     const body = await req.json();
     const { alertId, resolution } = body;

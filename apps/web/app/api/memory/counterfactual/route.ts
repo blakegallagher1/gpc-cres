@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { resolveAuth } from "@/lib/auth/resolveAuth";
+import { authorizeApiRoute } from "@/lib/auth/authorizeApiRoute";
 import * as Sentry from "@sentry/nextjs";
 import {
   logCounterfactual,
@@ -10,10 +10,11 @@ import {
 // GET /api/memory/counterfactual — Get counterfactual deal logs + outcome summary
 export async function GET(req: NextRequest) {
   try {
-    const auth = await resolveAuth(req);
-    if (!auth) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authorization = await authorizeApiRoute(req, req.nextUrl.pathname);
+    if (!authorization.ok) {
+      return authorization.response;
     }
+    const auth = authorization.auth;
 
     const { searchParams } = new URL(req.url);
     const outcome = searchParams.get("outcome") ?? undefined;
@@ -40,10 +41,11 @@ export async function GET(req: NextRequest) {
 // POST /api/memory/counterfactual — Log a counterfactual deal outcome
 export async function POST(req: NextRequest) {
   try {
-    const auth = await resolveAuth(req);
-    if (!auth) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authorization = await authorizeApiRoute(req, req.nextUrl.pathname);
+    if (!authorization.ok) {
+      return authorization.response;
     }
+    const auth = authorization.auth;
 
     const body = await req.json();
     const { dealId, outcome, rejectionReason, stageAtClose, projectionSnapshot, actualMetrics, lessonsLearned } = body;

@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
-import { resolveAuth } from "@/lib/auth/resolveAuth";
+import { authorizeApiRoute } from "@/lib/auth/authorizeApiRoute";
 import { isChatPersistenceUnavailable } from "@/app/api/chat/_lib/errorHandling";
 import { shouldUseAppDatabaseDevFallback } from "@/lib/server/appDbEnv";
 import * as Sentry from "@sentry/nextjs";
 
 // GET /api/chat/conversations — list conversations for the current user's org
 export async function GET(request: NextRequest) {
-  const auth = await resolveAuth(request);
-  if (!auth) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const authorization = await authorizeApiRoute(request, request.nextUrl.pathname);
+  if (!authorization.ok) {
+    return authorization.response;
   }
+  const auth = authorization.auth;
 
   if (shouldUseAppDatabaseDevFallback()) {
     return NextResponse.json({ conversations: [], degraded: true });

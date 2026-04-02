@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { resolveAuth } from "@/lib/auth/resolveAuth";
+import { authorizeApiRoute } from "@/lib/auth/authorizeApiRoute";
 import { memoryEventSchema } from "@/lib/schemas/memoryEvent";
 import { getMemoryEventService } from "@/lib/services/memoryEventService";
 import * as Sentry from "@sentry/nextjs";
@@ -7,10 +7,13 @@ import * as Sentry from "@sentry/nextjs";
 // POST /api/memory/events — Record a memory event
 export async function POST(req: NextRequest) {
   try {
-    const auth = await resolveAuth(req);
-    if (!auth) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authorization = await authorizeApiRoute(req, req.nextUrl.pathname);
+    if (!authorization.ok || !authorization.auth) {
+      return authorization.ok
+        ? NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+        : authorization.response;
     }
+    const auth = authorization.auth;
 
     const body = await req.json();
     const parsed = memoryEventSchema.safeParse(body);
@@ -44,10 +47,13 @@ export async function POST(req: NextRequest) {
 // GET /api/memory/events — Get event stats
 export async function GET(req: NextRequest) {
   try {
-    const auth = await resolveAuth(req);
-    if (!auth) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authorization = await authorizeApiRoute(req, req.nextUrl.pathname);
+    if (!authorization.ok || !authorization.auth) {
+      return authorization.ok
+        ? NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+        : authorization.response;
     }
+    const auth = authorization.auth;
 
     const { searchParams } = new URL(req.url);
     const days = parseInt(searchParams.get("days") ?? "7", 10);

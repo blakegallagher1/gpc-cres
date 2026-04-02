@@ -7,7 +7,7 @@ import {
   ParcelSetRegistry,
 } from "@entitlement-os/openai/planning";
 import { randomUUID } from "node:crypto";
-import { resolveAuth } from "@/lib/auth/resolveAuth";
+import { authorizeApiRoute } from "@/lib/auth/authorizeApiRoute";
 import { isDatabaseConnectivityError, runAgentWorkflow } from "@/lib/agent/agentRunner";
 import type { AgentStreamEvent } from "@/lib/agent/executeAgent";
 import type { ResearchLaneSelection } from "@/lib/agent/researchRouting";
@@ -285,7 +285,8 @@ export async function POST(req: NextRequest) {
 
   let auth;
   try {
-    auth = await resolveAuth(req);
+    const authorization = await authorizeApiRoute(req, req.nextUrl.pathname);
+    auth = authorization.ok ? authorization.auth : null;
   } catch (err) {
     Sentry.captureException(err, {
       tags: { route: "api.chat", method: "POST" },

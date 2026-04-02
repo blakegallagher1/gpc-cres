@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z, ZodError } from "zod";
 import { prisma } from "@entitlement-os/db";
-import { resolveAuth } from "@/lib/auth/resolveAuth";
+import { authorizeApiRoute } from "@/lib/auth/authorizeApiRoute";
 import * as Sentry from "@sentry/nextjs";
 
 const FeedbackInputSchema = z.object({
@@ -11,10 +11,13 @@ const FeedbackInputSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const auth = await resolveAuth(req);
-  if (!auth) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const authorization = await authorizeApiRoute(req, req.nextUrl.pathname);
+  if (!authorization.ok || !authorization.auth) {
+    return authorization.ok
+      ? NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      : authorization.response;
   }
+  const auth = authorization.auth;
 
   try {
     const body = await req.json();

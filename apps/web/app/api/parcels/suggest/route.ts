@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prismaRead } from "@entitlement-os/db";
-import { resolveAuth } from "@/lib/auth/resolveAuth";
+import { authorizeApiRoute } from "@/lib/auth/authorizeApiRoute";
 import {
   attachRequestIdHeader,
   createRequestObservabilityContext,
@@ -221,10 +221,11 @@ export async function GET(request: NextRequest) {
   const withRequestId = (response: NextResponse) =>
     attachRequestIdHeader(response, context.requestId);
 
-  const auth = await resolveAuth(request);
-  if (!auth) {
-    return withRequestId(NextResponse.json({ error: "Unauthorized" }, { status: 401 }));
+  const authorization = await authorizeApiRoute(request, request.nextUrl.pathname);
+  if (!authorization.ok) {
+    return withRequestId(authorization.response);
   }
+  const auth = authorization.auth;
   if (!auth.orgId) {
     return withRequestId(NextResponse.json({ error: "Forbidden" }, { status: 403 }));
   }

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
 import { logger } from "@/lib/logger";
 import { checkRateLimit } from "@/lib/server/rateLimiter";
-import { resolveAuth } from "@/lib/auth/resolveAuth";
+import { authorizeApiRoute } from "@/lib/auth/authorizeApiRoute";
 import {
   getCloudflareAccessHeadersFromEnv,
   logPropertyDbRuntimeHealth,
@@ -197,13 +197,14 @@ export async function GET(
 ) {
   const requestId = crypto.randomUUID();
   try {
-    const auth = await resolveAuth(request);
-    if (!auth) {
-      return NextResponse.json(
-        { ok: false, request_id: requestId, error: { code: "UNAUTHORIZED", message: "Unauthorized" } },
-        { status: 401 },
-      );
+    const authorization = await authorizeApiRoute(
+      request,
+      "/api/parcels/[parcelId]/geometry",
+    );
+    if (!authorization.ok) {
+      return authorization.response;
     }
+    const auth = authorization.auth;
 
     const { parcelId: rawParcelId } = await params;
     const parcelId = decodeURIComponent(rawParcelId).replace(/^ext-/, "").trim();

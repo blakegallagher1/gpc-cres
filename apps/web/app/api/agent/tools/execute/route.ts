@@ -2,7 +2,7 @@ import "server-only";
 
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError, z } from "zod";
-import { resolveAuth } from "@/lib/auth/resolveAuth";
+import { authorizeApiRoute } from "@/lib/auth/authorizeApiRoute";
 import { toolRegistry } from "@/lib/agent/toolRegistry";
 import * as Sentry from "@sentry/nextjs";
 import {
@@ -21,7 +21,8 @@ import {
  * POST /api/agent/tools/execute
  *
  * Executes a tool on behalf of the Cloudflare Worker.
- * Auth is validated server-side via the forwarded JWT — orgId/userId come from resolveAuth(req), never from the request body.
+ * Auth is validated server-side via authorizeApiRoute — orgId/userId come from
+ * the verified auth context, never from the request body.
  */
 
 const ToolExecutionContextSchema = z.object({
@@ -158,7 +159,8 @@ function getToolMetadata(
 export async function POST(req: NextRequest) {
   let auth;
   try {
-    auth = await resolveAuth(req);
+    const authorization = await authorizeApiRoute(req, req.nextUrl.pathname);
+    auth = authorization.ok ? authorization.auth : null;
   } catch (err) {
     Sentry.captureException(err, {
       tags: { route: "api.agent.tools.execute", method: "POST" },

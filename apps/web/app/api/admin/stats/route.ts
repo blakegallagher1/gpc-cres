@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@entitlement-os/db";
-import { resolveAuth } from "@/lib/auth/resolveAuth";
+import { authorizeApiRoute } from "@/lib/auth/authorizeApiRoute";
 import { isSchemaDriftError } from "@/lib/api/prismaSchemaFallback";
 
 export const dynamic = "force-dynamic";
@@ -199,10 +199,13 @@ async function safeEpisodeCount(orgId: string, tab: string, errors: AdminTabErro
 }
 
 export async function GET(request: NextRequest) {
-  const auth = await resolveAuth(request);
-  if (!auth) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const authorization = await authorizeApiRoute(request, request.nextUrl.pathname);
+  if (!authorization.ok || !authorization.auth) {
+    return authorization.ok
+      ? NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      : authorization.response;
   }
+  const auth = authorization.auth;
   const { orgId } = auth;
 
   const tab = request.nextUrl.searchParams.get("tab") ?? "overview";
