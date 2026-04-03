@@ -2,8 +2,80 @@ import { tool } from "@openai/agents";
 import { z } from "zod";
 import { buildMemoryToolHeaders } from "./memoryTools";
 
+type BrowserPlaybookSignature = {
+  domain: string | null;
+  objectivePattern: string | null;
+  apiPath: string | null;
+};
+
 function isBrowserPlaybookContent(value: string): boolean {
   return /"type"\s*:\s*"browser_playbook"/.test(value);
+}
+
+function normalizeWhitespace(value: string): string {
+  return value.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function extractKnowledgeFallbackTerms(query: string): string[] {
+  const normalized = query.toLowerCase();
+  const preferredTerms = [
+    "lacdb",
+    "resimplifi",
+    "east baton rouge",
+    "baton rouge",
+    "sale listings",
+    "for sale",
+  ].filter((term) => normalized.includes(term));
+  if (preferredTerms.length > 0) {
+    return preferredTerms;
+  }
+
+  const stopWords = new Set([
+    "go",
+    "to",
+    "and",
+    "the",
+    "for",
+    "find",
+    "with",
+    "from",
+    "that",
+    "this",
+    "properties",
+  ]);
+
+  const tokenTerms = normalized
+    .split(/[^a-z0-9]+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 4 && !stopWords.has(token));
+
+  return [...new Set(tokenTerms)].slice(0, 4);
+}
+
+function extractBrowserPlaybookSignature(content: string): BrowserPlaybookSignature {
+  const domainMatch = content.match(/"domain"\s*:\s*"([^"]+)"/i);
+  const objectiveMatch = content.match(/"objective_pattern"\s*:\s*"([^"]+)"/i);
+  const apiMatch = content.match(/"api"\s*:\s*"([^"]+)"/i);
+
+  return {
+    domain: domainMatch ? normalizeWhitespace(domainMatch[1]) : null,
+    objectivePattern: objectiveMatch ? normalizeWhitespace(objectiveMatch[1]) : null,
+    apiPath: apiMatch ? normalizeWhitespace(apiMatch[1]) : null,
+  };
+}
+
+function isSameBrowserPlaybook(
+  left: BrowserPlaybookSignature,
+  right: BrowserPlaybookSignature,
+): boolean {
+  return (
+    left.domain !== null &&
+    left.domain === right.domain &&
+    left.objectivePattern !== null &&
+    left.objectivePattern === right.objectivePattern &&
+    left.apiPath !== null &&
+    left.apiPath === right.apiPath
+  );
 }
 
 /**
@@ -78,21 +150,49 @@ export const search_knowledge_base = tool({
     try {
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? process.env.VERCEL_URL ?? "http://localhost:3000";
       const url = baseUrl.startsWith("http") ? baseUrl : `https://${baseUrl}`;
-      const qs = new URLSearchParams({ view: "search", q: params.query });
-      if (params.limit) qs.set("limit", String(params.limit));
-      if (params.content_types?.length) qs.set("types", params.content_types.join(","));
-      const resp = await fetch(`${url}/api/knowledge?${qs.toString()}`, {
-        method: "GET",
-        headers: buildMemoryToolHeaders(context),
-      });
-      if (!resp.ok) {
-        const errBody = await resp.text();
-        return `Knowledge search failed: ${resp.status} ${errBody}`;
+      const headers = buildMemoryToolHeaders(context);
+      const runSearch = async (query: string, exact = false) => {
+        const qs = new URLSearchParams({ view: "search", q: query });
+        if (params.limit) qs.set("limit", String(params.limit));
+        if (params.content_types?.length) qs.set("types", params.content_types.join(","));
+        if (exact) qs.set("mode", "exact");
+        const resp = await fetch(`${url}/api/knowledge?${qs.toString()}`, {
+          method: "GET",
+          headers,
+        });
+        if (!resp.ok) {
+          const errBody = await resp.text();
+          throw new Error(`Knowledge search failed: ${resp.status} ${errBody}`);
+        }
+        return await resp.json() as { results?: unknown[] };
+      };
+
+      const data = await runSearch(params.query);
+      const initialResults = Array.isArray(data.results) ? data.results : [];
+      if (initialResults.length > 0) {
+        return JSON.stringify(initialResults);
       }
-      const data = await resp.json() as { results?: unknown[] };
-      if (!data.results || data.results.length === 0) {
+
+      const fallbackTerms = extractKnowledgeFallbackTerms(params.query);
+      const deduped = new Map<string, unknown>();
+      for (const term of fallbackTerms) {
+        const fallback = await runSearch(term, true);
+        for (const entry of fallback.results ?? []) {
+          const key = JSON.stringify(entry);
+          if (!deduped.has(key)) {
+            deduped.set(key, entry);
+          }
+        }
+        if (deduped.size >= (params.limit ?? 5)) {
+          break;
+        }
+      }
+
+      if (deduped.size === 0) {
         return "No relevant knowledge found for this query.";
       }
+
+      data.results = [...deduped.values()].slice(0, params.limit ?? 5);
       return JSON.stringify(data.results);
     } catch (err) {
       return `Knowledge search error: ${err instanceof Error ? err.message : String(err)}`;
@@ -151,6 +251,7 @@ export const store_knowledge_entry = tool({
     try {
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? process.env.VERCEL_URL ?? "http://localhost:3000";
       const url = baseUrl.startsWith("http") ? baseUrl : `https://${baseUrl}`;
+      const headers = buildMemoryToolHeaders(context);
       const sourceId = `${params.source_agent}:${params.title.slice(0, 60).replace(/\s+/g, "-").toLowerCase()}`;
       const contentText = `${params.title}\n\n${params.content}`;
 
@@ -158,24 +259,36 @@ export const store_knowledge_entry = tool({
         params.content_type === "agent_analysis" &&
         isBrowserPlaybookContent(params.content)
       ) {
+        const currentSignature = extractBrowserPlaybookSignature(params.content);
+        const lookupTerm = currentSignature.domain ?? params.title;
         const qs = new URLSearchParams({
           view: "search",
-          q: params.title,
-          limit: "5",
+          q: lookupTerm,
+          limit: "10",
           types: "agent_analysis",
+          mode: "exact",
         });
         const existingResp = await fetch(`${url}/api/knowledge?${qs.toString()}`, {
           method: "GET",
-          headers: buildMemoryToolHeaders(context),
+          headers,
         });
         if (existingResp.ok) {
-          const existing = await existingResp.json() as { results?: Array<{ sourceId?: unknown; contentText?: unknown }> };
+          const existing = await existingResp.json() as {
+            results?: Array<{ sourceId?: unknown; contentText?: unknown }>;
+          };
           const duplicate = (existing.results ?? []).some((entry) => {
-            const existingSourceId =
-              typeof entry.sourceId === "string" ? entry.sourceId : null;
             const existingContentText =
               typeof entry.contentText === "string" ? entry.contentText : null;
-            return existingSourceId === sourceId && existingContentText === contentText;
+            if (!existingContentText) {
+              return false;
+            }
+
+            const existingSignature = extractBrowserPlaybookSignature(existingContentText);
+            if (isSameBrowserPlaybook(currentSignature, existingSignature)) {
+              return true;
+            }
+
+            return existingContentText === contentText;
           });
           if (duplicate) {
             return `Skipped duplicate knowledge entry "${params.title}".`;
@@ -185,7 +298,7 @@ export const store_knowledge_entry = tool({
 
       const resp = await fetch(`${url}/api/knowledge`, {
         method: "POST",
-        headers: buildMemoryToolHeaders(context),
+        headers,
         body: JSON.stringify({
           action: "ingest",
           contentType: params.content_type,

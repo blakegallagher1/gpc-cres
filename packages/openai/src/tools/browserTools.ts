@@ -6,6 +6,7 @@ type CuaModelPreference = "gpt-5.4" | "gpt-5.4-mini";
 const DEFAULT_CUA_WORKER_URL = "https://cua.gallagherpropco.com";
 const CUA_GATEWAY_FALLBACK_URL = "https://gateway.gallagherpropco.com";
 const MAX_BROWSER_TASK_SAMPLE_ROWS = 5;
+const MAX_BROWSER_TASK_RETRY_INSTRUCTION_CHARS = 1_200;
 
 type JsonRecord = Record<string, unknown>;
 
@@ -197,6 +198,37 @@ function pickBrowserTaskRows(data: JsonRecord | null): unknown[] {
   return [];
 }
 
+function unwrapBrowserTaskPayload(value: unknown): JsonRecord | null {
+  let current: unknown = value;
+  const visited = new Set<unknown>();
+
+  while (isRecord(current) && !visited.has(current)) {
+    visited.add(current);
+    if (hasStructuredBrowserPayload(current)) {
+      return current;
+    }
+
+    if (isRecord(current.data)) {
+      current = current.data;
+      continue;
+    }
+
+    if (isRecord(current.finalMessage)) {
+      current = current.finalMessage;
+      continue;
+    }
+
+    if (isRecord(current.result)) {
+      current = current.result;
+      continue;
+    }
+
+    return current;
+  }
+
+  return isRecord(current) ? current : null;
+}
+
 function hasStructuredBrowserPayload(data: JsonRecord | null): boolean {
   if (!data) return false;
   return [
@@ -221,8 +253,8 @@ function buildBrowserTaskDataContract(result: JsonRecord): JsonRecord | null {
     typeof result.finalMessage === "string"
       ? parseJsonLikeString(result.finalMessage)
       : result.finalMessage;
-  const rawMessageRecord = isRecord(rawMessageValue) ? rawMessageValue : null;
-  const data = isRecord(result.data) ? result.data : null;
+  const rawMessageRecord = unwrapBrowserTaskPayload(rawMessageValue);
+  const data = unwrapBrowserTaskPayload(result.data);
   const mergedData = data ?? rawMessageRecord;
   if (!hasStructuredBrowserPayload(mergedData)) {
     return null;
@@ -292,6 +324,20 @@ function buildBrowserTaskDataContract(result: JsonRecord): JsonRecord | null {
       fetchedAt: readStringField(source, ["fetchedAt"]),
     },
   };
+}
+
+function compactBrowserTaskRetryInstructions(instructions: string): string {
+  const normalized = instructions.replace(/\s+/g, " ").trim();
+  if (normalized.length <= MAX_BROWSER_TASK_RETRY_INSTRUCTION_CHARS) {
+    return normalized;
+  }
+
+  const compactPrefix = normalized.slice(0, 950).trim();
+  return [
+    compactPrefix,
+    "Use code-first recon and direct data/API extraction when available.",
+    "Return only a compact structured result with source, total count, and up to 5 sample rows.",
+  ].join(" ");
 }
 
 function sanitizeSuccessfulBrowserTaskResult(result: JsonRecord): JsonRecord {
@@ -375,49 +421,72 @@ export const browser_task = tool({
       let taskId: string | null = null;
       let createFailure: { status?: number; detail: string } | null = null;
 
+      const instructionVariants = [instructions];
+      const compactRetryInstructions = compactBrowserTaskRetryInstructions(instructions);
+      if (compactRetryInstructions !== instructions) {
+        instructionVariants.push(compactRetryInstructions);
+      }
+
       for (const candidateUrl of getCuaCandidateUrls(configuredCuaUrl)) {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 120_000);
+        for (let variantIndex = 0; variantIndex < instructionVariants.length; variantIndex += 1) {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 120_000);
 
-        const response = await fetch(`${candidateUrl}/tasks`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
-            ...cfHeaders,
-          },
-          body: JSON.stringify({
-            url,
-            instructions,
-            model: cuaModel,
-            mode: "auto",
-          }),
-          signal: controller.signal,
-        });
-
-        clearTimeout(timeout);
-
-        if (!response.ok) {
-          const text = await response.text().catch(() => "");
-          createFailure = { status: response.status, detail: text };
-          if (
-            response.status === 404 &&
-            candidateUrl === DEFAULT_CUA_WORKER_URL
-          ) {
-            continue;
-          }
-          return buildBrowserTaskFailureResult({
-            url,
-            cuaModel,
-            status: response.status,
-            detail: text,
+          const response = await fetch(`${candidateUrl}/tasks`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${apiKey}`,
+              ...cfHeaders,
+            },
+            body: JSON.stringify({
+              url,
+              instructions: instructionVariants[variantIndex],
+              model: cuaModel,
+              mode: "auto",
+            }),
+            signal: controller.signal,
           });
+
+          clearTimeout(timeout);
+
+          if (!response.ok) {
+            const text = await response.text().catch(() => "");
+            createFailure = { status: response.status, detail: text };
+            if (
+              response.status === 404 &&
+              candidateUrl === DEFAULT_CUA_WORKER_URL
+            ) {
+              break;
+            }
+            if (
+              response.status === 400 &&
+              /context window/i.test(text) &&
+              variantIndex + 1 < instructionVariants.length
+            ) {
+              continue;
+            }
+            return buildBrowserTaskFailureResult({
+              url,
+              cuaModel,
+              status: response.status,
+              detail: text,
+            });
+          }
+
+          const body = await response.json() as { taskId: string };
+          taskId = body.taskId;
+          activeCuaUrl = candidateUrl;
+          break;
         }
 
-        const body = await response.json() as { taskId: string };
-        taskId = body.taskId;
-        activeCuaUrl = candidateUrl;
-        break;
+        if (taskId) {
+          break;
+        }
+
+        if (createFailure?.status === 404 && candidateUrl === DEFAULT_CUA_WORKER_URL) {
+          continue;
+        }
       }
 
       if (!taskId) {

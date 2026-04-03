@@ -666,7 +666,12 @@ export async function searchKnowledgeBase(
     return searchKnowledgeExact(orgId, query, contentTypes, limit);
   }
 
-  return searchKnowledgeSemantic(orgId, query, contentTypes, limit);
+  const semanticResults = await searchKnowledgeSemantic(orgId, query, contentTypes, limit);
+  if (semanticResults.length > 0) {
+    return semanticResults;
+  }
+
+  return searchKnowledgeExact(orgId, query, contentTypes, limit);
 }
 
 export function isKnowledgeSearchError(error: unknown): error is KnowledgeSearchError {
