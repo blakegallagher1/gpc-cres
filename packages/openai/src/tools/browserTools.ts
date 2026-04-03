@@ -162,6 +162,46 @@ function summarizeLargeArray(value: unknown[]): JsonRecord {
   };
 }
 
+function isScalarTableValue(value: unknown): boolean {
+  return (
+    value === null ||
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  );
+}
+
+function isTableRowRecord(value: unknown): value is JsonRecord {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return Object.values(value).every((entry) => {
+    if (isScalarTableValue(entry)) {
+      return true;
+    }
+    if (Array.isArray(entry)) {
+      return entry.every(isScalarTableValue);
+    }
+    return false;
+  });
+}
+
+function inferTableColumns(rows: unknown[]): string[] {
+  const seen = new Set<string>();
+  for (const row of rows) {
+    if (!isTableRowRecord(row)) {
+      continue;
+    }
+    for (const key of Object.keys(row)) {
+      if (!seen.has(key)) {
+        seen.add(key);
+      }
+    }
+  }
+  return [...seen];
+}
+
 function summarizeBrowserTaskValue(value: unknown): unknown {
   const normalized = normalizeBrowserTaskValue(value);
 
@@ -306,6 +346,8 @@ function buildBrowserTaskDataContract(result: JsonRecord): JsonRecord | null {
   ]);
   const rows = pickBrowserTaskRows(mergedData);
   const sampleRows = rows.slice(0, MAX_BROWSER_TASK_SAMPLE_ROWS).map(summarizeBrowserTaskValue);
+  const tableRows = sampleRows.filter(isTableRowRecord);
+  const columns = inferTableColumns(tableRows);
   const omittedRows = Math.max(
     (typeof totalCount === "number" ? totalCount : rows.length) - sampleRows.length,
     0,
@@ -349,6 +391,8 @@ function buildBrowserTaskDataContract(result: JsonRecord): JsonRecord | null {
     status,
     summary: summaryParts.join(" "),
     totalCount,
+    columns,
+    rows: tableRows,
     sampleRows,
     omittedRows,
     apiVerified,
@@ -425,16 +469,16 @@ function sanitizeSuccessfulBrowserTaskResult(result: JsonRecord): JsonRecord {
   const normalizedResult = isRecord(normalized) ? normalized : result;
   const compactData = buildBrowserTaskDataContract(normalizedResult);
 
-    if (!compactData) {
-      return {
-        ...normalizedResult,
-        data: summarizeBrowserTaskValue(normalizedResult.data),
+  if (!compactData) {
+    return {
+      ...normalizedResult,
+      data: summarizeBrowserTaskValue(normalizedResult.data),
       finalMessage:
         typeof normalizedResult.finalMessage === "string"
           ? normalizedResult.finalMessage
           : normalizedResult.finalMessage,
-      };
-    }
+    };
+  }
 
   return {
     ...normalizedResult,
