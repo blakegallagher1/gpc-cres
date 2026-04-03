@@ -7,6 +7,7 @@ const DEFAULT_CUA_WORKER_URL = "https://cua.gallagherpropco.com";
 const CUA_GATEWAY_FALLBACK_URL = "https://gateway.gallagherpropco.com";
 const MAX_BROWSER_TASK_SAMPLE_ROWS = 5;
 const MAX_BROWSER_TASK_RETRY_INSTRUCTION_CHARS = 1_200;
+const MAX_BROWSER_TASK_ERROR_DETAIL_CHARS = 2_000;
 
 type JsonRecord = Record<string, unknown>;
 
@@ -28,6 +29,40 @@ function parseJsonLikeString(value: string): unknown {
   } catch {
     return value;
   }
+}
+
+function truncateText(text: string, maxChars: number): string {
+  if (text.length <= maxChars) {
+    return text;
+  }
+  return `${text.slice(0, maxChars - 1)}…`;
+}
+
+function compactBrowserTaskErrorDetail(detail: string, status?: number): string {
+  const trimmed = detail.trim();
+  if (!trimmed) {
+    return "Unknown error";
+  }
+
+  const normalized = /<!DOCTYPE html>|<html/i.test(trimmed)
+    ? trimmed.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()
+    : trimmed.replace(/\s+/g, " ").trim();
+
+  if (status === 502 || /bad gateway/i.test(normalized)) {
+    return truncateText(
+      `Bad gateway from CUA host. ${normalized}`,
+      MAX_BROWSER_TASK_ERROR_DETAIL_CHARS,
+    );
+  }
+
+  if (/Invalid 'input\[0\]\.output'/i.test(normalized)) {
+    return truncateText(
+      `CUA worker replayed oversized tool output to the Responses API. ${normalized}`,
+      MAX_BROWSER_TASK_ERROR_DETAIL_CHARS,
+    );
+  }
+
+  return truncateText(normalized, MAX_BROWSER_TASK_ERROR_DETAIL_CHARS);
 }
 
 function normalizeBrowserTaskValue(value: unknown): unknown {
@@ -59,13 +94,14 @@ function buildBrowserTaskFailureResult(options: {
   detail: string;
 }): Record<string, unknown> {
   const { url, cuaModel, status, detail } = options;
+  const compactDetail = compactBrowserTaskErrorDetail(detail, status);
   const statusPrefix = typeof status === "number" ? ` (${status})` : "";
   const unavailable =
     status === 404 ||
     status === 502 ||
     status === 503 ||
     status === 504 ||
-    /not found|unavailable|fetch failed|connection refused/i.test(detail);
+    /not found|unavailable|fetch failed|connection refused/i.test(compactDetail);
 
   const recoveryHint = unavailable
     ? "Browser automation is currently unavailable. If the task does not require login, clicking, or form interaction, switch to Perplexity web research or local evidence instead of retrying browser_task."
@@ -73,7 +109,7 @@ function buildBrowserTaskFailureResult(options: {
 
   return {
     success: false,
-    error: `CUA worker task create failed${statusPrefix}: ${detail}`,
+    error: `CUA worker task create failed${statusPrefix}: ${compactDetail}`,
     modeUsed: cuaModel,
     cost: { inputTokens: 0, outputTokens: 0 },
     source: {
@@ -454,7 +490,7 @@ export const browser_task = tool({
             const text = await response.text().catch(() => "");
             createFailure = { status: response.status, detail: text };
             if (
-              response.status === 404 &&
+              [404, 502, 503, 504].includes(response.status) &&
               candidateUrl === DEFAULT_CUA_WORKER_URL
             ) {
               break;
@@ -484,7 +520,11 @@ export const browser_task = tool({
           break;
         }
 
-        if (createFailure?.status === 404 && candidateUrl === DEFAULT_CUA_WORKER_URL) {
+        if (
+          createFailure?.status &&
+          [404, 502, 503, 504].includes(createFailure.status) &&
+          candidateUrl === DEFAULT_CUA_WORKER_URL
+        ) {
           continue;
         }
       }
@@ -521,9 +561,13 @@ export const browser_task = tool({
           _hint: "Data extracted successfully. Ask the user if they want to save this to the knowledge base using store_knowledge_entry.",
         };
       } else {
+        const errorDetail =
+          typeof result.error === "string"
+            ? compactBrowserTaskErrorDetail(result.error)
+            : "Browser task failed";
         return {
           success: false,
-          error: result.error ?? "Browser task failed",
+          error: errorDetail,
           screenshots: result.screenshots,
           turns: result.turns,
           _hint: "Browser task failed. Show the user the last screenshot and ask for guidance on what to try differently.",
@@ -550,20 +594,49 @@ async function pollForResult(
 ): Promise<Record<string, unknown>> {
   const deadline = Date.now() + maxWaitMs;
   let pollAttempts = 0;
+  const pollUrls = getCuaCandidateUrls(cuaUrl);
 
   while (Date.now() < deadline) {
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
     pollAttempts += 1;
 
-    const res = await fetch(`${cuaUrl}/tasks/${taskId}`, {
-      headers: { Authorization: `Bearer ${apiKey}`, ...cfHeaders },
-    });
+    let lastFailure: { status: number; detail: string; pollUrl: string } | null = null;
 
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
+    for (const pollUrl of pollUrls) {
+      const res = await fetch(`${pollUrl}/tasks/${taskId}`, {
+        headers: { Authorization: `Bearer ${apiKey}`, ...cfHeaders },
+      });
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        lastFailure = {
+          status: res.status,
+          detail: compactBrowserTaskErrorDetail(text, res.status),
+          pollUrl,
+        };
+        if (
+          pollUrl === DEFAULT_CUA_WORKER_URL &&
+          [404, 502, 503, 504].includes(res.status)
+        ) {
+          continue;
+        }
+        break;
+      }
+
+      const task = await res.json() as { status: string; result?: Record<string, unknown> };
+
+      if (task.status === "completed" || task.status === "failed") {
+        return task.result ?? { success: false, error: "No result returned" };
+      }
+
+      lastFailure = null;
+      break;
+    }
+
+    if (lastFailure) {
       return {
         success: false,
-        error: `CUA task status poll failed for ${taskId} with ${res.status}: ${text}`,
+        error: `CUA task status poll failed for ${taskId} with ${lastFailure.status} at ${lastFailure.pollUrl}: ${lastFailure.detail}`,
         source: {
           url: taskId,
           fetchedAt: new Date().toISOString(),
@@ -574,12 +647,6 @@ async function pollForResult(
         screenshots: [],
         attempts: pollAttempts,
       };
-    }
-
-    const task = await res.json() as { status: string; result?: Record<string, unknown> };
-
-    if (task.status === "completed" || task.status === "failed") {
-      return task.result ?? { success: false, error: "No result returned" };
     }
   }
 

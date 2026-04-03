@@ -19,6 +19,8 @@ import type {
 const DEFAULT_INTER_ACTION_DELAY_MS = 120;
 const TOOL_EXECUTION_TIMEOUT_MS = 20_000;
 const MAX_PROGRESS_MEMO_CHARS = 1_200;
+const MAX_EXEC_JS_REPLAY_OUTPUT_CHARS = 200_000;
+const MAX_EXEC_JS_SAMPLE_ROWS = 5;
 
 type LoopProgressState = {
   lastUrl: string | null;
@@ -96,6 +98,127 @@ function pickTerminalDataRows(record: Record<string, unknown> | null): unknown[]
   return [];
 }
 
+function hasStructuredExecJsPayload(record: Record<string, unknown> | null): boolean {
+  if (!record) return false;
+  return [
+    "confirmed_api",
+    "api_url",
+    "verified_source",
+    "verified_page_url",
+    "embedded_app_url",
+    "total_count",
+    "total_records",
+    "totalRows",
+    "records",
+    "listings",
+    "sampleRows",
+    "sample_rows",
+    "api_verified",
+  ].some((key) => key in record);
+}
+
+function unwrapExecJsPayload(value: unknown): Record<string, unknown> | null {
+  let current: unknown = value;
+  const visited = new Set<unknown>();
+
+  while (isRecord(current) && !visited.has(current)) {
+    visited.add(current);
+    if (hasStructuredExecJsPayload(current)) {
+      return current;
+    }
+
+    if (isRecord(current.data)) {
+      current = current.data;
+      continue;
+    }
+
+    if (isRecord(current.finalMessage)) {
+      current = current.finalMessage;
+      continue;
+    }
+
+    if (isRecord(current.result)) {
+      current = current.result;
+      continue;
+    }
+
+    return current;
+  }
+
+  return isRecord(current) ? current : null;
+}
+
+function truncateChars(text: string, maxChars: number): string {
+  if (text.length <= maxChars) {
+    return text;
+  }
+  return `${text.slice(0, maxChars - 1)}…`;
+}
+
+function compactExecJsReplayText(text: string): string {
+  const parsed = parseJsonLikeString(text);
+
+  if (Array.isArray(parsed)) {
+    return JSON.stringify({
+      totalRows: parsed.length,
+      sampleRows: parsed.slice(0, MAX_EXEC_JS_SAMPLE_ROWS),
+      omittedRows: Math.max(parsed.length - MAX_EXEC_JS_SAMPLE_ROWS, 0),
+      truncated: parsed.length > MAX_EXEC_JS_SAMPLE_ROWS,
+    });
+  }
+
+  const payload = unwrapExecJsPayload(parsed);
+  if (!hasStructuredExecJsPayload(payload)) {
+    return truncateChars(text, MAX_EXEC_JS_REPLAY_OUTPUT_CHARS);
+  }
+
+  const verifiedSource = isRecord(payload.verified_source)
+    ? (payload.verified_source as Record<string, unknown>)
+    : null;
+  const sourceUrl =
+    readStringField(payload, ["confirmed_api", "api_url"]) ??
+    readStringField(verifiedSource, ["api_url"]);
+  const pageUrl =
+    readStringField(payload, ["verified_page_url", "page_url"]) ??
+    readStringField(verifiedSource, ["page_url"]);
+  const embeddedAppUrl =
+    readStringField(payload, ["embedded_app_url", "app_url"]) ??
+    readStringField(verifiedSource, ["app_url"]);
+  const totalCount = readNumberField(payload, [
+    "totalCount",
+    "total_count",
+    "totalRows",
+    "total_records",
+    "sample_count",
+  ]);
+  const rows = pickTerminalDataRows(payload);
+  const sampleRows = rows.slice(0, MAX_EXEC_JS_SAMPLE_ROWS);
+  const omittedRows = Math.max(
+    (typeof totalCount === "number" ? totalCount : rows.length) - sampleRows.length,
+    0,
+  );
+
+  return truncateChars(
+    JSON.stringify({
+      status: readStringField(payload, ["status"]) ?? "ok",
+      summary: "Direct data lane result captured.",
+      totalCount,
+      sampleRows,
+      omittedRows,
+      apiVerified:
+        payload.api_verified === true ||
+        Boolean(sourceUrl && (pageUrl || embeddedAppUrl)),
+      blocker: readStringField(payload, ["blocker"]),
+      source: {
+        pageUrl,
+        embeddedAppUrl,
+        apiUrl: sourceUrl,
+      },
+    }),
+    MAX_EXEC_JS_REPLAY_OUTPUT_CHARS,
+  );
+}
+
 function extractTerminalDataLaneResult(execSummaries: string[]): {
   finalMessage: string;
   data: Record<string, unknown>;
@@ -104,35 +227,36 @@ function extractTerminalDataLaneResult(execSummaries: string[]): {
   for (let index = execSummaries.length - 1; index >= 0; index -= 1) {
     const summary = execSummaries[index];
     const parsed = parseJsonLikeString(summary);
-    if (!isRecord(parsed)) {
+    const payload = unwrapExecJsPayload(parsed);
+    if (!isRecord(payload)) {
       continue;
     }
 
-    const verifiedSource = isRecord(parsed.verified_source)
-      ? (parsed.verified_source as Record<string, unknown>)
+    const verifiedSource = isRecord(payload.verified_source)
+      ? (payload.verified_source as Record<string, unknown>)
       : null;
     const sourceUrl =
-      readStringField(parsed, ["confirmed_api", "api_url"]) ??
+      readStringField(payload, ["confirmed_api", "api_url"]) ??
       readStringField(verifiedSource, ["api_url"]) ??
       null;
     const pageUrl =
-      readStringField(parsed, ["verified_page_url", "page_url"]) ??
+      readStringField(payload, ["verified_page_url", "page_url"]) ??
       readStringField(verifiedSource, ["page_url"]) ??
       null;
     const embeddedAppUrl =
-      readStringField(parsed, ["embedded_app_url", "app_url"]) ??
+      readStringField(payload, ["embedded_app_url", "app_url"]) ??
       readStringField(verifiedSource, ["app_url"]) ??
       null;
     const totalRecords =
-      readNumberField(parsed, ["total_count", "total_records", "totalRows"]) ??
+      readNumberField(payload, ["total_count", "total_records", "totalRows"]) ??
       null;
-    const rows = pickTerminalDataRows(parsed);
+    const rows = pickTerminalDataRows(payload);
     const sampleRows = rows.slice(0, 5);
     const omittedRows = Math.max(
       (typeof totalRecords === "number" ? totalRecords : rows.length) - sampleRows.length,
       0,
     );
-    const blocker = readStringField(parsed, ["blocker"]);
+    const blocker = readStringField(payload, ["blocker"]);
 
     const lines = ["Browser task completed."];
     if (typeof totalRecords === "number") {
@@ -151,7 +275,7 @@ function extractTerminalDataLaneResult(execSummaries: string[]): {
     }
 
     const compactData: Record<string, unknown> = {
-      status: readStringField(parsed, ["status"]) ?? "ok",
+      status: readStringField(payload, ["status"]) ?? "ok",
       summary: lines.join(" "),
       totalCount: totalRecords,
       sampleRows,
@@ -945,16 +1069,17 @@ export async function runNativeComputerLoop(options: {
         }
 
         // Build output: text-only or text+image array
+        const replayText = compactExecJsReplayText(result.text);
         const output = result.screenshotDataUrl
           ? [
-              { type: "input_text", text: result.text },
+              { type: "input_text", text: replayText },
               {
                 type: "input_image",
                 image_url: result.screenshotDataUrl,
                 detail: "original",
               },
             ]
-          : result.text;
+          : replayText;
 
         toolOutputs.push({
           type: "function_call_output",
@@ -967,7 +1092,11 @@ export async function runNativeComputerLoop(options: {
           turn,
           timestamp: new Date().toISOString(),
           action: "exec_js completed",
-          data: { outputLength: result.text.length, hasScreenshot: !!result.screenshotDataUrl },
+          data: {
+            outputLength: result.text.length,
+            replayOutputLength: replayText.length,
+            hasScreenshot: !!result.screenshotDataUrl,
+          },
         });
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
