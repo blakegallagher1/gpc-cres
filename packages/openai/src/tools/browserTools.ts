@@ -8,6 +8,8 @@ const CUA_GATEWAY_FALLBACK_URL = "https://gateway.gallagherpropco.com";
 const MAX_BROWSER_TASK_SAMPLE_ROWS = 5;
 const MAX_BROWSER_TASK_RETRY_INSTRUCTION_CHARS = 1_200;
 const MAX_BROWSER_TASK_ERROR_DETAIL_CHARS = 2_000;
+const MIN_BROWSER_TASK_EXTRACTION_TIMEOUT_SECONDS = 420;
+const MAX_BROWSER_TASK_TRANSIENT_POLL_FAILURES = 3;
 
 type JsonRecord = Record<string, unknown>;
 
@@ -63,6 +65,20 @@ function compactBrowserTaskErrorDetail(detail: string, status?: number): string 
   }
 
   return truncateText(normalized, MAX_BROWSER_TASK_ERROR_DETAIL_CHARS);
+}
+
+function isTransientBrowserTaskPollFailure(status?: number, detail?: string): boolean {
+  if (typeof status === "number" && [0, 404, 408, 429, 500, 502, 503, 504].includes(status)) {
+    return true;
+  }
+
+  if (!detail) {
+    return false;
+  }
+
+  return /bad gateway|gateway|fetch failed|connection refused|timed out|timeout|temporar/i.test(
+    detail,
+  );
 }
 
 function normalizeBrowserTaskValue(value: unknown): unknown {
@@ -627,7 +643,11 @@ export const browser_task = tool({
       }
 
       // Poll for completion (the task runs async on the worker)
-      const pollTimeout = Math.min(timeoutSeconds ?? 300, 600) * 1000;
+      const requestedTimeoutSeconds = timeoutSeconds ?? 300;
+      const effectiveTimeoutSeconds = shouldRequireStructuredExtraction(instructions)
+        ? Math.max(requestedTimeoutSeconds, MIN_BROWSER_TASK_EXTRACTION_TIMEOUT_SECONDS)
+        : requestedTimeoutSeconds;
+      const pollTimeout = Math.min(effectiveTimeoutSeconds, 600) * 1000;
       const result = await pollForResult(activeCuaUrl, taskId, apiKey, cfHeaders, pollTimeout);
 
       if (result.success) {
@@ -699,6 +719,7 @@ async function pollForResult(
 ): Promise<Record<string, unknown>> {
   const deadline = Date.now() + maxWaitMs;
   let pollAttempts = 0;
+  let transientPollFailures = 0;
   const pollUrls = getCuaCandidateUrls(cuaUrl);
 
   while (Date.now() < deadline) {
@@ -708,9 +729,22 @@ async function pollForResult(
     let lastFailure: { status: number; detail: string; pollUrl: string } | null = null;
 
     for (const pollUrl of pollUrls) {
-      const res = await fetch(`${pollUrl}/tasks/${taskId}`, {
-        headers: { Authorization: `Bearer ${apiKey}`, ...cfHeaders },
-      });
+      let res: Response;
+      try {
+        res = await fetch(`${pollUrl}/tasks/${taskId}`, {
+          headers: { Authorization: `Bearer ${apiKey}`, ...cfHeaders },
+        });
+      } catch (error) {
+        const detail = compactBrowserTaskErrorDetail(
+          error instanceof Error ? error.message : String(error),
+        );
+        lastFailure = {
+          status: 0,
+          detail,
+          pollUrl,
+        };
+        continue;
+      }
 
       if (!res.ok) {
         const text = await res.text().catch(() => "");
@@ -734,11 +768,20 @@ async function pollForResult(
         return task.result ?? { success: false, error: "No result returned" };
       }
 
+      transientPollFailures = 0;
       lastFailure = null;
       break;
     }
 
     if (lastFailure) {
+      if (
+        isTransientBrowserTaskPollFailure(lastFailure.status, lastFailure.detail) &&
+        transientPollFailures < MAX_BROWSER_TASK_TRANSIENT_POLL_FAILURES
+      ) {
+        transientPollFailures += 1;
+        continue;
+      }
+
       return {
         success: false,
         error: `CUA task status poll failed for ${taskId} with ${lastFailure.status} at ${lastFailure.pollUrl}: ${lastFailure.detail}`,
