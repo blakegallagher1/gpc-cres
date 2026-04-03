@@ -98,6 +98,77 @@ function pickTerminalDataRows(record: Record<string, unknown> | null): unknown[]
   return [];
 }
 
+function isScalarTableValue(value: unknown): boolean {
+  return (
+    value === null ||
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  );
+}
+
+function isTableRowRecord(value: unknown): value is Record<string, unknown> {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return Object.values(value).every((entry) => {
+    if (isScalarTableValue(entry)) {
+      return true;
+    }
+    if (Array.isArray(entry)) {
+      return entry.every(isScalarTableValue);
+    }
+    return false;
+  });
+}
+
+function inferTableColumns(rows: unknown[]): string[] {
+  const seen = new Set<string>();
+  for (const row of rows) {
+    if (!isTableRowRecord(row)) {
+      continue;
+    }
+    for (const key of Object.keys(row)) {
+      if (!seen.has(key)) {
+        seen.add(key);
+      }
+    }
+  }
+  return [...seen];
+}
+
+function isLegacyStructuredExecJsPayload(record: Record<string, unknown> | null): boolean {
+  if (!record) return false;
+  return Array.isArray(record.data) && (isRecord(record.learned) || typeof record.status === "string");
+}
+
+function readLearnedRecord(
+  record: Record<string, unknown> | null,
+): Record<string, unknown> | null {
+  return isRecord(record?.learned) ? (record.learned as Record<string, unknown>) : null;
+}
+
+function readStringFromUrlArray(
+  value: unknown,
+  predicate?: (entry: string) => boolean,
+): string | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  for (const entry of value) {
+    if (typeof entry !== "string" || entry.trim().length === 0) {
+      continue;
+    }
+    if (!predicate || predicate(entry)) {
+      return entry;
+    }
+  }
+
+  return null;
+}
+
 function hasStructuredExecJsPayload(record: Record<string, unknown> | null): boolean {
   if (!record) return false;
   return [
@@ -114,7 +185,7 @@ function hasStructuredExecJsPayload(record: Record<string, unknown> | null): boo
     "sampleRows",
     "sample_rows",
     "api_verified",
-  ].some((key) => key in record);
+  ].some((key) => key in record) || isLegacyStructuredExecJsPayload(record);
 }
 
 function unwrapExecJsPayload(value: unknown): Record<string, unknown> | null {
@@ -175,24 +246,33 @@ function compactExecJsReplayText(text: string): string {
   const verifiedSource = isRecord(payload.verified_source)
     ? (payload.verified_source as Record<string, unknown>)
     : null;
+  const learned = readLearnedRecord(payload);
   const sourceUrl =
     readStringField(payload, ["confirmed_api", "api_url"]) ??
-    readStringField(verifiedSource, ["api_url"]);
+    readStringField(verifiedSource, ["api_url"]) ??
+    readStringField(learned, ["api_endpoint"]);
   const pageUrl =
     readStringField(payload, ["verified_page_url", "page_url"]) ??
-    readStringField(verifiedSource, ["page_url"]);
+    readStringField(verifiedSource, ["page_url"]) ??
+    readStringFromUrlArray(learned?.urls, (entry) => entry.includes("lacdb.com"));
   const embeddedAppUrl =
     readStringField(payload, ["embedded_app_url", "app_url"]) ??
-    readStringField(verifiedSource, ["app_url"]);
+    readStringField(verifiedSource, ["app_url"]) ??
+    readStringFromUrlArray(learned?.urls, (entry) => entry.includes("resimplifi.com"));
   const totalCount = readNumberField(payload, [
     "totalCount",
     "total_count",
     "totalRows",
     "total_records",
     "sample_count",
-  ]);
+  ]) ??
+    readNumberField(learned, [
+      "total_results_after_filter",
+      "total_accessible_east_baton_rouge_for_sale_or_salelease_listings",
+    ]);
   const rows = pickTerminalDataRows(payload);
   const sampleRows = rows.slice(0, MAX_EXEC_JS_SAMPLE_ROWS);
+  const columns = inferTableColumns(sampleRows);
   const omittedRows = Math.max(
     (typeof totalCount === "number" ? totalCount : rows.length) - sampleRows.length,
     0,
@@ -203,6 +283,8 @@ function compactExecJsReplayText(text: string): string {
       status: readStringField(payload, ["status"]) ?? "ok",
       summary: "Direct data lane result captured.",
       totalCount,
+      columns,
+      rows: sampleRows.filter(isTableRowRecord),
       sampleRows,
       omittedRows,
       apiVerified:
@@ -235,23 +317,32 @@ function extractTerminalDataLaneResult(execSummaries: string[]): {
     const verifiedSource = isRecord(payload.verified_source)
       ? (payload.verified_source as Record<string, unknown>)
       : null;
+    const learned = readLearnedRecord(payload);
     const sourceUrl =
       readStringField(payload, ["confirmed_api", "api_url"]) ??
       readStringField(verifiedSource, ["api_url"]) ??
+      readStringField(learned, ["api_endpoint"]) ??
       null;
     const pageUrl =
       readStringField(payload, ["verified_page_url", "page_url"]) ??
       readStringField(verifiedSource, ["page_url"]) ??
+      readStringFromUrlArray(learned?.urls, (entry) => entry.includes("lacdb.com")) ??
       null;
     const embeddedAppUrl =
       readStringField(payload, ["embedded_app_url", "app_url"]) ??
       readStringField(verifiedSource, ["app_url"]) ??
+      readStringFromUrlArray(learned?.urls, (entry) => entry.includes("resimplifi.com")) ??
       null;
     const totalRecords =
       readNumberField(payload, ["total_count", "total_records", "totalRows"]) ??
+      readNumberField(learned, [
+        "total_results_after_filter",
+        "total_accessible_east_baton_rouge_for_sale_or_salelease_listings",
+      ]) ??
       null;
     const rows = pickTerminalDataRows(payload);
     const sampleRows = rows.slice(0, 5);
+    const columns = inferTableColumns(sampleRows);
     const omittedRows = Math.max(
       (typeof totalRecords === "number" ? totalRecords : rows.length) - sampleRows.length,
       0,
@@ -278,6 +369,8 @@ function extractTerminalDataLaneResult(execSummaries: string[]): {
       status: readStringField(payload, ["status"]) ?? "ok",
       summary: lines.join(" "),
       totalCount: totalRecords,
+      columns,
+      rows: sampleRows.filter(isTableRowRecord),
       sampleRows,
       omittedRows,
       apiVerified: true,

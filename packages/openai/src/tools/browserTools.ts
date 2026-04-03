@@ -218,6 +218,35 @@ function inferTableColumns(rows: unknown[]): string[] {
   return [...seen];
 }
 
+function isLegacyStructuredBrowserPayload(data: JsonRecord | null): boolean {
+  if (!data) return false;
+  return Array.isArray(data.data) && (isRecord(data.learned) || typeof data.status === "string");
+}
+
+function readLearnedBrowserPayload(data: JsonRecord | null): JsonRecord | null {
+  return isRecord(data?.learned) ? (data.learned as JsonRecord) : null;
+}
+
+function readStringFromUrlArray(
+  value: unknown,
+  predicate?: (entry: string) => boolean,
+): string | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  for (const entry of value) {
+    if (typeof entry !== "string" || entry.trim().length === 0) {
+      continue;
+    }
+    if (!predicate || predicate(entry)) {
+      return entry;
+    }
+  }
+
+  return undefined;
+}
+
 function summarizeBrowserTaskValue(value: unknown): unknown {
   const normalized = normalizeBrowserTaskValue(value);
 
@@ -337,7 +366,7 @@ function hasStructuredBrowserPayload(data: JsonRecord | null): boolean {
     "sampleRows",
     "sample_rows",
     "api_verified",
-  ].some((key) => key in data);
+  ].some((key) => key in data) || isLegacyStructuredBrowserPayload(data);
 }
 
 function buildBrowserTaskDataContract(result: JsonRecord): JsonRecord | null {
@@ -351,41 +380,51 @@ function buildBrowserTaskDataContract(result: JsonRecord): JsonRecord | null {
   if (!hasStructuredBrowserPayload(mergedData)) {
     return null;
   }
+  const structuredData = mergedData as JsonRecord;
+  const learned = readLearnedBrowserPayload(structuredData);
   const source = isRecord(result.source) ? result.source : null;
-  const totalCount = readNumberField(mergedData, [
+  const totalCount = readNumberField(structuredData, [
     "totalCount",
     "total_count",
     "totalRows",
     "total_records",
     "sample_count",
     "total_accessible_east_baton_rouge_for_sale_or_salelease_listings",
-  ]);
-  const rows = pickBrowserTaskRows(mergedData);
+  ]) ??
+    readNumberField(learned, [
+      "total_results_after_filter",
+      "total_accessible_east_baton_rouge_for_sale_or_salelease_listings",
+    ]);
+  const rows = pickBrowserTaskRows(structuredData);
   const sampleRows = rows.slice(0, MAX_BROWSER_TASK_SAMPLE_ROWS).map(summarizeBrowserTaskValue);
   const tableRows = sampleRows.filter(isTableRowRecord);
   const columns = inferTableColumns(tableRows);
+  const mergedVerifiedSource = isRecord(structuredData.verified_source)
+    ? (structuredData.verified_source as JsonRecord)
+    : null;
   const omittedRows = Math.max(
     (typeof totalCount === "number" ? totalCount : rows.length) - sampleRows.length,
     0,
   );
   const apiUrl =
-    readStringField(mergedData, ["confirmed_api", "api_url"]) ??
-    (isRecord(mergedData?.verified_source)
-      ? readStringField(mergedData.verified_source as JsonRecord, ["api_url"])
-      : undefined) ??
+    readStringField(structuredData, ["confirmed_api", "api_url"]) ??
+    readStringField(mergedVerifiedSource, ["api_url"]) ??
+    readStringField(learned, ["api_endpoint"]) ??
     readStringField(source, ["url"]);
   const pageUrl =
-    readStringField(mergedData, ["verified_page_url", "page_url"]) ??
+    readStringField(structuredData, ["verified_page_url", "page_url"]) ??
+    readStringFromUrlArray(learned?.urls, (entry) => entry.includes("lacdb.com")) ??
     readStringField(source, ["url"]);
-  const embeddedAppUrl = readStringField(mergedData, [
+  const embeddedAppUrl = readStringField(structuredData, [
     "embedded_app_url",
     "app_url",
-  ]);
-  const blocker = readStringField(mergedData, ["blocker"]);
-  const status = readStringField(mergedData, ["status"]) ?? "ok";
+  ]) ??
+    readStringFromUrlArray(learned?.urls, (entry) => entry.includes("resimplifi.com"));
+  const blocker = readStringField(structuredData, ["blocker"]);
+  const status = readStringField(structuredData, ["status"]) ?? "ok";
   const apiVerified =
-    mergedData?.api_verified === true ||
-    Boolean(apiUrl && readStringField(mergedData, ["verified_page_url", "embedded_app_url"]));
+    structuredData.api_verified === true ||
+    Boolean(apiUrl && readStringField(structuredData, ["verified_page_url", "embedded_app_url"]));
 
   const summaryParts = ["Browser task completed."];
   if (typeof totalCount === "number") {
@@ -487,19 +526,41 @@ function sanitizeSuccessfulBrowserTaskResult(result: JsonRecord): JsonRecord {
 
   if (!compactData) {
     return {
-      ...normalizedResult,
+      success: true,
       data: summarizeBrowserTaskValue(normalizedResult.data),
       finalMessage:
         typeof normalizedResult.finalMessage === "string"
           ? normalizedResult.finalMessage
           : normalizedResult.finalMessage,
+      source: isRecord(normalizedResult.source) ? normalizedResult.source : undefined,
+      screenshots: Array.isArray(normalizedResult.screenshots)
+        ? normalizedResult.screenshots
+        : undefined,
+      turns:
+        typeof normalizedResult.turns === "number" ? normalizedResult.turns : undefined,
+      cost: isRecord(normalizedResult.cost) ? normalizedResult.cost : undefined,
+      modeUsed:
+        typeof normalizedResult.modeUsed === "string"
+          ? normalizedResult.modeUsed
+          : undefined,
     };
   }
 
   return {
-    ...normalizedResult,
+    success: true,
     data: compactData,
     finalMessage: compactData.summary,
+    source: isRecord(normalizedResult.source) ? normalizedResult.source : undefined,
+    screenshots: Array.isArray(normalizedResult.screenshots)
+      ? normalizedResult.screenshots
+      : undefined,
+    turns:
+      typeof normalizedResult.turns === "number" ? normalizedResult.turns : undefined,
+    cost: isRecord(normalizedResult.cost) ? normalizedResult.cost : undefined,
+    modeUsed:
+      typeof normalizedResult.modeUsed === "string"
+        ? normalizedResult.modeUsed
+        : undefined,
   };
 }
 
