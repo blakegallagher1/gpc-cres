@@ -324,6 +324,8 @@ type ToolEventState = {
   parcelAddressMismatchSummaries: string[];
   browserTaskSuccessCount: number;
   browserTaskVerifiedDataLaneCount: number;
+  browserTaskServiceUnavailableCount: number;
+  browserTaskSuggestedLane: ResearchLaneSelection | null;
 };
 
 type AgentRunAttemptState = {
@@ -979,6 +981,15 @@ function collectToolOutputSignals(
     }
   }
 
+  if (toolName === "browser_task") {
+    if (asRecord.suggestedLane === "public_web" || asRecord.suggestedLane === "interactive_browser") {
+      state.browserTaskSuggestedLane = asRecord.suggestedLane;
+    }
+    if (asRecord.serviceUnavailable === true) {
+      state.browserTaskServiceUnavailableCount += 1;
+    }
+  }
+
   if (toolName === "store_memory") {
     const decision = typeof asRecord.decision === "string" ? asRecord.decision.toLowerCase() : "";
     const reasons = Array.isArray(asRecord.reasons)
@@ -1447,6 +1458,8 @@ export async function executeAgentWorkflow(
     parcelAddressMismatchSummaries: [],
     browserTaskSuccessCount: 0,
     browserTaskVerifiedDataLaneCount: 0,
+    browserTaskServiceUnavailableCount: 0,
+    browserTaskSuggestedLane: null,
   };
   const trajectoryRecorder = createTrajectoryRecorder();
 
@@ -2400,6 +2413,35 @@ export async function executeAgentWorkflow(
       state,
       finalizeMissingEvidence(state),
     );
+
+    const shouldFallbackToPublicWeb =
+      state.browserTaskServiceUnavailableCount > 0 &&
+      state.browserTaskSuggestedLane === "public_web" &&
+      params.researchLaneOverride !== "public_web" &&
+      params.retryMode !== "browser-service-unavailable-fallback";
+
+    if (shouldFallbackToPublicWeb) {
+      logger.warn("Retrying agent run on public_web after browser_task service outage", {
+        runId: dbRun.id,
+        queryIntent,
+        priorLane: params.researchLaneOverride ?? "auto",
+        suggestedLane: state.browserTaskSuggestedLane,
+        browserTaskServiceUnavailableCount: state.browserTaskServiceUnavailableCount,
+      });
+
+      return executeAgentWorkflow({
+        ...params,
+        runId: dbRun.id,
+        researchLaneOverride: "public_web",
+        retryAttempts: (params.retryAttempts ?? 1) + 1,
+        retryMaxAttempts: Math.max(params.retryMaxAttempts ?? 2, (params.retryAttempts ?? 1) + 1),
+        retryMode: "browser-service-unavailable-fallback",
+        fallbackLineage: [...(params.fallbackLineage ?? []), params.researchLaneOverride ?? "auto"],
+        fallbackReason:
+          "browser_task reported service unavailability and suggested public_web fallback",
+      });
+    }
+
     const evidenceRetryPolicy = buildMissingEvidenceRetryPolicy(
       params,
       missingEvidence.length,
