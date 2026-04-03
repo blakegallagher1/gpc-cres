@@ -362,6 +362,50 @@ function buildBrowserTaskDataContract(result: JsonRecord): JsonRecord | null {
   };
 }
 
+function shouldRequireStructuredExtraction(instructions: string): boolean {
+  const normalized = instructions.toLowerCase();
+  return /extract|listing|listings|properties|property|rows|table|structured data|return data|for sale|find .* in/i.test(
+    normalized,
+  );
+}
+
+function hasMeaningfulBrowserTaskSuccessPayload(
+  result: JsonRecord,
+  compactData: JsonRecord | null,
+): boolean {
+  if (compactData) {
+    const totalCount = readNumberField(compactData, ["totalCount", "total_count", "totalRows"]);
+    const rows = pickBrowserTaskRows(compactData);
+    const summary = readStringField(compactData, ["summary"]);
+    if ((typeof totalCount === "number" && totalCount > 0) || rows.length > 0) {
+      return true;
+    }
+    if (summary && summary !== "Browser task completed.") {
+      return true;
+    }
+  }
+
+  const normalizedFinalMessage =
+    typeof result.finalMessage === "string" ? result.finalMessage.trim() : "";
+  if (normalizedFinalMessage.length > 0) {
+    return true;
+  }
+
+  const rawData = unwrapBrowserTaskPayload(result.data);
+  if (!rawData) {
+    return false;
+  }
+
+  const totalCount = readNumberField(rawData, [
+    "totalCount",
+    "total_count",
+    "totalRows",
+    "total_records",
+  ]);
+  const rows = pickBrowserTaskRows(rawData);
+  return (typeof totalCount === "number" && totalCount > 0) || rows.length > 0;
+}
+
 function compactBrowserTaskRetryInstructions(instructions: string): string {
   const normalized = instructions.replace(/\s+/g, " ").trim();
   if (normalized.length <= MAX_BROWSER_TASK_RETRY_INSTRUCTION_CHARS) {
@@ -381,16 +425,16 @@ function sanitizeSuccessfulBrowserTaskResult(result: JsonRecord): JsonRecord {
   const normalizedResult = isRecord(normalized) ? normalized : result;
   const compactData = buildBrowserTaskDataContract(normalizedResult);
 
-  if (!compactData) {
-    return {
-      ...normalizedResult,
-      data: summarizeBrowserTaskValue(normalizedResult.data),
+    if (!compactData) {
+      return {
+        ...normalizedResult,
+        data: summarizeBrowserTaskValue(normalizedResult.data),
       finalMessage:
         typeof normalizedResult.finalMessage === "string"
           ? normalizedResult.finalMessage
           : normalizedResult.finalMessage,
-    };
-  }
+      };
+    }
 
   return {
     ...normalizedResult,
@@ -549,6 +593,23 @@ export const browser_task = tool({
         } catch {
           sanitized = result as JsonRecord;
         }
+
+        const compactData = isRecord(sanitized.data) ? (sanitized.data as JsonRecord) : null;
+        if (
+          shouldRequireStructuredExtraction(instructions) &&
+          !hasMeaningfulBrowserTaskSuccessPayload(sanitized, compactData)
+        ) {
+          return {
+            success: false,
+            error:
+              "Browser task completed without extracted rows, counts, or a usable summary. Treating this as an extraction failure so the agent can retry with tighter constraints.",
+            screenshots: sanitized.screenshots,
+            turns: sanitized.turns,
+            _hint:
+              "Browser task returned an empty success payload. Retry with direct API extraction and require structured sample rows or counts in the response.",
+          };
+        }
+
         return {
           success: true,
           data: sanitized.data,
