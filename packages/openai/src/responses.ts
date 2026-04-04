@@ -46,6 +46,7 @@ const DEFAULT_RESPONSE_RETRIES = 2;
 const DEFAULT_INITIAL_RETRY_DELAY_MS = 1_000;
 const DEFAULT_MAX_RETRY_DELAY_MS = 8_000;
 const DEFAULT_RETRY_MULTIPLIER = 2;
+const DEFAULT_CRE_GOD_MODEL = "cre-god-model";
 
 let cachedClient: OpenAI | null = null;
 
@@ -71,6 +72,93 @@ function getClient(apiKey?: string): OpenAI {
   }
 
   return cachedClient;
+}
+
+type CreGatewayConfig = {
+  apiKey: string;
+  baseUrl: string;
+  model: string;
+};
+
+function getCreGatewayConfig(): CreGatewayConfig | null {
+  const rawBaseUrl = process.env.CRE_GOD_MODEL_BASE_URL?.trim();
+  const apiKey = process.env.CRE_GOD_MODEL_API_KEY?.trim();
+  if (!rawBaseUrl || !apiKey) {
+    return null;
+  }
+
+  const normalizedBaseUrl = rawBaseUrl.startsWith("http")
+    ? rawBaseUrl
+    : `https://${rawBaseUrl}`;
+
+  return {
+    apiKey,
+    baseUrl: normalizedBaseUrl.replace(/\/$/, ""),
+    model: process.env.CRE_GOD_MODEL_NAME?.trim() || DEFAULT_CRE_GOD_MODEL,
+  };
+}
+
+function getCreGatewayText(responseBody: unknown): { responseId: string | null; text: string } {
+  if (!responseBody || typeof responseBody !== "object") {
+    throw new Error("CRE gateway returned a non-object response");
+  }
+
+  const record = responseBody as Record<string, unknown>;
+  const choices = record.choices;
+  if (!Array.isArray(choices) || choices.length === 0) {
+    throw new Error("CRE gateway response did not contain choices");
+  }
+
+  const firstChoice = choices[0];
+  if (!firstChoice || typeof firstChoice !== "object") {
+    throw new Error("CRE gateway response choice was invalid");
+  }
+
+  const message = (firstChoice as Record<string, unknown>).message;
+  if (!message || typeof message !== "object") {
+    throw new Error("CRE gateway response did not contain a message");
+  }
+
+  const content = (message as Record<string, unknown>).content;
+  if (typeof content !== "string" || content.trim().length === 0) {
+    throw new Error("CRE gateway response did not contain message content");
+  }
+
+  const responseId = typeof record.id === "string" && record.id.length > 0 ? record.id : null;
+  return { responseId, text: content.trim() };
+}
+
+async function createCreGatewayTextResponse(
+  params: CreateTextResponseParams,
+  config: CreGatewayConfig,
+  model: string,
+): Promise<{ text: string; responseId: string | null }> {
+  const payload = {
+    model,
+    messages: [
+      { role: "system", content: params.systemPrompt },
+      { role: "user", content: params.userPrompt },
+    ],
+    temperature: params.temperature,
+    max_tokens: params.maxOutputTokens,
+    top_p: params.topP,
+  };
+
+  const response = await fetch(`${config.baseUrl}/v1/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-API-Key": config.apiKey,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(`CRE gateway request failed (${response.status}): ${detail}`);
+  }
+
+  return getCreGatewayText(await response.json());
 }
 
 function getOutputText(response: OpenAI.Responses.Response): string {
@@ -596,8 +684,31 @@ export type CreateTextResponseParams = {
 export async function createTextResponse(
   params: CreateTextResponseParams,
 ): Promise<{ text: string; responseId: string | null }> {
+  const creGatewayConfig = getCreGatewayConfig();
+  const model = params.model ?? (creGatewayConfig?.model ?? "gpt-5.4-mini");
+
+  if (creGatewayConfig && model === creGatewayConfig.model) {
+    return withExponentialBackoff(
+      async () => createCreGatewayTextResponse(params, creGatewayConfig, model),
+      {
+        retries: envNumber("OPENAI_RESPONSES_RETRIES", DEFAULT_RESPONSE_RETRIES),
+        initialDelayMs: envNumber(
+          "OPENAI_RESPONSES_INITIAL_RETRY_DELAY_MS",
+          DEFAULT_INITIAL_RETRY_DELAY_MS,
+        ),
+        maxDelayMs: envNumber(
+          "OPENAI_RESPONSES_MAX_RETRY_DELAY_MS",
+          DEFAULT_MAX_RETRY_DELAY_MS,
+        ),
+        multiplier: envNumber(
+          "OPENAI_RESPONSES_RETRY_MULTIPLIER",
+          DEFAULT_RETRY_MULTIPLIER,
+        ),
+      },
+    );
+  }
+
   const client = getClient(params.apiKey);
-  const model = params.model ?? "gpt-5.4-mini";
 
   const response = (await withExponentialBackoff(
     async () =>
