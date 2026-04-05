@@ -45,6 +45,11 @@ type GeoJsonGeometry = {
   coordinates: unknown;
 };
 
+type ParcelLookupGatewayRecord = {
+  parcel_uid?: string | null;
+  parcel_id?: string | null;
+};
+
 function getGeometryGatewayTimeoutMs(): number {
   const parsed = Number.parseInt(
     process.env.PROPERTY_DB_GATEWAY_TIMEOUT_MS ??
@@ -192,6 +197,43 @@ function geometryUnavailableResponse(requestId: string) {
   );
 }
 
+async function resolveCanonicalGeometryParcelId(params: {
+  gatewayUrl: string;
+  gatewayKey: string;
+  parcelId: string;
+  signal: AbortSignal;
+}): Promise<string> {
+  const res = await fetch(`${params.gatewayUrl}/tools/parcel.lookup`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${params.gatewayKey}`,
+      ...getPropertyDbScopeHeaders("parcels.read"),
+      ...getCloudflareAccessHeadersFromEnv(),
+    },
+    body: JSON.stringify({ parcel_id: params.parcelId }),
+    signal: params.signal,
+  });
+
+  if (!res.ok) {
+    return params.parcelId;
+  }
+
+  let json: { ok?: boolean; data?: ParcelLookupGatewayRecord | null };
+  try {
+    json = (await res.json()) as { ok?: boolean; data?: ParcelLookupGatewayRecord | null };
+  } catch {
+    return params.parcelId;
+  }
+
+  const canonicalParcelId =
+    json.ok === true
+      ? json.data?.parcel_uid?.trim() || json.data?.parcel_id?.trim() || ""
+      : "";
+
+  return canonicalParcelId.length > 0 ? canonicalParcelId : params.parcelId;
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ parcelId: string }> },
@@ -252,11 +294,17 @@ export async function GET(
     const gatewayKey = gatewayConfig.key;
 
     const geometryTimeoutMs = getGeometryGatewayTimeoutMs();
-    const url = `${gatewayUrl}/api/parcels/${encodeURIComponent(parcelId)}/geometry?detail_level=${detailLevel}`;
     let res: Response;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), geometryTimeoutMs);
     try {
+      const canonicalParcelId = await resolveCanonicalGeometryParcelId({
+        gatewayUrl,
+        gatewayKey,
+        parcelId,
+        signal: controller.signal,
+      });
+      const url = `${gatewayUrl}/api/parcels/${encodeURIComponent(canonicalParcelId)}/geometry?detail_level=${detailLevel}`;
       res = await fetch(url, {
         headers: {
           Authorization: `Bearer ${gatewayKey}`,

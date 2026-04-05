@@ -112,7 +112,17 @@ describe("GET /api/parcels/[parcelId]/geometry", () => {
   });
 
   it("returns geometry payload from the gateway", async () => {
-    fetchMock.mockResolvedValue(
+    fetchMock
+      .mockResolvedValueOnce(
+        makeJsonResponse({
+          ok: true,
+          data: {
+            parcel_uid: "canonical-123",
+            parcel_id: "abc-123",
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
       makeJsonResponse({
         ok: true,
         data: {
@@ -138,9 +148,23 @@ describe("GET /api/parcels/[parcelId]/geometry", () => {
     expect(res.status).toBe(200);
     expect(body.ok).toBe(true);
     expect(body.data.geom_simplified).toContain('"Polygon"');
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://api.gallagherpropco.com/api/parcels/abc-123/geometry?detail_level=high",
+      "https://api.gallagherpropco.com/tools/parcel.lookup",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          Authorization: "Bearer test-gateway-key",
+          "CF-Access-Client-Id": "cf-id",
+          "CF-Access-Client-Secret": "cf-secret",
+          "Content-Type": "application/json",
+        }),
+        body: JSON.stringify({ parcel_id: "abc-123" }),
+        signal: expect.any(AbortSignal),
+      }),
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.gallagherpropco.com/api/parcels/canonical-123/geometry?detail_level=high",
       expect.objectContaining({
         headers: expect.objectContaining({
           Authorization: "Bearer test-gateway-key",
@@ -152,6 +176,51 @@ describe("GET /api/parcels/[parcelId]/geometry", () => {
     );
     // Verify cache header on successful geometry response
     expect(res.headers.get("cache-control")).toMatch(/max-age=300/);
+  });
+
+  it("uses the canonical parcel id from parcel.lookup before requesting geometry", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        makeJsonResponse({
+          ok: true,
+          data: {
+            parcel_uid: "canonical-739049",
+            parcel_id: "739049",
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        makeJsonResponse({
+          ok: true,
+          data: {
+            geom_simplified: {
+              type: "Polygon",
+              coordinates: [[[-91.2, 30.3], [-91.1, 30.3], [-91.1, 30.4], [-91.2, 30.4], [-91.2, 30.3]]],
+            },
+            bbox: [-91.2, 30.3, -91.1, 30.4],
+            area_sqft: 1200,
+            centroid: { lat: 30.35, lng: -91.15 },
+            srid: 4326,
+            dataset_version: "gateway",
+          },
+        }),
+      );
+
+    const res = await GET(
+      new Request("http://localhost/api/parcels/739049/geometry?detail_level=low"),
+      { params: Promise.resolve({ parcelId: "739049" }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "https://api.gallagherpropco.com/api/parcels/canonical-739049/geometry?detail_level=low",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer test-gateway-key",
+        }),
+        signal: expect.any(AbortSignal),
+      }),
+    );
   });
 
   it("returns 503 when gateway env is missing", async () => {
@@ -170,9 +239,17 @@ describe("GET /api/parcels/[parcelId]/geometry", () => {
   });
 
   it("fails closed when the gateway responds with a server error", async () => {
-    fetchMock.mockResolvedValue(
-      new Response("gateway error", { status: 502 }),
-    );
+    fetchMock
+      .mockResolvedValueOnce(
+        makeJsonResponse({
+          ok: true,
+          data: {
+            parcel_uid: "abc-123",
+            parcel_id: "abc-123",
+          },
+        }),
+      )
+      .mockResolvedValueOnce(new Response("gateway error", { status: 502 }));
 
     const res = await GET(
       new Request("http://localhost/api/parcels/abc-123/geometry?detail_level=low"),
@@ -182,7 +259,7 @@ describe("GET /api/parcels/[parcelId]/geometry", () => {
 
     expect(res.status).toBe(502);
     expect(body.error?.code).toBe("GATEWAY_UNAVAILABLE");
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("uses PROPERTY_DB_GATEWAY_TIMEOUT_MS for gateway requests and captures once", async () => {
@@ -228,17 +305,27 @@ describe("GET /api/parcels/[parcelId]/geometry", () => {
 
   it("returns 404 with a separate log when the gateway row cannot be parsed", async () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    fetchMock.mockResolvedValue(
-      makeJsonResponse({
-        ok: true,
-        data: {
-          bbox: [-91.2, 30.3, -91.1, 30.4],
-          area_sqft: 1200,
-          srid: 4326,
-          dataset_version: "gateway",
-        },
-      }),
-    );
+    fetchMock
+      .mockResolvedValueOnce(
+        makeJsonResponse({
+          ok: true,
+          data: {
+            parcel_uid: "unparseable",
+            parcel_id: "unparseable",
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        makeJsonResponse({
+          ok: true,
+          data: {
+            bbox: [-91.2, 30.3, -91.1, 30.4],
+            area_sqft: 1200,
+            srid: 4326,
+            dataset_version: "gateway",
+          },
+        }),
+      );
 
     const res = await GET(
       new Request("http://localhost/api/parcels/unparseable/geometry?detail_level=low"),
