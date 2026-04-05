@@ -120,10 +120,7 @@ export function getLocalFallbackTileUrl(): string {
  * Prefer getMartinParcelTileUrl() for new code.
  */
 export function getParcelTileUrl(): string {
-  if (typeof window !== "undefined") {
-    return `${window.location.origin}/api/map/tiles/{z}/{x}/{y}`;
-  }
-  return "/api/map/tiles/{z}/{x}/{y}";
+  return getMartinParcelTileUrl("ebr_parcels.1");
 }
 
 /**
