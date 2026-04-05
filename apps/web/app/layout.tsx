@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { DM_Mono, Instrument_Sans } from "next/font/google";
+import { DM_Mono, Fraunces, Instrument_Sans } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { AuthSessionProvider } from "@/components/providers/session-provider";
@@ -21,6 +21,13 @@ const instrumentSans = Instrument_Sans({
   variable: "--font-sans",
 });
 
+/** Display serif for public marketing hero + section titles only (see PublicSiteShell). */
+const frauncesDisplay = Fraunces({
+  subsets: ["latin"],
+  weight: ["600", "700"],
+  variable: "--font-display",
+});
+
 export const metadata: Metadata = {
   title: "GPC Agent Dashboard | Gallagher Property Company",
   description:
@@ -34,7 +41,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${instrumentSans.variable} ${dmMono.variable} ${instrumentSans.className}`}>
+      <body
+        className={`${instrumentSans.variable} ${dmMono.variable} ${frauncesDisplay.variable} ${instrumentSans.className}`}
+      >
         <AuthSessionProvider>
           <ThemeProvider
             attribute="class"

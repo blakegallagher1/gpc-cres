@@ -5,18 +5,31 @@ exports[`HomePage > renders the public Gallagher Property Company homepage 1`] =
   class="relative overflow-hidden bg-transparent text-foreground"
 >
   <div
-    class="absolute inset-x-0 top-0 -z-10 h-[44rem] bg-[radial-gradient(circle_at_top_left,oklch(var(--shell-glow)/0.14),transparent_28%),linear-gradient(180deg,transparent,oklch(var(--color-background)/0.1))]"
+    class="pointer-events-none absolute inset-0 -z-[6] public-site-grid opacity-[0.55] dark:opacity-[0.45]"
   />
   <div
-    class="absolute inset-x-0 top-16 -z-10 mx-auto hidden h-[28rem] w-[84%] max-w-5xl bg-white/12 blur-3xl md:block dark:bg-white/5"
+    aria-hidden="true"
+    class="pointer-events-none absolute inset-0 -z-[5] mix-blend-multiply public-site-grain opacity-[0.038] dark:opacity-[0.07] dark:mix-blend-overlay"
+  />
+  <div
+    class="absolute inset-x-0 top-0 -z-10 h-[48rem] bg-[radial-gradient(circle_at_18%_8%,oklch(var(--shell-glow)/0.16),transparent_32%),radial-gradient(circle_at_85%_12%,oklch(var(--shell-accent)/0.09),transparent_38%),linear-gradient(180deg,transparent,oklch(var(--color-background)/0.12))]"
+  />
+  <div
+    class="absolute inset-x-0 top-16 -z-10 mx-auto hidden h-[30rem] w-[84%] max-w-5xl bg-white/14 blur-3xl md:block dark:bg-white/[0.06]"
   />
   <section
     class="mx-auto flex min-h-[100svh] w-full max-w-7xl flex-col px-5 pb-14 pt-6 sm:px-6 lg:px-8"
   >
     <header
-      class="mb-12 flex items-center justify-between border-b border-border/55 pb-5"
+      class="mb-12 flex items-center justify-between gap-8 border-b border-border/55 pb-5"
     >
-      <div>
+      <div
+        class="relative min-w-0"
+      >
+        <span
+          aria-hidden="true"
+          class="absolute -left-3 top-1 hidden h-[calc(100%-0.25rem)] w-px bg-gradient-to-b from-transparent via-border/70 to-transparent lg:block"
+        />
         <p
           class="font-mono text-[0.68rem] uppercase tracking-[0.34em] text-muted-foreground"
         >
@@ -29,28 +42,28 @@ exports[`HomePage > renders the public Gallagher Property Company homepage 1`] =
         </p>
       </div>
       <nav
-        class="hidden items-center gap-7 text-sm text-muted-foreground md:flex"
+        class="hidden items-center gap-8 text-sm text-muted-foreground md:flex"
       >
         <a
-          class="transition-colors hover:text-foreground"
+          class="relative pb-0.5 transition-colors duration-200 after:absolute after:bottom-0 after:left-0 after:h-px after:w-0 after:bg-foreground/70 after:transition-[width] after:duration-300 hover:text-foreground hover:after:w-full"
           href="/"
         >
           Home
         </a>
         <a
-          class="transition-colors hover:text-foreground"
+          class="relative pb-0.5 transition-colors duration-200 after:absolute after:bottom-0 after:left-0 after:h-px after:w-0 after:bg-foreground/70 after:transition-[width] after:duration-300 hover:text-foreground hover:after:w-full"
           href="/focus"
         >
           Focus
         </a>
         <a
-          class="transition-colors hover:text-foreground"
+          class="relative pb-0.5 transition-colors duration-200 after:absolute after:bottom-0 after:left-0 after:h-px after:w-0 after:bg-foreground/70 after:transition-[width] after:duration-300 hover:text-foreground hover:after:w-full"
           href="/strategy"
         >
           Strategy
         </a>
         <a
-          class="transition-colors hover:text-foreground"
+          class="relative pb-0.5 transition-colors duration-200 after:absolute after:bottom-0 after:left-0 after:h-px after:w-0 after:bg-foreground/70 after:transition-[width] after:duration-300 hover:text-foreground hover:after:w-full"
           href="/platform"
         >
           Platform
@@ -61,7 +74,7 @@ exports[`HomePage > renders the public Gallagher Property Company homepage 1`] =
       class="grid gap-12 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start lg:gap-16"
     >
       <div
-        class="max-w-5xl"
+        class="public-hero-stack max-w-5xl"
       >
         <p
           class="font-mono text-[0.72rem] uppercase tracking-[0.32em] text-muted-foreground"
@@ -69,7 +82,7 @@ exports[`HomePage > renders the public Gallagher Property Company homepage 1`] =
           Manufactured Housing + Flex Industrial
         </p>
         <h1
-          class="mt-8 max-w-[11.5ch] text-[clamp(3.8rem,7vw,6.8rem)] leading-[0.92] font-semibold tracking-[-0.075em]"
+          class="mt-8 max-w-[14ch] font-[family-name:var(--font-display)] text-[clamp(3.8rem,7vw,6.8rem)] leading-[0.92] font-semibold tracking-[-0.06em]"
         >
           Gallagher Property Company
         </h1>
@@ -82,10 +95,10 @@ exports[`HomePage > renders the public Gallagher Property Company homepage 1`] =
           class="mt-8"
         >
           <dl
-            class="grid gap-4 md:grid-cols-3"
+            class="public-stat-stagger grid gap-4 md:grid-cols-3"
           >
             <div
-              class="rounded-[1.4rem] border border-border/55 bg-background/80 p-5"
+              class="rounded-[1.4rem] border border-border/50 bg-background/85 p-5 shadow-sm backdrop-blur-sm transition-[box-shadow,transform] duration-300 hover:-translate-y-0.5 hover:shadow-md dark:bg-background/70"
             >
               <dt
                 class="font-mono text-[0.66rem] uppercase tracking-[0.24em] text-muted-foreground"
@@ -104,7 +117,7 @@ exports[`HomePage > renders the public Gallagher Property Company homepage 1`] =
               </p>
             </div>
             <div
-              class="rounded-[1.4rem] border border-border/55 bg-background/80 p-5"
+              class="rounded-[1.4rem] border border-border/50 bg-background/85 p-5 shadow-sm backdrop-blur-sm transition-[box-shadow,transform] duration-300 hover:-translate-y-0.5 hover:shadow-md dark:bg-background/70"
             >
               <dt
                 class="font-mono text-[0.66rem] uppercase tracking-[0.24em] text-muted-foreground"
@@ -123,7 +136,7 @@ exports[`HomePage > renders the public Gallagher Property Company homepage 1`] =
               </p>
             </div>
             <div
-              class="rounded-[1.4rem] border border-border/55 bg-background/80 p-5"
+              class="rounded-[1.4rem] border border-border/50 bg-background/85 p-5 shadow-sm backdrop-blur-sm transition-[box-shadow,transform] duration-300 hover:-translate-y-0.5 hover:shadow-md dark:bg-background/70"
             >
               <dt
                 class="font-mono text-[0.66rem] uppercase tracking-[0.24em] text-muted-foreground"
@@ -147,7 +160,7 @@ exports[`HomePage > renders the public Gallagher Property Company homepage 1`] =
           class="mt-8 flex flex-col gap-3 sm:flex-row"
         >
           <a
-            class="inline-flex items-center justify-center whitespace-nowrap border border-transparent tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-primary text-primary-foreground hover:-translate-y-px hover:bg-primary/92 h-10 py-2 min-h-12 rounded-full px-6 text-sm font-medium"
+            class="inline-flex items-center justify-center whitespace-nowrap border border-transparent tracking-[-0.01em] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-primary text-primary-foreground hover:-translate-y-px hover:bg-primary/92 h-10 py-2 min-h-12 rounded-full px-6 text-sm font-medium shadow-sm transition-shadow hover:shadow-md"
             href="/login"
           >
             Enter the live workspace
@@ -173,7 +186,7 @@ exports[`HomePage > renders the public Gallagher Property Company homepage 1`] =
             </svg>
           </a>
           <a
-            class="inline-flex items-center justify-center whitespace-nowrap border tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background/42 hover:bg-accent/40 hover:text-accent-foreground h-10 py-2 min-h-12 rounded-full px-6 text-sm font-medium"
+            class="inline-flex items-center justify-center whitespace-nowrap border tracking-[-0.01em] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background/42 hover:bg-accent/40 hover:text-accent-foreground h-10 py-2 min-h-12 rounded-full px-6 text-sm font-medium transition-[box-shadow,background-color]"
             href="/"
           >
             Back to overview
@@ -236,7 +249,7 @@ exports[`HomePage > renders the public Gallagher Property Company homepage 1`] =
         class="grid gap-6"
       >
         <section
-          class="rounded-[1.75rem] border border-border/60 bg-background/72 p-6 backdrop-blur-sm md:p-8"
+          class="public-section-reveal rounded-[1.75rem] border border-border/55 bg-background/75 p-6 shadow-[0_1px_0_0_oklch(var(--border)/0.55),0_22px_50px_-28px_oklch(var(--foreground)/0.12)] backdrop-blur-md md:p-8 dark:shadow-[0_1px_0_0_oklch(var(--border)/0.35),0_24px_60px_-32px_oklch(0_0_0/0.45)]"
         >
           <p
             class="font-mono text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground"
@@ -244,7 +257,7 @@ exports[`HomePage > renders the public Gallagher Property Company homepage 1`] =
             Site Structure
           </p>
           <h2
-            class="mt-4 text-2xl font-semibold tracking-[-0.04em] sm:text-3xl"
+            class="mt-4 font-[family-name:var(--font-display)] text-2xl font-semibold tracking-[-0.035em] sm:text-3xl"
           >
             Review the business by section
           </h2>
@@ -338,7 +351,7 @@ exports[`HomePage > renders the public Gallagher Property Company homepage 1`] =
           </div>
         </section>
         <section
-          class="rounded-[1.75rem] border border-border/60 bg-background/72 p-6 backdrop-blur-sm md:p-8"
+          class="public-section-reveal rounded-[1.75rem] border border-border/55 bg-background/75 p-6 shadow-[0_1px_0_0_oklch(var(--border)/0.55),0_22px_50px_-28px_oklch(var(--foreground)/0.12)] backdrop-blur-md md:p-8 dark:shadow-[0_1px_0_0_oklch(var(--border)/0.35),0_24px_60px_-32px_oklch(0_0_0/0.45)]"
         >
           <p
             class="font-mono text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground"
@@ -346,7 +359,7 @@ exports[`HomePage > renders the public Gallagher Property Company homepage 1`] =
             Operating System
           </p>
           <h2
-            class="mt-4 text-2xl font-semibold tracking-[-0.04em] sm:text-3xl"
+            class="mt-4 font-[family-name:var(--font-display)] text-2xl font-semibold tracking-[-0.035em] sm:text-3xl"
           >
             The underlying business is not a brochure
           </h2>
@@ -403,7 +416,7 @@ exports[`HomePage > renders the public Gallagher Property Company homepage 1`] =
           </div>
         </section>
         <section
-          class="rounded-[1.75rem] border border-border/60 bg-background/72 p-6 backdrop-blur-sm md:p-8"
+          class="public-section-reveal rounded-[1.75rem] border border-border/55 bg-background/75 p-6 shadow-[0_1px_0_0_oklch(var(--border)/0.55),0_22px_50px_-28px_oklch(var(--foreground)/0.12)] backdrop-blur-md md:p-8 dark:shadow-[0_1px_0_0_oklch(var(--border)/0.35),0_24px_60px_-32px_oklch(0_0_0/0.45)]"
         >
           <p
             class="font-mono text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground"
@@ -411,7 +424,7 @@ exports[`HomePage > renders the public Gallagher Property Company homepage 1`] =
             Access
           </p>
           <h2
-            class="mt-4 text-2xl font-semibold tracking-[-0.04em] sm:text-3xl"
+            class="mt-4 font-[family-name:var(--font-display)] text-2xl font-semibold tracking-[-0.035em] sm:text-3xl"
           >
             Enter the live workspace when the public brief is not enough
           </h2>
@@ -453,34 +466,34 @@ exports[`HomePage > renders the public Gallagher Property Company homepage 1`] =
           Functional real estate, run with systems.
         </p>
         <div
-          class="flex flex-wrap items-center gap-5"
+          class="flex flex-wrap items-center gap-6"
         >
           <a
-            class="transition-colors hover:text-foreground"
+            class="relative pb-0.5 transition-colors duration-200 after:absolute after:bottom-0 after:left-0 after:h-px after:w-0 after:bg-foreground/60 after:transition-[width] after:duration-300 hover:text-foreground hover:after:w-full"
             href="/"
           >
             Home
           </a>
           <a
-            class="transition-colors hover:text-foreground"
+            class="relative pb-0.5 transition-colors duration-200 after:absolute after:bottom-0 after:left-0 after:h-px after:w-0 after:bg-foreground/60 after:transition-[width] after:duration-300 hover:text-foreground hover:after:w-full"
             href="/focus"
           >
             Focus
           </a>
           <a
-            class="transition-colors hover:text-foreground"
+            class="relative pb-0.5 transition-colors duration-200 after:absolute after:bottom-0 after:left-0 after:h-px after:w-0 after:bg-foreground/60 after:transition-[width] after:duration-300 hover:text-foreground hover:after:w-full"
             href="/strategy"
           >
             Strategy
           </a>
           <a
-            class="transition-colors hover:text-foreground"
+            class="relative pb-0.5 transition-colors duration-200 after:absolute after:bottom-0 after:left-0 after:h-px after:w-0 after:bg-foreground/60 after:transition-[width] after:duration-300 hover:text-foreground hover:after:w-full"
             href="/platform"
           >
             Platform
           </a>
           <a
-            class="transition-colors hover:text-foreground"
+            class="relative pb-0.5 transition-colors duration-200 after:absolute after:bottom-0 after:left-0 after:h-px after:w-0 after:bg-foreground/60 after:transition-[width] after:duration-300 hover:text-foreground hover:after:w-full"
             href="/login"
           >
             Login
