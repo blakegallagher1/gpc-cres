@@ -9,7 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
-import maplibregl from "maplibre-gl";
+import maplibregl, { type ExpressionSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 import {
@@ -50,6 +50,7 @@ import {
 } from "./mapStyles";
 import { MapWorkbenchPanel } from "./MapWorkbenchPanel";
 import { MapLegend } from "./MapLegend";
+import { ParcelColorModeControl } from "./ParcelColorModeControl";
 import { MapGeocoder } from "./MapGeocoder";
 import { ParcelDetailCard } from "./ParcelDetailCard";
 import { ParcelHoverTooltip } from "./ParcelHoverTooltip";
@@ -1718,7 +1719,12 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
               },
               paint: {
                 "fill-color": getParcelFillColor(parcelColorMode),
-                "fill-opacity": getParcelFillOpacity(),
+                "fill-opacity": [
+                  "case",
+                  ["boolean", ["feature-state", "hover"], false],
+                  0.4,
+                  getParcelFillOpacity(),
+                ] as ExpressionSpecification,
               },
             },
             {
@@ -1733,6 +1739,25 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
                 "line-color": getParcelLineColor(parcelColorMode),
                 "line-width": getParcelLineWidth(),
                 "line-opacity": getParcelLineOpacity(),
+              },
+            },
+            {
+              id: "parcel-tiles-hover-outline",
+              type: "line",
+              source: "parcel-tiles",
+              "source-layer": "ebr_parcels.1",
+              layout: {
+                visibility: showLayers && showParcelBoundaries ? "visible" : "none",
+              },
+              paint: {
+                "line-color": "#ffffff",
+                "line-width": [
+                  "case",
+                  ["boolean", ["feature-state", "hover"], false],
+                  2.5,
+                  0,
+                ] as ExpressionSpecification,
+                "line-opacity": 0.9,
               },
             },
             {
@@ -2092,6 +2117,7 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
         const hideBoundaryLayerVisibility = () => {
           setLayerVisibilitySafe(map, "parcel-tiles-fill", showLayers && showParcelBoundaries);
           setLayerVisibilitySafe(map, "parcel-tiles-line", showLayers && showParcelBoundaries);
+          setLayerVisibilitySafe(map, "parcel-tiles-hover-outline", showLayers && showParcelBoundaries);
           setLayerVisibilitySafe(map, "parcels-boundary-fill", showLayers && showParcelBoundaries);
           setLayerVisibilitySafe(map, "parcels-boundary-line", showLayers && showParcelBoundaries);
           setLayerVisibilitySafe(map, "parcels-zoning-layer", showLayers && showZoning && !zoningTileContract);
@@ -2447,6 +2473,13 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
         />
       ) : null}
 
+      {/* Color mode control */}
+      {showLayers && showParcelBoundaries && (
+        <div className="absolute bottom-24 right-3 z-10">
+          <ParcelColorModeControl value={parcelColorMode} onChange={setParcelColorMode} />
+        </div>
+      )}
+
       {/* Layer legend */}
       {showLayers && (
         <MapLegend
@@ -2457,6 +2490,7 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
           showWetlands={showWetlands}
           showEpa={showEpa}
           showMobileHomePark={showMobileHomePark}
+          parcelColorMode={parcelColorMode}
         />
       )}
 

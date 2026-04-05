@@ -136,6 +136,41 @@ export function bindMapInteractionHandlers(params: {
 }): () => void {
   const { map } = params;
 
+  let hoveredTileFeatureId: string | number | null = null;
+
+  const handleTileHover = (event: maplibregl.MapLayerMouseEvent) => {
+    const feature = event.features?.[0];
+    if (hoveredTileFeatureId !== null) {
+      map.setFeatureState(
+        { source: "parcel-tiles", sourceLayer: "ebr_parcels.1", id: hoveredTileFeatureId },
+        { hover: false },
+      );
+    }
+    if (feature?.id != null) {
+      hoveredTileFeatureId = feature.id;
+      map.setFeatureState(
+        { source: "parcel-tiles", sourceLayer: "ebr_parcels.1", id: feature.id },
+        { hover: true },
+      );
+    } else {
+      hoveredTileFeatureId = null;
+    }
+  };
+
+  const clearTileHover = () => {
+    if (hoveredTileFeatureId !== null) {
+      try {
+        map.setFeatureState(
+          { source: "parcel-tiles", sourceLayer: "ebr_parcels.1", id: hoveredTileFeatureId },
+          { hover: false },
+        );
+      } catch {
+        /* source may not exist */
+      }
+      hoveredTileFeatureId = null;
+    }
+  };
+
   const handleFeatureClick = (event: maplibregl.MapLayerMouseEvent) => {
     const parcelId = event.features?.[0]?.properties?.id as string | undefined;
     if (!parcelId) {
@@ -264,11 +299,13 @@ export function bindMapInteractionHandlers(params: {
   map.on("mousemove", "parcels-boundary-fill", handleHover);
   map.on("mousemove", "parcel-points", handleHover);
   map.on("mousemove", "parcel-tiles-fill", handleHover);
+  map.on("mousemove", "parcel-tiles-fill", handleTileHover);
   map.on("mouseleave", "parcels-boundary-line", handleMouseLeave);
   map.on("mouseleave", "parcels-boundary-fill", handleMouseLeave);
   map.on("mouseleave", "parcel-points", handleMouseLeave);
   map.on("mouseleave", "parcel-clusters", handleMouseLeave);
   map.on("mouseleave", "parcel-tiles-fill", handleMouseLeave);
+  map.on("mouseleave", "parcel-tiles-fill", clearTileHover);
 
   map.on("mousemove", handleMouseMove);
   map.on("zoomend", handleZoomEnd);
@@ -289,11 +326,13 @@ export function bindMapInteractionHandlers(params: {
     map.off("mousemove", "parcels-boundary-fill", handleHover);
     map.off("mousemove", "parcel-points", handleHover);
     map.off("mousemove", "parcel-tiles-fill", handleHover);
+    map.off("mousemove", "parcel-tiles-fill", handleTileHover);
     map.off("mouseleave", "parcels-boundary-line", handleMouseLeave);
     map.off("mouseleave", "parcels-boundary-fill", handleMouseLeave);
     map.off("mouseleave", "parcel-points", handleMouseLeave);
     map.off("mouseleave", "parcel-clusters", handleMouseLeave);
     map.off("mouseleave", "parcel-tiles-fill", handleMouseLeave);
+    map.off("mouseleave", "parcel-tiles-fill", clearTileHover);
     map.off("mousemove", handleMouseMove);
     map.off("zoomend", handleZoomEnd);
     map.off("moveend", handleMoveEnd);

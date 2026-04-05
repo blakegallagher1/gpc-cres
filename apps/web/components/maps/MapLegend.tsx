@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { type ParcelColorMode, getParcelLegendItems } from "./parcelColorExpressions";
 
 export interface MapLegendProps {
   showParcelBoundaries: boolean;
@@ -10,6 +11,7 @@ export interface MapLegendProps {
   showWetlands: boolean;
   showEpa: boolean;
   showMobileHomePark: boolean;
+  parcelColorMode?: ParcelColorMode;
 }
 
 /**
@@ -24,12 +26,12 @@ export function MapLegend({
   showWetlands,
   showEpa,
   showMobileHomePark,
+  parcelColorMode,
 }: MapLegendProps): React.ReactNode {
   const items: Array<{ label: string; color: string }> = [
-    showParcelBoundaries && {
-      label: "Parcels",
-      color: "#fbbf24", // yellow boundary
-    },
+    ...(showParcelBoundaries
+      ? getParcelLegendItems(parcelColorMode ?? "zoning")
+      : []),
     showZoning && {
       label: "Zoning",
       color: "#9333ea", // purple (M1/industrial example)
