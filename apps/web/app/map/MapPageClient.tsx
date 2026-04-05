@@ -884,6 +884,14 @@ export function MapPageClient() {
       const parcelId = normalizeParcelId(p.parcelId ?? p.propertyDbId ?? p.id);
       if (!parcelId || p.hasGeometry === false) return acc;
 
+      const rawPropertyDbId =
+        (typeof p.propertyDbId === "string" && p.propertyDbId.trim().length > 0
+          ? p.propertyDbId.trim()
+          : null) ??
+        (typeof p.geometryLookupKey === "string" && p.geometryLookupKey.trim().length > 0
+          ? p.geometryLookupKey.trim()
+          : null);
+
       acc.push({
         id: parcelId,
         parcelId,
@@ -895,8 +903,8 @@ export function MapPageClient() {
         dealStatus: p.deal?.status,
         floodZone: p.floodZone ?? null,
         currentZoning: p.currentZoning ?? null,
-        propertyDbId: parcelId,
-        geometryLookupKey: parcelId,
+        propertyDbId: rawPropertyDbId ?? parcelId,
+        geometryLookupKey: rawPropertyDbId ?? parcelId,
         hasGeometry: true,
         acreage: p.acreage != null ? Number(p.acreage) : null,
         owner: p.owner ?? null,
