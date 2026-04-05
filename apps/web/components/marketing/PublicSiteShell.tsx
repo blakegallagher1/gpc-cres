@@ -12,6 +12,12 @@ interface PublicSiteShellProps {
   aside?: ReactNode;
   intro?: ReactNode;
   className?: string;
+  /** When false, hides the default marketing CTAs (Enter workspace / Back to overview). Default true. */
+  showMarketingCtas?: boolean;
+  /** Compact headline for sign-in and similar utility layouts. Default "marketing". */
+  heroTone?: "marketing" | "auth";
+  /** When false, hides the redundant Login link in the footer (e.g. on `/login`). Default true. */
+  showFooterLoginLink?: boolean;
 }
 
 interface PublicSectionCardProps {
@@ -45,7 +51,12 @@ export function PublicSiteShell({
   aside,
   intro,
   className,
+  showMarketingCtas = true,
+  heroTone = "marketing",
+  showFooterLoginLink = true,
 }: PublicSiteShellProps) {
+  const isAuthHero = heroTone === "auth";
+
   return (
     <main className={cn("relative overflow-hidden bg-transparent text-foreground", className)}>
       <div className="pointer-events-none absolute inset-0 -z-[6] public-site-grid opacity-[0.55] dark:opacity-[0.45]" />
@@ -89,28 +100,37 @@ export function PublicSiteShell({
             <p className="font-mono text-[0.72rem] uppercase tracking-[0.32em] text-muted-foreground">
               {eyebrow}
             </p>
-            <h1 className="mt-8 max-w-[14ch] font-[family-name:var(--font-display)] text-[clamp(3.8rem,7vw,6.8rem)] leading-[0.92] font-semibold tracking-[-0.06em]">
+            <h1
+              className={cn(
+                "font-[family-name:var(--font-display)] font-semibold",
+                isAuthHero
+                  ? "mt-6 max-w-[22ch] text-[clamp(2rem,4.2vw,3.35rem)] leading-[1.08] tracking-[-0.04em]"
+                  : "mt-8 max-w-[14ch] text-[clamp(3.8rem,7vw,6.8rem)] leading-[0.92] tracking-[-0.06em]",
+              )}
+            >
               {title}
             </h1>
             <p className="mt-8 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg">
               {description}
             </p>
             {intro ? <div className="mt-8">{intro}</div> : null}
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Button asChild className="min-h-12 rounded-full px-6 text-sm font-medium shadow-sm transition-shadow hover:shadow-md">
-                <Link href="/login">
-                  Enter the live workspace
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-              <Button
-                asChild
-                className="min-h-12 rounded-full px-6 text-sm font-medium transition-[box-shadow,background-color]"
-                variant="outline"
-              >
-                <Link href="/">Back to overview</Link>
-              </Button>
-            </div>
+            {showMarketingCtas ? (
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <Button asChild className="min-h-12 rounded-full px-6 text-sm font-medium shadow-sm transition-shadow hover:shadow-md">
+                  <Link href="/login">
+                    Enter the live workspace
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+                <Button
+                  asChild
+                  className="min-h-12 rounded-full px-6 text-sm font-medium transition-[box-shadow,background-color]"
+                  variant="outline"
+                >
+                  <Link href="/">Back to overview</Link>
+                </Button>
+              </div>
+            ) : null}
           </div>
 
           <aside className="border-t border-border/55 pt-6 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0">
@@ -146,12 +166,14 @@ export function PublicSiteShell({
                   {item.label}
                 </Link>
               ))}
-              <Link
-                className="relative pb-0.5 transition-colors duration-200 after:absolute after:bottom-0 after:left-0 after:h-px after:w-0 after:bg-foreground/60 after:transition-[width] after:duration-300 hover:text-foreground hover:after:w-full"
-                href="/login"
-              >
-                Login
-              </Link>
+              {showFooterLoginLink ? (
+                <Link
+                  className="relative pb-0.5 transition-colors duration-200 after:absolute after:bottom-0 after:left-0 after:h-px after:w-0 after:bg-foreground/60 after:transition-[width] after:duration-300 hover:text-foreground hover:after:w-full"
+                  href="/login"
+                >
+                  Login
+                </Link>
+              ) : null}
             </div>
           </div>
         </footer>
