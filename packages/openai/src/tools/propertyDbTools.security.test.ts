@@ -147,4 +147,102 @@ describe("propertyDbTools rpc key enforcement", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe("https://api.example.com/tools/parcel.search");
   });
+
+  it("returns tiered parish verification with verified rows ranked first", async () => {
+    process.env.LOCAL_API_URL = "https://api.example.com";
+    process.env.LOCAL_API_KEY = "local-api-key";
+    const fetchMock = vi.fn().mockImplementation(async (_url: string, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body ?? "{}")) as { sql?: string };
+      const sql = body.sql ?? "";
+
+      if (sql.includes("SELECT parcel_id, address FROM ebr_parcels")) {
+        return {
+          ok: true,
+          json: async () => ({
+            rowCount: 2,
+            rows: [
+              { parcel_id: "p1", address: "100 A St" },
+              { parcel_id: "p2", address: "200 B St" },
+            ],
+          }),
+        } as Response;
+      }
+
+      if (sql.includes("JOIN fema_flood r ON ST_Intersects(e.geom, r.geom)")) {
+        return {
+          ok: true,
+          json: async () => ({
+            rowCount: 1,
+            rows: [{ parcel_id: "p1" }],
+          }),
+        } as Response;
+      }
+
+      if (sql.includes("JOIN zcta z") || sql.includes("FROM zcta z")) {
+        if (sql.includes("JOIN fema_flood r ON ST_Intersects(z.geom, r.geom)")) {
+          return {
+            ok: true,
+            json: async () => ({ rowCount: 1, rows: [{ zip: "70726" }] }),
+          } as Response;
+        }
+        return {
+          ok: true,
+          json: async () => ({ rowCount: 0, rows: [] }),
+        } as Response;
+      }
+
+      if (sql.includes("SELECT parcel_id, zip FROM ebr_parcels")) {
+        return {
+          ok: true,
+          json: async () => ({
+            rowCount: 2,
+            rows: [
+              { parcel_id: "p1", zip: "70706" },
+              { parcel_id: "p2", zip: "70726" },
+            ],
+          }),
+        } as Response;
+      }
+
+      return {
+        ok: true,
+        json: async () => ({ rowCount: 0, rows: [] }),
+      } as Response;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { queryPropertyDbSql } = await import("./propertyDbTools");
+    const queryPropertyDbSqlTool = queryPropertyDbSql as unknown as {
+      execute: (params: { sql: string }) => Promise<unknown>;
+    };
+    const output = await queryPropertyDbSqlTool.execute({
+      sql: "SELECT parcel_id, address FROM ebr_parcels WHERE 'Livingston Parish' IS NOT NULL LIMIT 20",
+    });
+    const parsed = JSON.parse(output as string) as {
+      rowCount: number;
+      rows: Array<{ parcel_id: string; verification_tier: string; parish_verified: boolean }>;
+      rows_probable: Array<{ parcel_id: string; verification_tier: string; parish_verified: boolean }>;
+      rows_unknown: Array<{ parcel_id: string; verification_tier: string; parish_verified: boolean }>;
+      requestedParish: string | null;
+      verification?: { rankingRule?: string };
+    };
+
+    expect(parsed.rowCount).toBe(1);
+    expect(parsed.rows).toHaveLength(1);
+    expect(parsed.rows[0]).toMatchObject({
+      parcel_id: "p1",
+      verification_tier: "verified",
+      parish_verified: true,
+    });
+    expect(parsed.rows_probable).toHaveLength(1);
+    expect(parsed.rows_probable[0]).toMatchObject({
+      parcel_id: "p2",
+      verification_tier: "probable",
+      parish_verified: false,
+    });
+    expect(parsed.rows_unknown).toHaveLength(0);
+    expect(parsed.requestedParish).toBe("Livingston");
+    expect(parsed.verification?.rankingRule).toBe("rank_verified_only");
+    expect(fetchMock).toHaveBeenCalled();
+  });
 });

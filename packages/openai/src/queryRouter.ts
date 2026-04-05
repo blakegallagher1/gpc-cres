@@ -101,7 +101,7 @@ const KNOWLEDGE_PROOF_GROUP: ProofGroup = {
 
 const PARCEL_PROOF_GROUP: ProofGroup = {
   label: "Parcel context",
-  tools: ["search_parcels", "get_parcel_details"],
+  tools: ["search_parcels", "get_parcel_details", "query_property_db_sql"],
 };
 
 const DEAL_PROOF_GROUP: ProofGroup = {

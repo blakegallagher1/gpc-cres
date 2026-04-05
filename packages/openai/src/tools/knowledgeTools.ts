@@ -52,6 +52,52 @@ function extractKnowledgeFallbackTerms(query: string): string[] {
   return [...new Set(tokenTerms)].slice(0, 4);
 }
 
+function extractRequestedParishFromQuery(query: string): string | null {
+  const matches = [...query.matchAll(/\b([a-z][a-z-]*(?:\s+[a-z][a-z-]*){0,3})\s+parish\b/gi)];
+  const match = matches.at(-1);
+  if (!match) return null;
+  const candidate = match[1]?.trim().replace(/\s+/g, " ").toLowerCase() ?? "";
+  if (!candidate) return null;
+  const stopTokens = new Set(["in", "for", "of", "near", "at", "around", "inside"]);
+  const parts = candidate.split(" ");
+  let startIndex = 0;
+  for (let index = 0; index < parts.length; index += 1) {
+    if (stopTokens.has(parts[index])) {
+      startIndex = index + 1;
+    }
+  }
+  const parish = parts.slice(startIndex).join(" ").trim();
+  return parish.length > 0 ? parish : candidate;
+}
+
+function recordToSearchText(entry: unknown): string {
+  if (!entry || typeof entry !== "object") return "";
+  const record = entry as Record<string, unknown>;
+  const metadata = record.metadata && typeof record.metadata === "object"
+    ? (record.metadata as Record<string, unknown>)
+    : null;
+  return [
+    typeof record.contentText === "string" ? record.contentText : "",
+    typeof record.sourceId === "string" ? record.sourceId : "",
+    typeof metadata?.title === "string" ? metadata.title : "",
+    typeof metadata?.parish === "string" ? metadata.parish : "",
+  ]
+    .join(" ")
+    .toLowerCase();
+}
+
+function filterKnowledgeResultsForParish(results: unknown[], requestedParish: string | null): unknown[] {
+  if (!requestedParish) return results;
+  return results.filter((entry) => {
+    const haystack = recordToSearchText(entry);
+    return haystack.includes(`${requestedParish} parish`) || haystack.includes(requestedParish);
+  });
+}
+
+function titleCaseParishLabel(lower: string): string {
+  return lower.replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 function extractBrowserPlaybookSignature(content: string): BrowserPlaybookSignature {
   const domainMatch = content.match(/"domain"\s*:\s*"([^"]+)"/i);
   const objectiveMatch = content.match(/"objective_pattern"\s*:\s*"([^"]+)"/i);
@@ -169,8 +215,10 @@ export const search_knowledge_base = tool({
 
       const data = await runSearch(params.query);
       const initialResults = Array.isArray(data.results) ? data.results : [];
-      if (initialResults.length > 0) {
-        return JSON.stringify(initialResults);
+      const requestedParish = extractRequestedParishFromQuery(params.query);
+      const parishFilteredInitial = filterKnowledgeResultsForParish(initialResults, requestedParish);
+      if (parishFilteredInitial.length > 0) {
+        return JSON.stringify(parishFilteredInitial);
       }
 
       const fallbackTerms = extractKnowledgeFallbackTerms(params.query);
@@ -192,7 +240,13 @@ export const search_knowledge_base = tool({
         return "No relevant knowledge found for this query.";
       }
 
-      data.results = [...deduped.values()].slice(0, params.limit ?? 5);
+      const fallbackResults = [...deduped.values()].slice(0, params.limit ?? 5);
+      data.results = filterKnowledgeResultsForParish(fallbackResults, requestedParish);
+      if ((data.results as unknown[]).length === 0) {
+        return requestedParish
+          ? `No relevant knowledge found for ${titleCaseParishLabel(requestedParish)} Parish.`
+          : "No relevant knowledge found for this query.";
+      }
       return JSON.stringify(data.results);
     } catch (err) {
       return `Knowledge search error: ${err instanceof Error ? err.message : String(err)}`;

@@ -83,4 +83,11 @@ describe("Phase 4 Opportunity OS :: query router", () => {
       "research",
     ]);
   });
+
+  it("treats query_property_db_sql as valid parcel context proof for land search", () => {
+    const profile = getQueryIntentProfile("land_search");
+    const parcelGroup = profile.proofGroups.find((group) => group.label === "Parcel context");
+    expect(parcelGroup).toBeDefined();
+    expect(parcelGroup?.tools).toContain("query_property_db_sql");
+  });
 });
