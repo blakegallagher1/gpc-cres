@@ -46,7 +46,7 @@ export async function GET(_req: Request, { params }: RouteParams) {
   // Derive the tile URL: api.gallagherpropco.com → tiles.gallagherpropco.com
   const tileBaseUrl = process.env.TILE_SERVER_URL
     ?? localApiUrl.replace("api.", "tiles.");
-  const tileLayer = process.env.TILE_LAYER_NAME ?? "ebr_parcels";
+  const tileLayer = process.env.TILE_LAYER_NAME ?? "ebr_parcels.1";
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TILE_FETCH_TIMEOUT_MS);

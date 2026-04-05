@@ -17,14 +17,14 @@ export function ParcelExtrusionLayer({ visible }: ParcelExtrusionLayerProps) {
     <Source
       id="parcel-extrusion-tiles"
       type="vector"
-      tiles={[getMartinParcelTileUrl("ebr_parcels")]}
+      tiles={[getMartinParcelTileUrl("ebr_parcels.1")]}
       minzoom={12}
       maxzoom={22}
     >
       <Layer
         id="parcel-extrusion-3d"
         type="fill-extrusion"
-        source-layer="ebr_parcels"
+        source-layer="ebr_parcels.1"
         minzoom={12}
         layout={{ visibility: visible ? "visible" : "none" }}
         paint={{

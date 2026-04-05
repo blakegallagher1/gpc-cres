@@ -16,14 +16,14 @@ export function ParcelBoundaryLayer({
     <Source
       id="parcel-tiles"
       type="vector"
-      tiles={[getMartinParcelTileUrl("ebr_parcels")]}
+      tiles={[getMartinParcelTileUrl("ebr_parcels.1")]}
       minzoom={10}
       maxzoom={22}
     >
       <Layer
         id="parcel-tiles-fill"
         type="fill"
-        source-layer="ebr_parcels"
+        source-layer="ebr_parcels.1"
         layout={{ visibility: visible ? "visible" : "none" }}
         paint={{
           "fill-color": "#facc15",
@@ -34,7 +34,7 @@ export function ParcelBoundaryLayer({
       <Layer
         id="parcel-tiles-line"
         type="line"
-        source-layer="ebr_parcels"
+        source-layer="ebr_parcels.1"
         layout={{ visibility: visible ? "visible" : "none" }}
         paint={{
           "line-color": dimmed ? "#a3a3a3" : "#facc15",

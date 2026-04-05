@@ -57,7 +57,7 @@ function addOverlayLayers(
   if (layers.includes("parcels")) {
     map.addSource("parcels-src", {
       type: "vector",
-      tiles: [getMartinParcelTileUrl("ebr_parcels")],
+      tiles: [getMartinParcelTileUrl("ebr_parcels.1")],
       minzoom: 10,
       maxzoom: 22,
     });
@@ -65,7 +65,7 @@ function addOverlayLayers(
       id: "parcels-fill",
       type: "fill",
       source: "parcels-src",
-      "source-layer": "ebr_parcels",
+      "source-layer": "ebr_parcels.1",
       paint: {
         "fill-color": "#facc15",
         "fill-opacity": 0.06,
@@ -76,7 +76,7 @@ function addOverlayLayers(
       id: "parcels-line",
       type: "line",
       source: "parcels-src",
-      "source-layer": "ebr_parcels",
+      "source-layer": "ebr_parcels.1",
       paint: { "line-color": "#facc15", "line-width": 1, "line-opacity": 0.7 },
     });
   }
@@ -84,7 +84,7 @@ function addOverlayLayers(
   if (layers.includes("zoning")) {
     map.addSource("zoning-src", {
       type: "vector",
-      tiles: [getMartinParcelTileUrl("ebr_parcels")],
+      tiles: [getMartinParcelTileUrl("ebr_parcels.1")],
       minzoom: 10,
       maxzoom: 22,
     });
@@ -92,7 +92,7 @@ function addOverlayLayers(
       id: "zoning-fill",
       type: "fill",
       source: "zoning-src",
-      "source-layer": "ebr_parcels",
+      "source-layer": "ebr_parcels.1",
       paint: {
         "fill-color": [
           "match",

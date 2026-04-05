@@ -1703,7 +1703,7 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
               id: "parcel-tiles-fill",
               type: "fill",
               source: "parcel-tiles",
-              "source-layer": "ebr_parcels",
+              "source-layer": "ebr_parcels.1",
               layout: {
                 visibility: showLayers && showParcelBoundaries ? "visible" : "none",
               },
@@ -1717,7 +1717,7 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
               id: "parcel-tiles-line",
               type: "line",
               source: "parcel-tiles",
-              "source-layer": "ebr_parcels",
+              "source-layer": "ebr_parcels.1",
               layout: {
                 visibility: showLayers && showParcelBoundaries ? "visible" : "none",
               },
@@ -3764,7 +3764,7 @@ function MapLibre3DExtrusionLayer({
           id: layerId,
           type: "fill-extrusion",
           source: sourceId,
-          "source-layer": "ebr_parcels",
+          "source-layer": "ebr_parcels.1",
           minzoom: 12,
           paint: {
             "fill-extrusion-height": [
