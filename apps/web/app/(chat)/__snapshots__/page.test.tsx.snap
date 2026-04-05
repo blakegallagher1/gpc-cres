@@ -33,19 +33,25 @@ exports[`HomePage > renders the public Gallagher Property Company homepage 1`] =
       >
         <a
           class="transition-colors hover:text-foreground"
-          href="#focus"
+          href="/"
+        >
+          Home
+        </a>
+        <a
+          class="transition-colors hover:text-foreground"
+          href="/focus"
         >
           Focus
         </a>
         <a
           class="transition-colors hover:text-foreground"
-          href="#strategy"
+          href="/strategy"
         >
           Strategy
         </a>
         <a
           class="transition-colors hover:text-foreground"
-          href="#platform"
+          href="/platform"
         >
           Platform
         </a>
@@ -62,91 +68,115 @@ exports[`HomePage > renders the public Gallagher Property Company homepage 1`] =
         >
           Manufactured Housing + Flex Industrial
         </p>
-        <h2
-          class="mt-6 text-2xl font-semibold tracking-[-0.05em] sm:text-3xl"
+        <h1
+          class="mt-8 max-w-[11.5ch] text-[clamp(3.8rem,7vw,6.8rem)] leading-[0.92] font-semibold tracking-[-0.075em]"
         >
           Gallagher Property Company
-        </h2>
-        <h1
-          class="mt-8 max-w-[10.5ch] text-[clamp(4rem,8.6vw,7.75rem)] leading-[0.9] font-semibold tracking-[-0.075em]"
-        >
-          <span
-            class="block"
-          >
-            We acquire and develop
-          </span>
-          <span
-            class="mt-2 block"
-          >
-            manufactured housing communities
-          </span>
-          <span
-            class="mt-2 block"
-          >
-            and small-format industrial assets
-          </span>
-          <span
-            class="mt-2 block text-foreground/78"
-          >
-            under 50,000 SF.
-          </span>
         </h1>
-        <div
-          class="mt-10 max-w-3xl border-t border-border/55 pt-6"
+        <p
+          class="mt-8 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg"
         >
-          <div
-            class="grid gap-5 sm:grid-cols-2"
+          Gallagher Property Company acquires, builds, and manages manufactured housing communities and small-format industrial assets through one operating discipline: basis before story, approvals before spend, operations before optics.
+        </p>
+        <div
+          class="mt-8"
+        >
+          <dl
+            class="grid gap-4 md:grid-cols-3"
           >
-            <div>
-              <p
+            <div
+              class="rounded-[1.4rem] border border-border/55 bg-background/80 p-5"
+            >
+              <dt
                 class="font-mono text-[0.66rem] uppercase tracking-[0.24em] text-muted-foreground"
               >
-                Manufactured housing
-              </p>
-              <p
-                class="mt-2 text-sm font-medium tracking-[-0.02em] text-foreground/88 sm:text-base"
+                Public structure
+              </dt>
+              <dd
+                class="mt-3 text-lg font-semibold tracking-[-0.03em]"
               >
-                Buy and develop communities where durable demand and disciplined basis create room for real operating work.
+                Homepage + 3 section pages
+              </dd>
+              <p
+                class="mt-2 text-sm leading-6 text-muted-foreground"
+              >
+                The root page is now a front door. The deeper explanation sits on dedicated routes instead of one long scroll.
               </p>
             </div>
-            <div>
-              <p
+            <div
+              class="rounded-[1.4rem] border border-border/55 bg-background/80 p-5"
+            >
+              <dt
                 class="font-mono text-[0.66rem] uppercase tracking-[0.24em] text-muted-foreground"
               >
-                Industrial
-              </p>
-              <p
-                class="mt-2 text-sm font-medium tracking-[-0.02em] text-foreground/88 sm:text-base"
+                Investment lanes
+              </dt>
+              <dd
+                class="mt-3 text-lg font-semibold tracking-[-0.03em]"
               >
-                Buy and develop infill industrial and flex-warehouse assets under 50,000 SF where usability, access, and local scarcity matter.
+                Housing + infill industrial
+              </dd>
+              <p
+                class="mt-2 text-sm leading-6 text-muted-foreground"
+              >
+                The company stays focused on property types where site-level operating judgment still matters.
               </p>
             </div>
-          </div>
-          <p
-            class="mt-5 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg"
-          >
-            Gallagher Property Company is built around functional real estate, with one operating discipline applied across both lanes.
-          </p>
-          <p
-            class="mt-4 font-mono text-[0.72rem] uppercase tracking-[0.28em] text-muted-foreground"
-          >
-            See the site before the story gets expensive.
-          </p>
+            <div
+              class="rounded-[1.4rem] border border-border/55 bg-background/80 p-5"
+            >
+              <dt
+                class="font-mono text-[0.66rem] uppercase tracking-[0.24em] text-muted-foreground"
+              >
+                Operating frame
+              </dt>
+              <dd
+                class="mt-3 text-lg font-semibold tracking-[-0.03em]"
+              >
+                Basis -&gt; approvals -&gt; operations
+              </dd>
+              <p
+                class="mt-2 text-sm leading-6 text-muted-foreground"
+              >
+                The business is described in the same order it should be executed.
+              </p>
+            </div>
+          </dl>
         </div>
         <div
           class="mt-8 flex flex-col gap-3 sm:flex-row"
         >
           <a
-            class="inline-flex min-h-12 items-center justify-center rounded-full bg-foreground px-6 text-sm font-medium text-background transition-transform duration-200 hover:-translate-y-0.5"
+            class="inline-flex items-center justify-center whitespace-nowrap border border-transparent tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-primary text-primary-foreground hover:-translate-y-px hover:bg-primary/92 h-10 py-2 min-h-12 rounded-full px-6 text-sm font-medium"
             href="/login"
           >
-            Enter the platform
+            Enter the live workspace
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-arrow-right ml-2 h-4 w-4"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M5 12h14"
+              />
+              <path
+                d="m12 5 7 7-7 7"
+              />
+            </svg>
           </a>
           <a
-            class="inline-flex min-h-12 items-center justify-center rounded-full border border-border bg-background/70 px-6 text-sm font-medium text-foreground backdrop-blur transition-colors hover:bg-background"
-            href="#strategy"
+            class="inline-flex items-center justify-center whitespace-nowrap border tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background/42 hover:bg-accent/40 hover:text-accent-foreground h-10 py-2 min-h-12 rounded-full px-6 text-sm font-medium"
+            href="/"
           >
-            Review strategy
+            Back to overview
           </a>
         </div>
       </div>
@@ -154,355 +184,310 @@ exports[`HomePage > renders the public Gallagher Property Company homepage 1`] =
         class="border-t border-border/55 pt-6 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0"
       >
         <div
-          class="flex items-center justify-between gap-4"
+          class="space-y-6"
         >
-          <p
-            class="font-mono text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground"
-          >
-            Focus Snapshot
-          </p>
-          <span
-            class="text-[0.72rem] font-medium uppercase tracking-[0.22em] text-muted-foreground"
-          >
-            2026
-          </span>
-        </div>
-        <p
-          class="mt-5 text-2xl font-semibold tracking-[-0.04em]"
-        >
-          Two lanes. One operating discipline.
-        </p>
-        <div
-          class="mt-8 space-y-6"
-        >
-          <div
-            class="pb-6"
-          >
+          <div>
             <p
-              class="text-sm font-semibold tracking-[-0.02em]"
+              class="font-mono text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground"
             >
-              Manufactured Housing Communities
+              Focus snapshot
             </p>
             <p
-              class="mt-2 text-sm leading-6 text-muted-foreground"
+              class="mt-5 text-2xl font-semibold tracking-[-0.04em]"
             >
-              Acquire and develop communities where basis discipline, site control, and execution speed create durable housing supply.
+              Two lanes selected because both reward real operational work.
             </p>
           </div>
           <div
-            class="border-t border-border/50 pt-6"
+            class="space-y-5 border-t border-border/50 pt-6"
           >
-            <p
-              class="text-sm font-semibold tracking-[-0.02em]"
-            >
-              Infill Industrial Under 50,000 SF
-            </p>
-            <p
-              class="mt-2 text-sm leading-6 text-muted-foreground"
-            >
-              Target small-bay industrial and flex-warehouse assets in infill locations where local access and functionality matter more than scale.
-            </p>
+            <div>
+              <p
+                class="text-sm font-semibold tracking-[-0.02em]"
+              >
+                Manufactured Housing Communities
+              </p>
+              <p
+                class="mt-2 text-sm leading-6 text-muted-foreground"
+              >
+                Acquire and develop communities where basis discipline, site control, and execution speed create durable housing supply.
+              </p>
+            </div>
+            <div>
+              <p
+                class="text-sm font-semibold tracking-[-0.02em]"
+              >
+                Infill Industrial Under 50,000 SF
+              </p>
+              <p
+                class="mt-2 text-sm leading-6 text-muted-foreground"
+              >
+                Target small-bay industrial and flex-warehouse assets in infill locations where local access and functionality matter more than scale.
+              </p>
+            </div>
           </div>
         </div>
-        <dl
-          class="mt-8 space-y-5 border-t border-border/50 pt-6 text-sm"
-        >
-          <div>
-            <dt
-              class="font-mono text-[0.66rem] uppercase tracking-[0.22em] text-muted-foreground"
-            >
-              Asset profile
-            </dt>
-            <dd
-              class="mt-2 font-medium"
-            >
-              Operationally useful, supply-aware
-            </dd>
-          </div>
-          <div>
-            <dt
-              class="font-mono text-[0.66rem] uppercase tracking-[0.22em] text-muted-foreground"
-            >
-              Industrial lane
-            </dt>
-            <dd
-              class="mt-2 font-medium"
-            >
-              Under 50,000 SF, flex-warehouse
-            </dd>
-          </div>
-        </dl>
       </aside>
     </div>
     <div
-      class="mt-14 border-t border-border/55 pt-8"
-      id="focus"
+      class="mt-14 flex-1"
     >
       <div
-        class="grid gap-8 md:grid-cols-3 md:gap-6"
+        class="grid gap-6"
       >
-        <div
-          class="text-sm leading-6 text-muted-foreground md:pr-6"
-        >
-          <p
-            class="text-sm font-semibold tracking-[-0.02em] text-foreground"
-          >
-            Basis before story
-          </p>
-          <p
-            class="mt-2"
-          >
-            Source assets where fragmented ownership, overlooked utility, and disciplined cost basis create the edge.
-          </p>
-        </div>
-        <div
-          class="border-t border-border/50 pt-6 text-sm leading-6 text-muted-foreground md:border-l md:border-t-0 md:pl-6 md:pt-0"
-        >
-          <p
-            class="text-sm font-semibold tracking-[-0.02em] text-foreground"
-          >
-            Approvals before spend
-          </p>
-          <p
-            class="mt-2"
-          >
-            Sequence development and diligence around what can actually be entitled, serviced, and executed.
-          </p>
-        </div>
-        <div
-          class="border-t border-border/50 pt-6 text-sm leading-6 text-muted-foreground md:border-l md:border-t-0 md:pl-6 md:pt-0"
-        >
-          <p
-            class="text-sm font-semibold tracking-[-0.02em] text-foreground"
-          >
-            Operations before optics
-          </p>
-          <p
-            class="mt-2"
-          >
-            Prioritize durable layouts, tenant usability, and repeatable demand over surface-level presentation.
-          </p>
-        </div>
-      </div>
-    </div>
-  </section>
-  <section
-    class="border-y border-border/50 bg-background/42 py-16 backdrop-blur-sm"
-    id="strategy"
-  >
-    <div
-      class="mx-auto grid w-full max-w-7xl gap-10 px-5 sm:px-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:px-8"
-    >
-      <div>
-        <p
-          class="font-mono text-[0.72rem] uppercase tracking-[0.32em] text-muted-foreground"
-        >
-          Investment Strategy
-        </p>
-        <h2
-          class="mt-4 max-w-xl text-3xl font-semibold tracking-[-0.04em] sm:text-4xl"
-        >
-          Basis-driven acquisitions paired with practical development judgment.
-        </h2>
-        <p
-          class="mt-5 max-w-xl text-base leading-7 text-muted-foreground"
-        >
-          The strategy is not broad real estate exposure. It is focused exposure to property types where local knowledge, site-level practicality, and disciplined execution can materially improve the outcome.
-        </p>
-      </div>
-      <div
-        class="grid gap-4"
-      >
-        <div
-          class="grid gap-4 rounded-[1.6rem] border border-border/60 bg-background/74 p-6 md:grid-cols-[80px_minmax(0,1fr)]"
-        >
-          <div
-            class="flex h-14 w-14 items-center justify-center rounded-full border border-border/70 bg-background text-lg font-semibold tracking-[-0.04em]"
-          >
-            0
-            1
-          </div>
-          <div>
-            <h3
-              class="text-lg font-semibold tracking-[-0.03em]"
-            >
-              Buy
-            </h3>
-            <p
-              class="mt-2 max-w-xl text-sm leading-6 text-muted-foreground"
-            >
-              Pursue off-market, transitional, and basis-driven opportunities with a strict view on replacement cost and downside protection.
-            </p>
-          </div>
-        </div>
-        <div
-          class="grid gap-4 rounded-[1.6rem] border border-border/60 bg-background/74 p-6 md:grid-cols-[80px_minmax(0,1fr)]"
-        >
-          <div
-            class="flex h-14 w-14 items-center justify-center rounded-full border border-border/70 bg-background text-lg font-semibold tracking-[-0.04em]"
-          >
-            0
-            2
-          </div>
-          <div>
-            <h3
-              class="text-lg font-semibold tracking-[-0.03em]"
-            >
-              Build
-            </h3>
-            <p
-              class="mt-2 max-w-xl text-sm leading-6 text-muted-foreground"
-            >
-              Move projects from site control into a workable plan with entitlement sequencing, infrastructure judgment, and operating constraints in view.
-            </p>
-          </div>
-        </div>
-        <div
-          class="grid gap-4 rounded-[1.6rem] border border-border/60 bg-background/74 p-6 md:grid-cols-[80px_minmax(0,1fr)]"
-        >
-          <div
-            class="flex h-14 w-14 items-center justify-center rounded-full border border-border/70 bg-background text-lg font-semibold tracking-[-0.04em]"
-          >
-            0
-            3
-          </div>
-          <div>
-            <h3
-              class="text-lg font-semibold tracking-[-0.03em]"
-            >
-              Manage
-            </h3>
-            <p
-              class="mt-2 max-w-xl text-sm leading-6 text-muted-foreground"
-            >
-              Hold assets that benefit from practical stewardship, tenant usability, and long-duration demand rather than speculative positioning.
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-  <section
-    class="mx-auto w-full max-w-7xl px-5 py-16 sm:px-6 lg:px-8"
-    id="platform"
-  >
-    <div
-      class="grid gap-8 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)]"
-    >
-      <div>
-        <p
-          class="font-mono text-[0.72rem] uppercase tracking-[0.32em] text-muted-foreground"
-        >
-          Operating Platform
-        </p>
-        <h2
-          class="mt-4 text-3xl font-semibold tracking-[-0.04em] sm:text-4xl"
-        >
-          Internal workflow, market visibility, and deal execution in one working environment.
-        </h2>
-        <p
-          class="mt-5 max-w-xl text-base leading-7 text-muted-foreground"
-        >
-          The website should reflect the actual business: acquisition, development, and operating work anchored to real assets. The live platform extends that operating discipline into mapping, diligence, workflows, approvals, and evidence.
-        </p>
-      </div>
-      <div
-        class="overflow-hidden rounded-[2rem] border border-border/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.82),rgba(255,255,255,0.58))] dark:bg-[linear-gradient(180deg,rgba(25,25,31,0.88),rgba(19,19,24,0.78))]"
-      >
-        <div
-          class="border-b border-border/60 px-5 py-4"
+        <section
+          class="rounded-[1.75rem] border border-border/60 bg-background/72 p-6 backdrop-blur-sm md:p-8"
         >
           <p
             class="font-mono text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground"
           >
-            Investment Workflow
+            Site Structure
           </p>
-        </div>
-        <div
-          class="grid gap-px bg-border/60 md:grid-cols-3"
+          <h2
+            class="mt-4 text-2xl font-semibold tracking-[-0.04em] sm:text-3xl"
+          >
+            Review the business by section
+          </h2>
+          <p
+            class="mt-4 max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base"
+          >
+            The public site should explain the business clearly without forcing every section into one continuous page. Each core section now has its own route.
+          </p>
+          <div
+            class="mt-6"
+          >
+            <div
+              class="grid gap-4 lg:grid-cols-3"
+            >
+              <a
+                class="rounded-[1.5rem] border border-border/55 bg-background/80 p-5 transition-colors hover:bg-background"
+                href="/focus"
+              >
+                <p
+                  class="font-mono text-[0.66rem] uppercase tracking-[0.24em] text-muted-foreground"
+                >
+                  Focus
+                </p>
+                <h2
+                  class="mt-4 text-xl font-semibold tracking-[-0.03em]"
+                >
+                  Where the company stays narrow on purpose
+                </h2>
+                <p
+                  class="mt-3 text-sm leading-6 text-muted-foreground"
+                >
+                  A dedicated page for the two public investment lanes, the asset profile, and the operating principles that keep both lanes in scope.
+                </p>
+                <p
+                  class="mt-6 text-sm font-medium"
+                >
+                  Open section
+                </p>
+              </a>
+              <a
+                class="rounded-[1.5rem] border border-border/55 bg-background/80 p-5 transition-colors hover:bg-background"
+                href="/strategy"
+              >
+                <p
+                  class="font-mono text-[0.66rem] uppercase tracking-[0.24em] text-muted-foreground"
+                >
+                  Strategy
+                </p>
+                <h2
+                  class="mt-4 text-xl font-semibold tracking-[-0.03em]"
+                >
+                  How opportunities move from screen to hold
+                </h2>
+                <p
+                  class="mt-3 text-sm leading-6 text-muted-foreground"
+                >
+                  A standalone view of the buy, build, and manage sequence with the decision filters that keep development judgment grounded.
+                </p>
+                <p
+                  class="mt-6 text-sm font-medium"
+                >
+                  Open section
+                </p>
+              </a>
+              <a
+                class="rounded-[1.5rem] border border-border/55 bg-background/80 p-5 transition-colors hover:bg-background"
+                href="/platform"
+              >
+                <p
+                  class="font-mono text-[0.66rem] uppercase tracking-[0.24em] text-muted-foreground"
+                >
+                  Platform
+                </p>
+                <h2
+                  class="mt-4 text-xl font-semibold tracking-[-0.03em]"
+                >
+                  What the internal system actually does
+                </h2>
+                <p
+                  class="mt-3 text-sm leading-6 text-muted-foreground"
+                >
+                  A routed explanation of the live operating environment used for mapping, diligence, approvals, evidence, and execution.
+                </p>
+                <p
+                  class="mt-6 text-sm font-medium"
+                >
+                  Open section
+                </p>
+              </a>
+            </div>
+          </div>
+        </section>
+        <section
+          class="rounded-[1.75rem] border border-border/60 bg-background/72 p-6 backdrop-blur-sm md:p-8"
         >
-          <div
-            class="bg-background/88 p-5"
+          <p
+            class="font-mono text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground"
           >
-            <p
-              class="font-mono text-[0.66rem] uppercase tracking-[0.22em] text-muted-foreground"
-            >
-              Origination
-            </p>
-            <p
-              class="mt-3 text-lg font-semibold tracking-[-0.03em]"
-            >
-              Community and industrial opportunity intake
-            </p>
-            <p
-              class="mt-2 text-sm leading-6 text-muted-foreground"
-            >
-              Markets, parcels, ownership, and operating context gathered in one place before capital is committed.
-            </p>
-          </div>
-          <div
-            class="bg-background/82 p-5"
+            Operating System
+          </p>
+          <h2
+            class="mt-4 text-2xl font-semibold tracking-[-0.04em] sm:text-3xl"
           >
-            <p
-              class="font-mono text-[0.66rem] uppercase tracking-[0.22em] text-muted-foreground"
-            >
-              Execution
-            </p>
-            <p
-              class="mt-3 text-lg font-semibold tracking-[-0.03em]"
-            >
-              Entitlements, diligence, and development sequencing
-            </p>
-            <p
-              class="mt-2 text-sm leading-6 text-muted-foreground"
-            >
-              Approvals, constraints, and evidence organized into an executable chain rather than scattered notes.
-            </p>
-          </div>
-          <div
-            class="bg-background/88 p-5"
+            The underlying business is not a brochure
+          </h2>
+          <p
+            class="mt-4 max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base"
           >
-            <p
-              class="font-mono text-[0.66rem] uppercase tracking-[0.22em] text-muted-foreground"
+            The public narrative is still tied to the live operating system behind the work. The difference is that the explanation is now split into smaller, clearer pages.
+          </p>
+          <div
+            class="mt-6"
+          >
+            <div
+              class="grid gap-6 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]"
             >
-              Hold
-            </p>
-            <p
-              class="mt-3 text-lg font-semibold tracking-[-0.03em]"
-            >
-              Durable operating memory for owned assets
-            </p>
-            <p
-              class="mt-2 text-sm leading-6 text-muted-foreground"
-            >
-              The platform preserves what was learned so operating judgment compounds instead of resetting on each deal.
-            </p>
+              <div
+                class="rounded-[1.5rem] border border-border/55 bg-background/80 p-5"
+              >
+                <p
+                  class="font-mono text-[0.66rem] uppercase tracking-[0.24em] text-muted-foreground"
+                >
+                  Internal platform
+                </p>
+                <p
+                  class="mt-4 text-lg font-semibold tracking-[-0.03em]"
+                >
+                  See the site before the story gets expensive.
+                </p>
+                <p
+                  class="mt-3 text-sm leading-6 text-muted-foreground"
+                >
+                  The internal workspace extends the public strategy into mapping, diligence, approvals, evidence, and hold-stage memory.
+                </p>
+              </div>
+              <ul
+                class="grid gap-3 text-sm leading-6 text-muted-foreground"
+              >
+                <li
+                  class="rounded-2xl border border-border/50 bg-background/90 px-4 py-3"
+                >
+                  Parcel and market context visible before capital is committed.
+                </li>
+                <li
+                  class="rounded-2xl border border-border/50 bg-background/90 px-4 py-3"
+                >
+                  Approvals, diligence, and evidence tied to the live opportunity.
+                </li>
+                <li
+                  class="rounded-2xl border border-border/50 bg-background/90 px-4 py-3"
+                >
+                  Execution history preserved into hold-stage operating memory.
+                </li>
+              </ul>
+            </div>
           </div>
-        </div>
+        </section>
+        <section
+          class="rounded-[1.75rem] border border-border/60 bg-background/72 p-6 backdrop-blur-sm md:p-8"
+        >
+          <p
+            class="font-mono text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground"
+          >
+            Access
+          </p>
+          <h2
+            class="mt-4 text-2xl font-semibold tracking-[-0.04em] sm:text-3xl"
+          >
+            Enter the live workspace when the public brief is not enough
+          </h2>
+          <p
+            class="mt-4 max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base"
+          >
+            Looking at a manufactured housing or small-format industrial opportunity? The public pages establish the frame. The internal workspace is where opportunities are reviewed, mapped, diligenced, and moved into execution.
+          </p>
+          <div
+            class="mt-6"
+          >
+            <div
+              class="flex flex-col gap-3 sm:flex-row"
+            >
+              <a
+                class="inline-flex min-h-12 items-center justify-center rounded-full border border-foreground bg-foreground px-6 text-sm font-medium text-background transition-transform duration-200 hover:-translate-y-0.5"
+                href="/login"
+              >
+                Enter the platform
+              </a>
+              <a
+                class="inline-flex min-h-12 items-center justify-center rounded-full border border-border bg-background/80 px-6 text-sm font-medium transition-colors hover:bg-background"
+                href="/strategy"
+              >
+                Start with strategy
+              </a>
+            </div>
+          </div>
+        </section>
       </div>
     </div>
-    <div
-      class="mt-12 flex flex-col items-start justify-between gap-5 rounded-[2rem] border border-border/60 bg-background/68 px-6 py-6 backdrop-blur md:flex-row md:items-center"
+    <footer
+      class="mt-16 border-t border-border/55 pt-6"
     >
-      <div>
-        <p
-          class="text-xl font-semibold tracking-[-0.03em]"
-        >
-          Looking at a manufactured housing or small-format industrial opportunity?
-        </p>
-        <p
-          class="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground"
-        >
-          The public site sets the strategy clearly. The internal platform is where opportunities are reviewed, mapped, diligenced, and moved into execution.
-        </p>
-      </div>
-      <a
-        class="inline-flex min-h-12 shrink-0 items-center justify-center rounded-full border border-foreground bg-foreground px-6 text-sm font-medium text-background transition-transform duration-200 hover:-translate-y-0.5"
-        href="/login"
+      <div
+        class="flex flex-col gap-5 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between"
       >
-        Enter the live workspace
-      </a>
-    </div>
+        <p>
+          Functional real estate, run with systems.
+        </p>
+        <div
+          class="flex flex-wrap items-center gap-5"
+        >
+          <a
+            class="transition-colors hover:text-foreground"
+            href="/"
+          >
+            Home
+          </a>
+          <a
+            class="transition-colors hover:text-foreground"
+            href="/focus"
+          >
+            Focus
+          </a>
+          <a
+            class="transition-colors hover:text-foreground"
+            href="/strategy"
+          >
+            Strategy
+          </a>
+          <a
+            class="transition-colors hover:text-foreground"
+            href="/platform"
+          >
+            Platform
+          </a>
+          <a
+            class="transition-colors hover:text-foreground"
+            href="/login"
+          >
+            Login
+          </a>
+        </div>
+      </div>
+    </footer>
   </section>
 </main>
 `;
