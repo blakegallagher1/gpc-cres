@@ -1719,12 +1719,7 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
               },
               paint: {
                 "fill-color": getParcelFillColor(parcelColorMode),
-                "fill-opacity": [
-                  "case",
-                  ["boolean", ["feature-state", "hover"], false],
-                  0.4,
-                  getParcelFillOpacity(),
-                ] as ExpressionSpecification,
+                "fill-opacity": getParcelFillOpacity(),
               },
             },
             {
