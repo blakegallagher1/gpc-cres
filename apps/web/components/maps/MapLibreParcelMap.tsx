@@ -313,7 +313,7 @@ export function getGeometryStatusLabel(
   if (summary.status === "ready") {
     return `${summary.loadedCount} shapes loaded`;
   }
-  if (health.propertyDbUnconfigured) return "Shapes unavailable";
+  if (health.propertyDbUnconfigured) return "Parcel geometry gateway unavailable";
   if (summary.status === "unavailable") {
     return health.geometryUnavailable ? "Geometry unavailable" : "Shapes unavailable";
   }

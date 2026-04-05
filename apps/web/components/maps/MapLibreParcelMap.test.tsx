@@ -230,7 +230,7 @@ describe("getGeometryStatusLabel", () => {
         geometryUnavailable: true,
         propertyDbUnconfigured: true,
       }),
-    ).toBe("Shapes unavailable");
+    ).toBe("Parcel geometry gateway unavailable");
   });
 
   it("reports loaded and unavailable counts for partial parcel geometry coverage", () => {
