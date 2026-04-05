@@ -2,15 +2,25 @@
 
 import { Source, Layer } from "@vis.gl/react-maplibre";
 import { getMartinParcelTileUrl } from "../tileUrls";
+import {
+  ParcelColorMode,
+  getParcelFillColor,
+  getParcelFillOpacity,
+  getParcelLineColor,
+  getParcelLineWidth,
+  getParcelLineOpacity,
+} from "../parcelColorExpressions";
 
 interface ParcelBoundaryLayerProps {
   visible: boolean;
   dimmed?: boolean;
+  colorMode?: ParcelColorMode;
 }
 
 export function ParcelBoundaryLayer({
   visible,
   dimmed = false,
+  colorMode = "zoning",
 }: ParcelBoundaryLayerProps) {
   return (
     <Source
@@ -26,9 +36,9 @@ export function ParcelBoundaryLayer({
         source-layer="ebr_parcels.1"
         layout={{ visibility: visible ? "visible" : "none" }}
         paint={{
-          "fill-color": "#facc15",
-          "fill-opacity": dimmed ? 0.02 : 0.06,
-          "fill-outline-color": dimmed ? "#a3a3a3" : "#facc15",
+          "fill-color": dimmed ? "#a3a3a3" : getParcelFillColor(colorMode),
+          "fill-opacity": dimmed ? 0.02 : getParcelFillOpacity(),
+          "fill-outline-color": dimmed ? "#a3a3a3" : getParcelLineColor(colorMode),
         }}
       />
       <Layer
@@ -37,9 +47,9 @@ export function ParcelBoundaryLayer({
         source-layer="ebr_parcels.1"
         layout={{ visibility: visible ? "visible" : "none" }}
         paint={{
-          "line-color": dimmed ? "#a3a3a3" : "#facc15",
-          "line-width": 1,
-          "line-opacity": dimmed ? 0.3 : 0.7,
+          "line-color": dimmed ? "#a3a3a3" : getParcelLineColor(colorMode),
+          "line-width": dimmed ? 1 : getParcelLineWidth(),
+          "line-opacity": dimmed ? 0.3 : getParcelLineOpacity(),
         }}
       />
     </Source>
