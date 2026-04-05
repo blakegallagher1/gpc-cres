@@ -62,6 +62,14 @@ import { MapTour } from "./MapTour";
 import {
   HEATMAP_PRESET_MAP,
 } from "./heatmapPresets";
+import {
+  type ParcelColorMode,
+  getParcelFillColor,
+  getParcelFillOpacity,
+  getParcelLineColor,
+  getParcelLineWidth,
+  getParcelLineOpacity,
+} from "./parcelColorExpressions";
 import type {
   HeatmapPresetKey,
   MapHudState,
@@ -639,6 +647,7 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
 
   const [baseLayer, setBaseLayer] = useState<string>(() => getSavedBaseLayer());
   const [showParcelBoundaries, setShowParcelBoundaries] = useState<boolean>(() => getSavedOverlaysFallback().parcelBoundaries);
+  const [parcelColorMode, setParcelColorMode] = useState<ParcelColorMode>("zoning");
   const [showZoning, setShowZoning] = useState<boolean>(() => getSavedOverlaysFallback().zoning);
   const [showFlood, setShowFlood] = useState<boolean>(() => getSavedOverlaysFallback().flood);
   const [showSoils, setShowSoils] = useState<boolean>(() => getSavedOverlaysFallback().soils);
@@ -1708,9 +1717,8 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
                 visibility: showLayers && showParcelBoundaries ? "visible" : "none",
               },
               paint: {
-                "fill-color": "#facc15",
-                "fill-opacity": 0.06,
-                "fill-outline-color": "#facc15",
+                "fill-color": getParcelFillColor(parcelColorMode),
+                "fill-opacity": getParcelFillOpacity(),
               },
             },
             {
@@ -1722,9 +1730,9 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
                 visibility: showLayers && showParcelBoundaries ? "visible" : "none",
               },
               paint: {
-                "line-color": "#facc15",
-                "line-width": 1,
-                "line-opacity": 0.7,
+                "line-color": getParcelLineColor(parcelColorMode),
+                "line-width": getParcelLineWidth(),
+                "line-opacity": getParcelLineOpacity(),
               },
             },
             {
@@ -2243,11 +2251,11 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
       // Dim parcel boundaries when zoning overlay is active for visual clarity
       const zoningActive = showLayers && showZoning && !!zoningTileContract;
       if (map.getLayer("parcel-tiles-fill")) {
-        map.setPaintProperty("parcel-tiles-fill", "fill-opacity", zoningActive ? 0.02 : 0.06);
+        map.setPaintProperty("parcel-tiles-fill", "fill-opacity", zoningActive ? 0.02 : getParcelFillOpacity());
       }
       if (map.getLayer("parcel-tiles-line")) {
-        map.setPaintProperty("parcel-tiles-line", "line-opacity", zoningActive ? 0.3 : 0.7);
-        map.setPaintProperty("parcel-tiles-line", "line-color", zoningActive ? "#a3a3a3" : "#facc15");
+        map.setPaintProperty("parcel-tiles-line", "line-opacity", zoningActive ? 0.3 : getParcelLineOpacity());
+        map.setPaintProperty("parcel-tiles-line", "line-color", zoningActive ? "#a3a3a3" : getParcelLineColor(parcelColorMode));
       }
 
       // Ensure zoning-tiles-fill is above parcel outlines
@@ -2256,6 +2264,19 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
       removeZoningTileArtifacts();
     }
   }, [mapReady, showLayers, showZoning, zoningTileContract]);
+
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return;
+    const map = mapRef.current;
+    try {
+      if (map.getLayer("parcel-tiles-fill")) {
+        map.setPaintProperty("parcel-tiles-fill", "fill-color", getParcelFillColor(parcelColorMode));
+      }
+      if (map.getLayer("parcel-tiles-line")) {
+        map.setPaintProperty("parcel-tiles-line", "line-color", getParcelLineColor(parcelColorMode));
+      }
+    } catch { /* layer may not exist yet */ }
+  }, [parcelColorMode, mapReady]);
 
   useEffect(() => {
     if (!mapRef.current || !mapReady) return;
