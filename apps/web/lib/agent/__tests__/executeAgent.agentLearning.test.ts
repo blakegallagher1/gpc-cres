@@ -36,6 +36,7 @@ vi.mock("@entitlement-os/openai", () => ({
   buildAgentStreamRunOptions: vi.fn(() => ({})),
   captureAgentError: vi.fn(),
   captureAgentWarning: vi.fn(),
+  collapseRepeatedTextArtifacts: vi.fn((value: string) => value),
   filterToolsForIntent: vi.fn((_: unknown, tools: unknown[]) => tools),
   getAgentOsConfig: vi.fn(() => ({ enabled: false })),
   getProofGroupsForIntent: vi.fn(() => []),

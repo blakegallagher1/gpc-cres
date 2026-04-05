@@ -585,6 +585,14 @@ export function ChatContainer() {
         }
       }
 
+      // Notify map parcel truth hook to revalidate after store_memory completes
+      if (
+        (event.type === 'tool_end' || event.type === 'tool_result') &&
+        event.name === 'store_memory'
+      ) {
+        window.dispatchEvent(new CustomEvent('gpc:memory-updated'));
+      }
+
       if (event.type === 'agent_switch') {
         setCurrentAgent(event.agentName);
       } else if (event.type === 'handoff') {

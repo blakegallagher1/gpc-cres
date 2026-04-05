@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
                 r.content_type,
                 r.source_id,
                 `"${r.content_text.replace(/"/g, '""')}"`,
-                r.created_at,
+                r.created_at.toISOString(),
               ].join(",") + "\n";
             controller.enqueue(row);
           }

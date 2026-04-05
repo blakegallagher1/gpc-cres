@@ -35,6 +35,26 @@ Only items meeting all checks are added below as `Planned`.
 
 ## Active Roadmap (Prioritized)
 
+### MAP-INTEL-001 — Map Parcel Truth Overlay (P1)
+
+- **Priority:** P1
+- **Status:** In Progress
+- **Scope:** Surface chat-stored parcel knowledge (sale price, buyer, cap rate, etc.) on the map's ParcelDetailCard so operators see saved intel when clicking a parcel.
+- **Problem:** Chat `store_memory` writes verified facts to MemoryVerified and ingests to Qdrant KB, but ParcelDetailCard only shows gateway/tile fields (owner, zoning, acreage). Operators never see chat-saved economics on the map — the two surfaces are disconnected.
+- **Expected Outcome (measurable):**
+  - Clicking a parcel with stored intel shows a "Saved Intel" section with comp.* fields (sale price, date, buyer, seller, cap rate, NOI, $/acre).
+  - Parcels without stored intel show no extra section (no visual noise).
+  - After chat `store_memory`, map updates within seconds via CustomEvent + SWR revalidation.
+- **Evidence of need:** Entity lookup API and TruthView service exist and return structured comp data, but no UI path connects them to the map surface. Operators must switch to chat or command center to see what the agent learned.
+- **Alignment:** Uses existing `GET /api/entities/lookup` (read-only, org-scoped), existing TruthView resolution, and SWR (already used in 40+ components). No new API routes. No schema changes.
+- **Risk/rollback:** Low; additive UI-only changes to ParcelDetailCard + new hook + 3-line CustomEvent dispatch in ChatContainer. Rollback = remove hook + section.
+- **Acceptance Criteria / Tests:**
+  - `useParcelTruth` hook: SWR-based, dual-path lookup (propertyDbId → parcelId → address fallback), listens for `gpc:memory-updated` CustomEvent.
+  - ParcelDetailCard: "Saved Intel" section renders comp.* values with conflict/correction badges. Hidden when no entity or no values.
+  - ChatContainer: dispatches `gpc:memory-updated` on `store_memory` tool_end/tool_result.
+  - `pnpm typecheck` and `pnpm test` pass.
+- **Plan:** `docs/plans/2026-04-05-map-parcel-truth-overlay.md`
+
 ### AI-RESEARCH-001 — Perplexity Agent API Tooling Integration (P1)
 
 - **Priority:** P1

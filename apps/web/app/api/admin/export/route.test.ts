@@ -98,7 +98,7 @@ describe("POST /api/admin/export", () => {
       50000,
     );
     expect(body).toContain("id,content_type,source_id,content_text,created_at");
-    expect(body).toContain('row-1,memo,source-1,"Alpha ""quoted"" text",Sat Apr 04 2026');
+    expect(body).toContain('row-1,memo,source-1,"Alpha ""quoted"" text",2026-04-04T00:00:00.000Z');
   });
 
   it("streams a memory CSV export scoped to the authenticated org", async () => {

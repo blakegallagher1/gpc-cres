@@ -82,7 +82,7 @@ exports[`HomePage > renders the public Gallagher Property Company homepage 1`] =
           Manufactured Housing + Flex Industrial
         </p>
         <h1
-          class="mt-8 max-w-[14ch] font-[family-name:var(--font-display)] text-[clamp(3.8rem,7vw,6.8rem)] leading-[0.92] font-semibold tracking-[-0.06em]"
+          class="font-[family-name:var(--font-display)] font-semibold mt-8 max-w-[14ch] text-[clamp(3.8rem,7vw,6.8rem)] leading-[0.92] tracking-[-0.06em]"
         >
           Gallagher Property Company
         </h1>
