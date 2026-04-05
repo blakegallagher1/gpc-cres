@@ -4,24 +4,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   resolveAuthMock,
   findManyMock,
-  fetchMock,
   logPropertyDbRuntimeHealthMock,
   requireGatewayConfigMock,
   isPrismaConnectivityErrorMock,
-  getGatewayClientMock,
+  requestPropertyDbGatewayMock,
 } = vi.hoisted(() => {
-  const mockGatewayClient = {
-    searchParcels: vi.fn(),
-  };
-
   return {
     resolveAuthMock: vi.fn(),
     findManyMock: vi.fn(),
-    fetchMock: vi.fn(),
     logPropertyDbRuntimeHealthMock: vi.fn(),
     requireGatewayConfigMock: vi.fn(),
     isPrismaConnectivityErrorMock: vi.fn().mockReturnValue(false),
-    getGatewayClientMock: vi.fn(() => mockGatewayClient),
+    requestPropertyDbGatewayMock: vi.fn(),
   };
 });
 
@@ -47,9 +41,30 @@ vi.mock("@/lib/server/devParcelFallback", () => ({
   isPrismaConnectivityError: isPrismaConnectivityErrorMock,
 }));
 
-vi.mock("@/lib/server/gatewayClient", () => ({
-  getGatewayClient: getGatewayClientMock,
+vi.mock("@/lib/server/propertyDbRpc", () => ({
+  requestPropertyDbGateway: requestPropertyDbGatewayMock,
 }));
+
+function createJsonResponse(payload: unknown, status: number = 200): Response {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
+}
+
+function mockGatewaySearchRows(
+  rows: unknown[] | ((query: string) => unknown[] | Promise<unknown[]>),
+): { attemptedQueries: string[] } {
+  const attemptedQueries: string[] = [];
+  requestPropertyDbGatewayMock.mockImplementation(async (params: { path: string }) => {
+    const url = new URL(params.path, "http://gateway.test");
+    const query = url.searchParams.get("q") ?? "";
+    attemptedQueries.push(query);
+    const resolvedRows = typeof rows === "function" ? await rows(query) : rows;
+    return createJsonResponse(resolvedRows);
+  });
+  return { attemptedQueries };
+}
 
 describe("GET /api/parcels", () => {
   let GET: typeof import("./route").GET;
@@ -58,13 +73,11 @@ describe("GET /api/parcels", () => {
     vi.resetModules();
     resolveAuthMock.mockReset();
     findManyMock.mockReset();
-    fetchMock.mockReset();
     logPropertyDbRuntimeHealthMock.mockReset();
     requireGatewayConfigMock.mockReset();
     isPrismaConnectivityErrorMock.mockReset();
     isPrismaConnectivityErrorMock.mockReturnValue(false);
-    getGatewayClientMock.mockReset();
-    vi.stubGlobal("fetch", fetchMock);
+    requestPropertyDbGatewayMock.mockReset();
     process.env.LOCAL_API_URL = "http://property-db.test";
     process.env.LOCAL_API_KEY = "test-key";
     process.env.GATEWAY_PROXY_URL = "http://gateway.test";
@@ -83,14 +96,7 @@ describe("GET /api/parcels", () => {
       if (!url || !key) return null;
       return { url, key };
     });
-    // Default gateway client mock that returns empty results
-    getGatewayClientMock.mockReturnValue({
-      searchParcels: vi.fn().mockResolvedValue({
-        data: [],
-        source: "gateway",
-        staleness_seconds: null,
-      }),
-    });
+    requestPropertyDbGatewayMock.mockResolvedValue(createJsonResponse([]));
   });
 
   it("returns 401 when unauthenticated", async () => {
@@ -138,7 +144,7 @@ describe("GET /api/parcels", () => {
     expect(body.parcels[0].parcelId).toBe("UID1");
     expect(body.parcels[0].owner).toBe("Owner LLC");
     expect(findManyMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(requestPropertyDbGatewayMock).not.toHaveBeenCalled();
   });
 
   it("returns 503 when org parcel store is unavailable", async () => {
@@ -159,7 +165,7 @@ describe("GET /api/parcels", () => {
       error: "Parcel store unavailable",
       code: "ORG_DATA_UNAVAILABLE",
     });
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(requestPropertyDbGatewayMock).not.toHaveBeenCalled();
   });
 
   it("returns property-db results when gateway search returns parcels", async () => {
@@ -169,9 +175,7 @@ describe("GET /api/parcels", () => {
       orgId: "11111111-1111-4111-8111-111111111111",
     });
     findManyMock.mockResolvedValue([]);
-    const mockClient = {
-      searchParcels: vi.fn().mockResolvedValue({
-        data: [
+    mockGatewaySearchRows([
       {
         id: "external-1",
         site_address: "456 River Rd",
@@ -183,12 +187,7 @@ describe("GET /api/parcels", () => {
         zone_code: "I1",
         parcel_uid: "parcel-uid-1",
       },
-        ],
-        source: "gateway",
-        staleness_seconds: null,
-      }),
-    };
-    getGatewayClientMock.mockReturnValue(mockClient);
+    ]);
 
     const req = new NextRequest("http://localhost/api/parcels?hasCoords=true");
     const res = await GET(req);
@@ -197,7 +196,8 @@ describe("GET /api/parcels", () => {
     expect(res.status).toBe(200);
     expect(body.source).toBe("property-db");
     expect(body.parcels.length).toBeGreaterThan(0);
-    expect(body.parcels[0].propertyDbId).toBe("PARCELUID1");
+    expect(body.parcels[0].propertyDbId).toBe("parcel-uid-1");
+    expect(body.parcels[0].geometryLookupKey).toBe("parcel-uid-1");
     expect(body.parcels[0].parcelId).toBe("PARCELUID1");
     expect(body.parcels[0].owner).toBe("River Holdings");
   });
@@ -209,9 +209,7 @@ describe("GET /api/parcels", () => {
       orgId: "11111111-1111-4111-8111-111111111111",
     });
     findManyMock.mockResolvedValue([]);
-    const mockClient = {
-      searchParcels: vi.fn().mockResolvedValue({
-        data: [
+    const { attemptedQueries } = mockGatewaySearchRows([
         {
           id: "external-search-1",
           site_address: "4416 Heath Dr",
@@ -221,12 +219,7 @@ describe("GET /api/parcels", () => {
           acreage: 0.23,
           parcel_uid: "search-uid-1",
         },
-        ],
-        source: "gateway",
-        staleness_seconds: null,
-      }),
-    };
-    getGatewayClientMock.mockReturnValue(mockClient);
+    ]);
 
     const req = new NextRequest("http://localhost/api/parcels?search=4416%20HEATH%20DR");
     const res = await GET(req);
@@ -235,8 +228,7 @@ describe("GET /api/parcels", () => {
     expect(res.status).toBe(200);
     expect(body.source).toBe("property-db");
     expect(body.parcels).toHaveLength(1);
-    // Check that searchParcels was called (it may be called multiple times for different search variants)
-    expect(mockClient.searchParcels).toHaveBeenCalled();
+    expect(attemptedQueries.length).toBeGreaterThan(0);
   });
 
   it("parses gateway-backed parcel rows from JSON responses", async () => {
@@ -246,8 +238,8 @@ describe("GET /api/parcels", () => {
       orgId: "11111111-1111-4111-8111-111111111111",
     });
     findManyMock.mockResolvedValue([]);
-    const mockClient = {
-      searchParcels: vi.fn().mockResolvedValue({
+    requestPropertyDbGatewayMock.mockResolvedValue(
+      createJsonResponse({
         data: [
         {
           id: "external-json-1",
@@ -262,8 +254,7 @@ describe("GET /api/parcels", () => {
         source: "gateway",
         staleness_seconds: null,
       }),
-    };
-    getGatewayClientMock.mockReturnValue(mockClient);
+    );
 
     const req = new NextRequest("http://localhost/api/parcels?hasCoords=true");
     const res = await GET(req);
@@ -271,7 +262,7 @@ describe("GET /api/parcels", () => {
 
     expect(res.status).toBe(200);
     expect(body.source).toBe("property-db");
-    expect(body.parcels[0].propertyDbId).toBe("JSONUID1");
+    expect(body.parcels[0].propertyDbId).toBe("json-uid-1");
     expect(body.parcels[0].parcelId).toBe("JSONUID1");
   });
 
@@ -291,7 +282,7 @@ describe("GET /api/parcels", () => {
     expect(res.status).toBe(200);
     expect(body.source).toBe("org-fallback");
     expect(body.degraded).toBe(true);
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(requestPropertyDbGatewayMock).not.toHaveBeenCalled();
   });
 
   it("maps property-db rows that only provide geom_simplified geometry", async () => {
@@ -301,9 +292,7 @@ describe("GET /api/parcels", () => {
       orgId: "11111111-1111-4111-8111-111111111111",
     });
     findManyMock.mockResolvedValue([]);
-    const mockClient = {
-      searchParcels: vi.fn().mockResolvedValue({
-        data: [
+    mockGatewaySearchRows([
           {
             id: "external-geom-only-1",
             site_address: "3154 College Dr, Baton Rouge, LA",
@@ -320,12 +309,7 @@ describe("GET /api/parcels", () => {
               ],
             },
           },
-        ],
-        source: "gateway",
-        staleness_seconds: null,
-      }),
-    };
-    getGatewayClientMock.mockReturnValue(mockClient);
+    ]);
 
     const req = new NextRequest("http://localhost/api/parcels?hasCoords=true&search=3154+college+drive%2C+baton+rouge%2C+la");
     const res = await GET(req);
@@ -345,9 +329,7 @@ describe("GET /api/parcels", () => {
       orgId: "11111111-1111-4111-8111-111111111111",
     });
     findManyMock.mockResolvedValue([]);
-    const mockClient = {
-      searchParcels: vi.fn().mockResolvedValue({
-        data: [
+    mockGatewaySearchRows([
           {
             id: "external-geom-string-1",
             site_address: "3154 College Dr, Baton Rouge, LA",
@@ -364,12 +346,7 @@ describe("GET /api/parcels", () => {
               ],
             }),
           },
-        ],
-        source: "gateway",
-        staleness_seconds: null,
-      }),
-    };
-    getGatewayClientMock.mockReturnValue(mockClient);
+    ]);
 
     const req = new NextRequest("http://localhost/api/parcels?hasCoords=true&search=3154+college+drive%2C+baton+rouge%2C+la");
     const res = await GET(req);
@@ -391,9 +368,7 @@ describe("GET /api/parcels", () => {
       orgId: "11111111-1111-4111-8111-111111111111",
     });
     findManyMock.mockResolvedValue([]);
-    const mockClient = {
-      searchParcels: vi.fn().mockResolvedValue({
-        data: [
+    mockGatewaySearchRows([
           {
             id: "fallback-1",
             site_address: "123 Fallback St",
@@ -404,12 +379,7 @@ describe("GET /api/parcels", () => {
             zone_code: "C2",
             parcel_uid: "uid-fallback-1",
           },
-        ],
-        source: "gateway",
-        staleness_seconds: null,
-      }),
-    };
-    getGatewayClientMock.mockReturnValue(mockClient);
+    ]);
 
     const req = new NextRequest("http://localhost/api/parcels?hasCoords=true");
     const res = await GET(req);
@@ -418,7 +388,7 @@ describe("GET /api/parcels", () => {
     expect(res.status).toBe(200);
     expect(body.source).toBe("property-db");
     expect(body.parcels.length).toBeGreaterThan(0);
-    expect(mockClient.searchParcels).toHaveBeenCalled();
+    expect(requestPropertyDbGatewayMock).toHaveBeenCalled();
   });
 
   it("returns org fallback parcels when property-db gateway rejects all requests", async () => {
@@ -440,10 +410,7 @@ describe("GET /api/parcels", () => {
         deal: null,
       },
     ]);
-    const mockClient = {
-      searchParcels: vi.fn().mockRejectedValue(new Error("network failure")),
-    };
-    getGatewayClientMock.mockReturnValue(mockClient);
+    requestPropertyDbGatewayMock.mockRejectedValue(new Error("network failure"));
 
     const req = new NextRequest("http://localhost/api/parcels?hasCoords=true&search=123");
     const res = await GET(req);
@@ -464,9 +431,7 @@ describe("GET /api/parcels", () => {
       orgId: "11111111-1111-4111-8111-111111111111",
     });
     findManyMock.mockResolvedValue([]);
-    const mockClient = {
-      searchParcels: vi.fn().mockResolvedValue({
-        data: [
+    mockGatewaySearchRows([
           {
             id: "park-county-1",
             site_address: "123 Elk Run Rd, Park County, Colorado",
@@ -474,12 +439,7 @@ describe("GET /api/parcels", () => {
             longitude: -105.58,
             parcel_uid: "pc-1",
           },
-        ],
-        source: "gateway",
-        staleness_seconds: null,
-      }),
-    };
-    getGatewayClientMock.mockReturnValue(mockClient);
+    ]);
 
     const req = new NextRequest("http://localhost/api/parcels?search=elk");
     const res = await GET(req);
@@ -496,14 +456,7 @@ describe("GET /api/parcels", () => {
       orgId: "11111111-1111-4111-8111-111111111111",
     });
     findManyMock.mockResolvedValue([]);
-    const mockClient = {
-      searchParcels: vi.fn().mockResolvedValue({
-        data: [],
-        source: "gateway",
-        staleness_seconds: null,
-      }),
-    };
-    getGatewayClientMock.mockReturnValue(mockClient);
+    const { attemptedQueries } = mockGatewaySearchRows([]);
 
     const req = new NextRequest(
       "http://localhost/api/parcels?hasCoords=true&search=1234+Long+Address+Name+Baton+Rouge+Louisiana",
@@ -511,7 +464,7 @@ describe("GET /api/parcels", () => {
     const res = await GET(req);
 
     expect(res.status).toBe(200);
-    expect(mockClient.searchParcels.mock.calls.length).toBeLessThanOrEqual(8);
+    expect(attemptedQueries.length).toBeLessThanOrEqual(8);
   });
 
   it("prioritizes exact suffix-preserving address variants ahead of canonicalized fallback queries", async () => {
@@ -521,21 +474,10 @@ describe("GET /api/parcels", () => {
       orgId: "11111111-1111-4111-8111-111111111111",
     });
     findManyMock.mockResolvedValue([]);
-    const mockClient = {
-      searchParcels: vi.fn().mockResolvedValue({
-        data: [],
-        source: "gateway",
-        staleness_seconds: null,
-      }),
-    };
-    getGatewayClientMock.mockReturnValue(mockClient);
+    const { attemptedQueries } = mockGatewaySearchRows([]);
 
     const req = new NextRequest("http://localhost/api/parcels?hasCoords=true&search=4416+HEATH+DR");
     const res = await GET(req);
-
-    const attemptedQueries = mockClient.searchParcels.mock.calls.map((call) =>
-      call[0].address,
-    );
 
     expect(res.status).toBe(200);
     expect(attemptedQueries.slice(0, 2)).toEqual(["4416 HEATH DR", "4416 heath"]);
@@ -559,12 +501,12 @@ describe("GET /api/parcels", () => {
         orgId: "11111111-1111-4111-8111-111111111111",
       });
       findManyMock.mockResolvedValue([]);
-      const mockClient = {
-        searchParcels: vi.fn(() =>
+      requestPropertyDbGatewayMock.mockImplementation(
+        () =>
           new Promise((resolve) => {
             setTimeout(() => {
-              resolve({
-                data: [
+              resolve(
+                createJsonResponse([
                   {
                     id: "external-slow-1",
                     site_address: "4416 Heath Dr",
@@ -575,15 +517,11 @@ describe("GET /api/parcels", () => {
                     zone_code: "C2",
                     parcel_uid: "parcel-uid-slow-1",
                   },
-                ],
-                source: "gateway",
-                staleness_seconds: null,
-              });
+                ]),
+              );
             }, 7500);
           }),
-        ),
-      };
-      getGatewayClientMock.mockReturnValue(mockClient);
+      );
 
       const req = new NextRequest("http://localhost/api/parcels?hasCoords=true");
       const pending = GET(req);
@@ -611,14 +549,11 @@ describe("GET /api/parcels", () => {
         orgId: "11111111-1111-4111-8111-111111111111",
       });
       findManyMock.mockRejectedValue(new Error("db unavailable"));
-      const mockClient = {
-        searchParcels: vi.fn().mockImplementation(() => {
-          const error = new Error("request timed out after 1500ms");
-          error.name = "AbortError";
-          return Promise.reject(error);
-        }),
-      };
-      getGatewayClientMock.mockReturnValue(mockClient);
+      requestPropertyDbGatewayMock.mockImplementation(() => {
+        const error = new Error("request timed out after 1500ms");
+        error.name = "AbortError";
+        return Promise.reject(error);
+      });
 
       const req = new NextRequest("http://localhost/api/parcels?hasCoords=true");
       const pending = GET(req);
@@ -652,20 +587,13 @@ describe("GET /api/parcels", () => {
       orgId: "11111111-1111-4111-8111-111111111111",
     });
     findManyMock.mockResolvedValue([]);
-    const mockClient = {
-      searchParcels: vi.fn().mockResolvedValue({
-        data: [],
-        source: "gateway",
-        staleness_seconds: null,
-      }),
-    };
-    getGatewayClientMock.mockReturnValue(mockClient);
+    const { attemptedQueries } = mockGatewaySearchRows([]);
 
     const req = new NextRequest("http://localhost/api/parcels?hasCoords=true");
     const res = await GET(req);
 
     expect(res.status).toBe(200);
-    expect(mockClient.searchParcels.mock.calls.length).toBeLessThanOrEqual(4);
+    expect(attemptedQueries.length).toBeLessThanOrEqual(4);
   });
 
   it("returns org-scoped search matches when property-db search returns no rows", async () => {
@@ -687,14 +615,7 @@ describe("GET /api/parcels", () => {
         deal: null,
       },
     ]);
-    const mockClient = {
-      searchParcels: vi.fn().mockResolvedValue({
-        data: [],
-        source: "gateway",
-        staleness_seconds: null,
-      }),
-    };
-    getGatewayClientMock.mockReturnValue(mockClient);
+    mockGatewaySearchRows([]);
 
     const req = new NextRequest(
       "http://localhost/api/parcels?hasCoords=true&search=7618+copperfield+ct",
@@ -718,9 +639,7 @@ describe("GET /api/parcels", () => {
       orgId: "11111111-1111-4111-8111-111111111111",
     });
     findManyMock.mockResolvedValue([]);
-    const mockClient = {
-      searchParcels: vi.fn().mockResolvedValue({
-        data: [
+    mockGatewaySearchRows([
           {
             id: "fallback-2",
             site_address: "456 Fallback Ave",
@@ -731,12 +650,7 @@ describe("GET /api/parcels", () => {
             zone_code: "C1",
             parcel_uid: "uid-fallback-2",
           },
-        ],
-        source: "gateway",
-        staleness_seconds: null,
-      }),
-    };
-    getGatewayClientMock.mockReturnValue(mockClient);
+    ]);
 
     const req = new NextRequest("http://localhost/api/parcels?hasCoords=true");
     const res = await GET(req);
@@ -745,11 +659,12 @@ describe("GET /api/parcels", () => {
     expect(res.status).toBe(200);
     expect(body.source).toBe("property-db");
     expect(body.parcels.length).toBeGreaterThan(0);
-    expect(mockClient.searchParcels).toHaveBeenCalled();
+    expect(requestPropertyDbGatewayMock).toHaveBeenCalled();
   });
 
   it("uses org fallback when gateway config is missing", async () => {
     ({ GET } = await import("./route"));
+    logPropertyDbRuntimeHealthMock.mockReturnValueOnce(null);
     requireGatewayConfigMock.mockImplementation(() => {
       throw new Error("missing gateway config");
     });
@@ -771,12 +686,6 @@ describe("GET /api/parcels", () => {
         deal: null,
       },
     ]);
-    // When gateway config is missing, getGatewayClient should not be called
-    // but if it is, it should return an error state
-    const mockClient = {
-      searchParcels: vi.fn().mockRejectedValue(new Error("gateway config missing")),
-    };
-    getGatewayClientMock.mockReturnValue(mockClient);
 
     const req = new NextRequest("http://localhost/api/parcels?hasCoords=true");
     const res = await GET(req);
@@ -786,6 +695,7 @@ describe("GET /api/parcels", () => {
     expect(body.source).toBe("org-fallback");
     expect(body.degraded).toBe(true);
     expect(body.parcels.length).toBeGreaterThan(0);
+    expect(requestPropertyDbGatewayMock).not.toHaveBeenCalled();
   });
 
   // Dev fallback tests removed — isDevParcelFallbackEnabled() permanently returns false.

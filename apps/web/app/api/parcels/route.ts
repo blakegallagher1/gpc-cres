@@ -16,7 +16,6 @@ import {
 import { logger } from "@/lib/logger";
 import { isPrismaConnectivityError } from "@/lib/server/devParcelFallback";
 import { requestPropertyDbGateway } from "@/lib/server/propertyDbRpc";
-import { getGatewayClient } from "@/lib/server/gatewayClient";
 import * as Sentry from "@sentry/nextjs";
 import {
   isBatonRougeScopedText,
@@ -386,26 +385,26 @@ function normalizeRpcRows(value: unknown): Record<string, unknown>[] {
 
 async function gatewaySearchParcels(q: string, limit: number): Promise<unknown[]> {
   try {
-    const client = getGatewayClient();
-    const result = await client.searchParcels({ address: q, limit });
+    const params = new URLSearchParams({
+      q,
+      limit: String(limit),
+    });
+    const response = await requestPropertyDbGateway({
+      routeTag: "/api/parcels/search",
+      path: `/api/parcels/search?${params.toString()}`,
+      method: "GET",
+      cache: "no-store",
+      internalScope: "parcels.read",
+    });
 
-    if (result.error) {
-      // If the CF Worker itself is unreachable, throw gateway unavailable
-      throw new GatewayUnavailableError(
-        `[gatewaySearchParcels] proxy error: ${result.error}`,
-        502,
-      );
+    let payload: unknown;
+    try {
+      payload = await response.json();
+    } catch {
+      return [];
     }
 
-    // The upstream returns { ok, count, data } or { parcels } or just []
-    const data = result.data as unknown;
-    if (typeof data === "object" && data !== null && !Array.isArray(data)) {
-      const obj = data as Record<string, unknown>;
-      if (Array.isArray(obj.data)) return obj.data;
-      if (Array.isArray(obj.parcels)) return obj.parcels;
-    }
-    if (Array.isArray(data)) return data;
-    return [];
+    return normalizeRpcRows(payload);
   } catch (err) {
     if (isGatewayUnavailableError(err)) throw err;
     Sentry.captureException(err, {
@@ -514,6 +513,7 @@ function mapExternalParcelToApiShape(
   const rawParcelId = String(
     row.parcel_uid ?? row.parcel_id ?? row.apn ?? row.id ?? "",
   );
+  const rawGatewayParcelId = rawParcelId.trim();
   const parcelId = normalizeParcelId(rawParcelId);
   if (!parcelId) {
     return null;
@@ -541,8 +541,8 @@ function mapExternalParcelToApiShape(
         : null,
     floodZone: row.flood_zone ? String(row.flood_zone) : null,
     currentZoning: row.zoning ? String(row.zoning) : row.zoning_type ? String(row.zoning_type) : row.zone_code ? String(row.zone_code) : null,
-    propertyDbId: parcelId,
-    geometryLookupKey: parcelId,
+    propertyDbId: rawGatewayParcelId || parcelId,
+    geometryLookupKey: rawGatewayParcelId || parcelId,
     hasGeometry: true,
     searchText: normalizedAddress,
     deal: null,
@@ -655,12 +655,20 @@ function normalizeOrgParcel(parcel: Record<string, unknown>): Record<string, unk
     return null;
   }
 
-  const parcelId = normalizeParcelId(
+  const rawPropertyDbId =
     typeof parcel.propertyDbId === "string" && parcel.propertyDbId.trim().length > 0
-      ? parcel.propertyDbId
-      : typeof parcel.id === "string"
+      ? parcel.propertyDbId.trim()
+      : null;
+  const rawGeometryLookupKey =
+    typeof parcel.geometryLookupKey === "string" && parcel.geometryLookupKey.trim().length > 0
+      ? parcel.geometryLookupKey.trim()
+      : null;
+  const parcelId = normalizeParcelId(
+    rawPropertyDbId ??
+      rawGeometryLookupKey ??
+      (typeof parcel.id === "string"
         ? parcel.id
-        : null,
+        : null),
   );
   if (!parcelId) {
     return null;
@@ -670,8 +678,8 @@ function normalizeOrgParcel(parcel: Record<string, unknown>): Record<string, unk
     ...parcel,
     id: parcelId,
     parcelId,
-    propertyDbId: parcelId,
-    geometryLookupKey: parcelId,
+    propertyDbId: rawPropertyDbId ?? parcelId,
+    geometryLookupKey: rawGeometryLookupKey ?? rawPropertyDbId ?? parcelId,
     hasGeometry: true,
   };
 }
