@@ -72,7 +72,7 @@ describe("GET /api/map/tiles/[z]/[x]/[y]", () => {
     expect((await res.arrayBuffer()).byteLength).toBe(0);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://tiles.gallagherpropco.com/ebr_parcels/1/0/0",
+      "https://tiles.gallagherpropco.com/ebr_parcels.1/1/0/0",
       expect.objectContaining({
         headers: expect.objectContaining({
           Authorization: "Bearer test-key",
