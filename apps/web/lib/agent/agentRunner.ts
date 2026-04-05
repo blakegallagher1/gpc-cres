@@ -59,7 +59,16 @@ function dispatchRunCompleted(opts: {
     status: opts.status,
     inputPreview: opts.inputPreview ?? null,
     queryIntent: null,
-  }).catch(() => {});
+  }).catch((error) => {
+    logger.warn("Agent run completion event dispatch failed", {
+      eventType: "agent.run.completed",
+      runId: opts.runId,
+      orgId: opts.orgId,
+      userId: opts.userId,
+      status: opts.status,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  });
 }
 
 const LOCAL_LEASE_GRACE_MS = 15 * 60 * 1000;

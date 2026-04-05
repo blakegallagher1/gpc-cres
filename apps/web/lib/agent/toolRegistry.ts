@@ -52,15 +52,57 @@ function wrapTool(agentTool: AgentToolLike): ToolExecuteFn {
     if (!agentTool.invoke) {
       throw new Error(`Tool has no invoke function`);
     }
-    // Inject orgId into args and hydrate missing required-nullable fields.
-    const enrichedArgs = hydrateRequiredNullableToolArgs(agentTool.parameters, {
-      ...args,
-      orgId: context.orgId,
-    });
-    // Pass auth context as RunContext so memory tools can extract orgId/userId
-    // for their internal HTTP calls (buildMemoryToolHeaders expects { context: { orgId, userId } })
-    const runContext = { context: { orgId: context.orgId, userId: context.userId } };
-    return agentTool.invoke(runContext, JSON.stringify(enrichedArgs), {});
+    const startMs = Date.now();
+    let status: "success" | "tool_error" | "error" = "success";
+    let errorMessage: string | undefined;
+
+    try {
+      // Inject orgId into args and hydrate missing required-nullable fields.
+      const enrichedArgs = hydrateRequiredNullableToolArgs(agentTool.parameters, {
+        ...args,
+        orgId: context.orgId,
+      });
+      // Pass auth context as RunContext so memory tools can extract orgId/userId
+      // for their internal HTTP calls (buildMemoryToolHeaders expects { context: { orgId, userId } })
+      const runContext = { context: { orgId: context.orgId, userId: context.userId } };
+      const result = await agentTool.invoke(runContext, JSON.stringify(enrichedArgs), {});
+
+      if (typeof result === "string") {
+        try {
+          const parsed = JSON.parse(result) as { error?: unknown };
+          if (typeof parsed.error === "string" && parsed.error.length > 0) {
+            status = "tool_error";
+            errorMessage = parsed.error;
+          }
+        } catch {
+          // Non-JSON string results are valid tool outputs; keep status as success.
+        }
+      }
+
+      return result;
+    } catch (error) {
+      status = "error";
+      errorMessage = error instanceof Error ? error.message : String(error);
+      throw error;
+    } finally {
+      const durationMs = Date.now() - startMs;
+      const logContext = {
+        tool: agentTool.name,
+        orgId: context.orgId,
+        userId: context.userId,
+        conversationId: context.conversationId,
+        ...(context.dealId ? { dealId: context.dealId } : {}),
+        durationMs,
+        status,
+        ...(errorMessage ? { error: errorMessage } : {}),
+      };
+
+      if (status === "error") {
+        logger.warn("Tool execution failed", logContext);
+      } else {
+        logger.info("Tool execution completed", logContext);
+      }
+    }
   };
 }
 

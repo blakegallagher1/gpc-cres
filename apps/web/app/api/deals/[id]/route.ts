@@ -18,6 +18,7 @@ import {
   toDateOrNull,
 } from "../../_lib/opportunityPhase3";
 import { getCloudflareAccessHeadersFromEnv } from "@/lib/server/propertyDbEnv";
+import { logger } from "@/lib/logger";
 import * as Sentry from "@sentry/nextjs";
 
 const PACK_STALE_DAYS = 7;
@@ -649,7 +650,16 @@ export async function PATCH(
         from: existingResolvedStageKey,
         to: nextResolvedStageKey,
         orgId: auth.orgId,
-      }).catch(() => {});
+      }).catch((error) => {
+        logger.warn("Deal stage change event dispatch failed", {
+          eventType: "deal.stageChanged",
+          dealId: id,
+          orgId: auth.orgId,
+          fromStageKey: existingResolvedStageKey,
+          toStageKey: nextResolvedStageKey,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
     }
 
     if (nextCompatibilityStatus !== existingLegacyStatus) {
@@ -659,7 +669,16 @@ export async function PATCH(
         from: existingLegacyStatus as import("@entitlement-os/shared").DealStatus,
         to: nextCompatibilityStatus as import("@entitlement-os/shared").DealStatus,
         orgId: auth.orgId,
-      }).catch(() => {});
+      }).catch((error) => {
+        logger.warn("Deal status change event dispatch failed", {
+          eventType: "deal.statusChanged",
+          dealId: id,
+          orgId: auth.orgId,
+          fromStatus: existingLegacyStatus,
+          toStatus: nextCompatibilityStatus,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
     }
 
     return NextResponse.json({ deal });

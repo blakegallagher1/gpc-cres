@@ -1176,6 +1176,52 @@ These are explicitly not being added now to avoid noise:
 
 Reason: these were low-priority for current operating goals and can be deferred until we quantify product impact for each and/or complete higher-impact reliability and operator-efficiency work above.
 
+### OBS-002 — Fire-and-Forget Dispatch Failure Logging (P0)
+
+- **Priority:** P0
+- **Status:** In Progress (2026-04-04)
+- **Scope:** Replace silent `.catch(() => {})` patterns on production fire-and-forget automation dispatches with structured warning logs that preserve the non-blocking behavior.
+- **Problem:** Core event dispatch call sites in agent completion and deal status/stage transitions currently swallow rejected dispatch promises with no logs, which hides failures in automation handoff, idempotency persistence, and handler registration paths.
+- **Expected Outcome (measurable):**
+  - All production `dispatchEvent(...).catch(() => {})` call sites emit structured warning logs with event type and identifiers.
+  - Fire-and-forget semantics remain unchanged; request/agent flows do not block on automation dispatch completion.
+  - Operators can correlate dispatch failures from app logs without depending solely on Sentry spans.
+- **Evidence of need:** Repo scan on 2026-04-04 found silent dispatch catches in `apps/web/lib/agent/agentRunner.ts`, `apps/web/app/api/deals/[id]/route.ts`, and `apps/web/app/api/deals/route.ts`, covering `agent.run.completed`, `deal.stageChanged`, and `deal.statusChanged` events.
+- **Alignment:** Preserves the current automation/event architecture, keeps `.catch()` fire-and-forget behavior intact, and adds only observability metadata without changing workflow contracts.
+- **Risk/rollback:** Low risk because the change is limited to logging in existing catch handlers. Rollback is straightforward by reverting the catch-body changes if log volume is unexpectedly noisy.
+- **Acceptance criteria + test plan:** Replace silent catches in the production dispatch call sites with `logger.warn(...)` including event metadata and error message, then verify with `pnpm typecheck`, `pnpm lint`, and focused tests covering the touched surfaces.
+
+### OBS-003 — Tool Execution Logging At Registry Boundary (P0)
+
+- **Priority:** P0
+- **Status:** In Progress (2026-04-04)
+- **Scope:** Add structured application-level logging around tool execution in `apps/web/lib/agent/toolRegistry.ts` so every invoked tool records duration and outcome at the server registry boundary.
+- **Problem:** Tool execution today is observable mainly through Sentry spans and trace exporters in the OpenAI package, but the web app does not emit structured logs for per-tool success, JSON-wrapped tool failures, or thrown invocation errors, making local and production log-based diagnosis harder.
+- **Expected Outcome (measurable):**
+  - Every tool invocation from the web registry emits a structured log with tool name, org id, duration, and status.
+  - JSON-wrapped tool errors are classified separately from thrown execution errors.
+  - Focused tests cover success, `{"error": ...}` tool responses, and thrown errors.
+- **Evidence of need:** `apps/web/lib/agent/toolRegistry.ts` is the single execution choke point for `/api/agent/tools/execute`, and current code invokes tools without emitting application-level execution logs.
+- **Alignment:** Preserves existing tool wiring, Sentry instrumentation, and auth-context injection while adding only lightweight structured logs at the registry boundary.
+- **Risk/rollback:** Low risk because the change is additive and isolated to one invocation wrapper plus tests. Rollback is straightforward by reverting the wrapper and test additions if log volume is not useful.
+- **Acceptance criteria + test plan:** Wrap tool invocation in timing/logging, emit `logger.info` for success and tool-returned errors plus `logger.warn` for thrown execution errors, and verify with focused registry tests plus `pnpm lint` and `pnpm typecheck` when dependencies are available.
+
+### TEST-001 — API Route Coverage Tranche: Notifications + Runs (P1)
+
+- **Priority:** P1
+- **Status:** In Progress (2026-04-04)
+- **Scope:** Add route-level regression coverage for the untested notifications endpoints and `/api/runs`, covering auth, success, validation, and internal failure paths.
+- **Problem:** Core operator-facing notification routes and the run listing endpoint currently have no route tests, leaving auth regressions, filter parsing, and service/error handling unguarded.
+- **Expected Outcome (measurable):**
+  - `/api/notifications`, `/api/notifications/[id]`, `/api/notifications/mark-all-read`, and `/api/runs` have focused route coverage.
+  - Tests lock unauthorized handling, key success behavior, and at least one error branch per route.
+  - Mocking follows the established `resolveAuth` + service/Prisma pattern already used in nearby route tests.
+- **Evidence of need:** Current route inventory shows these endpoints untested while adjacent routes like `/api/notifications/unread-count` and `/api/runs/dashboard` already have test coverage.
+- **Alignment:** Adds only regression coverage; no runtime behavior changes.
+- **Risk/rollback:** Low risk because the work is test-only. Rollback is straightforward by reverting the new test files.
+- **Acceptance criteria + test plan:** Add four route test files covering auth, success, filter/input handling, typed `AppError` surfacing, and generic 500s. Verify with focused `apps/web` Vitest runs when dependencies are available.
+- **Evidence (incremental, 2026-04-04):** Added focused route coverage for `notifications`, `notifications/[id]`, `notifications/mark-all-read`, `runs`, `entities`, `entities/[id]`, `deals/[id]/tasks`, `deals/[id]/tasks/[taskId]/run`, `deals/[id]/uploads`, `deals/[id]/activity`, `saved-searches`, `saved-searches/[id]`, `saved-searches/[id]/run`, `portfolio`, `portfolio/analytics`, `portfolio/stress-test`, `portfolio/concentration`, `portfolio/debt-maturity`, `portfolio/velocity`, `portfolio/capital-deployment`, `portfolio/optimize`, `portfolio/1031-matches/[dealId]`, `proactive/triggers`, `proactive/actions`, `proactive/actions/[id]/respond`, `cron/opportunity-scan`, `cron/change-detection`, `cron/market-monitor`, `cron/deadline-check`, `cron/calibration`, `cron/drift-monitor`, `cron/entity-revalidation`, `cron/parish-pack-refresh`, `cron/entitlement-precedent-backfill`, `admin/sentinel-alerts`, `admin/export`, `admin/knowledge/[id]`, and `admin/memory/[id]`, including SSE success/failure assertions for task execution, file-upload path coverage, cron auth/reliability behavior, monitor/backfill run accounting, sentinel alert persistence/retrieval coverage, CSV export streaming, and org-scoped delete flows. `opportunities` routes were already covered and were included in the expanded combined verification run. Installed workspace dependencies, built `packages/shared` and `packages/db`, and verified the tranche with focused `apps/web` Vitest runs plus full `pnpm lint` and `pnpm typecheck`.
+
 
 ## Completed
 

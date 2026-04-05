@@ -20,6 +20,7 @@ import { getCloudflareAccessHeadersFromEnv } from "@/lib/server/propertyDbEnv";
 import { isSchemaDriftError } from "@/lib/api/prismaSchemaFallback";
 import { shouldUseAppDatabaseDevFallback } from "@/lib/server/appDbEnv";
 import { isPrismaConnectivityError } from "@/lib/server/devParcelFallback";
+import { logger } from "@/lib/logger";
 import * as Sentry from "@sentry/nextjs";
 
 const DealStatusSchema = z.enum([
@@ -610,7 +611,16 @@ export async function PATCH(request: NextRequest) {
             from: previousStageKey,
             to: workflowState.currentStageKey,
             orgId: auth.orgId,
-          }).catch(() => {});
+          }).catch((error) => {
+            logger.warn("Bulk deal stage change event dispatch failed", {
+              eventType: "deal.stageChanged",
+              dealId: deal.id,
+              orgId: auth.orgId,
+              fromStageKey: previousStageKey,
+              toStageKey: workflowState.currentStageKey,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          });
         }
 
         if (existingLegacyStatus !== compatibility.status) {
@@ -620,7 +630,16 @@ export async function PATCH(request: NextRequest) {
             from: existingLegacyStatus as import("@entitlement-os/shared").DealStatus,
             to: compatibility.status as import("@entitlement-os/shared").DealStatus,
             orgId: auth.orgId,
-          }).catch(() => {});
+          }).catch((error) => {
+            logger.warn("Bulk deal status change event dispatch failed", {
+              eventType: "deal.statusChanged",
+              dealId: deal.id,
+              orgId: auth.orgId,
+              fromStatus: existingLegacyStatus,
+              toStatus: compatibility.status,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          });
         }
       }),
     );

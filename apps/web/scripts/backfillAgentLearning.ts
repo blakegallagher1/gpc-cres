@@ -1,6 +1,7 @@
 import { prisma, type Prisma } from "@entitlement-os/db";
 
 import { dispatchEvent } from "../lib/automation/events";
+import { logger } from "../lib/logger";
 
 const BATCH_SIZE = 100;
 
@@ -148,7 +149,16 @@ async function dispatchBackfillEvent(run: BackfillRunRecord): Promise<void> {
     inputPreview:
       conversationContext.inputPreview ?? extractInputPreviewFromOutput(outputJson),
     queryIntent: extractQueryIntent(outputJson),
-  }).catch(() => {});
+  }).catch((error) => {
+    logger.warn("Backfill agent learning event dispatch failed", {
+      eventType: "agent.run.completed",
+      runId: run.id,
+      orgId: run.orgId,
+      userId: conversationContext.userId,
+      status: mappedStatus,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  });
 }
 
 async function main(): Promise<void> {
