@@ -36,6 +36,7 @@ import { hashJsonSha256 } from "@entitlement-os/shared/crypto";
 import {
   buildAgentStreamRunOptions,
   buildDataAgentRetrievalContext,
+  collapseRepeatedTextArtifacts,
   createTrajectoryRecorder,
   captureAgentError,
   captureAgentWarning,
@@ -52,6 +53,9 @@ import {
 import { autoFeedRun } from "../dataAgentAutoFeed.service.js";
 
 const DATA_AGENT_RETRIEVAL_LIMIT = 6;
+const PARISH_SCOPED_REQUEST_RE = /\b([a-z][a-z-]*(?:\s+[a-z][a-z-]*){0,3})\s+parish\b/gi;
+const MISSING_PARISH_DIMENSION_CODE = "MISSING_PARISH_DIMENSION";
+const PARISH_VERIFIED_ROWS_EMPTY_CODE = "PARISH_VERIFIED_ROWS_EMPTY";
 
 function normalizeOpenAiConversationId(value: unknown): string | undefined {
   return typeof value === "string" && value.startsWith("conv") ? value : undefined;
@@ -89,6 +93,8 @@ type ToolEventState = {
   }>;
   missingEvidence: Set<string>;
   toolErrorMessages: string[];
+  parishTieredQueryObserved: boolean;
+  parishVerifiedParcelRowsMax: number;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -190,7 +196,7 @@ function parseConfidenceFromOutput(value: unknown): number | null {
 }
 
 function sanitizeOutputText(value: unknown): string {
-  if (typeof value === "string") return value;
+  if (typeof value === "string") return collapseRepeatedTextArtifacts(value);
   if (value === null || value === undefined) return "";
   if (isRecord(value)) return JSON.stringify(value);
   try {
@@ -318,6 +324,47 @@ function buildFallbackOutput(status: AgentExecutionResult["status"], missingEvid
     ? `Missing evidence:\n${missingEvidence.map((item) => `- ${item}`).join("\n")}`
     : "No confidence-grade evidence was fully captured.";
   return `${prefix}\n\n${bullets}\n\nPlease run again with the missing evidence inputs and official source identifiers.`;
+}
+
+function extractRequestedParish(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const matches = [...value.matchAll(PARISH_SCOPED_REQUEST_RE)];
+  const match = matches.at(-1);
+  const candidate = match?.[1]?.trim().replace(/\s+/g, " ").toLowerCase() ?? "";
+  if (!candidate) return null;
+  const stopTokens = new Set(["in", "for", "of", "near", "at", "around", "inside"]);
+  const parts = candidate.split(" ");
+  let startIndex = 0;
+  for (let index = 0; index < parts.length; index += 1) {
+    if (stopTokens.has(parts[index])) {
+      startIndex = index + 1;
+    }
+  }
+  const parish = parts.slice(startIndex).join(" ").trim();
+  const normalized = parish.length > 0 ? parish : candidate;
+  return normalized.replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function hasMissingParishDimensionSignal(values: string[]): boolean {
+  return values.some((value) => value.includes(MISSING_PARISH_DIMENSION_CODE));
+}
+
+function hasParishVerifiedRowsEmptySignal(values: string[]): boolean {
+  return values.some((value) => value.includes(PARISH_VERIFIED_ROWS_EMPTY_CODE));
+}
+
+function buildParishVerificationRequiredOutput(parish: string | null): string {
+  const target = parish ? `${parish} Parish` : "the requested parish";
+  return [
+    "Verification required before parcel recommendations.",
+    "",
+    `I cannot rank or shortlist parcels for ${target} from ZIP/address proxy evidence.`,
+    "",
+    "Required next steps:",
+    "- Confirm parcel-to-parish membership from an authoritative parish boundary or assessor source.",
+    "- Confirm jurisdiction-specific zoning allowance for mobile home park use.",
+    "- Re-run screening only after parish membership is verified parcel-by-parcel.",
+  ].join("\n");
 }
 
 type RunProgressSnapshot = {
@@ -562,6 +609,47 @@ function collectToolOutputSignals(
     state.toolErrorMessages.push(`${toolName}: ${asRecord.error}`);
     if (/(missing|not found|failed|timeout|unauthorized|forbidden)/i.test(asRecord.error)) {
       state.missingEvidence.add(`${toolName}: ${asRecord.error}`);
+    }
+  }
+
+  if (toolName === "query_property_db_sql") {
+    const verification = isRecord(asRecord.verification)
+      ? (asRecord.verification as Record<string, unknown>)
+      : null;
+    const tiers =
+      verification && isRecord(verification.tiers)
+        ? (verification.tiers as Record<string, unknown>)
+        : null;
+    const verifiedFromTiers =
+      tiers && typeof tiers.verified === "number" && Number.isFinite(tiers.verified)
+        ? Math.max(0, Math.trunc(tiers.verified))
+        : null;
+    const verifiedFromRows = Array.isArray(asRecord.rows) ? asRecord.rows.length : null;
+    const verifiedCount = verifiedFromTiers ?? verifiedFromRows;
+    const rankingRule =
+      verification && typeof verification.rankingRule === "string"
+        ? verification.rankingRule
+        : null;
+    const tieringApplied =
+      verification && typeof verification.tieringApplied === "boolean"
+        ? verification.tieringApplied
+        : false;
+
+    if (rankingRule === "rank_verified_only" || tieringApplied) {
+      state.parishTieredQueryObserved = true;
+      if (typeof verifiedCount === "number") {
+        state.parishVerifiedParcelRowsMax = Math.max(
+          state.parishVerifiedParcelRowsMax,
+          verifiedCount,
+        );
+      }
+      if (verifiedCount === 0) {
+        const signal = `${PARISH_VERIFIED_ROWS_EMPTY_CODE}: no parish-verified parcels available for ranking`;
+        state.toolErrorMessages.push(`query_property_db_sql: ${signal}`);
+        state.missingEvidence.add(
+          "Parish-scoped ranking requires at least one geometry-verified parcel; current result has none.",
+        );
+      }
     }
   }
 }
@@ -995,6 +1083,8 @@ export async function runAgentTurn(
     evidenceCitations: [],
     missingEvidence: new Set(),
     toolErrorMessages: [],
+    parishTieredQueryObserved: false,
+    parishVerifiedParcelRowsMax: 0,
   };
   const trajectoryRecorder = createTrajectoryRecorder();
 
@@ -1184,6 +1274,8 @@ export async function runAgentTurn(
     state.toolErrorMessages.push(errorMessage);
     state.missingEvidence.add(`Execution failure: ${errorMessage}`);
   } finally {
+    finalText = collapseRepeatedTextArtifacts(finalText);
+
     if (status === "succeeded") {
       const parsed = safeParseJson(finalText);
       if (!isRecord(parsed)) {
@@ -1263,7 +1355,38 @@ export async function runAgentTurn(
       state.toolErrorMessages.push(`proof_enforcement: ${proofMessage}`);
     }
 
-    const missingEvidence = finalizeMissingEvidence(state);
+    let missingEvidence = finalizeMissingEvidence(state);
+    const parishScopedParcelRequest =
+      queryIntent === "land_search" && extractRequestedParish(firstUserInput) !== null;
+    const missingParcelProof = failedProofViolations.some(
+      (violation) => violation.group.label === "Parcel context",
+    );
+    const hasParishDimensionFailure =
+      hasMissingParishDimensionSignal(missingEvidence) ||
+      hasMissingParishDimensionSignal(state.toolErrorMessages);
+    const hasParishVerifiedRowsEmpty =
+      hasParishVerifiedRowsEmptySignal(missingEvidence) ||
+      hasParishVerifiedRowsEmptySignal(state.toolErrorMessages) ||
+      (state.parishTieredQueryObserved && state.parishVerifiedParcelRowsMax === 0);
+    const failClosedParishParcelRanking =
+      parishScopedParcelRequest &&
+      (hasParishDimensionFailure || hasParishVerifiedRowsEmpty || missingParcelProof);
+    if (failClosedParishParcelRanking) {
+      const requestedParish = extractRequestedParish(firstUserInput);
+      const parishGateMessage =
+        `Fail-closed parish gate triggered for ${requestedParish ?? "requested"} parish parcel search.`;
+      status = "failed";
+      errorMessage ??= parishGateMessage;
+      state.toolErrorMessages.push(`parish_verification_gate: ${parishGateMessage}`);
+      state.missingEvidence.add(
+        "Parish-scoped parcel recommendation blocked until parcel-to-parish membership is verified from authoritative boundaries.",
+      );
+      missingEvidence = [
+        ...missingEvidence,
+        "Parish-scoped parcel recommendation blocked until parcel-to-parish membership is verified from authoritative boundaries.",
+      ];
+      finalText = buildParishVerificationRequiredOutput(requestedParish);
+    }
     const evidenceRetryPolicy = buildMissingEvidenceRetryPolicy(
       params,
       missingEvidence.length,
@@ -1309,11 +1432,9 @@ export async function runAgentTurn(
     };
     lastProgressConfidence = trust.confidence;
 
-    if (status !== "succeeded") {
+    if (status !== "succeeded" && !failClosedParishParcelRanking) {
       const fallback = buildFallbackOutput(status, missingEvidence);
-      if (!finalText || finalText.length === 0) {
-        finalText = fallback;
-      }
+      finalText = fallback;
     }
 
     const evidenceCitationsJson = normalizedEvidenceCitations.map((citation) => ({

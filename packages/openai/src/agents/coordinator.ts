@@ -315,6 +315,23 @@ ROUTING RULES (FOLLOW STRICTLY):
 6. If parcels already in StructuredParcelContext → use those facts, don't re-query
 7. DEFAULT: When in doubt, use **query_property_db_sql**. It handles every query type the database supports.
 
+PARISH-SCOPED PARCEL SEARCH (CRITICAL — FOLLOW THIS FOR ANY NON-EBR PARISH):
+The property database table \`ebr_parcels\` has NO parish column. To find parcels in a specific parish:
+1. Use a spatial join with \`soils\` (or \`fema_flood\`, \`wetlands\`) which have a \`parish\` column.
+2. SQL pattern: \`SELECT DISTINCT e.parcel_id, e.address, e.owner, e.area_sqft/43560.0 AS acres, e.zoning_type FROM ebr_parcels e JOIN soils s ON ST_Intersects(e.geom, s.geom) WHERE s.parish ILIKE '<parish_name>' AND e.area_sqft/43560.0 >= <min_acres> ORDER BY e.area_sqft DESC LIMIT 30\`
+3. This produces geometry-verified parish membership — far more authoritative than ZIP code filtering.
+4. NEVER use scalar subqueries (\`WHERE zip = (SELECT ...)\`) — they fail when multiple rows return. Use \`IN (SELECT ...)\` or JOIN patterns.
+5. For flood screening, add: \`LEFT JOIN fema_flood f ON ST_Intersects(e.geom, f.geom)\`
+
+PARISH-SCOPED TIERED VERIFICATION:
+- For parish-scoped parcel searches, use tiered outputs from \`query_property_db_sql\`:
+  - \`rows\` = verified parcels (authoritative geometry-backed; safe to rank)
+  - \`rows_probable\` = proxy-supported parcels (not safe to rank)
+  - \`rows_unknown\` = unresolved parish membership
+- Rank and recommend using **verified rows only**.
+- If verified rows are empty, return "verification required" and provide next verification steps.
+- Never treat ZIP-only or address-text proxy matches as parish-verified.
+
 ## INVESTMENT CRITERIA REFERENCE
 GPC Target Metrics:
 - Target IRR: 15-25% (levered)

@@ -94,6 +94,239 @@ function extractZoningCodeForCount(sql: string): string | null {
   return zoning;
 }
 
+const PARISH_REFERENCE_RE = /\b([a-z][a-z-]*(?:\s+[a-z][a-z-]*){0,3})\s+parish\b/gi;
+
+function extractRequestedParish(sql: string): string | null {
+  const matches = [...sql.matchAll(PARISH_REFERENCE_RE)];
+  const match = matches.at(-1);
+  if (!match) return null;
+  const candidate = match[1]?.trim().replace(/\s+/g, " ").toLowerCase() ?? "";
+  if (!candidate) return null;
+  const stopTokens = new Set(["in", "for", "of", "near", "at", "around", "inside"]);
+  const parts = candidate.split(" ");
+  let startIndex = 0;
+  for (let index = 0; index < parts.length; index += 1) {
+    if (stopTokens.has(parts[index])) {
+      startIndex = index + 1;
+    }
+  }
+  const parish = parts.slice(startIndex).join(" ").trim();
+  const normalized = parish.length > 0 ? parish : candidate;
+  return normalized.replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function isParishScopedParcelQueryMissingDimension(sql: string): {
+  missing: boolean;
+  parish: string | null;
+} {
+  const lowered = sql.toLowerCase();
+  const parish = extractRequestedParish(sql);
+  if (!parish) return { missing: false, parish: null };
+  if (!lowered.includes("from ebr_parcels")) return { missing: false, parish };
+
+  // ebr_parcels has no parish column; apply downstream authoritative tiering.
+  return { missing: true, parish };
+}
+
+type ParishVerificationTier = "verified" | "probable" | "unknown";
+
+const PARISH_REFERENCE_TABLES = [
+  "fema_flood",
+  "soils",
+  "wetlands",
+  "epa_facilities",
+] as const;
+
+function escapeSqlLiteral(value: string): string {
+  return value.replace(/'/g, "''");
+}
+
+function uniqueStrings(values: string[]): string[] {
+  return [...new Set(values.filter((value) => value.length > 0))];
+}
+
+function toRows(payload: unknown): Record<string, unknown>[] {
+  if (Array.isArray(payload)) {
+    return payload.filter((entry): entry is Record<string, unknown> => !!entry && typeof entry === "object");
+  }
+  if (payload && typeof payload === "object") {
+    const rows = (payload as Record<string, unknown>).rows;
+    if (Array.isArray(rows)) {
+      return rows.filter((entry): entry is Record<string, unknown> => !!entry && typeof entry === "object");
+    }
+  }
+  return [];
+}
+
+function collectParcelIds(rows: Record<string, unknown>[]): string[] {
+  return uniqueStrings(
+    rows
+      .map((row) => {
+        const raw = row.parcel_id ?? row.parcelId;
+        return typeof raw === "string" ? raw.trim() : "";
+      })
+      .filter((value) => value.length > 0),
+  );
+}
+
+function chunkArray<T>(values: T[], size: number): T[][] {
+  if (size <= 0) return [values];
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+
+async function fetchReferenceZipsForParish(parish: string): Promise<Set<string>> {
+  const escapedParish = escapeSqlLiteral(parish);
+  const zips = new Set<string>();
+  for (const tableName of PARISH_REFERENCE_TABLES) {
+    const sql = `SELECT DISTINCT z.zip AS zip
+FROM zcta z
+JOIN ${tableName} r ON ST_Intersects(z.geom, r.geom)
+WHERE r.parish ILIKE '${escapedParish}'
+  AND z.zip IS NOT NULL
+LIMIT 2000`;
+    const payload = await gatewayPost("/tools/parcels.sql", { sql });
+    const rows = toRows(payload);
+    for (const row of rows) {
+      const zip = row.zip;
+      if (typeof zip === "string" && zip.trim().length > 0) {
+        zips.add(zip.trim());
+      }
+    }
+  }
+  return zips;
+}
+
+async function fetchVerifiedParcelIdsForParish(
+  parish: string,
+  parcelIds: string[],
+): Promise<Set<string>> {
+  const escapedParish = escapeSqlLiteral(parish);
+  const verified = new Set<string>();
+  for (const parcelChunk of chunkArray(parcelIds, 180)) {
+    const inClause = parcelChunk.map((id) => `'${escapeSqlLiteral(id)}'`).join(", ");
+    for (const tableName of PARISH_REFERENCE_TABLES) {
+      const sql = `SELECT DISTINCT e.parcel_id AS parcel_id
+FROM ebr_parcels e
+JOIN ${tableName} r ON ST_Intersects(e.geom, r.geom)
+WHERE r.parish ILIKE '${escapedParish}'
+  AND e.parcel_id IN (${inClause})
+LIMIT 2000`;
+      const payload = await gatewayPost("/tools/parcels.sql", { sql });
+      const rows = toRows(payload);
+      for (const row of rows) {
+        const parcelId = row.parcel_id;
+        if (typeof parcelId === "string" && parcelId.trim().length > 0) {
+          verified.add(parcelId.trim());
+        }
+      }
+    }
+  }
+  return verified;
+}
+
+async function fetchParcelZipMap(parcelIds: string[]): Promise<Map<string, string>> {
+  const zipMap = new Map<string, string>();
+  for (const parcelChunk of chunkArray(parcelIds, 250)) {
+    const inClause = parcelChunk.map((id) => `'${escapeSqlLiteral(id)}'`).join(", ");
+    const sql = `SELECT parcel_id, zip FROM ebr_parcels WHERE parcel_id IN (${inClause})`;
+    const payload = await gatewayPost("/tools/parcels.sql", { sql });
+    const rows = toRows(payload);
+    for (const row of rows) {
+      const parcelId = row.parcel_id;
+      const zip = row.zip;
+      if (typeof parcelId === "string" && typeof zip === "string") {
+        zipMap.set(parcelId.trim(), zip.trim());
+      }
+    }
+  }
+  return zipMap;
+}
+
+function tierParcelRows(params: {
+  rows: Record<string, unknown>[];
+  verifiedParcelIds: Set<string>;
+  parishZipSet: Set<string>;
+  zipByParcelId: Map<string, string>;
+}): {
+  verified: Array<Record<string, unknown> & {
+    verification_tier: ParishVerificationTier;
+    parish_verified: boolean;
+    parish_confidence: number;
+  }>;
+  probable: Array<Record<string, unknown> & {
+    verification_tier: ParishVerificationTier;
+    parish_verified: boolean;
+    parish_confidence: number;
+  }>;
+  unknown: Array<Record<string, unknown> & {
+    verification_tier: ParishVerificationTier;
+    parish_verified: boolean;
+    parish_confidence: number;
+  }>;
+  all: Array<Record<string, unknown> & {
+    verification_tier: ParishVerificationTier;
+    parish_verified: boolean;
+    parish_confidence: number;
+  }>;
+} {
+  const verified: Array<Record<string, unknown> & {
+    verification_tier: ParishVerificationTier;
+    parish_verified: boolean;
+    parish_confidence: number;
+  }> = [];
+  const probable: Array<Record<string, unknown> & {
+    verification_tier: ParishVerificationTier;
+    parish_verified: boolean;
+    parish_confidence: number;
+  }> = [];
+  const unknown: Array<Record<string, unknown> & {
+    verification_tier: ParishVerificationTier;
+    parish_verified: boolean;
+    parish_confidence: number;
+  }> = [];
+
+  for (const row of params.rows) {
+    const parcelIdValue = row.parcel_id ?? row.parcelId;
+    const parcelId =
+      typeof parcelIdValue === "string" && parcelIdValue.trim().length > 0
+        ? parcelIdValue.trim()
+        : null;
+    const zip = parcelId ? params.zipByParcelId.get(parcelId) ?? null : null;
+    const isVerified = parcelId ? params.verifiedParcelIds.has(parcelId) : false;
+    const isProbable = !isVerified && typeof zip === "string" && params.parishZipSet.has(zip);
+
+    const enriched = {
+      ...row,
+      verification_tier: isVerified ? "verified" : isProbable ? "probable" : "unknown",
+      parish_verified: isVerified,
+      parish_confidence: isVerified ? 0.95 : isProbable ? 0.6 : 0.2,
+    } as Record<string, unknown> & {
+      verification_tier: ParishVerificationTier;
+      parish_verified: boolean;
+      parish_confidence: number;
+    };
+
+    if (isVerified) {
+      verified.push(enriched);
+    } else if (isProbable) {
+      probable.push(enriched);
+    } else {
+      unknown.push(enriched);
+    }
+  }
+
+  return {
+    verified,
+    probable,
+    unknown,
+    all: [...verified, ...probable, ...unknown],
+  };
+}
+
 async function countByZoningViaParcelSearch(zoning: string): Promise<unknown | null> {
   const fallback = await gatewayPost("/tools/parcel.search", {
     zoning,
@@ -666,7 +899,17 @@ export const queryPropertyDbSql = tool({
     "  - For ZIP breakdowns: SELECT zip, COUNT(*) FROM ebr_parcels WHERE zoning_type = 'A4' GROUP BY zip ORDER BY count DESC\n" +
     "  - Do NOT use CTEs, subqueries, or temp table names that match non-allowed table names — the gateway parser will reject them.\n" +
     "  - fema_flood, soils, wetlands, epa_facilities have a 'parish' column. ebr_parcels does NOT.\n" +
-    "  - Zoning is only ~34% populated — always mention this caveat when reporting zoning counts.\n\n" +
+    "  - Zoning is only ~34% populated — always mention this caveat when reporting zoning counts.\n" +
+    "  - NEVER use = (SELECT ...) for subqueries that can return multiple rows — always use IN (SELECT ...).\n\n" +
+    "PARISH-SCOPED PARCEL SEARCH (CRITICAL — follow this pattern for any non-EBR parish):\n" +
+    "  Since ebr_parcels has NO parish column, use a spatial join with a reference table that has one.\n" +
+    "  The most reliable approach joins ebr_parcels with soils (37K rows, parish column, good geometry coverage).\n" +
+    "  PATTERN: SELECT DISTINCT e.parcel_id, e.address, e.owner, e.area_sqft/43560.0 AS acres, e.zoning_type\n" +
+    "    FROM ebr_parcels e JOIN soils s ON ST_Intersects(e.geom, s.geom)\n" +
+    "    WHERE s.parish ILIKE 'Livingston' AND e.area_sqft/43560.0 >= 10\n" +
+    "    ORDER BY e.area_sqft DESC LIMIT 50\n" +
+    "  This is authoritative geometry-based parish membership — far more reliable than ZIP code filtering.\n" +
+    "  For flood screening add: LEFT JOIN fema_flood f ON ST_Intersects(e.geom, f.geom) AND f.parish ILIKE 'Livingston'\n\n" +
     "TIPS:\n" +
     "  - Acreage: area_sqft / 43560.0\n" +
     "  - PostGIS: ST_DWithin(geom, ST_SetSRID(ST_MakePoint(lng,lat),4326), meters), ST_Intersects, ST_Contains, ST_Area, ST_Centroid\n" +
@@ -678,7 +921,8 @@ export const queryPropertyDbSql = tool({
     "  Count by zoning: SELECT zoning_type, COUNT(*) AS cnt FROM ebr_parcels WHERE zoning_type IS NOT NULL GROUP BY zoning_type ORDER BY cnt DESC\n" +
     "  Large parcels: SELECT parcel_id, address, owner, area_sqft/43560.0 AS acres FROM ebr_parcels WHERE area_sqft/43560.0 >= 5 ORDER BY area_sqft DESC LIMIT 20\n" +
     "  Near a point: SELECT parcel_id, address, area_sqft/43560.0 AS acres FROM ebr_parcels WHERE ST_DWithin(geom::geography, ST_SetSRID(ST_MakePoint(-91.1,30.45),4326)::geography, 1609) LIMIT 20\n" +
-    "  Flood zone check: SELECT e.parcel_id, e.address, f.fld_zone FROM ebr_parcels e JOIN fema_flood f ON ST_Intersects(e.geom, f.geom) WHERE e.parcel_id = '001-5096-7'",
+    "  Flood zone check: SELECT e.parcel_id, e.address, f.zone FROM ebr_parcels e JOIN fema_flood f ON ST_Intersects(e.geom, f.geom) WHERE e.parcel_id = '001-5096-7'\n" +
+    "  Parish land search: SELECT DISTINCT e.parcel_id, e.address, e.owner, e.area_sqft/43560.0 AS acres, e.zoning_type FROM ebr_parcels e JOIN soils s ON ST_Intersects(e.geom, s.geom) WHERE s.parish ILIKE 'Livingston' AND e.area_sqft/43560.0 >= 15 ORDER BY e.area_sqft DESC LIMIT 30",
   parameters: z.object({
     sql: z.string().describe("Read-only SQL query (SELECT/WITH only). Include parcel_id + address columns when returning parcels for map display."),
   }),
@@ -689,6 +933,9 @@ export const queryPropertyDbSql = tool({
     if (firstWord !== "SELECT" && firstWord !== "WITH") {
       return JSON.stringify({ error: "Only SELECT/WITH queries are allowed." });
     }
+
+    const parishGuard = isParishScopedParcelQueryMissingDimension(trimmed);
+
     const shortcutZoning = extractZoningCodeForCount(trimmed);
     if (shortcutZoning) {
       const shortcutResult = await countByZoningViaParcelSearch(shortcutZoning);
@@ -705,6 +952,57 @@ export const queryPropertyDbSql = tool({
     if (data && typeof data === "object" && Array.isArray(data.rows)) {
       // Wrap with map features so parcels can be highlighted on the map
       const rows = data.rows as Record<string, unknown>[];
+      if (parishGuard.missing && parishGuard.parish) {
+        const parcelIds = collectParcelIds(rows);
+        if (parcelIds.length === 0) {
+          return JSON.stringify({
+            rowCount: data.rowCount,
+            rows,
+            requestedParish: parishGuard.parish,
+            verification: {
+              mode: "authoritative_geometry_plus_proxy",
+              tieringApplied: false,
+              code: "PARISH_SCOPE_NON_PARCEL_RESULT",
+              guidance:
+                "Result does not include parcel_id rows, so parish membership cannot be tiered. Use parcel-level query for ranked candidates.",
+            },
+          });
+        }
+
+        const [verifiedParcelIds, parishZipSet, zipByParcelId] = await Promise.all([
+          fetchVerifiedParcelIdsForParish(parishGuard.parish, parcelIds),
+          fetchReferenceZipsForParish(parishGuard.parish),
+          fetchParcelZipMap(parcelIds),
+        ]);
+        const tiered = tierParcelRows({
+          rows,
+          verifiedParcelIds,
+          parishZipSet,
+          zipByParcelId,
+        });
+        const features = extractMapFeatures(tiered.verified);
+
+        return JSON.stringify({
+          rowCount: tiered.verified.length,
+          rows: tiered.verified,
+          rows_probable: tiered.probable,
+          rows_unknown: tiered.unknown,
+          rows_all: tiered.all,
+          requestedParish: parishGuard.parish,
+          verification: {
+            mode: "authoritative_geometry_plus_proxy",
+            tieringApplied: true,
+            tiers: {
+              verified: tiered.verified.length,
+              probable: tiered.probable.length,
+              unknown: tiered.unknown.length,
+            },
+            rankingRule: "rank_verified_only",
+            authoritativeSources: [...PARISH_REFERENCE_TABLES],
+          },
+          ...(features.length > 0 ? { [MAP_FEATURES_KEY]: features } : {}),
+        });
+      }
       const features = extractMapFeatures(rows);
       if (features.length > 0) {
         return JSON.stringify({

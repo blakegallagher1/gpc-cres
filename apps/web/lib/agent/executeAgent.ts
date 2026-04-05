@@ -20,6 +20,7 @@ import type { Prisma } from "@entitlement-os/db";
 import { createHash } from "node:crypto";
 import {
   buildAgentStreamRunOptions,
+  collapseRepeatedTextArtifacts,
   createTrajectoryRecorder,
   captureAgentError,
   captureAgentWarning,
@@ -88,6 +89,9 @@ const PROPERTY_ANALYSIS_REQUEST_RE =
   /\b(?:analy[sz]e|underwrite|assess|evaluate|recommend|compare|screen|triage|what do you think|should we|summari[sz]e)\b/i;
 const ADDRESS_SIGNATURE_RE =
   /\b(\d{1,6})\s+([a-z0-9.'"\-\s]+?)\s+(street|st|avenue|ave|boulevard|blvd|road|rd|drive|dr|lane|ln|court|ct|place|pl|parkway|pkwy|highway|hwy|trail|trl|way|terrace|terr|circle|cir)\b/i;
+const PARISH_SCOPED_REQUEST_RE = /\b([a-z][a-z-]*(?:\s+[a-z][a-z-]*){0,3})\s+parish\b/gi;
+const MISSING_PARISH_DIMENSION_CODE = "MISSING_PARISH_DIMENSION";
+const PARISH_VERIFIED_ROWS_EMPTY_CODE = "PARISH_VERIFIED_ROWS_EMPTY";
 const ADDRESS_SUFFIX_CANONICAL: Record<string, string> = {
   st: "street",
   street: "street",
@@ -192,6 +196,30 @@ function isMaterialAddressMismatch(requestedAddress: string, returnedAddress: st
 
 function normalizeOpenAiConversationId(value: unknown): string | undefined {
   return typeof value === "string" && value.startsWith("conv") ? value : undefined;
+}
+
+function extractRequestedParish(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const matches = [...value.matchAll(PARISH_SCOPED_REQUEST_RE)];
+  const match = matches.at(-1);
+  const candidate = match?.[1]?.trim().replace(/\s+/g, " ").toLowerCase() ?? "";
+  if (!candidate) return null;
+  const stopTokens = new Set(["in", "for", "of", "near", "at", "around", "inside"]);
+  const parts = candidate.split(" ");
+  let startIndex = 0;
+  for (let index = 0; index < parts.length; index += 1) {
+    if (stopTokens.has(parts[index])) {
+      startIndex = index + 1;
+    }
+  }
+  const parish = parts.slice(startIndex).join(" ").trim();
+  const normalized = parish.length > 0 ? parish : candidate;
+  return normalized.replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function isParishScopedParcelRequest(firstUserInput: unknown, queryIntent: QueryIntent): boolean {
+  if (queryIntent !== "land_search") return false;
+  return extractRequestedParish(firstUserInput) !== null;
 }
 
 export type AgentInputMessage =
@@ -326,6 +354,8 @@ type ToolEventState = {
   browserTaskVerifiedDataLaneCount: number;
   browserTaskServiceUnavailableCount: number;
   browserTaskSuggestedLane: ResearchLaneSelection | null;
+  parishTieredQueryObserved: boolean;
+  parishVerifiedParcelRowsMax: number;
 };
 
 type AgentRunAttemptState = {
@@ -1036,6 +1066,47 @@ function collectToolOutputSignals(
       );
     }
   }
+
+  if (toolName === "query_property_db_sql") {
+    const verification = isRecord(asRecord.verification)
+      ? (asRecord.verification as Record<string, unknown>)
+      : null;
+    const tiers =
+      verification && isRecord(verification.tiers)
+        ? (verification.tiers as Record<string, unknown>)
+        : null;
+    const verifiedFromTiers =
+      tiers && typeof tiers.verified === "number" && Number.isFinite(tiers.verified)
+        ? Math.max(0, Math.trunc(tiers.verified))
+        : null;
+    const verifiedFromRows = Array.isArray(asRecord.rows) ? asRecord.rows.length : null;
+    const verifiedCount = verifiedFromTiers ?? verifiedFromRows;
+    const rankingRule =
+      verification && typeof verification.rankingRule === "string"
+        ? verification.rankingRule
+        : null;
+    const tieringApplied =
+      verification && typeof verification.tieringApplied === "boolean"
+        ? verification.tieringApplied
+        : false;
+
+    if (rankingRule === "rank_verified_only" || tieringApplied) {
+      state.parishTieredQueryObserved = true;
+      if (typeof verifiedCount === "number") {
+        state.parishVerifiedParcelRowsMax = Math.max(
+          state.parishVerifiedParcelRowsMax,
+          verifiedCount,
+        );
+      }
+      if (verifiedCount === 0) {
+        const signal = `${PARISH_VERIFIED_ROWS_EMPTY_CODE}: no parish-verified parcels available for ranking`;
+        state.toolErrorMessages.push(`query_property_db_sql: ${signal}`);
+        state.missingEvidence.add(
+          "Parish-scoped ranking requires at least one geometry-verified parcel; current result has none.",
+        );
+      }
+    }
+  }
 }
 
 function finalizeMissingEvidence(state: ToolEventState): string[] {
@@ -1149,8 +1220,30 @@ function buildFallbackOutput(
   return `${prefix}\n\n${bullets}\n\nPlease run again with the missing evidence inputs and official source identifiers.`;
 }
 
+function buildParishVerificationRequiredOutput(parish: string | null): string {
+  const target = parish ? `${parish} Parish` : "the requested parish";
+  return [
+    "Verification required before parcel recommendations.",
+    "",
+    `I cannot rank or shortlist parcels for ${target} from ZIP/address proxy evidence.`,
+    "",
+    "Required next steps:",
+    "- Confirm parcel-to-parish membership from an authoritative parish boundary or assessor source.",
+    "- Confirm jurisdiction-specific zoning allowance for mobile home park use.",
+    "- Re-run screening only after parish membership is verified parcel-by-parcel.",
+  ].join("\n");
+}
+
+function hasMissingParishDimensionSignal(values: string[]): boolean {
+  return values.some((value) => value.includes(MISSING_PARISH_DIMENSION_CODE));
+}
+
+function hasParishVerifiedRowsEmptySignal(values: string[]): boolean {
+  return values.some((value) => value.includes(PARISH_VERIFIED_ROWS_EMPTY_CODE));
+}
+
 function sanitizeOutputText(value: unknown): string {
-  if (typeof value === "string") return value;
+  if (typeof value === "string") return collapseRepeatedTextArtifacts(value);
   if (value === null || value === undefined) return "";
   if (isRecord(value)) return JSON.stringify(value);
   try {
@@ -1460,6 +1553,8 @@ export async function executeAgentWorkflow(
     browserTaskVerifiedDataLaneCount: 0,
     browserTaskServiceUnavailableCount: 0,
     browserTaskSuggestedLane: null,
+    parishTieredQueryObserved: false,
+    parishVerifiedParcelRowsMax: 0,
   };
   const trajectoryRecorder = createTrajectoryRecorder();
 
@@ -2409,10 +2504,40 @@ export async function executeAgentWorkflow(
       errorMessage ??= proofMessage;
       state.toolErrorMessages.push(`proof_enforcement: ${proofMessage}`);
     }
-    const missingEvidence = normalizeMissingEvidenceForBrowserRun(
+    let missingEvidence = normalizeMissingEvidenceForBrowserRun(
       state,
       finalizeMissingEvidence(state),
     );
+    const parishScopedParcelRequest = isParishScopedParcelRequest(firstUserInput, queryIntent);
+    const missingParcelProof = failedProofViolations.some(
+      (violation) => violation.group.label === "Parcel context",
+    );
+    const hasParishDimensionFailure =
+      hasMissingParishDimensionSignal(missingEvidence) ||
+      hasMissingParishDimensionSignal(state.toolErrorMessages);
+    const hasParishVerifiedRowsEmpty =
+      hasParishVerifiedRowsEmptySignal(missingEvidence) ||
+      hasParishVerifiedRowsEmptySignal(state.toolErrorMessages) ||
+      (state.parishTieredQueryObserved && state.parishVerifiedParcelRowsMax === 0);
+    const failClosedParishParcelRanking =
+      parishScopedParcelRequest &&
+      (hasParishDimensionFailure || hasParishVerifiedRowsEmpty || missingParcelProof);
+    if (failClosedParishParcelRanking) {
+      const requestedParish = extractRequestedParish(firstUserInput);
+      status = "failed";
+      const parishGateMessage =
+        `Fail-closed parish gate triggered for ${requestedParish ?? "requested"} parish parcel search.`;
+      errorMessage ??= parishGateMessage;
+      state.toolErrorMessages.push(`parish_verification_gate: ${parishGateMessage}`);
+      state.missingEvidence.add(
+        "Parish-scoped parcel recommendation blocked until parcel-to-parish membership is verified from authoritative boundaries.",
+      );
+      missingEvidence = [
+        ...missingEvidence,
+        "Parish-scoped parcel recommendation blocked until parcel-to-parish membership is verified from authoritative boundaries.",
+      ];
+      finalText = buildParishVerificationRequiredOutput(requestedParish);
+    }
 
     const shouldFallbackToPublicWeb =
       state.browserTaskServiceUnavailableCount > 0 &&
@@ -2502,12 +2627,12 @@ export async function executeAgentWorkflow(
       fallbackReason: params.fallbackReason,
     });
 
-    if (status !== "succeeded") {
+    if (status !== "succeeded" && !failClosedParishParcelRanking) {
       const fallback = buildFallbackOutput(status, missingEvidence);
-      if (!finalText || finalText.length === 0) {
-        finalText = fallback;
-      }
+      finalText = fallback;
     }
+
+    finalText = collapseRepeatedTextArtifacts(finalText);
 
     const evidenceCitationsJson: Prisma.JsonArray = normalizedEvidenceCitations.map((citation) => ({
       tool: citation.tool ?? null,
