@@ -89,7 +89,7 @@ const DEFAULT_REFERENCE_OVERLAY_STATE: MapReferenceOverlayState = {
   parcelBoundaries: true,
   zoning: false,
   flood: false,
-  mobileHomePark: false,
+  mobileHomePark: true,
   soils: false,
   wetlands: false,
   epa: false,
@@ -231,6 +231,8 @@ function getSavedOverlaysFallback(): {
   mobileHomePark: boolean;
 } {
   const saved = getSavedOverlays();
+  const mobileHomeParksEnabled =
+    saved["Mobile Home Parks"] === true || saved["Mobile Home Park"] === true;
   return {
     parcelBoundaries: saved["Parcel Boundaries"] !== false,
     zoning: saved["Zoning Overlay"] === true,
@@ -238,7 +240,7 @@ function getSavedOverlaysFallback(): {
     soils: saved["Soils"] === true,
     wetlands: saved["Wetlands"] === true,
     epa: saved["EPA Facilities"] === true,
-    mobileHomePark: saved["Mobile Home Parks"] === true,
+    mobileHomePark: mobileHomeParksEnabled,
   };
 }
 
@@ -774,6 +776,7 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
       showSoils ? "soils" : null,
       showWetlands ? "wetlands" : null,
       showEpa ? "epa" : null,
+      showMobileHomePark ? "mobile_home_parks" : null,
       showComps ? "comps" : null,
       showHeatmap ? "heatmap" : null,
       showIsochrone ? "isochrone" : null,
@@ -788,6 +791,7 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
     showComps,
     showEpa,
     showFlood,
+    showMobileHomePark,
     showHeatmap,
     showIsochrone,
     showParcelBoundaries,
@@ -2365,12 +2369,13 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
           "Soils": showSoils,
           "Wetlands": showWetlands,
           "EPA Facilities": showEpa,
+          "Mobile Home Parks": showMobileHomePark,
         })
       );
     } catch {
       // Ignore localStorage write failures for display preferences.
     }
-  }, [baseLayer, showParcelBoundaries, showZoning, showFlood, showSoils, showWetlands, showEpa, mapReady]);
+  }, [baseLayer, showParcelBoundaries, showZoning, showFlood, showSoils, showWetlands, showEpa, showMobileHomePark, mapReady]);
 
   if (mapError) {
     return (
