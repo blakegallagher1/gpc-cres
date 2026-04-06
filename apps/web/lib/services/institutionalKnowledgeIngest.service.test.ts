@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 
 const {
   uploadFindFirstMock,
@@ -43,9 +43,10 @@ vi.mock("@/lib/services/knowledgeBase.service", () => ({
 
 import { getInstitutionalKnowledgeIngestService, isWorkbookFilename } from "./institutionalKnowledgeIngest.service";
 
-function buildWorkbookBuffer(): Buffer {
-  const workbook = XLSX.utils.book_new();
-  const dashboard = XLSX.utils.aoa_to_sheet([
+async function buildWorkbookBuffer(): Promise<Buffer> {
+  const workbook = new ExcelJS.Workbook();
+  const dashboard = workbook.addWorksheet("Dashboard");
+  dashboard.addRows([
     ["Asset Type", "Flex Warehouse"],
     ["Buildings", 2],
     ["Units", 24],
@@ -64,14 +65,15 @@ function buildWorkbookBuffer(): Buffer {
     ["Equity Multiple", "2.60"],
     ["Exit Cap", "8.0%"],
   ]);
-  const assumptions = XLSX.utils.aoa_to_sheet([
+
+  const assumptions = workbook.addWorksheet("Assumptions");
+  assumptions.addRows([
     ["Sheet", "Assumptions"],
     ["Deal Name", "The Collective Office-Warehouse"],
   ]);
 
-  XLSX.utils.book_append_sheet(workbook, dashboard, "Dashboard");
-  XLSX.utils.book_append_sheet(workbook, assumptions, "Assumptions");
-  return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
+  const arrayBuffer = await workbook.xlsx.writeBuffer();
+  return Buffer.from(arrayBuffer);
 }
 
 describe("institutionalKnowledgeIngest.service", () => {
@@ -155,7 +157,7 @@ describe("institutionalKnowledgeIngest.service", () => {
 
   it("extracts workbook summary, preserves artifact provenance, and verifies exact plus semantic retrieval", async () => {
     const filename = "The Collective Office-Warehouse(13465 S Harrells Ferry Rd, Baton Rouge, LA 70816).xlsx";
-    const workbookBytes = buildWorkbookBuffer();
+    const workbookBytes = await buildWorkbookBuffer();
 
     uploadFindFirstMock.mockResolvedValue({
       id: "upload-1",

@@ -8,12 +8,19 @@ import {
   searchKnowledgeBase,
   type KnowledgeSearchResult,
 } from "@/lib/services/knowledgeBase.service";
-import type * as XLSXType from "xlsx";
+import type ExcelJSNamespace from "exceljs";
 
-let _xlsx: typeof XLSXType | null = null;
-async function getXLSX(): Promise<typeof XLSXType> {
-  if (!_xlsx) _xlsx = await import("xlsx");
-  return _xlsx;
+type ExcelJSModule = typeof ExcelJSNamespace;
+
+let _exceljs: ExcelJSModule | null = null;
+async function getExcelJS(): Promise<ExcelJSModule> {
+  if (!_exceljs) {
+    const mod = (await import("exceljs")) as unknown as
+      | ExcelJSModule
+      | { default: ExcelJSModule };
+    _exceljs = "default" in mod ? mod.default : mod;
+  }
+  return _exceljs;
 }
 
 const WORKBOOK_EXTENSIONS = new Set([".xlsx", ".xlsm", ".xls"]);
@@ -184,21 +191,76 @@ function parseCurrency(raw: string): number | null {
   return parseNumericCandidate(raw);
 }
 
-function extractWorkbookFacts(workbook: XLSXType.WorkBook, filename: string, xlsx: typeof XLSXType): WorkbookExtraction {
-  const sheetNames = workbook.SheetNames.slice();
-  const rowsBySheet = sheetNames.map((sheetName) => {
-    const sheet = workbook.Sheets[sheetName];
-    const rawRows = xlsx.utils.sheet_to_json<(string | number | boolean | Date | null)[]>(sheet, {
-      header: 1,
-      raw: false,
-      blankrows: false,
-      defval: "",
+interface ParsedSheet {
+  sheetName: string;
+  rows: string[][];
+}
+
+interface ParsedWorkbook {
+  sheetNames: string[];
+  sheets: ParsedSheet[];
+}
+
+function coerceExcelJsCellValue(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value !== "object") return String(value);
+  // ExcelJS exposes formulas as { formula, result }, rich text as
+  // { richText: [{ text }] }, hyperlinks as { text, hyperlink }, and errors
+  // as { error: '#REF!' }. Coerce each shape to a primitive string before
+  // the downstream metric extractor sees it.
+  const obj = value as Record<string, unknown>;
+  if ("result" in obj && obj.result !== undefined && obj.result !== null) {
+    return coerceExcelJsCellValue(obj.result);
+  }
+  if (Array.isArray(obj.richText)) {
+    return (obj.richText as Array<{ text?: string }>).map((part) => part?.text ?? "").join("");
+  }
+  if (typeof obj.text === "string") return obj.text;
+  if (typeof obj.text !== "undefined") return String(obj.text);
+  if (typeof obj.error === "string") return obj.error;
+  return "";
+}
+
+async function parseWorkbookBuffer(buffer: Buffer): Promise<ParsedWorkbook> {
+  const ExcelJS = await getExcelJS();
+  const workbook = new ExcelJS.Workbook();
+  // ExcelJS's `xlsx.load(buffer: Buffer)` typings predate the generic
+  // `Buffer<ArrayBufferLike>` shape from modern @types/node, so the call
+  // needs a structural cast. Runtime is unaffected.
+  await workbook.xlsx.load(
+    buffer as unknown as Parameters<typeof workbook.xlsx.load>[0]
+  );
+
+  const sheets: ParsedSheet[] = [];
+  workbook.eachSheet((worksheet) => {
+    const rows: string[][] = [];
+    worksheet.eachRow({ includeEmpty: false }, (row) => {
+      // ExcelJS row.values is a 1-indexed sparse array; index 0 is always empty.
+      const rawValues = (row.values as unknown[]) ?? [];
+      const cells: string[] = [];
+      for (let i = 1; i < rawValues.length; i += 1) {
+        cells.push(normalizeCell(coerceExcelJsCellValue(rawValues[i] ?? null)));
+      }
+      // Drop trailing empty cells (matches the previous filter that the
+      // xlsx → JSON path performed when defval: "" was set).
+      while (cells.length > 0 && cells[cells.length - 1] === "") {
+        cells.pop();
+      }
+      rows.push(cells);
     });
-    return {
-      sheetName,
-      rows: rawRows.map((row) => row.map((cell) => normalizeCell(cell)).filter((cell, index, arr) => !(cell === "" && index === arr.length - 1))),
-    };
+    sheets.push({ sheetName: worksheet.name, rows });
   });
+
+  return {
+    sheetNames: sheets.map((sheet) => sheet.sheetName),
+    sheets,
+  };
+}
+
+function extractWorkbookFacts(parsed: ParsedWorkbook, filename: string): WorkbookExtraction {
+  const sheetNames = parsed.sheetNames.slice();
+  const rowsBySheet = parsed.sheets;
 
   const metadata: Record<string, unknown> = {
     sourceType: "financial_model",
@@ -423,9 +485,8 @@ class InstitutionalKnowledgeIngestService {
       await fetchObjectBytesFromGateway(upload.storageObjectKey, systemAuth(orgId))
     );
     const sha256 = createHash("sha256").update(artifactBytes).digest("hex");
-    const xlsx = await getXLSX();
-    const workbook = xlsx.read(artifactBytes, { type: "buffer", cellDates: true });
-    const extracted = extractWorkbookFacts(workbook, upload.filename, xlsx);
+    const parsed = await parseWorkbookBuffer(artifactBytes);
+    const extracted = extractWorkbookFacts(parsed, upload.filename);
     const sourceId = buildSourceId(upload, extracted.metadata);
 
     const artifactMetadata = {
