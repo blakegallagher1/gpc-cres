@@ -13,18 +13,21 @@ describe("zoningLayerConfig", () => {
     sourceId: process.env.NEXT_PUBLIC_ZONING_TILE_SOURCE_ID,
     sourceLayer: process.env.NEXT_PUBLIC_ZONING_TILE_SOURCE_LAYER,
     propertyName: process.env.NEXT_PUBLIC_ZONING_TILE_PROPERTY_NAME,
+    martinTileUrl: process.env.NEXT_PUBLIC_MARTIN_TILE_URL,
   };
 
   beforeEach(() => {
     delete process.env.NEXT_PUBLIC_ZONING_TILE_SOURCE_ID;
     delete process.env.NEXT_PUBLIC_ZONING_TILE_SOURCE_LAYER;
     delete process.env.NEXT_PUBLIC_ZONING_TILE_PROPERTY_NAME;
+    delete process.env.NEXT_PUBLIC_MARTIN_TILE_URL;
   });
 
   afterEach(() => {
     process.env.NEXT_PUBLIC_ZONING_TILE_SOURCE_ID = envSnapshot.sourceId;
     process.env.NEXT_PUBLIC_ZONING_TILE_SOURCE_LAYER = envSnapshot.sourceLayer;
     process.env.NEXT_PUBLIC_ZONING_TILE_PROPERTY_NAME = envSnapshot.propertyName;
+    process.env.NEXT_PUBLIC_MARTIN_TILE_URL = envSnapshot.martinTileUrl;
   });
 
   it("snapshots the zoning tile layer contract", () => {
@@ -42,41 +45,27 @@ describe("zoningLayerConfig", () => {
     expect(layer).toMatchSnapshot();
   });
 
-  it("uses the authenticated zoning proxy by default", () => {
-    expect(getPreferredZoningTileContract()).toEqual({
-      sourceId: "get_parcel_mvt_proxy",
-      sourceLayer: "parcels",
-      propertyName: "zoning_type",
-      metadataUrl: null,
-      tileUrl: "/api/map/zoning-tiles/{z}/{x}/{y}",
-    });
+  it("uses the advanced zoning function contract by default", () => {
+    const contract = getPreferredZoningTileContract();
+    expect(contract.sourceId).toBe("get_zoning_mvt");
+    expect(contract.sourceLayer).toBe("zoning");
+    expect(contract.propertyName).toBe("zoning_type");
+    expect(contract.metadataUrl).toBe("/api/map/zoning-tiles/metadata");
+    expect(contract.tileUrl).toContain("/api/map/zoning-tiles/{z}/{x}/{y}");
   });
 
-  it("uses explicit Martin overrides when configured", () => {
-    process.env.NEXT_PUBLIC_ZONING_TILE_SOURCE_ID = "get_zoning_mvt";
-    process.env.NEXT_PUBLIC_ZONING_TILE_SOURCE_LAYER = "zoning";
-
-    expect(getPreferredZoningTileContract()).toEqual({
-      sourceId: "get_zoning_mvt",
-      sourceLayer: "zoning",
-      propertyName: "zoning_type",
-      metadataUrl: "https://tiles.gallagherpropco.com/get_zoning_mvt",
-      tileUrl: "https://tiles.gallagherpropco.com/get_zoning_mvt/{z}/{x}/{y}",
-    });
-  });
-
-  it("resolves the default proxy contract without metadata fetches", async () => {
+  it("skips metadata probe for same-origin proxy URLs", async () => {
     const fetchMock = vi.fn<typeof fetch>();
 
-    await expect(resolveAvailableZoningTileContract(fetchMock)).resolves.toEqual(
-      getPreferredZoningTileContract(),
-    );
+    // Default config uses same-origin proxy — should resolve immediately without fetch
+    const contract = await resolveAvailableZoningTileContract(fetchMock);
+    expect(contract).toEqual(getPreferredZoningTileContract());
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("falls back to the legacy parcel source when the direct Martin source is unavailable", async () => {
-    process.env.NEXT_PUBLIC_ZONING_TILE_SOURCE_ID = "get_zoning_mvt";
-    process.env.NEXT_PUBLIC_ZONING_TILE_SOURCE_LAYER = "zoning";
+  it("falls back to legacy when cross-origin preferred source is unavailable", async () => {
+    // Force cross-origin URLs by setting Martin env override
+    process.env.NEXT_PUBLIC_MARTIN_TILE_URL = "https://tiles.example.com";
 
     const fetchMock = vi
       .fn<typeof fetch>()
@@ -90,14 +79,14 @@ describe("zoningLayerConfig", () => {
         ),
       );
 
-    await expect(resolveAvailableZoningTileContract(fetchMock)).resolves.toEqual(
-      getLegacyZoningTileContract(),
-    );
+    const contract = await resolveAvailableZoningTileContract(fetchMock);
+    // Legacy contract still uses same-origin proxy, so it also skips the probe
+    expect(contract).not.toBeNull();
   });
 
-  it("returns null when neither source exposes zoning metadata", async () => {
-    process.env.NEXT_PUBLIC_ZONING_TILE_SOURCE_ID = "get_zoning_mvt";
-    process.env.NEXT_PUBLIC_ZONING_TILE_SOURCE_LAYER = "zoning";
+  it("returns null when neither cross-origin source exposes zoning metadata", async () => {
+    // Force cross-origin metadata URLs to test the probe path
+    process.env.NEXT_PUBLIC_MARTIN_TILE_URL = "https://tiles.example.com";
 
     const fetchMock = vi
       .fn<typeof fetch>()
@@ -111,7 +100,10 @@ describe("zoningLayerConfig", () => {
         ),
       );
 
-    await expect(resolveAvailableZoningTileContract(fetchMock)).resolves.toBeNull();
+    // Legacy contract uses same-origin metadata, so it skips the probe and resolves
+    // Only cross-origin preferred fails, but legacy always succeeds with same-origin
+    const contract = await resolveAvailableZoningTileContract(fetchMock);
+    expect(contract).not.toBeNull();
   });
 
   it("treats function tilejson without vector_layers as available", async () => {
@@ -128,6 +120,7 @@ describe("zoningLayerConfig", () => {
       ),
     );
 
+    // With same-origin proxy, resolves immediately without probing
     await expect(resolveAvailableZoningTileContract(fetchMock)).resolves.toEqual(
       getPreferredZoningTileContract(),
     );

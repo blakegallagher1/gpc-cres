@@ -4,8 +4,8 @@ import { ZONING_DISTRICT_COLORS } from "./mapStyles";
 import {
   getMartinMetadataUrl,
   getMartinVectorTileUrl,
-  getZoningProxyTileUrl,
 } from "./tileUrls";
+import { getZoningTileUrl } from "./tileUrls";
 
 export const ZONING_TILE_SOURCE_KEY = "zoning-tiles";
 export const ZONING_TILE_LAYER_ID = "zoning-tiles-fill";
@@ -77,8 +77,8 @@ export function getPreferredZoningTileContract(): ZoningTileContract {
     sourceId: PROXY_ZONING_TILE_SOURCE_ID,
     sourceLayer: PROXY_ZONING_TILE_SOURCE_LAYER,
     propertyName,
-    metadataUrl: null,
-    tileUrl: getZoningProxyTileUrl(),
+    metadataUrl: "/api/map/zoning-tiles/metadata",
+    tileUrl: getZoningTileUrl(),
   };
 }
 
@@ -91,8 +91,8 @@ export function getLegacyZoningTileContract(): ZoningTileContract {
     sourceId: LEGACY_ZONING_TILE_SOURCE_ID,
     sourceLayer: LEGACY_ZONING_TILE_SOURCE_LAYER,
     propertyName: DEFAULT_ZONING_TILE_PROPERTY_NAME,
-    metadataUrl: getMartinMetadataUrl(LEGACY_ZONING_TILE_SOURCE_ID),
-    tileUrl: getMartinVectorTileUrl(LEGACY_ZONING_TILE_SOURCE_ID),
+    metadataUrl: "/api/map/zoning-tiles/metadata",
+    tileUrl: getZoningTileUrl(),
   };
 }
 
@@ -146,14 +146,29 @@ export async function probeZoningTileContract(
 }
 
 /**
- * Resolves the first browser-safe zoning tile contract. It prefers the
- * authenticated app-level zoning proxy and falls back to browser-direct Martin
- * metadata only when explicit overrides are configured.
+ * Returns true when the metadata URL is a same-origin proxy path (starts with
+ * "/") so the TileJSON probe can be skipped.
+ */
+function isSameOriginMetadata(metadataUrl: string): boolean {
+  return metadataUrl.startsWith("/");
+}
+
+/**
+ * Resolves the first browser-safe zoning tile contract. When tiles are served
+ * through same-origin proxy routes the metadata probe is skipped — the proxy
+ * handles auth and CORS so the tiles are guaranteed reachable. For cross-origin
+ * Martin URLs the probe is still used to validate the source.
  */
 export async function resolveAvailableZoningTileContract(
   fetchImpl: typeof fetch = fetch,
 ): Promise<ZoningTileContract | null> {
   const preferredContract = getPreferredZoningTileContract();
+
+  // Same-origin proxy: skip metadata probe, tiles are known reachable
+  if (isSameOriginMetadata(preferredContract.metadataUrl)) {
+    return preferredContract;
+  }
+
   if (await probeZoningTileContract(preferredContract, fetchImpl)) {
     return preferredContract;
   }
