@@ -318,7 +318,11 @@ export function BrowserSessionCard({
                     .split(',')
                     .map((t) => t.trim())
                     .filter(Boolean);
-                  onSavePlaybook({
+                  const savePlaybook = onSavePlaybook;
+                  if (!savePlaybook) {
+                    return;
+                  }
+                  savePlaybook({
                     name: playbookName,
                     tags,
                     url,
