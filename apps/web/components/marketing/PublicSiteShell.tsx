@@ -2,22 +2,31 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+
+/* ──────────────────────────────────────────────────
+   "Blackstone meets Apple meets Stripe"
+
+   Monochrome, editorial, institutional.
+   Typography-led. No grid overlays. No colored accents.
+   Vintage illustration on the right. Pill nav. Calm.
+   ────────────────────────────────────────────────── */
 
 interface PublicSiteShellProps {
   eyebrow: string;
   title: string;
   description: string;
   children: ReactNode;
-  aside?: ReactNode;
-  intro?: ReactNode;
+  /** Right-side hero illustration (ReactNode, typically an SVG). */
+  illustration?: ReactNode;
   className?: string;
-  /** When false, hides the default marketing CTAs (Enter workspace / Back to overview). Default true. */
+  /** When false, hides the default marketing CTAs. Default true. */
   showMarketingCtas?: boolean;
-  /** Compact headline for sign-in and similar utility layouts. Default "marketing". */
+  /** Compact layout for sign-in. Default "marketing". */
   heroTone?: "marketing" | "auth";
-  /** When false, hides the redundant Login link in the footer (e.g. on `/login`). Default true. */
+  /** When false, hides the Login link in the footer. Default true. */
   showFooterLoginLink?: boolean;
+  /** Content placed between description and CTA (e.g. login form). */
+  intro?: ReactNode;
 }
 
 interface PublicSectionCardProps {
@@ -48,140 +57,161 @@ export function PublicSiteShell({
   title,
   description,
   children,
-  aside,
-  intro,
+  illustration,
   className,
   showMarketingCtas = true,
   heroTone = "marketing",
   showFooterLoginLink = true,
+  intro,
 }: PublicSiteShellProps) {
-  const isAuthHero = heroTone === "auth";
+  const isAuth = heroTone === "auth";
 
   return (
-    <main className={cn("relative overflow-hidden bg-transparent text-foreground", className)}>
-      <div className="pointer-events-none absolute inset-0 -z-[6] public-site-grid opacity-[0.55] dark:opacity-[0.45]" />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 -z-[5] mix-blend-multiply public-site-grain opacity-[0.038] dark:opacity-[0.07] dark:mix-blend-overlay"
-      />
-      <div className="absolute inset-x-0 top-0 -z-10 h-[48rem] bg-[radial-gradient(circle_at_18%_8%,oklch(var(--shell-glow)/0.16),transparent_32%),radial-gradient(circle_at_85%_12%,oklch(var(--shell-accent)/0.09),transparent_38%),linear-gradient(180deg,transparent,oklch(var(--color-background)/0.12))]" />
-      <div className="absolute inset-x-0 top-16 -z-10 mx-auto hidden h-[30rem] w-[84%] max-w-5xl bg-white/14 blur-3xl md:block dark:bg-white/[0.06]" />
+    <main className={cn("public-shell relative min-h-screen overflow-hidden", className)}>
+      {/* ── HEADER ── */}
+      <header className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6 sm:px-8 lg:px-12">
+        <Link href="/" className="group flex items-baseline gap-3">
+          <span className="font-mono text-[0.64rem] font-medium uppercase tracking-[0.32em] text-[var(--pub-fg)]">
+            Gallagher Property Company
+          </span>
+        </Link>
 
-      <section className="mx-auto flex min-h-[100svh] w-full max-w-7xl flex-col px-5 pb-14 pt-6 sm:px-6 lg:px-8">
-        <header className="mb-12 flex items-center justify-between gap-8 border-b border-border/55 pb-5">
-          <div className="relative min-w-0">
-            <span
-              className="absolute -left-3 top-1 hidden h-[calc(100%-0.25rem)] w-px bg-gradient-to-b from-transparent via-border/70 to-transparent lg:block"
-              aria-hidden
-            />
-            <p className="font-mono text-[0.68rem] uppercase tracking-[0.34em] text-muted-foreground">
-              Gallagher Property Company
-            </p>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Real estate investment and development
-            </p>
-          </div>
-
-          <nav className="hidden items-center gap-8 text-sm text-muted-foreground md:flex">
+        {/* Pill navigation */}
+        <nav className="hidden items-center md:flex">
+          <div className="flex items-center gap-1 rounded-full border border-[var(--pub-border)] px-1.5 py-1">
             {PUBLIC_NAV.map((item) => (
               <Link
                 key={item.href}
-                className="relative pb-0.5 transition-colors duration-200 after:absolute after:bottom-0 after:left-0 after:h-px after:w-0 after:bg-foreground/70 after:transition-[width] after:duration-300 hover:text-foreground hover:after:w-full"
                 href={item.href}
+                className="rounded-full px-4 py-1.5 text-[0.82rem] text-[var(--pub-muted)] transition-colors duration-200 hover:bg-[var(--pub-fg)] hover:text-[var(--pub-bg)]"
               >
                 {item.label}
               </Link>
             ))}
-          </nav>
-        </header>
-
-        <div className="grid gap-12 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start lg:gap-16">
-          <div className="public-hero-stack max-w-5xl">
-            <p className="font-mono text-[0.72rem] uppercase tracking-[0.32em] text-muted-foreground">
-              {eyebrow}
-            </p>
-            <h1
-              className={cn(
-                "font-[family-name:var(--font-display)] font-semibold",
-                isAuthHero
-                  ? "mt-6 max-w-[22ch] text-[clamp(2rem,4.2vw,3.35rem)] leading-[1.08] tracking-[-0.04em]"
-                  : "mt-8 max-w-[14ch] text-[clamp(3.8rem,7vw,6.8rem)] leading-[0.92] tracking-[-0.06em]",
-              )}
-            >
-              {title}
-            </h1>
-            <p className="mt-8 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg">
-              {description}
-            </p>
-            {intro ? <div className="mt-8">{intro}</div> : null}
-            {showMarketingCtas ? (
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <Button asChild className="min-h-12 rounded-full px-6 text-sm font-medium shadow-sm transition-shadow hover:shadow-md">
-                  <Link href="/login">
-                    Enter the live workspace
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Link>
-                </Button>
-                <Button
-                  asChild
-                  className="min-h-12 rounded-full px-6 text-sm font-medium transition-[box-shadow,background-color]"
-                  variant="outline"
-                >
-                  <Link href="/">Back to overview</Link>
-                </Button>
-              </div>
-            ) : null}
           </div>
+          <Link
+            href="/login"
+            className="ml-6 text-[0.82rem] text-[var(--pub-muted)] transition-colors duration-200 hover:text-[var(--pub-fg)]"
+          >
+            Sign in
+          </Link>
+        </nav>
+      </header>
 
-          <aside className="border-t border-border/55 pt-6 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0">
-            {aside ?? (
-              <>
-                <p className="font-mono text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground">
-                  Public brief
-                </p>
-                <p className="mt-5 text-2xl font-semibold tracking-[-0.04em]">
-                  One operating discipline across acquisition, development, and hold.
-                </p>
-                <p className="mt-4 text-sm leading-6 text-muted-foreground">
-                  The public site sets the operating frame. The internal workspace handles mapping, diligence,
-                  approvals, evidence, and execution.
-                </p>
-              </>
+      {/* ── Thin rule below header ── */}
+      <div className="mx-auto max-w-7xl px-6 sm:px-8 lg:px-12">
+        <div className="public-rule" />
+      </div>
+
+      {/* ── HERO (split-screen) ── */}
+      <section
+        className={cn(
+          "mx-auto grid max-w-7xl gap-8 px-6 sm:px-8 lg:px-12",
+          isAuth
+            ? "min-h-[60vh] items-center py-16 lg:grid-cols-[1fr_16rem]"
+            : "min-h-[82vh] items-center py-20 lg:grid-cols-2",
+        )}
+      >
+        {/* Left: messaging + CTA */}
+        <div className="public-hero-stack flex max-w-2xl flex-col justify-center">
+          <p className="font-mono text-[0.68rem] font-medium uppercase tracking-[0.3em] text-[var(--pub-muted)]">
+            {eyebrow}
+          </p>
+          <h1
+            className={cn(
+              "font-[family-name:var(--font-display)] font-black text-[var(--pub-fg)]",
+              isAuth
+                ? "mt-5 max-w-[24ch] text-[clamp(1.8rem,3.6vw,3rem)] leading-[1.08] tracking-[-0.03em]"
+                : "mt-6 max-w-[16ch] text-[clamp(3.2rem,6.5vw,5.8rem)] leading-[0.92] tracking-[-0.04em]",
             )}
-          </aside>
+          >
+            {title}
+          </h1>
+          <p className="mt-6 max-w-xl text-[1.05rem] leading-[1.7] text-[var(--pub-muted)]">
+            {description}
+          </p>
+          {intro ? <div className="mt-8">{intro}</div> : null}
+          {showMarketingCtas ? (
+            <div className="mt-10 flex flex-wrap items-center gap-4">
+              <Link
+                href="/login"
+                className="inline-flex h-12 items-center gap-2 rounded-full bg-[var(--pub-fg)] px-7 text-[0.88rem] font-medium text-[var(--pub-bg)] transition-transform duration-200 hover:-translate-y-0.5"
+              >
+                Enter workspace
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link
+                href="/strategy"
+                className="inline-flex h-12 items-center gap-1.5 px-2 text-[0.88rem] font-medium text-[var(--pub-muted)] transition-colors duration-200 hover:text-[var(--pub-fg)]"
+              >
+                Review strategy
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+          ) : null}
         </div>
 
-        <div className="mt-14 flex-1">{children}</div>
+        {/* Right: illustration */}
+        {illustration ? (
+          <div
+            className={cn(
+              "hidden items-center justify-center text-[var(--pub-fg)] lg:flex",
+              isAuth ? "max-h-[24rem]" : "max-h-[32rem]",
+            )}
+          >
+            {illustration}
+          </div>
+        ) : null}
+      </section>
 
-        <footer className="mt-16 border-t border-border/55 pt-6">
-          <div className="flex flex-col gap-5 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between">
-            <p>Functional real estate, run with systems.</p>
+      {/* ── Rule between hero and content ── */}
+      {children ? (
+        <div className="mx-auto max-w-7xl px-6 sm:px-8 lg:px-12">
+          <div className="public-rule" />
+        </div>
+      ) : null}
+
+      {/* ── CONTENT ── */}
+      {children ? (
+        <section className="mx-auto max-w-7xl px-6 py-16 sm:px-8 lg:px-12">
+          {children}
+        </section>
+      ) : null}
+
+      {/* ── FOOTER ── */}
+      <footer className="mx-auto max-w-7xl px-6 sm:px-8 lg:px-12">
+        <div className="border-t border-[var(--pub-border)] py-8">
+          <div className="flex flex-col gap-4 text-[0.82rem] text-[var(--pub-muted)] sm:flex-row sm:items-center sm:justify-between">
+            <p>&copy; {new Date().getFullYear()} Gallagher Property Company</p>
             <div className="flex flex-wrap items-center gap-6">
               {PUBLIC_NAV.map((item) => (
                 <Link
-                  key={`footer-${item.href}`}
-                  className="relative pb-0.5 transition-colors duration-200 after:absolute after:bottom-0 after:left-0 after:h-px after:w-0 after:bg-foreground/60 after:transition-[width] after:duration-300 hover:text-foreground hover:after:w-full"
+                  key={`f-${item.href}`}
                   href={item.href}
+                  className="transition-colors duration-200 hover:text-[var(--pub-fg)]"
                 >
                   {item.label}
                 </Link>
               ))}
               {showFooterLoginLink ? (
                 <Link
-                  className="relative pb-0.5 transition-colors duration-200 after:absolute after:bottom-0 after:left-0 after:h-px after:w-0 after:bg-foreground/60 after:transition-[width] after:duration-300 hover:text-foreground hover:after:w-full"
                   href="/login"
+                  className="transition-colors duration-200 hover:text-[var(--pub-fg)]"
                 >
-                  Login
+                  Sign in
                 </Link>
               ) : null}
             </div>
           </div>
-        </footer>
-      </section>
+        </div>
+      </footer>
     </main>
   );
 }
 
+/* ──────────────────────────────────────────────────
+   Section Card — editorial, not card-heavy
+   ────────────────────────────────────────────────── */
 export function PublicSectionCard({
   eyebrow,
   title,
@@ -190,41 +220,43 @@ export function PublicSectionCard({
   className,
 }: PublicSectionCardProps) {
   return (
-    <section
-      className={cn(
-        "public-section-reveal rounded-[1.75rem] border border-border/55 bg-background/75 p-6 shadow-[0_1px_0_0_oklch(var(--border)/0.55),0_22px_50px_-28px_oklch(var(--foreground)/0.12)] backdrop-blur-md md:p-8 dark:shadow-[0_1px_0_0_oklch(var(--border)/0.35),0_24px_60px_-32px_oklch(0_0_0/0.45)]",
-        className,
-      )}
-    >
-      <p className="font-mono text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground">
+    <section className={cn("public-section-reveal py-10", className)}>
+      <p className="font-mono text-[0.66rem] font-medium uppercase tracking-[0.28em] text-[var(--pub-muted)]">
         {eyebrow}
       </p>
-      <h2 className="mt-4 font-[family-name:var(--font-display)] text-2xl font-semibold tracking-[-0.035em] sm:text-3xl">
+      <h2 className="mt-4 max-w-3xl font-[family-name:var(--font-display)] text-[clamp(1.6rem,3.2vw,2.6rem)] font-bold leading-[1.08] tracking-[-0.03em] text-[var(--pub-fg)]">
         {title}
       </h2>
-      <p className="mt-4 max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base">
+      <p className="mt-4 max-w-2xl text-[0.95rem] leading-[1.7] text-[var(--pub-muted)]">
         {body}
       </p>
-      {children ? <div className="mt-6">{children}</div> : null}
+      {children ? <div className="mt-8">{children}</div> : null}
     </section>
   );
 }
 
+/* ──────────────────────────────────────────────────
+   Stat List — minimal, inline. Adapts to 2 or 3+ items.
+   ────────────────────────────────────────────────── */
 export function PublicStatList({ items }: PublicStatListProps) {
+  const cols = items.length === 2 ? "md:grid-cols-2" : "md:grid-cols-3";
   return (
-    <dl className="public-stat-stagger grid gap-4 md:grid-cols-3">
-      {items.map((item) => (
+    <dl className={cn("grid gap-0 border-t border-[var(--pub-border)]", cols)}>
+      {items.map((item, i) => (
         <div
           key={item.label}
-          className="rounded-[1.4rem] border border-border/50 bg-background/85 p-5 shadow-sm backdrop-blur-sm transition-[box-shadow,transform] duration-300 hover:-translate-y-0.5 hover:shadow-md dark:bg-background/70"
+          className={cn(
+            "border-b border-[var(--pub-border)] py-5",
+            i > 0 && "md:border-l md:pl-6",
+          )}
         >
-          <dt className="font-mono text-[0.66rem] uppercase tracking-[0.24em] text-muted-foreground">
+          <dt className="font-mono text-[0.64rem] font-medium uppercase tracking-[0.24em] text-[var(--pub-muted)]">
             {item.label}
           </dt>
-          <dd className="mt-3 text-lg font-semibold tracking-[-0.03em]">
+          <dd className="mt-2 font-[family-name:var(--font-display)] text-xl font-bold tracking-[-0.03em] text-[var(--pub-fg)]">
             {item.value}
           </dd>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+          <p className="mt-1.5 text-[0.84rem] leading-[1.6] text-[var(--pub-muted)]">
             {item.detail}
           </p>
         </div>

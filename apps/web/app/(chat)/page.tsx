@@ -1,185 +1,120 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import {
   PublicSectionCard,
   PublicSiteShell,
   PublicStatList,
 } from "@/components/marketing/PublicSiteShell";
-
-const investmentFocus = [
-  {
-    label: "Manufactured Housing Communities",
-    detail:
-      "Acquire and develop communities where basis discipline, site control, and execution speed create durable housing supply.",
-  },
-  {
-    label: "Infill Industrial Under 50,000 SF",
-    detail:
-      "Target small-bay industrial and flex-warehouse assets in infill locations where local access and functionality matter more than scale.",
-  },
-] as const;
+import { BuildingIllustration } from "@/components/marketing/illustrations";
 
 const sectionLinks = [
   {
     href: "/focus",
-    eyebrow: "Focus",
-    title: "Where the company stays narrow on purpose",
-    body:
-      "A dedicated page for the two public investment lanes, the asset profile, and the operating principles that keep both lanes in scope.",
+    eyebrow: "01",
+    title: "Investment Focus",
+    body: "Two lanes — manufactured housing and infill industrial — selected because both reward site-level operating judgment.",
   },
   {
     href: "/strategy",
-    eyebrow: "Strategy",
-    title: "How opportunities move from screen to hold",
-    body:
-      "A standalone view of the buy, build, and manage sequence with the decision filters that keep development judgment grounded.",
+    eyebrow: "02",
+    title: "Execution Strategy",
+    body: "Buy, build, and manage as one connected sequence. Each phase preserves the logic of the one before it.",
   },
   {
     href: "/platform",
-    eyebrow: "Platform",
-    title: "What the internal system actually does",
-    body:
-      "A routed explanation of the live operating environment used for mapping, diligence, approvals, evidence, and execution.",
+    eyebrow: "03",
+    title: "Operating Platform",
+    body: "Internal system for mapping, diligence, approvals, evidence, and hold-stage operating memory.",
   },
 ] as const;
 
-const overviewSignals = [
-  {
-    label: "Public structure",
-    value: "Homepage + 3 section pages",
-    detail: "The root page is now a front door. The deeper explanation sits on dedicated routes instead of one long scroll.",
-  },
+const overviewMetrics = [
   {
     label: "Investment lanes",
-    value: "Housing + infill industrial",
-    detail: "The company stays focused on property types where site-level operating judgment still matters.",
+    value: "Manufactured Housing + Infill Industrial",
+    detail: "Manufactured communities and infill industrial under 50K SF.",
   },
   {
-    label: "Operating frame",
-    value: "Basis -> approvals -> operations",
-    detail: "The business is described in the same order it should be executed.",
+    label: "Execution model",
+    value: "Buy \u2192 Build \u2192 Manage",
+    detail: "One connected system from screen to hold.",
   },
-] as const;
-
-const platformProof = [
-  "Parcel and market context visible before capital is committed.",
-  "Approvals, diligence, and evidence tied to the live opportunity.",
-  "Execution history preserved into hold-stage operating memory.",
 ] as const;
 
 export const metadata: Metadata = {
   title: "Gallagher Property Company | Real Estate Investment & Development",
   description:
-    "Gallagher Property Company acquires and develops manufactured housing communities and infill industrial assets under 50,000 SF, with dedicated public pages for focus, strategy, and platform.",
+    "Gallagher Property Company acquires and develops manufactured housing communities and infill industrial assets with disciplined basis, approvals-first development, and durable operations.",
 };
 
 export default function HomePage() {
   return (
     <PublicSiteShell
-      aside={
-        <div className="space-y-6">
-          <div>
-            <p className="font-mono text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground">
-              Focus snapshot
-            </p>
-            <p className="mt-5 text-2xl font-semibold tracking-[-0.04em]">
-              Two lanes selected because both reward real operational work.
-            </p>
-          </div>
-          <div className="space-y-5 border-t border-border/50 pt-6">
-            {investmentFocus.map((item) => (
-              <div key={item.label}>
-                <p className="text-sm font-semibold tracking-[-0.02em]">
-                  {item.label}
-                </p>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  {item.detail}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      }
-      description="Gallagher Property Company acquires, builds, and manages manufactured housing communities and small-format industrial assets through one operating discipline: basis before story, approvals before spend, operations before optics."
-      eyebrow="Manufactured Housing + Flex Industrial"
-      intro={<PublicStatList items={overviewSignals} />}
-      title="Gallagher Property Company"
+      eyebrow="Real Estate Investment & Development"
+      title="Basis-driven acquisitions. Practical development judgment."
+      description="Gallagher Property Company acquires, builds, and manages manufactured housing communities and small-format industrial assets. One operating discipline: basis before story, approvals before spend, operations before optics."
+      illustration={<BuildingIllustration className="h-full w-full max-h-[28rem] opacity-80" />}
     >
-      <div className="grid gap-6">
-        <PublicSectionCard
-          body="The public site should explain the business clearly without forcing every section into one continuous page. Each core section now has its own route."
-          eyebrow="Site Structure"
-          title="Review the business by section"
-        >
-          <div className="grid gap-4 lg:grid-cols-3">
-            {sectionLinks.map((section) => (
-              <Link
-                key={section.href}
-                href={section.href}
-                className="rounded-[1.5rem] border border-border/55 bg-background/80 p-5 transition-colors hover:bg-background"
-              >
-                <p className="font-mono text-[0.66rem] uppercase tracking-[0.24em] text-muted-foreground">
+      {/* Metrics strip */}
+      <div className="mb-12">
+        <PublicStatList items={overviewMetrics} />
+      </div>
+
+      {/* Section navigation — editorial, not card-grid */}
+      <PublicSectionCard
+        eyebrow="The business"
+        title="Review the company by section"
+        body="Each core section has its own page. The structure matches the way the business operates: focus first, then strategy, then the platform that keeps it executable."
+      >
+        <div className="mt-2 divide-y divide-[var(--pub-border)]">
+          {sectionLinks.map((section) => (
+            <Link
+              key={section.href}
+              href={section.href}
+              className="group flex items-start justify-between gap-6 py-6 transition-colors first:pt-0"
+            >
+              <div className="min-w-0">
+                <p className="font-mono text-[0.64rem] font-medium uppercase tracking-[0.24em] text-[var(--pub-muted)]">
                   {section.eyebrow}
                 </p>
-                <h2 className="mt-4 text-xl font-semibold tracking-[-0.03em]">
+                <h3 className="mt-2 font-[family-name:var(--font-display)] text-xl font-bold tracking-[-0.02em] text-[var(--pub-fg)]">
                   {section.title}
-                </h2>
-                <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                </h3>
+                <p className="mt-1.5 max-w-xl text-[0.88rem] leading-[1.6] text-[var(--pub-muted)]">
                   {section.body}
                 </p>
-                <p className="mt-6 text-sm font-medium">Open section</p>
-              </Link>
-            ))}
-          </div>
-        </PublicSectionCard>
-
-        <PublicSectionCard
-          body="The public narrative is still tied to the live operating system behind the work. The difference is that the explanation is now split into smaller, clearer pages."
-          eyebrow="Operating System"
-          title="The underlying business is not a brochure"
-        >
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
-            <div className="rounded-[1.5rem] border border-border/55 bg-background/80 p-5">
-              <p className="font-mono text-[0.66rem] uppercase tracking-[0.24em] text-muted-foreground">
-                Internal platform
-              </p>
-              <p className="mt-4 text-lg font-semibold tracking-[-0.03em]">
-                See the site before the story gets expensive.
-              </p>
-              <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                The internal workspace extends the public strategy into mapping, diligence, approvals, evidence, and hold-stage memory.
-              </p>
-            </div>
-            <ul className="grid gap-3 text-sm leading-6 text-muted-foreground">
-              {platformProof.map((item) => (
-                <li key={item} className="rounded-2xl border border-border/50 bg-background/90 px-4 py-3">
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </PublicSectionCard>
-
-        <PublicSectionCard
-          body="Looking at a manufactured housing or small-format industrial opportunity? The public pages establish the frame. The internal workspace is where opportunities are reviewed, mapped, diligenced, and moved into execution."
-          eyebrow="Access"
-          title="Enter the live workspace when the public brief is not enough"
-        >
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <Link
-              href="/login"
-              className="inline-flex min-h-12 items-center justify-center rounded-full border border-foreground bg-foreground px-6 text-sm font-medium text-background transition-transform duration-200 hover:-translate-y-0.5"
-            >
-              Enter the platform
+              </div>
+              <ArrowRight className="mt-7 h-4 w-4 shrink-0 text-[var(--pub-muted)] transition-transform duration-200 group-hover:translate-x-1 group-hover:text-[var(--pub-fg)]" />
             </Link>
-            <Link
-              href="/strategy"
-              className="inline-flex min-h-12 items-center justify-center rounded-full border border-border bg-background/80 px-6 text-sm font-medium transition-colors hover:bg-background"
-            >
-              Start with strategy
-            </Link>
-          </div>
-        </PublicSectionCard>
+          ))}
+        </div>
+      </PublicSectionCard>
+
+      {/* Access CTA */}
+      <div className="mt-12 border-t border-[var(--pub-border)] pt-10">
+        <p className="font-mono text-[0.66rem] font-medium uppercase tracking-[0.28em] text-[var(--pub-muted)]">
+          Access
+        </p>
+        <h2 className="mt-4 max-w-2xl font-[family-name:var(--font-display)] text-[clamp(1.4rem,2.8vw,2.2rem)] font-bold leading-[1.1] tracking-[-0.03em] text-[var(--pub-fg)]">
+          Enter the workspace when the public brief is not enough.
+        </h2>
+        <div className="mt-6 flex flex-wrap items-center gap-4">
+          <Link
+            href="/login"
+            className="inline-flex h-12 items-center gap-2 rounded-full bg-[var(--pub-fg)] px-7 text-[0.88rem] font-medium text-[var(--pub-bg)] transition-transform duration-200 hover:-translate-y-0.5"
+          >
+            Enter the platform
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+          <Link
+            href="/focus"
+            className="inline-flex h-12 items-center gap-1.5 px-2 text-[0.88rem] font-medium text-[var(--pub-muted)] transition-colors duration-200 hover:text-[var(--pub-fg)]"
+          >
+            Start with focus
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
       </div>
     </PublicSiteShell>
   );

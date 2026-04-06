@@ -5,7 +5,7 @@
 @theme inline {
   --font-sans: var(--font-sans, "Instrument Sans", system-ui, sans-serif);
   --font-mono: var(--font-mono, "DM Mono", ui-monospace, monospace);
-  --font-display: var(--font-display, ui-serif, Georgia, "Times New Roman", serif);
+  --font-display: var(--font-display, "Archivo", system-ui, sans-serif);
   --color-background: oklch(var(--background));
   --color-foreground: oklch(var(--foreground));
   --color-card: oklch(var(--card));
@@ -99,82 +99,56 @@
   }
 }
 
-/* Public marketing shell (PublicSiteShell) — atmosphere + entrance motion */
+/* ──────────────────────────────────────────────────
+   PUBLIC MARKETING SHELL — Institutional monochrome
+   "Blackstone meets Apple meets Stripe"
+   ────────────────────────────────────────────────── */
 @keyframes public-fade-up {
-  from {
-    opacity: 0;
-    transform: translate3d(0, 14px, 0);
-  }
-
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
+  from { opacity: 0; transform: translate3d(0, 18px, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 
-.public-site-grain {
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+@keyframes public-draw-line {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
 }
 
-.public-site-grid {
-  background-image:
-    linear-gradient(oklch(var(--shell-grid) / 0.06) 1px, transparent 1px),
-    linear-gradient(90deg, oklch(var(--shell-grid) / 0.06) 1px, transparent 1px);
-  background-size: 48px 48px;
+.public-shell {
+  --pub-bg: #ffffff;
+  --pub-fg: #0a0a0a;
+  --pub-muted: #71717a;
+  --pub-border: #e4e4e7;
+  --pub-surface: #fafafa;
+  color: var(--pub-fg);
+  background: var(--pub-bg);
 }
 
-.dark .public-site-grid {
-  background-image:
-    linear-gradient(oklch(var(--shell-grid) / 0.12) 1px, transparent 1px),
-    linear-gradient(90deg, oklch(var(--shell-grid) / 0.12) 1px, transparent 1px);
+.dark .public-shell {
+  --pub-bg: #09090b;
+  --pub-fg: #fafafa;
+  --pub-muted: #a1a1aa;
+  --pub-border: #27272a;
+  --pub-surface: #18181b;
 }
 
 .public-hero-stack > * {
-  animation: public-fade-up 0.72s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation: public-fade-up 0.8s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
-
-.public-hero-stack > *:nth-child(1) {
-  animation-delay: 0ms;
-}
-
-.public-hero-stack > *:nth-child(2) {
-  animation-delay: 55ms;
-}
-
-.public-hero-stack > *:nth-child(3) {
-  animation-delay: 110ms;
-}
-
-.public-hero-stack > *:nth-child(4) {
-  animation-delay: 165ms;
-}
-
-.public-hero-stack > *:nth-child(5) {
-  animation-delay: 220ms;
-}
-
-.public-hero-stack > *:nth-child(6) {
-  animation-delay: 275ms;
-}
-
-.public-stat-stagger > * {
-  animation: public-fade-up 0.58s cubic-bezier(0.22, 1, 0.36, 1) backwards;
-}
-
-.public-stat-stagger > *:nth-child(1) {
-  animation-delay: 80ms;
-}
-
-.public-stat-stagger > *:nth-child(2) {
-  animation-delay: 140ms;
-}
-
-.public-stat-stagger > *:nth-child(3) {
-  animation-delay: 200ms;
-}
+.public-hero-stack > *:nth-child(1) { animation-delay: 0ms; }
+.public-hero-stack > *:nth-child(2) { animation-delay: 80ms; }
+.public-hero-stack > *:nth-child(3) { animation-delay: 160ms; }
+.public-hero-stack > *:nth-child(4) { animation-delay: 240ms; }
+.public-hero-stack > *:nth-child(5) { animation-delay: 320ms; }
 
 .public-section-reveal {
-  animation: public-fade-up 0.62s cubic-bezier(0.22, 1, 0.36, 1) 0.12s backwards;
+  animation: public-fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.1s backwards;
+}
+
+.public-rule {
+  height: 1px;
+  background: var(--pub-border);
+  transform-origin: left;
+  animation: public-draw-line 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.3s backwards;
 }
 
 .dark {

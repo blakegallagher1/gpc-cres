@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { DM_Mono, Fraunces, Instrument_Sans } from "next/font/google";
+import { Archivo, DM_Mono, Instrument_Sans } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { AuthSessionProvider } from "@/components/providers/session-provider";
@@ -21,10 +21,10 @@ const instrumentSans = Instrument_Sans({
   variable: "--font-sans",
 });
 
-/** Display serif for public marketing hero + section titles only (see PublicSiteShell). */
-const frauncesDisplay = Fraunces({
+/** Heavy institutional sans for public marketing headlines (see PublicSiteShell). */
+const archivoDisplay = Archivo({
   subsets: ["latin"],
-  weight: ["600", "700"],
+  weight: ["400", "500", "600", "700", "800", "900"],
   variable: "--font-display",
 });
 
@@ -42,7 +42,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${instrumentSans.variable} ${dmMono.variable} ${frauncesDisplay.variable} ${instrumentSans.className}`}
+        className={`${instrumentSans.variable} ${dmMono.variable} ${archivoDisplay.variable} ${instrumentSans.className}`}
       >
         <AuthSessionProvider>
           <ThemeProvider
