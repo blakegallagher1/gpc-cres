@@ -311,9 +311,9 @@ export function ChatContainer() {
       return;
     }
     let cancelled = false;
-    async function fetchDealStatus() {
+    async function fetchDealStatus(dealIdValue: string) {
       try {
-        const res = await fetch(`/api/deals/${encodeURIComponent(dealId)}`);
+        const res = await fetch(`/api/deals/${encodeURIComponent(dealIdValue)}`);
         if (!res.ok) return;
         const body = (await res.json()) as { deal?: { status?: string } };
         if (!cancelled && body.deal?.status) {
@@ -323,7 +323,7 @@ export function ChatContainer() {
         // Non-critical — deal prompts will fall back to defaults
       }
     }
-    void fetchDealStatus();
+    void fetchDealStatus(dealId);
     return () => { cancelled = true; };
   }, [selectedDealId]);
 
