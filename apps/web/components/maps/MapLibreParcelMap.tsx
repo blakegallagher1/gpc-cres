@@ -9,7 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
-import maplibregl, { type ExpressionSpecification } from "maplibre-gl";
+import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 import {
@@ -50,7 +50,6 @@ import {
 } from "./mapStyles";
 import { MapWorkbenchPanel } from "./MapWorkbenchPanel";
 import { MapLegend } from "./MapLegend";
-import { ParcelColorModeControl } from "./ParcelColorModeControl";
 import { MapGeocoder } from "./MapGeocoder";
 import { ParcelDetailCard } from "./ParcelDetailCard";
 import { ParcelHoverTooltip } from "./ParcelHoverTooltip";
@@ -58,19 +57,10 @@ import { useStableOptions } from "@/lib/hooks/useStableOptions";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { cn } from "@/lib/utils";
 import { ParcelComparisonSheet } from "./ParcelComparisonSheet";
-import { SplitMapCompare } from "./SplitMapCompare";
 import { MapTour } from "./MapTour";
 import {
   HEATMAP_PRESET_MAP,
 } from "./heatmapPresets";
-import {
-  type ParcelColorMode,
-  getParcelFillColor,
-  getParcelFillOpacity,
-  getParcelLineColor,
-  getParcelLineWidth,
-  getParcelLineOpacity,
-} from "./parcelColorExpressions";
 import type {
   HeatmapPresetKey,
   MapHudState,
@@ -89,7 +79,7 @@ const DEFAULT_REFERENCE_OVERLAY_STATE: MapReferenceOverlayState = {
   parcelBoundaries: true,
   zoning: false,
   flood: false,
-  mobileHomePark: true,
+  mobileHomePark: false,
   soils: false,
   wetlands: false,
   epa: false,
@@ -231,8 +221,6 @@ function getSavedOverlaysFallback(): {
   mobileHomePark: boolean;
 } {
   const saved = getSavedOverlays();
-  const mobileHomeParksEnabled =
-    saved["Mobile Home Parks"] === true || saved["Mobile Home Park"] === true;
   return {
     parcelBoundaries: saved["Parcel Boundaries"] !== false,
     zoning: saved["Zoning Overlay"] === true,
@@ -240,7 +228,7 @@ function getSavedOverlaysFallback(): {
     soils: saved["Soils"] === true,
     wetlands: saved["Wetlands"] === true,
     epa: saved["EPA Facilities"] === true,
-    mobileHomePark: mobileHomeParksEnabled,
+    mobileHomePark: saved["Mobile Home Parks"] === true,
   };
 }
 
@@ -324,7 +312,7 @@ export function getGeometryStatusLabel(
   if (summary.status === "ready") {
     return `${summary.loadedCount} shapes loaded`;
   }
-  if (health.propertyDbUnconfigured) return "Parcel geometry gateway unavailable";
+  if (health.propertyDbUnconfigured) return "Shapes unavailable";
   if (summary.status === "unavailable") {
     return health.geometryUnavailable ? "Geometry unavailable" : "Shapes unavailable";
   }
@@ -650,7 +638,6 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
 
   const [baseLayer, setBaseLayer] = useState<string>(() => getSavedBaseLayer());
   const [showParcelBoundaries, setShowParcelBoundaries] = useState<boolean>(() => getSavedOverlaysFallback().parcelBoundaries);
-  const [parcelColorMode, setParcelColorMode] = useState<ParcelColorMode>("zoning");
   const [showZoning, setShowZoning] = useState<boolean>(() => getSavedOverlaysFallback().zoning);
   const [showFlood, setShowFlood] = useState<boolean>(() => getSavedOverlaysFallback().flood);
   const [showSoils, setShowSoils] = useState<boolean>(() => getSavedOverlaysFallback().soils);
@@ -664,14 +651,12 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
   const [showHeatmap, setShowHeatmap] = useState(false);
   const [activeHeatmapPreset, setActiveHeatmapPreset] = useState<HeatmapPresetKey>("sale_activity");
   const [showIsochrone, setShowIsochrone] = useState(false);
-  const [show3DExtrusions, setShow3DExtrusions] = useState(false);
   const [measureMode, setMeasureMode] = useState<"off" | "distance" | "area">("off");
   const [lastDrawnMeasureLabel, setLastDrawnMeasureLabel] = useState<string | null>(null);
   const [layerPanelOpen, setLayerPanelOpen] = useState(false);
   const [internalSelectedParcelIds, setInternalSelectedParcelIds] = useState<Set<string>>(new Set());
   const [imperativeHighlightIds, setImperativeHighlightIds] = useState<Set<string>>(new Set());
   const [compareOpen, setCompareOpen] = useState(false);
-  const [splitMapOpen, setSplitMapOpen] = useState(false);
   const selectedParcelIds = selectedParcelIdsProp ?? internalSelectedParcelIds;
   const selectedParcelIdsRef = useRef<Set<string>>(selectedParcelIds);
   const onSelectionChangeRef = useRef(onSelectionChange);
@@ -776,7 +761,6 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
       showSoils ? "soils" : null,
       showWetlands ? "wetlands" : null,
       showEpa ? "epa" : null,
-      showMobileHomePark ? "mobile_home_parks" : null,
       showComps ? "comps" : null,
       showHeatmap ? "heatmap" : null,
       showIsochrone ? "isochrone" : null,
@@ -791,7 +775,6 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
     showComps,
     showEpa,
     showFlood,
-    showMobileHomePark,
     showHeatmap,
     showIsochrone,
     showParcelBoundaries,
@@ -1717,46 +1700,28 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
               id: "parcel-tiles-fill",
               type: "fill",
               source: "parcel-tiles",
-              "source-layer": "ebr_parcels.1",
+              "source-layer": "ebr_parcels",
               layout: {
                 visibility: showLayers && showParcelBoundaries ? "visible" : "none",
               },
               paint: {
-                "fill-color": getParcelFillColor(parcelColorMode),
-                "fill-opacity": getParcelFillOpacity(),
+                "fill-color": "#facc15",
+                "fill-opacity": 0.06,
+                "fill-outline-color": "#facc15",
               },
             },
             {
               id: "parcel-tiles-line",
               type: "line",
               source: "parcel-tiles",
-              "source-layer": "ebr_parcels.1",
+              "source-layer": "ebr_parcels",
               layout: {
                 visibility: showLayers && showParcelBoundaries ? "visible" : "none",
               },
               paint: {
-                "line-color": getParcelLineColor(parcelColorMode),
-                "line-width": getParcelLineWidth(),
-                "line-opacity": getParcelLineOpacity(),
-              },
-            },
-            {
-              id: "parcel-tiles-hover-outline",
-              type: "line",
-              source: "parcel-tiles",
-              "source-layer": "ebr_parcels.1",
-              layout: {
-                visibility: showLayers && showParcelBoundaries ? "visible" : "none",
-              },
-              paint: {
-                "line-color": "#ffffff",
-                "line-width": [
-                  "case",
-                  ["boolean", ["feature-state", "hover"], false],
-                  2.5,
-                  0,
-                ] as ExpressionSpecification,
-                "line-opacity": 0.9,
+                "line-color": "#facc15",
+                "line-width": 1,
+                "line-opacity": 0.7,
               },
             },
             {
@@ -2116,7 +2081,6 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
         const hideBoundaryLayerVisibility = () => {
           setLayerVisibilitySafe(map, "parcel-tiles-fill", showLayers && showParcelBoundaries);
           setLayerVisibilitySafe(map, "parcel-tiles-line", showLayers && showParcelBoundaries);
-          setLayerVisibilitySafe(map, "parcel-tiles-hover-outline", showLayers && showParcelBoundaries);
           setLayerVisibilitySafe(map, "parcels-boundary-fill", showLayers && showParcelBoundaries);
           setLayerVisibilitySafe(map, "parcels-boundary-line", showLayers && showParcelBoundaries);
           setLayerVisibilitySafe(map, "parcels-zoning-layer", showLayers && showZoning && !zoningTileContract);
@@ -2276,11 +2240,11 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
       // Dim parcel boundaries when zoning overlay is active for visual clarity
       const zoningActive = showLayers && showZoning && !!zoningTileContract;
       if (map.getLayer("parcel-tiles-fill")) {
-        map.setPaintProperty("parcel-tiles-fill", "fill-opacity", zoningActive ? 0.02 : getParcelFillOpacity());
+        map.setPaintProperty("parcel-tiles-fill", "fill-opacity", zoningActive ? 0.02 : 0.06);
       }
       if (map.getLayer("parcel-tiles-line")) {
-        map.setPaintProperty("parcel-tiles-line", "line-opacity", zoningActive ? 0.3 : getParcelLineOpacity());
-        map.setPaintProperty("parcel-tiles-line", "line-color", zoningActive ? "#a3a3a3" : getParcelLineColor(parcelColorMode));
+        map.setPaintProperty("parcel-tiles-line", "line-opacity", zoningActive ? 0.3 : 0.7);
+        map.setPaintProperty("parcel-tiles-line", "line-color", zoningActive ? "#a3a3a3" : "#facc15");
       }
 
       // Ensure zoning-tiles-fill is above parcel outlines
@@ -2289,19 +2253,6 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
       removeZoningTileArtifacts();
     }
   }, [mapReady, showLayers, showZoning, zoningTileContract]);
-
-  useEffect(() => {
-    if (!mapReady || !mapRef.current) return;
-    const map = mapRef.current;
-    try {
-      if (map.getLayer("parcel-tiles-fill")) {
-        map.setPaintProperty("parcel-tiles-fill", "fill-color", getParcelFillColor(parcelColorMode));
-      }
-      if (map.getLayer("parcel-tiles-line")) {
-        map.setPaintProperty("parcel-tiles-line", "line-color", getParcelLineColor(parcelColorMode));
-      }
-    } catch { /* layer may not exist yet */ }
-  }, [parcelColorMode, mapReady]);
 
   useEffect(() => {
     if (!mapRef.current || !mapReady) return;
@@ -2369,62 +2320,22 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
           "Soils": showSoils,
           "Wetlands": showWetlands,
           "EPA Facilities": showEpa,
-          "Mobile Home Parks": showMobileHomePark,
         })
       );
     } catch {
       // Ignore localStorage write failures for display preferences.
     }
-  }, [baseLayer, showParcelBoundaries, showZoning, showFlood, showSoils, showWetlands, showEpa, showMobileHomePark, mapReady]);
+  }, [baseLayer, showParcelBoundaries, showZoning, showFlood, showSoils, showWetlands, showEpa, mapReady]);
 
   if (mapError) {
-    const isWebGLError = mapError.toLowerCase().includes("webgl") ||
-      mapError.toLowerCase().includes("gl_vendor") ||
-      mapError.toLowerCase().includes("gl_renderer");
-
     return (
       <div
-        className="flex h-full w-full items-center justify-center rounded-lg border border-neutral-700 bg-neutral-900 text-sm text-neutral-300"
+        className="flex h-full w-full items-center justify-center rounded-lg border border-map-border bg-red-500/10 text-sm text-red-400"
         style={{ height }}
       >
-        <div className="max-w-md space-y-3 text-center px-6">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-neutral-800">
-            <svg className="h-6 w-6 text-neutral-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z" />
-            </svg>
-          </div>
-          {isWebGLError ? (
-            <>
-              <p className="font-semibold text-neutral-100">WebGL is not available</p>
-              <p className="text-neutral-400">
-                The map requires WebGL to render. This usually means hardware acceleration
-                is disabled in your browser.
-              </p>
-              <div className="rounded-md bg-neutral-800 p-3 text-left text-xs text-neutral-400">
-                <p className="font-medium text-neutral-300 mb-1">To fix this:</p>
-                <ol className="list-decimal list-inside space-y-1">
-                  <li>Open Chrome Settings → System</li>
-                  <li>Enable &ldquo;Use hardware acceleration when available&rdquo;</li>
-                  <li>Relaunch your browser</li>
-                </ol>
-              </div>
-            </>
-          ) : (
-            <>
-              <p className="font-semibold text-neutral-100">Map failed to load</p>
-              <p className="text-neutral-400">
-                Something went wrong initializing the map. Try refreshing the page.
-              </p>
-              <details className="text-left">
-                <summary className="cursor-pointer text-xs text-neutral-500 hover:text-neutral-400">
-                  Technical details
-                </summary>
-                <pre className="mt-2 max-h-24 overflow-auto rounded bg-neutral-800 p-2 text-xs text-neutral-500 whitespace-pre-wrap break-all">
-                  {mapError}
-                </pre>
-              </details>
-            </>
-          )}
+        <div className="text-center">
+          <p className="font-semibold">MapLibre failed to initialize</p>
+          <p className="text-xs text-red-600">{mapError}</p>
         </div>
       </div>
     );
@@ -2479,8 +2390,6 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
           setShowNewPermits={setShowNewPermits}
           showZoningChanges={showZoningChanges}
           setShowZoningChanges={setShowZoningChanges}
-          show3DExtrusions={show3DExtrusions}
-          setShow3DExtrusions={setShow3DExtrusions}
           showTools={showTools}
           showComps={showComps}
           setShowComps={setShowComps}
@@ -2506,18 +2415,10 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
           polygon={polygon}
           onPolygonDrawn={onPolygonDrawn}
           onOpenCompare={() => setCompareOpen(true)}
-          onOpenSplitMap={() => setSplitMapOpen(true)}
           dataFreshnessLabel={dataFreshnessLabel}
           latencyLabel={latencyLabel}
         />
       ) : null}
-
-      {/* Color mode control */}
-      {showLayers && showParcelBoundaries && (
-        <div className="absolute bottom-24 right-3 z-10">
-          <ParcelColorModeControl value={parcelColorMode} onChange={setParcelColorMode} />
-        </div>
-      )}
 
       {/* Layer legend */}
       {showLayers && (
@@ -2529,7 +2430,6 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
           showWetlands={showWetlands}
           showEpa={showEpa}
           showMobileHomePark={showMobileHomePark}
-          parcelColorMode={parcelColorMode}
         />
       )}
 
@@ -2592,30 +2492,12 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
             parcels={parcels}
             visible={showIsochrone}
           />
-          <MapLibre3DExtrusionLayer
-            map={mapRef.current}
-            visible={show3DExtrusions}
-          />
         </>
       )}
       <ParcelComparisonSheet
         open={compareOpen}
         parcels={selectedParcelsForCompare}
         onClose={() => setCompareOpen(false)}
-      />
-      <SplitMapCompare
-        open={splitMapOpen}
-        onClose={() => setSplitMapOpen(false)}
-        center={
-          mapRef.current
-            ? [mapRef.current.getCenter().lng, mapRef.current.getCenter().lat]
-            : undefined
-        }
-        zoom={mapRef.current?.getZoom()}
-        leftLabel="Satellite"
-        rightLabel="Zoning Overlay"
-        leftLayers={["parcels"]}
-        rightLayers={["parcels", "zoning"]}
       />
       {showTools && mapReady && <MapTour />}
     </div>
@@ -3806,114 +3688,4 @@ function MapLibreIsochroneControl({
       )}
     </div>
   );
-}
-
-// ---------------------------------------------------------------------------
-// 3D Parcel Extrusion Layer
-// ---------------------------------------------------------------------------
-
-function MapLibre3DExtrusionLayer({
-  map,
-  visible,
-}: {
-  map: maplibregl.Map | null;
-  visible: boolean;
-}) {
-  const mapRef = useRef(map);
-  const sourceId = "parcel-extrusion-source";
-  const layerId = "parcel-extrusion-3d";
-
-  useEffect(() => {
-    mapRef.current = map;
-  }, [map]);
-
-  useEffect(() => {
-    const m = mapRef.current;
-    if (!m) return;
-
-    if (!visible) {
-      if (m.getLayer(layerId)) {
-        m.setLayoutProperty(layerId, "visibility", "none");
-      }
-      // Reset pitch when 3D is turned off
-      if (m.getPitch() > 0) {
-        m.easeTo({ pitch: 0, duration: 600 });
-      }
-      return;
-    }
-
-    const setup = () => {
-      // Add the parcel tiles as a vector source if not already present
-      if (!m.getSource(sourceId)) {
-        m.addSource(sourceId, {
-          type: "vector",
-          tiles: [getMartinParcelTileUrl("ebr_parcels")],
-          minzoom: 12,
-          maxzoom: 22,
-        });
-      }
-
-      if (!m.getLayer(layerId)) {
-        m.addLayer({
-          id: layerId,
-          type: "fill-extrusion",
-          source: sourceId,
-          "source-layer": "ebr_parcels.1",
-          minzoom: 12,
-          paint: {
-            "fill-extrusion-height": [
-              "interpolate",
-              ["linear"],
-              ["coalesce", ["get", "lot_area_sqft"], 5000],
-              0, 5,
-              5000, 20,
-              20000, 60,
-              50000, 120,
-              200000, 200,
-              500000, 300,
-            ],
-            "fill-extrusion-base": 0,
-            "fill-extrusion-color": [
-              "match",
-              ["coalesce", ["get", "zoning_type"], ""],
-              "M1", "#f97316",
-              "M2", "#ea580c",
-              "M3", "#c2410c",
-              "C1", "#8b5cf6",
-              "C2", "#7c3aed",
-              "C3", "#6d28d9",
-              "C4", "#5b21b6",
-              "C5", "#4c1d95",
-              "A1", "#22c55e",
-              "A2", "#16a34a",
-              "A3", "#15803d",
-              "A4", "#166534",
-              "A5", "#14532d",
-              "#facc15",
-            ],
-            "fill-extrusion-opacity": 0.75,
-          },
-        });
-      }
-
-      m.setLayoutProperty(layerId, "visibility", "visible");
-
-      // Auto-pitch for 3D view
-      if (m.getPitch() < 45) {
-        m.easeTo({ pitch: 55, duration: 800 });
-      }
-    };
-
-    if (m.isStyleLoaded()) {
-      setup();
-    } else {
-      m.once("style.load", setup);
-    }
-
-    return () => {
-      m.off("style.load", setup);
-    };
-  }, [visible]);
-
-  return null;
 }

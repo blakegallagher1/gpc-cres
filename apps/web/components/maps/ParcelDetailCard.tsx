@@ -2,8 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { AlertTriangle, ExternalLink, FileSearch, FolderPlus, MapPin, X } from "lucide-react";
-import { useParcelTruth, type ClientTruthView } from "@/hooks/useParcelTruth";
+import { ExternalLink, FileSearch, FolderPlus, MapPin, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
@@ -52,90 +51,6 @@ function getHighestBestUse(zoning: string | null | undefined): string {
   return z;
 }
 
-const COMP_DISPLAY_KEYS: Record<string, { label: string; format: "currency" | "percent" | "text" | "date" }> = {
-  "comp.sale_price": { label: "Sale Price", format: "currency" },
-  "comp.sale_date": { label: "Sale Date", format: "date" },
-  "comp.buyer": { label: "Buyer", format: "text" },
-  "comp.seller": { label: "Seller", format: "text" },
-  "comp.cap_rate": { label: "Cap Rate", format: "percent" },
-  "comp.noi": { label: "NOI", format: "currency" },
-  "comp.price_per_acre": { label: "$/Acre", format: "currency" },
-  "comp.price_per_sf": { label: "$/SF", format: "currency" },
-};
-
-function formatTruthValue(value: unknown, format: "currency" | "percent" | "text" | "date"): string {
-  if (value === null || value === undefined) return "—";
-  switch (format) {
-    case "currency": {
-      const num = typeof value === "number" ? value : Number(value);
-      if (!Number.isFinite(num)) return String(value);
-      return num >= 1_000_000
-        ? `$${(num / 1_000_000).toFixed(2)}M`
-        : num >= 1_000
-          ? `$${(num / 1_000).toFixed(0)}K`
-          : `$${num.toLocaleString()}`;
-    }
-    case "percent": {
-      const num = typeof value === "number" ? value : Number(value);
-      if (!Number.isFinite(num)) return String(value);
-      return num < 1 ? `${(num * 100).toFixed(2)}%` : `${num.toFixed(2)}%`;
-    }
-    case "date":
-      return String(value);
-    default:
-      return String(value);
-  }
-}
-
-function SavedIntelSection({ truth }: { truth: ClientTruthView }) {
-  const conflictKeys = new Set(truth.openConflicts.map((c) => c.key));
-  const correctedKeys = new Set<string>();
-  for (const key in truth.currentValues) {
-    if (truth.currentValues[key]?.correctedBy) correctedKeys.add(key);
-  }
-
-  const entries = Object.keys(COMP_DISPLAY_KEYS)
-    .filter((key) => key in truth.currentValues)
-    .map((key) => ({
-      key,
-      ...COMP_DISPLAY_KEYS[key],
-      value: truth.currentValues[key].value,
-      hasConflict: conflictKeys.has(key),
-      wasCorrected: correctedKeys.has(key),
-    }));
-
-  if (entries.length === 0) return null;
-
-  return (
-    <div className="rounded-xl border border-map-accent/30 bg-map-accent/5 p-2.5">
-      <div className="mb-2 text-[9px] uppercase tracking-[0.18em] text-map-accent">Saved Intel</div>
-      <div className="grid grid-cols-2 gap-1.5">
-        {entries.map((entry) => (
-          <div key={entry.key} className="flex items-start gap-1 text-[10px]">
-            <div className="min-w-0">
-              <div className="text-[9px] text-map-text-muted">{entry.label}</div>
-              <div className="truncate text-map-text-primary">
-                {formatTruthValue(entry.value, entry.format)}
-              </div>
-            </div>
-            {entry.hasConflict && (
-              <AlertTriangle className="mt-0.5 h-2.5 w-2.5 shrink-0 text-amber-400" />
-            )}
-            {entry.wasCorrected && (
-              <span className="mt-0.5 shrink-0 rounded bg-map-accent/20 px-1 text-[8px] text-map-accent">corrected</span>
-            )}
-          </div>
-        ))}
-      </div>
-      {truth.openConflicts.length > 0 && (
-        <div className="mt-1.5 text-[9px] text-amber-400">
-          {truth.openConflicts.length} conflicting {truth.openConflicts.length === 1 ? "value" : "values"} pending review
-        </div>
-      )}
-    </div>
-  );
-}
-
 function formatAcres(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) {
     return "Unknown";
@@ -156,12 +71,6 @@ export function ParcelDetailCard({
   const reduceMotion = useReducedMotion();
   const cardRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState<"details" | "comps" | "deals">("details");
-
-  const { truth } = useParcelTruth(
-    parcel
-      ? { propertyDbId: parcel.propertyDbId, parcelId: parcel.parcelId, address: parcel.address }
-      : null,
-  );
 
   useEffect(() => {
     if (!parcel) {
@@ -298,8 +207,6 @@ export function ParcelDetailCard({
                 </div>
               );
             })()}
-
-            {truth && <SavedIntelSection truth={truth} />}
 
             <div className="flex flex-wrap gap-2">
               <a

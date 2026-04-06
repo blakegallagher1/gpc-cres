@@ -67,8 +67,6 @@ interface MapWorkbenchPanelProps {
   setShowNewPermits: (value: boolean) => void;
   showZoningChanges: boolean;
   setShowZoningChanges: (value: boolean) => void;
-  show3DExtrusions: boolean;
-  setShow3DExtrusions: (value: boolean) => void;
   showTools: boolean;
   showComps: boolean;
   setShowComps: (value: boolean | ((value: boolean) => boolean)) => void;
@@ -98,7 +96,6 @@ interface MapWorkbenchPanelProps {
   polygon: number[][][] | null;
   onPolygonDrawn?: (coordinates: number[][][]) => void;
   onOpenCompare: () => void;
-  onOpenSplitMap: () => void;
   dataFreshnessLabel?: string;
   latencyLabel?: string;
 }
@@ -330,8 +327,6 @@ export function MapWorkbenchPanel({
   setShowNewPermits,
   showZoningChanges,
   setShowZoningChanges,
-  show3DExtrusions,
-  setShow3DExtrusions,
   showTools,
   showComps,
   setShowComps,
@@ -357,7 +352,6 @@ export function MapWorkbenchPanel({
   polygon,
   onPolygonDrawn,
   onOpenCompare,
-  onOpenSplitMap,
   dataFreshnessLabel,
   latencyLabel,
 }: MapWorkbenchPanelProps) {
@@ -373,7 +367,6 @@ export function MapWorkbenchPanel({
     showRecentSales,
     showNewPermits,
     showZoningChanges,
-    show3DExtrusions,
     showComps,
     showHeatmap,
     showIsochrone,
@@ -385,7 +378,6 @@ export function MapWorkbenchPanel({
     showSoils ? "Soils" : null,
     showWetlands ? "Wetlands" : null,
     showEpa ? "EPA" : null,
-    show3DExtrusions ? "3D" : null,
   ].filter((value): value is string => value !== null);
   const activeAnalysisLayers = [
     showComps ? "Comps" : null,
@@ -758,12 +750,6 @@ export function MapWorkbenchPanel({
                       description="Parcels with zoning classification changes in the last 12 months."
                       onClick={() => setShowZoningChanges(!showZoningChanges)}
                     />
-                    <LayerActionButton
-                      active={show3DExtrusions}
-                      title="3D Extrusions"
-                      description="Extrude parcels by lot size. Color by zoning: industrial (orange), commercial (purple), residential (green)."
-                      onClick={() => setShow3DExtrusions(!show3DExtrusions)}
-                    />
                   </div>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -874,22 +860,13 @@ export function MapWorkbenchPanel({
                       </ToggleGroup>
                     </div>
                   ) : null}
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={onOpenSplitMap}
-                    className="mt-3 h-8 w-full border-map-border bg-map-surface/45 text-[10px] text-map-text-primary hover:bg-map-surface"
-                  >
-                    Split Map View (before / after)
-                  </Button>
                   {selectedCount > 1 ? (
                     <Button
                       type="button"
                       size="sm"
                       variant="outline"
                       onClick={onOpenCompare}
-                      className="mt-2 h-8 w-full border-map-border bg-map-surface/45 text-[10px] text-map-text-primary hover:bg-map-surface"
+                      className="mt-3 h-8 w-full border-map-border bg-map-surface/45 text-[10px] text-map-text-primary hover:bg-map-surface"
                     >
                       Open compare sheet
                     </Button>
