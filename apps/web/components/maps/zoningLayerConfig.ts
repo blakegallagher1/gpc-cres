@@ -165,7 +165,10 @@ export async function resolveAvailableZoningTileContract(
   const preferredContract = getPreferredZoningTileContract();
 
   // Same-origin proxy: skip metadata probe, tiles are known reachable
-  if (isSameOriginMetadata(preferredContract.metadataUrl)) {
+  if (
+    preferredContract.metadataUrl &&
+    isSameOriginMetadata(preferredContract.metadataUrl)
+  ) {
     return preferredContract;
   }
 
