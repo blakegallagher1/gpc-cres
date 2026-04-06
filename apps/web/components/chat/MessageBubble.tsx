@@ -725,8 +725,8 @@ export function MessageBubble({
                   {Array.isArray(message.mapFeatures) && message.mapFeatures.length > 0 ? (
                     <MiniMapMessage
                       features={message.mapFeatures}
-                      onParcelClick={(parcelId) => {
-                        mapDispatch({ type: 'SELECT_PARCELS', parcelIds: [parcelId] });
+                      onParcelClick={(parcel) => {
+                        mapDispatch({ type: 'SELECT_PARCELS', parcelIds: [parcel.parcelId] });
                       }}
                     />
                   ) : null}
