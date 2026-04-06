@@ -13,9 +13,7 @@ import {
   FileText,
   GitBranch,
   RefreshCcw,
-  Sparkles,
   Shield,
-  ShieldCheck,
   Wrench,
   Rocket,
   Link as LinkIcon,
@@ -40,7 +38,6 @@ import { AgentStatusChip } from './AgentStatusChip';
 import { ToolStatusChip } from './ToolStatusChip';
 import { ToolApprovalPrompt } from './ToolApprovalPrompt';
 import type { ChatMessage, ChatStreamEvent } from '@/lib/chat/types';
-import { getResearchLaneLabel } from '@/lib/agent/researchRouting';
 import { MiniMapMessage } from './MiniMapMessage';
 import { useMapChatDispatch } from '@/lib/chat/MapChatContext';
 import { StructuredMessageRenderer } from './StructuredMessageRenderer';
@@ -80,24 +77,6 @@ function getTrustBarTrack(confidence: number): string {
   if (confidence >= 80) return 'bg-emerald-500/15';
   if (confidence >= 50) return 'bg-amber-500/15';
   return 'bg-red-500/15';
-}
-
-function formatTrustConfidenceLabel(confidence?: number): string | null {
-  if (confidence == null) {
-    return null;
-  }
-
-  return `${Math.round(confidence * 100)}% confidence`;
-}
-
-function formatResearchLaneLabel(
-  lane?: NonNullable<ChatMessage['trust']>['researchLane'],
-): string | null {
-  if (!lane) {
-    return null;
-  }
-
-  return lane === "auto" ? "Auto" : getResearchLaneLabel(lane);
 }
 
 function TrustIndicator({
@@ -432,7 +411,7 @@ function SystemEventFrame({
   children: ReactNode;
 }) {
   return (
-    <Card className={cn('shadow-[0_18px_50px_-42px_rgba(15,23,42,0.48)] backdrop-blur-sm', className)}>
+    <Card className={className}>
       <CardContent className="px-3 py-2.5">{children}</CardContent>
     </Card>
   );
@@ -601,7 +580,6 @@ function renderSystemContent(
     const confidence = message.trust?.confidence;
     const completion = typeof confidence === 'number' ? `${Math.round(confidence * 100)}%` : 'N/A';
     const agent = message.trust?.lastAgentName ?? message.agentName ?? 'Coordinator';
-    const researchLaneLabel = formatResearchLaneLabel(message.trust?.researchLane);
 
     return (
       <SystemEventFrame className={wrapperClass}>
@@ -619,9 +597,6 @@ function renderSystemContent(
           </p>
           <p className="text-muted-foreground">
             Tools: <strong className="text-foreground">{message.trust?.toolsInvoked?.length ?? 0}</strong>
-          </p>
-          <p className="text-muted-foreground">
-            Lane: <strong className="text-foreground">{researchLaneLabel ?? 'n/a'}</strong>
           </p>
           <p className="text-muted-foreground">
             Duration: <strong className="text-foreground">{message.trust?.durationMs ?? 'n/a'} ms</strong>
@@ -676,12 +651,6 @@ export function MessageBubble({
   const hasEvent = effectiveEventKind !== undefined;
   const systemContent = renderSystemContent(message, conversationId, onToolApprovalEvents);
   const showAssistantAvatar = !isUser && !isSystemEvent;
-  const trustConfidenceLabel = formatTrustConfidenceLabel(message.trust?.confidence);
-  const researchLaneLabel = formatResearchLaneLabel(message.trust?.researchLane);
-  const toolCount = message.toolCalls?.length ?? 0;
-  const evidenceGapCount = message.trust?.missingEvidence?.length ?? 0;
-  const hasToplineMeta =
-    !isUser && !isSystemEvent && (Boolean(message.agentName) || Boolean(trustConfidenceLabel) || toolCount > 0);
 
   const agentBorder = !isUser && message.agentName
     ? getAgentBorderColor(message.agentName)
@@ -700,24 +669,9 @@ export function MessageBubble({
     >
       {/* Assistant avatar */}
       {showAssistantAvatar ? (
-        <motion.div
-          className="app-shell-panel relative mt-1 flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full"
-          animate={
-            toolCount > 0
-              ? {
-                  boxShadow: [
-                    '0 0 0 0 rgba(56,189,248,0.12)',
-                    '0 0 0 6px rgba(56,189,248,0)',
-                    '0 0 0 0 rgba(56,189,248,0.12)',
-                  ],
-                }
-              : undefined
-          }
-          transition={toolCount > 0 ? { duration: 2.2, repeat: Number.POSITIVE_INFINITY, ease: 'easeInOut' } : undefined}
-        >
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.18),_transparent_58%)]" />
-          <span className="relative font-mono text-[10px] font-medium text-foreground">G</span>
-        </motion.div>
+        <div className="app-shell-panel mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full">
+          <span className="font-mono text-[10px] font-medium text-foreground">G</span>
+        </div>
       ) : isUser ? (
         <ClipboardList className="mt-2 h-7 w-7 shrink-0 text-muted-foreground" />
       ) : null}
@@ -725,7 +679,7 @@ export function MessageBubble({
       <div
         className={cn(
           'flex flex-col gap-1',
-          isSystemEvent ? 'max-w-[92%]' : isUser ? 'max-w-[78%] sm:max-w-[72%]' : 'w-full max-w-[92%]',
+          isSystemEvent ? 'max-w-[92%]' : 'max-w-[84%]',
           isUser && 'items-end',
         )}
       >
@@ -749,11 +703,8 @@ export function MessageBubble({
         ) : (
           <>
             {isUser ? (
-              <div className="relative overflow-hidden rounded-2xl bg-primary px-4 py-3 text-sm leading-relaxed text-primary-foreground shadow-[0_18px_48px_-32px_rgba(15,23,42,0.45)]">
-                <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.16),transparent_42%)]" />
-                <p className="whitespace-pre-wrap break-words text-primary-foreground">
-                  {message.content}
-                </p>
+              <div className="rounded-2xl bg-primary px-4 py-3 text-sm leading-relaxed text-primary-foreground shadow-[0_18px_48px_-32px_rgba(15,23,42,0.45)]">
+                <StructuredMessageRenderer content={message.content} />
                 {!hasEvent ? (
                   <MessageActions
                     conversationId={conversationId}
@@ -763,79 +714,38 @@ export function MessageBubble({
                 ) : null}
               </div>
             ) : (
-              <div
+              <Card
                 className={cn(
-                  'relative overflow-hidden rounded-[1.35rem] border border-border/55 bg-background/88 text-foreground shadow-[0_24px_60px_-46px_rgba(15,23,42,0.72)]',
+                  'border border-border/60 border-l-[3px] bg-background/80 text-foreground',
                   agentBorder,
                 )}
               >
-                <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.12),_transparent_62%)]" />
-                <div className="px-5 py-4 text-sm leading-7">
-                  {hasToplineMeta ? (
-                    <div className="mb-3 flex flex-wrap items-center gap-2 border-b border-border/45 pb-3">
-                      {message.agentName ? (
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/90 px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-                          <Sparkles className="h-3 w-3 text-sky-500" />
-                          {formatAgentLabel(message.agentName)}
-                        </span>
-                      ) : null}
-                      {trustConfidenceLabel ? (
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-300">
-                          <ShieldCheck className="h-3 w-3" />
-                          {trustConfidenceLabel}
-                        </span>
-                      ) : null}
-                      {toolCount > 0 ? (
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-500/20 bg-sky-500/10 px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-sky-700 dark:text-sky-300">
-                          <Wrench className="h-3 w-3" />
-                          {toolCount} tool{toolCount === 1 ? '' : 's'}
-                        </span>
-                      ) : null}
-                      {researchLaneLabel ? (
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/20 bg-violet-500/10 px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-violet-700 dark:text-violet-300">
-                          <LinkIcon className="h-3 w-3" />
-                          {researchLaneLabel}
-                        </span>
-                      ) : null}
-                      {evidenceGapCount > 0 ? (
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/25 bg-amber-500/10 px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-amber-700 dark:text-amber-300">
-                          <AlertTriangle className="h-3 w-3" />
-                          {evidenceGapCount} gap{evidenceGapCount === 1 ? '' : 's'}
-                        </span>
-                      ) : null}
-                    </div>
-                  ) : null}
+                <CardContent className="px-4 py-3 text-sm leading-relaxed">
                   <StructuredMessageRenderer content={message.content} />
-                  {(Array.isArray(message.mapFeatures) && message.mapFeatures.length > 0) ||
-                  (message.trust && message.trust.confidence != null && !hasEvent) ||
-                  !hasEvent ? (
-                    <div className="mt-4 flex flex-col gap-3 border-t border-border/45 pt-3">
-                      {Array.isArray(message.mapFeatures) && message.mapFeatures.length > 0 ? (
-                        <MiniMapMessage
-                          features={message.mapFeatures}
-                          onParcelClick={(parcel) => {
-                            mapDispatch({ type: 'SELECT_PARCELS', parcelIds: [parcel.parcelId] });
-                          }}
-                        />
-                      ) : null}
-                      {message.trust && message.trust.confidence != null && !hasEvent ? (
-                        <TrustIndicator
-                          trust={message.trust}
-                          messageId={message.id}
-                          onVerify={onVerifyTrust}
-                        />
-                      ) : null}
-                      {!hasEvent ? (
-                        <MessageActions
-                          conversationId={conversationId}
-                          messageId={message.id}
-                          message={message}
-                        />
-                      ) : null}
-                    </div>
+                  {Array.isArray(message.mapFeatures) && message.mapFeatures.length > 0 ? (
+                    <MiniMapMessage
+                      features={message.mapFeatures}
+                      onParcelClick={(parcelId) => {
+                        mapDispatch({ type: 'SELECT_PARCELS', parcelIds: [parcelId] });
+                      }}
+                    />
                   ) : null}
-                </div>
-              </div>
+                  {message.trust && message.trust.confidence != null && !hasEvent ? (
+                    <TrustIndicator
+                      trust={message.trust}
+                      messageId={message.id}
+                      onVerify={onVerifyTrust}
+                    />
+                  ) : null}
+                  {!hasEvent ? (
+                    <MessageActions
+                      conversationId={conversationId}
+                      messageId={message.id}
+                      message={message}
+                    />
+                  ) : null}
+                </CardContent>
+              </Card>
             )}
 
             {Array.isArray(message.toolCalls) && message.toolCalls.length > 0 ? (
