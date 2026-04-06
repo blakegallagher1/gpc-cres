@@ -1,4 +1,4 @@
-import { prisma, type Prisma } from "@entitlement-os/db";
+import { prisma, type Prisma } from "../index.js";
 import type {
   DealAssetClass,
   DealStageKey,

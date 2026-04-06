@@ -1,32 +1,5 @@
-import { deserializeRunStateEnvelope } from "@entitlement-os/openai";
-import { prisma, type Prisma } from "@entitlement-os/db";
+import { prisma, type Prisma } from "../index.js";
 import { SKU_TYPES } from "@entitlement-os/shared";
-
-export type { AgentExecutionResult } from "../../../../packages/server/src/chat/run-state";
-
-export function readSerializedRunStateFromStoredValue(value: unknown): string | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return null;
-  }
-
-  const fromEnvelope = deserializeRunStateEnvelope(value);
-  if (fromEnvelope?.serializedRunState) {
-    return fromEnvelope.serializedRunState;
-  }
-
-  const legacyValue = (value as { serializedRunState?: unknown }).serializedRunState;
-  return typeof legacyValue === "string" ? legacyValue : null;
-}
-
-export function normalizeSku(sku: string | null | undefined): (typeof SKU_TYPES)[number] | null {
-  if (!sku) {
-    return null;
-  }
-  if ((SKU_TYPES as readonly string[]).includes(sku)) {
-    return sku as (typeof SKU_TYPES)[number];
-  }
-  return null;
-}
 
 export async function persistFinalRunResult(params: {
   runId: string;
@@ -114,4 +87,14 @@ export async function upsertRunRecord(params: {
       inputHash: params.inputHash,
     },
   });
+}
+
+export function normalizeSku(sku: string | null | undefined): (typeof SKU_TYPES)[number] | null {
+  if (!sku) {
+    return null;
+  }
+  if ((SKU_TYPES as readonly string[]).includes(sku)) {
+    return sku as (typeof SKU_TYPES)[number];
+  }
+  return null;
 }

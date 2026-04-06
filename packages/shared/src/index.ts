@@ -16,3 +16,6 @@ export * from "./types/mapChat.js";
 export * from "./types/mapWorkspace.js";
 export * from "./types/parcelIntelligence.js";
 export * from "./types/streamEvents.js";
+export * from "./async.js";
+export * from "./typeguards.js";
+export * from "./files.js";

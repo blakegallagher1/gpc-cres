@@ -28,6 +28,7 @@
   "dependencies": {
     "@prisma/client": "~6.19.2",
     "@prisma/driver-adapter-utils": "^7.5.0",
+    "@entitlement-os/shared": "workspace:*",
     "pg": "^8.20.0"
   },
   "devDependencies": {

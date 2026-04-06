@@ -1,0 +1,1 @@
+export { extractDocumentTextForUpload } from "./extractStructuredDocumentData";

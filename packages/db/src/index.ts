@@ -1,6 +1,12 @@
 export { prisma, prismaRead } from "./client.js";
 export { getDataAgentSchemaCapabilities } from "./schemaCapabilities.js";
 export type { DataAgentSchemaCapabilities } from "./schemaCapabilities.js";
+export * from "./json.js";
+export * from "./errors.js";
+export * from "./repositories/run.repository.js";
+export * from "./repositories/deal.repository.js";
+export * from "./repositories/proactive-action.repository.js";
+export * from "./repositories/task.repository.js";
 
 // Re-export Prisma types for downstream packages (e.g. evidence) without requiring
 // them to depend on @prisma/client directly.

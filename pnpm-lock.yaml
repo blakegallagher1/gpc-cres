@@ -426,6 +426,9 @@ importers:
 
   packages/db:
     dependencies:
+      '@entitlement-os/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@prisma/client':
         specifier: ~6.19.2
         version: 6.19.2(prisma@6.19.2(typescript@5.9.3))(typescript@5.9.3)
@@ -463,6 +466,9 @@ importers:
       '@entitlement-os/db':
         specifier: workspace:*
         version: link:../db
+      '@entitlement-os/openai':
+        specifier: workspace:*
+        version: link:../openai
       '@entitlement-os/shared':
         specifier: workspace:*
         version: link:../shared
@@ -472,6 +478,9 @@ importers:
       html-to-text:
         specifier: ^9.0.5
         version: 9.0.5
+      mammoth:
+        specifier: ^1.12.0
+        version: 1.12.0
       playwright:
         specifier: ^1.50.0
         version: 1.58.2
@@ -552,9 +561,21 @@ importers:
       '@entitlement-os/db':
         specifier: workspace:*
         version: link:../db
+      '@entitlement-os/openai':
+        specifier: workspace:*
+        version: link:../openai
       '@entitlement-os/shared':
         specifier: workspace:*
         version: link:../shared
+      '@sentry/nextjs':
+        specifier: ^10.15.0
+        version: 10.46.0(@opentelemetry/context-async-hooks@2.6.1(@opentelemetry/api@1.9.0))(@opentelemetry/core@2.6.1(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@2.6.1(@opentelemetry/api@1.9.0))(next@16.1.7(@babel/core@7.29.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.58.2)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)(webpack@5.105.3)
+      '@temporalio/client':
+        specifier: ^1.11.6
+        version: 1.15.0
+      server-only:
+        specifier: ^0.0.1
+        version: 0.0.1
       zod:
         specifier: ^4.1.12
         version: 4.3.6

@@ -4,11 +4,22 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./services/*": "./src/services/*.ts"
+    ".": "./src/index.ts",
+    "./services/*": "./src/services/*.ts",
+    "./chat/*": "./src/chat/*.ts",
+    "./chat/context/*": "./src/chat/context/*.ts",
+    "./workflows/*": "./src/workflows/*.ts",
+    "./deals/*": "./src/deals/*.ts",
+    "./automation/*": "./src/automation/*.ts",
+    "./observability/*": "./src/observability/*.ts"
   },
   "dependencies": {
     "@entitlement-os/db": "workspace:*",
     "@entitlement-os/shared": "workspace:*",
+    "@entitlement-os/openai": "workspace:*",
+    "@sentry/nextjs": "^10.15.0",
+    "@temporalio/client": "^1.11.6",
+    "server-only": "^0.0.1",
     "zod": "^4.1.12"
   },
   "devDependencies": {
