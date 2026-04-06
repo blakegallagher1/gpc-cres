@@ -77,7 +77,6 @@ interface ChatWorkspaceHeroProps {
   onOpenInspector: () => void;
   onCuaModelChange?: (model: CuaModel) => void;
   onQuickActionSelect?: (prompt: string) => void;
-  onSourceChipSelect?: (prompt: string) => void;
 }
 
 interface ChatWorkspaceInspectorProps {
@@ -248,6 +247,88 @@ function getDealStageName(status: string | null | undefined): string {
 /*  Portfolio Stats                                                    */
 /* ------------------------------------------------------------------ */
 
+type PortfolioStats = {
+  activeDeals: number;
+  trackedParcels: number;
+  topStage: string;
+  openTasks: number;
+};
+
+const EMPTY_PORTFOLIO_STATS: PortfolioStats = {
+  activeDeals: 0,
+  trackedParcels: 0,
+  topStage: '\u2014',
+  openTasks: 0,
+};
+
+function usePortfolioStats(): { stats: PortfolioStats; loading: boolean } {
+  const [stats, setStats] = useState<PortfolioStats>(EMPTY_PORTFOLIO_STATS);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      try {
+        const res = await fetch('/api/deals?limit=200');
+        if (!res.ok) throw new Error('fetch failed');
+        const payload = (await res.json()) as {
+          deals?: {
+            id: string;
+            status?: string;
+            parcels?: unknown[];
+          }[];
+        };
+
+        if (cancelled) return;
+
+        const deals = payload.deals ?? [];
+        const activeDeals = deals.filter(
+          (d) => d.status && !['KILLED', 'EXITED'].includes(d.status.toUpperCase()),
+        ).length;
+
+        const trackedParcels = deals.reduce(
+          (sum, d) => sum + (Array.isArray(d.parcels) ? d.parcels.length : 0),
+          0,
+        );
+
+        // Find most common stage
+        const stageCounts: Record<string, number> = {};
+        for (const d of deals) {
+          const st = d.status ?? 'UNKNOWN';
+          stageCounts[st] = (stageCounts[st] ?? 0) + 1;
+        }
+        const topStage = Object.entries(stageCounts)
+          .sort((a, b) => b[1] - a[1])[0]?.[0]
+          ?.replace(/_/g, ' ') ?? '\u2014';
+
+        setStats({
+          activeDeals,
+          trackedParcels: trackedParcels || activeDeals, // fallback to deal count if parcels not in response
+          topStage: topStage.charAt(0).toUpperCase() + topStage.slice(1).toLowerCase(),
+          openTasks: 0, // tasks not available from deals endpoint
+        });
+      } catch {
+        if (!cancelled) {
+          setStats({
+            activeDeals: 0,
+            trackedParcels: 0,
+            topStage: '\u2014',
+            openTasks: 0,
+          });
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    void load();
+    return () => { cancelled = true; };
+  }, []);
+
+  return { stats, loading };
+}
+
 /* ------------------------------------------------------------------ */
 /*  Internal helpers                                                   */
 /* ------------------------------------------------------------------ */
@@ -275,7 +356,6 @@ function InspectorVerificationPanel({
         lastAgentName={agentSummary.lastAgentName ?? activeAgentLabel}
         plan={agentSummary.verificationSteps}
         confidence={agentSummary.confidence}
-        researchLane={agentSummary.researchLane}
         missingEvidence={agentSummary.missingEvidence ?? []}
         verificationSteps={agentSummary.verificationSteps ?? []}
         evidenceCitations={agentSummary.evidenceCitations ?? []}
@@ -450,7 +530,6 @@ export function ChatWorkspaceHero({
   transportLabel,
   onCuaModelChange,
   onQuickActionSelect,
-  onSourceChipSelect,
 }: ChatWorkspaceHeroProps) {
   const reduceMotion = useReducedMotion();
   const motionProps = reduceMotion || process.env.NODE_ENV === 'test'
@@ -467,99 +546,132 @@ export function ChatWorkspaceHero({
   const dealStageName = getDealStageName(dealStatus);
   const hasDealPrompts = dealStagePrompts.length > 0;
 
+  // Feature 14: Portfolio stats (only fetch when in launch state with no deal)
+  const { stats: portfolioStats, loading: portfolioLoading } = usePortfolioStats();
+  const showPortfolioPulse = launchState && !hasDealPrompts;
+
   return (
     <motion.div
       className="shrink-0 border-b border-border px-4 py-4 sm:px-5"
       {...motionProps}
     >
       {launchState ? (
-        <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 py-1">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                Scope
-              </span>
-              <div className="min-w-[12rem] flex-1">{dealSelector}</div>
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 py-6 sm:py-10">
+          {/* Portfolio Pulse - shown when no deal selected */}
+          {showPortfolioPulse ? (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="rounded-lg border border-border/40 bg-muted/30 p-3">
+                <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Active Deals</p>
+                <p className="text-lg font-semibold">{portfolioLoading ? '\u2014' : portfolioStats.activeDeals}</p>
+              </div>
+              <div className="rounded-lg border border-border/40 bg-muted/30 p-3">
+                <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Tracked Parcels</p>
+                <p className="text-lg font-semibold">{portfolioLoading ? '\u2014' : portfolioStats.trackedParcels}</p>
+              </div>
+              <div className="rounded-lg border border-border/40 bg-muted/30 p-3">
+                <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Pipeline Stage</p>
+                <p className="text-lg font-semibold">{portfolioLoading ? '\u2014' : portfolioStats.topStage}</p>
+              </div>
+              <div className="rounded-lg border border-border/40 bg-muted/30 p-3">
+                <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Open Tasks</p>
+                <p className="text-lg font-semibold">{portfolioLoading ? '\u2014' : portfolioStats.openTasks || '\u2014'}</p>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <InlineStatusBadge
-                icon={<Bot className="h-3.5 w-3.5 text-muted-foreground" />}
-                label={threadStatusLabel}
-              />
-              <InlineStatusBadge
-                icon={<Calendar className="h-3.5 w-3.5 text-muted-foreground" />}
-                label={activeAgentLabel}
-              />
-              {cuaModel && onCuaModelChange ? (
-                <CuaModelToggle model={cuaModel} onModelChange={onCuaModelChange} />
-              ) : null}
-            </div>
-          </div>
+          ) : null}
 
-          <p className="text-sm text-muted-foreground">
-            Start with the matter and required output. Keep it short, then iterate in-thread.
-          </p>
-
-          <div className="flex flex-wrap items-center gap-2">
-            {hasDealPrompts
-              ? dealStagePrompts.slice(0, 3).map((sp) => {
+          {/* Deal stage prompts OR default quick actions */}
+          {hasDealPrompts ? (
+            <div className="space-y-2">
+              <p className="text-center text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                Suggested for {dealStageName}
+              </p>
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                {dealStagePrompts.map((sp) => {
                   const Icon = DEAL_STAGE_ICON_MAP[sp.icon] ?? FileText;
                   return (
                     <Button
                       key={sp.label}
                       type="button"
                       variant="outline"
-                      className="h-8 rounded-md px-3 text-xs"
+                      className="h-10 rounded-lg px-4 text-sm font-medium"
                       onClick={() => onQuickActionSelect?.(sp.prompt)}
                     >
-                      <Icon className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
+                      <Icon className="mr-2 h-4 w-4 text-muted-foreground" />
                       {sp.label}
                     </Button>
                   );
-                })
-              : compactQuickActions.map((action) => {
-                  const Icon = action.id === 'risk-screen' ? FileText : Table2;
-                  const prompt = CHAT_QUICK_ACTION_PROMPTS[action.id];
-                  return (
-                    <Button
-                      key={action.id}
-                      type="button"
-                      variant="outline"
-                      className="h-8 rounded-md px-3 text-xs"
-                      onClick={() => {
-                        if (prompt) {
-                          onQuickActionSelect?.(prompt);
-                        }
-                      }}
-                    >
-                      <Icon className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
-                      {action.id === 'risk-screen' ? 'Run screening' : 'Review evidence'}
-                    </Button>
-                  );
                 })}
-            <span className="rounded-full border border-border/50 bg-muted/30 px-2.5 py-1 text-[11px] text-muted-foreground">
-              {hasDealPrompts && dealStageName
-                ? `Suggested for ${dealStageName}`
-                : `${conversationCount} saved runs`}
-            </span>
-          </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              {compactQuickActions.map((action) => {
+                const Icon = action.id === 'risk-screen' ? FileText : Table2;
+                return (
+                  <Button
+                    key={action.id}
+                    type="button"
+                    variant="outline"
+                    className="h-10 rounded-lg px-4 text-sm font-medium"
+                    onClick={() => {
+                      const prompt = CHAT_QUICK_ACTION_PROMPTS[action.id];
+                      if (prompt) {
+                        onQuickActionSelect?.(prompt);
+                      }
+                    }}
+                  >
+                    <Icon className="mr-2 h-4 w-4 text-muted-foreground" />
+                    {action.id === 'risk-screen' ? 'Draft memo' : 'Review table'}
+                  </Button>
+                );
+              })}
+            </div>
+          )}
 
-          <div className="flex flex-wrap items-center gap-2">
-            {CHAT_SOURCE_CHIPS.map((chip) => {
-              const Icon = chip.icon;
-              return (
-                <Button
-                  key={chip.id}
-                  type="button"
-                  variant="ghost"
-                  className="h-8 rounded-full border border-border/55 bg-background/80 px-3 text-[11px] text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                  onClick={() => onSourceChipSelect?.(chip.prompt)}
-                >
-                  <Icon className="mr-1.5 h-3.5 w-3.5" />
-                  {chip.label}
-                </Button>
-              );
-            })}
+          <div className="rounded-lg border border-border bg-background p-5 sm:p-6">
+            <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="font-medium text-foreground">Client matter</span>
+                <div className="min-w-0 flex-1">{dealSelector}</div>
+              </div>
+              {cuaModel && onCuaModelChange ? (
+                <CuaModelToggle model={cuaModel} onModelChange={onCuaModelChange} />
+              ) : null}
+            </div>
+
+            <div className="mt-8 space-y-3">
+              <h1 className="text-4xl font-semibold tracking-tight text-foreground">
+                Ask Harvey anything.
+              </h1>
+              <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+                Lead with the matter, outcome, or document you need. Type{' '}
+                <span className="font-medium text-foreground">@</span> to attach sources and move straight into the answer.
+              </p>
+            </div>
+
+            <div className="mt-8 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 font-medium transition hover:text-foreground"
+              >
+                <FolderOpen className="h-4 w-4" />
+                Files
+              </button>
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 font-medium transition hover:text-foreground"
+              >
+                <ShieldCheck className="h-4 w-4" />
+                Sources
+              </button>
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 font-medium transition hover:text-foreground"
+              >
+                <Sparkles className="h-4 w-4" />
+                Prompt library
+              </button>
+            </div>
           </div>
         </div>
       ) : (
