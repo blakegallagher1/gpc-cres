@@ -1700,7 +1700,7 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
               id: "parcel-tiles-fill",
               type: "fill",
               source: "parcel-tiles",
-              "source-layer": "ebr_parcels",
+              "source-layer": "ebr_parcels.1",
               layout: {
                 visibility: showLayers && showParcelBoundaries ? "visible" : "none",
               },
@@ -1714,7 +1714,7 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
               id: "parcel-tiles-line",
               type: "line",
               source: "parcel-tiles",
-              "source-layer": "ebr_parcels",
+              "source-layer": "ebr_parcels.1",
               layout: {
                 visibility: showLayers && showParcelBoundaries ? "visible" : "none",
               },
