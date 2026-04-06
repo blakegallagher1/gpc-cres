@@ -305,14 +305,15 @@ export function ChatContainer() {
 
   // Fetch deal status when a deal is selected
   useEffect(() => {
-    if (!selectedDealId) {
+    const dealId = selectedDealId;
+    if (!dealId) {
       setSelectedDealStatus(null);
       return;
     }
     let cancelled = false;
     async function fetchDealStatus() {
       try {
-        const res = await fetch(`/api/deals/${encodeURIComponent(selectedDealId)}`);
+        const res = await fetch(`/api/deals/${encodeURIComponent(dealId)}`);
         if (!res.ok) return;
         const body = (await res.json()) as { deal?: { status?: string } };
         if (!cancelled && body.deal?.status) {
