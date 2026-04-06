@@ -228,7 +228,7 @@ export function MapContainerV2({
         <SoilsLayer visible={overlays.showSoils} />
         <WetlandsLayer visible={overlays.showWetlands} />
         <EpaFacilitiesLayer visible={overlays.showEpa} />
-        <ParcelExtrusionLayer visible={overlays.show3DExtrusions} />
+        <ParcelExtrusionLayer visible={overlays.showTerrain} />
         <ParcelPointLayer
           parcels={parcels}
           visible={hasParcels}
