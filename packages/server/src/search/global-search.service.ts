@@ -3,7 +3,7 @@ import {
   getCloudflareAccessHeadersFromEnv,
   getPropertyDbConfigOrNull,
 } from "../../../../apps/web/lib/server/propertyDbEnv";
-import { searchKnowledgeBase } from "../../../../apps/web/lib/services/knowledgeBase.service";
+import { searchKnowledgeBase } from "./knowledge-base.service";
 
 export type GlobalSearchSource =
   | "deals"

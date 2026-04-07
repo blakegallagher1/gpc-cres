@@ -19,12 +19,8 @@ vi.mock("@entitlement-os/db", () => ({
   },
 }));
 
-vi.mock("openai", () => ({
-  default: class OpenAI {
-    embeddings = {
-      create: embeddingsCreateMock,
-    };
-  },
+vi.mock("@entitlement-os/openai", () => ({
+  createEmbedding: embeddingsCreateMock,
 }));
 
 import {
@@ -61,9 +57,7 @@ describe("knowledgeBase.service", () => {
     process.env.AGENTOS_QDRANT_COLLECTION_INSTITUTIONAL_KNOWLEDGE = "institutional_knowledge";
     process.env.AGENTOS_QDRANT_DENSE_VECTOR_NAME = "dense";
 
-    embeddingsCreateMock.mockResolvedValue({
-      data: [{ embedding: [0.1, 0.2, 0.3] }],
-    });
+    embeddingsCreateMock.mockResolvedValue([0.1, 0.2, 0.3]);
   });
 
   afterEach(() => {

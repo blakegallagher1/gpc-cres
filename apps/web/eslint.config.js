@@ -107,4 +107,81 @@ module.exports = [
       ],
     },
   }
+  ,
+  {
+    files: ["app/api/**/*.{js,jsx,ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "@temporalio/client",
+              message:
+                "API routes must delegate Temporal access to package-level workflow services.",
+            },
+            {
+              name: "@/lib/workflowClient",
+              message:
+                "API routes must use package-level services instead of the legacy Temporal client wrapper.",
+            },
+            {
+              name: "@/lib/agent/agentRunner",
+              message:
+                "API routes must call package-level chat or deal services instead of direct agent orchestration wrappers.",
+            },
+            {
+              name: "@/lib/services/documentProcessingExtraction",
+              message:
+                "API routes must delegate extraction and document intelligence to package-level evidence services.",
+            },
+            {
+              name: "@/lib/server/observabilityStore",
+              message:
+                "API routes must use package-level observability services instead of direct store internals.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["lib/server/**/*.{js,jsx,ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "@entitlement-os/db",
+              message:
+                "apps/web/lib/server must delegate persistence to package-level services or repositories.",
+            },
+            {
+              name: "@entitlement-os/openai",
+              message:
+                "apps/web/lib/server must not host backend OpenAI runtime orchestration directly.",
+            },
+            {
+              name: "openai",
+              message:
+                "apps/web/lib/server must not instantiate raw OpenAI clients directly.",
+            },
+            {
+              name: "@temporalio/client",
+              message:
+                "apps/web/lib/server must not host Temporal clients directly.",
+            },
+          ],
+          patterns: [
+            {
+              group: ["@entitlement-os/db/*", "@entitlement-os/openai/*"],
+              message:
+                "apps/web/lib/server must use package-level facades for backend runtime and persistence access.",
+            },
+          ],
+        },
+      ],
+    },
+  }
 ];
