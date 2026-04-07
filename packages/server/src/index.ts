@@ -6,5 +6,8 @@ export * from "./automation/proactive-action.service";
 export * from "./automation/advancement.service";
 export * from "./observability/query";
 export * from "./chat/chat-application.service";
+export * from "./chat/agent-api.service";
 export * from "./search/global-search.service";
 export * from "./admin/memory.service";
+export * from "./deals/task-agent-run.service";
+export * from "./deals/triage.service";

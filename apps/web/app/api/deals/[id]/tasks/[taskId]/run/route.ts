@@ -1,34 +1,15 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
-import { dispatchEvent } from "@/lib/automation/events";
-import { runAgentWorkflow } from "@/lib/agent/agentRunner";
 import * as Sentry from "@sentry/nextjs";
-import { captureAutomationDispatchError } from "@/lib/automation/sentry";
 import "@/lib/automation/handlers";
-
-type TaskAgentStatus = "succeeded" | "failed" | "canceled";
+import {
+  assertDealTaskAgentAccess,
+  runDealTaskAgent,
+} from "@gpc/server/deals/task-agent-run.service";
 
 function sseEvent(data: Record<string, unknown>): string {
   return `data: ${JSON.stringify(data)}\n\n`;
 }
-
-const MAX_TASK_TURNS = 15;
-
-function buildTaskPrompt(task: { title: string; description: string | null }, dealName: string) {
-  const details = task.description ? `\n\nTask details: ${task.description}` : "";
-  return [
-    `Complete this task for deal ${dealName}.`,
-    `Task: ${task.title}`,
-    details,
-    "",
-    "Use available tools and data sources to answer as thoroughly as possible.",
-    "Include explicit sources/evidence, key risks, and a clear conclusion.",
-  ]
-    .filter(Boolean)
-    .join("\n");
-}
-
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; taskId: string }> },
@@ -41,26 +22,13 @@ export async function POST(
   const { id: dealId, taskId } = await params;
   const { orgId, userId } = auth;
 
-  const deal = await prisma.deal.findFirst({
-    where: { id: dealId, orgId },
-    select: { id: true, name: true },
-  });
-  if (!deal) {
-    return Response.json({ error: "Deal not found" }, { status: 404 });
+  try {
+    await assertDealTaskAgentAccess({ orgId, dealId, taskId });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const status = message === "Task not found" ? 404 : 404;
+    return Response.json({ error: message }, { status });
   }
-
-  const task = await prisma.task.findFirst({
-    where: { id: taskId, dealId },
-    select: { id: true, title: true, description: true, status: true },
-  });
-  if (!task) {
-    return Response.json({ error: "Task not found" }, { status: 404 });
-  }
-
-  await prisma.task.update({
-    where: { id: taskId },
-    data: { status: "IN_PROGRESS" },
-  });
 
   const encoder = new TextEncoder();
 
@@ -71,21 +39,18 @@ export async function POST(
       let fullText = "";
 
       try {
-        const { result: workflowResult } = await runAgentWorkflow({
+        const result = await runDealTaskAgent({
           orgId,
           userId,
+          dealId,
+          taskId,
           correlationId:
             request.headers.get("x-request-id") ??
             request.headers.get("idempotency-key") ??
             undefined,
-          message: buildTaskPrompt(task, deal.name),
-          dealId,
-          runType: "ENRICHMENT",
-          maxTurns: MAX_TASK_TURNS,
-          persistConversation: false,
           onEvent: (event) => {
             if (event.type === "agent_switch") {
-              lastAgentName = event.agentName;
+              lastAgentName = String(event.agentName);
               controller.enqueue(
                 encoder.encode(
                   sseEvent({ type: "agent_switch", agentName: event.agentName }),
@@ -95,9 +60,10 @@ export async function POST(
             }
 
             if (event.type === "text_delta") {
-              fullText += event.content;
+              const content = String(event.content ?? "");
+              fullText += content;
               controller.enqueue(
-                encoder.encode(sseEvent({ type: "text_delta", content: event.content })),
+                encoder.encode(sseEvent({ type: "text_delta", content })),
               );
               return;
             }
@@ -122,70 +88,23 @@ export async function POST(
             }
           },
         });
-
-        if (workflowResult.status === "succeeded") {
-          const updatedTask = await prisma.task.update({
-            where: { id: taskId },
-            data: {
-              status: "DONE",
-              description: fullText
-                ? `${task.description ?? ""}\n\n---\nAgent Findings (${lastAgentName}):\n${fullText}`.trim()
-                : task.description,
-            },
-          });
-
-          await dispatchEvent({
-            type: "task.completed",
-            dealId,
-            taskId,
-            orgId,
-          }).catch((error) => {
-            captureAutomationDispatchError(error, {
-              handler: "api.deals.tasks.run",
-              eventType: "task.completed",
-              dealId,
-              orgId,
-              status: "DONE",
-            });
-          });
-
-          controller.enqueue(
-            encoder.encode(
-              sseEvent({
-                type: "done",
-                taskId: updatedTask.id,
-                taskStatus: "DONE",
-                agentName: lastAgentName,
-              }),
-            ),
-          );
-          return;
-        }
-
-        // Revert to TODO when task execution was interrupted or failed.
-        await prisma.task.update({
-          where: { id: taskId },
-          data: { status: "TODO" },
-        });
+        controller.enqueue(
+          encoder.encode(
+            sseEvent({
+              type: "done",
+              taskId: result.taskId,
+              taskStatus: result.taskStatus,
+              agentName: result.agentName,
+            }),
+          ),
+        );
+        doneSent = true;
       } catch (error) {
         Sentry.captureException(error, {
           tags: { route: "api.deals.tasks.run", method: "POST" },
         });
         const errMsg = error instanceof Error ? error.message : "Task execution failed";
         controller.enqueue(encoder.encode(sseEvent({ type: "error", message: errMsg })));
-        await prisma.task.update({ where: { id: taskId }, data: { status: "TODO" } }).catch((updateError) => {
-          Sentry.captureException(updateError, {
-            tags: {
-              route: "api.deals.tasks.run",
-              operation: "task-revert",
-            },
-            extra: {
-              dealId,
-              taskId,
-              orgId,
-            },
-          });
-        });
       } finally {
         if (!doneSent) {
           controller.enqueue(

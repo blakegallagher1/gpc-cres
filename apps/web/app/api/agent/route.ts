@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
 import { randomUUID } from "node:crypto";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
-import { runAgentWorkflow } from "@/lib/agent/agentRunner";
 import type { AgentInputMessage } from "@/lib/agent/executeAgent";
+import { runAgentApi } from "@gpc/server/chat/agent-api.service";
 import * as Sentry from "@sentry/nextjs";
 
 type AgentApiPayload = {
@@ -149,13 +149,13 @@ export async function POST(req: NextRequest) {
       let doneSent = false;
 
       try {
-        await runAgentWorkflow({
+        await runAgentApi({
           ...runInput,
           onEvent: (event) => {
             if (event.type === "done") {
               doneSent = true;
             }
-            controller.enqueue(encoder.encode(sseEvent(event as Record<string, unknown>)));
+            controller.enqueue(encoder.encode(sseEvent(event)));
           },
         });
       } catch (error) {

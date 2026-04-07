@@ -3,25 +3,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   authorizeApiRouteMock,
-  memoryVerifiedFindFirstMock,
-  memoryVerifiedDeleteManyMock,
+  deleteVerifiedMemoryMock,
 } = vi.hoisted(() => ({
   authorizeApiRouteMock: vi.fn(),
-  memoryVerifiedFindFirstMock: vi.fn(),
-  memoryVerifiedDeleteManyMock: vi.fn(),
+  deleteVerifiedMemoryMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/authorizeApiRoute", () => ({
   authorizeApiRoute: authorizeApiRouteMock,
 }));
 
-vi.mock("@entitlement-os/db", () => ({
-  prisma: {
-    memoryVerified: {
-      findFirst: memoryVerifiedFindFirstMock,
-      deleteMany: memoryVerifiedDeleteManyMock,
-    },
-  },
+vi.mock("@gpc/server/admin/memory.service", () => ({
+  deleteVerifiedMemory: deleteVerifiedMemoryMock,
 }));
 
 import { DELETE } from "./route";
@@ -29,8 +22,7 @@ import { DELETE } from "./route";
 describe("DELETE /api/admin/memory/[id]", () => {
   beforeEach(() => {
     authorizeApiRouteMock.mockReset();
-    memoryVerifiedFindFirstMock.mockReset();
-    memoryVerifiedDeleteManyMock.mockReset();
+    deleteVerifiedMemoryMock.mockReset();
 
     authorizeApiRouteMock.mockResolvedValue({
       ok: true,
@@ -57,7 +49,7 @@ describe("DELETE /api/admin/memory/[id]", () => {
   });
 
   it("returns 404 when the record does not belong to the org", async () => {
-    memoryVerifiedFindFirstMock.mockResolvedValue(null);
+    deleteVerifiedMemoryMock.mockResolvedValue(false);
 
     const response = await DELETE(
       new NextRequest("http://localhost/api/admin/memory/memory-1"),
@@ -66,12 +58,10 @@ describe("DELETE /api/admin/memory/[id]", () => {
 
     expect(response.status).toBe(404);
     expect(await response.json()).toEqual({ error: "Not found" });
-    expect(memoryVerifiedDeleteManyMock).not.toHaveBeenCalled();
   });
 
   it("deletes the record when it belongs to the org", async () => {
-    memoryVerifiedFindFirstMock.mockResolvedValue({ id: "memory-1", orgId: "org-1" });
-    memoryVerifiedDeleteManyMock.mockResolvedValue({ count: 1 });
+    deleteVerifiedMemoryMock.mockResolvedValue(true);
 
     const response = await DELETE(
       new NextRequest("http://localhost/api/admin/memory/memory-1"),
@@ -80,11 +70,9 @@ describe("DELETE /api/admin/memory/[id]", () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ success: true });
-    expect(memoryVerifiedFindFirstMock).toHaveBeenCalledWith({
-      where: { id: "memory-1", orgId: "org-1" },
-    });
-    expect(memoryVerifiedDeleteManyMock).toHaveBeenCalledWith({
-      where: { id: "memory-1", orgId: "org-1" },
+    expect(deleteVerifiedMemoryMock).toHaveBeenCalledWith({
+      id: "memory-1",
+      orgId: "org-1",
     });
   });
 });
