@@ -1,4 +1,15 @@
-import { htmlToText } from "html-to-text";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+const { htmlToText } = require("html-to-text") as {
+  htmlToText: (
+    html: string,
+    options?: {
+      wordwrap?: false | number;
+      selectors?: Array<{ selector: string; format: string }>;
+    },
+  ) => string;
+};
 
 export async function extractTextFromHtml(html: string): Promise<string> {
   return htmlToText(html, {

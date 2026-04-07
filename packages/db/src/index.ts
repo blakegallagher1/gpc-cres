@@ -7,6 +7,7 @@ export * from "./repositories/run.repository.js";
 export * from "./repositories/deal.repository.js";
 export * from "./repositories/proactive-action.repository.js";
 export * from "./repositories/task.repository.js";
+export * from "./repositories/memory.repository.js";
 
 // Re-export Prisma types for downstream packages (e.g. evidence) without requiring
 // them to depend on @prisma/client directly.

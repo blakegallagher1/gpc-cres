@@ -11,7 +11,9 @@
     "./workflows/*": "./src/workflows/*.ts",
     "./deals/*": "./src/deals/*.ts",
     "./automation/*": "./src/automation/*.ts",
-    "./observability/*": "./src/observability/*.ts"
+    "./observability/*": "./src/observability/*.ts",
+    "./search/*": "./src/search/*.ts",
+    "./admin/*": "./src/admin/*.ts"
   },
   "dependencies": {
     "@entitlement-os/db": "workspace:*",

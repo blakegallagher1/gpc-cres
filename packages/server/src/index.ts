@@ -5,3 +5,6 @@ export * from "./deals/deal-reader.service";
 export * from "./automation/proactive-action.service";
 export * from "./automation/advancement.service";
 export * from "./observability/query";
+export * from "./chat/chat-application.service";
+export * from "./search/global-search.service";
+export * from "./admin/memory.service";

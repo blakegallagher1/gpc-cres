@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@entitlement-os/db";
+import { deleteVerifiedMemory } from "@gpc/server/admin/memory.service";
 import { authorizeApiRoute } from "@/lib/auth/authorizeApiRoute";
 
 export async function DELETE(
@@ -15,15 +15,10 @@ export async function DELETE(
   const auth = authorization.auth;
   const { id } = await params;
 
-  const record = await prisma.memoryVerified.findFirst({
-    where: { id, orgId: auth.orgId },
-  });
-
-  if (!record) {
+  const deleted = await deleteVerifiedMemory({ id, orgId: auth.orgId });
+  if (!deleted) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-
-  await prisma.memoryVerified.deleteMany({ where: { id, orgId: auth.orgId } });
 
   return NextResponse.json({ success: true });
 }
