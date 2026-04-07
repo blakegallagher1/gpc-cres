@@ -1,39 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
-  orgFindFirstMock,
-  runCreateMock,
-  runUpdateMock,
-  executeMock,
+  runDeadlineMonitorCronMock,
   runWithCronMonitorMock,
-  DeadlineMonitorJobMock,
 } = vi.hoisted(() => ({
-  orgFindFirstMock: vi.fn(),
-  runCreateMock: vi.fn(),
-  runUpdateMock: vi.fn(),
-  executeMock: vi.fn(),
+  runDeadlineMonitorCronMock: vi.fn(),
   runWithCronMonitorMock: vi.fn(async ({ handler }: { handler: () => Promise<Response> }) => handler()),
-  DeadlineMonitorJobMock: vi.fn(function DeadlineMonitorJob() {
-    return {
-      execute: executeMock,
-    };
-  }),
 }));
 
-vi.mock("@entitlement-os/db", () => ({
-  prisma: {
-    org: {
-      findFirst: orgFindFirstMock,
-    },
-    run: {
-      create: runCreateMock,
-      update: runUpdateMock,
-    },
-  },
-}));
-
-vi.mock("@/lib/jobs/deadline-monitor.job", () => ({
-  DeadlineMonitorJob: DeadlineMonitorJobMock,
+vi.mock("@gpc/server/jobs/deadline-monitor-cron.service", () => ({
+  runDeadlineMonitorCron: runDeadlineMonitorCronMock,
 }));
 
 vi.mock("@/lib/automation/sentry", () => ({
@@ -47,18 +23,11 @@ describe("GET /api/cron/deadline-monitor", () => {
     vi.resetModules();
     process.env.CRON_SECRET = "cron-secret";
 
-    orgFindFirstMock.mockReset();
-    runCreateMock.mockReset();
-    runUpdateMock.mockReset();
-    executeMock.mockReset();
+    runDeadlineMonitorCronMock.mockReset();
     runWithCronMonitorMock.mockReset();
-    DeadlineMonitorJobMock.mockClear();
     runWithCronMonitorMock.mockImplementation(async ({ handler }: { handler: () => Promise<Response> }) => handler());
 
-    orgFindFirstMock.mockResolvedValue({ id: "org-1" });
-    runCreateMock.mockResolvedValue({ id: "run-1" });
-    runUpdateMock.mockResolvedValue({});
-    executeMock.mockResolvedValue({
+    runDeadlineMonitorCronMock.mockResolvedValue({
       success: true,
       tasksScanned: 4,
       notificationsCreated: 2,
@@ -81,9 +50,7 @@ describe("GET /api/cron/deadline-monitor", () => {
     expect(runWithCronMonitorMock).not.toHaveBeenCalled();
   });
 
-  it("continues when run audit creation hits schema drift", async () => {
-    runCreateMock.mockRejectedValue(new Error('column "memory_promotion_status" does not exist'));
-
+  it("returns the package job result", async () => {
     const res = await GET(
       new Request("http://localhost/api/cron/deadline-monitor", {
         headers: { authorization: "Bearer cron-secret" },
@@ -99,7 +66,7 @@ describe("GET /api/cron/deadline-monitor", () => {
       errors: [],
       duration_ms: 1200,
     });
-    expect(runUpdateMock).not.toHaveBeenCalled();
+    expect(runDeadlineMonitorCronMock).toHaveBeenCalledTimes(1);
     expect(runWithCronMonitorMock).toHaveBeenCalledWith(
       expect.objectContaining({
         slug: "deadline-monitor",
@@ -108,19 +75,15 @@ describe("GET /api/cron/deadline-monitor", () => {
     );
   });
 
-  it("continues when run audit update hits schema drift", async () => {
-    runUpdateMock.mockRejectedValue(new Error('column "memory_promotion_status" does not exist'));
+  it("surfaces cron execution failures through the monitor wrapper", async () => {
+    runDeadlineMonitorCronMock.mockRejectedValue(new Error("boom"));
 
-    const res = await GET(
-      new Request("http://localhost/api/cron/deadline-monitor", {
-        headers: { authorization: "Bearer cron-secret" },
-      }),
-    );
-    const body = await res.json();
-
-    expect(res.status).toBe(200);
-    expect(body.success).toBe(true);
-    expect(runCreateMock).toHaveBeenCalledTimes(1);
-    expect(runUpdateMock).toHaveBeenCalledTimes(1);
+    await expect(
+      GET(
+        new Request("http://localhost/api/cron/deadline-monitor", {
+          headers: { authorization: "Bearer cron-secret" },
+        }),
+      ),
+    ).rejects.toThrow("boom");
   });
 });

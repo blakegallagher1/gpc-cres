@@ -13,7 +13,7 @@ const { dbMock, notificationServiceMock } = vi.hoisted(() => ({
 }));
 
 vi.mock("@entitlement-os/db", () => dbMock);
-vi.mock("@/lib/services/notification.service", () => ({
+vi.mock("@gpc/server/notifications/notification.service", () => ({
   getNotificationService: () => notificationServiceMock,
 }));
 

@@ -13,7 +13,10 @@
     "./automation/*": "./src/automation/*.ts",
     "./observability/*": "./src/observability/*.ts",
     "./search/*": "./src/search/*.ts",
-    "./admin/*": "./src/admin/*.ts"
+    "./admin/*": "./src/admin/*.ts",
+    "./monitoring/*": "./src/monitoring/*.ts",
+    "./notifications/*": "./src/notifications/*.ts",
+    "./jobs/*": "./src/jobs/*.ts"
   },
   "dependencies": {
     "@entitlement-os/db": "workspace:*",

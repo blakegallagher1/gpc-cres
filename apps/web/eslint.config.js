@@ -106,8 +106,7 @@ module.exports = [
         },
       ],
     },
-  }
-  ,
+  },
   {
     files: ["app/api/**/*.{js,jsx,ts,tsx}"],
     rules: {
@@ -183,5 +182,48 @@ module.exports = [
         },
       ],
     },
-  }
+  },
+  {
+    files: [
+      "lib/services/saved-search.service.ts",
+      "lib/services/notification.service.ts",
+      "lib/services/daily-briefing.service.ts",
+      "lib/automation/config.ts",
+      "lib/automation/deadlineMonitoring.ts",
+      "lib/jobs/deadline-monitor.job.ts",
+      "app/api/intelligence/daily-briefing/route.ts",
+      "app/api/cron/deadline-monitor/route.ts",
+    ],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "@entitlement-os/db",
+              message:
+                "This migrated web-layer seam must stay package-backed and may not import Prisma directly.",
+            },
+            {
+              name: "@entitlement-os/openai",
+              message:
+                "This migrated web-layer seam must stay package-backed and may not import backend OpenAI helpers directly.",
+            },
+            {
+              name: "openai",
+              message:
+                "This migrated web-layer seam must stay package-backed and may not instantiate raw OpenAI clients directly.",
+            },
+          ],
+          patterns: [
+            {
+              group: ["@entitlement-os/db/*", "@entitlement-os/openai/*"],
+              message:
+                "This migrated web-layer seam must use package-level services instead of backend internals.",
+            },
+          ],
+        },
+      ],
+    },
+  },
 ];

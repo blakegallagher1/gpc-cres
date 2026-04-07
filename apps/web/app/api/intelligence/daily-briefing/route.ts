@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { resolveAuth } from "@/lib/auth/resolveAuth";
-import { DailyBriefingService } from "@/lib/services/daily-briefing.service";
 import * as Sentry from "@sentry/nextjs";
+import { DailyBriefingService } from "@gpc/server/monitoring/daily-briefing.service";
+import { resolveAuth } from "@/lib/auth/resolveAuth";
 
 const service = new DailyBriefingService();
 

@@ -8,7 +8,7 @@ import {
   type ProactiveUserResponse,
 } from "@entitlement-os/db";
 import { asRecord } from "@entitlement-os/shared";
-import { getNotificationService } from "../../../../apps/web/lib/services/notification.service";
+import { getNotificationService } from "../notifications/notification.service";
 
 export { listProactiveActions, type ProactiveUserResponse };
 
