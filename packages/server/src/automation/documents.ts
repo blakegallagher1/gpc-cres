@@ -1,9 +1,9 @@
-import { AUTOMATION_CONFIG } from "../../../../apps/web/lib/automation/config";
-import { createAutomationTask } from "../../../../apps/web/lib/automation/notifications";
-import type { AutomationEvent } from "../../../../apps/web/lib/automation/types";
+import { AUTOMATION_CONFIG } from "./config";
+import { createAutomationTask } from "./notifications";
+import type { AutomationEvent } from "./types";
 import { prisma } from "@entitlement-os/db";
 import path from "node:path";
-import { logger } from "../../../../apps/web/lib/logger";
+import { logger } from "../logger";
 
 /**
  * Document type classification based on filename and content type.

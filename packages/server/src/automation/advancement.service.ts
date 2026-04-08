@@ -1,13 +1,13 @@
 import { prisma } from "@entitlement-os/db";
 import type { DealStatus } from "@entitlement-os/shared";
-import { createAutomationTask } from "../../../../apps/web/lib/automation/notifications";
-import type { AutomationEvent } from "../../../../apps/web/lib/automation/types";
+import { createAutomationTask } from "./notifications";
+import type { AutomationEvent } from "./types";
 import {
   getAutomationDealContext,
   getCurrentWorkflowStage,
   getNextWorkflowStage,
   getWorkflowPipelineStep,
-} from "../../../../apps/web/lib/automation/context";
+} from "./context";
 
 export const STAGE_TRANSITIONS: ReadonlyArray<{
   from: DealStatus;

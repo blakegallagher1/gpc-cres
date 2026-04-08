@@ -1,11 +1,11 @@
 import { prisma } from "@entitlement-os/db";
 import { propertyDbRpc } from "../../../../apps/web/lib/server/propertyDbRpc";
-import { AUTOMATION_CONFIG } from "../../../../apps/web/lib/automation/config";
-import { createAutomationTask } from "../../../../apps/web/lib/automation/notifications";
-import type { AutomationEvent } from "../../../../apps/web/lib/automation/types";
-import { captureAutomationTimeout } from "../../../../apps/web/lib/automation/sentry";
-import { withTimeout } from "../../../../apps/web/lib/automation/timeout";
-import { logger, serializeErrorForLogs } from "../../../../apps/web/lib/logger";
+import { AUTOMATION_CONFIG } from "./config";
+import { createAutomationTask } from "./notifications";
+import type { AutomationEvent } from "./types";
+import { captureAutomationTimeout } from "./sentry";
+import { withTimeout } from "./timeout";
+import { logger, serializeErrorForLogs } from "../logger";
 
 type PropertyDbRecord = Record<string, unknown>;
 export type ParcelEnrichmentUpdate = Record<string, unknown>;

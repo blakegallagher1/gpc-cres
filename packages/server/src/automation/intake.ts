@@ -2,7 +2,7 @@ import { prisma } from "@entitlement-os/db";
 import { AUTOMATION_CONFIG } from "./config";
 import { createAutomationTask } from "./notifications";
 import type { AutomationEvent } from "./types";
-import { logger } from "../../../../apps/web/lib/logger";
+import { logger } from "../logger";
 import {
   projectLegacyDealCompatibility,
   resolveCanonicalDealWorkflowState,

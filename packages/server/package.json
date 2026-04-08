@@ -16,7 +16,8 @@
     "./admin/*": "./src/admin/*.ts",
     "./monitoring/*": "./src/monitoring/*.ts",
     "./notifications/*": "./src/notifications/*.ts",
-    "./jobs/*": "./src/jobs/*.ts"
+    "./jobs/*": "./src/jobs/*.ts",
+    "./logger": "./src/logger.ts"
   },
   "dependencies": {
     "@entitlement-os/artifacts": "workspace:*",

@@ -13,13 +13,21 @@ const { dbMock, promoteRunToLongTermMemoryMock } = vi.hoisted(() => ({
 const { captureAutomationTimeoutMock } = vi.hoisted(() => ({
   captureAutomationTimeoutMock: vi.fn(),
 }));
+const { loggerErrorMock } = vi.hoisted(() => ({
+  loggerErrorMock: vi.fn(),
+}));
 
 vi.mock("@entitlement-os/db", () => dbMock);
 vi.mock("@gpc/server/services/agent-learning.service", () => ({
   promoteRunToLongTermMemory: promoteRunToLongTermMemoryMock,
 }));
-vi.mock("../sentry", () => ({
+vi.mock("@gpc/server/automation/sentry", () => ({
   captureAutomationTimeout: captureAutomationTimeoutMock,
+}));
+vi.mock("@gpc/server/logger", () => ({
+  logger: {
+    error: loggerErrorMock,
+  },
 }));
 
 import { handleAgentLearningPromotion } from "../agentLearningPromotion";
@@ -149,7 +157,6 @@ describe("handleAgentLearningPromotion", () => {
 
   it("swallows timeout-status write failures after the timeout fires", async () => {
     vi.useFakeTimers();
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     promoteRunToLongTermMemoryMock.mockReturnValue(new Promise(() => {}));
     dbMock.prisma.run.update
       .mockResolvedValueOnce(undefined)
@@ -166,11 +173,11 @@ describe("handleAgentLearningPromotion", () => {
         label: "promoteRunToLongTermMemory timed out after 20000ms",
       }),
     );
-    expect(String(errorSpy.mock.calls[0]?.[0] ?? "")).toContain(
+    expect(loggerErrorMock).toHaveBeenCalledWith(
       "Automation failed to record agent learning timeout",
+      expect.objectContaining({
+        errorMessage: "write failed",
+      }),
     );
-    expect(String(errorSpy.mock.calls[0]?.[0] ?? "")).toContain("write failed");
-
-    errorSpy.mockRestore();
   });
 });

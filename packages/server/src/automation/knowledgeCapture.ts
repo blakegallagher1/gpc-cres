@@ -1,13 +1,13 @@
 import { prisma } from "@entitlement-os/db";
-import type { AutomationEvent } from "../../../../apps/web/lib/automation/types";
-import { AUTOMATION_CONFIG } from "../../../../apps/web/lib/automation/config";
+import type { AutomationEvent } from "./types";
+import { AUTOMATION_CONFIG } from "./config";
 import {
   deleteKnowledge,
   ingestKnowledge,
   type KnowledgeContentType,
 } from "../../../../apps/web/lib/services/knowledgeBase.service";
-import { captureAutomationTimeout } from "../../../../apps/web/lib/automation/sentry";
-import { withTimeout } from "../../../../apps/web/lib/automation/timeout";
+import { captureAutomationTimeout } from "./sentry";
+import { withTimeout } from "./timeout";
 
 const DELETE_KNOWLEDGE_TIMEOUT_MS = 5_000;
 const INGEST_KNOWLEDGE_TIMEOUT_MS = 15_000;

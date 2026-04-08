@@ -1,6 +1,6 @@
 import { prisma } from "@entitlement-os/db";
 import type { Prisma } from "@entitlement-os/db";
-import { logger } from "../../../../apps/web/lib/logger";
+import { logger } from "../logger";
 
 export type AutomationNotificationType =
   | "veto_review"

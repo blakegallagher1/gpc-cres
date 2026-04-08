@@ -1,6 +1,6 @@
 import { prisma } from "@entitlement-os/db";
-import { AUTOMATION_CONFIG } from "../../../../apps/web/lib/automation/config";
-import { createAutomationTask } from "../../../../apps/web/lib/automation/notifications";
+import { AUTOMATION_CONFIG } from "./config";
+import { createAutomationTask } from "./notifications";
 
 type ActiveDeal = {
   id: string;

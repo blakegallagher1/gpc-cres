@@ -1,6 +1,6 @@
 import { prisma, type Prisma } from "@entitlement-os/db";
-import type { AutomationEvent } from "../../../../apps/web/lib/automation/types";
-import { AUTOMATION_CONFIG } from "../../../../apps/web/lib/automation/config";
+import type { AutomationEvent } from "./types";
+import { AUTOMATION_CONFIG } from "./config";
 import {
   DEFAULT_ASSUMPTIONS,
   type FinancialModelAssumptions,

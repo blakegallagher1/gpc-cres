@@ -2,16 +2,16 @@ import { prisma } from "@entitlement-os/db";
 import type { ArtifactSpec, ArtifactType } from "@entitlement-os/shared";
 import { renderArtifactFromSpec } from "@entitlement-os/artifacts";
 import { uploadArtifactToGateway, systemAuth } from "../../../../apps/web/lib/storage/gatewayStorage";
-import { createAutomationTask } from "../../../../apps/web/lib/automation/notifications";
-import type { AutomationEvent } from "../../../../apps/web/lib/automation/types";
+import { createAutomationTask } from "./notifications";
+import type { AutomationEvent } from "./types";
 import {
   getAutomationDealContext,
   getCurrentWorkflowStage,
   getWorkflowPipelineStep,
-} from "../../../../apps/web/lib/automation/context";
-import { captureAutomationTimeout } from "../../../../apps/web/lib/automation/sentry";
-import { withTimeout } from "../../../../apps/web/lib/automation/timeout";
-import { logger } from "../../../../apps/web/lib/logger";
+} from "./context";
+import { captureAutomationTimeout } from "./sentry";
+import { withTimeout } from "./timeout";
+import { logger } from "../logger";
 
 const ARTIFACT_RENDER_TIMEOUT_MS = 15_000;
 const ARTIFACT_UPLOAD_TIMEOUT_MS = 10_000;

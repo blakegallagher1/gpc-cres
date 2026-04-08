@@ -2,11 +2,11 @@ import { prisma } from "@entitlement-os/db";
 
 import { promoteRunToLongTermMemory } from "../services/agent-learning.service";
 
-import { AUTOMATION_CONFIG } from "../../../../apps/web/lib/automation/config";
-import type { AutomationEvent } from "../../../../apps/web/lib/automation/types";
-import { captureAutomationTimeout } from "../../../../apps/web/lib/automation/sentry";
-import { withTimeout } from "../../../../apps/web/lib/automation/timeout";
-import { logger } from "../../../../apps/web/lib/logger";
+import { AUTOMATION_CONFIG } from "./config";
+import type { AutomationEvent } from "./types";
+import { captureAutomationTimeout } from "./sentry";
+import { withTimeout } from "./timeout";
+import { logger } from "../logger";
 
 type AgentRunCompletedEvent = Extract<AutomationEvent, { type: "agent.run.completed" }>;
 

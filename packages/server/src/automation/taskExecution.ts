@@ -1,9 +1,9 @@
 import { prisma } from "@entitlement-os/db";
-import { AUTOMATION_CONFIG } from "../../../../apps/web/lib/automation/config";
-import { isAgentExecutable, getHumanOnlyReason } from "../../../../apps/web/lib/automation/taskAllowlist";
-import { createAutomationTask } from "../../../../apps/web/lib/automation/notifications";
-import type { AutomationEvent } from "../../../../apps/web/lib/automation/types";
-import { logger } from "../../../../apps/web/lib/logger";
+import { AUTOMATION_CONFIG } from "./config";
+import { isAgentExecutable, getHumanOnlyReason } from "./taskAllowlist";
+import { createAutomationTask } from "./notifications";
+import type { AutomationEvent } from "./types";
+import { logger } from "../logger";
 
 /**
  * #4 Task Execution: Detect agent-executable tasks and flag them for auto-run.
