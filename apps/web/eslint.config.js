@@ -324,17 +324,43 @@ module.exports = [
               message:
                 "This migrated web-layer seam must use package-level services instead of backend internals.",
             },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: [
+      "app/api/entities/route.ts",
+      "app/api/entities/[id]/route.ts",
+      "app/api/evidence/route.ts",
+      "app/api/memory/entities/[entityId]/route.ts",
+      "app/api/workflows/[id]/route.ts",
+    ],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
             {
-              group: [
-                "@gpc/server/services/*",
-                "@gpc/server/workflows/*",
-                "@gpc/server/automation/*",
-                "@gpc/server/monitoring/*",
-                "@gpc/server/search/*",
-                "@gpc/server/jobs/*",
-              ],
+              name: "@gpc/server/services/entity-management.service",
               message:
-                "This migrated route must depend on the stable @gpc/server barrel instead of low-level package internals.",
+                "This migrated route must import entity management via the stable @gpc/server barrel.",
+            },
+            {
+              name: "@gpc/server/services/evidence-source.service",
+              message:
+                "This migrated route must import evidence services via the stable @gpc/server barrel.",
+            },
+            {
+              name: "@gpc/server/services/memory-entity.service",
+              message:
+                "This migrated route must import memory-entity services via the stable @gpc/server barrel.",
+            },
+            {
+              name: "@gpc/server/workflows/workflow-template.service",
+              message:
+                "This migrated route must import workflow services via the stable @gpc/server barrel.",
             },
           ],
         },
