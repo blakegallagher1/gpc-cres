@@ -2,11 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   checkRateLimitMock,
-  queryRawMock,
+  createPublicMhcOwnerSubmissionMock,
   sentryCaptureExceptionMock,
 } = vi.hoisted(() => ({
   checkRateLimitMock: vi.fn(),
-  queryRawMock: vi.fn(),
+  createPublicMhcOwnerSubmissionMock: vi.fn(),
   sentryCaptureExceptionMock: vi.fn(),
 }));
 
@@ -14,10 +14,8 @@ vi.mock("@/lib/server/rateLimiter", () => ({
   checkRateLimit: checkRateLimitMock,
 }));
 
-vi.mock("@entitlement-os/db", () => ({
-  prisma: {
-    $queryRaw: queryRawMock,
-  },
+vi.mock("@gpc/server", () => ({
+  createPublicMhcOwnerSubmission: createPublicMhcOwnerSubmissionMock,
 }));
 
 vi.mock("@sentry/nextjs", () => ({
@@ -28,7 +26,7 @@ describe("POST /api/public/mhc-owner-submissions", () => {
   beforeEach(() => {
     vi.resetModules();
     checkRateLimitMock.mockReset();
-    queryRawMock.mockReset();
+    createPublicMhcOwnerSubmissionMock.mockReset();
     sentryCaptureExceptionMock.mockReset();
     checkRateLimitMock.mockReturnValue(true);
   });
@@ -46,9 +44,10 @@ describe("POST /api/public/mhc-owner-submissions", () => {
   }
 
   it("returns 201 and normalized success payload", async () => {
-    queryRawMock.mockResolvedValue([
-      { id: "sub_123", created_at: new Date("2026-03-21T00:00:00.000Z") },
-    ]);
+    createPublicMhcOwnerSubmissionMock.mockResolvedValue({
+      id: "sub_123",
+      createdAt: new Date("2026-03-21T00:00:00.000Z"),
+    });
 
     const { POST } = await import("./route");
     const response = await POST(
@@ -73,7 +72,7 @@ describe("POST /api/public/mhc-owner-submissions", () => {
       submissionId: "sub_123",
       receivedAt: "2026-03-21T00:00:00.000Z",
     });
-    expect(queryRawMock).toHaveBeenCalledTimes(1);
+    expect(createPublicMhcOwnerSubmissionMock).toHaveBeenCalledTimes(1);
   });
 
   it("returns 400 when validation fails", async () => {
@@ -95,7 +94,7 @@ describe("POST /api/public/mhc-owner-submissions", () => {
     expect(response.status).toBe(400);
     expect(body.ok).toBe(false);
     expect(body.error.code).toBe("VALIDATION_ERROR");
-    expect(queryRawMock).not.toHaveBeenCalled();
+    expect(createPublicMhcOwnerSubmissionMock).not.toHaveBeenCalled();
   });
 
   it("returns 429 when rate limited", async () => {
@@ -119,7 +118,7 @@ describe("POST /api/public/mhc-owner-submissions", () => {
     expect(response.status).toBe(429);
     expect(body.ok).toBe(false);
     expect(body.error.code).toBe("RATE_LIMITED");
-    expect(queryRawMock).not.toHaveBeenCalled();
+    expect(createPublicMhcOwnerSubmissionMock).not.toHaveBeenCalled();
   });
 
   it("rejects honeypot submissions", async () => {
@@ -142,11 +141,11 @@ describe("POST /api/public/mhc-owner-submissions", () => {
     expect(response.status).toBe(400);
     expect(body.ok).toBe(false);
     expect(body.error.code).toBe("BOT_DETECTED");
-    expect(queryRawMock).not.toHaveBeenCalled();
+    expect(createPublicMhcOwnerSubmissionMock).not.toHaveBeenCalled();
   });
 
   it("returns 500 when persistence fails", async () => {
-    queryRawMock.mockRejectedValue(new Error("db offline"));
+    createPublicMhcOwnerSubmissionMock.mockRejectedValue(new Error("db offline"));
 
     const { POST } = await import("./route");
     const response = await POST(

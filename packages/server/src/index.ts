@@ -97,6 +97,7 @@ export * from "./services/outcome-reinforcement.service";
 export * from "./services/novelty-detector.service";
 export * from "./services/preference-extraction.service";
 export * from "./services/preference.service";
+export * from "./services/public-mhc-owner-submission.service";
 export * from "./services/intelligence-deadlines.service";
 export {
   buildProcedureDedupeHash,
@@ -111,6 +112,10 @@ export * from "./services/prompt-versioning.service";
 export * from "./services/run-route.service";
 export * from "./services/trajectory-log.service";
 export * from "./services/truth-view.service";
+export * from "./services/entity-revalidation-cron.service";
+export * from "./services/entitlement-precedent-backfill-cron.service";
+export * from "./services/wealth-summary.service";
+export * from "./services/wealth-tax-event.service";
 export * from "./search/global-search.service";
 export * from "./search/knowledge-base.service";
 export * from "./search/geofence-table.service";

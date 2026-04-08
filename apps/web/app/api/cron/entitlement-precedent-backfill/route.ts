@@ -1,11 +1,7 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
-import { prisma } from "@entitlement-os/db";
-import type { Prisma } from "@entitlement-os/db";
+import { runEntitlementPrecedentBackfillCron } from "@gpc/server";
 
-import { backfillEntitlementOutcomePrecedents } from "@/lib/services/entitlementPrecedentBackfill.service";
-import { runEntitlementKpiDriftMonitor } from "@/lib/services/entitlementKpiMonitor.service";
-import { runEntitlementStrategyAutopilotSweep } from "@/lib/services/entitlementStrategyAutopilot.service";
 import * as Sentry from "@sentry/nextjs";
 
 function verifyCronSecret(req: Request): boolean {
@@ -18,10 +14,6 @@ function verifyCronSecret(req: Request): boolean {
   } catch {
     return false;
   }
-}
-
-function toInputJsonValue(value: unknown): Prisma.InputJsonValue {
-  return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
 }
 
 /**
@@ -39,117 +31,21 @@ export async function GET(req: Request) {
   const sourceLimit = Number(requestUrl.searchParams.get("sourceLimit") ?? "25");
   const recordsPerSource = Number(requestUrl.searchParams.get("recordsPerSource") ?? "75");
   const evidenceLinksPerRecord = Number(requestUrl.searchParams.get("evidenceLinksPerRecord") ?? "2");
-
-  const orgs = await prisma.org.findMany({
-    select: { id: true },
-    orderBy: { createdAt: "asc" },
-  });
-
-  if (orgs.length === 0) {
-    return NextResponse.json({ ok: true, message: "No orgs available for backfill." });
-  }
-
-  const orgResults: Array<Record<string, unknown>> = [];
-
-  for (const org of orgs) {
-    const run = await prisma.run.create({
-      data: {
-        orgId: org.id,
-        runType: "ENRICHMENT",
-        jurisdictionId: jurisdictionId ?? null,
-        status: "running",
-      },
+  try {
+    const data = await runEntitlementPrecedentBackfillCron({
+      jurisdictionId,
+      sourceLimit: Number.isFinite(sourceLimit) ? sourceLimit : 25,
+      recordsPerSource: Number.isFinite(recordsPerSource) ? recordsPerSource : 75,
+      evidenceLinksPerRecord: Number.isFinite(evidenceLinksPerRecord)
+        ? evidenceLinksPerRecord
+        : 2,
     });
-
-    try {
-      const summary = await backfillEntitlementOutcomePrecedents({
-        orgId: org.id,
-        runId: run.id,
-        jurisdictionId,
-        sourceLimit: Number.isFinite(sourceLimit) ? sourceLimit : 25,
-        recordsPerSource: Number.isFinite(recordsPerSource) ? recordsPerSource : 75,
-        evidenceLinksPerRecord: Number.isFinite(evidenceLinksPerRecord) ? evidenceLinksPerRecord : 2,
-      });
-
-      let kpiMonitorSummary: Prisma.InputJsonValue | null = null;
-      try {
-        kpiMonitorSummary = toInputJsonValue(await runEntitlementKpiDriftMonitor({
-          orgId: org.id,
-          jurisdictionId: jurisdictionId ?? undefined,
-        }));
-      } catch (monitorError) {
-        Sentry.captureException(monitorError, {
-          tags: { route: "api.cron.entitlement-precedent-backfill", method: "GET" },
-        });
-        kpiMonitorSummary = toInputJsonValue({
-          success: false,
-          error: monitorError instanceof Error ? monitorError.message : String(monitorError),
-        });
-      }
-
-      let autopilotSummary: Prisma.InputJsonValue | null = null;
-      try {
-        autopilotSummary = toInputJsonValue(await runEntitlementStrategyAutopilotSweep({
-          orgId: org.id,
-          jurisdictionId,
-        }));
-      } catch (autopilotError) {
-        Sentry.captureException(autopilotError, {
-          tags: { route: "api.cron.entitlement-precedent-backfill", method: "GET" },
-        });
-        autopilotSummary = toInputJsonValue({
-          success: false,
-          error: autopilotError instanceof Error ? autopilotError.message : String(autopilotError),
-        });
-      }
-
-      await prisma.run.update({
-        where: { id: run.id },
-        data: {
-          status: "succeeded",
-          finishedAt: new Date(),
-          outputJson: {
-            ...summary,
-            kpiMonitor: kpiMonitorSummary,
-            strategyAutopilot: autopilotSummary,
-          },
-        },
-      });
-
-      orgResults.push({
-        runId: run.id,
-        status: "succeeded",
-        ...summary,
-        kpiMonitor: kpiMonitorSummary,
-        strategyAutopilot: autopilotSummary,
-      });
-    } catch (error) {
-      Sentry.captureException(error, {
-        tags: { route: "api.cron.entitlement-precedent-backfill", method: "GET" },
-      });
-      const message = error instanceof Error ? error.message : String(error);
-      await prisma.run.update({
-        where: { id: run.id },
-        data: {
-          status: "failed",
-          finishedAt: new Date(),
-          error: message.slice(0, 10_000),
-        },
-      });
-
-      orgResults.push({
-        orgId: org.id,
-        runId: run.id,
-        status: "failed",
-        error: message,
-      });
-    }
+    return NextResponse.json(data);
+  } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.cron.entitlement-precedent-backfill", method: "GET" },
+    });
+    const message = error instanceof Error ? error.message : String(error);
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }
-
-  return NextResponse.json({
-    ok: true,
-    timestamp: new Date().toISOString(),
-    orgsProcessed: orgResults.length,
-    results: orgResults,
-  });
 }

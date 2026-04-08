@@ -289,12 +289,15 @@ module.exports = [
       "app/api/workflows/route.ts",
       "app/api/workflows/[id]/route.ts",
       "app/api/buyers/route.ts",
+      "app/api/public/mhc-owner-submissions/route.ts",
       "app/api/geofences/route.ts",
       "app/api/geofences/[id]/route.ts",
       "app/api/jurisdictions/route.ts",
       "app/api/map/prospect/route.ts",
       "app/api/evidence/sources/[sourceId]/package/route.ts",
       "app/api/evidence/snapshots/[snapshotId]/download/route.ts",
+      "app/api/cron/entitlement-precedent-backfill/route.ts",
+      "app/api/cron/entity-revalidation/route.ts",
       "app/api/parcels/route.ts",
       "app/api/parcels/suggest/route.ts",
       "app/api/deals/[id]/activity/route.ts",
@@ -325,6 +328,8 @@ module.exports = [
       "app/api/runs/dashboard/route.ts",
       "app/api/agent-learning/stats/route.ts",
       "app/api/tools/health/route.ts",
+      "app/api/wealth/summary/route.ts",
+      "app/api/wealth/tax-events/route.ts",
     ],
     rules: {
       "no-restricted-imports": [
@@ -566,6 +571,31 @@ module.exports = [
               name: "@gpc/server/services/intelligence-deadlines.service",
               message:
                 "This migrated route must import intelligence deadline services via the stable @gpc/server barrel.",
+            },
+            {
+              name: "@gpc/server/services/public-mhc-owner-submission.service",
+              message:
+                "This migrated route must import public submission services via the stable @gpc/server barrel.",
+            },
+            {
+              name: "@gpc/server/services/entitlement-precedent-backfill-cron.service",
+              message:
+                "This migrated route must import precedent backfill cron services via the stable @gpc/server barrel.",
+            },
+            {
+              name: "@gpc/server/services/entity-revalidation-cron.service",
+              message:
+                "This migrated route must import entity revalidation services via the stable @gpc/server barrel.",
+            },
+            {
+              name: "@gpc/server/services/wealth-summary.service",
+              message:
+                "This migrated route must import wealth summary services via the stable @gpc/server barrel.",
+            },
+            {
+              name: "@gpc/server/services/wealth-tax-event.service",
+              message:
+                "This migrated route must import wealth tax event services via the stable @gpc/server barrel.",
             },
             {
               name: "@gpc/server/observability/reward-signal.service",

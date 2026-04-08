@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@entitlement-os/db";
 import * as Sentry from "@sentry/nextjs";
 import { z } from "zod";
+import { createPublicMhcOwnerSubmission } from "@gpc/server";
 import { logger, serializeErrorForLogs } from "@/lib/logger";
 import { checkRateLimit } from "@/lib/server/rateLimiter";
 
@@ -82,57 +82,6 @@ function failureResponse(
   );
 }
 
-async function persistSubmission(
-  submission: SubmissionInput,
-  clientIp: string,
-  request: NextRequest,
-): Promise<{ id: string; created_at: Date }> {
-  const result = await prisma.$queryRaw<Array<{ id: string; created_at: Date }>>`
-    INSERT INTO public_mhc_owner_submissions (
-      first_name,
-      last_name,
-      email,
-      phone,
-      company,
-      location_address_1,
-      location_address_2,
-      location_city,
-      location_state,
-      location_postal_code,
-      notes,
-      source,
-      honeypot_value,
-      ip_address,
-      user_agent,
-      referrer
-    ) VALUES (
-      ${submission.firstName.trim()},
-      ${submission.lastName.trim()},
-      ${submission.email.trim().toLowerCase()},
-      ${submission.phone.trim()},
-      ${normalizeText(submission.company)},
-      ${submission.locationAddress1.trim()},
-      ${normalizeText(submission.locationAddress2)},
-      ${submission.locationCity.trim()},
-      ${submission.locationState},
-      ${submission.locationPostalCode.trim()},
-      ${normalizeText(submission.notes)},
-      ${normalizeText(submission.source)},
-      ${normalizeText(submission[HONEYPOT_FIELD])},
-      ${clientIp},
-      ${normalizeText(request.headers.get("user-agent") ?? undefined)},
-      ${normalizeText(request.headers.get("referer") ?? undefined)}
-    )
-    RETURNING id, created_at
-  `;
-
-  const [created] = result;
-  if (!created) {
-    throw new Error("Submission persistence returned no row");
-  }
-  return created;
-}
-
 export async function POST(request: NextRequest) {
   const requestId = crypto.randomUUID();
   const clientIp = getClientIp(request);
@@ -171,7 +120,11 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const created = await persistSubmission(submission, clientIp, request);
+    const created = await createPublicMhcOwnerSubmission(submission, {
+      clientIp,
+      userAgent: normalizeText(request.headers.get("user-agent") ?? undefined),
+      referrer: normalizeText(request.headers.get("referer") ?? undefined),
+    });
 
     logger.info("Public MHC owner submission persisted", {
       requestId,
@@ -187,7 +140,7 @@ export async function POST(request: NextRequest) {
         requestId,
         data: {
           submissionId: created.id,
-          receivedAt: created.created_at.toISOString(),
+          receivedAt: created.createdAt.toISOString(),
         },
       },
       { status: 201 },

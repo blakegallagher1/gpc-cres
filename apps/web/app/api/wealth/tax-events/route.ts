@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@entitlement-os/db";
+import {
+  WealthTaxEventRouteError,
+  createWealthTaxEvent,
+  listWealthTaxEvents,
+} from "@gpc/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import * as Sentry from "@sentry/nextjs";
 
@@ -11,20 +15,15 @@ export async function GET(request: NextRequest) {
   const eventType = searchParams.get("eventType");
   const status = searchParams.get("status");
 
-  const where: Record<string, unknown> = { orgId: auth.orgId };
-  if (eventType) where.eventType = eventType;
-  if (status) where.status = status;
-
-  const taxEvents = await prisma.taxEvent.findMany({
-    where,
-    include: {
-      entity: { select: { id: true, name: true, entityType: true } },
-      deal: { select: { id: true, name: true } },
-    },
-    orderBy: { createdAt: "desc" },
-  });
-
-  return NextResponse.json({ taxEvents });
+  try {
+    const data = await listWealthTaxEvents(auth.orgId, { eventType, status });
+    return NextResponse.json(data);
+  } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.wealth.tax-events", method: "GET" },
+    });
+    return NextResponse.json({ error: "Failed to load tax events" }, { status: 500 });
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -32,43 +31,16 @@ export async function POST(request: NextRequest) {
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    const body = await request.json();
-    const { entityId, dealId, eventType, title, description, severity, deadline, metadata } = body;
-
-    if (!eventType || !title || !severity) {
-      return NextResponse.json({ error: "eventType, title, and severity are required" }, { status: 400 });
-    }
-
-    if (entityId) {
-      const entity = await prisma.entity.findFirst({ where: { id: entityId, orgId: auth.orgId } });
-      if (!entity) return NextResponse.json({ error: "Entity not found" }, { status: 404 });
-    }
-
-    if (dealId) {
-      const deal = await prisma.deal.findFirst({ where: { id: dealId, orgId: auth.orgId } });
-      if (!deal) return NextResponse.json({ error: "Deal not found" }, { status: 404 });
-    }
-
-    const taxEvent = await prisma.taxEvent.create({
-      data: {
-        orgId: auth.orgId,
-        entityId: entityId || null,
-        dealId: dealId || null,
-        eventType,
-        title,
-        description: description || null,
-        severity,
-        deadline: deadline ? new Date(deadline) : null,
-        metadata: metadata || null,
-      },
-    });
-
-    return NextResponse.json({ taxEvent }, { status: 201 });
+    const body = (await request.json()) as Record<string, unknown>;
+    const data = await createWealthTaxEvent(auth.orgId, body);
+    return NextResponse.json(data, { status: 201 });
   } catch (error) {
+    if (error instanceof WealthTaxEventRouteError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     Sentry.captureException(error, {
       tags: { route: "api.wealth.tax-events", method: "POST" },
     });
-    console.error("Error creating tax event:", error);
     return NextResponse.json({ error: "Failed to create tax event" }, { status: 500 });
   }
 }

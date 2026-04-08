@@ -2,32 +2,19 @@ import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
-  orgFindManyMock,
-  detectCollisionsMock,
-  persistCollisionAlertsMock,
+  runEntityRevalidationCronMock,
   sentryCaptureExceptionMock,
   loggerErrorMock,
   serializeErrorForLogsMock,
 } = vi.hoisted(() => ({
-  orgFindManyMock: vi.fn(),
-  detectCollisionsMock: vi.fn(),
-  persistCollisionAlertsMock: vi.fn(),
+  runEntityRevalidationCronMock: vi.fn(),
   sentryCaptureExceptionMock: vi.fn(),
   loggerErrorMock: vi.fn(),
   serializeErrorForLogsMock: vi.fn(),
 }));
 
-vi.mock("@entitlement-os/db", () => ({
-  prisma: {
-    org: {
-      findMany: orgFindManyMock,
-    },
-  },
-}));
-
-vi.mock("@/lib/services/entityCollisionDetector", () => ({
-  detectCollisions: detectCollisionsMock,
-  persistCollisionAlerts: persistCollisionAlertsMock,
+vi.mock("@gpc/server", () => ({
+  runEntityRevalidationCron: runEntityRevalidationCronMock,
 }));
 
 vi.mock("@sentry/nextjs", () => ({
@@ -46,9 +33,7 @@ import { GET } from "./route";
 describe("GET /api/cron/entity-revalidation", () => {
   beforeEach(() => {
     process.env.CRON_SECRET = "cron-secret";
-    orgFindManyMock.mockReset();
-    detectCollisionsMock.mockReset();
-    persistCollisionAlertsMock.mockReset();
+    runEntityRevalidationCronMock.mockReset();
     sentryCaptureExceptionMock.mockReset();
     loggerErrorMock.mockReset();
     serializeErrorForLogsMock.mockReset();
@@ -66,17 +51,18 @@ describe("GET /api/cron/entity-revalidation", () => {
 
     expect(response.status).toBe(401);
     expect(await response.json()).toEqual({ error: "Unauthorized" });
-    expect(orgFindManyMock).not.toHaveBeenCalled();
+    expect(runEntityRevalidationCronMock).not.toHaveBeenCalled();
   });
 
   it("scans orgs and persists collision alerts", async () => {
-    orgFindManyMock.mockResolvedValue([{ id: "org-1" }, { id: "org-2" }]);
-    detectCollisionsMock
-      .mockResolvedValueOnce([{ entityId: "entity-1" }])
-      .mockResolvedValueOnce([]);
-    persistCollisionAlertsMock
-      .mockResolvedValueOnce(1)
-      .mockResolvedValueOnce(0);
+    runEntityRevalidationCronMock.mockResolvedValue({
+      success: true,
+      orgsProcessed: 2,
+      summary: [
+        { orgId: "org-1", collisionsFound: 1, alertsCreated: 1 },
+        { orgId: "org-2", collisionsFound: 0, alertsCreated: 0 },
+      ],
+    });
 
     const response = await GET(
       new NextRequest("http://localhost/api/cron/entity-revalidation", {
@@ -93,16 +79,12 @@ describe("GET /api/cron/entity-revalidation", () => {
         { orgId: "org-2", collisionsFound: 0, alertsCreated: 0 },
       ],
     });
-    expect(detectCollisionsMock).toHaveBeenNthCalledWith(1, "org-1");
-    expect(detectCollisionsMock).toHaveBeenNthCalledWith(2, "org-2");
-    expect(persistCollisionAlertsMock).toHaveBeenNthCalledWith(1, "org-1", [
-      { entityId: "entity-1" },
-    ]);
+    expect(runEntityRevalidationCronMock).toHaveBeenCalledTimes(1);
   });
 
   it("captures failures and returns 500", async () => {
     const error = new Error("detector exploded");
-    orgFindManyMock.mockRejectedValue(error);
+    runEntityRevalidationCronMock.mockRejectedValue(error);
 
     const response = await GET(
       new NextRequest("http://localhost/api/cron/entity-revalidation", {

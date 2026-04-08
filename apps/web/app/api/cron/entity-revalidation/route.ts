@@ -1,7 +1,6 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
-import { prisma } from "@entitlement-os/db";
-import { detectCollisions, persistCollisionAlerts } from "@/lib/services/entityCollisionDetector";
+import { runEntityRevalidationCron } from "@gpc/server";
 import * as Sentry from "@sentry/nextjs";
 import { logger, serializeErrorForLogs } from "@/lib/logger";
 
@@ -27,24 +26,8 @@ export async function GET(req: Request) {
   }
 
   try {
-    const orgs = await prisma.org.findMany({ select: { id: true } });
-    const summary: Array<{ orgId: string; collisionsFound: number; alertsCreated: number }> = [];
-
-    for (const org of orgs) {
-      const collisions = await detectCollisions(org.id);
-      const created = await persistCollisionAlerts(org.id, collisions);
-      summary.push({
-        orgId: org.id,
-        collisionsFound: collisions.length,
-        alertsCreated: created,
-      });
-    }
-
-    return NextResponse.json({
-      success: true,
-      orgsProcessed: orgs.length,
-      summary,
-    });
+    const data = await runEntityRevalidationCron();
+    return NextResponse.json(data);
   } catch (err) {
     Sentry.captureException(err, {
       tags: { route: "api.cron.entity-revalidation", method: "GET" },
